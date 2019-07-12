@@ -8,10 +8,6 @@ jobs:
   checks:
     docker:
       - image: golangci/golangci-lint
-    environment:
-      - REPO: github.com/hyperledger/aries-framework-go
-      - RUN: 1
-    working_directory: ~/go/src/github.com/hyperledger/aries-framework-go
     steps:
       - checkout
       - run: make checks
