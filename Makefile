@@ -20,9 +20,13 @@ license:
 	@scripts/check_license.sh
 
 .PHONY: unit-test
-unit-test:
+unit-test: generate-test-keys
 	@scripts/check_unit.sh
+
+generate-test-keys: clean
+	@scripts/openssl_env.sh scripts/generate_test_keys.sh
 
 .PHONY: clean
 clean:
+	rm -Rf test/fixtures/keys
 	rm -f coverage.txt
