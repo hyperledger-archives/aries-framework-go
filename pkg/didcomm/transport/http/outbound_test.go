@@ -24,7 +24,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const certPrefix = "../../../../test/fixtures/keys/"
+const certPrefix = "testdata/crypto/"
+const clientTimeout = 1 * time.Second
 
 func TestWithOutboundOpts(t *testing.T) {
 	opt := WithOutboundHTTPClient(nil)
@@ -32,7 +33,7 @@ func TestWithOutboundOpts(t *testing.T) {
 	clOpts := &outboundCommHTTPOpts{}
 	opt(clOpts)
 
-	opt = WithOutboundTimeout(10 * time.Second)
+	opt = WithOutboundTimeout(clientTimeout)
 	require.NotNil(t, opt)
 	clOpts = &outboundCommHTTPOpts{}
 	// opt.client is nil, so setting timeout should panic
@@ -47,6 +48,7 @@ func TestWithOutboundOpts(t *testing.T) {
 func TestOutboundHTTPTransport(t *testing.T) {
 	// prepare http server
 	server := startMockServer()
+	// read dynamic port assigned to the server to be used by the client
 	port := server.Addr().(*net.TCPAddr).Port
 	serverUrl := fmt.Sprintf("https://localhost:%d", port)
 	defer func() {
@@ -72,7 +74,7 @@ func TestOutboundHTTPTransport(t *testing.T) {
 	require.EqualError(t, err, "Can't create an outbound transport without an HTTP client")
 
 	// now create a new valid Outbound transport instance and test its Send() call
-	ot, err = NewOutbound(WithOutboundTLSConfig(tlsConfig), WithOutboundTimeout(1*time.Second))
+	ot, err = NewOutbound(WithOutboundTLSConfig(tlsConfig), WithOutboundTimeout(clientTimeout))
 	require.NoError(t, err)
 	require.NotNil(t, ot)
 
@@ -102,6 +104,7 @@ func TestOutboundHTTPTransport(t *testing.T) {
 func addCertsToCertPool(pool *x509.CertPool) error {
 	var rawCerts []string
 
+	// add contents of ec-pubCert(1, 2 and 3).pem to rawCerts
 	for i := 1; i <= 3; i++ {
 		certPath := fmt.Sprintf("%sec-pubCert%d.pem", certPrefix, i)
 		// Create a pool with server certificates
@@ -121,6 +124,7 @@ func addCertsToCertPool(pool *x509.CertPool) error {
 
 func startMockServer() net.Listener {
 	testHandler := mockHttpHandler{}
+	// ":0" will make the listener auto assign a free port
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		log.Fatalf("HTTP listener failed to start: %s", err)

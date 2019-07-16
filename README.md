@@ -10,3 +10,21 @@
 ## License
 
 Hyperledger Aries Framework Go is licensed under the [Apache License Version 2.0](LICENSE).
+
+## Introduction
+A go framework for Aries
+
+
+### Crypto Material generation for tests
+For unit-tests, crypto material is generated under:
+
+`pkg/didcomm/transport/http/testdata`
+
+using the `openssl` tool. 
+
+It is generated automatically when running unit tests. 
+
+If you wish to regenerate it, you can delete this folder and:
+1. run `make unit-test`
+ or
+2. cd into `pkg/didcomm/transport/http/` and run `go generate`
