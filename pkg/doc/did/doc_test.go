@@ -106,12 +106,12 @@ func TestValid(t *testing.T) {
 	// test proof
 	timeValue, err := time.Parse(time.RFC3339, "2016-02-08T16:02:20Z")
 	require.NoError(t, err)
-	require.Equal(t, Proof{Type: "LinkedDataSignature2015", Created: timeValue, Creator: "did:example:8uQhQMGzWxR8vw5P3UWH1ja#keys-1", SignatureValue: "QNB13Y7Q9...1tzjn4w==", Domain: "", Nonce: ""}, doc.Proof)
+	require.Equal(t, &Proof{Type: "LinkedDataSignature2015", Created: &timeValue, Creator: "did:example:8uQhQMGzWxR8vw5P3UWH1ja#keys-1", SignatureValue: "QNB13Y7Q9...1tzjn4w==", Domain: "", Nonce: ""}, doc.Proof)
 
 	// test created
 	timeValue, err = time.Parse(time.RFC3339, "2002-10-10T17:00:00Z")
 	require.NoError(t, err)
-	require.Equal(t, timeValue, doc.Created)
+	require.Equal(t, timeValue.String(), doc.Created.String())
 
 	// test updated
 	require.Empty(t, doc.Updated)
@@ -127,17 +127,6 @@ func TestPopulateAuthentications(t *testing.T) {
 		_, err = FromBytes(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "authentication key did:example:123456789abcdefghs#key4 not exist in did doc public key")
-
-	})
-	t.Run("test value not valid", func(t *testing.T) {
-		raw := &rawDoc{}
-		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		raw.Authentication[0] = 1
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		_, err = FromBytes(bytes)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "authentication value is not map[string]interface{}")
 
 	})
 }
@@ -172,5 +161,338 @@ func TestFromBytes(t *testing.T) {
 	// test error from Unmarshal
 	_, err := FromBytes([]byte("wrongData"))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to unmarshal did doc bytes")
+	require.Contains(t, err.Error(), "failed to validate did doc")
+}
+
+func TestValidateDidDocContext(t *testing.T) {
+	t.Run("test did doc with empty context", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Context = nil
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "@context is required")
+	})
+
+	t.Run("test did doc with invalid context", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Context = []string{"https://w3id.org/did/v2", "https://w3id.org/did/v1"}
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Does not match pattern '^https://w3id.org/did/v1$'")
+	})
+}
+
+func TestValidateDidDocID(t *testing.T) {
+	t.Run("test did doc with empty id", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.ID = ""
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "id is required")
+	})
+}
+
+func TestValidateDidDocPublicKey(t *testing.T) {
+	t.Run("test did doc with empty public key", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.PublicKey = nil
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.NoError(t, err)
+	})
+
+	t.Run("test did doc public key without id", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		delete(raw.PublicKey[0], jsonldID)
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "id is required")
+	})
+
+	t.Run("test did doc public key without type", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		delete(raw.PublicKey[0], jsonldType)
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type is required")
+	})
+
+	t.Run("test did doc public key without controller", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		delete(raw.PublicKey[0], jsonldController)
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "controller is required")
+	})
+
+	t.Run("test did doc public key with extra key", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.PublicKey[0]["key1"] = ""
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Must have at most 4 properties")
+	})
+}
+
+func TestValidateDidDocAuthentication(t *testing.T) {
+	t.Run("test did doc with empty auth", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Authentication = nil
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.NoError(t, err)
+	})
+
+	t.Run("test did doc with invalid auth type", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Authentication[0] = 1
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Invalid type. Expected: object, given: integer")
+	})
+
+	t.Run("test did doc auth public key without id", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		pk := raw.Authentication[1].(map[string]interface{})
+		delete(pk, jsonldID)
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "id is required")
+	})
+
+	t.Run("test did doc auth public key without type", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		pk := raw.Authentication[1].(map[string]interface{})
+		delete(pk, jsonldType)
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type is required")
+	})
+
+	t.Run("test did doc auth public key without controller", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		pk := raw.Authentication[1].(map[string]interface{})
+		delete(pk, jsonldController)
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "controller is required")
+	})
+
+	t.Run("test did doc auth public key with extra key", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		pk := raw.Authentication[1].(map[string]interface{})
+		pk["key1"] = ""
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Must have at most 4 properties")
+	})
+}
+
+func TestValidateDidDocService(t *testing.T) {
+	t.Run("test did doc with empty service", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Service = nil
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.NoError(t, err)
+	})
+
+	t.Run("test did doc service without id", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		delete(raw.Service[0], jsonldID)
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "id is required")
+	})
+
+	t.Run("test did doc service without type", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		delete(raw.Service[0], jsonldType)
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type is required")
+	})
+
+	t.Run("test did doc service without serviceEndpoint", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		delete(raw.Service[0], jsonldServicePoint)
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "serviceEndpoint is required")
+	})
+}
+
+func TestValidateDidDocCreated(t *testing.T) {
+	t.Run("test did doc with empty created", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Created = nil
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.NoError(t, err)
+	})
+
+	t.Run("test did doc with wrong format created", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		timeNow := time.Now()
+		raw.Created = &timeNow
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "created: Does not match pattern")
+	})
+}
+
+func TestValidateDidDocUpdated(t *testing.T) {
+	t.Run("test did doc with empty updated", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Updated = nil
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.NoError(t, err)
+	})
+
+	t.Run("test did doc with wrong format updated", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		timeNow := time.Now()
+		raw.Updated = &timeNow
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "updated: Does not match pattern")
+	})
+}
+
+func TestValidateDidDocProof(t *testing.T) {
+	t.Run("test did doc with empty proof", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Proof = nil
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.NoError(t, err)
+	})
+
+	t.Run("test did doc proof without type", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Proof.Type = ""
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "type is required")
+	})
+
+	t.Run("test did doc proof without created", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Proof.Created = nil
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "created is required")
+	})
+
+	t.Run("test did doc proof without creator", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Proof.Creator = ""
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "creator is required")
+	})
+
+	t.Run("test did doc proof without signatureValue", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Proof.SignatureValue = ""
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signatureValue is required")
+	})
+
+	t.Run("test did doc proof without domain", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Proof.Domain = ""
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.NoError(t, err)
+	})
+
+	t.Run("test did doc proof without nonce", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		raw.Proof.Nonce = ""
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validate(bytes)
+		require.NoError(t, err)
+	})
 }
