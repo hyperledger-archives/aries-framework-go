@@ -6,14 +6,15 @@ SPDX-License-Identifier: Apache-2.0
 package did
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"time"
-
-	"encoding/hex"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/pkg/errors"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 const (
@@ -26,7 +27,136 @@ const (
 	jsonldPublicKeyBase58 = "publicKeyBase58"
 	jsonldPublicKeyHex    = "publicKeyHex"
 	jsonldPublicKeyPem    = "publicKeyPem"
+	schema                = `{
+  "required": [
+    "@context",
+    "id"
+  ],
+  "properties": {
+    "@context": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string",
+          "pattern": "^https://w3id.org/did/v1$"
+        }
+      ],
+      "additionalItems": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "id": {
+      "type": "string"
+    },
+    "publicKey": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/publicKey"
+      }
+    },
+    "authentication": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/definitions/publicKey"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      }
+    },
+    "service": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/service"
+      }
+    },
+    "created": {
+      "type": "string",
+      "pattern": "\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\dZ"
+    },
+    "updated": {
+      "type": "string",
+      "pattern": "\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\dZ"
+    },
+    "proof": {
+      "type": "object",
+      "required": [ "type", "creator", "created", "signatureValue"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "format": "uri-reference"
+        },
+        "creator": {
+          "type": "string",
+          "format": "uri-reference"
+        },
+        "created": {
+          "type": "string",
+          "pattern": "\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\dZ"
+        },
+        "signatureValue": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "nonce": {
+          "type": "string"
+        }
+  }
+    }
+  },
+  "definitions": {
+    "publicKey": {
+      "required": [
+        "id",
+        "type",
+        "controller"
+      ],
+      "type": "object",
+      "minProperties": 4,
+      "maxProperties": 4,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "controller": {
+          "type": "string"
+        }
+      }
+    },
+    "service": {
+      "required": [
+        "id",
+        "type",
+        "serviceEndpoint"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "serviceEndpoint": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    }
+  }
+}`
 )
+
+var schemaLoader = gojsonschema.NewStringLoader(schema)
 
 // Doc DID Document definition
 type Doc struct {
@@ -35,9 +165,9 @@ type Doc struct {
 	PublicKey      []PublicKey
 	Service        []Service
 	Authentication []VerificationMethod
-	Created        time.Time
-	Updated        time.Time
-	Proof          Proof
+	Created        *time.Time
+	Updated        *time.Time
+	Proof          *Proof
 }
 
 // PublicKey DID doc public key
@@ -67,19 +197,19 @@ type rawDoc struct {
 	PublicKey      []map[string]interface{} `json:"publicKey,omitempty"`
 	Service        []map[string]interface{} `json:"service,omitempty"`
 	Authentication []interface{}            `json:"authentication,omitempty"`
-	Created        time.Time                `json:"created,omitempty"`
-	Updated        time.Time                `json:"updated,omitempty"`
-	Proof          Proof                    `json:"proof,omitempty"`
+	Created        *time.Time               `json:"created,omitempty"`
+	Updated        *time.Time               `json:"updated,omitempty"`
+	Proof          *Proof                   `json:"proof,omitempty"`
 }
 
 // Proof is cryptographic proof of the integrity of the DID Document
 type Proof struct {
-	Type           string    `json:"type,omitempty"`
-	Created        time.Time `json:"created,omitempty"`
-	Creator        string    `json:"creator,omitempty"`
-	SignatureValue string    `json:"signatureValue,omitempty"`
-	Domain         string    `json:"domain,omitempty"`
-	Nonce          string    `json:"nonce,omitempty"`
+	Type           string     `json:"type,omitempty"`
+	Created        *time.Time `json:"created,omitempty"`
+	Creator        string     `json:"creator,omitempty"`
+	SignatureValue string     `json:"signatureValue,omitempty"`
+	Domain         string     `json:"domain,omitempty"`
+	Nonce          string     `json:"nonce,omitempty"`
 }
 
 // FromBytes creates an instance of DIDDocument by reading a JSON document from bytes
@@ -141,10 +271,7 @@ func populateAuthentications(rawAuthentications []interface{}, pks []PublicKey) 
 			continue
 		}
 
-		valuePK, ok := rawAuthentication.(map[string]interface{})
-		if !ok {
-			return nil, errors.New("authentication value is not map[string]interface{}")
-		}
+		valuePK, _ := rawAuthentication.(map[string]interface{})
 		pk, err := populatePublicKeys([]map[string]interface{}{valuePK})
 		if err != nil {
 			return nil, err
@@ -193,9 +320,21 @@ func decodePK(rawPK map[string]interface{}) ([]byte, error) {
 
 }
 
-// validate did doc
-func validate(doc []byte) error {
-	// TODO Validate that the output DID Document conforms to the serialization of the DID Document data model (https://w3c-ccg.github.io/did-spec/#did-documents)
+func validate(data []byte) error {
+	// Validate that the DID Document conforms to the serialization of the DID Document data model (https://w3c-ccg.github.io/did-spec/#did-documents)
+	documentLoader := gojsonschema.NewStringLoader(string(data))
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return errors.Wrapf(err, "failed to validate did doc")
+	}
+
+	if !result.Valid() {
+		errMsg := "did document not valid:\n"
+		for _, desc := range result.Errors() {
+			errMsg = errMsg + fmt.Sprintf("- %s\n", desc)
+		}
+		return errors.New(errMsg)
+	}
 	return nil
 }
 
