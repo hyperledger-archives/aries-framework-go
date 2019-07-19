@@ -1,0 +1,11 @@
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[ req ]
+distinguished_name	= req_distinguished_name
+
+[ req_distinguished_name ]
+
+[SAN]
+subjectAltName=DNS:*.example.com,DNS:localhost
