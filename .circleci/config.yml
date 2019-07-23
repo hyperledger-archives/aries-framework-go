@@ -19,9 +19,16 @@ jobs:
       - checkout
       - run: make unit-test
       - run: bash <(curl -s https://codecov.io/bash)
+  bdd-test:
+    docker:
+      - image: circleci/golang:1.12
+    steps:
+      - checkout
+      - run: make bdd-test
 workflows:
   version: 2
   checks-test:
     jobs:
       - checks
       - unit-test
+      - bdd-test
