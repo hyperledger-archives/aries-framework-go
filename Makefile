@@ -23,6 +23,10 @@ license:
 unit-test:
 	@scripts/check_unit.sh
 
+.PHONY: bdd-test
+bdd-test: clean
+	@scripts/check_integration.sh
+
 .PHONY: clean
 clean:
 	rm -f coverage.txt
