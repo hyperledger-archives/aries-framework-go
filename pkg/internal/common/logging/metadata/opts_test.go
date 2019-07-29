@@ -45,11 +45,11 @@ func TestLevels(t *testing.T) {
 func TestCallerInfos(t *testing.T) {
 	module := "sample-module-caller-info"
 
-	require.True(t, GetLoggerOpts(module, log.CRITICAL).CallerInfoEnabled)
-	require.True(t, GetLoggerOpts(module, log.DEBUG).CallerInfoEnabled)
-	require.True(t, GetLoggerOpts(module, log.INFO).CallerInfoEnabled)
-	require.True(t, GetLoggerOpts(module, log.ERROR).CallerInfoEnabled)
-	require.True(t, GetLoggerOpts(module, log.WARNING).CallerInfoEnabled)
+	require.True(t, IsCallerInfoEnabled(module, log.CRITICAL))
+	require.True(t, IsCallerInfoEnabled(module, log.DEBUG))
+	require.True(t, IsCallerInfoEnabled(module, log.INFO))
+	require.True(t, IsCallerInfoEnabled(module, log.ERROR))
+	require.True(t, IsCallerInfoEnabled(module, log.WARNING))
 
 	ShowCallerInfo(module, log.CRITICAL)
 	ShowCallerInfo(module, log.DEBUG)
@@ -57,11 +57,11 @@ func TestCallerInfos(t *testing.T) {
 	HideCallerInfo(module, log.ERROR)
 	HideCallerInfo(module, log.WARNING)
 
-	require.True(t, GetLoggerOpts(module, log.CRITICAL).CallerInfoEnabled)
-	require.True(t, GetLoggerOpts(module, log.DEBUG).CallerInfoEnabled)
-	require.False(t, GetLoggerOpts(module, log.INFO).CallerInfoEnabled)
-	require.False(t, GetLoggerOpts(module, log.ERROR).CallerInfoEnabled)
-	require.False(t, GetLoggerOpts(module, log.WARNING).CallerInfoEnabled)
+	require.True(t, IsCallerInfoEnabled(module, log.CRITICAL))
+	require.True(t, IsCallerInfoEnabled(module, log.DEBUG))
+	require.False(t, IsCallerInfoEnabled(module, log.INFO))
+	require.False(t, IsCallerInfoEnabled(module, log.ERROR))
+	require.False(t, IsCallerInfoEnabled(module, log.WARNING))
 
 	require.True(t, IsCallerInfoEnabled(module, log.CRITICAL))
 	require.True(t, IsCallerInfoEnabled(module, log.DEBUG))
@@ -73,10 +73,8 @@ func TestCallerInfos(t *testing.T) {
 func verifyLevels(t *testing.T, module string, enabled []log.Level, disabled []log.Level) {
 	for _, level := range enabled {
 		require.True(t, IsEnabledFor(module, level), "expected level [%s] to be enabled for module [%s]", ParseString(level), module)
-		require.True(t, GetLoggerOpts(module, level).LevelEnabled, "expected level [%s] to be enabled for module [%s] in logger opts", ParseString(level), module)
 	}
 	for _, level := range disabled {
 		require.False(t, IsEnabledFor(module, level), "expected level [%s] to be disabled for module [%s]", ParseString(level), module)
-		require.False(t, GetLoggerOpts(module, level).LevelEnabled, "expected level [%s] to be disabled for module [%s] in logger opts", ParseString(level), module)
 	}
 }

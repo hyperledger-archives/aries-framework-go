@@ -1,0 +1,61 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package modlog
+
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/metadata"
+)
+
+// modLog is a moduled wrapper for any underlying 'log.Logger' implementation.
+// Since this is a moduled wrapper where each module can have different logging levels (default is INFO).
+type modLog struct {
+	logger log.Logger
+	module string
+}
+
+//Fatalf calls underlying logger.Fatal
+func (m *modLog) Fatalf(format string, args ...interface{}) {
+	m.logger.Fatalf(format, args...)
+}
+
+//Panicf calls underlying logger.Panic
+func (m *modLog) Panicf(format string, args ...interface{}) {
+	m.logger.Panicf(format, args...)
+}
+
+//Debugf calls error log function if DEBUG level enabled
+func (m *modLog) Debugf(format string, args ...interface{}) {
+	if !metadata.IsEnabledFor(m.module, log.DEBUG) {
+		return
+	}
+	m.logger.Debugf(format, args...)
+}
+
+//Infof calls error log function if INFO level enabled
+func (m *modLog) Infof(format string, args ...interface{}) {
+	if !metadata.IsEnabledFor(m.module, log.INFO) {
+		return
+	}
+	m.logger.Infof(format, args...)
+}
+
+//Warnf calls error log function if WARNING level enabled
+func (m *modLog) Warnf(format string, args ...interface{}) {
+	if !metadata.IsEnabledFor(m.module, log.WARNING) {
+		return
+	}
+	m.logger.Warnf(format, args...)
+}
+
+//Errorf calls error log function if ERROR level enabled
+func (m *modLog) Errorf(format string, args ...interface{}) {
+	if !metadata.IsEnabledFor(m.module, log.ERROR) {
+		return
+	}
+	m.logger.Errorf(format, args...)
+}
