@@ -16,12 +16,6 @@ var rwmutex = &sync.RWMutex{}
 var levels = newModuledLevels()
 var callerInfos = newCallerInfo()
 
-//LoggerOpts for all logger customization options
-type LoggerOpts struct {
-	LevelEnabled      bool
-	CallerInfoEnabled bool
-}
-
 //SetLevel - setting log level for given module
 func SetLevel(module string, level log.Level) {
 	rwmutex.Lock()
@@ -59,17 +53,7 @@ func HideCallerInfo(module string, level log.Level) {
 
 //IsCallerInfoEnabled - returns if caller info enabled for given log level and module
 func IsCallerInfoEnabled(module string, level log.Level) bool {
-	rwmutex.Lock()
-	defer rwmutex.Unlock()
-	return callerInfos.IsCallerInfoEnabled(module, level)
-}
-
-//GetLoggerOpts - returns LoggerOpts which can be used for customization
-func GetLoggerOpts(module string, level log.Level) *LoggerOpts {
 	rwmutex.RLock()
 	defer rwmutex.RUnlock()
-	return &LoggerOpts{
-		LevelEnabled:      levels.IsEnabledFor(module, level),
-		CallerInfoEnabled: callerInfos.IsCallerInfoEnabled(module, level),
-	}
+	return callerInfos.IsCallerInfoEnabled(module, level)
 }
