@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"log"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -43,7 +42,7 @@ func TestOutboundHTTPTransport(t *testing.T) {
 	defer func() {
 		err := server.Close()
 		if err != nil {
-			log.Fatalf("Failed to stop server: %s", err)
+			t.Fatalf("Failed to stop server: %s", err)
 		}
 	}()
 

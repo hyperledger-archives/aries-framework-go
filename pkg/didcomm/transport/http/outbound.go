@@ -9,7 +9,6 @@ package http
 import (
 	"bytes"
 	"crypto/tls"
-	"log"
 	"net/http"
 	"time"
 
@@ -82,7 +81,7 @@ func NewOutbound(opts ...OutboundHTTPOpt) (*OutboundHTTPClient, error) {
 func (cs *OutboundHTTPClient) Send(data string, url string) (string, error) {
 	resp, err := cs.client.Post(url, commContentType, bytes.NewBuffer([]byte(data)))
 	if err != nil {
-		log.Printf("HTTP Transport - Error posting did envelope to agent at [%s]: %v", url, err)
+		logger.Errorf("HTTP Transport - Error posting did envelope to agent at [%s]: %v", url, err)
 		return "", err
 	}
 
@@ -96,7 +95,7 @@ func (cs *OutboundHTTPClient) Send(data string, url string) (string, error) {
 		defer func() {
 			e := resp.Body.Close()
 			if e != nil {
-				log.Printf("HTTP Transport - Error closing response body: %v", e)
+				logger.Errorf("HTTP Transport - Error closing response body: %v", e)
 			}
 		}()
 		buf := new(bytes.Buffer)

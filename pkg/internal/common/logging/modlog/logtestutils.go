@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"testing"
 
-	logapi "github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/metadata"
 	"github.com/stretchr/testify/require"
 )
@@ -32,8 +31,8 @@ var buf bytes.Buffer
 
 //VerifyDefaultLogging verifies default logging behaviour.
 //Should only be used for tests
-func VerifyDefaultLogging(t *testing.T, logger logapi.Logger, module string, setLevel func(module string, level logapi.Level)) {
-	allTestLevels := []logapi.Level{logapi.ERROR, logapi.DEBUG, logapi.INFO, logapi.WARNING, logapi.CRITICAL}
+func VerifyDefaultLogging(t *testing.T, logger Logger, module string, setLevel func(module string, level metadata.Level)) {
+	allTestLevels := []metadata.Level{metadata.ERROR, metadata.DEBUG, metadata.INFO, metadata.WARNING, metadata.CRITICAL}
 
 	for _, levelEnabled := range allTestLevels {
 
@@ -41,29 +40,29 @@ func VerifyDefaultLogging(t *testing.T, logger logapi.Logger, module string, set
 		setLevel(module, levelEnabled)
 
 		logger.Infof(msgFormat, msgArg1, msgArg2)
-		matchDefLogOutput(t, module, logapi.INFO, levelEnabled, true)
+		matchDefLogOutput(t, module, metadata.INFO, levelEnabled, true)
 
 		logger.Errorf(msgFormat, msgArg1, msgArg2)
-		matchDefLogOutput(t, module, logapi.ERROR, levelEnabled, true)
+		matchDefLogOutput(t, module, metadata.ERROR, levelEnabled, true)
 
 		logger.Debugf(msgFormat, msgArg1, msgArg2)
-		matchDefLogOutput(t, module, logapi.DEBUG, levelEnabled, true)
+		matchDefLogOutput(t, module, metadata.DEBUG, levelEnabled, true)
 
 		logger.Warnf(msgFormat, msgArg1, msgArg2)
-		matchDefLogOutput(t, module, logapi.WARNING, levelEnabled, true)
+		matchDefLogOutput(t, module, metadata.WARNING, levelEnabled, true)
 	}
 
 	//testing critical logging by handling panic
 	defer func() {
 		r := recover()
 		require.NotNil(t, r, "supposed to panic")
-		matchDefLogOutput(t, module, logapi.CRITICAL, logapi.WARNING, true)
+		matchDefLogOutput(t, module, metadata.CRITICAL, metadata.WARNING, true)
 	}()
 
 	logger.Panicf(msgFormat, msgArg1, msgArg2)
 }
 
-func matchDefLogOutput(t *testing.T, module string, currentLevel, levelEnabled logapi.Level, infoEnabled bool) {
+func matchDefLogOutput(t *testing.T, module string, currentLevel, levelEnabled metadata.Level, infoEnabled bool) {
 	if currentLevel > levelEnabled {
 		require.Empty(t, buf.String())
 		return
@@ -86,9 +85,9 @@ func matchDefLogOutput(t *testing.T, module string, currentLevel, levelEnabled l
 
 //VerifyCustomLogger verifies custom logging behaviour.
 //Should only be used for tests
-func VerifyCustomLogger(t *testing.T, logger logapi.Logger, module string) {
+func VerifyCustomLogger(t *testing.T, logger Logger, module string) {
 	regex := fmt.Sprintf(customLevelOutputExpectedRegex, module)
-	allTestLevels := []logapi.Level{logapi.ERROR, logapi.DEBUG, logapi.INFO, logapi.WARNING, logapi.CRITICAL}
+	allTestLevels := []metadata.Level{metadata.ERROR, metadata.DEBUG, metadata.INFO, metadata.WARNING, metadata.CRITICAL}
 
 	for _, levelEnabled := range allTestLevels {
 
@@ -97,26 +96,26 @@ func VerifyCustomLogger(t *testing.T, logger logapi.Logger, module string) {
 
 		//print in all levels and verify
 		logger.Infof("brown fox jumps over the lazy dog")
-		matchCustomLogOutput(t, regex, logapi.INFO, levelEnabled)
+		matchCustomLogOutput(t, regex, metadata.INFO, levelEnabled)
 
 		logger.Debugf("brown fox jumps over the lazy dog")
-		matchCustomLogOutput(t, regex, logapi.DEBUG, levelEnabled)
+		matchCustomLogOutput(t, regex, metadata.DEBUG, levelEnabled)
 
 		logger.Warnf("brown fox jumps over the lazy dog")
-		matchCustomLogOutput(t, regex, logapi.WARNING, levelEnabled)
+		matchCustomLogOutput(t, regex, metadata.WARNING, levelEnabled)
 
 		logger.Errorf("brown fox jumps over the lazy dog")
-		matchCustomLogOutput(t, regex, logapi.ERROR, levelEnabled)
+		matchCustomLogOutput(t, regex, metadata.ERROR, levelEnabled)
 
 		logger.Panicf("brown fox jumps over the lazy dog")
-		matchCustomLogOutput(t, regex, logapi.CRITICAL, levelEnabled)
+		matchCustomLogOutput(t, regex, metadata.CRITICAL, levelEnabled)
 
 		logger.Fatalf("brown fox jumps over the lazy dog")
-		matchCustomLogOutput(t, regex, logapi.CRITICAL, levelEnabled)
+		matchCustomLogOutput(t, regex, metadata.CRITICAL, levelEnabled)
 	}
 }
 
-func matchCustomLogOutput(t *testing.T, regex string, level, levelEnabled logapi.Level) {
+func matchCustomLogOutput(t *testing.T, regex string, level, levelEnabled metadata.Level) {
 	if level > levelEnabled {
 		require.Empty(t, buf.String())
 		return
@@ -127,57 +126,53 @@ func matchCustomLogOutput(t *testing.T, regex string, level, levelEnabled logapi
 	require.True(t, match, "logger isn't producing output as expected,\n\tLevel Enabled:[%s]\n\tlogoutput:%s\n\tregex:%s", metadata.ParseString(level), buf.String(), regex)
 }
 
+//SwitchLogOutputToBuffer switches log output to test buffer,
+//Should only be used for testing
+func SwitchLogOutputToBuffer(logger Logger) {
+	defLog, ok := logger.(*ModLog).logger.(*DefLog)
+	if ok {
+		defLog.SetOutput(&buf)
+	}
+}
+
 //GetSampleCustomLogger returns custom logger which can only be used for testing purposes.
-func GetSampleCustomLogger(output *bytes.Buffer, module string) logapi.Logger {
-	logger := log.New(output, fmt.Sprintf(logPrefixFormatter, module), log.Ldate|log.Ltime|log.LUTC)
-	return &sampleLog{logger}
+func GetSampleCustomLogger(module string) *SampleLog {
+	logger := log.New(&buf, fmt.Sprintf(logPrefixFormatter, module), log.Ldate|log.Ltime|log.LUTC)
+	return &SampleLog{logger}
 }
 
-//NewCustomLoggingProvider returns new custom logging provider which can only be used for testing purposes.
-func NewCustomLoggingProvider() logapi.LoggerProvider {
-	return &sampleProvider{}
-}
-
-// sampleProvider is a custom logging provider
-type sampleProvider struct {
-}
-
-//GetLogger returns custom logger implementation
-func (p *sampleProvider) GetLogger(module string) logapi.Logger {
-	return GetSampleCustomLogger(&buf, module)
-}
-
-//modLog is a moduled wrapper for api.Logger implementation
-type sampleLog struct {
+//SampleLog is a sample logger implementation for testing purposes.
+//note: this implementation should be strictly used for testing only.
+type SampleLog struct {
 	logger *log.Logger
 }
 
-// Fatal calls underlying logger.Fatal
-func (m *sampleLog) Fatalf(format string, args ...interface{}) {
+// Fatalf calls underlying logger.Fatalf
+func (m *SampleLog) Fatalf(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }
 
-// Panic calls underlying logger.Panic
-func (m *sampleLog) Panicf(format string, args ...interface{}) {
+// Panicf calls underlying logger.Panicf
+func (m *SampleLog) Panicf(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }
 
-// Debug calls error log function if DEBUG level enabled
-func (m *sampleLog) Debugf(format string, args ...interface{}) {
+// Debugf calls error log function if DEBUG level enabled
+func (m *SampleLog) Debugf(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }
 
-// Info calls error log function if INFO level enabled
-func (m *sampleLog) Infof(format string, args ...interface{}) {
+// Infof calls error log function if INFO level enabled
+func (m *SampleLog) Infof(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }
 
-// Warn calls error log function if WARNING level enabled
-func (m *sampleLog) Warnf(format string, args ...interface{}) {
+// Warnf calls error log function if WARNING level enabled
+func (m *SampleLog) Warnf(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }
 
-// Error calls error log function if ERROR level enabled
-func (m *sampleLog) Errorf(format string, args ...interface{}) {
+// Errorf calls error log function if ERROR level enabled
+func (m *SampleLog) Errorf(format string, args ...interface{}) {
 	m.logger.Print(customOutput)
 }
