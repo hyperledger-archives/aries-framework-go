@@ -16,8 +16,6 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/metadata"
-
-	logapi "github.com/hyperledger/aries-framework-go/pkg/common/log"
 )
 
 const (
@@ -26,58 +24,63 @@ const (
 	callerInfoFormatter = "- %s "
 )
 
-// defLog is a logger implementation built on top of standard go log.
+//NewDefLog returns new DefLog instance based on given module
+func NewDefLog(module string) *DefLog {
+	return &DefLog{logger: log.New(os.Stdout, fmt.Sprintf(logPrefixFormatter, module), log.Ldate|log.Ltime|log.LUTC), module: module}
+}
+
+// DefLog is a logger implementation built on top of standard go log.
 // There is a  configurable caller info feature which displays caller function information name in logged lines.
 // caller info can be configured by log levels and modules. By default it is enabled.
 // Log Format : [<MODULE NAME>] <TIME IN UTC> - <CALLER INFO> -> <LOG LEVEL> <LOG TEXT>
-type defLog struct {
+type DefLog struct {
 	logger *log.Logger
 	module string
 }
 
 //Fatalf is CRITICAL log formatted followed by a call to os.Exit(1).
-func (l *defLog) Fatalf(format string, args ...interface{}) {
-	l.logf(logapi.CRITICAL, format, args...)
+func (l *DefLog) Fatalf(format string, args ...interface{}) {
+	l.logf(metadata.CRITICAL, format, args...)
 	os.Exit(1)
 }
 
 //Panicf is CRITICAL log formatted followed by a call to panic()
-func (l *defLog) Panicf(format string, args ...interface{}) {
-	l.logf(logapi.CRITICAL, format, args...)
+func (l *DefLog) Panicf(format string, args ...interface{}) {
+	l.logf(metadata.CRITICAL, format, args...)
 	panic(fmt.Sprintf(format, args...))
 }
 
 //Debugf calls go 'log.Output' and can be used for logging verbose messages.
 // Arguments are handled in the manner of fmt.Printf.
-func (l *defLog) Debugf(format string, args ...interface{}) {
-	l.logf(logapi.DEBUG, format, args...)
+func (l *DefLog) Debugf(format string, args ...interface{}) {
+	l.logf(metadata.DEBUG, format, args...)
 }
 
 //Infof calls go 'log.Output' and can be used for logging general information messages.
 //INFO is default logging level
 // Arguments are handled in the manner of fmt.Printf.
-func (l *defLog) Infof(format string, args ...interface{}) {
-	l.logf(logapi.INFO, format, args...)
+func (l *DefLog) Infof(format string, args ...interface{}) {
+	l.logf(metadata.INFO, format, args...)
 }
 
 // Warnf calls go log.Output and can be used for logging possible errors.
 // Arguments are handled in the manner of fmt.Printf.
-func (l *defLog) Warnf(format string, args ...interface{}) {
-	l.logf(logapi.WARNING, format, args...)
+func (l *DefLog) Warnf(format string, args ...interface{}) {
+	l.logf(metadata.WARNING, format, args...)
 }
 
 // Errorf calls go 'log.Output' and can be used for logging errors.
 // Arguments are handled in the manner of fmt.Printf.
-func (l *defLog) Errorf(format string, args ...interface{}) {
-	l.logf(logapi.ERROR, format, args...)
+func (l *DefLog) Errorf(format string, args ...interface{}) {
+	l.logf(metadata.ERROR, format, args...)
 }
 
 //SetOutput sets the output destination for the logger.
-func (l *defLog) SetOutput(output io.Writer) {
+func (l *DefLog) SetOutput(output io.Writer) {
 	l.logger.SetOutput(output)
 }
 
-func (l *defLog) logf(level logapi.Level, format string, args ...interface{}) {
+func (l *DefLog) logf(level metadata.Level, format string, args ...interface{}) {
 	//Format prefix to show function name and log level and to indicate that timezone used is UTC
 	customPrefix := fmt.Sprintf(logLevelFormatter, l.getCallerInfo(level), metadata.ParseString(level))
 	err := l.logger.Output(2, customPrefix+fmt.Sprintf(format, args...))
@@ -88,7 +91,7 @@ func (l *defLog) logf(level logapi.Level, format string, args ...interface{}) {
 
 //getCallerInfo going through runtime caller frames to determine the caller of logger function by filtering
 // internal logging library functions
-func (l *defLog) getCallerInfo(level logapi.Level) string {
+func (l *DefLog) getCallerInfo(level metadata.Level) string {
 	if !metadata.IsCallerInfoEnabled(l.module, level) {
 		return ""
 	}
@@ -102,7 +105,7 @@ func (l *defLog) getCallerInfo(level logapi.Level) string {
 	const SKIPCALLERS = 5
 
 	const NOTFOUND = "n/a"
-	const DEFAULTLOGPREFIX = "logging.(*Logger)"
+	const DEFAULTLOGPREFIX = "log.(*Log)"
 
 	fpcs := make([]uintptr, MAXCALLERS)
 

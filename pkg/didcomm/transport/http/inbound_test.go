@@ -11,7 +11,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"log"
 	"net/http"
 	"testing"
 
@@ -21,7 +20,7 @@ import (
 // mockMsgHandler is an http.msgHandler type, it is similar to MockHandler struct
 // but will be injected in WithInboundSetting() directly, will be used by each transport comm handle function
 func mockMsgHandler(payload []byte) {
-	log.Printf("Payload received is %s", payload)
+	logger.Debugf("Payload received is %s", payload)
 }
 
 func TestInboundHandler(t *testing.T) {
@@ -41,7 +40,7 @@ func TestInboundHandler(t *testing.T) {
 	defer func() {
 		e := server.Close()
 		if e != nil {
-			log.Fatalf("Failed to stop server: %s", e)
+			t.Fatalf("Failed to stop server: %s", e)
 		}
 	}()
 

@@ -9,11 +9,15 @@ package http
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
+
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+
 	"net/http"
 
 	"github.com/pkg/errors"
 )
+
+var logger = log.New("aries-framework/transport")
 
 // MessageHandler is a function that handles the inbound request payload
 // the payload will be unpacked prior to calling this function.
@@ -27,7 +31,7 @@ type MessageHandler func(payload []byte)
 //    Users of this library must manage the handling of all inbound payloads in this function.
 func NewInboundHandler(msgHandler MessageHandler) (http.Handler, error) {
 	if msgHandler == nil {
-		log.Println("Error creating a new inbound handler: message handler function is nil")
+		logger.Errorf("Error creating a new inbound handler: message handler function is nil")
 		return nil, errors.New("Failed to create NewInboundHandler")
 	}
 
@@ -36,7 +40,6 @@ func NewInboundHandler(msgHandler MessageHandler) (http.Handler, error) {
 	}), nil
 }
 
-// TODO Log error message with a common logger library for aries-framework-go
 func processPOSTRequest(w http.ResponseWriter, r *http.Request, messageHandler MessageHandler) {
 	if valid := validateHTTPMethod(w, r); !valid {
 		return
@@ -47,7 +50,7 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, messageHandler M
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Error reading request body: %s - returning Code: %d", err, http.StatusInternalServerError)
+		logger.Errorf("Error reading request body: %s - returning Code: %d", err, http.StatusInternalServerError)
 		http.Error(w, "Failed to read payload", http.StatusInternalServerError)
 	}
 

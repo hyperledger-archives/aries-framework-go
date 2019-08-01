@@ -11,7 +11,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -49,12 +48,12 @@ func startMockServer(handler http.Handler) net.Listener {
 	// ":0" will make the listener auto assign a free port
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
-		log.Fatalf("HTTP listener failed to start: %s", err)
+		logger.Fatalf("HTTP listener failed to start: %s", err)
 	}
 	go func() {
 		err := http.ServeTLS(listener, handler, certPrefix+"ec-pubCert1.pem", certPrefix+"ec-key1.pem")
 		if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-			log.Fatalf("HTTP server failed to start: %s", err)
+			logger.Fatalf("HTTP server failed to start: %s", err)
 		}
 	}()
 	return listener

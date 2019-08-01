@@ -12,6 +12,6 @@ import (
 
 func TestModLog(t *testing.T) {
 	const module = "sample-module"
-	modLogger := &modLog{logger: GetSampleCustomLogger(&buf, module), module: module}
+	modLogger := NewModLog(GetSampleCustomLogger(module), module)
 	VerifyCustomLogger(t, modLogger, module)
 }

@@ -9,68 +9,67 @@ package metadata
 import (
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/stretchr/testify/require"
 )
 
 func TestLevels(t *testing.T) {
 
 	module := "sample-module-critical"
-	SetLevel(module, log.CRITICAL)
-	require.Equal(t, log.CRITICAL, GetLevel(module))
-	verifyLevels(t, module, []log.Level{log.CRITICAL}, []log.Level{log.ERROR, log.WARNING, log.INFO, log.DEBUG})
+	SetLevel(module, CRITICAL)
+	require.Equal(t, CRITICAL, GetLevel(module))
+	verifyLevels(t, module, []Level{CRITICAL}, []Level{ERROR, WARNING, INFO, DEBUG})
 
 	module = "sample-module-error"
-	SetLevel(module, log.ERROR)
-	require.Equal(t, log.ERROR, GetLevel(module))
-	verifyLevels(t, module, []log.Level{log.CRITICAL, log.ERROR}, []log.Level{log.WARNING, log.INFO, log.DEBUG})
+	SetLevel(module, ERROR)
+	require.Equal(t, ERROR, GetLevel(module))
+	verifyLevels(t, module, []Level{CRITICAL, ERROR}, []Level{WARNING, INFO, DEBUG})
 
 	module = "sample-module-warning"
-	SetLevel(module, log.WARNING)
-	require.Equal(t, log.WARNING, GetLevel(module))
-	verifyLevels(t, module, []log.Level{log.CRITICAL, log.ERROR, log.WARNING}, []log.Level{log.INFO, log.DEBUG})
+	SetLevel(module, WARNING)
+	require.Equal(t, WARNING, GetLevel(module))
+	verifyLevels(t, module, []Level{CRITICAL, ERROR, WARNING}, []Level{INFO, DEBUG})
 
 	module = "sample-module-info"
-	SetLevel(module, log.INFO)
-	require.Equal(t, log.INFO, GetLevel(module))
-	verifyLevels(t, module, []log.Level{log.CRITICAL, log.ERROR, log.WARNING, log.INFO}, []log.Level{log.DEBUG})
+	SetLevel(module, INFO)
+	require.Equal(t, INFO, GetLevel(module))
+	verifyLevels(t, module, []Level{CRITICAL, ERROR, WARNING, INFO}, []Level{DEBUG})
 
 	module = "sample-module-debug"
-	SetLevel(module, log.DEBUG)
-	require.Equal(t, log.DEBUG, GetLevel(module))
-	verifyLevels(t, module, []log.Level{log.CRITICAL, log.ERROR, log.WARNING, log.INFO, log.DEBUG}, []log.Level{})
+	SetLevel(module, DEBUG)
+	require.Equal(t, DEBUG, GetLevel(module))
+	verifyLevels(t, module, []Level{CRITICAL, ERROR, WARNING, INFO, DEBUG}, []Level{})
 
 }
 
 func TestCallerInfos(t *testing.T) {
 	module := "sample-module-caller-info"
 
-	require.True(t, IsCallerInfoEnabled(module, log.CRITICAL))
-	require.True(t, IsCallerInfoEnabled(module, log.DEBUG))
-	require.True(t, IsCallerInfoEnabled(module, log.INFO))
-	require.True(t, IsCallerInfoEnabled(module, log.ERROR))
-	require.True(t, IsCallerInfoEnabled(module, log.WARNING))
+	require.True(t, IsCallerInfoEnabled(module, CRITICAL))
+	require.True(t, IsCallerInfoEnabled(module, DEBUG))
+	require.True(t, IsCallerInfoEnabled(module, INFO))
+	require.True(t, IsCallerInfoEnabled(module, ERROR))
+	require.True(t, IsCallerInfoEnabled(module, WARNING))
 
-	ShowCallerInfo(module, log.CRITICAL)
-	ShowCallerInfo(module, log.DEBUG)
-	HideCallerInfo(module, log.INFO)
-	HideCallerInfo(module, log.ERROR)
-	HideCallerInfo(module, log.WARNING)
+	ShowCallerInfo(module, CRITICAL)
+	ShowCallerInfo(module, DEBUG)
+	HideCallerInfo(module, INFO)
+	HideCallerInfo(module, ERROR)
+	HideCallerInfo(module, WARNING)
 
-	require.True(t, IsCallerInfoEnabled(module, log.CRITICAL))
-	require.True(t, IsCallerInfoEnabled(module, log.DEBUG))
-	require.False(t, IsCallerInfoEnabled(module, log.INFO))
-	require.False(t, IsCallerInfoEnabled(module, log.ERROR))
-	require.False(t, IsCallerInfoEnabled(module, log.WARNING))
+	require.True(t, IsCallerInfoEnabled(module, CRITICAL))
+	require.True(t, IsCallerInfoEnabled(module, DEBUG))
+	require.False(t, IsCallerInfoEnabled(module, INFO))
+	require.False(t, IsCallerInfoEnabled(module, ERROR))
+	require.False(t, IsCallerInfoEnabled(module, WARNING))
 
-	require.True(t, IsCallerInfoEnabled(module, log.CRITICAL))
-	require.True(t, IsCallerInfoEnabled(module, log.DEBUG))
-	require.False(t, IsCallerInfoEnabled(module, log.INFO))
-	require.False(t, IsCallerInfoEnabled(module, log.ERROR))
-	require.False(t, IsCallerInfoEnabled(module, log.WARNING))
+	require.True(t, IsCallerInfoEnabled(module, CRITICAL))
+	require.True(t, IsCallerInfoEnabled(module, DEBUG))
+	require.False(t, IsCallerInfoEnabled(module, INFO))
+	require.False(t, IsCallerInfoEnabled(module, ERROR))
+	require.False(t, IsCallerInfoEnabled(module, WARNING))
 }
 
-func verifyLevels(t *testing.T, module string, enabled []log.Level, disabled []log.Level) {
+func verifyLevels(t *testing.T, module string, enabled []Level, disabled []Level) {
 	for _, level := range enabled {
 		require.True(t, IsEnabledFor(module, level), "expected level [%s] to be enabled for module [%s]", ParseString(level), module)
 	}
