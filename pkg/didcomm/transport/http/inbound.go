@@ -9,12 +9,10 @@ package http
 import (
 	"fmt"
 	"io/ioutil"
-
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-
 	"net/http"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	errors "golang.org/x/xerrors"
 )
 
 var logger = log.New("aries-framework/transport")

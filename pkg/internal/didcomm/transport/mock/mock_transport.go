@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package mocktransport
 
-import "errors"
+import errors "golang.org/x/xerrors"
 
 // OutboundTransport mock outbound transport structure
 type OutboundTransport struct {

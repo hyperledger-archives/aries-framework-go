@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/pkg/errors"
+	errors "golang.org/x/xerrors"
 )
 
 // DIDResolver did resolver
@@ -52,7 +52,7 @@ func (r *DIDResolver) Resolve(did string, opts ...ResolveOpt) (*diddoc.Doc, erro
 	// Obtain the DID Document
 	didDocBytes, err := method.Read(did, resolveOpts.versionID, resolveOpts.versionTime, resolveOpts.noCache)
 	if err != nil {
-		return nil, errors.Wrapf(err, "did method read failed")
+		return nil, errors.Errorf("did method read failed failed: %w", err)
 	}
 
 	// If the input DID does not exist, return a nil

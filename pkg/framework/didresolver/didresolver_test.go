@@ -97,7 +97,7 @@ func TestResolve(t *testing.T) {
 		r := New(WithDidMethod("example", mockDidMethod{readValue: []byte("wrongData")}))
 		_, err := r.Resolve("did:example:1234")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to validate did doc")
+		require.Contains(t, err.Error(), "Validation of did doc failed")
 	})
 
 	t.Run("test result type resolution-result", func(t *testing.T) {

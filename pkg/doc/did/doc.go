@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/pkg/errors"
 	"github.com/xeipuuv/gojsonschema"
+	errors "golang.org/x/xerrors"
 )
 
 const (
@@ -222,16 +222,16 @@ func FromBytes(data []byte) (*Doc, error) {
 	raw := &rawDoc{}
 	err := json.Unmarshal(data, &raw)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to unmarshal did doc bytes")
+		return nil, errors.Errorf("Json marshalling of did doc bytes bytes failed: %w", err)
 	}
 
 	publicKeys, err := populatePublicKeys(raw.PublicKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "populate public keys failed")
+		return nil, errors.Errorf("populate public keys failed: %w", err)
 	}
 	authPKs, err := populateAuthentications(raw.Authentication, publicKeys)
 	if err != nil {
-		return nil, errors.WithMessage(err, "populate authentications failed")
+		return nil, errors.Errorf("populate authentications failed: %w", err)
 	}
 
 	return &Doc{Context: raw.Context, ID: raw.ID, PublicKey: publicKeys, Service: populateServices(raw.Service), Authentication: authPKs,
@@ -304,7 +304,7 @@ func decodePK(rawPK map[string]interface{}) ([]byte, error) {
 	if stringEntry(rawPK[jsonldPublicKeyHex]) != "" {
 		value, err := hex.DecodeString(stringEntry(rawPK[jsonldPublicKeyHex]))
 		if err != nil {
-			return nil, errors.Wrapf(err, "decode public key hex failed")
+			return nil, errors.Errorf("decode public key hex failed: %w", err)
 		}
 		return value, nil
 	}
@@ -325,7 +325,7 @@ func validate(data []byte) error {
 	documentLoader := gojsonschema.NewStringLoader(string(data))
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 	if err != nil {
-		return errors.Wrapf(err, "failed to validate did doc")
+		return errors.Errorf("Validation of did doc failed: %w", err)
 	}
 
 	if !result.Valid() {

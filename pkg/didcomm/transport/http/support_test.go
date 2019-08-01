@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
+	errors "golang.org/x/xerrors"
 )
 
 const certPrefix = "testdata/crypto/"
@@ -32,7 +32,7 @@ func addCertsToCertPool(pool *x509.CertPool) error {
 		// Create a pool with server certificates
 		cert, e := ioutil.ReadFile(filepath.Clean(certPath))
 		if e != nil {
-			return errors.Wrap(e, "Failed Reading certificate")
+			return errors.Errorf("Failed Reading certificate : %w", e)
 		}
 		rawCerts = append(rawCerts, string(cert))
 	}
