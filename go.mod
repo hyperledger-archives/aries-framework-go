@@ -12,4 +12,5 @@ require (
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.1.1-0.20190626083556-16a6735db808
+	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7
 )
