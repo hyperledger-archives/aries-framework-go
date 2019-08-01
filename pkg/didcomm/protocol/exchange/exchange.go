@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/pkg/errors"
+	errors "golang.org/x/xerrors"
 )
 
 const (
@@ -117,7 +117,7 @@ func encodedExchangeInvitation(inviteMessage *Invitation) (string, error) {
 
 	invitationJSON, err := json.Marshal(inviteMessage)
 	if err != nil {
-		return "", errors.Wrapf(err, "JSON Marshal Error")
+		return "", errors.Errorf("JSON Marshal Error : %w", err)
 	}
 
 	return base64.URLEncoding.EncodeToString(invitationJSON), nil
@@ -126,7 +126,7 @@ func encodedExchangeInvitation(inviteMessage *Invitation) (string, error) {
 func marshalAndSend(data interface{}, errorMsg, destination string, transport transport.OutboundTransport) (string, error) {
 	jsonString, err := json.Marshal(data)
 	if err != nil {
-		return "", errors.Wrapf(err, errorMsg)
+		return "", errors.Errorf("%s : %w", errorMsg, err)
 	}
 	return transport.Send(string(jsonString), destination)
 }

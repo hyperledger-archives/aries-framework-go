@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package metadata
 
 import (
-	"errors"
 	"strings"
+
+	errors "golang.org/x/xerrors"
 )
 
 //levelNames - log level names in string

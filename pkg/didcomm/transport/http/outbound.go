@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pkg/errors"
+	errors "golang.org/x/xerrors"
 )
 
 //go:generate testdata/scripts/openssl_env.sh testdata/scripts/generate_test_keys.sh
