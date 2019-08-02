@@ -234,8 +234,15 @@ func FromBytes(data []byte) (*Doc, error) {
 		return nil, errors.Errorf("populate authentications failed: %w", err)
 	}
 
-	return &Doc{Context: raw.Context, ID: raw.ID, PublicKey: publicKeys, Service: populateServices(raw.Service), Authentication: authPKs,
-		Created: raw.Created, Updated: raw.Updated, Proof: raw.Proof}, nil
+	return &Doc{Context: raw.Context,
+		ID:             raw.ID,
+		PublicKey:      publicKeys,
+		Service:        populateServices(raw.Service),
+		Authentication: authPKs,
+		Created:        raw.Created,
+		Updated:        raw.Updated,
+		Proof:          raw.Proof,
+	}, nil
 }
 
 func populateServices(rawServices []map[string]interface{}) []Service {
@@ -344,4 +351,74 @@ func stringEntry(entry interface{}) string {
 		return ""
 	}
 	return entry.(string)
+}
+
+// JSONBytes converts document to json bytes
+func (doc *Doc) JSONBytes() ([]byte, error) {
+	raw := &rawDoc{
+		Context:        doc.Context,
+		ID:             doc.ID,
+		PublicKey:      populateRawPublicKeys(doc.PublicKey),
+		Authentication: populateRawAuthentications(doc.Authentication),
+		Service:        populateRawServices(doc.Service),
+		Created:        doc.Created,
+		Proof:          doc.Proof,
+		Updated:        doc.Updated,
+	}
+
+	byteDoc, err := json.Marshal(raw)
+	if err != nil {
+		return nil, errors.Errorf("Json unmarshalling of document failed: %w", err)
+	}
+
+	return byteDoc, nil
+}
+
+func populateRawServices(services []Service) []map[string]interface{} {
+	var rawServices []map[string]interface{}
+	for _, service := range services {
+		rawService := make(map[string]interface{})
+
+		for k, v := range service.Properties {
+			rawService[k] = v
+		}
+
+		rawService[jsonldID] = service.ID
+		rawService[jsonldType] = service.Type
+		rawService[jsonldServicePoint] = service.ServiceEndpoint
+
+		rawServices = append(rawServices, rawService)
+	}
+	return rawServices
+}
+
+func populateRawPublicKeys(pks []PublicKey) []map[string]interface{} {
+	var rawPKs []map[string]interface{}
+	for _, pk := range pks {
+		rawPKs = append(rawPKs, populateRawPublicKey(pk))
+	}
+	return rawPKs
+}
+
+func populateRawPublicKey(pk PublicKey) map[string]interface{} {
+	rawPK := make(map[string]interface{})
+	rawPK[jsonldID] = pk.ID
+	rawPK[jsonldType] = pk.Type
+	rawPK[jsonldController] = pk.Controller
+
+	if pk.Value != nil {
+		rawPK[jsonldPublicKeyBase58] = base58.Encode(pk.Value)
+	}
+
+	return rawPK
+}
+
+func populateRawAuthentications(vms []VerificationMethod) []interface{} {
+	var rawAuthentications []interface{}
+
+	for _, vm := range vms {
+		rawAuthentications = append(rawAuthentications, populateRawPublicKey(vm.PublicKey))
+	}
+
+	return rawAuthentications
 }
