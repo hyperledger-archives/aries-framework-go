@@ -14,4 +14,4 @@ PKGS=`go list github.com/hyperledger/aries-framework-go/... 2> /dev/null | \
 
 go generate ./...
 
-go test $PKGS -count=1 -race -coverprofile=coverage.txt -covermode=atomic  -p 1 -timeout=10m
+go test $PKGS -count=1 -race -coverprofile=coverage.txt -covermode=atomic -timeout=10m
