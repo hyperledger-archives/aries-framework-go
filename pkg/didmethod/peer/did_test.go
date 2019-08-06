@@ -15,18 +15,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewDid(t *testing.T) {
-	storedDoc, err := GenerateGenesisDoc()
-	require.NoError(t, err)
+func TestNewDID(t *testing.T) {
+	storedDoc := genesisDoc()
 	require.NotNil(t, storedDoc)
-
 	peerDID, err := newDid(storedDoc)
 	require.NoError(t, err)
 	require.NotNil(t, peerDID)
 	assert.Contains(t, peerDID, "did:peer:11")
 }
 
-func TestNewDidError(t *testing.T) {
+func TestNewDIDError(t *testing.T) {
 	storedDoc := &did.Doc{ID: "did:peer:11"}
 	_, err := newDid(storedDoc)
 	require.Error(t, err)
@@ -38,16 +36,52 @@ func TestComputeHash(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, hash)
 }
-
 func TestComputeHashError(t *testing.T) {
 	hash, err := computeHash([]byte(""))
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "empty bytes")
 	assert.Nil(t, hash)
 }
+func TestValidateDid(t *testing.T) {
+	peerDoc, err := peerDidDoc()
+	require.NoError(t, err)
+	require.NotNil(t, peerDoc)
+	err = validateDID(peerDoc)
+	require.NoError(t, err)
+}
+func TestValidateDIDError(t *testing.T) {
+	peerDoc := invalidPeerDIDDoc()
+	require.NotNil(t, peerDoc)
+	err := validateDID(peerDoc)
+	require.Error(t, err)
+	require.Equal(t, "did doesnt follow matching regex", err.Error())
+}
+func TestValidateErrorHashString(t *testing.T) {
+	peerDoc := &did.Doc{ID: "did:peer:11-479cbc07c3f991725836a3aa2a581ca2029198aa420b9d99bc0e131d9f3e2cbe"}
+	err := validateDID(peerDoc)
+	require.Error(t, err)
+	require.Equal(t, "hash of the doc doesnt match the computed hash", err.Error())
+}
 
-// GenerateGenesisDoc creates the doc without an id
-func GenerateGenesisDoc() (*did.Doc, error) {
+func TestValidateDIDRegex(t *testing.T) {
+	did1 := &did.Doc{ID: "did:peer:22"}
+	err := validateDID(did1)
+	require.Error(t, err)
+	require.Equal(t, err.Error(), "did doesnt follow matching regex")
+
+	did2 := &did.Doc{ID: "did:sidetree:22"}
+	err = validateDID(did2)
+	require.Error(t, err)
+	require.Equal(t, err.Error(), "did doesnt follow matching regex")
+
+	did3 := &did.Doc{ID: "did:peer:1-*&$*|||"}
+	err = validateDID(did3)
+	require.Error(t, err)
+	require.Equal(t, err.Error(), "did doesnt follow matching regex")
+}
+
+// genesisDoc creates the doc without an id
+func genesisDoc() *did.Doc {
 
 	pk := []did.PublicKey{
 		{
@@ -81,5 +115,22 @@ func GenerateGenesisDoc() (*did.Doc, error) {
 		Created:        &time.Time{},
 	}
 	return &did.Doc{Context: doc.Context, PublicKey: doc.PublicKey, Authentication: doc.Authentication,
-		Created: doc.Created}, nil
+		Created: doc.Created}
+}
+
+func peerDidDoc() (*did.Doc, error) {
+	doc := genesisDoc()
+	did, err := newDid(doc)
+	if err != nil {
+		return nil, err
+	}
+	doc.ID = did
+	return doc, nil
+}
+
+func invalidPeerDIDDoc() *did.Doc {
+	doc := genesisDoc()
+	doc.ID = "did:peer:11-"
+
+	return doc
 }
