@@ -496,3 +496,22 @@ func TestValidateDidDocProof(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestJSONConversion(t *testing.T) {
+	// setup -> create Document from json byte data
+	doc, err := FromBytes([]byte(validDoc))
+	require.NoError(t, err)
+	require.NotEmpty(t, doc)
+
+	// convert Document to json byte data
+	byteDoc, _ := doc.JSONBytes()
+	require.NoError(t, err)
+
+	// convert json byte data to document
+	doc2, err := FromBytes(byteDoc)
+	require.NoError(t, err)
+	require.NotEmpty(t, doc2)
+
+	// verify documents created by FromBytes and JSONBytes function matches
+	require.Equal(t, doc, doc2)
+}
