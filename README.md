@@ -3,7 +3,7 @@
 
 [![CircleCI](https://circleci.com/gh/hyperledger/aries-framework-go.svg?style=svg)](https://circleci.com/gh/hyperledger/aries-framework-go)
 [![codecov](https://codecov.io/gh/hyperledger/aries-framework-go/branch/master/graph/badge.svg)](https://codecov.io/gh/hyperledger/aries-framework-go)
-[![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger/aries-framework-go?style=flat-square)](https://goreportcard.com/report/github.com/hyperledger/aries-framework-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger/aries-framework-go)](https://goreportcard.com/report/github.com/hyperledger/aries-framework-go)
 
 # aries-framework-go
 
