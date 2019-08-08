@@ -7,13 +7,14 @@
 
 # aries-framework-go
 
-## License
-
-Hyperledger Aries Framework Go is licensed under the [Apache License Version 2.0](LICENSE).
-
 ## Introduction
 A go framework for Aries
 
+## Contributing
+
+Found a bug? Ready to submit a PR? Want to submit a proposal for your grand
+idea? Follow our [guidelines](.github/CONTRIBUTING.md) for more information
+to get you started!
 
 ### Crypto Material generation for tests
 For unit-tests, crypto material is generated under:
@@ -28,3 +29,7 @@ If you wish to regenerate it, you can delete this folder and:
 1. run `make unit-test`
  or
 2. cd into `pkg/didcomm/transport/http/` and run `go generate`
+
+## License
+
+Hyperledger Aries Framework Go is licensed under the [Apache License Version 2.0](LICENSE).
