@@ -36,7 +36,7 @@ func TestInboundHandler(t *testing.T) {
 	require.NotNil(t, inHandler)
 	server := startMockServer(inHandler)
 	port := getServerPort(server)
-	serverUrl := fmt.Sprintf("https://localhost:%d", port)
+	serverURL := fmt.Sprintf("https://localhost:%d", port)
 	defer func() {
 		e := server.Close()
 		if e != nil {
@@ -64,25 +64,33 @@ func TestInboundHandler(t *testing.T) {
 	}
 
 	// test http.Get should should fail (not supported)
-	rs, err := client.Get(serverUrl + "/")
+	rs, err := client.Get(serverURL + "/")
+	require.NoError(t, err)
+	err = rs.Body.Close()
 	require.NoError(t, err)
 	require.Equal(t, http.StatusMethodNotAllowed, rs.StatusCode)
 
 	// test accepted HTTP method (POST) but with bad content type
-	rs, err = client.Post(serverUrl+"/", "bad-content-type", bytes.NewBuffer([]byte("Hello World")))
+	rs, err = client.Post(serverURL+"/", "bad-content-type", bytes.NewBuffer([]byte("Hello World")))
+	require.NoError(t, err)
+	err = rs.Body.Close()
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnsupportedMediaType, rs.StatusCode)
 
 	// test with nil body ..
-	rs, err = client.Post(serverUrl+"/", commContentType, nil)
+	rs, err = client.Post(serverURL+"/", commContentType, nil)
+	require.NoError(t, err)
+	err = rs.Body.Close()
 	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, rs.StatusCode)
 
 	// finally test successful POST requests
 	data := "success"
 
-	resp, e := client.Post(serverUrl+"/", commContentType, bytes.NewBuffer([]byte(data)))
-	require.NoError(t, e)
+	resp, err := client.Post(serverURL+"/", commContentType, bytes.NewBuffer([]byte(data)))
+	require.NoError(t, err)
+	err = resp.Body.Close()
+	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 }

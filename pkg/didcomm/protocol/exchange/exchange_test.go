@@ -25,6 +25,7 @@ func TestGenerateInviteWithPublicDID(t *testing.T) {
 		DID:   "did:example:ZadolSRQkehfo",
 	})
 
+	require.NoError(t, err)
 	require.NotEmpty(t, invite)
 
 	invite, err = GenerateInviteWithPublicDID(&Invitation{
@@ -50,6 +51,7 @@ func TestGenerateInviteWithKeyAndEndpoint(t *testing.T) {
 		ServiceEndpoint: "https://example.com/endpoint",
 		RoutingKeys:     []string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
 	})
+	require.NoError(t, err)
 	require.NotEmpty(t, invite)
 
 	invite, err = GenerateInviteWithKeyAndEndpoint(&Invitation{

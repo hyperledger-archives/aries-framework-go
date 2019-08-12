@@ -106,14 +106,14 @@ func TestLogLevel(t *testing.T) {
 //TestParseLevelError testing 'LogLevel()' used for parsing log levels from strings
 func TestParseLevelError(t *testing.T) {
 
-	verifyLevelError := func(expected Level, levels ...string) {
+	verifyLevelError := func(levels ...string) {
 		for _, level := range levels {
 			_, err := ParseLevel(level)
 			require.Error(t, err, "not supposed to succeed while parsing level string [%s]", level)
 		}
 	}
 
-	verifyLevelError(DEBUG, "", "D", "DE BUG", ".")
+	verifyLevelError("", "D", "DE BUG", ".")
 
 }
 

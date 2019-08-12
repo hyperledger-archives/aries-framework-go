@@ -11,8 +11,6 @@ run:
   tests: true
   build-tags: [""]
   skip-dirs:  [""]
-  skip-files:
-    - ^(.*_test.go.*$)$
 
 output:
   format: colored-line-number
