@@ -25,8 +25,23 @@ const (
 	peerPrefix = "did:peer:"
 )
 
-//newDid creates the peer DID. For example : did:peer:11-479cbc07c3f991725836a3aa2a581ca2029198aa420b9d99bc0e131d9f3e2cbe
-func newDid(doc *did.Doc) (string, error) {
+//NewDoc returns the resolved variant of the genesis version of the peer DID document
+func NewDoc(publicKey []did.PublicKey, authorization []did.VerificationMethod) (*did.Doc, error) {
+
+	//Create a did doc based on the mandatory value: publicKeys & authorization
+	doc := &did.Doc{PublicKey: publicKey, Authentication: authorization}
+
+	did, err := computeDid(doc)
+	if err != nil {
+		return nil, err
+	}
+	doc.ID = did
+	return doc, nil
+
+}
+
+//computeDid creates the peer DID. For example : did:peer:11-479cbc07c3f991725836a3aa2a581ca2029198aa420b9d99bc0e131d9f3e2cbe
+func computeDid(doc *did.Doc) (string, error) {
 
 	if doc.PublicKey == nil || doc.Authentication == nil {
 		return "", errors.New("the genesis version must include public keys and authentication")
