@@ -9,6 +9,8 @@ package exchange
 import (
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -83,19 +85,19 @@ func TestGenerateInviteWithKeyAndEndpoint(t *testing.T) {
 }
 
 func TestSendRequest(t *testing.T) {
-	oTr := mocktransport.NewOutboundTransport(successResponse)
+	prov := New(&mockProvider{})
 
 	req := &Request{
 		ID:    "5678876542345",
 		Label: "Bob",
 	}
 
-	require.NoError(t, SendExchangeRequest(req, destinationURL, oTr))
-	require.Error(t, SendExchangeRequest(nil, destinationURL, oTr))
+	require.NoError(t, prov.SendExchangeRequest(req, destinationURL))
+	require.Error(t, prov.SendExchangeRequest(nil, destinationURL))
 }
 
 func TestSendResponse(t *testing.T) {
-	oTr := mocktransport.NewOutboundTransport(successResponse)
+	prov := New(&mockProvider{})
 
 	resp := &Response{
 		ID: "12345678900987654321",
@@ -104,6 +106,13 @@ func TestSendResponse(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, SendExchangeResponse(resp, destinationURL, oTr))
-	require.Error(t, SendExchangeResponse(nil, destinationURL, oTr))
+	require.NoError(t, prov.SendExchangeResponse(resp, destinationURL))
+	require.Error(t, prov.SendExchangeResponse(nil, destinationURL))
+}
+
+type mockProvider struct {
+}
+
+func (p *mockProvider) OutboundTransport() transport.OutboundTransport {
+	return mocktransport.NewOutboundTransport(successResponse)
 }
