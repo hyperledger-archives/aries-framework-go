@@ -35,10 +35,10 @@ func TestWithOutboundOpts(t *testing.T) {
 
 func TestOutboundHTTPTransport(t *testing.T) {
 	// prepare http server
-	server := startMockServer(mockHttpHandler{})
+	server := startMockServer(mockHTTPHandler{})
 
 	port := getServerPort(server)
-	serverUrl := fmt.Sprintf("https://localhost:%d", port)
+	serverURL := fmt.Sprintf("https://localhost:%d", port)
 	defer func() {
 		err := server.Close()
 		if err != nil {
@@ -57,12 +57,12 @@ func TestOutboundHTTPTransport(t *testing.T) {
 		Certificates: nil,
 	}
 	// create a new invalid Outbound transport instance
-	ot, err := NewOutbound()
+	_, err = NewOutbound()
 	require.Error(t, err)
 	require.EqualError(t, err, "Can't create an outbound transport without an HTTP client")
 
 	// now create a new valid Outbound transport instance and test its Send() call
-	ot, err = NewOutbound(WithOutboundTLSConfig(tlsConfig), WithOutboundTimeout(clientTimeout))
+	ot, err := NewOutbound(WithOutboundTLSConfig(tlsConfig), WithOutboundTimeout(clientTimeout))
 	require.NoError(t, err)
 	require.NotNil(t, ot)
 
@@ -78,12 +78,12 @@ func TestOutboundHTTPTransport(t *testing.T) {
 	require.Empty(t, r)
 
 	// and try with a 'bad' payload with a valid url..
-	r, e = ot.Send("bad", serverUrl)
+	r, e = ot.Send("bad", serverURL)
 	require.Error(t, e)
 	require.Empty(t, r)
 
 	// finally using a valid url
-	r, e = ot.Send("Hello World", serverUrl)
+	r, e = ot.Send("Hello World", serverURL)
 	require.NoError(t, e)
 	require.NotEmpty(t, r)
 

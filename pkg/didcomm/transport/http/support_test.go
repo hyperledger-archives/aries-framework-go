@@ -46,7 +46,7 @@ func addCertsToCertPool(pool *x509.CertPool) error {
 
 func startMockServer(handler http.Handler) net.Listener {
 	// ":0" will make the listener auto assign a free port
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		logger.Fatalf("HTTP listener failed to start: %s", err)
 	}
@@ -59,10 +59,10 @@ func startMockServer(handler http.Handler) net.Listener {
 	return listener
 }
 
-type mockHttpHandler struct {
+type mockHTTPHandler struct {
 }
 
-func (m mockHttpHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+func (m mockHTTPHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if req.Body != nil {
 		body, err := ioutil.ReadAll(req.Body)
 		if err != nil || string(body) == "bad" {
@@ -74,7 +74,7 @@ func (m mockHttpHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	// mocking successful response
 	res.WriteHeader(http.StatusAccepted) // usually DID-Comm expects StatusAccepted code (202)
-	res.Write([]byte("success"))
+	res.Write([]byte("success"))         // nolint
 }
 
 // decodeCerts will decode a list of pemCertsList (string) into a list of x509 certificates

@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const peerDID = "did:peer:1234"
+
 const peerDIDDoc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:1234",
@@ -72,28 +74,26 @@ func TestPeerDIDResolver(t *testing.T) {
 	dbstore, err := prov.GetStoreHandle()
 	require.NoError(t, err)
 
-	did1 := "did:peer:1234"
-
 	// save did document
 	store := NewDIDStore(dbstore)
-	err = store.Put(did1, &did.Doc{ID: did1}, nil)
+	err = store.Put(peerDID, &did.Doc{ID: peerDID}, nil)
 	require.NoError(t, err)
 
 	resl := NewDIDResolver(store)
-	doc, err := resl.Read(did1, nil, "", false)
+	doc, err := resl.Read(peerDID, nil, "", false)
 	require.NoError(t, err)
 
 	document := &did.Doc{}
 	err = json.Unmarshal(doc, document)
 	require.NoError(t, err)
-	require.Equal(t, did1, document.ID)
+	require.Equal(t, peerDID, document.ID)
 
 	// empty DID
-	doc, err = resl.Read("", nil, "", false)
+	_, err = resl.Read("", nil, "", false)
 	require.Error(t, err)
 
 	// missing DID
-	doc, err = resl.Read("did:peer:789", nil, "", false)
+	_, err = resl.Read("did:peer:789", nil, "", false)
 	require.Error(t, err)
 
 }
@@ -107,18 +107,16 @@ func TestWithDIDResolveAPI(t *testing.T) {
 	dbstore, err := prov.GetStoreHandle()
 	require.NoError(t, err)
 
-	did1 := "did:peer:1234"
-
 	// save did document
 	store := NewDIDStore(dbstore)
 	peerDoc, err := diddoc.FromBytes([]byte(peerDIDDoc))
 	require.NoError(t, err)
 	require.NotNil(t, peerDoc)
-	err = store.Put(did1, peerDoc, nil)
+	err = store.Put(peerDID, peerDoc, nil)
 	require.NoError(t, err)
 
 	r := didresolver.New(didresolver.WithDidMethod("peer", NewDIDResolver(store)))
-	_, err = r.Resolve("did:peer:1234")
+	_, err = r.Resolve(peerDID)
 	require.NoError(t, err)
 
 	_, err = r.Resolve("did:peer:789")

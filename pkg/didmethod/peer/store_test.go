@@ -22,7 +22,10 @@ func setupLevelDB(t testing.TB) (string, func()) {
 		t.Fatalf("Failed to create leveldb directory: %s", err)
 	}
 	return dbPath, func() {
-		os.RemoveAll(dbPath)
+		err := os.RemoveAll(dbPath)
+		if err != nil {
+			t.Fatalf("Failed to clear leveldb directory: %s", err)
+		}
 	}
 }
 
@@ -54,11 +57,11 @@ func TestPeerDIDStore(t *testing.T) {
 	require.Equal(t, did1, doc.ID)
 
 	// get - empty id
-	doc, err = store.Get("")
+	_, err = store.Get("")
 	require.Error(t, err)
 
 	// get - invalid id
-	doc, err = store.Get("did:peer:789")
+	_, err = store.Get("did:peer:789")
 	require.Error(t, err)
 
 	// put - empty id

@@ -20,7 +20,10 @@ func setupLevelDB(t testing.TB) (string, func()) {
 		t.Fatalf("Failed to create leveldb directory: %s", err)
 	}
 	return dbPath, func() {
-		os.RemoveAll(dbPath)
+		err := os.RemoveAll(dbPath)
+		if err != nil {
+			t.Fatalf("Failed to clear leveldb directory: %s", err)
+		}
 	}
 }
 
@@ -32,7 +35,8 @@ func TestLevelDBStore(t *testing.T) {
 	store, _ := prov.GetStoreHandle()
 
 	did1 := "did:example:123"
-	store.Put(did1, []byte("value"))
+	err := store.Put(did1, []byte("value"))
+	require.NoError(t, err)
 
 	doc, err := store.Get(did1)
 	require.NoError(t, err)
@@ -40,11 +44,11 @@ func TestLevelDBStore(t *testing.T) {
 	require.Equal(t, []byte("value"), doc)
 
 	did2 := "did:example:789"
-	doc, err = store.Get(did2)
+	_, err = store.Get(did2)
 	require.Error(t, err)
 
 	// nil key
-	doc, err = store.Get("")
+	_, err = store.Get("")
 	require.Error(t, err)
 
 	// nil value
@@ -59,7 +63,7 @@ func TestLevelDBStore(t *testing.T) {
 	require.NoError(t, err)
 
 	// try to get after provider is closed
-	doc, err = store.Get(did1)
+	_, err = store.Get(did1)
 	require.Error(t, err)
 
 	// pass file instead of directory for leveldb
@@ -67,7 +71,14 @@ func TestLevelDBStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create leveldb file: %s", err)
 	}
-	defer os.Remove(file.Name())
+	defer cleanupFile(t, file)
 	_, err = NewProvider(file.Name())
 	require.Error(t, err)
+}
+
+func cleanupFile(t *testing.T, file *os.File) {
+	err := os.Remove(file.Name())
+	if err != nil {
+		t.Fatalf("Failed to cleanup file: %s", file.Name())
+	}
 }
