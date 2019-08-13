@@ -8,15 +8,30 @@
 # aries-framework-go
 
 ## Introduction
-A go framework for Aries
+A Go framework for Aries
 
-## Contributing
+## Build
+##### Prerequisites (General)
+- Go 1.12
 
-Found a bug? Ready to submit a PR? Want to submit a proposal for your grand
-idea? Follow our [guidelines](.github/CONTRIBUTING.md) for more information
-to get you started!
+##### Prerequisites (for running tests)
+- Go 1.12
+- Docker
+- Make
 
-### Crypto Material generation for tests
+##### Targets
+```
+# run all the project build targets
+make all
+
+# run linter checks
+make checks
+
+# run unit tests
+make unit-test
+```
+
+##### Crypto material generation for tests
 For unit-tests, crypto material is generated under:
 
 `pkg/didcomm/transport/http/testdata`
@@ -29,6 +44,12 @@ If you wish to regenerate it, you can delete this folder and:
 1. run `make unit-test`
  or
 2. cd into `pkg/didcomm/transport/http/` and run `go generate`
+
+## Contributing
+
+Found a bug? Ready to submit a PR? Want to submit a proposal for your grand
+idea? Follow our [guidelines](.github/CONTRIBUTING.md) for more information
+to get you started!
 
 ## License
 
