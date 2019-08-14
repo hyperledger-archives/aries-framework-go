@@ -68,6 +68,11 @@ type Connection struct {
 	DIDDoc *did.Doc `json:"did_doc,omitempty"`
 }
 
+// provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
+type provider interface {
+	OutboundTransport() transport.OutboundTransport
+}
+
 // GenerateInviteWithPublicDID generates the DID exchange invitation string with public DID
 func GenerateInviteWithPublicDID(invite *Invitation) (string, error) {
 	if invite.ID == "" || invite.DID == "" {
@@ -86,8 +91,20 @@ func GenerateInviteWithKeyAndEndpoint(invite *Invitation) (string, error) {
 	return encodedExchangeInvitation(invite)
 }
 
+// Protocol for exchange protocol
+type Protocol struct {
+	outboundTransport transport.OutboundTransport
+}
+
+// New instanstiated new exchange client
+// The argument takes a implementation of transport.OutboundTransport (dependencies required for Exchange protocol) and
+// this is typically called by using aries.Context()
+func New(prov provider) *Protocol {
+	return &Protocol{prov.OutboundTransport()}
+}
+
 // SendExchangeRequest sends exchange request
-func SendExchangeRequest(exchangeRequest *Request, destination string, transport transport.OutboundTransport) error {
+func (p *Protocol) SendExchangeRequest(exchangeRequest *Request, destination string) error {
 	if exchangeRequest == nil {
 		return errors.New("exchangeRequest cannot be nil")
 	}
@@ -95,12 +112,12 @@ func SendExchangeRequest(exchangeRequest *Request, destination string, transport
 	exchangeRequest.Type = connectionRequest
 
 	// ignore response data as it is not used in this communication mode as defined in the spec
-	_, err := marshalAndSend(exchangeRequest, "Error Marshalling Exchange Request", destination, transport)
+	_, err := p.marshalAndSend(exchangeRequest, "Error Marshalling Exchange Request", destination)
 	return err
 }
 
 // SendExchangeResponse sends exchange response
-func SendExchangeResponse(exchangeResponse *Response, destination string, transport transport.OutboundTransport) error {
+func (p *Protocol) SendExchangeResponse(exchangeResponse *Response, destination string) error {
 	if exchangeResponse == nil {
 		return errors.New("exchangeResponse cannot be nil")
 	}
@@ -108,7 +125,7 @@ func SendExchangeResponse(exchangeResponse *Response, destination string, transp
 	exchangeResponse.Type = connectionResponse
 
 	// ignore response data as it is not used in this communication mode as defined in the spec
-	_, err := marshalAndSend(exchangeResponse, "Error Marshalling Exchange Response", destination, transport)
+	_, err := p.marshalAndSend(exchangeResponse, "Error Marshalling Exchange Response", destination)
 	return err
 }
 
@@ -123,10 +140,10 @@ func encodedExchangeInvitation(inviteMessage *Invitation) (string, error) {
 	return base64.URLEncoding.EncodeToString(invitationJSON), nil
 }
 
-func marshalAndSend(data interface{}, errorMsg, destination string, transport transport.OutboundTransport) (string, error) {
+func (p *Protocol) marshalAndSend(data interface{}, errorMsg, destination string) (string, error) {
 	jsonString, err := json.Marshal(data)
 	if err != nil {
 		return "", errors.Errorf("%s : %w", errorMsg, err)
 	}
-	return transport.Send(string(jsonString), destination)
+	return p.outboundTransport.Send(string(jsonString), destination)
 }
