@@ -43,9 +43,8 @@ func TestWithNoCache(t *testing.T) {
 }
 
 func TestWithDidMethod(t *testing.T) {
-	opt := WithDidMethod("test", nil)
-	resolverOpts := &didResolverOpts{didMethods: make(map[string]DidMethod)}
+	opt := WithDidMethod(nil)
+	resolverOpts := &didResolverOpts{didMethods: make([]DidMethod, 0)}
 	opt(resolverOpts)
-	_, exist := resolverOpts.didMethods["test"]
-	require.True(t, exist)
+	require.True(t, len(resolverOpts.didMethods) == 1)
 }

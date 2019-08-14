@@ -36,3 +36,8 @@ func (resl *DIDResolver) Read(did string, versionID interface{}, versionTime str
 
 	return jsonDoc, nil
 }
+
+// Accept did method
+func (resl *DIDResolver) Accept(method string) bool {
+	return "peer" == method
+}

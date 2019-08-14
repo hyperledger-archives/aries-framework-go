@@ -5,7 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package didresolver
 
-import "time"
+import (
+	"time"
+)
 
 // ResultType input option can be used to request a certain type of result.
 type ResultType int
@@ -20,6 +22,7 @@ const (
 // DidMethod operations
 type DidMethod interface {
 	Read(did string, versionID interface{}, versionTime string, noCache bool) ([]byte, error)
+	Accept(method string) bool
 }
 
 // resolveOpts holds the options for did resolve
@@ -63,15 +66,16 @@ func WithNoCache(noCache bool) ResolveOpt {
 
 // didResolverOpts holds the options for resolver instance
 type didResolverOpts struct {
-	didMethods map[string]DidMethod
+	didMethods []DidMethod
 }
 
 // Opt is a resolver instance option
 type Opt func(opts *didResolverOpts)
 
 // WithDidMethod to add did method
-func WithDidMethod(id string, method DidMethod) Opt {
+// DID methods are checked in the order added
+func WithDidMethod(method DidMethod) Opt {
 	return func(opts *didResolverOpts) {
-		opts.didMethods[id] = method
+		opts.didMethods = append(opts.didMethods, method)
 	}
 }

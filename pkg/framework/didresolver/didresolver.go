@@ -14,12 +14,12 @@ import (
 
 // DIDResolver did resolver
 type DIDResolver struct {
-	didMethods map[string]DidMethod
+	didMethods []DidMethod
 }
 
 // New return new instance of did resolver
 func New(opts ...Opt) *DIDResolver {
-	resolverOpts := &didResolverOpts{didMethods: make(map[string]DidMethod)}
+	resolverOpts := &didResolverOpts{didMethods: make([]DidMethod, 0)}
 	// Apply options
 	for _, opt := range opts {
 		opt(resolverOpts)
@@ -44,9 +44,10 @@ func (r *DIDResolver) Resolve(did string, opts ...ResolveOpt) (*diddoc.Doc, erro
 
 	// Determine if the input DID method is supported by the DID Resolver
 	didMethod := didParts[1]
-	method, exist := r.didMethods[didMethod]
-	if !exist {
-		return nil, errors.Errorf("did method %s not supported", didMethod)
+	// resolve did method
+	method, err := r.resolveDidMethod(didMethod)
+	if err != nil {
+		return nil, err
 	}
 
 	// Obtain the DID Document
@@ -72,4 +73,14 @@ func (r *DIDResolver) Resolve(did string, opts ...ResolveOpt) (*diddoc.Doc, erro
 	}
 
 	return didDoc, nil
+}
+
+// resolveDidMethod resolve did method
+func (r *DIDResolver) resolveDidMethod(method string) (DidMethod, error) {
+	for _, v := range r.didMethods {
+		if v.Accept(method) {
+			return v, nil
+		}
+	}
+	return nil, errors.Errorf("did method %s not supported", method)
 }
