@@ -115,7 +115,7 @@ func TestWithDIDResolveAPI(t *testing.T) {
 	err = store.Put(peerDID, peerDoc, nil)
 	require.NoError(t, err)
 
-	r := didresolver.New(didresolver.WithDidMethod("peer", NewDIDResolver(store)))
+	r := didresolver.New(didresolver.WithDidMethod(NewDIDResolver(store)))
 	_, err = r.Resolve(peerDID)
 	require.NoError(t, err)
 
