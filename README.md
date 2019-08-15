@@ -31,6 +31,8 @@ make checks
 make unit-test
 ```
 
+**Note: ** setting your `GOPROXY` is highly recommended to avoid the error `failed to load program with go/packages` during the build.
+
 ##### Crypto material generation for tests
 For unit-tests, crypto material is generated under:
 
