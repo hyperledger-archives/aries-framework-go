@@ -80,7 +80,7 @@ func TestPeerDIDResolver(t *testing.T) {
 	require.NoError(t, err)
 
 	resl := NewDIDResolver(store)
-	doc, err := resl.Read(peerDID, nil, "", false)
+	doc, err := resl.Read(peerDID)
 	require.NoError(t, err)
 
 	document := &did.Doc{}
@@ -89,13 +89,15 @@ func TestPeerDIDResolver(t *testing.T) {
 	require.Equal(t, peerDID, document.ID)
 
 	// empty DID
-	_, err = resl.Read("", nil, "", false)
+	_, err = resl.Read("")
 	require.Error(t, err)
 
 	// missing DID
-	_, err = resl.Read("did:peer:789", nil, "", false)
+	// TODO this test should assert that didresolver.ErrNotFound is returned.
+	//      that is currently impossible since the underlying store returns a
+	//      generic error when the object is not found.
+	_, err = resl.Read("did:peer:789")
 	require.Error(t, err)
-
 }
 
 func TestWithDIDResolveAPI(t *testing.T) {
