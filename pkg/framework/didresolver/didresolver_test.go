@@ -90,11 +90,12 @@ func TestResolve(t *testing.T) {
 	})
 
 	t.Run("test did input not found", func(t *testing.T) {
-		r := New(WithDidMethod(mockDidMethod{acceptFunc: func(method string) bool {
+		r := New(WithDidMethod(mockDidMethod{readErr: ErrNotFound, acceptFunc: func(method string) bool {
 			return true
 		}}))
 		didDoc, err := r.Resolve("did:example:1234")
-		require.NoError(t, err)
+		require.Error(t, err)
+		require.EqualValues(t, ErrNotFound, err)
 		require.Nil(t, didDoc)
 	})
 
@@ -133,11 +134,11 @@ func TestResolve(t *testing.T) {
 		}}))
 		didMethod, err := r.resolveDidMethod("did1")
 		require.NoError(t, err)
-		v, _ := didMethod.Read("", nil, "", false)
+		v, _ := didMethod.Read("")
 		require.Equal(t, "did1", string(v))
 		didMethod, err = r.resolveDidMethod("did2")
 		require.NoError(t, err)
-		v, _ = didMethod.Read("", nil, "", false)
+		v, _ = didMethod.Read("")
 		require.Equal(t, "did2", string(v))
 
 	})
@@ -150,7 +151,7 @@ type mockDidMethod struct {
 	acceptFunc func(method string) bool
 }
 
-func (m mockDidMethod) Read(did string, versionID interface{}, versionTime string, noCache bool) ([]byte, error) {
+func (m mockDidMethod) Read(did string, opts ...ResolveOpt) ([]byte, error) {
 	return m.readValue, m.readErr
 }
 

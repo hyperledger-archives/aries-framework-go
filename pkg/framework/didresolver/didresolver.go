@@ -34,7 +34,6 @@ func (r *DIDResolver) Resolve(did string, opts ...ResolveOpt) (*diddoc.Doc, erro
 	for _, opt := range opts {
 		opt(resolveOpts)
 	}
-
 	// TODO Validate that the input DID conforms to the did rule of the Generic DID Syntax (https://w3c-ccg.github.io/did-spec/#generic-did-syntax)
 	// For now we do simple validation
 	didParts := strings.SplitN(did, ":", 3)
@@ -51,14 +50,16 @@ func (r *DIDResolver) Resolve(did string, opts ...ResolveOpt) (*diddoc.Doc, erro
 	}
 
 	// Obtain the DID Document
-	didDocBytes, err := method.Read(did, resolveOpts.versionID, resolveOpts.versionTime, resolveOpts.noCache)
+	didDocBytes, err := method.Read(did, opts...)
 	if err != nil {
+		if err == ErrNotFound {
+			return nil, err
+		}
 		return nil, errors.Errorf("did method read failed failed: %w", err)
 	}
 
-	// If the input DID does not exist, return a nil
 	if len(didDocBytes) == 0 {
-		return nil, nil
+		return nil, ErrNotFound
 	}
 
 	// Validate that the output DID Document conforms to the serialization of the DID Document data model

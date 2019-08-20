@@ -7,6 +7,8 @@ package didresolver
 
 import (
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 // ResultType input option can be used to request a certain type of result.
@@ -19,9 +21,16 @@ const (
 	ResolutionResult
 )
 
-// DidMethod operations
+// ErrNotFound is returned when a DID resolver does not find the DID.
+var ErrNotFound = xerrors.New("DID not found")
+
+// DidMethod resolves a DID into a result type (default: DidDocumentResult).
+// See the DID resolution spec: https://w3c-ccg.github.io/did-resolution.
 type DidMethod interface {
-	Read(did string, versionID interface{}, versionTime string, noCache bool) ([]byte, error)
+	// Read implements the 'DID Resolution' algorithm defined in
+	// https://w3c-ccg.github.io/did-resolution/#resolving.
+	Read(did string, opts ...ResolveOpt) ([]byte, error)
+	// Accept registers this DID method resolver with the given method.
 	Accept(method string) bool
 }
 
