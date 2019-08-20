@@ -110,6 +110,16 @@ func TestSendResponse(t *testing.T) {
 	require.Error(t, prov.SendExchangeResponse(nil, destinationURL))
 }
 
+func TestCreateInvitation(t *testing.T) {
+	prov := New(&mockProvider{})
+	res, err := prov.CreateInvitation()
+	require.NoError(t, err)
+	require.NotEmpty(t, res)
+	require.NotEmpty(t, res.Invitation)
+	require.NotEmpty(t, res.Invitation.ID)
+	require.NotEmpty(t, res.Invitation.URL)
+}
+
 type mockProvider struct {
 }
 
