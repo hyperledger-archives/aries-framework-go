@@ -65,7 +65,10 @@ func validateDID(doc *did.Doc) error {
 
 	peerDid := doc.ID
 
-	matched, _ := regexp.MatchString(`did:peer:11-([a-fA-F0-9]){64}`, peerDid)
+	matched, err := regexp.MatchString(`did:peer:11-([a-fA-F0-9]){64}`, peerDid)
+	if err != nil {
+		return errors.Errorf("regex match string failed %w", err)
+	}
 	if !matched {
 		return errors.Errorf("did doesnt follow matching regex")
 	}
