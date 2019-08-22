@@ -31,11 +31,12 @@ func TestLevelDBStore(t *testing.T) {
 	path, cleanup := setupLevelDB(t)
 	defer cleanup()
 
-	prov, _ := NewProvider(path)
-	store, _ := prov.GetStoreHandle()
-
+	prov, err := NewProvider(path)
+	require.NoError(t, err)
+	store, err := prov.GetStoreHandle()
+	require.NoError(t, err)
 	did1 := "did:example:123"
-	err := store.Put(did1, []byte("value"))
+	err = store.Put(did1, []byte("value"))
 	require.NoError(t, err)
 
 	doc, err := store.Get(did1)

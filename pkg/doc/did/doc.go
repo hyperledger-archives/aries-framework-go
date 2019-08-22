@@ -278,7 +278,10 @@ func populateAuthentications(rawAuthentications []interface{}, pks []PublicKey) 
 			continue
 		}
 
-		valuePK, _ := rawAuthentication.(map[string]interface{})
+		valuePK, ok := rawAuthentication.(map[string]interface{})
+		if !ok {
+			return nil, errors.New("rawAuthentication is not map[string]interface{}")
+		}
 		pk, err := populatePublicKeys([]map[string]interface{}{valuePK})
 		if err != nil {
 			return nil, err

@@ -19,8 +19,8 @@ output:
 
 linters-settings:
   errcheck:
-    check-type-assertions: false
-    check-blank: false
+    check-type-assertions: true
+    check-blank: true
     ignore: fmt:.*,io/ioutil:^Read.*
   govet:
     check-shadowing: true

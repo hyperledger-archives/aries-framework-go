@@ -67,7 +67,10 @@ func (m mockHTTPHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		body, err := ioutil.ReadAll(req.Body)
 		if err != nil || string(body) == "bad" {
 			res.WriteHeader(http.StatusBadRequest)
-			_, _ = res.Write([]byte(fmt.Sprintf("bad request: %s", body)))
+			_, err = res.Write([]byte(fmt.Sprintf("bad request: %s", body)))
+			if err != nil {
+				panic(err)
+			}
 			return
 		}
 	}

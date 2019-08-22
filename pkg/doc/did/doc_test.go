@@ -282,7 +282,8 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 	t.Run("test did doc auth public key without id", func(t *testing.T) {
 		raw := &rawDoc{}
 		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		pk := raw.Authentication[1].(map[string]interface{})
+		pk, ok := raw.Authentication[1].(map[string]interface{})
+		require.True(t, ok)
 		delete(pk, jsonldID)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
@@ -294,7 +295,8 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 	t.Run("test did doc auth public key without type", func(t *testing.T) {
 		raw := &rawDoc{}
 		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		pk := raw.Authentication[1].(map[string]interface{})
+		pk, ok := raw.Authentication[1].(map[string]interface{})
+		require.True(t, ok)
 		delete(pk, jsonldType)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
@@ -306,7 +308,8 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 	t.Run("test did doc auth public key without controller", func(t *testing.T) {
 		raw := &rawDoc{}
 		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		pk := raw.Authentication[1].(map[string]interface{})
+		pk, ok := raw.Authentication[1].(map[string]interface{})
+		require.True(t, ok)
 		delete(pk, jsonldController)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
@@ -318,7 +321,8 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 	t.Run("test did doc auth public key with extra key", func(t *testing.T) {
 		raw := &rawDoc{}
 		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		pk := raw.Authentication[1].(map[string]interface{})
+		pk, ok := raw.Authentication[1].(map[string]interface{})
+		require.True(t, ok)
 		pk["key1"] = ""
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
@@ -504,7 +508,8 @@ func TestJSONConversion(t *testing.T) {
 	require.NotEmpty(t, doc)
 
 	// convert Document to json byte data
-	byteDoc, _ := doc.JSONBytes()
+	byteDoc, err := doc.JSONBytes()
+	require.NoError(t, err)
 	require.NoError(t, err)
 
 	// convert json byte data to document

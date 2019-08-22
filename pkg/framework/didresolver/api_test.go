@@ -23,7 +23,8 @@ func TestWithVersionID(t *testing.T) {
 	opt := WithVersionID("v1")
 	resolveOpts := &resolveOpts{}
 	opt(resolveOpts)
-	versionID := resolveOpts.versionID.(string)
+	versionID, ok := resolveOpts.versionID.(string)
+	require.True(t, ok)
 	require.Equal(t, "v1", versionID)
 }
 

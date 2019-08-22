@@ -108,7 +108,10 @@ func New(endpointURL string, opts ...ResolverOpt) (*DIDResolver, error) {
 
 // Read implements didresolver.DidMethod.Read interface (https://w3c-ccg.github.io/did-resolution/#resolving-input)
 func (res *DIDResolver) Read(DID string, _ ...didresolver.ResolveOpt) ([]byte, error) {
-	reqURL, _ := url.ParseRequestURI(res.endpointURL)
+	reqURL, err := url.ParseRequestURI(res.endpointURL)
+	if err != nil {
+		return nil, errors.Errorf("url parse request uri failed %w", err)
+	}
 
 	reqURL.Path = path.Join(reqURL.Path, DID)
 
