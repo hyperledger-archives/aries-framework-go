@@ -63,7 +63,7 @@ func TestRead_DIDDoc(t *testing.T) {
 	defer func() { testServer.Close() }()
 
 	resolver, _ := New(testServer.URL)
-	gotDocument, err := resolver.Read("did:example:334455", nil, "", false)
+	gotDocument, err := resolver.Read("did:example:334455")
 	require.NoError(t, err)
 	require.Equal(t, []byte("did doc body"), gotDocument)
 }
@@ -78,7 +78,7 @@ func TestRead_DIDDocWithBasePath(t *testing.T) {
 	defer func() { testServer.Close() }()
 
 	resolver, _ := New(testServer.URL + "/document")
-	gotDocument, err := resolver.Read("did:example:334455", nil, "", false)
+	gotDocument, err := resolver.Read("did:example:334455")
 	require.NoError(t, err)
 	require.Equal(t, []byte("did doc body"), gotDocument)
 }
@@ -93,7 +93,7 @@ func TestRead_DIDDocWithBasePathWithSlashes(t *testing.T) {
 	defer func() { testServer.Close() }()
 
 	resolver, _ := New(testServer.URL + "/document/")
-	gotDocument, err := resolver.Read("did:example:334455", nil, "", false)
+	gotDocument, err := resolver.Read("did:example:334455")
 	require.NoError(t, err)
 	require.Equal(t, []byte("did doc body"), gotDocument)
 }
@@ -107,7 +107,7 @@ func TestRead_DIDDocNotFound(t *testing.T) {
 	defer func() { testServer.Close() }()
 
 	resolver, _ := New(testServer.URL)
-	_, err := resolver.Read("did:example:334455", nil, "", false)
+	_, err := resolver.Read("did:example:334455")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Input DID does not exist")
 }
@@ -119,7 +119,7 @@ func TestRead_UnsupportedStatus(t *testing.T) {
 	defer func() { testServer.Close() }()
 
 	resolver, _ := New(testServer.URL)
-	_, err := resolver.Read("did:example:334455", nil, "", false)
+	_, err := resolver.Read("did:example:334455")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "Unsupported response from DID Resolver with status code")
 }
@@ -132,7 +132,13 @@ func TestRead_HTTPGetFailed(t *testing.T) {
 	defer func() { testServer.Close() }()
 
 	resolver, _ := New(testServer.URL)
-	_, err := resolver.Read("did:example:334455", nil, "", false)
+	_, err := resolver.Read("did:example:334455")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "HTTP Get request failed")
+}
+
+func TestDIDResolver_Accept(t *testing.T) {
+	res := &DIDResolver{}
+	accepted := res.Accept("foo")
+	require.True(t, accepted)
 }
