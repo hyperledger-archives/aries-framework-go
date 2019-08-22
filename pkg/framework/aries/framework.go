@@ -7,14 +7,25 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	errors "golang.org/x/xerrors"
 )
 
+// DIDResolver interface for DID resolver.
+type DIDResolver interface {
+	Resolve(did string, opts ...didresolver.ResolveOpt) (*did.Doc, error)
+}
+
 // Aries provides access to clients being managed by the framework.
 type Aries struct {
-	transport api.TransportProviderFactory
+	transport     api.TransportProviderFactory
+	didResolver   DIDResolver
+	storeProvider storage.Provider
 }
 
 // Option configures the framework.
@@ -23,7 +34,10 @@ type Option func(opts *Aries) error
 // New initializes the Aries framework based on the set of options provided.
 func New(opts ...Option) (*Aries, error) {
 	// get the default framework options
-	defOpts := defFrameworkOpts()
+	defOpts, err := defFrameworkOpts()
+	if err != nil {
+		return nil, errors.Errorf("default option initialization failed: %w", err)
+	}
 
 	frameworkOpts := &Aries{}
 
@@ -39,14 +53,46 @@ func New(opts ...Option) (*Aries, error) {
 }
 
 // WithTransportProviderFactory injects a protocol provider factory interface to Aries
-func WithTransportProviderFactory(ot api.TransportProviderFactory) Option {
+func WithTransportProviderFactory(transport api.TransportProviderFactory) Option {
 	return func(opts *Aries) error {
-		opts.transport = ot
+		opts.transport = transport
 		return nil
 	}
 }
 
+// WithDIDResolver injects a DID resolver to the Aries framework
+func WithDIDResolver(didResolver DIDResolver) Option {
+	return func(opts *Aries) error {
+		opts.didResolver = didResolver
+		return nil
+	}
+}
+
+// WithStoreProvider injects a storage provider to the Aries framework
+func WithStoreProvider(prov storage.Provider) Option {
+	return func(opts *Aries) error {
+		opts.storeProvider = prov
+		return nil
+	}
+}
+
+// DIDResolver returns the framework configured DID Resolver.
+func (a *Aries) DIDResolver() DIDResolver {
+	return a.didResolver
+}
+
 // Context provides handle to framework context
 func (a *Aries) Context() (*context.Provider, error) {
-	return context.New(context.WithOutboundTransport(a.transport.CreateOutboundTransport()))
+	return context.New(
+		context.WithOutboundTransport(a.transport.CreateOutboundTransport()),
+	)
+}
+
+// Close frees resources being maintained by the framework.
+func (a *Aries) Close() error {
+	err := a.storeProvider.Close()
+	if err != nil {
+		return errors.Errorf("failed to close the framework: %w", err)
+	}
+	return nil
 }
