@@ -12,5 +12,5 @@ import (
 
 // TransportProviderFactory allows overriding of aries protocol providers
 type TransportProviderFactory interface {
-	CreateOutboundTransport() transport.OutboundTransport
+	CreateOutboundTransport() (transport.OutboundTransport, error)
 }

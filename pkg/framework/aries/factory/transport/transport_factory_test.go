@@ -14,5 +14,7 @@ import (
 
 func TestNewProviderFactory(t *testing.T) {
 	f := NewProviderFactory()
-	require.Empty(t, f.CreateOutboundTransport())
+	ot, err := f.CreateOutboundTransport()
+	require.NoError(t, err)
+	require.NotEmpty(t, ot)
 }
