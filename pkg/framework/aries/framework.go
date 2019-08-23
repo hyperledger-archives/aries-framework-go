@@ -83,8 +83,13 @@ func (a *Aries) DIDResolver() DIDResolver {
 
 // Context provides handle to framework context
 func (a *Aries) Context() (*context.Provider, error) {
+	ot, err := a.transport.CreateOutboundTransport()
+	if err != nil {
+		return nil, errors.Errorf("outbound transport initialization failed: %w", err)
+	}
+
 	return context.New(
-		context.WithOutboundTransport(a.transport.CreateOutboundTransport()),
+		context.WithOutboundTransport(ot),
 	)
 }
 

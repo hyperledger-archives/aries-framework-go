@@ -7,8 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
+	"fmt"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
@@ -79,6 +83,47 @@ func TestFramework(t *testing.T) {
 		require.Error(t, exClient.SendExchangeRequest(req, ""))
 	})
 
+	t.Run("test framework new - with default transport", func(t *testing.T) {
+		path, cleanup := setupLevelDB(t)
+		defer cleanup()
+		dbPath = path
+
+		// prepare http server
+		server := startMockServer(t, mockHTTPHandler{})
+		port := getServerPort(server)
+		defer func() {
+			err := server.Close()
+			if err != nil {
+				t.Fatalf("Failed to stop server: %s", err)
+			}
+		}()
+		serverURL := fmt.Sprintf("http://localhost:%d", port)
+
+		aries, err := New()
+		require.NoError(t, err)
+
+		// context
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+
+		r, e := ctx.OutboundTransport().Send("Hello World", serverURL)
+		require.NoError(t, e)
+		require.NotEmpty(t, r)
+		require.Equal(t, "success", r)
+	})
+
+	t.Run("test framework new - failed to create the context : error with user provided transport ", func(t *testing.T) {
+		path, cleanup := setupLevelDB(t)
+		defer cleanup()
+		dbPath = path
+		aries, err := New(WithTransportProviderFactory(&mockTransportProviderFactory{err: errors.New("outbound transport init failed")}))
+		require.NoError(t, err)
+
+		// context
+		_, err = aries.Context()
+		require.Error(t, err)
+	})
+
 	// framework new - success
 	t.Run("test DID resolver - with user provided resolver", func(t *testing.T) {
 		peerDID := "did:peer:123"
@@ -133,10 +178,14 @@ func TestFramework(t *testing.T) {
 }
 
 type mockTransportProviderFactory struct {
+	err error
 }
 
-func (f *mockTransportProviderFactory) CreateOutboundTransport() transport.OutboundTransport {
-	return mocktransport.NewOutboundTransport("success")
+func (f *mockTransportProviderFactory) CreateOutboundTransport() (transport.OutboundTransport, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return mocktransport.NewOutboundTransport("success"), nil
 }
 
 type mockDidMethod struct {
@@ -164,4 +213,39 @@ func setupLevelDB(t testing.TB) (string, func()) {
 			t.Fatalf("Failed to clear leveldb directory: %s", err)
 		}
 	}
+}
+
+func startMockServer(t *testing.T, handler http.Handler) net.Listener {
+	// ":0" will make the listener auto assign a free port
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	go func() {
+		err := http.Serve(listener, handler)
+		if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
+			require.NoError(t, err)
+		}
+	}()
+	return listener
+}
+
+type mockHTTPHandler struct {
+}
+
+func (m mockHTTPHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	if req.Body != nil {
+		body, err := ioutil.ReadAll(req.Body)
+		if err != nil || string(body) == "bad" {
+			res.WriteHeader(http.StatusBadRequest)
+			res.Write([]byte(fmt.Sprintf("bad request: %s", body))) // nolint
+			return
+		}
+	}
+
+	// mocking successful response
+	res.WriteHeader(http.StatusAccepted)
+	res.Write([]byte("success")) // nolint
+}
+
+func getServerPort(server net.Listener) int {
+	return server.Addr().(*net.TCPAddr).Port
 }

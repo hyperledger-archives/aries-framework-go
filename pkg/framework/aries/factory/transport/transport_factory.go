@@ -7,7 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package transport
 
 import (
+	"net/http"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	httptransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 )
 
 // ProviderFactory represents the default transport provider factory.
@@ -21,7 +24,6 @@ func NewProviderFactory() *ProviderFactory {
 }
 
 // CreateOutboundTransport returns a new default implementation of outbound transport provider
-func (f *ProviderFactory) CreateOutboundTransport() transport.OutboundTransport {
-	// TODO - https://github.com/hyperledger/aries-framework-go/issues/83
-	return nil
+func (f *ProviderFactory) CreateOutboundTransport() (transport.OutboundTransport, error) {
+	return httptransport.NewOutbound(httptransport.WithOutboundHTTPClient(&http.Client{}))
 }
