@@ -11,9 +11,7 @@ import (
 	"encoding/json"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	errors "golang.org/x/xerrors"
 )
 
@@ -23,50 +21,6 @@ const (
 	connectionRequest  = connectionSpec + "request"
 	connectionResponse = connectionSpec + "response"
 )
-
-// Invitation defines DID exchange invitation message
-// https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange#0-invitation-to-exchange
-type Invitation struct {
-	Type            string   `json:"@type,omitempty"`
-	ID              string   `json:"@id,omitempty"`
-	Label           string   `json:"label,omitempty"`
-	DID             string   `json:"did,omitempty"`
-	RecipientKeys   []string `json:"recipientKeys,omitempty"`
-	ServiceEndpoint string   `json:"serviceEndpoint,omitempty"`
-	RoutingKeys     []string `json:"routingKeys,omitempty"`
-}
-
-// Request defines a2a DID exchange request
-// https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange#1-exchange-request
-type Request struct {
-	Type       string      `json:"@type,omitempty"`
-	ID         string      `json:"@id,omitempty"`
-	Label      string      `json:"label,omitempty"`
-	Connection *Connection `json:"connection,omitempty"`
-}
-
-// Response defines a2a DID exchange response
-// https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange#2-exchange-response
-type Response struct {
-	Type                string               `json:"@type,omitempty"`
-	ID                  string               `json:"@id,omitempty"`
-	ConnectionSignature *ConnectionSignature `json:"connection~sig,omitempty"`
-	Thread              *decorator.Thread    `json:"~thread,omitempty"`
-}
-
-// ConnectionSignature connection signature
-type ConnectionSignature struct {
-	Type       string `json:"@type,omitempty"`
-	Signature  string `json:"signature,omitempty"`
-	SignedData string `json:"sig_data,omitempty"`
-	SignVerKey string `json:"signers,omitempty"`
-}
-
-// Connection connection
-type Connection struct {
-	DID    string   `json:"did,omitempty"`
-	DIDDoc *did.Doc `json:"did_doc,omitempty"`
-}
 
 // provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
 type provider interface {
@@ -127,6 +81,22 @@ func (p *Protocol) SendExchangeResponse(exchangeResponse *Response, destination 
 	// ignore response data as it is not used in this communication mode as defined in the spec
 	_, err := p.marshalAndSend(exchangeResponse, "Error Marshalling Exchange Response", destination)
 	return err
+}
+
+//CreateInvitation creates invitation
+//TODO to be implemented
+func (p *Protocol) CreateInvitation() (*CreateInvitationResponse, error) {
+	//TODO given below is sample response
+	return &CreateInvitationResponse{
+		Invitation: &InvitationRequest{
+			ID:  "3a132aff-8968-4ed5-8142-776d4ff7cbb4",
+			URL: "http://sampleeurl?c_i=eyJAdHlwZSI6ICJkaWQ6c292OkJ6Q",
+			Invitation: &Invitation{
+				ID:    "45e01a60-73e4-4ce5-891e-c0dfdda01d40",
+				Label: "Sample Agent",
+			},
+		},
+	}, nil
 }
 
 func encodedExchangeInvitation(inviteMessage *Invitation) (string, error) {
