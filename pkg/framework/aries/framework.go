@@ -23,9 +23,10 @@ type DIDResolver interface {
 
 // Aries provides access to clients being managed by the framework.
 type Aries struct {
-	transport     api.TransportProviderFactory
-	didResolver   DIDResolver
-	storeProvider storage.Provider
+	transport           api.TransportProviderFactory
+	didResolver         DIDResolver
+	storeProvider       storage.Provider
+	protocolSvcCreators []api.ProtocolSvcCreator
 }
 
 // Option configures the framework.
@@ -76,6 +77,14 @@ func WithStoreProvider(prov storage.Provider) Option {
 	}
 }
 
+// WithProtocolSvcCreator injects a protocol service to the Aries framework
+func WithProtocolSvcCreator(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
+	return func(opts *Aries) error {
+		opts.protocolSvcCreators = append(opts.protocolSvcCreators, protocolSvcCreator...)
+		return nil
+	}
+}
+
 // DIDResolver returns the framework configured DID Resolver.
 func (a *Aries) DIDResolver() DIDResolver {
 	return a.didResolver
@@ -89,7 +98,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 	}
 
 	return context.New(
-		context.WithOutboundTransport(ot),
+		context.WithOutboundTransport(ot), context.WithProtocolSvcCreator(a.protocolSvcCreators...),
 	)
 }
 
