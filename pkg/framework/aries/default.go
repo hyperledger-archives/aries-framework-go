@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
+	exchangeService "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/exchange/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/factory/transport"
@@ -81,6 +82,10 @@ func defFrameworkOpts() ([]Option, error) {
 		return nil, errors.Errorf("resolver initialization failed : %w", err)
 	}
 	opts = append(opts, WithStoreProvider(storeProv))
+
+	// default protocols
+	newExchangeSvc := func(prv api.Provider) (api.ProtocolSvc, error) { return exchangeService.New(prv), nil }
+	opts = append(opts, WithProtocolSvcCreator(newExchangeSvc))
 
 	return opts, nil
 }

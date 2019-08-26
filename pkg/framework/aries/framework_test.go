@@ -15,6 +15,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
+
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 
@@ -175,6 +179,58 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("test protocol svc - with default protocol", func(t *testing.T) {
+		aries, err := New()
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+		exist := false
+		for _, v := range ctx.RESTHandlers() {
+			if v.Path() == "/create-invitation" {
+				exist = true
+				break
+			}
+		}
+		require.True(t, exist)
+
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test protocol svc - with user provided protocol", func(t *testing.T) {
+		newMockSvc := func(prv api.Provider) (api.ProtocolSvc, error) {
+			return mockProtocolSvc{getAPIHandlersValue: []api.Handler{support.NewHTTPHandler("testPath", "", nil)}}, nil
+		}
+		// with custom protocol
+		aries, err := New(WithProtocolSvcCreator(newMockSvc))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+		exist := false
+		for _, v := range ctx.RESTHandlers() {
+			if v.Path() == "testPath" {
+				exist = true
+				break
+			}
+		}
+		require.True(t, exist)
+
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
+}
+
+type mockProtocolSvc struct {
+	getAPIHandlersValue []api.Handler
+}
+
+func (m mockProtocolSvc) GetAPIHandlers() []api.Handler {
+	return m.getAPIHandlersValue
 }
 
 type mockTransportProviderFactory struct {

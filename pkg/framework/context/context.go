@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
-	exchangeService "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/exchange/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	errors "golang.org/x/xerrors"
@@ -15,8 +14,9 @@ import (
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
-	outboundTransport transport.OutboundTransport
-	apiHandlers       []api.Handler
+	outboundTransport   transport.OutboundTransport
+	apiHandlers         []api.Handler
+	protocolSvcCreators []api.ProtocolSvcCreator
 }
 
 // New instantiated new context provider
@@ -30,9 +30,13 @@ func New(opts ...ProviderOption) (*Provider, error) {
 	}
 
 	//Load services and initialize context with API handlers
-	exchangeSvc := exchangeService.New(&ctxProvider)
-	ctxProvider.apiHandlers = append(ctxProvider.apiHandlers, exchangeSvc.GetAPIHandlers()...)
-
+	for _, v := range ctxProvider.protocolSvcCreators {
+		svc, err := v(&ctxProvider)
+		if err != nil {
+			return nil, errors.Errorf("new protocol service failed: %w", err)
+		}
+		ctxProvider.apiHandlers = append(ctxProvider.apiHandlers, svc.GetAPIHandlers()...)
+	}
 	return &ctxProvider, nil
 }
 
@@ -53,6 +57,14 @@ type ProviderOption func(opts *Provider) error
 func WithOutboundTransport(ot transport.OutboundTransport) ProviderOption {
 	return func(opts *Provider) error {
 		opts.outboundTransport = ot
+		return nil
+	}
+}
+
+// WithProtocolSvcCreator injects protocol svc into context
+func WithProtocolSvcCreator(protocolSvcCreator ...api.ProtocolSvcCreator) ProviderOption {
+	return func(opts *Provider) error {
+		opts.protocolSvcCreators = protocolSvcCreator
 		return nil
 	}
 }
