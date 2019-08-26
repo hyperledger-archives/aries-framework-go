@@ -22,7 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/exchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
@@ -75,11 +75,11 @@ func TestFramework(t *testing.T) {
 		ctx, err := aries.Context()
 		require.NoError(t, err)
 
-		// exchange client
-		exClient := exchange.New(ctx)
+		// did exchange client
+		exClient := didexchange.New(ctx)
 		require.NoError(t, err)
 
-		req := &exchange.Request{
+		req := &didexchange.Request{
 			ID:    "5678876542345",
 			Label: "Bob",
 		}
@@ -229,7 +229,7 @@ type mockProtocolSvc struct {
 	getAPIHandlersValue []api.Handler
 }
 
-func (m mockProtocolSvc) GetAPIHandlers() []api.Handler {
+func (m mockProtocolSvc) GetRESTHandlers() []api.Handler {
 	return m.getAPIHandlersValue
 }
 

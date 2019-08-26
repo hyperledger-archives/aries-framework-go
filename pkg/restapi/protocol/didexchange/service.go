@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package service
+package didexchange
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-openapi/runtime/middleware/denco"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/exchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
@@ -41,10 +41,10 @@ type GenericError struct {
 	} `json:"body"`
 }
 
-//New returns new DID Exchange service protocol instance
+//New returns new DID Exchange rest service protocol instance
 func New(ctx provider) *ExchangeService {
 
-	didExchange := exchange.New(ctx)
+	didExchange := didexchange.New(ctx)
 	svc := &ExchangeService{ctx: ctx, didExchange: didExchange}
 	svc.registerHandler()
 
@@ -54,7 +54,7 @@ func New(ctx provider) *ExchangeService {
 //ExchangeService DID Exchange service protocol
 type ExchangeService struct {
 	ctx         provider
-	didExchange *exchange.Protocol
+	didExchange *didexchange.Protocol
 	handlers    []api.Handler
 }
 
@@ -99,8 +99,8 @@ func (e *ExchangeService) writeGenericError(rw http.ResponseWriter, err error) {
 	}
 }
 
-//GetAPIHandlers get all controller API handler available for this protocol service
-func (e *ExchangeService) GetAPIHandlers() []api.Handler {
+//GetRESTHandlers get all controller API handler available for this protocol service
+func (e *ExchangeService) GetRESTHandlers() []api.Handler {
 	return e.handlers
 }
 

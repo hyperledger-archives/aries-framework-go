@@ -20,7 +20,7 @@ type Handler interface {
 
 // ProtocolSvc interface for protocol service
 type ProtocolSvc interface {
-	GetAPIHandlers() []Handler
+	GetRESTHandlers() []Handler
 }
 
 // Provider interface for protocol ctx

@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package service
+package didexchange
 
 import (
 	"bytes"
@@ -17,7 +17,7 @@ import (
 	"testing"
 
 	"github.com/go-openapi/runtime/middleware/denco"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/exchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
@@ -32,7 +32,7 @@ func TestExchangeService_GetAPIHandlers(t *testing.T) {
 	svc := New(&mockProvider{})
 	require.NotNil(t, svc)
 
-	handlers := svc.GetAPIHandlers()
+	handlers := svc.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 }
 
@@ -40,7 +40,7 @@ func TestExchangeService_CreateInvitation(t *testing.T) {
 	svc := New(&mockProvider{})
 	require.NotNil(t, svc)
 
-	handlers := svc.GetAPIHandlers()
+	handlers := svc.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
 	var handler api.Handler
@@ -55,7 +55,7 @@ func TestExchangeService_CreateInvitation(t *testing.T) {
 	buf, err := getResponseFromHandler(handler, nil)
 	require.NoError(t, err)
 
-	response := exchange.InvitationRequest{}
+	response := didexchange.InvitationRequest{}
 	err = json.Unmarshal(buf.Bytes(), &response)
 	require.NoError(t, err)
 
@@ -122,7 +122,7 @@ func getResponseFromHandler(handler api.Handler, requestBody io.Reader) (*bytes.
 	return rr.Body, nil
 }
 
-//mockProvider mocks provider needed for exchange service initialization
+//mockProvider mocks provider needed for did exchange service initialization
 type mockProvider struct {
 }
 

@@ -43,7 +43,7 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithProtocolSvcCreator(mockSvcCreator))
 		require.NoError(t, err)
 		exist := false
-		for _, v := range prov.apiHandlers {
+		for _, v := range prov.restHandlers {
 			if v.Path() == "testPath" {
 				exist = true
 				break
@@ -66,6 +66,6 @@ type mockProtocolSvc struct {
 	getAPIHandlersValue []api.Handler
 }
 
-func (m mockProtocolSvc) GetAPIHandlers() []api.Handler {
+func (m mockProtocolSvc) GetRESTHandlers() []api.Handler {
 	return m.getAPIHandlersValue
 }

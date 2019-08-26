@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package exchange
+package didexchange
 
 import (
 	"encoding/base64"
@@ -22,7 +22,7 @@ const (
 	connectionResponse = connectionSpec + "response"
 )
 
-// provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
+// provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	OutboundTransport() transport.OutboundTransport
 }
@@ -45,13 +45,13 @@ func GenerateInviteWithKeyAndEndpoint(invite *Invitation) (string, error) {
 	return encodedExchangeInvitation(invite)
 }
 
-// Protocol for exchange protocol
+// Protocol for DID exchange protocol
 type Protocol struct {
 	outboundTransport transport.OutboundTransport
 }
 
 // New instanstiated new exchange client
-// The argument takes a implementation of transport.OutboundTransport (dependencies required for Exchange protocol) and
+// The argument takes a implementation of transport.OutboundTransport (dependencies required for DID Exchange protocol) and
 // this is typically called by using aries.Context()
 func New(prov provider) *Protocol {
 	return &Protocol{prov.OutboundTransport()}

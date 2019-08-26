@@ -15,7 +15,7 @@ import (
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
 	outboundTransport   transport.OutboundTransport
-	apiHandlers         []api.Handler
+	restHandlers        []api.Handler
 	protocolSvcCreators []api.ProtocolSvcCreator
 }
 
@@ -35,7 +35,7 @@ func New(opts ...ProviderOption) (*Provider, error) {
 		if err != nil {
 			return nil, errors.Errorf("new protocol service failed: %w", err)
 		}
-		ctxProvider.apiHandlers = append(ctxProvider.apiHandlers, svc.GetAPIHandlers()...)
+		ctxProvider.restHandlers = append(ctxProvider.restHandlers, svc.GetRESTHandlers()...)
 	}
 	return &ctxProvider, nil
 }
@@ -47,7 +47,7 @@ func (p *Provider) OutboundTransport() transport.OutboundTransport {
 
 // RESTHandlers returns the REST API handlers for controller endpoints
 func (p *Provider) RESTHandlers() []api.Handler {
-	return p.apiHandlers
+	return p.restHandlers
 }
 
 // ProviderOption configures the framework.
