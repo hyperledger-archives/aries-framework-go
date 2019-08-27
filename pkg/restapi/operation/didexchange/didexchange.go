@@ -13,8 +13,8 @@ import (
 	"github.com/go-openapi/runtime/middleware/denco"
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 )
 
 var logger = log.New("aries-framework/did-exchange")
@@ -41,23 +41,23 @@ type GenericError struct {
 }
 
 //New returns new DID Exchange rest client protocol instance
-func New(ctx provider) (*Client, error) {
+func New(ctx provider) (*Operation, error) {
 
 	didExchange, err := didexchange.New(ctx)
 	if err != nil {
 		return nil, err
 	}
-	svc := &Client{ctx: ctx, didExchangeClient: didExchange}
+	svc := &Operation{ctx: ctx, didExchangeClient: didExchange}
 	svc.registerHandler()
 
 	return svc, nil
 }
 
-//Client DID Exchange rest client
-type Client struct {
+//Operation is controller REST service controller for DID Exchange
+type Operation struct {
 	ctx               provider
 	didExchangeClient *didexchange.Client
-	handlers          []api.Handler
+	handlers          []operation.Handler
 }
 
 // CreateInvitation swagger:route GET /create-invitation did-exchange createInvitation
@@ -67,7 +67,7 @@ type Client struct {
 // Responses:
 //    default: genericError
 //        200: createInvitationResponse
-func (c *Client) CreateInvitation(rw http.ResponseWriter, req *http.Request, param denco.Params) {
+func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request, param denco.Params) {
 
 	logger.Debugf("Creating connection invitation ")
 
@@ -85,7 +85,7 @@ func (c *Client) CreateInvitation(rw http.ResponseWriter, req *http.Request, par
 }
 
 //writeGenericError writes given error to http response writer as generic error response
-func (c *Client) writeGenericError(rw http.ResponseWriter, err error) {
+func (c *Operation) writeGenericError(rw http.ResponseWriter, err error) {
 	errResponse := GenericError{
 		Body: struct {
 			Code    int32  `json:"code"`
@@ -103,14 +103,14 @@ func (c *Client) writeGenericError(rw http.ResponseWriter, err error) {
 }
 
 //GetRESTHandlers get all controller API handler available for this protocol service
-func (c *Client) GetRESTHandlers() []api.Handler {
+func (c *Operation) GetRESTHandlers() []operation.Handler {
 	return c.handlers
 }
 
 //registerHandler register handlers to be exposed from this protocol service as REST API endpoints
-func (c *Client) registerHandler() {
+func (c *Operation) registerHandler() {
 	//Add more protocol endpoints here to expose them as controller API endpoints
-	c.handlers = []api.Handler{
+	c.handlers = []operation.Handler{
 		support.NewHTTPHandler(createInviationAPIPath, http.MethodGet, c.CreateInvitation),
 	}
 }
