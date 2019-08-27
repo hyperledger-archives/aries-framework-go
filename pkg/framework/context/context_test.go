@@ -9,7 +9,7 @@ package context
 import (
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 
@@ -37,35 +37,41 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with protocol service", func(t *testing.T) {
-		mockSvcCreator := func(prv api.Provider) (api.ProtocolSvc, error) {
-			return mockProtocolSvc{getAPIHandlersValue: []api.Handler{support.NewHTTPHandler("testPath", "", nil)}}, nil
+		mockSvcCreator := func(prv api.Provider) (dispatcher.Service, error) {
+			return mockProtocolSvc{}, nil
 		}
-		prov, err := New(WithProtocolSvcCreator(mockSvcCreator))
+		prov, err := New(WithProtocols(mockSvcCreator))
 		require.NoError(t, err)
-		exist := false
-		for _, v := range prov.restHandlers {
-			if v.Path() == "testPath" {
-				exist = true
-				break
-			}
-		}
-		require.True(t, exist)
+
+		_, err = prov.Service("mockProtocolSvc")
+		require.NoError(t, err)
+
+		_, err = prov.Service("mockProtocolSvc1")
+		require.Error(t, err)
+
 	})
 
 	t.Run("test error from protocol service", func(t *testing.T) {
-		newMockSvc := func(prv api.Provider) (api.ProtocolSvc, error) {
+		newMockSvc := func(prv api.Provider) (dispatcher.Service, error) {
 			return nil, errors.New("error creating the protocol")
 		}
-		_, err := New(WithProtocolSvcCreator(newMockSvc))
+		_, err := New(WithProtocols(newMockSvc))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating the protocol")
 	})
 }
 
 type mockProtocolSvc struct {
-	getAPIHandlersValue []api.Handler
 }
 
-func (m mockProtocolSvc) GetRESTHandlers() []api.Handler {
-	return m.getAPIHandlersValue
+func (m mockProtocolSvc) Handle(msg dispatcher.DIDCommMsg) {
+
+}
+
+func (m mockProtocolSvc) Accept(msgType string) bool {
+	return true
+}
+
+func (m mockProtocolSvc) Name() string {
+	return "mockProtocolSvc"
 }

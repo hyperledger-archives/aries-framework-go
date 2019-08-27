@@ -16,11 +16,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+
+	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+
 	"github.com/go-openapi/runtime/middleware/denco"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,7 +31,8 @@ const (
 )
 
 func TestExchangeService_GetAPIHandlers(t *testing.T) {
-	svc := New(&mockProvider{})
+	svc, err := New(&mockProvider{})
+	require.NoError(t, err)
 	require.NotNil(t, svc)
 
 	handlers := svc.GetRESTHandlers()
@@ -37,7 +40,8 @@ func TestExchangeService_GetAPIHandlers(t *testing.T) {
 }
 
 func TestExchangeService_CreateInvitation(t *testing.T) {
-	svc := New(&mockProvider{})
+	svc, err := New(&mockProvider{})
+	require.NoError(t, err)
 	require.NotNil(t, svc)
 
 	handlers := svc.GetRESTHandlers()
@@ -70,12 +74,13 @@ func TestExchangeService_CreateInvitation(t *testing.T) {
 func TestExchangeService_WriteGenericError(t *testing.T) {
 	const errMsg = "sample-error-msg"
 
-	svc := New(&mockProvider{})
+	svc, err := New(&mockProvider{})
+	require.NoError(t, err)
 	require.NotNil(t, svc)
 
 	rr := httptest.NewRecorder()
 
-	err := errors.New(errMsg)
+	err = errors.New(errMsg)
 	svc.writeGenericError(rr, err)
 
 	response := GenericError{}
@@ -126,6 +131,13 @@ func getResponseFromHandler(handler api.Handler, requestBody io.Reader) (*bytes.
 type mockProvider struct {
 }
 
-func (p *mockProvider) OutboundTransport() transport.OutboundTransport {
+func (p *mockProvider) Service(id string) (interface{}, error) {
+	return didexchange.New(nil, &mockOutboundTransport{}), nil
+}
+
+type mockOutboundTransport struct {
+}
+
+func (p *mockOutboundTransport) OutboundTransport() transport.OutboundTransport {
 	return mocktransport.NewOutboundTransport(successResponse)
 }

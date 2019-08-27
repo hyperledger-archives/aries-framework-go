@@ -77,8 +77,8 @@ func WithStoreProvider(prov storage.Provider) Option {
 	}
 }
 
-// WithProtocolSvcCreator injects a protocol service to the Aries framework
-func WithProtocolSvcCreator(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
+// WithProtocols injects a protocol service to the Aries framework
+func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
 	return func(opts *Aries) error {
 		opts.protocolSvcCreators = append(opts.protocolSvcCreators, protocolSvcCreator...)
 		return nil
@@ -98,7 +98,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 	}
 
 	return context.New(
-		context.WithOutboundTransport(ot), context.WithProtocolSvcCreator(a.protocolSvcCreators...),
+		context.WithOutboundTransport(ot), context.WithProtocols(a.protocolSvcCreators...),
 	)
 }
 

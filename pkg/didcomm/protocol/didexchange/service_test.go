@@ -85,7 +85,7 @@ func TestGenerateInviteWithKeyAndEndpoint(t *testing.T) {
 }
 
 func TestSendRequest(t *testing.T) {
-	prov := New(&mockProvider{})
+	prov := New(nil, &mockProvider{})
 
 	req := &Request{
 		ID:    "5678876542345",
@@ -97,7 +97,7 @@ func TestSendRequest(t *testing.T) {
 }
 
 func TestSendResponse(t *testing.T) {
-	prov := New(&mockProvider{})
+	prov := New(nil, &mockProvider{})
 
 	resp := &Response{
 		ID: "12345678900987654321",
@@ -111,7 +111,7 @@ func TestSendResponse(t *testing.T) {
 }
 
 func TestCreateInvitation(t *testing.T) {
-	prov := New(&mockProvider{})
+	prov := New(nil, &mockProvider{})
 	res, err := prov.CreateInvitation()
 	require.NoError(t, err)
 	require.NotEmpty(t, res)

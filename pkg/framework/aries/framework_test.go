@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 
@@ -76,7 +76,7 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 
 		// did exchange client
-		exClient := didexchange.New(ctx)
+		exClient := didexchange.New(nil, ctx)
 		require.NoError(t, err)
 
 		req := &didexchange.Request{
@@ -186,38 +186,30 @@ func TestFramework(t *testing.T) {
 
 		ctx, err := aries.Context()
 		require.NoError(t, err)
-		exist := false
-		for _, v := range ctx.RESTHandlers() {
-			if v.Path() == "/create-invitation" {
-				exist = true
-				break
-			}
-		}
-		require.True(t, exist)
 
+		_, err = ctx.Service(didexchange.DIDExchange)
+		require.NoError(t, err)
 		err = aries.Close()
 		require.NoError(t, err)
 	})
 
 	t.Run("test protocol svc - with user provided protocol", func(t *testing.T) {
-		newMockSvc := func(prv api.Provider) (api.ProtocolSvc, error) {
-			return mockProtocolSvc{getAPIHandlersValue: []api.Handler{support.NewHTTPHandler("testPath", "", nil)}}, nil
+		newMockSvc := func(prv api.Provider) (dispatcher.Service, error) {
+			return mockProtocolSvc{}, nil
 		}
 		// with custom protocol
-		aries, err := New(WithProtocolSvcCreator(newMockSvc))
+		aries, err := New(WithProtocols(newMockSvc))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
 		ctx, err := aries.Context()
 		require.NoError(t, err)
-		exist := false
-		for _, v := range ctx.RESTHandlers() {
-			if v.Path() == "testPath" {
-				exist = true
-				break
-			}
-		}
-		require.True(t, exist)
+
+		_, err = ctx.Service(didexchange.DIDExchange)
+		require.NoError(t, err)
+
+		_, err = ctx.Service("mockProtocolSvc")
+		require.NoError(t, err)
 
 		err = aries.Close()
 		require.NoError(t, err)
@@ -226,11 +218,18 @@ func TestFramework(t *testing.T) {
 }
 
 type mockProtocolSvc struct {
-	getAPIHandlersValue []api.Handler
 }
 
-func (m mockProtocolSvc) GetRESTHandlers() []api.Handler {
-	return m.getAPIHandlersValue
+func (m mockProtocolSvc) Handle(msg dispatcher.DIDCommMsg) {
+
+}
+
+func (m mockProtocolSvc) Accept(msgType string) bool {
+	return true
+}
+
+func (m mockProtocolSvc) Name() string {
+	return "mockProtocolSvc"
 }
 
 type mockTransportProviderFactory struct {
