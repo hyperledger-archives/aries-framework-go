@@ -8,8 +8,13 @@ package api
 
 import (
 	"github.com/go-openapi/runtime/middleware/denco"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"golang.org/x/xerrors"
 )
+
+// SvcErrNotFound is returned when service not found
+var SvcErrNotFound = xerrors.New("service not found")
 
 //Handler http handler for each controller API endpoint
 type Handler interface {
@@ -18,15 +23,11 @@ type Handler interface {
 	Handle() denco.HandlerFunc
 }
 
-// ProtocolSvc interface for protocol service
-type ProtocolSvc interface {
-	GetRESTHandlers() []Handler
-}
-
 // Provider interface for protocol ctx
 type Provider interface {
 	OutboundTransport() transport.OutboundTransport
+	Service(id string) (interface{}, error)
 }
 
 // ProtocolSvcCreator method to create new protocol service
-type ProtocolSvcCreator func(prv Provider) (ProtocolSvc, error)
+type ProtocolSvcCreator func(prv Provider) (dispatcher.Service, error)

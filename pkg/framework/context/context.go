@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	errors "golang.org/x/xerrors"
@@ -15,7 +16,7 @@ import (
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
 	outboundTransport   transport.OutboundTransport
-	restHandlers        []api.Handler
+	services            []dispatcher.Service
 	protocolSvcCreators []api.ProtocolSvcCreator
 }
 
@@ -29,13 +30,13 @@ func New(opts ...ProviderOption) (*Provider, error) {
 		}
 	}
 
-	//Load services and initialize context with API handlers
+	//Load services
 	for _, v := range ctxProvider.protocolSvcCreators {
 		svc, err := v(&ctxProvider)
 		if err != nil {
 			return nil, errors.Errorf("new protocol service failed: %w", err)
 		}
-		ctxProvider.restHandlers = append(ctxProvider.restHandlers, svc.GetRESTHandlers()...)
+		ctxProvider.services = append(ctxProvider.services, svc)
 	}
 	return &ctxProvider, nil
 }
@@ -45,9 +46,14 @@ func (p *Provider) OutboundTransport() transport.OutboundTransport {
 	return p.outboundTransport
 }
 
-// RESTHandlers returns the REST API handlers for controller endpoints
-func (p *Provider) RESTHandlers() []api.Handler {
-	return p.restHandlers
+// Service return protocol service
+func (p *Provider) Service(id string) (interface{}, error) {
+	for _, v := range p.services {
+		if v.Name() == id {
+			return v, nil
+		}
+	}
+	return nil, api.SvcErrNotFound
 }
 
 // ProviderOption configures the framework.
@@ -61,8 +67,8 @@ func WithOutboundTransport(ot transport.OutboundTransport) ProviderOption {
 	}
 }
 
-// WithProtocolSvcCreator injects protocol svc into context
-func WithProtocolSvcCreator(protocolSvcCreator ...api.ProtocolSvcCreator) ProviderOption {
+// WithProtocols injects protocol svc into context
+func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) ProviderOption {
 	return func(opts *Provider) error {
 		opts.protocolSvcCreators = protocolSvcCreator
 		return nil

@@ -11,9 +11,8 @@ import (
 	"net/http"
 
 	"github.com/go-openapi/runtime/middleware/denco"
+	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 )
@@ -26,7 +25,7 @@ const (
 
 // provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
 type provider interface {
-	OutboundTransport() transport.OutboundTransport
+	Service(id string) (interface{}, error)
 }
 
 // A GenericError is the default error message that is generated.
@@ -41,21 +40,24 @@ type GenericError struct {
 	} `json:"body"`
 }
 
-//New returns new DID Exchange rest service protocol instance
-func New(ctx provider) *ExchangeService {
+//New returns new DID Exchange rest client protocol instance
+func New(ctx provider) (*Client, error) {
 
-	didExchange := didexchange.New(ctx)
-	svc := &ExchangeService{ctx: ctx, didExchange: didExchange}
+	didExchange, err := didexchange.New(ctx)
+	if err != nil {
+		return nil, err
+	}
+	svc := &Client{ctx: ctx, didExchangeClient: didExchange}
 	svc.registerHandler()
 
-	return svc
+	return svc, nil
 }
 
-//ExchangeService DID Exchange service protocol
-type ExchangeService struct {
-	ctx         provider
-	didExchange *didexchange.Protocol
-	handlers    []api.Handler
+//Client DID Exchange rest client
+type Client struct {
+	ctx               provider
+	didExchangeClient *didexchange.Client
+	handlers          []api.Handler
 }
 
 // CreateInvitation swagger:route GET /create-invitation did-exchange createInvitation
@@ -65,13 +67,14 @@ type ExchangeService struct {
 // Responses:
 //    default: genericError
 //        200: createInvitationResponse
-func (e *ExchangeService) CreateInvitation(rw http.ResponseWriter, req *http.Request, param denco.Params) {
+func (c *Client) CreateInvitation(rw http.ResponseWriter, req *http.Request, param denco.Params) {
 
 	logger.Debugf("Creating connection invitation ")
 
-	response, err := e.didExchange.CreateInvitation()
+	// call didexchange client
+	response, err := c.didExchangeClient.CreateInvitation()
 	if err != nil {
-		e.writeGenericError(rw, err)
+		c.writeGenericError(rw, err)
 		return
 	}
 
@@ -82,7 +85,7 @@ func (e *ExchangeService) CreateInvitation(rw http.ResponseWriter, req *http.Req
 }
 
 //writeGenericError writes given error to http response writer as generic error response
-func (e *ExchangeService) writeGenericError(rw http.ResponseWriter, err error) {
+func (c *Client) writeGenericError(rw http.ResponseWriter, err error) {
 	errResponse := GenericError{
 		Body: struct {
 			Code    int32  `json:"code"`
@@ -100,14 +103,14 @@ func (e *ExchangeService) writeGenericError(rw http.ResponseWriter, err error) {
 }
 
 //GetRESTHandlers get all controller API handler available for this protocol service
-func (e *ExchangeService) GetRESTHandlers() []api.Handler {
-	return e.handlers
+func (c *Client) GetRESTHandlers() []api.Handler {
+	return c.handlers
 }
 
 //registerHandler register handlers to be exposed from this protocol service as REST API endpoints
-func (e *ExchangeService) registerHandler() {
+func (c *Client) registerHandler() {
 	//Add more protocol endpoints here to expose them as controller API endpoints
-	e.handlers = []api.Handler{
-		support.NewHTTPHandler(createInviationAPIPath, http.MethodGet, e.CreateInvitation),
+	c.handlers = []api.Handler{
+		support.NewHTTPHandler(createInviationAPIPath, http.MethodGet, c.CreateInvitation),
 	}
 }
