@@ -17,12 +17,12 @@ import (
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 
 	"github.com/go-openapi/runtime/middleware/denco"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,7 +47,7 @@ func TestExchangeService_CreateInvitation(t *testing.T) {
 	handlers := svc.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
-	var handler api.Handler
+	var handler operation.Handler
 	for _, h := range handlers {
 		if h.Path() == createInviationAPIPath {
 			handler = h
@@ -95,7 +95,7 @@ func TestExchangeService_WriteGenericError(t *testing.T) {
 }
 
 //getResponseFromHandler reads response from given http handle func
-func getResponseFromHandler(handler api.Handler, requestBody io.Reader) (*bytes.Buffer, error) {
+func getResponseFromHandler(handler operation.Handler, requestBody io.Reader) (*bytes.Buffer, error) {
 
 	//prepare request
 	req, err := http.NewRequest(handler.Method(), handler.Path(), requestBody)
