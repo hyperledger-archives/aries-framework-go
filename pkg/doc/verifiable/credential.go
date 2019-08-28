@@ -8,13 +8,18 @@ package verifiable
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/xeipuuv/gojsonschema"
 	errors "golang.org/x/xerrors"
 )
 
-const schema = `
+var logger = log.New("aries-framework/doc/verifiable")
+
+const defaultSchema = `
 {
   "required": [
     "@context",
@@ -133,7 +138,9 @@ const schema = `
 }
 `
 
-var schemaLoader = gojsonschema.NewStringLoader(schema)
+const jsonSchema2018Type = "JsonSchemaValidator2018"
+
+var defaultSchemaLoader = gojsonschema.NewStringLoader(defaultSchema)
 
 // Proof defines embedded proof of Verifiable Credential
 type Proof struct {
@@ -202,21 +209,52 @@ type compositeIssuer struct {
 	Name string `json:"name,omitempty"`
 }
 
-type issuerComposite struct {
+type embeddedCompositeIssuer struct {
 	CompositeIssuer compositeIssuer `json:"issuer,omitempty"`
 }
 
+// credentialOpts holds options for the Verifiable Credential decoding
+// it has a http.Client instance initialized with default parameters
+type credentialOpts struct {
+	schemaDownloadClient   *http.Client
+	disabledExternalSchema bool
+}
+
+// CredentialOpt is the Verifiable Credential decoding option
+type CredentialOpt func(opts *credentialOpts)
+
+// WithSchemaDownloadClient option is for definition of HTTP(s) client used during decoding of Verifiable Credential.
+// If custom credentialSchema is defined in Verifiable Credential, the client is used to download it by the URL specified.
+func WithSchemaDownloadClient(client *http.Client) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.schemaDownloadClient = client
+	}
+}
+
+// WithDisabledCustomSchemaCheck option is for disabling of Credential Schemas download if defined
+// in Verifiable Credential. Instead, the Verifiable Credential is checked against default Schema.
+func WithDisabledCustomSchemaCheck() CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.disabledExternalSchema = true
+	}
+}
+
 // NewCredential creates an instance of Verifiable Credential by reading a JSON document from bytes
-func NewCredential(data []byte) (*Credential, error) {
-	// validate did document
-	if err := validate(data); err != nil {
-		return nil, err
+func NewCredential(data []byte, opts ...CredentialOpt) (*Credential, error) {
+	// Apply options
+	clOpts := defaultCredentialOpts()
+	for _, opt := range opts {
+		opt(clOpts)
 	}
 
 	raw := &rawCredential{}
 	err := json.Unmarshal(data, &raw)
 	if err != nil {
 		return nil, errors.Errorf("Json unmarshalling of Verifiable Credential bytes failed: %w", err)
+	}
+
+	if err = validate(data, raw.Schema, clOpts); err != nil {
+		return nil, err
 	}
 
 	issuerID, issuerName, err := issuerFromBytes(data)
@@ -239,6 +277,13 @@ func NewCredential(data []byte) (*Credential, error) {
 	}, nil
 }
 
+func defaultCredentialOpts() *credentialOpts {
+	return &credentialOpts{
+		schemaDownloadClient:   &http.Client{},
+		disabledExternalSchema: false,
+	}
+}
+
 func issuerFromBytes(data []byte) (string, string, error) {
 	issuerPlain := &issuerPlain{}
 	err := json.Unmarshal(data, &issuerPlain)
@@ -246,10 +291,10 @@ func issuerFromBytes(data []byte) (string, string, error) {
 		return issuerPlain.ID, "", nil
 	}
 
-	issuerExtended := &issuerComposite{}
-	err = json.Unmarshal(data, &issuerExtended)
+	eci := &embeddedCompositeIssuer{}
+	err = json.Unmarshal(data, &eci)
 	if err == nil {
-		return issuerExtended.CompositeIssuer.ID, issuerExtended.CompositeIssuer.Name, nil
+		return eci.CompositeIssuer.ID, eci.CompositeIssuer.Name, nil
 	}
 
 	return "", "", errors.Errorf("Verifiable Credential's Issuer is not valid")
@@ -263,8 +308,14 @@ func issuerToSerialize(vc *Credential) interface{} {
 	return vc.Issuer.ID
 }
 
-func validate(data []byte) error {
-	// Validate that the Verifiable Credential conforms to the serialization of the Verifiable Credential data model (https://w3c.github.io/vc-data-model/#example-1-a-simple-example-of-a-verifiable-credential)
+func validate(data []byte, schema *CredentialSchema, opts *credentialOpts) error {
+	// Validate that the Verifiable Credential conforms to the serialization of the Verifiable Credential data model
+	// (https://w3c.github.io/vc-data-model/#example-1-a-simple-example-of-a-verifiable-credential)
+	schemaLoader, err := getCredentialSchema(schema, opts)
+	if err != nil {
+		return err
+	}
+
 	loader := gojsonschema.NewStringLoader(string(data))
 	result, err := gojsonschema.Validate(schemaLoader, loader)
 	if err != nil {
@@ -272,13 +323,62 @@ func validate(data []byte) error {
 	}
 
 	if !result.Valid() {
-		errMsg := "Verifiable Credential is not valid:\n"
-		for _, desc := range result.Errors() {
-			errMsg = errMsg + fmt.Sprintf("- %s\n", desc)
-		}
+		errMsg := describeSchemaValidationError(result)
 		return errors.New(errMsg)
 	}
 	return nil
+}
+
+func describeSchemaValidationError(result *gojsonschema.Result) string {
+	errMsg := "Verifiable Credential is not valid:\n"
+	for _, desc := range result.Errors() {
+		errMsg = errMsg + fmt.Sprintf("- %s\n", desc)
+	}
+	return errMsg
+}
+
+func getCredentialSchema(schema *CredentialSchema, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
+	schemaLoader := defaultSchemaLoader
+	if schema != nil && !opts.disabledExternalSchema {
+		switch schema.Type {
+		case jsonSchema2018Type:
+			if customSchemaData, err := loadCredentialSchema(schema.ID, opts.schemaDownloadClient); err == nil {
+				schemaLoader = gojsonschema.NewBytesLoader(customSchemaData)
+			} else {
+				return nil, errors.Errorf("Failed to load custom credential schema from %s: %w", schema.ID, err)
+			}
+		default:
+			logger.Warnf("Unsupported credential schema: %s. Using default schema for validation", schema.Type)
+		}
+	}
+	return schemaLoader, nil
+}
+
+// todo cache credential schema (https://github.com/hyperledger/aries-framework-go/issues/185)
+func loadCredentialSchema(url string, client *http.Client) ([]byte, error) {
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, errors.Errorf("HTTP GET request failed: %w", err)
+	}
+
+	defer func() {
+		e := resp.Body.Close()
+		if e != nil {
+			logger.Errorf("Failed to close response body: %v", e)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("Returned status is not OK as expected: %v", resp.StatusCode)
+	}
+
+	var gotBody []byte
+	gotBody, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Errorf("Failed to read response body: %w", err)
+	}
+
+	return gotBody, nil
 }
 
 // JSONBytes converts Verifiable Credential to JSON bytes
