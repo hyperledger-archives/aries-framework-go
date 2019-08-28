@@ -39,13 +39,12 @@ func TestNew(t *testing.T) {
 func TestCreateInvitation(t *testing.T) {
 	c, err := New(&mockProvider{serviceValue: didexchange.New(nil, &mockOutboundTransport{})})
 	require.NoError(t, err)
-	res, err := c.CreateInvitation()
+	inviteReq, err := c.CreateInvitation()
 	require.NoError(t, err)
-	require.NoError(t, err)
-	require.NotEmpty(t, res)
-	require.NotEmpty(t, res.Invitation)
-	require.NotEmpty(t, res.Invitation.ID)
-	require.NotEmpty(t, res.Invitation.URL)
+	require.NotNil(t, inviteReq)
+	require.NotEmpty(t, inviteReq.Invitation.Label)
+	require.NotEmpty(t, inviteReq.Invitation.ID)
+	require.NotEmpty(t, inviteReq.Invitation.ServiceEndpoint)
 
 }
 

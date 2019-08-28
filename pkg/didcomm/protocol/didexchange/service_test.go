@@ -112,12 +112,13 @@ func TestSendResponse(t *testing.T) {
 
 func TestCreateInvitation(t *testing.T) {
 	prov := New(nil, &mockProvider{})
-	res, err := prov.CreateInvitation()
+	inviteReq, err := prov.CreateInvitation()
 	require.NoError(t, err)
-	require.NotEmpty(t, res)
-	require.NotEmpty(t, res.Invitation)
-	require.NotEmpty(t, res.Invitation.ID)
-	require.NotEmpty(t, res.Invitation.URL)
+	require.NotNil(t, inviteReq)
+	require.Equal(t, inviteReq.Invitation.Type, connectionInvite)
+	require.NotEmpty(t, inviteReq.Invitation.Label)
+	require.NotEmpty(t, inviteReq.Invitation.ID)
+	require.NotEmpty(t, inviteReq.Invitation.ServiceEndpoint)
 }
 
 type mockProvider struct {
