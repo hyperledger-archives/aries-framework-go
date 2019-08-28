@@ -220,8 +220,8 @@ func TestFramework(t *testing.T) {
 type mockProtocolSvc struct {
 }
 
-func (m mockProtocolSvc) Handle(msg dispatcher.DIDCommMsg) {
-
+func (m mockProtocolSvc) Handle(msg dispatcher.DIDCommMsg) error {
+	return nil
 }
 
 func (m mockProtocolSvc) Accept(msgType string) bool {

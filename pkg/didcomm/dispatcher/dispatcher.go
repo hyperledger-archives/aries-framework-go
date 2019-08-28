@@ -8,11 +8,13 @@ package dispatcher
 
 // Service protocol service
 type Service interface {
-	Handle(msg DIDCommMsg)
+	Handle(msg DIDCommMsg) error
 	Accept(msgType string) bool
 	Name() string
 }
 
 // DIDCommMsg did comm msg
 type DIDCommMsg struct {
+	Type    string
+	Payload []byte
 }

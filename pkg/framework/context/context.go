@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
@@ -54,6 +57,28 @@ func (p *Provider) Service(id string) (interface{}, error) {
 		}
 	}
 	return nil, api.SvcErrNotFound
+}
+
+// InboundMessageHandler return inbound message handler
+func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
+	return func(payload []byte) error {
+		// get the message type from the payload and dispatch based on the services
+		msgType := &struct {
+			Type string `json:"@type,omitempty"`
+		}{}
+		err := json.Unmarshal(payload, msgType)
+		if err != nil {
+			return errors.Errorf("invalid payload data format: %w", err)
+		}
+
+		// find the service which accepts the message type
+		for _, svc := range p.services {
+			if svc.Accept(msgType.Type) {
+				return svc.Handle(dispatcher.DIDCommMsg{Type: msgType.Type, Payload: payload})
+			}
+		}
+		return errors.New(fmt.Sprintf("no message handlers found for the message type: %s", msgType.Type))
+	}
 }
 
 // ProviderOption configures the framework.
