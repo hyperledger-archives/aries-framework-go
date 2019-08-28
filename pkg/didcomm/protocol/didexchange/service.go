@@ -10,12 +10,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	errors "golang.org/x/xerrors"
 )
 
@@ -100,18 +99,14 @@ func (s *Service) SendExchangeResponse(exchangeResponse *Response, destination s
 }
 
 //CreateInvitation creates invitation
-//TODO to be implemented
-func (s *Service) CreateInvitation() (*CreateInvitationResponse, error) {
-	//TODO given below is sample response
-	return &CreateInvitationResponse{
-		Invitation: &InvitationRequest{
-			ID:  "3a132aff-8968-4ed5-8142-776d4ff7cbb4",
-			URL: "http://sampleeurl?c_i=eyJAdHlwZSI6ICJkaWQ6c292OkJ6Q",
-			Invitation: &Invitation{
-				ID:    "45e01a60-73e4-4ce5-891e-c0dfdda01d40",
-				Label: "Sample Agent",
-			},
-		},
+func (s *Service) CreateInvitation() (*InvitationRequest, error) {
+	return &InvitationRequest{Invitation: &Invitation{
+		Type:            connectionInvite,
+		ID:              uuid.New().String(),
+		Label:           "agent",                        //TODO get the value from config #175
+		RecipientKeys:   nil,                            //TODO #178
+		ServiceEndpoint: "https://example.com/endpoint", //TODO get the value from config #175
+	},
 	}, nil
 }
 

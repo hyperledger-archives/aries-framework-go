@@ -35,6 +35,6 @@ func New(ctx provider) (*Client, error) {
 }
 
 // CreateInvitation create invitation
-func (c *Client) CreateInvitation() (*didexchange.CreateInvitationResponse, error) {
+func (c *Client) CreateInvitation() (*didexchange.InvitationRequest, error) {
 	return c.didexchangeSvc.CreateInvitation()
 }
