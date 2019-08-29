@@ -10,6 +10,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -30,17 +32,25 @@ const (
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	OutboundTransport() transport.OutboundTransport
+	ProtocolConfig() api.ProtocolConfig
+}
+
+// config interface
+type config interface {
+	AgentLabel() string
+	AgentServiceEndpoint() string
 }
 
 // Service for DID exchange protocol
 type Service struct {
 	outboundTransport transport.OutboundTransport
 	store             storage.Store
+	config            config
 }
 
 // New return didexchange service
 func New(store storage.Store, prov provider) *Service {
-	return &Service{outboundTransport: prov.OutboundTransport(), store: store}
+	return &Service{outboundTransport: prov.OutboundTransport(), store: store, config: prov.ProtocolConfig()}
 }
 
 // Handle didexchange msg
@@ -104,9 +114,9 @@ func (s *Service) CreateInvitation() (*InvitationRequest, error) {
 	return &InvitationRequest{Invitation: &Invitation{
 		Type:            connectionInvite,
 		ID:              uuid.New().String(),
-		Label:           "agent",                        //TODO get the value from config #175
-		RecipientKeys:   nil,                            //TODO #178
-		ServiceEndpoint: "https://example.com/endpoint", //TODO get the value from config #175
+		Label:           s.config.AgentLabel(),
+		RecipientKeys:   nil, //TODO #178
+		ServiceEndpoint: s.config.AgentServiceEndpoint(),
 	},
 	}, nil
 }

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -14,6 +15,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/hyperledger/aries-framework-go/pkg/config"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 
@@ -49,6 +52,13 @@ var doc = `{
     }
   ]
 }`
+
+var configYAML = `
+aries:
+  agent:
+    label: agent1
+    serviceEndpoint: https://example.com/endpoint
+`
 
 func TestFramework(t *testing.T) {
 	t.Run("test framework new - returns error", func(t *testing.T) {
@@ -210,6 +220,48 @@ func TestFramework(t *testing.T) {
 
 		_, err = ctx.Service("mockProtocolSvc")
 		require.NoError(t, err)
+
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test config provider - with default config provider", func(t *testing.T) {
+		aries, err := New()
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+
+		require.Equal(t, "agent", ctx.ProtocolConfig().AgentLabel())
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test config provider - with user provided config", func(t *testing.T) {
+		buf := bytes.NewBuffer([]byte(configYAML))
+		// with custom config
+		aries, err := New(WithConfigProvider(config.FromReader(buf, "yaml")))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+
+		require.Equal(t, "agent1", ctx.ProtocolConfig().AgentLabel())
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test error from config provider", func(t *testing.T) {
+		// with custom config
+		aries, err := New(WithConfigProvider(config.FromFile("test")))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		_, err = aries.Context()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "config provider failed")
 
 		err = aries.Close()
 		require.NoError(t, err)

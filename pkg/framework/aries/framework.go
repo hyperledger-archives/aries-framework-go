@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/config"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -27,6 +28,7 @@ type Aries struct {
 	didResolver         DIDResolver
 	storeProvider       storage.Provider
 	protocolSvcCreators []api.ProtocolSvcCreator
+	configProvider      api.ConfigProvider
 }
 
 // Option configures the framework.
@@ -77,6 +79,14 @@ func WithStoreProvider(prov storage.Provider) Option {
 	}
 }
 
+// WithConfigProvider injects a config provider to the Aries framework
+func WithConfigProvider(prov api.ConfigProvider) Option {
+	return func(opts *Aries) error {
+		opts.configProvider = prov
+		return nil
+	}
+}
+
 // WithProtocols injects a protocol service to the Aries framework
 func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
 	return func(opts *Aries) error {
@@ -97,8 +107,14 @@ func (a *Aries) Context() (*context.Provider, error) {
 		return nil, errors.Errorf("outbound transport initialization failed: %w", err)
 	}
 
+	configBackend, err := a.configProvider()
+	if err != nil {
+		return nil, errors.Errorf("config provider failed: %w", err)
+	}
+
 	return context.New(
 		context.WithOutboundTransport(ot), context.WithProtocols(a.protocolSvcCreators...),
+		context.WithProtocolConfig(config.FromBackend(configBackend)),
 	)
 }
 

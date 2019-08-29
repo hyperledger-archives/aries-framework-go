@@ -21,6 +21,7 @@ type Provider struct {
 	outboundTransport   transport.OutboundTransport
 	services            []dispatcher.Service
 	protocolSvcCreators []api.ProtocolSvcCreator
+	protocolConfig      api.ProtocolConfig
 }
 
 // New instantiated new context provider
@@ -81,6 +82,11 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	}
 }
 
+// ProtocolConfig returns protocol config
+func (p *Provider) ProtocolConfig() api.ProtocolConfig {
+	return p.protocolConfig
+}
+
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
@@ -88,6 +94,14 @@ type ProviderOption func(opts *Provider) error
 func WithOutboundTransport(ot transport.OutboundTransport) ProviderOption {
 	return func(opts *Provider) error {
 		opts.outboundTransport = ot
+		return nil
+	}
+}
+
+// WithProtocolConfig injects protocol config into the framework
+func WithProtocolConfig(protocolConfig api.ProtocolConfig) ProviderOption {
+	return func(opts *Provider) error {
+		opts.protocolConfig = protocolConfig
 		return nil
 	}
 }

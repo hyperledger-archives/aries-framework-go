@@ -16,13 +16,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
-
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
-
 	"github.com/go-openapi/runtime/middleware/denco"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/stretchr/testify/require"
 )
 
@@ -137,4 +136,19 @@ type mockOutboundTransport struct {
 
 func (p *mockOutboundTransport) OutboundTransport() transport.OutboundTransport {
 	return mocktransport.NewOutboundTransport(successResponse)
+}
+
+func (p *mockOutboundTransport) ProtocolConfig() api.ProtocolConfig {
+	return &mockProtocolConfig{}
+}
+
+type mockProtocolConfig struct {
+}
+
+func (m *mockProtocolConfig) AgentLabel() string {
+	return "agent"
+}
+
+func (m *mockProtocolConfig) AgentServiceEndpoint() string {
+	return "endpoint"
 }

@@ -19,6 +19,7 @@ var SvcErrNotFound = xerrors.New("service not found")
 type Provider interface {
 	OutboundTransport() transport.OutboundTransport
 	Service(id string) (interface{}, error)
+	ProtocolConfig() ProtocolConfig
 }
 
 // ProtocolSvcCreator method to create new protocol service

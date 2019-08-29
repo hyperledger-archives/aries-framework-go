@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
+	"bytes"
+
+	"github.com/hyperledger/aries-framework-go/pkg/config"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
@@ -21,6 +24,14 @@ import (
 // DBPath Level DB Path.
 // TODO - Need to configure the path externally (#148 & #175)
 var DBPath = "/tmp/peerstore/"
+
+// defaultConfigYAML default config
+var defaultConfigYAML = `
+aries:
+  agent:
+    label: agent
+    serviceEndpoint: https://example.com/endpoint
+`
 
 // defFramework provides default framework configs
 type defFramework struct {
@@ -88,6 +99,11 @@ func defFrameworkOpts() ([]Option, error) {
 	// default protocols
 	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) { return didexchange.New(nil, prv), nil }
 	opts = append(opts, WithProtocols(newExchangeSvc))
+
+	// default config
+	buf := bytes.NewBuffer([]byte(defaultConfigYAML))
+	configProvider := config.FromReader(buf, "yaml")
+	opts = append(opts, WithConfigProvider(configProvider))
 
 	return opts, nil
 }

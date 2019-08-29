@@ -7,17 +7,26 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 
+	config2 "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/config"
+
+	"github.com/hyperledger/aries-framework-go/pkg/config"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
 	"github.com/stretchr/testify/require"
 	errors "golang.org/x/xerrors"
 )
+
+var configYAML = `
+aries:
+  agent:
+    label: agent
+    serviceEndpoint: https://example.com/endpoint
+`
 
 func TestNewProvider(t *testing.T) {
 	t.Run("test new with default", func(t *testing.T) {
@@ -107,6 +116,21 @@ func TestNewProvider(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error handling the message")
 	})
+
+	t.Run("test new with protocol service", func(t *testing.T) {
+		buf := bytes.NewBuffer([]byte(configYAML))
+		configBackend, err := config.FromReader(buf, "yaml")()
+		require.NoError(t, err)
+		c := config2.FromBackend(configBackend)
+		prov, err := New(WithProtocolConfig(c))
+		require.NoError(t, err)
+
+		pc := prov.ProtocolConfig()
+		require.NoError(t, err)
+		require.Equal(t, "agent", pc.AgentLabel())
+
+	})
+
 }
 
 type mockProtocolSvc struct {

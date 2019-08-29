@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
 	"github.com/stretchr/testify/require"
@@ -116,9 +117,9 @@ func TestCreateInvitation(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, inviteReq)
 	require.Equal(t, inviteReq.Invitation.Type, connectionInvite)
-	require.NotEmpty(t, inviteReq.Invitation.Label)
+	require.Equal(t, inviteReq.Invitation.Label, "agent")
 	require.NotEmpty(t, inviteReq.Invitation.ID)
-	require.NotEmpty(t, inviteReq.Invitation.ServiceEndpoint)
+	require.Equal(t, inviteReq.Invitation.ServiceEndpoint, "endpoint")
 }
 
 type mockProvider struct {
@@ -126,4 +127,19 @@ type mockProvider struct {
 
 func (p *mockProvider) OutboundTransport() transport.OutboundTransport {
 	return mocktransport.NewOutboundTransport(successResponse)
+}
+
+func (p *mockProvider) ProtocolConfig() api.ProtocolConfig {
+	return &mockProtocolConfig{}
+}
+
+type mockProtocolConfig struct {
+}
+
+func (m *mockProtocolConfig) AgentLabel() string {
+	return "agent"
+}
+
+func (m *mockProtocolConfig) AgentServiceEndpoint() string {
+	return "endpoint"
 }

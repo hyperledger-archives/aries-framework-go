@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
@@ -63,4 +63,19 @@ type mockOutboundTransport struct {
 
 func (p *mockOutboundTransport) OutboundTransport() transport.OutboundTransport {
 	return mocktransport.NewOutboundTransport("success")
+}
+
+func (p *mockOutboundTransport) ProtocolConfig() api.ProtocolConfig {
+	return &mockProtocolConfig{}
+}
+
+type mockProtocolConfig struct {
+}
+
+func (m *mockProtocolConfig) AgentLabel() string {
+	return "agent"
+}
+
+func (m *mockProtocolConfig) AgentServiceEndpoint() string {
+	return "endpoint"
 }
