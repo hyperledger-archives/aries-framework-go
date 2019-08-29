@@ -54,7 +54,7 @@ func TestFramework(t *testing.T) {
 	t.Run("test framework new - returns error", func(t *testing.T) {
 		path, cleanup := setupLevelDB(t)
 		defer cleanup()
-		dbPath = path
+		DBPath = path
 
 		// framework new - error
 		_, err := New(func(opts *Aries) error {
@@ -67,7 +67,7 @@ func TestFramework(t *testing.T) {
 	t.Run("test framework new - returns framework", func(t *testing.T) {
 		path, cleanup := setupLevelDB(t)
 		defer cleanup()
-		dbPath = path
+		DBPath = path
 		aries, err := New(WithTransportProviderFactory(&mockTransportProviderFactory{}))
 		require.NoError(t, err)
 
@@ -90,7 +90,7 @@ func TestFramework(t *testing.T) {
 	t.Run("test framework new - with default transport", func(t *testing.T) {
 		path, cleanup := setupLevelDB(t)
 		defer cleanup()
-		dbPath = path
+		DBPath = path
 
 		// prepare http server
 		server := startMockServer(t, mockHTTPHandler{})
@@ -119,7 +119,7 @@ func TestFramework(t *testing.T) {
 	t.Run("test framework new - failed to create the context : error with user provided transport ", func(t *testing.T) {
 		path, cleanup := setupLevelDB(t)
 		defer cleanup()
-		dbPath = path
+		DBPath = path
 		aries, err := New(WithTransportProviderFactory(&mockTransportProviderFactory{err: errors.New("outbound transport init failed")}))
 		require.NoError(t, err)
 
@@ -151,7 +151,7 @@ func TestFramework(t *testing.T) {
 	// framework new - success
 	t.Run("test DID resolver - with default resolver", func(t *testing.T) {
 		// store peer DID in the store
-		dbprov, err := leveldb.NewProvider(dbPath)
+		dbprov, err := leveldb.NewProvider(DBPath)
 		require.NoError(t, err)
 
 		dbstore, err := dbprov.GetStoreHandle()

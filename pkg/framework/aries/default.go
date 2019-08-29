@@ -18,8 +18,9 @@ import (
 	errors "golang.org/x/xerrors"
 )
 
-// TODO - Need to configure the path externally
-var dbPath = "/tmp/peerstore/"
+// DBPath Level DB Path.
+// TODO - Need to configure the path externally (#148 & #175)
+var DBPath = "/tmp/peerstore/"
 
 // defFramework provides default framework configs
 type defFramework struct {
@@ -53,7 +54,7 @@ func (d *defFramework) storeProvider() (storage.Provider, error) {
 	}
 
 	// TODO - Need to configure the path externally
-	storeProv, err := leveldb.NewProvider(dbPath)
+	storeProv, err := leveldb.NewProvider(DBPath)
 	if err != nil {
 		return nil, errors.Errorf("leveldb provider initialization failed : %w", err)
 	}
