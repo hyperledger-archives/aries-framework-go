@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package restapi
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
@@ -23,6 +25,11 @@ func TestNew_Failure(t *testing.T) {
 }
 
 func TestNew_Success(t *testing.T) {
+	// TODO - remove this path manipulation after implementing #175 and #148
+	path, cleanup := generateTempDir(t)
+	defer cleanup()
+	aries.DBPath = path
+
 	framework, err := aries.New()
 	require.NoError(t, err)
 	require.NotNil(t, framework)
@@ -44,4 +51,17 @@ func TestNew_Success(t *testing.T) {
 
 	require.NotEmpty(t, controller.GetOperations())
 
+}
+
+func generateTempDir(t testing.TB) (string, func()) {
+	path, err := ioutil.TempDir("", "db")
+	if err != nil {
+		t.Fatalf("Failed to create leveldb directory: %s", err)
+	}
+	return path, func() {
+		err := os.RemoveAll(path)
+		if err != nil {
+			t.Fatalf("Failed to clear leveldb directory: %s", err)
+		}
+	}
 }

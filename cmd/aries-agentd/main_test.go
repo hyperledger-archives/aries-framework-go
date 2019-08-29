@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,6 +24,11 @@ const testURL = "localhost:8080"
 const testInboundURL = "localhost:8081"
 
 func TestStartAriesD(t *testing.T) {
+	// TODO - remove this path manipulation after implementing #175 and #148
+	path, cleanup := generateTempDir(t)
+	defer cleanup()
+	aries.DBPath = path
+
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/167
 	prev := os.Getenv(agentHostEnvKey)
 	defer func() {
@@ -209,4 +215,17 @@ func TestStartAriesWithoutInboundHost(t *testing.T) {
 		t.Fatal("agent should fail to start when inbound host address not provided")
 	}
 
+}
+
+func generateTempDir(t testing.TB) (string, func()) {
+	path, err := ioutil.TempDir("", "db")
+	if err != nil {
+		t.Fatalf("Failed to create leveldb directory: %s", err)
+	}
+	return path, func() {
+		err := os.RemoveAll(path)
+		if err != nil {
+			t.Fatalf("Failed to clear leveldb directory: %s", err)
+		}
+	}
 }
