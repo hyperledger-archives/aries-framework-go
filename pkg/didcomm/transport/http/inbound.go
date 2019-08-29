@@ -12,14 +12,16 @@ import (
 	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	errors "golang.org/x/xerrors"
 )
 
 var logger = log.New("aries-framework/transport")
 
-// MessageHandler is a function that handles the inbound request payload
-// the payload will be unpacked prior to calling this function.
-type MessageHandler func(payload []byte)
+// provider contains dependencies for the HTTP Handler creation and is typically created by using aries.Context()
+type provider interface {
+	InboundMessageHandler() transport.InboundMessageHandler
+}
 
 // NewInboundHandler will create a new handler to enforce Did-Comm HTTP transport specs
 // then routes processing to the mandatory 'msgHandler' argument.
@@ -27,18 +29,18 @@ type MessageHandler func(payload []byte)
 // Arguments:
 // * 'msgHandler' is the handler function that will be executed with the inbound request payload.
 //    Users of this library must manage the handling of all inbound payloads in this function.
-func NewInboundHandler(msgHandler MessageHandler) (http.Handler, error) {
-	if msgHandler == nil {
+func NewInboundHandler(prov provider) (http.Handler, error) {
+	if prov == nil || prov.InboundMessageHandler() == nil {
 		logger.Errorf("Error creating a new inbound handler: message handler function is nil")
 		return nil, errors.New("Failed to create NewInboundHandler")
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		processPOSTRequest(w, r, msgHandler)
+		processPOSTRequest(w, r, prov.InboundMessageHandler())
 	}), nil
 }
 
-func processPOSTRequest(w http.ResponseWriter, r *http.Request, messageHandler MessageHandler) {
+func processPOSTRequest(w http.ResponseWriter, r *http.Request, messageHandler transport.InboundMessageHandler) {
 	if valid := validateHTTPMethod(w, r); !valid {
 		return
 	}
@@ -55,9 +57,12 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, messageHandler M
 	// TODO add Unpack(body) call here
 	//...
 
-	w.WriteHeader(http.StatusAccepted)
-
-	go messageHandler(body)
+	err = messageHandler(body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(http.StatusAccepted)
+	}
 }
 
 // validatePayload validate and get the payload from the request

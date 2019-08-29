@@ -14,13 +14,18 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/stretchr/testify/require"
 )
 
-// mockMsgHandler is an http.msgHandler type, it is similar to MockHandler struct
-// but will be injected in WithInboundSetting() directly, will be used by each transport comm handle function
-func mockMsgHandler(payload []byte) {
-	logger.Debugf("Payload received is %s", payload)
+type mockProvider struct {
+}
+
+func (p *mockProvider) InboundMessageHandler() transport.InboundMessageHandler {
+	return func(payload []byte) error {
+		logger.Debugf("Payload received is %s", payload)
+		return nil
+	}
 }
 
 func TestInboundHandler(t *testing.T) {
@@ -30,7 +35,7 @@ func TestInboundHandler(t *testing.T) {
 	require.Nil(t, inHandler)
 
 	// now create a valid inboundHandler to continue testing..
-	inHandler, err = NewInboundHandler(mockMsgHandler)
+	inHandler, err = NewInboundHandler(&mockProvider{})
 
 	require.NoError(t, err)
 	require.NotNil(t, inHandler)

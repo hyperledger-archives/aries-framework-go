@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -59,17 +60,80 @@ func TestNewProvider(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating the protocol")
 	})
+
+	t.Run("test inbound message handlers/dispatchers", func(t *testing.T) {
+		newMockSvc := func(prv api.Provider) (dispatcher.Service, error) {
+			return mockProtocolSvc{rejectLabels: []string{"Carol"}}, nil
+		}
+		ctx, err := New(WithProtocols(newMockSvc))
+		require.NoError(t, err)
+		require.NotEmpty(t, ctx)
+
+		inboundHandler := ctx.InboundMessageHandler()
+
+		// valid json and message type
+		err = inboundHandler([]byte(`
+		{
+			"@id": "5678876542345",
+			"@type": "valid-message-type"
+		}`))
+		require.NoError(t, err)
+
+		// invalid json
+		err = inboundHandler([]byte("invalid json"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid payload data format")
+
+		// invalid json
+		err = inboundHandler([]byte("invalid json"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid payload data format")
+
+		// no handlers
+		err = inboundHandler([]byte(`
+		{
+			"@type": "invalid-message-type",
+			"label": "Bob"
+		}`))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no message handlers found for the message type: invalid-message-type")
+
+		// valid json, message type but service handlers returns error
+		err = inboundHandler([]byte(`
+		{
+			"label": "Carol",
+			"@type": "valid-message-type"
+		}`))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error handling the message")
+	})
 }
 
 type mockProtocolSvc struct {
+	rejectLabels []string
 }
 
-func (m mockProtocolSvc) Handle(msg dispatcher.DIDCommMsg) {
+func (m mockProtocolSvc) Handle(msg dispatcher.DIDCommMsg) error {
+	payload := &struct {
+		Label string `json:"label,omitempty"`
+	}{}
 
+	err := json.Unmarshal(msg.Payload, payload)
+	if err != nil {
+		return errors.Errorf("invalid payload data format: %w", err)
+	}
+
+	for _, label := range m.rejectLabels {
+		if label == payload.Label {
+			return errors.New("error handling the message")
+		}
+	}
+
+	return nil
 }
 
 func (m mockProtocolSvc) Accept(msgType string) bool {
-	return true
+	return msgType == "valid-message-type"
 }
 
 func (m mockProtocolSvc) Name() string {

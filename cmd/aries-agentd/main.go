@@ -28,14 +28,16 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/hyperledger/aries-framework-go/pkg/restapi"
-
 	"github.com/go-openapi/runtime/middleware/denco"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/restapi"
 )
 
 const agentHostEnvKey = "ARIESD_API_HOST"
+const agentHTTPInboundEnvKey = "ARIESD_INBOUND_HOST"
 
 var logger = log.New("aries-framework/agentd")
 
@@ -49,6 +51,13 @@ func main() {
 		return
 	}
 
+	//Default port and command lines arguments will be addressed as part of #94
+	inboundHost := os.Getenv(agentHTTPInboundEnvKey)
+	if inboundHost == "" {
+		logger.Errorf("Unable to start aries agentd, HTTP Inbound transport host not provided")
+		return
+	}
+
 	framework, err := aries.New()
 	if err != nil {
 		logger.Fatalf("Failed to start aries agentd on port [%s], failed to initialize framework :  %s", host, err)
@@ -58,6 +67,9 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Failed to start aries agentd on port [%s], failed to get aries context :  %s", host, err)
 	}
+
+	// start the HTTP inbound transport
+	startInboundHTTPTransport(ctx, inboundHost)
 
 	mux := denco.NewMux()
 
@@ -87,4 +99,26 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Failed to start aries agentd on port [%s], cause:  %s", host, err)
 	}
+}
+
+// startInboundHTTPTransport starts a HTTP server for agent inbound communication. The message handlers provided by the
+// context are passed to framework provided http.NewInboundHandler function. This function returns the http.Handler,
+// which will be used to start the HTTP server.
+// TODO the framework provides the inbound message handlers and doesnt provide means of transport ie, http server
+// https://github.com/hyperledger/aries-framework-go/issues/176
+func startInboundHTTPTransport(ctx *context.Provider, inboundHost string) {
+	// get the http.Handler from framework by passing the inbound message handler
+	msgHandler, err := didcommtrans.NewInboundHandler(ctx)
+	if err != nil {
+		logger.Fatalf("failed to get http handler from framework inbound message handler: %w", inboundHost, err)
+	}
+
+	// start the http server
+	go func() {
+		err := http.ListenAndServe(inboundHost, msgHandler)
+		if err != nil {
+			logger.Fatalf("Failed to start aries HTTP inbound transport on port [%s], cause:  %s", inboundHost, err)
+		}
+	}()
+
 }

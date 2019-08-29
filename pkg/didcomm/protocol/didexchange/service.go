@@ -44,8 +44,9 @@ func New(store storage.Store, prov provider) *Service {
 }
 
 // Handle didexchange msg
-func (s *Service) Handle(msg dispatcher.DIDCommMsg) {
+func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
 	// TODO add Handle logic
+	return nil
 }
 
 // Accept msg
