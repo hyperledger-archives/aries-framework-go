@@ -122,16 +122,6 @@ func TestSendResponse(t *testing.T) {
 	require.Error(t, prov.SendExchangeResponse(nil, destinationURL))
 }
 
-func TestCreateInvitation(t *testing.T) {
-	prov := New(nil, &mockProvider{})
-	inviteReq, err := prov.CreateInvitation()
-	require.NoError(t, err)
-	require.NotNil(t, inviteReq)
-	require.Equal(t, inviteReq.Invitation.Type, connectionInvite)
-	require.NotEmpty(t, inviteReq.Invitation.Label)
-	require.NotEmpty(t, inviteReq.Invitation.ID)
-	require.NotEmpty(t, inviteReq.Invitation.ServiceEndpoint)
-}
 func TestService_Handle(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()

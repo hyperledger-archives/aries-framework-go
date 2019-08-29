@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package support
 
 import (
-	"github.com/go-openapi/runtime/middleware/denco"
+	"net/http"
 )
 
 //NewHTTPHandler returns instance of HTTPHandler which can be used handle
 // http requests
-func NewHTTPHandler(path, method string, handle denco.HandlerFunc) *HTTPHandler {
+func NewHTTPHandler(path, method string, handle http.HandlerFunc) *HTTPHandler {
 	return &HTTPHandler{path: path, method: method, handle: handle}
 }
 
@@ -21,7 +21,7 @@ func NewHTTPHandler(path, method string, handle denco.HandlerFunc) *HTTPHandler 
 type HTTPHandler struct {
 	path   string
 	method string
-	handle denco.HandlerFunc
+	handle http.HandlerFunc
 }
 
 //Path returns http request path
@@ -35,6 +35,6 @@ func (h *HTTPHandler) Method() string {
 }
 
 //Handle returns http request handle func
-func (h *HTTPHandler) Handle() denco.HandlerFunc {
+func (h *HTTPHandler) Handle() http.HandlerFunc {
 	return h.handle
 }

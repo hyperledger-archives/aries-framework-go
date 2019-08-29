@@ -16,21 +16,15 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 
+	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
-
-	"github.com/go-openapi/runtime/middleware/denco"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	successResponse = "success"
-)
-
-func TestExchangeService_GetAPIHandlers(t *testing.T) {
+func TestOperation_GetAPIHandlers(t *testing.T) {
 	svc, err := New(&mockProvider{})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
@@ -39,36 +33,106 @@ func TestExchangeService_GetAPIHandlers(t *testing.T) {
 	require.NotEmpty(t, handlers)
 }
 
-func TestExchangeService_CreateInvitation(t *testing.T) {
-	svc, err := New(&mockProvider{})
-	require.NoError(t, err)
-	require.NotNil(t, svc)
+func TestNew_Fail(t *testing.T) {
+	svc, err := New(&mockProvider{errors.New("test-error")})
+	require.Error(t, err)
+	require.Nil(t, svc)
+}
 
-	handlers := svc.GetRESTHandlers()
-	require.NotEmpty(t, handlers)
+func TestOperation_CreateInvitation(t *testing.T) {
 
-	var handler operation.Handler
-	for _, h := range handlers {
-		if h.Path() == createInviationAPIPath {
-			handler = h
-			break
-		}
-	}
-	require.NotNil(t, handler)
-
-	buf, err := getResponseFromHandler(handler, nil)
+	handler := getHandler(t, createInvitationPath)
+	buf, err := getResponseFromHandler(handler, nil, handler.Path())
 	require.NoError(t, err)
 
-	response := didexchange.Invitation{}
+	response := models.CreateInvitationResponse{}
 	err = json.Unmarshal(buf.Bytes(), &response)
 	require.NoError(t, err)
 
 	//verify response
-	require.NotEmpty(t, response.ID)
-	require.NotEmpty(t, response.Label)
+	require.NotEmpty(t, response.Payload)
+	require.NotEmpty(t, response.Payload.Invitation.ServiceEndpoint)
+	require.NotEmpty(t, response.Payload.Invitation.Label)
 }
 
-func TestExchangeService_WriteGenericError(t *testing.T) {
+func TestOperation_ReceiveInvitation(t *testing.T) {
+
+	var jsonStr = []byte(`{
+    	"@type": "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/invitation",
+    	"@id": "4e8650d9-6cc9-491e-b00e-7bf6cb5858fc",
+    	"serviceEndpoint": "http://ip10-0-46-4-blikjbs9psqg8vrg4p10-8020.direct.play-with-von.vonx.io",
+    	"label": "Faber Agent",
+    	"recipientKeys": [
+      		"6LE8yhZB8Xffc5vFgFntE3YLrxq5JVUsoAvUQgUyktGt"
+    		]
+  	}`)
+
+	handler := getHandler(t, receiveInvtiationPath)
+	buf, err := getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+	require.NoError(t, err)
+
+	response := models.ReceiveInvitationResponse{}
+	err = json.Unmarshal(buf.Bytes(), &response)
+	require.NoError(t, err)
+
+	//verify response
+	require.NotEmpty(t, response)
+	require.NotEmpty(t, response.ConnectionID)
+	require.NotEmpty(t, response.CreateTime)
+	require.NotEmpty(t, response.UpdateTime)
+	require.NotEmpty(t, response.RequestID)
+	require.NotEmpty(t, response.DID)
+}
+
+func TestOperation_ReceiveInvitationFailure(t *testing.T) {
+
+	var emptyRequest = []byte("")
+
+	handler := getHandler(t, receiveInvtiationPath)
+	buf, err := getResponseFromHandler(handler, bytes.NewBuffer(emptyRequest), handler.Path())
+	require.NoError(t, err)
+
+	response := models.ReceiveInvitationResponse{}
+	err = json.Unmarshal(buf.Bytes(), &response)
+	require.NoError(t, err)
+
+	//verify response
+	require.Empty(t, response.DID)
+	require.Empty(t, response.CreateTime)
+	require.Empty(t, response.UpdateTime)
+	require.Empty(t, response.RequestID)
+
+	//Parser generic error response
+	errResponse := models.GenericError{}
+	err = json.Unmarshal(buf.Bytes(), &errResponse)
+	require.NoError(t, err)
+
+	//verify response
+	require.NotEmpty(t, errResponse.Body)
+	require.NotEmpty(t, errResponse.Body.Code)
+	require.NotEmpty(t, errResponse.Body.Message)
+}
+
+func TestOperation_AcceptInvitation(t *testing.T) {
+
+	handler := getHandler(t, acceptInvitationPath)
+	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")), "/accept-invitation/1234")
+	require.NoError(t, err)
+
+	response := models.AcceptInvitationResponse{}
+	err = json.Unmarshal(buf.Bytes(), &response)
+	require.NoError(t, err)
+
+	//verify response
+	require.NotEmpty(t, response)
+	require.NotEmpty(t, response.ConnectionID)
+	require.NotEmpty(t, response.CreateTime)
+	require.NotEmpty(t, response.UpdateTime)
+	require.NotEmpty(t, response.RequestID)
+	require.NotEmpty(t, response.DID)
+}
+
+func TestOperation_WriteGenericError(t *testing.T) {
 	const errMsg = "sample-error-msg"
 
 	svc, err := New(&mockProvider{})
@@ -80,7 +144,7 @@ func TestExchangeService_WriteGenericError(t *testing.T) {
 	err = errors.New(errMsg)
 	svc.writeGenericError(rr, err)
 
-	response := GenericError{}
+	response := models.GenericError{}
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 
 	require.NoError(t, err)
@@ -92,28 +156,24 @@ func TestExchangeService_WriteGenericError(t *testing.T) {
 }
 
 //getResponseFromHandler reads response from given http handle func
-func getResponseFromHandler(handler operation.Handler, requestBody io.Reader) (*bytes.Buffer, error) {
+func getResponseFromHandler(handler operation.Handler, requestBody io.Reader, path string) (*bytes.Buffer, error) {
 
 	//prepare request
-	req, err := http.NewRequest(handler.Method(), handler.Path(), requestBody)
+	req, err := http.NewRequest(handler.Method(), path, requestBody)
 	if err != nil {
 		return nil, err
 	}
 
 	//prepare router
-	mux := denco.NewMux()
+	router := mux.NewRouter()
 
-	routes := []denco.Handler{mux.Handler(handler.Method(), handler.Path(), handler.Handle())}
-	httpHandler, err := mux.Build(routes)
-	if err != nil {
-		return nil, err
-	}
+	router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 
 	// create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 
 	//serve http on given response and request
-	httpHandler.ServeHTTP(rr, req)
+	router.ServeHTTP(rr, req)
 
 	// Check the status code is what we expect.
 	if status := rr.Code; status != http.StatusOK {
@@ -124,17 +184,46 @@ func getResponseFromHandler(handler operation.Handler, requestBody io.Reader) (*
 	return rr.Body, nil
 }
 
+func getHandler(t *testing.T, lookup string) operation.Handler {
+	svc, err := New(&mockProvider{})
+	require.NoError(t, err)
+	require.NotNil(t, svc)
+
+	handlers := svc.GetRESTHandlers()
+	require.NotEmpty(t, handlers)
+
+	for _, h := range handlers {
+		if h.Path() == lookup {
+			return h
+		}
+	}
+	require.Fail(t, "unable to find handler")
+	return nil
+}
+
 //mockProvider mocks provider needed for did exchange service initialization
 type mockProvider struct {
+	err error
 }
 
 func (p *mockProvider) Service(id string) (interface{}, error) {
-	return didexchange.New(nil, &mockOutboundTransport{}), nil
+	if p.err != nil {
+		return nil, p.err
+	}
+	return &mockProtocolSvc{}, nil
 }
 
-type mockOutboundTransport struct {
+type mockProtocolSvc struct {
 }
 
-func (p *mockOutboundTransport) OutboundTransport() transport.OutboundTransport {
-	return mocktransport.NewOutboundTransport(successResponse)
+func (m mockProtocolSvc) Handle(msg dispatcher.DIDCommMsg) error {
+	return nil
+}
+
+func (m mockProtocolSvc) Accept(msgType string) bool {
+	return true
+}
+
+func (m mockProtocolSvc) Name() string {
+	return "mockProtocolSvc"
 }

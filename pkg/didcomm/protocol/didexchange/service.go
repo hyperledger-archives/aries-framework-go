@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -162,18 +161,6 @@ func (s *Service) SendExchangeResponse(exchangeResponse *Response, destination s
 	// ignore response data as it is not used in this communication mode as defined in the spec
 	_, err := s.marshalAndSend(exchangeResponse, "Error Marshalling Exchange Response", destination)
 	return err
-}
-
-//CreateInvitation creates invitation
-func (s *Service) CreateInvitation() (*InvitationRequest, error) {
-	return &InvitationRequest{Invitation: &Invitation{
-		Type:            connectionInvite,
-		ID:              uuid.New().String(),
-		Label:           "agent",                        //TODO get the value from config #175
-		RecipientKeys:   nil,                            //TODO #178
-		ServiceEndpoint: "https://example.com/endpoint", //TODO get the value from config #175
-	},
-	}, nil
 }
 
 func (s *Service) marshalAndSend(data interface{}, errorMsg, destination string) (string, error) {

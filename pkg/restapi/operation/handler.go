@@ -6,11 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package operation
 
-import "github.com/go-openapi/runtime/middleware/denco"
+import "net/http"
 
 //Handler http handler for each controller API endpoint
 type Handler interface {
 	Path() string
 	Method() string
-	Handle() denco.HandlerFunc
+	Handle() http.HandlerFunc
 }

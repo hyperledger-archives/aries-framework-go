@@ -9,6 +9,10 @@ package didexchange
 import (
 	"errors"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+
+	"github.com/google/uuid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 )
 
@@ -19,7 +23,7 @@ type provider interface {
 
 // Client enable access to didexchange api
 type Client struct {
-	didexchangeSvc *didexchange.Service
+	didexchangeSvc dispatcher.Service
 }
 
 // New return new instance of didexchange client
@@ -28,14 +32,19 @@ func New(ctx provider) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	didexchangeSvc, ok := svc.(*didexchange.Service)
+	didexchangeSvc, ok := svc.(dispatcher.Service)
 	if !ok {
-		return nil, errors.New("cast service to didexchange.Service failed")
+		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
 	return &Client{didexchangeSvc: didexchangeSvc}, nil
 }
 
 // CreateInvitation create invitation
-func (c *Client) CreateInvitation() (*didexchange.InvitationRequest, error) {
-	return c.didexchangeSvc.CreateInvitation()
+func (c *Client) CreateInvitation() (*InvitationRequest, error) {
+	return &InvitationRequest{Invitation: &didexchange.Invitation{
+		ID:              uuid.New().String(),
+		Label:           "agent",                        //TODO get the value from config #175
+		RecipientKeys:   nil,                            //TODO #178
+		ServiceEndpoint: "https://example.com/endpoint", //TODO get the value from config #175
+	}}, nil
 }

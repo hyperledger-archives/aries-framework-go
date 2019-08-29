@@ -10,11 +10,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
@@ -32,11 +31,11 @@ func TestNew(t *testing.T) {
 	t.Run("test error from cast service", func(t *testing.T) {
 		_, err := New(&mockProvider{serviceValue: nil})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "cast service to didexchange.Service failed")
+		require.Contains(t, err.Error(), "cast service to DIDExchange Service failed")
 	})
 }
 
-func TestCreateInvitation(t *testing.T) {
+func TestClient_CreateInvitation(t *testing.T) {
 	c, err := New(&mockProvider{serviceValue: didexchange.New(nil, &mockOutboundTransport{})})
 	require.NoError(t, err)
 	inviteReq, err := c.CreateInvitation()
@@ -45,7 +44,6 @@ func TestCreateInvitation(t *testing.T) {
 	require.NotEmpty(t, inviteReq.Invitation.Label)
 	require.NotEmpty(t, inviteReq.Invitation.ID)
 	require.NotEmpty(t, inviteReq.Invitation.ServiceEndpoint)
-
 }
 
 //mockProvider mocks provider needed for did exchange service initialization
