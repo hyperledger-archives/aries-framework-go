@@ -101,3 +101,11 @@ type Connection struct {
 	DID    string   `json:"did,omitempty"`
 	DIDDoc *did.Doc `json:"did_doc,omitempty"`
 }
+
+//Ack acknowledgement struct
+type Ack struct {
+	Type   string            `json:"@type,omitempty"`
+	ID     string            `json:"@id,omitempty"`
+	Status string            `json:"status,omitempty"`
+	Thread *decorator.Thread `json:"~thread,omitempty"`
+}

@@ -86,8 +86,14 @@ func defFrameworkOpts() ([]Option, error) {
 	}
 	opts = append(opts, WithStoreProvider(storeProv))
 
+	store, err := storeProv.GetStoreHandle()
+	if err != nil {
+		return nil, fmt.Errorf("resolver initialization failed : %w", err)
+	}
+
 	// default protocols
-	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) { return didexchange.New(nil, prv), nil }
+	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) { return didexchange.New(store, prv), nil }
+
 	opts = append(opts, WithProtocols(newExchangeSvc))
 
 	return opts, nil

@@ -11,21 +11,25 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const (
 	// DIDExchange did exchange protocol
-	DIDExchange        = "didexchange"
-	connectionSpec     = metadata.AriesCommunityDID + ";spec/connections/1.0/"
-	connectionInvite   = connectionSpec + "invitation"
-	connectionRequest  = connectionSpec + "request"
-	connectionResponse = connectionSpec + "response"
+	DIDExchange = "didexchange"
+	//DIDExchangeSpec defines the did-exchange spec
+	DIDExchangeSpec    = metadata.AriesCommunityDID + ";spec/didexchange/1.0/"
+	connectionInvite   = DIDExchangeSpec + "invitation"
+	connectionRequest  = DIDExchangeSpec + "request"
+	connectionResponse = DIDExchangeSpec + "response"
+	connectionAck      = DIDExchangeSpec + "ack"
 )
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
@@ -46,15 +50,75 @@ func New(store storage.Store, prov provider) *Service {
 
 // Handle didexchange msg
 func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
-	// TODO add Handle logic
+	thid, err := threadID(msg.Payload)
+	if err != nil {
+		return err
+	}
+	current, err := s.currentState(thid)
+	if err != nil {
+		return err
+	}
+	next, err := stateFromMsgType(msg.Type)
+	if err != nil {
+		return err
+	}
+	if !current.CanTransitionTo(next) {
+		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
+	}
+	// TODO: call pre-transition listeners -  Issue: https://github.com/hyperledger/aries-framework-go/issues/140
+	// TODO execute actions for the current state *and the next (if any)*. Eg. if we receive an
+	//      invitation, execute actions for 'invited' state and then execute actions for
+	//      'requested' state. Implement the relevant actions for each state in state.go.
+	err = s.update(thid, next)
+	if err != nil {
+		return err
+	}
+	// TODO call post-transition listeners -  Issue: https://github.com/hyperledger/aries-framework-go/issues/140
 	return nil
 }
 
-// Accept msg
+func threadID(payload []byte) (string, error) {
+	msg := struct {
+		ID     string           `json:"@id"`
+		Thread decorator.Thread `json:"~thread,omitempty"`
+	}{}
+	err := json.Unmarshal(payload, &msg)
+	if err != nil {
+		return "", fmt.Errorf("cannot unmarshal @id and ~thread: error=%s", err)
+	}
+	thid := msg.ID
+	if len(msg.Thread.ID) > 0 {
+		thid = msg.Thread.ID
+	}
+	return thid, nil
+}
+
+func (s *Service) currentState(thid string) (state, error) {
+	name, err := s.store.Get(thid)
+	if err != nil {
+		// TODO this err check should be fixed in #195
+		if strings.Contains(err.Error(), "not found") {
+			return &null{}, nil
+		}
+		return nil, fmt.Errorf("cannot fetch state from store: thid=%s err=%s", thid, err)
+	}
+	return stateFromName(string(name))
+}
+
+func (s *Service) update(thid string, state state) error {
+	err := s.store.Put(thid, []byte(state.Name()))
+	if err != nil {
+		return fmt.Errorf("failed to write to store: %s", err)
+	}
+	return nil
+}
+
+// Accept msg checks the msg type
 func (s *Service) Accept(msgType string) bool {
-	// TODO add Accept logic
-	// for now return true
-	return true
+	return msgType == connectionInvite ||
+		msgType == connectionRequest ||
+		msgType == connectionResponse ||
+		msgType == connectionAck
 }
 
 // Name return service name

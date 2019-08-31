@@ -95,7 +95,7 @@ func validateRequests(t *testing.T) {
 				strings.NewReader(`
 							{
 								"@id": "5678876542345",
-								"@type": "valid-message-type"
+								"@type": "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation"
 							}`),
 				"application/didcomm-envelope-enc"),
 			expectedStatus:     http.StatusAccepted,
