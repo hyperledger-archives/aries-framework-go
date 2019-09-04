@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"errors"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	errors "golang.org/x/xerrors"
 )
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()

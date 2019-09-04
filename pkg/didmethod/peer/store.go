@@ -9,11 +9,12 @@ package peer
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	errors "golang.org/x/xerrors"
 )
 
 // DIDModifiedBy key/signature used to update the Peer DID Document
@@ -53,7 +54,7 @@ func (s *DIDStore) Put(did string, doc *did.Doc, by *[]DIDModifiedBy) error {
 	// For now, assume the doc is a genesis document
 	jsonDoc, err := json.Marshal(doc)
 	if err != nil {
-		return errors.Errorf("Json marshalling of document failed: %w", err)
+		return fmt.Errorf("Json marshalling of document failed: %w", err)
 	}
 
 	docDelta := &docDelta{
@@ -66,7 +67,7 @@ func (s *DIDStore) Put(did string, doc *did.Doc, by *[]DIDModifiedBy) error {
 
 	val, err := json.Marshal(deltas)
 	if err != nil {
-		return errors.Errorf("Json marshalling of document deltas failed: %w", err)
+		return fmt.Errorf("Json marshalling of document deltas failed: %w", err)
 	}
 
 	return s.store.Put(did, val)
@@ -80,7 +81,7 @@ func (s *DIDStore) Get(id string) (*did.Doc, error) {
 
 	deltas, err := s.getDeltas(id)
 	if err != nil {
-		return nil, errors.Errorf("Delta data fetch from store failed : %w", err)
+		return nil, fmt.Errorf("Delta data fetch from store failed : %w", err)
 	}
 
 	// TODO construct document from all the deltas (https://github.com/hyperledger/aries-framework-go/issues/54)
@@ -89,13 +90,13 @@ func (s *DIDStore) Get(id string) (*did.Doc, error) {
 
 	doc, err := base64.URLEncoding.DecodeString(delta.Change)
 	if err != nil {
-		return nil, errors.Errorf("Decoding of document delta failed: %w", err)
+		return nil, fmt.Errorf("Decoding of document delta failed: %w", err)
 	}
 
 	document := &did.Doc{}
 	err = json.Unmarshal(doc, document)
 	if err != nil {
-		return nil, errors.Errorf("Json unmarshalling of document failed: %w", err)
+		return nil, fmt.Errorf("Json unmarshalling of document failed: %w", err)
 	}
 
 	return document, nil
@@ -104,13 +105,13 @@ func (s *DIDStore) Get(id string) (*did.Doc, error) {
 func (s *DIDStore) getDeltas(id string) ([]docDelta, error) {
 	val, err := s.store.Get(id)
 	if err != nil {
-		return nil, errors.Errorf("Fetching data from store failed: %w", err)
+		return nil, fmt.Errorf("Fetching data from store failed: %w", err)
 	}
 
 	var deltas []docDelta
 	err = json.Unmarshal(val, &deltas)
 	if err != nil {
-		return nil, errors.Errorf("Json unmarshalling of document deltas failed: %w", err)
+		return nil, fmt.Errorf("Json unmarshalling of document deltas failed: %w", err)
 	}
 
 	return deltas, nil

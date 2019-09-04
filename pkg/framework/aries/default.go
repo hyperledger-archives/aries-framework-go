@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
+	"fmt"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
@@ -15,7 +17,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
-	errors "golang.org/x/xerrors"
 )
 
 // DBPath Level DB Path.
@@ -36,12 +37,12 @@ func (d *defFramework) transportProviderFactory() api.TransportProviderFactory {
 func (d *defFramework) didResolverProvider() (DIDResolver, error) {
 	dbprov, err := d.storeProvider()
 	if err != nil {
-		return nil, errors.Errorf("resolver initialization failed : %w", err)
+		return nil, fmt.Errorf("resolver initialization failed : %w", err)
 	}
 
 	dbstore, err := dbprov.GetStoreHandle()
 	if err != nil {
-		return nil, errors.Errorf("storage initialization failed : %w", err)
+		return nil, fmt.Errorf("storage initialization failed : %w", err)
 	}
 
 	resl := didresolver.New(didresolver.WithDidMethod(peer.NewDIDResolver(peer.NewDIDStore(dbstore))))
@@ -56,7 +57,7 @@ func (d *defFramework) storeProvider() (storage.Provider, error) {
 	// TODO - Need to configure the path externally
 	storeProv, err := leveldb.NewProvider(DBPath)
 	if err != nil {
-		return nil, errors.Errorf("leveldb provider initialization failed : %w", err)
+		return nil, fmt.Errorf("leveldb provider initialization failed : %w", err)
 	}
 
 	d.storeProv = storeProv
@@ -75,13 +76,13 @@ func defFrameworkOpts() ([]Option, error) {
 
 	reslv, err := def.didResolverProvider()
 	if err != nil {
-		return nil, errors.Errorf("resolver initialization failed : %w", err)
+		return nil, fmt.Errorf("resolver initialization failed : %w", err)
 	}
 	opts = append(opts, WithDIDResolver(reslv))
 
 	storeProv, err := def.storeProvider()
 	if err != nil {
-		return nil, errors.Errorf("resolver initialization failed : %w", err)
+		return nil, fmt.Errorf("resolver initialization failed : %w", err)
 	}
 	opts = append(opts, WithStoreProvider(storeProv))
 

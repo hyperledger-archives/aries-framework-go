@@ -9,12 +9,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/xeipuuv/gojsonschema"
-	errors "golang.org/x/xerrors"
 )
 
 const (
@@ -222,16 +222,16 @@ func FromBytes(data []byte) (*Doc, error) {
 	raw := &rawDoc{}
 	err := json.Unmarshal(data, &raw)
 	if err != nil {
-		return nil, errors.Errorf("Json marshalling of did doc bytes bytes failed: %w", err)
+		return nil, fmt.Errorf("Json marshalling of did doc bytes bytes failed: %w", err)
 	}
 
 	publicKeys, err := populatePublicKeys(raw.PublicKey)
 	if err != nil {
-		return nil, errors.Errorf("populate public keys failed: %w", err)
+		return nil, fmt.Errorf("populate public keys failed: %w", err)
 	}
 	authPKs, err := populateAuthentications(raw.Authentication, publicKeys)
 	if err != nil {
-		return nil, errors.Errorf("populate authentications failed: %w", err)
+		return nil, fmt.Errorf("populate authentications failed: %w", err)
 	}
 
 	return &Doc{Context: raw.Context,
@@ -273,7 +273,7 @@ func populateAuthentications(rawAuthentications []interface{}, pks []PublicKey) 
 				}
 			}
 			if !keyExist {
-				return nil, errors.Errorf("authentication key %s not exist in did doc public key", valueString)
+				return nil, fmt.Errorf("authentication key %s not exist in did doc public key", valueString)
 			}
 			continue
 		}
@@ -314,7 +314,7 @@ func decodePK(rawPK map[string]interface{}) ([]byte, error) {
 	if stringEntry(rawPK[jsonldPublicKeyHex]) != "" {
 		value, err := hex.DecodeString(stringEntry(rawPK[jsonldPublicKeyHex]))
 		if err != nil {
-			return nil, errors.Errorf("decode public key hex failed: %w", err)
+			return nil, fmt.Errorf("decode public key hex failed: %w", err)
 		}
 		return value, nil
 	}
@@ -335,7 +335,7 @@ func validate(data []byte) error {
 	documentLoader := gojsonschema.NewStringLoader(string(data))
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 	if err != nil {
-		return errors.Errorf("Validation of did doc failed: %w", err)
+		return fmt.Errorf("Validation of did doc failed: %w", err)
 	}
 
 	if !result.Valid() {
@@ -371,7 +371,7 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 
 	byteDoc, err := json.Marshal(raw)
 	if err != nil {
-		return nil, errors.Errorf("Json unmarshalling of document failed: %w", err)
+		return nil, fmt.Errorf("Json unmarshalling of document failed: %w", err)
 	}
 
 	return byteDoc, nil

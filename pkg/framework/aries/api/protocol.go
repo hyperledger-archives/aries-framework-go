@@ -7,13 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package api
 
 import (
+	"errors"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"golang.org/x/xerrors"
 )
 
-// SvcErrNotFound is returned when service not found
-var SvcErrNotFound = xerrors.New("service not found")
+// ErrSvcNotFound is returned when service not found
+var ErrSvcNotFound = errors.New("service not found")
 
 // Provider interface for protocol ctx
 type Provider interface {

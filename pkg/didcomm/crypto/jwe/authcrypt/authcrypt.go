@@ -8,9 +8,8 @@ package authcrypt
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
-
-	errors "golang.org/x/xerrors"
 
 	"golang.org/x/crypto/chacha20poly1305"
 )
@@ -84,7 +83,7 @@ func New(sender keyPair, recipients []*[chacha20poly1305.KeySize]byte, alg Conte
 	case XC20P:
 		nonceSize = chacha20poly1305.NonceSizeX
 	default:
-		return nil, errors.New(fmt.Sprintf("encryption algorithm '%s' not supported", alg))
+		return nil, fmt.Errorf("encryption algorithm '%s' not supported", alg)
 	}
 	if len(recipients) == 0 {
 		return nil, errors.New("empty recipients keys, must have at least one recipient")
@@ -100,7 +99,7 @@ func New(sender keyPair, recipients []*[chacha20poly1305.KeySize]byte, alg Conte
 	}
 
 	if !isKeyPairValid(sender) {
-		return nil, errors.New(fmt.Sprintf("sender keyPair not supported, it must have %d bytes keys", chacha20poly1305.KeySize))
+		return nil, fmt.Errorf("sender keyPair not supported, it must have %d bytes keys", chacha20poly1305.KeySize)
 	}
 
 	return c, nil

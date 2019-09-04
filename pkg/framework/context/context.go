@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-	errors "golang.org/x/xerrors"
 )
 
 // Provider supplies the framework configuration to client objects.
@@ -29,7 +28,7 @@ func New(opts ...ProviderOption) (*Provider, error) {
 	for _, opt := range opts {
 		err := opt(&ctxProvider)
 		if err != nil {
-			return nil, errors.Errorf("Error in option passed to New: %w", err)
+			return nil, fmt.Errorf("Error in option passed to New: %w", err)
 		}
 	}
 
@@ -37,7 +36,7 @@ func New(opts ...ProviderOption) (*Provider, error) {
 	for _, v := range ctxProvider.protocolSvcCreators {
 		svc, err := v(&ctxProvider)
 		if err != nil {
-			return nil, errors.Errorf("new protocol service failed: %w", err)
+			return nil, fmt.Errorf("new protocol service failed: %w", err)
 		}
 		ctxProvider.services = append(ctxProvider.services, svc)
 	}
@@ -56,7 +55,7 @@ func (p *Provider) Service(id string) (interface{}, error) {
 			return v, nil
 		}
 	}
-	return nil, api.SvcErrNotFound
+	return nil, api.ErrSvcNotFound
 }
 
 // InboundMessageHandler return inbound message handler
@@ -68,7 +67,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		}{}
 		err := json.Unmarshal(payload, msgType)
 		if err != nil {
-			return errors.Errorf("invalid payload data format: %w", err)
+			return fmt.Errorf("invalid payload data format: %w", err)
 		}
 
 		// find the service which accepts the message type
@@ -77,7 +76,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 				return svc.Handle(dispatcher.DIDCommMsg{Type: msgType.Type, Payload: payload})
 			}
 		}
-		return errors.New(fmt.Sprintf("no message handlers found for the message type: %s", msgType.Type))
+		return fmt.Errorf("no message handlers found for the message type: %s", msgType.Type)
 	}
 }
 

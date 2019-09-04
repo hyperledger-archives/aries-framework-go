@@ -6,10 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 package didresolver
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	errors "golang.org/x/xerrors"
 )
 
 // DIDResolver did resolver
@@ -55,7 +56,7 @@ func (r *DIDResolver) Resolve(did string, opts ...ResolveOpt) (*diddoc.Doc, erro
 		if err == ErrNotFound {
 			return nil, err
 		}
-		return nil, errors.Errorf("did method read failed failed: %w", err)
+		return nil, fmt.Errorf("did method read failed failed: %w", err)
 	}
 
 	if len(didDocBytes) == 0 {
@@ -83,5 +84,5 @@ func (r *DIDResolver) resolveDidMethod(method string) (DidMethod, error) {
 			return v, nil
 		}
 	}
-	return nil, errors.Errorf("did method %s not supported", method)
+	return nil, fmt.Errorf("did method %s not supported", method)
 }

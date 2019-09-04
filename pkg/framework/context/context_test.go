@@ -8,15 +8,14 @@ package context
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
 	"github.com/stretchr/testify/require"
-	errors "golang.org/x/xerrors"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -120,7 +119,7 @@ func (m mockProtocolSvc) Handle(msg dispatcher.DIDCommMsg) error {
 
 	err := json.Unmarshal(msg.Payload, payload)
 	if err != nil {
-		return errors.Errorf("invalid payload data format: %w", err)
+		return fmt.Errorf("invalid payload data format: %w", err)
 	}
 
 	for _, label := range m.rejectLabels {

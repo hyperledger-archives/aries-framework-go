@@ -9,13 +9,14 @@ package didexchange
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	errors "golang.org/x/xerrors"
 )
 
 const (
@@ -114,7 +115,7 @@ func (s *Service) CreateInvitation() (*InvitationRequest, error) {
 func (s *Service) marshalAndSend(data interface{}, errorMsg, destination string) (string, error) {
 	jsonString, err := json.Marshal(data)
 	if err != nil {
-		return "", errors.Errorf("%s : %w", errorMsg, err)
+		return "", fmt.Errorf("%s : %w", errorMsg, err)
 	}
 	return s.outboundTransport.Send(string(jsonString), destination)
 }
@@ -124,7 +125,7 @@ func encodedExchangeInvitation(inviteMessage *Invitation) (string, error) {
 
 	invitationJSON, err := json.Marshal(inviteMessage)
 	if err != nil {
-		return "", errors.Errorf("JSON Marshal Error : %w", err)
+		return "", fmt.Errorf("JSON Marshal Error : %w", err)
 	}
 
 	return base64.URLEncoding.EncodeToString(invitationJSON), nil

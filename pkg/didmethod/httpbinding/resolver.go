@@ -7,6 +7,7 @@ package httpbinding
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
-	errors "golang.org/x/xerrors"
 )
 
 var logger = log.New("aries-framework/didmethod/httpbinding")
@@ -49,7 +49,7 @@ func WithTLSConfig(tlsConfig *tls.Config) ResolverOpt {
 func (res *DIDResolver) resolveDID(url string) ([]byte, error) {
 	resp, err := res.client.Get(url)
 	if err != nil {
-		return nil, errors.Errorf("HTTP Get request failed: %w", err)
+		return nil, fmt.Errorf("HTTP Get request failed: %w", err)
 	}
 
 	defer func() {
@@ -64,16 +64,16 @@ func (res *DIDResolver) resolveDID(url string) ([]byte, error) {
 		var gotBody []byte
 		gotBody, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return nil, errors.Errorf("Failed to read response body: %w", err)
+			return nil, fmt.Errorf("Failed to read response body: %w", err)
 		}
 
 		return gotBody, nil
 
 	} else if notExistentDID(resp) {
-		return nil, errors.Errorf("Input DID does not exist: %w", err)
+		return nil, fmt.Errorf("Input DID does not exist: %w", err)
 	}
 
-	return nil, errors.Errorf("Unsupported response from DID Resolver with status code: %v", resp.StatusCode)
+	return nil, fmt.Errorf("Unsupported response from DID Resolver with status code: %v", resp.StatusCode)
 }
 
 // notExistentDID checks if requested DID is not found on remote DID resolver
@@ -97,7 +97,7 @@ func New(endpointURL string, opts ...ResolverOpt) (*DIDResolver, error) {
 	// Validate host
 	_, err := url.ParseRequestURI(endpointURL)
 	if err != nil {
-		return nil, errors.Errorf("Invalid base url: %w", err)
+		return nil, fmt.Errorf("Invalid base url: %w", err)
 	}
 
 	return &DIDResolver{
@@ -110,7 +110,7 @@ func New(endpointURL string, opts ...ResolverOpt) (*DIDResolver, error) {
 func (res *DIDResolver) Read(DID string, _ ...didresolver.ResolveOpt) ([]byte, error) {
 	reqURL, err := url.ParseRequestURI(res.endpointURL)
 	if err != nil {
-		return nil, errors.Errorf("url parse request uri failed %w", err)
+		return nil, fmt.Errorf("url parse request uri failed %w", err)
 	}
 
 	reqURL.Path = path.Join(reqURL.Path, DID)
