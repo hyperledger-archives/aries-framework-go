@@ -32,12 +32,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi"
 )
 
 const agentHostEnvKey = "ARIESD_API_HOST"
 const agentHTTPInboundEnvKey = "ARIESD_INBOUND_HOST"
+const agentDBPathEnvKey = "ARIESD_DB_PATH"
 
 var logger = log.New("aries-framework/agentd")
 
@@ -58,7 +60,12 @@ func main() {
 		return
 	}
 
-	framework, err := aries.New()
+	opts, err := createOpts()
+	if err != nil {
+		logger.Fatalf("Failed to start aries agentd on port [%s], createOpts failed :  %s", host, err)
+	}
+
+	framework, err := aries.New(opts)
 	if err != nil {
 		logger.Fatalf("Failed to start aries agentd on port [%s], failed to initialize framework :  %s", host, err)
 	}
@@ -121,4 +128,16 @@ func startInboundHTTPTransport(ctx *context.Provider, inboundHost string) {
 		}
 	}()
 
+}
+
+func createOpts() (aries.Option, error) {
+	dbPath := os.Getenv(agentDBPathEnvKey)
+	if dbPath != "" {
+		opts, err := defaults.WithStorePath(dbPath)
+		if err != nil {
+			return nil, err
+		}
+		return opts, nil
+	}
+	return nil, nil
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/stretchr/testify/require"
 )
@@ -25,12 +26,11 @@ func TestNew_Failure(t *testing.T) {
 }
 
 func TestNew_Success(t *testing.T) {
-	// TODO - remove this path manipulation after implementing #175 and #148
 	path, cleanup := generateTempDir(t)
 	defer cleanup()
-	aries.DBPath = path
-
-	framework, err := aries.New()
+	defOpts, err := defaults.WithStorePath(path)
+	require.NoError(t, err)
+	framework, err := aries.New(defOpts)
 	require.NoError(t, err)
 	require.NotNil(t, framework)
 
