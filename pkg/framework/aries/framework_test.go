@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -16,19 +17,15 @@ import (
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-
-	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
-
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 	"github.com/stretchr/testify/require"
-	errors "golang.org/x/xerrors"
 )
 
 var doc = `{

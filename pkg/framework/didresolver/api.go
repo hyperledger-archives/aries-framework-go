@@ -6,9 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package didresolver
 
 import (
+	"errors"
 	"time"
-
-	"golang.org/x/xerrors"
 )
 
 // ResultType input option can be used to request a certain type of result.
@@ -22,7 +21,7 @@ const (
 )
 
 // ErrNotFound is returned when a DID resolver does not find the DID.
-var ErrNotFound = xerrors.New("DID not found")
+var ErrNotFound = errors.New("DID not found")
 
 // DidMethod resolves a DID into a result type (default: DidDocumentResult).
 // See the DID resolution spec: https://w3c-ccg.github.io/did-resolution.

@@ -9,11 +9,12 @@ import (
 	"crypto"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	errors "golang.org/x/xerrors"
 )
 
 const (
@@ -67,10 +68,10 @@ func validateDID(doc *did.Doc) error {
 
 	matched, err := regexp.MatchString(`did:peer:11-([a-fA-F0-9]){64}`, peerDid)
 	if err != nil {
-		return errors.Errorf("regex match string failed %w", err)
+		return fmt.Errorf("regex match string failed %w", err)
 	}
 	if !matched {
-		return errors.Errorf("did doesnt follow matching regex")
+		return fmt.Errorf("did doesnt follow matching regex")
 	}
 
 	//extracting numbasis from the validated did

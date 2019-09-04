@@ -9,10 +9,10 @@ package http
 import (
 	"bytes"
 	"crypto/tls"
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
-
-	errors "golang.org/x/xerrors"
 )
 
 //go:generate testdata/scripts/openssl_env.sh testdata/scripts/generate_test_keys.sh
@@ -89,7 +89,7 @@ func (cs *OutboundHTTPClient) Send(data string, url string) (string, error) {
 	if resp != nil {
 		isStatusSuccess := resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusOK
 		if !isStatusSuccess {
-			return "", errors.Errorf("Warning - Received non success POST HTTP status from agent at [%s]: status : %v", url, resp.Status)
+			return "", fmt.Errorf("Warning - Received non success POST HTTP status from agent at [%s]: status : %v", url, resp.Status)
 		}
 		// handle response
 		defer func() {

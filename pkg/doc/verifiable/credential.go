@@ -7,6 +7,7 @@ package verifiable
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/xeipuuv/gojsonschema"
-	errors "golang.org/x/xerrors"
 )
 
 var logger = log.New("aries-framework/doc/verifiable")
@@ -250,7 +250,7 @@ func NewCredential(data []byte, opts ...CredentialOpt) (*Credential, error) {
 	raw := &rawCredential{}
 	err := json.Unmarshal(data, &raw)
 	if err != nil {
-		return nil, errors.Errorf("Json unmarshalling of Verifiable Credential bytes failed: %w", err)
+		return nil, fmt.Errorf("Json unmarshalling of Verifiable Credential bytes failed: %w", err)
 	}
 
 	if err = validate(data, raw.Schema, clOpts); err != nil {
@@ -259,7 +259,7 @@ func NewCredential(data []byte, opts ...CredentialOpt) (*Credential, error) {
 
 	issuerID, issuerName, err := issuerFromBytes(data)
 	if err != nil {
-		return nil, errors.Errorf("Json unmarshalling of Verifiable Credential bytes failed: %w", err)
+		return nil, fmt.Errorf("Json unmarshalling of Verifiable Credential bytes failed: %w", err)
 	}
 
 	return &Credential{
@@ -297,7 +297,7 @@ func issuerFromBytes(data []byte) (string, string, error) {
 		return eci.CompositeIssuer.ID, eci.CompositeIssuer.Name, nil
 	}
 
-	return "", "", errors.Errorf("Verifiable Credential's Issuer is not valid")
+	return "", "", fmt.Errorf("Verifiable Credential's Issuer is not valid")
 
 }
 
@@ -319,7 +319,7 @@ func validate(data []byte, schema *CredentialSchema, opts *credentialOpts) error
 	loader := gojsonschema.NewStringLoader(string(data))
 	result, err := gojsonschema.Validate(schemaLoader, loader)
 	if err != nil {
-		return errors.Errorf("Validation of Verifiable Credential failed: %w", err)
+		return fmt.Errorf("Validation of Verifiable Credential failed: %w", err)
 	}
 
 	if !result.Valid() {
@@ -345,7 +345,7 @@ func getCredentialSchema(schema *CredentialSchema, opts *credentialOpts) (gojson
 			if customSchemaData, err := loadCredentialSchema(schema.ID, opts.schemaDownloadClient); err == nil {
 				schemaLoader = gojsonschema.NewBytesLoader(customSchemaData)
 			} else {
-				return nil, errors.Errorf("Failed to load custom credential schema from %s: %w", schema.ID, err)
+				return nil, fmt.Errorf("Failed to load custom credential schema from %s: %w", schema.ID, err)
 			}
 		default:
 			logger.Warnf("Unsupported credential schema: %s. Using default schema for validation", schema.Type)
@@ -358,7 +358,7 @@ func getCredentialSchema(schema *CredentialSchema, opts *credentialOpts) (gojson
 func loadCredentialSchema(url string, client *http.Client) ([]byte, error) {
 	resp, err := client.Get(url)
 	if err != nil {
-		return nil, errors.Errorf("HTTP GET request failed: %w", err)
+		return nil, fmt.Errorf("HTTP GET request failed: %w", err)
 	}
 
 	defer func() {
@@ -369,13 +369,13 @@ func loadCredentialSchema(url string, client *http.Client) ([]byte, error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("Returned status is not OK as expected: %v", resp.StatusCode)
+		return nil, fmt.Errorf("Returned status is not OK as expected: %v", resp.StatusCode)
 	}
 
 	var gotBody []byte
 	gotBody, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.Errorf("Failed to read response body: %w", err)
+		return nil, fmt.Errorf("Failed to read response body: %w", err)
 	}
 
 	return gotBody, nil
@@ -399,7 +399,7 @@ func (vc *Credential) JSONBytes() ([]byte, error) {
 
 	byteCred, err := json.Marshal(rawCred)
 	if err != nil {
-		return nil, errors.Errorf("Json unmarshalling of Verifiable Credential failed: %w", err)
+		return nil, fmt.Errorf("Json unmarshalling of Verifiable Credential failed: %w", err)
 	}
 
 	return byteCred, nil

@@ -7,13 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
-	errors "golang.org/x/xerrors"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 // DIDResolver interface for DID resolver.
@@ -37,7 +37,7 @@ func New(opts ...Option) (*Aries, error) {
 	// get the default framework options
 	defOpts, err := defFrameworkOpts()
 	if err != nil {
-		return nil, errors.Errorf("default option initialization failed: %w", err)
+		return nil, fmt.Errorf("default option initialization failed: %w", err)
 	}
 
 	frameworkOpts := &Aries{}
@@ -46,7 +46,7 @@ func New(opts ...Option) (*Aries, error) {
 	for _, option := range append(defOpts, opts...) {
 		err := option(frameworkOpts)
 		if err != nil {
-			return nil, errors.Errorf("Error in option passed to New: %w", err)
+			return nil, fmt.Errorf("Error in option passed to New: %w", err)
 		}
 	}
 
@@ -94,7 +94,7 @@ func (a *Aries) DIDResolver() DIDResolver {
 func (a *Aries) Context() (*context.Provider, error) {
 	ot, err := a.transport.CreateOutboundTransport()
 	if err != nil {
-		return nil, errors.Errorf("outbound transport initialization failed: %w", err)
+		return nil, fmt.Errorf("outbound transport initialization failed: %w", err)
 	}
 
 	return context.New(
@@ -106,7 +106,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 func (a *Aries) Close() error {
 	err := a.storeProvider.Close()
 	if err != nil {
-		return errors.Errorf("failed to close the framework: %w", err)
+		return fmt.Errorf("closing the framework failed: %w", err)
 	}
 	return nil
 }

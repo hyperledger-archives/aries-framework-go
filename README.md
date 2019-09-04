@@ -13,10 +13,10 @@ A Go framework for Aries
 
 ## Build
 ##### Prerequisites (General)
-- Go 1.12
+- Go 1.13
 
 ##### Prerequisites (for running tests)
-- Go 1.12
+- Go 1.13
 - Docker
 - Make
 

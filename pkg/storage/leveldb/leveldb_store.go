@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package leveldb
 
 import (
-	errors "golang.org/x/xerrors"
+	"errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/syndtr/goleveldb/leveldb"

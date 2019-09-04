@@ -7,13 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package http
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	errors "golang.org/x/xerrors"
 )
 
 var logger = log.New("aries-framework/transport")

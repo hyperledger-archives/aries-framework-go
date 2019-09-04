@@ -14,14 +14,14 @@ jobs:
       - run: golangci-lint run
   unit-test:
     docker:
-      - image: circleci/golang:1.12
+      - image: circleci/golang:1.13
     steps:
       - checkout
       - run: make unit-test
       - run: bash <(curl -s https://codecov.io/bash)
   bdd-test:
     docker:
-      - image: circleci/golang:1.12
+      - image: circleci/golang:1.13
     steps:
       - checkout
       - run: make bdd-test
