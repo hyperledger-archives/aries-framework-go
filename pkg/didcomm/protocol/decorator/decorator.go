@@ -8,5 +8,5 @@ package decorator
 
 // Thread thread data
 type Thread struct {
-	ID string `json:"@thid,omitempty"`
+	ID string `json:"thid,omitempty"`
 }
