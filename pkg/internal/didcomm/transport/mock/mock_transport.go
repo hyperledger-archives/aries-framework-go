@@ -20,7 +20,7 @@ func NewOutboundTransport(expectedResponse string) *OutboundTransport {
 // Send implementation of OutboundTransport.Send api
 func (transport *OutboundTransport) Send(data string, destination string) (string, error) {
 	if data == "" || destination == "" {
-		return "", errors.New("Data or destination can't be empty")
+		return "", errors.New("data and destination are mandatory")
 	}
 
 	return transport.ExpectedResponse, nil

@@ -14,8 +14,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
 
 type mockProvider struct {

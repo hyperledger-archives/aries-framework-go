@@ -11,9 +11,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
-	"github.com/stretchr/testify/require"
 )
 
 func setupLevelDB(t testing.TB) (string, func()) {

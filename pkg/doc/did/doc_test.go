@@ -161,7 +161,7 @@ func TestFromBytes(t *testing.T) {
 	// test error from Unmarshal
 	_, err := FromBytes([]byte("wrongData"))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Validation of did doc failed")
+	require.Contains(t, err.Error(), "validation of DID doc failed")
 }
 
 func TestValidateDidDocContext(t *testing.T) {

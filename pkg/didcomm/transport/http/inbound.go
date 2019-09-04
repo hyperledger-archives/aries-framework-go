@@ -32,7 +32,7 @@ type provider interface {
 func NewInboundHandler(prov provider) (http.Handler, error) {
 	if prov == nil || prov.InboundMessageHandler() == nil {
 		logger.Errorf("Error creating a new inbound handler: message handler function is nil")
-		return nil, errors.New("Failed to create NewInboundHandler")
+		return nil, errors.New("creation of inbound handler failed")
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

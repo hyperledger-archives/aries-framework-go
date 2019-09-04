@@ -50,7 +50,7 @@ func TestNew(t *testing.T) {
 	// Invalid URL
 	_, err = New("invalid url")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Invalid base url")
+	require.Contains(t, err.Error(), "base URL invalid")
 }
 
 func TestRead_DIDDoc(t *testing.T) {
@@ -117,7 +117,7 @@ func TestRead_DIDDocNotFound(t *testing.T) {
 	require.NoError(t, err)
 	_, err = resolver.Read("did:example:334455")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Input DID does not exist")
+	require.Contains(t, err.Error(), "DID does not exist")
 }
 
 func TestRead_UnsupportedStatus(t *testing.T) {
@@ -130,7 +130,7 @@ func TestRead_UnsupportedStatus(t *testing.T) {
 	require.NoError(t, err)
 	_, err = resolver.Read("did:example:334455")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "Unsupported response from DID Resolver with status code")
+	require.Contains(t, err.Error(), "unsupported response from DID resolver")
 }
 
 func TestRead_HTTPGetFailed(t *testing.T) {

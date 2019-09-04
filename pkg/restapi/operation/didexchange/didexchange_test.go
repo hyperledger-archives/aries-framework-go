@@ -16,12 +16,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-
 	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
-	"github.com/stretchr/testify/require"
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {

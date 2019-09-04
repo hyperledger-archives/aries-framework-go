@@ -16,6 +16,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -25,7 +27,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
-	"github.com/stretchr/testify/require"
 )
 
 var doc = `{

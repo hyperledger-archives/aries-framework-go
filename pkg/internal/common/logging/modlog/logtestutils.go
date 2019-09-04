@@ -13,8 +13,9 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/metadata"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/metadata"
 )
 
 const (

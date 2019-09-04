@@ -59,7 +59,7 @@ func TestOutboundHTTPTransport(t *testing.T) {
 	// create a new invalid Outbound transport instance
 	_, err = NewOutbound()
 	require.Error(t, err)
-	require.EqualError(t, err, "Can't create an outbound transport without an HTTP client")
+	require.EqualError(t, err, "creation of outbound transport requires an HTTP client")
 
 	// now create a new valid Outbound transport instance and test its Send() call
 	ot, err := NewOutbound(WithOutboundTLSConfig(tlsConfig), WithOutboundTimeout(clientTimeout))

@@ -9,16 +9,16 @@ package didexchange
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-
-	didexchange2 "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-
 	"github.com/gorilla/mux"
+
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	didexchange2 "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
@@ -179,8 +179,8 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 	}
 }
 
-//writeGenericError writes given error to http response writer as generic error response
-func (c *Operation) writeGenericError(rw http.ResponseWriter, err error) {
+//writeGenericError writes given error to writer as generic error response
+func (c *Operation) writeGenericError(rw io.Writer, err error) {
 	errResponse := models.GenericError{
 		Body: struct {
 			Code    int32  `json:"code"`

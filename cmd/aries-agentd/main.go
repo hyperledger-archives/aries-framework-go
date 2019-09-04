@@ -29,6 +29,7 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
