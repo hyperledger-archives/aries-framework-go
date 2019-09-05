@@ -49,7 +49,7 @@ var doc = `{
 
 func TestFramework(t *testing.T) {
 	t.Run("test framework new - returns error", func(t *testing.T) {
-		path, cleanup := setupLevelDB(t)
+		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
 
@@ -62,7 +62,7 @@ func TestFramework(t *testing.T) {
 
 	// framework new - success
 	t.Run("test framework new - returns framework", func(t *testing.T) {
-		path, cleanup := setupLevelDB(t)
+		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
 		aries, err := New(WithTransportProviderFactory(&mockTransportProviderFactory{}))
@@ -85,7 +85,7 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test framework new - with default transport", func(t *testing.T) {
-		path, cleanup := setupLevelDB(t)
+		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
 
@@ -114,14 +114,10 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test framework new - failed to create the context : error with user provided transport ", func(t *testing.T) {
-		path, cleanup := setupLevelDB(t)
+		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
-		aries, err := New(WithTransportProviderFactory(&mockTransportProviderFactory{err: errors.New("outbound transport init failed")}))
-		require.NoError(t, err)
-
-		// context
-		_, err = aries.Context()
+		_, err := New(WithTransportProviderFactory(&mockTransportProviderFactory{err: errors.New("outbound transport init failed")}))
 		require.Error(t, err)
 	})
 
@@ -212,6 +208,36 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("test new with protocol service", func(t *testing.T) {
+		mockSvcCreator := func(prv api.Provider) (dispatcher.Service, error) {
+			return mockProtocolSvc{}, nil
+		}
+		aries, err := New(WithProtocols(mockSvcCreator))
+		require.NoError(t, err)
+
+		prov, err := aries.Context()
+		require.NoError(t, err)
+
+		_, err = prov.Service("mockProtocolSvc")
+		require.NoError(t, err)
+
+		_, err = prov.Service("mockProtocolSvc1")
+		require.Error(t, err)
+
+	})
+
+	t.Run("test error from protocol service", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		newMockSvc := func(prv api.Provider) (dispatcher.Service, error) {
+			return nil, errors.New("error creating the protocol")
+		}
+		_, err := New(WithProtocols(newMockSvc))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error creating the protocol")
+	})
 }
 
 type mockProtocolSvc struct {
@@ -254,7 +280,7 @@ func (m mockDidMethod) Accept(method string) bool {
 	return m.acceptFunc(method)
 }
 
-func setupLevelDB(t testing.TB) (string, func()) {
+func generateTempDir(t testing.TB) (string, func()) {
 	path, err := ioutil.TempDir("", "db")
 	if err != nil {
 		t.Fatalf("Failed to create leveldb directory: %s", err)

@@ -17,9 +17,8 @@ import (
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
-	outboundTransport   transport.OutboundTransport
-	services            []dispatcher.Service
-	protocolSvcCreators []api.ProtocolSvcCreator
+	outboundTransport transport.OutboundTransport
+	services          []dispatcher.Service
 }
 
 // New instantiated new context provider
@@ -32,14 +31,6 @@ func New(opts ...ProviderOption) (*Provider, error) {
 		}
 	}
 
-	//Load services
-	for _, v := range ctxProvider.protocolSvcCreators {
-		svc, err := v(&ctxProvider)
-		if err != nil {
-			return nil, fmt.Errorf("new protocol service failed: %w", err)
-		}
-		ctxProvider.services = append(ctxProvider.services, svc)
-	}
 	return &ctxProvider, nil
 }
 
@@ -91,10 +82,10 @@ func WithOutboundTransport(ot transport.OutboundTransport) ProviderOption {
 	}
 }
 
-// WithProtocols injects protocol svc into context
-func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) ProviderOption {
+// WithProtocolServices injects protocol services into the context.
+func WithProtocolServices(services ...dispatcher.Service) ProviderOption {
 	return func(opts *Provider) error {
-		opts.protocolSvcCreators = protocolSvcCreator
+		opts.services = services
 		return nil
 	}
 }
