@@ -11,39 +11,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
-// CreateInvitationResponse model
-//
-// This is used for returning a create invitation response with a single connection invitation as body
-//
-// swagger:response createInvitationResponse
-type CreateInvitationResponse struct {
-	// in: body
-	Invitation *InvitationRequest `json:""`
-}
-
-// InvitationRequest model
-//
-// This is used for returning a create invitation response with a single connection invitation as body
-//
-// swagger:model InvitationRequest
-type InvitationRequest struct {
-
-	// the URL of the invitation.
-	URL string `json:"invitation_url"`
-
-	// the Invitation of the connection
-	Invitation *Invitation `json:"invitation"`
-
-	// the ID of the connection
-	ID string `json:"connection_id"`
-}
-
 // Invitation model
 //
 // Invitation defines DID exchange invitation message
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange#0-invitation-to-exchange
 //
-// swagger:model ConnectionInvitation
 type Invitation struct {
 	// the Image URL of the connection invitation
 	ImageURL string `json:"imageUrl,omitempty"`

@@ -28,7 +28,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/go-openapi/runtime/middleware/denco"
+	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
@@ -78,8 +78,6 @@ func main() {
 	// start the HTTP inbound transport
 	startInboundHTTPTransport(ctx, inboundHost)
 
-	mux := denco.NewMux()
-
 	//get all HTTP REST API handlers available for controller API
 	restService, err := restapi.New(ctx)
 	if err != nil {
@@ -88,21 +86,15 @@ func main() {
 	handlers := restService.GetOperations()
 
 	//register handlers
-	var routes []denco.Handler
+	router := mux.NewRouter()
 	for _, handler := range handlers {
-		routes = append(routes, mux.Handler(handler.Method(), handler.Path(), handler.Handle()))
-	}
-
-	//build router
-	handler, err := mux.Build(routes)
-	if err != nil {
-		logger.Fatalf("Failed to start aries agentd on port [%s], cause:  %s", host, err)
+		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
 	logger.Infof("Starting aries agentd on host [%s]", host)
 
 	//start server on given port and serve using given handlers
-	err = http.ListenAndServe(host, handler)
+	err = http.ListenAndServe(host, router)
 	if err != nil {
 		logger.Fatalf("Failed to start aries agentd on port [%s], cause:  %s", host, err)
 	}

@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-openapi/runtime/middleware/denco"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,7 +19,7 @@ func TestNewHTTPHandler(t *testing.T) {
 	path := "/sample-path"
 	method := "GET"
 	handled := make(chan bool)
-	handlerFn := func(w http.ResponseWriter, r *http.Request, params denco.Params) {
+	handlerFn := func(w http.ResponseWriter, r *http.Request) {
 		//do nothing
 		handled <- true
 	}
@@ -30,7 +29,7 @@ func TestNewHTTPHandler(t *testing.T) {
 	require.Equal(t, method, handler.Method())
 	require.NotNil(t, handler.Handle())
 
-	go handler.Handle()(nil, nil, nil)
+	go handler.Handle()(nil, nil)
 
 	select {
 	case res := <-handled:
