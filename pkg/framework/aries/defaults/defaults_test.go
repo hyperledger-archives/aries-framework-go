@@ -17,7 +17,7 @@ import (
 
 func TestWithDBPath(t *testing.T) {
 	t.Run("test with db path error", func(t *testing.T) {
-		_, err := WithStorePath("/////////////")
+		_, err := aries.New(WithStorePath("/////////////"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "leveldb provider initialization failed")
 	})
@@ -25,9 +25,7 @@ func TestWithDBPath(t *testing.T) {
 	t.Run("test with db path success", func(t *testing.T) {
 		path, cleanup := setupLevelDB(t)
 		defer cleanup()
-		defOpt, err := WithStorePath(path)
-		require.NoError(t, err)
-		a, err := aries.New(defOpt)
+		a, err := aries.New(WithStorePath(path))
 		require.NoError(t, err)
 		require.NoError(t, a.Close())
 	})

@@ -60,9 +60,10 @@ func main() {
 		return
 	}
 
-	opts, err := createOpts()
-	if err != nil {
-		logger.Fatalf("Failed to start aries agentd on port [%s], createOpts failed :  %s", host, err)
+	dbPath := os.Getenv(agentDBPathEnvKey)
+	var opts aries.Option
+	if dbPath != "" {
+		opts = defaults.WithStorePath(dbPath)
 	}
 
 	framework, err := aries.New(opts)
@@ -120,16 +121,4 @@ func startInboundHTTPTransport(ctx *context.Provider, inboundHost string) {
 		}
 	}()
 
-}
-
-func createOpts() (aries.Option, error) {
-	dbPath := os.Getenv(agentDBPathEnvKey)
-	if dbPath != "" {
-		opts, err := defaults.WithStorePath(dbPath)
-		if err != nil {
-			return nil, err
-		}
-		return opts, nil
-	}
-	return nil, nil
 }

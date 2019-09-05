@@ -28,9 +28,7 @@ func TestNew_Failure(t *testing.T) {
 func TestNew_Success(t *testing.T) {
 	path, cleanup := generateTempDir(t)
 	defer cleanup()
-	defOpts, err := defaults.WithStorePath(path)
-	require.NoError(t, err)
-	framework, err := aries.New(defOpts)
+	framework, err := aries.New(defaults.WithStorePath(path))
 	require.NoError(t, err)
 	require.NotNil(t, framework)
 
