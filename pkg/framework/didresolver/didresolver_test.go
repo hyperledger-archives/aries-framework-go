@@ -105,7 +105,7 @@ func TestResolve(t *testing.T) {
 		}}))
 		_, err := r.Resolve("did:example:1234")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Validation of did doc failed")
+		require.Contains(t, err.Error(), "validation of DID doc failed")
 	})
 
 	t.Run("test result type resolution-result", func(t *testing.T) {

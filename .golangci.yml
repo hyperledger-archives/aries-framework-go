@@ -36,7 +36,7 @@ linters-settings:
   gofmt:
     simplify: true
   goimports:
-    local-prefixes:
+    local-prefixes: github.com/hyperledger/aries-framework-go
   gocyclo:
     min-complexity: 10
   maligned:
@@ -60,32 +60,13 @@ linters-settings:
     max-func-lines: 30
 
 linters:
-  disable-all: true
-  enable:
-    - deadcode
-    - gocyclo
-    - gofmt
-    - goimports
-    - golint
-    - gosimple
-    - ineffassign
-    - misspell
-    - unconvert
-    - unused
-    - vet
-    - varcheck
+  enable-all: true
+  disable:
     - maligned
-    - errcheck
-    - megacheck
-    - goconst
-    - gas
-    - structcheck
-  enable-all: false
-  disable: []
-  presets:
-    - bugs
-    - unused
-  fast: false
+    - prealloc
+    - dupl
+    - gochecknoglobals
+    - lll
 
 issues:
   exclude-use-default: false

@@ -12,9 +12,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewProvider(t *testing.T) {

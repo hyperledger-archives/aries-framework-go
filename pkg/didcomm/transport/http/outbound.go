@@ -68,7 +68,7 @@ func NewOutbound(opts ...OutboundHTTPOpt) (*OutboundHTTPClient, error) {
 	}
 
 	if clOpts.client == nil {
-		return nil, errors.New("Can't create an outbound transport without an HTTP client")
+		return nil, errors.New("creation of outbound transport requires an HTTP client")
 	}
 
 	cs := &OutboundHTTPClient{
@@ -81,7 +81,7 @@ func NewOutbound(opts ...OutboundHTTPOpt) (*OutboundHTTPClient, error) {
 func (cs *OutboundHTTPClient) Send(data string, url string) (string, error) {
 	resp, err := cs.client.Post(url, commContentType, bytes.NewBuffer([]byte(data)))
 	if err != nil {
-		logger.Errorf("HTTP Transport - Error posting did envelope to agent at [%s]: %v", url, err)
+		logger.Errorf("posting DID envelope to agent failed [%s, %v]", url, err)
 		return "", err
 	}
 
@@ -89,13 +89,13 @@ func (cs *OutboundHTTPClient) Send(data string, url string) (string, error) {
 	if resp != nil {
 		isStatusSuccess := resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusOK
 		if !isStatusSuccess {
-			return "", fmt.Errorf("Warning - Received non success POST HTTP status from agent at [%s]: status : %v", url, resp.Status)
+			return "", fmt.Errorf("received unsuccessful POST HTTP status from agent [%s, %v]", url, resp.Status)
 		}
 		// handle response
 		defer func() {
 			e := resp.Body.Close()
 			if e != nil {
-				logger.Errorf("HTTP Transport - Error closing response body: %v", e)
+				logger.Errorf("closing response body failed: %v", e)
 			}
 		}()
 		buf := new(bytes.Buffer)

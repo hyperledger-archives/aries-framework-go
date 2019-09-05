@@ -154,13 +154,13 @@ func TestNew(t *testing.T) {
 		emptyJSONDoc := "{}"
 		_, err := NewCredential([]byte(emptyJSONDoc))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Verifiable Credential is not valid")
+		require.Contains(t, err.Error(), "verifiable credential is not valid")
 	})
 
 	t.Run("test a try to create a new Verifiable Credential from non-JSON doc", func(t *testing.T) {
 		_, err := NewCredential([]byte("non json"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Json unmarshalling of Verifiable Credential bytes failed")
+		require.Contains(t, err.Error(), "JSON unmarshalling of verifiable credential failed")
 	})
 }
 
@@ -673,7 +673,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 
 		_, err = NewCredential(schemaWithInvalidURLToCredentialSchema, WithSchemaDownloadClient(&http.Client{}))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Failed to load custom credential schema")
+		require.Contains(t, err.Error(), "loading custom credential schema")
 	})
 
 	t.Run("Uses default schema if custom credentialSchema is not of 'JsonSchemaValidator2018' type", func(t *testing.T) {
@@ -728,7 +728,7 @@ func TestDownloadCustomSchema(t *testing.T) {
 
 		_, err := loadCredentialSchema(testServer.URL, &http.Client{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "HTTP GET request failed")
+		require.Contains(t, err.Error(), "HTTP request failed")
 	})
 
 	t.Run("HTTP GET request to download custom credentialSchema returns not OK", func(t *testing.T) {
@@ -740,7 +740,7 @@ func TestDownloadCustomSchema(t *testing.T) {
 
 		_, err := loadCredentialSchema(testServer.URL, &http.Client{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Returned status is not OK as expected")
+		require.Contains(t, err.Error(), "credential schema endpoint HTTP failure")
 	})
 }
 

@@ -15,14 +15,14 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -329,9 +329,9 @@ func TestService_currentState(t *testing.T) {
 				get: func(string) ([]byte, error) { return nil, errors.New("not found") },
 			},
 		}
-		state, err := svc.currentState("ignored")
+		s, err := svc.currentState("ignored")
 		require.NoError(t, err)
-		require.Equal(t, (&null{}).Name(), state.Name())
+		require.Equal(t, (&null{}).Name(), s.Name())
 	})
 	t.Run("returns state from store", func(t *testing.T) {
 		expected := &requested{}
@@ -348,7 +348,7 @@ func TestService_currentState(t *testing.T) {
 
 func TestService_update(t *testing.T) {
 	const thid = "123"
-	state := &responded{}
+	s := &responded{}
 	data := make(map[string][]byte)
 	store := &mockStore{
 		put: func(k string, v []byte) error {
@@ -356,8 +356,8 @@ func TestService_update(t *testing.T) {
 			return nil
 		},
 	}
-	require.NoError(t, (&Service{store: store}).update("123", state))
-	require.Equal(t, state.Name(), string(data[thid]))
+	require.NoError(t, (&Service{store: store}).update("123", s))
+	require.Equal(t, s.Name(), string(data[thid]))
 }
 
 type mockStore struct {

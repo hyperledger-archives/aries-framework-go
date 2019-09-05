@@ -27,7 +27,7 @@ func (resl *DIDResolver) Read(did string, _ ...didresolver.ResolveOpt) ([]byte, 
 	// get the document from the store
 	doc, err := resl.store.Get(did)
 	if err != nil {
-		return nil, fmt.Errorf("Fetching data from store failed: %w", err)
+		return nil, fmt.Errorf("fetching data from store failed: %w", err)
 	}
 
 	if doc == nil {
@@ -37,7 +37,7 @@ func (resl *DIDResolver) Read(did string, _ ...didresolver.ResolveOpt) ([]byte, 
 	// convert the doc to JSON as DID Resolver expects byte result.
 	jsonDoc, err := doc.JSONBytes()
 	if err != nil {
-		return nil, fmt.Errorf("Json marshalling of document failed: %w", err)
+		return nil, fmt.Errorf("JSON marshalling of document failed: %w", err)
 	}
 
 	return jsonDoc, nil

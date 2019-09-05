@@ -110,9 +110,9 @@ func extractCipherText(symOutput []byte) string {
 func createCipher(nonceSize int, symKey []byte) (cipher.AEAD, error) {
 	switch nonceSize {
 	case chacha20poly1305.NonceSize:
-		return chacha20poly1305.New(symKey[:])
+		return chacha20poly1305.New(symKey)
 	case chacha20poly1305.NonceSizeX:
-		return chacha20poly1305.NewX(symKey[:])
+		return chacha20poly1305.NewX(symKey)
 	default:
 		return nil, errors.New("cipher cannot be created with bad nonce size and shared symmetric Key combo")
 	}

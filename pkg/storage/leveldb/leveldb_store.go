@@ -9,8 +9,9 @@ package leveldb
 import (
 	"errors"
 
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/syndtr/goleveldb/leveldb"
+
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 // Provider leveldb implementation of storage.Provider interface
@@ -48,7 +49,7 @@ func newLeveldbStore(db *leveldb.DB) *leveldbStore {
 // Put stores the key and the record
 func (s *leveldbStore) Put(k string, v []byte) error {
 	if k == "" || v == nil {
-		return errors.New("Key and value are mandatory")
+		return errors.New("key and value are mandatory")
 	}
 
 	return s.db.Put([]byte(k), v, nil)
@@ -57,7 +58,7 @@ func (s *leveldbStore) Put(k string, v []byte) error {
 // Get fetches the record based on key
 func (s *leveldbStore) Get(k string) ([]byte, error) {
 	if k == "" {
-		return nil, errors.New("Key is mandatory")
+		return nil, errors.New("key is mandatory")
 	}
 
 	data, err := s.db.Get([]byte(k), nil)

@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestComputeDID(t *testing.T) {

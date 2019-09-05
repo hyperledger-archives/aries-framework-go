@@ -64,16 +64,16 @@ func (res *DIDResolver) resolveDID(url string) ([]byte, error) {
 		var gotBody []byte
 		gotBody, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to read response body: %w", err)
+			return nil, fmt.Errorf("reading response body failed: %w", err)
 		}
 
 		return gotBody, nil
 
 	} else if notExistentDID(resp) {
-		return nil, fmt.Errorf("Input DID does not exist: %w", err)
+		return nil, fmt.Errorf("DID does not exist: %w", err)
 	}
 
-	return nil, fmt.Errorf("Unsupported response from DID Resolver with status code: %v", resp.StatusCode)
+	return nil, fmt.Errorf("unsupported response from DID resolver [%v]", resp.StatusCode)
 }
 
 // notExistentDID checks if requested DID is not found on remote DID resolver
@@ -97,7 +97,7 @@ func New(endpointURL string, opts ...ResolverOpt) (*DIDResolver, error) {
 	// Validate host
 	_, err := url.ParseRequestURI(endpointURL)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid base url: %w", err)
+		return nil, fmt.Errorf("base URL invalid: %w", err)
 	}
 
 	return &DIDResolver{
@@ -107,13 +107,13 @@ func New(endpointURL string, opts ...ResolverOpt) (*DIDResolver, error) {
 }
 
 // Read implements didresolver.DidMethod.Read interface (https://w3c-ccg.github.io/did-resolution/#resolving-input)
-func (res *DIDResolver) Read(DID string, _ ...didresolver.ResolveOpt) ([]byte, error) {
+func (res *DIDResolver) Read(did string, _ ...didresolver.ResolveOpt) ([]byte, error) {
 	reqURL, err := url.ParseRequestURI(res.endpointURL)
 	if err != nil {
-		return nil, fmt.Errorf("url parse request uri failed %w", err)
+		return nil, fmt.Errorf("url parse request uri failed: %w", err)
 	}
 
-	reqURL.Path = path.Join(reqURL.Path, DID)
+	reqURL.Path = path.Join(reqURL.Path, did)
 
 	return res.resolveDID(reqURL.String())
 }

@@ -10,11 +10,12 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
-	"github.com/stretchr/testify/require"
 )
 
 const peerDID = "did:peer:1234"

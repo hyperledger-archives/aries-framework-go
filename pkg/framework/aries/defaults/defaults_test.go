@@ -11,8 +11,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 )
 
 func TestWithDBPath(t *testing.T) {

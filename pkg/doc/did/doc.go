@@ -222,7 +222,7 @@ func FromBytes(data []byte) (*Doc, error) {
 	raw := &rawDoc{}
 	err := json.Unmarshal(data, &raw)
 	if err != nil {
-		return nil, fmt.Errorf("Json marshalling of did doc bytes bytes failed: %w", err)
+		return nil, fmt.Errorf("JSON marshalling of did doc bytes bytes failed: %w", err)
 	}
 
 	publicKeys, err := populatePublicKeys(raw.PublicKey)
@@ -335,13 +335,13 @@ func validate(data []byte) error {
 	documentLoader := gojsonschema.NewStringLoader(string(data))
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 	if err != nil {
-		return fmt.Errorf("Validation of did doc failed: %w", err)
+		return fmt.Errorf("validation of DID doc failed: %w", err)
 	}
 
 	if !result.Valid() {
 		errMsg := "did document not valid:\n"
 		for _, desc := range result.Errors() {
-			errMsg = errMsg + fmt.Sprintf("- %s\n", desc)
+			errMsg += fmt.Sprintf("- %s\n", desc)
 		}
 		return errors.New(errMsg)
 	}
@@ -371,7 +371,7 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 
 	byteDoc, err := json.Marshal(raw)
 	if err != nil {
-		return nil, fmt.Errorf("Json unmarshalling of document failed: %w", err)
+		return nil, fmt.Errorf("JSON unmarshalling of document failed: %w", err)
 	}
 
 	return byteDoc, nil
