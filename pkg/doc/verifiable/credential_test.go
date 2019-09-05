@@ -28,19 +28,12 @@ var validCredential = `
   ],
   "credentialSubject": {
     "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-    "alumniOf": {
-      "id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-      "name": [
-        {
-          "value": "Example University",
-          "lang": "en"
-        },
-        {
-          "value": "University",
-          "lang": "fr"
-        }
-      ]
-    }
+    "degree": {
+      "type": "BachelorDegree",
+      "university": "MIT"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
   },
 
   "issuer": {
@@ -597,12 +590,12 @@ func TestWithHttpClient(t *testing.T) {
 }
 
 func TestWithDisabledExternalSchemaCheck(t *testing.T) {
-	credentialOpt := WithDisabledCustomSchemaCheck()
+	credentialOpt := WithNoCustomSchemaCheck()
 	require.NotNil(t, credentialOpt)
 
 	opts := &credentialOpts{}
 	credentialOpt(opts)
-	require.True(t, opts.disabledExternalSchema)
+	require.True(t, opts.disabledCustomSchema)
 }
 
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
@@ -698,7 +691,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	t.Run("Fallback to default schema validation when custom schemas usage is disabled", func(t *testing.T) {
 		_, err := NewCredential(missingReqFieldSchema,
 			WithSchemaDownloadClient(&http.Client{}),
-			WithDisabledCustomSchemaCheck())
+			WithNoCustomSchemaCheck())
 
 		// without disabling external schema check we would get an error here
 		require.NoError(t, err)
@@ -748,5 +741,7 @@ func TestDefaultCredentialOpts(t *testing.T) {
 	opts := defaultCredentialOpts()
 	require.NotNil(t, opts)
 	require.NotNil(t, opts.schemaDownloadClient)
-	require.False(t, opts.disabledExternalSchema)
+	require.False(t, opts.disabledCustomSchema)
+	require.NotNil(t, opts.template)
+	require.NotEmpty(t, opts.decoders)
 }

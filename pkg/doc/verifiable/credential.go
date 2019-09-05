@@ -214,11 +214,20 @@ type embeddedCompositeIssuer struct {
 	CompositeIssuer compositeIssuer `json:"issuer,omitempty"`
 }
 
+// CredentialDecoder makes a custom decoding of Verifiable Credential in JSON form to existent
+// instance of Credential.
+type CredentialDecoder func(dataJSON []byte, credential *Credential) error
+
+// CredentialTemplate defines a factory method to create new Credential template.
+type CredentialTemplate func() *Credential
+
 // credentialOpts holds options for the Verifiable Credential decoding
 // it has a http.Client instance initialized with default parameters
 type credentialOpts struct {
-	schemaDownloadClient   *http.Client
-	disabledExternalSchema bool
+	schemaDownloadClient *http.Client
+	disabledCustomSchema bool
+	decoders             []CredentialDecoder
+	template             CredentialTemplate
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
@@ -232,62 +241,91 @@ func WithSchemaDownloadClient(client *http.Client) CredentialOpt {
 	}
 }
 
-// WithDisabledCustomSchemaCheck option is for disabling of Credential Schemas download if defined
+// WithNoCustomSchemaCheck option is for disabling of Credential Schemas download if defined
 // in Verifiable Credential. Instead, the Verifiable Credential is checked against default Schema.
-func WithDisabledCustomSchemaCheck() CredentialOpt {
+func WithNoCustomSchemaCheck() CredentialOpt {
 	return func(opts *credentialOpts) {
-		opts.disabledExternalSchema = true
+		opts.disabledCustomSchema = true
 	}
 }
 
-// NewCredential creates an instance of Verifiable Credential by reading a JSON document from bytes
-func NewCredential(data []byte, opts ...CredentialOpt) (*Credential, error) {
+//WithDecoders option is for adding extra JSON decoders into Verifiable Credential data model.
+func WithDecoders(decoders []CredentialDecoder) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.decoders = append(opts.decoders, decoders...)
+	}
+}
+
+//WithTemplate option is for setting a custom factory method to create new Credential instance.
+func WithTemplate(template CredentialTemplate) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.template = template
+	}
+}
+
+func decodeIssuer(data []byte, credential *Credential) error {
+	issuerID, issuerName, err := issuerFromBytes(data)
+	if err != nil {
+		return fmt.Errorf("JSON unmarshalling of Verifiable Credential bytes failed: %w", err)
+	}
+
+	credential.Issuer = Issuer{ID: issuerID, Name: issuerName}
+	return nil
+}
+
+// NewCredential creates an instance of Verifiable Credential by reading a JSON document from bytes.
+// It also applies miscellaneous options like custom decoders or settings of schema validation.
+func NewCredential(dataJSON []byte, opts ...CredentialOpt) (*Credential, error) {
 	// Apply options
-	clOpts := defaultCredentialOpts()
+	crOpts := defaultCredentialOpts()
 	for _, opt := range opts {
-		opt(clOpts)
+		opt(crOpts)
 	}
 
 	raw := &rawCredential{}
-	err := json.Unmarshal(data, &raw)
+	err := json.Unmarshal(dataJSON, &raw)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of verifiable credential failed: %w", err)
 	}
 
-	if err = validate(data, raw.Schema, clOpts); err != nil {
+	if err = validate(dataJSON, raw.Schema, crOpts); err != nil {
 		return nil, err
 	}
 
-	issuerID, issuerName, err := issuerFromBytes(data)
-	if err != nil {
-		return nil, fmt.Errorf("JSON unmarshalling of verifiable credential failed: %w", err)
+	var cred = crOpts.template()
+	cred.Context = raw.Context
+	cred.ID = raw.ID
+	cred.Type = raw.Type
+	cred.Subject = raw.Subject
+	cred.Issued = raw.Issued
+	cred.Expired = raw.Expired
+	cred.Proof = raw.Proof
+	cred.Status = raw.Status
+	cred.Schema = raw.Schema
+	cred.RefreshService = raw.RefreshService
+
+	for _, decoder := range crOpts.decoders {
+		err = decoder(dataJSON, cred)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return &Credential{
-		Context:        raw.Context,
-		ID:             raw.ID,
-		Type:           raw.Type,
-		Subject:        raw.Subject,
-		Issuer:         Issuer{ID: issuerID, Name: issuerName},
-		Issued:         raw.Issued,
-		Expired:        raw.Expired,
-		Proof:          raw.Proof,
-		Status:         raw.Status,
-		Schema:         raw.Schema,
-		RefreshService: raw.RefreshService,
-	}, nil
+	return cred, nil
 }
 
 func defaultCredentialOpts() *credentialOpts {
 	return &credentialOpts{
-		schemaDownloadClient:   &http.Client{},
-		disabledExternalSchema: false,
+		schemaDownloadClient: &http.Client{},
+		disabledCustomSchema: false,
+		decoders:             []CredentialDecoder{decodeIssuer},
+		template:             func() *Credential { return &Credential{} },
 	}
 }
 
-func issuerFromBytes(data []byte) (string, string, error) {
+func issuerFromBytes(data []byte) (issuerID string, issuerName string, err error) {
 	issuerPlain := &issuerPlain{}
-	err := json.Unmarshal(data, &issuerPlain)
+	err = json.Unmarshal(data, &issuerPlain)
 	if err == nil {
 		return issuerPlain.ID, "", nil
 	}
@@ -299,7 +337,6 @@ func issuerFromBytes(data []byte) (string, string, error) {
 	}
 
 	return "", "", fmt.Errorf("verifiable credential issuer is not valid")
-
 }
 
 func issuerToSerialize(vc *Credential) interface{} {
@@ -340,7 +377,7 @@ func describeSchemaValidationError(result *gojsonschema.Result) string {
 
 func getCredentialSchema(schema *CredentialSchema, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
 	schemaLoader := defaultSchemaLoader
-	if schema != nil && !opts.disabledExternalSchema {
+	if schema != nil && !opts.disabledCustomSchema {
 		switch schema.Type {
 		case jsonSchema2018Type:
 			if customSchemaData, err := loadCredentialSchema(schema.ID, opts.schemaDownloadClient); err == nil {
