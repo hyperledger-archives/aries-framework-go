@@ -9,6 +9,7 @@ package aries
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -27,6 +28,7 @@ type Aries struct {
 	didResolver         DIDResolver
 	storeProvider       storage.Provider
 	protocolSvcCreators []api.ProtocolSvcCreator
+	services            []dispatcher.Service
 }
 
 // Option configures the framework.
@@ -50,6 +52,20 @@ func New(opts ...Option) (*Aries, error) {
 	err := defFrameworkOpts(frameworkOpts)
 	if err != nil {
 		return nil, fmt.Errorf("default option initialization failed: %w", err)
+	}
+
+	ctxProvider, err := frameworkOpts.Context()
+	if err != nil {
+		return nil, fmt.Errorf("context creation failed: %w", err)
+	}
+
+	//Load services
+	for _, v := range frameworkOpts.protocolSvcCreators {
+		svc, err := v(ctxProvider)
+		if err != nil {
+			return nil, fmt.Errorf("new protocol service failed: %w", err)
+		}
+		frameworkOpts.services = append(frameworkOpts.services, svc)
 	}
 
 	return frameworkOpts, nil
@@ -100,7 +116,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 	}
 
 	return context.New(
-		context.WithOutboundTransport(ot), context.WithProtocols(a.protocolSvcCreators...),
+		context.WithOutboundTransport(ot), context.WithProtocolServices(a.services...),
 	)
 }
 

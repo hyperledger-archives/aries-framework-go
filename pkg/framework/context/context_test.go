@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -24,11 +23,13 @@ func TestNewProvider(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, prov.OutboundTransport())
 	})
+
 	t.Run("test new with outbound transport", func(t *testing.T) {
 		prov, err := New(WithOutboundTransport(mocktransport.NewOutboundTransport("success")))
 		require.NoError(t, err)
 		require.NotEmpty(t, prov.OutboundTransport())
 	})
+
 	t.Run("test error return from options", func(t *testing.T) {
 		_, err := New(func(opts *Provider) error {
 			return errors.New("error creating the framework option")
@@ -37,10 +38,7 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with protocol service", func(t *testing.T) {
-		mockSvcCreator := func(prv api.Provider) (dispatcher.Service, error) {
-			return mockProtocolSvc{}, nil
-		}
-		prov, err := New(WithProtocols(mockSvcCreator))
+		prov, err := New(WithProtocolServices(mockProtocolSvc{}))
 		require.NoError(t, err)
 
 		_, err = prov.Service("mockProtocolSvc")
@@ -51,20 +49,8 @@ func TestNewProvider(t *testing.T) {
 
 	})
 
-	t.Run("test error from protocol service", func(t *testing.T) {
-		newMockSvc := func(prv api.Provider) (dispatcher.Service, error) {
-			return nil, errors.New("error creating the protocol")
-		}
-		_, err := New(WithProtocols(newMockSvc))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "error creating the protocol")
-	})
-
 	t.Run("test inbound message handlers/dispatchers", func(t *testing.T) {
-		newMockSvc := func(prv api.Provider) (dispatcher.Service, error) {
-			return mockProtocolSvc{rejectLabels: []string{"Carol"}}, nil
-		}
-		ctx, err := New(WithProtocols(newMockSvc))
+		ctx, err := New(WithProtocolServices(mockProtocolSvc{rejectLabels: []string{"Carol"}}))
 		require.NoError(t, err)
 		require.NotEmpty(t, ctx)
 
