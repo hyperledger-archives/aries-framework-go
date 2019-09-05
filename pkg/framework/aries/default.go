@@ -20,26 +20,15 @@ import (
 )
 
 // DBPath Level DB Path.
-// TODO - Need to configure the path externally (#148 & #175)
-var DBPath = "/tmp/peerstore/"
-
-// defFramework provides default framework configs
-type defFramework struct {
-	storeProv storage.Provider
-}
+var dbPath = "/tmp/peerstore/"
 
 // transportProviderFactory provides default Outbound Transport provider factory
-func (d *defFramework) transportProviderFactory() api.TransportProviderFactory {
+func transportProviderFactory() api.TransportProviderFactory {
 	return transport.NewProviderFactory()
 }
 
 // didResolverProvider provides default DID resolver.
-func (d *defFramework) didResolverProvider() (DIDResolver, error) {
-	dbprov, err := d.storeProvider()
-	if err != nil {
-		return nil, fmt.Errorf("resolver initialization failed : %w", err)
-	}
-
+func didResolverProvider(dbprov storage.Provider) (DIDResolver, error) {
 	dbstore, err := dbprov.GetStoreHandle()
 	if err != nil {
 		return nil, fmt.Errorf("storage initialization failed : %w", err)
@@ -49,52 +38,43 @@ func (d *defFramework) didResolverProvider() (DIDResolver, error) {
 	return resl, nil
 }
 
-func (d *defFramework) storeProvider() (storage.Provider, error) {
-	if d.storeProv != nil {
-		return d.storeProv, nil
-	}
-
-	// TODO - Need to configure the path externally
-	storeProv, err := leveldb.NewProvider(DBPath)
+func storeProvider() (storage.Provider, error) {
+	storeProv, err := leveldb.NewProvider(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("leveldb provider initialization failed : %w", err)
 	}
-
-	d.storeProv = storeProv
 	return storeProv, nil
 }
 
 // defFrameworkOpts provides default framework options
-func defFrameworkOpts() ([]Option, error) {
-	// get the default framework configs
-	def := defFramework{}
-
-	var opts []Option
+func defFrameworkOpts(frameworkOpts *Aries) error {
+	//TODO Move default providers to the sub-package #209
 	// protocol provider factory
-	opt := WithTransportProviderFactory(def.transportProviderFactory())
-	opts = append(opts, opt)
-
-	reslv, err := def.didResolverProvider()
-	if err != nil {
-		return nil, fmt.Errorf("resolver initialization failed : %w", err)
+	if frameworkOpts.transport == nil {
+		frameworkOpts.transport = transportProviderFactory()
 	}
-	opts = append(opts, WithDIDResolver(reslv))
-
-	storeProv, err := def.storeProvider()
-	if err != nil {
-		return nil, fmt.Errorf("resolver initialization failed : %w", err)
+	if frameworkOpts.storeProvider == nil {
+		storeProv, err := storeProvider()
+		if err != nil {
+			return fmt.Errorf("resolver initialization failed : %w", err)
+		}
+		frameworkOpts.storeProvider = storeProv
 	}
-	opts = append(opts, WithStoreProvider(storeProv))
-
-	store, err := storeProv.GetStoreHandle()
+	store, err := frameworkOpts.storeProvider.GetStoreHandle()
 	if err != nil {
-		return nil, fmt.Errorf("resolver initialization failed : %w", err)
+		return fmt.Errorf("get store handle failed : %w", err)
 	}
 
-	// default protocols
+	if frameworkOpts.didResolver == nil {
+		reslv, err := didResolverProvider(frameworkOpts.storeProvider)
+		if err != nil {
+			return fmt.Errorf("resolver initialization failed : %w", err)
+		}
+		frameworkOpts.didResolver = reslv
+	}
+
 	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) { return didexchange.New(store, prv), nil }
+	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc)
 
-	opts = append(opts, WithProtocols(newExchangeSvc))
-
-	return opts, nil
+	return nil
 }

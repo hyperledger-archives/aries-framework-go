@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,18 +26,22 @@ func TestStartAriesD(t *testing.T) {
 	// TODO - remove this path manipulation after implementing #175 and #148
 	path, cleanup := generateTempDir(t)
 	defer cleanup()
-	aries.DBPath = path
+
+	err := os.Setenv(agentDBPathEnvKey, path)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/167
 	prev := os.Getenv(agentHostEnvKey)
 	defer func() {
-		err := os.Setenv(agentHostEnvKey, prev)
+		err = os.Setenv(agentHostEnvKey, prev)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}()
 
-	err := os.Setenv(agentHostEnvKey, testURL)
+	err = os.Setenv(agentHostEnvKey, testURL)
 	if err != nil {
 		t.Fatal(err)
 	}

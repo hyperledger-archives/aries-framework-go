@@ -34,20 +34,22 @@ type Option func(opts *Aries) error
 
 // New initializes the Aries framework based on the set of options provided.
 func New(opts ...Option) (*Aries, error) {
-	// get the default framework options
-	defOpts, err := defFrameworkOpts()
-	if err != nil {
-		return nil, fmt.Errorf("default option initialization failed: %w", err)
-	}
 
 	frameworkOpts := &Aries{}
 
 	// generate framework configs from options
-	for _, option := range append(defOpts, opts...) {
+	for _, option := range opts {
 		err := option(frameworkOpts)
 		if err != nil {
-			return nil, fmt.Errorf("Error in option passed to New: %w", err)
+			closeErr := frameworkOpts.Close()
+			return nil, fmt.Errorf("close err: %s Error in option passed to New: %w", closeErr, err)
 		}
+	}
+
+	// get the default framework options
+	err := defFrameworkOpts(frameworkOpts)
+	if err != nil {
+		return nil, fmt.Errorf("default option initialization failed: %w", err)
 	}
 
 	return frameworkOpts, nil
@@ -104,9 +106,11 @@ func (a *Aries) Context() (*context.Provider, error) {
 
 // Close frees resources being maintained by the framework.
 func (a *Aries) Close() error {
-	err := a.storeProvider.Close()
-	if err != nil {
-		return fmt.Errorf("closing the framework failed: %w", err)
+	if a.storeProvider != nil {
+		err := a.storeProvider.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close the framework: %w", err)
+		}
 	}
 	return nil
 }
