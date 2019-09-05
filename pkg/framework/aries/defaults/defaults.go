@@ -14,10 +14,12 @@ import (
 )
 
 // WithStorePath return new default store provider instantiate with db path
-func WithStorePath(storePath string) (aries.Option, error) {
-	storeProv, err := leveldb.NewProvider(storePath)
-	if err != nil {
-		return nil, fmt.Errorf("leveldb provider initialization failed : %w", err)
+func WithStorePath(storePath string) aries.Option {
+	return func(opts *aries.Aries) error {
+		storeProv, err := leveldb.NewProvider(storePath)
+		if err != nil {
+			return fmt.Errorf("leveldb provider initialization failed : %w", err)
+		}
+		return aries.WithStoreProvider(storeProv)(opts)
 	}
-	return aries.WithStoreProvider(storeProv), nil
 }
