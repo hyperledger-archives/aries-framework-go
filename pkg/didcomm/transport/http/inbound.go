@@ -55,7 +55,6 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, messageHandler t
 	}
 
 	// TODO add Unpack(body) call here
-	//...
 
 	err = messageHandler(body)
 	if err != nil {

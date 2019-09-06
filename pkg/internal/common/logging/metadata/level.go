@@ -17,7 +17,7 @@ const (
 	CRITICAL Level = iota
 	ERROR
 	WARNING
-	INFO //default logging level
+	INFO // default logging level
 	DEBUG
 )
 
@@ -30,7 +30,7 @@ func newModuledLevels() *moduleLevels {
 	return &moduleLevels{levels: make(map[string]Level)}
 }
 
-//moduleLevels maintains log levels based on modules
+// moduleLevels maintains log levels based on modules
 type moduleLevels struct {
 	levels map[string]Level
 }

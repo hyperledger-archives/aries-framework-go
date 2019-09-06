@@ -18,7 +18,7 @@ func NewOutboundTransport(expectedResponse string) *OutboundTransport {
 }
 
 // Send implementation of OutboundTransport.Send api
-func (transport *OutboundTransport) Send(data string, destination string) (string, error) {
+func (transport *OutboundTransport) Send(data, destination string) (string, error) {
 	if data == "" || destination == "" {
 		return "", errors.New("data and destination are mandatory")
 	}

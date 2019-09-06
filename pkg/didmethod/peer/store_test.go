@@ -45,11 +45,11 @@ func TestPeerDIDStore(t *testing.T) {
 	store := NewDIDStore(dbstore)
 
 	// put
-	err = store.Put(did1, &did.Doc{ID: did1}, nil)
+	err = store.Put(&did.Doc{ID: did1}, nil)
 	require.NoError(t, err)
 
 	// put
-	err = store.Put(did2, &did.Doc{ID: did2}, nil)
+	err = store.Put(&did.Doc{ID: did2}, nil)
 	require.NoError(t, err)
 
 	// get
@@ -66,10 +66,10 @@ func TestPeerDIDStore(t *testing.T) {
 	require.Error(t, err)
 
 	// put - empty id
-	err = store.Put("", &did.Doc{ID: did1}, nil)
+	err = store.Put(&did.Doc{ID: ""}, nil)
 	require.Error(t, err)
 
 	// put - missing doc
-	err = store.Put(did1, nil, nil)
+	err = store.Put(nil, nil)
 	require.Error(t, err)
 }

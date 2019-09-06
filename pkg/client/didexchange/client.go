@@ -43,8 +43,8 @@ func New(ctx provider) (*Client, error) {
 func (c *Client) CreateInvitation() (*InvitationRequest, error) {
 	return &InvitationRequest{Invitation: &didexchange.Invitation{
 		ID:              uuid.New().String(),
-		Label:           "agent",                        //TODO get the value from config #175
-		RecipientKeys:   nil,                            //TODO #178
-		ServiceEndpoint: "https://example.com/endpoint", //TODO get the value from config #175
+		Label:           "agent",                        // TODO get the value from config #175
+		RecipientKeys:   nil,                            // TODO #178
+		ServiceEndpoint: "https://example.com/endpoint", // TODO get the value from config #175
 	}}, nil
 }

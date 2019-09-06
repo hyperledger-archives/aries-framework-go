@@ -74,7 +74,7 @@ type Connection struct {
 	DIDDoc *did.Doc `json:"did_doc,omitempty"`
 }
 
-//Ack acknowledgement struct
+// Ack acknowledgement struct
 type Ack struct {
 	Type   string            `json:"@type,omitempty"`
 	ID     string            `json:"@id,omitempty"`

@@ -106,8 +106,8 @@ func validateRequests(t *testing.T) {
 		},
 	}
 
-	//give some time for server to start
-	//TODO instead of sleep, listen for port
+	// give some time for server to start
+	// TODO instead of sleep, listen for port
 	time.Sleep(100 * time.Millisecond)
 
 	for _, tt := range tests {
@@ -138,7 +138,7 @@ func validateRequests(t *testing.T) {
 
 }
 
-//isJSON() checks if response is json
+// isJSON checks if response is json
 func isJSON(res []byte) bool {
 	var js map[string]interface{}
 	return json.Unmarshal(res, &js) == nil

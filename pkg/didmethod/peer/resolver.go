@@ -45,5 +45,5 @@ func (resl *DIDResolver) Read(did string, _ ...didresolver.ResolveOpt) ([]byte, 
 
 // Accept did method
 func (resl *DIDResolver) Accept(method string) bool {
-	return "peer" == method
+	return method == "peer"
 }

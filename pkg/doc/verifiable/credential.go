@@ -249,14 +249,14 @@ func WithNoCustomSchemaCheck() CredentialOpt {
 	}
 }
 
-//WithDecoders option is for adding extra JSON decoders into Verifiable Credential data model.
+// WithDecoders option is for adding extra JSON decoders into Verifiable Credential data model.
 func WithDecoders(decoders []CredentialDecoder) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.decoders = append(opts.decoders, decoders...)
 	}
 }
 
-//WithTemplate option is for setting a custom factory method to create new Credential instance.
+// WithTemplate option is for setting a custom factory method to create new Credential instance.
 func WithTemplate(template CredentialTemplate) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.template = template
@@ -288,7 +288,8 @@ func NewCredential(dataJSON []byte, opts ...CredentialOpt) (*Credential, error) 
 		return nil, fmt.Errorf("JSON unmarshalling of verifiable credential failed: %w", err)
 	}
 
-	if err = validate(dataJSON, raw.Schema, crOpts); err != nil {
+	err = validate(dataJSON, raw.Schema, crOpts)
+	if err != nil {
 		return nil, err
 	}
 
@@ -323,7 +324,7 @@ func defaultCredentialOpts() *credentialOpts {
 	}
 }
 
-func issuerFromBytes(data []byte) (issuerID string, issuerName string, err error) {
+func issuerFromBytes(data []byte) (issuerID, issuerName string, err error) {
 	issuerPlain := &issuerPlain{}
 	err = json.Unmarshal(data, &issuerPlain)
 	if err == nil {

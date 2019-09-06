@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	//loggerNotInitializedMsg is used when a logger is not initialized before logging
+	// loggerNotInitializedMsg is used when a logger is not initialized before logging
 	loggerNotInitializedMsg = "Default logger initialized (please call log.Initialize() if you wish to use a custom logger)"
 	loggerModule            = "aries-framework/common"
 )
 
-//Log is an implementation of Logger interface.
-//It encapsulates default or custom logger to provide module and level based logging.
+// Log is an implementation of Logger interface.
+// It encapsulates default or custom logger to provide module and level based logging.
 type Log struct {
 	instance Logger
 	module   string
@@ -34,34 +34,34 @@ func New(module string) *Log {
 	return &Log{module: module}
 }
 
-//Fatalf calls Fatalf function of underlying logger
-//should possibly cause system shutdown based on implementation
+// Fatalf calls Fatalf function of underlying logger
+// should possibly cause system shutdown based on implementation
 func (l *Log) Fatalf(msg string, args ...interface{}) {
 	l.logger().Fatalf(msg, args...)
 }
 
-//Panicf calls Panic function of underlying logger
-//should possibly cause panic based on implementation
+// Panicf calls Panic function of underlying logger
+// should possibly cause panic based on implementation
 func (l *Log) Panicf(msg string, args ...interface{}) {
 	l.logger().Panicf(msg, args...)
 }
 
-//Debugf calls Debugf function of underlying logger
+// Debugf calls Debugf function of underlying logger
 func (l *Log) Debugf(msg string, args ...interface{}) {
 	l.logger().Debugf(msg, args...)
 }
 
-//Infof calls Infof function of underlying logger
+// Infof calls Infof function of underlying logger
 func (l *Log) Infof(msg string, args ...interface{}) {
 	l.logger().Infof(msg, args...)
 }
 
-//Warnf calls Warnf function of underlying logger
+// Warnf calls Warnf function of underlying logger
 func (l *Log) Warnf(msg string, args ...interface{}) {
 	l.logger().Warnf(msg, args...)
 }
 
-//Errorf calls Errorf function of underlying logger
+// Errorf calls Errorf function of underlying logger
 func (l *Log) Errorf(msg string, args ...interface{}) {
 	l.logger().Errorf(msg, args...)
 }
@@ -73,34 +73,37 @@ func (l *Log) logger() Logger {
 	return l.instance
 }
 
-//SetLevel - setting log level for given module
+// SetLevel - setting log level for given module
 //  Parameters:
 //  module is module name
 //  level is logging level
-//If not set default logging level is info
+//
+// If not set default logging level is info
 func SetLevel(module string, level Level) {
 	metadata.SetLevel(module, metadata.Level(level))
 }
 
-//GetLevel - getting log level for given module
+// GetLevel - getting log level for given module
 //  Parameters:
 //  module is module name
 //
 //  Returns:
 //  logging level
-//If not set default logging level is info
+//
+// If not set default logging level is info
 func GetLevel(module string) Level {
 	return Level(metadata.GetLevel(module))
 }
 
-//IsEnabledFor - Check if given log level is enabled for given module
+// IsEnabledFor - Check if given log level is enabled for given module
 //  Parameters:
 //  module is module name
 //  level is logging level
 //
 //  Returns:
 //  is logging enabled for this module and level
-//If not set default logging level is info
+//
+// If not set default logging level is info
 func IsEnabledFor(module string, level Level) bool {
 	return metadata.IsEnabledFor(module, metadata.Level(level))
 }
@@ -116,27 +119,27 @@ func ParseLevel(level string) (Level, error) {
 	return Level(l), err
 }
 
-//ShowCallerInfo - Show caller info in log lines for given log level and module
+// ShowCallerInfo - Show caller info in log lines for given log level and module
 //  Parameters:
 //  module is module name
 //  level is logging level
 //
-//note: based on implementation of custom logger, callerinfo information may not be available for custom logging provider
+// note: based on implementation of custom logger, callerinfo information may not be available for custom logging provider
 func ShowCallerInfo(module string, level Level) {
 	metadata.ShowCallerInfo(module, metadata.Level(level))
 }
 
-//HideCallerInfo - Do not show caller info in log lines for given log level and module
+// HideCallerInfo - Do not show caller info in log lines for given log level and module
 //  Parameters:
 //  module is module name
 //  level is logging level
 //
-//note: based on implementation of custom logger, callerinfo information may not be available for custom logging provider
+// note: based on implementation of custom logger, callerinfo information may not be available for custom logging provider
 func HideCallerInfo(module string, level Level) {
 	metadata.HideCallerInfo(module, metadata.Level(level))
 }
 
-//IsCallerInfoEnabled - returns if caller info enabled for given log level and module
+// IsCallerInfoEnabled - returns if caller info enabled for given log level and module
 //  Parameters:
 //  module is module name
 //  level is logging level
@@ -144,7 +147,7 @@ func HideCallerInfo(module string, level Level) {
 //  Returns:
 //  is caller info enabled for this module and level
 //
-//note: based on implementation of custom logger, callerinfo information may not be available for custom logging provider
+// note: based on implementation of custom logger, callerinfo information may not be available for custom logging provider
 func IsCallerInfoEnabled(module string, level Level) bool {
 	return metadata.IsCallerInfoEnabled(module, metadata.Level(level))
 }

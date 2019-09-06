@@ -30,14 +30,14 @@ const (
 
 var buf bytes.Buffer
 
-//VerifyDefaultLogging verifies default logging behaviour.
-//Should only be used for tests
+// VerifyDefaultLogging verifies default logging behaviour.
+// Should only be used for tests.
 func VerifyDefaultLogging(t *testing.T, logger Logger, module string, setLevel func(module string, level metadata.Level)) {
 	allTestLevels := []metadata.Level{metadata.ERROR, metadata.DEBUG, metadata.INFO, metadata.WARNING, metadata.CRITICAL}
 
 	for _, levelEnabled := range allTestLevels {
 
-		//change log level
+		// change log level
 		setLevel(module, levelEnabled)
 
 		logger.Infof(msgFormat, msgArg1, msgArg2)
@@ -53,7 +53,7 @@ func VerifyDefaultLogging(t *testing.T, logger Logger, module string, setLevel f
 		matchDefLogOutput(t, module, metadata.WARNING, levelEnabled, true)
 	}
 
-	//testing critical logging by handling panic
+	// testing critical logging by handling panic
 	defer func() {
 		r := recover()
 		require.NotNil(t, r, "supposed to panic")
@@ -81,21 +81,22 @@ func matchDefLogOutput(t *testing.T, module string, currentLevel, levelEnabled m
 	match, err := regexp.MatchString(regex, buf.String())
 
 	require.Empty(t, err, "error while matching regex with logoutput wasnt expected")
-	require.True(t, match, "logger isn't producing output as expected,\n\tLevel Enabled:[%s]\n\tlogoutput:%s\n\tregex:%s", metadata.ParseString(currentLevel), buf.String(), regex)
+	require.True(t, match, "logger isn't producing output as expected,\n\tLevel Enabled:[%s]\n\tlogoutput:%s\n\tregex:%s",
+		metadata.ParseString(currentLevel), buf.String(), regex)
 }
 
-//VerifyCustomLogger verifies custom logging behaviour.
-//Should only be used for tests
+// VerifyCustomLogger verifies custom logging behaviour.
+// Should only be used for tests.
 func VerifyCustomLogger(t *testing.T, logger Logger, module string) {
 	regex := fmt.Sprintf(customLevelOutputExpectedRegex, module)
 	allTestLevels := []metadata.Level{metadata.ERROR, metadata.DEBUG, metadata.INFO, metadata.WARNING, metadata.CRITICAL}
 
 	for _, levelEnabled := range allTestLevels {
 
-		//change log level
+		// change log level
 		metadata.SetLevel(module, levelEnabled)
 
-		//print in all levels and verify
+		// print in all levels and verify
 		logger.Infof("brown fox jumps over the lazy dog")
 		matchCustomLogOutput(t, regex, metadata.INFO, levelEnabled)
 
@@ -124,11 +125,12 @@ func matchCustomLogOutput(t *testing.T, regex string, level, levelEnabled metada
 	defer buf.Reset()
 	match, err := regexp.MatchString(regex, buf.String())
 	require.Empty(t, err, "error while matching regex with logoutput wasnt expected")
-	require.True(t, match, "logger isn't producing output as expected,\n\tLevel Enabled:[%s]\n\tlogoutput:%s\n\tregex:%s", metadata.ParseString(level), buf.String(), regex)
+	require.True(t, match, "logger isn't producing output as expected,\n\tLevel Enabled:[%s]\n\tlogoutput:%s\n\tregex:%s",
+		metadata.ParseString(level), buf.String(), regex)
 }
 
-//SwitchLogOutputToBuffer switches log output to test buffer,
-//Should only be used for testing
+// SwitchLogOutputToBuffer switches log output to test buffer.
+// Should only be used for testing.
 func SwitchLogOutputToBuffer(logger Logger) {
 	defLog, ok := logger.(*ModLog).logger.(*DefLog)
 	if ok {
@@ -136,14 +138,14 @@ func SwitchLogOutputToBuffer(logger Logger) {
 	}
 }
 
-//GetSampleCustomLogger returns custom logger which can only be used for testing purposes.
+// GetSampleCustomLogger returns custom logger which can only be used for testing purposes.
 func GetSampleCustomLogger(module string) *SampleLog {
 	logger := log.New(&buf, fmt.Sprintf(logPrefixFormatter, module), log.Ldate|log.Ltime|log.LUTC)
 	return &SampleLog{logger}
 }
 
-//SampleLog is a sample logger implementation for testing purposes.
-//note: this implementation should be strictly used for testing only.
+// SampleLog is a sample logger implementation for testing purposes.
+// note: this implementation should be strictly used for testing only.
 type SampleLog struct {
 	logger *log.Logger
 }

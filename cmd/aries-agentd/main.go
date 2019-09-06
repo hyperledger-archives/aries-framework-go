@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
 //     Schemes: http, https
 //     Host: 127.0.0.1:8080
 //     Version: 0.1.0
-//     License: Copyright SecureKey Technologies Inc. All Rights Reserved.
+//     License: SPDX-License-Identifier: Apache-2.0
 //
 //     Consumes:
 //     - application/json
@@ -47,14 +47,14 @@ var logger = log.New("aries-framework/agentd")
 // This is an application which starts Aries agent controller API on given port
 func main() {
 
-	//Default port and command lines arguments will be addressed as part of #94
+	// Default port and command lines arguments will be addressed as part of #94
 	host := os.Getenv(agentHostEnvKey)
 	if host == "" {
 		logger.Errorf("Unable to start aries agentd, host not provided")
 		return
 	}
 
-	//Default port and command lines arguments will be addressed as part of #94
+	// Default port and command lines arguments will be addressed as part of #94
 	inboundHost := os.Getenv(agentHTTPInboundEnvKey)
 	if inboundHost == "" {
 		logger.Errorf("Unable to start aries agentd, HTTP Inbound transport host not provided")
@@ -80,14 +80,14 @@ func main() {
 	// start the HTTP inbound transport
 	startInboundHTTPTransport(ctx, inboundHost)
 
-	//get all HTTP REST API handlers available for controller API
+	// get all HTTP REST API handlers available for controller API
 	restService, err := restapi.New(ctx)
 	if err != nil {
 		logger.Fatalf("Failed to start aries agentd on port [%s], failed to get rest service api :  %s", host, err)
 	}
 	handlers := restService.GetOperations()
 
-	//register handlers
+	// register handlers
 	router := mux.NewRouter()
 	for _, handler := range handlers {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
@@ -95,7 +95,7 @@ func main() {
 
 	logger.Infof("Starting aries agentd on host [%s]", host)
 
-	//start server on given port and serve using given handlers
+	// start server on given port and serve using given handlers
 	err = http.ListenAndServe(host, router)
 	if err != nil {
 		logger.Fatalf("Failed to start aries agentd on port [%s], cause:  %s", host, err)
