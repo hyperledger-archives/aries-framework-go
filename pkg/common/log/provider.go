@@ -13,8 +13,11 @@ import (
 )
 
 // loggerProviderInstance is logger factory singleton - access only via loggerProvider()
-var loggerProviderInstance LoggerProvider
-var loggerProviderOnce sync.Once
+//nolint:gochecknoglobals
+var (
+	loggerProviderInstance LoggerProvider
+	loggerProviderOnce     sync.Once
+)
 
 // Initialize sets new custom logging provider which takes over logging operations.
 // It is required to call this function before making any loggings for using custom loggers.

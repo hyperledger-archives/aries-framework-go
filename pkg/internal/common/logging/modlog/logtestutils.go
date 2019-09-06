@@ -28,6 +28,8 @@ const (
 	customLevelOutputExpectedRegex = "\\[%s\\] .* CUSTOM LOG OUTPUT"
 )
 
+// TODO Review this variable
+//nolint:gochecknoglobals
 var buf bytes.Buffer
 
 // VerifyDefaultLogging verifies default logging behaviour.

@@ -64,6 +64,8 @@ func TestStartAriesD(t *testing.T) {
 	validateRequests(t)
 }
 
+// TODO: this method should be refactored (e.g., too many lines).
+//nolint:funlen
 func validateRequests(t *testing.T) {
 	newreq := func(method, url string, body io.Reader, contentType string) *http.Request {
 		r, err := http.NewRequest(method, url, body)

@@ -156,7 +156,7 @@ const (
 }`
 )
 
-var schemaLoader = gojsonschema.NewStringLoader(schema)
+var schemaLoader = gojsonschema.NewStringLoader(schema) //nolint:gochecknoglobals
 
 // Doc DID Document definition
 type Doc struct {

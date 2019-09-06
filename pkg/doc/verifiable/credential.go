@@ -141,6 +141,7 @@ const defaultSchema = `
 
 const jsonSchema2018Type = "JsonSchemaValidator2018"
 
+//nolint:gochecknoglobals
 var defaultSchemaLoader = gojsonschema.NewStringLoader(defaultSchema)
 
 // Proof defines embedded proof of Verifiable Credential
