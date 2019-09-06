@@ -157,7 +157,7 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 
 	params := mux.Vars(req)
 
-	// TODO returning sample response since event listening/handling with DID exchange service is still need to be implemented
+	// TODO returning sample response since event listening/handling with DID exchange service needs to be implemented
 	response := models.AcceptInvitationResponse{
 		ConnectionID:  params["id"],
 		DID:           "TAaW9Dmxa93B8e5x6iLwFJ",

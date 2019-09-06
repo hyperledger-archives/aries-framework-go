@@ -56,12 +56,12 @@ func New(opts ...Option) (*Aries, error) {
 		return nil, fmt.Errorf("default option initialization failed: %w", err)
 	}
 
-	// TODO -https://github.com/hyperledger/aries-framework-go/issues/212 Define clear relationship between framework
-	//  and context
+	// TODO: https://github.com/hyperledger/aries-framework-go/issues/212
+	//  Define clear relationship between framework and context.
 	//  Details - The code creates context without protocolServices. The protocolServicesCreators are dependent
-	//  on the context. The inbound transports require ctx.InboundMessageHandler(), which inturn depends on protocolServices.
-	//  At the moment, there is a looping issue among these. This needs to be resolved and should define a clear relationship
-	//  between these.
+	//  on the context. The inbound transports require ctx.InboundMessageHandler(), which in-turn depends on
+	//  protocolServices. At the moment, there is a looping issue among these.
+	//  This needs to be resolved and should define a clear relationship between these.
 	ctxProvider, err := frameworkOpts.Context()
 	if err != nil {
 		return nil, fmt.Errorf("context creation failed: %w", err)

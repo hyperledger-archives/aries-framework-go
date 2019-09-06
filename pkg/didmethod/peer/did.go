@@ -42,7 +42,8 @@ func NewDoc(publicKey []did.PublicKey, authorization []did.VerificationMethod) (
 
 }
 
-// computeDid creates the peer DID. For example : did:peer:11-479cbc07c3f991725836a3aa2a581ca2029198aa420b9d99bc0e131d9f3e2cbe
+// computeDid creates the peer DID.
+// For example: did:peer:11-479cbc07c3f991725836a3aa2a581ca2029198aa420b9d99bc0e131d9f3e2cbe
 func computeDid(doc *did.Doc) (string, error) {
 
 	if doc.PublicKey == nil || doc.Authentication == nil {
@@ -58,8 +59,10 @@ func computeDid(doc *did.Doc) (string, error) {
 	return peerDID, nil
 }
 
-// validateDID checks the format of the doc's DID and checks that the DID's 'namestring' matches against its numeric basis as per the
-// Namestring Generation Method: https://openssi.github.io/peer-did-method-spec/index.html#namestring-generation-method
+// validateDID checks the format of the doc's DID and checks that the DID's 'namestring' matches against its numeric
+// basis as per the Namestring Generation Method.
+// Reference: https://openssi.github.io/peer-did-method-spec/index.html#namestring-generation-method
+//
 // Note: this check should be done only on the resolved variant of the genesis version of Peer DID documents.
 func validateDID(doc *did.Doc) error {
 

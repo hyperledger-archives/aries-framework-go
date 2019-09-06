@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/modlog"
 )
 
-// TestDefaultLogger tests default logging feature when no custom logging provider is supplied through 'Initialize()' call
+// TestDefaultLogger tests default logging feature when no custom logging provider is supplied via 'Initialize()' call
 func TestDefaultLogger(t *testing.T) {
 
 	defer func() { loggerProviderOnce = sync.Once{} }()
@@ -119,11 +119,13 @@ func TestParseLevelError(t *testing.T) {
 
 func verifyLevels(t *testing.T, module string, enabled, disabled []Level) {
 	for _, level := range enabled {
+		levelStr := metadata.ParseString(metadata.Level(level))
 		require.True(t, IsEnabledFor(module, level),
-			"expected level [%s] to be enabled for module [%s]", metadata.ParseString(metadata.Level(level)), module)
+			"expected level [%s] to be enabled for module [%s]", levelStr, module)
 	}
 	for _, level := range disabled {
+		levelStr := metadata.ParseString(metadata.Level(level))
 		require.False(t, IsEnabledFor(module, level),
-			"expected level [%s] to be disabled for module [%s]", metadata.ParseString(metadata.Level(level)), module)
+			"expected level [%s] to be disabled for module [%s]", levelStr, module)
 	}
 }

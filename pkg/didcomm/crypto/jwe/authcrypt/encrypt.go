@@ -89,7 +89,7 @@ func (c *Crypter) Encrypt(payload []byte) ([]byte, error) {
 	return jwe, nil
 }
 
-// extractTag will extract and return the base64UrlEncoded tag sub slice from an array (symOutput) returned by cipher.Seal
+// extractTag extracts the base64UrlEncoded tag sub slice from symOutput returned by cipher.Seal
 func extractTag(symOutput []byte) string {
 	// symOutput has a length of len(clear msg) + poly1035.TagSize
 	// fetch the tag from the tail of symOutput
@@ -98,7 +98,7 @@ func extractTag(symOutput []byte) string {
 	return base64.URLEncoding.EncodeToString(tag)
 }
 
-// extractCipherText will extract the base64UrlEncoded cipherText sub slice from an array (symOutput) returned by cipher.Seal
+// extractCipherText extracts the base64UrlEncoded cipherText sub slice from symOutput returned by cipher.Seal
 func extractCipherText(symOutput []byte) string {
 	// fetch the cipherText from the head of symOutput (0:up to the trailing tag)
 	cipherText := symOutput[0 : len(symOutput)-poly1305.TagSize]
@@ -120,8 +120,8 @@ func createCipher(nonceSize int, symKey []byte) (cipher.AEAD, error) {
 
 // buildJWE builds the JSON object representing the JWE output of the encryption
 // and returns its marshaled []byte representation
-func (c *Crypter) buildJWE(headers jweHeaders, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) {
-	h, err := json.Marshal(headers)
+func (c *Crypter) buildJWE(hdrs jweHeaders, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) {
+	h, err := json.Marshal(hdrs)
 	if err != nil {
 		return nil, err
 	}
@@ -208,8 +208,7 @@ func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]by
 }
 
 // buildRecipient will build a proper JSON formatted Recipient
-func (c *Crypter) buildRecipient(key string, apu, nonce []byte, tag string, recipientKey *[chacha.KeySize]byte) (*Recipient, error) {
-
+func (c *Crypter) buildRecipient(key string, apu, nonce []byte, tag string, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
 	oid, err := encryptOID(recipientKey, []byte(base58.Encode(c.sender.pub[:])))
 	if err != nil {
 		return nil, err
@@ -243,11 +242,13 @@ func (c *Crypter) generateRecipientCEK(apu []byte, recipientKey *[chacha.KeySize
 	// https://github.com/gamringer/php-authcrypt/blob/master/src/Crypt.php#L80
 
 	// with z being a basePoint of a curve25519
-	z := &[chacha.KeySize]byte{9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	// do ScalarMult of the sender's private key with the recipent key to get a derived Z point ( equivalent to derive an EC key )
+	z := &[chacha.KeySize]byte{9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} //nolint:lll
+	// do ScalarMult of the sender's private key with the recipient key to get a derived Z point
+	// ( equivalent to derive an EC key )
 	curve25519.ScalarMult(z, c.sender.priv, recipientKey)
 
-	// inspired by: github.com/square/go-jose/v3@v3.0.0-20190722231519-723929d55157/cipher/ecdh_es.go -> DeriveECDHES() call
+	// inspired by: github.com/square/go-jose/v3@v3.0.0-20190722231519-723929d55157/cipher/ecdh_es.go
+	// -> DeriveECDHES() call
 
 	// suppPubInfo is the encoded length of the recipient shared key output size in bits
 	supPubInfo := make([]byte, 4)

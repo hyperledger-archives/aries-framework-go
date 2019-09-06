@@ -14,11 +14,10 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
-
 	"github.com/stretchr/testify/require"
 )
 
-var pemPK = `-----BEGIN PUBLIC KEY-----
+const pemPK = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO
 3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX
 7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS
@@ -28,7 +27,8 @@ OrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ
 FQIDAQAB
 -----END PUBLIC KEY-----`
 
-var validDoc = `{
+//nolint:lll
+const validDoc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:example:21tDAKCERh95uGgKbJNHYp",
   "publicKey": [
@@ -87,26 +87,52 @@ func TestValid(t *testing.T) {
 	hexDecodeValue, err := hex.DecodeString("02b97c30de767f084ce3080168ee293053ba33b235d7116a3263d29f1450936b71")
 	block, _ := pem.Decode([]byte(pemPK))
 	require.NotNil(t, block)
+	require.NoError(t, err)
 
 	// test authentication
-	require.NoError(t, err)
-	require.Equal(t, []VerificationMethod{{PublicKey: PublicKey{ID: "did:example:123456789abcdefghi#keys-1", Controller: "did:example:123456789abcdefghi",
-		Type: "Secp256k1VerificationKey2018", Value: base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")}}, {PublicKey: PublicKey{ID: "did:example:123456789abcdefghs#key3",
-		Controller: "did:example:123456789abcdefghs", Type: "RsaVerificationKey2018", Value: hexDecodeValue}}}, doc.Authentication)
+	eAuthentication := []VerificationMethod{
+		{PublicKey: PublicKey{
+			ID:         "did:example:123456789abcdefghi#keys-1",
+			Controller: "did:example:123456789abcdefghi",
+			Type:       "Secp256k1VerificationKey2018",
+			Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")}},
+		{PublicKey: PublicKey{
+			ID:         "did:example:123456789abcdefghs#key3",
+			Controller: "did:example:123456789abcdefghs",
+			Type:       "RsaVerificationKey2018",
+			Value:      hexDecodeValue}}}
+	require.Equal(t, eAuthentication, doc.Authentication)
 
 	// test public key
-	require.Equal(t, []PublicKey{{ID: "did:example:123456789abcdefghi#keys-1", Controller: "did:example:123456789abcdefghi",
-		Type: "Secp256k1VerificationKey2018", Value: base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")}, {ID: "did:example:123456789abcdefghw#key2",
-		Controller: "did:example:123456789abcdefghw", Type: "RsaVerificationKey2018", Value: block.Bytes}}, doc.PublicKey)
+	ePubKey := []PublicKey{
+		{ID: "did:example:123456789abcdefghi#keys-1",
+			Controller: "did:example:123456789abcdefghi",
+			Type:       "Secp256k1VerificationKey2018",
+			Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")},
+		{ID: "did:example:123456789abcdefghw#key2",
+			Controller: "did:example:123456789abcdefghw",
+			Type:       "RsaVerificationKey2018",
+			Value:      block.Bytes}}
+	require.Equal(t, ePubKey, doc.PublicKey)
 
 	// test service
-	require.Equal(t, []Service{{ID: "did:example:123456789abcdefghi#inbox", Type: "SocialWebInboxService",
-		ServiceEndpoint: "https://social.example.com/83hfh37dj", Properties: map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}}}}, doc.Service)
+	eService := []Service{
+		{ID: "did:example:123456789abcdefghi#inbox",
+			Type:            "SocialWebInboxService",
+			ServiceEndpoint: "https://social.example.com/83hfh37dj",
+			Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}}}}
+	require.Equal(t, eService, doc.Service)
 
 	// test proof
 	timeValue, err := time.Parse(time.RFC3339, "2016-02-08T16:02:20Z")
 	require.NoError(t, err)
-	require.Equal(t, &Proof{Type: "LinkedDataSignature2015", Created: &timeValue, Creator: "did:example:8uQhQMGzWxR8vw5P3UWH1ja#keys-1", SignatureValue: "QNB13Y7Q9...1tzjn4w==", Domain: "", Nonce: ""}, doc.Proof)
+	eProof := &Proof{Type: "LinkedDataSignature2015",
+		Created:        &timeValue,
+		Creator:        "did:example:8uQhQMGzWxR8vw5P3UWH1ja#keys-1",
+		SignatureValue: "QNB13Y7Q9...1tzjn4w==",
+		Domain:         "",
+		Nonce:          ""}
+	require.Equal(t, eProof, doc.Proof)
 
 	// test created
 	timeValue, err = time.Parse(time.RFC3339, "2002-10-10T17:00:00Z")
@@ -126,7 +152,9 @@ func TestPopulateAuthentications(t *testing.T) {
 		require.NoError(t, err)
 		_, err = FromBytes(bytes)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "authentication key did:example:123456789abcdefghs#key4 not exist in did doc public key")
+
+		expected := "authentication key did:example:123456789abcdefghs#key4 not exist in did doc public key"
+		require.Contains(t, err.Error(), expected)
 
 	})
 }

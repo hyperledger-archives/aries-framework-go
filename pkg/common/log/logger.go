@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/metadata"
 )
 
+//nolint:lll
 const (
 	// loggerNotInitializedMsg is used when a logger is not initialized before logging
 	loggerNotInitializedMsg = "Default logger initialized (please call log.Initialize() if you wish to use a custom logger)"
@@ -124,7 +125,7 @@ func ParseLevel(level string) (Level, error) {
 //  module is module name
 //  level is logging level
 //
-// note: based on implementation of custom logger, callerinfo information may not be available for custom logging provider
+// note: based on implementation of custom logger, callerinfo info may not be available for custom logging provider
 func ShowCallerInfo(module string, level Level) {
 	metadata.ShowCallerInfo(module, metadata.Level(level))
 }
@@ -134,7 +135,7 @@ func ShowCallerInfo(module string, level Level) {
 //  module is module name
 //  level is logging level
 //
-// note: based on implementation of custom logger, callerinfo information may not be available for custom logging provider
+// note: based on implementation of custom logger, callerinfo info may not be available for custom logging provider
 func HideCallerInfo(module string, level Level) {
 	metadata.HideCallerInfo(module, metadata.Level(level))
 }
@@ -147,7 +148,7 @@ func HideCallerInfo(module string, level Level) {
 //  Returns:
 //  is caller info enabled for this module and level
 //
-// note: based on implementation of custom logger, callerinfo information may not be available for custom logging provider
+// note: based on implementation of custom logger, callerinfo info may not be available for custom logging provider
 func IsCallerInfoEnabled(module string, level Level) bool {
 	return metadata.IsCallerInfoEnabled(module, metadata.Level(level))
 }

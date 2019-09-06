@@ -29,7 +29,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
 
-var doc = `{
+//nolint:lll
+const doc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
   "publicKey": [
@@ -114,11 +115,11 @@ func TestFramework(t *testing.T) {
 		require.Equal(t, "success", r)
 	})
 
-	t.Run("test framework new - failed to create the context : error with user provided transport ", func(t *testing.T) {
+	t.Run("test framework new - failed to create the context : error with user provided transport ", func(t *testing.T) { //nolint:lll
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
-		_, err := New(WithTransportProviderFactory(&mockTransportProviderFactory{err: errors.New("outbound transport init failed")}))
+		_, err := New(WithTransportProviderFactory(&mockTransportProviderFactory{err: errors.New("outbound transport init failed")})) //nolint:lll
 		require.Error(t, err)
 	})
 
@@ -126,9 +127,10 @@ func TestFramework(t *testing.T) {
 	t.Run("test DID resolver - with user provided resolver", func(t *testing.T) {
 		peerDID := "did:peer:123"
 		// with consumer provider DID resolver
-		resolver := didresolver.New(didresolver.WithDidMethod(mockDidMethod{readValue: []byte(doc), acceptFunc: func(method string) bool {
-			return method == "peer"
-		}}))
+		resolver := didresolver.New(
+			didresolver.WithDidMethod(mockDidMethod{readValue: []byte(doc), acceptFunc: func(method string) bool {
+				return method == "peer"
+			}}))
 		aries, err := New(WithDIDResolver(resolver), WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)

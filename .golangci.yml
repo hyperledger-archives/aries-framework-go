@@ -53,7 +53,7 @@ linters-settings:
     locale:
     ignore-words: []
   lll:
-    line-length: 140
+    line-length: 120
     tab-width: 1
   unused:
     check-exported: false
@@ -77,7 +77,6 @@ linters:
     - prealloc
     - dupl
     - gochecknoglobals
-    - lll
 
 issues:
   exclude-use-default: false
