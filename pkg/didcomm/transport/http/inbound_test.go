@@ -100,3 +100,67 @@ func TestInboundHandler(t *testing.T) {
 	require.NotNil(t, resp)
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 }
+
+func TestInboundTransport(t *testing.T) {
+	t.Run("test inbound transport - with host/port", func(t *testing.T) {
+		inbound, err := NewInbound(":26601")
+		require.NoError(t, err)
+		require.NotEmpty(t, inbound.Endpoint())
+	})
+
+	t.Run("test inbound transport - without host/port", func(t *testing.T) {
+		inbound, err := NewInbound(":26602")
+		require.NoError(t, err)
+		require.NotEmpty(t, inbound)
+
+		err = inbound.Start(&mockProvider{})
+		require.NoError(t, err)
+
+		err = inbound.Stop()
+		require.NoError(t, err)
+	})
+
+	t.Run("test inbound transport - nil context", func(t *testing.T) {
+		inbound, err := NewInbound(":26603")
+		require.NoError(t, err)
+		require.NotEmpty(t, inbound)
+
+		err = inbound.Start(nil)
+		require.Error(t, err)
+	})
+
+	t.Run("test inbound transport - invalid port number", func(t *testing.T) {
+		_, err := NewInbound("")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "http address is mandatory")
+	})
+
+	t.Run("test inbound transport - invoke endpoint", func(t *testing.T) {
+		// initiate inbound with port
+		inbound, err := NewInbound(":26604")
+		require.NoError(t, err)
+		require.NotEmpty(t, inbound)
+
+		// start server
+		err = inbound.Start(&mockProvider{})
+		require.NoError(t, err)
+
+		// invoke a endpoint
+		client := http.Client{}
+		resp, err := client.Post("http://localhost:26604", commContentType, bytes.NewBuffer([]byte("success")))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusAccepted, resp.StatusCode)
+		require.NotNil(t, resp)
+
+		err = resp.Body.Close()
+		require.NoError(t, err)
+
+		// stop server
+		err = inbound.Stop()
+		require.NoError(t, err)
+
+		// try after server stop
+		_, err = client.Post("http://localhost:26604", commContentType, bytes.NewBuffer([]byte("success"))) // nolint
+		require.Error(t, err)
+	})
+}

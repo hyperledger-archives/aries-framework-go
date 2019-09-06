@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -29,6 +30,7 @@ type Aries struct {
 	storeProvider       storage.Provider
 	protocolSvcCreators []api.ProtocolSvcCreator
 	services            []dispatcher.Service
+	inboundTransport    transport.InboundTransport
 }
 
 // Option configures the framework.
@@ -54,6 +56,12 @@ func New(opts ...Option) (*Aries, error) {
 		return nil, fmt.Errorf("default option initialization failed: %w", err)
 	}
 
+	// TODO -https://github.com/hyperledger/aries-framework-go/issues/212 Define clear relationship between framework
+	//  and context
+	//  Details - The code creates context without protocolServices. The protocolServicesCreators are dependent
+	//  on the context. The inbound transports require ctx.InboundMessageHandler(), which inturn depends on protocolServices.
+	//  At the moment, there is a looping issue among these. This needs to be resolved and should define a clear relationship
+	//  between these.
 	ctxProvider, err := frameworkOpts.Context()
 	if err != nil {
 		return nil, fmt.Errorf("context creation failed: %w", err)
@@ -61,20 +69,38 @@ func New(opts ...Option) (*Aries, error) {
 
 	// Load services
 	for _, v := range frameworkOpts.protocolSvcCreators {
-		svc, err := v(ctxProvider)
-		if err != nil {
-			return nil, fmt.Errorf("new protocol service failed: %w", err)
+		svc, svcErr := v(ctxProvider)
+		if svcErr != nil {
+			return nil, fmt.Errorf("new protocol service failed: %w", svcErr)
 		}
 		frameworkOpts.services = append(frameworkOpts.services, svc)
+	}
+
+	ctxProvider, err = frameworkOpts.Context()
+	if err != nil {
+		return nil, fmt.Errorf("context creation failed: %w", err)
+	}
+
+	// Start the inbound transport
+	if err := frameworkOpts.inboundTransport.Start(ctxProvider); err != nil {
+		return nil, fmt.Errorf("inbound transport start failed: %w", err)
 	}
 
 	return frameworkOpts, nil
 }
 
 // WithTransportProviderFactory injects a protocol provider factory interface to Aries
-func WithTransportProviderFactory(transport api.TransportProviderFactory) Option {
+func WithTransportProviderFactory(transportProv api.TransportProviderFactory) Option {
 	return func(opts *Aries) error {
-		opts.transport = transport
+		opts.transport = transportProv
+		return nil
+	}
+}
+
+// WithInboundTransport injects a inbound transport to the Aries framework
+func WithInboundTransport(inboundTransport transport.InboundTransport) Option {
+	return func(opts *Aries) error {
+		opts.inboundTransport = inboundTransport
 		return nil
 	}
 }
@@ -128,5 +154,12 @@ func (a *Aries) Close() error {
 			return fmt.Errorf("failed to close the framework: %w", err)
 		}
 	}
+
+	if a.inboundTransport != nil {
+		if err := a.inboundTransport.Stop(); err != nil {
+			return fmt.Errorf("inbound transport close failed: %w", err)
+		}
+	}
+
 	return nil
 }

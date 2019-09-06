@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package http
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -87,4 +88,50 @@ func validateHTTPMethod(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	return true
+}
+
+// Inbound http type.
+type Inbound struct {
+	server *http.Server
+}
+
+// NewInbound creates a new HTTP inbound transport instance.
+func NewInbound(addr string) (*Inbound, error) {
+	if addr == "" {
+		return nil, errors.New("http address is mandatory")
+	}
+
+	return &Inbound{server: &http.Server{Addr: addr}}, nil
+}
+
+// Start the http server.
+func (i *Inbound) Start(prov transport.InboundProvider) error {
+	handler, err := NewInboundHandler(prov)
+	if err != nil {
+		return fmt.Errorf("HTTP server start failed: %w", err)
+	}
+
+	i.server.Handler = handler
+
+	go func() {
+		if err := i.server.ListenAndServe(); err != http.ErrServerClosed {
+			logger.Fatalf("HTTP server start with address [%s] failed, cause:  %s", i.server.Addr, err)
+		}
+	}()
+
+	return nil
+}
+
+// Stop the http server.
+func (i *Inbound) Stop() error {
+	if err := i.server.Shutdown(context.Background()); err != nil {
+		return fmt.Errorf("HTTP server shutdown failed: %w", err)
+	}
+
+	return nil
+}
+
+// Endpoint provides the http connection details.
+func (i *Inbound) Endpoint() string {
+	return i.server.Addr
 }

@@ -29,7 +29,7 @@ func TestNew_Failure(t *testing.T) {
 func TestNew_Success(t *testing.T) {
 	path, cleanup := generateTempDir(t)
 	defer cleanup()
-	framework, err := aries.New(defaults.WithStorePath(path))
+	framework, err := aries.New(defaults.WithStorePath(path), defaults.WithInboundHTTPAddr(":26508"))
 	require.NoError(t, err)
 	require.NotNil(t, framework)
 

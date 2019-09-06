@@ -101,7 +101,7 @@ func TestFramework(t *testing.T) {
 		}()
 		serverURL := fmt.Sprintf("http://localhost:%d", port)
 
-		aries, err := New()
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
 
 		// context
@@ -129,7 +129,7 @@ func TestFramework(t *testing.T) {
 		resolver := didresolver.New(didresolver.WithDidMethod(mockDidMethod{readValue: []byte(doc), acceptFunc: func(method string) bool {
 			return method == "peer"
 		}}))
-		aries, err := New(WithDIDResolver(resolver))
+		aries, err := New(WithDIDResolver(resolver), WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
@@ -163,7 +163,7 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 
 		// with default DID resolver
-		aries, err := New()
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
@@ -175,7 +175,7 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test protocol svc - with default protocol", func(t *testing.T) {
-		aries, err := New()
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
@@ -193,7 +193,7 @@ func TestFramework(t *testing.T) {
 			return mockProtocolSvc{}, nil
 		}
 		// with custom protocol
-		aries, err := New(WithProtocols(newMockSvc))
+		aries, err := New(WithProtocols(newMockSvc), WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
@@ -214,7 +214,7 @@ func TestFramework(t *testing.T) {
 		mockSvcCreator := func(prv api.Provider) (dispatcher.Service, error) {
 			return mockProtocolSvc{}, nil
 		}
-		aries, err := New(WithProtocols(mockSvcCreator))
+		aries, err := New(WithProtocols(mockSvcCreator), WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
 
 		prov, err := aries.Context()
@@ -240,6 +240,56 @@ func TestFramework(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating the protocol")
 	})
+
+	t.Run("test Inbound transport - with options", func(t *testing.T) {
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+	})
+
+	t.Run("test Inbound transport - default", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		currentInboundPort := defaultInboundPort
+		defaultInboundPort = ":26501"
+		defer func() {
+			defaultInboundPort = currentInboundPort
+		}()
+
+		aries, err := New()
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test Inbound transport - start/stop error", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		// start error
+		_, err := New(WithInboundTransport(&mockInboundTransport{startError: errors.New("start error")}))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "inbound transport start failed")
+
+		path, cleanup = generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		// stop error
+		aries, err := New(WithInboundTransport(&mockInboundTransport{stopError: errors.New("stop error")}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		err = aries.Close()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "inbound transport close failed")
+	})
+
 }
 
 type mockProtocolSvc struct {
@@ -328,4 +378,27 @@ func (m mockHTTPHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 func getServerPort(server net.Listener) int {
 	return server.Addr().(*net.TCPAddr).Port
+}
+
+type mockInboundTransport struct {
+	startError error
+	stopError  error
+}
+
+func (m *mockInboundTransport) Start(prov transport.InboundProvider) error {
+	if m.startError != nil {
+		return m.startError
+	}
+	return nil
+}
+
+func (m *mockInboundTransport) Stop() error {
+	if m.stopError != nil {
+		return m.stopError
+	}
+	return nil
+}
+
+func (m *mockInboundTransport) Endpoint() string {
+	return ""
 }
