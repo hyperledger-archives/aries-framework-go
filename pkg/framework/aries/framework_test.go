@@ -126,9 +126,10 @@ func TestFramework(t *testing.T) {
 	t.Run("test DID resolver - with user provided resolver", func(t *testing.T) {
 		peerDID := "did:peer:123"
 		// with consumer provider DID resolver
-		aries, err := New(WithDIDResolver(didresolver.New(didresolver.WithDidMethod(mockDidMethod{readValue: []byte(doc), acceptFunc: func(method string) bool {
+		resolver := didresolver.New(didresolver.WithDidMethod(mockDidMethod{readValue: []byte(doc), acceptFunc: func(method string) bool {
 			return method == "peer"
-		}}))))
+		}}))
+		aries, err := New(WithDIDResolver(resolver))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
@@ -155,7 +156,7 @@ func TestFramework(t *testing.T) {
 		store := peer.NewDIDStore(dbstore)
 		originalDoc, err := did.FromBytes([]byte(doc))
 		require.NoError(t, err)
-		err = store.Put(peerDID, originalDoc, nil)
+		err = store.Put(originalDoc, nil)
 		require.NoError(t, err)
 
 		err = dbprov.Close()
@@ -273,7 +274,7 @@ type mockDidMethod struct {
 	acceptFunc func(method string) bool
 }
 
-func (m mockDidMethod) Read(did string, opts ...didresolver.ResolveOpt) ([]byte, error) {
+func (m mockDidMethod) Read(id string, opts ...didresolver.ResolveOpt) ([]byte, error) {
 	return m.readValue, m.readErr
 }
 

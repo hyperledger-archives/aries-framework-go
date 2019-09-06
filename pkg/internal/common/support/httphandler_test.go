@@ -20,7 +20,7 @@ func TestNewHTTPHandler(t *testing.T) {
 	method := "GET"
 	handled := make(chan bool)
 	handlerFn := func(w http.ResponseWriter, r *http.Request) {
-		//do nothing
+		// do nothing
 		handled <- true
 	}
 

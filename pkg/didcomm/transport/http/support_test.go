@@ -30,7 +30,7 @@ func addCertsToCertPool(pool *x509.CertPool) error {
 		// Create a pool with server certificates
 		cert, e := ioutil.ReadFile(filepath.Clean(certPath))
 		if e != nil {
-			return fmt.Errorf("Failed Reading certificate : %w", e)
+			return fmt.Errorf("reading certificate failed: %w", e)
 		}
 		rawCerts = append(rawCerts, string(cert))
 	}

@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
@@ -77,7 +76,7 @@ func TestPeerDIDResolver(t *testing.T) {
 
 	// save did document
 	store := NewDIDStore(dbstore)
-	err = store.Put(peerDID, &did.Doc{ID: peerDID}, nil)
+	err = store.Put(&did.Doc{ID: peerDID}, nil)
 	require.NoError(t, err)
 
 	resl := NewDIDResolver(store)
@@ -112,10 +111,10 @@ func TestWithDIDResolveAPI(t *testing.T) {
 
 	// save did document
 	store := NewDIDStore(dbstore)
-	peerDoc, err := diddoc.FromBytes([]byte(peerDIDDoc))
+	peerDoc, err := did.FromBytes([]byte(peerDIDDoc))
 	require.NoError(t, err)
 	require.NotNil(t, peerDoc)
-	err = store.Put(peerDID, peerDoc, nil)
+	err = store.Put(peerDoc, nil)
 	require.NoError(t, err)
 
 	r := didresolver.New(didresolver.WithDidMethod(NewDIDResolver(store)))

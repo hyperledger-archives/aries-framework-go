@@ -23,7 +23,7 @@ import (
 const (
 	// DIDExchange did exchange protocol
 	DIDExchange = "didexchange"
-	//DIDExchangeSpec defines the did-exchange spec
+	// DIDExchangeSpec defines the did-exchange spec
 	DIDExchangeSpec    = metadata.AriesCommunityDID + ";spec/didexchange/1.0/"
 	connectionInvite   = DIDExchangeSpec + "invitation"
 	connectionRequest  = DIDExchangeSpec + "request"

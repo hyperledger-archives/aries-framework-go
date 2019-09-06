@@ -47,7 +47,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 	require.NotEmpty(t, inviteReq.Invitation.ServiceEndpoint)
 }
 
-//mockProvider mocks provider needed for did exchange service initialization
+// mockProvider mocks provider needed for did exchange service initialization
 type mockProvider struct {
 	serviceValue interface{}
 	serviceErr   error

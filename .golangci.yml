@@ -6,7 +6,7 @@
 
 run:
   concurrency: 4
-  deadline: 1m
+  deadline: 3m
   issues-exit-code: 1
   tests: true
   build-tags: [""]
@@ -27,12 +27,14 @@ linters-settings:
     settings:
       printf:
         funcs:
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Debugf
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Infof
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Warnf
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Errorf
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Fatalf
+          - (github.com/hyperledger/aries-framework-go/pkg/common/log.Log).Panicf
   golint:
-    min-confidence: 0.8
+    min-confidence: 0.6
   gofmt:
     simplify: true
   goimports:
@@ -47,10 +49,11 @@ linters-settings:
     min-len: 3
     min-occurrences: 3
   misspell:
+    # default locale is a neutral variety of English.
     locale:
     ignore-words: []
   lll:
-    line-length: 120
+    line-length: 140
     tab-width: 1
   unused:
     check-exported: false
@@ -58,6 +61,14 @@ linters-settings:
     check-exported: false
   nakedret:
     max-func-lines: 30
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+      - style
+      - opinionated
+    disabled-checks:
+      - unnamedResult
 
 linters:
   enable-all: true
@@ -70,3 +81,4 @@ linters:
 
 issues:
   exclude-use-default: false
+

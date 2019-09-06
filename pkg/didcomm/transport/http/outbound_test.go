@@ -46,7 +46,7 @@ func TestOutboundHTTPTransport(t *testing.T) {
 		}
 	}()
 
-	//build a mock cert pool
+	// build a mock cert pool
 	cp := x509.NewCertPool()
 	err := addCertsToCertPool(cp)
 	require.NoError(t, err)

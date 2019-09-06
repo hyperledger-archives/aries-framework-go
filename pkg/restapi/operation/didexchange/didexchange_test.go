@@ -49,7 +49,7 @@ func TestOperation_CreateInvitation(t *testing.T) {
 	err = json.Unmarshal(buf.Bytes(), &response)
 	require.NoError(t, err)
 
-	//verify response
+	// verify response
 	require.NotEmpty(t, response.Payload)
 	require.NotEmpty(t, response.Payload.Invitation.ServiceEndpoint)
 	require.NotEmpty(t, response.Payload.Invitation.Label)
@@ -75,7 +75,7 @@ func TestOperation_ReceiveInvitation(t *testing.T) {
 	err = json.Unmarshal(buf.Bytes(), &response)
 	require.NoError(t, err)
 
-	//verify response
+	// verify response
 	require.NotEmpty(t, response)
 	require.NotEmpty(t, response.ConnectionID)
 	require.NotEmpty(t, response.CreateTime)
@@ -96,18 +96,18 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
 	err = json.Unmarshal(buf.Bytes(), &response)
 	require.NoError(t, err)
 
-	//verify response
+	// verify response
 	require.Empty(t, response.DID)
 	require.Empty(t, response.CreateTime)
 	require.Empty(t, response.UpdateTime)
 	require.Empty(t, response.RequestID)
 
-	//Parser generic error response
+	// Parser generic error response
 	errResponse := models.GenericError{}
 	err = json.Unmarshal(buf.Bytes(), &errResponse)
 	require.NoError(t, err)
 
-	//verify response
+	// verify response
 	require.NotEmpty(t, errResponse.Body)
 	require.NotEmpty(t, errResponse.Body.Code)
 	require.NotEmpty(t, errResponse.Body.Message)
@@ -123,7 +123,7 @@ func TestOperation_AcceptInvitation(t *testing.T) {
 	err = json.Unmarshal(buf.Bytes(), &response)
 	require.NoError(t, err)
 
-	//verify response
+	// verify response
 	require.NotEmpty(t, response)
 	require.NotEmpty(t, response.ConnectionID)
 	require.NotEmpty(t, response.CreateTime)
@@ -155,16 +155,16 @@ func TestOperation_WriteGenericError(t *testing.T) {
 
 }
 
-//getResponseFromHandler reads response from given http handle func
+// getResponseFromHandler reads response from given http handle func
 func getResponseFromHandler(handler operation.Handler, requestBody io.Reader, path string) (*bytes.Buffer, error) {
 
-	//prepare request
+	// prepare request
 	req, err := http.NewRequest(handler.Method(), path, requestBody)
 	if err != nil {
 		return nil, err
 	}
 
-	//prepare router
+	// prepare router
 	router := mux.NewRouter()
 
 	router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
@@ -172,7 +172,7 @@ func getResponseFromHandler(handler operation.Handler, requestBody io.Reader, pa
 	// create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
 	rr := httptest.NewRecorder()
 
-	//serve http on given response and request
+	// serve http on given response and request
 	router.ServeHTTP(rr, req)
 
 	// Check the status code is what we expect.
@@ -201,7 +201,7 @@ func getHandler(t *testing.T, lookup string) operation.Handler {
 	return nil
 }
 
-//mockProvider mocks provider needed for did exchange service initialization
+// mockProvider mocks provider needed for did exchange service initialization
 type mockProvider struct {
 	err error
 }

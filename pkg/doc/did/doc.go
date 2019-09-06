@@ -331,7 +331,8 @@ func decodePK(rawPK map[string]interface{}) ([]byte, error) {
 }
 
 func validate(data []byte) error {
-	// Validate that the DID Document conforms to the serialization of the DID Document data model (https://w3c-ccg.github.io/did-spec/#did-documents)
+	// Validate that the DID Document conforms to the serialization of the DID Document data model.
+	// Reference: https://w3c-ccg.github.io/did-spec/#did-documents)
 	documentLoader := gojsonschema.NewStringLoader(string(data))
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 	if err != nil {

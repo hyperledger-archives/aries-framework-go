@@ -153,11 +153,11 @@ func genesisDoc() *did.Doc {
 
 func peerDidDoc() (*did.Doc, error) {
 	doc := genesisDoc()
-	did, err := computeDid(doc)
+	id, err := computeDid(doc)
 	if err != nil {
 		return nil, err
 	}
-	doc.ID = did
+	doc.ID = id
 	return doc, nil
 }
 

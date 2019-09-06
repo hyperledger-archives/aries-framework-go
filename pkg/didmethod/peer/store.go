@@ -41,9 +41,9 @@ func NewDIDStore(s storage.Store) *DIDStore {
 	}
 }
 
-// Put saves Peer DID Document along with user key/signature
-func (s *DIDStore) Put(did string, doc *did.Doc, by *[]DIDModifiedBy) error {
-	if did == "" || doc == nil {
+// Put saves Peer DID Document along with user key/signature.
+func (s *DIDStore) Put(doc *did.Doc, by *[]DIDModifiedBy) error {
+	if doc == nil || doc.ID == "" {
 		return errors.New("DID and document are mandatory")
 	}
 
@@ -70,7 +70,7 @@ func (s *DIDStore) Put(did string, doc *did.Doc, by *[]DIDModifiedBy) error {
 		return fmt.Errorf("JSON marshalling of document deltas failed: %w", err)
 	}
 
-	return s.store.Put(did, val)
+	return s.store.Put(doc.ID, val)
 }
 
 // Get returns Peer DID Document

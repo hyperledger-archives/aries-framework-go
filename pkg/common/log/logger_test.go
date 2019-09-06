@@ -16,26 +16,26 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/logging/modlog"
 )
 
-//TestDefaultLogger tests default logging feature when no custom logging provider is supplied through 'Initialize()' call
+// TestDefaultLogger tests default logging feature when no custom logging provider is supplied through 'Initialize()' call
 func TestDefaultLogger(t *testing.T) {
 
 	defer func() { loggerProviderOnce = sync.Once{} }()
 	const module = "sample-module"
 
-	//get new logger since Initialize is not called, default logger implementation will be used
+	// get new logger since Initialize is not called, default logger implementation will be used
 	logger := New(module)
 
-	//force logger instance loading to switch output of logger to buffer for testing
+	// force logger instance loading to switch output of logger to buffer for testing
 	logger.Infof("sample output")
 	modlog.SwitchLogOutputToBuffer(logger.instance)
 
-	//verify default logger
+	// verify default logger
 	modlog.VerifyDefaultLogging(t, logger, module, metadata.SetLevel)
 
 }
 
-//TestAllLevels tests logging level behaviour
-//logging levels can be set per modules, if not set then it will default to 'INFO'
+// TestAllLevels tests logging level behaviour
+// logging levels can be set per modules, if not set then it will default to 'INFO'
 func TestAllLevels(t *testing.T) {
 
 	module := "sample-module-critical"
@@ -65,9 +65,9 @@ func TestAllLevels(t *testing.T) {
 
 }
 
-//TestCallerInfos callerinfo behavior which displays caller function details in log lines
-//CallerInfo is available in default logger.
-//Based on implementation it may not be available for custom logger
+// TestCallerInfos callerinfo behavior which displays caller function details in log lines
+// CallerInfo is available in default logger.
+// Based on implementation it may not be available for custom logger
 func TestCallerInfos(t *testing.T) {
 	module := "sample-module-caller-info"
 
@@ -85,7 +85,7 @@ func TestCallerInfos(t *testing.T) {
 
 }
 
-//TestLogLevel testing 'LogLevel()' used for parsing log levels from strings
+// TestLogLevel testing 'LogLevel()' used for parsing log levels from strings
 func TestLogLevel(t *testing.T) {
 
 	verifyLevelsNoError := func(expected Level, levels ...string) {
@@ -103,7 +103,7 @@ func TestLogLevel(t *testing.T) {
 	verifyLevelsNoError(INFO, "info", "INFO", "iNFo")
 }
 
-//TestParseLevelError testing 'LogLevel()' used for parsing log levels from strings
+// TestParseLevelError testing 'LogLevel()' used for parsing log levels from strings
 func TestParseLevelError(t *testing.T) {
 
 	verifyLevelError := func(levels ...string) {
@@ -117,11 +117,13 @@ func TestParseLevelError(t *testing.T) {
 
 }
 
-func verifyLevels(t *testing.T, module string, enabled []Level, disabled []Level) {
+func verifyLevels(t *testing.T, module string, enabled, disabled []Level) {
 	for _, level := range enabled {
-		require.True(t, IsEnabledFor(module, level), "expected level [%s] to be enabled for module [%s]", metadata.ParseString(metadata.Level(level)), module)
+		require.True(t, IsEnabledFor(module, level),
+			"expected level [%s] to be enabled for module [%s]", metadata.ParseString(metadata.Level(level)), module)
 	}
 	for _, level := range disabled {
-		require.False(t, IsEnabledFor(module, level), "expected level [%s] to be disabled for module [%s]", metadata.ParseString(metadata.Level(level)), module)
+		require.False(t, IsEnabledFor(module, level),
+			"expected level [%s] to be disabled for module [%s]", metadata.ParseString(metadata.Level(level)), module)
 	}
 }

@@ -37,7 +37,7 @@ type provider interface {
 	Service(id string) (interface{}, error)
 }
 
-//New returns new DID Exchange rest client protocol instance
+// New returns new DID Exchange rest client protocol instance
 func New(ctx provider) (*Operation, error) {
 
 	didExchange, err := didexchange.New(ctx)
@@ -61,7 +61,7 @@ func New(ctx provider) (*Operation, error) {
 	return svc, nil
 }
 
-//Operation is controller REST service controller for DID Exchange
+// Operation is controller REST service controller for DID Exchange
 type Operation struct {
 	ctx      provider
 	client   *didexchange.Client
@@ -122,7 +122,7 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	//TODO returning sample response since listener on DID exchange service is still need to be implemented
+	// TODO returning sample response since listener on DID exchange service is still need to be implemented
 	sampleResponse := models.ReceiveInvitationResponse{
 		ConnectionID:  "f52024c4-04e7-4aeb-8486-1040155c6764",
 		DID:           "TAaW9Dmxa93B8e5x6iLwFJ",
@@ -157,7 +157,7 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 
 	params := mux.Vars(req)
 
-	//TODO returning sample response since event listening/handling with DID exchange service is still need to be implemented
+	// TODO returning sample response since event listening/handling with DID exchange service is still need to be implemented
 	response := models.AcceptInvitationResponse{
 		ConnectionID:  params["id"],
 		DID:           "TAaW9Dmxa93B8e5x6iLwFJ",
@@ -179,14 +179,14 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 	}
 }
 
-//writeGenericError writes given error to writer as generic error response
+// writeGenericError writes given error to writer as generic error response
 func (c *Operation) writeGenericError(rw io.Writer, err error) {
 	errResponse := models.GenericError{
 		Body: struct {
 			Code    int32  `json:"code"`
 			Message string `json:"message"`
 		}{
-			//TODO implement error codes, below is sample error code
+			// TODO implement error codes, below is sample error code
 			Code:    1,
 			Message: err.Error(),
 		},
@@ -197,14 +197,14 @@ func (c *Operation) writeGenericError(rw io.Writer, err error) {
 	}
 }
 
-//GetRESTHandlers get all controller API handler available for this protocol service
+// GetRESTHandlers get all controller API handler available for this protocol service
 func (c *Operation) GetRESTHandlers() []operation.Handler {
 	return c.handlers
 }
 
-//registerHandler register handlers to be exposed from this protocol service as REST API endpoints
+// registerHandler register handlers to be exposed from this protocol service as REST API endpoints
 func (c *Operation) registerHandler() {
-	//Add more protocol endpoints here to expose them as controller API endpoints
+	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []operation.Handler{
 		support.NewHTTPHandler(createInvitationPath, http.MethodGet, c.CreateInvitation),
 		support.NewHTTPHandler(receiveInvtiationPath, http.MethodPost, c.ReceiveInvitation),

@@ -16,8 +16,8 @@ import (
 var loggerProviderInstance LoggerProvider
 var loggerProviderOnce sync.Once
 
-//Initialize sets new custom logging provider which takes over logging operations.
-//It is required to call this function before making any loggings for using custom loggers.
+// Initialize sets new custom logging provider which takes over logging operations.
+// It is required to call this function before making any loggings for using custom loggers.
 func Initialize(l LoggerProvider) {
 	loggerProviderOnce.Do(func() {
 		loggerProviderInstance = &modlogProvider{l}
@@ -43,7 +43,7 @@ type modlogProvider struct {
 	custom LoggerProvider
 }
 
-//GetLogger returns moduled logger implementation.
+// GetLogger returns moduled logger implementation.
 func (p *modlogProvider) GetLogger(module string) Logger {
 	var logger Logger
 	if p.custom != nil {

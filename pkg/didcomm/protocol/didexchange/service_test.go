@@ -128,7 +128,7 @@ func TestService_Handle(t *testing.T) {
 	m := mockProvider{}
 	s := &Service{outboundTransport: m.OutboundTransport(), store: dbstore}
 
-	//Invitation is sent by Alice
+	// Invitation is sent by Alice
 	payloadBytes, err := json.Marshal(
 		&Invitation{
 			Type:  "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation",
@@ -142,7 +142,7 @@ func TestService_Handle(t *testing.T) {
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
-	//Invitation accepted and Bob is sending exchange request to Alice
+	// Invitation accepted and Bob is sending exchange request to Alice
 	payloadBytes, err = json.Marshal(
 		&Request{
 			Type:  "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
@@ -158,7 +158,7 @@ func TestService_Handle(t *testing.T) {
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
-	//Alice is sending exchange-response to BOB
+	// Alice is sending exchange-response to BOB
 	payloadBytes, err = json.Marshal(
 		&Response{
 			Type:   "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
@@ -174,9 +174,9 @@ func TestService_Handle(t *testing.T) {
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
-	//BOB is sending ack. TODO: This has to be done using RFCs 0015
+	// BOB is sending ack. TODO: This has to be done using RFCs 0015
 
-	//Alice is sending exchange-response to BOB
+	// Alice is sending exchange-response to BOB
 	payloadBytes, err = json.Marshal(
 		&Ack{
 			Type:   "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
@@ -406,6 +406,6 @@ func tempDir(t testing.TB) (string, func()) {
 }
 
 func randomString() string {
-	uuid := uuid.New()
-	return uuid.String()
+	u := uuid.New()
+	return u.String()
 }

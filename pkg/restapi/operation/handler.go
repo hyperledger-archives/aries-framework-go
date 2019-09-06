@@ -8,7 +8,7 @@ package operation
 
 import "net/http"
 
-//Handler http handler for each controller API endpoint
+// Handler http handler for each controller API endpoint
 type Handler interface {
 	Path() string
 	Method() string

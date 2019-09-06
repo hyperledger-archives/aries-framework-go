@@ -48,7 +48,7 @@ func storeProvider() (storage.Provider, error) {
 
 // defFrameworkOpts provides default framework options
 func defFrameworkOpts(frameworkOpts *Aries) error {
-	//TODO Move default providers to the sub-package #209
+	// TODO Move default providers to the sub-package #209
 	// protocol provider factory
 	if frameworkOpts.transport == nil {
 		frameworkOpts.transport = transportProviderFactory()

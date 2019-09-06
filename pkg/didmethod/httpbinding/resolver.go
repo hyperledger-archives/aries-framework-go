@@ -46,8 +46,8 @@ func WithTLSConfig(tlsConfig *tls.Config) ResolverOpt {
 }
 
 // resolveDID makes DID resolution via HTTP
-func (res *DIDResolver) resolveDID(url string) ([]byte, error) {
-	resp, err := res.client.Get(url)
+func (res *DIDResolver) resolveDID(uri string) ([]byte, error) {
+	resp, err := res.client.Get(uri)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP Get request failed: %w", err)
 	}

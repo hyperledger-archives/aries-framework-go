@@ -69,7 +69,7 @@ func TestCallerInfos(t *testing.T) {
 	require.False(t, IsCallerInfoEnabled(module, WARNING))
 }
 
-func verifyLevels(t *testing.T, module string, enabled []Level, disabled []Level) {
+func verifyLevels(t *testing.T, module string, enabled, disabled []Level) {
 	for _, level := range enabled {
 		require.True(t, IsEnabledFor(module, level), "expected level [%s] to be enabled for module [%s]", ParseString(level), module)
 	}

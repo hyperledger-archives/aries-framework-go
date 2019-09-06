@@ -11,7 +11,7 @@ import "fmt"
 // The did-exchange protocol's state.
 type state interface {
 	Name() string
-	CanTransitionTo(new state) bool
+	CanTransitionTo(next state) bool
 }
 
 // Returns the state towards which the protocol will transition to if the msgType is processed.
@@ -51,8 +51,8 @@ func (s *null) Name() string {
 	return "null"
 }
 
-func (s *null) CanTransitionTo(new state) bool {
-	return (&invited{}).Name() == new.Name() || (&requested{}).Name() == new.Name()
+func (s *null) CanTransitionTo(next state) bool {
+	return (&invited{}).Name() == next.Name() || (&requested{}).Name() == next.Name()
 }
 
 // invited state
@@ -63,8 +63,8 @@ func (s *invited) Name() string {
 	return "invited"
 }
 
-func (s *invited) CanTransitionTo(new state) bool {
-	return (&requested{}).Name() == new.Name()
+func (s *invited) CanTransitionTo(next state) bool {
+	return (&requested{}).Name() == next.Name()
 }
 
 // requested state
@@ -75,8 +75,8 @@ func (s *requested) Name() string {
 	return "requested"
 }
 
-func (s *requested) CanTransitionTo(new state) bool {
-	return (&responded{}).Name() == new.Name()
+func (s *requested) CanTransitionTo(next state) bool {
+	return (&responded{}).Name() == next.Name()
 }
 
 // responded state
@@ -87,8 +87,8 @@ func (s *responded) Name() string {
 	return "responded"
 }
 
-func (s *responded) CanTransitionTo(new state) bool {
-	return (&completed{}).Name() == new.Name()
+func (s *responded) CanTransitionTo(next state) bool {
+	return (&completed{}).Name() == next.Name()
 }
 
 // completed state
@@ -99,6 +99,6 @@ func (s *completed) Name() string {
 	return "completed"
 }
 
-func (s *completed) CanTransitionTo(new state) bool {
+func (s *completed) CanTransitionTo(next state) bool {
 	return false
 }

@@ -78,7 +78,7 @@ func NewOutbound(opts ...OutboundHTTPOpt) (*OutboundHTTPClient, error) {
 }
 
 // Send sends a2a exchange data via HTTP (client side)
-func (cs *OutboundHTTPClient) Send(data string, url string) (string, error) {
+func (cs *OutboundHTTPClient) Send(data, url string) (string, error) {
 	resp, err := cs.client.Post(url, commContentType, bytes.NewBuffer([]byte(data)))
 	if err != nil {
 		logger.Errorf("posting DID envelope to agent failed [%s, %v]", url, err)

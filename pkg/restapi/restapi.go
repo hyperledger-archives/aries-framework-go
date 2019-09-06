@@ -12,13 +12,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
 )
 
-//New returns new controller REST API instance
-//TODO: Allow customized operations.
+// New returns new controller REST API instance.
+//
+// TODO: Allow customized operations.
 func New(ctx *context.Provider) (*Controller, error) {
 
 	var allHandlers []operation.Handler
 
-	//Add DID Exchange Rest Handlers
+	// Add DID Exchange Rest Handlers
 	exchange, err := didexchange.New(ctx)
 	if err != nil {
 		return nil, err
@@ -29,12 +30,12 @@ func New(ctx *context.Provider) (*Controller, error) {
 	return &Controller{handlers: allHandlers}, nil
 }
 
-//Controller contains handlers for controller REST API
+// Controller contains handlers for controller REST API
 type Controller struct {
 	handlers []operation.Handler
 }
 
-//GetOperations returns all controller REST API endpoints
+// GetOperations returns all controller REST API endpoints
 func (c *Controller) GetOperations() []operation.Handler {
 	return c.handlers
 }

@@ -59,7 +59,7 @@ func New(opts ...Option) (*Aries, error) {
 		return nil, fmt.Errorf("context creation failed: %w", err)
 	}
 
-	//Load services
+	// Load services
 	for _, v := range frameworkOpts.protocolSvcCreators {
 		svc, err := v(ctxProvider)
 		if err != nil {
