@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -26,7 +26,7 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with outbound transport", func(t *testing.T) {
-		prov, err := New(WithOutboundTransport(mocktransport.NewOutboundTransport("success")))
+		prov, err := New(WithOutboundTransport(didcomm.NewMockOutboundTransport("success")))
 		require.NoError(t, err)
 		require.NotEmpty(t, prov.OutboundTransport())
 	})

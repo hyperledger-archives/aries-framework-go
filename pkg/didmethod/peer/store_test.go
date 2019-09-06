@@ -7,35 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package peer
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 )
 
-func setupLevelDB(t testing.TB) (string, func()) {
-	dbPath, err := ioutil.TempDir("", "db")
-	if err != nil {
-		t.Fatalf("Failed to create leveldb directory: %s", err)
-	}
-	return dbPath, func() {
-		err := os.RemoveAll(dbPath)
-		if err != nil {
-			t.Fatalf("Failed to clear leveldb directory: %s", err)
-		}
-	}
-}
-
 func TestPeerDIDStore(t *testing.T) {
-	path, cleanup := setupLevelDB(t)
-	defer cleanup()
-
-	prov, err := leveldb.NewProvider(path)
-	require.NoError(t, err)
+	prov := storage.NewMockStoreProvider()
 	dbstore, err := prov.GetStoreHandle()
 	require.NoError(t, err)
 

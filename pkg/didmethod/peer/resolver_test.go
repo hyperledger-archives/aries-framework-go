@@ -14,7 +14,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 )
 
 const peerDID = "did:peer:1234"
@@ -66,11 +66,7 @@ const peerDIDDoc = `{
 }`
 
 func TestPeerDIDResolver(t *testing.T) {
-	path, cleanup := setupLevelDB(t)
-	defer cleanup()
-
-	prov, err := leveldb.NewProvider(path)
-	require.NoError(t, err)
+	prov := storage.NewMockStoreProvider()
 	dbstore, err := prov.GetStoreHandle()
 	require.NoError(t, err)
 
@@ -101,11 +97,7 @@ func TestPeerDIDResolver(t *testing.T) {
 }
 
 func TestWithDIDResolveAPI(t *testing.T) {
-	path, cleanup := setupLevelDB(t)
-	defer cleanup()
-
-	prov, err := leveldb.NewProvider(path)
-	require.NoError(t, err)
+	prov := storage.NewMockStoreProvider()
 	dbstore, err := prov.GetStoreHandle()
 	require.NoError(t, err)
 

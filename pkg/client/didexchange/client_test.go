@@ -14,7 +14,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 )
 
 func TestNew(t *testing.T) {
@@ -61,5 +61,5 @@ type mockOutboundTransport struct {
 }
 
 func (p *mockOutboundTransport) OutboundTransport() transport.OutboundTransport {
-	return mocktransport.NewOutboundTransport("success")
+	return didcomm.NewMockOutboundTransport("success")
 }

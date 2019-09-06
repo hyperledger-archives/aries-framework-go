@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
@@ -379,7 +379,7 @@ type mockProvider struct {
 }
 
 func (p *mockProvider) OutboundTransport() transport.OutboundTransport {
-	return mocktransport.NewOutboundTransport(successResponse)
+	return didcomm.NewMockOutboundTransport(successResponse)
 }
 
 //TODO: Use in memory store rather than level DB " https://github.com/hyperledger/aries-framework-go/issues/202
