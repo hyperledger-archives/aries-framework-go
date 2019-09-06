@@ -26,6 +26,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
 
@@ -292,6 +294,38 @@ func TestFramework(t *testing.T) {
 		require.Contains(t, err.Error(), "inbound transport close failed")
 	})
 
+	t.Run("test wallet svc - with user provided wallet", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		// with custom wallet
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}),
+			WithWallet(func(storeProvider storage.Provider) (api.CloseableWallet, error) {
+				return &wallet.CloseableWallet{SignMessageValue: []byte("mockValue")}, nil
+			}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+
+		v, err := ctx.CryptoWallet().SignMessage(nil, "")
+		require.NoError(t, err)
+		require.Equal(t, []byte("mockValue"), v)
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test error from wallet svc", func(t *testing.T) {
+		// with custom wallet
+		_, err := New(WithInboundTransport(&mockInboundTransport{}),
+			WithWallet(func(storeProvider storage.Provider) (api.CloseableWallet, error) {
+				return nil, fmt.Errorf("error from wallet")
+			}))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error from wallet")
+	})
 }
 
 type mockProtocolSvc struct {

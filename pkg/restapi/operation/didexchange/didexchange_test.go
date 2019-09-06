@@ -20,12 +20,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
-	svc, err := New(&mockProvider{})
+	svc, err := New(&mockprovider.Provider{ServiceValue: mockProtocolSvc{}})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -34,7 +35,7 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 }
 
 func TestNew_Fail(t *testing.T) {
-	svc, err := New(&mockProvider{errors.New("test-error")})
+	svc, err := New(&mockprovider.Provider{ServiceErr: errors.New("test-error")})
 	require.Error(t, err)
 	require.Nil(t, svc)
 }
@@ -135,7 +136,7 @@ func TestOperation_AcceptInvitation(t *testing.T) {
 func TestOperation_WriteGenericError(t *testing.T) {
 	const errMsg = "sample-error-msg"
 
-	svc, err := New(&mockProvider{})
+	svc, err := New(&mockprovider.Provider{ServiceValue: mockProtocolSvc{}})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -185,7 +186,7 @@ func getResponseFromHandler(handler operation.Handler, requestBody io.Reader, pa
 }
 
 func getHandler(t *testing.T, lookup string) operation.Handler {
-	svc, err := New(&mockProvider{})
+	svc, err := New(&mockprovider.Provider{ServiceValue: mockProtocolSvc{}})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -199,18 +200,6 @@ func getHandler(t *testing.T, lookup string) operation.Handler {
 	}
 	require.Fail(t, "unable to find handler")
 	return nil
-}
-
-// mockProvider mocks provider needed for did exchange service initialization
-type mockProvider struct {
-	err error
-}
-
-func (p *mockProvider) Service(id string) (interface{}, error) {
-	if p.err != nil {
-		return nil, p.err
-	}
-	return &mockProtocolSvc{}, nil
 }
 
 type mockProtocolSvc struct {

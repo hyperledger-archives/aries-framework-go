@@ -14,6 +14,9 @@ import (
 
 func TestDefaultFramework(t *testing.T) {
 	t.Run("test default framework - success", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
 		aries := &Aries{}
 
 		err := defFrameworkOpts(aries)

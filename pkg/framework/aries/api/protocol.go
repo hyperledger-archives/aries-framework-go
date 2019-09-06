@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // ErrSvcNotFound is returned when service not found
@@ -20,6 +21,7 @@ var ErrSvcNotFound = errors.New("service not found")
 type Provider interface {
 	OutboundTransport() transport.OutboundTransport
 	Service(id string) (interface{}, error)
+	CryptoWallet() wallet.Crypto
 }
 
 // ProtocolSvcCreator method to create new protocol service
