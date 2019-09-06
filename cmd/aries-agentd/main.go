@@ -31,10 +31,8 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi"
 )
 
@@ -55,19 +53,20 @@ func main() {
 	}
 
 	// Default port and command lines arguments will be addressed as part of #94
+	var opts []aries.Option
 	inboundHost := os.Getenv(agentHTTPInboundEnvKey)
 	if inboundHost == "" {
 		logger.Errorf("Unable to start aries agentd, HTTP Inbound transport host not provided")
 		return
 	}
+	opts = append(opts, defaults.WithInboundHTTPAddr(inboundHost))
 
 	dbPath := os.Getenv(agentDBPathEnvKey)
-	var opts aries.Option
 	if dbPath != "" {
-		opts = defaults.WithStorePath(dbPath)
+		opts = append(opts, defaults.WithStorePath(dbPath))
 	}
 
-	framework, err := aries.New(opts)
+	framework, err := aries.New(opts...)
 	if err != nil {
 		logger.Fatalf("Failed to start aries agentd on port [%s], failed to initialize framework :  %s", host, err)
 	}
@@ -76,9 +75,6 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Failed to start aries agentd on port [%s], failed to get aries context :  %s", host, err)
 	}
-
-	// start the HTTP inbound transport
-	startInboundHTTPTransport(ctx, inboundHost)
 
 	// get all HTTP REST API handlers available for controller API
 	restService, err := restapi.New(ctx)
@@ -100,26 +96,4 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Failed to start aries agentd on port [%s], cause:  %s", host, err)
 	}
-}
-
-// startInboundHTTPTransport starts a HTTP server for agent inbound communication. The message handlers provided by the
-// context are passed to framework provided http.NewInboundHandler function. This function returns the http.Handler,
-// which will be used to start the HTTP server.
-// TODO the framework provides the inbound message handlers and doesnt provide means of transport ie, http server
-// https://github.com/hyperledger/aries-framework-go/issues/176
-func startInboundHTTPTransport(ctx *context.Provider, inboundHost string) {
-	// get the http.Handler from framework by passing the inbound message handler
-	msgHandler, err := didcommtrans.NewInboundHandler(ctx)
-	if err != nil {
-		logger.Fatalf("failed to get http handler from framework inbound message handler: %w", inboundHost, err)
-	}
-
-	// start the http server
-	go func() {
-		err := http.ListenAndServe(inboundHost, msgHandler)
-		if err != nil {
-			logger.Fatalf("Failed to start aries HTTP inbound transport on port [%s], cause:  %s", inboundHost, err)
-		}
-	}()
-
 }

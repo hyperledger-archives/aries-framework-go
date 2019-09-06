@@ -24,16 +24,34 @@ func TestWithDBPath(t *testing.T) {
 	})
 
 	t.Run("test with db path success", func(t *testing.T) {
-		path, cleanup := setupLevelDB(t)
+		path, cleanup := generateTempDir(t)
 		defer cleanup()
-		a, err := aries.New(WithStorePath(path))
+		a, err := aries.New(WithStorePath(path), WithInboundHTTPAddr(":26502"))
 		require.NoError(t, err)
 		require.NoError(t, a.Close())
 	})
 
 }
 
-func setupLevelDB(t testing.TB) (string, func()) {
+func TestWithInboundHTTPPort(t *testing.T) {
+	t.Run("test inbound with http port - success", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+
+		a, err := aries.New(WithStorePath(path), WithInboundHTTPAddr(":26503"))
+		require.NoError(t, err)
+		require.NoError(t, a.Close())
+	})
+
+	t.Run("test inbound with http port - empty address", func(t *testing.T) {
+		_, err := aries.New(WithInboundHTTPAddr(""))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "http inbound transport initialization failed")
+	})
+
+}
+
+func generateTempDir(t testing.TB) (string, func()) {
 	path, err := ioutil.TempDir("", "db")
 	if err != nil {
 		t.Fatalf("Failed to create leveldb directory: %s", err)

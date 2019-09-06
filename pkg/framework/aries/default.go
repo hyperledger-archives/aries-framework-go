@@ -11,6 +11,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/factory/transport"
@@ -21,6 +23,7 @@ import (
 
 // DBPath Level DB Path.
 var dbPath = "/tmp/peerstore/"
+var defaultInboundPort = ":8090"
 
 // transportProviderFactory provides default Outbound Transport provider factory
 func transportProviderFactory() api.TransportProviderFactory {
@@ -46,6 +49,14 @@ func storeProvider() (storage.Provider, error) {
 	return storeProv, nil
 }
 
+func inboundTransport() (didcommtrans.InboundTransport, error) {
+	inbound, err := http.NewInbound(defaultInboundPort)
+	if err != nil {
+		return nil, fmt.Errorf("http inbound transport initialization failed: %w", err)
+	}
+	return inbound, nil
+}
+
 // defFrameworkOpts provides default framework options
 func defFrameworkOpts(frameworkOpts *Aries) error {
 	// TODO Move default providers to the sub-package #209
@@ -53,6 +64,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 	if frameworkOpts.transport == nil {
 		frameworkOpts.transport = transportProviderFactory()
 	}
+
 	if frameworkOpts.storeProvider == nil {
 		storeProv, err := storeProvider()
 		if err != nil {
@@ -60,6 +72,15 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		}
 		frameworkOpts.storeProvider = storeProv
 	}
+
+	if frameworkOpts.inboundTransport == nil {
+		inbound, err := inboundTransport()
+		if err != nil {
+			return fmt.Errorf("http inbound transport initialization failed: %w", err)
+		}
+		frameworkOpts.inboundTransport = inbound
+	}
+
 	store, err := frameworkOpts.storeProvider.GetStoreHandle()
 	if err != nil {
 		return fmt.Errorf("get store handle failed : %w", err)
