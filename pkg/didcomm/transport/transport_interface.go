@@ -17,7 +17,8 @@ type OutboundTransport interface {
 // message handle invocation.
 type InboundMessageHandler func(payload []byte) error
 
-// InboundProvider contains dependencies for starting the inbound transport and is typically created by using aries.Context()
+// InboundProvider contains dependencies for starting the inbound transport.
+// It is typically created by using aries.Context().
 type InboundProvider interface {
 	InboundMessageHandler() InboundMessageHandler
 }

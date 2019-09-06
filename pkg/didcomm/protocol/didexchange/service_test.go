@@ -138,7 +138,7 @@ func TestService_Handle(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	msg := dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation", Payload: payloadBytes}
+	msg := dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation", Payload: payloadBytes} //nolint:lll
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
@@ -154,7 +154,7 @@ func TestService_Handle(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	msg = dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request", Payload: payloadBytes}
+	msg = dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request", Payload: payloadBytes} //nolint:lll
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
@@ -170,7 +170,7 @@ func TestService_Handle(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	msg = dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response", Payload: payloadBytes}
+	msg = dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response", Payload: payloadBytes} //nolint:lll
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
@@ -189,7 +189,7 @@ func TestService_Handle(t *testing.T) {
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
-	msg = dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/yzaldh", Payload: payloadBytes}
+	msg = dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/yzaldh", Payload: payloadBytes} //nolint:lll
 	err = s.Handle(msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unrecognized msgType")
@@ -211,7 +211,10 @@ func TestService_Handle_StateTransitions(t *testing.T) {
 				DID:   "did:sov:QmWbsNYhMrjHiqZDTUTEJs",
 			})
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation", Payload: invitation})
+		msg := dispatcher.DIDCommMsg{
+			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation",
+			Payload: invitation}
+		err = s.Handle(msg)
 		require.NoError(t, err)
 		request, err := json.Marshal(
 			&Request{
@@ -222,7 +225,10 @@ func TestService_Handle_StateTransitions(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request", Payload: request})
+		msg = dispatcher.DIDCommMsg{
+			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
+			Payload: request}
+		err = s.Handle(msg)
 		require.NoError(t, err)
 	})
 	t.Run("good state transition without an invitation", func(t *testing.T) {
@@ -235,7 +241,10 @@ func TestService_Handle_StateTransitions(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request", Payload: request})
+		msg := dispatcher.DIDCommMsg{
+			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
+			Payload: request}
+		err = s.Handle(msg)
 		require.NoError(t, err)
 	})
 
@@ -249,7 +258,10 @@ func TestService_Handle_StateTransitions(t *testing.T) {
 				DID:   "did:sov:QmWbsNYhMrjHiqZDTUTEJs",
 			})
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation", Payload: invitation})
+		msg := dispatcher.DIDCommMsg{
+			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation",
+			Payload: invitation}
+		err = s.Handle(msg)
 		require.NoError(t, err)
 
 		response, err := json.Marshal(
@@ -262,7 +274,10 @@ func TestService_Handle_StateTransitions(t *testing.T) {
 				},
 			})
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response", Payload: response})
+		msg = dispatcher.DIDCommMsg{
+			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response",
+			Payload: response}
+		err = s.Handle(msg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid state transition")
 	})
@@ -277,7 +292,10 @@ func TestService_Handle_StateTransitions(t *testing.T) {
 				},
 			})
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response", Payload: response})
+		msg := dispatcher.DIDCommMsg{
+			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response",
+			Payload: response}
+		err = s.Handle(msg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid state transition")
 	})

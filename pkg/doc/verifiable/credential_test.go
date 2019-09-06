@@ -15,7 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var validCredential = `
+//nolint:lll
+const validCredential = `
 {
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
@@ -64,6 +65,7 @@ var validCredential = `
   }
 }
 `
+
 var singleCredentialSubject = `
 {
     "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
@@ -628,7 +630,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	missingReqFieldSchema, mErr := json.Marshal(raw)
 	require.NoError(t, mErr)
 
-	t.Run("Applies custom JSON Schema and detects data inconsistency due to missing new required field", func(t *testing.T) {
+	t.Run("Applies custom JSON Schema and detects data inconsistency due to missing new required field", func(t *testing.T) { //nolint:lll
 		_, err := NewCredential(missingReqFieldSchema, WithSchemaDownloadClient(&http.Client{}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "referenceNumber is required")
@@ -669,7 +671,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		require.Contains(t, err.Error(), "loading custom credential schema")
 	})
 
-	t.Run("Uses default schema if custom credentialSchema is not of 'JsonSchemaValidator2018' type", func(t *testing.T) {
+	t.Run("Uses default schema if custom credentialSchema is not of 'JsonSchemaValidator2018' type", func(t *testing.T) { //nolint:lll
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 

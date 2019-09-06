@@ -26,7 +26,8 @@ const (
 
 // NewDefLog returns new DefLog instance based on given module
 func NewDefLog(module string) *DefLog {
-	return &DefLog{logger: log.New(os.Stdout, fmt.Sprintf(logPrefixFormatter, module), log.Ldate|log.Ltime|log.LUTC), module: module}
+	logger := log.New(os.Stdout, fmt.Sprintf(logPrefixFormatter, module), log.Ldate|log.Ltime|log.LUTC)
+	return &DefLog{logger: logger, module: module}
 }
 
 // DefLog is a logger implementation built on top of standard go log.

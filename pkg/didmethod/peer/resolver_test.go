@@ -19,6 +19,7 @@ import (
 
 const peerDID = "did:peer:1234"
 
+//nolint:lll
 const peerDIDDoc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:1234",

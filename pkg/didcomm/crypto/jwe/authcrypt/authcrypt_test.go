@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/chacha20poly1305"
+	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/nacl/box"
 )
 
@@ -40,22 +40,22 @@ func TestEncrypt(t *testing.T) {
 		priv: nil,
 	}
 	t.Run("Error test case: Create a new AuthCrypter with bad encryption algorithm", func(t *testing.T) {
-		_, e := New(sendEcKey, []*[chacha20poly1305.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub}, "BAD")
+		_, e := New(sendEcKey, []*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub}, "BAD")
 		require.Error(t, e)
 	})
 
 	t.Run("Error test case: Create a new AuthCrypter with bad sender key", func(t *testing.T) {
-		_, e := New(badKey, []*[chacha20poly1305.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub}, XC20P)
+		_, e := New(badKey, []*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub}, XC20P)
 		require.Error(t, e)
 	})
 
 	t.Run("Error test case: Create a new AuthCrypter with bad recipient key", func(t *testing.T) {
-		_, e := New(sendEcKey, []*[chacha20poly1305.KeySize]byte{}, "XC20P")
+		_, e := New(sendEcKey, []*[chacha.KeySize]byte{}, "XC20P")
 		require.Error(t, e)
 	})
 
 	t.Run("Success test case: Create a valid AuthCrypter for ChachaPoly1035 encryption (alg: C20P)", func(t *testing.T) {
-		crypter, e := New(sendEcKey, []*[chacha20poly1305.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub}, C20P)
+		crypter, e := New(sendEcKey, []*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub}, C20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"))
@@ -68,7 +68,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Success test case: Create a valid AuthCrypter for XChachaPoly1035 encryption (alg: XC20P)", func(t *testing.T) {
-		crypter, e := New(sendEcKey, []*[chacha20poly1305.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub}, XC20P)
+		crypter, e := New(sendEcKey, []*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub}, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"))
@@ -87,8 +87,8 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	// TODO add Decrypt test cases once implemented
-	t.Run("Error test Case [INCOMPLETE]: Test Decrypting a message should fail as it's not implemented yet", func(t *testing.T) {
-		crypter, e := New(sendEcKey, []*[chacha20poly1305.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub}, XC20P)
+	t.Run("Error test Case [INCOMPLETE]: Test Decrypting a message should fail as it's not implemented yet", func(t *testing.T) { //nolint:lll
+		crypter, e := New(sendEcKey, []*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub}, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"))
@@ -129,7 +129,8 @@ func TestRefEncrypt(t *testing.T) {
 	var recipientPub = "-u0zk9iY_ZS2wP2z4zuLjR7_kz_kxVU0anRz8_A66T0"
 	var payload = []byte("SGVsbG8gV29ybGQh")
 
-	var refJWE = `{
+	//nolint:lll
+	const refJWE = `{
     "protected": "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1tZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
     "recipients": [
         {

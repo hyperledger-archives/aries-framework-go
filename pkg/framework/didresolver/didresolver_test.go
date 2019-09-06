@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var doc = `{
+//nolint:lll
+const doc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:example:21tDAKCERh95uGgKbJNHYp",
   "publicKey": [

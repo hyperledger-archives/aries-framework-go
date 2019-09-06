@@ -32,7 +32,7 @@ var buf bytes.Buffer
 
 // VerifyDefaultLogging verifies default logging behaviour.
 // Should only be used for tests.
-func VerifyDefaultLogging(t *testing.T, logger Logger, module string, setLevel func(module string, level metadata.Level)) {
+func VerifyDefaultLogging(t *testing.T, logger Logger, module string, setLevel func(module string, level metadata.Level)) { //nolint:lll
 	allTestLevels := []metadata.Level{metadata.ERROR, metadata.DEBUG, metadata.INFO, metadata.WARNING, metadata.CRITICAL}
 
 	for _, levelEnabled := range allTestLevels {
@@ -72,16 +72,17 @@ func matchDefLogOutput(t *testing.T, module string, currentLevel, levelEnabled m
 
 	var regex string
 
+	levelStr := metadata.ParseString(currentLevel)
 	if infoEnabled {
-		regex = fmt.Sprintf(defLoggerOutputRegex, module, metadata.ParseString(currentLevel), fmt.Sprintf(msgFormat, msgArg1, msgArg2))
+		regex = fmt.Sprintf(defLoggerOutputRegex, module, levelStr, fmt.Sprintf(msgFormat, msgArg1, msgArg2))
 	} else {
-		regex = fmt.Sprintf(defLoggerNoCallerInfoRegex, module, metadata.ParseString(currentLevel), fmt.Sprintf(msgFormat, msgArg1, msgArg2))
+		regex = fmt.Sprintf(defLoggerNoCallerInfoRegex, module, levelStr, fmt.Sprintf(msgFormat, msgArg1, msgArg2))
 	}
 
 	match, err := regexp.MatchString(regex, buf.String())
 
 	require.Empty(t, err, "error while matching regex with logoutput wasnt expected")
-	require.True(t, match, "logger isn't producing output as expected,\n\tLevel Enabled:[%s]\n\tlogoutput:%s\n\tregex:%s",
+	require.True(t, match, "logger output incorrect,\n\tLevel Enabled:[%s]\n\tlogoutput:%s\n\tregex:%s",
 		metadata.ParseString(currentLevel), buf.String(), regex)
 }
 
@@ -125,7 +126,7 @@ func matchCustomLogOutput(t *testing.T, regex string, level, levelEnabled metada
 	defer buf.Reset()
 	match, err := regexp.MatchString(regex, buf.String())
 	require.Empty(t, err, "error while matching regex with logoutput wasnt expected")
-	require.True(t, match, "logger isn't producing output as expected,\n\tLevel Enabled:[%s]\n\tlogoutput:%s\n\tregex:%s",
+	require.True(t, match, "logger output incorrect,\n\tLevel Enabled:[%s]\n\tlogoutput:%s\n\tregex:%s",
 		metadata.ParseString(level), buf.String(), regex)
 }
 

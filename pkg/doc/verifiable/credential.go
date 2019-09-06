@@ -234,7 +234,7 @@ type credentialOpts struct {
 type CredentialOpt func(opts *credentialOpts)
 
 // WithSchemaDownloadClient option is for definition of HTTP(s) client used during decoding of Verifiable Credential.
-// If custom credentialSchema is defined in Verifiable Credential, the client is used to download it by the URL specified.
+// If custom credentialSchema is defined in Verifiable Credential, the client downloads from the specified URL.
 func WithSchemaDownloadClient(client *http.Client) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.schemaDownloadClient = client
