@@ -10,7 +10,21 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 )
+
+func TestNoopState(t *testing.T) {
+	noop := &noOp{}
+	require.Equal(t, "noop", noop.Name())
+
+	t.Run("must not transition to any state", func(t *testing.T) {
+		all := []state{&null{}, &invited{}, &requested{}, &responded{}, &completed{}}
+		for _, s := range all {
+			require.False(t, noop.CanTransitionTo(s))
+		}
+	})
+}
 
 // null state can transition to invited state or requested state
 func TestNullState(t *testing.T) {
@@ -127,4 +141,125 @@ func TestStateFromName(t *testing.T) {
 		require.Equal(t, expected.Name(), actual.Name())
 	})
 
+}
+
+// noOp.Execute() returns nil, error
+func TestNoOpState_Execute(t *testing.T) {
+	followup, err := (&noOp{}).Execute(dispatcher.DIDCommMsg{})
+	require.Error(t, err)
+	require.Nil(t, followup)
+}
+
+// null.Execute() is a no-op
+func TestNullState_Execute(t *testing.T) {
+	followup, err := (&null{}).Execute(dispatcher.DIDCommMsg{})
+	require.NoError(t, err)
+	require.IsType(t, &noOp{}, followup)
+}
+
+func TestInvitedState_Execute(t *testing.T) {
+	t.Run("rejects msgs other than invitations", func(t *testing.T) {
+		others := []string{connectionRequest, connectionResponse, connectionAck}
+		for _, o := range others {
+			_, err := (&invited{}).Execute(dispatcher.DIDCommMsg{Type: o})
+			require.Error(t, err)
+		}
+	})
+	t.Run("rejects outbound invitations", func(t *testing.T) {
+		_, err := (&invited{}).Execute(dispatcher.DIDCommMsg{Type: connectionInvite, Outbound: true})
+		require.Error(t, err)
+	})
+	t.Run("followup to 'requested' on inbound invitations", func(t *testing.T) {
+		followup, err := (&invited{}).Execute(dispatcher.DIDCommMsg{Type: connectionInvite, Outbound: false})
+		require.NoError(t, err)
+		require.Equal(t, (&requested{}).Name(), followup.Name())
+	})
+}
+
+func TestRequestedState_Execute(t *testing.T) {
+	t.Run("rejects msgs other than invitations or requests", func(t *testing.T) {
+		others := []string{connectionResponse, connectionAck}
+		for _, o := range others {
+			_, err := (&requested{}).Execute(dispatcher.DIDCommMsg{Type: o})
+			require.Error(t, err)
+		}
+	})
+	t.Run("rejects outbound invitations", func(t *testing.T) {
+		_, err := (&requested{}).Execute(dispatcher.DIDCommMsg{Type: connectionInvite, Outbound: true})
+		require.Error(t, err)
+	})
+	t.Run("no followup to inbound invitations", func(t *testing.T) {
+		followup, err := (&requested{}).Execute(dispatcher.DIDCommMsg{Type: connectionInvite, Outbound: false})
+		require.NoError(t, err)
+		require.IsType(t, &noOp{}, followup)
+	})
+	t.Run("no followup to outbound requests", func(t *testing.T) {
+		followup, err := (&requested{}).Execute(dispatcher.DIDCommMsg{Type: connectionRequest, Outbound: true})
+		require.NoError(t, err)
+		require.IsType(t, &noOp{}, followup)
+	})
+	t.Run("followup to 'responded' on inbound requests", func(t *testing.T) {
+		followup, err := (&requested{}).Execute(dispatcher.DIDCommMsg{Type: connectionRequest, Outbound: false})
+		require.NoError(t, err)
+		require.Equal(t, (&responded{}).Name(), followup.Name())
+	})
+}
+
+func TestRespondedState_Execute(t *testing.T) {
+	t.Run("rejects msgs other than requests and responses", func(t *testing.T) {
+		others := []string{connectionInvite, connectionAck}
+		for _, o := range others {
+			_, err := (&responded{}).Execute(dispatcher.DIDCommMsg{Type: o})
+			require.Error(t, err)
+		}
+	})
+	t.Run("rejects outbound requests", func(t *testing.T) {
+		_, err := (&responded{}).Execute(dispatcher.DIDCommMsg{Type: connectionRequest, Outbound: true})
+		require.Error(t, err)
+	})
+	t.Run("no followup for inbound requests", func(t *testing.T) {
+		followup, err := (&responded{}).Execute(dispatcher.DIDCommMsg{Type: connectionRequest, Outbound: false})
+		require.NoError(t, err)
+		require.IsType(t, &noOp{}, followup)
+	})
+	t.Run("followup to 'completed' on inbound responses", func(t *testing.T) {
+		followup, err := (&responded{}).Execute(dispatcher.DIDCommMsg{Type: connectionResponse, Outbound: false})
+		require.NoError(t, err)
+		require.Equal(t, (&completed{}).Name(), followup.Name())
+	})
+	t.Run("no followup for outbound responses", func(t *testing.T) {
+		followup, err := (&responded{}).Execute(dispatcher.DIDCommMsg{Type: connectionResponse, Outbound: true})
+		require.NoError(t, err)
+		require.IsType(t, &noOp{}, followup)
+	})
+}
+
+// completed is an end state
+func TestCompletedState_Execute(t *testing.T) {
+	t.Run("rejects msgs other than responses and acks", func(t *testing.T) {
+		others := []string{connectionInvite, connectionRequest}
+		for _, o := range others {
+			_, err := (&completed{}).Execute(dispatcher.DIDCommMsg{Type: o})
+			require.Error(t, err)
+		}
+	})
+	t.Run("rejects outbound responses", func(t *testing.T) {
+		_, err := (&completed{}).Execute(dispatcher.DIDCommMsg{Type: connectionResponse, Outbound: true})
+		require.Error(t, err)
+	})
+	t.Run("no followup for inbound responses", func(t *testing.T) {
+		followup, err := (&completed{}).Execute(dispatcher.DIDCommMsg{Type: connectionResponse, Outbound: false})
+		require.NoError(t, err)
+		require.IsType(t, &noOp{}, followup)
+	})
+	t.Run("no followup for inbound acks", func(t *testing.T) {
+		followup, err := (&completed{}).Execute(dispatcher.DIDCommMsg{Type: connectionAck, Outbound: false})
+		require.NoError(t, err)
+		require.IsType(t, &noOp{}, followup)
+	})
+	t.Run("no followup for outbound acks", func(t *testing.T) {
+		followup, err := (&completed{}).Execute(dispatcher.DIDCommMsg{Type: connectionAck, Outbound: true})
+		require.NoError(t, err)
+		require.IsType(t, &noOp{}, followup)
+	})
 }

@@ -65,15 +65,31 @@ func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
 		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
 	// TODO: call pre-transition listeners -  Issue: https://github.com/hyperledger/aries-framework-go/issues/140
-	// TODO execute actions for the current state *and the next (if any)*. Eg. if we receive an
-	//      invitation, execute actions for 'invited' state and then execute actions for
-	//      'requested' state. Implement the relevant actions for each state in state.go.
+	followup, err := next.Execute(msg)
+	if err != nil {
+		return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
+	}
 	err = s.update(thid, next)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
+	}
+	for ; !isNoOp(followup); followup = next {
+		next, err = followup.Execute(msg)
+		if err != nil {
+			return fmt.Errorf("failed to execute state %s %w", followup.Name(), err)
+		}
+		err = s.update(thid, followup)
+		if err != nil {
+			return fmt.Errorf("failed to persist state %s %w", followup.Name(), err)
+		}
 	}
 	// TODO call post-transition listeners -  Issue: https://github.com/hyperledger/aries-framework-go/issues/140
 	return nil
+}
+
+func isNoOp(s state) bool {
+	_, ok := s.(*noOp)
+	return ok
 }
 
 func threadID(payload []byte) (string, error) {
@@ -137,6 +153,11 @@ func (s *Service) Connections() {
 
 }
 
+// TODO all these 'destination' parameters should be a complex type that provides the recipientKeys,
+//      routingKeys, and serviceEndpoint. The recipientKeys should be fed into the wallet.Pack() function.
+//      The routingKeys are used to create the encryption envelopes. Finally, the whole structure is sent
+//      to the serviceEndpoint.
+
 // SendExchangeRequest sends exchange request
 func (s *Service) SendExchangeRequest(exchangeRequest *Request, destination string) error {
 	if exchangeRequest == nil {
@@ -164,10 +185,12 @@ func (s *Service) SendExchangeResponse(exchangeResponse *Response, destination s
 }
 
 func (s *Service) marshalAndSend(data interface{}, errorMsg, destination string) (string, error) {
+	// TODO need access to the wallet in order to first pack() the msg before sending
 	jsonString, err := json.Marshal(data)
 	if err != nil {
 		return "", fmt.Errorf("%s : %w", errorMsg, err)
 	}
+	// TODO an outboundtransport implementation should be selected based on the destination's URL.
 	return s.outboundTransport.Send(string(jsonString), destination)
 }
 

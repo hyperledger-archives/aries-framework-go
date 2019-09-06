@@ -122,182 +122,228 @@ func TestSendResponse(t *testing.T) {
 	require.Error(t, prov.SendExchangeResponse(nil, destinationURL))
 }
 
-func TestService_Handle(t *testing.T) {
+// did-exchange flow with role Inviter
+func TestService_Handle_Inviter(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
 	m := mockProvider{}
 	s := &Service{outboundTransport: m.OutboundTransport(), store: dbstore}
+	thid := randomString()
 
-	// Invitation is sent by Alice
+	// Invitation was previously sent by Alice to Bob.
+	// Bob now sends a did-exchange Request
 	payloadBytes, err := json.Marshal(
-		&Invitation{
-			Type:  "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation",
-			ID:    "12345678900987654324",
-			Label: "Alice",
-			DID:   "did:sov:QmWbsNYhMrjHiqZDTUTEJs",
-		})
-	require.NoError(t, err)
-
-	msg := dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation", Payload: payloadBytes} //nolint:lll
-	err = s.Handle(msg)
-	require.NoError(t, err)
-
-	// Invitation accepted and Bob is sending exchange request to Alice
-	payloadBytes, err = json.Marshal(
 		&Request{
-			Type:  "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
-			ID:    "5369752154652",
+			Type:  connectionRequest,
+			ID:    thid,
 			Label: "Bob",
 			Connection: &Connection{
 				DID: "B.did@B:A",
 			},
 		})
 	require.NoError(t, err)
-
-	msg = dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request", Payload: payloadBytes} //nolint:lll
+	msg := dispatcher.DIDCommMsg{Type: connectionRequest, Payload: payloadBytes}
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
-	// Alice is sending exchange-response to BOB
-	payloadBytes, err = json.Marshal(
-		&Response{
-			Type:   "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
-			ID:     "13354576764562",
-			Thread: &decorator.Thread{ID: "5369752154652"},
-			ConnectionSignature: &ConnectionSignature{
-				Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single",
-			},
-		})
-	require.NoError(t, err)
-
-	msg = dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response", Payload: payloadBytes} //nolint:lll
-	err = s.Handle(msg)
-	require.NoError(t, err)
-
-	// BOB is sending ack. TODO: This has to be done using RFCs 0015
-
-	// Alice is sending exchange-response to BOB
+	// Alice automatically sends exchange Response to Bob
+	// Bob replies with an ACK
 	payloadBytes, err = json.Marshal(
 		&Ack{
-			Type:   "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
-			ID:     "123564324344",
+			Type:   connectionAck,
+			ID:     randomString(),
 			Status: "OK",
-			Thread: &decorator.Thread{ID: "5369752154652"},
+			Thread: &decorator.Thread{ID: thid},
 		})
 	require.NoError(t, err)
-	msg = dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/ack", Payload: payloadBytes}
+	msg = dispatcher.DIDCommMsg{Type: connectionAck, Payload: payloadBytes}
+	err = s.Handle(msg)
+	require.NoError(t, err)
+}
+
+// did-exchange flow with role Invitee
+func TestService_Handle_Invitee(t *testing.T) {
+	data := make(map[string]string)
+	// using this mockStore as a hack in order to obtain the auto-generated thid after
+	// automatically sending the request back to Bob
+	store := &mockStore{
+		put: func(s string, bytes []byte) error {
+			data[s] = string(bytes)
+			return nil
+		},
+		get: func(s string) (bytes []byte, e error) {
+			if state, found := data[s]; found {
+				return []byte(state), nil
+			}
+			return nil, errors.New("not found")
+		},
+	}
+	m := mockProvider{}
+	s := &Service{outboundTransport: m.OutboundTransport(), store: store}
+
+	// Alice receives an invitation from Bob
+	payloadBytes, err := json.Marshal(
+		&Invitation{
+			Type:  connectionInvite,
+			ID:    randomString(),
+			Label: "Bob",
+			DID:   "did:example:bob",
+		},
+	)
+	require.NoError(t, err)
+	msg := dispatcher.DIDCommMsg{Type: connectionInvite, Outbound: false, Payload: payloadBytes}
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
-	msg = dispatcher.DIDCommMsg{Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/yzaldh", Payload: payloadBytes} //nolint:lll
+	// Alice automatically sends a Request to Bob and is now in REQUESTED state.
+	var thid string
+	var currState string
+	for k, v := range data {
+		thid = k
+		currState = v
+		break
+	}
+	require.NotEmpty(t, thid)
+	require.Equal(t, (&requested{}).Name(), currState)
+
+	// Bob replies with a Response
+	payloadBytes, err = json.Marshal(
+		&Response{
+			Type:   connectionResponse,
+			ID:     randomString(),
+			Thread: &decorator.Thread{ID: thid},
+		},
+	)
+	require.NoError(t, err)
+	msg = dispatcher.DIDCommMsg{Type: connectionResponse, Outbound: false, Payload: payloadBytes}
 	err = s.Handle(msg)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "unrecognized msgType")
+	require.NoError(t, err)
+
+	// Alice automatically sends an ACK to Bob
+	// Alice must now be in COMPLETED state
+	currentState, err := s.currentState(thid)
+	require.NoError(t, err)
+	require.Equal(t, (&completed{}).Name(), currentState.Name())
 }
 
-func TestService_Handle_StateTransitions(t *testing.T) {
-	dbstore, cleanup := store(t)
-	defer cleanup()
-	m := mockProvider{}
-	s := &Service{outboundTransport: m.OutboundTransport(), store: dbstore}
-
-	t.Run("good state transition", func(t *testing.T) {
-		thid := randomString()
-		invitation, err := json.Marshal(
-			&Invitation{
-				Type:  "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation",
-				ID:    thid,
-				Label: "Alice",
-				DID:   "did:sov:QmWbsNYhMrjHiqZDTUTEJs",
-			})
-		require.NoError(t, err)
-		msg := dispatcher.DIDCommMsg{
-			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation",
-			Payload: invitation}
-		err = s.Handle(msg)
-		require.NoError(t, err)
-		request, err := json.Marshal(
-			&Request{
-				Type:       "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
-				ID:         randomString(),
-				Label:      "test",
-				Connection: &Connection{DID: "did:example:123"},
-			},
-		)
-		require.NoError(t, err)
-		msg = dispatcher.DIDCommMsg{
-			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
-			Payload: request}
-		err = s.Handle(msg)
-		require.NoError(t, err)
-	})
-	t.Run("good state transition without an invitation", func(t *testing.T) {
-		request, err := json.Marshal(
-			&Request{
-				Type:       "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
-				ID:         randomString(),
-				Label:      "test",
-				Connection: &Connection{DID: "did:example:123"},
-			},
-		)
-		require.NoError(t, err)
-		msg := dispatcher.DIDCommMsg{
-			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request",
-			Payload: request}
-		err = s.Handle(msg)
-		require.NoError(t, err)
-	})
-
-	t.Run("bad state transition", func(t *testing.T) {
-		thid := randomString()
-		invitation, err := json.Marshal(
-			&Invitation{
-				Type:  "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation",
-				ID:    thid,
-				Label: "Alice",
-				DID:   "did:sov:QmWbsNYhMrjHiqZDTUTEJs",
-			})
-		require.NoError(t, err)
-		msg := dispatcher.DIDCommMsg{
-			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation",
-			Payload: invitation}
-		err = s.Handle(msg)
-		require.NoError(t, err)
-
+func TestService_Handle_EdgeCases(t *testing.T) {
+	t.Run("must not start with Response msg", func(t *testing.T) {
+		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
 		response, err := json.Marshal(
 			&Response{
-				Type:   "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response",
+				Type: connectionResponse,
+				ID:   randomString(),
+			},
+		)
+		require.NoError(t, err)
+		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionResponse, Payload: response})
+		require.Error(t, err)
+	})
+	t.Run("must not start with ACK msg", func(t *testing.T) {
+		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
+		ack, err := json.Marshal(
+			&Ack{
+				Type: connectionAck,
+				ID:   randomString(),
+			},
+		)
+		require.NoError(t, err)
+		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionAck, Payload: ack})
+		require.Error(t, err)
+	})
+	t.Run("must not transition to same state", func(t *testing.T) {
+		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
+		thid := randomString()
+		request, err := json.Marshal(
+			&Request{
+				Type:  connectionRequest,
+				ID:    thid,
+				Label: "test",
+			},
+		)
+		require.NoError(t, err)
+		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionRequest, Outbound: false, Payload: request})
+		require.NoError(t, err)
+		// state machine has automatically transitioned to responded state
+		actual, err := s.currentState(thid)
+		require.NoError(t, err)
+		require.Equal(t, (&responded{}).Name(), actual.Name())
+		// therefore cannot transition Responded state
+		response, err := json.Marshal(
+			&Response{
+				Type:   connectionResponse,
 				ID:     randomString(),
 				Thread: &decorator.Thread{ID: thid},
-				ConnectionSignature: &ConnectionSignature{
-					Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single",
-				},
-			})
+			},
+		)
 		require.NoError(t, err)
-		msg = dispatcher.DIDCommMsg{
-			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response",
-			Payload: response}
-		err = s.Handle(msg)
+		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionResponse, Outbound: false, Payload: response})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid state transition")
+	})
+	t.Run("error when updating store on first state transition", func(t *testing.T) {
+		s := &Service{
+			outboundTransport: newMockOutboundTransport(),
+			store: &mockStore{
+				get: func(string) ([]byte, error) {
+					return nil, errors.New("not found")
+				},
+				put: func(string, []byte) error {
+					return errors.New("test")
+				},
+			},
+		}
+		request, err := json.Marshal(
+			&Request{
+				Type:  connectionRequest,
+				ID:    randomString(),
+				Label: "test",
+			},
+		)
+		require.NoError(t, err)
+		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionRequest, Outbound: false, Payload: request})
+		require.Error(t, err)
+	})
+	t.Run("error when updating store on followup state transition", func(t *testing.T) {
+		counter := 0
+		s := &Service{
+			outboundTransport: newMockOutboundTransport(),
+			store: &mockStore{
+				get: func(string) ([]byte, error) {
+					return nil, errors.New("not found")
+				},
+				put: func(string, []byte) error {
+					counter++
+					if counter > 1 {
+						return errors.New("test")
+					}
+					return nil
+				},
+			},
+		}
+		request, err := json.Marshal(
+			&Request{
+				Type:  connectionRequest,
+				ID:    randomString(),
+				Label: "test",
+			},
+		)
+		require.NoError(t, err)
+		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionRequest, Outbound: false, Payload: request})
+		require.Error(t, err)
 	})
 
-	t.Run("illegal starting state", func(t *testing.T) {
-		response, err := json.Marshal(
-			&Response{
-				Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response",
-				ID:   randomString(),
-				ConnectionSignature: &ConnectionSignature{
-					Type: "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single",
-				},
-			})
+	t.Run("error on invalid msg type", func(t *testing.T) {
+		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
+		request, err := json.Marshal(
+			&Request{
+				Type:  connectionRequest,
+				ID:    randomString(),
+				Label: "test",
+			},
+		)
 		require.NoError(t, err)
-		msg := dispatcher.DIDCommMsg{
-			Type:    "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response",
-			Payload: response}
-		err = s.Handle(msg)
+		err = s.Handle(dispatcher.DIDCommMsg{Type: "INVALID", Outbound: false, Payload: request})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid state transition")
 	})
 }
 
@@ -362,6 +408,17 @@ func TestService_currentState(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expected.Name(), actual.Name())
 	})
+	t.Run("forwards generic error from store", func(t *testing.T) {
+		svc := &Service{
+			store: &mockStore{
+				get: func(string) ([]byte, error) {
+					return nil, errors.New("test")
+				},
+			},
+		}
+		_, err := svc.currentState("ignored")
+		require.Error(t, err)
+	})
 }
 
 func TestService_update(t *testing.T) {
@@ -376,6 +433,27 @@ func TestService_update(t *testing.T) {
 	}
 	require.NoError(t, (&Service{store: store}).update("123", s))
 	require.Equal(t, s.Name(), string(data[thid]))
+}
+
+func newMockOutboundTransport() transport.OutboundTransport {
+	return (&mockProvider{}).OutboundTransport()
+}
+
+func newMockStore() storage.Store {
+	data := make(map[string][]byte)
+	return &mockStore{
+		put: func(k string, v []byte) error {
+			data[k] = v
+			return nil
+		},
+		get: func(k string) ([]byte, error) {
+			v, found := data[k]
+			if !found {
+				return nil, errors.New("not found")
+			}
+			return v, nil
+		},
+	}
 }
 
 type mockStore struct {
