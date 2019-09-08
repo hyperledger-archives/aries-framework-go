@@ -25,7 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
-	mocktransport "github.com/hyperledger/aries-framework-go/pkg/internal/didcomm/transport/mock"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
 
@@ -317,7 +317,7 @@ func (f *mockTransportProviderFactory) CreateOutboundTransport() (transport.Outb
 	if f.err != nil {
 		return nil, f.err
 	}
-	return mocktransport.NewOutboundTransport("success"), nil
+	return didcomm.NewMockOutboundTransport("success"), nil
 }
 
 type mockDidMethod struct {
