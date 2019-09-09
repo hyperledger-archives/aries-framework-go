@@ -185,3 +185,53 @@ type AcceptInvitationResponse struct {
 	// Invitation mode
 	Mode string `json:"invitation_mode,omitempty"`
 }
+
+// GetConnectionRequest model
+//
+// This is used for getting specific connection record
+//
+// swagger:parameters getConnection
+type GetConnectionRequest struct {
+	// The ID of the connection to get
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
+// QueryConnections model
+//
+// This is used for querying connections
+//
+// swagger:parameters queryConnections
+type QueryConnections struct {
+	// Params for querying connections
+	//
+	// in: path
+	// required: true
+	didexchange.QueryConnectionsParams
+}
+
+// QueryConnectionResponse model
+//
+// This is used for returning query connection result for single record search
+//
+// swagger:response queryConnectionResponse
+type QueryConnectionResponse struct {
+
+	// in: body
+	Result *didexchange.QueryConnectionResult `json:"result"`
+}
+
+// QueryConnectionsResponse model
+//
+// This is used for returning query connections results
+//
+// swagger:response queryConnectionsResponse
+type QueryConnectionsResponse struct {
+
+	// in: body
+	Body struct {
+		Results []*didexchange.QueryConnectionResult `json:"results"`
+	}
+}

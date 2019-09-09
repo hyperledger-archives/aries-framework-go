@@ -59,6 +59,30 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "createSigningKeyErr")
 	})
+
+}
+
+func TestClient_QueryConnectionByID(t *testing.T) {
+	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{})})
+	require.NoError(t, err)
+
+	result, err := c.QueryConnectionByID("sample-id")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.ConnectionID)
+}
+
+func TestClient_QueryConnectionsByParams(t *testing.T) {
+	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{})})
+	require.NoError(t, err)
+
+	results, err := c.QueryConnections(&QueryConnectionsParams{InvitationKey: "sample-inv-key"})
+	require.NoError(t, err)
+	require.NotEmpty(t, results)
+	for _, result := range results {
+		require.NotNil(t, result)
+		require.NotNil(t, result.ConnectionID)
+	}
 }
 
 type mockOutboundTransport struct {

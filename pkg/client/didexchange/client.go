@@ -9,13 +9,13 @@ package didexchange
 import (
 	"errors"
 	"fmt"
-
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
@@ -60,4 +60,21 @@ func (c *Client) CreateInvitation() (*InvitationRequest, error) {
 		RecipientKeys:   []string{pubKey},
 		ServiceEndpoint: "https://example.com/endpoint", // TODO get the value from config #175
 	}}, nil
+}
+
+// QueryConnections queries connections matching given parameters
+func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*QueryConnectionResult, error) {
+	// TODO sample response, to be implemented as part of #226
+	return []*QueryConnectionResult{
+		{ConnectionID: uuid.New().String(), CreateTime: time.Now()},
+		{ConnectionID: uuid.New().String(), CreateTime: time.Now()},
+	}, nil
+}
+
+// QueryConnectionByID fetches single connection record for given id
+func (c *Client) QueryConnectionByID(id string) (*QueryConnectionResult, error) {
+	// TODO sample response, to be implemented as part of #226
+	return &QueryConnectionResult{
+		ConnectionID: uuid.New().String(), CreateTime: time.Now(),
+	}, nil
 }
