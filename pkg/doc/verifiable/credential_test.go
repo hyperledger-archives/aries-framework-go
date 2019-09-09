@@ -7,6 +7,7 @@ package verifiable
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,7 +26,7 @@ const validCredential = `
   "id": "http://example.edu/credentials/1872",
   "type": [
     "VerifiableCredential",
-    "AlumniCredential"
+    "UniversityDegreeCredential"
   ],
   "credentialSubject": {
     "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
@@ -95,7 +96,7 @@ const issuerAsObject = `
 }
 `
 
-func TestNew(t *testing.T) {
+func TestNewCredential(t *testing.T) {
 	t.Run("test creation of new Verifiable Credential from JSON with valid structure", func(t *testing.T) {
 		vc, err := NewCredential([]byte(validCredential))
 		require.NoError(t, err)
@@ -112,7 +113,7 @@ func TestNew(t *testing.T) {
 		// validate type
 		require.Equal(t, vc.Type, []string{
 			"VerifiableCredential",
-			"AlumniCredential"})
+			"UniversityDegreeCredential"})
 
 		// validate not null credential subject
 		require.NotNil(t, vc.Subject)
@@ -156,6 +157,18 @@ func TestNew(t *testing.T) {
 		_, err := NewCredential([]byte("non json"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "JSON unmarshalling of verifiable credential failed")
+	})
+
+	t.Run("test a try to create a new Verifiable Credential with failing custom decoder", func(t *testing.T) {
+		_, err := NewCredential(
+			[]byte(validCredential),
+			WithDecoders([]CredentialDecoder{
+				func(dataJSON []byte, credential *Credential) error {
+					return errors.New("test decoding error")
+				},
+			}))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "test decoding error")
 	})
 }
 

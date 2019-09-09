@@ -187,7 +187,7 @@ type Credential struct {
 	RefreshService *RefreshService
 }
 
-// rawCredential
+// rawCredential is a basic verifiable credential
 type rawCredential struct {
 	Context        []string          `json:"@context,omitempty"`
 	ID             string            `json:"id,omitempty"`
@@ -294,7 +294,7 @@ func NewCredential(dataJSON []byte, opts ...CredentialOpt) (*Credential, error) 
 		return nil, err
 	}
 
-	var cred = crOpts.template()
+	cred := crOpts.template()
 	cred.Context = raw.Context
 	cred.ID = raw.ID
 	cred.Type = raw.Type
