@@ -9,9 +9,8 @@ package authcrypt
 import (
 	"crypto/rand"
 	"errors"
-	"fmt"
 
-	"golang.org/x/crypto/chacha20poly1305"
+	chacha "golang.org/x/crypto/chacha20poly1305"
 )
 
 // This package deals with Authcrypt encryption for Packing/Unpacking DID Comm exchange
@@ -31,17 +30,27 @@ const XC20P = ContentEncryption("XC20P") // XChacha20 encryption + Poly1035 auth
 //nolint:gochecknoglobals
 var randReader = rand.Reader
 
+// errEmptyRecipients is used when recipients list is empty
+var errEmptyRecipients = errors.New("empty recipients")
+
+// errInvalidKeypair is used when a keypair is invalid
+var errInvalidKeypair = errors.New("invalid keypair")
+
+// errRecipientNotFound is used when a recipient is not found
+var errRecipientNotFound = errors.New("recipient not found")
+
+// errUnsupportedAlg is used when a bad encryption algorithm is used
+var errUnsupportedAlg = errors.New("algorithm not supported")
+
 type keyPair struct {
-	priv *[chacha20poly1305.KeySize]byte
-	pub  *[chacha20poly1305.KeySize]byte
+	priv *[chacha.KeySize]byte
+	pub  *[chacha.KeySize]byte
 }
 
 // Crypter represents an Authcrypt Encrypter (Decrypter) that outputs/reads JWE envelopes
 type Crypter struct {
-	sender     keyPair
-	recipients []*[chacha20poly1305.KeySize]byte
-	alg        ContentEncryption
-	nonceSize  int
+	alg       ContentEncryption
+	nonceSize int
 }
 
 // Envelope represents a JWE envelope as per the Aries Encryption envelope specs
@@ -77,37 +86,27 @@ type RecipientHeaders struct {
 // C20P (chacha20-poly1035 ietf)
 // XC20P (xchacha20-poly1035 ietf)
 // The returned crypter contains all the information required to encrypt payloads.
-func New(sender keyPair, recipients []*[chacha20poly1305.KeySize]byte, alg ContentEncryption) (*Crypter, error) {
+func New(alg ContentEncryption) (*Crypter, error) {
 	var nonceSize int
 	switch alg {
 	case C20P:
-		nonceSize = chacha20poly1305.NonceSize
+		nonceSize = chacha.NonceSize
 	case XC20P:
-		nonceSize = chacha20poly1305.NonceSizeX
+		nonceSize = chacha.NonceSizeX
 	default:
-		return nil, fmt.Errorf("encryption algorithm '%s' not supported", alg)
+		return nil, errUnsupportedAlg
 	}
-	if len(recipients) == 0 {
-		return nil, errors.New("empty recipients keys, must have at least one recipient")
-	}
-	var recipientsKey []*[chacha20poly1305.KeySize]byte
-	recipientsKey = append(recipientsKey, recipients...)
 
 	c := &Crypter{
-		sender,
-		recipientsKey,
 		alg,
 		nonceSize,
-	}
-
-	if !isKeyPairValid(sender) {
-		return nil, fmt.Errorf("sender keyPair not supported, it must have %d bytes keys", chacha20poly1305.KeySize)
 	}
 
 	return c, nil
 }
 
-func isKeyPairValid(kp keyPair) bool {
+// IsKeyPairValid is a utility function that validates a KeyPair
+func IsKeyPairValid(kp keyPair) bool {
 	if kp.priv == nil || kp.pub == nil {
 		return false
 	}

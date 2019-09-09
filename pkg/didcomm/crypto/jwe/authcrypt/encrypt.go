@@ -28,22 +28,32 @@ import (
 
 // Encrypt will JWE encode the payload argument for the sender and recipients
 // Using (X)Chacha20 encryption algorithm and Poly1035 authenticator
-func (c *Crypter) Encrypt(payload []byte) ([]byte, error) {
+// It will encrypt using the sender's keypair and the list of recipients arguments
+func (c *Crypter) Encrypt(payload []byte, sender keyPair, recipients []*[chacha.KeySize]byte) ([]byte, error) { //nolint:lll,funlen
+	if len(recipients) == 0 {
+		return nil, errEmptyRecipients
+	}
+
+	if !IsKeyPairValid(sender) {
+		return nil, errInvalidKeypair
+	}
+
 	headers := jweHeaders{
 		"typ": "prs.hyperledger.aries-auth-message",
 		"alg": "ECDH-SS+" + string(c.alg) + "KW",
 		"enc": string(c.alg),
 	}
 
-	aad := c.buildAAD()
-	aadEncoded := base64.URLEncoding.EncodeToString(aad)
+	aad := buildAAD(recipients)
+	aadEncoded := base64.RawURLEncoding.EncodeToString(aad)
 
-	encHeaders, err := json.Marshal(headers)
+	h, err := json.Marshal(headers)
 	if err != nil {
 		return nil, err
 	}
+	encHeaders := base64.RawURLEncoding.EncodeToString(h)
 	// build the Payload's AAD string
-	pldAad := base64.URLEncoding.EncodeToString(encHeaders) + "." + aadEncoded
+	pldAAD := encHeaders + "." + aadEncoded
 
 	// generate a new nonce for this encryption
 	nonce := make([]byte, c.nonceSize)
@@ -51,7 +61,7 @@ func (c *Crypter) Encrypt(payload []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	nonceEncoded := base64.URLEncoding.EncodeToString(nonce)
+	nonceEncoded := base64.RawURLEncoding.EncodeToString(nonce)
 
 	cek := &[chacha.KeySize]byte{}
 
@@ -69,18 +79,18 @@ func (c *Crypter) Encrypt(payload []byte) ([]byte, error) {
 
 	// encrypt payload using generated nonce, payload and its AAD
 	// the output is a []byte containing the cipherText + tag
-	symOutput := crypter.Seal(nil, nonce, payload, []byte(pldAad))
+	symOutput := crypter.Seal(nil, nonce, payload, []byte(pldAAD))
 
 	tagEncoded := extractTag(symOutput)
 	cipherTextEncoded := extractCipherText(symOutput)
 
 	// now build, encode recipients and include the encrypted cek (with a recipient's ephemeral key)
-	recipients, err := c.encodeRecipients(cek)
+	encRec, err := c.encodeRecipients(cek, recipients, sender)
 	if err != nil {
 		return nil, err
 	}
 
-	jwe, err := c.buildJWE(headers, recipients, aadEncoded, nonceEncoded, tagEncoded, cipherTextEncoded)
+	jwe, err := c.buildJWE(encHeaders, encRec, aadEncoded, nonceEncoded, tagEncoded, cipherTextEncoded)
 	if err != nil {
 		return nil, err
 	}
@@ -93,16 +103,18 @@ func extractTag(symOutput []byte) string {
 	// symOutput has a length of len(clear msg) + poly1035.TagSize
 	// fetch the tag from the tail of symOutput
 	tag := symOutput[len(symOutput)-poly1305.TagSize:]
+
 	// base64 encode the tag
-	return base64.URLEncoding.EncodeToString(tag)
+	return base64.RawURLEncoding.EncodeToString(tag)
 }
 
 // extractCipherText extracts the base64UrlEncoded cipherText sub slice from symOutput returned by cipher.Seal
 func extractCipherText(symOutput []byte) string {
 	// fetch the cipherText from the head of symOutput (0:up to the trailing tag)
 	cipherText := symOutput[0 : len(symOutput)-poly1305.TagSize]
+
 	// base64 encode the cipherText
-	return base64.URLEncoding.EncodeToString(cipherText)
+	return base64.RawURLEncoding.EncodeToString(cipherText)
 }
 
 // createCipher will create and return a new Chacha20Poly1035 cipher for the given nonceSize and symmetric key
@@ -119,13 +131,9 @@ func createCipher(nonceSize int, symKey []byte) (cipher.AEAD, error) {
 
 // buildJWE builds the JSON object representing the JWE output of the encryption
 // and returns its marshaled []byte representation
-func (c *Crypter) buildJWE(hdrs jweHeaders, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) {
-	h, err := json.Marshal(hdrs)
-	if err != nil {
-		return nil, err
-	}
+func (c *Crypter) buildJWE(headers string, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) {
 	jwe := Envelope{
-		Protected:  base64.URLEncoding.EncodeToString(h),
+		Protected:  headers,
 		Recipients: recipients,
 		AAD:        aad,
 		IV:         iv,
@@ -144,11 +152,17 @@ func (c *Crypter) buildJWE(hdrs jweHeaders, recipients []Recipient, aad, iv, tag
 // buildAAD to build the Additional Authentication Data for the AEAD (chach20poly1035) cipher.
 // the build takes the list of recipients keys base58 encoded and sorted then SHA256 hash
 // the concatenation of these keys with a '.' separator
-func (c *Crypter) buildAAD() []byte {
+func buildAAD(recipients []*[chacha.KeySize]byte) []byte {
 	var keys []string
-	for _, r := range c.recipients {
+	for _, r := range recipients {
 		keys = append(keys, base58.Encode(r[:]))
 	}
+	return hashAAD(keys)
+}
+
+// hashAAD will string sort keys and return sha256 hash of the string representation
+// of keys concatenated by '.'
+func hashAAD(keys []string) []byte {
 	sort.Strings(keys)
 	sha := sha256.Sum256([]byte(strings.Join(keys, ".")))
 	return sha[:]
@@ -156,10 +170,10 @@ func (c *Crypter) buildAAD() []byte {
 
 // encodeRecipients will encode the sharedKey (cek) for each recipient
 // and return a list of encoded recipient keys
-func (c *Crypter) encodeRecipients(sharedSymKey *[chacha.KeySize]byte) ([]Recipient, error) {
+func (c *Crypter) encodeRecipients(sharedSymKey *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderKp keyPair) ([]Recipient, error) { //nolint:lll
 	var encodedRecipients []Recipient
-	for _, e := range c.recipients {
-		rec, err := c.encodeRecipient(sharedSymKey, e)
+	for _, e := range recipients {
+		rec, err := c.encodeRecipient(sharedSymKey, e, senderKp)
 		if err != nil {
 			return nil, err
 		}
@@ -170,7 +184,7 @@ func (c *Crypter) encodeRecipients(sharedSymKey *[chacha.KeySize]byte) ([]Recipi
 
 // encodeRecipient will encode the sharedKey (cek) with recipientKey
 // by generating a new ephemeral key to be used by the recipient to decrypt the cek
-func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]byte) (*Recipient, error) {
+func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]byte, senderKp keyPair) (*Recipient, error) { //nolint:lll
 	// generate a random APU value (Agreement PartyUInfo: https://tools.ietf.org/html/rfc7518#section-4.6.1.2)
 	apu := make([]byte, 64)
 	_, err := randReader.Read(apu)
@@ -179,7 +193,7 @@ func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]by
 	}
 
 	// create a new ephemeral key for the recipient and return its APU
-	kek, err := c.generateRecipientCEK(apu, recipientKey)
+	kek, err := c.generateRecipientCEK(apu, senderKp.priv, recipientKey)
 	if err != nil {
 		return nil, err
 	}
@@ -203,22 +217,22 @@ func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]by
 	tag := extractTag(kekOutput)
 	sharedKeyCipher := extractCipherText(kekOutput)
 
-	return c.buildRecipient(sharedKeyCipher, apu, nonce, tag, recipientKey)
+	return c.buildRecipient(sharedKeyCipher, apu, nonce, tag, senderKp.pub, recipientKey)
 }
 
 // buildRecipient will build a proper JSON formatted Recipient
-func (c *Crypter) buildRecipient(key string, apu, nonce []byte, tag string, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
-	oid, err := encryptOID(recipientKey, []byte(base58.Encode(c.sender.pub[:])))
+func (c *Crypter) buildRecipient(key string, apu, nonce []byte, tag string, senderPubKey, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
+	oid, err := encryptOID(recipientKey, []byte(base58.Encode(senderPubKey[:])))
 	if err != nil {
 		return nil, err
 	}
 
 	recipientHeaders := RecipientHeaders{
-		APU: base64.URLEncoding.EncodeToString(apu),
-		IV:  base64.URLEncoding.EncodeToString(nonce),
+		APU: base64.RawURLEncoding.EncodeToString(apu),
+		IV:  base64.RawURLEncoding.EncodeToString(nonce),
 		Tag: tag,
 		KID: base58.Encode(recipientKey[:]),
-		OID: base64.URLEncoding.EncodeToString(oid),
+		OID: base64.RawURLEncoding.EncodeToString(oid),
 	}
 
 	recipient := &Recipient{
@@ -232,10 +246,10 @@ func (c *Crypter) buildRecipient(key string, apu, nonce []byte, tag string, reci
 // generateRecipientCEK will generate an ephemeral symmetric key for the recipientKey to
 // be used for encrypting the cek.
 // it will return this new key along with the corresponding APU or an error if it fails.
-func (c *Crypter) generateRecipientCEK(apu []byte, recipientKey *[chacha.KeySize]byte) ([]byte, error) {
+func (c *Crypter) generateRecipientCEK(apu []byte, privKey, pubKey *[chacha.KeySize]byte) ([]byte, error) {
 	// base64 encode the APU
-	apuEncoded := make([]byte, base64.URLEncoding.EncodedLen(len(apu)))
-	base64.URLEncoding.Encode(apuEncoded, apu)
+	apuEncoded := make([]byte, base64.RawURLEncoding.EncodedLen(len(apu)))
+	base64.RawURLEncoding.Encode(apuEncoded, apu)
 
 	// generating Z is inspired by sodium_crypto_scalarmult()
 	// https://github.com/gamringer/php-authcrypt/blob/master/src/Crypt.php#L80
@@ -244,7 +258,7 @@ func (c *Crypter) generateRecipientCEK(apu []byte, recipientKey *[chacha.KeySize
 	z := &[chacha.KeySize]byte{9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} //nolint:lll
 	// do ScalarMult of the sender's private key with the recipient key to get a derived Z point
 	// ( equivalent to derive an EC key )
-	curve25519.ScalarMult(z, c.sender.priv, recipientKey)
+	curve25519.ScalarMult(z, privKey, pubKey)
 
 	// inspired by: github.com/square/go-jose/v3@v3.0.0-20190722231519-723929d55157/cipher/ecdh_es.go
 	// -> DeriveECDHES() call
@@ -270,28 +284,53 @@ func (c *Crypter) generateRecipientCEK(apu []byte, recipientKey *[chacha.KeySize
 }
 
 // encryptOID will encrypt a msg (in the case of this package, it will be
-// an ephemeral key concatenated to the sender's public key) using the
-// recipient's pubKey, this is equivalent to libsodium's C function: crypto_box_seal()
+// the sender's public key) using the recipient's pubKey,
+// this is equivalent to libsodium's C function: crypto_box_seal()
 // https://libsodium.gitbook.io/doc/public-key_cryptography/sealed_boxes#usage
 // TODO add testing to ensure interoperability of encryptOID with libsodium's function above
 //      the main difference between libsodium and below implementation is libsodium hides
-//      the ephemeral key and the nonce creation from the caller while box.Seal require these
+//      the ephemeral key and the nonce creation from the caller while box.Seal requires these
 //      to be prebuilt and passed as arguments.
-func encryptOID(pubKey *[chacha.KeySize]byte, msg []byte) ([]byte, error) {
-	var nonce [24]byte
+// TODO replace 'OID' to 'SPK' recipient header which should represent the key in JWK encoded in a compact JWE format
+func encryptOID(recipientPubKey *[chacha.KeySize]byte, msg []byte) ([]byte, error) {
 	// generate ephemeral asymmetric keys
 	epk, esk, err := box.GenerateKey(randReader)
 	if err != nil {
 		return nil, err
 	}
-	// generate an equivalent nonce to libsodium's (see link above)
+	// generate an equivalent nonce to libsodium's (see link in comment above)
+	nonce, err := generateLibsodiumNonce(epk[:], recipientPubKey[:])
+	if err != nil {
+		return nil, err
+	}
+
+	var out = make([]byte, len(epk))
+	copy(out, epk[:])
+
+	// now seal msg with the ephemeral key, nonce and recipientPubKey (which is the recipient's publicKey)
+	return box.Seal(out, msg, nonce, recipientPubKey, esk), nil
+}
+
+// generateLibsodiumNonce will generate a nonce that is equivalent to libsodium's
+// nonce format ie: black2b generation using concatenation of pub1 with pub2
+func generateLibsodiumNonce(pub1, pub2 []byte) (*[24]byte, error) {
+	var nonce [24]byte
+	// generate an equivalent nonce to libsodium's
 	nonceWriter, err := blake2b.New(24, nil)
 	if err != nil {
 		return nil, err
 	}
-	nonceSlice := nonceWriter.Sum(append(epk[:], pubKey[:]...))
-	copy(nonce[:], nonceSlice)
+	_, err = nonceWriter.Write(pub1)
+	if err != nil {
+		return nil, err
+	}
+	_, err = nonceWriter.Write(pub2)
+	if err != nil {
+		return nil, err
+	}
 
-	// now seal the msg with the ephemeral key, nonce and pubKey (which is recipient's publicKey)
-	return box.Seal(epk[:], msg, &nonce, pubKey, esk), nil
+	nonceOut := nonceWriter.Sum(nil)
+	copy(nonce[:], nonceOut)
+
+	return &nonce, nil
 }
