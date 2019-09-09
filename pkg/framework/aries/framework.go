@@ -31,6 +31,8 @@ type Aries struct {
 	protocolSvcCreators []api.ProtocolSvcCreator
 	services            []dispatcher.Service
 	inboundTransport    transport.InboundTransport
+	walletCreator       api.WalletCreator
+	wallet              api.CloseableWallet
 }
 
 // Option configures the framework.
@@ -82,10 +84,12 @@ func New(opts ...Option) (*Aries, error) {
 	}
 
 	// Start the inbound transport
-	if err := frameworkOpts.inboundTransport.Start(ctxProvider); err != nil {
+	if err = frameworkOpts.inboundTransport.Start(ctxProvider); err != nil {
 		return nil, fmt.Errorf("inbound transport start failed: %w", err)
 	}
-
+	if err := createWallet(frameworkOpts); err != nil {
+		return nil, err
+	}
 	return frameworkOpts, nil
 }
 
@@ -129,6 +133,14 @@ func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
 	}
 }
 
+// WithWallet injects a wallet service to the Aries framework
+func WithWallet(w api.WalletCreator) Option {
+	return func(opts *Aries) error {
+		opts.walletCreator = w
+		return nil
+	}
+}
+
 // DIDResolver returns the framework configured DID Resolver.
 func (a *Aries) DIDResolver() DIDResolver {
 	return a.didResolver
@@ -143,15 +155,22 @@ func (a *Aries) Context() (*context.Provider, error) {
 
 	return context.New(
 		context.WithOutboundTransport(ot), context.WithProtocolServices(a.services...),
+		context.WithWallet(a.wallet),
 	)
 }
 
 // Close frees resources being maintained by the framework.
 func (a *Aries) Close() error {
+	if a.wallet != nil {
+		err := a.wallet.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close the wallet: %w", err)
+		}
+	}
 	if a.storeProvider != nil {
 		err := a.storeProvider.Close()
 		if err != nil {
-			return fmt.Errorf("failed to close the framework: %w", err)
+			return fmt.Errorf("failed to close the store: %w", err)
 		}
 	}
 
@@ -160,6 +179,17 @@ func (a *Aries) Close() error {
 			return fmt.Errorf("inbound transport close failed: %w", err)
 		}
 	}
+	return nil
+}
 
+func createWallet(frameworkOpts *Aries) error {
+	// TODO remove nil check after provide default implementation for wallet
+	if frameworkOpts.walletCreator != nil {
+		var err error
+		frameworkOpts.wallet, err = frameworkOpts.walletCreator(frameworkOpts.storeProvider)
+		if err != nil {
+			return fmt.Errorf("create wallet failed: %w", err)
+		}
+	}
 	return nil
 }

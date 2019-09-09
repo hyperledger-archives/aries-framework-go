@@ -13,12 +13,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
 	outboundTransport transport.OutboundTransport
 	services          []dispatcher.Service
+	wallet            wallet.Wallet
 }
 
 // New instantiated new context provider
@@ -47,6 +49,11 @@ func (p *Provider) Service(id string) (interface{}, error) {
 		}
 	}
 	return nil, api.ErrSvcNotFound
+}
+
+// CryptoWallet returns the crypto wallet service
+func (p *Provider) CryptoWallet() wallet.Crypto {
+	return p.wallet
 }
 
 // InboundMessageHandler return inbound message handler
@@ -86,6 +93,14 @@ func WithOutboundTransport(ot transport.OutboundTransport) ProviderOption {
 func WithProtocolServices(services ...dispatcher.Service) ProviderOption {
 	return func(opts *Provider) error {
 		opts.services = services
+		return nil
+	}
+}
+
+// WithWallet injects a wallet service into the context
+func WithWallet(w wallet.Wallet) ProviderOption {
+	return func(opts *Provider) error {
+		opts.wallet = w
 		return nil
 	}
 }

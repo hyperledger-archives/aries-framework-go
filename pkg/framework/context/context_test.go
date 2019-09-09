@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -92,6 +93,14 @@ func TestNewProvider(t *testing.T) {
 		}`))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error handling the message")
+	})
+
+	t.Run("test new with wallet service", func(t *testing.T) {
+		prov, err := New(WithWallet(&wallet.CloseableWallet{SignMessageValue: []byte("mockValue")}))
+		require.NoError(t, err)
+		v, err := prov.CryptoWallet().SignMessage(nil, "")
+		require.NoError(t, err)
+		require.Equal(t, []byte("mockValue"), v)
 	})
 }
 
