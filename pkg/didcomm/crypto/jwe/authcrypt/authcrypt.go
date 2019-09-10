@@ -27,6 +27,8 @@ const C20P = ContentEncryption("C20P") // Chacha20 encryption + Poly1035 authent
 const XC20P = ContentEncryption("XC20P") // XChacha20 encryption + Poly1035 authenticator cipher (192 bits nonce)
 
 // randReader is a cryptographically secure random number generator.
+// TODO: document usage for tests or find another mechanism.
+//nolint:gochecknoglobals
 var randReader = rand.Reader
 
 type keyPair struct {

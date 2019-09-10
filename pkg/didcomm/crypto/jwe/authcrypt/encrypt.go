@@ -9,7 +9,6 @@ package authcrypt
 import (
 	"crypto"
 	"crypto/cipher"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
@@ -281,7 +280,7 @@ func (c *Crypter) generateRecipientCEK(apu []byte, recipientKey *[chacha.KeySize
 func encryptOID(pubKey *[chacha.KeySize]byte, msg []byte) ([]byte, error) {
 	var nonce [24]byte
 	// generate ephemeral asymmetric keys
-	epk, esk, err := box.GenerateKey(rand.Reader)
+	epk, esk, err := box.GenerateKey(randReader)
 	if err != nil {
 		return nil, err
 	}

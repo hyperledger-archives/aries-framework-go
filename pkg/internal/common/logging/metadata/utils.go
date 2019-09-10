@@ -12,7 +12,7 @@ import (
 )
 
 // levelNames - log level names in string
-var levelNames = []string{
+var levelNames = []string{ //nolint:gochecknoglobals
 	"CRITICAL",
 	"ERROR",
 	"WARNING",

@@ -21,9 +21,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
 
-// DBPath Level DB Path.
-var dbPath = "/tmp/peerstore/"
-var defaultInboundPort = ":8090"
+// TODO handle the test scenario better (make dbPath constant).
+//nolint:gochecknoglobals
+var (
+	// DBPath Level DB Path.
+	dbPath             = "/tmp/peerstore/"
+	defaultInboundPort = ":8090"
+)
 
 // transportProviderFactory provides default Outbound Transport provider factory
 func transportProviderFactory() api.TransportProviderFactory {

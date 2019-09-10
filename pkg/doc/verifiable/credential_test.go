@@ -66,7 +66,7 @@ const validCredential = `
 }
 `
 
-var singleCredentialSubject = `
+const singleCredentialSubject = `
 {
     "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
     "degree": {
@@ -76,7 +76,7 @@ var singleCredentialSubject = `
 }
 `
 
-var multipleCredentialSubjects = `
+const multipleCredentialSubjects = `
 [{
     "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
     "name": "Jayden Doe",
@@ -88,7 +88,7 @@ var multipleCredentialSubjects = `
   }]
 `
 
-var issuerAsObject = `
+const issuerAsObject = `
 {
     "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
     "name": "Example University"

@@ -7,7 +7,7 @@ version: 2
 jobs:
   checks:
     docker:
-      - image: golangci/golangci-lint
+      - image: golangci/golangci-lint:v1.18
     steps:
       - checkout
       - run: make checks

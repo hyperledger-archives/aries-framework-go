@@ -10,9 +10,12 @@ import (
 	"sync"
 )
 
-var rwmutex = &sync.RWMutex{}
-var levels = newModuledLevels()
-var callerInfos = newCallerInfo()
+//nolint:gochecknoglobals
+var (
+	rwmutex     = &sync.RWMutex{}
+	levels      = newModuledLevels()
+	callerInfos = newCallerInfo()
+)
 
 // SetLevel - setting log level for given module
 func SetLevel(module string, level Level) {

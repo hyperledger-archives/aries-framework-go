@@ -60,7 +60,7 @@ linters-settings:
   unparam:
     check-exported: false
   nakedret:
-    max-func-lines: 30
+    max-func-lines: 0
   gocritic:
     enabled-tags:
       - diagnostic
@@ -69,15 +69,24 @@ linters-settings:
       - opinionated
     disabled-checks:
       - unnamedResult
+  funlen:
+    lines: 60
+    statements: 40
 
 linters:
   enable-all: true
   disable:
     - maligned
     - prealloc
-    - dupl
-    - gochecknoglobals
 
 issues:
   exclude-use-default: false
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - dupl
+        - funlen
 
+  exclude:
+    # Allow package logger variables (for now)
+    - \`logger\` is a global variable
