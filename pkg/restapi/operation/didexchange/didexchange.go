@@ -28,9 +28,12 @@ import (
 var logger = log.New("aries-framework/did-exchange")
 
 const (
-	createInvitationPath  = "/create-invitation"
-	receiveInvtiationPath = "/receive-invitation"
-	acceptInvitationPath  = "/accept-invitation/{id}"
+	operationID           = "/connections"
+	createInvitationPath  = operationID + "/create-invitation"
+	receiveInvtiationPath = operationID + "/receive-invitation"
+	acceptInvitationPath  = operationID + "/accept-invitation/{id}"
+	connections           = operationID
+	connectionsByID       = operationID + "/{id}"
 )
 
 // provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
@@ -71,7 +74,7 @@ type Operation struct {
 	handlers []operation.Handler
 }
 
-// CreateInvitation swagger:route GET /create-invitation did-exchange createInvitation
+// CreateInvitation swagger:route GET /connections/create-invitation did-exchange createInvitation
 //
 // Creates a new connection invitation....
 //
@@ -94,7 +97,7 @@ func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) 
 	}
 }
 
-// ReceiveInvitation swagger:route POST /receive-invitation did-exchange receiveInvitation
+// ReceiveInvitation swagger:route POST /connections/receive-invitation did-exchange receiveInvitation
 //
 // Receive a new connection invitation....
 //
@@ -146,7 +149,7 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 	}
 }
 
-// AcceptInvitation swagger:route GET /accept-invitation/{id} did-exchange acceptInvitation
+// AcceptInvitation swagger:route GET /connections/accept-invitation/{id} did-exchange acceptInvitation
 //
 // Accept a stored connection invitation....
 //
@@ -176,6 +179,70 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 	}
 
 	err := json.NewEncoder(rw).Encode(response)
+	if err != nil {
+		logger.Errorf("Unable to write response, %s", err)
+	}
+}
+
+// QueryConnections swagger:route GET /connections did-exchange queryConnections
+//
+// query agent to agent connections.
+//
+// Responses:
+//    default: genericError
+//        200: queryConnectionsResponse
+func (c *Operation) QueryConnections(rw http.ResponseWriter, req *http.Request) {
+	logger.Debugf("Querying connection invitations ")
+
+	var request models.QueryConnections
+	err := json.NewDecoder(req.Body).Decode(&request)
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	results, err := c.client.QueryConnections(&request.QueryConnectionsParams)
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	response := models.QueryConnectionsResponse{
+		Body: struct {
+			Results []*didexchange.QueryConnectionResult `json:"results"`
+		}{
+			Results: results,
+		},
+	}
+
+	err = json.NewEncoder(rw).Encode(response)
+	if err != nil {
+		logger.Errorf("Unable to write response, %s", err)
+	}
+}
+
+// QueryConnectionByID swagger:route GET /connections/{id} did-exchange getConnection
+//
+// Fetch a single connection record.
+//
+// Responses:
+//    default: genericError
+//        200: queryConnectionResponse
+func (c *Operation) QueryConnectionByID(rw http.ResponseWriter, req *http.Request) {
+	params := mux.Vars(req)
+	logger.Debugf("Querying connection invitation for id [%s]", params["id"])
+
+	result, err := c.client.QueryConnectionByID(params["id"])
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	response := models.QueryConnectionResponse{
+		Result: result,
+	}
+
+	err = json.NewEncoder(rw).Encode(response)
 	if err != nil {
 		logger.Errorf("Unable to write response, %s", err)
 	}
@@ -211,5 +278,7 @@ func (c *Operation) registerHandler() {
 		support.NewHTTPHandler(createInvitationPath, http.MethodGet, c.CreateInvitation),
 		support.NewHTTPHandler(receiveInvtiationPath, http.MethodPost, c.ReceiveInvitation),
 		support.NewHTTPHandler(acceptInvitationPath, http.MethodGet, c.AcceptInvitation),
+		support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
+		support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
 	}
 }

@@ -85,6 +85,46 @@ func TestOperation_ReceiveInvitation(t *testing.T) {
 	require.NotEmpty(t, response.DID)
 }
 
+func TestOperation_QueryConnectionByID(t *testing.T) {
+
+	handler := getHandler(t, connectionsByID)
+	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("sample-connection-id")), operationID+"/1234")
+	require.NoError(t, err)
+
+	response := models.QueryConnectionResponse{}
+	err = json.Unmarshal(buf.Bytes(), &response)
+	require.NoError(t, err)
+
+	// verify response
+	require.NotEmpty(t, response)
+	require.NotEmpty(t, response.Result)
+	require.NotEmpty(t, response.Result.ConnectionID)
+}
+
+func TestOperation_QueryConnectionByParams(t *testing.T) {
+
+	var jsonStr = []byte(`{
+    	"invitation_key": "4e8650d9-6cc9-491e-b00e-7bf6cb5858fc"
+  	}`)
+
+	handler := getHandler(t, connections)
+	buf, err := getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), operationID)
+	require.NoError(t, err)
+
+	response := models.QueryConnectionsResponse{}
+	err = json.Unmarshal(buf.Bytes(), &response)
+	require.NoError(t, err)
+
+	// verify response
+	require.NotEmpty(t, response)
+	require.NotEmpty(t, response.Body)
+	require.NotEmpty(t, response.Body.Results)
+	for _, result := range response.Body.Results {
+		require.NotNil(t, result)
+		require.NotNil(t, result.ConnectionID)
+	}
+}
+
 func TestOperation_ReceiveInvitationFailure(t *testing.T) {
 
 	var emptyRequest = []byte("")
@@ -117,7 +157,7 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
 func TestOperation_AcceptInvitation(t *testing.T) {
 
 	handler := getHandler(t, acceptInvitationPath)
-	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")), "/accept-invitation/1234")
+	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")), operationID+"/accept-invitation/1234")
 	require.NoError(t, err)
 
 	response := models.AcceptInvitationResponse{}

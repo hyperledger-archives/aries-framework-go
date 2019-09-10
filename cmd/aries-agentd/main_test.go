@@ -87,7 +87,7 @@ func validateRequests(t *testing.T) {
 		// controller API test
 		{
 			name:               "1: testing get",
-			r:                  newreq("GET", fmt.Sprintf("http://%s/create-invitation", testURL), nil, ""),
+			r:                  newreq("GET", fmt.Sprintf("http://%s/connections/create-invitation", testURL), nil, ""),
 			expectedStatus:     http.StatusOK,
 			expectResponseData: true,
 		},
