@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -111,8 +110,7 @@ func threadID(payload []byte) (string, error) {
 func (s *Service) currentState(thid string) (state, error) {
 	name, err := s.store.Get(thid)
 	if err != nil {
-		// TODO this err check should be fixed in #195
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, storage.ErrDataNotFound) {
 			return &null{}, nil
 		}
 		return nil, fmt.Errorf("cannot fetch state from store: thid=%s err=%s", thid, err)

@@ -21,6 +21,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 )
@@ -242,7 +243,8 @@ func getResponseFromHandler(handler operation.Handler, requestBody io.Reader, pa
 }
 
 func getHandler(t *testing.T, lookup string) operation.Handler {
-	svc, err := New(&mockprovider.Provider{ServiceValue: mockProtocolSvc{}})
+	svc, err := New(&mockprovider.Provider{ServiceValue: mockProtocolSvc{},
+		WalletValue: &mockwallet.CloseableWallet{}})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 

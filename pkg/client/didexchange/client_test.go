@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 )
 
 func TestNew(t *testing.T) {
@@ -41,7 +41,7 @@ func TestNew(t *testing.T) {
 func TestClient_CreateInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{}),
-			WalletValue: &wallet.CloseableWallet{CreateSigningKeyValue: &wallet.KeyInfo{}}})
+			WalletValue: &mockwallet.CloseableWallet{}})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation()
 		require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 
 	t.Run("test error from createSigningKey", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{}),
-			WalletValue: &wallet.CloseableWallet{CreateSigningKeyErr: fmt.Errorf("createSigningKeyErr")}})
+			WalletValue: &mockwallet.CloseableWallet{CreateSigningKeyErr: fmt.Errorf("createSigningKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation()
 		require.Error(t, err)

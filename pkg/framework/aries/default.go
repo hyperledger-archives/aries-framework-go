@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // TODO handle the test scenario better (make dbPath constant).
@@ -96,6 +97,12 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 			return fmt.Errorf("resolver initialization failed : %w", err)
 		}
 		frameworkOpts.didResolver = reslv
+	}
+
+	if frameworkOpts.walletCreator == nil {
+		frameworkOpts.walletCreator = func(storeProvider storage.Provider) (api.CloseableWallet, error) {
+			return wallet.New(storeProvider)
+		}
 	}
 
 	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) { return didexchange.New(store, prv), nil }
