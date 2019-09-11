@@ -25,6 +25,8 @@ type provider interface {
 }
 
 // Client enable access to didexchange api
+// TODO add support for Accept Exchange Request & Accept Invitation
+//  using events & callback (#198 & #238)
 type Client struct {
 	didexchangeSvc dispatcher.Service
 	wallet         wallet.Crypto
@@ -66,8 +68,8 @@ func (c *Client) CreateInvitation() (*InvitationRequest, error) {
 func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*QueryConnectionResult, error) {
 	// TODO sample response, to be implemented as part of #226
 	return []*QueryConnectionResult{
-		{ConnectionID: uuid.New().String(), CreateTime: time.Now()},
-		{ConnectionID: uuid.New().String(), CreateTime: time.Now()},
+		{ConnectionID: uuid.New().String(), CreatedTime: time.Now()},
+		{ConnectionID: uuid.New().String(), CreatedTime: time.Now()},
 	}, nil
 }
 
@@ -75,6 +77,6 @@ func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*QueryConn
 func (c *Client) QueryConnectionByID(id string) (*QueryConnectionResult, error) {
 	// TODO sample response, to be implemented as part of #226
 	return &QueryConnectionResult{
-		ConnectionID: uuid.New().String(), CreateTime: time.Now(),
+		ConnectionID: uuid.New().String(), CreatedTime: time.Now(),
 	}, nil
 }

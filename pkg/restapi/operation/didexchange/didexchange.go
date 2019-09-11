@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
@@ -31,9 +32,10 @@ const (
 	operationID           = "/connections"
 	createInvitationPath  = operationID + "/create-invitation"
 	receiveInvtiationPath = operationID + "/receive-invitation"
-	acceptInvitationPath  = operationID + "/accept-invitation/{id}"
+	acceptInvitationPath  = operationID + "/{id}/accept-invitation"
 	connections           = operationID
 	connectionsByID       = operationID + "/{id}"
+	acceptExchangeRequest = operationID + "/{id}/accept-request"
 )
 
 // provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
@@ -149,7 +151,7 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 	}
 }
 
-// AcceptInvitation swagger:route GET /connections/accept-invitation/{id} did-exchange acceptInvitation
+// AcceptInvitation swagger:route GET /connections/{id}/accept-invitation did-exchange acceptInvitation
 //
 // Accept a stored connection invitation....
 //
@@ -158,9 +160,8 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 //        200: acceptInvitationResponse
 func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) {
 
-	logger.Debugf("Accepting connection invitation ")
-
 	params := mux.Vars(req)
+	logger.Debugf("Accepting connection invitation for id[%s]", params["id"])
 
 	// TODO returning sample response since event listening/handling with DID exchange service needs to be implemented
 	response := models.AcceptInvitationResponse{
@@ -248,6 +249,30 @@ func (c *Operation) QueryConnectionByID(rw http.ResponseWriter, req *http.Reques
 	}
 }
 
+// AcceptExchangeRequest swagger:route GET /connections/{id}/accept-request did-exchange acceptRequest
+//
+// Accepts a stored connection request.
+//
+// Responses:
+//    default: genericError
+//        200: acceptExchangeResponse
+func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Request) {
+	params := mux.Vars(req)
+	logger.Debugf("Accepting connection request for id [%s]", params["id"])
+
+	// TODO returning sample response below, Accept Exchange Request to be added using events & callback (#198 & #238)
+	result := &models.ExchangeResponse{
+		ConnectionID: uuid.New().String(), CreatedTime: time.Now(),
+	}
+
+	response := models.AcceptExchangeResult{Result: result}
+
+	err := json.NewEncoder(rw).Encode(response)
+	if err != nil {
+		logger.Errorf("Unable to write response, %s", err)
+	}
+}
+
 // writeGenericError writes given error to writer as generic error response
 func (c *Operation) writeGenericError(rw io.Writer, err error) {
 	errResponse := models.GenericError{
@@ -280,5 +305,6 @@ func (c *Operation) registerHandler() {
 		support.NewHTTPHandler(acceptInvitationPath, http.MethodGet, c.AcceptInvitation),
 		support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
 		support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
+		support.NewHTTPHandler(acceptExchangeRequest, http.MethodGet, c.AcceptExchangeRequest),
 	}
 }

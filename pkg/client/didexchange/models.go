@@ -45,7 +45,7 @@ type QueryConnectionsParams struct {
 	// Invitation key
 	InvitationKey string `json:"invitation_key,omitempty"`
 
-	// TheirDID is other party's DID
+	// MyDID is DID of the agent
 	MyDID string `json:"my_did,omitempty"`
 
 	// State of the connection invitation
@@ -73,7 +73,7 @@ type QueryConnectionResult struct {
 	TheirDID string `json:"their_did"`
 
 	// Created time
-	CreateTime time.Time `json:"created_at,omitempty"`
+	CreatedTime time.Time `json:"created_at,omitempty"`
 
 	// Connection invitation accept mode
 	Accept string `json:"accept,omitempty"`
@@ -87,7 +87,7 @@ type QueryConnectionResult struct {
 	// Initiator is Connection invitation initiator
 	Initiator string `json:"initiator,omitempty"`
 
-	// Created time
+	// Updated time
 	UpdatedTime time.Time `json:"updated_at,omitempty"`
 
 	// Invitation key

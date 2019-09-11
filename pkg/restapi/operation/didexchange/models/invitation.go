@@ -235,3 +235,87 @@ type QueryConnectionsResponse struct {
 		Results []*didexchange.QueryConnectionResult `json:"results"`
 	}
 }
+
+// AcceptExchangeRequestParams model
+//
+// This is used for accepting connection request
+//
+// swagger:parameters acceptRequest
+type AcceptExchangeRequestParams struct {
+	// The ID of the connection request to accept
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
+// AcceptExchangeResult model
+//
+// This is used for returning response for accept exchange request
+//
+// swagger:response acceptExchangeResponse
+type AcceptExchangeResult struct {
+
+	// in: body
+	Result *ExchangeResponse `json:""`
+}
+
+// ExchangeResponse model
+//
+// response of accept exchange request
+// TODO: this model is not final, to be updated as part of (issue #238)
+//
+// swagger:model ExchangeResponse
+type ExchangeResponse struct {
+
+	// Routing state of connection invitation
+	RoutingState string `json:"routing_state,omitempty"`
+
+	// the connection ID of the connection invitation
+	InboundConnectionID string `json:"inbound_connection_id,omitempty"`
+
+	// Invitation key
+	InvitationKey string `json:"invitation_key,omitempty"`
+
+	// TheirDID is other party's DID
+	TheirDID string `json:"their_did"`
+
+	// Request ID of the connection request
+	RequestID string `json:"request_id"`
+
+	// Invitation mode
+	Mode string `json:"invitation_mode,omitempty"`
+
+	// TheirRole is other party's role
+	TheirRole string `json:"their_role,omitempty"`
+
+	// TheirRole is other party's role
+	TheirLabel string `json:"their_label,omitempty"`
+
+	// the connection ID of the connection invitation
+	ConnectionID string `json:"connection_id,omitempty"`
+
+	// Initiator is Connection invitation initiator
+	Initiator string `json:"initiator,omitempty"`
+
+	// MyDID is DID of the agent
+	MyDID string `json:"my_did,omitempty"`
+
+	// Updated time
+	UpdatedTime time.Time `json:"updated_at,omitempty"`
+
+	// Created time
+	CreatedTime time.Time `json:"created_at,omitempty"`
+
+	// Error message
+	Error string `json:"error_msg,omitempty"`
+
+	// Alias of connection invitation
+	Alias string `json:"alias,omitempty"`
+
+	// State of the connection invitation
+	State string `json:"state"`
+
+	// Connection invitation accept mode
+	Accept string `json:"accept,omitempty"`
+}

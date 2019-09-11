@@ -157,7 +157,7 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
 func TestOperation_AcceptInvitation(t *testing.T) {
 
 	handler := getHandler(t, acceptInvitationPath)
-	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")), operationID+"/accept-invitation/1234")
+	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")), operationID+"/1111/accept-invitation")
 	require.NoError(t, err)
 
 	response := models.AcceptInvitationResponse{}
@@ -171,6 +171,22 @@ func TestOperation_AcceptInvitation(t *testing.T) {
 	require.NotEmpty(t, response.UpdateTime)
 	require.NotEmpty(t, response.RequestID)
 	require.NotEmpty(t, response.DID)
+}
+
+func TestOperation_AcceptExchangeRequest(t *testing.T) {
+
+	handler := getHandler(t, acceptExchangeRequest)
+	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")), operationID+"/4444/accept-request")
+	require.NoError(t, err)
+
+	response := models.AcceptExchangeResult{}
+	err = json.Unmarshal(buf.Bytes(), &response)
+	require.NoError(t, err)
+
+	// verify response
+	require.NotEmpty(t, response)
+	require.NotEmpty(t, response.Result.ConnectionID)
+	require.NotEmpty(t, response.Result.CreatedTime)
 }
 
 func TestOperation_WriteGenericError(t *testing.T) {
