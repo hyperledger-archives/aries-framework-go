@@ -80,12 +80,17 @@ func TestFramework(t *testing.T) {
 		exClient := didexchange.New(nil, ctx)
 		require.NoError(t, err)
 
+		dest := &didexchange.Destination{
+		      RecipientKeys:[]string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
+			  ServiceEndpoint: "https://localhost:8090",
+		      RoutingKeys:[]string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
+		}
 		req := &didexchange.Request{
 			ID:    "5678876542345",
 			Label: "Bob",
 		}
-		require.NoError(t, exClient.SendExchangeRequest(req, "http://example/didexchange"))
-		require.Error(t, exClient.SendExchangeRequest(req, ""))
+		require.NoError(t, exClient.SendExchangeRequest(req, dest))
+		require.Error(t, exClient.SendExchangeRequest(req, &didexchange.Destination{}))
 	})
 
 	t.Run("test framework new - with default transport", func(t *testing.T) {

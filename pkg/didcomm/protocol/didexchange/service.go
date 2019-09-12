@@ -150,27 +150,19 @@ func (s *Service) Connections() {
 	// TODO add Connections logic
 
 }
-
-// TODO all these 'destination' parameters should be a complex type that provides the recipientKeys,
-//      routingKeys, and serviceEndpoint. The recipientKeys should be fed into the wallet.Pack() function.
-//      The routingKeys are used to create the encryption envelopes. Finally, the whole structure is sent
-//      to the serviceEndpoint.
-
 // SendExchangeRequest sends exchange request
-func (s *Service) SendExchangeRequest(exchangeRequest *Request, destination string) error {
+func (s *Service) SendExchangeRequest(exchangeRequest *Request, dest *Destination) error {
 	if exchangeRequest == nil {
 		return errors.New("exchangeRequest cannot be nil")
 	}
-
 	exchangeRequest.Type = connectionRequest
-
 	// ignore response data as it is not used in this communication mode as defined in the spec
-	_, err := s.marshalAndSend(exchangeRequest, "Error Marshalling Exchange Request", destination)
+	_, err := s.marshalAndSend(exchangeRequest, "Error Marshalling Exchange Request", dest)
 	return err
 }
 
 // SendExchangeResponse sends exchange response
-func (s *Service) SendExchangeResponse(exchangeResponse *Response, destination string) error {
+func (s *Service) SendExchangeResponse(exchangeResponse *Response, dest *Destination) error {
 	if exchangeResponse == nil {
 		return errors.New("exchangeResponse cannot be nil")
 	}
@@ -178,18 +170,18 @@ func (s *Service) SendExchangeResponse(exchangeResponse *Response, destination s
 	exchangeResponse.Type = connectionResponse
 
 	// ignore response data as it is not used in this communication mode as defined in the spec
-	_, err := s.marshalAndSend(exchangeResponse, "Error Marshalling Exchange Response", destination)
+	_, err := s.marshalAndSend(exchangeResponse, "Error Marshalling Exchange Response", dest)
 	return err
 }
 
-func (s *Service) marshalAndSend(data interface{}, errorMsg, destination string) (string, error) {
-	// TODO need access to the wallet in order to first pack() the msg before sending
+func (s *Service) marshalAndSend(data interface{}, errorMsg string, dest *Destination) (string, error) {
+	// TODO need access to the wallet in order to first pack() the msg before sending and dest.recipientKeys are required here.
 	jsonString, err := json.Marshal(data)
 	if err != nil {
 		return "", fmt.Errorf("%s : %w", errorMsg, err)
 	}
 	// TODO an outboundtransport implementation should be selected based on the destination's URL.
-	return s.outboundTransport.Send(string(jsonString), destination)
+	return s.outboundTransport.Send(string(jsonString), dest.ServiceEndpoint)
 }
 
 func encodedExchangeInvitation(inviteMessage *Invitation) (string, error) {

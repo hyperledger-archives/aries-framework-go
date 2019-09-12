@@ -26,10 +26,8 @@ import (
 )
 
 const (
-	destinationURL  = "https://localhost:8090"
 	successResponse = "success"
 )
-
 func TestGenerateInviteWithPublicDID(t *testing.T) {
 	invite, err := GenerateInviteWithPublicDID(&Invitation{
 		ID:    "12345678900987654321",
@@ -103,9 +101,14 @@ func TestSendRequest(t *testing.T) {
 		ID:    "5678876542345",
 		Label: "Bob",
 	}
-
-	require.NoError(t, prov.SendExchangeRequest(req, destinationURL))
-	require.Error(t, prov.SendExchangeRequest(nil, destinationURL))
+	//this should get populated from an invitation payload
+	dest := &Destination{
+		RecipientKeys:[]string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
+		ServiceEndpoint: "https://localhost:8090",
+		RoutingKeys:[]string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
+	}
+	require.NoError(t, prov.SendExchangeRequest(req, dest))
+	require.Error(t, prov.SendExchangeRequest(nil, dest))
 }
 
 func TestSendResponse(t *testing.T) {
@@ -117,9 +120,13 @@ func TestSendResponse(t *testing.T) {
 			Type: "did:trustbloc:RQkehfoFssiwQRuihskwoPSR;spec/ed25519Sha512_single/1.0/ed25519Sha512_single",
 		},
 	}
-
-	require.NoError(t, prov.SendExchangeResponse(resp, destinationURL))
-	require.Error(t, prov.SendExchangeResponse(nil, destinationURL))
+	dest := &Destination{
+		RecipientKeys:[]string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
+		ServiceEndpoint: "https://localhost:8090",
+		RoutingKeys:[]string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
+	}
+	require.NoError(t, prov.SendExchangeResponse(resp, dest))
+	require.Error(t, prov.SendExchangeResponse(nil, dest))
 }
 
 // did-exchange flow with role Inviter
