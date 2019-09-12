@@ -16,6 +16,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/nacl/box"
+
+	jwecrypto "github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 )
 
 // Decrypt will JWE decode the envelope argument for the recipientPrivKey and validates
@@ -63,7 +65,8 @@ func (c *Crypter) Decrypt(envelope []byte, recipientPrivKey *[chacha.KeySize]byt
 		var senderPubKey [chacha.KeySize]byte
 		copy(senderPubKey[:], senderKey)
 
-		sharedKey, er := c.decryptSharedKey(keyPair{priv: recipientPrivKey, pub: &recipientPubKey}, &senderPubKey, recipient)
+		sharedKey, er := c.decryptSharedKey(jwecrypto.KeyPair{Priv: recipientPrivKey, Pub: &recipientPubKey},
+			&senderPubKey, recipient)
 		if er != nil {
 			return nil, fmt.Errorf("failed to decrypt shared key: %w", er)
 		}
@@ -129,7 +132,7 @@ func (c *Crypter) findRecipient(jweRecipients []Recipient, recipients []*[chacha
 	return nil, errRecipientNotFound
 }
 
-func (c *Crypter) decryptSharedKey(recipientKp keyPair, senderPubKey *[chacha.KeySize]byte, recipient *Recipient) ([]byte, error) { //nolint:lll
+func (c *Crypter) decryptSharedKey(recipientKp jwecrypto.KeyPair, senderPubKey *[chacha.KeySize]byte, recipient *Recipient) ([]byte, error) { //nolint:lll
 	apu, err := base64.RawURLEncoding.DecodeString(recipient.Header.APU)
 	if err != nil {
 		return nil, err
@@ -154,7 +157,7 @@ func (c *Crypter) decryptSharedKey(recipientKp keyPair, senderPubKey *[chacha.Ke
 	}
 
 	// create a new ephemeral key for the recipient and return its APU
-	kek, err := c.generateRecipientCEK(apu, recipientKp.priv, senderPubKey)
+	kek, err := c.generateRecipientCEK(apu, recipientKp.Priv, senderPubKey)
 	if err != nil {
 		return nil, err
 	}

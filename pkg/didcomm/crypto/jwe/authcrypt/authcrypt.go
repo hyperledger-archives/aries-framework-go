@@ -42,11 +42,6 @@ var errRecipientNotFound = errors.New("recipient not found")
 // errUnsupportedAlg is used when a bad encryption algorithm is used
 var errUnsupportedAlg = errors.New("algorithm not supported")
 
-type keyPair struct {
-	priv *[chacha.KeySize]byte
-	pub  *[chacha.KeySize]byte
-}
-
 // Crypter represents an Authcrypt Encrypter (Decrypter) that outputs/reads JWE envelopes
 type Crypter struct {
 	alg       ContentEncryption
@@ -103,13 +98,4 @@ func New(alg ContentEncryption) (*Crypter, error) {
 	}
 
 	return c, nil
-}
-
-// IsKeyPairValid is a utility function that validates a KeyPair
-func IsKeyPairValid(kp keyPair) bool {
-	if kp.priv == nil || kp.pub == nil {
-		return false
-	}
-
-	return true
 }

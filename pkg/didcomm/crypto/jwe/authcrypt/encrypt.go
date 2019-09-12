@@ -24,17 +24,19 @@ import (
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/poly1305"
+
+	jwecrypto "github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 )
 
 // Encrypt will JWE encode the payload argument for the sender and recipients
 // Using (X)Chacha20 encryption algorithm and Poly1035 authenticator
 // It will encrypt using the sender's keypair and the list of recipients arguments
-func (c *Crypter) Encrypt(payload []byte, sender keyPair, recipients []*[chacha.KeySize]byte) ([]byte, error) { //nolint:lll,funlen
+func (c *Crypter) Encrypt(payload []byte, sender jwecrypto.KeyPair, recipients []*[chacha.KeySize]byte) ([]byte, error) { //nolint:lll,funlen
 	if len(recipients) == 0 {
 		return nil, errEmptyRecipients
 	}
 
-	if !IsKeyPairValid(sender) {
+	if !jwecrypto.IsKeyPairValid(sender) {
 		return nil, errInvalidKeypair
 	}
 
@@ -170,7 +172,7 @@ func hashAAD(keys []string) []byte {
 
 // encodeRecipients will encode the sharedKey (cek) for each recipient
 // and return a list of encoded recipient keys
-func (c *Crypter) encodeRecipients(sharedSymKey *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderKp keyPair) ([]Recipient, error) { //nolint:lll
+func (c *Crypter) encodeRecipients(sharedSymKey *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderKp jwecrypto.KeyPair) ([]Recipient, error) { //nolint:lll
 	var encodedRecipients []Recipient
 	for _, e := range recipients {
 		rec, err := c.encodeRecipient(sharedSymKey, e, senderKp)
@@ -184,7 +186,7 @@ func (c *Crypter) encodeRecipients(sharedSymKey *[chacha.KeySize]byte, recipient
 
 // encodeRecipient will encode the sharedKey (cek) with recipientKey
 // by generating a new ephemeral key to be used by the recipient to decrypt the cek
-func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]byte, senderKp keyPair) (*Recipient, error) { //nolint:lll
+func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]byte, senderKp jwecrypto.KeyPair) (*Recipient, error) { //nolint:lll
 	// generate a random APU value (Agreement PartyUInfo: https://tools.ietf.org/html/rfc7518#section-4.6.1.2)
 	apu := make([]byte, 64)
 	_, err := randReader.Read(apu)
@@ -193,7 +195,7 @@ func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]by
 	}
 
 	// create a new ephemeral key for the recipient and return its APU
-	kek, err := c.generateRecipientCEK(apu, senderKp.priv, recipientKey)
+	kek, err := c.generateRecipientCEK(apu, senderKp.Priv, recipientKey)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +219,7 @@ func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]by
 	tag := extractTag(kekOutput)
 	sharedKeyCipher := extractCipherText(kekOutput)
 
-	return c.buildRecipient(sharedKeyCipher, apu, nonce, tag, senderKp.pub, recipientKey)
+	return c.buildRecipient(sharedKeyCipher, apu, nonce, tag, senderKp.Pub, recipientKey)
 }
 
 // buildRecipient will build a proper JSON formatted Recipient
