@@ -22,14 +22,16 @@ import (
 type provider interface {
 	Service(id string) (interface{}, error)
 	CryptoWallet() wallet.Crypto
+	InboundTransportEndpoint() string
 }
 
 // Client enable access to didexchange api
 // TODO add support for Accept Exchange Request & Accept Invitation
 //  using events & callback (#198 & #238)
 type Client struct {
-	didexchangeSvc dispatcher.Service
-	wallet         wallet.Crypto
+	didexchangeSvc           dispatcher.Service
+	wallet                   wallet.Crypto
+	inboundTransportEndpoint string
 }
 
 // New return new instance of didexchange client
@@ -42,7 +44,7 @@ func New(ctx provider) (*Client, error) {
 	if !ok {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
-	return &Client{didexchangeSvc: didexchangeSvc, wallet: ctx.CryptoWallet()}, nil
+	return &Client{didexchangeSvc: didexchangeSvc, wallet: ctx.CryptoWallet(), inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
 }
 
 // CreateInvitation create invitation
@@ -54,9 +56,9 @@ func (c *Client) CreateInvitation() (*InvitationRequest, error) {
 
 	return &InvitationRequest{Invitation: &didexchange.Invitation{
 		ID:              uuid.New().String(),
-		Label:           "agent", // TODO get the value from config #175
+		Label:           "agent", // TODO pass label as argument
 		RecipientKeys:   []string{verKey},
-		ServiceEndpoint: "https://example.com/endpoint", // TODO get the value from config #175
+		ServiceEndpoint: c.inboundTransportEndpoint,
 	}}, nil
 }
 

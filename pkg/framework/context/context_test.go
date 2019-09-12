@@ -102,6 +102,12 @@ func TestNewProvider(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
 	})
+
+	t.Run("test new with inbound transport endpoint", func(t *testing.T) {
+		prov, err := New(WithInboundTransportEndpoint("endpoint"))
+		require.NoError(t, err)
+		require.Equal(t, "endpoint", prov.InboundTransportEndpoint())
+	})
 }
 
 type mockProtocolSvc struct {

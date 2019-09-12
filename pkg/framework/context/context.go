@@ -18,9 +18,10 @@ import (
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
-	outboundTransport transport.OutboundTransport
-	services          []dispatcher.Service
-	wallet            wallet.Wallet
+	outboundTransport        transport.OutboundTransport
+	services                 []dispatcher.Service
+	wallet                   wallet.Wallet
+	inboundTransportEndpoint string
 }
 
 // New instantiated new context provider
@@ -54,6 +55,11 @@ func (p *Provider) Service(id string) (interface{}, error) {
 // CryptoWallet returns the crypto wallet service
 func (p *Provider) CryptoWallet() wallet.Crypto {
 	return p.wallet
+}
+
+// InboundTransportEndpoint returns the inbound transport endpoint
+func (p *Provider) InboundTransportEndpoint() string {
+	return p.inboundTransportEndpoint
 }
 
 // InboundMessageHandler return inbound message handler
@@ -101,6 +107,14 @@ func WithProtocolServices(services ...dispatcher.Service) ProviderOption {
 func WithWallet(w wallet.Wallet) ProviderOption {
 	return func(opts *Provider) error {
 		opts.wallet = w
+		return nil
+	}
+}
+
+// WithInboundTransportEndpoint injects a inbound transport endpoint into the context
+func WithInboundTransportEndpoint(endpoint string) ProviderOption {
+	return func(opts *Provider) error {
+		opts.inboundTransportEndpoint = endpoint
 		return nil
 	}
 }

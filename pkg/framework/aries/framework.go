@@ -155,7 +155,8 @@ func (a *Aries) Context() (*context.Provider, error) {
 
 	return context.New(
 		context.WithOutboundTransport(ot), context.WithProtocolServices(a.services...),
-		context.WithWallet(a.wallet),
+		// TODO configure inbound external endpoints
+		context.WithWallet(a.wallet), context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 	)
 }
 

@@ -42,6 +42,7 @@ const (
 type provider interface {
 	Service(id string) (interface{}, error)
 	CryptoWallet() wallet.Crypto
+	InboundTransportEndpoint() string
 }
 
 // New returns new DID Exchange rest client protocol instance
