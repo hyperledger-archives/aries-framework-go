@@ -53,7 +53,7 @@ func TestOperation_CreateInvitation(t *testing.T) {
 
 	// verify response
 	require.NotEmpty(t, response.Payload)
-	require.NotEmpty(t, response.Payload.Invitation.ServiceEndpoint)
+	require.Equal(t, "endpoint", response.Payload.Invitation.ServiceEndpoint)
 	require.NotEmpty(t, response.Payload.Invitation.Label)
 }
 
@@ -244,7 +244,7 @@ func getResponseFromHandler(handler operation.Handler, requestBody io.Reader, pa
 
 func getHandler(t *testing.T, lookup string) operation.Handler {
 	svc, err := New(&mockprovider.Provider{ServiceValue: mockProtocolSvc{},
-		WalletValue: &mockwallet.CloseableWallet{}})
+		WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 

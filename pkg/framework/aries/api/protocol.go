@@ -22,6 +22,7 @@ type Provider interface {
 	OutboundTransport() transport.OutboundTransport
 	Service(id string) (interface{}, error)
 	CryptoWallet() wallet.Crypto
+	InboundTransportEndpoint() string
 }
 
 // ProtocolSvcCreator method to create new protocol service

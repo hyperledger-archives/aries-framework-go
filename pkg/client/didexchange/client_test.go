@@ -41,14 +41,14 @@ func TestNew(t *testing.T) {
 func TestClient_CreateInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{}),
-			WalletValue: &mockwallet.CloseableWallet{}})
+			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation()
 		require.NoError(t, err)
 		require.NotNil(t, inviteReq)
 		require.NotEmpty(t, inviteReq.Invitation.Label)
 		require.NotEmpty(t, inviteReq.Invitation.ID)
-		require.NotEmpty(t, inviteReq.Invitation.ServiceEndpoint)
+		require.Equal(t, "endpoint", inviteReq.Invitation.ServiceEndpoint)
 	})
 
 	t.Run("test error from createSigningKey", func(t *testing.T) {
