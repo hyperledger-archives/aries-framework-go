@@ -15,6 +15,10 @@ type Service interface {
 
 // DIDCommMsg did comm msg
 type DIDCommMsg struct {
-	Type    string
-	Payload []byte
+	// Outbound indicates the direction of this DIDComm message:
+	//   - outgoing (to another agent)
+	//   - incoming (from another agent)
+	Outbound bool
+	Type     string
+	Payload  []byte
 }
