@@ -16,38 +16,40 @@ import (
 	"github.com/stretchr/testify/require"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/nacl/box"
+
+	jwecrypto "github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 )
 
 func TestEncrypt(t *testing.T) {
 	var err error
 	// create temporary keys for testing
-	sendEcKey := keyPair{}
-	sendEcKey.pub, sendEcKey.priv, err = box.GenerateKey(randReader)
+	sendEcKey := jwecrypto.KeyPair{}
+	sendEcKey.Pub, sendEcKey.Priv, err = box.GenerateKey(randReader)
 	require.NoError(t, err)
-	t.Logf("sender key pub: %v", base64.RawURLEncoding.EncodeToString(sendEcKey.pub[:]))
-	t.Logf("sender key priv: %v", base64.RawURLEncoding.EncodeToString(sendEcKey.priv[:]))
+	t.Logf("sender key pub: %v", base64.RawURLEncoding.EncodeToString(sendEcKey.Pub[:]))
+	t.Logf("sender key priv: %v", base64.RawURLEncoding.EncodeToString(sendEcKey.Priv[:]))
 
-	recipient1Key := keyPair{}
-	recipient1Key.pub, recipient1Key.priv, err = box.GenerateKey(randReader)
+	recipient1Key := jwecrypto.KeyPair{}
+	recipient1Key.Pub, recipient1Key.Priv, err = box.GenerateKey(randReader)
 	require.NoError(t, err)
-	t.Logf("recipient1Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient1Key.pub[:]))
-	t.Logf("recipient1Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient1Key.priv[:]))
+	t.Logf("recipient1Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient1Key.Pub[:]))
+	t.Logf("recipient1Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient1Key.Priv[:]))
 
-	recipient2Key := keyPair{}
-	recipient2Key.pub, recipient2Key.priv, err = box.GenerateKey(randReader)
+	recipient2Key := jwecrypto.KeyPair{}
+	recipient2Key.Pub, recipient2Key.Priv, err = box.GenerateKey(randReader)
 	require.NoError(t, err)
-	t.Logf("recipient2Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient2Key.pub[:]))
-	t.Logf("recipient2Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient2Key.priv[:]))
+	t.Logf("recipient2Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient2Key.Pub[:]))
+	t.Logf("recipient2Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient2Key.Priv[:]))
 
-	recipient3Key := keyPair{}
-	recipient3Key.pub, recipient3Key.priv, err = box.GenerateKey(randReader)
+	recipient3Key := jwecrypto.KeyPair{}
+	recipient3Key.Pub, recipient3Key.Priv, err = box.GenerateKey(randReader)
 	require.NoError(t, err)
-	t.Logf("recipient3Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient3Key.pub[:]))
-	t.Logf("recipient3Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient3Key.priv[:]))
+	t.Logf("recipient3Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient3Key.Pub[:]))
+	t.Logf("recipient3Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient3Key.Priv[:]))
 
-	badKey := keyPair{
-		pub:  nil,
-		priv: nil,
+	badKey := jwecrypto.KeyPair{
+		Pub:  nil,
+		Priv: nil,
 	}
 
 	t.Run("Error test case: Create a new AuthCrypter with bad encryption algorithm", func(t *testing.T) {
@@ -61,7 +63,7 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			badKey, []*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub})
+			badKey, []*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 		require.Error(t, e)
 		require.Empty(t, enc)
 	})
@@ -80,7 +82,7 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			sendEcKey, []*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub})
+			sendEcKey, []*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -94,7 +96,7 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			sendEcKey, []*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub})
+			sendEcKey, []*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -105,7 +107,7 @@ func TestEncrypt(t *testing.T) {
 		t.Run("Error test Case: use a valid AuthCrypter but scramble the nonce size", func(t *testing.T) {
 			crypter.nonceSize = 0
 			_, err = crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-				sendEcKey, []*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub})
+				sendEcKey, []*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 			require.Error(t, err)
 		})
 	})
@@ -116,7 +118,7 @@ func TestEncrypt(t *testing.T) {
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
 		enc, e := crypter.Encrypt(pld, sendEcKey,
-			[]*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub})
+			[]*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -126,7 +128,7 @@ func TestEncrypt(t *testing.T) {
 		t.Logf("Encryption with XC20P: %s", m)
 
 		// decrypt for recipient1
-		dec, e := crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e := crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, dec)
 		require.EqualValues(t, dec, pld)
@@ -138,7 +140,7 @@ func TestEncrypt(t *testing.T) {
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
 		enc, e := crypter.Encrypt(pld, sendEcKey,
-			[]*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub})
+			[]*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -150,7 +152,7 @@ func TestEncrypt(t *testing.T) {
 		// now decrypt with recipient3
 		crypter1, e := New(XC20P)
 		require.NoError(t, e)
-		dec, e := crypter1.Decrypt(enc, recipient3Key.priv, []*[chacha.KeySize]byte{recipient3Key.pub})
+		dec, e := crypter1.Decrypt(enc, recipient3Key.Priv, []*[chacha.KeySize]byte{recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, dec)
 		require.EqualValues(t, dec, pld)
@@ -158,7 +160,7 @@ func TestEncrypt(t *testing.T) {
 		// now try decrypting with recipient2
 		crypter2, e := New(XC20P)
 		require.NoError(t, e)
-		dec, e = crypter2.Decrypt(enc, recipient2Key.priv, []*[chacha.KeySize]byte{recipient2Key.pub})
+		dec, e = crypter2.Decrypt(enc, recipient2Key.Priv, []*[chacha.KeySize]byte{recipient2Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, dec)
 		require.EqualValues(t, dec, pld)
@@ -170,7 +172,7 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
-		enc, e := crypter.Encrypt(pld, sendEcKey, []*[chacha.KeySize]byte{recipient1Key.pub, recipient3Key.pub})
+		enc, e := crypter.Encrypt(pld, sendEcKey, []*[chacha.KeySize]byte{recipient1Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -182,14 +184,14 @@ func TestEncrypt(t *testing.T) {
 		// decrypting for recipient 2 (unauthorized)
 		crypter1, e := New(XC20P)
 		require.NoError(t, e)
-		dec, e := crypter1.Decrypt(enc, recipient2Key.priv, []*[chacha.KeySize]byte{recipient2Key.pub})
+		dec, e := crypter1.Decrypt(enc, recipient2Key.Priv, []*[chacha.KeySize]byte{recipient2Key.Pub})
 		require.Error(t, e)
 		require.Empty(t, dec)
 
 		// now try to decrypt with an invalid recipient who's trying to use another agent's key
 		crypter1, e = New(XC20P)
 		require.NoError(t, e)
-		dec, e = crypter1.Decrypt(enc, recipient2Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter1.Decrypt(enc, recipient2Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.Error(t, e)
 		require.Empty(t, dec)
 	})
@@ -200,7 +202,7 @@ func TestEncrypt(t *testing.T) {
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
 		enc, e := crypter.Encrypt(pld, sendEcKey,
-			[]*[chacha.KeySize]byte{recipient1Key.pub, recipient2Key.pub, recipient3Key.pub})
+			[]*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -213,7 +215,7 @@ func TestEncrypt(t *testing.T) {
 		deepCopy(jwe, validJwe)
 
 		// test decrypting with empty recipients
-		dec, e := crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{})
+		dec, e := crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{})
 		require.EqualError(t, e, errEmptyRecipients.Error()) // nolint:lll
 		require.Empty(t, dec)
 
@@ -225,7 +227,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad nonce format
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, "failed to decrypt message: illegal base64 data at input byte 12")
 		require.Empty(t, dec)
 		jwe.CipherText = validJwe.CipherText
@@ -235,7 +237,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad nonce format
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, "failed to decrypt message: illegal base64 data at input byte 5")
 		require.Empty(t, dec)
 		jwe.IV = validJwe.IV
@@ -245,7 +247,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag format
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, "failed to decrypt message: illegal base64 data at input byte 6")
 		require.Empty(t, dec)
 		jwe.Tag = validJwe.Tag
@@ -255,7 +257,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, "failed to decrypt message: failed to decrypt message - invalid AAD in envelope")
 		require.Empty(t, dec)
 		jwe.AAD = validJwe.AAD
@@ -265,7 +267,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, "failed to decrypt message: illegal base64 data at input byte 6")
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.OID = validJwe.Recipients[0].Header.OID
@@ -275,7 +277,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, "failed to decrypt shared key: illegal base64 data at input byte 6")
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.Tag = validJwe.Recipients[0].Header.Tag
@@ -285,7 +287,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, "failed to decrypt shared key: illegal base64 data at input byte 5")
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.IV = validJwe.Recipients[0].Header.IV
@@ -295,7 +297,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, "failed to decrypt shared key: illegal base64 data at input byte 6")
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.APU = validJwe.Recipients[0].Header.APU
@@ -305,7 +307,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, fmt.Sprintf("failed to decrypt message: %s", errRecipientNotFound.Error()))
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.KID = validJwe.Recipients[0].Header.KID
@@ -315,7 +317,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, "failed to decrypt shared key: illegal base64 data at input byte 15")
 		require.Empty(t, dec)
 		jwe.Recipients[0].EncryptedKey = validJwe.Recipients[0].EncryptedKey
@@ -325,7 +327,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, "failed to decrypt shared key: chacha20poly1305: message authentication failed")
 		require.Empty(t, dec)
 		jwe.Recipients[0].EncryptedKey = validJwe.Recipients[0].EncryptedKey
@@ -336,7 +338,7 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		// decrypt with bad nonce value
 		require.PanicsWithValue(t, "chacha20poly1305: bad nonce length passed to Open", func() {
-			dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+			dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		})
 		require.Empty(t, dec)
 		jwe.IV = validJwe.IV
@@ -346,7 +348,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.priv, []*[chacha.KeySize]byte{recipient1Key.pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
 		require.EqualError(t, e, "failed to decrypt shared key: chacha20poly1305: message authentication failed")
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.IV = validJwe.Recipients[0].Header.IV
@@ -435,9 +437,9 @@ func TestRefEncrypt(t *testing.T) {
 	copy(senderPrivK[:], senderPriv)
 	senderPubK := &[32]byte{}
 	copy(senderPubK[:], senderPub)
-	senderKp := keyPair{
-		priv: senderPrivK,
-		pub:  senderPubK,
+	senderKp := jwecrypto.KeyPair{
+		Priv: senderPrivK,
+		Pub:  senderPubK,
 	}
 	recipientPubK := &[32]byte{}
 	copy(recipientPubK[:], recipientPub)
