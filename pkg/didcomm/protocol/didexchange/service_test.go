@@ -175,7 +175,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 			if state, found := data[s]; found {
 				return []byte(state), nil
 			}
-			return nil, errors.New("not found")
+			return nil, storage.ErrDataNotFound
 		},
 	}
 	m := mockProvider{}
@@ -285,7 +285,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			outboundTransport: newMockOutboundTransport(),
 			store: &mockStore{
 				get: func(string) ([]byte, error) {
-					return nil, errors.New("not found")
+					return nil, storage.ErrDataNotFound
 				},
 				put: func(string, []byte) error {
 					return errors.New("test")
@@ -309,7 +309,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			outboundTransport: newMockOutboundTransport(),
 			store: &mockStore{
 				get: func(string) ([]byte, error) {
-					return nil, errors.New("not found")
+					return nil, storage.ErrDataNotFound
 				},
 				put: func(string, []byte) error {
 					counter++
@@ -390,7 +390,7 @@ func TestService_currentState(t *testing.T) {
 	t.Run("null state if not found in store", func(t *testing.T) {
 		svc := &Service{
 			store: &mockStore{
-				get: func(string) ([]byte, error) { return nil, errors.New("not found") },
+				get: func(string) ([]byte, error) { return nil, storage.ErrDataNotFound },
 			},
 		}
 		s, err := svc.currentState("ignored")
@@ -449,7 +449,7 @@ func newMockStore() storage.Store {
 		get: func(k string) ([]byte, error) {
 			v, found := data[k]
 			if !found {
-				return nil, errors.New("not found")
+				return nil, storage.ErrDataNotFound
 			}
 			return v, nil
 		},

@@ -10,7 +10,7 @@ import "github.com/hyperledger/aries-framework-go/pkg/wallet"
 
 // CloseableWallet mock wallet
 type CloseableWallet struct {
-	CreateSigningKeyValue wallet.KeyInfo
+	CreateSigningKeyValue string
 	CreateSigningKeyErr   error
 	SignMessageValue      []byte
 	SignMessageErr        error
@@ -21,14 +21,9 @@ func (m *CloseableWallet) Close() error {
 	return nil
 }
 
-// CreateSigningKey create a new public/private signing keypair.
-func (m *CloseableWallet) CreateSigningKey(metadata map[string]string) (wallet.KeyInfo, error) {
+// CreateKey create a new public/private signing keypair.
+func (m *CloseableWallet) CreateKey() (string, error) {
 	return m.CreateSigningKeyValue, m.CreateSigningKeyErr
-}
-
-// GetSigningKey Fetch info for a signing keypair.
-func (m *CloseableWallet) GetSigningKey(verKey string) (wallet.KeyInfo, error) {
-	return nil, nil
 }
 
 // SignMessage sign a message using the private key associated with a given verification key.
@@ -49,18 +44,4 @@ func (m *CloseableWallet) PackMessage(envelope *wallet.Envelope) ([]byte, error)
 // UnpackMessage Unpack a message.
 func (m *CloseableWallet) UnpackMessage(encMessage []byte) (*wallet.Envelope, error) {
 	return nil, nil
-}
-
-// KeyInfo contains public key and metadata
-type KeyInfo struct {
-}
-
-// GetVerificationKey return public key
-func (m *KeyInfo) GetVerificationKey() string {
-	return ""
-}
-
-// GetKeyMetadata return metadata
-func (m *KeyInfo) GetKeyMetadata() map[string]string {
-	return nil
 }

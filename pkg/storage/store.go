@@ -6,6 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package storage
 
+import "errors"
+
+// ErrDataNotFound is returned when data not found
+var ErrDataNotFound = errors.New("data not found")
+
 // Provider storage provider interface
 type Provider interface {
 	// GetStoreHandle returns a handle to the store

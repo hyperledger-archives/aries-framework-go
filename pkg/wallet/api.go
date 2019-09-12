@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package wallet
 
+import "errors"
+
 // Wallet interface
 type Wallet interface {
 	Crypto
@@ -15,27 +17,14 @@ type Wallet interface {
 // Crypto interface
 type Crypto interface {
 
-	// CreateSigningKey create a new public/private signing keypair.
+	// CreateKey create a new public/private signing keypair.
 	//
 	// Returns:
 	//
-	// KeyInfo: A `KeyInfo` representing the keypair
+	// string: verKey
 	//
 	// error: error
-	CreateSigningKey(metadata map[string]string) (KeyInfo, error)
-
-	// GetSigningKey Fetch info for a signing keypair.
-	//
-	// Args:
-	//
-	// verkey: The verification key of the keypair
-	//
-	// Returns:
-	//
-	// KeyInfo: A `KeyInfo` representing the keypair
-	//
-	// error: error
-	GetSigningKey(verKey string) (KeyInfo, error)
+	CreateKey() (string, error)
 
 	// SignMessage sign a message using the private key associated with a given verification key.
 	//
@@ -97,15 +86,12 @@ type Pack interface {
 	UnpackMessage(encMessage []byte) (*Envelope, error)
 }
 
-// KeyInfo contains public and private key
-type KeyInfo interface {
-	GetVerificationKey() string
-	GetKeyMetadata() map[string]string
-}
-
 // Envelope contain msg,FromVerKey and ToVerKeys
 type Envelope struct {
 	Message    []byte
 	FromVerKey string
 	ToVerKeys  string
 }
+
+// ErrKeyNotFound is returned when key not found
+var ErrKeyNotFound = errors.New("key not found")

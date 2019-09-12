@@ -8,6 +8,7 @@ package leveldb
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/syndtr/goleveldb/leveldb"
 
@@ -63,6 +64,9 @@ func (s *leveldbStore) Get(k string) ([]byte, error) {
 
 	data, err := s.db.Get([]byte(k), nil)
 	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil, storage.ErrDataNotFound
+		}
 		return nil, err
 	}
 	return data, nil

@@ -183,13 +183,11 @@ func (a *Aries) Close() error {
 }
 
 func createWallet(frameworkOpts *Aries) error {
-	// TODO remove nil check after provide default implementation for wallet
-	if frameworkOpts.walletCreator != nil {
-		var err error
-		frameworkOpts.wallet, err = frameworkOpts.walletCreator(frameworkOpts.storeProvider)
-		if err != nil {
-			return fmt.Errorf("create wallet failed: %w", err)
-		}
+	var err error
+	frameworkOpts.wallet, err = frameworkOpts.walletCreator(frameworkOpts.storeProvider)
+	if err != nil {
+		return fmt.Errorf("create wallet failed: %w", err)
 	}
+
 	return nil
 }

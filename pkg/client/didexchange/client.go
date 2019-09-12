@@ -47,19 +47,15 @@ func New(ctx provider) (*Client, error) {
 
 // CreateInvitation create invitation
 func (c *Client) CreateInvitation() (*InvitationRequest, error) {
-	// TODO remove nil check after provide default implementation for wallet
-	pubKey := ""
-	if c.wallet != nil {
-		keyInfo, err := c.wallet.CreateSigningKey(nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
-		}
-		pubKey = keyInfo.GetVerificationKey()
+	verKey, err := c.wallet.CreateKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
 	}
+
 	return &InvitationRequest{Invitation: &didexchange.Invitation{
 		ID:              uuid.New().String(),
 		Label:           "agent", // TODO get the value from config #175
-		RecipientKeys:   []string{pubKey},
+		RecipientKeys:   []string{verKey},
 		ServiceEndpoint: "https://example.com/endpoint", // TODO get the value from config #175
 	}}, nil
 }
