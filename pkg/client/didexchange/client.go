@@ -78,3 +78,9 @@ func (c *Client) QueryConnectionByID(id string) (*QueryConnectionResult, error) 
 		ConnectionID: uuid.New().String(), CreatedTime: time.Now(),
 	}, nil
 }
+
+// RemoveConnection removes connection record for given id
+func (c *Client) RemoveConnection(id string) error {
+	// TODO sample response, to be implemented as part of #226
+	return nil
+}
