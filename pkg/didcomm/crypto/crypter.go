@@ -8,20 +8,21 @@ package crypto
 
 // Crypter is an Aries envelope encrypter to support
 // secure DIDComm exchange of envelopes between Aries agents
+// TODO create a higher-level crypto that switches implementations based on the algorithm - Issue #273
 type Crypter interface {
 	// Encrypt a payload in an Aries compliant format using the sender keypair
 	// and a list of recipients public keys
 	// returns:
 	// 		[]byte containing the encrypted envelope
 	//		error if encryption failed
-	// TODO add key type of recipients and sender keys to be validated by the implementation
+	// TODO add key type of recipients and sender keys to be validated by the implementation - Issue #272
 	Encrypt(payload []byte, sender KeyPair, recipients [][]byte) ([]byte, error)
 	// Decrypt an envelope in an Aries compliant format with the recipient's private key
 	// and the recipient's public key both set in recipientKeyPair
 	// returns:
 	// 		[]byte containing the decrypted payload
 	//		error if decryption failed
-	// TODO add key type of recipients keys to be validated by the implementation
+	// TODO add key type of recipients keys to be validated by the implementation - Issue #272
 	Decrypt(envelope []byte, recipientKeyPair KeyPair) ([]byte, error)
 }
 

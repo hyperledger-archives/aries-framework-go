@@ -90,7 +90,8 @@ type Pack interface {
 type Envelope struct {
 	Message    []byte
 	FromVerKey string
-	ToVerKeys  string
+	// TODO add key type - issue #272
+	ToVerKeys []string
 }
 
 // ErrKeyNotFound is returned when key not found
