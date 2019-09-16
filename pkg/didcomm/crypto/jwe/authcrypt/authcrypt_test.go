@@ -128,7 +128,7 @@ func TestEncrypt(t *testing.T) {
 		t.Logf("Encryption with XC20P: %s", m)
 
 		// decrypt for recipient1
-		dec, e := crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e := crypter.Decrypt(enc, recipient1Key)
 		require.NoError(t, e)
 		require.NotEmpty(t, dec)
 		require.EqualValues(t, dec, pld)
@@ -152,7 +152,7 @@ func TestEncrypt(t *testing.T) {
 		// now decrypt with recipient3
 		crypter1, e := New(XC20P)
 		require.NoError(t, e)
-		dec, e := crypter1.Decrypt(enc, recipient3Key.Priv, []*[chacha.KeySize]byte{recipient3Key.Pub})
+		dec, e := crypter1.Decrypt(enc, recipient3Key)
 		require.NoError(t, e)
 		require.NotEmpty(t, dec)
 		require.EqualValues(t, dec, pld)
@@ -160,7 +160,7 @@ func TestEncrypt(t *testing.T) {
 		// now try decrypting with recipient2
 		crypter2, e := New(XC20P)
 		require.NoError(t, e)
-		dec, e = crypter2.Decrypt(enc, recipient2Key.Priv, []*[chacha.KeySize]byte{recipient2Key.Pub})
+		dec, e = crypter2.Decrypt(enc, recipient2Key)
 		require.NoError(t, e)
 		require.NotEmpty(t, dec)
 		require.EqualValues(t, dec, pld)
@@ -184,14 +184,14 @@ func TestEncrypt(t *testing.T) {
 		// decrypting for recipient 2 (unauthorized)
 		crypter1, e := New(XC20P)
 		require.NoError(t, e)
-		dec, e := crypter1.Decrypt(enc, recipient2Key.Priv, []*[chacha.KeySize]byte{recipient2Key.Pub})
+		dec, e := crypter1.Decrypt(enc, recipient2Key)
 		require.Error(t, e)
 		require.Empty(t, dec)
 
 		// now try to decrypt with an invalid recipient who's trying to use another agent's key
 		crypter1, e = New(XC20P)
 		require.NoError(t, e)
-		dec, e = crypter1.Decrypt(enc, recipient2Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter1.Decrypt(enc, jwecrypto.KeyPair{Priv: recipient2Key.Priv, Pub: recipient1Key.Pub})
 		require.Error(t, e)
 		require.Empty(t, dec)
 	})
@@ -214,9 +214,9 @@ func TestEncrypt(t *testing.T) {
 		jwe := &Envelope{}
 		deepCopy(jwe, validJwe)
 
-		// test decrypting with empty recipients
-		dec, e := crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{})
-		require.EqualError(t, e, errEmptyRecipients.Error()) // nolint:lll
+		// test decrypting with empty recipient key
+		dec, e := crypter.Decrypt(enc, jwecrypto.KeyPair{Priv: recipient1Key.Priv, Pub: &[chacha.KeySize]byte{}})
+		require.EqualError(t, e, fmt.Sprintf("failed to decrypt message: %s", errRecipientNotFound.Error()))
 		require.Empty(t, dec)
 
 		// test bad jwe format
@@ -227,7 +227,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad nonce format
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt message: illegal base64 data at input byte 12")
 		require.Empty(t, dec)
 		jwe.CipherText = validJwe.CipherText
@@ -237,7 +237,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad nonce format
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt message: illegal base64 data at input byte 5")
 		require.Empty(t, dec)
 		jwe.IV = validJwe.IV
@@ -247,7 +247,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag format
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt message: illegal base64 data at input byte 6")
 		require.Empty(t, dec)
 		jwe.Tag = validJwe.Tag
@@ -257,7 +257,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt message: failed to decrypt message - invalid AAD in envelope")
 		require.Empty(t, dec)
 		jwe.AAD = validJwe.AAD
@@ -267,7 +267,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt message: illegal base64 data at input byte 6")
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.OID = validJwe.Recipients[0].Header.OID
@@ -277,7 +277,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt shared key: illegal base64 data at input byte 6")
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.Tag = validJwe.Recipients[0].Header.Tag
@@ -287,7 +287,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt shared key: illegal base64 data at input byte 5")
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.IV = validJwe.Recipients[0].Header.IV
@@ -297,7 +297,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt shared key: illegal base64 data at input byte 6")
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.APU = validJwe.Recipients[0].Header.APU
@@ -307,7 +307,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, fmt.Sprintf("failed to decrypt message: %s", errRecipientNotFound.Error()))
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.KID = validJwe.Recipients[0].Header.KID
@@ -317,7 +317,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt shared key: illegal base64 data at input byte 15")
 		require.Empty(t, dec)
 		jwe.Recipients[0].EncryptedKey = validJwe.Recipients[0].EncryptedKey
@@ -327,7 +327,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt shared key: chacha20poly1305: message authentication failed")
 		require.Empty(t, dec)
 		jwe.Recipients[0].EncryptedKey = validJwe.Recipients[0].EncryptedKey
@@ -338,7 +338,7 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		// decrypt with bad nonce value
 		require.PanicsWithValue(t, "chacha20poly1305: bad nonce length passed to Open", func() {
-			dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+			dec, e = crypter.Decrypt(enc, recipient1Key)
 		})
 		require.Empty(t, dec)
 		jwe.IV = validJwe.IV
@@ -348,7 +348,7 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key.Priv, []*[chacha.KeySize]byte{recipient1Key.Pub})
+		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt shared key: chacha20poly1305: message authentication failed")
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.IV = validJwe.Recipients[0].Header.IV
@@ -469,7 +469,7 @@ func TestRefEncrypt(t *testing.T) {
 	// try to decrypt the encrypted payload
 	recipientPrivK := &[32]byte{}
 	copy(recipientPrivK[:], recipientPriv)
-	dec, err := crypter.Decrypt(pld, recipientPrivK, []*[32]byte{recipientPubK})
+	dec, err := crypter.Decrypt(pld, jwecrypto.KeyPair{Priv: recipientPrivK, Pub: recipientPubK})
 	require.NoError(t, err)
 	require.NotEmpty(t, dec)
 	require.Equal(t, dec, payload)
