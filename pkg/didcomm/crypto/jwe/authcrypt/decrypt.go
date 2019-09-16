@@ -21,17 +21,16 @@ import (
 )
 
 // Decrypt will JWE decode the envelope argument for the recipientPrivKey and validates
-// the envelope's recipients has a match in recipients argument (usually 1, or if multiple
-// then it uses the first one found).
+// the envelope's recipients has a match for recipientKeyPair.Pub key.
 // Using (X)Chacha20 cipher and Poly1035 authenticator for the encrypted payload and
 // encrypted CEK
 // And Using (x)Salsa20 cipher with 25519 keys (libsodium equivalent) for decrypting
 // the sender's public key in the current recipient's header.
 // The current recipient is the one with the sender's encrypted key that successfully
-// decrypts with recipientPrivKey.
-func (c *Crypter) Decrypt(envelope []byte, recipientPrivKey *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte) ([]byte, error) { //nolint:lll,funlen
-	if len(recipients) == 0 {
-		return nil, errEmptyRecipients
+// decrypts with recipientKeyPair.Priv Key.
+func (c *Crypter) Decrypt(envelope []byte, recipientKeyPair jwecrypto.KeyPair) ([]byte, error) { //nolint:lll,funlen
+	if !jwecrypto.IsKeyPairValid(recipientKeyPair) {
+		return nil, errInvalidKeypair
 	}
 
 	jwe := &Envelope{}
@@ -39,7 +38,7 @@ func (c *Crypter) Decrypt(envelope []byte, recipientPrivKey *[chacha.KeySize]byt
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt message: %w", err)
 	}
-	recipient, err := c.findRecipient(jwe.Recipients, recipients)
+	recipient, err := c.findRecipient(jwe.Recipients, recipientKeyPair.Pub)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt message: %w", err)
 	}
@@ -54,7 +53,7 @@ func (c *Crypter) Decrypt(envelope []byte, recipientPrivKey *[chacha.KeySize]byt
 	var recipientPubKey [chacha.KeySize]byte
 	copy(recipientPubKey[:], recPubKey)
 
-	oid, err = decryptOID(recipientPrivKey, &recipientPubKey, cryptedOID)
+	oid, err = decryptOID(recipientKeyPair.Priv, &recipientPubKey, cryptedOID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt sender key: %w", err)
 	}
@@ -65,7 +64,7 @@ func (c *Crypter) Decrypt(envelope []byte, recipientPrivKey *[chacha.KeySize]byt
 		var senderPubKey [chacha.KeySize]byte
 		copy(senderPubKey[:], senderKey)
 
-		sharedKey, er := c.decryptSharedKey(jwecrypto.KeyPair{Priv: recipientPrivKey, Pub: &recipientPubKey},
+		sharedKey, er := c.decryptSharedKey(jwecrypto.KeyPair{Priv: recipientKeyPair.Priv, Pub: &recipientPubKey},
 			&senderPubKey, recipient)
 		if er != nil {
 			return nil, fmt.Errorf("failed to decrypt shared key: %w", er)
@@ -120,13 +119,11 @@ func retrieveAAD(recipients []Recipient) []byte {
 }
 
 // findRecipient will loop through jweRecipients and returns the first matching key from recipients
-func (c *Crypter) findRecipient(jweRecipients []Recipient, recipients []*[chacha.KeySize]byte) (*Recipient, error) {
+func (c *Crypter) findRecipient(jweRecipients []Recipient, recipientPubKey *[chacha.KeySize]byte) (*Recipient, error) {
 	for _, recipient := range jweRecipients {
 		recipient := recipient // pin!
-		for _, rec := range recipients {
-			if bytes.Equal(rec[:], base58.Decode(recipient.Header.KID)) {
-				return &recipient, nil
-			}
+		if bytes.Equal(recipientPubKey[:], base58.Decode(recipient.Header.KID)) {
+			return &recipient, nil
 		}
 	}
 	return nil, errRecipientNotFound

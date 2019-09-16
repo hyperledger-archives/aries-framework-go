@@ -20,11 +20,11 @@ type Crypter interface {
 	//		error if encryption failed
 	Encrypt(payload []byte, sender KeyPair, recipients []*[chacha.KeySize]byte) ([]byte, error)
 	// Decrypt an envelope in an Aries compliant format with the recipient's private key
-	// as recipientPrivKey and the recipient's public key set in recipients
+	// and the recipient's public key both set in recipientKeyPair
 	// returns:
 	// 		[]byte containing the decrypted payload
 	//		error if decryption failed
-	Decrypt(envelope []byte, recipientPrivKey *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte) ([]byte, error)
+	Decrypt(envelope []byte, recipientKeyPair KeyPair) ([]byte, error)
 }
 
 // KeyPair represents a private/public key pair each with 32 bytes in size
