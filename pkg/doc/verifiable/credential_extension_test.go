@@ -31,13 +31,13 @@ type UniversityDegreeSubject struct {
 
 // UniversityDegreeCredential University Degree credential, from examples of https://w3c.github.io/vc-data-model
 type UniversityDegreeCredential struct {
-	c Credential
+	Base Credential
 
 	Subject *UniversityDegreeSubject `json:"credentialSubject,omitempty"`
 }
 
 func (udc *UniversityDegreeCredential) credential() *Credential {
-	return &udc.c
+	return &udc.Base
 }
 
 func (udc *UniversityDegreeCredential) decode(dataJSON []byte, credential *Credential) error {
@@ -54,7 +54,7 @@ func TestCredentialExtensibility(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, cred)
-	require.Equal(t, &udc.c, cred)
+	require.Equal(t, &udc.Base, cred)
 
 	// default issuer credential decoder is applied (i.e. not re-written by new custom decoder)
 	require.NotNil(t, cred.Issuer)
