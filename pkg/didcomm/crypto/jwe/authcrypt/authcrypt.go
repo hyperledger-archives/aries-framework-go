@@ -36,6 +36,9 @@ var errEmptyRecipients = errors.New("empty recipients")
 // errInvalidKeypair is used when a keypair is invalid
 var errInvalidKeypair = errors.New("invalid keypair")
 
+// errInvalidKey is used when a key is invalid
+var errInvalidKey = errors.New("invalid key")
+
 // errRecipientNotFound is used when a recipient is not found
 var errRecipientNotFound = errors.New("recipient not found")
 
@@ -98,4 +101,10 @@ func New(alg ContentEncryption) (*Crypter, error) {
 	}
 
 	return c, nil
+}
+
+// IsChachaKeyValid will return true if key size is the same as chacha20poly1035.keySize
+// false otherwise
+func IsChachaKeyValid(key []byte) bool {
+	return len(key) == chacha.KeySize
 }

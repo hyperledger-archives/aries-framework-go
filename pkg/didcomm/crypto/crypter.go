@@ -6,10 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package crypto
 
-import (
-	chacha "golang.org/x/crypto/chacha20poly1305"
-)
-
 // Crypter is an Aries envelope encrypter to support
 // secure DIDComm exchange of envelopes between Aries agents
 type Crypter interface {
@@ -18,21 +14,23 @@ type Crypter interface {
 	// returns:
 	// 		[]byte containing the encrypted envelope
 	//		error if encryption failed
-	Encrypt(payload []byte, sender KeyPair, recipients []*[chacha.KeySize]byte) ([]byte, error)
+	// TODO add key type of recipients and sender keys to be validated by the implementation
+	Encrypt(payload []byte, sender KeyPair, recipients [][]byte) ([]byte, error)
 	// Decrypt an envelope in an Aries compliant format with the recipient's private key
 	// and the recipient's public key both set in recipientKeyPair
 	// returns:
 	// 		[]byte containing the decrypted payload
 	//		error if decryption failed
+	// TODO add key type of recipients keys to be validated by the implementation
 	Decrypt(envelope []byte, recipientKeyPair KeyPair) ([]byte, error)
 }
 
 // KeyPair represents a private/public key pair each with 32 bytes in size
 type KeyPair struct {
 	// Priv is a private key
-	Priv *[chacha.KeySize]byte
+	Priv []byte
 	// Pub is a public key
-	Pub *[chacha.KeySize]byte
+	Pub []byte
 }
 
 // IsKeyPairValid is a utility function that validates a KeyPair

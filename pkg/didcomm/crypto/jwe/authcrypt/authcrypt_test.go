@@ -22,30 +22,32 @@ import (
 
 func TestEncrypt(t *testing.T) {
 	var err error
+	var ecKeyPub *[chacha.KeySize]byte
+	var ecKeyPriv *[chacha.KeySize]byte
 	// create temporary keys for testing
-	sendEcKey := jwecrypto.KeyPair{}
-	sendEcKey.Pub, sendEcKey.Priv, err = box.GenerateKey(randReader)
+	ecKeyPub, ecKeyPriv, err = box.GenerateKey(randReader)
 	require.NoError(t, err)
-	t.Logf("sender key pub: %v", base64.RawURLEncoding.EncodeToString(sendEcKey.Pub[:]))
-	t.Logf("sender key priv: %v", base64.RawURLEncoding.EncodeToString(sendEcKey.Priv[:]))
+	sendEcKey := jwecrypto.KeyPair{Priv: ecKeyPriv[:], Pub: ecKeyPub[:]}
+	t.Logf("sender key pub: %v", base64.RawURLEncoding.EncodeToString(sendEcKey.Pub))
+	t.Logf("sender key priv: %v", base64.RawURLEncoding.EncodeToString(sendEcKey.Priv))
 
-	recipient1Key := jwecrypto.KeyPair{}
-	recipient1Key.Pub, recipient1Key.Priv, err = box.GenerateKey(randReader)
+	ecKeyPub, ecKeyPriv, err = box.GenerateKey(randReader)
 	require.NoError(t, err)
-	t.Logf("recipient1Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient1Key.Pub[:]))
-	t.Logf("recipient1Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient1Key.Priv[:]))
+	recipient1Key := jwecrypto.KeyPair{Priv: ecKeyPriv[:], Pub: ecKeyPub[:]}
+	t.Logf("recipient1Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient1Key.Pub))
+	t.Logf("recipient1Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient1Key.Priv))
 
-	recipient2Key := jwecrypto.KeyPair{}
-	recipient2Key.Pub, recipient2Key.Priv, err = box.GenerateKey(randReader)
+	ecKeyPub, ecKeyPriv, err = box.GenerateKey(randReader)
 	require.NoError(t, err)
-	t.Logf("recipient2Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient2Key.Pub[:]))
-	t.Logf("recipient2Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient2Key.Priv[:]))
+	recipient2Key := jwecrypto.KeyPair{Priv: ecKeyPriv[:], Pub: ecKeyPub[:]}
+	t.Logf("recipient2Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient2Key.Pub))
+	t.Logf("recipient2Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient2Key.Priv))
 
-	recipient3Key := jwecrypto.KeyPair{}
-	recipient3Key.Pub, recipient3Key.Priv, err = box.GenerateKey(randReader)
+	ecKeyPub, ecKeyPriv, err = box.GenerateKey(randReader)
 	require.NoError(t, err)
-	t.Logf("recipient3Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient3Key.Pub[:]))
-	t.Logf("recipient3Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient3Key.Priv[:]))
+	recipient3Key := jwecrypto.KeyPair{Priv: ecKeyPriv[:], Pub: ecKeyPub[:]}
+	t.Logf("recipient3Key pub: %v", base64.RawURLEncoding.EncodeToString(recipient3Key.Pub))
+	t.Logf("recipient3Key priv: %v", base64.RawURLEncoding.EncodeToString(recipient3Key.Priv))
 
 	badKey := jwecrypto.KeyPair{
 		Pub:  nil,
@@ -63,8 +65,46 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			badKey, []*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
-		require.Error(t, e)
+			badKey, [][]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
+		require.EqualError(t, e, "failed to encrypt message: invalid keypair")
+		require.Empty(t, enc)
+	})
+
+	t.Run("Error test case: Create a new AuthCrypter and use a bad key size for encryption", func(t *testing.T) {
+		crypter, e := New(XC20P)
+		require.NoError(t, e)
+		require.NotEmpty(t, crypter)
+		// test bad sender public key size
+		badKey.Pub = []byte("badkeysize")
+		badKey.Priv = append(badKey.Priv, sendEcKey.Priv...)
+		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
+			badKey, [][]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
+		require.EqualError(t, e, "failed to encrypt message: invalid key")
+		require.Empty(t, enc)
+		// test bad sender private key size
+		badKey.Pub = append([]byte{}, sendEcKey.Pub...)
+		badKey.Priv = []byte("badkeysize")
+		enc, e = crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
+			badKey, [][]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
+		require.EqualError(t, e, "failed to encrypt message: invalid key")
+		require.Empty(t, enc)
+		// reset badKey
+		badKey.Pub = nil
+		badKey.Priv = nil
+		// test bad recipient 1 public key size
+		enc, e = crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
+			sendEcKey, [][]byte{[]byte("badkeysize"), recipient2Key.Pub, recipient3Key.Pub})
+		require.EqualError(t, e, "failed to encrypt message: invalid key - for recipient 1")
+		require.Empty(t, enc)
+		// test bad recipient 2 public key size
+		enc, e = crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
+			sendEcKey, [][]byte{recipient1Key.Pub, []byte("badkeysize"), recipient3Key.Pub})
+		require.EqualError(t, e, "failed to encrypt message: invalid key - for recipient 2")
+		require.Empty(t, enc)
+		// test bad recipient 3 publick key size
+		enc, e = crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
+			sendEcKey, [][]byte{recipient1Key.Pub, recipient2Key.Pub, []byte("badkeysize")})
+		require.EqualError(t, e, "failed to encrypt message: invalid key - for recipient 3")
 		require.Empty(t, enc)
 	})
 
@@ -72,7 +112,7 @@ func TestEncrypt(t *testing.T) {
 		crypter, e := New("XC20P")
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
-		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"), sendEcKey, []*[chacha.KeySize]byte{})
+		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"), sendEcKey, [][]byte{})
 		require.Error(t, e)
 		require.Empty(t, enc)
 	})
@@ -82,7 +122,7 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			sendEcKey, []*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
+			sendEcKey, [][]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -96,7 +136,7 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			sendEcKey, []*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
+			sendEcKey, [][]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -107,7 +147,7 @@ func TestEncrypt(t *testing.T) {
 		t.Run("Error test Case: use a valid AuthCrypter but scramble the nonce size", func(t *testing.T) {
 			crypter.nonceSize = 0
 			_, err = crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-				sendEcKey, []*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
+				sendEcKey, [][]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 			require.Error(t, err)
 		})
 	})
@@ -118,7 +158,7 @@ func TestEncrypt(t *testing.T) {
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
 		enc, e := crypter.Encrypt(pld, sendEcKey,
-			[]*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
+			[][]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -140,7 +180,7 @@ func TestEncrypt(t *testing.T) {
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
 		enc, e := crypter.Encrypt(pld, sendEcKey,
-			[]*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
+			[][]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -172,7 +212,7 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
-		enc, e := crypter.Encrypt(pld, sendEcKey, []*[chacha.KeySize]byte{recipient1Key.Pub, recipient3Key.Pub})
+		enc, e := crypter.Encrypt(pld, sendEcKey, [][]byte{recipient1Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -202,7 +242,7 @@ func TestEncrypt(t *testing.T) {
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
 		enc, e := crypter.Encrypt(pld, sendEcKey,
-			[]*[chacha.KeySize]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
+			[][]byte{recipient1Key.Pub, recipient2Key.Pub, recipient3Key.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -215,7 +255,7 @@ func TestEncrypt(t *testing.T) {
 		deepCopy(jwe, validJwe)
 
 		// test decrypting with empty recipient key
-		dec, e := crypter.Decrypt(enc, jwecrypto.KeyPair{Priv: recipient1Key.Priv, Pub: &[chacha.KeySize]byte{}})
+		dec, e := crypter.Decrypt(enc, jwecrypto.KeyPair{Priv: recipient1Key.Priv, Pub: []byte{}})
 		require.EqualError(t, e, fmt.Sprintf("failed to decrypt message: %s", errRecipientNotFound.Error()))
 		require.Empty(t, dec)
 
@@ -433,22 +473,16 @@ func TestRefEncrypt(t *testing.T) {
     "ciphertext": "ntZwQokGaZhnQ8L2"
 }`
 
-	senderPrivK := &[32]byte{}
-	copy(senderPrivK[:], senderPriv)
-	senderPubK := &[32]byte{}
-	copy(senderPubK[:], senderPub)
 	senderKp := jwecrypto.KeyPair{
-		Priv: senderPrivK,
-		Pub:  senderPubK,
+		Priv: senderPriv,
+		Pub:  senderPub,
 	}
-	recipientPubK := &[32]byte{}
-	copy(recipientPubK[:], recipientPub)
 
 	crypter, err := New(XC20P)
 	require.NoError(t, err)
 	require.NotNil(t, crypter)
 
-	pld, err := crypter.Encrypt(payload, senderKp, []*[32]byte{recipientPubK})
+	pld, err := crypter.Encrypt(payload, senderKp, [][]byte{recipientPub})
 	require.NoError(t, err)
 
 	refPld, err := prettyPrint([]byte(refJWE))
@@ -467,9 +501,7 @@ func TestRefEncrypt(t *testing.T) {
 	t.Logf("Encrypted JWE Ummarshalled: %s", encryptedPldUmarshalled)
 
 	// try to decrypt the encrypted payload
-	recipientPrivK := &[32]byte{}
-	copy(recipientPrivK[:], recipientPriv)
-	dec, err := crypter.Decrypt(pld, jwecrypto.KeyPair{Priv: recipientPrivK, Pub: recipientPubK})
+	dec, err := crypter.Decrypt(pld, jwecrypto.KeyPair{Priv: recipientPriv, Pub: recipientPub})
 	require.NoError(t, err)
 	require.NotEmpty(t, dec)
 	require.Equal(t, dec, payload)

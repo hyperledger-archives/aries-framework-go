@@ -38,7 +38,9 @@ func (c *Crypter) Decrypt(envelope []byte, recipientKeyPair jwecrypto.KeyPair) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt message: %w", err)
 	}
-	recipient, err := c.findRecipient(jwe.Recipients, recipientKeyPair.Pub)
+	pubK := new([chacha.KeySize]byte)
+	copy(pubK[:], recipientKeyPair.Pub)
+	recipient, err := c.findRecipient(jwe.Recipients, pubK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt message: %w", err)
 	}
@@ -53,7 +55,9 @@ func (c *Crypter) Decrypt(envelope []byte, recipientKeyPair jwecrypto.KeyPair) (
 	var recipientPubKey [chacha.KeySize]byte
 	copy(recipientPubKey[:], recPubKey)
 
-	oid, err = decryptOID(recipientKeyPair.Priv, &recipientPubKey, cryptedOID)
+	privK := new([chacha.KeySize]byte)
+	copy(privK[:], recipientKeyPair.Priv)
+	oid, err = decryptOID(privK, &recipientPubKey, cryptedOID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt sender key: %w", err)
 	}
@@ -64,7 +68,7 @@ func (c *Crypter) Decrypt(envelope []byte, recipientKeyPair jwecrypto.KeyPair) (
 		var senderPubKey [chacha.KeySize]byte
 		copy(senderPubKey[:], senderKey)
 
-		sharedKey, er := c.decryptSharedKey(jwecrypto.KeyPair{Priv: recipientKeyPair.Priv, Pub: &recipientPubKey},
+		sharedKey, er := c.decryptSharedKey(jwecrypto.KeyPair{Priv: recipientKeyPair.Priv, Pub: recPubKey},
 			&senderPubKey, recipient)
 		if er != nil {
 			return nil, fmt.Errorf("failed to decrypt shared key: %w", er)
@@ -153,8 +157,11 @@ func (c *Crypter) decryptSharedKey(recipientKp jwecrypto.KeyPair, senderPubKey *
 		return nil, err
 	}
 
+	privK := new([chacha.KeySize]byte)
+	copy(privK[:], recipientKp.Priv)
+
 	// create a new ephemeral key for the recipient and return its APU
-	kek, err := c.generateRecipientCEK(apu, recipientKp.Priv, senderPubKey)
+	kek, err := c.generateRecipientCEK(apu, privK, senderPubKey)
 	if err != nil {
 		return nil, err
 	}
