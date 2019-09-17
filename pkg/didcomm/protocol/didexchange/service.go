@@ -11,24 +11,49 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 
+	"github.com/google/uuid"
+
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/event"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+// TODO https://github.com/hyperledger/aries-framework-go/issues/104
+var logger = log.New("aries-framework/didexchange")
+
+// didCommChMessage type to correlate actionEvent message(go channel) with callback message(internal go channel).
+type didCommChMessage struct {
+	ID              string
+	DIDCommCallback event.DIDCommCallback
+}
+
 const (
 	// DIDExchange did exchange protocol
 	DIDExchange = "didexchange"
 	// DIDExchangeSpec defines the did-exchange spec
-	DIDExchangeSpec    = metadata.AriesCommunityDID + ";spec/didexchange/1.0/"
-	connectionInvite   = DIDExchangeSpec + "invitation"
-	connectionRequest  = DIDExchangeSpec + "request"
-	connectionResponse = DIDExchangeSpec + "response"
-	connectionAck      = DIDExchangeSpec + "ack"
+	DIDExchangeSpec = metadata.AriesCommunityDID + ";spec/didexchange/1.0/"
+	// ConnectionInvite defines the did-exchange invite message type.
+	ConnectionInvite = DIDExchangeSpec + "invitation"
+	// ConnectionRequest defines the did-exchange request message type.
+	ConnectionRequest = DIDExchangeSpec + "request"
+	// ConnectionResponse defines the did-exchange response message type.
+	ConnectionResponse = DIDExchangeSpec + "response"
+	// ConnectionAck defines the did-exchange ack message type.
+	ConnectionAck = DIDExchangeSpec + "ack"
 )
+
+// message type to store data for eventing. This is retrieved during callback.
+type message struct {
+	Msg           dispatcher.DIDCommMsg
+	ThreadID      string
+	NextStateName string
+}
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
@@ -39,15 +64,43 @@ type provider interface {
 type Service struct {
 	outboundTransport transport.OutboundTransport
 	store             storage.Store
+	callbackChannel   chan didCommChMessage
+	actionEvent       chan<- event.DIDCommEvent
+	statusEvents      []chan<- dispatcher.DIDCommMsg
+	lock              sync.RWMutex
+	statusEventLock   sync.RWMutex
+	execute           bool
 }
 
 // New return didexchange service
 func New(store storage.Store, prov provider) *Service {
-	return &Service{outboundTransport: prov.OutboundTransport(), store: store}
+	svc := &Service{
+		// TODO Outbound dispatcher - https://github.com/hyperledger/aries-framework-go/issues/259
+		outboundTransport: prov.OutboundTransport(),
+		store:             store,
+		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
+		callbackChannel: make(chan didCommChMessage, 10),
+		// set execute to false. Consumers have to enable this by setting either RegisterEvent() or
+		// RegisterAutoExecute()
+		execute: false,
+	}
+
+	svc.startInternalListener()
+
+	return svc
 }
 
 // Handle didexchange msg
 func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
+	// throw error if there are no action events are registered or auto execute set (if it's not outbound)
+	s.lock.RLock()
+	execute := s.execute
+	s.lock.RUnlock()
+
+	if !msg.Outbound && !execute {
+		return errors.New("no clients are registered to handle the message")
+	}
+
 	thid, err := threadID(msg.Payload)
 	if err != nil {
 		return err
@@ -63,26 +116,215 @@ func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
 	if !current.CanTransitionTo(next) {
 		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
-	// TODO: call pre-transition listeners -  Issue: https://github.com/hyperledger/aries-framework-go/issues/140
-	followup, err := next.Execute(msg)
+
+	eventsTriggered := false
+	if !msg.Outbound {
+		// trigger the actionEvent if the message type is registered (if it's not outbound)
+		eventsTriggered, err = s.sendEvent(msg, thid, next)
+		if err != nil {
+			return fmt.Errorf("send events failed: %w", err)
+		}
+	}
+
+	// if no events are trigger continue the execution
+	if !eventsTriggered {
+		return s.handle(&message{Msg: msg, ThreadID: thid, NextStateName: next.Name()})
+	}
+
+	return nil
+}
+
+// RegisterEvent on DID Exchange protocol messages. The events are triggered for incoming ConnectionRequest,
+// ConnectionResponse or ConnectionAck message types. The consumer need to invoke the callback to resume processing.
+// Only one channel can be registered for the action events. If called multiple times, the events will be sent to the
+// last channel. This works in conjunction with RegisterAutoExecute(). If this function is called after
+// RegisterAutoExecute(), the service will not execute the processing automatically and it'll wait for the callback. If
+// both are not set, then service will not handle the messages and throw an error.
+func (s *Service) RegisterEvent(ch chan<- event.DIDCommEvent) error {
+	s.lock.Lock()
+	s.actionEvent = ch
+	s.execute = true
+	s.lock.Unlock()
+
+	return nil
+}
+
+// UnregisterEvent on DID Exchange protocol messages. Refer RegisterEvent().
+func (s *Service) UnregisterEvent() error {
+	return s.disableExecute()
+}
+
+// RegisterMsg on DID Exchange protocol messages. The events are triggered for incoming ConnectionRequest,
+// ConnectionResponse or ConnectionAck message types. The Callback is set to nil in the actionEvent message and service
+// won't be expecting any response from the consumers.
+func (s *Service) RegisterMsg(ch chan<- dispatcher.DIDCommMsg) error {
+	s.statusEventLock.Lock()
+	s.statusEvents = append(s.statusEvents, ch)
+	s.statusEventLock.Unlock()
+
+	return nil
+}
+
+// UnregisterMsg on DID Exchange protocol messages. Refer RegisterMsg().
+func (s *Service) UnregisterMsg(ch chan<- dispatcher.DIDCommMsg) error {
+	s.statusEventLock.Lock()
+	for i := 0; i < len(s.statusEvents); i++ {
+		if s.statusEvents[i] == ch {
+			s.statusEvents = append(s.statusEvents[:i], s.statusEvents[i+1:]...)
+			i--
+		}
+	}
+	s.statusEventLock.Unlock()
+
+	return nil
+}
+
+// RegisterAutoExecute on DID Exchange protocol messages. When this function is called, the service will auto execute
+// the workflow. This works in conjunction with RegisterEvent(). If this function is called after
+// RegisterEvent(), the service will execute the processing automatically and no action events will be triggered.
+// If both are not set, then service will not handle the messages and throw an error.
+func (s *Service) RegisterAutoExecute() error {
+	s.lock.Lock()
+	s.execute = true
+	s.lock.Unlock()
+
+	return nil
+}
+
+// UnregisterAutoExecute on DID Exchange protocol messages. Refer RegisterAutoExecute().
+func (s *Service) UnregisterAutoExecute() error {
+	return s.disableExecute()
+}
+
+func (s *Service) disableExecute() error {
+	s.lock.Lock()
+	s.actionEvent = nil
+	s.execute = false
+	s.lock.Unlock()
+
+	return nil
+}
+
+func (s *Service) handle(msg *message) error {
+	next, err := stateFromName(msg.NextStateName)
+	if err != nil {
+		return fmt.Errorf("invalid state name: %w", err)
+	}
+
+	followup, err := next.Execute(msg.Msg)
 	if err != nil {
 		return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 	}
-	err = s.update(thid, next)
+	err = s.update(msg.ThreadID, next)
 	if err != nil {
 		return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 	}
 	for ; !isNoOp(followup); followup = next {
-		next, err = followup.Execute(msg)
+		next, err = followup.Execute(msg.Msg)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", followup.Name(), err)
 		}
-		err = s.update(thid, followup)
+		err = s.update(msg.ThreadID, followup)
 		if err != nil {
 			return fmt.Errorf("failed to persist state %s %w", followup.Name(), err)
 		}
 	}
 	// TODO call post-transition listeners -  Issue: https://github.com/hyperledger/aries-framework-go/issues/140
+	return nil
+}
+
+// sendEvent triggeres the status events and action events. Returns true if action events are triggered. The events are
+// triggered for ConnectionRequest, ConnectionResponse or ConnectionAck message types.
+func (s *Service) sendEvent(msg dispatcher.DIDCommMsg, threadID string, nextState state) (bool, error) {
+	// trigger the status events
+	s.statusEventLock.RLock()
+	statusEvents := s.statusEvents
+	s.statusEventLock.RUnlock()
+
+	for _, handler := range statusEvents {
+		handler <- msg
+	}
+
+	// invoke events for ConnectionRequest, ConnectionResponse or ConnectionAck and if action events are registered
+	if s.actionEvent == nil || msg.Type != ConnectionRequest &&
+		msg.Type != ConnectionResponse && msg.Type != ConnectionAck {
+		return false, nil
+	}
+
+	jsonDoc, err := json.Marshal(&message{
+		Msg:           msg,
+		ThreadID:      threadID,
+		NextStateName: nextState.Name(),
+	})
+
+	if err != nil {
+		return false, fmt.Errorf("JSON marshalling of document failed: %w", err)
+	}
+
+	// save the incoming message in the store (to retrieve later when callback events are fired)
+	id := generateRandomID()
+	err = s.store.Put(id, jsonDoc)
+	if err != nil {
+		return false, fmt.Errorf("JSON marshalling of document failed: %w", err)
+	}
+
+	// create the message for the channel
+	didCommEvent := event.DIDCommEvent{
+		Message: msg,
+		Callback: func(didCommCallback event.DIDCommCallback) {
+			s.processCallback(id, didCommCallback)
+		},
+	}
+
+	// trigger the registered action events
+	s.lock.RLock()
+	event := s.actionEvent
+	s.lock.RUnlock()
+	event <- didCommEvent
+
+	return true, nil
+}
+
+// startInternalListener listens to messages in gochannel for callback messages from clients.
+func (s *Service) startInternalListener() {
+	go func() {
+		for msg := range s.callbackChannel {
+			// TODO handle error in callback - https://github.com/hyperledger/aries-framework-go/issues/242
+			s.process(msg.ID, msg.DIDCommCallback)
+		}
+	}()
+}
+
+func (s *Service) processCallback(id string, didCommCallback event.DIDCommCallback) {
+	// pass the callback data to internal channel. This is created to unblock consumer go routine and wrap the callback
+	// channel internally.
+	s.callbackChannel <- didCommChMessage{ID: id, DIDCommCallback: didCommCallback}
+}
+
+// processCallback processes the callback events.
+func (s *Service) process(id string, didCommCallback event.DIDCommCallback) error {
+	if didCommCallback.Err != nil {
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/242 Service callback processing error handling
+		return nil
+	}
+
+	// fetch the record
+	jsonDoc, err := s.store.Get(id)
+	if err != nil {
+		return fmt.Errorf("document for the id doesn't exists in the database: %w", didCommCallback.Err)
+	}
+
+	document := &message{}
+	err = json.Unmarshal(jsonDoc, document)
+	if err != nil {
+		return fmt.Errorf("JSON marshalling failed: %w", didCommCallback.Err)
+	}
+
+	// continue the processing
+	err = s.handle(document)
+	if err != nil {
+		return fmt.Errorf("processing of the message failed: %w", err)
+	}
 	return nil
 }
 
@@ -128,10 +370,10 @@ func (s *Service) update(thid string, state state) error {
 
 // Accept msg checks the msg type
 func (s *Service) Accept(msgType string) bool {
-	return msgType == connectionInvite ||
-		msgType == connectionRequest ||
-		msgType == connectionResponse ||
-		msgType == connectionAck
+	return msgType == ConnectionInvite ||
+		msgType == ConnectionRequest ||
+		msgType == ConnectionResponse ||
+		msgType == ConnectionAck
 }
 
 // Name return service name
@@ -162,7 +404,7 @@ func (s *Service) SendExchangeRequest(exchangeRequest *Request, destination stri
 		return errors.New("exchangeRequest cannot be nil")
 	}
 
-	exchangeRequest.Type = connectionRequest
+	exchangeRequest.Type = ConnectionRequest
 
 	// ignore response data as it is not used in this communication mode as defined in the spec
 	_, err := s.marshalAndSend(exchangeRequest, "Error Marshalling Exchange Request", destination)
@@ -175,7 +417,7 @@ func (s *Service) SendExchangeResponse(exchangeResponse *Response, destination s
 		return errors.New("exchangeResponse cannot be nil")
 	}
 
-	exchangeResponse.Type = connectionResponse
+	exchangeResponse.Type = ConnectionResponse
 
 	// ignore response data as it is not used in this communication mode as defined in the spec
 	_, err := s.marshalAndSend(exchangeResponse, "Error Marshalling Exchange Response", destination)
@@ -192,8 +434,12 @@ func (s *Service) marshalAndSend(data interface{}, errorMsg, destination string)
 	return s.outboundTransport.Send(string(jsonString), destination)
 }
 
+func generateRandomID() string {
+	return uuid.New().String()
+}
+
 func encodedExchangeInvitation(inviteMessage *Invitation) (string, error) {
-	inviteMessage.Type = connectionInvite
+	inviteMessage.Type = ConnectionInvite
 
 	invitationJSON, err := json.Marshal(inviteMessage)
 	if err != nil {
