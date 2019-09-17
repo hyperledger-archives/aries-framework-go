@@ -27,3 +27,6 @@ pkg/didcomm/transport/http/testdata/crypto/
 docs/build
 bin
 coverage.txt
+
+# Exclude build directory
+build

@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 GO_CMD ?= go
+# Controller API entry point to be used for generating Open API specifications
+OPENAPI_SPEC_META=cmd/aries-agentd/main.go
 
 .PHONY: all
-all: checks unit-test
+all: checks generate-openapi-spec unit-test
 
 .PHONY: checks
 checks: license lint
@@ -29,3 +31,10 @@ bdd-test: clean
 .PHONY: clean
 clean:
 	rm -f coverage.txt
+	rm -Rf ./build
+
+.PHONY: generate-openapi-spec
+generate-openapi-spec: clean
+	@echo "Generating and validating controller API specifications using Open API"
+	@mkdir -p build/rest/openapi/spec
+	@SPEC_META=$(OPENAPI_SPEC_META) SPEC_LOC=build/rest/openapi/spec scripts/generate-openapi-spec.sh
