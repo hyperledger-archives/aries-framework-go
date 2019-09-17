@@ -110,6 +110,12 @@ func TestStateFromMsgType(t *testing.T) {
 }
 
 func TestStateFromName(t *testing.T) {
+	t.Run("noop", func(t *testing.T) {
+		expected := &noOp{}
+		actual, err := stateFromName(expected.Name())
+		require.NoError(t, err)
+		require.Equal(t, expected.Name(), actual.Name())
+	})
 	t.Run("null", func(t *testing.T) {
 		expected := &null{}
 		actual, err := stateFromName(expected.Name())
@@ -140,7 +146,11 @@ func TestStateFromName(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expected.Name(), actual.Name())
 	})
-
+	t.Run("undefined", func(t *testing.T) {
+		actual, err := stateFromName("undefined")
+		require.Nil(t, actual)
+		require.Error(t, err)
+	})
 }
 
 // noOp.Execute() returns nil, error

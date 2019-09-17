@@ -13,6 +13,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 )
 
+const (
+	stateNameNoop      = "noop"
+	stateNameNull      = "null"
+	stateNameInvited   = "invited"
+	stateNameRequested = "requested"
+	stateNameResponded = "responded"
+	stateNameCompleted = "completed"
+)
+
 // The did-exchange protocol's state.
 type state interface {
 	// Name of this state.
@@ -26,38 +35,46 @@ type state interface {
 
 // Returns the state towards which the protocol will transition to if the msgType is processed.
 func stateFromMsgType(msgType string) (state, error) {
-	var s state
 	switch msgType {
 	case connectionInvite:
-		s = &invited{}
+		return &invited{}, nil
 	case connectionRequest:
-		s = &requested{}
+		return &requested{}, nil
 	case connectionResponse:
-		s = &responded{}
+		return &responded{}, nil
 	case connectionAck:
-		s = &completed{}
+		return &completed{}, nil
 	default:
 		return nil, fmt.Errorf("unrecognized msgType: %s", msgType)
 	}
-	return s, nil
 }
 
 // Returns the state representing the name.
 func stateFromName(name string) (state, error) {
-	all := []state{&null{}, &invited{}, &requested{}, &responded{}, &completed{}}
-	for _, s := range all {
-		if s.Name() == name {
-			return s, nil
-		}
+	switch name {
+	// TODO: need clarification: noOp state was missing, was it a bug or feature?
+	case stateNameNoop:
+		return &noOp{}, nil
+	case stateNameNull:
+		return &null{}, nil
+	case stateNameInvited:
+		return &invited{}, nil
+	case stateNameRequested:
+		return &requested{}, nil
+	case stateNameResponded:
+		return &responded{}, nil
+	case stateNameCompleted:
+		return &completed{}, nil
+	default:
+		return nil, fmt.Errorf("invalid state name %s", name)
 	}
-	return nil, fmt.Errorf("invalid state name %s", name)
 }
 
 type noOp struct {
 }
 
 func (s *noOp) Name() string {
-	return "noop"
+	return stateNameNoop
 }
 
 func (s *noOp) CanTransitionTo(_ state) bool {
@@ -73,11 +90,11 @@ type null struct {
 }
 
 func (s *null) Name() string {
-	return "null"
+	return stateNameNull
 }
 
 func (s *null) CanTransitionTo(next state) bool {
-	return (&invited{}).Name() == next.Name() || (&requested{}).Name() == next.Name()
+	return stateNameInvited == next.Name() || stateNameRequested == next.Name()
 }
 
 func (s *null) Execute(msg dispatcher.DIDCommMsg) (state, error) {
@@ -89,11 +106,11 @@ type invited struct {
 }
 
 func (s *invited) Name() string {
-	return "invited"
+	return stateNameInvited
 }
 
 func (s *invited) CanTransitionTo(next state) bool {
-	return (&requested{}).Name() == next.Name()
+	return stateNameRequested == next.Name()
 }
 
 func (s *invited) Execute(msg dispatcher.DIDCommMsg) (state, error) {
@@ -105,7 +122,6 @@ func (s *invited) Execute(msg dispatcher.DIDCommMsg) (state, error) {
 		return nil, errors.New("outbound invitations are not allowed")
 	}
 	return &requested{}, nil
-
 }
 
 // requested state
@@ -113,11 +129,11 @@ type requested struct {
 }
 
 func (s *requested) Name() string {
-	return "requested"
+	return stateNameRequested
 }
 
 func (s *requested) CanTransitionTo(next state) bool {
-	return (&responded{}).Name() == next.Name()
+	return stateNameResponded == next.Name()
 }
 
 func (s *requested) Execute(msg dispatcher.DIDCommMsg) (state, error) {
@@ -144,11 +160,11 @@ type responded struct {
 }
 
 func (s *responded) Name() string {
-	return "responded"
+	return stateNameResponded
 }
 
 func (s *responded) CanTransitionTo(next state) bool {
-	return (&completed{}).Name() == next.Name()
+	return stateNameCompleted == next.Name()
 }
 
 func (s *responded) Execute(msg dispatcher.DIDCommMsg) (state, error) {
@@ -175,7 +191,7 @@ type completed struct {
 }
 
 func (s *completed) Name() string {
-	return "completed"
+	return stateNameCompleted
 }
 
 func (s *completed) CanTransitionTo(next state) bool {
@@ -191,11 +207,8 @@ func (s *completed) Execute(msg dispatcher.DIDCommMsg) (state, error) {
 		// send ACK
 		return &noOp{}, nil
 	case connectionAck:
-		if msg.Outbound {
-			// send ACK
-			return &noOp{}, nil
-		}
-		// save did-exchange connection
+		// if msg.Outbound send ACK
+		// otherwise save did-exchange connection
 		return &noOp{}, nil
 	default:
 		return nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
