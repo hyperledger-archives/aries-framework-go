@@ -11,6 +11,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,6 +37,7 @@ const (
 	connections           = operationID
 	connectionsByID       = operationID + "/{id}"
 	acceptExchangeRequest = operationID + "/{id}/accept-request"
+	removeConnection      = operationID + "/{id}/remove"
 )
 
 // provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
@@ -77,7 +79,7 @@ type Operation struct {
 	handlers []operation.Handler
 }
 
-// CreateInvitation swagger:route GET /connections/create-invitation did-exchange createInvitation
+// CreateInvitation swagger:route POST /connections/create-invitation did-exchange createInvitation
 //
 // Creates a new connection invitation....
 //
@@ -94,10 +96,7 @@ func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	err = json.NewEncoder(rw).Encode(&models.CreateInvitationResponse{Payload: response})
-	if err != nil {
-		logger.Errorf("Unable to write response, %s", err)
-	}
+	c.writeResponse(rw, &models.CreateInvitationResponse{Payload: response})
 }
 
 // ReceiveInvitation swagger:route POST /connections/receive-invitation did-exchange receiveInvitation
@@ -146,13 +145,10 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 		RoutingState:  "none",
 	}
 
-	err = json.NewEncoder(rw).Encode(sampleResponse)
-	if err != nil {
-		logger.Errorf("Unable to write response, %s", err)
-	}
+	c.writeResponse(rw, sampleResponse)
 }
 
-// AcceptInvitation swagger:route GET /connections/{id}/accept-invitation did-exchange acceptInvitation
+// AcceptInvitation swagger:route POST /connections/{id}/accept-invitation did-exchange acceptInvitation
 //
 // Accept a stored connection invitation....
 //
@@ -180,10 +176,7 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 		RoutingState:  "none",
 	}
 
-	err := json.NewEncoder(rw).Encode(response)
-	if err != nil {
-		logger.Errorf("Unable to write response, %s", err)
-	}
+	c.writeResponse(rw, response)
 }
 
 // QueryConnections swagger:route GET /connections did-exchange queryConnections
@@ -196,14 +189,14 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 func (c *Operation) QueryConnections(rw http.ResponseWriter, req *http.Request) {
 	logger.Debugf("Querying connection invitations ")
 
-	var request models.QueryConnections
-	err := json.NewDecoder(req.Body).Decode(&request)
+	var request didexchange.QueryConnectionsParams
+	err := getQueryParams(&request, req.URL.Query())
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
 	}
 
-	results, err := c.client.QueryConnections(&request.QueryConnectionsParams)
+	results, err := c.client.QueryConnections(&request)
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
@@ -217,10 +210,7 @@ func (c *Operation) QueryConnections(rw http.ResponseWriter, req *http.Request) 
 		},
 	}
 
-	err = json.NewEncoder(rw).Encode(response)
-	if err != nil {
-		logger.Errorf("Unable to write response, %s", err)
-	}
+	c.writeResponse(rw, response)
 }
 
 // QueryConnectionByID swagger:route GET /connections/{id} did-exchange getConnection
@@ -244,13 +234,10 @@ func (c *Operation) QueryConnectionByID(rw http.ResponseWriter, req *http.Reques
 		Result: result,
 	}
 
-	err = json.NewEncoder(rw).Encode(response)
-	if err != nil {
-		logger.Errorf("Unable to write response, %s", err)
-	}
+	c.writeResponse(rw, response)
 }
 
-// AcceptExchangeRequest swagger:route GET /connections/{id}/accept-request did-exchange acceptRequest
+// AcceptExchangeRequest swagger:route POST /connections/{id}/accept-request did-exchange acceptRequest
 //
 // Accepts a stored connection request.
 //
@@ -268,10 +255,27 @@ func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Requ
 
 	response := models.AcceptExchangeResult{Result: result}
 
-	err := json.NewEncoder(rw).Encode(response)
+	c.writeResponse(rw, response)
+}
+
+// RemoveConnection swagger:route POST /connections/{id}/remove did-exchange removeConnection
+//
+// Removes given connection record.
+//
+// Responses:
+//    default: genericError
+//    200: removeConnectionResponse
+func (c *Operation) RemoveConnection(rw http.ResponseWriter, req *http.Request) {
+	params := mux.Vars(req)
+	logger.Debugf("Removing connection record for id [%s]", params["id"])
+
+	err := c.client.RemoveConnection(params["id"])
 	if err != nil {
-		logger.Errorf("Unable to write response, %s", err)
+		c.writeGenericError(rw, err)
+		return
 	}
+
+	// TODO to be implemented as part of #226
 }
 
 // writeGenericError writes given error to writer as generic error response
@@ -286,7 +290,13 @@ func (c *Operation) writeGenericError(rw io.Writer, err error) {
 			Message: err.Error(),
 		},
 	}
-	err = json.NewEncoder(rw).Encode(errResponse)
+	c.writeResponse(rw, errResponse)
+}
+
+// writeResponse writes interface value to response
+func (c *Operation) writeResponse(rw io.Writer, v interface{}) {
+	err := json.NewEncoder(rw).Encode(v)
+	// as of now, just log errors for writing response
 	if err != nil {
 		logger.Errorf("Unable to send error response, %s", err)
 	}
@@ -301,11 +311,33 @@ func (c *Operation) GetRESTHandlers() []operation.Handler {
 func (c *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []operation.Handler{
-		support.NewHTTPHandler(createInvitationPath, http.MethodGet, c.CreateInvitation),
-		support.NewHTTPHandler(receiveInvtiationPath, http.MethodPost, c.ReceiveInvitation),
-		support.NewHTTPHandler(acceptInvitationPath, http.MethodGet, c.AcceptInvitation),
 		support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
 		support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
-		support.NewHTTPHandler(acceptExchangeRequest, http.MethodGet, c.AcceptExchangeRequest),
+		support.NewHTTPHandler(createInvitationPath, http.MethodPost, c.CreateInvitation),
+		support.NewHTTPHandler(receiveInvtiationPath, http.MethodPost, c.ReceiveInvitation),
+		support.NewHTTPHandler(acceptInvitationPath, http.MethodPost, c.AcceptInvitation),
+		support.NewHTTPHandler(acceptExchangeRequest, http.MethodPost, c.AcceptExchangeRequest),
+		support.NewHTTPHandler(removeConnection, http.MethodPost, c.RemoveConnection),
 	}
+}
+
+// getQueryParams converts query strings to `map[string]string`
+// and unmarshals to the value pointed by v by following
+// `json.Unmarshal` rules.
+func getQueryParams(v interface{}, vals url.Values) error {
+
+	// normalize all query string key/values
+	args := make(map[string]string)
+	for k, v := range vals {
+		if len(v) > 0 {
+			args[k] = v[0]
+		}
+	}
+
+	bytes, err := json.Marshal(args)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(bytes, v)
 }

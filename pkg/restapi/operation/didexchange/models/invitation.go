@@ -209,7 +209,7 @@ type QueryConnections struct {
 	//
 	// in: path
 	// required: true
-	didexchange.QueryConnectionsParams
+	*didexchange.QueryConnectionsParams
 }
 
 // QueryConnectionResponse model
@@ -318,4 +318,25 @@ type ExchangeResponse struct {
 
 	// Connection invitation accept mode
 	Accept string `json:"accept,omitempty"`
+}
+
+// RemoveConnectionRequest model
+//
+// This is used for removing connection request
+//
+// swagger:parameters removeConnection
+type RemoveConnectionRequest struct {
+	// The ID of the connection record to remove
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
+// RemoveConnectionResponse model
+//
+// response of remove connection action
+//
+// swagger:response removeConnectionResponse
+type RemoveConnectionResponse struct {
 }

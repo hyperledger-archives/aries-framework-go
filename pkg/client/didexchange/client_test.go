@@ -72,6 +72,14 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 	require.NotNil(t, result.ConnectionID)
 }
 
+func TestClient_RemoveConnection(t *testing.T) {
+	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{})})
+	require.NoError(t, err)
+
+	err = c.RemoveConnection("sample-id")
+	require.NoError(t, err)
+}
+
 func TestClient_QueryConnectionsByParams(t *testing.T) {
 	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{})})
 	require.NoError(t, err)
