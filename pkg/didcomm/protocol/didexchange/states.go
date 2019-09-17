@@ -36,13 +36,13 @@ type state interface {
 // Returns the state towards which the protocol will transition to if the msgType is processed.
 func stateFromMsgType(msgType string) (state, error) {
 	switch msgType {
-	case connectionInvite:
+	case ConnectionInvite:
 		return &invited{}, nil
-	case connectionRequest:
+	case ConnectionRequest:
 		return &requested{}, nil
-	case connectionResponse:
+	case ConnectionResponse:
 		return &responded{}, nil
-	case connectionAck:
+	case ConnectionAck:
 		return &completed{}, nil
 	default:
 		return nil, fmt.Errorf("unrecognized msgType: %s", msgType)
@@ -114,7 +114,7 @@ func (s *invited) CanTransitionTo(next state) bool {
 }
 
 func (s *invited) Execute(msg dispatcher.DIDCommMsg) (state, error) {
-	if msg.Type != connectionInvite {
+	if msg.Type != ConnectionInvite {
 		return nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
 	}
 	if msg.Outbound {
@@ -138,13 +138,13 @@ func (s *requested) CanTransitionTo(next state) bool {
 
 func (s *requested) Execute(msg dispatcher.DIDCommMsg) (state, error) {
 	switch msg.Type {
-	case connectionInvite:
+	case ConnectionInvite:
 		if msg.Outbound {
 			return nil, fmt.Errorf("outbound invitations are not allowed for state %s", s.Name())
 		}
 		// send did-exchange Request
 		return &noOp{}, nil
-	case connectionRequest:
+	case ConnectionRequest:
 		if msg.Outbound {
 			// send outbound Request
 			return &noOp{}, nil
@@ -169,13 +169,13 @@ func (s *responded) CanTransitionTo(next state) bool {
 
 func (s *responded) Execute(msg dispatcher.DIDCommMsg) (state, error) {
 	switch msg.Type {
-	case connectionRequest:
+	case ConnectionRequest:
 		if msg.Outbound {
 			return nil, fmt.Errorf("outbound requests are not allowed for state %s", s.Name())
 		}
 		// send Response
 		return &noOp{}, nil
-	case connectionResponse:
+	case ConnectionResponse:
 		if msg.Outbound {
 			// send response
 			return &noOp{}, nil
@@ -200,13 +200,13 @@ func (s *completed) CanTransitionTo(next state) bool {
 
 func (s *completed) Execute(msg dispatcher.DIDCommMsg) (state, error) {
 	switch msg.Type {
-	case connectionResponse:
+	case ConnectionResponse:
 		if msg.Outbound {
 			return nil, fmt.Errorf("outbound responses are not allowed for state %s", s.Name())
 		}
 		// send ACK
 		return &noOp{}, nil
-	case connectionAck:
+	case ConnectionAck:
 		// if msg.Outbound send ACK
 		// otherwise save did-exchange connection
 		return &noOp{}, nil

@@ -103,7 +103,7 @@ func validateRequests(t *testing.T) {
 								"@type": "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation"
 							}`),
 				"application/didcomm-envelope-enc"),
-			expectedStatus:     http.StatusAccepted,
+			expectedStatus:     http.StatusInternalServerError,
 			expectResponseData: false,
 		},
 	}

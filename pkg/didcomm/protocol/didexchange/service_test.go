@@ -10,24 +10,25 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/event"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
+	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
 
 const (
 	destinationURL  = "https://localhost:8090"
 	successResponse = "success"
+	invalidThreadID = "invalidThreadID"
 )
 
 func TestGenerateInviteWithPublicDID(t *testing.T) {
@@ -108,6 +109,14 @@ func TestSendRequest(t *testing.T) {
 	require.Error(t, prov.SendExchangeRequest(nil, destinationURL))
 }
 
+func TestService_Name(t *testing.T) {
+	dbstore, cleanup := store(t)
+	defer cleanup()
+	prov := New(dbstore, &mockProvider{})
+
+	require.Equal(t, DIDExchange, prov.Name())
+}
+
 func TestSendResponse(t *testing.T) {
 	prov := New(nil, &mockProvider{})
 
@@ -128,13 +137,14 @@ func TestService_Handle_Inviter(t *testing.T) {
 	defer cleanup()
 	m := mockProvider{}
 	s := &Service{outboundTransport: m.OutboundTransport(), store: dbstore}
+	s.RegisterAutoExecute()
 	thid := randomString()
 
 	// Invitation was previously sent by Alice to Bob.
 	// Bob now sends a did-exchange Request
 	payloadBytes, err := json.Marshal(
 		&Request{
-			Type:  connectionRequest,
+			Type:  ConnectionRequest,
 			ID:    thid,
 			Label: "Bob",
 			Connection: &Connection{
@@ -142,7 +152,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 			},
 		})
 	require.NoError(t, err)
-	msg := dispatcher.DIDCommMsg{Type: connectionRequest, Payload: payloadBytes}
+	msg := dispatcher.DIDCommMsg{Type: ConnectionRequest, Payload: payloadBytes}
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
@@ -150,13 +160,13 @@ func TestService_Handle_Inviter(t *testing.T) {
 	// Bob replies with an ACK
 	payloadBytes, err = json.Marshal(
 		&Ack{
-			Type:   connectionAck,
+			Type:   ConnectionAck,
 			ID:     randomString(),
 			Status: "OK",
 			Thread: &decorator.Thread{ID: thid},
 		})
 	require.NoError(t, err)
-	msg = dispatcher.DIDCommMsg{Type: connectionAck, Payload: payloadBytes}
+	msg = dispatcher.DIDCommMsg{Type: ConnectionAck, Payload: payloadBytes}
 	err = s.Handle(msg)
 	require.NoError(t, err)
 }
@@ -180,18 +190,19 @@ func TestService_Handle_Invitee(t *testing.T) {
 	}
 	m := mockProvider{}
 	s := &Service{outboundTransport: m.OutboundTransport(), store: store}
+	s.RegisterAutoExecute()
 
 	// Alice receives an invitation from Bob
 	payloadBytes, err := json.Marshal(
 		&Invitation{
-			Type:  connectionInvite,
+			Type:  ConnectionInvite,
 			ID:    randomString(),
 			Label: "Bob",
 			DID:   "did:example:bob",
 		},
 	)
 	require.NoError(t, err)
-	msg := dispatcher.DIDCommMsg{Type: connectionInvite, Outbound: false, Payload: payloadBytes}
+	msg := dispatcher.DIDCommMsg{Type: ConnectionInvite, Outbound: false, Payload: payloadBytes}
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
@@ -209,13 +220,13 @@ func TestService_Handle_Invitee(t *testing.T) {
 	// Bob replies with a Response
 	payloadBytes, err = json.Marshal(
 		&Response{
-			Type:   connectionResponse,
+			Type:   ConnectionResponse,
 			ID:     randomString(),
 			Thread: &decorator.Thread{ID: thid},
 		},
 	)
 	require.NoError(t, err)
-	msg = dispatcher.DIDCommMsg{Type: connectionResponse, Outbound: false, Payload: payloadBytes}
+	msg = dispatcher.DIDCommMsg{Type: ConnectionResponse, Outbound: false, Payload: payloadBytes}
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
@@ -231,38 +242,39 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
 		response, err := json.Marshal(
 			&Response{
-				Type: connectionResponse,
+				Type: ConnectionResponse,
 				ID:   randomString(),
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionResponse, Payload: response})
+		err = s.Handle(dispatcher.DIDCommMsg{Type: ConnectionResponse, Payload: response})
 		require.Error(t, err)
 	})
 	t.Run("must not start with ACK msg", func(t *testing.T) {
 		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
 		ack, err := json.Marshal(
 			&Ack{
-				Type: connectionAck,
+				Type: ConnectionAck,
 				ID:   randomString(),
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionAck, Payload: ack})
+		err = s.Handle(dispatcher.DIDCommMsg{Type: ConnectionAck, Payload: ack})
 		require.Error(t, err)
 	})
 	t.Run("must not transition to same state", func(t *testing.T) {
 		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
+		s.RegisterAutoExecute()
 		thid := randomString()
 		request, err := json.Marshal(
 			&Request{
-				Type:  connectionRequest,
+				Type:  ConnectionRequest,
 				ID:    thid,
 				Label: "test",
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionRequest, Outbound: false, Payload: request})
+		err = s.Handle(dispatcher.DIDCommMsg{Type: ConnectionRequest, Outbound: false, Payload: request})
 		require.NoError(t, err)
 		// state machine has automatically transitioned to responded state
 		actual, err := s.currentState(thid)
@@ -271,13 +283,13 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		// therefore cannot transition Responded state
 		response, err := json.Marshal(
 			&Response{
-				Type:   connectionResponse,
+				Type:   ConnectionResponse,
 				ID:     randomString(),
 				Thread: &decorator.Thread{ID: thid},
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionResponse, Outbound: false, Payload: response})
+		err = s.Handle(dispatcher.DIDCommMsg{Type: ConnectionResponse, Outbound: false, Payload: response})
 		require.Error(t, err)
 	})
 	t.Run("error when updating store on first state transition", func(t *testing.T) {
@@ -294,13 +306,13 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		}
 		request, err := json.Marshal(
 			&Request{
-				Type:  connectionRequest,
+				Type:  ConnectionRequest,
 				ID:    randomString(),
 				Label: "test",
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionRequest, Outbound: false, Payload: request})
+		err = s.Handle(dispatcher.DIDCommMsg{Type: ConnectionRequest, Outbound: false, Payload: request})
 		require.Error(t, err)
 	})
 	t.Run("error when updating store on followup state transition", func(t *testing.T) {
@@ -322,13 +334,13 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		}
 		request, err := json.Marshal(
 			&Request{
-				Type:  connectionRequest,
+				Type:  ConnectionRequest,
 				ID:    randomString(),
 				Label: "test",
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(dispatcher.DIDCommMsg{Type: connectionRequest, Outbound: false, Payload: request})
+		err = s.Handle(dispatcher.DIDCommMsg{Type: ConnectionRequest, Outbound: false, Payload: request})
 		require.Error(t, err)
 	})
 
@@ -336,7 +348,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
 		request, err := json.Marshal(
 			&Request{
-				Type:  connectionRequest,
+				Type:  ConnectionRequest,
 				ID:    randomString(),
 				Label: "test",
 			},
@@ -478,30 +490,485 @@ func (p *mockProvider) OutboundTransport() transport.OutboundTransport {
 	return didcomm.NewMockOutboundTransport(successResponse)
 }
 
-//TODO: Use in memory store rather than level DB " https://github.com/hyperledger/aries-framework-go/issues/202
-func store(t testing.TB) (store storage.Store, cleanup func()) {
-	path, cleanup := tempDir(t)
-	prov, err := leveldb.NewProvider(path)
-	require.NoError(t, err)
+func store(t testing.TB) (storage.Store, func()) {
+	prov := mockstorage.NewMockStoreProvider()
 	dbstore, err := prov.GetStoreHandle()
 	require.NoError(t, err)
-	return dbstore, cleanup
-}
-
-func tempDir(t testing.TB) (string, func()) {
-	dbPath, err := ioutil.TempDir("", "db")
-	if err != nil {
-		t.Fatalf("Failed to create leveldb directory: %s", err)
-	}
-	return dbPath, func() {
-		err := os.RemoveAll(dbPath)
-		if err != nil {
-			t.Fatalf("Failed to clear leveldb directory: %s", err)
-		}
+	return dbstore, func() {
+		err := prov.Close()
+		require.NoError(t, err)
 	}
 }
 
 func randomString() string {
 	u := uuid.New()
 	return u.String()
+}
+
+type payload struct {
+	ID string `json:"@id"`
+}
+
+func TestService_Events(t *testing.T) {
+	dbstore, cleanup := store(t)
+	defer cleanup()
+
+	svc := New(dbstore, &mockProvider{})
+	done := make(chan bool)
+
+	startConsumer(t, svc, done)
+
+	validateSuccessCase(t, svc)
+
+	validateUserError(t, svc)
+
+	validateStoreError(t, svc)
+
+	validateHandleError(t, svc)
+
+	validateStoreDataCorruptionError(t, svc)
+
+	// signal the end of tests (to make sure all the message types are processed)
+	func() {
+		id := "done"
+		request, err := json.Marshal(
+			&Request{
+				Type: ConnectionRequest,
+				ID:   id,
+			},
+		)
+		require.NoError(t, err)
+
+		msg := dispatcher.DIDCommMsg{
+			Type:    ConnectionRequest,
+			Payload: request,
+		}
+
+		err = svc.Handle(msg)
+		require.NoError(t, err)
+	}()
+
+	select {
+	case res := <-done:
+		require.True(t, res)
+	case <-time.After(15 * time.Second):
+		require.Fail(t, "tests are not validated")
+	}
+
+	validateStatusEventAction(t, svc)
+}
+
+func startConsumer(t *testing.T, svc *Service, done chan bool) {
+	actionCh := make(chan event.DIDCommEvent, 10)
+	err := svc.RegisterEvent(actionCh)
+	require.NoError(t, err)
+
+	go func() {
+		for {
+			select {
+			// receive the events
+			case e := <-actionCh:
+				switch e.Message.Type {
+				// receive the event on ConnectionRequest message type
+				case ConnectionRequest:
+					handleConnectionRequestEvents(t, svc, e, done)
+				// receive the event on ConnectionResponse message type
+				case ConnectionResponse:
+					handleConnectionResponseEvents(t, svc, e)
+				// receive the event on ConnectionAck message type
+				case ConnectionAck:
+					handleConnectionAckEvents(t, svc, e)
+				}
+			}
+		}
+	}()
+
+	statusCh := make(chan dispatcher.DIDCommMsg, 10)
+	err = svc.RegisterMsg(statusCh)
+	require.NoError(t, err)
+	go func() {
+		for {
+			select {
+			// receive the events
+			case e := <-statusCh:
+				switch e.Type {
+				case ConnectionRequest:
+					writeToDB(t, svc, e)
+				}
+			}
+		}
+	}()
+
+}
+
+func handleConnectionRequestEvents(t *testing.T, svc *Service, e event.DIDCommEvent, done chan bool) {
+	require.NotEmpty(t, e.Message)
+	require.Equal(t, ConnectionRequest, e.Message.Type)
+
+	pl := payload{}
+	err := json.Unmarshal(e.Message.Payload, &pl)
+	require.NoError(t, err)
+
+	if pl.ID == "done" {
+		done <- true
+		return
+	}
+	err = func(e event.DIDCommEvent) error {
+		err := json.Unmarshal(e.Message.Payload, &pl)
+		require.NoError(t, err)
+
+		if pl.ID == invalidThreadID {
+			return errors.New("invalid id")
+		}
+
+		return nil
+	}(e)
+
+	// invoke callback
+	e.Callback(event.DIDCommCallback{Err: err})
+
+	if pl.ID == invalidThreadID {
+		// no state change since there was a error with processing
+		s, err := svc.currentState(pl.ID)
+		require.NoError(t, err)
+		require.Equal(t, "null", s.Name())
+	} else {
+		require.Fail(t, "handleConnectionRequestEvents tests are not validated")
+	}
+}
+
+func handleConnectionResponseEvents(t *testing.T, svc *Service, e event.DIDCommEvent) {
+	require.NotEmpty(t, e.Message)
+	require.Equal(t, ConnectionResponse, e.Message.Type)
+
+	pl := payload{}
+	err := json.Unmarshal(e.Message.Payload, &pl)
+	require.NoError(t, err)
+
+	if pl.ID == "change-id" {
+		e.Callback = func(didCommCallback event.DIDCommCallback) {
+			svc.processCallback("invalid-id", didCommCallback)
+		}
+	}
+
+	if pl.ID == "handle-error" {
+		jsonDoc, err := json.Marshal(&message{
+			NextStateName: "invalid",
+		})
+		require.NoError(t, err)
+
+		id := generateRandomID()
+		err = svc.store.Put(id, jsonDoc)
+		require.NoError(t, err)
+
+		e.Callback = func(didCommCallback event.DIDCommCallback) {
+			svc.processCallback(id, didCommCallback)
+		}
+	}
+
+	// invoke callback
+	e.Callback(event.DIDCommCallback{Err: nil})
+	if pl.ID == "change-id" {
+		// no state change since there was a error with processing
+		s, err := svc.currentState(pl.ID)
+		require.NoError(t, err)
+		require.Equal(t, "requested", s.Name())
+	} else if pl.ID == "handle-error" {
+		// no s change since there was a error with processing
+		s, err := svc.currentState(pl.ID)
+		require.NoError(t, err)
+		require.Equal(t, "requested", s.Name())
+	} else {
+		require.Fail(t, "handleConnectionResponseEvents tests are not validated")
+	}
+}
+
+func handleConnectionAckEvents(t *testing.T, svc *Service, e event.DIDCommEvent) {
+	require.NotEmpty(t, e.Message)
+	require.Equal(t, ConnectionAck, e.Message.Type)
+
+	pl := payload{}
+	err := json.Unmarshal(e.Message.Payload, &pl)
+	require.NoError(t, err)
+
+	if pl.ID == "corrupt" {
+		id := generateRandomID()
+		err := svc.store.Put(id, []byte("invalid json"))
+		require.NoError(t, err)
+
+		e.Callback = func(didCommCallback event.DIDCommCallback) {
+			svc.processCallback(id, didCommCallback)
+		}
+	}
+
+	// invoke callback
+	e.Callback(event.DIDCommCallback{Err: nil})
+	if pl.ID == "corrupt" {
+		// no state change since there was a error with processing
+		s, err := svc.currentState(pl.ID)
+		require.NoError(t, err)
+		require.Equal(t, "responded", s.Name())
+	} else {
+		require.Fail(t, "handleConnectionAckEvents tests are not validated")
+	}
+}
+
+func writeToDB(t *testing.T, svc *Service, e dispatcher.DIDCommMsg) {
+	require.NotEmpty(t, e)
+
+	pl := payload{}
+	err := json.Unmarshal(e.Payload, &pl)
+	require.NoError(t, err)
+	svc.store.Put("status-event"+pl.ID, []byte("status_event"))
+}
+
+func validateSuccessCase(t *testing.T, svc *Service) {
+	id := "valid-thread-id"
+	// verify the state before invite
+	s, err := svc.currentState(id)
+	require.NoError(t, err)
+	require.Equal(t, "null", s.Name())
+
+	invite, err := json.Marshal(
+		&Invitation{
+			Type:  ConnectionInvite,
+			ID:    id,
+			Label: "test",
+		},
+	)
+	require.NoError(t, err)
+
+	// send invite
+	msg := dispatcher.DIDCommMsg{
+		Type:    ConnectionInvite,
+		Payload: invite,
+	}
+
+	err = svc.Handle(msg)
+	require.NoError(t, err)
+}
+
+func validateUserError(t *testing.T, svc *Service) {
+	id := invalidThreadID
+
+	// verify the state before connection request message
+	s, err := svc.currentState(id)
+	require.NoError(t, err)
+	require.Equal(t, "null", s.Name())
+
+	request, err := json.Marshal(
+		&Request{
+			Type:  ConnectionRequest,
+			ID:    id,
+			Label: "test",
+		},
+	)
+	require.NoError(t, err)
+
+	msg := dispatcher.DIDCommMsg{
+		Type:    ConnectionRequest,
+		Payload: request,
+	}
+
+	err = svc.Handle(msg)
+	require.NoError(t, err)
+}
+
+func validateStoreError(t *testing.T, svc *Service) {
+	id := "change-id"
+
+	// update the state to requested for this thread ID (to bypass the validations for ConnectionResponse message type)
+	err := svc.update(id, &requested{})
+	require.NoError(t, err)
+
+	// verify the state before connection response message
+	s, err := svc.currentState(id)
+	require.NoError(t, err)
+	require.Equal(t, "requested", s.Name())
+
+	request, err := json.Marshal(
+		&Request{
+			Type:  ConnectionResponse,
+			ID:    id,
+			Label: "test",
+		},
+	)
+	require.NoError(t, err)
+
+	msg := dispatcher.DIDCommMsg{
+		Type:    ConnectionResponse,
+		Payload: request,
+	}
+
+	err = svc.Handle(msg)
+	require.NoError(t, err)
+}
+
+func validateStoreDataCorruptionError(t *testing.T, svc *Service) {
+	id := "corrupt"
+
+	// update the state to responded for this thread ID (to bypass the validations for ConnectionAck message type)
+	err := svc.update(id, &responded{})
+	require.NoError(t, err)
+
+	// verify the s
+	s, err := svc.currentState(id)
+	require.NoError(t, err)
+	require.Equal(t, "responded", s.Name())
+
+	request, err := json.Marshal(
+		&Request{
+			Type:  ConnectionAck,
+			ID:    id,
+			Label: "test",
+		},
+	)
+	require.NoError(t, err)
+
+	msg := dispatcher.DIDCommMsg{
+		Type:    ConnectionAck,
+		Payload: request,
+	}
+
+	err = svc.Handle(msg)
+	require.NoError(t, err)
+}
+
+func validateHandleError(t *testing.T, svc *Service) {
+	id := "handle-error"
+
+	// update the state to requested for this thread ID (to bypass the validations for ConnectionResponse message type)
+	err := svc.update(id, &requested{})
+	require.NoError(t, err)
+
+	// verify the s before invite
+	s, err := svc.currentState(id)
+	require.NoError(t, err)
+	require.Equal(t, "requested", s.Name())
+
+	request, err := json.Marshal(
+		&Request{
+			Type:  ConnectionResponse,
+			ID:    id,
+			Label: "test",
+		},
+	)
+	require.NoError(t, err)
+
+	msg := dispatcher.DIDCommMsg{
+		Type:    ConnectionResponse,
+		Payload: request,
+	}
+
+	err = svc.Handle(msg)
+	require.NoError(t, err)
+}
+
+func validateStatusEventAction(t *testing.T, svc *Service) {
+	val, err := svc.store.Get("status-event" + invalidThreadID)
+	require.NoError(t, err)
+	require.Equal(t, "status_event", string(val))
+}
+
+func TestService_No_AutoExecution(t *testing.T) {
+
+	dbstore, cleanup := store(t)
+	defer cleanup()
+
+	svc := New(dbstore, &mockProvider{})
+
+	msg := dispatcher.DIDCommMsg{
+		Type: ConnectionResponse,
+	}
+
+	err := svc.Handle(msg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no clients are registered to handle the message")
+}
+
+func TestService_Execute(t *testing.T) {
+
+	dbstore, cleanup := store(t)
+	defer cleanup()
+
+	svc := New(dbstore, &mockProvider{})
+
+	// validate before register
+	require.Nil(t, svc.actionEvent)
+	require.False(t, svc.execute)
+
+	// register a action event
+	ch := make(chan event.DIDCommEvent, 10)
+	err := svc.RegisterEvent(ch)
+	require.NoError(t, err)
+
+	// validate after register
+	require.NotNil(t, svc.actionEvent)
+	require.True(t, svc.execute)
+
+	// unregister a action event
+	err = svc.UnregisterEvent()
+	require.NoError(t, err)
+
+	// validate after unregister
+	require.Nil(t, svc.actionEvent)
+	require.False(t, svc.execute)
+
+	// register for auto execute
+	err = svc.RegisterAutoExecute()
+	require.NoError(t, err)
+	require.True(t, svc.execute)
+
+	// unregister for auto execute
+	err = svc.UnregisterAutoExecute()
+	require.NoError(t, err)
+	require.False(t, svc.execute)
+
+	// register for auto execute and action event
+	err = svc.RegisterEvent(ch)
+	require.NoError(t, err)
+	err = svc.RegisterAutoExecute()
+	require.NoError(t, err)
+	require.True(t, svc.execute)
+
+	// unregister action event with auto execute set
+	err = svc.UnregisterEvent()
+	require.NoError(t, err)
+	require.False(t, svc.execute)
+}
+
+func TestService_StatusEvents(t *testing.T) {
+
+	dbstore, cleanup := store(t)
+	defer cleanup()
+
+	svc := New(dbstore, &mockProvider{})
+
+	// validate before register
+	require.Nil(t, svc.statusEvents)
+	require.Equal(t, 0, len(svc.statusEvents))
+
+	// register a status event
+	ch := make(chan dispatcher.DIDCommMsg, 10)
+	err := svc.RegisterMsg(ch)
+	require.NoError(t, err)
+
+	// validate after register
+	require.NotNil(t, svc.statusEvents)
+	require.Equal(t, 1, len(svc.statusEvents))
+
+	// register a new status event
+	err = svc.RegisterMsg(make(chan dispatcher.DIDCommMsg, 10))
+	require.NoError(t, err)
+
+	// validate after new register
+	require.NotNil(t, svc.statusEvents)
+	require.Equal(t, 2, len(svc.statusEvents))
+
+	// unregister a status event
+	err = svc.UnregisterMsg(ch)
+	require.NoError(t, err)
+
+	// validate after unregister
+	require.Equal(t, 1, len(svc.statusEvents))
 }
