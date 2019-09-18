@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package wallet
 
 import (
+	"github.com/btcsuite/btcutil/base58"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -53,5 +55,21 @@ func (m *CloseableWallet) UnpackMessage(encMessage []byte) (*wallet.Envelope, er
 
 // CreateDID returns new DID Document
 func (m *CloseableWallet) CreateDID() (*did.Doc, error) {
-	return nil, nil
+	return &did.Doc{
+		Context: []string{"https://w3id.org/did/v1"},
+		ID:      "did:example:123456789abcdefghi#inbox",
+		Service: []did.Service{{
+			ServiceEndpoint: "https://localhost:8090",
+		}},
+		PublicKey: []did.PublicKey{{
+			ID:         "did:example:123456789abcdefghi#keys-1",
+			Controller: "did:example:123456789abcdefghi",
+			Type:       "Secp256k1VerificationKey2018",
+			Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")},
+			{ID: "did:example:123456789abcdefghw#key2",
+				Controller: "did:example:123456789abcdefghw",
+				Type:       "RsaVerificationKey2018",
+				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")},
+		},
+	}, nil
 }

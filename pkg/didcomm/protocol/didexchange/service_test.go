@@ -21,12 +21,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 const (
-	destinationURL  = "https://localhost:8090"
-	successResponse = "success"
 	invalidThreadID = "invalidThreadID"
 )
 
@@ -94,20 +94,6 @@ func TestGenerateInviteWithKeyAndEndpoint(t *testing.T) {
 	require.Empty(t, invite)
 }
 
-func TestSendRequest(t *testing.T) {
-	dbstore, cleanup := store(t)
-	defer cleanup()
-	prov := New(dbstore, &mockProvider{})
-
-	req := &Request{
-		ID:    "5678876542345",
-		Label: "Bob",
-	}
-
-	require.NoError(t, prov.SendExchangeRequest(req, destinationURL))
-	require.Error(t, prov.SendExchangeRequest(nil, destinationURL))
-}
-
 func TestService_Name(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
@@ -116,26 +102,16 @@ func TestService_Name(t *testing.T) {
 	require.Equal(t, DIDExchange, prov.Name())
 }
 
-func TestSendResponse(t *testing.T) {
-	prov := New(nil, &mockProvider{})
-
-	resp := &Response{
-		ID: "12345678900987654321",
-		ConnectionSignature: &ConnectionSignature{
-			Type: "did:trustbloc:RQkehfoFssiwQRuihskwoPSR;spec/ed25519Sha512_single/1.0/ed25519Sha512_single",
-		},
-	}
-
-	require.NoError(t, prov.SendExchangeResponse(resp, destinationURL))
-	require.Error(t, prov.SendExchangeResponse(nil, destinationURL))
-}
-
 // did-exchange flow with role Inviter
 func TestService_Handle_Inviter(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
-	m := mockProvider{}
-	s := &Service{outboundDispatcher: m.OutboundDispatcher(), store: dbstore}
+	prov := mockProvider{}
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
+	newDidDoc, err := ctx.didWallet.CreateDID()
+	require.NoError(t, err)
+
+	s := &Service{ctx: ctx, store: dbstore}
 	s.RegisterAutoExecute()
 	thid := randomString()
 
@@ -147,7 +123,8 @@ func TestService_Handle_Inviter(t *testing.T) {
 			ID:    thid,
 			Label: "Bob",
 			Connection: &Connection{
-				DID: "B.did@B:A",
+				DID:    "B.did@B:A",
+				DIDDoc: newDidDoc,
 			},
 		})
 	require.NoError(t, err)
@@ -187,8 +164,10 @@ func TestService_Handle_Invitee(t *testing.T) {
 			return nil, storage.ErrDataNotFound
 		},
 	}
-	m := mockProvider{}
-	s := &Service{outboundDispatcher: m.OutboundDispatcher(), store: store}
+	prov := mockProvider{}
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
+
+	s := &Service{ctx: ctx, store: store}
 	s.RegisterAutoExecute()
 
 	// Alice receives an invitation from Bob
@@ -238,7 +217,8 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("must not start with Response msg", func(t *testing.T) {
-		s := &Service{outboundDispatcher: newMockOutboundDispatcher(), store: newMockStore()}
+		ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
+		s := &Service{ctx: ctx, store: newMockStore()}
 		response, err := json.Marshal(
 			&Response{
 				Type: ConnectionResponse,
@@ -250,7 +230,8 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("must not start with ACK msg", func(t *testing.T) {
-		s := &Service{outboundDispatcher: newMockOutboundDispatcher(), store: newMockStore()}
+		ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
+		s := &Service{ctx: ctx, store: newMockStore()}
 		ack, err := json.Marshal(
 			&Ack{
 				Type: ConnectionAck,
@@ -262,7 +243,12 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("must not transition to same state", func(t *testing.T) {
-		s := &Service{outboundDispatcher: newMockOutboundDispatcher(), store: newMockStore()}
+		prov := mockProvider{}
+		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
+		newDidDoc, err := ctx.didWallet.CreateDID()
+		require.NoError(t, err)
+
+		s := &Service{ctx: ctx, store: newMockStore()}
 		s.RegisterAutoExecute()
 		thid := randomString()
 		request, err := json.Marshal(
@@ -270,6 +256,10 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 				Type:  ConnectionRequest,
 				ID:    thid,
 				Label: "test",
+				Connection: &Connection{
+					DID:    newDidDoc.ID,
+					DIDDoc: newDidDoc,
+				},
 			},
 		)
 		require.NoError(t, err)
@@ -292,8 +282,9 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("error when updating store on first state transition", func(t *testing.T) {
+		ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
 		s := &Service{
-			outboundDispatcher: newMockOutboundDispatcher(),
+			ctx: ctx,
 			store: &mockStore{
 				get: func(string) ([]byte, error) {
 					return nil, storage.ErrDataNotFound
@@ -316,8 +307,9 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 	t.Run("error when updating store on followup state transition", func(t *testing.T) {
 		counter := 0
+		ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
 		s := &Service{
-			outboundDispatcher: newMockOutboundDispatcher(),
+			ctx: ctx,
 			store: &mockStore{
 				get: func(string) ([]byte, error) {
 					return nil, storage.ErrDataNotFound
@@ -344,7 +336,8 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("error on invalid msg type", func(t *testing.T) {
-		s := &Service{outboundDispatcher: newMockOutboundDispatcher(), store: newMockStore()}
+		ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
+		s := &Service{ctx: ctx, store: newMockStore()}
 		request, err := json.Marshal(
 			&Request{
 				Type:  ConnectionRequest,
@@ -361,8 +354,8 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 func TestService_Accept(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
-	m := mockProvider{}
-	s := &Service{outboundDispatcher: m.OutboundDispatcher(), store: dbstore}
+	ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
+	s := &Service{ctx: ctx, store: dbstore}
 
 	resp := s.Accept("did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation")
 	require.Equal(t, true, resp)
@@ -489,6 +482,10 @@ func (p *mockProvider) OutboundDispatcher() dispatcher.Outbound {
 	return &mockdispatcher.MockOutbound{}
 }
 
+// CryptoWallet returns the pack wallet service
+func (p *mockProvider) DIDWallet() wallet.DIDCreator {
+	return &mockwallet.CloseableWallet{}
+}
 func store(t testing.TB) (storage.Store, func()) {
 	prov := mockstorage.NewMockStoreProvider()
 	dbstore, err := prov.GetStoreHandle()
@@ -511,8 +508,8 @@ type payload struct {
 func TestService_Events(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
-
-	svc := New(dbstore, &mockProvider{})
+	prov := &mockProvider{}
+	svc := New(dbstore, prov)
 	done := make(chan bool)
 
 	startConsumer(t, svc, done)

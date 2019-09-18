@@ -47,7 +47,6 @@ func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
 func (p *Provider) OutboundTransports() []transport.OutboundTransport {
 	return []transport.OutboundTransport{p.outboundTransport}
 }
-
 // Service return protocol service
 func (p *Provider) Service(id string) (interface{}, error) {
 	for _, v := range p.services {
@@ -68,11 +67,14 @@ func (p *Provider) PackWallet() wallet.Pack {
 	return p.wallet
 }
 
+// CryptoWallet returns the pack wallet service
+func (p *Provider) DIDWallet() wallet.DIDCreator {
+	return p.wallet
+}
 // InboundTransportEndpoint returns the inbound transport endpoint
 func (p *Provider) InboundTransportEndpoint() string {
 	return p.inboundTransportEndpoint
 }
-
 // InboundMessageHandler return inbound message handler
 func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	return func(payload []byte) error {
@@ -94,7 +96,6 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		return fmt.Errorf("no message handlers found for the message type: %s", msgType.Type)
 	}
 }
-
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 

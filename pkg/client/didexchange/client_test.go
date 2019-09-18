@@ -17,6 +17,7 @@ import (
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 func TestNew(t *testing.T) {
@@ -98,4 +99,8 @@ type mockProvider struct {
 
 func (m *mockProvider) OutboundDispatcher() dispatcher.Outbound {
 	return &mockdispatcher.MockOutbound{}
+}
+
+func (m *mockProvider) DIDWallet() wallet.DIDCreator {
+	return &mockwallet.CloseableWallet{}
 }

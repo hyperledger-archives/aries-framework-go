@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/event"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // TODO https://github.com/hyperledger/aries-framework-go/issues/104
@@ -57,25 +58,33 @@ type message struct {
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
+	DIDWallet() wallet.DIDCreator
 }
 
 // Service for DID exchange protocol
 type Service struct {
+	ctx             context
+	store           storage.Store
+	callbackChannel chan didCommChMessage
+	actionEvent     chan<- event.DIDCommEvent
+	statusEvents    []chan<- dispatcher.DIDCommMsg
+	lock            sync.RWMutex
+	statusEventLock sync.RWMutex
+	execute         bool
+}
+
+type context struct {
 	outboundDispatcher dispatcher.Outbound
-	store              storage.Store
-	callbackChannel    chan didCommChMessage
-	actionEvent        chan<- event.DIDCommEvent
-	statusEvents       []chan<- dispatcher.DIDCommMsg
-	lock               sync.RWMutex
-	statusEventLock    sync.RWMutex
-	execute            bool
+	didWallet          wallet.DIDCreator
 }
 
 // New return didexchange service
 func New(store storage.Store, prov provider) *Service {
 	svc := &Service{
-		outboundDispatcher: prov.OutboundDispatcher(),
-		store:              store,
+		ctx: context{
+			outboundDispatcher: prov.OutboundDispatcher(),
+			didWallet:          prov.DIDWallet()},
+		store: store,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan didCommChMessage, 10),
 		// set execute to false. Consumers have to enable this by setting either RegisterEvent() or
@@ -209,7 +218,7 @@ func (s *Service) handle(msg *message) error {
 		return fmt.Errorf("invalid state name: %w", err)
 	}
 
-	followup, err := next.Execute(msg.Msg)
+	followup, err := next.Execute(msg.Msg, s.ctx)
 	if err != nil {
 		return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 	}
@@ -218,7 +227,7 @@ func (s *Service) handle(msg *message) error {
 		return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 	}
 	for ; !isNoOp(followup); followup = next {
-		next, err = followup.Execute(msg.Msg)
+		next, err = followup.Execute(msg.Msg, s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", followup.Name(), err)
 		}
@@ -391,44 +400,6 @@ func (s *Service) Connections() {
 	// TODO add Connections logic
 
 }
-
-// TODO all these 'destination' parameters should be a complex type that provides the recipientKeys,
-//      routingKeys, and serviceEndpoint. The recipientKeys should be fed into the wallet.Pack() function.
-//      The routingKeys are used to create the encryption envelopes. Finally, the whole structure is sent
-//      to the serviceEndpoint.
-
-// SendExchangeRequest sends exchange request
-func (s *Service) SendExchangeRequest(exchangeRequest *Request, destination string) error {
-	if exchangeRequest == nil {
-		return errors.New("exchangeRequest cannot be nil")
-	}
-
-	exchangeRequest.Type = ConnectionRequest
-
-	// ignore response data as it is not used in this communication mode as defined in the spec
-	_, err := s.marshalAndSend(exchangeRequest, "Error Marshalling Exchange Request", destination)
-	return err
-}
-
-// SendExchangeResponse sends exchange response
-func (s *Service) SendExchangeResponse(exchangeResponse *Response, destination string) error {
-	if exchangeResponse == nil {
-		return errors.New("exchangeResponse cannot be nil")
-	}
-
-	exchangeResponse.Type = ConnectionResponse
-
-	// ignore response data as it is not used in this communication mode as defined in the spec
-	_, err := s.marshalAndSend(exchangeResponse, "Error Marshalling Exchange Response", destination)
-	return err
-}
-
-func (s *Service) marshalAndSend(data interface{}, errorMsg, destination string) (string, error) {
-	// TODO an outboundtransport implementation should be selected based on the destination's URL.
-	// TODO add Destination struct
-	return "", s.outboundDispatcher.Send(data, "", nil)
-}
-
 func generateRandomID() string {
 	return uuid.New().String()
 }

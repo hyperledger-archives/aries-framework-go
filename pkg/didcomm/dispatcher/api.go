@@ -23,9 +23,11 @@ type DIDCommMsg struct {
 	// Outbound indicates the direction of this DIDComm message:
 	//   - outgoing (to another agent)
 	//   - incoming (from another agent)
-	Outbound bool
-	Type     string
-	Payload  []byte
+	Outbound            bool
+	Type                string
+	Payload             []byte
+	//TODO : might need refactor as per the issue-226
+	OutboundDestination *Destination
 }
 
 // Destination provides the recipientKeys, routingKeys, and serviceEndpoint populated from Invitation
