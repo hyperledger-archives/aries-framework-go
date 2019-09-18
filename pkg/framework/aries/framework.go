@@ -25,14 +25,15 @@ type DIDResolver interface {
 
 // Aries provides access to clients being managed by the framework.
 type Aries struct {
-	transport           api.TransportProviderFactory
-	didResolver         DIDResolver
-	storeProvider       storage.Provider
-	protocolSvcCreators []api.ProtocolSvcCreator
-	services            []dispatcher.Service
-	inboundTransport    transport.InboundTransport
-	walletCreator       api.WalletCreator
-	wallet              api.CloseableWallet
+	transport                 api.TransportProviderFactory
+	didResolver               DIDResolver
+	storeProvider             storage.Provider
+	protocolSvcCreators       []api.ProtocolSvcCreator
+	services                  []dispatcher.Service
+	inboundTransport          transport.InboundTransport
+	walletCreator             api.WalletCreator
+	wallet                    api.CloseableWallet
+	outboundDispatcherCreator dispatcher.OutboundCreator
 }
 
 // Option configures the framework.
@@ -70,12 +71,9 @@ func New(opts ...Option) (*Aries, error) {
 	}
 
 	// Load services
-	for _, v := range frameworkOpts.protocolSvcCreators {
-		svc, svcErr := v(ctxProvider)
-		if svcErr != nil {
-			return nil, fmt.Errorf("new protocol service failed: %w", svcErr)
-		}
-		frameworkOpts.services = append(frameworkOpts.services, svc)
+	err = loadServices(frameworkOpts, ctxProvider)
+	if err != nil {
+		return nil, err
 	}
 
 	ctxProvider, err = frameworkOpts.Context()
@@ -87,10 +85,22 @@ func New(opts ...Option) (*Aries, error) {
 	if err = frameworkOpts.inboundTransport.Start(ctxProvider); err != nil {
 		return nil, fmt.Errorf("inbound transport start failed: %w", err)
 	}
+	// Create wallet
 	if err := createWallet(frameworkOpts); err != nil {
 		return nil, err
 	}
 	return frameworkOpts, nil
+}
+
+func loadServices(frameworkOpts *Aries, ctxProvider *context.Provider) error {
+	for _, v := range frameworkOpts.protocolSvcCreators {
+		svc, svcErr := v(ctxProvider)
+		if svcErr != nil {
+			return fmt.Errorf("new protocol service failed: %w", svcErr)
+		}
+		frameworkOpts.services = append(frameworkOpts.services, svc)
+	}
+	return nil
 }
 
 // WithTransportProviderFactory injects a protocol provider factory interface to Aries
@@ -133,6 +143,14 @@ func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
 	}
 }
 
+// WithOutboundDispatcher injects a outbound dispatcher service to the Aries framework
+func WithOutboundDispatcher(o dispatcher.OutboundCreator) Option {
+	return func(opts *Aries) error {
+		opts.outboundDispatcherCreator = o
+		return nil
+	}
+}
+
 // WithWallet injects a wallet service to the Aries framework
 func WithWallet(w api.WalletCreator) Option {
 	return func(opts *Aries) error {
@@ -148,13 +166,13 @@ func (a *Aries) DIDResolver() DIDResolver {
 
 // Context provides handle to framework context
 func (a *Aries) Context() (*context.Provider, error) {
-	ot, err := a.transport.CreateOutboundTransport()
+	// Create outbound dispatcher
+	outboundDispatcher, err := a.createOutboundDispatcher()
 	if err != nil {
-		return nil, fmt.Errorf("outbound transport initialization failed: %w", err)
+		return nil, err
 	}
-
 	return context.New(
-		context.WithOutboundTransport(ot), context.WithProtocolServices(a.services...),
+		context.WithOutboundDispatcher(outboundDispatcher), context.WithProtocolServices(a.services...),
 		// TODO configure inbound external endpoints
 		context.WithWallet(a.wallet), context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 	)
@@ -191,4 +209,17 @@ func createWallet(frameworkOpts *Aries) error {
 	}
 
 	return nil
+}
+
+func (a *Aries) createOutboundDispatcher() (dispatcher.Outbound, error) {
+	ot, err := a.transport.CreateOutboundTransport()
+	if err != nil {
+		return nil, fmt.Errorf("outbound transport initialization failed: %w", err)
+	}
+	outboundDispatcher, err := a.outboundDispatcherCreator([]transport.OutboundTransport{ot})
+	if err != nil {
+		return nil, fmt.Errorf("create outbound dispatcher failed: %w", err)
+	}
+
+	return outboundDispatcher, nil
 }

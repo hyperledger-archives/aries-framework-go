@@ -19,8 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/event"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
+	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -136,7 +135,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
 	m := mockProvider{}
-	s := &Service{outboundTransport: m.OutboundTransport(), store: dbstore}
+	s := &Service{outboundDispatcher: m.OutboundDispatcher(), store: dbstore}
 	s.RegisterAutoExecute()
 	thid := randomString()
 
@@ -189,7 +188,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 		},
 	}
 	m := mockProvider{}
-	s := &Service{outboundTransport: m.OutboundTransport(), store: store}
+	s := &Service{outboundDispatcher: m.OutboundDispatcher(), store: store}
 	s.RegisterAutoExecute()
 
 	// Alice receives an invitation from Bob
@@ -239,7 +238,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("must not start with Response msg", func(t *testing.T) {
-		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
+		s := &Service{outboundDispatcher: newMockOutboundDispatcher(), store: newMockStore()}
 		response, err := json.Marshal(
 			&Response{
 				Type: ConnectionResponse,
@@ -251,7 +250,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("must not start with ACK msg", func(t *testing.T) {
-		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
+		s := &Service{outboundDispatcher: newMockOutboundDispatcher(), store: newMockStore()}
 		ack, err := json.Marshal(
 			&Ack{
 				Type: ConnectionAck,
@@ -263,7 +262,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("must not transition to same state", func(t *testing.T) {
-		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
+		s := &Service{outboundDispatcher: newMockOutboundDispatcher(), store: newMockStore()}
 		s.RegisterAutoExecute()
 		thid := randomString()
 		request, err := json.Marshal(
@@ -294,7 +293,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 	t.Run("error when updating store on first state transition", func(t *testing.T) {
 		s := &Service{
-			outboundTransport: newMockOutboundTransport(),
+			outboundDispatcher: newMockOutboundDispatcher(),
 			store: &mockStore{
 				get: func(string) ([]byte, error) {
 					return nil, storage.ErrDataNotFound
@@ -318,7 +317,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("error when updating store on followup state transition", func(t *testing.T) {
 		counter := 0
 		s := &Service{
-			outboundTransport: newMockOutboundTransport(),
+			outboundDispatcher: newMockOutboundDispatcher(),
 			store: &mockStore{
 				get: func(string) ([]byte, error) {
 					return nil, storage.ErrDataNotFound
@@ -345,7 +344,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("error on invalid msg type", func(t *testing.T) {
-		s := &Service{outboundTransport: newMockOutboundTransport(), store: newMockStore()}
+		s := &Service{outboundDispatcher: newMockOutboundDispatcher(), store: newMockStore()}
 		request, err := json.Marshal(
 			&Request{
 				Type:  ConnectionRequest,
@@ -363,7 +362,7 @@ func TestService_Accept(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
 	m := mockProvider{}
-	s := &Service{outboundTransport: m.OutboundTransport(), store: dbstore}
+	s := &Service{outboundDispatcher: m.OutboundDispatcher(), store: dbstore}
 
 	resp := s.Accept("did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation")
 	require.Equal(t, true, resp)
@@ -447,8 +446,8 @@ func TestService_update(t *testing.T) {
 	require.Equal(t, s.Name(), string(data[thid]))
 }
 
-func newMockOutboundTransport() transport.OutboundTransport {
-	return (&mockProvider{}).OutboundTransport()
+func newMockOutboundDispatcher() dispatcher.Outbound {
+	return (&mockProvider{}).OutboundDispatcher()
 }
 
 func newMockStore() storage.Store {
@@ -486,8 +485,8 @@ func (m *mockStore) Get(k string) ([]byte, error) {
 type mockProvider struct {
 }
 
-func (p *mockProvider) OutboundTransport() transport.OutboundTransport {
-	return didcomm.NewMockOutboundTransport(successResponse)
+func (p *mockProvider) OutboundDispatcher() dispatcher.Outbound {
+	return &mockdidcomm.MockOutboundDispatcher{}
 }
 
 func store(t testing.TB) (storage.Store, func()) {

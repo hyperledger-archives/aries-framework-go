@@ -18,7 +18,7 @@ import (
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
-	outboundTransport        transport.OutboundTransport
+	outboundDispatcher       dispatcher.Outbound
 	services                 []dispatcher.Service
 	wallet                   wallet.Wallet
 	inboundTransportEndpoint string
@@ -37,9 +37,9 @@ func New(opts ...ProviderOption) (*Provider, error) {
 	return &ctxProvider, nil
 }
 
-// OutboundTransport returns the outbound transport provider
-func (p *Provider) OutboundTransport() transport.OutboundTransport {
-	return p.outboundTransport
+// OutboundDispatcher returns the outbound dispatcher
+func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
+	return p.outboundDispatcher
 }
 
 // Service return protocol service
@@ -87,10 +87,10 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
-// WithOutboundTransport injects transport provider into the framework
-func WithOutboundTransport(ot transport.OutboundTransport) ProviderOption {
+// WithOutboundDispatcher injects outbound dispatcher into the context
+func WithOutboundDispatcher(ot dispatcher.Outbound) ProviderOption {
 	return func(opts *Provider) error {
-		opts.outboundTransport = ot
+		opts.outboundDispatcher = ot
 		return nil
 	}
 }

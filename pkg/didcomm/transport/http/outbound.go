@@ -107,3 +107,8 @@ func (cs *OutboundHTTPClient) Send(data, url string) (string, error) {
 	}
 	return respData, nil
 }
+
+// Scheme return outbound scheme
+func (cs *OutboundHTTPClient) Scheme() string {
+	return "http"
+}

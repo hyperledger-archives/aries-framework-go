@@ -10,6 +10,7 @@ import "errors"
 // MockOutboundTransport mock outbound transport structure
 type MockOutboundTransport struct {
 	ExpectedResponse string
+	TypeValue        string
 }
 
 // NewMockOutboundTransport new MockOutboundTransport instance
@@ -24,4 +25,9 @@ func (transport *MockOutboundTransport) Send(data, destination string) (string, 
 	}
 
 	return transport.ExpectedResponse, nil
+}
+
+// Scheme return outbound scheme
+func (transport *MockOutboundTransport) Scheme() string {
+	return transport.TypeValue
 }
