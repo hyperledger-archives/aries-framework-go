@@ -52,7 +52,6 @@ func stateFromMsgType(msgType string) (state, error) {
 // Returns the state representing the name.
 func stateFromName(name string) (state, error) {
 	switch name {
-	// TODO: need clarification: noOp state was missing, was it a bug or feature?
 	case stateNameNoop:
 		return &noOp{}, nil
 	case stateNameNull:

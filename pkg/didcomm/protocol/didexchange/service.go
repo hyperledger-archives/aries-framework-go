@@ -243,8 +243,12 @@ func (s *Service) sendEvent(msg dispatcher.DIDCommMsg, threadID string, nextStat
 		handler <- msg
 	}
 
+	s.lock.RLock()
+	aEvent := s.actionEvent
+	s.lock.RUnlock()
+
 	// invoke events for ConnectionRequest, ConnectionResponse or ConnectionAck and if action events are registered
-	if s.actionEvent == nil || msg.Type != ConnectionRequest &&
+	if aEvent == nil || msg.Type != ConnectionRequest &&
 		msg.Type != ConnectionResponse && msg.Type != ConnectionAck {
 		return false, nil
 	}
@@ -275,11 +279,7 @@ func (s *Service) sendEvent(msg dispatcher.DIDCommMsg, threadID string, nextStat
 	}
 
 	// trigger the registered action events
-	s.lock.RLock()
-	event := s.actionEvent
-	s.lock.RUnlock()
-	event <- didCommEvent
-
+	aEvent <- didCommEvent
 	return true, nil
 }
 
