@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -245,8 +244,12 @@ func (s *Service) sendEvent(msg dispatcher.DIDCommMsg, threadID string, nextStat
 		handler <- msg
 	}
 
+	s.lock.RLock()
+	aEvent := s.actionEvent
+	s.lock.RUnlock()
+
 	// invoke events for ConnectionRequest, ConnectionResponse or ConnectionAck and if action events are registered
-	if s.actionEvent == nil || msg.Type != ConnectionRequest &&
+	if aEvent == nil || msg.Type != ConnectionRequest &&
 		msg.Type != ConnectionResponse && msg.Type != ConnectionAck {
 		return false, nil
 	}
@@ -278,10 +281,13 @@ func (s *Service) sendEvent(msg dispatcher.DIDCommMsg, threadID string, nextStat
 
 	// trigger the registered action events
 	s.lock.RLock()
-	event := s.actionEvent
+	aEvent = s.actionEvent
 	s.lock.RUnlock()
-	event <- didCommEvent
-
+	if aEvent == nil {
+		return false, nil
+	}
+	// TODO: it can be panic if the channel was closed
+	aEvent <- didCommEvent
 	return true, nil
 }
 
