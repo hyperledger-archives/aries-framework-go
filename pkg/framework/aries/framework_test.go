@@ -64,31 +64,7 @@ func TestFramework(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	// framework new - success
-	t.Run("test framework new - returns framework", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-		dbPath = path
-		aries, err := New(WithTransportProviderFactory(&mockTransportProviderFactory{}))
-		require.NoError(t, err)
-
-		// context
-		ctx, err := aries.Context()
-		require.NoError(t, err)
-
-		// did exchange client
-		exClient := didexchange.New(nil, ctx)
-		require.NoError(t, err)
-
-		req := &didexchange.Request{
-			ID:    "5678876542345",
-			Label: "Bob",
-		}
-		require.NoError(t, exClient.SendExchangeRequest(req, "http://example/didexchange"))
-		require.Error(t, exClient.SendExchangeRequest(req, ""))
-	})
-
-	t.Run("test framework new - with default transport", func(t *testing.T) {
+	t.Run("test framework new - with default outbound dispatcher", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
@@ -111,10 +87,41 @@ func TestFramework(t *testing.T) {
 		ctx, err := aries.Context()
 		require.NoError(t, err)
 
-		r, e := ctx.OutboundTransport().Send("Hello World", serverURL)
+		// TODO fix test case after adding default implementation for outbound dispatcher
+		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), &dispatcher.Destination{ServiceEndpoint: serverURL})
+		require.Error(t, e)
+	})
+
+	t.Run("test framework new - with inject outbound dispatcher", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}),
+			WithOutboundDispatcher(func(outboundTransports []transport.OutboundTransport) (outbound dispatcher.Outbound, e error) {
+				return &didcomm.MockOutboundDispatcher{}, nil
+			}))
+		require.NoError(t, err)
+
+		// context
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+
+		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), &dispatcher.Destination{})
 		require.NoError(t, e)
-		require.NotEmpty(t, r)
-		require.Equal(t, "success", r)
+	})
+
+	t.Run("test framework new - error from create outbound dispatcher", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		_, err := New(WithInboundTransport(&mockInboundTransport{}),
+			WithOutboundDispatcher(func(outboundTransports []transport.OutboundTransport) (outbound dispatcher.Outbound, e error) {
+				return nil, fmt.Errorf("create outbound dispatcher error")
+			}))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create outbound dispatcher error")
 	})
 
 	t.Run("test framework new - failed to create the context : error with user provided transport ", func(t *testing.T) { //nolint:lll

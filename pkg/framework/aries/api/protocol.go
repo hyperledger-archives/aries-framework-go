@@ -10,7 +10,6 @@ import (
 	"errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
@@ -19,7 +18,7 @@ var ErrSvcNotFound = errors.New("service not found")
 
 // Provider interface for protocol ctx
 type Provider interface {
-	OutboundTransport() transport.OutboundTransport
+	OutboundDispatcher() dispatcher.Outbound
 	Service(id string) (interface{}, error)
 	CryptoWallet() wallet.Crypto
 	InboundTransportEndpoint() string

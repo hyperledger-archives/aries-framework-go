@@ -20,7 +20,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/event"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -57,27 +56,26 @@ type message struct {
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
-	OutboundTransport() transport.OutboundTransport
+	OutboundDispatcher() dispatcher.Outbound
 }
 
 // Service for DID exchange protocol
 type Service struct {
-	outboundTransport transport.OutboundTransport
-	store             storage.Store
-	callbackChannel   chan didCommChMessage
-	actionEvent       chan<- event.DIDCommEvent
-	statusEvents      []chan<- dispatcher.DIDCommMsg
-	lock              sync.RWMutex
-	statusEventLock   sync.RWMutex
-	execute           bool
+	outboundDispatcher dispatcher.Outbound
+	store              storage.Store
+	callbackChannel    chan didCommChMessage
+	actionEvent        chan<- event.DIDCommEvent
+	statusEvents       []chan<- dispatcher.DIDCommMsg
+	lock               sync.RWMutex
+	statusEventLock    sync.RWMutex
+	execute            bool
 }
 
 // New return didexchange service
 func New(store storage.Store, prov provider) *Service {
 	svc := &Service{
-		// TODO Outbound dispatcher - https://github.com/hyperledger/aries-framework-go/issues/259
-		outboundTransport: prov.OutboundTransport(),
-		store:             store,
+		outboundDispatcher: prov.OutboundDispatcher(),
+		store:              store,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan didCommChMessage, 10),
 		// set execute to false. Consumers have to enable this by setting either RegisterEvent() or
@@ -425,13 +423,9 @@ func (s *Service) SendExchangeResponse(exchangeResponse *Response, destination s
 }
 
 func (s *Service) marshalAndSend(data interface{}, errorMsg, destination string) (string, error) {
-	// TODO need access to the wallet in order to first pack() the msg before sending
-	jsonString, err := json.Marshal(data)
-	if err != nil {
-		return "", fmt.Errorf("%s : %w", errorMsg, err)
-	}
 	// TODO an outboundtransport implementation should be selected based on the destination's URL.
-	return s.outboundTransport.Send(string(jsonString), destination)
+	// TODO add Destination struct
+	return "", s.outboundDispatcher.Send(data, nil)
 }
 
 func generateRandomID() string {

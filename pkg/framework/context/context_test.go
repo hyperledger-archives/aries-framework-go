@@ -23,13 +23,13 @@ func TestNewProvider(t *testing.T) {
 	t.Run("test new with default", func(t *testing.T) {
 		prov, err := New()
 		require.NoError(t, err)
-		require.Empty(t, prov.OutboundTransport())
+		require.Empty(t, prov.OutboundDispatcher())
 	})
 
 	t.Run("test new with outbound transport", func(t *testing.T) {
-		prov, err := New(WithOutboundTransport(didcomm.NewMockOutboundTransport("success")))
+		prov, err := New(WithOutboundDispatcher(&didcomm.MockOutboundDispatcher{}))
 		require.NoError(t, err)
-		require.NotEmpty(t, prov.OutboundTransport())
+		require.NoError(t, prov.OutboundDispatcher().Send(nil, nil))
 	})
 
 	t.Run("test error return from options", func(t *testing.T) {

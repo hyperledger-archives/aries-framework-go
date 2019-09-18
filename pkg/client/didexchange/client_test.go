@@ -12,8 +12,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
@@ -21,7 +21,7 @@ import (
 
 func TestNew(t *testing.T) {
 	t.Run("test new client", func(t *testing.T) {
-		_, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{})})
+		_, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{})})
 		require.NoError(t, err)
 	})
 
@@ -40,7 +40,7 @@ func TestNew(t *testing.T) {
 
 func TestClient_CreateInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{}),
+		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{}),
 			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation()
@@ -52,7 +52,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 	})
 
 	t.Run("test error from createSigningKey", func(t *testing.T) {
-		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{}),
+		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{}),
 			WalletValue: &mockwallet.CloseableWallet{CreateSigningKeyErr: fmt.Errorf("createSigningKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation()
@@ -63,7 +63,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 }
 
 func TestClient_QueryConnectionByID(t *testing.T) {
-	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{})})
+	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{})})
 	require.NoError(t, err)
 
 	result, err := c.QueryConnectionByID("sample-id")
@@ -73,7 +73,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 }
 
 func TestClient_RemoveConnection(t *testing.T) {
-	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{})})
+	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{})})
 	require.NoError(t, err)
 
 	err = c.RemoveConnection("sample-id")
@@ -81,7 +81,7 @@ func TestClient_RemoveConnection(t *testing.T) {
 }
 
 func TestClient_QueryConnectionsByParams(t *testing.T) {
-	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockOutboundTransport{})})
+	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{})})
 	require.NoError(t, err)
 
 	results, err := c.QueryConnections(&QueryConnectionsParams{InvitationKey: "sample-inv-key"})
@@ -93,9 +93,9 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 	}
 }
 
-type mockOutboundTransport struct {
+type mockProvider struct {
 }
 
-func (p *mockOutboundTransport) OutboundTransport() transport.OutboundTransport {
-	return didcomm.NewMockOutboundTransport("success")
+func (m *mockProvider) OutboundDispatcher() dispatcher.Outbound {
+	return &didcomm.MockOutboundDispatcher{}
 }

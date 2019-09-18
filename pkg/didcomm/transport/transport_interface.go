@@ -11,6 +11,8 @@ package transport
 type OutboundTransport interface {
 	// Send send a2a exchange data
 	Send(data string, destination string) (string, error)
+	// Type return outbound Scheme
+	Scheme() string
 }
 
 // InboundMessageHandler handles the inbound requests. The transport will unpack the payload prior to the

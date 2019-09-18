@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	didcommtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
@@ -106,10 +107,20 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		}
 	}
 
+	setDefaultOutboundDispatcher(frameworkOpts)
+
 	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) { return didexchange.New(store, prv), nil }
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc)
 
 	return nil
+}
+
+func setDefaultOutboundDispatcher(frameworkOpts *Aries) {
+	if frameworkOpts.outboundDispatcherCreator == nil {
+		frameworkOpts.outboundDispatcherCreator = func(outboundTransports []didcommtransport.OutboundTransport) (dispatcher.Outbound, error) {
+			return dispatcher.NewOutbound(outboundTransports), nil
+		}
+	}
 }
 
 func newWallet(storeProvider storage.Provider) (api.CloseableWallet, error) {

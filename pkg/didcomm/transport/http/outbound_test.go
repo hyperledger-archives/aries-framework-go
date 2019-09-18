@@ -86,5 +86,6 @@ func TestOutboundHTTPTransport(t *testing.T) {
 	r, e = ot.Send("Hello World", serverURL)
 	require.NoError(t, e)
 	require.NotEmpty(t, r)
+	require.Equal(t, "http", ot.Scheme())
 
 }
