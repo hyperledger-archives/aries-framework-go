@@ -252,3 +252,13 @@ func TestBaseWallet_DecryptMessage(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestBaseWallet_NewDID(t *testing.T) {
+	t.Run("create new DID", func(t *testing.T) {
+		w, err := New(&mockstorage.MockStoreProvider{}, nil)
+		require.NoError(t, err)
+		didDoc, err := w.CreateDID()
+		require.Error(t, err)
+		require.Nil(t, didDoc)
+	})
+}

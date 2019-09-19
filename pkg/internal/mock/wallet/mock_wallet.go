@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package wallet
 
-import "github.com/hyperledger/aries-framework-go/pkg/wallet"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+)
 
 // CloseableWallet mock wallet
 type CloseableWallet struct {
@@ -43,5 +46,10 @@ func (m *CloseableWallet) PackMessage(envelope *wallet.Envelope) ([]byte, error)
 
 // UnpackMessage Unpack a message.
 func (m *CloseableWallet) UnpackMessage(encMessage []byte) (*wallet.Envelope, error) {
+	return nil, nil
+}
+
+// CreateDID returns new DID Document
+func (m *CloseableWallet) CreateDID() (*did.Doc, error) {
 	return nil, nil
 }
