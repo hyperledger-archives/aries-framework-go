@@ -5,12 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package didcomm
 
-import "errors"
-
 // MockOutboundTransport mock outbound transport structure
 type MockOutboundTransport struct {
 	ExpectedResponse string
-	TypeValue        string
+	SendErr          error
+	AcceptValue      bool
 }
 
 // NewMockOutboundTransport new MockOutboundTransport instance
@@ -19,15 +18,11 @@ func NewMockOutboundTransport(expectedResponse string) *MockOutboundTransport {
 }
 
 // Send implementation of MockOutboundTransport.Send api
-func (transport *MockOutboundTransport) Send(data, destination string) (string, error) {
-	if data == "" || destination == "" {
-		return "", errors.New("data and destination are mandatory")
-	}
-
-	return transport.ExpectedResponse, nil
+func (transport *MockOutboundTransport) Send(data []byte, destination string) (string, error) {
+	return transport.ExpectedResponse, transport.SendErr
 }
 
-// Scheme return outbound scheme
-func (transport *MockOutboundTransport) Scheme() string {
-	return transport.TypeValue
+// Accept url
+func (transport *MockOutboundTransport) Accept(url string) bool {
+	return transport.AcceptValue
 }

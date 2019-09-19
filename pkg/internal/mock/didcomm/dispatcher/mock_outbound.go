@@ -3,16 +3,16 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package didcomm
+package dispatcher
 
 import "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 
-// MockOutboundDispatcher mock outbound dispatcher
-type MockOutboundDispatcher struct {
+// MockOutbound mock outbound dispatcher
+type MockOutbound struct {
 	SendErr error
 }
 
 // Send msg
-func (m *MockOutboundDispatcher) Send(msg interface{}, des *dispatcher.Destination) error {
+func (m *MockOutbound) Send(msg interface{}, senderVerKey string, des *dispatcher.Destination) error {
 	return m.SendErr
 }

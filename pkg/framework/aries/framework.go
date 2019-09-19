@@ -34,6 +34,7 @@ type Aries struct {
 	walletCreator             api.WalletCreator
 	wallet                    api.CloseableWallet
 	outboundDispatcherCreator dispatcher.OutboundCreator
+	outboundDispatcher        dispatcher.Outbound
 }
 
 // Option configures the framework.
@@ -57,6 +58,11 @@ func New(opts ...Option) (*Aries, error) {
 	err := defFrameworkOpts(frameworkOpts)
 	if err != nil {
 		return nil, fmt.Errorf("default option initialization failed: %w", err)
+	}
+
+	// Create wallet
+	if err := createWallet(frameworkOpts); err != nil {
+		return nil, err
 	}
 
 	// TODO: https://github.com/hyperledger/aries-framework-go/issues/212
@@ -85,10 +91,13 @@ func New(opts ...Option) (*Aries, error) {
 	if err = frameworkOpts.inboundTransport.Start(ctxProvider); err != nil {
 		return nil, fmt.Errorf("inbound transport start failed: %w", err)
 	}
-	// Create wallet
-	if err := createWallet(frameworkOpts); err != nil {
+
+	// Create outbound dispatcher
+	err = createOutboundDispatcher(frameworkOpts, ctxProvider)
+	if err != nil {
 		return nil, err
 	}
+
 	return frameworkOpts, nil
 }
 
@@ -166,13 +175,12 @@ func (a *Aries) DIDResolver() DIDResolver {
 
 // Context provides handle to framework context
 func (a *Aries) Context() (*context.Provider, error) {
-	// Create outbound dispatcher
-	outboundDispatcher, err := a.createOutboundDispatcher()
+	ot, err := a.transport.CreateOutboundTransport()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("outbound transport initialization failed: %w", err)
 	}
 	return context.New(
-		context.WithOutboundDispatcher(outboundDispatcher), context.WithProtocolServices(a.services...),
+		context.WithOutboundDispatcher(a.outboundDispatcher), context.WithOutboundTransport(ot), context.WithProtocolServices(a.services...),
 		// TODO configure inbound external endpoints
 		context.WithWallet(a.wallet), context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 	)
@@ -211,15 +219,12 @@ func createWallet(frameworkOpts *Aries) error {
 	return nil
 }
 
-func (a *Aries) createOutboundDispatcher() (dispatcher.Outbound, error) {
-	ot, err := a.transport.CreateOutboundTransport()
+func createOutboundDispatcher(frameworkOpts *Aries, ctxProvider *context.Provider) error {
+	var err error
+	frameworkOpts.outboundDispatcher, err = frameworkOpts.outboundDispatcherCreator(ctxProvider)
 	if err != nil {
-		return nil, fmt.Errorf("outbound transport initialization failed: %w", err)
+		return fmt.Errorf("create outbound dispatcher failed: %w", err)
 	}
-	outboundDispatcher, err := a.outboundDispatcherCreator([]transport.OutboundTransport{ot})
-	if err != nil {
-		return nil, fmt.Errorf("create outbound dispatcher failed: %w", err)
-	}
+	return nil
 
-	return outboundDispatcher, nil
 }

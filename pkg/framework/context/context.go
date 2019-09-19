@@ -22,6 +22,7 @@ type Provider struct {
 	services                 []dispatcher.Service
 	wallet                   wallet.Wallet
 	inboundTransportEndpoint string
+	outboundTransport        transport.OutboundTransport
 }
 
 // New instantiated new context provider
@@ -42,6 +43,11 @@ func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
 	return p.outboundDispatcher
 }
 
+// OutboundTransport returns the outbound transports
+func (p *Provider) OutboundTransports() []transport.OutboundTransport {
+	return []transport.OutboundTransport{p.outboundTransport}
+}
+
 // Service return protocol service
 func (p *Provider) Service(id string) (interface{}, error) {
 	for _, v := range p.services {
@@ -54,6 +60,11 @@ func (p *Provider) Service(id string) (interface{}, error) {
 
 // CryptoWallet returns the crypto wallet service
 func (p *Provider) CryptoWallet() wallet.Crypto {
+	return p.wallet
+}
+
+// CryptoWallet returns the pack wallet service
+func (p *Provider) PackWallet() wallet.Pack {
 	return p.wallet
 }
 
@@ -91,6 +102,14 @@ type ProviderOption func(opts *Provider) error
 func WithOutboundDispatcher(ot dispatcher.Outbound) ProviderOption {
 	return func(opts *Provider) error {
 		opts.outboundDispatcher = ot
+		return nil
+	}
+}
+
+// WithOutboundTransport injects outbound transport into the context
+func WithOutboundTransport(ot transport.OutboundTransport) ProviderOption {
+	return func(opts *Provider) error {
+		opts.outboundTransport = ot
 		return nil
 	}
 }

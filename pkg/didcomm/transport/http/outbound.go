@@ -12,12 +12,16 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
 //go:generate testdata/scripts/openssl_env.sh testdata/scripts/generate_test_keys.sh
 
-const commContentType = "application/didcomm-envelope-enc"
+const (
+	commContentType = "application/didcomm-envelope-enc"
+	httpScheme      = "http"
+)
 
 // outboundCommHTTPOpts holds options for the HTTP transport implementation of CommTransport
 // it has an http.Client instance
@@ -78,8 +82,8 @@ func NewOutbound(opts ...OutboundHTTPOpt) (*OutboundHTTPClient, error) {
 }
 
 // Send sends a2a exchange data via HTTP (client side)
-func (cs *OutboundHTTPClient) Send(data, url string) (string, error) {
-	resp, err := cs.client.Post(url, commContentType, bytes.NewBuffer([]byte(data)))
+func (cs *OutboundHTTPClient) Send(data []byte, url string) (string, error) {
+	resp, err := cs.client.Post(url, commContentType, bytes.NewBuffer(data))
 	if err != nil {
 		logger.Errorf("posting DID envelope to agent failed [%s, %v]", url, err)
 		return "", err
@@ -108,7 +112,7 @@ func (cs *OutboundHTTPClient) Send(data, url string) (string, error) {
 	return respData, nil
 }
 
-// Scheme return outbound scheme
-func (cs *OutboundHTTPClient) Scheme() string {
-	return "http"
+// Accept url
+func (cs *OutboundHTTPClient) Accept(url string) bool {
+	return strings.HasPrefix(url, httpScheme)
 }
