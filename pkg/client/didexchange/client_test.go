@@ -14,7 +14,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
+	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 )
@@ -97,5 +97,5 @@ type mockProvider struct {
 }
 
 func (m *mockProvider) OutboundDispatcher() dispatcher.Outbound {
-	return &didcomm.MockOutboundDispatcher{}
+	return &mockdispatcher.MockOutbound{}
 }

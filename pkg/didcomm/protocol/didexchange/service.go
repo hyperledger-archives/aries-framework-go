@@ -426,7 +426,7 @@ func (s *Service) SendExchangeResponse(exchangeResponse *Response, destination s
 func (s *Service) marshalAndSend(data interface{}, errorMsg, destination string) (string, error) {
 	// TODO an outboundtransport implementation should be selected based on the destination's URL.
 	// TODO add Destination struct
-	return "", s.outboundDispatcher.Send(data, nil)
+	return "", s.outboundDispatcher.Send(data, "", nil)
 }
 
 func generateRandomID() string {

@@ -13,7 +13,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	didcommtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
@@ -117,8 +116,8 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 
 func setDefaultOutboundDispatcher(frameworkOpts *Aries) {
 	if frameworkOpts.outboundDispatcherCreator == nil {
-		frameworkOpts.outboundDispatcherCreator = func(outboundTransports []didcommtransport.OutboundTransport) (dispatcher.Outbound, error) {
-			return dispatcher.NewOutbound(outboundTransports), nil
+		frameworkOpts.outboundDispatcherCreator = func(prv dispatcher.Provider) (dispatcher.Outbound, error) {
+			return dispatcher.NewOutbound(prv), nil
 		}
 	}
 }

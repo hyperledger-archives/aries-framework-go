@@ -26,7 +26,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
@@ -80,16 +81,17 @@ func TestFramework(t *testing.T) {
 		}()
 		serverURL := fmt.Sprintf("http://localhost:%d", port)
 
-		aries, err := New(WithInboundTransport(&mockInboundTransport{}))
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}), WithWallet(func(storeProvider storage.Provider) (api.CloseableWallet, error) {
+			return &mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue")}, nil
+		}))
 		require.NoError(t, err)
 
 		// context
 		ctx, err := aries.Context()
 		require.NoError(t, err)
 
-		// TODO fix test case after adding default implementation for outbound dispatcher
-		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), &dispatcher.Destination{ServiceEndpoint: serverURL})
-		require.Error(t, e)
+		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), "", &dispatcher.Destination{ServiceEndpoint: serverURL})
+		require.NoError(t, e)
 	})
 
 	t.Run("test framework new - with inject outbound dispatcher", func(t *testing.T) {
@@ -98,8 +100,8 @@ func TestFramework(t *testing.T) {
 		dbPath = path
 
 		aries, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithOutboundDispatcher(func(outboundTransports []transport.OutboundTransport) (outbound dispatcher.Outbound, e error) {
-				return &didcomm.MockOutboundDispatcher{}, nil
+			WithOutboundDispatcher(func(prv dispatcher.Provider) (outbound dispatcher.Outbound, e error) {
+				return &mockdispatcher.MockOutbound{}, nil
 			}))
 		require.NoError(t, err)
 
@@ -107,7 +109,7 @@ func TestFramework(t *testing.T) {
 		ctx, err := aries.Context()
 		require.NoError(t, err)
 
-		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), &dispatcher.Destination{})
+		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), "", &dispatcher.Destination{})
 		require.NoError(t, e)
 	})
 
@@ -117,7 +119,7 @@ func TestFramework(t *testing.T) {
 		dbPath = path
 
 		_, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithOutboundDispatcher(func(outboundTransports []transport.OutboundTransport) (outbound dispatcher.Outbound, e error) {
+			WithOutboundDispatcher(func(prv dispatcher.Provider) (outbound dispatcher.Outbound, e error) {
 				return nil, fmt.Errorf("create outbound dispatcher error")
 			}))
 		require.Error(t, err)
@@ -309,7 +311,7 @@ func TestFramework(t *testing.T) {
 		// with custom wallet
 		aries, err := New(WithInboundTransport(&mockInboundTransport{}),
 			WithWallet(func(storeProvider storage.Provider) (api.CloseableWallet, error) {
-				return &wallet.CloseableWallet{SignMessageValue: []byte("mockValue")}, nil
+				return &mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue")}, nil
 			}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)

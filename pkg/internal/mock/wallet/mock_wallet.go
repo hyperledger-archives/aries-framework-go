@@ -17,6 +17,8 @@ type CloseableWallet struct {
 	CreateSigningKeyErr   error
 	SignMessageValue      []byte
 	SignMessageErr        error
+	PackValue             []byte
+	PackErr               error
 }
 
 // Close previously-opened wallet, removing it if so configured.
@@ -41,7 +43,7 @@ func (m *CloseableWallet) DecryptMessage(encMessage []byte, toVerKey string) ([]
 
 // PackMessage Pack a message for one or more recipients.
 func (m *CloseableWallet) PackMessage(envelope *wallet.Envelope) ([]byte, error) {
-	return nil, nil
+	return m.PackValue, m.PackErr
 }
 
 // UnpackMessage Unpack a message.

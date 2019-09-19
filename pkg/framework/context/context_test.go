@@ -15,8 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
+	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -27,9 +29,9 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with outbound transport", func(t *testing.T) {
-		prov, err := New(WithOutboundDispatcher(&didcomm.MockOutboundDispatcher{}))
+		prov, err := New(WithOutboundDispatcher(&mockdispatcher.MockOutbound{}))
 		require.NoError(t, err)
-		require.NoError(t, prov.OutboundDispatcher().Send(nil, nil))
+		require.NoError(t, prov.OutboundDispatcher().Send(nil, "", nil))
 	})
 
 	t.Run("test error return from options", func(t *testing.T) {
@@ -96,17 +98,28 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with wallet service", func(t *testing.T) {
-		prov, err := New(WithWallet(&wallet.CloseableWallet{SignMessageValue: []byte("mockValue")}))
+		prov, err := New(WithWallet(&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue"), PackValue: []byte("data")}))
 		require.NoError(t, err)
 		v, err := prov.CryptoWallet().SignMessage(nil, "")
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
+		v, err = prov.PackWallet().PackMessage(&wallet.Envelope{})
+		require.NoError(t, err)
+		require.Equal(t, []byte("data"), v)
 	})
 
 	t.Run("test new with inbound transport endpoint", func(t *testing.T) {
 		prov, err := New(WithInboundTransportEndpoint("endpoint"))
 		require.NoError(t, err)
 		require.Equal(t, "endpoint", prov.InboundTransportEndpoint())
+	})
+
+	t.Run("test new with outbound transport service", func(t *testing.T) {
+		prov, err := New(WithOutboundTransport(&mockdidcomm.MockOutboundTransport{ExpectedResponse: "data"}))
+		require.NoError(t, err)
+		r, err := prov.OutboundTransports()[0].Send([]byte("data"), "url")
+		require.NoError(t, err)
+		require.Equal(t, "data", r)
 	})
 }
 

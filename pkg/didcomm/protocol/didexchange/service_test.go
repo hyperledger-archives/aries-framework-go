@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/event"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
+	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -486,7 +486,7 @@ type mockProvider struct {
 }
 
 func (p *mockProvider) OutboundDispatcher() dispatcher.Outbound {
-	return &mockdidcomm.MockOutboundDispatcher{}
+	return &mockdispatcher.MockOutbound{}
 }
 
 func store(t testing.TB) (storage.Store, func()) {

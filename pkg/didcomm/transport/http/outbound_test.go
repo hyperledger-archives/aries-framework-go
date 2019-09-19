@@ -68,24 +68,26 @@ func TestOutboundHTTPTransport(t *testing.T) {
 
 	// test Outbound transport's api
 	// first with an empty url
-	r, e := ot.Send("Hello World", "")
+	r, e := ot.Send([]byte("Hello World"), "")
 	require.Error(t, e)
 	require.Empty(t, r)
 
 	// now try a bad url
-	r, e = ot.Send("Hello World", "https://badurl")
+	r, e = ot.Send([]byte("Hello World"), "https://badurl")
 	require.Error(t, e)
 	require.Empty(t, r)
 
 	// and try with a 'bad' payload with a valid url..
-	r, e = ot.Send("bad", serverURL)
+	r, e = ot.Send([]byte("bad"), serverURL)
 	require.Error(t, e)
 	require.Empty(t, r)
 
 	// finally using a valid url
-	r, e = ot.Send("Hello World", serverURL)
+	r, e = ot.Send([]byte("Hello World"), serverURL)
 	require.NoError(t, e)
 	require.NotEmpty(t, r)
-	require.Equal(t, "http", ot.Scheme())
+
+	require.True(t, ot.Accept("http://example.com"))
+	require.False(t, ot.Accept("123:22"))
 
 }

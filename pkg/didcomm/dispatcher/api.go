@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package dispatcher
 
-import "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+)
 
 // Service protocol service
 type Service interface {
@@ -34,8 +37,14 @@ type Destination struct {
 
 // Outbound interface
 type Outbound interface {
-	Send(interface{}, *Destination) error
+	Send(interface{}, string, *Destination) error
+}
+
+// Provider interface for outbound ctx
+type Provider interface {
+	PackWallet() wallet.Pack
+	OutboundTransports() []transport.OutboundTransport
 }
 
 // OutboundCreator method to create new outbound dispatcher service
-type OutboundCreator func(outboundTransports []transport.OutboundTransport) (Outbound, error)
+type OutboundCreator func(prov Provider) (Outbound, error)

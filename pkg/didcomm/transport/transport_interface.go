@@ -10,9 +10,9 @@ package transport
 // This is the client side of the agent
 type OutboundTransport interface {
 	// Send send a2a exchange data
-	Send(data string, destination string) (string, error)
-	// Type return outbound Scheme
-	Scheme() string
+	Send(data []byte, destination string) (string, error)
+	// Accept url
+	Accept(string) bool
 }
 
 // InboundMessageHandler handles the inbound requests. The transport will unpack the payload prior to the
