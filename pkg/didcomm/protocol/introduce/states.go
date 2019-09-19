@@ -64,7 +64,9 @@ func (s *start) Name() string {
 }
 
 func (s *start) CanTransitionTo(next state) bool {
-	return false
+	// Introducer can go to arranging or done state
+	// TODO: need clarification: Introducee can go to stateNameDeciding
+	return next.Name() == stateNameArranging || next.Name() == stateNameDone || next.Name() == stateNameDeciding
 }
 
 func (s *start) Execute(msg dispatcher.DIDCommMsg) (state, error) {
@@ -80,6 +82,7 @@ func (s *done) Name() string {
 }
 
 func (s *done) CanTransitionTo(next state) bool {
+	// done is the last state there is no possibility for the next state
 	return false
 }
 
@@ -96,7 +99,7 @@ func (s *arranging) Name() string {
 }
 
 func (s *arranging) CanTransitionTo(next state) bool {
-	return false
+	return next.Name() == stateNameArranging || next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
 func (s *arranging) Execute(msg dispatcher.DIDCommMsg) (state, error) {
@@ -112,7 +115,7 @@ func (s *delivering) Name() string {
 }
 
 func (s *delivering) CanTransitionTo(next state) bool {
-	return false
+	return next.Name() == stateNameConfirming || next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
 func (s *delivering) Execute(msg dispatcher.DIDCommMsg) (state, error) {
@@ -128,7 +131,7 @@ func (s *confirming) Name() string {
 }
 
 func (s *confirming) CanTransitionTo(next state) bool {
-	return false
+	return next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
 func (s *confirming) Execute(msg dispatcher.DIDCommMsg) (state, error) {
@@ -144,7 +147,7 @@ func (s *abandoning) Name() string {
 }
 
 func (s *abandoning) CanTransitionTo(next state) bool {
-	return false
+	return next.Name() == stateNameDone
 }
 
 func (s *abandoning) Execute(msg dispatcher.DIDCommMsg) (state, error) {
@@ -160,7 +163,7 @@ func (s *deciding) Name() string {
 }
 
 func (s *deciding) CanTransitionTo(next state) bool {
-	return false
+	return next.Name() == stateNameWaiting || next.Name() == stateNameDone
 }
 
 func (s *deciding) Execute(msg dispatcher.DIDCommMsg) (state, error) {
@@ -176,7 +179,7 @@ func (s *waiting) Name() string {
 }
 
 func (s *waiting) CanTransitionTo(next state) bool {
-	return false
+	return next.Name() == stateNameDone
 }
 
 func (s *waiting) Execute(msg dispatcher.DIDCommMsg) (state, error) {

@@ -41,13 +41,19 @@ func TestNoOpState_Execute(t *testing.T) {
 
 // start state can transition to ...
 func TestStartState(t *testing.T) {
-	start := &start{}
-	require.Equal(t, stateNameStart, start.Name())
-	t.Run("must not transition to any state", func(t *testing.T) {
-		for _, s := range allState {
-			require.False(t, start.CanTransitionTo(s))
-		}
-	})
+	st := &start{}
+	require.Equal(t, stateNameStart, st.Name())
+
+	require.True(t, st.CanTransitionTo(&arranging{}))
+	require.True(t, st.CanTransitionTo(&deciding{}))
+	require.True(t, st.CanTransitionTo(&done{}))
+
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.False(t, st.CanTransitionTo(&delivering{}))
+	require.False(t, st.CanTransitionTo(&confirming{}))
+	require.False(t, st.CanTransitionTo(&abandoning{}))
+	require.False(t, st.CanTransitionTo(&waiting{}))
 }
 
 func TestStartState_Execute(t *testing.T) {
@@ -75,13 +81,19 @@ func TestDoneState_Execute(t *testing.T) {
 
 // arranging state can transition to ...
 func TestArrangingState(t *testing.T) {
-	arranging := &arranging{}
-	require.Equal(t, stateNameArranging, arranging.Name())
-	t.Run("must not transition to any state", func(t *testing.T) {
-		for _, s := range allState {
-			require.False(t, arranging.CanTransitionTo(s))
-		}
-	})
+	st := &arranging{}
+	require.Equal(t, stateNameArranging, st.Name())
+
+	require.True(t, st.CanTransitionTo(&arranging{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&done{}))
+
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.False(t, st.CanTransitionTo(&delivering{}))
+	require.False(t, st.CanTransitionTo(&confirming{}))
+	require.False(t, st.CanTransitionTo(&deciding{}))
+	require.False(t, st.CanTransitionTo(&waiting{}))
 }
 
 func TestArrangingState_Execute(t *testing.T) {
@@ -92,13 +104,19 @@ func TestArrangingState_Execute(t *testing.T) {
 
 // delivering state can transition to ...
 func TestDeliveringState(t *testing.T) {
-	delivering := &delivering{}
-	require.Equal(t, stateNameDelivering, delivering.Name())
-	t.Run("must not transition to any state", func(t *testing.T) {
-		for _, s := range allState {
-			require.False(t, delivering.CanTransitionTo(s))
-		}
-	})
+	st := &delivering{}
+	require.Equal(t, stateNameDelivering, st.Name())
+
+	require.True(t, st.CanTransitionTo(&confirming{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&done{}))
+
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.False(t, st.CanTransitionTo(&delivering{}))
+	require.False(t, st.CanTransitionTo(&arranging{}))
+	require.False(t, st.CanTransitionTo(&deciding{}))
+	require.False(t, st.CanTransitionTo(&waiting{}))
 }
 
 func TestDeliveringState_Execute(t *testing.T) {
@@ -109,13 +127,19 @@ func TestDeliveringState_Execute(t *testing.T) {
 
 // confirming state can transition to ...
 func TestConfirmingState(t *testing.T) {
-	confirming := &confirming{}
-	require.Equal(t, stateNameConfirming, confirming.Name())
-	t.Run("must not transition to any state", func(t *testing.T) {
-		for _, s := range allState {
-			require.False(t, confirming.CanTransitionTo(s))
-		}
-	})
+	st := &confirming{}
+	require.Equal(t, stateNameConfirming, st.Name())
+
+	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&done{}))
+
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.False(t, st.CanTransitionTo(&delivering{}))
+	require.False(t, st.CanTransitionTo(&arranging{}))
+	require.False(t, st.CanTransitionTo(&confirming{}))
+	require.False(t, st.CanTransitionTo(&deciding{}))
+	require.False(t, st.CanTransitionTo(&waiting{}))
 }
 
 func TestConfirmingState_Execute(t *testing.T) {
@@ -126,13 +150,19 @@ func TestConfirmingState_Execute(t *testing.T) {
 
 // abandoning state can transition to ...
 func TestAbandoningState(t *testing.T) {
-	abandoning := &abandoning{}
-	require.Equal(t, stateNameAbandoning, abandoning.Name())
-	t.Run("must not transition to any state", func(t *testing.T) {
-		for _, s := range allState {
-			require.False(t, abandoning.CanTransitionTo(s))
-		}
-	})
+	st := &abandoning{}
+	require.Equal(t, stateNameAbandoning, st.Name())
+
+	require.True(t, st.CanTransitionTo(&done{}))
+
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.False(t, st.CanTransitionTo(&delivering{}))
+	require.False(t, st.CanTransitionTo(&arranging{}))
+	require.False(t, st.CanTransitionTo(&confirming{}))
+	require.False(t, st.CanTransitionTo(&deciding{}))
+	require.False(t, st.CanTransitionTo(&abandoning{}))
+	require.False(t, st.CanTransitionTo(&waiting{}))
 }
 
 func TestAbandoningState_Execute(t *testing.T) {
@@ -143,13 +173,19 @@ func TestAbandoningState_Execute(t *testing.T) {
 
 // deciding state can transition to ...
 func TestDecidingState(t *testing.T) {
-	deciding := &deciding{}
-	require.Equal(t, stateNameDeciding, deciding.Name())
-	t.Run("must not transition to any state", func(t *testing.T) {
-		for _, s := range allState {
-			require.False(t, deciding.CanTransitionTo(s))
-		}
-	})
+	st := &deciding{}
+	require.Equal(t, stateNameDeciding, st.Name())
+
+	require.True(t, st.CanTransitionTo(&waiting{}))
+	require.True(t, st.CanTransitionTo(&done{}))
+
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.False(t, st.CanTransitionTo(&delivering{}))
+	require.False(t, st.CanTransitionTo(&arranging{}))
+	require.False(t, st.CanTransitionTo(&confirming{}))
+	require.False(t, st.CanTransitionTo(&deciding{}))
+	require.False(t, st.CanTransitionTo(&abandoning{}))
 }
 
 func TestDecidingState_Execute(t *testing.T) {
@@ -160,13 +196,19 @@ func TestDecidingState_Execute(t *testing.T) {
 
 // waiting state can transition to ...
 func TestWaitingState(t *testing.T) {
-	waiting := &waiting{}
-	require.Equal(t, stateNameWaiting, waiting.Name())
-	t.Run("must not transition to any state", func(t *testing.T) {
-		for _, s := range allState {
-			require.False(t, waiting.CanTransitionTo(s))
-		}
-	})
+	st := &waiting{}
+	require.Equal(t, stateNameWaiting, st.Name())
+
+	require.True(t, st.CanTransitionTo(&done{}))
+
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.False(t, st.CanTransitionTo(&delivering{}))
+	require.False(t, st.CanTransitionTo(&arranging{}))
+	require.False(t, st.CanTransitionTo(&confirming{}))
+	require.False(t, st.CanTransitionTo(&deciding{}))
+	require.False(t, st.CanTransitionTo(&abandoning{}))
+	require.False(t, st.CanTransitionTo(&waiting{}))
 }
 
 func TestWaitingState_Execute(t *testing.T) {
