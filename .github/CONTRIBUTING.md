@@ -39,8 +39,8 @@ Use the [template](PULL_REQUEST_TEMPLATE.md) and also make sure:
 * **Required:** The build must pass. In particular, the following build targets
 must pass successfully:
   * `make checks`
-	* `make unit-test`
-	* `make bdd-test`
+  * `make unit-test`
+  * `make bdd-test`
 * **Required:** Adherence to the  [Developer Certificate of Origin
 (DCO)](https://developercertificate.org/) version 1.1 (`git --signoff`).
 * **Required:** *squash your commits*. Yes, we know - it's nice to be able to
@@ -51,3 +51,6 @@ It also makes it harder to revert specific changes when they are spread out like
 this. We care about preserving our project's commit history in a usable state,
 and as such, we politely request that you deliver your changes in a single
 commit.
+* Number of lines changed should not exceed 500. We're reasonable people - if
+your PR is just a *little* over the top then we might still merge it. Such cases
+are exceptional and are handled on a case-by-case basis.
