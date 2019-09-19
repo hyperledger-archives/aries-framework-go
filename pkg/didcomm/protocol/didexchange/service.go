@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -280,12 +281,6 @@ func (s *Service) sendEvent(msg dispatcher.DIDCommMsg, threadID string, nextStat
 	}
 
 	// trigger the registered action events
-	s.lock.RLock()
-	aEvent = s.actionEvent
-	s.lock.RUnlock()
-	if aEvent == nil {
-		return false, nil
-	}
 	// TODO: it can be panic if the channel was closed
 	aEvent <- didCommEvent
 	return true, nil
