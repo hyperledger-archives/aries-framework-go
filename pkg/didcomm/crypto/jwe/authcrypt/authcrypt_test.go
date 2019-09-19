@@ -292,16 +292,6 @@ func TestEncrypt(t *testing.T) {
 		require.Empty(t, dec)
 		jwe.Tag = validJwe.Tag
 
-		// update jwe with bad aad format
-		jwe.AAD = "badAAD"
-		enc, e = json.Marshal(jwe)
-		require.NoError(t, e)
-		// decrypt with bad tag
-		dec, e = crypter.Decrypt(enc, recipient1Key)
-		require.EqualError(t, e, "failed to decrypt message: failed to decrypt message - invalid AAD in envelope")
-		require.Empty(t, dec)
-		jwe.AAD = validJwe.AAD
-
 		// update jwe with bad recipient oid format
 		jwe.Recipients[0].Header.OID = "badOID!"
 		enc, e = json.Marshal(jwe)
@@ -329,6 +319,16 @@ func TestEncrypt(t *testing.T) {
 		// decrypt with bad tag
 		dec, e = crypter.Decrypt(enc, recipient1Key)
 		require.EqualError(t, e, "failed to decrypt shared key: illegal base64 data at input byte 5")
+		require.Empty(t, dec)
+		jwe.Recipients[0].Header.IV = validJwe.Recipients[0].Header.IV
+
+		// update jwe with bad recipient nonce format
+		jwe.Recipients[0].Header.IV = "badNonce"
+		enc, e = json.Marshal(jwe)
+		require.NoError(t, e)
+		// decrypt with bad tag
+		dec, e = crypter.Decrypt(enc, recipient1Key)
+		require.EqualError(t, e, "failed to decrypt shared key: bad nonce size")
 		require.Empty(t, dec)
 		jwe.Recipients[0].Header.IV = validJwe.Recipients[0].Header.IV
 
@@ -434,20 +434,11 @@ func TestBadCreateCipher(t *testing.T) {
 func TestRefEncrypt(t *testing.T) {
 	// reference php crypto material similar to
 	// https://github.com/hyperledger/aries-rfcs/issues/133#issuecomment-518922447
-	var senderPrivStr = "XZOBB1M7ikDoFR86rSgAuVt1ACJDMJ9alxHUsND6MBo"
-	senderPriv, err := base64.RawURLEncoding.DecodeString(senderPrivStr)
-	require.NoError(t, err)
-	var senderPubStr = "qdXzr6z28ck-RfTEiaBZmHOwH11ow-CBfLo97Qe31j4"
-	senderPub, err := base64.RawURLEncoding.DecodeString(senderPubStr)
-	require.NoError(t, err)
-	var recipientPrivStr = "kE3RDpviO_lVI3hdi6CKfT2BbuPph4WjC2DnkX7fBz4"
+	var recipientPrivStr = "texhAAu5uu7mCc32DDEM5hYYPaVBbF-J2B-oX0hpRLc"
 	recipientPriv, err := base64.RawURLEncoding.DecodeString(recipientPrivStr)
 	require.NoError(t, err)
-	var recipientPubStr = "800RcOPc9M8vFElpaHGkl-p9SpmY2Efm2MZW5tikf1c"
+	var recipientPubStr = "JxOLbl4tfU1JnfwULiaHBES8ph2D7Fc1THedj9sMyH4"
 	recipientPub, err := base64.RawURLEncoding.DecodeString(recipientPubStr)
-	require.NoError(t, err)
-	var payloadStr = "SGVsbG8gV29ybGQh"
-	payload, err := base64.RawURLEncoding.DecodeString(payloadStr)
 	require.NoError(t, err)
 
 	// refJWE created by executing PHP test code at:
@@ -457,57 +448,27 @@ func TestRefEncrypt(t *testing.T) {
     "protected": "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1tZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
     "recipients": [
         {
-            "encrypted_key": "-MXYFTdqmcmw11apipgtcr-E365Yvk6_4d9cVxRs89U",
+            "encrypted_key": "zidjLr239dr_UL5eMGheiOqw4z7R2fQpa3Ty5hC-9EQ",
             "header": {
-                "apu": "cJn0DhdOCZAmuLCFuOM1R9v26aPVl-EMW5V_Y81zgkddrzw2WmAvdSbhrS0BHjAmRdsZ52fPYoveQZeQIIFqPw",
-                "iv": "s2rbhR-abOcLdJuZpvKLa_aLfhIqRyGL",
-                "tag": "vx1JrepSfW90QIbG7vRBWg",
-                "kid": "HNkELiimfV5S3VyMWVqCd6H77cE3FMhYgp2Gq4tvZRJn",
-                "oid": "KStwoVefDEH4gsdTQay0QyLkPMtXdJPJhMrO9hk-A0-cKE5sqBZxAIc4_iw7VOaSRLCMipZgYWD1epH1hQJbUMESQtuGUBCxVZCAJJYQNML7PtZz1wooCYyBfa4"
+                "apu": "aOAAGdeWD-aTyIHq4qaKkS3AsQSBN0HwAr-auPh8GV-UB1fctHWNmDD_E2t-ihwnTjrsifaZTTzeWRPoYZsO-A",
+                "iv": "6MDVdecPSjcTisLDzaxgwHnmXBjUMvcM",
+                "tag": "Jr5IFbE1fYIP5kElavZlyw",
+                "kid": "3dYBmNKZeq8XwM8fXgzcznFqo2FtUezogkJFZwhKrPvV",
+                "oid": "psnFXtlA6Nhi50-Rr3RJ3YUuVy3pDNB8sffCSI5GBzgFPl5MkGqBC02rDdN892fygJKNvcdMj7QSd4AT93EDdblTZfNL1K3ZEZRg0v2jQxqFvAmtH50QF7cebRs"
             }
         }
     ],
-    "aad": "xuT9nzr1gf7k9IlS2936LFnUoDb-Tu1cBa8fhfUgxGk",
-    "iv": "nM0UDDCERek5syITAHwzDPGiEVErTtpo",
-    "tag": "gu1ZvF35-JYMd1JITD0qeg",
-    "ciphertext": "ntZwQokGaZhnQ8L2"
+    "aad": "garDa2wX7AT2gU1eKTj2ajb4A-ikwNAZ3oyDJmlPzzc",
+    "iv": "iHrFLuOAYr_k8_tNlPUNDUEpn2U2k3H6",
+    "tag": "wtqLqrAfzWO4pmvCCJ6iBw",
+    "ciphertext": "YtXeQDYlSr-9NI4O"
 }`
-
-	senderKp := jwecrypto.KeyPair{
-		Priv: senderPriv,
-		Pub:  senderPub,
-	}
 
 	crypter, err := New(XC20P)
 	require.NoError(t, err)
 	require.NotNil(t, crypter)
 
-	pld, err := crypter.Encrypt(payload, senderKp, [][]byte{recipientPub})
-	require.NoError(t, err)
-
-	refPld, err := prettyPrint([]byte(refJWE))
-	require.NoError(t, err)
-	encryptedPld, err := prettyPrint(pld)
-	require.NoError(t, err)
-	t.Logf("Reference JWE: %s", refPld)
-	t.Logf("Encrypted JWE: %s", encryptedPld)
-	var refPldUnmarshalled Envelope
-	err = json.Unmarshal([]byte(refJWE), &refPldUnmarshalled)
-	require.NoError(t, err)
-	var encryptedPldUmarshalled Envelope
-	err = json.Unmarshal(pld, &encryptedPldUmarshalled)
-	require.NoError(t, err)
-	t.Logf("Reference JWE Ummarshalled: %s", refPldUnmarshalled)
-	t.Logf("Encrypted JWE Ummarshalled: %s", encryptedPldUmarshalled)
-
-	// try to decrypt the encrypted payload
-	dec, err := crypter.Decrypt(pld, jwecrypto.KeyPair{Priv: recipientPriv, Pub: recipientPub})
+	dec, err := crypter.Decrypt([]byte(refJWE), jwecrypto.KeyPair{Priv: recipientPriv, Pub: recipientPub})
 	require.NoError(t, err)
 	require.NotEmpty(t, dec)
-	require.Equal(t, dec, payload)
-
-	// TODO fix try to decrypt the reference payload
-	// dec, err = crypter.Decrypt([]byte(refJWE), recipientPrivK, []*[32]byte{recipientPubK})
-	// require.NoError(t, err)
-	// require.NotEmpty(t, dec)
 }

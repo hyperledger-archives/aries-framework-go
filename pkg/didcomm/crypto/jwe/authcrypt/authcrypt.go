@@ -62,7 +62,11 @@ type Envelope struct {
 }
 
 // jweHeaders are the Protected JWE headers in a map format
-type jweHeaders map[string]string
+type jweHeaders struct {
+	Typ string `json:"typ,omitempty"`
+	Alg string `json:"alg,omitempty"`
+	Enc string `json:"enc,omitempty"`
+}
 
 // Recipient is a recipient of an envelope including the shared encryption key
 type Recipient struct {

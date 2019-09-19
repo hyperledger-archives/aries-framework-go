@@ -7,22 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package authcrypt
 
 import (
-	"crypto"
-	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
-	josecipher "github.com/square/go-jose/v3/cipher"
 	"golang.org/x/crypto/blake2b"
 	chacha "golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/poly1305"
 
@@ -39,9 +33,9 @@ func (c *Crypter) Encrypt(payload []byte, sender jwecrypto.KeyPair, recipients [
 	}
 
 	headers := jweHeaders{
-		"typ": "prs.hyperledger.aries-auth-message",
-		"alg": "ECDH-SS+" + string(c.alg) + "KW",
-		"enc": string(c.alg),
+		Typ: "prs.hyperledger.aries-auth-message",
+		Alg: "ECDH-SS+" + string(c.alg) + "KW",
+		Enc: string(c.alg),
 	}
 
 	chachaRecipients, err := convertRecipients(recipients)
@@ -152,18 +146,6 @@ func extractCipherText(symOutput []byte) string {
 	return base64.RawURLEncoding.EncodeToString(cipherText)
 }
 
-// createCipher will create and return a new Chacha20Poly1035 cipher for the given nonceSize and symmetric key
-func createCipher(nonceSize int, symKey []byte) (cipher.AEAD, error) {
-	switch nonceSize {
-	case chacha.NonceSize:
-		return chacha.New(symKey)
-	case chacha.NonceSizeX:
-		return chacha.NewX(symKey)
-	default:
-		return nil, errors.New("cipher cannot be created with bad nonce size and shared symmetric Key combo")
-	}
-}
-
 // buildJWE builds the JSON object representing the JWE output of the encryption
 // and returns its marshaled []byte representation
 func (c *Crypter) buildJWE(headers string, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) {
@@ -230,7 +212,7 @@ func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]by
 	privK := new([chacha.KeySize]byte)
 	copy(privK[:], senderKp.Priv)
 	// create a new ephemeral key for the recipient and return its APU
-	kek, err := c.generateRecipientCEK(apu, privK, recipientKey)
+	kek, err := c.generateKEK(apu, privK, recipientKey)
 	if err != nil {
 		return nil, err
 	}
@@ -281,46 +263,6 @@ func (c *Crypter) buildRecipient(key string, apu, nonce []byte, tag string, send
 	}
 
 	return recipient, nil
-}
-
-// generateRecipientCEK will generate an ephemeral symmetric key for the recipientKey to
-// be used for encrypting the cek.
-// it will return this new key along with the corresponding APU or an error if it fails.
-func (c *Crypter) generateRecipientCEK(apu []byte, privKey, pubKey *[chacha.KeySize]byte) ([]byte, error) {
-	// base64 encode the APU
-	apuEncoded := make([]byte, base64.RawURLEncoding.EncodedLen(len(apu)))
-	base64.RawURLEncoding.Encode(apuEncoded, apu)
-
-	// generating Z is inspired by sodium_crypto_scalarmult()
-	// https://github.com/gamringer/php-authcrypt/blob/master/src/Crypt.php#L80
-
-	// with z being a basePoint of a curve25519
-	z := &[chacha.KeySize]byte{9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} //nolint:lll
-	// do ScalarMult of the sender's private key with the recipient key to get a derived Z point
-	// ( equivalent to derive an EC key )
-	curve25519.ScalarMult(z, privKey, pubKey)
-
-	// inspired by: github.com/square/go-jose/v3@v3.0.0-20190722231519-723929d55157/cipher/ecdh_es.go
-	// -> DeriveECDHES() call
-
-	// suppPubInfo is the encoded length of the recipient shared key output size in bits
-	supPubInfo := make([]byte, 4)
-	// since we're using chacha20poly1035 keys, keySize is known
-	binary.BigEndian.PutUint32(supPubInfo, uint32(chacha.KeySize)*8)
-
-	// get a Concat KDF stream for z, encryption algorithm, api, supPubInfo and empty supPrivInfo using sha256
-	reader := josecipher.NewConcatKDF(crypto.SHA256, z[:], []byte(c.alg), apuEncoded, nil, supPubInfo, []byte{})
-
-	// kek is the recipient specific encryption key used to encrypt the sharedSymKey
-	kek := make([]byte, chacha.KeySize)
-
-	// Read on the KDF will never fail
-	_, err := reader.Read(kek)
-	if err != nil {
-		return nil, err
-	}
-
-	return kek, nil
 }
 
 // encryptOID will encrypt a msg (in the case of this package, it will be
