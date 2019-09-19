@@ -12,6 +12,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+
 	"github.com/btcsuite/btcutil/base58"
 	"golang.org/x/crypto/nacl/box"
 
@@ -118,6 +120,11 @@ func (w *BaseWallet) UnpackMessage(encMessage []byte) (*Envelope, error) {
 // Close wallet
 func (w *BaseWallet) Close() error {
 	return nil
+}
+
+// CreateDID returns new DID Document
+func (w *BaseWallet) CreateDID() (*did.Doc, error) {
+	return nil, fmt.Errorf("To be implemented")
 }
 
 // persistKey save key in storage

@@ -6,12 +6,17 @@ SPDX-License-Identifier: Apache-2.0
 
 package wallet
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+)
 
 // Wallet interface
 type Wallet interface {
 	Crypto
 	Pack
+	DIDCreator
 }
 
 // Crypto interface
@@ -84,6 +89,20 @@ type Pack interface {
 	//
 	// error: error
 	UnpackMessage(encMessage []byte) (*Envelope, error)
+}
+
+// DIDCreator provide method to create DID document
+type DIDCreator interface {
+	// Creates new DID document.
+	//
+	// TODO :Should be able to specify the DID method as argument (Issue #283).
+	//
+	// Returns:
+	//
+	// did: DID document
+	//
+	// error: error
+	CreateDID() (*did.Doc, error)
 }
 
 // Envelope contain msg,FromVerKey and ToVerKeys
