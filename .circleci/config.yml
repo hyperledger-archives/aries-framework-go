@@ -7,15 +7,13 @@
 version: 2
 
 jobs:
-  unit-test:
+  noop:
     docker:
       - image: circleci/golang:1.13
     steps:
-      - checkout
-      - run: make unit-test
-      - run: bash <(curl -s https://codecov.io/bash)
+      - run: exit
 workflows:
   version: 2
-  checks-test:
+  noop:
     jobs:
-      - unit-test
+      - noop
