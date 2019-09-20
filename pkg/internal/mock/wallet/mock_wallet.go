@@ -19,6 +19,8 @@ type CloseableWallet struct {
 	SignMessageErr        error
 	PackValue             []byte
 	PackErr               error
+	UnpackValue           *wallet.Envelope
+	UnpackErr             error
 }
 
 // Close previously-opened wallet, removing it if so configured.
@@ -48,7 +50,7 @@ func (m *CloseableWallet) PackMessage(envelope *wallet.Envelope) ([]byte, error)
 
 // UnpackMessage Unpack a message.
 func (m *CloseableWallet) UnpackMessage(encMessage []byte) (*wallet.Envelope, error) {
-	return nil, nil
+	return m.UnpackValue, m.UnpackErr
 }
 
 // CreateDID returns new DID Document
