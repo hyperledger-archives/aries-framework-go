@@ -13,10 +13,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/square/go-jose/v3"
+	"github.com/square/go-jose/v3/jwt"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 )
+
+//go:generate testdata/scripts/openssl_env.sh testdata/scripts/generate_test_keys.sh
 
 var logger = log.New("aries-framework/doc/verifiable")
 
@@ -177,7 +181,7 @@ type Credential struct {
 	Context        []string
 	ID             string
 	Type           []string
-	Subject        *Subject
+	Subject        Subject
 	Issuer         Issuer
 	Issued         *time.Time
 	Expired        *time.Time
@@ -187,12 +191,39 @@ type Credential struct {
 	RefreshService *RefreshService
 }
 
+// JWTAlgorithm defines JWT signature algorithms of Verifiable Credential
+type JWTAlgorithm int
+
+const (
+	// ES256K JWT Algorithm
+	ES256K JWTAlgorithm = iota
+	// RS256 JWT Algorithm
+	RS256
+	// EdDSA JWT Algorithm
+	EdDSA
+)
+
+// Jose converts JWTAlgorithm to JOSE one.
+func (ja JWTAlgorithm) Jose() jose.SignatureAlgorithm {
+	switch ja {
+	case ES256K:
+		return jose.ES256
+	case RS256:
+		return jose.RS256
+	case EdDSA:
+		return jose.EdDSA
+	default:
+		logger.Errorf("Unsupported algorithm: %v, fallback to RS256", ja)
+		return jose.ES256
+	}
+}
+
 // rawCredential is a basic verifiable credential
 type rawCredential struct {
 	Context        []string          `json:"@context,omitempty"`
 	ID             string            `json:"id,omitempty"`
 	Type           []string          `json:"type,omitempty"`
-	Subject        *Subject          `json:"credentialSubject,omitempty"`
+	Subject        Subject           `json:"credentialSubject,omitempty"`
 	Issued         *time.Time        `json:"issuanceDate,omitempty"`
 	Expired        *time.Time        `json:"expirationDate,omitempty"`
 	Proof          *Proof            `json:"proof,omitempty"`
@@ -222,13 +253,19 @@ type CredentialDecoder func(dataJSON []byte, credential *Credential) error
 // CredentialTemplate defines a factory method to create new Credential template.
 type CredentialTemplate func() *Credential
 
+// PublicKeyFetcher fetches public key for JWT signing verification based on Issuer ID (possibly DID)
+// and Key ID.
+// If not defined, JWT encoding is not tested.
+type PublicKeyFetcher func(issuerID, keyID string) (interface{}, error)
+
 // credentialOpts holds options for the Verifiable Credential decoding
 // it has a http.Client instance initialized with default parameters
 type credentialOpts struct {
-	schemaDownloadClient *http.Client
-	disabledCustomSchema bool
-	decoders             []CredentialDecoder
-	template             CredentialTemplate
+	schemaDownloadClient   *http.Client
+	disabledCustomSchema   bool
+	decoders               []CredentialDecoder
+	template               CredentialTemplate
+	issuerPublicKeyFetcher PublicKeyFetcher
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
@@ -264,6 +301,13 @@ func WithTemplate(template CredentialTemplate) CredentialOpt {
 	}
 }
 
+// WithJWTPublicKeyFetcher defines a fetcher of public key required for verification of JWT signature
+func WithJWTPublicKeyFetcher(fetcher PublicKeyFetcher) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.issuerPublicKeyFetcher = fetcher
+	}
+}
+
 func decodeIssuer(data []byte, credential *Credential) error {
 	issuerID, issuerName, err := issuerFromBytes(data)
 	if err != nil {
@@ -276,20 +320,38 @@ func decodeIssuer(data []byte, credential *Credential) error {
 
 // NewCredential creates an instance of Verifiable Credential by reading a JSON document from bytes.
 // It also applies miscellaneous options like custom decoders or settings of schema validation.
-func NewCredential(dataJSON []byte, opts ...CredentialOpt) (*Credential, error) {
+func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	// Apply options
 	crOpts := defaultCredentialOpts()
 	for _, opt := range opts {
 		opt(crOpts)
 	}
 
-	raw := &rawCredential{}
-	err := json.Unmarshal(dataJSON, &raw)
-	if err != nil {
-		return nil, fmt.Errorf("JSON unmarshalling of verifiable credential failed: %w", err)
+	var err error
+	var raw *rawCredential
+	var vcDataDecoded []byte
+	rawDecoding := true
+
+	if crOpts.issuerPublicKeyFetcher != nil {
+		var vcDataFromJwt []byte
+		if vcDataFromJwt, raw, err = decodeJWT(vcData, crOpts.issuerPublicKeyFetcher); err != nil {
+			return nil, fmt.Errorf("JWT decoding failed: %w", err)
+		}
+
+		rawDecoding = false
+		vcDataDecoded = vcDataFromJwt
 	}
 
-	err = validate(dataJSON, raw.Schema, crOpts)
+	if rawDecoding {
+		raw = &rawCredential{}
+		err = json.Unmarshal(vcData, raw)
+		if err != nil {
+			return nil, fmt.Errorf("JSON unmarshalling of verifiable credential failed: %w", err)
+		}
+		vcDataDecoded = vcData
+	}
+
+	err = validate(vcDataDecoded, raw.Schema, crOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -307,13 +369,135 @@ func NewCredential(dataJSON []byte, opts ...CredentialOpt) (*Credential, error) 
 	cred.RefreshService = raw.RefreshService
 
 	for _, decoder := range crOpts.decoders {
-		err = decoder(dataJSON, cred)
+		err = decoder(vcDataDecoded, cred)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return cred, nil
+}
+
+// credentialClaims is JWT Claims extension by Credential.
+type credentialClaims struct {
+	*jwt.Claims
+
+	Credential *rawCredential `json:"vc,omitempty"`
+}
+
+// rawCredentialClaims is used to get raw content of "vc" claim of JWT.
+type rawCredentialClaims struct {
+	*jwt.Claims
+
+	Raw map[string]interface{} `json:"vc,omitempty"`
+}
+
+func decodeJWT(rawJwt []byte, fetcher PublicKeyFetcher) ([]byte, *rawCredential, error) {
+	parsedJwt, err := jwt.ParseSigned(string(rawJwt))
+	if err != nil {
+		return nil, nil, fmt.Errorf("VC is not JWS: %w", err)
+	}
+
+	credClaims := new(credentialClaims)
+	err = parsedJwt.UnsafeClaimsWithoutVerification(credClaims)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse JWT claims: %w", err)
+	}
+
+	if verifyErr := verifyJWTSignature(parsedJwt, fetcher, credClaims); verifyErr != nil {
+		return nil, nil, verifyErr
+	}
+
+	// Apply VC-related claims from JWT.
+	credClaims.refineVCFromJWTClaims()
+
+	// Decode again to get raw content of "vc" claim.
+	rawClaims := new(rawCredentialClaims)
+	err = parsedJwt.UnsafeClaimsWithoutVerification(rawClaims)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse JWT claims: %w", err)
+	}
+
+	// Complement original "vc" JSON claim with data refined from JWT claims.
+	rawClaims.mergeRefinedVC(credClaims.Credential)
+
+	var vcData []byte
+	if vcData, err = json.Marshal(rawClaims.Raw); err != nil {
+		return nil, nil, errors.New("failed to marshal 'vc' claim of JWT")
+	}
+
+	return vcData, credClaims.Credential, nil
+}
+
+func (credClaims *credentialClaims) refineVCFromJWTClaims() {
+	raw := credClaims.Credential
+
+	if iss := credClaims.Issuer; iss != "" {
+		refineVCIssuerFromJWTClaims(raw, iss)
+	}
+
+	if nbf := credClaims.NotBefore; nbf != nil {
+		nbfTime := nbf.Time().UTC()
+		raw.Issued = &nbfTime
+	}
+
+	if jti := credClaims.ID; jti != "" {
+		raw.ID = credClaims.ID
+	}
+
+	if iat := credClaims.IssuedAt; iat != nil {
+		iatTime := iat.Time().UTC()
+		raw.Issued = &iatTime
+	}
+
+	if exp := credClaims.Expiry; exp != nil {
+		expTime := exp.Time().UTC()
+		raw.Expired = &expTime
+	}
+}
+
+func refineVCIssuerFromJWTClaims(raw *rawCredential, iss string) {
+	// Issuer of Verifiable Credential could be either string (id) or struct (with "id" field).
+	switch issuer := raw.Issuer.(type) {
+	case string:
+		raw.Issuer = iss
+	case map[string]interface{}:
+		issuer["id"] = iss
+	}
+}
+
+func (rawClaims *rawCredentialClaims) mergeRefinedVC(raw *rawCredential) {
+	rawVCClaims := rawClaims.Raw
+
+	// these operations are safe
+	rawData, _ := json.Marshal(raw) // nolint:errcheck
+
+	var rawMap map[string]interface{}
+
+	_ = json.Unmarshal(rawData, &rawMap) // nolint:errcheck
+
+	// make the merge
+	for k, v := range rawMap {
+		rawVCClaims[k] = v
+	}
+}
+
+func verifyJWTSignature(parsedJwt *jwt.JSONWebToken, fetcher PublicKeyFetcher, credClaims *credentialClaims) error {
+	var keyID string
+	for _, h := range parsedJwt.Headers {
+		if h.KeyID != "" {
+			keyID = h.KeyID
+			break
+		}
+	}
+	publicKey, err := fetcher(credClaims.Issuer, keyID)
+	if err != nil {
+		return fmt.Errorf("failed to get public key for JWT signature verification: %w", err)
+	}
+	if err = parsedJwt.Claims(publicKey, credClaims); err != nil {
+		return fmt.Errorf("JWT signature verification failed: %w", err)
+	}
+	return nil
 }
 
 func defaultCredentialOpts() *credentialOpts {
@@ -421,9 +605,75 @@ func loadCredentialSchema(url string, client *http.Client) ([]byte, error) {
 	return gotBody, nil
 }
 
-// JSONBytes converts Verifiable Credential to JSON bytes
-func (vc *Credential) JSONBytes() ([]byte, error) {
-	rawCred := &rawCredential{
+// JWT serializes Credential to signed JWT.
+func (vc *Credential) JWT(signatureAlg JWTAlgorithm, privateKey interface{}, keyID string, minimizeVc bool) (string, error) { // nolint:lll
+	// currently jwt encoding supports only single subject (by the spec)
+	jwtClaims := &jwt.Claims{
+		Issuer:    vc.Issuer.ID,                   // iss
+		NotBefore: jwt.NewNumericDate(*vc.Issued), // nbf
+		ID:        vc.ID,                          // jti
+		Subject:   vc.getFirstSubjectID(),         // sub
+		IssuedAt:  jwt.NewNumericDate(*vc.Issued), // iat (not in spec, follow the interop project approach)
+	}
+	if vc.Expired != nil {
+		jwtClaims.Expiry = jwt.NewNumericDate(*vc.Expired) // exp
+	}
+
+	var raw *rawCredential
+	if minimizeVc {
+		vcCopy := *vc
+		vcCopy.Expired = nil
+		vcCopy.Issuer.ID = ""
+		vcCopy.Issued = nil
+		vcCopy.ID = ""
+		raw = vcCopy.raw()
+	} else {
+		raw = vc.raw()
+	}
+
+	credClaims := credentialClaims{
+		Claims:     jwtClaims,
+		Credential: raw,
+	}
+
+	key := jose.SigningKey{Algorithm: signatureAlg.Jose(), Key: privateKey}
+
+	var signerOpts = &jose.SignerOptions{}
+	signerOpts.WithType("JWT")
+	signerOpts.WithHeader("kid", keyID)
+
+	rsaSigner, err := jose.NewSigner(key, signerOpts)
+	if err != nil {
+		return "", fmt.Errorf("failed to create signer: %w", err)
+	}
+
+	// create an instance of Builder that uses the rsa signer
+	builder := jwt.Signed(rsaSigner)
+
+	builder = builder.Claims(credClaims)
+
+	// validate all ok, sign with the RSA key, and return a compact JWT
+	rawJWT, err := builder.CompactSerialize()
+	if err != nil {
+		return "", fmt.Errorf("failed to sign JWT")
+	}
+
+	return rawJWT, nil
+}
+
+func (vc *Credential) getFirstSubjectID() string {
+	switch subject := vc.Subject.(type) {
+	case map[string]interface{}:
+		return subject["id"].(string)
+	case []map[string]interface{}:
+		return subject[0]["id"].(string)
+	default:
+		return ""
+	}
+}
+
+func (vc *Credential) raw() *rawCredential {
+	return &rawCredential{
 		Context:        vc.Context,
 		ID:             vc.ID,
 		Type:           vc.Type,
@@ -436,8 +686,11 @@ func (vc *Credential) JSONBytes() ([]byte, error) {
 		Schema:         vc.Schema,
 		RefreshService: vc.RefreshService,
 	}
+}
 
-	byteCred, err := json.Marshal(rawCred)
+// JSON converts Verifiable Credential to JSON bytes
+func (vc *Credential) JSON() ([]byte, error) {
+	byteCred, err := json.Marshal(vc.raw())
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of verifiable credential failed: %w", err)
 	}

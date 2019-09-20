@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -290,7 +291,7 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 	t.Run("test verifiable credential with invalid type of credential subject", func(t *testing.T) {
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		*raw.Subject = 55
+		raw.Subject = 55
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validate(bytes, nil, nil)
@@ -557,7 +558,7 @@ func TestJSONConversionWithPlainIssuer(t *testing.T) {
 	require.NotEmpty(t, vc)
 
 	// convert verifiable credential to json byte data
-	byteCred, err := vc.JSONBytes()
+	byteCred, err := vc.JSON()
 	require.NoError(t, err)
 	require.NotEmpty(t, byteCred)
 
@@ -566,7 +567,7 @@ func TestJSONConversionWithPlainIssuer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, cred2)
 
-	// verify verifiable credentials created by NewCredential and JSONBytes function matches
+	// verify verifiable credentials created by NewCredential and JSON function matches
 	require.Equal(t, vc, cred2)
 }
 
@@ -581,7 +582,7 @@ func TestJSONConversionCompositeIssuer(t *testing.T) {
 	vc.Issuer.Name = ""
 
 	// convert verifiable credential to json byte data
-	byteCred, err := vc.JSONBytes()
+	byteCred, err := vc.JSON()
 	require.NoError(t, err)
 	require.NotEmpty(t, byteCred)
 
@@ -590,7 +591,7 @@ func TestJSONConversionCompositeIssuer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, cred2)
 
-	// verify verifiable credentials created by NewCredential and JSONBytes function matches
+	// verify verifiable credentials created by NewCredential and JSON function matches
 	require.Equal(t, vc, cred2)
 }
 
@@ -758,4 +759,37 @@ func TestDefaultCredentialOpts(t *testing.T) {
 	require.False(t, opts.disabledCustomSchema)
 	require.NotNil(t, opts.template)
 	require.NotEmpty(t, opts.decoders)
+}
+
+func TestGetFirstSubjectId(t *testing.T) {
+	vcWithSingleSubject := &Credential{Subject: map[string]interface{}{
+		"id": "did:example:ebfeb1f712ebc6f1c276e12ecaa",
+		"degree": map[string]interface{}{
+			"type": "BachelorDegree",
+			"name": "Bachelor of Science and Arts",
+		},
+	}}
+	require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ecaa", vcWithSingleSubject.getFirstSubjectID())
+
+	vcWithMultipleSubjects := &Credential{
+		Subject: []map[string]interface{}{
+			{
+				"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+				"name":   "Jayden Doe",
+				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+			},
+			{
+				"id":     "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				"name":   "Morgan Doe",
+				"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			},
+		}}
+
+	require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", vcWithMultipleSubjects.getFirstSubjectID())
+}
+
+func TestJwtAlgorithm_Jose(t *testing.T) {
+	require.Equal(t, jose.ES256, ES256K.Jose())
+	require.Equal(t, jose.RS256, RS256.Jose())
+	require.Equal(t, jose.EdDSA, EdDSA.Jose())
 }

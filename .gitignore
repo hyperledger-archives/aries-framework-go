@@ -18,7 +18,7 @@ vendor
 # Test binary, build with `go test -c`
 *.test
 # Generate test PKIs with `go generate`
-pkg/didcomm/transport/http/testdata/crypto/
+**/testdata/crypto/
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
