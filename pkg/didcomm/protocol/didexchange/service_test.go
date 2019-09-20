@@ -554,7 +554,7 @@ func TestService_Events(t *testing.T) {
 		require.Fail(t, "tests are not validated")
 	}
 
-	validateStatusEventAction(t, svc)
+	validateStatusEventAction(t, svc, time.Millisecond*50)
 }
 
 func startConsumer(t *testing.T, svc *Service, done chan bool) {
@@ -863,10 +863,22 @@ func validateHandleError(t *testing.T, svc *Service) {
 	require.NoError(t, err)
 }
 
-func validateStatusEventAction(t *testing.T, svc *Service) {
-	val, err := svc.store.Get("status-event" + invalidThreadID)
-	require.NoError(t, err)
-	require.Equal(t, "status_event", string(val))
+func validateStatusEventAction(t *testing.T, svc *Service, duration time.Duration) {
+	timeout := time.After(duration)
+	for {
+		select {
+		case <-timeout:
+			t.Error("deadline exceeded")
+			return
+		default:
+			val, err := svc.store.Get("status-event" + invalidThreadID)
+			if err != nil {
+				continue
+			}
+			require.Equal(t, "status_event", string(val))
+			return
+		}
+	}
 }
 
 func TestService_No_AutoExecution(t *testing.T) {
