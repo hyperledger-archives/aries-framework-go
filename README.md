@@ -2,7 +2,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://raw.githubusercontent.com/trustbloc/aries-framework-go/master/LICENSE)
 [![Godocs](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/hyperledger/aries-framework-go)
 
-[![CircleCI](https://circleci.com/gh/hyperledger/aries-framework-go.svg?style=svg)](https://circleci.com/gh/hyperledger/aries-framework-go)
+[![Build Status](https://github.com/hyperledger/aries-framework-go/workflows/build/badge.svg)](https://github.com/hyperledger/aries-framework-go/actions)
 [![codecov](https://codecov.io/gh/hyperledger/aries-framework-go/branch/master/graph/badge.svg)](https://codecov.io/gh/hyperledger/aries-framework-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger/aries-framework-go)](https://goreportcard.com/report/github.com/hyperledger/aries-framework-go)
 

@@ -2,16 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# TODO: Disable CircleCI builds
+
 version: 2
 
 jobs:
-  checks:
-    docker:
-      - image: golangci/golangci-lint:v1.18
-    steps:
-      - checkout
-      - run: make checks
-      - run: golangci-lint run
   unit-test:
     docker:
       - image: circleci/golang:1.13
@@ -19,16 +14,8 @@ jobs:
       - checkout
       - run: make unit-test
       - run: bash <(curl -s https://codecov.io/bash)
-  bdd-test:
-    docker:
-      - image: circleci/golang:1.13
-    steps:
-      - checkout
-      - run: make bdd-test
 workflows:
   version: 2
   checks-test:
     jobs:
-      - checks
       - unit-test
-      - bdd-test

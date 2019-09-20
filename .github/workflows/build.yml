@@ -3,19 +3,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-name: Go
+name: build
 on: [push, pull_request]
 jobs:
-
   unitTest:
-    name: Unit Test
+    name: Unit test
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-18.04, macOS-10.14]
     steps:
 
-    - name: Set up Go 1.13
+    - name: Setup Go 1.13
       uses: actions/setup-go@v1
       with:
         go-version: 1.13
@@ -23,19 +23,26 @@ jobs:
 
     - uses: actions/checkout@v1
 
-    - name: Unit Test
-      timeout-minutes: 5
+    - name: Run unit test
+      timeout-minutes: 10
       run: make unit-test
+
+    # TODO: need secret for Codecov from Actions
+    #- name: Upload coverage to Codecov  
+    #  timeout-minutes: 10
+    #  uses: codecov/codecov-action@v1.0.2
+    #  if: matrix.os == 'ubuntu-18.04'
 
   bddTest:
     name: BDD test
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-18.04, macOS-10.14]
     steps:
 
-      - name: Set up Go 1.13
+      - name: Setup Go 1.13
         uses: actions/setup-go@v1
         with:
           go-version: 1.13
@@ -43,14 +50,17 @@ jobs:
 
       - uses: actions/checkout@v1
 
-      - name: BDD test
+      - name: Run BDD test
+        timeout-minutes: 10
         run: make bdd-test
 
   checks:
     name: Checks
-    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v1
 
-      - name: Checks
+      - name: Run checks
+        timeout-minutes: 10
         run: make checks
