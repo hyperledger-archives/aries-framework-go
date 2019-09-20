@@ -5,6 +5,7 @@
 module github.com/hyperledger/aries-framework-go
 
 require (
+	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/uuid v1.1.1
