@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -19,8 +20,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testURL = "localhost:8080"
-const testInboundURL = "localhost:8081"
+// nolint:gochecknoglobals
+var (
+	testURL        = fmt.Sprintf("localhost:%d", getRandomPort(3))
+	testInboundURL = fmt.Sprintf("localhost:%d", getRandomPort(3))
+)
+
+func getRandomPort(n int) int {
+	const network = "tcp"
+	addr, err := net.ResolveTCPAddr(network, "localhost:0")
+	if err != nil {
+		panic(err)
+	}
+	listener, err := net.ListenTCP(network, addr)
+	if err != nil {
+		if n > 0 {
+			return getRandomPort(n - 1)
+		}
+		panic(err)
+	}
+	defer listener.Close()
+	return listener.Addr().(*net.TCPAddr).Port
+}
 
 func TestStartAriesD(t *testing.T) {
 	// TODO - remove this path manipulation after implementing #175 and #148
