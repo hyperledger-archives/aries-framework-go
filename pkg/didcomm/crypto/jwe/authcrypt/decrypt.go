@@ -86,18 +86,12 @@ func (c *Crypter) Decrypt(envelope []byte, recipientKeyPair jwecrypto.KeyPair) (
 }
 
 func (c *Crypter) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
-	aad := retrieveAAD(jwe.Recipients)
-	aadEncoded := base64.RawURLEncoding.EncodeToString(aad)
-	if jwe.AAD != aadEncoded {
-		return nil, errors.New("failed to decrypt message - invalid AAD in envelope")
-	}
-
 	crypter, er := createCipher(c.nonceSize, cek)
 	if er != nil {
 		return nil, er
 	}
 
-	pldAAD := jwe.Protected + "." + aadEncoded
+	pldAAD := jwe.Protected + "." + jwe.AAD
 	payload, er := base64.RawURLEncoding.DecodeString(jwe.CipherText)
 	if er != nil {
 		return nil, er
@@ -112,14 +106,6 @@ func (c *Crypter) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
 	}
 	payload = append(payload, tag...)
 	return crypter.Open(nil, nonce, payload, []byte(pldAAD))
-}
-
-func retrieveAAD(recipients []Recipient) []byte {
-	var keys []string
-	for _, rec := range recipients {
-		keys = append(keys, rec.Header.KID)
-	}
-	return hashAAD(keys)
 }
 
 // findRecipient will loop through jweRecipients and returns the first matching key from recipients
@@ -151,7 +137,6 @@ func (c *Crypter) decryptSharedKey(recipientKp jwecrypto.KeyPair, senderPubKey *
 	if err != nil {
 		return nil, err
 	}
-
 	sharedEncryptedKey, err := base64.RawURLEncoding.DecodeString(recipient.EncryptedKey)
 	if err != nil {
 		return nil, err
@@ -160,8 +145,8 @@ func (c *Crypter) decryptSharedKey(recipientKp jwecrypto.KeyPair, senderPubKey *
 	privK := new([chacha.KeySize]byte)
 	copy(privK[:], recipientKp.Priv)
 
-	// create a new ephemeral key for the recipient and return its APU
-	kek, err := c.generateRecipientCEK(apu, privK, senderPubKey)
+	// create a new ephemeral key for the recipient
+	kek, err := c.generateKEK(apu, privK, senderPubKey)
 	if err != nil {
 		return nil, err
 	}
