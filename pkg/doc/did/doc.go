@@ -18,6 +18,8 @@ import (
 )
 
 const (
+	// Context of the DID document
+	Context            = "https://w3id.org/did/v1"
 	jsonldType         = "type"
 	jsonldID           = "id"
 	jsonldServicePoint = "serviceEndpoint"

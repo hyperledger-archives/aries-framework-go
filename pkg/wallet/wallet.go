@@ -11,31 +11,50 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-
-	"github.com/btcsuite/btcutil/base58"
 	"golang.org/x/crypto/nacl/box"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// BaseWallet wallet implementation
-type BaseWallet struct {
-	store   storage.Store
-	crypter crypto.Crypter
+const (
+	didFormat    = "did:%s:%s"
+	didPKID      = "%s#keys-%d"
+	didServiceID = "%s#endpoint-%d"
+)
+
+// provider contains dependencies for the base wallet and is typically created by using aries.Context()
+type provider interface {
+	StorageProvider() storage.Provider
+	InboundTransportEndpoint() string
 }
 
-// TODO use the context / provider mechanism
+// BaseWallet wallet implementation
+type BaseWallet struct {
+	store                    storage.Store
+	crypter                  crypto.Crypter
+	inboundTransportEndpoint string
+}
+
 // New return new instance of wallet implementation
-func New(storeProvider storage.Provider, crypter crypto.Crypter) (*BaseWallet, error) {
-	store, err := storeProvider.GetStoreHandle()
+func New(ctx provider) (*BaseWallet, error) {
+
+	crypter, err := authcrypt.New(authcrypt.XC20P)
+	if err != nil {
+		return nil, fmt.Errorf("new authcrypt failed: %w", err)
+	}
+
+	store, err := ctx.StorageProvider().GetStoreHandle()
 	if err != nil {
 		return nil, fmt.Errorf("failed to GetStoreHandle: %w", err)
 	}
-	return &BaseWallet{store: store, crypter: crypter}, nil
+
+	return &BaseWallet{store: store, crypter: crypter, inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
 }
 
 // CreateKey create a new public/private signing keypair.
@@ -123,8 +142,58 @@ func (w *BaseWallet) Close() error {
 }
 
 // CreateDID returns new DID Document
-func (w *BaseWallet) CreateDID() (*did.Doc, error) {
-	return nil, fmt.Errorf("To be implemented")
+//TODO write the DID Doc to the chosen DID method.
+func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error) {
+
+	docOpts := &createDIDOpts{}
+	// Apply options
+	for _, opt := range opts {
+		opt(docOpts)
+	}
+
+	// Generate key pair
+	pub, err := w.CreateKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create DID: %w", err)
+	}
+
+	// DID identifier
+	id := fmt.Sprintf(didFormat, method, pub[:16])
+
+	// Supporting only one public key now
+	pubKey := did.PublicKey{
+		ID: fmt.Sprintf(didPKID, id, 1),
+		//TODO hardcoding public key type for now
+		// Should be dynamic for multi-key support
+		Type:       "Ed25519VerificationKey2018",
+		Controller: id,
+		Value:      []byte(pub),
+	}
+
+	// Service model to be included only if service type is provided through opts
+	var service []did.Service
+	if docOpts.serviceType != "" {
+		//Service endpoints
+		service = []did.Service{
+			{
+				ID:              fmt.Sprintf(didServiceID, id, 1),
+				Type:            docOpts.serviceType,
+				ServiceEndpoint: w.inboundTransportEndpoint,
+			},
+		}
+	}
+
+	// Created time
+	createdTime := time.Now()
+
+	return &did.Doc{
+		Context:   []string{did.Context},
+		ID:        id,
+		PublicKey: []did.PublicKey{pubKey},
+		Service:   service,
+		Created:   &createdTime,
+		Updated:   &createdTime,
+	}, nil
 }
 
 // persistKey save key in storage

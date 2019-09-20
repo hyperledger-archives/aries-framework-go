@@ -9,7 +9,6 @@ package api
 import (
 	"io"
 
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
@@ -22,4 +21,4 @@ type CloseableWallet interface {
 }
 
 // WalletCreator method to create new wallet service
-type WalletCreator func(storeProvider storage.Provider) (CloseableWallet, error)
+type WalletCreator func(provider Provider) (CloseableWallet, error)

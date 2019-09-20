@@ -95,14 +95,18 @@ type Pack interface {
 type DIDCreator interface {
 	// Creates new DID document.
 	//
-	// TODO :Should be able to specify the DID method as argument (Issue #283).
+	// Args:
+	//
+	// method: DID method
+	//
+	// opts: options to create DID
 	//
 	// Returns:
 	//
 	// did: DID document
 	//
 	// error: error
-	CreateDID() (*did.Doc, error)
+	CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
 }
 
 // Envelope contain msg,FromVerKey and ToVerKeys
@@ -111,6 +115,21 @@ type Envelope struct {
 	FromVerKey string
 	// TODO add key type - issue #272
 	ToVerKeys []string
+}
+
+// createDIDOpts holds the options for creating DID
+type createDIDOpts struct {
+	serviceType string
+}
+
+// DocOpts is a create DID option
+type DocOpts func(opts *createDIDOpts)
+
+// WithServiceType service type of DID document to be created
+func WithServiceType(serviceType string) DocOpts {
+	return func(opts *createDIDOpts) {
+		opts.serviceType = serviceType
+	}
 }
 
 // ErrKeyNotFound is returned when key not found

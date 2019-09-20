@@ -10,6 +10,7 @@ import (
 	"errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
@@ -20,6 +21,7 @@ var ErrSvcNotFound = errors.New("service not found")
 type Provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	Service(id string) (interface{}, error)
+	StorageProvider() storage.Provider
 	CryptoWallet() wallet.Crypto
 	InboundTransportEndpoint() string
 	DIDWallet() wallet.DIDCreator

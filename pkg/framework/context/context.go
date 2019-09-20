@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
@@ -20,6 +21,7 @@ import (
 type Provider struct {
 	outboundDispatcher       dispatcher.Outbound
 	services                 []dispatcher.Service
+	storeProvider            storage.Provider
 	wallet                   wallet.Wallet
 	inboundTransportEndpoint string
 	outboundTransport        transport.OutboundTransport
@@ -47,6 +49,7 @@ func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
 func (p *Provider) OutboundTransports() []transport.OutboundTransport {
 	return []transport.OutboundTransport{p.outboundTransport}
 }
+
 // Service return protocol service
 func (p *Provider) Service(id string) (interface{}, error) {
 	for _, v := range p.services {
@@ -71,10 +74,12 @@ func (p *Provider) PackWallet() wallet.Pack {
 func (p *Provider) DIDWallet() wallet.DIDCreator {
 	return p.wallet
 }
+
 // InboundTransportEndpoint returns the inbound transport endpoint
 func (p *Provider) InboundTransportEndpoint() string {
 	return p.inboundTransportEndpoint
 }
+
 // InboundMessageHandler return inbound message handler
 func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	return func(payload []byte) error {
@@ -96,6 +101,11 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		return fmt.Errorf("no message handlers found for the message type: %s", msgType.Type)
 	}
 }
+
+func (p *Provider) StorageProvider() storage.Provider {
+	return p.storeProvider
+}
+
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
@@ -135,6 +145,14 @@ func WithWallet(w wallet.Wallet) ProviderOption {
 func WithInboundTransportEndpoint(endpoint string) ProviderOption {
 	return func(opts *Provider) error {
 		opts.inboundTransportEndpoint = endpoint
+		return nil
+	}
+}
+
+// WithStorageProvider injects a storage provider into the context
+func WithStorageProvider(storage storage.Provider) ProviderOption {
+	return func(opts *Provider) error {
+		opts.storeProvider = storage
 		return nil
 	}
 }

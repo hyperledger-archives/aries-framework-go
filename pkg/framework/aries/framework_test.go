@@ -28,7 +28,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
 
@@ -81,7 +80,7 @@ func TestFramework(t *testing.T) {
 		}()
 		serverURL := fmt.Sprintf("http://localhost:%d", port)
 
-		aries, err := New(WithInboundTransport(&mockInboundTransport{}), WithWallet(func(storeProvider storage.Provider) (api.CloseableWallet, error) {
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}), WithWallet(func(ctx api.Provider) (api.CloseableWallet, error) {
 			return &mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue")}, nil
 		}))
 		require.NoError(t, err)
@@ -310,7 +309,7 @@ func TestFramework(t *testing.T) {
 
 		// with custom wallet
 		aries, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithWallet(func(storeProvider storage.Provider) (api.CloseableWallet, error) {
+			WithWallet(func(ctx api.Provider) (api.CloseableWallet, error) {
 				return &mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue")}, nil
 			}))
 		require.NoError(t, err)
@@ -329,7 +328,7 @@ func TestFramework(t *testing.T) {
 	t.Run("test error from wallet svc", func(t *testing.T) {
 		// with custom wallet
 		_, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithWallet(func(storeProvider storage.Provider) (api.CloseableWallet, error) {
+			WithWallet(func(ctx api.Provider) (api.CloseableWallet, error) {
 				return nil, fmt.Errorf("error from wallet")
 			}))
 		require.Error(t, err)
