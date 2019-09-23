@@ -71,8 +71,8 @@ func (c *Crypter) Encrypt(payload []byte) ([]byte, error) {
 }
 
 // buildEnvelope builds the Envelope following the legacy format
-func (c *Crypter) buildEnvelope(protectedBytes, nonce, cipherText, tag []byte) envelope {
-	return envelope{
+func (c *Crypter) buildEnvelope(protectedBytes, nonce, cipherText, tag []byte) legacyEnvelope {
+	return legacyEnvelope{
 		Protected:  base64.URLEncoding.EncodeToString(protectedBytes),
 		IV:         base64.URLEncoding.EncodeToString(nonce),
 		CipherText: base64.URLEncoding.EncodeToString(cipherText),

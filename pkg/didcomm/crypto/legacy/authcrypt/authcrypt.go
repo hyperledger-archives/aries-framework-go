@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package authcrypt
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/agl/ed25519/extra25519"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/nacl/box"
 )
 
@@ -78,8 +78,8 @@ func isKeyPairValid(kp keyPairEd25519) bool {
 	return true
 }
 
-// envelope is the full payload envelope for the JSON message
-type envelope struct {
+// legacyEnvelope is the full payload envelope for the JSON message
+type legacyEnvelope struct {
 	Protected  string `json:"protected,omitempty"`
 	IV         string `json:"iv,omitempty"`
 	CipherText string `json:"ciphertext,omitempty"`
