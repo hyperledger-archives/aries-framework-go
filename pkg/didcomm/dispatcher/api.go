@@ -23,9 +23,9 @@ type DIDCommMsg struct {
 	// Outbound indicates the direction of this DIDComm message:
 	//   - outgoing (to another agent)
 	//   - incoming (from another agent)
-	Outbound            bool
-	Type                string
-	Payload             []byte
+	Outbound bool
+	Type     string
+	Payload  []byte
 	//TODO : might need refactor as per the issue-226
 	OutboundDestination *Destination
 }
@@ -50,3 +50,20 @@ type Provider interface {
 
 // OutboundCreator method to create new outbound dispatcher service
 type OutboundCreator func(prov Provider) (Outbound, error)
+
+// DIDCommAction message type to pass events in go channels.
+type DIDCommAction struct {
+	// DIDComm message
+	Message DIDCommMsg
+	// Callback function to be called by the consumer for further processing the message.
+	Callback Callback
+}
+
+// DIDCommCallback message type to pass service callback in go channels.
+type DIDCommCallback struct {
+	// Set the value in case of any error while processing the DIDComm message event by the consumer.
+	Err error
+}
+
+// Callback type to pass service callbacks.
+type Callback func(DIDCommCallback)

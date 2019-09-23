@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/event"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -111,8 +111,12 @@ func TestService_Handle_Inviter(t *testing.T) {
 	newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
 	require.NoError(t, err)
 
-	s := &Service{ctx: ctx, store: dbstore}
-	s.RegisterAutoExecute()
+	s := New(dbstore, &mockProvider{})
+	actionCh := make(chan dispatcher.DIDCommAction, 10)
+	err = s.RegisterActionEvent(actionCh)
+	require.NoError(t, err)
+	go AutoExecuteActionEvent(actionCh)
+
 	thid := randomString()
 
 	// Invitation was previously sent by Alice to Bob.
@@ -134,6 +138,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 
 	// Alice automatically sends exchange Response to Bob
 	// Bob replies with an ACK
+	validateState(t, s, thid, (&responded{}).Name(), 100*time.Millisecond)
 	payloadBytes, err = json.Marshal(
 		&Ack{
 			Type:   ConnectionAck,
@@ -152,23 +157,29 @@ func TestService_Handle_Invitee(t *testing.T) {
 	data := make(map[string]string)
 	// using this mockStore as a hack in order to obtain the auto-generated thid after
 	// automatically sending the request back to Bob
+	var lock sync.RWMutex
 	store := &mockStore{
 		put: func(s string, bytes []byte) error {
+			lock.Lock()
+			defer lock.Unlock()
 			data[s] = string(bytes)
 			return nil
 		},
 		get: func(s string) (bytes []byte, e error) {
+			lock.RLock()
+			defer lock.RUnlock()
 			if state, found := data[s]; found {
 				return []byte(state), nil
 			}
 			return nil, storage.ErrDataNotFound
 		},
 	}
-	prov := mockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
 
-	s := &Service{ctx: ctx, store: store}
-	s.RegisterAutoExecute()
+	s := New(store, &mockProvider{})
+	actionCh := make(chan dispatcher.DIDCommAction, 10)
+	err := s.RegisterActionEvent(actionCh)
+	require.NoError(t, err)
+	go AutoExecuteActionEvent(actionCh)
 
 	// Alice receives an invitation from Bob
 	payloadBytes, err := json.Marshal(
@@ -210,9 +221,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 	// Alice automatically sends an ACK to Bob
 	// Alice must now be in COMPLETED state
-	currentState, err := s.currentState(thid)
-	require.NoError(t, err)
-	require.Equal(t, (&completed{}).Name(), currentState.Name())
+	validateState(t, s, thid, (&completed{}).Name(), 100*time.Millisecond)
 }
 
 func TestService_Handle_EdgeCases(t *testing.T) {
@@ -248,8 +257,13 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
 		require.NoError(t, err)
 
-		s := &Service{ctx: ctx, store: newMockStore()}
-		s.RegisterAutoExecute()
+		s := New(newMockStore(), &mockProvider{})
+		actionCh := make(chan dispatcher.DIDCommAction, 10)
+		err = s.RegisterActionEvent(actionCh)
+		require.NoError(t, err)
+
+		go AutoExecuteActionEvent(actionCh)
+
 		thid := randomString()
 		request, err := json.Marshal(
 			&Request{
@@ -266,9 +280,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		err = s.Handle(dispatcher.DIDCommMsg{Type: ConnectionRequest, Outbound: false, Payload: request})
 		require.NoError(t, err)
 		// state machine has automatically transitioned to responded state
-		actual, err := s.currentState(thid)
-		require.NoError(t, err)
-		require.Equal(t, (&responded{}).Name(), actual.Name())
+		validateState(t, s, thid, (&responded{}).Name(), 100*time.Millisecond)
 		// therefore cannot transition Responded state
 		response, err := json.Marshal(
 			&Response{
@@ -444,13 +456,18 @@ func newMockOutboundDispatcher() dispatcher.Outbound {
 }
 
 func newMockStore() storage.Store {
+	var lock sync.RWMutex
 	data := make(map[string][]byte)
 	return &mockStore{
 		put: func(k string, v []byte) error {
+			lock.Lock()
+			defer lock.Unlock()
 			data[k] = v
 			return nil
 		},
 		get: func(k string) ([]byte, error) {
+			lock.RLock()
+			defer lock.RUnlock()
 			v, found := data[k]
 			if !found {
 				return nil, storage.ErrDataNotFound
@@ -555,8 +572,8 @@ func TestService_Events(t *testing.T) {
 }
 
 func startConsumer(t *testing.T, svc *Service, done chan bool) {
-	actionCh := make(chan event.DIDCommEvent, 10)
-	err := svc.RegisterEvent(actionCh)
+	actionCh := make(chan dispatcher.DIDCommAction, 10)
+	err := svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
 
 	go func() {
@@ -580,7 +597,7 @@ func startConsumer(t *testing.T, svc *Service, done chan bool) {
 	}()
 
 	statusCh := make(chan dispatcher.DIDCommMsg, 10)
-	err = svc.RegisterMsg(statusCh)
+	err = svc.RegisterMsgEvent(statusCh)
 	require.NoError(t, err)
 	go func() {
 		for {
@@ -597,7 +614,7 @@ func startConsumer(t *testing.T, svc *Service, done chan bool) {
 
 }
 
-func handleConnectionRequestEvents(t *testing.T, svc *Service, e event.DIDCommEvent, done chan bool) {
+func handleConnectionRequestEvents(t *testing.T, svc *Service, e dispatcher.DIDCommAction, done chan bool) {
 	require.NotEmpty(t, e.Message)
 	require.Equal(t, ConnectionRequest, e.Message.Type)
 
@@ -609,7 +626,7 @@ func handleConnectionRequestEvents(t *testing.T, svc *Service, e event.DIDCommEv
 		done <- true
 		return
 	}
-	err = func(e event.DIDCommEvent) error {
+	err = func(e dispatcher.DIDCommAction) error {
 		err := json.Unmarshal(e.Message.Payload, &pl)
 		require.NoError(t, err)
 
@@ -621,7 +638,7 @@ func handleConnectionRequestEvents(t *testing.T, svc *Service, e event.DIDCommEv
 	}(e)
 
 	// invoke callback
-	e.Callback(event.DIDCommCallback{Err: err})
+	e.Callback(dispatcher.DIDCommCallback{Err: err})
 
 	if pl.ID == invalidThreadID {
 		// no state change since there was a error with processing
@@ -633,7 +650,7 @@ func handleConnectionRequestEvents(t *testing.T, svc *Service, e event.DIDCommEv
 	}
 }
 
-func handleConnectionResponseEvents(t *testing.T, svc *Service, e event.DIDCommEvent) {
+func handleConnectionResponseEvents(t *testing.T, svc *Service, e dispatcher.DIDCommAction) {
 	require.NotEmpty(t, e.Message)
 	require.Equal(t, ConnectionResponse, e.Message.Type)
 
@@ -642,7 +659,7 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e event.DIDCommE
 	require.NoError(t, err)
 
 	if pl.ID == "change-id" {
-		e.Callback = func(didCommCallback event.DIDCommCallback) {
+		e.Callback = func(didCommCallback dispatcher.DIDCommCallback) {
 			svc.processCallback("invalid-id", didCommCallback)
 		}
 	}
@@ -657,13 +674,13 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e event.DIDCommE
 		err = svc.store.Put(id, jsonDoc)
 		require.NoError(t, err)
 
-		e.Callback = func(didCommCallback event.DIDCommCallback) {
+		e.Callback = func(didCommCallback dispatcher.DIDCommCallback) {
 			svc.processCallback(id, didCommCallback)
 		}
 	}
 
 	// invoke callback
-	e.Callback(event.DIDCommCallback{Err: nil})
+	e.Callback(dispatcher.DIDCommCallback{Err: nil})
 	if pl.ID == "change-id" {
 		// no state change since there was a error with processing
 		s, err := svc.currentState(pl.ID)
@@ -679,7 +696,7 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e event.DIDCommE
 	}
 }
 
-func handleConnectionAckEvents(t *testing.T, svc *Service, e event.DIDCommEvent) {
+func handleConnectionAckEvents(t *testing.T, svc *Service, e dispatcher.DIDCommAction) {
 	require.NotEmpty(t, e.Message)
 	require.Equal(t, ConnectionAck, e.Message.Type)
 
@@ -692,13 +709,13 @@ func handleConnectionAckEvents(t *testing.T, svc *Service, e event.DIDCommEvent)
 		err := svc.store.Put(id, []byte("invalid json"))
 		require.NoError(t, err)
 
-		e.Callback = func(didCommCallback event.DIDCommCallback) {
+		e.Callback = func(didCommCallback dispatcher.DIDCommCallback) {
 			svc.processCallback(id, didCommCallback)
 		}
 	}
 
 	// invoke callback
-	e.Callback(event.DIDCommCallback{Err: nil})
+	e.Callback(dispatcher.DIDCommCallback{Err: nil})
 	if pl.ID == "corrupt" {
 		// no state change since there was a error with processing
 		s, err := svc.currentState(pl.ID)
@@ -878,7 +895,7 @@ func validateStatusEventAction(t *testing.T, svc *Service, duration time.Duratio
 	}
 }
 
-func TestService_No_AutoExecution(t *testing.T) {
+func TestService_No_Execution(t *testing.T) {
 
 	dbstore, cleanup := store(t)
 	defer cleanup()
@@ -894,7 +911,26 @@ func TestService_No_AutoExecution(t *testing.T) {
 	require.Contains(t, err.Error(), "no clients are registered to handle the message")
 }
 
-func TestService_Execute(t *testing.T) {
+func validateState(t *testing.T, svc *Service, id, expected string, timeoutDuration time.Duration) {
+	actualState := ""
+	timeout := time.After(timeoutDuration)
+	for {
+		select {
+		case <-timeout:
+			require.Fail(t, fmt.Sprintf("id=%s expectedState=%s actualState=%s", id, expected, actualState))
+			return
+		default:
+			s, err := svc.currentState(id)
+			actualState = s.Name()
+			if err != nil || expected != s.Name() {
+				continue
+			}
+			return
+		}
+	}
+}
+
+func TestService_ActionEvent(t *testing.T) {
 
 	dbstore, cleanup := store(t)
 	defer cleanup()
@@ -903,80 +939,101 @@ func TestService_Execute(t *testing.T) {
 
 	// validate before register
 	require.Nil(t, svc.actionEvent)
-	require.False(t, svc.execute)
 
-	// register a action event
-	ch := make(chan event.DIDCommEvent, 10)
-	err := svc.RegisterEvent(ch)
+	// register an action event
+	ch := make(chan dispatcher.DIDCommAction)
+	err := svc.RegisterActionEvent(ch)
 	require.NoError(t, err)
+
+	// register another action event
+	err = svc.RegisterActionEvent(make(chan dispatcher.DIDCommAction))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "channel is already registered for the action event")
 
 	// validate after register
 	require.NotNil(t, svc.actionEvent)
-	require.True(t, svc.execute)
 
 	// unregister a action event
-	err = svc.UnregisterEvent()
+	err = svc.UnregisterActionEvent(ch)
 	require.NoError(t, err)
 
 	// validate after unregister
 	require.Nil(t, svc.actionEvent)
-	require.False(t, svc.execute)
 
-	// register for auto execute
-	err = svc.RegisterAutoExecute()
-	require.NoError(t, err)
-	require.True(t, svc.execute)
-
-	// unregister for auto execute
-	err = svc.UnregisterAutoExecute()
-	require.NoError(t, err)
-	require.False(t, svc.execute)
-
-	// register for auto execute and action event
-	err = svc.RegisterEvent(ch)
-	require.NoError(t, err)
-	err = svc.RegisterAutoExecute()
-	require.NoError(t, err)
-	require.True(t, svc.execute)
-
-	// unregister action event with auto execute set
-	err = svc.UnregisterEvent()
-	require.NoError(t, err)
-	require.False(t, svc.execute)
+	// unregister with different channel
+	err = svc.UnregisterActionEvent(make(chan dispatcher.DIDCommAction))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid channel passed to unregister the action event")
 }
 
-func TestService_StatusEvents(t *testing.T) {
-
+func TestService_MsgEvents(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
 
 	svc := New(dbstore, &mockProvider{})
 
 	// validate before register
-	require.Nil(t, svc.statusEvents)
-	require.Equal(t, 0, len(svc.statusEvents))
+	require.Nil(t, svc.msgEvents)
+	require.Equal(t, 0, len(svc.msgEvents))
 
 	// register a status event
-	ch := make(chan dispatcher.DIDCommMsg, 10)
-	err := svc.RegisterMsg(ch)
+	ch := make(chan dispatcher.DIDCommMsg)
+	err := svc.RegisterMsgEvent(ch)
 	require.NoError(t, err)
 
 	// validate after register
-	require.NotNil(t, svc.statusEvents)
-	require.Equal(t, 1, len(svc.statusEvents))
+	require.NotNil(t, svc.msgEvents)
+	require.Equal(t, 1, len(svc.msgEvents))
 
 	// register a new status event
-	err = svc.RegisterMsg(make(chan dispatcher.DIDCommMsg, 10))
+	err = svc.RegisterMsgEvent(make(chan dispatcher.DIDCommMsg))
 	require.NoError(t, err)
 
 	// validate after new register
-	require.NotNil(t, svc.statusEvents)
-	require.Equal(t, 2, len(svc.statusEvents))
+	require.NotNil(t, svc.msgEvents)
+	require.Equal(t, 2, len(svc.msgEvents))
 
 	// unregister a status event
-	err = svc.UnregisterMsg(ch)
+	err = svc.UnregisterMsgEvent(ch)
 	require.NoError(t, err)
 
 	// validate after unregister
-	require.Equal(t, 1, len(svc.statusEvents))
+	require.Equal(t, 1, len(svc.msgEvents))
+
+	// add channels and remove in opposite order
+	svc.msgEvents = nil
+	ch1 := make(chan dispatcher.DIDCommMsg)
+	ch2 := make(chan dispatcher.DIDCommMsg)
+	ch3 := make(chan dispatcher.DIDCommMsg)
+
+	err = svc.RegisterMsgEvent(ch1)
+	require.NoError(t, err)
+
+	err = svc.RegisterMsgEvent(ch2)
+	require.NoError(t, err)
+
+	err = svc.RegisterMsgEvent(ch3)
+	require.NoError(t, err)
+
+	err = svc.UnregisterMsgEvent(ch3)
+	require.NoError(t, err)
+
+	err = svc.UnregisterMsgEvent(ch2)
+	require.NoError(t, err)
+
+	err = svc.UnregisterMsgEvent(ch1)
+	require.NoError(t, err)
+}
+
+func Test_AutoExecute(t *testing.T) {
+	ch := make(chan dispatcher.DIDCommAction)
+	done := make(chan struct{})
+
+	go func() {
+		AutoExecuteActionEvent(ch)
+		close(done)
+	}()
+
+	close(ch)
+	<-done
 }
