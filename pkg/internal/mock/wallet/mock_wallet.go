@@ -8,7 +8,6 @@ package wallet
 
 import (
 	"github.com/btcsuite/btcutil/base58"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -56,7 +55,7 @@ func (m *CloseableWallet) UnpackMessage(encMessage []byte) (*wallet.Envelope, er
 }
 
 // CreateDID returns new DID Document
-func (m *CloseableWallet) CreateDID() (*did.Doc, error) {
+func (m *CloseableWallet) CreateDID(method string, opts ...wallet.DocOpts) (*did.Doc, error) {
 	return &did.Doc{
 		Context: []string{"https://w3id.org/did/v1"},
 		ID:      "did:example:123456789abcdefghi#inbox",

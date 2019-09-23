@@ -12,13 +12,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -114,7 +114,7 @@ func TestNewProvider(t *testing.T) {
 		v, err := prov.CryptoWallet().SignMessage(nil, "")
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
-		didDoc, err := prov.DIDWallet().CreateDID()
+		didDoc, err := prov.DIDWallet().CreateDID("example")
 		require.NoError(t, err)
 		require.Equal(t, "did:example:123456789abcdefghi#inbox", didDoc.ID)
 	})
@@ -123,6 +123,13 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithInboundTransportEndpoint("endpoint"))
 		require.NoError(t, err)
 		require.Equal(t, "endpoint", prov.InboundTransportEndpoint())
+	})
+
+	t.Run("test new with storage provider", func(t *testing.T) {
+		storage := storage.NewMockStoreProvider()
+		prov, err := New(WithStorageProvider(storage))
+		require.NoError(t, err)
+		require.Equal(t, storage, prov.StorageProvider())
 	})
 
 	t.Run("test new with outbound transport service", func(t *testing.T) {

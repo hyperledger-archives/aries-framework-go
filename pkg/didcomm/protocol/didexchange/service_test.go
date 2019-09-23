@@ -108,7 +108,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	defer cleanup()
 	prov := mockProvider{}
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-	newDidDoc, err := ctx.didWallet.CreateDID()
+	newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
 	require.NoError(t, err)
 
 	s := &Service{ctx: ctx, store: dbstore}
@@ -245,7 +245,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("must not transition to same state", func(t *testing.T) {
 		prov := mockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-		newDidDoc, err := ctx.didWallet.CreateDID()
+		newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
 		require.NoError(t, err)
 
 		s := &Service{ctx: ctx, store: newMockStore()}

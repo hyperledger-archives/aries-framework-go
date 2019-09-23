@@ -60,11 +60,6 @@ func New(opts ...Option) (*Aries, error) {
 		return nil, fmt.Errorf("default option initialization failed: %w", err)
 	}
 
-	// Create wallet
-	if err := createWallet(frameworkOpts); err != nil {
-		return nil, err
-	}
-
 	// TODO: https://github.com/hyperledger/aries-framework-go/issues/212
 	//  Define clear relationship between framework and context.
 	//  Details - The code creates context without protocolServices. The protocolServicesCreators are dependent
@@ -74,6 +69,11 @@ func New(opts ...Option) (*Aries, error) {
 	ctxProvider, err := frameworkOpts.Context()
 	if err != nil {
 		return nil, fmt.Errorf("context creation failed: %w", err)
+	}
+
+	// Create wallet
+	if err := createWallet(frameworkOpts, ctxProvider); err != nil {
+		return nil, err
 	}
 
 	// Load services
@@ -183,6 +183,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithOutboundDispatcher(a.outboundDispatcher), context.WithOutboundTransport(ot), context.WithProtocolServices(a.services...),
 		// TODO configure inbound external endpoints
 		context.WithWallet(a.wallet), context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
+		context.WithStorageProvider(a.storeProvider),
 	)
 }
 
@@ -209,9 +210,9 @@ func (a *Aries) Close() error {
 	return nil
 }
 
-func createWallet(frameworkOpts *Aries) error {
+func createWallet(frameworkOpts *Aries, ctxProvider *context.Provider) error {
 	var err error
-	frameworkOpts.wallet, err = frameworkOpts.walletCreator(frameworkOpts.storeProvider)
+	frameworkOpts.wallet, err = frameworkOpts.walletCreator(ctxProvider)
 	if err != nil {
 		return fmt.Errorf("create wallet failed: %w", err)
 	}

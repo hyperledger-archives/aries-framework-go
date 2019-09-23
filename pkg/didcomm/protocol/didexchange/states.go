@@ -13,10 +13,10 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 const (
@@ -259,7 +259,7 @@ func (ctx *context) newRequestFromInvitation(invitation *Invitation) (*Request, 
 		RoutingKeys:     invitation.RoutingKeys,
 	}
 
-	newDidDoc, err := ctx.didWallet.CreateDID()
+	newDidDoc, err := ctx.didWallet.CreateDID(didMethod, wallet.WithServiceType(DIDExchangeServiceType))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -343,7 +343,7 @@ func (ctx *context) sendOutbound(msg interface{}, destination *dispatcher.Destin
 }
 
 func (ctx *context) newResponseFromRequest(request *Request) (*Response, *dispatcher.Destination, error) {
-	newDidDoc, err := ctx.didWallet.CreateDID()
+	newDidDoc, err := ctx.didWallet.CreateDID(didMethod, wallet.WithServiceType(DIDExchangeServiceType))
 	if err != nil {
 		return nil, nil, err
 	}

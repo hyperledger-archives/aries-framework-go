@@ -46,6 +46,10 @@ const (
 	ConnectionResponse = DIDExchangeSpec + "response"
 	// ConnectionAck defines the did-exchange ack message type.
 	ConnectionAck = DIDExchangeSpec + "ack"
+	// DIDExchangeServiceType is the service type to be used in DID document
+	DIDExchangeServiceType = "did-communication"
+	// TODO not supposed to be constant, using did method 'peer' for now (issue #322)
+	didMethod = "peer"
 )
 
 // message type to store data for eventing. This is retrieved during callback.

@@ -9,7 +9,6 @@ package aries
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -101,8 +100,8 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 	}
 
 	if frameworkOpts.walletCreator == nil {
-		frameworkOpts.walletCreator = func(storeProvider storage.Provider) (api.CloseableWallet, error) {
-			return newWallet(storeProvider)
+		frameworkOpts.walletCreator = func(provider api.Provider) (api.CloseableWallet, error) {
+			return wallet.New(provider)
 		}
 	}
 
@@ -120,12 +119,4 @@ func setDefaultOutboundDispatcher(frameworkOpts *Aries) {
 			return dispatcher.NewOutbound(prv), nil
 		}
 	}
-}
-
-func newWallet(storeProvider storage.Provider) (api.CloseableWallet, error) {
-	crypter, err := authcrypt.New(authcrypt.XC20P)
-	if err != nil {
-		return nil, fmt.Errorf("new authcrypt failed: %w", err)
-	}
-	return wallet.New(storeProvider, crypter)
 }
