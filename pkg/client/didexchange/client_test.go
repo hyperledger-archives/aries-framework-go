@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -47,9 +48,9 @@ func TestClient_CreateInvitation(t *testing.T) {
 		inviteReq, err := c.CreateInvitation()
 		require.NoError(t, err)
 		require.NotNil(t, inviteReq)
-		require.NotEmpty(t, inviteReq.Invitation.Label)
-		require.NotEmpty(t, inviteReq.Invitation.ID)
-		require.Equal(t, "endpoint", inviteReq.Invitation.ServiceEndpoint)
+		require.NotEmpty(t, inviteReq.Label)
+		require.NotEmpty(t, inviteReq.ID)
+		require.Equal(t, "endpoint", inviteReq.ServiceEndpoint)
 	})
 
 	t.Run("test error from createSigningKey", func(t *testing.T) {
@@ -79,6 +80,28 @@ func TestClient_RemoveConnection(t *testing.T) {
 
 	err = c.RemoveConnection("sample-id")
 	require.NoError(t, err)
+}
+
+func TestClient_HandleInvitation(t *testing.T) {
+	t.Run("test success", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{ServiceValue: &mockprotocol.MockDIDExchangeSvc{},
+			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
+		require.NoError(t, err)
+		inviteReq, err := c.CreateInvitation()
+		require.NoError(t, err)
+		require.NoError(t, c.HandleInvitation(inviteReq))
+	})
+
+	t.Run("test error from handle msg", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleErr: fmt.Errorf("handle error")},
+			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
+		require.NoError(t, err)
+		inviteReq, err := c.CreateInvitation()
+		require.NoError(t, err)
+		err = c.HandleInvitation(inviteReq)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "handle error")
+	})
 }
 
 func TestClient_QueryConnectionsByParams(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	didexchangesvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 )
 
 // A GenericError is the default error message that is generated.
@@ -32,7 +33,7 @@ type GenericError struct {
 type CreateInvitationResponse struct {
 
 	// in: body
-	Payload *didexchange.InvitationRequest `json:""`
+	Payload *didexchangesvc.Invitation `json:""`
 }
 
 // ReceiveInvitationRequest model
