@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package metadata
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -42,7 +44,7 @@ func TestLevels(t *testing.T) {
 }
 
 func TestCallerInfos(t *testing.T) {
-	module := "sample-module-caller-info"
+	module := fmt.Sprintf("sample-module-caller-info-%d-%d", rand.Intn(1000), rand.Intn(1000))
 
 	require.True(t, IsCallerInfoEnabled(module, CRITICAL))
 	require.True(t, IsCallerInfoEnabled(module, DEBUG))

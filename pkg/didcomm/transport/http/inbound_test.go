@@ -10,9 +10,12 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -144,7 +147,7 @@ func TestInboundTransport(t *testing.T) {
 		// start server
 		err = inbound.Start(&mockProvider{})
 		require.NoError(t, err)
-
+		require.NoError(t, listenFor("localhost:26604", time.Second))
 		// invoke a endpoint
 		client := http.Client{}
 		resp, err := client.Post("http://localhost:26604", commContentType, bytes.NewBuffer([]byte("success")))
@@ -163,4 +166,23 @@ func TestInboundTransport(t *testing.T) {
 		_, err = client.Post("http://localhost:26604", commContentType, bytes.NewBuffer([]byte("success"))) // nolint
 		require.Error(t, err)
 	})
+}
+
+func listenFor(host string, d time.Duration) error {
+	timeout := time.After(d)
+	for {
+		select {
+		case <-timeout:
+			return errors.New("timeout: server is not available")
+		default:
+			conn, err := net.Dial("tcp", host)
+			if err != nil {
+				continue
+			}
+			if err := conn.Close(); err != nil {
+				return err
+			}
+			return nil
+		}
+	}
 }

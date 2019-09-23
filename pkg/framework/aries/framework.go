@@ -50,7 +50,7 @@ func New(opts ...Option) (*Aries, error) {
 		err := option(frameworkOpts)
 		if err != nil {
 			closeErr := frameworkOpts.Close()
-			return nil, fmt.Errorf("close err: %s Error in option passed to New: %w", closeErr, err)
+			return nil, fmt.Errorf("close err: %v Error in option passed to New: %w", closeErr, err)
 		}
 	}
 
