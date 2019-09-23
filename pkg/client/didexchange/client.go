@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -48,18 +49,31 @@ func New(ctx provider) (*Client, error) {
 }
 
 // CreateInvitation create invitation
-func (c *Client) CreateInvitation() (*InvitationRequest, error) {
+func (c *Client) CreateInvitation() (*didexchange.Invitation, error) {
 	verKey, err := c.wallet.CreateKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
 	}
 
-	return &InvitationRequest{Invitation: &didexchange.Invitation{
+	return &didexchange.Invitation{
 		ID:              uuid.New().String(),
 		Label:           "agent", // TODO pass label as argument
 		RecipientKeys:   []string{verKey},
 		ServiceEndpoint: c.inboundTransportEndpoint,
-	}}, nil
+		Type:            didexchange.ConnectionInvite,
+	}, nil
+}
+
+// HandleInvitation handle incoming invitation
+func (c *Client) HandleInvitation(invitation *didexchange.Invitation) error {
+	payload, err := json.Marshal(invitation)
+	if err != nil {
+		return fmt.Errorf("failed marshal invitation: %w", err)
+	}
+	if err = c.didexchangeSvc.Handle(dispatcher.DIDCommMsg{Type: invitation.Type, Payload: payload}); err != nil {
+		return fmt.Errorf("failed from didexchange service handle: %w", err)
+	}
+	return nil
 }
 
 // QueryConnections queries connections matching given parameters

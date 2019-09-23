@@ -53,8 +53,8 @@ func TestOperation_CreateInvitation(t *testing.T) {
 
 	// verify response
 	require.NotEmpty(t, response.Payload)
-	require.Equal(t, "endpoint", response.Payload.Invitation.ServiceEndpoint)
-	require.NotEmpty(t, response.Payload.Invitation.Label)
+	require.Equal(t, "endpoint", response.Payload.ServiceEndpoint)
+	require.NotEmpty(t, response.Payload.Label)
 }
 
 func TestOperation_ReceiveInvitation(t *testing.T) {
