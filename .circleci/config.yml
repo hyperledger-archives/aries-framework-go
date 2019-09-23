@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# TODO: Disable CircleCI builds
+# This workflow executes unit tests and uploads code coverage for forked PRs.
+# Forked PRs are detected using the CIRCLE_PR_NUMBER environment variable (https://circleci.com/docs/2.0/env-vars/#built-in-environment-variables).
+# TODO: Disable CircleCI builds when GitHub Actions support codecov with forked PRs.
 
 version: 2
 
@@ -12,8 +14,20 @@ jobs:
       - image: circleci/golang:1.13
     steps:
       - checkout
-      - run: make unit-test
-      - run: bash <(curl -s https://codecov.io/bash)
+      - run:
+          name: Check forked PR status (job commands only run on forked PRs)
+          command: |
+            if [ ! -z "${CIRCLE_PR_NUMBER}" ]; then 
+              echo "Forked PR detected."
+            else
+              echo "Forked PR not detected."
+            fi
+      - run:
+          name: Run unit test
+          command: if [ ! -z "${CIRCLE_PR_NUMBER}" ]; then make unit-test; fi
+      - run: 
+          name: Upload coverage to Codecov
+          command: if [ ! -z "${CIRCLE_PR_NUMBER}" ]; then bash <(curl -s https://codecov.io/bash); fi
 workflows:
   version: 2
   checks-test:
