@@ -108,6 +108,17 @@ func TestNewProvider(t *testing.T) {
 		require.Equal(t, []byte("data"), v)
 	})
 
+	t.Run("test new with did wallet service", func(t *testing.T) {
+		prov, err := New(WithWallet(&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue"), PackValue: []byte("data")}))
+		require.NoError(t, err)
+		v, err := prov.CryptoWallet().SignMessage(nil, "")
+		require.NoError(t, err)
+		require.Equal(t, []byte("mockValue"), v)
+		didDoc, err := prov.DIDWallet().CreateDID()
+		require.NoError(t, err)
+		require.Equal(t, "did:example:123456789abcdefghi#inbox", didDoc.ID)
+	})
+
 	t.Run("test new with inbound transport endpoint", func(t *testing.T) {
 		prov, err := New(WithInboundTransportEndpoint("endpoint"))
 		require.NoError(t, err)
