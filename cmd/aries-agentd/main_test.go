@@ -7,9 +7,11 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -19,8 +21,36 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testURL = "localhost:8080"
-const testInboundURL = "localhost:8081"
+func randomURL() string {
+	return fmt.Sprintf("localhost:%d", mustGetRandomPort(3))
+}
+
+func mustGetRandomPort(n int) int {
+	for ; n > 0; n-- {
+		port, err := getRandomPort()
+		if err != nil {
+			continue
+		}
+		return port
+	}
+	panic("cannot acquire the random port")
+}
+
+func getRandomPort() (int, error) {
+	const network = "tcp"
+	addr, err := net.ResolveTCPAddr(network, "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+	listener, err := net.ListenTCP(network, addr)
+	if err != nil {
+		return 0, err
+	}
+	if err := listener.Close(); err != nil {
+		return 0, err
+	}
+	return listener.Addr().(*net.TCPAddr).Port, nil
+}
 
 func TestStartAriesD(t *testing.T) {
 	// TODO - remove this path manipulation after implementing #175 and #148
@@ -32,7 +62,6 @@ func TestStartAriesD(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/167
 	prev := os.Getenv(agentHostEnvKey)
 	defer func() {
 		err = os.Setenv(agentHostEnvKey, prev)
@@ -41,6 +70,7 @@ func TestStartAriesD(t *testing.T) {
 		}
 	}()
 
+	testURL := randomURL()
 	err = os.Setenv(agentHostEnvKey, testURL)
 	if err != nil {
 		t.Fatal(err)
@@ -54,19 +84,46 @@ func TestStartAriesD(t *testing.T) {
 		}
 	}()
 
+	testInboundURL := randomURL()
 	err = os.Setenv(agentHTTPInboundEnvKey, testInboundURL)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	go main()
+	// give some time for server to start
+	if err := listenFor(testURL, time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if err := listenFor(testInboundURL, time.Second); err != nil {
+		t.Fatal(err)
+	}
 
-	validateRequests(t)
+	validateRequests(t, testURL, testInboundURL)
+}
+
+func listenFor(host string, d time.Duration) error {
+	timeout := time.After(d)
+	for {
+		select {
+		case <-timeout:
+			return errors.New("timeout: server is not available")
+		default:
+			conn, err := net.Dial("tcp", host)
+			if err != nil {
+				continue
+			}
+			if err := conn.Close(); err != nil {
+				return err
+			}
+			return nil
+		}
+	}
 }
 
 // TODO: this method should be refactored (e.g., too many lines).
 //nolint:funlen
-func validateRequests(t *testing.T) {
+func validateRequests(t *testing.T, testURL, testInboundURL string) {
 	newreq := func(method, url string, body io.Reader, contentType string) *http.Request {
 		r, err := http.NewRequest(method, url, body)
 		if contentType != "" {
@@ -107,10 +164,6 @@ func validateRequests(t *testing.T) {
 			expectResponseData: false,
 		},
 	}
-
-	// give some time for server to start
-	// TODO instead of sleep, listen for port
-	time.Sleep(100 * time.Millisecond)
 
 	for _, tt := range tests {
 
@@ -188,7 +241,7 @@ func TestStartAriesWithoutInboundHost(t *testing.T) {
 		}
 	}()
 
-	err := os.Setenv(agentHostEnvKey, testURL)
+	err := os.Setenv(agentHostEnvKey, randomURL())
 	if err != nil {
 		t.Fatal(err)
 	}
