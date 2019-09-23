@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package transport
 
+import "github.com/hyperledger/aries-framework-go/pkg/wallet"
+
 // OutboundTransport interface definition for transport layer
 // This is the client side of the agent
 type OutboundTransport interface {
@@ -23,6 +25,7 @@ type InboundMessageHandler func(payload []byte) error
 // It is typically created by using aries.Context().
 type InboundProvider interface {
 	InboundMessageHandler() InboundMessageHandler
+	PackWallet() wallet.Pack
 }
 
 // InboundTransport interface definition for inbound transport layer
