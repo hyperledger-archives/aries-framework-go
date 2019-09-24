@@ -15,9 +15,7 @@ import (
 	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
-	"golang.org/x/crypto/blake2b"
 	chacha "golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/poly1305"
 
 	jwecrypto "github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
@@ -211,30 +209,16 @@ func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]by
 
 	privK := new([chacha.KeySize]byte)
 	copy(privK[:], senderKp.Priv)
-	// create a new ephemeral key for the recipient and return its APU
-	kek, err := c.generateKEK(apu, privK, recipientKey)
+	// create a new ephemeral key for the recipient
+	kek, err := c.generateKEK([]byte(c.alg), apu, privK, recipientKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// create a new (chacha20poly1035) cipher with this new key to encrypt the shared key (cek)
-	crypter, err := createCipher(c.nonceSize, kek)
+	sharedKeyCipher, tag, nonce, err := c.encryptSymKey(kek, sharedSymKey[:])
 	if err != nil {
 		return nil, err
 	}
-
-	// create a new nonce
-	nonce := make([]byte, c.nonceSize)
-	_, err = randReader.Read(nonce)
-	if err != nil {
-		return nil, err
-	}
-
-	// encrypt symmetric shared key cek using the recipient's ephemeral key
-	kekOutput := crypter.Seal(nil, nonce, sharedSymKey[:], nil)
-
-	tag := extractTag(kekOutput)
-	sharedKeyCipher := extractCipherText(kekOutput)
 
 	pubK := new([chacha.KeySize]byte)
 	copy(pubK[:], senderKp.Pub)
@@ -243,18 +227,18 @@ func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]by
 }
 
 // buildRecipient will build a proper JSON formatted Recipient
-func (c *Crypter) buildRecipient(key string, apu, nonce []byte, tag string, senderPubKey, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
-	oid, err := encryptOID(recipientKey, []byte(base58.Encode(senderPubKey[:])))
+func (c *Crypter) buildRecipient(key string, apu []byte, nonceEncoded, tagEncoded string, senderPubKey, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
+	spkEncoded, err := c.generateSPK(recipientKey, senderPubKey)
 	if err != nil {
 		return nil, err
 	}
 
 	recipientHeaders := RecipientHeaders{
 		APU: base64.RawURLEncoding.EncodeToString(apu),
-		IV:  base64.RawURLEncoding.EncodeToString(nonce),
-		Tag: tag,
+		IV:  nonceEncoded,
+		Tag: tagEncoded,
 		KID: base58.Encode(recipientKey[:]),
-		OID: base64.RawURLEncoding.EncodeToString(oid),
+		SPK: spkEncoded,
 	}
 
 	recipient := &Recipient{
@@ -265,54 +249,30 @@ func (c *Crypter) buildRecipient(key string, apu, nonce []byte, tag string, send
 	return recipient, nil
 }
 
-// encryptOID will encrypt a msg (in the case of this package, it will be
-// the sender's public key) using the recipient's pubKey,
-// this is equivalent to libsodium's C function: crypto_box_seal()
-// https://libsodium.gitbook.io/doc/public-key_cryptography/sealed_boxes#usage
-// TODO add testing to ensure interoperability of encryptOID with libsodium's function above
-//      the main difference between libsodium and below implementation is libsodium hides
-//      the ephemeral key and the nonce creation from the caller while box.Seal requires these
-//      to be prebuilt and passed as arguments.
-// TODO replace 'OID' to 'SPK' recipient header which should represent the key in JWK encoded in a compact JWE format
-func encryptOID(recipientPubKey *[chacha.KeySize]byte, msg []byte) ([]byte, error) {
-	// generate ephemeral asymmetric keys
-	epk, esk, err := box.GenerateKey(randReader)
+// encryptSymKey will encrypt symKey with the given kek and a newly generated nonce
+// returns:
+// 		encrypted cipher of symKey
+//		resulting tag of the encryption
+//		generated nonce used by the encryption
+//		error in case of failure
+func (c *Crypter) encryptSymKey(kek, symKey []byte) (string, string, string, error) {
+	crypter, err := createCipher(c.nonceSize, kek)
 	if err != nil {
-		return nil, err
-	}
-	// generate an equivalent nonce to libsodium's (see link in comment above)
-	nonce, err := generateLibsodiumNonce(epk[:], recipientPubKey[:])
-	if err != nil {
-		return nil, err
+		return "", "", "", err
 	}
 
-	var out = make([]byte, len(epk))
-	copy(out, epk[:])
-
-	// now seal msg with the ephemeral key, nonce and recipientPubKey (which is the recipient's publicKey)
-	return box.Seal(out, msg, nonce, recipientPubKey, esk), nil
-}
-
-// generateLibsodiumNonce will generate a nonce that is equivalent to libsodium's
-// nonce format ie: black2b generation using concatenation of pub1 with pub2
-func generateLibsodiumNonce(pub1, pub2 []byte) (*[24]byte, error) {
-	var nonce [24]byte
-	// generate an equivalent nonce to libsodium's
-	nonceWriter, err := blake2b.New(24, nil)
+	// create a new nonce
+	nonce := make([]byte, c.nonceSize)
+	_, err = randReader.Read(nonce)
 	if err != nil {
-		return nil, err
-	}
-	_, err = nonceWriter.Write(pub1)
-	if err != nil {
-		return nil, err
-	}
-	_, err = nonceWriter.Write(pub2)
-	if err != nil {
-		return nil, err
+		return "", "", "", err
 	}
 
-	nonceOut := nonceWriter.Sum(nil)
-	copy(nonce[:], nonceOut)
+	// encrypt symmetric shared key using the key encryption key (kek)
+	kekOutput := crypter.Seal(nil, nonce, symKey, nil)
 
-	return &nonce, nil
+	symKeyCipherEncoded := extractCipherText(kekOutput)
+	tagEncoded := extractTag(kekOutput)
+	nonceEncoded := base64.RawURLEncoding.EncodeToString(nonce)
+	return symKeyCipherEncoded, tagEncoded, nonceEncoded, nil
 }
