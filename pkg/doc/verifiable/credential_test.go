@@ -719,7 +719,6 @@ func TestDownloadCustomSchema(t *testing.T) {
 			res.WriteHeader(http.StatusOK)
 			_, err := res.Write([]byte("custom schema"))
 			require.NoError(t, err)
-
 		}))
 		defer func() { testServer.Close() }()
 

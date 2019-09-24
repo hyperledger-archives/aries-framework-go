@@ -36,5 +36,4 @@ func TestDefLogWithoutCallerInfo(t *testing.T) {
 	metadata.HideCallerInfo(module, metadata.INFO)
 	logger.Infof(msgFormat, msgArg1, msgArg2)
 	matchDefLogOutput(t, module, metadata.INFO, metadata.INFO, false)
-
 }

@@ -12,13 +12,14 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -50,7 +51,6 @@ func TestNewProvider(t *testing.T) {
 
 		_, err = prov.Service("mockProtocolSvc1")
 		require.Error(t, err)
-
 	})
 
 	t.Run("test inbound message handlers/dispatchers", func(t *testing.T) {
@@ -98,7 +98,8 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with wallet service", func(t *testing.T) {
-		prov, err := New(WithWallet(&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue"), PackValue: []byte("data")}))
+		prov, err := New(WithWallet(&mockwallet.CloseableWallet{
+			SignMessageValue: []byte("mockValue"), PackValue: []byte("data")}))
 		require.NoError(t, err)
 		v, err := prov.CryptoWallet().SignMessage(nil, "")
 		require.NoError(t, err)
@@ -109,7 +110,8 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with did wallet service", func(t *testing.T) {
-		prov, err := New(WithWallet(&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue"), PackValue: []byte("data")}))
+		prov, err := New(WithWallet(
+			&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue"), PackValue: []byte("data")}))
 		require.NoError(t, err)
 		v, err := prov.CryptoWallet().SignMessage(nil, "")
 		require.NoError(t, err)
@@ -126,10 +128,10 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with storage provider", func(t *testing.T) {
-		storage := storage.NewMockStoreProvider()
-		prov, err := New(WithStorageProvider(storage))
+		s := storage.NewMockStoreProvider()
+		prov, err := New(WithStorageProvider(s))
 		require.NoError(t, err)
-		require.Equal(t, storage, prov.StorageProvider())
+		require.Equal(t, s, prov.StorageProvider())
 	})
 
 	t.Run("test new with outbound transport service", func(t *testing.T) {

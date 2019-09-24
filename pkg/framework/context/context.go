@@ -45,7 +45,7 @@ func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
 	return p.outboundDispatcher
 }
 
-// OutboundTransport returns the outbound transports
+// OutboundTransports returns the outbound transports
 func (p *Provider) OutboundTransports() []transport.OutboundTransport {
 	return []transport.OutboundTransport{p.outboundTransport}
 }
@@ -65,12 +65,12 @@ func (p *Provider) CryptoWallet() wallet.Crypto {
 	return p.wallet
 }
 
-// CryptoWallet returns the pack wallet service
+// PackWallet returns the pack wallet service
 func (p *Provider) PackWallet() wallet.Pack {
 	return p.wallet
 }
 
-// CryptoWallet returns the pack wallet service
+// DIDWallet returns the pack wallet service
 func (p *Provider) DIDWallet() wallet.DIDCreator {
 	return p.wallet
 }
@@ -102,6 +102,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	}
 }
 
+// StorageProvider return storage provider
 func (p *Provider) StorageProvider() storage.Provider {
 	return p.storeProvider
 }
@@ -150,9 +151,9 @@ func WithInboundTransportEndpoint(endpoint string) ProviderOption {
 }
 
 // WithStorageProvider injects a storage provider into the context
-func WithStorageProvider(storage storage.Provider) ProviderOption {
+func WithStorageProvider(s storage.Provider) ProviderOption {
 	return func(opts *Provider) error {
-		opts.storeProvider = storage
+		opts.storeProvider = s
 		return nil
 	}
 }

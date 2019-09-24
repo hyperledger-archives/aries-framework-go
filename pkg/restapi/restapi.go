@@ -16,7 +16,6 @@ import (
 //
 // TODO: Allow customized operations.
 func New(ctx *context.Provider) (*Controller, error) {
-
 	var allHandlers []operation.Handler
 
 	// Add DID Exchange Rest Handlers

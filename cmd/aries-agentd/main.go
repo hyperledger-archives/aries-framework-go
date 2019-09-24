@@ -44,7 +44,6 @@ var logger = log.New("aries-framework/agentd")
 
 // This is an application which starts Aries agent controller API on given port
 func main() {
-
 	// Default port and command lines arguments will be addressed as part of #94
 	host := os.Getenv(agentHostEnvKey)
 	if host == "" {

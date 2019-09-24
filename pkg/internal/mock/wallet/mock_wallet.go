@@ -8,6 +8,7 @@ package wallet
 
 import (
 	"github.com/btcsuite/btcutil/base58"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )

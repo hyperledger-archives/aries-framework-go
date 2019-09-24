@@ -15,7 +15,6 @@ import (
 )
 
 func TestLevels(t *testing.T) {
-
 	module := "sample-module-critical"
 	SetLevel(module, CRITICAL)
 	require.Equal(t, CRITICAL, GetLevel(module))
@@ -40,7 +39,6 @@ func TestLevels(t *testing.T) {
 	SetLevel(module, DEBUG)
 	require.Equal(t, DEBUG, GetLevel(module))
 	verifyLevels(t, module, []Level{CRITICAL, ERROR, WARNING, INFO, DEBUG}, []Level{})
-
 }
 
 func TestCallerInfos(t *testing.T) {

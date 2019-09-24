@@ -49,7 +49,6 @@ type provider interface {
 
 // New returns new DID Exchange rest client protocol instance
 func New(ctx provider) (*Operation, error) {
-
 	didExchange, err := didexchange.New(ctx)
 	if err != nil {
 		return nil, err
@@ -87,7 +86,6 @@ type Operation struct {
 //    default: genericError
 //        200: createInvitationResponse
 func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) {
-
 	logger.Debugf("Creating connection invitation ")
 	// call didexchange client
 	response, err := c.client.CreateInvitation()
@@ -107,7 +105,6 @@ func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) 
 //    default: genericError
 //        200: receiveInvitationResponse
 func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request) {
-
 	logger.Debugf("Receiving connection invitation ")
 
 	var request models.ReceiveInvitationRequest
@@ -156,7 +153,6 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 //    default: genericError
 //        200: acceptInvitationResponse
 func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) {
-
 	params := mux.Vars(req)
 	logger.Debugf("Accepting connection invitation for id[%s]", params["id"])
 
@@ -325,7 +321,6 @@ func (c *Operation) registerHandler() {
 // and unmarshals to the value pointed by v by following
 // `json.Unmarshal` rules.
 func getQueryParams(v interface{}, vals url.Values) error {
-
 	// normalize all query string key/values
 	args := make(map[string]string)
 	for k, v := range vals {

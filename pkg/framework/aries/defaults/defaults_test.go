@@ -30,7 +30,6 @@ func TestWithDBPath(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, a.Close())
 	})
-
 }
 
 func TestWithInboundHTTPPort(t *testing.T) {
@@ -48,7 +47,6 @@ func TestWithInboundHTTPPort(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "http inbound transport initialization failed")
 	})
-
 }
 
 func generateTempDir(t testing.TB) (string, func()) {

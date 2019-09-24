@@ -75,7 +75,6 @@ const validDoc = `{
 }`
 
 func TestValid(t *testing.T) {
-
 	doc, err := FromBytes([]byte(validDoc))
 	require.NoError(t, err)
 	require.NotNil(t, doc)
@@ -155,7 +154,6 @@ func TestPopulateAuthentications(t *testing.T) {
 
 		expected := "authentication key did:example:123456789abcdefghs#key4 not exist in did doc public key"
 		require.Contains(t, err.Error(), expected)
-
 	})
 }
 
@@ -169,7 +167,6 @@ func TestPublicKeys(t *testing.T) {
 		_, err = FromBytes(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to decode PEM block containing public key")
-
 	})
 
 	t.Run("test public key encoding not supported", func(t *testing.T) {

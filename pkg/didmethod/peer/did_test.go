@@ -81,7 +81,6 @@ func TestValidateDIDRegex(t *testing.T) {
 }
 
 func TestNewDoc(t *testing.T) {
-
 	publicKey := []did.PublicKey{
 		{
 			ID:         "did:example:123456789abcdefghi#keys-1",
@@ -110,7 +109,6 @@ func TestNewDoc(t *testing.T) {
 }
 
 func TestNewDocError(t *testing.T) {
-
 	doc, err := NewDoc(nil, nil)
 	assert.NotNil(t, err)
 	assert.Equal(t, "the genesis version must include public keys and authentication", err.Error())
@@ -119,7 +117,6 @@ func TestNewDocError(t *testing.T) {
 
 // genesisDoc creates the doc without an id
 func genesisDoc() *did.Doc {
-
 	//nolint:lll
 	pk := []did.PublicKey{
 		{

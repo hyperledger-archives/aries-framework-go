@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"golang.org/x/crypto/nacl/box"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -43,7 +43,6 @@ type BaseWallet struct {
 
 // New return new instance of wallet implementation
 func New(ctx provider) (*BaseWallet, error) {
-
 	crypter, err := authcrypt.New(authcrypt.XC20P)
 	if err != nil {
 		return nil, fmt.Errorf("new authcrypt failed: %w", err)
@@ -142,9 +141,8 @@ func (w *BaseWallet) Close() error {
 }
 
 // CreateDID returns new DID Document
-//TODO write the DID Doc to the chosen DID method.
+// TODO write the DID Doc to the chosen DID method.
 func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error) {
-
 	docOpts := &createDIDOpts{}
 	// Apply options
 	for _, opt := range opts {
@@ -163,7 +161,7 @@ func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
 	// Supporting only one public key now
 	pubKey := did.PublicKey{
 		ID: fmt.Sprintf(didPKID, id, 1),
-		//TODO hardcoding public key type for now
+		// TODO hardcoding public key type for now
 		// Should be dynamic for multi-key support
 		Type:       "Ed25519VerificationKey2018",
 		Controller: id,
@@ -173,7 +171,7 @@ func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
 	// Service model to be included only if service type is provided through opts
 	var service []did.Service
 	if docOpts.serviceType != "" {
-		//Service endpoints
+		// Service endpoints
 		service = []did.Service{
 			{
 				ID:              fmt.Sprintf(didServiceID, id, 1),

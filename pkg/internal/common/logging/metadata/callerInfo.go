@@ -40,7 +40,6 @@ func (l *callerInfo) HideCallerInfo(module string, level Level) {
 
 // IsCallerInfoEnabled returns if caller info enabled for given module and level
 func (l *callerInfo) IsCallerInfoEnabled(module string, level Level) bool {
-
 	show, exists := l.info[callerInfoKey{module, level}]
 	if !exists {
 		// If no callerinfo setting exists for given module, then look for default

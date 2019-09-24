@@ -38,7 +38,6 @@ func VerifyDefaultLogging(t *testing.T, logger Logger, module string, setLevel f
 	allTestLevels := []metadata.Level{metadata.ERROR, metadata.DEBUG, metadata.INFO, metadata.WARNING, metadata.CRITICAL}
 
 	for _, levelEnabled := range allTestLevels {
-
 		// change log level
 		setLevel(module, levelEnabled)
 
@@ -95,7 +94,6 @@ func VerifyCustomLogger(t *testing.T, logger Logger, module string) {
 	allTestLevels := []metadata.Level{metadata.ERROR, metadata.DEBUG, metadata.INFO, metadata.WARNING, metadata.CRITICAL}
 
 	for _, levelEnabled := range allTestLevels {
-
 		// change log level
 		metadata.SetLevel(module, levelEnabled)
 

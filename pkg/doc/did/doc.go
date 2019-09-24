@@ -289,10 +289,8 @@ func populateAuthentications(rawAuthentications []interface{}, pks []PublicKey) 
 			return nil, err
 		}
 		vms = append(vms, VerificationMethod{pk[0]})
-
 	}
 	return vms, nil
-
 }
 
 func populatePublicKeys(rawPKs []map[string]interface{}) ([]PublicKey, error) {
@@ -304,7 +302,6 @@ func populatePublicKeys(rawPKs []map[string]interface{}) ([]PublicKey, error) {
 		}
 		publicKeys = append(publicKeys, PublicKey{ID: stringEntry(rawPK[jsonldID]), Type: stringEntry(rawPK[jsonldType]),
 			Controller: stringEntry(rawPK[jsonldController]), Value: decodeValue})
-
 	}
 	return publicKeys, nil
 }
@@ -329,7 +326,6 @@ func decodePK(rawPK map[string]interface{}) ([]byte, error) {
 	}
 
 	return nil, errors.New("public key encoding not supported")
-
 }
 
 func validate(data []byte) error {

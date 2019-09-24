@@ -18,7 +18,6 @@ import (
 
 // TestDefaultLogger tests default logging feature when no custom logging provider is supplied via 'Initialize()' call
 func TestDefaultLogger(t *testing.T) {
-
 	defer func() { loggerProviderOnce = sync.Once{} }()
 	const module = "sample-module"
 
@@ -31,13 +30,11 @@ func TestDefaultLogger(t *testing.T) {
 
 	// verify default logger
 	modlog.VerifyDefaultLogging(t, logger, module, metadata.SetLevel)
-
 }
 
 // TestAllLevels tests logging level behaviour
 // logging levels can be set per modules, if not set then it will default to 'INFO'
 func TestAllLevels(t *testing.T) {
-
 	module := "sample-module-critical"
 	SetLevel(module, CRITICAL)
 	require.Equal(t, CRITICAL, GetLevel(module))
@@ -62,7 +59,6 @@ func TestAllLevels(t *testing.T) {
 	SetLevel(module, DEBUG)
 	require.Equal(t, DEBUG, GetLevel(module))
 	verifyLevels(t, module, []Level{CRITICAL, ERROR, WARNING, INFO, DEBUG}, []Level{})
-
 }
 
 // TestCallerInfos callerinfo behavior which displays caller function details in log lines
@@ -82,12 +78,10 @@ func TestCallerInfos(t *testing.T) {
 	require.False(t, IsCallerInfoEnabled(module, INFO))
 	require.False(t, IsCallerInfoEnabled(module, ERROR))
 	require.False(t, IsCallerInfoEnabled(module, WARNING))
-
 }
 
 // TestLogLevel testing 'LogLevel()' used for parsing log levels from strings
 func TestLogLevel(t *testing.T) {
-
 	verifyLevelsNoError := func(expected Level, levels ...string) {
 		for _, level := range levels {
 			actual, err := ParseLevel(level)
@@ -105,7 +99,6 @@ func TestLogLevel(t *testing.T) {
 
 // TestParseLevelError testing 'LogLevel()' used for parsing log levels from strings
 func TestParseLevelError(t *testing.T) {
-
 	verifyLevelError := func(levels ...string) {
 		for _, level := range levels {
 			_, err := ParseLevel(level)
@@ -114,7 +107,6 @@ func TestParseLevelError(t *testing.T) {
 	}
 
 	verifyLevelError("", "D", "DE BUG", ".")
-
 }
 
 func verifyLevels(t *testing.T, module string, enabled, disabled []Level) {

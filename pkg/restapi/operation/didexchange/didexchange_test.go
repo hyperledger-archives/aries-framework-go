@@ -42,7 +42,6 @@ func TestNew_Fail(t *testing.T) {
 }
 
 func TestOperation_CreateInvitation(t *testing.T) {
-
 	handler := getHandler(t, createInvitationPath, nil)
 	buf, err := getResponseFromHandler(handler, nil, handler.Path())
 	require.NoError(t, err)
@@ -58,7 +57,6 @@ func TestOperation_CreateInvitation(t *testing.T) {
 }
 
 func TestOperation_ReceiveInvitation(t *testing.T) {
-
 	var jsonStr = []byte(`{
     	"@type": "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/invitation",
     	"@id": "4e8650d9-6cc9-491e-b00e-7bf6cb5858fc",
@@ -87,7 +85,6 @@ func TestOperation_ReceiveInvitation(t *testing.T) {
 }
 
 func TestOperation_QueryConnectionByID(t *testing.T) {
-
 	handler := getHandler(t, connectionsByID, nil)
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("sample-connection-id")), operationID+"/1234")
 	require.NoError(t, err)
@@ -103,7 +100,6 @@ func TestOperation_QueryConnectionByID(t *testing.T) {
 }
 
 func TestOperation_QueryConnectionByParams(t *testing.T) {
-
 	handler := getHandler(t, connections, nil)
 	buf, err := getResponseFromHandler(handler, nil,
 		operationID+"?invitation_key=3nPvih&alias=sample&state=completed&initiator=test")
@@ -124,7 +120,6 @@ func TestOperation_QueryConnectionByParams(t *testing.T) {
 }
 
 func TestOperation_ReceiveInvitationFailure(t *testing.T) {
-
 	verifyError := func(data []byte) {
 		response := models.ReceiveInvitationResponse{}
 		err := json.Unmarshal(data, &response)
@@ -171,7 +166,6 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
 }
 
 func TestOperation_AcceptInvitation(t *testing.T) {
-
 	handler := getHandler(t, acceptInvitationPath, nil)
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")), operationID+"/1111/accept-invitation")
 	require.NoError(t, err)
@@ -190,7 +184,6 @@ func TestOperation_AcceptInvitation(t *testing.T) {
 }
 
 func TestOperation_AcceptExchangeRequest(t *testing.T) {
-
 	handler := getHandler(t, acceptExchangeRequest, nil)
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")), operationID+"/4444/accept-request")
 	require.NoError(t, err)
@@ -206,7 +199,6 @@ func TestOperation_AcceptExchangeRequest(t *testing.T) {
 }
 
 func TestOperation_RemoveConnection(t *testing.T) {
-
 	handler := getHandler(t, removeConnection, nil)
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")), operationID+"/5555/remove")
 	require.NoError(t, err)
@@ -233,7 +225,6 @@ func TestOperation_WriteGenericError(t *testing.T) {
 	require.NotEmpty(t, response.Body.Message)
 	require.Equal(t, response.Body.Message, errMsg)
 	require.NotEmpty(t, response.Body.Code)
-
 }
 
 func TestOperation_WriteResponse(t *testing.T) {
@@ -245,7 +236,6 @@ func TestOperation_WriteResponse(t *testing.T) {
 
 // getResponseFromHandler reads response from given http handle func
 func getResponseFromHandler(handler operation.Handler, requestBody io.Reader, path string) (*bytes.Buffer, error) {
-
 	// prepare request
 	req, err := http.NewRequest(handler.Method(), path, requestBody)
 	if err != nil {

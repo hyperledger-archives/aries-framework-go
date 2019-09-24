@@ -15,16 +15,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
-
-// TODO https://github.com/hyperledger/aries-framework-go/issues/104
-var logger = log.New("aries-framework/didexchange")
 
 // didCommChMessage type to correlate actionEvent message(go channel) with callback message(internal go channel).
 type didCommChMessage struct {
@@ -224,7 +220,8 @@ func (s *Service) handle(msg *message) error {
 
 // sendEvent triggers the action event. This function stores the state of current processing and passes a callback
 // function in the event message.
-func (s *Service) sendActionEvent(msg dispatcher.DIDCommMsg, aEvent chan<- dispatcher.DIDCommAction, threadID string, nextState state) error {
+func (s *Service) sendActionEvent(msg dispatcher.DIDCommMsg, aEvent chan<- dispatcher.DIDCommAction,
+	threadID string, nextState state) error {
 	jsonDoc, err := json.Marshal(&message{
 		Msg:           msg,
 		ThreadID:      threadID,
@@ -273,7 +270,10 @@ func (s *Service) startInternalListener() {
 	go func() {
 		for msg := range s.callbackChannel {
 			// TODO handle error in callback - https://github.com/hyperledger/aries-framework-go/issues/242
-			s.process(msg.ID, msg.DIDCommCallback)
+			if err := s.process(msg.ID, msg.DIDCommCallback); err != nil {
+				// TODO handle error
+				fmt.Println(err.Error())
+			}
 		}
 	}()
 }

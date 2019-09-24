@@ -42,7 +42,6 @@ type Option func(opts *Aries) error
 
 // New initializes the Aries framework based on the set of options provided.
 func New(opts ...Option) (*Aries, error) {
-
 	frameworkOpts := &Aries{}
 
 	// generate framework configs from options
@@ -72,8 +71,8 @@ func New(opts ...Option) (*Aries, error) {
 	}
 
 	// Create wallet
-	if err := createWallet(frameworkOpts, ctxProvider); err != nil {
-		return nil, err
+	if e := createWallet(frameworkOpts, ctxProvider); e != nil {
+		return nil, e
 	}
 
 	// Load services
@@ -101,7 +100,7 @@ func New(opts ...Option) (*Aries, error) {
 	return frameworkOpts, nil
 }
 
-func loadServices(frameworkOpts *Aries, ctxProvider *context.Provider) error {
+func loadServices(frameworkOpts *Aries, ctxProvider api.Provider) error {
 	for _, v := range frameworkOpts.protocolSvcCreators {
 		svc, svcErr := v(ctxProvider)
 		if svcErr != nil {
@@ -180,7 +179,8 @@ func (a *Aries) Context() (*context.Provider, error) {
 		return nil, fmt.Errorf("outbound transport initialization failed: %w", err)
 	}
 	return context.New(
-		context.WithOutboundDispatcher(a.outboundDispatcher), context.WithOutboundTransport(ot), context.WithProtocolServices(a.services...),
+		context.WithOutboundDispatcher(a.outboundDispatcher),
+		context.WithOutboundTransport(ot), context.WithProtocolServices(a.services...),
 		// TODO configure inbound external endpoints
 		context.WithWallet(a.wallet), context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 		context.WithStorageProvider(a.storeProvider),
@@ -210,7 +210,7 @@ func (a *Aries) Close() error {
 	return nil
 }
 
-func createWallet(frameworkOpts *Aries, ctxProvider *context.Provider) error {
+func createWallet(frameworkOpts *Aries, ctxProvider api.Provider) error {
 	var err error
 	frameworkOpts.wallet, err = frameworkOpts.walletCreator(ctxProvider)
 	if err != nil {
@@ -220,12 +220,11 @@ func createWallet(frameworkOpts *Aries, ctxProvider *context.Provider) error {
 	return nil
 }
 
-func createOutboundDispatcher(frameworkOpts *Aries, ctxProvider *context.Provider) error {
+func createOutboundDispatcher(frameworkOpts *Aries, ctxProvider dispatcher.Provider) error {
 	var err error
 	frameworkOpts.outboundDispatcher, err = frameworkOpts.outboundDispatcherCreator(ctxProvider)
 	if err != nil {
 		return fmt.Errorf("create outbound dispatcher failed: %w", err)
 	}
 	return nil
-
 }

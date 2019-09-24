@@ -164,9 +164,7 @@ func validateRequests(t *testing.T, testURL, testInboundURL string) {
 			expectResponseData: false,
 		},
 	}
-
 	for _, tt := range tests {
-
 		resp, err := http.DefaultClient.Do(tt.r)
 		if err != nil {
 			t.Fatal(err)
@@ -190,18 +188,15 @@ func validateRequests(t *testing.T, testURL, testInboundURL string) {
 			require.True(t, isJSON(response))
 		}
 	}
-
 }
 
 // isJSON checks if response is json
 func isJSON(res []byte) bool {
 	var js map[string]interface{}
 	return json.Unmarshal(res, &js) == nil
-
 }
 
 func TestStartAriesDWithoutHost(t *testing.T) {
-
 	prev := os.Getenv(agentHostEnvKey)
 	defer func() {
 		err := os.Setenv(agentHostEnvKey, prev)
@@ -228,11 +223,9 @@ func TestStartAriesDWithoutHost(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("agent should fail to start when host address not provided")
 	}
-
 }
 
 func TestStartAriesWithoutInboundHost(t *testing.T) {
-
 	prev := os.Getenv(agentHostEnvKey)
 	defer func() {
 		err := os.Setenv(agentHostEnvKey, prev)
@@ -272,7 +265,6 @@ func TestStartAriesWithoutInboundHost(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("agent should fail to start when inbound host address not provided")
 	}
-
 }
 
 func generateTempDir(t testing.TB) (string, func()) {

@@ -49,7 +49,6 @@ func TestNew_Success(t *testing.T) {
 	require.NotNil(t, controller)
 
 	require.NotEmpty(t, controller.GetOperations())
-
 }
 
 func generateTempDir(t testing.TB) (string, func()) {
