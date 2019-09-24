@@ -58,12 +58,12 @@ const peerDIDDoc = `{
     }
   ],
   "created": "2002-10-10T17:00:00Z",
-  "proof": {
+  "proof": [{
     "type": "LinkedDataSignature2015",
     "created": "2016-02-08T16:02:20Z",
     "creator": "did:example:8uQhQMGzWxR8vw5P3UWH1ja#keys-1",
-    "signatureValue": "QNB13Y7Q9...1tzjn4w=="
-  }
+    "proofValue": "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA"
+  }]
 }`
 
 func TestPeerDIDResolver(t *testing.T) {
@@ -71,16 +71,18 @@ func TestPeerDIDResolver(t *testing.T) {
 	dbstore, err := prov.GetStoreHandle()
 	require.NoError(t, err)
 
+	context := []string{"https://w3id.org/did/v1"}
+
 	// save did document
 	store := NewDIDStore(dbstore)
-	err = store.Put(&did.Doc{ID: peerDID}, nil)
+	err = store.Put(&did.Doc{Context: context, ID: peerDID}, nil)
 	require.NoError(t, err)
 
 	resl := NewDIDResolver(store)
 	doc, err := resl.Read(peerDID)
 	require.NoError(t, err)
 
-	document := &did.Doc{}
+	document := &did.Doc{Context: context}
 	err = json.Unmarshal(doc, document)
 	require.NoError(t, err)
 	require.Equal(t, peerDID, document.ID)

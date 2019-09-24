@@ -49,10 +49,11 @@ func (s *DIDStore) Put(doc *did.Doc, by *[]DIDModifiedBy) error {
 
 	var deltas []docDelta
 
+	// TODO : Revisit comment bellow; usually delta's are not derived from two documents
 	// TODO - Need to derive the docDelta if its not a genesis document(DID already exists)
 	// (https://github.com/hyperledger/aries-framework-go/issues/54)
 	// For now, assume the doc is a genesis document
-	jsonDoc, err := json.Marshal(doc)
+	jsonDoc, err := doc.JSONBytes()
 	if err != nil {
 		return fmt.Errorf("JSON marshalling of document failed: %w", err)
 	}
@@ -93,10 +94,9 @@ func (s *DIDStore) Get(id string) (*did.Doc, error) {
 		return nil, fmt.Errorf("decoding of document delta failed: %w", err)
 	}
 
-	document := &did.Doc{}
-	err = json.Unmarshal(doc, document)
+	document, err := did.FromBytes(doc)
 	if err != nil {
-		return nil, fmt.Errorf("JSON unmarshalling of document failed: %w", err)
+		return nil, fmt.Errorf("document FromBytes() failed: %w", err)
 	}
 
 	return document, nil

@@ -51,12 +51,12 @@ const doc = `{
     }
   ],
   "created": "2002-10-10T17:00:00Z",
-  "proof": {
+  "proof": [{
     "type": "LinkedDataSignature2015",
     "created": "2016-02-08T16:02:20Z",
     "creator": "did:example:8uQhQMGzWxR8vw5P3UWH1ja#keys-1",
-    "signatureValue": "QNB13Y7Q9...1tzjn4w=="
-  }
+    "proofValue": "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA"
+  }]
 }`
 
 func TestNew(t *testing.T) {

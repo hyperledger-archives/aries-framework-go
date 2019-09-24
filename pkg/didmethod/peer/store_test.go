@@ -20,17 +20,19 @@ func TestPeerDIDStore(t *testing.T) {
 	dbstore, err := prov.GetStoreHandle()
 	require.NoError(t, err)
 
+	context := []string{"https://w3id.org/did/v1"}
+
 	did1 := "did:peer:1234"
 	did2 := "did:peer:4567"
 
 	store := NewDIDStore(dbstore)
 
 	// put
-	err = store.Put(&did.Doc{ID: did1}, nil)
+	err = store.Put(&did.Doc{Context: context, ID: did1}, nil)
 	require.NoError(t, err)
 
 	// put
-	err = store.Put(&did.Doc{ID: did2}, nil)
+	err = store.Put(&did.Doc{Context: context, ID: did2}, nil)
 	require.NoError(t, err)
 
 	// get

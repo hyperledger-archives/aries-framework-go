@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package did
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -29,7 +30,7 @@ FQIDAQAB
 
 //nolint:lll
 const validDoc = `{
-  "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
+  "@context": ["https://w3id.org/did/v1"],
   "id": "did:example:21tDAKCERh95uGgKbJNHYp",
   "publicKey": [
     {
@@ -65,13 +66,7 @@ const validDoc = `{
       }
     }
   ],
-  "created": "2002-10-10T17:00:00Z",
-  "proof": {
-    "type": "LinkedDataSignature2015",
-    "created": "2016-02-08T16:02:20Z",
-    "creator": "did:example:8uQhQMGzWxR8vw5P3UWH1ja#keys-1",
-    "signatureValue": "QNB13Y7Q9...1tzjn4w=="
-  }
+  "created": "2002-10-10T17:00:00Z"
 }`
 
 func TestValid(t *testing.T) {
@@ -121,25 +116,67 @@ func TestValid(t *testing.T) {
 			ServiceEndpoint: "https://social.example.com/83hfh37dj",
 			Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}}}}
 	require.Equal(t, eService, doc.Service)
+}
+
+func TestValidWithProof(t *testing.T) {
+	doc, err := FromBytes([]byte(validDocWithProof))
+	require.NoError(t, err)
+	require.NotNil(t, doc)
 
 	// test proof
-	timeValue, err := time.Parse(time.RFC3339, "2016-02-08T16:02:20Z")
+	created, err := time.Parse(time.RFC3339, "2019-09-23T14:16:59.484733-04:00")
 	require.NoError(t, err)
-	eProof := &Proof{Type: "LinkedDataSignature2015",
-		Created:        &timeValue,
-		Creator:        "did:example:8uQhQMGzWxR8vw5P3UWH1ja#keys-1",
-		SignatureValue: "QNB13Y7Q9...1tzjn4w==",
-		Domain:         "",
-		Nonce:          ""}
-	require.Equal(t, eProof, doc.Proof)
-
-	// test created
-	timeValue, err = time.Parse(time.RFC3339, "2002-10-10T17:00:00Z")
+	const encProofValue = "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA"
+	proofValue, err := base64.RawURLEncoding.DecodeString(encProofValue)
 	require.NoError(t, err)
-	require.Equal(t, timeValue.String(), doc.Created.String())
+	nonce, err := base64.RawURLEncoding.DecodeString("")
+	require.NoError(t, err)
 
-	// test updated
-	require.Empty(t, doc.Updated)
+	eProof := Proof{Type: "Ed25519Signature2018",
+		Created:    &created,
+		Creator:    "did:method:abc#key-1",
+		ProofValue: proofValue,
+		Domain:     "",
+		Nonce:      nonce}
+	require.Equal(t, []Proof{eProof}, doc.Proof)
+
+	byteDoc, err := doc.JSONBytes()
+	require.NoError(t, err)
+	require.NotNil(t, byteDoc)
+
+	// test invalid created
+	invalidDoc, err := FromBytes([]byte(docWithInvalidCreatedInProof))
+	require.NotNil(t, err)
+	require.Nil(t, invalidDoc)
+	require.Contains(t, err.Error(), "populate proofs failed")
+}
+
+func TestInvalidEncodingInProof(t *testing.T) {
+	// invalid encoding in nonce
+	rawProofs := []interface{}{map[string]interface{}{
+		"created":    "2011-09-23T20:21:34Z",
+		"creator":    "did:method:abc#key-1",
+		"proofValue": "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA",
+		"nonce":      "Invalid\x01",
+		"type":       "Ed25519Signature2018",
+	}}
+	doc, err := populateProofs(rawProofs)
+	require.NotNil(t, err)
+	require.Nil(t, doc)
+	require.Contains(t, err.Error(), "illegal base64 data")
+
+	// invalid encoding in proof value
+	rawProofs = []interface{}{map[string]interface{}{
+		"created":    "2011-09-23T20:21:34Z",
+		"creator":    "did:method:abc#key-1",
+		"proofValue": "Invalid\x01",
+		"type":       "Ed25519Signature2018",
+	}}
+
+	doc, err = populateProofs(rawProofs)
+	require.NotNil(t, err)
+	require.Nil(t, doc)
+	require.Contains(t, err.Error(), "illegal base64 data")
 }
 
 func TestPopulateAuthentications(t *testing.T) {
@@ -412,17 +449,11 @@ func TestValidateDidDocCreated(t *testing.T) {
 		err = validate(bytes)
 		require.NoError(t, err)
 	})
-
 	t.Run("test did doc with wrong format created", func(t *testing.T) {
-		raw := &rawDoc{}
-		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		timeNow := time.Now()
-		raw.Created = &timeNow
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validate(bytes)
+		doc, err := FromBytes([]byte(docWithInvalidCreated))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "created: Does not match pattern")
+		require.Nil(t, doc)
+		require.Contains(t, err.Error(), "cannot parse")
 	})
 }
 
@@ -436,24 +467,18 @@ func TestValidateDidDocUpdated(t *testing.T) {
 		err = validate(bytes)
 		require.NoError(t, err)
 	})
-
 	t.Run("test did doc with wrong format updated", func(t *testing.T) {
-		raw := &rawDoc{}
-		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		timeNow := time.Now()
-		raw.Updated = &timeNow
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validate(bytes)
+		doc, err := FromBytes([]byte(docWithInvalidUpdated))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "updated: Does not match pattern")
+		require.Nil(t, doc)
+		require.Contains(t, err.Error(), "cannot parse")
 	})
 }
 
 func TestValidateDidDocProof(t *testing.T) {
 	t.Run("test did doc with empty proof", func(t *testing.T) {
 		raw := &rawDoc{}
-		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
+		require.NoError(t, json.Unmarshal([]byte(validDocWithProof), &raw))
 		raw.Proof = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
@@ -463,8 +488,10 @@ func TestValidateDidDocProof(t *testing.T) {
 
 	t.Run("test did doc proof without type", func(t *testing.T) {
 		raw := &rawDoc{}
-		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		raw.Proof.Type = ""
+		require.NoError(t, json.Unmarshal([]byte(validDocWithProof), &raw))
+		proof, ok := raw.Proof[0].(map[string]interface{})
+		require.True(t, ok)
+		delete(proof, jsonldType)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validate(bytes)
@@ -474,8 +501,10 @@ func TestValidateDidDocProof(t *testing.T) {
 
 	t.Run("test did doc proof without created", func(t *testing.T) {
 		raw := &rawDoc{}
-		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		raw.Proof.Created = nil
+		require.NoError(t, json.Unmarshal([]byte(validDocWithProof), &raw))
+		proof, ok := raw.Proof[0].(map[string]interface{})
+		require.True(t, ok)
+		delete(proof, jsonldCreated)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validate(bytes)
@@ -485,8 +514,10 @@ func TestValidateDidDocProof(t *testing.T) {
 
 	t.Run("test did doc proof without creator", func(t *testing.T) {
 		raw := &rawDoc{}
-		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		raw.Proof.Creator = ""
+		require.NoError(t, json.Unmarshal([]byte(validDocWithProof), &raw))
+		proof, ok := raw.Proof[0].(map[string]interface{})
+		require.True(t, ok)
+		delete(proof, jsonldCreator)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validate(bytes)
@@ -494,21 +525,25 @@ func TestValidateDidDocProof(t *testing.T) {
 		require.Contains(t, err.Error(), "creator is required")
 	})
 
-	t.Run("test did doc proof without signatureValue", func(t *testing.T) {
+	t.Run("test did doc proof without proofValue", func(t *testing.T) {
 		raw := &rawDoc{}
-		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		raw.Proof.SignatureValue = ""
+		require.NoError(t, json.Unmarshal([]byte(validDocWithProof), &raw))
+		proof, ok := raw.Proof[0].(map[string]interface{})
+		require.True(t, ok)
+		delete(proof, jsonldProofValue)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validate(bytes)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "signatureValue is required")
+		require.Contains(t, err.Error(), "proofValue is required")
 	})
 
 	t.Run("test did doc proof without domain", func(t *testing.T) {
 		raw := &rawDoc{}
-		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		raw.Proof.Domain = ""
+		require.NoError(t, json.Unmarshal([]byte(validDocWithProof), &raw))
+		proof, ok := raw.Proof[0].(map[string]interface{})
+		require.True(t, ok)
+		delete(proof, jsonldDomain)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validate(bytes)
@@ -517,8 +552,10 @@ func TestValidateDidDocProof(t *testing.T) {
 
 	t.Run("test did doc proof without nonce", func(t *testing.T) {
 		raw := &rawDoc{}
-		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		raw.Proof.Nonce = ""
+		require.NoError(t, json.Unmarshal([]byte(validDocWithProof), &raw))
+		proof, ok := raw.Proof[0].(map[string]interface{})
+		require.True(t, ok)
+		delete(proof, jsonldNonce)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validate(bytes)
@@ -535,7 +572,7 @@ func TestJSONConversion(t *testing.T) {
 	// convert Document to json byte data
 	byteDoc, err := doc.JSONBytes()
 	require.NoError(t, err)
-	require.NoError(t, err)
+	require.NotEmpty(t, byteDoc)
 
 	// convert json byte data to document
 	doc2, err := FromBytes(byteDoc)
@@ -545,3 +582,51 @@ func TestJSONConversion(t *testing.T) {
 	// verify documents created by FromBytes and JSONBytes function matches
 	require.Equal(t, doc, doc2)
 }
+
+const validDocWithProof = `{
+	"@context": ["https://w3id.org/did/v1"],
+	"created": "2019-09-23T14:16:59.261024-04:00",
+	"id": "did:method:abc",
+	"proof": [{
+		"created": "2019-09-23T14:16:59.484733-04:00",
+		"creator": "did:method:abc#key-1",
+		"domain": "",
+		"nonce": "",
+		"proofValue": "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA",
+		"type": "Ed25519Signature2018"
+	}],
+	"publicKey": [{
+		"controller": "did:method:abc",
+		"id": "did:method:abc#key-1",
+		"publicKeyBase58": "GY4GunSXBPBfhLCzDL7iGmP5dR3sBDCJZkkaGK8VgYQf",
+		"type": "Ed25519VerificationKey2018"
+	}],
+	"updated": "2019-09-23T14:16:59.261024-04:00"
+}`
+
+const docWithInvalidCreatedInProof = `{
+	"@context": ["https://w3id.org/did/v1"],
+	"created": "2019-09-23T14:16:59.261024-04:00",
+	"id": "did:method:abc",
+	"proof": [{
+		"created": "2019-9-23T14:16:59",
+		"creator": "did:method:abc#key-1",
+		"domain": "",
+		"nonce": "",
+		"proofValue": "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA",
+		"type": "Ed25519Signature2018"
+	}]
+}`
+
+const docWithInvalidCreated = `{
+	"@context": ["https://w3id.org/did/v1"],
+	"created": "2019-9-23T14:16:59.261024-04:00",
+	"id": "did:method:abc"
+}`
+
+const docWithInvalidUpdated = `{
+	"@context": ["https://w3id.org/did/v1"],
+	"created": "2019-09-23T14:16:59.484733-04:00",
+	"updated": "2019-9-23T14:16:59.261024-04:00",
+	"id": "did:method:abc"
+}`
