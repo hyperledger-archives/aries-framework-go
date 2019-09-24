@@ -92,10 +92,10 @@ func TestStartAriesD(t *testing.T) {
 
 	go main()
 	// give some time for server to start
-	if err := listenFor(testURL, time.Second); err != nil {
+	if err := listenFor(testURL, 2*time.Second); err != nil {
 		t.Fatal(err)
 	}
-	if err := listenFor(testInboundURL, time.Second); err != nil {
+	if err := listenFor(testInboundURL, 2*time.Second); err != nil {
 		t.Fatal(err)
 	}
 
