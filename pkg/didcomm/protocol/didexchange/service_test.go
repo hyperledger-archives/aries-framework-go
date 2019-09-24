@@ -1037,3 +1037,72 @@ func Test_AutoExecute(t *testing.T) {
 	close(ch)
 	<-done
 }
+
+func TestServiceErrors(t *testing.T) {
+	dbstore, cleanup := store(t)
+	defer cleanup()
+
+	request, err := json.Marshal(
+		&Request{
+			Type:  ConnectionResponse,
+			ID:    randomString(),
+			Label: "test",
+		},
+	)
+	require.NoError(t, err)
+
+	msg := dispatcher.DIDCommMsg{
+		Type:    ConnectionResponse,
+		Payload: request,
+	}
+
+	svc := New(dbstore, &mockProvider{})
+	actionCh := make(chan dispatcher.DIDCommAction, 10)
+	err = svc.RegisterActionEvent(actionCh)
+	require.NoError(t, err)
+
+	// thid error
+	err = svc.Handle(dispatcher.DIDCommMsg{Payload: nil})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cannot unmarshal @id and ~thread: error=")
+
+	// state update error
+	err = svc.update("", &responded{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to write to store")
+
+	// fetch current state error
+	svc.store = &mockStore{get: func(s string) (bytes []byte, e error) {
+		return nil, errors.New("error")
+	}}
+	err = svc.Handle(msg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cannot fetch state from store")
+
+	// invalid message type
+	svc.store = dbstore
+	msg.Type = "invalid"
+	err = svc.Handle(msg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unrecognized msgType: invalid")
+
+	// test handle - invalid state name
+	msg.Type = ConnectionResponse
+	message := &message{Msg: msg, ThreadID: randomString()}
+	err = svc.handle(message)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid state name:")
+
+	// invalid state name
+	message.NextStateName = stateNameInvited
+	err = svc.handle(message)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to execute state invited")
+
+	// empty thread id
+	message.NextStateName = stateNameNull
+	message.ThreadID = ""
+	err = svc.handle(message)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to persist state null")
+}

@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package storage
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -44,6 +45,9 @@ type MockStore struct {
 
 // Put stores the key and the record
 func (s *MockStore) Put(k string, v []byte) error {
+	if k == "" {
+		return errors.New("key is mandatory")
+	}
 	s.lock.Lock()
 	s.Store[k] = v
 	s.lock.Unlock()
