@@ -45,7 +45,8 @@ func New(ctx provider) (*Client, error) {
 	if !ok {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
-	return &Client{didexchangeSvc: didexchangeSvc, wallet: ctx.CryptoWallet(), inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
+	return &Client{didexchangeSvc: didexchangeSvc, wallet: ctx.CryptoWallet(),
+		inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
 }
 
 // CreateInvitation create invitation

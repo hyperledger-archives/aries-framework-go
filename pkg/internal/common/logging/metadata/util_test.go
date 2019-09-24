@@ -12,7 +12,6 @@ import (
 )
 
 func TestParseLevel(t *testing.T) {
-
 	verifyLevelsNoError := func(expected Level, levels ...string) {
 		for _, level := range levels {
 			actual, err := ParseLevel(level)
@@ -29,7 +28,6 @@ func TestParseLevel(t *testing.T) {
 }
 
 func TestParseLevelError(t *testing.T) {
-
 	verifyLevelError := func(levels ...string) {
 		for _, level := range levels {
 			_, err := ParseLevel(level)
@@ -38,7 +36,6 @@ func TestParseLevelError(t *testing.T) {
 	}
 
 	verifyLevelError("", "D", "DE BUG", ".")
-
 }
 
 func TestParseString(t *testing.T) {

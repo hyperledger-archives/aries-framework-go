@@ -25,5 +25,4 @@ func (m *MockAuthCrypt) Encrypt(payload []byte, sender crypto.KeyPair,
 // Decrypt mock decrypt
 func (m *MockAuthCrypt) Decrypt(envelope []byte, recipientKeyPair crypto.KeyPair) ([]byte, error) {
 	return m.DecryptValue(envelope, recipientKeyPair)
-
 }

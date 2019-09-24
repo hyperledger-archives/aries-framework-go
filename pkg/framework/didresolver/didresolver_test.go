@@ -143,9 +143,7 @@ func TestResolve(t *testing.T) {
 		v, err = didMethod.Read("")
 		require.NoError(t, err)
 		require.Equal(t, "did2", string(v))
-
 	})
-
 }
 
 type mockDidMethod struct {

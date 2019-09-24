@@ -28,6 +28,9 @@ import (
 
 const (
 	invalidThreadID = "invalidThreadID"
+	corrupt         = "corrupt"
+	handleError     = "handle-error"
+	changeID        = "change-id"
 )
 
 func TestGenerateInviteWithPublicDID(t *testing.T) {
@@ -115,7 +118,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	actionCh := make(chan dispatcher.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
-	go AutoExecuteActionEvent(actionCh)
+	go func() { require.NoError(t, AutoExecuteActionEvent(actionCh)) }()
 
 	thid := randomString()
 
@@ -179,7 +182,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	actionCh := make(chan dispatcher.DIDCommAction, 10)
 	err := s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
-	go AutoExecuteActionEvent(actionCh)
+	go func() { require.NoError(t, AutoExecuteActionEvent(actionCh)) }()
 
 	// Alice receives an invitation from Bob
 	payloadBytes, err := json.Marshal(
@@ -262,7 +265,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		err = s.RegisterActionEvent(actionCh)
 		require.NoError(t, err)
 
-		go AutoExecuteActionEvent(actionCh)
+		go func() { require.NoError(t, AutoExecuteActionEvent(actionCh)) }()
 
 		thid := randomString()
 		request, err := json.Marshal(
@@ -399,7 +402,6 @@ func TestService_threadID(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expected, actual)
 	})
-
 }
 
 func TestService_currentState(t *testing.T) {
@@ -577,21 +579,18 @@ func startConsumer(t *testing.T, svc *Service, done chan bool) {
 	require.NoError(t, err)
 
 	go func() {
-		for {
-			select {
+		for e := range actionCh {
 			// receive the events
-			case e := <-actionCh:
-				switch e.Message.Type {
-				// receive the event on ConnectionRequest message type
-				case ConnectionRequest:
-					handleConnectionRequestEvents(t, svc, e, done)
-				// receive the event on ConnectionResponse message type
-				case ConnectionResponse:
-					handleConnectionResponseEvents(t, svc, e)
-				// receive the event on ConnectionAck message type
-				case ConnectionAck:
-					handleConnectionAckEvents(t, svc, e)
-				}
+			switch e.Message.Type {
+			// receive the event on ConnectionRequest message type
+			case ConnectionRequest:
+				handleConnectionRequestEvents(t, svc, e, done)
+			// receive the event on ConnectionResponse message type
+			case ConnectionResponse:
+				handleConnectionResponseEvents(t, svc, e)
+			// receive the event on ConnectionAck message type
+			case ConnectionAck:
+				handleConnectionAckEvents(t, svc, e)
 			}
 		}
 	}()
@@ -600,18 +599,13 @@ func startConsumer(t *testing.T, svc *Service, done chan bool) {
 	err = svc.RegisterMsgEvent(statusCh)
 	require.NoError(t, err)
 	go func() {
-		for {
-			select {
+		for e := range statusCh {
 			// receive the events
-			case e := <-statusCh:
-				switch e.Type {
-				case ConnectionRequest:
-					writeToDB(t, svc, e)
-				}
+			if e.Type == ConnectionRequest {
+				writeToDB(t, svc, e)
 			}
 		}
 	}()
-
 }
 
 func handleConnectionRequestEvents(t *testing.T, svc *Service, e dispatcher.DIDCommAction, done chan bool) {
@@ -627,8 +621,8 @@ func handleConnectionRequestEvents(t *testing.T, svc *Service, e dispatcher.DIDC
 		return
 	}
 	err = func(e dispatcher.DIDCommAction) error {
-		err := json.Unmarshal(e.Message.Payload, &pl)
-		require.NoError(t, err)
+		errUnmarshal := json.Unmarshal(e.Message.Payload, &pl)
+		require.NoError(t, errUnmarshal)
 
 		if pl.ID == invalidThreadID {
 			return errors.New("invalid id")
@@ -658,13 +652,13 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e dispatcher.DID
 	err := json.Unmarshal(e.Message.Payload, &pl)
 	require.NoError(t, err)
 
-	if pl.ID == "change-id" {
+	if pl.ID == changeID {
 		e.Callback = func(didCommCallback dispatcher.DIDCommCallback) {
 			svc.processCallback("invalid-id", didCommCallback)
 		}
 	}
 
-	if pl.ID == "handle-error" {
+	if pl.ID == handleError {
 		jsonDoc, err := json.Marshal(&message{
 			NextStateName: "invalid",
 		})
@@ -681,17 +675,18 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e dispatcher.DID
 
 	// invoke callback
 	e.Callback(dispatcher.DIDCommCallback{Err: nil})
-	if pl.ID == "change-id" {
+	switch pl.ID {
+	case changeID:
 		// no state change since there was a error with processing
 		s, err := svc.currentState(pl.ID)
 		require.NoError(t, err)
 		require.Equal(t, "requested", s.Name())
-	} else if pl.ID == "handle-error" {
+	case handleError:
 		// no s change since there was a error with processing
 		s, err := svc.currentState(pl.ID)
 		require.NoError(t, err)
 		require.Equal(t, "requested", s.Name())
-	} else {
+	default:
 		require.Fail(t, "handleConnectionResponseEvents tests are not validated")
 	}
 }
@@ -704,7 +699,7 @@ func handleConnectionAckEvents(t *testing.T, svc *Service, e dispatcher.DIDCommA
 	err := json.Unmarshal(e.Message.Payload, &pl)
 	require.NoError(t, err)
 
-	if pl.ID == "corrupt" {
+	if pl.ID == corrupt {
 		id := generateRandomID()
 		err := svc.store.Put(id, []byte("invalid json"))
 		require.NoError(t, err)
@@ -716,7 +711,7 @@ func handleConnectionAckEvents(t *testing.T, svc *Service, e dispatcher.DIDCommA
 
 	// invoke callback
 	e.Callback(dispatcher.DIDCommCallback{Err: nil})
-	if pl.ID == "corrupt" {
+	if pl.ID == corrupt {
 		// no state change since there was a error with processing
 		s, err := svc.currentState(pl.ID)
 		require.NoError(t, err)
@@ -732,7 +727,7 @@ func writeToDB(t *testing.T, svc *Service, e dispatcher.DIDCommMsg) {
 	pl := payload{}
 	err := json.Unmarshal(e.Payload, &pl)
 	require.NoError(t, err)
-	svc.store.Put("status-event"+pl.ID, []byte("status_event"))
+	require.NoError(t, svc.store.Put("status-event"+pl.ID, []byte("status_event")))
 }
 
 func validateSuccessCase(t *testing.T, svc *Service) {
@@ -788,7 +783,7 @@ func validateUserError(t *testing.T, svc *Service) {
 }
 
 func validateStoreError(t *testing.T, svc *Service) {
-	id := "change-id"
+	id := changeID
 
 	// update the state to requested for this thread ID (to bypass the validations for ConnectionResponse message type)
 	err := svc.update(id, &requested{})
@@ -818,7 +813,7 @@ func validateStoreError(t *testing.T, svc *Service) {
 }
 
 func validateStoreDataCorruptionError(t *testing.T, svc *Service) {
-	id := "corrupt"
+	id := corrupt
 
 	// update the state to responded for this thread ID (to bypass the validations for ConnectionAck message type)
 	err := svc.update(id, &responded{})
@@ -848,7 +843,7 @@ func validateStoreDataCorruptionError(t *testing.T, svc *Service) {
 }
 
 func validateHandleError(t *testing.T, svc *Service) {
-	id := "handle-error"
+	id := handleError
 
 	// update the state to requested for this thread ID (to bypass the validations for ConnectionResponse message type)
 	err := svc.update(id, &requested{})
@@ -896,7 +891,6 @@ func validateStatusEventAction(t *testing.T, svc *Service, duration time.Duratio
 }
 
 func TestService_No_Execution(t *testing.T) {
-
 	dbstore, cleanup := store(t)
 	defer cleanup()
 
@@ -931,7 +925,6 @@ func validateState(t *testing.T, svc *Service, id, expected string, timeoutDurat
 }
 
 func TestService_ActionEvent(t *testing.T) {
-
 	dbstore, cleanup := store(t)
 	defer cleanup()
 
@@ -1030,7 +1023,7 @@ func Test_AutoExecute(t *testing.T) {
 	done := make(chan struct{})
 
 	go func() {
-		AutoExecuteActionEvent(ch)
+		require.NoError(t, AutoExecuteActionEvent(ch))
 		close(done)
 	}()
 

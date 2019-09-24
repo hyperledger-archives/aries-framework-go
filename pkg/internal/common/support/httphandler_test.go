@@ -15,7 +15,6 @@ import (
 )
 
 func TestNewHTTPHandler(t *testing.T) {
-
 	path := "/sample-path"
 	method := "GET"
 	handled := make(chan bool)

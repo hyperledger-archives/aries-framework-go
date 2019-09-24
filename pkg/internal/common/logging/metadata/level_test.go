@@ -12,7 +12,6 @@ import (
 )
 
 func TestLogLevels(t *testing.T) {
-
 	mlevel := newModuledLevels()
 
 	mlevel.SetLevel("module-xyz-info", INFO)
@@ -62,5 +61,4 @@ func TestLogLevels(t *testing.T) {
 	require.True(t, mlevel.IsEnabledFor("module-xyz-random-module", WARNING))
 	require.True(t, mlevel.IsEnabledFor("module-xyz-random-module", INFO))
 	require.False(t, mlevel.IsEnabledFor("module-xyz-random-module", DEBUG))
-
 }

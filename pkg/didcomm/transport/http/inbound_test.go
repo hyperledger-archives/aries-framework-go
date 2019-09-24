@@ -122,7 +122,6 @@ func TestInboundHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(body), "failed to unpack msg")
 	require.NoError(t, resp.Body.Close())
-
 }
 
 func TestInboundTransport(t *testing.T) {
@@ -136,8 +135,8 @@ func TestInboundTransport(t *testing.T) {
 		inbound, err := NewInbound(":26602")
 		require.NoError(t, err)
 		require.NotEmpty(t, inbound)
-
-		err = inbound.Start(&mockProvider{packWalletValue: &mockwallet.CloseableWallet{UnpackValue: &wallet.Envelope{Message: []byte("data")}}})
+		packWalletValue := &mockwallet.CloseableWallet{UnpackValue: &wallet.Envelope{Message: []byte("data")}}
+		err = inbound.Start(&mockProvider{packWalletValue: packWalletValue})
 		require.NoError(t, err)
 
 		err = inbound.Stop()
@@ -166,7 +165,8 @@ func TestInboundTransport(t *testing.T) {
 		require.NotEmpty(t, inbound)
 
 		// start server
-		err = inbound.Start(&mockProvider{packWalletValue: &mockwallet.CloseableWallet{UnpackValue: &wallet.Envelope{Message: []byte("data")}}})
+		packWalletValue := &mockwallet.CloseableWallet{UnpackValue: &wallet.Envelope{Message: []byte("data")}}
+		err = inbound.Start(&mockProvider{packWalletValue: packWalletValue})
 		require.NoError(t, err)
 		require.NoError(t, listenFor("localhost:26604", time.Second))
 		// invoke a endpoint

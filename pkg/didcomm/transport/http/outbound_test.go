@@ -89,5 +89,4 @@ func TestOutboundHTTPTransport(t *testing.T) {
 
 	require.True(t, ot.Accept("http://example.com"))
 	require.False(t, ot.Accept("123:22"))
-
 }

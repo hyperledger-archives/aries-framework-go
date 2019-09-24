@@ -68,7 +68,6 @@ func (res *DIDResolver) resolveDID(uri string) ([]byte, error) {
 		}
 
 		return gotBody, nil
-
 	} else if notExistentDID(resp) {
 		return nil, fmt.Errorf("DID does not exist: %w", err)
 	}

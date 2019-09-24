@@ -114,7 +114,6 @@ func (c *Crypter) buildRecipients(cek *[chacha.KeySize]byte) ([]recipient, error
 // buildRecipient encodes the necessary data for the recipient to decrypt the message
 // 	encrypting the CEK and sender pub key
 func (c *Crypter) buildRecipient(cek *[chacha.KeySize]byte, recKey *publicEd25519) (*recipient, error) {
-
 	var nonce [24]byte
 
 	_, err := c.randSource.Read(nonce[:])

@@ -71,7 +71,6 @@ func TestBadConfig(t *testing.T) {
 
 func TestEncrypt(t *testing.T) {
 	t.Run("Success test case: given keys, generate envelope", func(t *testing.T) {
-
 		senderKey := getB58EdKey(
 			"Bxp2KpXeh6RgXXRVGRQUskT9qT35aSSz1JvdbMUcB2Yc",
 			"2QqgiHtrUtDPpfoZG2C3Qi8a1MbLQuTZaaScu5LzQbUCkw5YnXngKLMJ8VuPgoN3Piqt1PBUACVd6uQRmtayZp2x")
@@ -279,7 +278,6 @@ func TestSodiumBoxSeal(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Generate a box_seal message to compare to ACA-Py:", func(t *testing.T) {
-
 		msg := []byte("lorem ipsum dolor sit amet consectetur adipiscing elit ")
 
 		enc, err := sodiumBoxSeal(msg, recipient1Key.pub, rand.Reader)
@@ -292,7 +290,6 @@ func TestSodiumBoxSeal(t *testing.T) {
 	})
 
 	t.Run("Seal a message with sodiumBoxSeal and unseal it with sodiumBoxSealOpen", func(t *testing.T) {
-
 		msg := []byte("lorem ipsum dolor sit amet consectetur adipiscing elit ")
 
 		enc, err := sodiumBoxSeal(msg, recipient1Key.pub, rand.Reader)
@@ -304,7 +301,6 @@ func TestSodiumBoxSeal(t *testing.T) {
 	})
 
 	t.Run("Seal message, present signing key", func(t *testing.T) {
-
 		rec := getB58CurveKey(
 			"DJuB84EKcHjMcwRKV2CP6pDSWG8xL8V2yntcLpvuHTj4",
 			"9foNvM6BPbcAohay8cEkDG6BZj26Tave6k1mGcPx63yW")
@@ -420,7 +416,6 @@ func TestKeyConversion(t *testing.T) {
 		}
 
 		for i, edKeyString := range edPubs {
-
 			edKeyBytes := base58.Decode(edKeyString)
 			edKey := publicEd25519{}
 			copy(edKey[:], edKeyBytes)
@@ -484,7 +479,6 @@ func TestKeyConversion(t *testing.T) {
 		}
 
 		for i, edKeyString := range edPrivs {
-
 			edKeyBytes := base58.Decode(edKeyString)
 			edKey := privateEd25519{}
 			copy(edKey[:], edKeyBytes)
@@ -561,7 +555,6 @@ func getB58EdKey(pub, priv string) *keyPairEd25519 {
 }
 
 func getB58CurveKey(pub, priv string) *keyPairCurve25519 {
-
 	key := keyPairCurve25519{new(privateCurve25519), new(publicCurve25519)}
 	pubk := base58.Decode(pub)
 	privk := base58.Decode(priv)

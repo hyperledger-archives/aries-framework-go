@@ -80,7 +80,8 @@ func TestFramework(t *testing.T) {
 		}()
 		serverURL := fmt.Sprintf("http://localhost:%d", port)
 
-		aries, err := New(WithInboundTransport(&mockInboundTransport{}), WithWallet(func(ctx api.Provider) (api.CloseableWallet, error) {
+		aries, err := New(WithInboundTransport(
+			&mockInboundTransport{}), WithWallet(func(ctx api.Provider) (api.CloseableWallet, error) {
 			return &mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue")}, nil
 		}))
 		require.NoError(t, err)
@@ -237,7 +238,6 @@ func TestFramework(t *testing.T) {
 
 		_, err = prov.Service("mockProtocolSvc1")
 		require.Error(t, err)
-
 	})
 
 	t.Run("test error from protocol service", func(t *testing.T) {

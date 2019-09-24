@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -142,7 +143,7 @@ func (s *requested) CanTransitionTo(next state) bool {
 	return stateNameResponded == next.Name()
 }
 
-func (s *requested) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, error) {
+func (s *requested) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, error) { //nolint:dupl
 	switch msg.Type {
 	case ConnectionInvite:
 		if msg.Outbound {
@@ -189,7 +190,7 @@ func (s *responded) CanTransitionTo(next state) bool {
 	return stateNameCompleted == next.Name()
 }
 
-func (s *responded) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, error) {
+func (s *responded) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, error) { //nolint:dupl
 	switch msg.Type {
 	case ConnectionRequest:
 		if msg.Outbound {
@@ -263,11 +264,13 @@ func (ctx *context) newRequestFromInvitation(invitation *Invitation) (*Request, 
 	if err != nil {
 		return nil, nil, err
 	}
-	//prepare the request :TODO Service.Handle() is using the ID from the Invitation as the threadID when instead it should be using this request's ID. issue-280
+	// prepare the request :
+	// TODO Service.Handle() is using the ID from the Invitation as the threadID when instead it should be
+	//  using this request's ID. issue-280
 	request := &Request{
 		Type:  ConnectionRequest,
 		ID:    uuid.New().String(),
-		Label: "Bob", //TODO: How to figure out the label of the request - https://github.com/hyperledger/aries-framework-go/issues/281
+		Label: "Bob", //TODO: How to figure out the label of the request #281
 		Connection: &Connection{
 			DID:    newDidDoc.ID,
 			DIDDoc: newDidDoc,
@@ -293,16 +296,16 @@ func (ctx *context) handleInboundRequest(request *Request) error {
 }
 
 func (ctx *context) sendExchangeRequest(request *Request, destination *dispatcher.Destination) error {
-	//TODO:Send ver key issue-299
+	// TODO:Send ver key issue-299
 	sendVerKey := ""
-	//send the exchange request
+	// send the exchange request
 	return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
 }
 
 func (ctx *context) createOutboundRequest(msg dispatcher.DIDCommMsg) (*Request, *dispatcher.Destination, error) {
 	request := &Request{}
 	if msg.OutboundDestination == nil {
-		return nil, nil, fmt.Errorf("OutboundDestination cannot be empty for outbound Request")
+		return nil, nil, fmt.Errorf("outboundDestination cannot be empty for outbound Request")
 	}
 	destination := &dispatcher.Destination{
 		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
@@ -320,8 +323,7 @@ func (ctx *context) createOutboundRequest(msg dispatcher.DIDCommMsg) (*Request, 
 func (ctx *context) createOutboundResponse(msg dispatcher.DIDCommMsg) (*Response, *dispatcher.Destination, error) {
 	response := &Response{}
 	if msg.OutboundDestination == nil {
-		return nil, nil, fmt.Errorf("OutboundDestination cannot be empty for outbound Response")
-
+		return nil, nil, fmt.Errorf("outboundDestination cannot be empty for outbound Response")
 	}
 	destination := &dispatcher.Destination{
 		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
@@ -351,12 +353,12 @@ func (ctx *context) newResponseFromRequest(request *Request) (*Response, *dispat
 		DID:    newDidDoc.ID,
 		DIDDoc: newDidDoc,
 	}
-	//prepare connection signature
+	// prepare connection signature
 	encodedConnectionSignature, err := prepareConnectionSignature(connection)
 	if err != nil {
 		return nil, nil, err
 	}
-	//prepare the response
+	// prepare the response
 	response := &Response{
 		Type: ConnectionResponse,
 		ID:   uuid.New().String(),
@@ -372,13 +374,14 @@ func (ctx *context) newResponseFromRequest(request *Request) (*Response, *dispat
 }
 
 func (ctx *context) sendExchangeResponse(response *Response, destination *dispatcher.Destination) error {
-	//TODO:Send ver key issue-299
+	// TODO:Send ver key issue-299
 	sendVerKey := ""
-	//send exchange response
+	// send exchange response
 	return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
 }
 
-// TODO: Need to figure out how to find the destination for outbound request - https://github.com/hyperledger/aries-framework-go/issues/282
+// TODO: Need to figure out how to find the destination for outbound request
+//  https://github.com/hyperledger/aries-framework-go/issues/282
 func prepareDestination(didDoc *did.Doc) *dispatcher.Destination {
 	var srvEndPoint string
 	for _, v := range didDoc.Service {
@@ -397,14 +400,14 @@ func prepareDestination(didDoc *did.Doc) *dispatcher.Destination {
 	}
 }
 
-//Encode the connection and convert to Connection Signature as per the spec.
+// Encode the connection and convert to Connection Signature as per the spec.
 func prepareConnectionSignature(connection *Connection) (*ConnectionSignature, error) {
 	conBytes, err := json.Marshal(connection)
 	if err != nil {
 		return nil, err
 	}
 	sigData := base64.StdEncoding.EncodeToString(conBytes)
-	//TODO - compute the actual signature and add it issue-319
+	// TODO - compute the actual signature and add it issue-319
 	return &ConnectionSignature{
 		Type:       "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single",
 		SignedData: sigData}, nil

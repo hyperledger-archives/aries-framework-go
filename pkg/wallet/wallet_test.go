@@ -12,16 +12,16 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -31,7 +31,8 @@ const (
 
 func TestBaseWallet_New(t *testing.T) {
 	t.Run("test error from GetStoreHandle", func(t *testing.T) {
-		_, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{ErrGetStoreHandle: fmt.Errorf("error from GetStoreHandle")}))
+		_, err := New(newMockWalletProvider(
+			&mockstorage.MockStoreProvider{ErrGetStoreHandle: fmt.Errorf("error from GetStoreHandle")}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error from GetStoreHandle")
 	})
@@ -46,7 +47,6 @@ func TestBaseWallet_CreateKey(t *testing.T) {
 		verKey, err := w.CreateKey()
 		require.NoError(t, err)
 		require.NotEmpty(t, verKey)
-
 	})
 
 	t.Run("test error from persistKey", func(t *testing.T) {
@@ -81,7 +81,8 @@ func TestBaseWallet_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 		w.crypter = crypter
 
-		packMsg, err := json.Marshal(authcrypt.Envelope{Recipients: []authcrypt.Recipient{{Header: authcrypt.RecipientHeaders{KID: "key1"}}}})
+		packMsg, err := json.Marshal(authcrypt.Envelope{
+			Recipients: []authcrypt.Recipient{{Header: authcrypt.RecipientHeaders{KID: "key1"}}}})
 		require.NoError(t, err)
 		_, err = w.UnpackMessage(packMsg)
 		require.Error(t, err)
@@ -99,7 +100,6 @@ func TestBaseWallet_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test key not found", func(t *testing.T) {
-
 		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
@@ -129,20 +129,21 @@ func TestBaseWallet_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test decrypt failed", func(t *testing.T) {
-
 		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
 
-		crypter, err := authcrypt.New(authcrypt.XC20P)
-		require.NoError(t, err)
-
-		mockCrypter := &didcomm.MockAuthCrypt{DecryptValue: func(envelope []byte, recipientKeyPair crypto.KeyPair) ([]byte, error) {
+		decryptValue := func(envelope []byte, recipientKeyPair crypto.KeyPair) ([]byte, error) {
 			return nil, fmt.Errorf("decrypt error")
-		}, EncryptValue: func(payload []byte, sender crypto.KeyPair, recipients [][]byte) (bytes []byte, e error) {
+		}
+		e := func(payload []byte, sender crypto.KeyPair, recipients [][]byte) (bytes []byte, e error) {
+			crypter, e := authcrypt.New(authcrypt.XC20P)
+			require.NoError(t, e)
 			return crypter.Encrypt(payload, sender, recipients)
-		}}
+		}
+		mockCrypter := &didcomm.MockAuthCrypt{DecryptValue: decryptValue,
+			EncryptValue: e}
 
 		w.crypter = mockCrypter
 
@@ -165,7 +166,6 @@ func TestBaseWallet_UnpackMessage(t *testing.T) {
 		_, err = w.UnpackMessage(packMsg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "decrypt error")
-
 	})
 }
 
@@ -199,7 +199,6 @@ func TestBaseWallet_PackMessage(t *testing.T) {
 		unpackMsg, err := w.UnpackMessage(packMsg)
 		require.NoError(t, err)
 		require.Equal(t, []byte("msg1"), unpackMsg.Message)
-
 	})
 
 	t.Run("test envelope is nil", func(t *testing.T) {
@@ -213,7 +212,6 @@ func TestBaseWallet_PackMessage(t *testing.T) {
 	})
 
 	t.Run("test key not found error", func(t *testing.T) {
-
 		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
@@ -235,9 +233,11 @@ func TestBaseWallet_PackMessage(t *testing.T) {
 			Store: make(map[string][]byte),
 		}}))
 
-		w.crypter = &didcomm.MockAuthCrypt{EncryptValue: func(payload []byte, sender crypto.KeyPair, recipients [][]byte) (bytes []byte, e error) {
+		encryptValue := func(payload []byte, sender crypto.KeyPair, recipients [][]byte) (bytes []byte, e error) {
 			return nil, fmt.Errorf("encrypt error")
-		}}
+		}
+
+		w.crypter = &didcomm.MockAuthCrypt{EncryptValue: encryptValue}
 
 		require.NoError(t, err)
 
@@ -257,7 +257,6 @@ func TestBaseWallet_PackMessage(t *testing.T) {
 			ToVerKeys:  []string{base58.Encode(pub2[:])}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "encrypt error")
-
 	})
 }
 
@@ -280,15 +279,12 @@ func TestBaseWallet_DecryptMessage(t *testing.T) {
 }
 
 func TestBaseWallet_NewDID(t *testing.T) {
-
 	const method = "example"
 
 	storeProvider := &mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
 		Store: make(map[string][]byte),
 	}}
-
 	verifyDID := func(t *testing.T, didDoc *did.Doc) {
-
 		require.NotEmpty(t, didDoc.Context)
 		require.Equal(t, didDoc.Context[0], did.Context)
 		require.NotEmpty(t, didDoc.Updated)
@@ -319,7 +315,6 @@ func TestBaseWallet_NewDID(t *testing.T) {
 	}
 
 	t.Run("create new DID with service type", func(t *testing.T) {
-
 		w, err := New(newMockWalletProvider(storeProvider))
 		require.NoError(t, err)
 		didDoc, err := w.CreateDID(method, WithServiceType(serviceTypeDIDComm))
@@ -338,11 +333,9 @@ func TestBaseWallet_NewDID(t *testing.T) {
 			require.NotEmpty(t, service.ServiceEndpoint)
 			require.Equal(t, serviceEndpoint, service.ServiceEndpoint)
 		}
-
 	})
 
 	t.Run("create new DID without service type", func(t *testing.T) {
-
 		w, err := New(newMockWalletProvider(storeProvider))
 		require.NoError(t, err)
 		didDoc, err := w.CreateDID(method)

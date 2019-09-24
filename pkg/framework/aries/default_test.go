@@ -48,5 +48,4 @@ func TestDefaultFramework(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "http inbound transport initialization failed")
 	})
-
 }

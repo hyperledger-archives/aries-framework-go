@@ -43,7 +43,8 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 
 	t.Run("test outbound send failure", func(t *testing.T) {
 		o := NewOutbound(&provider{walletValue: &mockwallet.CloseableWallet{},
-			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")}}})
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")}}})
 		err := o.Send("data", "", &Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")

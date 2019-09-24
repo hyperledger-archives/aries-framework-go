@@ -13,7 +13,6 @@ import (
 )
 
 func TestCallerInfoSetting(t *testing.T) {
-
 	ci := newCallerInfo()
 	mod := "sample-module-name"
 

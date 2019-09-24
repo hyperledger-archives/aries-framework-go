@@ -29,7 +29,6 @@ const (
 
 // NewDoc returns the resolved variant of the genesis version of the peer DID document
 func NewDoc(publicKey []did.PublicKey, authorization []did.VerificationMethod) (*did.Doc, error) {
-
 	// Create a did doc based on the mandatory value: publicKeys & authorization
 	doc := &did.Doc{PublicKey: publicKey, Authentication: authorization}
 
@@ -39,13 +38,11 @@ func NewDoc(publicKey []did.PublicKey, authorization []did.VerificationMethod) (
 	}
 	doc.ID = id
 	return doc, nil
-
 }
 
 // computeDid creates the peer DID.
 // For example: did:peer:11-479cbc07c3f991725836a3aa2a581ca2029198aa420b9d99bc0e131d9f3e2cbe
 func computeDid(doc *did.Doc) (string, error) {
-
 	if doc.PublicKey == nil || doc.Authentication == nil {
 		return "", errors.New("the genesis version must include public keys and authentication")
 	}
@@ -65,7 +62,6 @@ func computeDid(doc *did.Doc) (string, error) {
 //
 // Note: this check should be done only on the resolved variant of the genesis version of Peer DID documents.
 func validateDID(doc *did.Doc) error {
-
 	peerDid := doc.ID
 
 	matched, err := regexp.MatchString(`did:peer:11-([a-fA-F0-9]){64}`, peerDid)
@@ -125,7 +121,6 @@ func numBasis(doc *did.Doc) (string, error) {
 
 // computeHash will compute the hash for the supplied bytes
 func computeHash(bytes []byte) ([]byte, error) {
-
 	if len(bytes) == 0 {
 		return nil, errors.New("empty bytes")
 	}
@@ -133,5 +128,4 @@ func computeHash(bytes []byte) ([]byte, error) {
 	h := crypto.SHA256.New()
 	hash := h.Sum(bytes)
 	return hash, nil
-
 }

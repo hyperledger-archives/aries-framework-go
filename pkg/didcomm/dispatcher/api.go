@@ -26,7 +26,7 @@ type DIDCommMsg struct {
 	Outbound bool
 	Type     string
 	Payload  []byte
-	//TODO : might need refactor as per the issue-226
+	// TODO : might need refactor as per the issue-226
 	OutboundDestination *Destination
 }
 

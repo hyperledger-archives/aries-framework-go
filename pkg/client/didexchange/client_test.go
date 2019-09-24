@@ -61,7 +61,6 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "createSigningKeyErr")
 	})
-
 }
 
 func TestClient_QueryConnectionByID(t *testing.T) {
@@ -93,8 +92,9 @@ func TestClient_HandleInvitation(t *testing.T) {
 	})
 
 	t.Run("test error from handle msg", func(t *testing.T) {
-		c, err := New(&mockprovider.Provider{ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleErr: fmt.Errorf("handle error")},
-			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
+		c, err := New(&mockprovider.Provider{
+			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleErr: fmt.Errorf("handle error")},
+			WalletValue:  &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation()
 		require.NoError(t, err)

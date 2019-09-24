@@ -90,5 +90,6 @@ issues:
   exclude:
     # Allow package logger variables (for now)
     - \`logger\` is a global variable
-    # Temporary until golangci update to go 1.13
-    - Is not declared by package errors
+    -  Line contains TODO/BUG/FIXME
+    # Add comments for package
+    -  at least one file in a package should have a package comment
