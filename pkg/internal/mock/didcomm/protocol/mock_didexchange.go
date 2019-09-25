@@ -28,3 +28,23 @@ func (m *MockDIDExchangeSvc) Accept(msgType string) bool {
 func (m *MockDIDExchangeSvc) Name() string {
 	return "didexchange"
 }
+
+// RegisterActionEvent register action event.
+func (m *MockDIDExchangeSvc) RegisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+	return nil
+}
+
+// UnregisterActionEvent unregister action event.
+func (m *MockDIDExchangeSvc) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+	return nil
+}
+
+// RegisterMsgEvent register message event.
+func (m *MockDIDExchangeSvc) RegisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
+	return nil
+}
+
+// UnregisterMsgEvent unregister message event.
+func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
+	return nil
+}
