@@ -10,22 +10,32 @@ import "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 
 // MockDIDExchangeSvc mock did exchange service
 type MockDIDExchangeSvc struct {
-	HandleErr   error
-	AcceptValue bool
+	ProtocolName string
+	HandleFunc   func(dispatcher.DIDCommMsg) error
+	AcceptFunc   func(string) bool
 }
 
 // Handle msg
 func (m *MockDIDExchangeSvc) Handle(msg dispatcher.DIDCommMsg) error {
-	return m.HandleErr
+	if m.HandleFunc != nil {
+		return m.HandleFunc(msg)
+	}
+	return nil
 }
 
 // Accept msg checks the msg type
 func (m *MockDIDExchangeSvc) Accept(msgType string) bool {
-	return m.AcceptValue
+	if m.AcceptFunc != nil {
+		return m.AcceptFunc(msgType)
+	}
+	return true
 }
 
 // Name return service name
 func (m *MockDIDExchangeSvc) Name() string {
+	if m.ProtocolName != "" {
+		return m.ProtocolName
+	}
 	return "didexchange"
 }
 

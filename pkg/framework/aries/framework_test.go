@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
@@ -203,7 +204,9 @@ func TestFramework(t *testing.T) {
 
 	t.Run("test protocol svc - with user provided protocol", func(t *testing.T) {
 		newMockSvc := func(prv api.Provider) (dispatcher.Service, error) {
-			return mockProtocolSvc{}, nil
+			return &protocol.MockDIDExchangeSvc{
+				ProtocolName: "mockProtocolSvc",
+			}, nil
 		}
 		// with custom protocol
 		aries, err := New(WithProtocols(newMockSvc), WithInboundTransport(&mockInboundTransport{}))
@@ -225,7 +228,9 @@ func TestFramework(t *testing.T) {
 
 	t.Run("test new with protocol service", func(t *testing.T) {
 		mockSvcCreator := func(prv api.Provider) (dispatcher.Service, error) {
-			return mockProtocolSvc{}, nil
+			return &protocol.MockDIDExchangeSvc{
+				ProtocolName: "mockProtocolSvc",
+			}, nil
 		}
 		aries, err := New(WithProtocols(mockSvcCreator), WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
@@ -334,37 +339,6 @@ func TestFramework(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error from wallet")
 	})
-}
-
-type mockProtocolSvc struct {
-}
-
-func (m mockProtocolSvc) Handle(msg dispatcher.DIDCommMsg) error {
-	return nil
-}
-
-func (m mockProtocolSvc) Accept(msgType string) bool {
-	return true
-}
-
-func (m mockProtocolSvc) Name() string {
-	return "mockProtocolSvc"
-}
-
-func (m mockProtocolSvc) RegisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
-	return nil
-}
-
-func (m mockProtocolSvc) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
-	return nil
-}
-
-func (m mockProtocolSvc) RegisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
-	return nil
-}
-
-func (m mockProtocolSvc) UnregisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
-	return nil
 }
 
 type mockTransportProviderFactory struct {
