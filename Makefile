@@ -5,12 +5,14 @@
 GO_CMD ?= go
 # Controller API entry point to be used for generating Open API specifications
 OPENAPI_SPEC_META=cmd/aries-agentd/main.go
+OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
+OPENAPI_DOCKER_IMG_VERSION=v0.20.1
 
 .PHONY: all
 all: checks generate-openapi-spec unit-test
 
 .PHONY: checks
-checks: license lint
+checks: license lint generate-openapi-spec
 
 .PHONY: lint
 lint:
@@ -37,4 +39,6 @@ clean:
 generate-openapi-spec: clean
 	@echo "Generating and validating controller API specifications using Open API"
 	@mkdir -p build/rest/openapi/spec
-	@SPEC_META=$(OPENAPI_SPEC_META) SPEC_LOC=build/rest/openapi/spec scripts/generate-openapi-spec.sh
+	@SPEC_META=$(OPENAPI_SPEC_META) SPEC_LOC=build/rest/openapi/spec  \
+	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
+	scripts/generate-openapi-spec.sh
