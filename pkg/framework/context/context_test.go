@@ -142,7 +142,7 @@ func TestNewProvider(t *testing.T) {
 	t.Run("test new with did wallet service", func(t *testing.T) {
 		prov, err := New(WithWallet(&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue"),
 			PackValue: []byte("data"),
-			CreateDid: &did.Doc{
+			MockDID: &did.Doc{
 				Context: []string{"https://w3id.org/did/v1"},
 				ID:      "did:example:123456789abcdefghi#inbox"}}),
 		)

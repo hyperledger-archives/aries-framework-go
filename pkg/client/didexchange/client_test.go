@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
@@ -23,7 +24,7 @@ import (
 
 func TestNew(t *testing.T) {
 	t.Run("test new client", func(t *testing.T) {
-		_, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{})})
+		_, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockDIDCreator{}, &mockProvider{})})
 		require.NoError(t, err)
 	})
 
@@ -42,7 +43,7 @@ func TestNew(t *testing.T) {
 
 func TestClient_CreateInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{}),
+		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockDIDCreator{}, &mockProvider{}),
 			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation()
@@ -54,7 +55,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 	})
 
 	t.Run("test error from createSigningKey", func(t *testing.T) {
-		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{}),
+		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockDIDCreator{}, &mockProvider{}),
 			WalletValue: &mockwallet.CloseableWallet{CreateSigningKeyErr: fmt.Errorf("createSigningKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation()
@@ -64,7 +65,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 }
 
 func TestClient_QueryConnectionByID(t *testing.T) {
-	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{})})
+	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockDIDCreator{}, &mockProvider{})})
 	require.NoError(t, err)
 
 	result, err := c.QueryConnectionByID("sample-id")
@@ -74,7 +75,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 }
 
 func TestClient_RemoveConnection(t *testing.T) {
-	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{})})
+	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockDIDCreator{}, &mockProvider{})})
 	require.NoError(t, err)
 
 	err = c.RemoveConnection("sample-id")
@@ -107,7 +108,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 }
 
 func TestClient_QueryConnectionsByParams(t *testing.T) {
-	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockProvider{})})
+	c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &mockDIDCreator{}, &mockProvider{})})
 	require.NoError(t, err)
 
 	results, err := c.QueryConnections(&QueryConnectionsParams{InvitationKey: "sample-inv-key"})
@@ -126,6 +127,9 @@ func (m *mockProvider) OutboundDispatcher() dispatcher.Outbound {
 	return &mockdispatcher.MockOutbound{}
 }
 
-func (m *mockProvider) DIDWallet() wallet.DIDCreator {
-	return &mockwallet.CloseableWallet{}
+type mockDIDCreator struct {
+}
+
+func (m *mockDIDCreator) CreateDID(opts ...wallet.DocOpts) (*did.Doc, error) {
+	return &did.Doc{}, nil
 }

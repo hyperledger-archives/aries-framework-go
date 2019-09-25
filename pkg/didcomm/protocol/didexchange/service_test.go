@@ -22,11 +22,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 const (
@@ -103,7 +102,7 @@ func TestGenerateInviteWithKeyAndEndpoint(t *testing.T) {
 func TestService_Name(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
-	prov := New(dbstore, &mockProvider{})
+	prov := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
 
 	require.Equal(t, DIDExchange, prov.Name())
 }
@@ -113,11 +112,11 @@ func TestService_Handle_Inviter(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
 	prov := mockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-	newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 
-	s := New(dbstore, &mockProvider{})
+	s := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
 	actionCh := make(chan dispatcher.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
@@ -181,11 +180,11 @@ func TestService_Handle_Invitee(t *testing.T) {
 		},
 	}
 	prov := mockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-	newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 
-	s := New(store, &mockProvider{})
+	s := New(store, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
 	actionCh := make(chan dispatcher.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
@@ -245,7 +244,8 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("must not start with Response msg", func(t *testing.T) {
-		ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
+		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		s := &Service{ctx: ctx, store: newMockStore()}
 		response, err := json.Marshal(
 			&Response{
@@ -258,7 +258,8 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("must not start with ACK msg", func(t *testing.T) {
-		ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
+		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		s := &Service{ctx: ctx, store: newMockStore()}
 		ack, err := json.Marshal(
 			&model.Ack{
@@ -272,11 +273,12 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 	t.Run("must not transition to same state", func(t *testing.T) {
 		prov := mockProvider{}
-		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-		newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+		ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+		newDidDoc, err := ctx.didCreator.CreateDID()
 		require.NoError(t, err)
 
-		s := New(newMockStore(), &mockProvider{})
+		s := New(newMockStore(), &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
 		actionCh := make(chan dispatcher.DIDCommAction, 10)
 		err = s.RegisterActionEvent(actionCh)
 		require.NoError(t, err)
@@ -313,7 +315,8 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("error when updating store on first state transition", func(t *testing.T) {
-		ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
+		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		s := &Service{
 			ctx: ctx,
 			store: &mockStore{
@@ -338,7 +341,8 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 	t.Run("error when updating store on followup state transition", func(t *testing.T) {
 		counter := 0
-		ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
+		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		s := &Service{
 			ctx: ctx,
 			store: &mockStore{
@@ -367,7 +371,8 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("error on invalid msg type", func(t *testing.T) {
-		ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
+		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		s := &Service{ctx: ctx, store: newMockStore()}
 		request, err := json.Marshal(
 			&Request{
@@ -385,7 +390,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 func TestService_Accept(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
-	ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
+	ctx := context{outboundDispatcher: newMockOutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 	s := &Service{ctx: ctx, store: dbstore}
 
 	resp := s.Accept("did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation")
@@ -517,9 +522,8 @@ func (p *mockProvider) OutboundDispatcher() dispatcher.Outbound {
 	return &mockdispatcher.MockOutbound{}
 }
 
-// CryptoWallet returns the pack wallet service
-func (p *mockProvider) DIDWallet() wallet.DIDCreator {
-	return &mockwallet.CloseableWallet{CreateDid: &did.Doc{
+func getMockDID() *did.Doc {
+	return &did.Doc{
 		Context: []string{"https://w3id.org/did/v1"},
 		ID:      "did:example:123456789abcdefghi#inbox",
 		Service: []did.Service{{
@@ -535,8 +539,9 @@ func (p *mockProvider) DIDWallet() wallet.DIDCreator {
 				Type:       "RsaVerificationKey2018",
 				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")},
 		},
-	}}
+	}
 }
+
 func store(t testing.TB) (storage.Store, func()) {
 	prov := mockstorage.NewMockStoreProvider()
 	dbstore, err := prov.GetStoreHandle()
@@ -559,8 +564,7 @@ type payload struct {
 func TestService_Events(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
-	prov := &mockProvider{}
-	svc := New(dbstore, prov)
+	svc := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
 	done := make(chan bool)
 
 	startConsumer(t, svc, done)
@@ -926,7 +930,7 @@ func TestService_No_Execution(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
 
-	svc := New(dbstore, &mockProvider{})
+	svc := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
 
 	msg := dispatcher.DIDCommMsg{
 		Type: ConnectionResponse,
@@ -960,7 +964,7 @@ func TestService_ActionEvent(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
 
-	svc := New(dbstore, &mockProvider{})
+	svc := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
 
 	// validate before register
 	require.Nil(t, svc.actionEvent)
@@ -995,7 +999,7 @@ func TestService_MsgEvents(t *testing.T) {
 	dbstore, cleanup := store(t)
 	defer cleanup()
 
-	svc := New(dbstore, &mockProvider{})
+	svc := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
 
 	// validate before register
 	require.Nil(t, svc.msgEvents)
@@ -1081,7 +1085,7 @@ func TestServiceErrors(t *testing.T) {
 		Payload: request,
 	}
 
-	svc := New(dbstore, &mockProvider{})
+	svc := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
 	actionCh := make(chan dispatcher.DIDCommAction, 10)
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
