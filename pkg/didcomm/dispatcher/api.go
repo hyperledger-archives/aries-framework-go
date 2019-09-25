@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package dispatcher
 
+// TODO https://github.com/hyperledger/aries-framework-go/issues/342 - refactor the pkg, currently contains dispatcher,
+//  messages and events fuctionalities. (need to avoid cyclical dependecy)
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -67,3 +69,31 @@ type DIDCommCallback struct {
 
 // Callback type to pass service callbacks.
 type Callback func(DIDCommCallback)
+
+// Event related apis.
+type Event interface {
+	// RegisterActionEvent on protocol messages. The events are triggered for incoming message types based on
+	// the protocol service. The consumer need to invoke the callback to resume processing.
+	// Only one channel can be registered for the action events. The function will throw error if a channel is already
+	// registered.
+	RegisterActionEvent(ch chan<- DIDCommAction) error
+
+	// UnregisterActionEvent on protocol messages. Refer RegisterActionEvent().
+	UnregisterActionEvent(ch chan<- DIDCommAction) error
+
+	// RegisterMsgEvent on protocol messages. The message events are triggered for incoming messages. Service
+	// will not expect any callback on these events unlike Action event.
+	RegisterMsgEvent(ch chan<- DIDCommMsg) error
+
+	// UnregisterMsgEvent on protocol messages. Refer RegisterMsgEvent().
+	UnregisterMsgEvent(ch chan<- DIDCommMsg) error
+}
+
+// DIDCommService defines service APIs.
+type DIDCommService interface {
+	// dispatcher service
+	Service
+
+	// event service
+	Event
+}

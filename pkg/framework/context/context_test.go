@@ -173,3 +173,19 @@ func (m mockProtocolSvc) Accept(msgType string) bool {
 func (m mockProtocolSvc) Name() string {
 	return "mockProtocolSvc"
 }
+
+func (m mockProtocolSvc) RegisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+	return nil
+}
+
+func (m mockProtocolSvc) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+	return nil
+}
+
+func (m mockProtocolSvc) RegisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
+	return nil
+}
+
+func (m mockProtocolSvc) UnregisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
+	return nil
+}
