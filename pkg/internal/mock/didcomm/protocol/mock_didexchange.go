@@ -51,7 +51,7 @@ func (m *MockDIDExchangeSvc) UnregisterActionEvent(ch chan<- dispatcher.DIDCommA
 }
 
 // RegisterMsgEvent register message event.
-func (m *MockDIDExchangeSvc) RegisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
+func (m *MockDIDExchangeSvc) RegisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
 	if m.RegisterMsgEventErr != nil {
 		return m.RegisterMsgEventErr
 	}
@@ -59,6 +59,6 @@ func (m *MockDIDExchangeSvc) RegisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) e
 }
 
 // UnregisterMsgEvent unregister message event.
-func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
+func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
 	return nil
 }

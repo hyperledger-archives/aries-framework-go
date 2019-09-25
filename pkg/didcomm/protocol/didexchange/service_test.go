@@ -120,8 +120,25 @@ func TestService_Handle_Inviter(t *testing.T) {
 	actionCh := make(chan dispatcher.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
+	statusCh := make(chan dispatcher.StateMsg, 10)
+	err = s.RegisterMsgEvent(statusCh)
+	require.NoError(t, err)
+	completeFlag := make(chan bool)
+	respondedFlag := make(chan bool)
+	go func() {
+		for e := range statusCh {
+			if e.Type == dispatcher.PostState {
+				// receive the events
+				if e.StateID == "completed" {
+					completeFlag <- true
+				}
+				if e.StateID == "responded" {
+					respondedFlag <- true
+				}
+			}
+		}
+	}()
 	go func() { require.NoError(t, AutoExecuteActionEvent(actionCh)) }()
-
 	thid := randomString()
 
 	// Invitation was previously sent by Alice to Bob.
@@ -141,9 +158,14 @@ func TestService_Handle_Inviter(t *testing.T) {
 	err = s.Handle(msg)
 	require.NoError(t, err)
 
+	select {
+	case <-respondedFlag:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "didn't receive post event responded")
+	}
 	// Alice automatically sends exchange Response to Bob
 	// Bob replies with an ACK
-	validateState(t, s, thid, (&responded{}).Name(), 100*time.Millisecond)
+	// validateState(t, s, thid, (&responded{}).Name())
 	payloadBytes, err = json.Marshal(
 		&model.Ack{
 			Type:   ConnectionAck,
@@ -155,6 +177,13 @@ func TestService_Handle_Inviter(t *testing.T) {
 	msg = dispatcher.DIDCommMsg{Type: ConnectionAck, Payload: payloadBytes}
 	err = s.Handle(msg)
 	require.NoError(t, err)
+
+	select {
+	case <-completeFlag:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "didn't receive post event complete")
+	}
+	validateState(t, s, thid, (&completed{}).Name())
 }
 
 // did-exchange flow with role Invitee
@@ -188,6 +217,20 @@ func TestService_Handle_Invitee(t *testing.T) {
 	actionCh := make(chan dispatcher.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
+	statusCh := make(chan dispatcher.StateMsg, 10)
+	err = s.RegisterMsgEvent(statusCh)
+	require.NoError(t, err)
+	done := make(chan bool)
+	go func() {
+		for e := range statusCh {
+			if e.Type == dispatcher.PostState {
+				// receive the events
+				if e.StateID == "completed" {
+					done <- true
+				}
+			}
+		}
+	}()
 	go func() { require.NoError(t, AutoExecuteActionEvent(actionCh)) }()
 
 	// Alice receives an invitation from Bob
@@ -239,7 +282,12 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 	// Alice automatically sends an ACK to Bob
 	// Alice must now be in COMPLETED state
-	validateState(t, s, thid, (&completed{}).Name(), 100*time.Millisecond)
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "didn't receive post event complete")
+	}
+	validateState(t, s, thid, (&completed{}).Name())
 }
 
 func TestService_Handle_EdgeCases(t *testing.T) {
@@ -282,7 +330,20 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		actionCh := make(chan dispatcher.DIDCommAction, 10)
 		err = s.RegisterActionEvent(actionCh)
 		require.NoError(t, err)
-
+		statusCh := make(chan dispatcher.StateMsg, 10)
+		err = s.RegisterMsgEvent(statusCh)
+		require.NoError(t, err)
+		respondedFlag := make(chan bool)
+		go func() {
+			for e := range statusCh {
+				if e.Type == dispatcher.PostState {
+					// receive the events
+					if e.StateID == "responded" {
+						respondedFlag <- true
+					}
+				}
+			}
+		}()
 		go func() { require.NoError(t, AutoExecuteActionEvent(actionCh)) }()
 
 		thid := randomString()
@@ -300,8 +361,14 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		err = s.Handle(dispatcher.DIDCommMsg{Type: ConnectionRequest, Outbound: false, Payload: request})
 		require.NoError(t, err)
+
+		select {
+		case <-respondedFlag:
+		case <-time.After(2 * time.Second):
+			require.Fail(t, "didn't receive post event responded")
+		}
 		// state machine has automatically transitioned to responded state
-		validateState(t, s, thid, (&responded{}).Name(), 100*time.Millisecond)
+		validateState(t, s, thid, (&responded{}).Name())
 		// therefore cannot transition Responded state
 		response, err := json.Marshal(
 			&Response{
@@ -631,14 +698,16 @@ func startConsumer(t *testing.T, svc *Service, done chan bool) {
 		}
 	}()
 
-	statusCh := make(chan dispatcher.DIDCommMsg, 10)
+	statusCh := make(chan dispatcher.StateMsg, 10)
 	err = svc.RegisterMsgEvent(statusCh)
 	require.NoError(t, err)
 	go func() {
 		for e := range statusCh {
-			// receive the events
-			if e.Type == ConnectionRequest {
-				writeToDB(t, svc, e)
+			if e.Type == dispatcher.PreState {
+				// receive the events
+				if e.Msg.Type == ConnectionRequest {
+					writeToDB(t, svc, e.Msg)
+				}
 			}
 		}
 	}()
@@ -941,23 +1010,10 @@ func TestService_No_Execution(t *testing.T) {
 	require.Contains(t, err.Error(), "no clients are registered to handle the message")
 }
 
-func validateState(t *testing.T, svc *Service, id, expected string, timeoutDuration time.Duration) {
-	actualState := ""
-	timeout := time.After(timeoutDuration)
-	for {
-		select {
-		case <-timeout:
-			require.Fail(t, fmt.Sprintf("id=%s expectedState=%s actualState=%s", id, expected, actualState))
-			return
-		default:
-			s, err := svc.currentState(id)
-			actualState = s.Name()
-			if err != nil || expected != s.Name() {
-				continue
-			}
-			return
-		}
-	}
+func validateState(t *testing.T, svc *Service, id, expected string) {
+	s, err := svc.currentState(id)
+	require.NoError(t, err)
+	require.Equal(t, expected, s.Name())
 }
 
 func TestService_ActionEvent(t *testing.T) {
@@ -1006,7 +1062,7 @@ func TestService_MsgEvents(t *testing.T) {
 	require.Equal(t, 0, len(svc.msgEvents))
 
 	// register a status event
-	ch := make(chan dispatcher.DIDCommMsg)
+	ch := make(chan dispatcher.StateMsg)
 	err := svc.RegisterMsgEvent(ch)
 	require.NoError(t, err)
 
@@ -1015,7 +1071,7 @@ func TestService_MsgEvents(t *testing.T) {
 	require.Equal(t, 1, len(svc.msgEvents))
 
 	// register a new status event
-	err = svc.RegisterMsgEvent(make(chan dispatcher.DIDCommMsg))
+	err = svc.RegisterMsgEvent(make(chan dispatcher.StateMsg))
 	require.NoError(t, err)
 
 	// validate after new register
@@ -1031,9 +1087,9 @@ func TestService_MsgEvents(t *testing.T) {
 
 	// add channels and remove in opposite order
 	svc.msgEvents = nil
-	ch1 := make(chan dispatcher.DIDCommMsg)
-	ch2 := make(chan dispatcher.DIDCommMsg)
-	ch3 := make(chan dispatcher.DIDCommMsg)
+	ch1 := make(chan dispatcher.StateMsg)
+	ch2 := make(chan dispatcher.StateMsg)
+	ch3 := make(chan dispatcher.StateMsg)
 
 	err = svc.RegisterMsgEvent(ch1)
 	require.NoError(t, err)

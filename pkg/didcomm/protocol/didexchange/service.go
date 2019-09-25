@@ -16,11 +16,14 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/did"
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
+
+var logger = log.New("aries-framework/did-exchange/service")
 
 // didCommChMessage type to correlate actionEvent message(go channel) with callback message(internal go channel).
 type didCommChMessage struct {
@@ -63,7 +66,7 @@ type Service struct {
 	store           storage.Store
 	callbackChannel chan didCommChMessage
 	actionEvent     chan<- dispatcher.DIDCommAction
-	msgEvents       []chan<- dispatcher.DIDCommMsg
+	msgEvents       []chan<- dispatcher.StateMsg
 	lock            sync.RWMutex
 	msgEventLock    sync.RWMutex
 }
@@ -91,9 +94,6 @@ func New(store storage.Store, didMaker did.Creator, prov provider) *Service {
 
 // Handle didexchange msg
 func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
-	// trigger message events
-	s.sendMsgEvents(msg)
-
 	// throw error if there is no action event registered for inbound messages
 	s.lock.RLock()
 	aEvent := s.actionEvent
@@ -118,6 +118,10 @@ func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
 	if !current.CanTransitionTo(next) {
 		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
+
+	// trigger message events
+	logger.Infof("send pre event for state %s", next.Name())
+	s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PreState, Msg: msg, StateID: next.Name()})
 
 	// trigger action event based on message type for inbound messages
 	if !msg.Outbound && canTriggerActionEvents(msg.Type) {
@@ -165,7 +169,7 @@ func (s *Service) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) erro
 
 // RegisterMsgEvent on DID Exchange protocol messages. The message events are triggered for incoming messages. Service
 // will not expect any callback on these events unlike Action events.
-func (s *Service) RegisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
+func (s *Service) RegisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
 	s.msgEventLock.Lock()
 	s.msgEvents = append(s.msgEvents, ch)
 	s.msgEventLock.Unlock()
@@ -174,7 +178,7 @@ func (s *Service) RegisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
 }
 
 // UnregisterMsgEvent on DID Exchange protocol messages. Refer RegisterMsgEvent().
-func (s *Service) UnregisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
+func (s *Service) UnregisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
 	s.msgEventLock.Lock()
 	for i := 0; i < len(s.msgEvents); i++ {
 		if s.msgEvents[i] == ch {
@@ -201,7 +205,12 @@ func (s *Service) handle(msg *message) error {
 	if err != nil {
 		return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 	}
+	logger.Infof("send post event for state %s", next.Name())
+	s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PostState, Msg: msg.Msg, StateID: next.Name()})
+
 	for ; !isNoOp(followup); followup = next {
+		logger.Infof("send pre event for state %s", followup.Name())
+		s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PreState, Msg: msg.Msg, StateID: followup.Name()})
 		next, err = followup.Execute(msg.Msg, s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", followup.Name(), err)
@@ -210,8 +219,10 @@ func (s *Service) handle(msg *message) error {
 		if err != nil {
 			return fmt.Errorf("failed to persist state %s %w", followup.Name(), err)
 		}
+		logger.Infof("send post event for state %s", followup.Name())
+		s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PostState, Msg: msg.Msg, StateID: followup.Name()})
 	}
-	// TODO call post-transition listeners -  Issue: https://github.com/hyperledger/aries-framework-go/issues/140
+
 	return nil
 }
 
@@ -251,14 +262,14 @@ func (s *Service) sendActionEvent(msg dispatcher.DIDCommMsg, aEvent chan<- dispa
 }
 
 // sendEvent triggers the message events.
-func (s *Service) sendMsgEvents(msg dispatcher.DIDCommMsg) {
+func (s *Service) sendMsgEvents(msg *dispatcher.StateMsg) {
 	// trigger the message events
 	s.msgEventLock.RLock()
 	statusEvents := s.msgEvents
 	s.msgEventLock.RUnlock()
 
 	for _, handler := range statusEvents {
-		handler <- msg
+		handler <- *msg
 	}
 }
 
@@ -269,7 +280,7 @@ func (s *Service) startInternalListener() {
 			// TODO handle error in callback - https://github.com/hyperledger/aries-framework-go/issues/242
 			if err := s.process(msg.ID, msg.DIDCommCallback); err != nil {
 				// TODO handle error
-				fmt.Println(err.Error())
+				logger.Errorf(err.Error())
 			}
 		}
 	}()

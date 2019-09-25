@@ -37,7 +37,7 @@ type Client struct {
 	wallet                   wallet.Crypto
 	inboundTransportEndpoint string
 	actionCh                 chan dispatcher.DIDCommAction
-	msgCh                    chan dispatcher.DIDCommMsg
+	msgCh                    chan dispatcher.StateMsg
 }
 
 // New return new instance of didexchange client
@@ -56,7 +56,7 @@ func New(ctx provider) (*Client, error) {
 		inboundTransportEndpoint: ctx.InboundTransportEndpoint(),
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		actionCh: make(chan dispatcher.DIDCommAction, 10),
-		msgCh:    make(chan dispatcher.DIDCommMsg, 10),
+		msgCh:    make(chan dispatcher.StateMsg, 10),
 	}
 
 	err = c.startServiceEventListener()
