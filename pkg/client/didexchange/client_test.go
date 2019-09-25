@@ -93,8 +93,10 @@ func TestClient_HandleInvitation(t *testing.T) {
 
 	t.Run("test error from handle msg", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleErr: fmt.Errorf("handle error")},
-			WalletValue:  &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
+			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg dispatcher.DIDCommMsg) error {
+				return fmt.Errorf("handle error")
+			}},
+			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation()
 		require.NoError(t, err)

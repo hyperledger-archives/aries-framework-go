@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
@@ -27,7 +28,7 @@ import (
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
-	svc, err := New(&mockprovider.Provider{ServiceValue: mockProtocolSvc{}})
+	svc, err := New(&mockprovider.Provider{ServiceValue: &protocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -208,7 +209,7 @@ func TestOperation_RemoveConnection(t *testing.T) {
 func TestOperation_WriteGenericError(t *testing.T) {
 	const errMsg = "sample-error-msg"
 
-	svc, err := New(&mockprovider.Provider{ServiceValue: mockProtocolSvc{}})
+	svc, err := New(&mockprovider.Provider{ServiceValue: &protocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -228,7 +229,7 @@ func TestOperation_WriteGenericError(t *testing.T) {
 }
 
 func TestOperation_WriteResponse(t *testing.T) {
-	svc, err := New(&mockprovider.Provider{ServiceValue: mockProtocolSvc{}})
+	svc, err := New(&mockprovider.Provider{ServiceValue: &protocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 	svc.writeResponse(&mockWriter{errors.New("failed to write")}, &models.QueryConnectionResponse{})
@@ -262,10 +263,18 @@ func getResponseFromHandler(handler operation.Handler, requestBody io.Reader, pa
 	return rr.Body, nil
 }
 
-func getHandler(t *testing.T, lookup string, err error) operation.Handler {
-	svc, err := New(&mockprovider.Provider{ServiceValue: mockProtocolSvc{err},
-		WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
-
+func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler {
+	svc, err := New(&mockprovider.Provider{
+		ServiceValue: &protocol.MockDIDExchangeSvc{
+			ProtocolName: "mockProtocolSvc",
+			HandleFunc: func(msg dispatcher.DIDCommMsg) error {
+				return handleErr
+			},
+		},
+		WalletValue:          &mockwallet.CloseableWallet{},
+		InboundEndpointValue: "endpoint",
+	},
+	)
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -278,38 +287,6 @@ func getHandler(t *testing.T, lookup string, err error) operation.Handler {
 		}
 	}
 	require.Fail(t, "unable to find handler")
-	return nil
-}
-
-type mockProtocolSvc struct {
-	failure error
-}
-
-func (m mockProtocolSvc) Handle(msg dispatcher.DIDCommMsg) error {
-	return m.failure
-}
-
-func (m mockProtocolSvc) Accept(msgType string) bool {
-	return true
-}
-
-func (m mockProtocolSvc) Name() string {
-	return "mockProtocolSvc"
-}
-
-func (m mockProtocolSvc) RegisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
-	return nil
-}
-
-func (m mockProtocolSvc) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
-	return nil
-}
-
-func (m mockProtocolSvc) RegisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
-	return nil
-}
-
-func (m mockProtocolSvc) UnregisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
 	return nil
 }
 

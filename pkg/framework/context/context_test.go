@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -44,7 +45,12 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with protocol service", func(t *testing.T) {
-		prov, err := New(WithProtocolServices(mockProtocolSvc{}))
+		prov, err := New(WithProtocolServices(&protocol.MockDIDExchangeSvc{
+			ProtocolName: "mockProtocolSvc",
+			AcceptFunc: func(msgType string) bool {
+				return msgType == "valid-message-type"
+			},
+		}))
 		require.NoError(t, err)
 
 		_, err = prov.Service("mockProtocolSvc")
@@ -55,7 +61,30 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test inbound message handlers/dispatchers", func(t *testing.T) {
-		ctx, err := New(WithProtocolServices(mockProtocolSvc{rejectLabels: []string{"Carol"}}))
+		ctx, err := New(WithProtocolServices(&protocol.MockDIDExchangeSvc{
+			ProtocolName: "mockProtocolSvc",
+			AcceptFunc: func(msgType string) bool {
+				return msgType == "valid-message-type"
+			},
+			HandleFunc: func(msg dispatcher.DIDCommMsg) error {
+				payload := &struct {
+					Label string `json:"label,omitempty"`
+				}{}
+
+				err := json.Unmarshal(msg.Payload, payload)
+				if err != nil {
+					return fmt.Errorf("invalid payload data format: %w", err)
+				}
+
+				for _, label := range []string{"Carol"} {
+					if label == payload.Label {
+						return errors.New("error handling the message")
+					}
+				}
+
+				return nil
+			},
+		}))
 		require.NoError(t, err)
 		require.NotEmpty(t, ctx)
 
@@ -146,51 +175,4 @@ func TestNewProvider(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "data", r)
 	})
-}
-
-type mockProtocolSvc struct {
-	rejectLabels []string
-}
-
-func (m mockProtocolSvc) Handle(msg dispatcher.DIDCommMsg) error {
-	payload := &struct {
-		Label string `json:"label,omitempty"`
-	}{}
-
-	err := json.Unmarshal(msg.Payload, payload)
-	if err != nil {
-		return fmt.Errorf("invalid payload data format: %w", err)
-	}
-
-	for _, label := range m.rejectLabels {
-		if label == payload.Label {
-			return errors.New("error handling the message")
-		}
-	}
-
-	return nil
-}
-
-func (m mockProtocolSvc) Accept(msgType string) bool {
-	return msgType == "valid-message-type"
-}
-
-func (m mockProtocolSvc) Name() string {
-	return "mockProtocolSvc"
-}
-
-func (m mockProtocolSvc) RegisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
-	return nil
-}
-
-func (m mockProtocolSvc) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
-	return nil
-}
-
-func (m mockProtocolSvc) RegisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
-	return nil
-}
-
-func (m mockProtocolSvc) UnregisterMsgEvent(ch chan<- dispatcher.DIDCommMsg) error {
-	return nil
 }
