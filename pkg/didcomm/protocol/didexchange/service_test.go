@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
@@ -143,7 +144,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	// Bob replies with an ACK
 	validateState(t, s, thid, (&responded{}).Name(), 100*time.Millisecond)
 	payloadBytes, err = json.Marshal(
-		&Ack{
+		&model.Ack{
 			Type:   ConnectionAck,
 			ID:     randomString(),
 			Status: "OK",
@@ -245,7 +246,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		ctx := context{outboundDispatcher: newMockOutboundDispatcher()}
 		s := &Service{ctx: ctx, store: newMockStore()}
 		ack, err := json.Marshal(
-			&Ack{
+			&model.Ack{
 				Type: ConnectionAck,
 				ID:   randomString(),
 			},
