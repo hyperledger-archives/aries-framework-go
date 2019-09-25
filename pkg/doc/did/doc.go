@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package did
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -24,6 +25,12 @@ const (
 	jsonldID           = "id"
 	jsonldServicePoint = "serviceEndpoint"
 	jsonldController   = "controller"
+
+	jsonldCreator    = "creator"
+	jsonldCreated    = "created"
+	jsonldProofValue = "proofValue"
+	jsonldDomain     = "domain"
+	jsonldNonce      = "nonce"
 
 	// various public key encodings
 	jsonldPublicKeyBase58 = "publicKeyBase58"
@@ -77,16 +84,22 @@ const (
       }
     },
     "created": {
-      "type": "string",
-      "pattern": "\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\dZ"
+      "type": "string"
     },
     "updated": {
-      "type": "string",
-      "pattern": "\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\dZ"
+      "type": "string"
     },
     "proof": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/proof"
+      }
+    }
+  },
+  "definitions": {
+	"proof": {
       "type": "object",
-      "required": [ "type", "creator", "created", "signatureValue"],
+      "required": [ "type", "creator", "created", "proofValue"],
       "properties": {
         "type": {
           "type": "string",
@@ -97,10 +110,9 @@ const (
           "format": "uri-reference"
         },
         "created": {
-          "type": "string",
-          "pattern": "\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\dZ"
+          "type": "string"
         },
-        "signatureValue": {
+        "proofValue": {
           "type": "string"
         },
         "domain": {
@@ -109,10 +121,8 @@ const (
         "nonce": {
           "type": "string"
         }
-  }
-    }
-  },
-  "definitions": {
+	  }
+    },
     "publicKey": {
       "required": [
         "id",
@@ -169,7 +179,7 @@ type Doc struct {
 	Authentication []VerificationMethod
 	Created        *time.Time
 	Updated        *time.Time
-	Proof          *Proof
+	Proof          []Proof
 }
 
 // PublicKey DID doc public key
@@ -201,17 +211,17 @@ type rawDoc struct {
 	Authentication []interface{}            `json:"authentication,omitempty"`
 	Created        *time.Time               `json:"created,omitempty"`
 	Updated        *time.Time               `json:"updated,omitempty"`
-	Proof          *Proof                   `json:"proof,omitempty"`
+	Proof          []interface{}            `json:"proof,omitempty"`
 }
 
 // Proof is cryptographic proof of the integrity of the DID Document
 type Proof struct {
-	Type           string     `json:"type,omitempty"`
-	Created        *time.Time `json:"created,omitempty"`
-	Creator        string     `json:"creator,omitempty"`
-	SignatureValue string     `json:"signatureValue,omitempty"`
-	Domain         string     `json:"domain,omitempty"`
-	Nonce          string     `json:"nonce,omitempty"`
+	Type       string
+	Created    *time.Time
+	Creator    string
+	ProofValue []byte
+	Domain     string
+	Nonce      []byte
 }
 
 // FromBytes creates an instance of DIDDocument by reading a JSON document from bytes
@@ -236,6 +246,11 @@ func FromBytes(data []byte) (*Doc, error) {
 		return nil, fmt.Errorf("populate authentications failed: %w", err)
 	}
 
+	proofs, err := populateProofs(raw.Proof)
+	if err != nil {
+		return nil, fmt.Errorf("populate proofs failed: %w", err)
+	}
+
 	return &Doc{Context: raw.Context,
 		ID:             raw.ID,
 		PublicKey:      publicKeys,
@@ -243,12 +258,50 @@ func FromBytes(data []byte) (*Doc, error) {
 		Authentication: authPKs,
 		Created:        raw.Created,
 		Updated:        raw.Updated,
-		Proof:          raw.Proof,
+		Proof:          proofs,
 	}, nil
 }
 
+func populateProofs(rawProofs []interface{}) ([]Proof, error) {
+	proofs := make([]Proof, 0, len(rawProofs))
+	for _, rawProof := range rawProofs {
+		emap, ok := rawProof.(map[string]interface{})
+		if !ok {
+			return nil, errors.New("rawProofs is not map[string]interface{}")
+		}
+		created := stringEntry(emap[jsonldCreated])
+		timeValue, err := time.Parse(time.RFC3339, created)
+		if err != nil {
+			return nil, err
+		}
+
+		proofValue, err := base64.RawURLEncoding.DecodeString(stringEntry(emap[jsonldProofValue]))
+		if err != nil {
+			return nil, err
+		}
+
+		nonce, err := base64.RawURLEncoding.DecodeString(stringEntry(emap[jsonldNonce]))
+		if err != nil {
+			return nil, err
+		}
+
+		proof := Proof{
+			Type:       stringEntry(emap[jsonldType]),
+			Created:    &timeValue,
+			Creator:    stringEntry(emap[jsonldCreator]),
+			ProofValue: proofValue,
+			Domain:     stringEntry(emap[jsonldDomain]),
+			Nonce:      nonce,
+		}
+
+		proofs = append(proofs, proof)
+	}
+
+	return proofs, nil
+}
+
 func populateServices(rawServices []map[string]interface{}) []Service {
-	var services []Service
+	services := make([]Service, 0, len(rawServices))
 	for _, rawService := range rawServices {
 		service := Service{ID: stringEntry(rawService[jsonldID]), Type: stringEntry(rawService[jsonldType]),
 			ServiceEndpoint: stringEntry(rawService[jsonldServicePoint])}
@@ -364,7 +417,7 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 		Authentication: populateRawAuthentications(doc.Authentication),
 		Service:        populateRawServices(doc.Service),
 		Created:        doc.Created,
-		Proof:          doc.Proof,
+		Proof:          populateRawProofs(doc.Proof),
 		Updated:        doc.Updated,
 	}
 
@@ -423,4 +476,19 @@ func populateRawAuthentications(vms []VerificationMethod) []interface{} {
 	}
 
 	return rawAuthentications
+}
+
+func populateRawProofs(proofs []Proof) []interface{} {
+	rawProofs := make([]interface{}, 0, len(proofs))
+	for _, p := range proofs {
+		rawProofs = append(rawProofs, map[string]interface{}{
+			jsonldType:       p.Type,
+			jsonldCreated:    p.Created,
+			jsonldCreator:    p.Creator,
+			jsonldProofValue: base64.RawURLEncoding.EncodeToString(p.ProofValue),
+			jsonldDomain:     p.Domain,
+			jsonldNonce:      base64.RawURLEncoding.EncodeToString(p.Nonce),
+		})
+	}
+	return rawProofs
 }
