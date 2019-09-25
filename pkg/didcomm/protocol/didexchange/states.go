@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -27,6 +28,7 @@ const (
 	stateNameRequested = "requested"
 	stateNameResponded = "responded"
 	stateNameCompleted = "completed"
+	ackStatusOK        = "ok"
 )
 
 // The did-exchange protocol's state.
@@ -152,11 +154,11 @@ func (s *requested) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, erro
 		invitation := &Invitation{}
 		err := json.Unmarshal(msg.Payload, invitation)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
 		err = ctx.handleInboundInvitation(invitation)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("handle inbound failed: %s", err)
 		}
 		return &noOp{}, nil
 	case ConnectionRequest:
@@ -164,11 +166,11 @@ func (s *requested) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, erro
 			// send outbound Request
 			request, destination, err := ctx.createOutboundRequest(msg)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("create outbound request failed: %s", err)
 			}
 			err = ctx.sendExchangeRequest(request, destination)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("send exchange request failed: %s", err)
 			}
 			return &noOp{}, nil
 		}
@@ -199,22 +201,22 @@ func (s *responded) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, erro
 		request := &Request{}
 		err := json.Unmarshal(msg.Payload, request)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
 		err = ctx.handleInboundRequest(request)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("handle inbound failed: %s", err)
 		}
 		return &noOp{}, nil
 	case ConnectionResponse:
 		if msg.Outbound {
 			response, destination, err := ctx.createOutboundResponse(msg)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("create outbound response failed: %s", err)
 			}
 			err = ctx.sendOutbound(response, destination)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("send outbound failed: %s", err)
 			}
 			return &noOp{}, nil
 		}
@@ -242,11 +244,24 @@ func (s *completed) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, erro
 		if msg.Outbound {
 			return nil, fmt.Errorf("outbound responses are not allowed for state %s", s.Name())
 		}
-		// send ACK
+		response := &Response{}
+		err := json.Unmarshal(msg.Payload, response)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshalling failed: %s", err)
+		}
+		err = ctx.handleInboundResponse(response)
+		if err != nil {
+			return nil, fmt.Errorf("handle inbound failed: %s", err)
+		}
 		return &noOp{}, nil
 	case ConnectionAck:
-		// if msg.Outbound send ACK
-		// otherwise save did-exchange connection
+		if msg.Outbound {
+			err := ctx.handleOutboundAck(msg)
+			if err != nil {
+				return nil, fmt.Errorf("handle outbound failed: %s", err)
+			}
+		}
+		//TODO: issue-333 otherwise save did-exchange connection
 		return &noOp{}, nil
 	default:
 		return nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
@@ -406,9 +421,54 @@ func prepareConnectionSignature(connection *Connection) (*ConnectionSignature, e
 	if err != nil {
 		return nil, err
 	}
-	sigData := base64.StdEncoding.EncodeToString(conBytes)
+	sigData := base64.URLEncoding.EncodeToString(conBytes)
 	// TODO - compute the actual signature and add it issue-319
 	return &ConnectionSignature{
 		Type:       "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single",
 		SignedData: sigData}, nil
+}
+
+func (ctx *context) handleOutboundAck(msg dispatcher.DIDCommMsg) error {
+	ack := &model.Ack{}
+	if msg.OutboundDestination == nil {
+		return fmt.Errorf("outboundDestination cannot be empty for outbound Response")
+	}
+	destination := &dispatcher.Destination{
+		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
+		ServiceEndpoint: msg.OutboundDestination.ServiceEndpoint,
+		RoutingKeys:     msg.OutboundDestination.RoutingKeys,
+	}
+
+	err := json.Unmarshal(msg.Payload, ack)
+	if err != nil {
+		return err
+	}
+	//TODO:Send ver key issue-299
+	sendVerKey := ""
+	return ctx.outboundDispatcher.Send(ack, sendVerKey, destination)
+}
+func (ctx *context) handleInboundResponse(response *Response) error {
+	ack := &model.Ack{
+		Type:   ConnectionAck,
+		ID:     uuid.New().String(),
+		Status: ackStatusOK,
+		Thread: &decorator.Thread{
+			ID: response.ID,
+		},
+	}
+	connBytes, err := base64.URLEncoding.DecodeString(response.ConnectionSignature.SignedData)
+	if err != nil {
+		return err
+	}
+	//TODO: Issue-345 The first few bytes of connBytes contains a timestamp needs to be stripped
+	conn := &Connection{}
+	err = json.Unmarshal(connBytes, conn)
+	if err != nil {
+		return err
+	}
+	dest := prepareDestination(conn.DIDDoc)
+
+	//TODO:Send ver key issue-299
+	sendVerKey := ""
+	return ctx.outboundDispatcher.Send(ack, sendVerKey, dest)
 }

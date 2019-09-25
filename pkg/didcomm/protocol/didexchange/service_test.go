@@ -14,12 +14,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
@@ -178,10 +180,14 @@ func TestService_Handle_Invitee(t *testing.T) {
 			return nil, storage.ErrDataNotFound
 		},
 	}
+	prov := mockProvider{}
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
+	newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+	require.NoError(t, err)
 
 	s := New(store, &mockProvider{})
 	actionCh := make(chan dispatcher.DIDCommAction, 10)
-	err := s.RegisterActionEvent(actionCh)
+	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
 	go func() { require.NoError(t, AutoExecuteActionEvent(actionCh)) }()
 
@@ -210,12 +216,21 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.NotEmpty(t, thid)
 	require.Equal(t, (&requested{}).Name(), currState)
 
+	connection := &Connection{
+		DID:    newDidDoc.ID,
+		DIDDoc: newDidDoc,
+	}
+
+	connectionSignature, err := prepareConnectionSignature(connection)
+	require.NoError(t, err)
+
 	// Bob replies with a Response
 	payloadBytes, err = json.Marshal(
 		&Response{
-			Type:   ConnectionResponse,
-			ID:     randomString(),
-			Thread: &decorator.Thread{ID: thid},
+			Type:                ConnectionResponse,
+			ID:                  randomString(),
+			ConnectionSignature: connectionSignature,
+			Thread:              &decorator.Thread{ID: thid},
 		},
 	)
 	require.NoError(t, err)
@@ -504,7 +519,23 @@ func (p *mockProvider) OutboundDispatcher() dispatcher.Outbound {
 
 // CryptoWallet returns the pack wallet service
 func (p *mockProvider) DIDWallet() wallet.DIDCreator {
-	return &mockwallet.CloseableWallet{}
+	return &mockwallet.CloseableWallet{CreateDid: &did.Doc{
+		Context: []string{"https://w3id.org/did/v1"},
+		ID:      "did:example:123456789abcdefghi#inbox",
+		Service: []did.Service{{
+			ServiceEndpoint: "https://localhost:8090",
+		}},
+		PublicKey: []did.PublicKey{{
+			ID:         "did:example:123456789abcdefghi#keys-1",
+			Controller: "did:example:123456789abcdefghi",
+			Type:       "Secp256k1VerificationKey2018",
+			Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")},
+			{ID: "did:example:123456789abcdefghw#key2",
+				Controller: "did:example:123456789abcdefghw",
+				Type:       "RsaVerificationKey2018",
+				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")},
+		},
+	}}
 }
 func store(t testing.TB) (storage.Store, func()) {
 	prov := mockstorage.NewMockStoreProvider()

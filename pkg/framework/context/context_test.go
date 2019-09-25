@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -110,8 +111,12 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with did wallet service", func(t *testing.T) {
-		prov, err := New(WithWallet(
-			&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue"), PackValue: []byte("data")}))
+		prov, err := New(WithWallet(&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue"),
+			PackValue: []byte("data"),
+			CreateDid: &did.Doc{
+				Context: []string{"https://w3id.org/did/v1"},
+				ID:      "did:example:123456789abcdefghi#inbox"}}),
+		)
 		require.NoError(t, err)
 		v, err := prov.CryptoWallet().SignMessage(nil, "")
 		require.NoError(t, err)

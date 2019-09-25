@@ -87,13 +87,3 @@ type Response struct {
 	Approve    bool                    `json:"approve,omitempty"`
 	Invitation *didexchange.Invitation `json:"invitation,omitempty"`
 }
-
-// Ack confirming to an introducee which let them know that their invitation was forwarded
-// TODO: Ack was copy-pasted from didexchange clarify what status does.
-//       Do we need status for introduce protocol? What value it can be e.g "success", "error" ?
-type Ack struct {
-	Type   string            `json:"@type,omitempty"`
-	ID     string            `json:"@id,omitempty"`
-	Status string            `json:"status,omitempty"`
-	Thread *decorator.Thread `json:"~thread,omitempty"`
-}
