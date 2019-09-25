@@ -158,19 +158,14 @@ func (s *requested) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, erro
 		}
 		err = ctx.handleInboundInvitation(invitation)
 		if err != nil {
-			return nil, fmt.Errorf("handle inbound failed: %s", err)
+			return nil, fmt.Errorf("handle inbound invitation failed: %s", err)
 		}
 		return &noOp{}, nil
 	case ConnectionRequest:
 		if msg.Outbound {
-			// send outbound Request
-			request, destination, err := ctx.createOutboundRequest(msg)
+			err := ctx.sendOutboundRequest(msg)
 			if err != nil {
-				return nil, fmt.Errorf("create outbound request failed: %s", err)
-			}
-			err = ctx.sendExchangeRequest(request, destination)
-			if err != nil {
-				return nil, fmt.Errorf("send exchange request failed: %s", err)
+				return nil, fmt.Errorf("send outbound request failed: %s", err)
 			}
 			return &noOp{}, nil
 		}
@@ -205,18 +200,14 @@ func (s *responded) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, erro
 		}
 		err = ctx.handleInboundRequest(request)
 		if err != nil {
-			return nil, fmt.Errorf("handle inbound failed: %s", err)
+			return nil, fmt.Errorf("handle inbound request failed: %s", err)
 		}
 		return &noOp{}, nil
 	case ConnectionResponse:
 		if msg.Outbound {
-			response, destination, err := ctx.createOutboundResponse(msg)
+			err := ctx.sendOutboundResponse(msg)
 			if err != nil {
-				return nil, fmt.Errorf("create outbound response failed: %s", err)
-			}
-			err = ctx.sendOutbound(response, destination)
-			if err != nil {
-				return nil, fmt.Errorf("send outbound failed: %s", err)
+				return nil, fmt.Errorf("send outbound response failed: %s", err)
 			}
 			return &noOp{}, nil
 		}
@@ -256,9 +247,9 @@ func (s *completed) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, erro
 		return &noOp{}, nil
 	case ConnectionAck:
 		if msg.Outbound {
-			err := ctx.handleOutboundAck(msg)
+			err := ctx.sendOutboundAck(msg)
 			if err != nil {
-				return nil, fmt.Errorf("handle outbound failed: %s", err)
+				return nil, fmt.Errorf("send outbound ack failed: %s", err)
 			}
 		}
 		//TODO: issue-333 otherwise save did-exchange connection
@@ -267,18 +258,19 @@ func (s *completed) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, erro
 		return nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
 	}
 }
-
-func (ctx *context) newRequestFromInvitation(invitation *Invitation) (*Request, *dispatcher.Destination, error) {
-	dest := &dispatcher.Destination{
+func (ctx *context) handleInboundInvitation(invitation *Invitation) error {
+	// create a request from invitation
+	destination := &dispatcher.Destination{
 		RecipientKeys:   invitation.RecipientKeys,
 		ServiceEndpoint: invitation.ServiceEndpoint,
 		RoutingKeys:     invitation.RoutingKeys,
 	}
-
 	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
+	// choose the first public key
+	sendVerKey := string(newDidDoc.PublicKey[0].Value)
 	// prepare the request :
 	// TODO Service.Handle() is using the ID from the Invitation as the threadID when instead it should be
 	//  using this request's ID. issue-280
@@ -291,79 +283,16 @@ func (ctx *context) newRequestFromInvitation(invitation *Invitation) (*Request, 
 			DIDDoc: newDidDoc,
 		},
 	}
-	return request, dest, nil
-}
-
-func (ctx *context) handleInboundInvitation(invitation *Invitation) error {
-	request, destination, err := ctx.newRequestFromInvitation(invitation)
-	if err != nil {
-		return err
-	}
-	return ctx.sendExchangeRequest(request, destination)
-}
-
-func (ctx *context) handleInboundRequest(request *Request) error {
-	response, destination, err := ctx.newResponseFromRequest(request)
-	if err != nil {
-		return err
-	}
-	return ctx.sendExchangeResponse(response, destination)
-}
-
-func (ctx *context) sendExchangeRequest(request *Request, destination *dispatcher.Destination) error {
-	// TODO:Send ver key issue-299
-	sendVerKey := ""
 	// send the exchange request
 	return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
 }
-
-func (ctx *context) createOutboundRequest(msg dispatcher.DIDCommMsg) (*Request, *dispatcher.Destination, error) {
-	request := &Request{}
-	if msg.OutboundDestination == nil {
-		return nil, nil, fmt.Errorf("outboundDestination cannot be empty for outbound Request")
-	}
-	destination := &dispatcher.Destination{
-		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
-		ServiceEndpoint: msg.OutboundDestination.ServiceEndpoint,
-		RoutingKeys:     msg.OutboundDestination.RoutingKeys,
-	}
-
-	err := json.Unmarshal(msg.Payload, request)
-	if err != nil {
-		return nil, nil, err
-	}
-	return request, destination, nil
-}
-
-func (ctx *context) createOutboundResponse(msg dispatcher.DIDCommMsg) (*Response, *dispatcher.Destination, error) {
-	response := &Response{}
-	if msg.OutboundDestination == nil {
-		return nil, nil, fmt.Errorf("outboundDestination cannot be empty for outbound Response")
-	}
-	destination := &dispatcher.Destination{
-		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
-		ServiceEndpoint: msg.OutboundDestination.ServiceEndpoint,
-		RoutingKeys:     msg.OutboundDestination.RoutingKeys,
-	}
-
-	err := json.Unmarshal(msg.Payload, response)
-	if err != nil {
-		return nil, nil, err
-	}
-	return response, destination, nil
-}
-
-func (ctx *context) sendOutbound(msg interface{}, destination *dispatcher.Destination) error {
-	//TODO:Send ver key issue-299
-	sendVerKey := ""
-	return ctx.outboundDispatcher.Send(msg, sendVerKey, destination)
-}
-
-func (ctx *context) newResponseFromRequest(request *Request) (*Response, *dispatcher.Destination, error) {
+func (ctx *context) handleInboundRequest(request *Request) error {
+	// create a response from Request
 	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
+
 	connection := &Connection{
 		DID:    newDidDoc.ID,
 		DIDDoc: newDidDoc,
@@ -371,7 +300,7 @@ func (ctx *context) newResponseFromRequest(request *Request) (*Response, *dispat
 	// prepare connection signature
 	encodedConnectionSignature, err := prepareConnectionSignature(connection)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 	// prepare the response
 	response := &Response{
@@ -382,16 +311,61 @@ func (ctx *context) newResponseFromRequest(request *Request) (*Response, *dispat
 		},
 		ConnectionSignature: encodedConnectionSignature,
 	}
-	requestDoc := request.Connection.DIDDoc
-	destination := prepareDestination(requestDoc)
 
-	return response, destination, nil
+	destination := prepareDestination(request.Connection.DIDDoc)
+
+	sendVerKey := string(newDidDoc.PublicKey[0].Value)
+	// send exchange response
+	return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
+}
+func (ctx *context) sendOutboundRequest(msg dispatcher.DIDCommMsg) error {
+	if msg.OutboundDestination == nil {
+		return fmt.Errorf("outboundDestination cannot be empty for outbound Request")
+	}
+	destination := &dispatcher.Destination{
+		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
+		ServiceEndpoint: msg.OutboundDestination.ServiceEndpoint,
+		RoutingKeys:     msg.OutboundDestination.RoutingKeys,
+	}
+	request := &Request{}
+	err := json.Unmarshal(msg.Payload, request)
+	if err != nil {
+		return err
+	}
+	// choose the first public key
+	sendVerKey := string(request.Connection.DIDDoc.PublicKey[0].Value)
+	// send the exchange request
+	return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
 }
 
-func (ctx *context) sendExchangeResponse(response *Response, destination *dispatcher.Destination) error {
-	// TODO:Send ver key issue-299
-	sendVerKey := ""
-	// send exchange response
+func (ctx *context) sendOutboundResponse(msg dispatcher.DIDCommMsg) error {
+	if msg.OutboundDestination == nil {
+		return fmt.Errorf("outboundDestination cannot be empty for outbound Request")
+	}
+	destination := &dispatcher.Destination{
+		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
+		ServiceEndpoint: msg.OutboundDestination.ServiceEndpoint,
+		RoutingKeys:     msg.OutboundDestination.RoutingKeys,
+	}
+	response := &Response{}
+	err := json.Unmarshal(msg.Payload, response)
+	if err != nil {
+		return fmt.Errorf("unmarhalling outbound response: %s", err)
+	}
+
+	connBytes, err := base64.URLEncoding.DecodeString(response.ConnectionSignature.SignedData)
+	if err != nil {
+		return fmt.Errorf("decoding string failed : %s", err)
+	}
+
+	connection := &Connection{}
+	err = json.Unmarshal(connBytes, connection)
+	if err != nil {
+		return err
+	}
+	// choose the first public key
+	sendVerKey := string(connection.DIDDoc.PublicKey[0].Value)
+
 	return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
 }
 
@@ -427,8 +401,7 @@ func prepareConnectionSignature(connection *Connection) (*ConnectionSignature, e
 		Type:       "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single",
 		SignedData: sigData}, nil
 }
-
-func (ctx *context) handleOutboundAck(msg dispatcher.DIDCommMsg) error {
+func (ctx *context) sendOutboundAck(msg dispatcher.DIDCommMsg) error {
 	ack := &model.Ack{}
 	if msg.OutboundDestination == nil {
 		return fmt.Errorf("outboundDestination cannot be empty for outbound Response")
@@ -443,7 +416,7 @@ func (ctx *context) handleOutboundAck(msg dispatcher.DIDCommMsg) error {
 	if err != nil {
 		return err
 	}
-	//TODO:Send ver key issue-299
+	// TODO : Issue-353
 	sendVerKey := ""
 	return ctx.outboundDispatcher.Send(ack, sendVerKey, destination)
 }
@@ -467,8 +440,7 @@ func (ctx *context) handleInboundResponse(response *Response) error {
 		return err
 	}
 	dest := prepareDestination(conn.DIDDoc)
-
-	//TODO:Send ver key issue-299
+	// TODO : Issue-353
 	sendVerKey := ""
 	return ctx.outboundDispatcher.Send(ack, sendVerKey, dest)
 }

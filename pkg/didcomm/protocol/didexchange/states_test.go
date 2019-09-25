@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
+	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 )
 
 func TestNoopState(t *testing.T) {
@@ -277,6 +278,14 @@ func TestRequestedState_Execute(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, didDoc)
 	})
+	t.Run("handle inbound invitation  error", func(t *testing.T) {
+		ctx2 := context{outboundDispatcher: &mockdispatcher.MockOutbound{SendErr: fmt.Errorf("error")},
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+		followup, err := (&requested{}).
+			Execute(dispatcher.DIDCommMsg{Type: ConnectionInvite, Payload: invitationPayloadBytes, Outbound: false}, ctx2)
+		require.Error(t, err)
+		require.Nil(t, followup)
+	})
 }
 
 func TestRespondedState_Execute(t *testing.T) {
@@ -285,7 +294,7 @@ func TestRespondedState_Execute(t *testing.T) {
 	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 
-	dest := &dispatcher.Destination{RecipientKeys: []string{"test", "test2"}, ServiceEndpoint: "xyz"}
+	outboundDestination := &dispatcher.Destination{RecipientKeys: []string{"test", "test2"}, ServiceEndpoint: "xyz"}
 	t.Run("rejects msgs other than requests and responses", func(t *testing.T) {
 		others := []string{ConnectionInvite, ConnectionAck}
 		for _, o := range others {
@@ -340,21 +349,44 @@ func TestRespondedState_Execute(t *testing.T) {
 	// OutboundDestination needs to be present
 	t.Run("no followup for outbound responses", func(t *testing.T) {
 		m := dispatcher.DIDCommMsg{Type: ConnectionResponse,
-			Outbound: true, Payload: responsePayloadBytes, OutboundDestination: dest}
-		followup, err := (&responded{}).Execute(m, ctx)
-		require.NoError(t, err)
+			Outbound: true, Payload: responsePayloadBytes, OutboundDestination: outboundDestination}
+		followup, e := (&responded{}).Execute(m, ctx)
+		require.NoError(t, e)
 		require.IsType(t, &noOp{}, followup)
 	})
 
 	t.Run("no followup for outbound responses error", func(t *testing.T) {
-		followup, err := (&responded{}).
+		followup, e := (&responded{}).
 			Execute(dispatcher.DIDCommMsg{Type: ConnectionResponse, Payload: nil, Outbound: true}, context{})
-		require.Error(t, err)
+		require.Error(t, e)
 		require.Nil(t, followup)
 	})
 	t.Run("inbound request error", func(t *testing.T) {
-		followup, err := (&responded{}).
+		followup, e := (&responded{}).
 			Execute(dispatcher.DIDCommMsg{Type: ConnectionRequest, Payload: nil, Outbound: false}, context{})
+		require.Error(t, e)
+		require.Nil(t, followup)
+	})
+	t.Run("handle inbound request  error", func(t *testing.T) {
+		ctx2 := context{outboundDispatcher: &mockdispatcher.MockOutbound{SendErr: fmt.Errorf("error")},
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+		followup, e := (&responded{}).
+			Execute(dispatcher.DIDCommMsg{Type: ConnectionRequest, Payload: requestPayloadBytes,
+				Outbound: false, OutboundDestination: outboundDestination}, ctx2)
+		require.Error(t, e)
+		require.Nil(t, followup)
+	})
+	t.Run("outbound responses unmarshall connection error ", func(t *testing.T) {
+		require.NoError(t, err)
+		response := &Response{
+			Type:                ConnectionRequest,
+			ID:                  randomString(),
+			ConnectionSignature: &ConnectionSignature{},
+		}
+		responsePayloadBytes, err := json.Marshal(response)
+		require.NoError(t, err)
+		followup, err := (&responded{}).Execute(dispatcher.DIDCommMsg{Type: ConnectionResponse, Outbound: true,
+			Payload: responsePayloadBytes, OutboundDestination: outboundDestination}, ctx)
 		require.Error(t, err)
 		require.Nil(t, followup)
 	})
@@ -390,21 +422,35 @@ func TestCompletedState_Execute(t *testing.T) {
 	}
 	connectionSignature, err := prepareConnectionSignature(connection)
 	require.NoError(t, err)
-	responsePayloadBytes, err := json.Marshal(&Response{
+	response := &Response{
 		Type:                ConnectionRequest,
 		ID:                  randomString(),
 		ConnectionSignature: connectionSignature,
-	})
+	}
+	responsePayloadBytes, err := json.Marshal(response)
 
 	t.Run("rejects outbound responses", func(t *testing.T) {
-		_, err := (&completed{}).Execute(dispatcher.DIDCommMsg{Type: ConnectionResponse, Outbound: true}, context{})
+		_, err = (&completed{}).Execute(dispatcher.DIDCommMsg{Type: ConnectionResponse, Outbound: true}, context{})
 		require.Error(t, err)
 	})
 	t.Run("no followup for inbound responses", func(t *testing.T) {
-		followup, err := (&completed{}).Execute(dispatcher.DIDCommMsg{Type: ConnectionResponse, Outbound: false,
+		followup, e := (&completed{}).Execute(dispatcher.DIDCommMsg{Type: ConnectionResponse, Outbound: false,
 			Payload: responsePayloadBytes, OutboundDestination: outboundDestination}, ctx)
-		require.NoError(t, err)
+		require.NoError(t, e)
 		require.IsType(t, &noOp{}, followup)
+	})
+	t.Run("inbound responses unmarshall error ", func(t *testing.T) {
+		response := &Response{
+			Type:                ConnectionRequest,
+			ID:                  randomString(),
+			ConnectionSignature: &ConnectionSignature{},
+		}
+		respPayloadBytes, err := json.Marshal(response)
+		require.NoError(t, err)
+		followup, err := (&completed{}).Execute(dispatcher.DIDCommMsg{Type: ConnectionResponse, Outbound: false,
+			Payload: respPayloadBytes, OutboundDestination: outboundDestination}, ctx)
+		require.Error(t, err)
+		require.Nil(t, followup)
 	})
 	t.Run("no followup for inbound responses error", func(t *testing.T) {
 		followup, err := (&completed{}).Execute(dispatcher.DIDCommMsg{Type: ConnectionResponse, Outbound: false}, context{})
@@ -435,113 +481,16 @@ func TestCompletedState_Execute(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, followup)
 	})
-}
-
-func TestCreateAndSendRequest(t *testing.T) {
-	prov := mockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-	newDidDoc, err := ctx.didCreator.CreateDID()
-	require.NoError(t, err)
-
-	request := &Request{
-		Type:  ConnectionRequest,
-		ID:    randomString(),
-		Label: "Bob",
-		Connection: &Connection{
-			DID:    newDidDoc.ID,
-			DIDDoc: newDidDoc,
-		},
-	}
-
-	outboundDestination := &dispatcher.Destination{RecipientKeys: []string{"test", "test2"}, ServiceEndpoint: "xyz"}
-	t.Run("no followup to inbound invitations", func(t *testing.T) {
-		requestPayloadBytes, err := json.Marshal(request)
-		require.NoError(t, err)
-		m := dispatcher.DIDCommMsg{
-			Type: ConnectionRequest, Payload: requestPayloadBytes, Outbound: false, OutboundDestination: outboundDestination}
-		req, dest, err := ctx.createOutboundRequest(m)
-		require.NotNil(t, req)
-		require.NotNil(t, dest)
-		require.NoError(t, err)
-		err = ctx.sendOutbound(req, dest)
-		require.NoError(t, err)
-	})
-
-	t.Run("inbound invitations payload error", func(t *testing.T) {
-		m := dispatcher.DIDCommMsg{
-			Type: ConnectionRequest, Payload: nil, Outbound: false, OutboundDestination: outboundDestination}
-		req, dest, err := ctx.createOutboundRequest(m)
-		require.Nil(t, req)
-		require.Nil(t, dest)
+	t.Run("handle inbound response  error", func(t *testing.T) {
+		ctx2 := context{outboundDispatcher: &mockdispatcher.MockOutbound{SendErr: fmt.Errorf("error")},
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+		followup, err := (&completed{}).
+			Execute(dispatcher.DIDCommMsg{Type: ConnectionResponse, Payload: responsePayloadBytes,
+				Outbound: false, OutboundDestination: outboundDestination}, ctx2)
 		require.Error(t, err)
-	})
-
-	t.Run("inbound invitations destination cannot be empty", func(t *testing.T) {
-		req, dest, err := ctx.createOutboundRequest(
-			dispatcher.DIDCommMsg{Type: ConnectionRequest, Payload: nil, Outbound: false})
-		require.Nil(t, req)
-		require.Nil(t, dest)
-		require.Error(t, err)
-	})
-	t.Run("no followup for outbound responses", func(t *testing.T) {
-		err := ctx.sendExchangeRequest(request, outboundDestination)
-		require.NoError(t, err)
+		require.Nil(t, followup)
 	})
 }
-
-func TestCreateAndSendResponse(t *testing.T) {
-	prov := mockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-	newDidDoc, err := ctx.didCreator.CreateDID()
-	require.NoError(t, err)
-
-	connection := &Connection{
-		DID:    newDidDoc.ID,
-		DIDDoc: newDidDoc,
-	}
-	connectionSignature, err := prepareConnectionSignature(connection)
-	require.NoError(t, err)
-
-	response := &Response{
-		Type:                ConnectionRequest,
-		ID:                  randomString(),
-		ConnectionSignature: connectionSignature,
-	}
-	// Bob sends an exchange request to Alice
-	responsePayloadBytes, err := json.Marshal(response)
-	require.NoError(t, err)
-
-	t.Run("no followup for outbound responses", func(t *testing.T) {
-		resp, dest, err := ctx.createOutboundResponse(dispatcher.DIDCommMsg{
-			Type: ConnectionResponse, Payload: responsePayloadBytes, Outbound: true})
-		require.Error(t, err)
-		require.Nil(t, resp)
-		require.Nil(t, dest)
-		require.Equal(t, err.Error(), "outboundDestination cannot be empty for outbound Response")
-	})
-	dest := &dispatcher.Destination{RecipientKeys: []string{"test", "test2"}, ServiceEndpoint: "xyz"}
-	t.Run("no followup for outbound responses", func(t *testing.T) {
-		m := dispatcher.DIDCommMsg{
-			Type: ConnectionResponse, Payload: responsePayloadBytes, Outbound: true, OutboundDestination: dest}
-		resp, d, err := ctx.createOutboundResponse(m)
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-		require.NotNil(t, d)
-	})
-	t.Run("no followup for outbound responses error", func(t *testing.T) {
-		resp, d, err := ctx.createOutboundResponse(
-			dispatcher.DIDCommMsg{Type: ConnectionResponse, Payload: nil, Outbound: true, OutboundDestination: dest})
-		require.Error(t, err)
-		require.Nil(t, resp)
-		require.Nil(t, d)
-	})
-
-	t.Run("no followup for outbound responses", func(t *testing.T) {
-		err := ctx.sendExchangeResponse(response, dest)
-		require.NoError(t, err)
-	})
-}
-
 func TestPrepareConnectionSignature(t *testing.T) {
 	t.Run("prepare connection signature", func(t *testing.T) {
 		prov := mockProvider{}
@@ -585,9 +534,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 			ServiceEndpoint: "https://localhost:8090",
 			RoutingKeys:     []string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
 		}
-		req, dest, err := ctx.newRequestFromInvitation(invitation)
-		require.NotNil(t, req)
-		require.NotNil(t, dest)
+		err := ctx.handleInboundInvitation(invitation)
 		require.NoError(t, err)
 	})
 	t.Run("unsuccessful new request from invitation ", func(t *testing.T) {
@@ -616,10 +563,8 @@ func TestNewResponseFromRequest(t *testing.T) {
 				DIDDoc: newDidDoc,
 			},
 		}
-		resp, dest, err := ctx.newResponseFromRequest(request)
+		err = ctx.handleInboundRequest(request)
 		require.NoError(t, err)
-		require.NotNil(t, resp)
-		require.NotNil(t, dest)
 	})
 	t.Run("unsuccessful new response from request", func(t *testing.T) {
 		prov := mockProvider{}
