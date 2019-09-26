@@ -14,16 +14,16 @@ import (
 )
 
 // This package deals with Authcrypt encryption for Packing/Unpacking DID Comm exchange
-// Using Chacha20Poly1035 encryption/authentication
+// Using Chacha20Poly1305 encryption/authentication
 
 // ContentEncryption represents a content encryption algorithm.
 type ContentEncryption string
 
-// C20P Chacha20Poly1035 algorithm
-const C20P = ContentEncryption("C20P") // Chacha20 encryption + Poly1035 authenticator cipher (96 bits nonce)
+// C20P Chacha20Poly1305 algorithm
+const C20P = ContentEncryption("C20P") // Chacha20 encryption + Poly1305 authenticator cipher (96 bits nonce)
 
-// XC20P XChacha20Poly1035 algorithm
-const XC20P = ContentEncryption("XC20P") // XChacha20 encryption + Poly1035 authenticator cipher (192 bits nonce)
+// XC20P XChacha20Poly1305 algorithm
+const XC20P = ContentEncryption("XC20P") // XChacha20 encryption + Poly1305 authenticator cipher (192 bits nonce)
 
 // randReader is a cryptographically secure random number generator.
 // TODO: document usage for tests or find another mechanism.
@@ -83,8 +83,8 @@ type RecipientHeaders struct {
 	SPK string `json:"spk,omitempty"`
 }
 
-// recipientJWK are the recipient's JWK headers
-type recipientJWKHeaders struct {
+// recipientSPKJWEHeaders are the Protected JWE headers of a recipient's SPK field (which is a JWE with a JWK payload)
+type recipientSPKJWEHeaders struct {
 	Typ string `json:"typ,omitempty"`
 	CTY string `json:"cty,omitempty"`
 	Alg string `json:"alg,omitempty"`
@@ -94,7 +94,7 @@ type recipientJWKHeaders struct {
 	EPK jwk    `json:"epk,omitempty"`
 }
 
-// jwk is the ephemeral key stored in the JWK header
+// jwk formatted key
 type jwk struct {
 	Kty string `json:"kty,omitempty"`
 	Crv string `json:"crv,omitempty"`
@@ -103,8 +103,8 @@ type jwk struct {
 
 // New will create an encrypter instance to 'AuthCrypt' payloads for the given sender and recipients arguments
 // and the encryption alg argument. Possible algorithms supported are:
-// C20P (chacha20-poly1035 ietf)
-// XC20P (xchacha20-poly1035 ietf)
+// C20P (chacha20-poly1305 ietf)
+// XC20P (xchacha20-poly1305 ietf)
 // The returned crypter contains all the information required to encrypt payloads.
 func New(alg ContentEncryption) (*Crypter, error) {
 	var nonceSize int
@@ -125,7 +125,7 @@ func New(alg ContentEncryption) (*Crypter, error) {
 	return c, nil
 }
 
-// IsChachaKeyValid will return true if key size is the same as chacha20poly1035.keySize
+// IsChachaKeyValid will return true if key size is the same as chacha20poly1305.keySize
 // false otherwise
 func IsChachaKeyValid(key []byte) bool {
 	return len(key) == chacha.KeySize

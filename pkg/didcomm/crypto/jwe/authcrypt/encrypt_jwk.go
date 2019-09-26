@@ -16,7 +16,7 @@ import (
 
 // generateSPK will encrypt a msg (in the case of this package, it will be
 // the sender's public key) using the recipient's pubKey, the output will be
-// a full JWE wrapping a JWK containing the (encrypted) sender's public key
+// a compact JWE wrapping a JWK containing the (encrypted) sender's public key
 func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byte) (string, error) {
 	if recipientPubKey == nil {
 		return "", errInvalidKey
@@ -28,8 +28,8 @@ func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byt
 		return "", err
 	}
 
-	// create a new ephemeral key for the recipient
-	kek, err := c.generateKEK([]byte(c.alg+"KW"), nil, esk, recipientPubKey)
+	// derive an ephemeral key for the recipient
+	kek, err := c.deriveKEK([]byte(c.alg+"KW"), nil, esk, recipientPubKey)
 	if err != nil {
 		return "", err
 	}
@@ -51,7 +51,7 @@ func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byt
 		return "", err
 	}
 
-	// build sender key as jwk header
+	// build sender key as a jwk formatted header
 	senderJWK := jwk{
 		Kty: "OKP", // OPK not 0PK
 		Crv: "X25519",
@@ -67,7 +67,7 @@ func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byt
 }
 
 func (c *Crypter) buildJWKHeaders(epk *[32]byte, kNonceEncoded, kTagEncoded string) (string, error) {
-	headers := recipientJWKHeaders{
+	headers := recipientSPKJWEHeaders{
 		Typ: "jose",
 		CTY: "jwk+json",
 		Alg: "ECDH-ES+" + string(c.alg) + "KW",

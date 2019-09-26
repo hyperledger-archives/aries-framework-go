@@ -55,7 +55,7 @@ func (c *Crypter) Encrypt(payload []byte) ([]byte, error) {
 	// 	Additional data is b64encode(jsonencode(protected))
 	symPld := chachaCipher.Seal(nil, nonce, payload, []byte(AAD))
 
-	// symPld has a length of len(pld) + poly1035.TagSize
+	// symPld has a length of len(pld) + poly1305.TagSize
 	// fetch the tag from the tail
 	tag := symPld[len(symPld)-poly1305.TagSize:]
 	// fetch the cipherText from the head (0:up to the trailing tag)

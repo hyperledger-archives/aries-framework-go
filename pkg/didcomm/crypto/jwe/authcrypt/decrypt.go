@@ -21,7 +21,7 @@ import (
 
 // Decrypt will JWE decode the envelope argument for the recipientPrivKey and validates
 // the envelope's recipients has a match for recipientKeyPair.Pub key.
-// Using (X)Chacha20 cipher and Poly1035 authenticator for the encrypted payload and
+// Using (X)Chacha20 cipher and Poly1305 authenticator for the encrypted payload and
 // encrypted CEK.
 // The current recipient is the one with the sender's encrypted key that successfully
 // decrypts with recipientKeyPair.Priv Key.
@@ -128,13 +128,13 @@ func (c *Crypter) decryptSharedKey(recipientKp jwecrypto.KeyPair, senderPubKey *
 	privK := new([chacha.KeySize]byte)
 	copy(privK[:], recipientKp.Priv)
 
-	// create a new ephemeral key for the recipient
-	kek, err := c.generateKEK([]byte(c.alg), apu, privK, senderPubKey)
+	// derive an ephemeral key for the recipient
+	kek, err := c.deriveKEK([]byte(c.alg), apu, privK, senderPubKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// create a new (chacha20poly1035) cipher with this new key to encrypt the shared key (cek)
+	// create a new (chacha20poly1305) cipher with this new key to encrypt the shared key (cek)
 	cipher, err := createCipher(c.nonceSize, kek)
 	if err != nil {
 		return nil, err

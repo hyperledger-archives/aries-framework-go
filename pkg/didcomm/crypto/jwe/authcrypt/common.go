@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-// createCipher will create and return a new Chacha20Poly1035 cipher for the given nonceSize and symmetric key
+// createCipher will create and return a new Chacha20Poly1305 cipher for the given nonceSize and symmetric key
 func createCipher(nonceSize int, symKey []byte) (cipher.AEAD, error) {
 	switch nonceSize {
 	case chacha.NonceSize:
@@ -37,10 +37,10 @@ func lengthPrefix(array []byte) []byte {
 	return arrInfo
 }
 
-// generateKEK will generate an ephemeral symmetric key (kek) for the privKey/pubKey set to
-// be used for encrypting a cek.
+// deriveKEK will derive an ephemeral symmetric key (kek) from privKey and pubKey to
+// be used for encrypting a cek. This function assumes both privKey and pubKey are curve25519.
 // it will return this new key along with the corresponding APU or an error if it fails.
-func (c *Crypter) generateKEK(alg, apu []byte, privKey, pubKey *[chacha.KeySize]byte) ([]byte, error) {
+func (c *Crypter) deriveKEK(alg, apu []byte, privKey, pubKey *[chacha.KeySize]byte) ([]byte, error) {
 	if privKey == nil || pubKey == nil {
 		return nil, errInvalidKey
 	}
@@ -57,7 +57,7 @@ func (c *Crypter) generateKEK(alg, apu []byte, privKey, pubKey *[chacha.KeySize]
 	// -> DeriveECDHES() call
 	// suppPubInfo is the encoded length of the recipient shared key output size in bits
 	supPubInfo := make([]byte, 4)
-	// since we're using chacha20poly1035 keys, keySize is known
+	// since we're using chacha20poly1305 keys, keySize is known
 	binary.BigEndian.PutUint32(supPubInfo, uint32(chacha.KeySize)*8)
 
 	// as per https://tools.ietf.org/html/rfc7518#section-4.6.2

@@ -20,7 +20,7 @@ import (
 )
 
 // Decrypt will decode the envelope using the legacy format
-// Using (X)Chacha20 encryption algorithm and Poly1035 authenticator
+// Using (X)Chacha20 encryption algorithm and Poly1305 authenticator
 func (c *Crypter) Decrypt(envelope []byte, recipientKey *keyPairEd25519) ([]byte, error) {
 	var envelopeData legacyEnvelope
 	err := json.Unmarshal(envelope, &envelopeData)
@@ -129,7 +129,7 @@ func decodeSender(b64Sender string, pk *publicCurve25519, sk *privateCurve25519)
 	return sender, nil
 }
 
-// decodeCipherText decodes (from base64) and decrypts the ciphertext using chacha20poly1035
+// decodeCipherText decodes (from base64) and decrypts the ciphertext using chacha20poly1305
 func (c *Crypter) decodeCipherText(cek *[chacha.KeySize]byte, envelope *legacyEnvelope) ([]byte, error) {
 	var cipherText, nonce, tag, aad, message []byte
 	aad = []byte(envelope.Protected)

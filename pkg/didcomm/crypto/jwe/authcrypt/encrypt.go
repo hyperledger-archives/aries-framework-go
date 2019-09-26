@@ -22,7 +22,7 @@ import (
 )
 
 // Encrypt will JWE encode the payload argument for the sender and recipients
-// Using (X)Chacha20 encryption algorithm and Poly1035 authenticator
+// Using (X)Chacha20 encryption algorithm and Poly1305 authenticator
 // It will encrypt using the sender's keypair and the list of recipients arguments
 func (c *Crypter) Encrypt(payload []byte, sender jwecrypto.KeyPair, recipients [][]byte) ([]byte, error) { //nolint:lll,funlen
 	err := verifyKeys(sender, recipients)
@@ -127,7 +127,7 @@ func convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byte, error) {
 
 // extractTag extracts the base64UrlEncoded tag sub slice from symOutput returned by cipher.Seal
 func extractTag(symOutput []byte) string {
-	// symOutput has a length of len(clear msg) + poly1035.TagSize
+	// symOutput has a length of len(clear msg) + poly1305.TagSize
 	// fetch the tag from the tail of symOutput
 	tag := symOutput[len(symOutput)-poly1305.TagSize:]
 
@@ -164,7 +164,7 @@ func (c *Crypter) buildJWE(headers string, recipients []Recipient, aad, iv, tag,
 	return jweBytes, nil
 }
 
-// buildAAD to build the Additional Authentication Data for the AEAD (chach20poly1035) cipher.
+// buildAAD to build the Additional Authentication Data for the AEAD (chach20poly1305) cipher.
 // the build takes the list of recipients keys base58 encoded and sorted then SHA256 hash
 // the concatenation of these keys with a '.' separator
 func buildAAD(recipients []*[chacha.KeySize]byte) []byte {
@@ -209,8 +209,8 @@ func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]by
 
 	privK := new([chacha.KeySize]byte)
 	copy(privK[:], senderKp.Priv)
-	// create a new ephemeral key for the recipient
-	kek, err := c.generateKEK([]byte(c.alg), apu, privK, recipientKey)
+	// derive an ephemeral key for the recipient
+	kek, err := c.deriveKEK([]byte(c.alg), apu, privK, recipientKey)
 	if err != nil {
 		return nil, err
 	}

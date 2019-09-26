@@ -38,7 +38,7 @@ func (c *Crypter) decryptSPK(recipientKeyPair jwecrypto.KeyPair, spk string) ([]
 		return nil, err
 	}
 
-	headersJSON := &recipientJWKHeaders{
+	headersJSON := &recipientSPKJWEHeaders{
 		EPK: jwk{},
 	}
 	err = json.Unmarshal(headers, headersJSON)
@@ -77,7 +77,7 @@ func (c *Crypter) decryptSPK(recipientKeyPair jwecrypto.KeyPair, spk string) ([]
 
 // decryptJWKSharedKey will decrypt the cek using recPrivKey for decryption and rebuild the cipher text, nonce
 // kek from headersJSON, the result is the sharedKey to be used for decrypting the sender JWK
-func (c *Crypter) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientJWKHeaders, recPrivKey *[chacha.KeySize]byte) ([]byte, error) { //nolint:lll
+func (c *Crypter) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientSPKJWEHeaders, recPrivKey *[chacha.KeySize]byte) ([]byte, error) { //nolint:lll
 	epk, err := base64.RawURLEncoding.DecodeString(headersJSON.EPK.X)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (c *Crypter) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientJW
 
 	epKey := new([chacha.KeySize]byte)
 	copy(epKey[:], epk)
-	kek, err := c.generateKEK([]byte(c.alg+"KW"), nil, recPrivKey, epKey)
+	kek, err := c.deriveKEK([]byte(c.alg+"KW"), nil, recPrivKey, epKey)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (c *Crypter) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientJW
 }
 
 // decryptSenderJWK will decrypt and extract the sender key from cipherJwk, tag and nonce using symKey for decryption
-// and headersEncoded as AAD for the aead (chacha20poly1035) cipher
+// and headersEncoded as AAD for the aead (chacha20poly1305) cipher
 func (c *Crypter) decryptSenderJWK(nonce, symKey, headersEncoded, cipherJWK, tag []byte) ([]byte, error) {
 	// now that we have symKey, let's decrypt the sender JWK (cipherJWK)
 	jwkCrypter, err := createCipher(c.nonceSize, symKey)

@@ -45,7 +45,7 @@ type Crypter struct {
 }
 
 // New will create a Crypter that encrypts messages using the legacy Aries format
-// Note: legacy crypter does not support XChacha20Poly1035 (XC20P), only Chacha20Poly1035 (C20P)
+// Note: legacy crypter does not support XChacha20Poly1305 (XC20P), only Chacha20Poly1305 (C20P)
 func New(sender keyPairEd25519, recipients []*publicEd25519) (*Crypter, error) { // nolint: lll
 	if len(recipients) == 0 {
 		return nil, errors.New("empty recipients keys, must have at least one recipient")
