@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -18,7 +21,9 @@ import (
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
@@ -118,6 +123,91 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		require.NotNil(t, result)
 		require.NotNil(t, result.ConnectionID)
 	}
+}
+
+func TestServiceEvents(t *testing.T) {
+	store := &mockstore.MockStore{Store: make(map[string][]byte)}
+	didExSvc := didexchange.New(store, &mockDIDCreator{}, &mockProvider{})
+	c, err := New(&mockprovider.Provider{ServiceValue: didExSvc})
+	require.NoError(t, err)
+	require.NotNil(t, c)
+
+	id := "valid-thread-id"
+	newDidDoc, err := (&mockDIDCreator{}).CreateDID()
+	require.NoError(t, err)
+
+	request, err := json.Marshal(
+		&didexchange.Request{
+			Type:  didexchange.ConnectionRequest,
+			ID:    id,
+			Label: "test",
+			Connection: &didexchange.Connection{
+				DID:    "B.did@B:A",
+				DIDDoc: newDidDoc,
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	msg := dispatcher.DIDCommMsg{
+		Type:    didexchange.ConnectionRequest,
+		Payload: request,
+	}
+
+	err = didExSvc.Handle(msg)
+	require.NoError(t, err)
+
+	validateState(t, store, id, "responded", 100*time.Millisecond)
+}
+
+func validateState(t *testing.T, store storage.Store, id, expected string, timeoutDuration time.Duration) {
+	actualState := ""
+	timeout := time.After(timeoutDuration)
+	for {
+		select {
+		case <-timeout:
+			require.Fail(t, fmt.Sprintf("id=%s expectedState=%s actualState=%s", id, expected, actualState))
+			return
+		default:
+			v, err := store.Get(id)
+			actualState = string(v)
+			if err != nil || expected != string(v) {
+				continue
+			}
+			return
+		}
+	}
+}
+
+func TestServiceEventError(t *testing.T) {
+	store := &mockstore.MockStore{Store: make(map[string][]byte)}
+	didExSvc := didexchange.New(store, &mockDIDCreator{}, &mockProvider{})
+
+	// register action event on service before client registers it (only one can be registered)
+	actionCh := make(chan dispatcher.DIDCommAction)
+	err := didExSvc.RegisterActionEvent(actionCh)
+	require.NoError(t, err)
+
+	_, err = New(&mockprovider.Provider{ServiceValue: didExSvc})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "service event listener startup failed")
+
+	// unregister the action event and client creation shouldn't fail.
+	err = didExSvc.UnregisterActionEvent(actionCh)
+	require.NoError(t, err)
+
+	c, err := New(&mockprovider.Provider{ServiceValue: didExSvc})
+	require.NoError(t, err)
+	require.NotNil(t, c)
+
+	// register msg event error
+	s := mockprotocol.MockDIDExchangeSvc{
+		ProtocolName:        didexchange.DIDExchange,
+		RegisterMsgEventErr: errors.New("error"),
+	}
+	_, err = New(&mockprovider.Provider{ServiceValue: &s})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "service event listener startup failed")
 }
 
 type mockProvider struct {

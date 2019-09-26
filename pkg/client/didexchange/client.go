@@ -14,10 +14,13 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
+
+var logger = log.New("aries-framework/didexchange-client")
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
@@ -30,9 +33,11 @@ type provider interface {
 // TODO add support for Accept Exchange Request & Accept Invitation
 //  using events & callback (#198 & #238)
 type Client struct {
-	didexchangeSvc           dispatcher.Service
+	didexchangeSvc           dispatcher.DIDCommService
 	wallet                   wallet.Crypto
 	inboundTransportEndpoint string
+	actionCh                 chan dispatcher.DIDCommAction
+	msgCh                    chan dispatcher.DIDCommMsg
 }
 
 // New return new instance of didexchange client
@@ -41,12 +46,25 @@ func New(ctx provider) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	didexchangeSvc, ok := svc.(dispatcher.Service)
+	didexchangeSvc, ok := svc.(dispatcher.DIDCommService)
 	if !ok {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
-	return &Client{didexchangeSvc: didexchangeSvc, wallet: ctx.CryptoWallet(),
-		inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
+	c := &Client{
+		didexchangeSvc:           didexchangeSvc,
+		wallet:                   ctx.CryptoWallet(),
+		inboundTransportEndpoint: ctx.InboundTransportEndpoint(),
+		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
+		actionCh: make(chan dispatcher.DIDCommAction, 10),
+		msgCh:    make(chan dispatcher.DIDCommMsg, 10),
+	}
+
+	err = c.startServiceEventListener()
+	if err != nil {
+		return nil, fmt.Errorf("service event listener startup failed: %w", err)
+	}
+
+	return c, nil
 }
 
 // CreateInvitation create invitation
@@ -97,5 +115,39 @@ func (c *Client) QueryConnectionByID(id string) (*QueryConnectionResult, error) 
 // RemoveConnection removes connection record for given id
 func (c *Client) RemoveConnection(id string) error {
 	// TODO sample response, to be implemented as part of #226
+	return nil
+}
+
+// startServiceEventListener listens to action and message events from DID Exchange service.
+func (c *Client) startServiceEventListener() error {
+	// register the action event channel
+	err := c.didexchangeSvc.RegisterActionEvent(c.actionCh)
+	if err != nil {
+		return fmt.Errorf("didexchange action event registration failed: %w", err)
+	}
+
+	// register the message event channel
+	err = c.didexchangeSvc.RegisterMsgEvent(c.msgCh)
+	if err != nil {
+		return fmt.Errorf("didexchange message event registration failed: %w", err)
+	}
+
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/199 - Generate Client events
+	// for now, auto execute the actions
+	go func() {
+		err := didexchange.AutoExecuteActionEvent(c.actionCh)
+		if err != nil {
+			logger.Errorf("auto action event execution failed: %s", err)
+		}
+	}()
+
+	go func() {
+		for e := range c.msgCh {
+			// TODO https://github.com/hyperledger/aries-framework-go/issues/199 - Generate Client events
+			// for now, log the messages
+			logger.Infof("message event received : type=%s", e.Type)
+		}
+	}()
+
 	return nil
 }
