@@ -15,7 +15,6 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/nacl/box"
 
 	jwecrypto "github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 )
@@ -23,9 +22,7 @@ import (
 // Decrypt will JWE decode the envelope argument for the recipientPrivKey and validates
 // the envelope's recipients has a match for recipientKeyPair.Pub key.
 // Using (X)Chacha20 cipher and Poly1035 authenticator for the encrypted payload and
-// encrypted CEK
-// And Using (x)Salsa20 cipher with 25519 keys (libsodium equivalent) for decrypting
-// the sender's public key in the current recipient's header.
+// encrypted CEK.
 // The current recipient is the one with the sender's encrypted key that successfully
 // decrypts with recipientKeyPair.Priv Key.
 func (c *Crypter) Decrypt(envelope []byte, recipientKeyPair jwecrypto.KeyPair) ([]byte, error) { //nolint:lll,funlen
@@ -44,32 +41,18 @@ func (c *Crypter) Decrypt(envelope []byte, recipientKeyPair jwecrypto.KeyPair) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt message: %w", err)
 	}
-	var oid []byte
 
-	// TODO replace oid with JWK wrapped in spk recipient header
-	cryptedOID, err := base64.RawURLEncoding.DecodeString(recipient.Header.OID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt message: %w", err)
-	}
-	recPubKey := base58.Decode(recipient.Header.KID)
-	var recipientPubKey [chacha.KeySize]byte
-	copy(recipientPubKey[:], recPubKey)
-
-	privK := new([chacha.KeySize]byte)
-	copy(privK[:], recipientKeyPair.Priv)
-	oid, err = decryptOID(privK, &recipientPubKey, cryptedOID)
+	senderKey, err := c.decryptSPK(recipientKeyPair, recipient.Header.SPK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt sender key: %w", err)
 	}
-	// if oid is found, it means decrypting the sender's public key with this recipient is successful
-	// proceed with decrypting the recipient's shared key and use it to decrypt the JWE's real payload
-	if oid != nil {
-		senderKey := base58.Decode(string(oid))
+
+	// senderKey must not be empty to proceed
+	if senderKey != nil {
 		var senderPubKey [chacha.KeySize]byte
 		copy(senderPubKey[:], senderKey)
 
-		sharedKey, er := c.decryptSharedKey(jwecrypto.KeyPair{Priv: recipientKeyPair.Priv, Pub: recPubKey},
-			&senderPubKey, recipient)
+		sharedKey, er := c.decryptSharedKey(recipientKeyPair, &senderPubKey, recipient)
 		if er != nil {
 			return nil, fmt.Errorf("failed to decrypt shared key: %w", er)
 		}
@@ -146,7 +129,7 @@ func (c *Crypter) decryptSharedKey(recipientKp jwecrypto.KeyPair, senderPubKey *
 	copy(privK[:], recipientKp.Priv)
 
 	// create a new ephemeral key for the recipient
-	kek, err := c.generateKEK(apu, privK, senderPubKey)
+	kek, err := c.generateKEK([]byte(c.alg), apu, privK, senderPubKey)
 	if err != nil {
 		return nil, err
 	}
@@ -161,27 +144,4 @@ func (c *Crypter) decryptSharedKey(recipientKp jwecrypto.KeyPair, senderPubKey *
 	cipherText = append(cipherText, tag...)
 
 	return cipher.Open(nil, nonce, cipherText, nil)
-}
-
-// decryptOID will decrypt a recipient's encrypted OID (in the case of this package, it is represented as
-// ephemeral key concatenated with the sender's public key) using the recipient's privKey/pubKey keypair,
-// this is equivalent to libsodium's C function: crypto_box_seal_open()
-// https://libsodium.gitbook.io/doc/public-key_cryptography/sealed_boxes#usage
-// the returned decrypted value is the sender's public key base58 encoded
-// TODO replace 'OID' to 'SPK' recipient header which should represent the key in JWK encoded in a compact JWE format
-func decryptOID(recipientPrivKey, recipientPubKey *[chacha.KeySize]byte, encrypted []byte) ([]byte, error) {
-	var epk [chacha.KeySize]byte
-	copy(epk[:], encrypted[:chacha.KeySize])
-
-	// generate an equivalent nonce to libsodium's (see link above)
-	nonce, err := generateLibsodiumNonce(epk[:], recipientPubKey[:])
-	if err != nil {
-		return nil, err
-	}
-
-	decrypted, ok := box.Open(nil, encrypted[chacha.KeySize:], nonce, &epk, recipientPrivKey)
-	if !ok {
-		return nil, errors.New("sender public key decryption error")
-	}
-	return decrypted, nil
 }

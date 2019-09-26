@@ -40,7 +40,10 @@ func lengthPrefix(array []byte) []byte {
 // generateKEK will generate an ephemeral symmetric key (kek) for the privKey/pubKey set to
 // be used for encrypting a cek.
 // it will return this new key along with the corresponding APU or an error if it fails.
-func (c *Crypter) generateKEK(apu []byte, privKey, pubKey *[chacha.KeySize]byte) ([]byte, error) {
+func (c *Crypter) generateKEK(alg, apu []byte, privKey, pubKey *[chacha.KeySize]byte) ([]byte, error) {
+	if privKey == nil || pubKey == nil {
+		return nil, errInvalidKey
+	}
 	// generating Z is inspired by sodium_crypto_scalarmult()
 	// https://github.com/gamringer/php-authcrypt/blob/master/src/Crypt.php#L80
 
@@ -60,7 +63,7 @@ func (c *Crypter) generateKEK(apu []byte, privKey, pubKey *[chacha.KeySize]byte)
 	// as per https://tools.ietf.org/html/rfc7518#section-4.6.2
 	// concatKDF requires info data to be length prefixed with BigEndian 32 bits type
 	// length prefix alg
-	algInfo := lengthPrefix([]byte(c.alg))
+	algInfo := lengthPrefix(alg)
 
 	// length prefix apu
 	apuInfo := lengthPrefix(apu)

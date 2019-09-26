@@ -80,7 +80,25 @@ type RecipientHeaders struct {
 	IV  string `json:"iv,omitempty"`
 	Tag string `json:"tag,omitempty"`
 	KID string `json:"kid,omitempty"`
-	OID string `json:"oid,omitempty"`
+	SPK string `json:"spk,omitempty"`
+}
+
+// recipientJWK are the recipient's JWK headers
+type recipientJWKHeaders struct {
+	Typ string `json:"typ,omitempty"`
+	CTY string `json:"cty,omitempty"`
+	Alg string `json:"alg,omitempty"`
+	Enc string `json:"enc,omitempty"`
+	IV  string `json:"iv,omitempty"`
+	Tag string `json:"tag,omitempty"`
+	EPK jwk    `json:"epk,omitempty"`
+}
+
+// jwk is the ephemeral key stored in the JWK header
+type jwk struct {
+	Kty string `json:"kty,omitempty"`
+	Crv string `json:"crv,omitempty"`
+	X   string `json:"x,omitempty"`
 }
 
 // New will create an encrypter instance to 'AuthCrypt' payloads for the given sender and recipients arguments

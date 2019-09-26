@@ -292,15 +292,15 @@ func TestEncrypt(t *testing.T) {
 		require.Empty(t, dec)
 		jwe.Tag = validJwe.Tag
 
-		// update jwe with bad recipient oid format
-		jwe.Recipients[0].Header.OID = "badOID!"
+		// update jwe with bad recipient spk (JWE format)
+		jwe.Recipients[0].Header.SPK = "badSPK!"
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
 		dec, e = crypter.Decrypt(enc, recipient1Key)
-		require.EqualError(t, e, "failed to decrypt message: illegal base64 data at input byte 6")
+		require.EqualError(t, e, "failed to decrypt sender key: bad SPK format")
 		require.Empty(t, dec)
-		jwe.Recipients[0].Header.OID = validJwe.Recipients[0].Header.OID
+		jwe.Recipients[0].Header.SPK = validJwe.Recipients[0].Header.SPK
 
 		// update jwe with bad recipient tag format
 		jwe.Recipients[0].Header.Tag = "badTag!"
@@ -403,7 +403,7 @@ func deepCopy(envelope, envelope2 *Envelope) {
 				APU: r.Header.APU,
 				KID: r.Header.KID,
 				IV:  r.Header.IV,
-				OID: r.Header.OID,
+				SPK: r.Header.SPK,
 				Tag: r.Header.Tag,
 			},
 		}
@@ -434,10 +434,10 @@ func TestBadCreateCipher(t *testing.T) {
 func TestRefEncrypt(t *testing.T) {
 	// reference php crypto material similar to
 	// https://github.com/hyperledger/aries-rfcs/issues/133#issuecomment-518922447
-	var recipientPrivStr = "texhAAu5uu7mCc32DDEM5hYYPaVBbF-J2B-oX0hpRLc"
+	var recipientPrivStr = "c8CSJr_27PN9xWCpzXNmepRndD6neQcnO9DS0YWjhNs"
 	recipientPriv, err := base64.RawURLEncoding.DecodeString(recipientPrivStr)
 	require.NoError(t, err)
-	var recipientPubStr = "JxOLbl4tfU1JnfwULiaHBES8ph2D7Fc1THedj9sMyH4"
+	var recipientPubStr = "AAjrHjiFLw6kf6CZ5zqH1ooG3y2aQhuqxmUvqJnIvDI"
 	recipientPub, err := base64.RawURLEncoding.DecodeString(recipientPubStr)
 	require.NoError(t, err)
 
@@ -448,20 +448,20 @@ func TestRefEncrypt(t *testing.T) {
     "protected": "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1tZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
     "recipients": [
         {
-            "encrypted_key": "zidjLr239dr_UL5eMGheiOqw4z7R2fQpa3Ty5hC-9EQ",
+            "encrypted_key": "46R0uW5KUbaZYt5PpIW5j1v_H8BS2SLrdPEzUaK8V0U",
             "header": {
-                "apu": "aOAAGdeWD-aTyIHq4qaKkS3AsQSBN0HwAr-auPh8GV-UB1fctHWNmDD_E2t-ihwnTjrsifaZTTzeWRPoYZsO-A",
-                "iv": "6MDVdecPSjcTisLDzaxgwHnmXBjUMvcM",
-                "tag": "Jr5IFbE1fYIP5kElavZlyw",
-                "kid": "3dYBmNKZeq8XwM8fXgzcznFqo2FtUezogkJFZwhKrPvV",
-                "oid": "psnFXtlA6Nhi50-Rr3RJ3YUuVy3pDNB8sffCSI5GBzgFPl5MkGqBC02rDdN892fygJKNvcdMj7QSd4AT93EDdblTZfNL1K3ZEZRg0v2jQxqFvAmtH50QF7cebRs"
+                "apu": "tDzm-bgMblZUgzONI7NTHcSqObP9NX21Vkeid8RFf-PzbJrdU3ApC_f0fDfZVxTwyw-5OZQcTti1H1esIfBFvg",
+                "iv": "5HTxplQx5sOfwWtfR5oK416ahbRChh-b",
+                "tag": "qrtr29m4EKh5WV6l47fcCw",
+                "kid": "18tUZoFCoRVEHdxTyNLRxzcKYV7ZyBm98gunvcChKr1",
+                "spk": "eyJ0eXAiOiJqb3NlIiwiY3R5IjoiandrK2pzb24iLCJhbGciOiJFQ0RILUVTK1hDMjBQS1ciLCJlbmMiOiJYQzIwUCIsImVwayI6eyJrdHkiOiJPS1AiLCJjcnYiOiJYMjU1MTkiLCJ4IjoiT0ZkRlN3bTR5Sm5oZmxZNUNZZ1FSVG9ra2ExNHQ0VnNCM216M0N4XzZuayJ9LCJpdiI6Ik5SZkp6Z1N5UE9JU3dOMURSR3lTSERXcXVqdUVXQmgtIiwidGFnIjoibTFsekRSTTl5VEp5cEJOYkVnSE5adyJ9.KIcpv4hUlq0gAb8FpWkSWFnlcshrdNRz51iVoTFyy7E.53YTian9wG5u-S2J2YTjI1TayqW-YMuL.uw6ucr25OIZTfsGQRp8t9fllV0ClBmuhblnTHG6hlh0EEqAWal9jgd6jDbf6Xb_HPzpLSfX7uwYTA11Ui7jZloP8aRjnAKsiEO1-4d-R.GTwXUgcy89zjIAi1Z4WpIA"
             }
         }
     ],
-    "aad": "garDa2wX7AT2gU1eKTj2ajb4A-ikwNAZ3oyDJmlPzzc",
-    "iv": "iHrFLuOAYr_k8_tNlPUNDUEpn2U2k3H6",
-    "tag": "wtqLqrAfzWO4pmvCCJ6iBw",
-    "ciphertext": "YtXeQDYlSr-9NI4O"
+    "aad": "rC0KS-IDOnn39WJvPXJQmP3M5qd_Ax4sYidWXdXSIek",
+    "iv": "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
+    "tag": "2FqZMMQuNPYfL0JsSkj8LQ",
+    "ciphertext": "qQyzvajdvCDJbwxM"
 }`
 
 	crypter, err := New(XC20P)
