@@ -15,11 +15,11 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/did"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // didCommChMessage type to correlate actionEvent message(go channel) with callback message(internal go channel).
@@ -43,8 +43,6 @@ const (
 	ConnectionAck = DIDExchangeSpec + "ack"
 	// DIDExchangeServiceType is the service type to be used in DID document
 	DIDExchangeServiceType = "did-communication"
-	// TODO not supposed to be constant, using did method 'peer' for now (issue #322)
-	didMethod = "peer"
 )
 
 // message type to store data for eventing. This is retrieved during callback.
@@ -57,7 +55,6 @@ type message struct {
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
-	DIDWallet() wallet.DIDCreator
 }
 
 // Service for DID exchange protocol
@@ -73,15 +70,15 @@ type Service struct {
 
 type context struct {
 	outboundDispatcher dispatcher.Outbound
-	didWallet          wallet.DIDCreator
+	didCreator         did.Creator
 }
 
 // New return didexchange service
-func New(store storage.Store, prov provider) *Service {
+func New(store storage.Store, didMaker did.Creator, prov provider) *Service {
 	svc := &Service{
 		ctx: context{
 			outboundDispatcher: prov.OutboundDispatcher(),
-			didWallet:          prov.DIDWallet()},
+			didCreator:         didMaker},
 		store: store,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan didCommChMessage, 10),

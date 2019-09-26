@@ -9,6 +9,7 @@ package aries
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/did"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -107,7 +108,9 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 
 	setDefaultOutboundDispatcher(frameworkOpts)
 
-	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) { return didexchange.New(store, prv), nil }
+	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) {
+		return didexchange.New(store, did.NewLocalDIDCreator(prv), prv), nil
+	}
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc)
 
 	return nil

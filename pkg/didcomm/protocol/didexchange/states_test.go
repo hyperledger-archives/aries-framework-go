@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
 )
 
 func TestNoopState(t *testing.T) {
@@ -198,8 +198,8 @@ func TestInvitedState_Execute(t *testing.T) {
 
 func TestRequestedState_Execute(t *testing.T) {
 	prov := mockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-	newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 	t.Run("rejects msgs other than invitations or requests", func(t *testing.T) {
 		others := []string{ConnectionResponse, ConnectionAck}
@@ -271,9 +271,9 @@ func TestRequestedState_Execute(t *testing.T) {
 		require.Nil(t, followup)
 	})
 	t.Run("create DID error", func(t *testing.T) {
-		ctx2 := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: &mockwallet.CloseableWallet{
-			CreateDidErr: fmt.Errorf("create DID error")}}
-		didDoc, err := ctx2.didWallet.CreateDID(didMethod)
+		ctx2 := context{outboundDispatcher: prov.OutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Failure: fmt.Errorf("create DID error")}}
+		didDoc, err := ctx2.didCreator.CreateDID()
 		require.Error(t, err)
 		require.Nil(t, didDoc)
 	})
@@ -281,8 +281,8 @@ func TestRequestedState_Execute(t *testing.T) {
 
 func TestRespondedState_Execute(t *testing.T) {
 	prov := mockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-	newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 
 	dest := &dispatcher.Destination{RecipientKeys: []string{"test", "test2"}, ServiceEndpoint: "xyz"}
@@ -363,8 +363,8 @@ func TestRespondedState_Execute(t *testing.T) {
 // completed is an end state
 func TestCompletedState_Execute(t *testing.T) {
 	prov := mockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-	newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 	outboundDestination := &dispatcher.Destination{RecipientKeys: []string{"test", "test2"}, ServiceEndpoint: "xyz"}
 	t.Run("rejects msgs other than responses and acks", func(t *testing.T) {
@@ -439,8 +439,8 @@ func TestCompletedState_Execute(t *testing.T) {
 
 func TestCreateAndSendRequest(t *testing.T) {
 	prov := mockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-	newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 
 	request := &Request{
@@ -491,8 +491,8 @@ func TestCreateAndSendRequest(t *testing.T) {
 
 func TestCreateAndSendResponse(t *testing.T) {
 	prov := mockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-	newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 
 	connection := &Connection{
@@ -545,8 +545,8 @@ func TestCreateAndSendResponse(t *testing.T) {
 func TestPrepareConnectionSignature(t *testing.T) {
 	t.Run("prepare connection signature", func(t *testing.T) {
 		prov := mockProvider{}
-		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-		newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+		newDidDoc, err := ctx.didCreator.CreateDID()
 		require.NoError(t, err)
 		require.NoError(t, err)
 		connection := &Connection{
@@ -562,8 +562,8 @@ func TestPrepareConnectionSignature(t *testing.T) {
 
 func TestPrepareDestination(t *testing.T) {
 	prov := mockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-	newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 	dest := prepareDestination(newDidDoc)
 	require.NotNil(t, dest)
@@ -575,7 +575,7 @@ func TestPrepareDestination(t *testing.T) {
 func TestNewRequestFromInvitation(t *testing.T) {
 	t.Run("successful new request from invitation", func(t *testing.T) {
 		prov := mockProvider{}
-		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
+		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		invitation := &Invitation{
 			Type:            ConnectionInvite,
 			ID:              randomString(),
@@ -593,7 +593,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 	t.Run("unsuccessful new request from invitation ", func(t *testing.T) {
 		prov := mockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
-			didWallet: &mockwallet.CloseableWallet{CreateDidErr: fmt.Errorf("create DID error")}}
+			didCreator: &mockdid.MockDIDCreator{Failure: fmt.Errorf("create DID error")}}
 		invitation := &Invitation{}
 		err := ctx.handleInboundInvitation(invitation)
 		require.Error(t, err)
@@ -604,10 +604,9 @@ func TestNewRequestFromInvitation(t *testing.T) {
 func TestNewResponseFromRequest(t *testing.T) {
 	t.Run("successful new response from request", func(t *testing.T) {
 		prov := mockProvider{}
-		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didWallet: prov.DIDWallet()}
-		newDidDoc, err := ctx.didWallet.CreateDID(didMethod)
+		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+		newDidDoc, err := ctx.didCreator.CreateDID()
 		require.NoError(t, err)
-
 		request := &Request{
 			Type:  ConnectionRequest,
 			ID:    randomString(),
@@ -625,7 +624,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 	t.Run("unsuccessful new response from request", func(t *testing.T) {
 		prov := mockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
-			didWallet: &mockwallet.CloseableWallet{CreateDidErr: fmt.Errorf("create DID error")}}
+			didCreator: &mockdid.MockDIDCreator{Failure: fmt.Errorf("create DID error")}}
 		request := &Request{}
 		err := ctx.handleInboundRequest(request)
 		require.Error(t, err)

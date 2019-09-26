@@ -275,7 +275,7 @@ func (ctx *context) newRequestFromInvitation(invitation *Invitation) (*Request, 
 		RoutingKeys:     invitation.RoutingKeys,
 	}
 
-	newDidDoc, err := ctx.didWallet.CreateDID(didMethod, wallet.WithServiceType(DIDExchangeServiceType))
+	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -360,7 +360,7 @@ func (ctx *context) sendOutbound(msg interface{}, destination *dispatcher.Destin
 }
 
 func (ctx *context) newResponseFromRequest(request *Request) (*Response, *dispatcher.Destination, error) {
-	newDidDoc, err := ctx.didWallet.CreateDID(didMethod, wallet.WithServiceType(DIDExchangeServiceType))
+	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
 	if err != nil {
 		return nil, nil, err
 	}

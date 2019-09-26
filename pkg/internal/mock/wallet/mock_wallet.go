@@ -21,8 +21,7 @@ type CloseableWallet struct {
 	PackErr               error
 	UnpackValue           *wallet.Envelope
 	UnpackErr             error
-	CreateDidErr          error
-	CreateDid             *did.Doc
+	MockDID               *did.Doc
 }
 
 // Close previously-opened wallet, removing it if so configured.
@@ -57,5 +56,5 @@ func (m *CloseableWallet) UnpackMessage(encMessage []byte) (*wallet.Envelope, er
 
 // CreateDID returns new DID Document
 func (m *CloseableWallet) CreateDID(method string, opts ...wallet.DocOpts) (*did.Doc, error) {
-	return m.CreateDid, m.CreateDidErr
+	return m.MockDID, nil
 }
