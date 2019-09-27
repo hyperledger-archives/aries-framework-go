@@ -9,7 +9,7 @@ OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
 OPENAPI_DOCKER_IMG_VERSION=v0.20.1
 
 .PHONY: all
-all: checks generate-openapi-spec unit-test
+all: checks generate-openapi-spec unit-test bdd-test
 
 .PHONY: checks
 checks: license lint generate-openapi-spec
@@ -39,6 +39,7 @@ clean:
 	rm -f coverage.txt
 	rm -Rf ./build
 	rm -Rf ./vc_test_suite
+	rm -Rf ./test/bdd/db
 
 .PHONY: generate-openapi-spec
 generate-openapi-spec: clean

@@ -145,7 +145,7 @@ func (c *Client) startServiceEventListener() error {
 		for e := range c.msgCh {
 			// TODO https://github.com/hyperledger/aries-framework-go/issues/199 - Generate Client events
 			// for now, log the messages
-			logger.Infof("message event received : type=%s", e.Type)
+			logger.Infof("message event received : type=%d state=%s", e.Type, e.StateID)
 		}
 	}()
 

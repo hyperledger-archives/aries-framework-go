@@ -46,5 +46,5 @@ type LocalDIDCreator struct {
 
 // CreateDID creates new local DID
 func (l *LocalDIDCreator) CreateDID(opts ...wallet.DocOpts) (*did.Doc, error) {
-	return l.DIDCreator.CreateDID(l.method)
+	return l.DIDCreator.CreateDID(l.method, opts...)
 }
