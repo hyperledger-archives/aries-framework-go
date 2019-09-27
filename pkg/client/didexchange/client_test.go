@@ -50,7 +50,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &did.MockDIDCreator{}, &mockProvider{}),
 			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
-		inviteReq, err := c.CreateInvitation()
+		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
 		require.NotNil(t, inviteReq)
 		require.NotEmpty(t, inviteReq.Label)
@@ -62,7 +62,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &did.MockDIDCreator{}, &mockProvider{}),
 			WalletValue: &mockwallet.CloseableWallet{CreateSigningKeyErr: fmt.Errorf("createSigningKeyErr")}})
 		require.NoError(t, err)
-		_, err = c.CreateInvitation()
+		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "createSigningKeyErr")
 	})
@@ -91,7 +91,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{ServiceValue: &mockprotocol.MockDIDExchangeSvc{},
 			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
-		inviteReq, err := c.CreateInvitation()
+		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
 		require.NoError(t, c.HandleInvitation(inviteReq))
 	})
@@ -103,7 +103,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 			}},
 			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
-		inviteReq, err := c.CreateInvitation()
+		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
 		err = c.HandleInvitation(inviteReq)
 		require.Error(t, err)

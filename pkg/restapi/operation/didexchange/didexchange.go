@@ -88,7 +88,8 @@ type Operation struct {
 func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) {
 	logger.Debugf("Creating connection invitation ")
 	// call didexchange client
-	response, err := c.client.CreateInvitation()
+	// TODO pass label value as args in aries-agentd
+	response, err := c.client.CreateInvitation("agent")
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
