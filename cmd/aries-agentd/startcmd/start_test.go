@@ -106,13 +106,7 @@ func TestStartAriesDRequests(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	// give some time for server to start
-	if err := listenFor(testHostURL, time.Second); err != nil {
-		t.Fatal(err)
-	}
-	if err := listenFor(testInboundHostURL, time.Second); err != nil {
-		t.Fatal(err)
-	}
+	waitForServerToStart(t, testHostURL, testInboundHostURL)
 
 	validateRequests(t, testHostURL, testInboundHostURL)
 }
