@@ -40,7 +40,7 @@ func TestNilDecryptSenderJwk(t *testing.T) {
 	spk, err = crypter.decryptSPK(jwecrypto.KeyPair{}, "eyJ0eXAiOiJqb3NlIiwiY3R5IjoiandrK2pzb24iLCJhbGciOiJFQ0RILUVTK1hDMjBQS1ciLCJlbmMiOiJYQzIwUCIsIml2IjoiNWhwNEVrWGtqSHR0SFlmY1IySXQ4d2dnZndjanNQaWwiLCJ0YWciOiJuMjg1OGplTXhZVE0tYzRZc2J0ZlBRIiwiZXBrIjp7Imt0eSI6Ik9LUCIsImNydiI6IlgyNTUxOSIsIngiOiJ3OW1EZ1FENnJVdWkyLVMyRjV6SVNqZXBua1FOZWEwMGtvTnRBOUhEeUIwIn19.U-AXyneFJ5x4QayrZ3GcuDCg1yHYHC9Kn1s8gtd7O4c.aigDJrko05dw-9Hk4LQbfOCCG9Dzskw6.tY10QY9fXvqV_vfhzBKkqw.!-")
 	require.Error(t, err)
 	require.Empty(t, spk)
-	headersJSON := &recipientJWKHeaders{EPK: jwk{
+	headersJSON := &recipientSPKJWEHeaders{EPK: jwk{
 		X: "test",
 	}}
 	spk, err = crypter.decryptJWKSharedKey([]byte(""), headersJSON, nil)

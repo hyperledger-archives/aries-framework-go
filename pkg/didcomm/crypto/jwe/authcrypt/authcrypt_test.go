@@ -117,7 +117,7 @@ func TestEncrypt(t *testing.T) {
 		require.Empty(t, enc)
 	})
 
-	t.Run("Success test case: Create a valid AuthCrypter for ChachaPoly1035 encryption (alg: C20P)", func(t *testing.T) {
+	t.Run("Success test case: Create a valid AuthCrypter for ChachaPoly1305 encryption (alg: C20P)", func(t *testing.T) {
 		crypter, e := New(C20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
@@ -131,7 +131,7 @@ func TestEncrypt(t *testing.T) {
 		t.Logf("Encryption with C20P: %s", m)
 	})
 
-	t.Run("Success test case: Create a valid AuthCrypter for XChachaPoly1035 encryption (alg: XC20P)", func(t *testing.T) {
+	t.Run("Success test case: Create a valid AuthCrypter for XChachaPoly1305 encryption (alg: XC20P)", func(t *testing.T) {
 		crypter, e := New(XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
