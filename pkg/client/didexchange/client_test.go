@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -221,5 +223,30 @@ type mockDIDCreator struct {
 }
 
 func (m *mockDIDCreator) CreateDID(opts ...wallet.DocOpts) (*did.Doc, error) {
-	return &did.Doc{}, nil
+	const didContext = "https://w3id.org/did/v1"
+	const didID = "did:local:abc"
+	const creator = didID + "#key-1"
+	const keyType = "Ed25519VerificationKey2018"
+
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	signingKey := did.PublicKey{
+		ID:         creator,
+		Type:       keyType,
+		Controller: didID,
+		Value:      pubKey,
+	}
+
+	createdTime := time.Now()
+	didDoc := &did.Doc{
+		Context:   []string{didContext},
+		ID:        didID,
+		PublicKey: []did.PublicKey{signingKey},
+		Created:   &createdTime,
+	}
+
+	return didDoc, nil
 }
