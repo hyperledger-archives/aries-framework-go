@@ -32,6 +32,23 @@ type DIDCommMsg struct {
 	OutboundDestination *Destination
 }
 
+// StateMsgType state msg type
+type StateMsgType int
+
+const (
+	// PreState pre state
+	PreState StateMsgType = iota
+	// PostState post state
+	PostState
+)
+
+// StateMsg msg
+type StateMsg struct {
+	Type    StateMsgType
+	StateID string
+	Msg     DIDCommMsg
+}
+
 // Destination provides the recipientKeys, routingKeys, and serviceEndpoint populated from Invitation
 type Destination struct {
 	RecipientKeys   []string
@@ -83,10 +100,10 @@ type Event interface {
 
 	// RegisterMsgEvent on protocol messages. The message events are triggered for incoming messages. Service
 	// will not expect any callback on these events unlike Action event.
-	RegisterMsgEvent(ch chan<- DIDCommMsg) error
+	RegisterMsgEvent(ch chan<- StateMsg) error
 
 	// UnregisterMsgEvent on protocol messages. Refer RegisterMsgEvent().
-	UnregisterMsgEvent(ch chan<- DIDCommMsg) error
+	UnregisterMsgEvent(ch chan<- StateMsg) error
 }
 
 // DIDCommService defines service APIs.
