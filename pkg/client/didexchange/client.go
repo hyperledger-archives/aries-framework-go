@@ -68,7 +68,7 @@ func New(ctx provider) (*Client, error) {
 }
 
 // CreateInvitation create invitation
-func (c *Client) CreateInvitation() (*didexchange.Invitation, error) {
+func (c *Client) CreateInvitation(label string) (*didexchange.Invitation, error) {
 	verKey, err := c.wallet.CreateKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
@@ -76,7 +76,7 @@ func (c *Client) CreateInvitation() (*didexchange.Invitation, error) {
 
 	return &didexchange.Invitation{
 		ID:              uuid.New().String(),
-		Label:           "agent", // TODO pass label as argument
+		Label:           label,
 		RecipientKeys:   []string{verKey},
 		ServiceEndpoint: c.inboundTransportEndpoint,
 		Type:            didexchange.ConnectionInvite,
