@@ -48,7 +48,7 @@ func TestNew(t *testing.T) {
 func TestClient_CreateInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &did.MockDIDCreator{}, &mockProvider{}),
-			WalletValue: &mockwallet.CloseableWallet{CreateSigningKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
+			WalletValue: &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
@@ -58,13 +58,13 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.Equal(t, "endpoint", inviteReq.ServiceEndpoint)
 	})
 
-	t.Run("test error from createSigningKey", func(t *testing.T) {
+	t.Run("test error from createEncryptionKey", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &did.MockDIDCreator{}, &mockProvider{}),
-			WalletValue: &mockwallet.CloseableWallet{CreateSigningKeyErr: fmt.Errorf("createSigningKeyErr")}})
+			WalletValue: &mockwallet.CloseableWallet{CreateEncryptionKeyErr: fmt.Errorf("createEncryptionKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "createSigningKeyErr")
+		require.Contains(t, err.Error(), "createEncryptionKeyErr")
 	})
 
 	t.Run("test error from save record", func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestClient_RemoveConnection(t *testing.T) {
 func TestClient_HandleInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{ServiceValue: &mockprotocol.MockDIDExchangeSvc{},
-			WalletValue: &mockwallet.CloseableWallet{CreateSigningKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
+			WalletValue: &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg dispatcher.DIDCommMsg) error {
 				return fmt.Errorf("handle error")
 			}},
-			WalletValue: &mockwallet.CloseableWallet{CreateSigningKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
+			WalletValue: &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)

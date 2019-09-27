@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package wallet
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -56,9 +57,23 @@ func New(ctx provider) (*BaseWallet, error) {
 	return &BaseWallet{store: store, crypter: crypter, inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
 }
 
-// CreateKey create a new public/private signing keypair.
-func (w *BaseWallet) CreateKey() (string, error) {
+// CreateEncryptionKey create a new public/private encryption keypair.
+func (w *BaseWallet) CreateEncryptionKey() (string, error) {
 	pub, priv, err := box.GenerateKey(rand.Reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to GenerateKey: %w", err)
+	}
+	base58Pub := base58.Encode(pub[:])
+	// TODO - need to encrypt the priv before putting them in the store.
+	if err := w.persistKey(base58Pub, &crypto.KeyPair{Pub: pub[:], Priv: priv[:]}); err != nil {
+		return "", err
+	}
+	return base58Pub, nil
+}
+
+// CreateSigningKey create a new public/private signing keypair.
+func (w *BaseWallet) CreateSigningKey() (string, error) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return "", fmt.Errorf("failed to GenerateKey: %w", err)
 	}
@@ -150,7 +165,7 @@ func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
 	}
 
 	// Generate key pair
-	pub, err := w.CreateKey()
+	pub, err := w.CreateEncryptionKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create DID: %w", err)
 	}
