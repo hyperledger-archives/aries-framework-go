@@ -218,7 +218,7 @@ func (s *Service) handle(msg *message) error {
 // sendEvent triggers the action event. This function stores the state of current processing and passes a callback
 // function in the event message.
 func (s *Service) sendActionEvent(msg dispatcher.DIDCommMsg, aEvent chan<- dispatcher.DIDCommAction,
-	threadID string, nextState state) error {
+	threadID string, nextState state) (err error) {
 	jsonDoc, err := json.Marshal(&message{
 		Msg:           msg,
 		ThreadID:      threadID,
@@ -243,11 +243,15 @@ func (s *Service) sendActionEvent(msg dispatcher.DIDCommMsg, aEvent chan<- dispa
 			s.processCallback(id, didCommCallback)
 		},
 	}
-
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("cannot send an action: %v unregister action err: %v", r, s.UnregisterActionEvent(aEvent))
+		}
+	}()
 	// trigger the registered action event
 	aEvent <- didCommAction
 
-	return nil
+	return err
 }
 
 // sendEvent triggers the message events.

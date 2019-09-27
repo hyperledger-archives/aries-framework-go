@@ -107,6 +107,30 @@ func TestService_Name(t *testing.T) {
 	require.Equal(t, DIDExchange, prov.Name())
 }
 
+func TestService_Handle_Panic(t *testing.T) {
+	dbstore, cleanup := store(t)
+	defer cleanup()
+
+	s := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
+	actionCh := make(chan dispatcher.DIDCommAction)
+	close(actionCh)
+	require.NoError(t, s.RegisterActionEvent(actionCh))
+
+	payloadBytes, err := json.Marshal(
+		&Request{
+			Type:  ConnectionRequest,
+			ID:    randomString(),
+			Label: "Bob",
+			Connection: &Connection{
+				DID: "B.did@B:A",
+			},
+		})
+	require.NoError(t, err)
+	err = s.Handle(dispatcher.DIDCommMsg{Type: ConnectionRequest, Payload: payloadBytes})
+	errMsg := "send events failed: cannot send an action: send on closed channel unregister action err: <nil>"
+	require.EqualError(t, err, errMsg)
+}
+
 // did-exchange flow with role Inviter
 func TestService_Handle_Inviter(t *testing.T) {
 	dbstore, cleanup := store(t)
