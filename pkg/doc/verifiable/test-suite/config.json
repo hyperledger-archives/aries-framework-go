@@ -1,8 +1,8 @@
 {
   "generator": "aries-framework-go-gen",
-  "presentationGenerator": "aries-framework-go-gen",
+  "presentationGenerator": "aries-framework-go-gen --presentation",
   "generatorOptions": "",
-  "sectionsNotSupported": [],
+  "sectionsNotSupported": ["zkp"],
   "jwt": {
     "es256kPrivateKeyJwk": {
       "kty": "EC",

@@ -24,8 +24,7 @@ import (
 
 var logger = log.New("aries-framework/doc/verifiable")
 
-const defaultSchema = `
-{
+const defaultSchema = `{
   "required": [
     "@context",
     "type",
@@ -42,8 +41,16 @@ const defaultSchema = `
           "pattern": "^https://www.w3.org/2018/credentials/v1$"
         }
       ],
+      "uniqueItems": true,
       "additionalItems": {
-        "type": "string"
+        "oneOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "string"
+          }
+        ]
       }
     },
     "id": {
@@ -51,8 +58,16 @@ const defaultSchema = `
       "format": "uri"
     },
     "type": {
-      "type": "array",
-      "items": [
+      "oneOf": [
+        {
+          "type": "array",
+          "items": [
+            {
+              "type": "string",
+              "pattern": "^VerifiableCredential$"
+            }
+          ]
+        },
         {
           "type": "string",
           "pattern": "^VerifiableCredential$"
@@ -76,7 +91,8 @@ const defaultSchema = `
     "issuer": {
       "anyOf": [
         {
-          "type": "string"
+          "type": "string",
+          "format": "uri"
         },
         {
           "type": "object",
@@ -112,7 +128,10 @@ const defaultSchema = `
       "$ref": "#/definitions/typedID"
     },
     "credentialSchema": {
-      "$ref": "#/definitions/typedID"
+      "$ref": "#/definitions/typedIDs"
+    },
+    "evidence": {
+      "$ref": "#/definitions/typedIDs"
     },
     "refreshService": {
       "$ref": "#/definitions/typedID"
@@ -135,9 +154,32 @@ const defaultSchema = `
           "format": "uri"
         },
         "type": {
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
         }
       }
+    },
+    "typedIDs": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/typedID"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/typedID"
+          }
+        }
+      ]
     }
   }
 }
@@ -149,9 +191,10 @@ const jsonSchema2018Type = "JsonSchemaValidator2018"
 var defaultSchemaLoader = gojsonschema.NewStringLoader(defaultSchema)
 
 // Proof defines embedded proof of Verifiable Credential
-type Proof struct {
-	Type string `json:"type,omitempty"`
-}
+type Proof interface{}
+
+// Evidence defines evidence of Verifiable Credential
+type Evidence interface{}
 
 type typedID struct {
 	ID   string `json:"id,omitempty"`
@@ -176,18 +219,23 @@ type CredentialSchema typedID
 // RefreshService provides a way to automatic refresh of expired Verifiable Credential
 type RefreshService typedID
 
+// TermsOfUse represents terms of use of Verifiable Credential by Issuer or Verifiable Presentation by Holder.
+type TermsOfUse typedID
+
 // Credential Verifiable Credential definition
 type Credential struct {
-	Context        []string
+	Context        []interface{}
 	ID             string
-	Type           []string
+	Type           interface{}
 	Subject        Subject
 	Issuer         Issuer
 	Issued         *time.Time
 	Expired        *time.Time
 	Proof          *Proof
 	Status         *CredentialStatus
-	Schema         *CredentialSchema
+	Schemas        []CredentialSchema
+	Evidence       *Evidence
+	TermsOfUse     []TermsOfUse
 	RefreshService *RefreshService
 }
 
@@ -220,17 +268,35 @@ func (ja JWTAlgorithm) Jose() jose.SignatureAlgorithm {
 
 // rawCredential is a basic verifiable credential
 type rawCredential struct {
-	Context        []string          `json:"@context,omitempty"`
+	Context        []interface{}     `json:"@context,omitempty"`
 	ID             string            `json:"id,omitempty"`
-	Type           []string          `json:"type,omitempty"`
+	Type           interface{}       `json:"type,omitempty"`
 	Subject        Subject           `json:"credentialSubject,omitempty"`
 	Issued         *time.Time        `json:"issuanceDate,omitempty"`
 	Expired        *time.Time        `json:"expirationDate,omitempty"`
 	Proof          *Proof            `json:"proof,omitempty"`
 	Status         *CredentialStatus `json:"credentialStatus,omitempty"`
 	Issuer         interface{}       `json:"issuer,omitempty"`
-	Schema         *CredentialSchema `json:"credentialSchema,omitempty"`
+	Schema         interface{}       `json:"credentialSchema,omitempty"`
+	Evidence       *Evidence         `json:"evidence,omitempty"`
+	TermsOfUse     []TermsOfUse      `json:"termsOfUse,omitempty"`
 	RefreshService *RefreshService   `json:"refreshService,omitempty"`
+}
+
+type typeSingle struct {
+	Type string `json:"type,omitempty"`
+}
+
+type typeMultiple struct {
+	Types []string `json:"type,omitempty"`
+}
+
+type credentialSchemaSingle struct {
+	Schema CredentialSchema `json:"credentialSchema,omitempty"`
+}
+
+type credentialSchemaMultiple struct {
+	Schemas []CredentialSchema `json:"credentialSchema,omitempty"`
 }
 
 type issuerPlain struct {
@@ -311,11 +377,45 @@ func WithJWTPublicKeyFetcher(fetcher PublicKeyFetcher) CredentialOpt {
 func decodeIssuer(data []byte, credential *Credential) error {
 	issuerID, issuerName, err := issuerFromBytes(data)
 	if err != nil {
-		return fmt.Errorf("JSON unmarshalling of Verifiable Credential bytes failed: %w", err)
+		return fmt.Errorf("JSON unmarshalling of Verifiable Credential Issuer failed: %w", err)
 	}
 
 	credential.Issuer = Issuer{ID: issuerID, Name: issuerName}
 	return nil
+}
+
+func decodeType(data []byte, vc *Credential) error {
+	single := typeSingle{}
+	err := json.Unmarshal(data, &single)
+	if err == nil {
+		vc.Type = single.Type
+		return nil
+	}
+
+	multiple := typeMultiple{}
+	err = json.Unmarshal(data, &multiple)
+	if err == nil {
+		vc.Type = multiple.Types
+		return nil
+	}
+
+	return fmt.Errorf("JSON unmarshalling of Verifiable Credential Type failed: %w", err)
+}
+
+func decodeCredentialSchema(data []byte) ([]CredentialSchema, error) {
+	single := credentialSchemaSingle{}
+	err := json.Unmarshal(data, &single)
+	if err == nil {
+		return []CredentialSchema{single.Schema}, nil
+	}
+
+	multiple := credentialSchemaMultiple{}
+	err = json.Unmarshal(data, &multiple)
+	if err == nil {
+		return multiple.Schemas, nil
+	}
+
+	return nil, fmt.Errorf("JSON unmarshalling of Verifiable Credential Schema failed: %w", err)
 }
 
 // NewCredential creates an instance of Verifiable Credential by reading a JSON document from bytes.
@@ -327,31 +427,17 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 		opt(crOpts)
 	}
 
-	var err error
-	var raw *rawCredential
-	var vcDataDecoded []byte
-	rawDecoding := true
-
-	if crOpts.issuerPublicKeyFetcher != nil {
-		var vcDataFromJwt []byte
-		if vcDataFromJwt, raw, err = decodeJWT(vcData, crOpts.issuerPublicKeyFetcher); err != nil {
-			return nil, fmt.Errorf("JWT decoding failed: %w", err)
-		}
-
-		rawDecoding = false
-		vcDataDecoded = vcDataFromJwt
+	vcDataDecoded, raw, err := decodeRaw(vcData, crOpts)
+	if err != nil {
+		return nil, err
 	}
 
-	if rawDecoding {
-		raw = &rawCredential{}
-		err = json.Unmarshal(vcData, raw)
-		if err != nil {
-			return nil, fmt.Errorf("JSON unmarshalling of verifiable credential failed: %w", err)
-		}
-		vcDataDecoded = vcData
+	schemas, err := loadCredentialSchemas(raw, vcDataDecoded)
+	if err != nil {
+		return nil, err
 	}
 
-	err = validate(vcDataDecoded, raw.Schema, crOpts)
+	err = validate(vcDataDecoded, schemas, crOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -359,14 +445,15 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	cred := crOpts.template()
 	cred.Context = raw.Context
 	cred.ID = raw.ID
-	cred.Type = raw.Type
 	cred.Subject = raw.Subject
 	cred.Issued = raw.Issued
 	cred.Expired = raw.Expired
 	cred.Proof = raw.Proof
 	cred.Status = raw.Status
-	cred.Schema = raw.Schema
+	cred.Schemas = schemas
+	cred.Evidence = raw.Evidence
 	cred.RefreshService = raw.RefreshService
+	cred.TermsOfUse = raw.TermsOfUse
 
 	for _, decoder := range crOpts.decoders {
 		err = decoder(vcDataDecoded, cred)
@@ -376,6 +463,35 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	}
 
 	return cred, nil
+}
+
+func decodeRaw(vcData []byte, crOpts *credentialOpts) (vcDataDecoded []byte, raw *rawCredential, err error) {
+	if crOpts.issuerPublicKeyFetcher != nil {
+		var vcDataFromJwt []byte
+		if vcDataFromJwt, raw, err = decodeJWT(vcData, crOpts.issuerPublicKeyFetcher); err != nil {
+			return nil, nil, fmt.Errorf("JWT decoding failed: %w", err)
+		}
+
+		return vcDataFromJwt, raw, nil
+	}
+
+	raw = &rawCredential{}
+	err = json.Unmarshal(vcData, raw)
+	if err != nil {
+		return nil, nil, fmt.Errorf("JSON unmarshalling of verifiable credential failed: %w", err)
+	}
+	return vcData, raw, nil
+}
+
+func loadCredentialSchemas(raw *rawCredential, vcDataDecoded []byte) ([]CredentialSchema, error) {
+	if raw.Schema != nil {
+		schemas, err := decodeCredentialSchema(vcDataDecoded)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode credential schemas")
+		}
+		return schemas, nil
+	}
+	return []CredentialSchema{}, nil
 }
 
 // credentialClaims is JWT Claims extension by Credential.
@@ -419,7 +535,9 @@ func decodeJWT(rawJwt []byte, fetcher PublicKeyFetcher) ([]byte, *rawCredential,
 	}
 
 	// Complement original "vc" JSON claim with data refined from JWT claims.
-	rawClaims.mergeRefinedVC(credClaims.Credential)
+	if err = rawClaims.mergeRefinedVC(credClaims.Credential); err != nil {
+		return nil, nil, fmt.Errorf("failed to merge refined VC: %w", err)
+	}
 
 	var vcData []byte
 	if vcData, err = json.Marshal(rawClaims.Raw); err != nil {
@@ -466,20 +584,27 @@ func refineVCIssuerFromJWTClaims(raw *rawCredential, iss string) {
 	}
 }
 
-func (rawClaims *rawCredentialClaims) mergeRefinedVC(raw *rawCredential) {
+func (rawClaims *rawCredentialClaims) mergeRefinedVC(raw *rawCredential) error {
 	rawVCClaims := rawClaims.Raw
 
-	// these operations are safe
-	rawData, _ := json.Marshal(raw) // nolint:errcheck
+	rawData, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
 
 	var rawMap map[string]interface{}
 
-	_ = json.Unmarshal(rawData, &rawMap) // nolint:errcheck
+	err = json.Unmarshal(rawData, &rawMap)
+	if err != nil {
+		return err
+	}
 
 	// make the merge
 	for k, v := range rawMap {
 		rawVCClaims[k] = v
 	}
+
+	return nil
 }
 
 func verifyJWTSignature(parsedJwt *jwt.JSONWebToken, fetcher PublicKeyFetcher, credClaims *credentialClaims) error {
@@ -504,7 +629,7 @@ func defaultCredentialOpts() *credentialOpts {
 	return &credentialOpts{
 		schemaDownloadClient: &http.Client{},
 		disabledCustomSchema: false,
-		decoders:             []CredentialDecoder{decodeIssuer},
+		decoders:             []CredentialDecoder{decodeIssuer, decodeType},
 		template:             func() *Credential { return &Credential{} },
 	}
 }
@@ -532,10 +657,10 @@ func issuerToSerialize(vc *Credential) interface{} {
 	return vc.Issuer.ID
 }
 
-func validate(data []byte, schema *CredentialSchema, opts *credentialOpts) error {
+func validate(data []byte, schemas []CredentialSchema, opts *credentialOpts) error {
 	// Validate that the Verifiable Credential conforms to the serialization of the Verifiable Credential data model
 	// (https://w3c.github.io/vc-data-model/#example-1-a-simple-example-of-a-verifiable-credential)
-	schemaLoader, err := getCredentialSchema(schema, opts)
+	schemaLoader, err := getSchemaLoader(schemas, opts)
 	if err != nil {
 		return err
 	}
@@ -550,6 +675,7 @@ func validate(data []byte, schema *CredentialSchema, opts *credentialOpts) error
 		errMsg := describeSchemaValidationError(result)
 		return errors.New(errMsg)
 	}
+
 	return nil
 }
 
@@ -561,21 +687,26 @@ func describeSchemaValidationError(result *gojsonschema.Result) string {
 	return errMsg
 }
 
-func getCredentialSchema(schema *CredentialSchema, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
-	schemaLoader := defaultSchemaLoader
-	if schema != nil && !opts.disabledCustomSchema {
+func getSchemaLoader(schemas []CredentialSchema, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
+	if opts.disabledCustomSchema {
+		return defaultSchemaLoader, nil
+	}
+
+	for _, schema := range schemas {
 		switch schema.Type {
 		case jsonSchema2018Type:
-			if customSchemaData, err := loadCredentialSchema(schema.ID, opts.schemaDownloadClient); err == nil {
-				schemaLoader = gojsonschema.NewBytesLoader(customSchemaData)
-			} else {
+			customSchemaData, err := loadCredentialSchema(schema.ID, opts.schemaDownloadClient)
+			if err != nil {
 				return nil, fmt.Errorf("loading custom credential schema from %s failed: %w", schema.ID, err)
 			}
+			return gojsonschema.NewBytesLoader(customSchemaData), nil
 		default:
 			logger.Warnf("unsupported credential schema: %s. Using default schema for validation", schema.Type)
 		}
 	}
-	return schemaLoader, nil
+
+	// If no custom schema is chosen, use default one
+	return defaultSchemaLoader, nil
 }
 
 // todo cache credential schema (https://github.com/hyperledger/aries-framework-go/issues/185)
@@ -607,12 +738,17 @@ func loadCredentialSchema(url string, client *http.Client) ([]byte, error) {
 
 // JWT serializes Credential to signed JWT.
 func (vc *Credential) JWT(signatureAlg JWTAlgorithm, privateKey interface{}, keyID string, minimizeVc bool) (string, error) { // nolint:lll
+	subjectID, err := vc.SubjectID()
+	if err != nil {
+		return "", fmt.Errorf("failed to get VC subject id: %w", err)
+	}
+
 	// currently jwt encoding supports only single subject (by the spec)
 	jwtClaims := &jwt.Claims{
 		Issuer:    vc.Issuer.ID,                   // iss
 		NotBefore: jwt.NewNumericDate(*vc.Issued), // nbf
 		ID:        vc.ID,                          // jti
-		Subject:   vc.getFirstSubjectID(),         // sub
+		Subject:   subjectID,                      // sub
 		IssuedAt:  jwt.NewNumericDate(*vc.Issued), // iat (not in spec, follow the interop project approach)
 	}
 	if vc.Expired != nil {
@@ -655,21 +791,55 @@ func (vc *Credential) JWT(signatureAlg JWTAlgorithm, privateKey interface{}, key
 	// validate all ok, sign with the RSA key, and return a compact JWT
 	rawJWT, err := builder.CompactSerialize()
 	if err != nil {
-		return "", fmt.Errorf("failed to sign JWT")
+		return "", fmt.Errorf("failed to sign JWT: %w", err)
 	}
 
 	return rawJWT, nil
 }
 
-func (vc *Credential) getFirstSubjectID() string {
+// SubjectID gets ID of single subject if present or
+// returns error if there are several subjects or one without ID defined
+func (vc *Credential) SubjectID() (string, error) {
+	subjectIDFn := func(subject map[string]interface{}) (string, error) {
+		subjectWithID, defined := subject["id"]
+		if !defined {
+			return "", errors.New("subject id is not defined")
+		}
+
+		subjectID, isString := subjectWithID.(string)
+		if !isString {
+			return "", errors.New("subject id is not string")
+		}
+		return subjectID, nil
+	}
+
 	switch subject := vc.Subject.(type) {
 	case map[string]interface{}:
-		return subject["id"].(string)
+		return subjectIDFn(subject)
+
 	case []map[string]interface{}:
-		return subject[0]["id"].(string)
+		if len(subject) == 0 {
+			return "", errors.New("no subject is defined")
+		}
+		if len(subject) > 1 {
+			return "", errors.New("more than one subject is defined")
+		}
+		return subjectIDFn(subject[0])
+
 	default:
-		return ""
+		return "", errors.New("subject of unknown structure")
 	}
+}
+
+// Types returns a list containing types of minimum one string type
+func (vc *Credential) Types() []string {
+	switch t := vc.Type.(type) {
+	case string:
+		return []string{t}
+	case []string:
+		return t
+	}
+	return []string{}
 }
 
 func (vc *Credential) raw() *rawCredential {
@@ -683,8 +853,10 @@ func (vc *Credential) raw() *rawCredential {
 		Proof:          vc.Proof,
 		Status:         vc.Status,
 		Issuer:         issuerToSerialize(vc),
-		Schema:         vc.Schema,
+		Schema:         vc.Schemas,
+		Evidence:       vc.Evidence,
 		RefreshService: vc.RefreshService,
+		TermsOfUse:     vc.TermsOfUse,
 	}
 }
 

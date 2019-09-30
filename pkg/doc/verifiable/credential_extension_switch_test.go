@@ -117,14 +117,14 @@ func Cred1Producer() CustomCredentialProducer {
 					return &cred1.Base
 				}),
 			)
-			if err == nil {
-				return cred1, nil
+			if err != nil {
+				return nil, err
 			}
-			return nil, err
+			return cred1, nil
 		},
 		Accept: func(vc *Credential) bool {
-			return containsString(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type1") &&
-				containsString(vc.Type, "CredType1")
+			return hasContext(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type1") &&
+				hasType(vc.Types(), "CredType1")
 		},
 	}
 }
@@ -143,14 +143,14 @@ func Cred2Producer() CustomCredentialProducer {
 					return &cred2.Base
 				}),
 			)
-			if err == nil {
-				return cred2, nil
+			if err != nil {
+				return nil, err
 			}
-			return nil, err
+			return cred2, nil
 		},
 		Accept: func(vc *Credential) bool {
-			return containsString(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type2") &&
-				containsString(vc.Type, "CredType2")
+			return hasContext(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type2") &&
+				hasType(vc.Types(), "CredType2")
 		},
 	}
 }
@@ -178,8 +178,17 @@ func DecodeCredentials(dataJSON []byte, producers ...CustomCredentialProducer) (
 	return baseCred, nil
 }
 
-func containsString(credentialTypes []string, targetType string) bool {
-	for _, thatType := range credentialTypes {
+func hasContext(allContexts []interface{}, targetContext string) bool {
+	for _, thatType := range allContexts {
+		if thatType == targetContext {
+			return true
+		}
+	}
+	return false
+}
+
+func hasType(allTypes []string, targetType string) bool {
+	for _, thatType := range allTypes {
 		if thatType == targetType {
 			return true
 		}

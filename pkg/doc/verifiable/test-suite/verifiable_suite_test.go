@@ -34,7 +34,14 @@ func main() {
 	jwtNoJws := flag.Bool("jwt-no-jws", false, "indication to suppress the JWS although keys are present")
 	jwtPresentation := flag.Bool("jwt-presentation", false, "indication to generate a verifiable presentation")
 	jwtDecode := flag.Bool("jwt-decode", false, "indication to generate a credential from a JWT verifiable credential. The input file will be a JWT instead of a JSON-LD file.") // nolint: lll
+	isPresentation := flag.Bool("presentation", false, "presentation is passed")
 	flag.Parse()
+
+	if *isPresentation {
+		// todo support Verifiable Presentations #371
+		log.Println("verifiable presentations are not supported")
+		abort()
+	}
 
 	if *jwt == "" {
 		encodeVCToJSON(vcBytes)
@@ -49,7 +56,8 @@ func main() {
 
 	if *jwtPresentation {
 		// TODO Encode Verifiable Presentation #371
-		return
+		log.Println("verifiable presentations are not supported")
+		abort()
 	}
 
 	if *jwtNoJws {
@@ -142,7 +150,7 @@ func parseKeys(packedKeys string) (private, public interface{}) {
 }
 
 func encodeVCToJSON(vcBytes []byte) {
-	credential, err := verifiable.NewCredential(vcBytes)
+	credential, err := verifiable.NewCredential(vcBytes, verifiable.WithNoCustomSchemaCheck())
 	if err != nil {
 		log.Println(fmt.Errorf("failed to decode credential: %w", err))
 		abort()
