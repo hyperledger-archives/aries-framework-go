@@ -126,9 +126,9 @@ func TestInboundHandler(t *testing.T) {
 
 func TestInboundTransport(t *testing.T) {
 	t.Run("test inbound transport - with host/port", func(t *testing.T) {
-		inbound, err := NewInbound(":26601")
+		inbound, err := NewInbound("example.com:26601")
 		require.NoError(t, err)
-		require.NotEmpty(t, inbound.Endpoint())
+		require.Equal(t, "http://example.com:26601", inbound.Endpoint())
 	})
 
 	t.Run("test inbound transport - without host/port", func(t *testing.T) {
