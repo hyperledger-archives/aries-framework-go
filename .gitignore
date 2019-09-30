@@ -30,3 +30,4 @@ coverage.txt
 
 # Exclude build directory
 build
+vc-test-suite

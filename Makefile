@@ -30,10 +30,15 @@ unit-test:
 bdd-test: clean
 	@scripts/check_integration.sh
 
+.PHONY: vc-test-suite
+vc-test-suite: clean
+	@scripts/run_vc_test_suite.sh
+
 .PHONY: clean
 clean:
 	rm -f coverage.txt
 	rm -Rf ./build
+	rm -Rf ./vc_test_suite
 
 .PHONY: generate-openapi-spec
 generate-openapi-spec: clean
