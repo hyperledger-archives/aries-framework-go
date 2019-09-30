@@ -9,7 +9,6 @@ package didexchange
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -477,18 +476,21 @@ func TestService_Accept(t *testing.T) {
 }
 
 func TestService_threadID(t *testing.T) {
-	t.Run("returns thid contained in msg", func(t *testing.T) {
-		const expected = "123456"
-		msg := fmt.Sprintf(`{"~thread": {"thid": "%s"}}`, expected)
-		actual, err := threadID([]byte(msg))
+	t.Run("returns new thid for ", func(t *testing.T) {
+		thid, err := threadID(dispatcher.DIDCommMsg{Type: ConnectionInvite, Outbound: false})
 		require.NoError(t, err)
-		require.Equal(t, expected, actual)
+		require.NotNil(t, thid)
 	})
-	t.Run("returns empty thid when msg does not contain thid", func(t *testing.T) {
-		const expected = ""
-		actual, err := threadID([]byte("{}"))
+	t.Run("returns unmarshall error", func(t *testing.T) {
+		thid, err := threadID(dispatcher.DIDCommMsg{Type: ConnectionRequest, Outbound: true})
+		require.Error(t, err)
+		require.Equal(t, "", thid)
+	})
+	msg := []byte(`{"~thread": {"thid": "xyz"}}`)
+	t.Run("returns unmarshall error", func(t *testing.T) {
+		thid, err := threadID(dispatcher.DIDCommMsg{Type: ConnectionRequest, Outbound: true, Payload: msg})
 		require.NoError(t, err)
-		require.Equal(t, expected, actual)
+		require.Equal(t, "xyz", thid)
 	})
 }
 

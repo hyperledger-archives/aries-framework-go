@@ -99,26 +99,33 @@ func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
 	aEvent := s.actionEvent
 	s.lock.RUnlock()
 
+	logger.Infof("entered into Handle exchange message : %s", msg.Payload)
+
 	if !msg.Outbound && aEvent == nil {
 		return errors.New("no clients are registered to handle the message")
 	}
 
-	thid, err := threadID(msg.Payload)
+	thid, err := threadID(msg)
 	if err != nil {
 		return err
 	}
+	logger.Infof("thread id value for the did exchange msg : %s", thid)
+
 	current, err := s.currentState(thid)
 	if err != nil {
 		return err
 	}
+	logger.Infof("current state : %s", current.Name())
+
 	next, err := stateFromMsgType(msg.Type)
 	if err != nil {
 		return err
 	}
+	logger.Infof("state will transition to -> %s if the msgType is processed", next.Name())
+
 	if !current.CanTransitionTo(next) {
 		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
-
 	// trigger message events
 	logger.Infof("send pre event for state %s", next.Name())
 	s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PreState, Msg: msg, StateID: next.Name()})
@@ -131,7 +138,6 @@ func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
 		}
 		return nil
 	}
-
 	// if no action event is triggered, continue the execution
 	return s.handle(&message{Msg: msg, ThreadID: thid, NextStateName: next.Name()})
 }
@@ -192,37 +198,48 @@ func (s *Service) UnregisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
 }
 
 func (s *Service) handle(msg *message) error {
+	logger.Infof("entered into private handle didcomm message: %s ", msg)
+
 	next, err := stateFromName(msg.NextStateName)
 	if err != nil {
 		return fmt.Errorf("invalid state name: %w", err)
 	}
 
-	followup, err := next.Execute(msg.Msg, s.ctx)
+	logger.Infof("next valid state to transition -> %s ", next.Name())
+
+	followup, err := next.Execute(msg.Msg, msg.ThreadID, s.ctx)
 	if err != nil {
 		return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 	}
+	logger.Infof("follow up state that need to be executed immediately -> %s", followup.Name())
+
 	err = s.update(msg.ThreadID, next)
 	if err != nil {
 		return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 	}
+
+	logger.Infof("persisted the connection using %s and updating the state to %s", msg.ThreadID, followup.Name())
+
 	logger.Infof("send post event for state %s", next.Name())
 	s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PostState, Msg: msg.Msg, StateID: next.Name()})
 
 	for ; !isNoOp(followup); followup = next {
 		logger.Infof("send pre event for state %s", followup.Name())
 		s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PreState, Msg: msg.Msg, StateID: followup.Name()})
-		next, err = followup.Execute(msg.Msg, s.ctx)
+		next, err = followup.Execute(msg.Msg, msg.ThreadID, s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", followup.Name(), err)
 		}
+		logger.Infof("next state that need to be executed immediately: %s", next.Name())
 		err = s.update(msg.ThreadID, followup)
 		if err != nil {
 			return fmt.Errorf("failed to persist state %s %w", followup.Name(), err)
 		}
+		logger.Infof("persisted the connection using %s and updating the state to %s", msg.ThreadID, followup.Name())
 		logger.Infof("send post event for state %s", followup.Name())
 		s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PostState, Msg: msg.Msg, StateID: followup.Name()})
 	}
-
+	logger.Infof("--exited internal handle function--")
 	return nil
 }
 
@@ -324,16 +341,20 @@ func isNoOp(s state) bool {
 	return ok
 }
 
-func threadID(payload []byte) (string, error) {
+func threadID(didCommMsg dispatcher.DIDCommMsg) (string, error) {
+	var thid string
+	if !didCommMsg.Outbound && didCommMsg.Type == ConnectionInvite {
+		return uuid.New().String(), nil
+	}
 	msg := struct {
 		ID     string           `json:"@id"`
 		Thread decorator.Thread `json:"~thread,omitempty"`
 	}{}
-	err := json.Unmarshal(payload, &msg)
+	err := json.Unmarshal(didCommMsg.Payload, &msg)
 	if err != nil {
 		return "", fmt.Errorf("cannot unmarshal @id and ~thread: error=%s", err)
 	}
-	thid := msg.ID
+	thid = msg.ID
 	if len(msg.Thread.ID) > 0 {
 		thid = msg.Thread.ID
 	}
