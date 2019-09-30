@@ -12,6 +12,7 @@ SPDX-License-Identifier: Apache-2.0
 package ed25519signature2018
 
 import (
+	"crypto/sha512"
 	"errors"
 
 	"crypto/ed25519"
@@ -52,9 +53,8 @@ func (s *SignatureSuite) GetCanonicalDocument(doc map[string]interface{}) ([]byt
 
 // GetDigest returns document digest
 func (s *SignatureSuite) GetDigest(doc []byte) []byte {
-	// Nothing to do for Ed25519Signature2018 since ed25519.Verify does sha512 internally
-	// and it throws an error if it has already been done
-	return doc
+	digest := sha512.Sum512(doc)
+	return digest[:]
 }
 
 // Verify will verify ed25519 signature against public key
