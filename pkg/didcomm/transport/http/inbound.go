@@ -69,6 +69,7 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.I
 	err = messageHandler(unpackMsg.Message)
 	if err != nil {
 		// TODO HTTP Response Codes based on errors from service https://github.com/hyperledger/aries-framework-go/issues/271
+		logger.Errorf("incoming msg processing failed: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(http.StatusAccepted)
@@ -143,5 +144,6 @@ func (i *Inbound) Stop() error {
 
 // Endpoint provides the http connection details.
 func (i *Inbound) Endpoint() string {
-	return i.server.Addr
+	// return http prefix as framework only supports http
+	return "http://" + i.server.Addr
 }
