@@ -61,7 +61,7 @@ func (signer *DocumentSigner) Sign(context *Context, jsonLdDoc []byte) ([]byte, 
 	var jsonLdObject map[string]interface{}
 	err := json.Unmarshal(jsonLdDoc, &jsonLdObject)
 	if err != nil {
-		return nil, fmt.Errorf("failed tu unmarshall json ld document: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal json ld document: %w", err)
 	}
 
 	err = signer.signObject(context, jsonLdObject)

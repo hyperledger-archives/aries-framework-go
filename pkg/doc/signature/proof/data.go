@@ -53,8 +53,8 @@ func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]
 		return nil, errors.New("creator is missing")
 	}
 
-	_, ok = proofOptions[jsonldCreated]
-	if !ok {
+	value, ok = proofOptions[jsonldCreated]
+	if !ok || value == nil {
 		return nil, errors.New("created is missing")
 	}
 

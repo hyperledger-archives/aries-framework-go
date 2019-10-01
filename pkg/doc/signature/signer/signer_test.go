@@ -33,7 +33,7 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 	signedDoc, err := s.Sign(context, []byte("not json"))
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
-	require.Contains(t, err.Error(), "failed tu unmarshall json ld document")
+	require.Contains(t, err.Error(), "failed to unmarshal json ld document")
 
 	// test for invalid context
 	context.Creator = ""
