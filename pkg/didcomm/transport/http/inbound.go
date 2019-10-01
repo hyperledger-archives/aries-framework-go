@@ -126,6 +126,7 @@ func (i *Inbound) Start(prov transport.InboundProvider) error {
 
 	go func() {
 		if err := i.server.ListenAndServe(); err != http.ErrServerClosed {
+			// TODO add panic msg
 			logger.Fatalf("HTTP server start with address [%s] failed, cause:  %s", i.server.Addr, err)
 		}
 	}()

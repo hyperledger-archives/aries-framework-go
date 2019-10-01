@@ -10,3 +10,6 @@ coverage:
     patch:
       default:
         target: 85%
+
+ignore:
+  - "test/bdd"  # ignore bdd tests
