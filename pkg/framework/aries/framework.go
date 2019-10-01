@@ -65,50 +65,33 @@ func New(opts ...Option) (*Aries, error) {
 	//  on the context. The inbound transports require ctx.InboundMessageHandler(), which in-turn depends on
 	//  protocolServices. At the moment, there is a looping issue among these.
 	//  This needs to be resolved and should define a clear relationship between these.
-	ctxProvider, err := frameworkOpts.Context()
-	if err != nil {
-		return nil, fmt.Errorf("context creation failed: %w", err)
-	}
+
+	// Order of initializing service is important
 
 	// Create wallet
-	if e := createWallet(frameworkOpts, ctxProvider); e != nil {
+	if e := createWallet(frameworkOpts); e != nil {
 		return nil, e
 	}
 
-	// Load services
-	err = loadServices(frameworkOpts, ctxProvider)
+	// Create outbound dispatcher
+	err = createOutboundDispatcher(frameworkOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	ctxProvider, err = frameworkOpts.Context()
+	// Load services
+	err = loadServices(frameworkOpts)
 	if err != nil {
-		return nil, fmt.Errorf("context creation failed: %w", err)
+		return nil, err
 	}
 
-	// Start the inbound transport
-	if err = frameworkOpts.inboundTransport.Start(ctxProvider); err != nil {
-		return nil, fmt.Errorf("inbound transport start failed: %w", err)
-	}
-
-	// Create outbound dispatcher
-	err = createOutboundDispatcher(frameworkOpts, ctxProvider)
+	// Start inbound transport
+	err = startInboundTransport(frameworkOpts)
 	if err != nil {
 		return nil, err
 	}
 
 	return frameworkOpts, nil
-}
-
-func loadServices(frameworkOpts *Aries, ctxProvider api.Provider) error {
-	for _, v := range frameworkOpts.protocolSvcCreators {
-		svc, svcErr := v(ctxProvider)
-		if svcErr != nil {
-			return fmt.Errorf("new protocol service failed: %w", svcErr)
-		}
-		frameworkOpts.services = append(frameworkOpts.services, svc)
-	}
-	return nil
 }
 
 // WithTransportProviderFactory injects a protocol provider factory interface to Aries
@@ -210,21 +193,61 @@ func (a *Aries) Close() error {
 	return nil
 }
 
-func createWallet(frameworkOpts *Aries, ctxProvider api.Provider) error {
-	var err error
-	frameworkOpts.wallet, err = frameworkOpts.walletCreator(ctxProvider)
+func createWallet(frameworkOpts *Aries) error {
+	ctx, err := context.New(context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()),
+		context.WithStorageProvider(frameworkOpts.storeProvider))
+	if err != nil {
+		return fmt.Errorf("create context failed: %w", err)
+	}
+	frameworkOpts.wallet, err = frameworkOpts.walletCreator(ctx)
 	if err != nil {
 		return fmt.Errorf("create wallet failed: %w", err)
 	}
-
 	return nil
 }
 
-func createOutboundDispatcher(frameworkOpts *Aries, ctxProvider dispatcher.Provider) error {
-	var err error
-	frameworkOpts.outboundDispatcher, err = frameworkOpts.outboundDispatcherCreator(ctxProvider)
+func createOutboundDispatcher(frameworkOpts *Aries) error {
+	ot, err := frameworkOpts.transport.CreateOutboundTransport()
+	if err != nil {
+		return fmt.Errorf("outbound transport initialization failed: %w", err)
+	}
+	ctx, err := context.New(context.WithWallet(frameworkOpts.wallet), context.WithOutboundTransport(ot))
+	if err != nil {
+		return fmt.Errorf("context creation failed: %w", err)
+	}
+	frameworkOpts.outboundDispatcher, err = frameworkOpts.outboundDispatcherCreator(ctx)
 	if err != nil {
 		return fmt.Errorf("create outbound dispatcher failed: %w", err)
+	}
+	return nil
+}
+
+func startInboundTransport(frameworkOpts *Aries) error {
+	ctx, err := context.New(context.WithWallet(frameworkOpts.wallet),
+		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()),
+		context.WithProtocolServices(frameworkOpts.services...))
+	if err != nil {
+		return fmt.Errorf("context creation failed: %w", err)
+	}
+	// Start the inbound transport
+	if err = frameworkOpts.inboundTransport.Start(ctx); err != nil {
+		return fmt.Errorf("inbound transport start failed: %w", err)
+	}
+	return nil
+}
+
+func loadServices(frameworkOpts *Aries) error {
+	ctx, err := context.New(context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
+		context.WithWallet(frameworkOpts.wallet))
+	if err != nil {
+		return fmt.Errorf("create context failed: %w", err)
+	}
+	for _, v := range frameworkOpts.protocolSvcCreators {
+		svc, svcErr := v(ctx)
+		if svcErr != nil {
+			return fmt.Errorf("new protocol service failed: %w", svcErr)
+		}
+		frameworkOpts.services = append(frameworkOpts.services, svc)
 	}
 	return nil
 }
