@@ -31,6 +31,8 @@ const (
 	ackStatusOK        = "ok"
 )
 
+//TODO: This is temporary to move forward with bdd test will be fixed in Issue-353
+var temp string //nolint
 // The did-exchange protocol's state.
 type state interface {
 	// Name of this state.
@@ -39,7 +41,7 @@ type state interface {
 	CanTransitionTo(next state) bool
 	// Executes this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	Execute(msg dispatcher.DIDCommMsg, ctx context) (followup state, err error)
+	Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (followup state, err error)
 }
 
 // Returns the state towards which the protocol will transition to if the msgType is processed.
@@ -90,7 +92,7 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) Execute(_ dispatcher.DIDCommMsg, ctx context) (state, error) {
+func (s *noOp) Execute(_ dispatcher.DIDCommMsg, thid string, ctx context) (state, error) {
 	return nil, errors.New("cannot execute no-op")
 }
 
@@ -106,7 +108,7 @@ func (s *null) CanTransitionTo(next state) bool {
 	return stateNameInvited == next.Name() || stateNameRequested == next.Name()
 }
 
-func (s *null) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, error) {
+func (s *null) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, error) {
 	return &noOp{}, nil
 }
 
@@ -122,7 +124,7 @@ func (s *invited) CanTransitionTo(next state) bool {
 	return stateNameRequested == next.Name()
 }
 
-func (s *invited) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, error) {
+func (s *invited) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, error) {
 	if msg.Type != ConnectionInvite {
 		return nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
 	}
@@ -145,7 +147,7 @@ func (s *requested) CanTransitionTo(next state) bool {
 	return stateNameResponded == next.Name()
 }
 
-func (s *requested) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, error) { //nolint:dupl
+func (s *requested) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, error) { //nolint:dupl
 	switch msg.Type {
 	case ConnectionInvite:
 		if msg.Outbound {
@@ -156,7 +158,7 @@ func (s *requested) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, erro
 		if err != nil {
 			return nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
-		err = ctx.handleInboundInvitation(invitation)
+		err = ctx.handleInboundInvitation(invitation, thid)
 		if err != nil {
 			return nil, fmt.Errorf("handle inbound invitation failed: %s", err)
 		}
@@ -187,7 +189,7 @@ func (s *responded) CanTransitionTo(next state) bool {
 	return stateNameCompleted == next.Name()
 }
 
-func (s *responded) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, error) { //nolint:dupl
+func (s *responded) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, error) { //nolint:dupl
 	switch msg.Type {
 	case ConnectionRequest:
 		if msg.Outbound {
@@ -229,7 +231,7 @@ func (s *completed) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *completed) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, error) {
+func (s *completed) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, error) {
 	switch msg.Type {
 	case ConnectionResponse:
 		if msg.Outbound {
@@ -258,7 +260,7 @@ func (s *completed) Execute(msg dispatcher.DIDCommMsg, ctx context) (state, erro
 		return nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
 	}
 }
-func (ctx *context) handleInboundInvitation(invitation *Invitation) error {
+func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string) error {
 	// create a request from invitation
 	destination := &dispatcher.Destination{
 		RecipientKeys:   invitation.RecipientKeys,
@@ -271,13 +273,14 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation) error {
 	}
 	// choose the first public key
 	sendVerKey := string(newDidDoc.PublicKey[0].Value)
+	temp = sendVerKey
 	// prepare the request :
 	// TODO Service.Handle() is using the ID from the Invitation as the threadID when instead it should be
 	//  using this request's ID. issue-280
 	request := &Request{
 		Type:  ConnectionRequest,
-		ID:    uuid.New().String(),
-		Label: "Bob", //TODO: How to figure out the label of the request #281
+		ID:    thid,
+		Label: "",
 		Connection: &Connection{
 			DID:    newDidDoc.ID,
 			DIDDoc: newDidDoc,
@@ -381,7 +384,7 @@ func prepareDestination(didDoc *did.Doc) *dispatcher.Destination {
 
 	recipientKeys := make([]string, len(pubKey))
 	for i, v := range pubKey {
-		recipientKeys[i] = fmt.Sprint(v)
+		recipientKeys[i] = string(v.Value)
 	}
 	return &dispatcher.Destination{
 		RecipientKeys:   recipientKeys,
@@ -417,7 +420,7 @@ func (ctx *context) sendOutboundAck(msg dispatcher.DIDCommMsg) error {
 		return err
 	}
 	// TODO : Issue-353
-	sendVerKey := ""
+	sendVerKey := temp
 	return ctx.outboundDispatcher.Send(ack, sendVerKey, destination)
 }
 func (ctx *context) handleInboundResponse(response *Response) error {
@@ -426,7 +429,7 @@ func (ctx *context) handleInboundResponse(response *Response) error {
 		ID:     uuid.New().String(),
 		Status: ackStatusOK,
 		Thread: &decorator.Thread{
-			ID: response.ID,
+			ID: response.Thread.ID,
 		},
 	}
 	connBytes, err := base64.URLEncoding.DecodeString(response.ConnectionSignature.SignedData)
@@ -441,6 +444,6 @@ func (ctx *context) handleInboundResponse(response *Response) error {
 	}
 	dest := prepareDestination(conn.DIDDoc)
 	// TODO : Issue-353
-	sendVerKey := ""
+	sendVerKey := temp
 	return ctx.outboundDispatcher.Send(ack, sendVerKey, dest)
 }
