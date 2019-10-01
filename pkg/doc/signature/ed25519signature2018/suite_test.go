@@ -23,6 +23,12 @@ func TestSignatureSuite_Sign(t *testing.T) {
 	signature, err := ss.Sign(privKey, []byte("test doc"))
 	require.NoError(t, err)
 	require.NotEmpty(t, signature)
+
+	// test wrong private key size
+	signature, err = ss.Sign([]byte("private"), []byte("test doc"))
+	require.NotNil(t, err)
+	require.Nil(t, signature)
+	require.Contains(t, err.Error(), "ed25519: bad private key length")
 }
 
 func TestSignatureSuite_Verify(t *testing.T) {
@@ -50,6 +56,11 @@ func TestSignatureSuite_Verify(t *testing.T) {
 	err = ss.Verify(pubKey, doc, []byte("signature"))
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "signature doesn't match")
+
+	// test wrong public key size
+	err = ss.Verify([]byte("key"), doc, signature)
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "ed25519: bad public key length")
 }
 
 func TestSignatureSuite_GetCanonicalDocument(t *testing.T) {

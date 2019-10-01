@@ -12,10 +12,9 @@ SPDX-License-Identifier: Apache-2.0
 package ed25519signature2018
 
 import (
+	"crypto/ed25519"
 	"crypto/sha512"
 	"errors"
-
-	"crypto/ed25519"
 
 	"github.com/piprate/json-gold/ld"
 )
@@ -59,6 +58,11 @@ func (s *SignatureSuite) GetDigest(doc []byte) []byte {
 
 // Verify will verify ed25519 signature against public key
 func (s *SignatureSuite) Verify(pubKey, doc, signature []byte) error {
+	// ed25519 panics if key size is wrong
+	if l := len(pubKey); l != ed25519.PublicKeySize {
+		return errors.New("ed25519: bad public key length")
+	}
+
 	verified := ed25519.Verify(pubKey, doc, signature)
 	if !verified {
 		return errors.New("signature doesn't match")
@@ -68,6 +72,10 @@ func (s *SignatureSuite) Verify(pubKey, doc, signature []byte) error {
 
 // Sign will return ed25519 signature
 func (s *SignatureSuite) Sign(privKey, doc []byte) ([]byte, error) {
+	// ed25519 panics if key size is wrong
+	if l := len(privKey); l != ed25519.PrivateKeySize {
+		return nil, errors.New("ed25519: bad private key length")
+	}
 	signature := ed25519.Sign(privKey, doc)
 	return signature, nil
 }

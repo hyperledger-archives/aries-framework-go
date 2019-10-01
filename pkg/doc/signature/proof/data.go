@@ -24,6 +24,7 @@ type signatureSuite interface {
 func CreateVerifyHashAlgorithm(suite signatureSuite, jsonldDoc, proofOptions map[string]interface{}) ([]byte, error) {
 	// in  order to generate canonical form we need context
 	// if context is not passed, use document's context
+	// spec doesn't mention anything about context
 	_, ok := proofOptions[jsonldContext]
 	if !ok {
 		proofOptions[jsonldContext] = jsonldDoc[jsonldContext]
@@ -47,8 +48,8 @@ func CreateVerifyHashAlgorithm(suite signatureSuite, jsonldDoc, proofOptions map
 }
 
 func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]interface{}) ([]byte, error) {
-	_, ok := proofOptions[jsonldCreator]
-	if !ok {
+	value, ok := proofOptions[jsonldCreator]
+	if !ok || value == nil {
 		return nil, errors.New("creator is missing")
 	}
 
