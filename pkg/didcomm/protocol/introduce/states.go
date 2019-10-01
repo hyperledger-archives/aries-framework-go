@@ -65,9 +65,9 @@ func (s *start) Name() string {
 }
 
 func (s *start) CanTransitionTo(next state) bool {
-	// Introducer can go to arranging or done state
+	// Introducer can go to arranging or delivering state
 	// Introducee can go to deciding
-	return next.Name() == stateNameArranging || next.Name() == stateNameDone || next.Name() == stateNameDeciding
+	return next.Name() == stateNameArranging || next.Name() == stateNameDelivering || next.Name() == stateNameDeciding
 }
 
 func (s *start) Execute(msg dispatcher.DIDCommMsg) (state, error) {
