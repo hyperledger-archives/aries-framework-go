@@ -94,9 +94,9 @@ func (s *DIDStore) Get(id string) (*did.Doc, error) {
 		return nil, fmt.Errorf("decoding of document delta failed: %w", err)
 	}
 
-	document, err := did.FromBytes(doc)
+	document, err := did.ParseDocument(doc)
 	if err != nil {
-		return nil, fmt.Errorf("document FromBytes() failed: %w", err)
+		return nil, fmt.Errorf("document ParseDocument() failed: %w", err)
 	}
 
 	return document, nil

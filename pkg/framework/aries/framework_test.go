@@ -149,7 +149,7 @@ func TestFramework(t *testing.T) {
 
 		resolvedDoc, err := aries.DIDResolver().Resolve(peerDID)
 		require.NoError(t, err)
-		originalDoc, err := did.FromBytes([]byte(doc))
+		originalDoc, err := did.ParseDocument([]byte(doc))
 		require.NoError(t, err)
 
 		require.Equal(t, originalDoc, resolvedDoc)
@@ -168,7 +168,7 @@ func TestFramework(t *testing.T) {
 
 		peerDID := "did:peer:21tDAKCERh95uGgKbJNHYp"
 		store := peer.NewDIDStore(dbstore)
-		originalDoc, err := did.FromBytes([]byte(doc))
+		originalDoc, err := did.ParseDocument([]byte(doc))
 		require.NoError(t, err)
 		err = store.Put(originalDoc, nil)
 		require.NoError(t, err)

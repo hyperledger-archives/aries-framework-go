@@ -65,7 +65,7 @@ func (r *DIDResolver) Resolve(did string, opts ...ResolveOpt) (*diddoc.Doc, erro
 	}
 
 	// Validate that the output DID Document conforms to the serialization of the DID Document data model
-	didDoc, err := diddoc.FromBytes(didDocBytes)
+	didDoc, err := diddoc.ParseDocument(didDocBytes)
 	if err != nil {
 		return nil, err
 	}

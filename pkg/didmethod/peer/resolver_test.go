@@ -106,7 +106,7 @@ func TestWithDIDResolveAPI(t *testing.T) {
 
 	// save did document
 	store := NewDIDStore(dbstore)
-	peerDoc, err := did.FromBytes([]byte(peerDIDDoc))
+	peerDoc, err := did.ParseDocument([]byte(peerDIDDoc))
 	require.NoError(t, err)
 	require.NotNil(t, peerDoc)
 	err = store.Put(peerDoc, nil)
