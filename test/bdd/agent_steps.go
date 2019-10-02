@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DATA-DOG/godog"
@@ -56,10 +57,13 @@ func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error
 		return fmt.Errorf("failed to create new didexchange client: %w", err)
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/394 handle client events
 	actionCh := make(chan dispatcher.DIDCommAction)
 	err = didexchangeClient.RegisterActionEvent(actionCh)
-	go didexchange.AutoExecuteActionEvent(actionCh)
+	go func() {
+		if err := didexchange.AutoExecuteActionEvent(actionCh); err != nil {
+			panic(err)
+		}
+	}()
 
 	a.bddContext.DIDExchangeClients[agentID] = didexchangeClient
 
@@ -72,9 +76,40 @@ func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error
 
 }
 
+func (a *AgentSteps) registerPostMsgEvent(agentID, statesValue string) error {
+	statusCh := make(chan dispatcher.StateMsg, 10)
+	if err := a.bddContext.DIDExchangeClients[agentID].RegisterMsgEvent(statusCh); err != nil {
+		return fmt.Errorf("failed to register msg event: %w", err)
+	}
+	states := strings.Split(statesValue, ",")
+	a.initializeStates(states)
+	go func() {
+		for e := range statusCh {
+			if e.Type == dispatcher.PostState {
+				for _, state := range states {
+					// receive the events
+					if e.StateID == state {
+						a.bddContext.PostStatesFlag[state] <- true
+					}
+
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (a *AgentSteps) initializeStates(states []string) {
+	for _, state := range states {
+		a.bddContext.PostStatesFlag[state] = make(chan bool)
+	}
+}
+
 // RegisterSteps registers agent steps
 func (a *AgentSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)"$`, a.createAgent)
+	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, a.registerPostMsgEvent)
 }
 
 func mustGetRandomPort(n int) int {

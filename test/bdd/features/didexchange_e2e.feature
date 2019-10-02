@@ -11,7 +11,11 @@ Feature: Decentralized Identifier(DID) exchange between the agents
   @didexchange_e2e
   Scenario: did exchange e2e flow
     Given "Alice" agent is running on "localhost" port "random"
+    And   "Alice" registers to receive notification for post state event "completed"
     Given "Bob" agent is running on "localhost" port "random"
+    And   "Bob" registers to receive notification for post state event "completed"
     And   "Alice" creates invitation
     And   "Bob" receives invitation from "Alice"
+    And   "Alice" waits for post state event "completed"
+    And   "Bob" waits for post state event "completed"
 
