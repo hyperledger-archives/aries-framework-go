@@ -10,17 +10,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
-
-var logger = log.New("aries-framework/didexchange-client")
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
@@ -38,6 +36,10 @@ type Client struct {
 	inboundTransportEndpoint string
 	actionCh                 chan dispatcher.DIDCommAction
 	msgCh                    chan dispatcher.StateMsg
+	actionEvent              chan<- dispatcher.DIDCommAction
+	actionEventlock          sync.RWMutex
+	msgEvents                []chan<- dispatcher.StateMsg
+	msgEventsLock            sync.RWMutex
 }
 
 // New return new instance of didexchange client
@@ -59,6 +61,7 @@ func New(ctx provider) (*Client, error) {
 		msgCh:    make(chan dispatcher.StateMsg, 10),
 	}
 
+	// start listening for action/message events
 	err = c.startServiceEventListener()
 	if err != nil {
 		return nil, fmt.Errorf("service event listener startup failed: %w", err)
@@ -120,7 +123,6 @@ func (c *Client) RemoveConnection(id string) error {
 
 // startServiceEventListener listens to action and message events from DID Exchange service.
 func (c *Client) startServiceEventListener() error {
-	// register the action event channel
 	err := c.didexchangeSvc.RegisterActionEvent(c.actionCh)
 	if err != nil {
 		return fmt.Errorf("didexchange action event registration failed: %w", err)
@@ -132,22 +134,109 @@ func (c *Client) startServiceEventListener() error {
 		return fmt.Errorf("didexchange message event registration failed: %w", err)
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/199 - Generate Client events
-	// for now, auto execute the actions
+	// listen for action event and message events
 	go func() {
-		err := didexchange.AutoExecuteActionEvent(c.actionCh)
-		if err != nil {
-			logger.Errorf("auto action event execution failed: %s", err)
-		}
-	}()
-
-	go func() {
-		for e := range c.msgCh {
-			// TODO https://github.com/hyperledger/aries-framework-go/issues/199 - Generate Client events
-			// for now, log the messages
-			logger.Infof("message event received : type=%d state=%s", e.Type, e.StateID)
+		for {
+			select {
+			case e := <-c.actionCh:
+				// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
+				msg := e
+				c.handleActionEvent(&msg)
+			case e := <-c.msgCh:
+				// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
+				msg := e
+				c.handleMessageEvent(&msg)
+			}
 		}
 	}()
 
 	return nil
+}
+
+// RegisterActionEvent on DID Exchange protocol messages. The events are triggered for incoming exchangeRequest,
+// exchangeResponse and exchangeAck message types. The consumer need to invoke the callback to resume processing.
+// Only one channel can be registered for the action events. The function will throw error if a channel is already
+// registered. The AutoExecuteActionEvent() function can be used to automatically trigger callback function for the
+// event.
+func (c *Client) RegisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+	c.actionEventlock.Lock()
+	defer c.actionEventlock.Unlock()
+
+	if c.actionEvent != nil {
+		return errors.New("channel is already registered for the action event")
+	}
+
+	c.actionEvent = ch
+
+	return nil
+}
+
+// UnregisterActionEvent on DID Exchange protocol messages. Refer RegisterActionEvent().
+func (c *Client) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+	c.actionEventlock.Lock()
+	defer c.actionEventlock.Unlock()
+
+	if c.actionEvent != ch {
+		return errors.New("invalid channel passed to unregister the action event")
+	}
+
+	c.actionEvent = nil
+
+	return nil
+}
+
+// RegisterMsgEvent on DID Exchange protocol messages. The message events are triggered for state transitions. Client
+// will not expect any callback on these events unlike Action events.
+func (c *Client) RegisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
+	c.msgEventsLock.Lock()
+	c.msgEvents = append(c.msgEvents, ch)
+	c.msgEventsLock.Unlock()
+
+	return nil
+}
+
+// UnregisterMsgEvent on DID Exchange protocol messages.
+func (c *Client) UnregisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
+	c.msgEventsLock.Lock()
+	for i := 0; i < len(c.msgEvents); i++ {
+		if c.msgEvents[i] == ch {
+			c.msgEvents = append(c.msgEvents[:i], c.msgEvents[i+1:]...)
+			i--
+		}
+	}
+	c.msgEventsLock.Unlock()
+
+	return nil
+}
+
+func (c *Client) handleActionEvent(msg *dispatcher.DIDCommAction) {
+	c.actionEventlock.RLock()
+	aEvent := c.actionEvent
+	c.actionEventlock.RLock()
+
+	aEvent <- *msg
+}
+
+func (c *Client) handleMessageEvent(msg *dispatcher.StateMsg) {
+	c.msgEventsLock.RLock()
+	statusEvents := c.msgEvents
+	c.msgEventsLock.RUnlock()
+
+	for _, handler := range statusEvents {
+		handler <- *msg
+	}
+}
+
+// AutoExecuteActionEvent is a utility function to execute events automatically. The function requires a channel to be
+// passed-in to listen for dispatcher.DIDCommAction and triggers the callback. This is a blocking function and use
+// this function with a goroutine.
+//
+// Usage:
+//  c := didexchange.New(....)
+//	actionCh := make(chan dispatcher.DIDCommAction)
+//	err = c.RegisterActionEvent(actionCh)
+//	go didexchange.AutoExecuteActionEvent(actionCh)
+func AutoExecuteActionEvent(ch chan dispatcher.DIDCommAction) error {
+	// wrap utility from client package
+	return didexchange.AutoExecuteActionEvent(ch)
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 )
@@ -54,6 +55,11 @@ func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error
 	if err != nil {
 		return fmt.Errorf("failed to create new didexchange client: %w", err)
 	}
+
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/394 handle client events
+	actionCh := make(chan dispatcher.DIDCommAction)
+	err = didexchangeClient.RegisterActionEvent(actionCh)
+	go didexchange.AutoExecuteActionEvent(actionCh)
 
 	a.bddContext.DIDExchangeClients[agentID] = didexchangeClient
 
