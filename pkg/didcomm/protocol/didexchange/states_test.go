@@ -516,7 +516,6 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		connectionSignature, err := prepareConnectionSignature(connection)
 		require.NoError(t, err)
 		require.NotNil(t, connectionSignature)
-		require.Equal(t, connectionSignature.Type, "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single")
 	})
 }
 

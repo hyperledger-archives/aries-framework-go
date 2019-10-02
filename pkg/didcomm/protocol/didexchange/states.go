@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -295,7 +298,6 @@ func (ctx *context) handleInboundRequest(request *Request) error {
 	if err != nil {
 		return err
 	}
-
 	connection := &Connection{
 		DID:    newDidDoc.ID,
 		DIDDoc: newDidDoc,
@@ -356,9 +358,14 @@ func (ctx *context) sendOutboundResponse(msg dispatcher.DIDCommMsg) error {
 		return fmt.Errorf("unmarhalling outbound response: %s", err)
 	}
 
-	connBytes, err := base64.URLEncoding.DecodeString(response.ConnectionSignature.SignedData)
+	var connBytes []byte
+	sigData, err := base64.URLEncoding.DecodeString(response.ConnectionSignature.SignedData)
 	if err != nil {
 		return fmt.Errorf("decoding string failed : %s", err)
+	}
+	if len(sigData) != 0 {
+		// trimming the timestamp and only taking out connection attribute Bytes
+		connBytes = sigData[bytes.IndexRune(sigData, '{'):]
 	}
 
 	connection := &Connection{}
@@ -394,15 +401,23 @@ func prepareDestination(didDoc *did.Doc) *dispatcher.Destination {
 
 // Encode the connection and convert to Connection Signature as per the spec.
 func prepareConnectionSignature(connection *Connection) (*ConnectionSignature, error) {
-	conBytes, err := json.Marshal(connection)
+	connAttribute, err := json.Marshal(connection)
 	if err != nil {
 		return nil, err
 	}
-	sigData := base64.URLEncoding.EncodeToString(conBytes)
-	// TODO - compute the actual signature and add it issue-319
+	now := getEpochTime()
+	timestamp := strconv.FormatInt(now, 10)
+	connString := string(connAttribute)
+	concatenateSignData := []byte(timestamp + connString)
+	pubKey := connection.DIDDoc.PublicKey[0].Value
+
+	// Todo signature : wallets needs to return signer interface that will have Sign function
+	//  where sigData is passed issue-319
 	return &ConnectionSignature{
 		Type:       "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single",
-		SignedData: sigData}, nil
+		SignedData: base64.URLEncoding.EncodeToString(concatenateSignData),
+		SignVerKey: string(pubKey),
+	}, nil
 }
 func (ctx *context) sendOutboundAck(msg dispatcher.DIDCommMsg) error {
 	ack := &model.Ack{}
@@ -432,18 +447,27 @@ func (ctx *context) handleInboundResponse(response *Response) error {
 			ID: response.Thread.ID,
 		},
 	}
-	connBytes, err := base64.URLEncoding.DecodeString(response.ConnectionSignature.SignedData)
+
+	var connBytes []byte
+	sigData, err := base64.URLEncoding.DecodeString(response.ConnectionSignature.SignedData)
 	if err != nil {
-		return err
+		return fmt.Errorf("decoding string failed : %s", err)
 	}
-	//TODO: Issue-345 The first few bytes of connBytes contains a timestamp needs to be stripped
+	if len(sigData) != 0 {
+		// trimming the timestamp and only taking out connection attribute Bytes
+		connBytes = sigData[bytes.IndexRune(sigData, '{'):]
+	}
 	conn := &Connection{}
 	err = json.Unmarshal(connBytes, conn)
 	if err != nil {
-		return err
+		return fmt.Errorf("unmarshalling failed : %s", err)
 	}
 	dest := prepareDestination(conn.DIDDoc)
 	// TODO : Issue-353
 	sendVerKey := temp
 	return ctx.outboundDispatcher.Send(ack, sendVerKey, dest)
+}
+
+func getEpochTime() int64 {
+	return time.Now().Unix()
 }
