@@ -127,10 +127,31 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 func TestServiceEvents(t *testing.T) {
 	store := &mockstore.MockStore{Store: make(map[string][]byte)}
 	didExSvc := didexchange.New(store, &did.MockDIDCreator{}, &mockProvider{})
+
+	// create the client
 	c, err := New(&mockprovider.Provider{ServiceValue: didExSvc})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
+	// register action event channel
+	aCh := make(chan dispatcher.DIDCommAction, 10)
+	err = c.RegisterActionEvent(aCh)
+	require.NoError(t, err)
+	go func() {
+		require.NoError(t, AutoExecuteActionEvent(aCh))
+	}()
+
+	// register message event channel
+	mCh := make(chan dispatcher.StateMsg, 10)
+	err = c.RegisterMsgEvent(mCh)
+	require.NoError(t, err)
+	go func() {
+		for e := range mCh {
+			fmt.Println("message = ", e.Type)
+		}
+	}()
+
+	// send connection request message
 	id := "valid-thread-id"
 	newDidDoc, err := (&did.MockDIDCreator{}).CreateDID()
 	require.NoError(t, err)
@@ -179,34 +200,24 @@ func validateState(t *testing.T, store storage.Store, id, expected string, timeo
 }
 
 func TestServiceEventError(t *testing.T) {
-	store := &mockstore.MockStore{Store: make(map[string][]byte)}
-	didExSvc := didexchange.New(store, &did.MockDIDCreator{}, &mockProvider{})
-
-	// register action event on service before client registers it (only one can be registered)
-	actionCh := make(chan dispatcher.DIDCommAction)
-	err := didExSvc.RegisterActionEvent(actionCh)
-	require.NoError(t, err)
-
-	_, err = New(&mockprovider.Provider{ServiceValue: didExSvc})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "service event listener startup failed")
-
-	// unregister the action event and client creation shouldn't fail.
-	err = didExSvc.UnregisterActionEvent(actionCh)
-	require.NoError(t, err)
-
-	c, err := New(&mockprovider.Provider{ServiceValue: didExSvc})
-	require.NoError(t, err)
-	require.NotNil(t, c)
-
-	// register msg event error
-	s := mockprotocol.MockDIDExchangeSvc{
-		ProtocolName:        didexchange.DIDExchange,
-		RegisterMsgEventErr: errors.New("error"),
+	didExSvc := mockprotocol.MockDIDExchangeSvc{
+		ProtocolName:           didexchange.DIDExchange,
+		RegisterActionEventErr: errors.New("action event registration failed"),
+		RegisterMsgEventErr:    errors.New("msg event registration failed"),
 	}
-	_, err = New(&mockprovider.Provider{ServiceValue: &s})
+
+	// register action event on service throws error
+	_, err := New(&mockprovider.Provider{ServiceValue: &didExSvc})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "service event listener startup failed")
+	require.Contains(t, err.Error(), "service event listener startup failed: didexchange action event "+
+		"registration failed: action event registration failed")
+
+	// register msg event on service throws error
+	didExSvc.RegisterActionEventErr = nil
+	_, err = New(&mockprovider.Provider{ServiceValue: &didExSvc})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "service event listener startup failed: didexchange message event "+
+		"registration failed: msg event registration failed")
 }
 
 type mockProvider struct {
@@ -214,4 +225,94 @@ type mockProvider struct {
 
 func (m *mockProvider) OutboundDispatcher() dispatcher.Outbound {
 	return &mockdispatcher.MockOutbound{}
+}
+
+func TestService_ActionEvent(t *testing.T) {
+	c, err := New(&mockprovider.Provider{ServiceValue: &mockprotocol.MockDIDExchangeSvc{}})
+	require.NoError(t, err)
+
+	// validate before register
+	require.Nil(t, c.actionEvent)
+
+	// register an action event
+	ch := make(chan dispatcher.DIDCommAction)
+	err = c.RegisterActionEvent(ch)
+	require.NoError(t, err)
+
+	// register another action event
+	err = c.RegisterActionEvent(make(chan dispatcher.DIDCommAction))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "channel is already registered for the action event")
+
+	// validate after register
+	require.NotNil(t, c.actionEvent)
+
+	// unregister a action event
+	err = c.UnregisterActionEvent(ch)
+	require.NoError(t, err)
+
+	// validate after unregister
+	require.Nil(t, c.actionEvent)
+
+	// unregister with different channel
+	err = c.UnregisterActionEvent(make(chan dispatcher.DIDCommAction))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid channel passed to unregister the action event")
+}
+
+func TestService_MsgEvents(t *testing.T) {
+	c, err := New(&mockprovider.Provider{ServiceValue: &mockprotocol.MockDIDExchangeSvc{}})
+	require.NoError(t, err)
+
+	// validate before register
+	require.Nil(t, c.msgEvents)
+	require.Equal(t, 0, len(c.msgEvents))
+
+	// register a status event
+	ch := make(chan dispatcher.StateMsg)
+	err = c.RegisterMsgEvent(ch)
+	require.NoError(t, err)
+
+	// validate after register
+	require.NotNil(t, c.msgEvents)
+	require.Equal(t, 1, len(c.msgEvents))
+
+	// register a new status event
+	err = c.RegisterMsgEvent(make(chan dispatcher.StateMsg))
+	require.NoError(t, err)
+
+	// validate after new register
+	require.NotNil(t, c.msgEvents)
+	require.Equal(t, 2, len(c.msgEvents))
+
+	// unregister a status event
+	err = c.UnregisterMsgEvent(ch)
+	require.NoError(t, err)
+
+	// validate after unregister
+	require.Equal(t, 1, len(c.msgEvents))
+
+	// add channels and remove in opposite order
+	c.msgEvents = nil
+	ch1 := make(chan dispatcher.StateMsg)
+	ch2 := make(chan dispatcher.StateMsg)
+	ch3 := make(chan dispatcher.StateMsg)
+
+	err = c.RegisterMsgEvent(ch1)
+	require.NoError(t, err)
+
+	err = c.RegisterMsgEvent(ch2)
+	require.NoError(t, err)
+
+	err = c.RegisterMsgEvent(ch3)
+	require.NoError(t, err)
+
+	err = c.UnregisterMsgEvent(ch3)
+	require.NoError(t, err)
+
+	err = c.UnregisterMsgEvent(ch2)
+	require.NoError(t, err)
+
+	err = c.UnregisterMsgEvent(ch1)
+	require.NoError(t, err)
 }

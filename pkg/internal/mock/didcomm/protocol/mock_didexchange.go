@@ -10,10 +10,13 @@ import "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 
 // MockDIDExchangeSvc mock did exchange service
 type MockDIDExchangeSvc struct {
-	ProtocolName        string
-	HandleFunc          func(dispatcher.DIDCommMsg) error
-	AcceptFunc          func(string) bool
-	RegisterMsgEventErr error
+	ProtocolName             string
+	HandleFunc               func(dispatcher.DIDCommMsg) error
+	AcceptFunc               func(string) bool
+	RegisterActionEventErr   error
+	UnregisterActionEventErr error
+	RegisterMsgEventErr      error
+	UnregisterMsgEventErr    error
 }
 
 // Handle msg
@@ -42,11 +45,17 @@ func (m *MockDIDExchangeSvc) Name() string {
 
 // RegisterActionEvent register action event.
 func (m *MockDIDExchangeSvc) RegisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+	if m.RegisterActionEventErr != nil {
+		return m.RegisterActionEventErr
+	}
 	return nil
 }
 
 // UnregisterActionEvent unregister action event.
 func (m *MockDIDExchangeSvc) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+	if m.UnregisterActionEventErr != nil {
+		return m.UnregisterActionEventErr
+	}
 	return nil
 }
 
@@ -60,5 +69,8 @@ func (m *MockDIDExchangeSvc) RegisterMsgEvent(ch chan<- dispatcher.StateMsg) err
 
 // UnregisterMsgEvent unregister message event.
 func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
+	if m.UnregisterMsgEventErr != nil {
+		return m.UnregisterMsgEventErr
+	}
 	return nil
 }
