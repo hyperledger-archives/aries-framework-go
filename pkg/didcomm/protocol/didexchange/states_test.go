@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -520,7 +522,13 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		connectionSignature, err := prepareConnectionSignature(connection)
 		require.NoError(t, err)
 		require.NotNil(t, connectionSignature)
-		require.Equal(t, connectionSignature.Type, "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single")
+		sigData, err := base64.URLEncoding.DecodeString(connectionSignature.SignedData)
+		require.NoError(t, err)
+		connBytes := sigData[bytes.IndexRune(sigData, '{'):]
+		sigDataConnection := &Connection{}
+		err = json.Unmarshal(connBytes, sigDataConnection)
+		require.NoError(t, err)
+		require.Equal(t, connection.DID, sigDataConnection.DID)
 	})
 }
 
@@ -549,9 +557,9 @@ func TestNewRequestFromInvitation(t *testing.T) {
 			ServiceEndpoint: "https://localhost:8090",
 			RoutingKeys:     []string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
 		}
-		bytes, err := json.Marshal(invitation)
+		invitationBytes, err := json.Marshal(invitation)
 		require.NoError(t, err)
-		thid, err := threadID(dispatcher.DIDCommMsg{Type: ConnectionInvite, Payload: bytes, Outbound: false})
+		thid, err := threadID(dispatcher.DIDCommMsg{Type: ConnectionInvite, Payload: invitationBytes, Outbound: false})
 		require.NoError(t, err)
 		_, err = ctx.handleInboundInvitation(invitation, thid)
 		require.NoError(t, err)
@@ -561,9 +569,9 @@ func TestNewRequestFromInvitation(t *testing.T) {
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Failure: fmt.Errorf("create DID error")}}
 		invitation := &Invitation{}
-		bytes, err := json.Marshal(invitation)
+		invitationBytes, err := json.Marshal(invitation)
 		require.NoError(t, err)
-		thid, err := threadID(dispatcher.DIDCommMsg{Type: ConnectionInvite, Payload: bytes, Outbound: false})
+		thid, err := threadID(dispatcher.DIDCommMsg{Type: ConnectionInvite, Payload: invitationBytes, Outbound: false})
 		require.NoError(t, err)
 		_, err = ctx.handleInboundInvitation(invitation, thid)
 		require.Error(t, err)
