@@ -9,6 +9,7 @@ package bdd
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/DATA-DOG/godog"
@@ -43,9 +44,19 @@ func (d *DIDExchangeSteps) receiveInvitation(inviteeAgentID, inviterAgentID stri
 	if err != nil {
 		return fmt.Errorf("failed to handle invitation: %w", err)
 	}
-	// TODO remove it after have the ability to register for events
-	time.Sleep(2 * time.Second)
 	logger.Infof("Agent %s receive invitation from Agent %s", inviteeAgentID, inviterAgentID)
+	return nil
+}
+
+func (d *DIDExchangeSteps) waitForPostEvent(inviteeAgentID, statesValue string) error {
+	states := strings.Split(statesValue, ",")
+	for _, state := range states {
+		select {
+		case <-d.bddContext.PostStatesFlag[state]:
+		case <-time.After(5 * time.Second):
+			return fmt.Errorf("timeout waiting for post state event %s", state)
+		}
+	}
 	return nil
 }
 
@@ -53,5 +64,6 @@ func (d *DIDExchangeSteps) receiveInvitation(inviteeAgentID, inviterAgentID stri
 func (d *DIDExchangeSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)"$`, d.receiveInvitation)
+	s.Step(`^"([^"]*)" waits for post state event "([^"]*)"$`, d.waitForPostEvent)
 
 }
