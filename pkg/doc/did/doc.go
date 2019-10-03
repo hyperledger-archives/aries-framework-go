@@ -16,6 +16,8 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/xeipuuv/gojsonschema"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 const (
@@ -428,6 +430,45 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 
 	return byteDoc, nil
 }
+
+// VerifyProof verifies document proofs
+func (doc *Doc) VerifyProof() error {
+	if len(doc.Proof) == 0 {
+		return ErrProofNotFound
+	}
+
+	docBytes, err := doc.JSONBytes()
+	if err != nil {
+		return err
+	}
+
+	v := verifier.New(&didKeyResolver{doc.PublicKey})
+	if err := v.Verify(docBytes); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ErrProofNotFound is returned when proof is not found
+var ErrProofNotFound = errors.New("proof not found")
+
+// didKeyResolver implements public key resolution for DID public keys
+type didKeyResolver struct {
+	PubKeys []PublicKey
+}
+
+func (r *didKeyResolver) Resolve(id string) ([]byte, error) {
+	for _, key := range r.PubKeys {
+		if key.ID == id {
+			return key.Value, nil
+		}
+	}
+	return nil, ErrKeyNotFound
+}
+
+// ErrKeyNotFound is returned when key is not found
+var ErrKeyNotFound = errors.New("key not found")
 
 func populateRawServices(services []Service) []map[string]interface{} {
 	var rawServices []map[string]interface{}
