@@ -15,9 +15,10 @@ import (
 	insecurerand "math/rand"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/nacl/sign"
 )
@@ -47,111 +48,132 @@ func (fw *failReader) Read(out []byte) (int, error) {
 	return fw.data.Read(out)
 }
 
-func TestBadConfig(t *testing.T) {
-	t.Run("Missing recipients", func(t *testing.T) {
-		senderKey, err := randEdKeyPair(rand.Reader)
-		require.NoError(t, err)
-
-		_, err = New(*senderKey, []*publicEd25519{})
-		require.Errorf(t, err, "empty recipients keys, must have at least one recipient")
-	})
-
-	t.Run("Bad sender keyPair", func(t *testing.T) {
-		senderKey := keyPairEd25519{}
-
-		recKey, err := randEdKeyPair(rand.Reader)
-		require.NoError(t, err)
-
-		_, err = New(senderKey, []*publicEd25519{recKey.pub})
-		require.Errorf(t, err,
-			"sender keyPair not supported, it must have a %d byte private key and %d byte public key",
-			ed25519.PublicKeySize, ed25519.PrivateKeySize)
-	})
-}
-
 func TestEncrypt(t *testing.T) {
-	t.Run("Success test case: given keys, generate envelope", func(t *testing.T) {
-		senderKey := getB58EdKey(
+	t.Run("Failure: encrypt without any recipients", func(t *testing.T) {
+		senderKey := getB58Key(
 			"Bxp2KpXeh6RgXXRVGRQUskT9qT35aSSz1JvdbMUcB2Yc",
 			"2QqgiHtrUtDPpfoZG2C3Qi8a1MbLQuTZaaScu5LzQbUCkw5YnXngKLMJ8VuPgoN3Piqt1PBUACVd6uQRmtayZp2x")
 
-		print("sendPK: ", base58.Encode(senderKey.pub[:]), "\n")
-		print("sendSK: ", base58.Encode(senderKey.priv[:]), "\n")
+		crypter := New()
+		require.NotEmpty(t, crypter)
 
-		recipientKey := getB58EdKey(
+		_, err := crypter.Encrypt([]byte("Test Message"), *senderKey, [][]byte{})
+		require.EqualError(t, err, "empty recipients keys, must have at least one recipient")
+	})
+
+	t.Run("Failure: encrypt with an invalid-size recipient key", func(t *testing.T) {
+		senderKey := getB58Key(
+			"Bxp2KpXeh6RgXXRVGRQUskT9qT35aSSz1JvdbMUcB2Yc",
+			"2QqgiHtrUtDPpfoZG2C3Qi8a1MbLQuTZaaScu5LzQbUCkw5YnXngKLMJ8VuPgoN3Piqt1PBUACVd6uQRmtayZp2x")
+
+		crypter := New()
+		require.NotEmpty(t, crypter)
+
+		_, err := crypter.Encrypt([]byte("Test Message"), *senderKey, [][]byte{{0, 0, 0, 0, 0, 0, 0, 0}})
+		require.EqualError(t, err, "recipient key has invalid size 8")
+	})
+
+	t.Run("Failure: encrypt with an invalid-size recipient key", func(t *testing.T) {
+		recipientKey := getB58Key(
+			"Bxp2KpXeh6RgXXRVGRQUskT9qT35aSSz1JvdbMUcB2Yc",
+			"2QqgiHtrUtDPpfoZG2C3Qi8a1MbLQuTZaaScu5LzQbUCkw5YnXngKLMJ8VuPgoN3Piqt1PBUACVd6uQRmtayZp2x")
+
+		senderKey := crypto.KeyPair{
+			Priv: []byte{1, 2, 3, 4},
+			Pub:  []byte{1, 2, 3, 4},
+		}
+
+		crypter := New()
+		require.NotEmpty(t, crypter)
+
+		_, err := crypter.Encrypt([]byte("Test Message"), senderKey, [][]byte{recipientKey.Pub})
+		require.EqualError(t, err, "failed to encrypt, sender keyPair not supported, "+
+			"it must have a 64 byte private key and 32 byte public key")
+	})
+
+	t.Run("Success test case: given keys, generate envelope", func(t *testing.T) {
+		senderKey := getB58Key(
+			"Bxp2KpXeh6RgXXRVGRQUskT9qT35aSSz1JvdbMUcB2Yc",
+			"2QqgiHtrUtDPpfoZG2C3Qi8a1MbLQuTZaaScu5LzQbUCkw5YnXngKLMJ8VuPgoN3Piqt1PBUACVd6uQRmtayZp2x")
+
+		println("sendPK:", base58.Encode(senderKey.Pub))
+		println("sendSK:", base58.Encode(senderKey.Priv))
+
+		recipientKey := getB58Key(
 			"9ZeipG91uMRDkMbqgkJK2Fq59CoWwfeJx2e5Q543mU5Q",
 			"23Y2dbcT78KEV1T7niUAuf83J8Zta11FG88n6y6pWgZY35nWrhyxGcqCJV5ddHveRZecrhwku77ik7gPSLaXnJXt")
 
-		crypter, e := New(*senderKey, []*publicEd25519{recipientKey.pub})
-		require.NoError(t, e)
+		crypter := New()
 		require.NotEmpty(t, crypter)
-		enc, e := crypter.Encrypt([]byte("Pack my box with five dozen liquor jugs!"))
+
+		enc, e := crypter.Encrypt([]byte("Pack my box with five dozen liquor jugs!"), *senderKey, [][]byte{recipientKey.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
-		printPythonData(recipientKey.pub[:], recipientKey.priv[:], enc)
+		printPythonData(recipientKey.Pub, recipientKey.Priv, enc)
 	})
 
 	t.Run("Generate keys, generate envelope", func(t *testing.T) {
-		senderKey, err := randEdKeyPair(rand.Reader)
+		senderKey, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
-		recipientKey, err := randEdKeyPair(rand.Reader)
+		recipientKey, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
 
-		crypter, err := New(*senderKey, []*publicEd25519{recipientKey.pub})
+		crypter := New()
 		require.NoError(t, err)
 		require.NotEmpty(t, crypter)
-		enc, err := crypter.Encrypt([]byte("A very bad quack might jinx zippy fowls."))
+		enc, err := crypter.Encrypt([]byte("A very bad quack might jinx zippy fowls."),
+			*senderKey,
+			[][]byte{recipientKey.Pub})
 		require.NoError(t, err)
 		require.NotEmpty(t, enc)
 
-		printPythonData(recipientKey.pub[:], recipientKey.priv[:], enc)
+		printPythonData(recipientKey.Pub, recipientKey.Priv, enc)
 	})
 
 	t.Run("Generate testcase with multiple recipients", func(t *testing.T) {
-		senderKey, err := randEdKeyPair(rand.Reader)
+		senderKey, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
-		rec1Key, err := randEdKeyPair(rand.Reader)
+		rec1Key, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
-		rec2Key, err := randEdKeyPair(rand.Reader)
+		rec2Key, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
-		rec3Key, err := randEdKeyPair(rand.Reader)
+		rec3Key, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
-		rec4Key, err := randEdKeyPair(rand.Reader)
+		rec4Key, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
 
-		recipientKeys := []*publicEd25519{
-			rec1Key.pub,
-			rec2Key.pub,
-			rec3Key.pub,
-			rec4Key.pub,
+		recipientKeys := [][]byte{
+			rec1Key.Pub,
+			rec2Key.Pub,
+			rec3Key.Pub,
+			rec4Key.Pub,
 		}
 
-		crypter, err := New(*senderKey, recipientKeys)
+		crypter := New()
 		require.NoError(t, err)
 		require.NotEmpty(t, crypter)
-		enc, err := crypter.Encrypt([]byte("God! a red nugget! A fat egg under a dog!"))
+		enc, err := crypter.Encrypt([]byte("God! a red nugget! A fat egg under a dog!"), *senderKey, recipientKeys)
 		require.NoError(t, err)
 		require.NotEmpty(t, enc)
 
-		printPythonData(rec3Key.pub[:], rec3Key.priv[:], enc)
+		printPythonData(rec3Key.Pub, rec3Key.Priv, enc)
 	})
 
 	t.Run("Encrypt empty payload using deterministic random source, verify result", func(t *testing.T) {
-		senderKey := getB58EdKey("4SPtrDH1ZH8Zsh6upbUG3TbgXjYbW1CEBRnNY6iMudX9",
+		senderKey := getB58Key("4SPtrDH1ZH8Zsh6upbUG3TbgXjYbW1CEBRnNY6iMudX9",
 			"5MF9crszXCvzh9tWUWQwAuydh6tY2J5ErsaebwRzTsbNXx74mfaJXaKq7oTkoN4VMc2RtKktjMpPoU7vti9UnrdZ")
 
-		recipientKey := getB58EdKey("CP1eVoFxCguQe1ttDbS3L35ZiJckZ8PZykX1SCDNgEYZ",
+		recipientKey := getB58Key("CP1eVoFxCguQe1ttDbS3L35ZiJckZ8PZykX1SCDNgEYZ",
 			"5aFcdEMws6ZUL7tWYrJ6DsZvY2GHZYui1jLcYquGr8uHfmyHCs96QU3nRUarH1gVYnMU2i4uUPV5STh2mX7EHpNu")
 
 		source := insecurerand.NewSource(5937493) // just a random const
 		constRand := insecurerand.New(source)
 
-		crypter, err := New(*senderKey, []*publicEd25519{recipientKey.pub})
-		require.NoError(t, err)
+		crypter := New()
 		crypter.setRandSource(constRand)
 		require.NotEmpty(t, crypter)
-		enc, err := crypter.Encrypt(nil)
+		enc, err := crypter.Encrypt(nil, *senderKey, [][]byte{recipientKey.Pub})
 		require.NoError(t, err)
 
 		test := "eyJwcm90ZWN0ZWQiOiJleUpsYm1NaU9pSmphR0ZqYUdFeU1IQnZiSGt4TXpBMVgybGxkR1lpTENKMGVYQWlPaUpLVjAwdk1TNHdJaXdpWVd4bklqb2lRWFYwYUdOeWVYQjBJaXdpY21WamFYQnBaVzUwY3lJNlczc2laVzVqY25sd2RHVmtYMnRsZVNJNklqSmlVRFl0VnpaWldXZHpjMlZpVWxOaU0xWlljV0pMTlZWa2FpMDNOSGxGTTFFdFZXaHpjMUF3Vm1aclRHNVhiMFk0WjBSNVVHRkJlREI0VWtGM2NIVWlMQ0pvWldGa1pYSWlPbnNpYTJsa0lqb2lRMUF4WlZadlJuaERaM1ZSWlRGMGRFUmlVek5NTXpWYWFVcGphMW80VUZwNWExZ3hVME5FVG1kRldWb2lMQ0p6Wlc1a1pYSWlPaUpHYzIwMU5WOUNTRkJzVkdsd2RUQlFabEZDY2t0SmRuZ3lTRGw0VTBndFVtbHpXRzgxVVdoemQwTTNjR28yTm5BMVNtOUpVVjlIT1hGdFRrVldNRzVGVG5sTVIwczFlVVZuUzJoeU5ESTBVMnBJYkRWSmQzQnljRnBqYUdGNVprNWtWa2xJTFdKNlprRnhjbXhDWTIxUVZEWkpkR2R4Y3poclRHczlJaXdpYVhZaU9pSm1OV3BVT0VKS2FHeEVZbTQwUWxvMFNGcGZSSEExTkU5TGQyWmxRV1JSTWlKOWZWMTkiLCJpdiI6ImlLZHFxRWpzTktpeW4taGsiLCJ0YWciOiIySm5SbF9iXzM2QS1WaWFKNzNCb1FBPT0ifQ==" // nolint: lll
@@ -160,25 +182,27 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Encrypt payload using deterministic random source for multiple recipients, verify result", func(t *testing.T) {
-		sender := getB58EdKey("9NKZ9pHL9YVS7BzqJsz3e9uVvk44rJodKfLKbq4hmeUw",
+		sender := getB58Key("9NKZ9pHL9YVS7BzqJsz3e9uVvk44rJodKfLKbq4hmeUw",
 			"2VZLugb22G3iovUvGrecKj3VHFUNeCetkApeB4Fn4zkgBqYaMSFTW2nvF395voJ76vHkfnUXH2qvJoJnFydRoQBR")
-		rec1 := getB58EdKey("DDk4ac2ZA19P8qXjk8XaCY9Fx7WwAmCtELkxeDNqS6Vs",
+		rec1 := getB58Key("DDk4ac2ZA19P8qXjk8XaCY9Fx7WwAmCtELkxeDNqS6Vs",
 			"33SjJwDk7vKL4tEyVT45XwzebdAVEpRqXJHRrT228pet7hhTFCSdFgnhvrSPX6PfsELM94Wrwwp6JdaFBFReZTBB")
-		rec2 := getB58EdKey("G79vtfWgtBG5J7R2QaBQpZfPUQaAab1QJWedWH7q3VK1",
+		rec2 := getB58Key("G79vtfWgtBG5J7R2QaBQpZfPUQaAab1QJWedWH7q3VK1",
 			"3JVueJUSpj68N2HnRwzywiupgVhqeZBpQSztBD8YEtUqDUmWdrAd6K51dZyuoSTNTPCmPEDgkikuFGwWuh63dz8T")
-		rec3 := getB58EdKey("7snUUwA23DVBmafz9ibmBgwFFCUwzgTzmvcJGepuzjmK",
+		rec3 := getB58Key("7snUUwA23DVBmafz9ibmBgwFFCUwzgTzmvcJGepuzjmK",
 			"3VaBzg9FgCq87etzLXktPWRFDJyUJrkxU9v5SwXVJE2WFMuaeffAjr3QTWWwjf3U8byJCwusZQqeuBZgAZphH16y")
-		rec4 := getB58EdKey("GSRovbnQy8HRjVjvzGbbfN387EX9NFfLj89C1ScXYfrF",
+		rec4 := getB58Key("GSRovbnQy8HRjVjvzGbbfN387EX9NFfLj89C1ScXYfrF",
 			"jM6QdBopsuAz95PdFwwSg3ARSVQohArPKaZWNcvgLBz5NkqkZNCMMjftsXjHbGk7QLq7nabBV5FdHPnmXdhhdCB")
 
 		source := insecurerand.NewSource(6572692) // just a random const
 		constRand := insecurerand.New(source)
 
-		crypter, err := New(*sender, []*publicEd25519{rec1.pub, rec2.pub, rec3.pub, rec4.pub})
-		require.NoError(t, err)
+		crypter := New()
 		crypter.setRandSource(constRand)
 		require.NotEmpty(t, crypter)
-		enc, err := crypter.Encrypt([]byte("Sphinx of black quartz, judge my vow!"))
+		enc, err := crypter.Encrypt(
+			[]byte("Sphinx of black quartz, judge my vow!"),
+			*sender,
+			[][]byte{rec1.Pub, rec2.Pub, rec3.Pub, rec4.Pub})
 		require.NoError(t, err)
 
 		test := "eyJwcm90ZWN0ZWQiOiJleUpsYm1NaU9pSmphR0ZqYUdFeU1IQnZiSGt4TXpBMVgybGxkR1lpTENKMGVYQWlPaUpLVjAwdk1TNHdJaXdpWVd4bklqb2lRWFYwYUdOeWVYQjBJaXdpY21WamFYQnBaVzUwY3lJNlczc2laVzVqY25sd2RHVmtYMnRsZVNJNkltRlliRkl0Umkwd2JEZFZTMU10Vkhwb1MwaGFWMmhIWlMxUU5tbzRlVUYwU2pFeFVEbHlSMU4yVFZGQmNHVnpZbk5wTUVsRE5XVmlVREJoVW5kVFozVWlMQ0pvWldGa1pYSWlPbnNpYTJsa0lqb2lSRVJyTkdGak1scEJNVGxRT0hGWWFtczRXR0ZEV1RsR2VEZFhkMEZ0UTNSRlRHdDRaVVJPY1ZNMlZuTWlMQ0p6Wlc1a1pYSWlPaUk1ZG1oRVdHMXBMWFJVVDBaS1FuRTRXSGhSZUROVmFUVk1SemxIT0ZoRlUxTTBaVjlST0ZCNVFUQlhhR0pCZHkxR2FscFpNVzlRWjJSb1YwOWhPVWRCTlVFd1puSkVVMHBzWm5Nd2VVNDRNVmsxV0V0a1MyUlZOVkJoTlRGdlRuQmFOVlV4VmtKSGQycG1WMmxhU0hOc05DMHhOamhuVG01cGVFazlJaXdpYVhZaU9pSjBUMjlFTW1RMVZrdFdRV2xITlMxNGNqWnFNM1UzTkZWalZUWlVibTlVWHlKOWZTeDdJbVZ1WTNKNWNIUmxaRjlyWlhraU9pSmZZa3RtVUdjM056WnphRmR5TXpWMmVXWm1jV05NZW1oTE1VUlJRV0owWTFaQ1pFVXlNM1ZUVEVGUmRHSkdNVUZMYkRrMmJHcE5WSHBzTmt4d2JuYzBJaXdpYUdWaFpHVnlJanA3SW10cFpDSTZJa2MzT1haMFpsZG5kRUpITlVvM1VqSlJZVUpSY0ZwbVVGVlJZVUZoWWpGUlNsZGxaRmRJTjNFelZrc3hJaXdpYzJWdVpHVnlJam9pVUVWNlZrc3laM1JJU25OcWFuSjVNbEZ3ZG0xYVFXazRSSGRUT1ZrM2RuVkZkakJ3Wm1JdFgyc3pRbmxQUjJoSGRHUmxUMlJUVjJaaVZrazFXRVJuV0UxNFVVWjNNM1prWHpoa2RtUndSMFZDWlZsVlNFbHBRMEZuT0VaNlZqSkNZVkZyWDFCSGRDMUliMjFJVFZoNVp6VTBUbHBCVWtsS2RXNVZQU0lzSW1sMklqb2lVV1ZRU0RRM2FsTkxXVU14Y2pSb1h6QldjMlJJVlRSWU1FZENkME5ZVWtVaWZYMHNleUpsYm1OeWVYQjBaV1JmYTJWNUlqb2lTMVZDU3pWRFIwMU5SR1ZDVkV4dFYwSmZObWQxWVhCSGNWWlZaRUpQTWxFdFkyTkdaVXRHZEZjMWRqZEpUbmhWY1VKa1FWcExlRkpGZWxFMlNEQnpXaUlzSW1obFlXUmxjaUk2ZXlKcmFXUWlPaUkzYzI1VlZYZEJNak5FVmtKdFlXWjZPV2xpYlVKbmQwWkdRMVYzZW1kVWVtMTJZMHBIWlhCMWVtcHRTeUlzSW5ObGJtUmxjaUk2SW1NdFZHRnlTSGgyVW5WTlgybFBTRnBFWkZkbVkwbG1jSGhtYVV3eVdXVlRObk4yYUZKRFRuZGlkMUpxWXpBdFJFZFllbVpTU0RkSVNEaDBOa0ZpYm5SbE1FeG5ZbGd4VGpjelQyMVJUM1ZHVUVkWlQxbFdiRGw2YTFCSlprdzNMWGh4YmtKRVF6Tm5MVkpFU0ZoNlgxSkpSSEp3WWpOVU1VTk9UVDBpTENKcGRpSTZJbGgwYVc5SFUyOWxOR0ZWV1Rac2JYcHNOVkIxWlRkMU9FOWxSMWN4YkVNNEluMTlMSHNpWlc1amNubHdkR1ZrWDJ0bGVTSTZJbEV5Wld4YVQyRktiWFZCYjA5S05GRjJXWE52YVc5R1RsRm9ha2w0UjJSWFZuZHpkV2R3WW05Q1ZucHViVVJHTjB4RFZ6RjNjMUZoTUVwMVpreHFkMjhpTENKb1pXRmtaWElpT25zaWEybGtJam9pUjFOU2IzWmlibEY1T0VoU2FsWnFkbnBIWW1KbVRqTTROMFZZT1U1R1preHFPRGxETVZOaldGbG1ja1lpTENKelpXNWtaWElpT2lKc1NYcGxNR0p3UzJ4cWNuVlRMWGREV21wUWVuWmZRMDAwUW1SdmMweHpNbDlKTUZZeFUxQnZla05uWDA5emNVRTViVEZCUVhoWmVVMXZhVXhvVkUxdU9ERmtPREo2YUd4WmVXVmxVMWxTZVdaSmNUZGFYMTlrTVRNemExcE9Wa054UVdwWFEyRllURmxxVjNoamVIUlNjRFJTYkVwYVlrOUxRVVU5SWl3aWFYWWlPaUpvTUdWTGJtRkZOVXhoWDJKYVpHVkNVR0Z1Vm0wNFpGZFVlRkZEU2xGQ2VpSjlmVjE5IiwiaXYiOiJZb3VDVi1nbGZRaFBhbDc1IiwiY2lwaGVydGV4dCI6Il9jRUNrMDQ3Y2w4Y3dFaUs1UnZLbHZORDJjTlo1bTZBTW9vdlI4MnBpMEhLbzFnZlZBPT0iLCJ0YWciOiJCYWZ4TW1CU2R5bmI0dmxvQ3ptUVNRPT0ifQ==" // nolint: lll
@@ -188,19 +212,18 @@ func TestEncrypt(t *testing.T) {
 }
 
 func TestEncryptComponents(t *testing.T) {
-	sender := getB58EdKey("9NKZ9pHL9YVS7BzqJsz3e9uVvk44rJodKfLKbq4hmeUw",
+	sender := getB58Key("9NKZ9pHL9YVS7BzqJsz3e9uVvk44rJodKfLKbq4hmeUw",
 		"2VZLugb22G3iovUvGrecKj3VHFUNeCetkApeB4Fn4zkgBqYaMSFTW2nvF395voJ76vHkfnUXH2qvJoJnFydRoQBR")
-	rec1 := getB58EdKey("DDk4ac2ZA19P8qXjk8XaCY9Fx7WwAmCtELkxeDNqS6Vs",
+	rec1 := getB58Key("DDk4ac2ZA19P8qXjk8XaCY9Fx7WwAmCtELkxeDNqS6Vs",
 		"33SjJwDk7vKL4tEyVT45XwzebdAVEpRqXJHRrT228pet7hhTFCSdFgnhvrSPX6PfsELM94Wrwwp6JdaFBFReZTBB")
 
-	crypter, err := New(*sender, []*publicEd25519{rec1.pub})
-	require.NoError(t, err)
+	crypter := New()
 
 	t.Run("Encrypt fail: content encryption nonce generation fails", func(t *testing.T) {
 		failRand := newFailReader(0, rand.Reader)
 		crypter.setRandSource(failRand)
 
-		_, err = crypter.Encrypt([]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"))
+		_, err := crypter.Encrypt([]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"), *sender, [][]byte{rec1.Pub})
 		require.Errorf(t, err, "mock Reader has failed intentionally")
 	})
 
@@ -208,7 +231,7 @@ func TestEncryptComponents(t *testing.T) {
 		failRand := newFailReader(1, rand.Reader)
 		crypter.setRandSource(failRand)
 
-		_, err = crypter.Encrypt([]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"))
+		_, err := crypter.Encrypt([]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"), *sender, [][]byte{rec1.Pub})
 		require.Errorf(t, err, "mock Reader has failed intentionally")
 	})
 
@@ -216,7 +239,7 @@ func TestEncryptComponents(t *testing.T) {
 		failRand := newFailReader(2, rand.Reader)
 		crypter.setRandSource(failRand)
 
-		_, err = crypter.Encrypt([]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"))
+		_, err := crypter.Encrypt([]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"), *sender, [][]byte{rec1.Pub})
 		require.Errorf(t, err, "mock Reader has failed intentionally")
 	})
 
@@ -224,7 +247,7 @@ func TestEncryptComponents(t *testing.T) {
 		failRand := newFailReader(3, rand.Reader)
 		crypter.setRandSource(failRand)
 
-		_, err = crypter.Encrypt([]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"))
+		_, err := crypter.Encrypt([]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"), *sender, [][]byte{rec1.Pub})
 		require.Errorf(t, err, "mock Reader has failed intentionally")
 	})
 
@@ -232,78 +255,76 @@ func TestEncryptComponents(t *testing.T) {
 		failRand := newFailReader(4, rand.Reader)
 		crypter.setRandSource(failRand)
 
-		_, err = crypter.Encrypt([]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"))
+		_, err := crypter.Encrypt([]byte("Lorem Ipsum Dolor Sit Amet Consectetur Adispici Elit"), *sender, [][]byte{rec1.Pub})
 		require.NoError(t, err)
 	})
 
 	t.Run("Failure: generate recipient header with bad sender key", func(t *testing.T) {
-		crypter2, e := New(*sender, []*publicEd25519{rec1.pub})
-		require.NoError(t, e)
-
+		crypter2 := New()
 		badSender := keyPairEd25519{}
-		crypter2.sender = badSender
+		recipient, err := randEdKeyPair(rand.Reader)
+		require.NoError(t, err)
 
-		_, e = crypter2.buildRecipient(nil, nil)
-		require.Errorf(t, e, "key is nil")
+		_, err = crypter2.buildRecipient(nil, &badSender, recipient.Pub)
+		require.Errorf(t, err, "key is nil")
 	})
 
 	t.Run("Failure: generate recipient header with bad recipient key", func(t *testing.T) {
-		crypter2, e := New(*sender, []*publicEd25519{rec1.pub})
-		require.NoError(t, e)
+		crypter2 := New()
+		sender, err := randEdKeyPair(rand.Reader)
+		badRecipient := keyPairEd25519{}
+		require.NoError(t, err)
 
-		_, err = crypter2.buildRecipient(nil, nil)
+		_, err = crypter2.buildRecipient(nil, sender, badRecipient.Pub)
 		require.Errorf(t, err, "key is nil")
 	})
 }
 
 func TestDecrypt(t *testing.T) {
 	t.Run("Success: encrypt then decrypt, same crypter", func(t *testing.T) {
-		sender, err := randEdKeyPair(rand.Reader)
+		sender, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
-		rec1, err := randEdKeyPair(rand.Reader)
+		rec1, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
 
-		crypter, err := New(*sender, []*publicEd25519{rec1.pub})
+		crypter := New()
 		require.NoError(t, err)
 
 		msgIn := []byte("Junky qoph-flags vext crwd zimb.")
 
-		enc, err := crypter.Encrypt(msgIn)
+		enc, err := crypter.Encrypt(msgIn, *sender, [][]byte{rec1.Pub})
 		require.NoError(t, err)
-		msgOut, err := crypter.Decrypt(enc, rec1)
+		msgOut, err := crypter.Decrypt(enc, *rec1)
 		require.NoError(t, err)
 
 		require.ElementsMatch(t, msgIn, msgOut)
 	})
 
 	t.Run("Success: encrypt and decrypt, different crypters, including fail recipient who wasn't sent the message", func(t *testing.T) { // nolint: lll
-		sender, err := randEdKeyPair(rand.Reader)
+		sender, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
-		rec1, err := randEdKeyPair(rand.Reader)
+		rec1, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
-		rec2, err := randEdKeyPair(rand.Reader)
+		rec2, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
-		rec3, err := randEdKeyPair(rand.Reader)
+		rec3, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
-		rec4, err := randEdKeyPair(rand.Reader)
+		rec4, err := randKeyPair(rand.Reader)
 		require.NoError(t, err)
 
-		sendCrypter, err := New(*sender, []*publicEd25519{rec1.pub, rec2.pub, rec3.pub})
-		require.NoError(t, err)
-		rec2Crypter, err := New(*sender, []*publicEd25519{rec2.pub})
-		require.NoError(t, err)
-		rec4Crypter, err := New(*sender, []*publicEd25519{rec4.pub})
-		require.NoError(t, err)
+		sendCrypter := New()
+		rec2Crypter := New()
+		rec4Crypter := New()
 
 		msgIn := []byte("Junky qoph-flags vext crwd zimb.")
 
-		enc, err := sendCrypter.Encrypt(msgIn)
+		enc, err := sendCrypter.Encrypt(msgIn, *sender, [][]byte{rec1.Pub, rec2.Pub, rec3.Pub})
 		require.NoError(t, err)
-		msgOut, err := rec2Crypter.Decrypt(enc, rec2)
+		msgOut, err := rec2Crypter.Decrypt(enc, *rec2)
 		require.NoError(t, err)
 		require.ElementsMatch(t, msgIn, msgOut)
 
-		_, err = rec4Crypter.Decrypt(enc, rec4)
+		_, err = rec4Crypter.Decrypt(enc, *rec4)
 		require.Errorf(t, err, "no key accessible")
 	})
 
@@ -312,16 +333,12 @@ func TestDecrypt(t *testing.T) {
 
 		msg := "Yvgu yrf vy jgbuffi tvjc hgsj fhlusfm hsuf tiw fun s kb si kfuh bssnc"
 
-		recKey := getB58EdKey("F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1",
+		recKey := getB58Key("F7mNtF2frLuRu2cMEjXBnWdYcTZAXNP9jEkprXxiaZi1",
 			"2nYsWTQ1ZguQ7G2HYfMWjMNqWagBQfaKB9GLbsFk7Z7tKVBEr2arwpVKDwgLUbaxguUzQuf7o67aWKzgtHmKaypM")
 
-		dummySender, err := randEdKeyPair(rand.Reader)
-		require.NoError(t, err)
+		recCrypter := New()
 
-		recCrypter, err := New(*dummySender, []*publicEd25519{recKey.pub})
-		require.NoError(t, err)
-
-		msgOut, err := recCrypter.Decrypt([]byte(env), recKey)
+		msgOut, err := recCrypter.Decrypt([]byte(env), *recKey)
 		require.NoError(t, err)
 		require.ElementsMatch(t, []byte(msg), msgOut)
 	})
@@ -332,16 +349,12 @@ func TestDecrypt(t *testing.T) {
 		msg := "Iiwufh utiweuop fji olioy pio omlim, om kutxrwu gvgbkn kutxr " +
 			"w srt luhsnehim. Igywenomwe fji omwuie fnomhwuie, fjimwef."
 
-		recKey := getB58EdKey("AQ9nHtLnmuG81py64YG5geF2vd5hQCKHi5MrqQ1LYCXE",
+		recKey := getB58Key("AQ9nHtLnmuG81py64YG5geF2vd5hQCKHi5MrqQ1LYCXE",
 			"2YbSVZzSVaim41bWDdsBzamrhXrPFKKEpzXZRmgDuoFJco5VQELRSj1oWFR9aRdaufsdUyw8sozTtZuX8Mzsqboz")
 
-		dummySender, err := randEdKeyPair(rand.Reader)
-		require.NoError(t, err)
+		recCrypter := New()
 
-		recCrypter, err := New(*dummySender, []*publicEd25519{recKey.pub})
-		require.NoError(t, err)
-
-		msgOut, err := recCrypter.Decrypt([]byte(env), recKey)
+		msgOut, err := recCrypter.Decrypt([]byte(env), *recKey)
 		require.NoError(t, err)
 		require.ElementsMatch(t, []byte(msg), msgOut)
 	})
@@ -349,16 +362,12 @@ func TestDecrypt(t *testing.T) {
 	t.Run("Test decrypting python envelope with invalid recipient", func(t *testing.T) {
 		env := `{"protected": "eyJlbmMiOiAieGNoYWNoYTIwcG9seTEzMDVfaWV0ZiIsICJ0eXAiOiAiSldNLzEuMCIsICJhbGciOiAiQXV0aGNyeXB0IiwgInJlY2lwaWVudHMiOiBbeyJlbmNyeXB0ZWRfa2V5IjogIjdzN0ZTRXR6Sy1vTzdSWmdISklsSTlzX1lVU2xkMUpnRldPeUNhYUdGY1Y0aHBSTWxQbG0wNDBFcUJXRWVwY3oiLCAiaGVhZGVyIjogeyJraWQiOiAiN0RLbk56TWJHRWNYODYxOGp2WWtiNlhQTFR6eXU2YnhSbTh3RnhZb0d3SHEiLCAic2VuZGVyIjogInFLYTRDeXV1OXZOcmJzX1RCLXhQWXI2aFg2cXJZLTM4Vjd4VXdOQjFyd0J1TjVNTUVJYmRERDFvRElhV2o0QUpSYUZDTEVhSzMtakFSZHBsR1UtM2d4TWY2dkpRZWhiZkZhZHNwemdxRE9iWFZDWUJONGxrVXZLZWhvND0iLCAiaXYiOiAiSWFqeVdudFdSMENxS1BYUWJpWWptbWJRWFNNTEp2X1UifX0sIHsiZW5jcnlwdGVkX2tleSI6ICJZa05vVGh2ZUlIcC13NGlrRW1kQU51VHdxTEx1ZjBocVlVbXRJc2c5WlJMd1BKaUZHWVZuTXl1ZktKZWRvcmthIiwgImhlYWRlciI6IHsia2lkIjogIjdDRURlZUpZTnlRUzhyQjdNVHpvUHhWYXFIWm9ZZkQxNUVIVzhaVVN3VnVhIiwgInNlbmRlciI6ICJ3ZEhjc1hDemdTSjhucDRFU0pDcmJ5OWNrNjJaUEFFVjhJRjYwQmotaUhhbXJLRnBKOTJpZVNTaE1JcTdwdTNmQWZQLWo5S3J6ajAwMEV0SXB5cm05SmNrM0QwSnRBcmtYV2VsSzBoUF9ZeDR4Vlc5dW43MWlfdFBXNWM9IiwgIml2IjogIkRlbUlJbHRKaXd5TU1faGhIS29kcTZpQkx4Q1J5Z2Z3In19XX0=", "iv": "BKWHs6z0UHxGddwg", "ciphertext": "YC2eQQPYVjPHj3wIxUXxBj0yXFLuRN5Lc-9WM8hY6TXoekh-ca9-UWbHasikbcxyukTT3e-QiteOilG-6X7e9x4wiQmWn_NFLOLrqoFe669JIbkgvjHYwuQEQkIVfbD-2woSxsMUl9yln5RS-NssI5cEIVH_C1w=", "tag": "M8GPexbguDoZk5L51AvLjA=="}` // nolint: lll
 
-		recKey := getB58EdKey("A3KnccxQu27yWQrSLwA2YFbfoSs4CHo3q6LjvhmpKz9h",
+		recKey := getB58Key("A3KnccxQu27yWQrSLwA2YFbfoSs4CHo3q6LjvhmpKz9h",
 			"49Y63zwonNoj2jEhMYE22TDwQCn7RLKMqNeSkSoBBucbAWceJuXXNCACXfpbXD7PHKM13SWaySyDukEakPVn5sWs")
 
-		dummySender, err := randEdKeyPair(rand.Reader)
-		require.NoError(t, err)
+		recCrypter := New()
 
-		recCrypter, err := New(*dummySender, []*publicEd25519{recKey.pub})
-		require.NoError(t, err)
-
-		_, err = recCrypter.Decrypt([]byte(env), recKey)
+		_, err := recCrypter.Decrypt([]byte(env), *recKey)
 		require.Errorf(t, err, "no key accessible")
 	})
 }
@@ -367,48 +376,50 @@ func decryptComponentFailureTest(
 	t *testing.T,
 	protectedHeader,
 	msg string,
-	sender, recKey *keyPairEd25519,
+	recKey *crypto.KeyPair,
 	errString string) {
 	fullMessage := `{"protected": "` + base64.URLEncoding.EncodeToString([]byte(protectedHeader)) + "\", " + msg
-	recCrypter, err := New(*sender, []*publicEd25519{recKey.pub})
-	require.NoError(t, err)
+	recCrypter := New()
 
-	_, err = recCrypter.Decrypt([]byte(fullMessage), recKey)
+	_, err := recCrypter.Decrypt([]byte(fullMessage), *recKey)
 	require.EqualError(t, err, errString)
 }
 
 func TestDecryptComponents(t *testing.T) {
-	recKey := getB58EdKey("Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v",
+	recKey := getB58Key("Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v",
 		"5pG8rLcp9WqPXQLSyQetPiyTEnLuanjS2TGd7h4DqutY6gNbLD6pnvT3H8nC5K9vEjy1UJdTtwaejf1xqDyhCrzr")
 
-	dummySender, err := randEdKeyPair(rand.Reader)
-	require.NoError(t, err)
+	t.Run("Fail: non-JSON envelope", func(t *testing.T) {
+		msg := `ed": "eyJlbmMiOiAieGNoYWNoYTIwcG9seTEzMDVfaWV0ZiIsICJ0eXAiOiAiSldNLzEu"}`
 
-	t.Run("Fail: non-JSON envelope (truncated)", func(t *testing.T) {
-		msg := `ed": "eyJlbmMiOiAieGNoYWNoYTIwcG9seTEzMDVfaWV0ZiIsICJ0eXAiOiAiSldNLzEuMCIsICJhbGciOiAiQXV0aGNyeXB0IiwgInJlY2lwaWVudHMiOiBbeyJlbmNyeXB0ZWRfa2V5IjogIkRhWkdpbV9XQ3ludFNkemlGZ25RYW5wUWxSX3RWSHpIem5HYlcteWhUWURWZ0d1YzVucjZKNXN2dTdkUWJCZzMiLCAiaGVhZGVyIjogeyJraWQiOiAiQWs1MjhwTGhiNkRORnJHV1k2SGpNVWpwTlY2MTNoMnF0QUo0N2oxRlllOHYiLCAic2VuZGVyIjogIndaNGNDNDJlRE1lTEFwbUp2SkM0SU5idUtJTnpkWlpFQ0dIcFdEZ3NybUJVUlBKTl9iV09rVVYzRTZvT1JONElMQWZfeEV1V2VmUzRiX2dvUnljQ29na1p2VHlTMUhndkJ0eDJZTzFBMnEtYTd0cF9fMDhLeTRxdFNpWT0iLCAiaXYiOiAiQTgxOFdNdmRkUHJaOG1tWXFwMml1dThncW9aWkMySHgifX1dfQ==", "iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}` // nolint: lll
+		recCrypter := New()
 
-		recCrypter, err := New(*dummySender, []*publicEd25519{recKey.pub})
-		require.NoError(t, err)
-
-		_, err = recCrypter.Decrypt([]byte(msg), recKey)
+		_, err := recCrypter.Decrypt([]byte(msg), *recKey)
 		require.EqualError(t, err, "invalid character 'e' looking for beginning of value")
 	})
 
 	t.Run("Fail: non-base64 protected header", func(t *testing.T) {
 		msg := `{"protected": "&**^(&^%", "iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}` // nolint: lll
 
-		recCrypter, err := New(*dummySender, []*publicEd25519{recKey.pub})
-		require.NoError(t, err)
+		recCrypter := New()
 
-		_, err = recCrypter.Decrypt([]byte(msg), recKey)
+		_, err := recCrypter.Decrypt([]byte(msg), *recKey)
 		require.EqualError(t, err, "illegal base64 data at input byte 0")
+	})
+
+	t.Run("Fail: header not json", func(t *testing.T) {
+		decryptComponentFailureTest(t,
+			`}eyJlbmMiOiAieGNoYWNoYTIwcG9seTEzMDVfaWV0ZiIsICJ0eXAiOiAiSldNLzEuMC`,
+			`"not important":[]}`,
+			recKey,
+			"invalid character '}' looking for beginning of value")
 	})
 
 	t.Run("Fail: bad 'typ' field", func(t *testing.T) {
 		decryptComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JSON", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                     // nolint: lll
-			dummySender, recKey,
+			recKey,
 			"message type JSON not supported")
 	})
 
@@ -416,7 +427,7 @@ func TestDecryptComponents(t *testing.T) {
 		decryptComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Anoncrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                        //nolint: lll
-			dummySender, recKey,
+			recKey,
 			"message format Anoncrypt not supported")
 	})
 
@@ -424,30 +435,29 @@ func TestDecryptComponents(t *testing.T) {
 		decryptComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": []}`,
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
-			dummySender,
 			recKey,
 			"no key accessible")
 	})
 
 	t.Run("Fail: invalid public key", func(t *testing.T) {
-		rec := getB58EdKey("6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7", // invalid key, won't convert
+		rec := getB58Key("6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7", // invalid key, won't convert
 			"5pG8rLcp9WqPXQLSyQetPiyTEnLuanjS2TGd7h4DqutY6gNbLD6pnvT3H8nC5K9vEjy1UJdTtwaejf1xqDyhCrzr")
 
 		decryptComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                        // nolint: lll
-			dummySender, rec,
+			rec,
 			"failed to convert public key")
 	})
 
 	t.Run("Fail: invalid public key", func(t *testing.T) {
-		rec := getB58EdKey("57N4aoQKaxUGNeEn3ETnTKgeD1L5Wm3U3Vb8qi3hupLn", // mismatched keypair, won't decrypt
+		rec := getB58Key("57N4aoQKaxUGNeEn3ETnTKgeD1L5Wm3U3Vb8qi3hupLn", // mismatched keypair, won't decrypt
 			"5pG8rLcp9WqPXQLSyQetPiyTEnLuanjS2TGd7h4DqutY6gNbLD6pnvT3H8nC5K9vEjy1UJdTtwaejf1xqDyhCrzr")
 
 		decryptComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "57N4aoQKaxUGNeEn3ETnTKgeD1L5Wm3U3Vb8qi3hupLn", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                        // nolint: lll
-			dummySender, rec,
+			rec,
 			"failed to unpack")
 	})
 
@@ -455,7 +465,7 @@ func TestDecryptComponents(t *testing.T) {
 		decryptComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "*^&", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                               // nolint: lll
-			dummySender, recKey,
+			recKey,
 			"illegal base64 data at input byte 0")
 	})
 
@@ -463,7 +473,7 @@ func TestDecryptComponents(t *testing.T) {
 		decryptComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "7ZA_k_bM4FRp6jY_LNzv9pjuOh1NbVlbBA-yTjzsc22HnPKPK8_MKUNU1Rlt0woNUNWLZI4ShBD_th14ULmTjggBI8K4A8efTI4efxv5xTYEemj9uVPvvLKs4Go=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                        // nolint: lll
-			dummySender, recKey,
+			recKey,
 			"failed to convert public key")
 	})
 
@@ -471,7 +481,7 @@ func TestDecryptComponents(t *testing.T) {
 		decryptComponentFailureTest(t,
 			` {"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                         // nolint: lll
-			dummySender, recKey,
+			recKey,
 			"chacha20poly1305: message authentication failed")
 	})
 
@@ -479,7 +489,7 @@ func TestDecryptComponents(t *testing.T) {
 		decryptComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "(^_^)"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                             // nolint: lll
-			dummySender, recKey,
+			recKey,
 			"illegal base64 data at input byte 0")
 	})
 
@@ -487,7 +497,7 @@ func TestDecryptComponents(t *testing.T) {
 		decryptComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "_-", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                          // nolint: lll
-			dummySender, recKey,
+			recKey,
 			"illegal base64 data at input byte 0")
 	})
 
@@ -495,7 +505,7 @@ func TestDecryptComponents(t *testing.T) {
 		decryptComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_W", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                // nolint: lll
-			dummySender, recKey,
+			recKey,
 			"failed to decrypt CEK")
 	})
 
@@ -506,14 +516,14 @@ func TestDecryptComponents(t *testing.T) {
 		decryptComponentFailureTest(t,
 			prot,
 			`"iv": "!!!!!", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
-			dummySender, recKey,
+			recKey,
 			"illegal base64 data at input byte 0")
 	})
 
 	t.Run("Ciphertext not valid b64 data", func(t *testing.T) {
 		decryptComponentFailureTest(t,
 			prot, `"iv": "oDZpVO648Po3UcoW", "ciphertext": "=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,
-			dummySender, recKey,
+			recKey,
 			"illegal base64 data at input byte 0")
 	})
 
@@ -521,8 +531,16 @@ func TestDecryptComponents(t *testing.T) {
 		decryptComponentFailureTest(t,
 			prot,
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "123"}`, // nolint: lll
-			dummySender, recKey,
+			recKey,
 			"illegal base64 data at input byte 0")
+	})
+
+	t.Run("Recipient Key not valid key", func(t *testing.T) {
+		decryptComponentFailureTest(t,
+			prot,
+			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
+			&crypto.KeyPair{},
+			"failed to decrypt, recipient keyPair not supported, it must have a 64 byte private key and 32 byte public key")
 	})
 }
 
@@ -535,21 +553,21 @@ func TestSodiumBoxSeal(t *testing.T) {
 	t.Run("Generate a box_seal message to compare to ACA-Py:", func(t *testing.T) {
 		msg := []byte("lorem ipsum dolor sit amet consectetur adipiscing elit ")
 
-		enc, err := sodiumBoxSeal(msg, recipient1Key.pub, rand.Reader)
+		enc, err := sodiumBoxSeal(msg, recipient1Key.Pub, rand.Reader)
 		require.NoError(t, err)
 
 		// Python implementation expects the nacl 64-byte key format
-		t.Logf("recipient VK: %s", base64.URLEncoding.EncodeToString(recipient1Key.pub[:]))
-		t.Logf("recipient SK: %s", base64.URLEncoding.EncodeToString(recipient1Key.priv[:]))
+		t.Logf("recipient VK: %s", base64.URLEncoding.EncodeToString(recipient1Key.Pub[:]))
+		t.Logf("recipient SK: %s", base64.URLEncoding.EncodeToString(recipient1Key.Priv[:]))
 		t.Logf("sodiumBoxSeal() -> %s", base64.URLEncoding.EncodeToString(enc))
 	})
 
 	t.Run("Seal a message with sodiumBoxSeal and unseal it with sodiumBoxSealOpen", func(t *testing.T) {
 		msg := []byte("lorem ipsum dolor sit amet consectetur adipiscing elit ")
 
-		enc, err := sodiumBoxSeal(msg, recipient1Key.pub, rand.Reader)
+		enc, err := sodiumBoxSeal(msg, recipient1Key.Pub, rand.Reader)
 		require.NoError(t, err)
-		dec, err := sodiumBoxSealOpen(enc, recipient1Key.pub, recipient1Key.priv)
+		dec, err := sodiumBoxSealOpen(enc, recipient1Key.Pub, recipient1Key.Priv)
 		require.NoError(t, err)
 
 		require.Equal(t, msg, dec)
@@ -562,7 +580,7 @@ func TestSodiumBoxSeal(t *testing.T) {
 
 		msg := []byte("lorem ipsum dolor sit amet consectetur adipiscing elit ")
 
-		enc, err := sodiumBoxSeal(msg, rec.pub, rand.Reader)
+		enc, err := sodiumBoxSeal(msg, rec.Pub, rand.Reader)
 		require.NoError(t, err)
 
 		// Python implementation expects the nacl 64-byte key format
@@ -572,7 +590,7 @@ func TestSodiumBoxSeal(t *testing.T) {
 	t.Run("Failed decrypt, short message", func(t *testing.T) {
 		enc := []byte("Bad message")
 
-		_, err := sodiumBoxSealOpen(enc, recipient1Key.pub, recipient1Key.priv)
+		_, err := sodiumBoxSealOpen(enc, recipient1Key.Pub, recipient1Key.Priv)
 		require.Errorf(t, err, "message too short")
 	})
 
@@ -583,12 +601,12 @@ func TestSodiumBoxSeal(t *testing.T) {
 
 		msg := []byte("lorem ipsum dolor sit amet consectetur adipiscing elit ")
 
-		enc, err := sodiumBoxSeal(msg, rec.pub, rand.Reader)
+		enc, err := sodiumBoxSeal(msg, rec.Pub, rand.Reader)
 		require.NoError(t, err)
 
 		enc[0]++ // garbling
 
-		_, err = sodiumBoxSealOpen(enc, rec.pub, rec.priv)
+		_, err = sodiumBoxSealOpen(enc, rec.Pub, rec.Priv)
 		require.Errorf(t, err, "failed to unpack")
 	})
 }
@@ -749,12 +767,12 @@ func TestKeyConversion(t *testing.T) {
 		}
 	})
 
-	t.Run("Fail on converting nil pub key", func(t *testing.T) {
+	t.Run("Fail on converting nil Pub key", func(t *testing.T) {
 		_, err := publicEd25519toCurve25519(nil)
 		require.Errorf(t, err, "key is nil")
 	})
 
-	t.Run("Fail on converting nil priv key", func(t *testing.T) {
+	t.Run("Fail on converting nil Priv key", func(t *testing.T) {
 		_, err := secretEd25519toCurve25519(nil)
 		require.Errorf(t, err, "key is nil")
 	})
@@ -784,7 +802,17 @@ func randEdKeyPair(randReader io.Reader) (*keyPairEd25519, error) {
 	if err != nil {
 		return nil, err
 	}
-	keyPair.pub, keyPair.priv = (*publicEd25519)(pk), (*privateEd25519)(sk)
+	keyPair.Pub, keyPair.Priv = (*publicEd25519)(pk), (*privateEd25519)(sk)
+	return &keyPair, nil
+}
+
+func randKeyPair(randReader io.Reader) (*crypto.KeyPair, error) {
+	keyPair := crypto.KeyPair{}
+	pk, sk, err := sign.GenerateKey(randReader)
+	if err != nil {
+		return nil, err
+	}
+	keyPair.Pub, keyPair.Priv = pk[:], sk[:]
 	return &keyPair, nil
 }
 
@@ -794,18 +822,15 @@ func randCurveKeyPair(randReader io.Reader) (*keyPairCurve25519, error) {
 	if err != nil {
 		return nil, err
 	}
-	keyPair.pub, keyPair.priv = (*publicCurve25519)(pk), (*privateCurve25519)(sk)
+	keyPair.Pub, keyPair.Priv = (*publicCurve25519)(pk), (*privateCurve25519)(sk)
 	return &keyPair, nil
 }
 
-func getB58EdKey(pub, priv string) *keyPairEd25519 {
-	key := keyPairEd25519{new(privateEd25519), new(publicEd25519)}
-	pubk := base58.Decode(pub)
-	privk := base58.Decode(priv)
-
-	copy(key.pub[:], pubk)
-	copy(key.priv[:], privk)
-
+func getB58Key(pub, priv string) *crypto.KeyPair {
+	key := crypto.KeyPair{
+		Priv: base58.Decode(priv),
+		Pub:  base58.Decode(pub),
+	}
 	return &key
 }
 
@@ -814,8 +839,8 @@ func getB58CurveKey(pub, priv string) *keyPairCurve25519 {
 	pubk := base58.Decode(pub)
 	privk := base58.Decode(priv)
 
-	copy(key.pub[:], pubk)
-	copy(key.priv[:], privk)
+	copy(key.Pub[:], pubk)
+	copy(key.Priv[:], privk)
 
 	return &key
 }
