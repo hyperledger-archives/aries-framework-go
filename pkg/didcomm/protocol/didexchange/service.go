@@ -207,7 +207,7 @@ func (s *Service) handle(msg *message) error {
 
 	logger.Infof("next valid state to transition -> %s ", next.Name())
 
-	followup, err := next.Execute(msg.Msg, msg.ThreadID, s.ctx)
+	followup, action, err := next.Execute(msg.Msg, msg.ThreadID, s.ctx)
 	if err != nil {
 		return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 	}
@@ -217,8 +217,13 @@ func (s *Service) handle(msg *message) error {
 	if err != nil {
 		return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 	}
-
 	logger.Infof("persisted the connection using %s and updating the state to %s", msg.ThreadID, followup.Name())
+
+	err = action()
+	if err != nil {
+		return fmt.Errorf("failed to execute state action %s %w", followup.Name(), err)
+	}
+	logger.Infof("finish execute state action: %s", followup.Name())
 
 	logger.Infof("send post event for state %s", next.Name())
 	s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PostState, Msg: msg.Msg, StateID: next.Name()})
@@ -226,16 +231,24 @@ func (s *Service) handle(msg *message) error {
 	for ; !isNoOp(followup); followup = next {
 		logger.Infof("send pre event for state %s", followup.Name())
 		s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PreState, Msg: msg.Msg, StateID: followup.Name()})
-		next, err = followup.Execute(msg.Msg, msg.ThreadID, s.ctx)
+		logger.Infof("execute next state: %s", followup.Name())
+		var action stateAction
+		next, action, err = followup.Execute(msg.Msg, msg.ThreadID, s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", followup.Name(), err)
 		}
-		logger.Infof("next state that need to be executed immediately: %s", next.Name())
+		logger.Infof("finish execute next state: %s", followup.Name())
 		err = s.update(msg.ThreadID, followup)
 		if err != nil {
 			return fmt.Errorf("failed to persist state %s %w", followup.Name(), err)
 		}
 		logger.Infof("persisted the connection using %s and updating the state to %s", msg.ThreadID, followup.Name())
+		err = action()
+		if err != nil {
+			return fmt.Errorf("failed to execute state action %s %w", followup.Name(), err)
+		}
+		logger.Infof("finish execute state action: %s", followup.Name())
+
 		logger.Infof("send post event for state %s", followup.Name())
 		s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PostState, Msg: msg.Msg, StateID: followup.Name()})
 	}

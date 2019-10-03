@@ -33,6 +33,10 @@ const (
 
 //TODO: This is temporary to move forward with bdd test will be fixed in Issue-353
 var temp string //nolint
+
+// state action for network call
+type stateAction func() error
+
 // The did-exchange protocol's state.
 type state interface {
 	// Name of this state.
@@ -41,7 +45,7 @@ type state interface {
 	CanTransitionTo(next state) bool
 	// Executes this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (followup state, err error)
+	Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (followup state, action stateAction, err error)
 }
 
 // Returns the state towards which the protocol will transition to if the msgType is processed.
@@ -92,8 +96,8 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) Execute(_ dispatcher.DIDCommMsg, thid string, ctx context) (state, error) {
-	return nil, errors.New("cannot execute no-op")
+func (s *noOp) Execute(_ dispatcher.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+	return nil, nil, errors.New("cannot execute no-op")
 }
 
 // null state
@@ -108,8 +112,8 @@ func (s *null) CanTransitionTo(next state) bool {
 	return stateNameInvited == next.Name() || stateNameRequested == next.Name()
 }
 
-func (s *null) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, error) {
-	return &noOp{}, nil
+func (s *null) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+	return &noOp{}, nil, nil
 }
 
 // invited state
@@ -124,15 +128,15 @@ func (s *invited) CanTransitionTo(next state) bool {
 	return stateNameRequested == next.Name()
 }
 
-func (s *invited) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, error) {
+func (s *invited) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
 	if msg.Type != ConnectionInvite {
-		return nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
 	}
 	if msg.Outbound {
 		// illegal
-		return nil, errors.New("outbound invitations are not allowed")
+		return nil, nil, errors.New("outbound invitations are not allowed")
 	}
-	return &requested{}, nil
+	return &requested{}, func() error { return nil }, nil
 }
 
 // requested state
@@ -147,33 +151,33 @@ func (s *requested) CanTransitionTo(next state) bool {
 	return stateNameResponded == next.Name()
 }
 
-func (s *requested) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, error) { //nolint:dupl
+func (s *requested) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
 	switch msg.Type {
 	case ConnectionInvite:
 		if msg.Outbound {
-			return nil, fmt.Errorf("outbound invitations are not allowed for state %s", s.Name())
+			return nil, nil, fmt.Errorf("outbound invitations are not allowed for state %s", s.Name())
 		}
 		invitation := &Invitation{}
 		err := json.Unmarshal(msg.Payload, invitation)
 		if err != nil {
-			return nil, fmt.Errorf("unmarshalling failed: %s", err)
+			return nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
-		err = ctx.handleInboundInvitation(invitation, thid)
+		action, err := ctx.handleInboundInvitation(invitation, thid)
 		if err != nil {
-			return nil, fmt.Errorf("handle inbound invitation failed: %s", err)
+			return nil, nil, fmt.Errorf("handle inbound invitation failed: %s", err)
 		}
-		return &noOp{}, nil
+		return &noOp{}, action, nil
 	case ConnectionRequest:
 		if msg.Outbound {
-			err := ctx.sendOutboundRequest(msg)
+			action, err := ctx.sendOutboundRequest(msg)
 			if err != nil {
-				return nil, fmt.Errorf("send outbound request failed: %s", err)
+				return nil, nil, fmt.Errorf("send outbound request failed: %s", err)
 			}
-			return &noOp{}, nil
+			return &noOp{}, action, nil
 		}
-		return &responded{}, nil
+		return &responded{}, func() error { return nil }, nil
 	default:
-		return nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
 	}
 }
 
@@ -189,33 +193,33 @@ func (s *responded) CanTransitionTo(next state) bool {
 	return stateNameCompleted == next.Name()
 }
 
-func (s *responded) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, error) { //nolint:dupl
+func (s *responded) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
 	switch msg.Type {
 	case ConnectionRequest:
 		if msg.Outbound {
-			return nil, fmt.Errorf("outbound requests are not allowed for state %s", s.Name())
+			return nil, nil, fmt.Errorf("outbound requests are not allowed for state %s", s.Name())
 		}
 		request := &Request{}
 		err := json.Unmarshal(msg.Payload, request)
 		if err != nil {
-			return nil, fmt.Errorf("unmarshalling failed: %s", err)
+			return nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
-		err = ctx.handleInboundRequest(request)
+		action, err := ctx.handleInboundRequest(request)
 		if err != nil {
-			return nil, fmt.Errorf("handle inbound request failed: %s", err)
+			return nil, nil, fmt.Errorf("handle inbound request failed: %s", err)
 		}
-		return &noOp{}, nil
+		return &noOp{}, action, nil
 	case ConnectionResponse:
 		if msg.Outbound {
-			err := ctx.sendOutboundResponse(msg)
+			action, err := ctx.sendOutboundResponse(msg)
 			if err != nil {
-				return nil, fmt.Errorf("send outbound response failed: %s", err)
+				return nil, nil, fmt.Errorf("send outbound response failed: %s", err)
 			}
-			return &noOp{}, nil
+			return &noOp{}, action, nil
 		}
-		return &completed{}, nil
+		return &completed{}, func() error { return nil }, nil
 	default:
-		return nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
 	}
 }
 
@@ -231,36 +235,36 @@ func (s *completed) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *completed) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, error) {
+func (s *completed) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
 	switch msg.Type {
 	case ConnectionResponse:
 		if msg.Outbound {
-			return nil, fmt.Errorf("outbound responses are not allowed for state %s", s.Name())
+			return nil, nil, fmt.Errorf("outbound responses are not allowed for state %s", s.Name())
 		}
 		response := &Response{}
 		err := json.Unmarshal(msg.Payload, response)
 		if err != nil {
-			return nil, fmt.Errorf("unmarshalling failed: %s", err)
+			return nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
-		err = ctx.handleInboundResponse(response)
+		action, err := ctx.handleInboundResponse(response)
 		if err != nil {
-			return nil, fmt.Errorf("handle inbound failed: %s", err)
+			return nil, nil, fmt.Errorf("handle inbound failed: %s", err)
 		}
-		return &noOp{}, nil
+		return &noOp{}, action, nil
 	case ConnectionAck:
 		if msg.Outbound {
 			err := ctx.sendOutboundAck(msg)
 			if err != nil {
-				return nil, fmt.Errorf("send outbound ack failed: %s", err)
+				return nil, nil, fmt.Errorf("send outbound ack failed: %s", err)
 			}
 		}
 		//TODO: issue-333 otherwise save did-exchange connection
-		return &noOp{}, nil
+		return &noOp{}, func() error { return nil }, nil
 	default:
-		return nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
 	}
 }
-func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string) error {
+func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string) (stateAction, error) {
 	// create a request from invitation
 	destination := &dispatcher.Destination{
 		RecipientKeys:   invitation.RecipientKeys,
@@ -269,7 +273,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string)
 	}
 	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// choose the first public key
 	sendVerKey := string(newDidDoc.PublicKey[0].Value)
@@ -287,13 +291,15 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string)
 		},
 	}
 	// send the exchange request
-	return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
+	return func() error {
+		return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
+	}, nil
 }
-func (ctx *context) handleInboundRequest(request *Request) error {
+func (ctx *context) handleInboundRequest(request *Request) (stateAction, error) {
 	// create a response from Request
 	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	connection := &Connection{
@@ -303,7 +309,7 @@ func (ctx *context) handleInboundRequest(request *Request) error {
 	// prepare connection signature
 	encodedConnectionSignature, err := prepareConnectionSignature(connection)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// prepare the response
 	response := &Response{
@@ -319,11 +325,13 @@ func (ctx *context) handleInboundRequest(request *Request) error {
 
 	sendVerKey := string(newDidDoc.PublicKey[0].Value)
 	// send exchange response
-	return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
+	return func() error {
+		return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
+	}, nil
 }
-func (ctx *context) sendOutboundRequest(msg dispatcher.DIDCommMsg) error {
+func (ctx *context) sendOutboundRequest(msg dispatcher.DIDCommMsg) (stateAction, error) {
 	if msg.OutboundDestination == nil {
-		return fmt.Errorf("outboundDestination cannot be empty for outbound Request")
+		return nil, fmt.Errorf("outboundDestination cannot be empty for outbound Request")
 	}
 	destination := &dispatcher.Destination{
 		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
@@ -333,17 +341,19 @@ func (ctx *context) sendOutboundRequest(msg dispatcher.DIDCommMsg) error {
 	request := &Request{}
 	err := json.Unmarshal(msg.Payload, request)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// choose the first public key
 	sendVerKey := string(request.Connection.DIDDoc.PublicKey[0].Value)
 	// send the exchange request
-	return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
+	return func() error {
+		return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
+	}, nil
 }
 
-func (ctx *context) sendOutboundResponse(msg dispatcher.DIDCommMsg) error {
+func (ctx *context) sendOutboundResponse(msg dispatcher.DIDCommMsg) (stateAction, error) {
 	if msg.OutboundDestination == nil {
-		return fmt.Errorf("outboundDestination cannot be empty for outbound Request")
+		return nil, fmt.Errorf("outboundDestination cannot be empty for outbound Request")
 	}
 	destination := &dispatcher.Destination{
 		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
@@ -353,23 +363,25 @@ func (ctx *context) sendOutboundResponse(msg dispatcher.DIDCommMsg) error {
 	response := &Response{}
 	err := json.Unmarshal(msg.Payload, response)
 	if err != nil {
-		return fmt.Errorf("unmarhalling outbound response: %s", err)
+		return nil, fmt.Errorf("unmarhalling outbound response: %s", err)
 	}
 
 	connBytes, err := base64.URLEncoding.DecodeString(response.ConnectionSignature.SignedData)
 	if err != nil {
-		return fmt.Errorf("decoding string failed : %s", err)
+		return nil, fmt.Errorf("decoding string failed : %s", err)
 	}
 
 	connection := &Connection{}
 	err = json.Unmarshal(connBytes, connection)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// choose the first public key
 	sendVerKey := string(connection.DIDDoc.PublicKey[0].Value)
 
-	return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
+	return func() error {
+		return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
+	}, nil
 }
 
 // TODO: Need to figure out how to find the destination for outbound request
@@ -423,7 +435,7 @@ func (ctx *context) sendOutboundAck(msg dispatcher.DIDCommMsg) error {
 	sendVerKey := temp
 	return ctx.outboundDispatcher.Send(ack, sendVerKey, destination)
 }
-func (ctx *context) handleInboundResponse(response *Response) error {
+func (ctx *context) handleInboundResponse(response *Response) (stateAction, error) {
 	ack := &model.Ack{
 		Type:   ConnectionAck,
 		ID:     uuid.New().String(),
@@ -434,16 +446,18 @@ func (ctx *context) handleInboundResponse(response *Response) error {
 	}
 	connBytes, err := base64.URLEncoding.DecodeString(response.ConnectionSignature.SignedData)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	//TODO: Issue-345 The first few bytes of connBytes contains a timestamp needs to be stripped
 	conn := &Connection{}
 	err = json.Unmarshal(connBytes, conn)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	dest := prepareDestination(conn.DIDDoc)
 	// TODO : Issue-353
 	sendVerKey := temp
-	return ctx.outboundDispatcher.Send(ack, sendVerKey, dest)
+	return func() error {
+		return ctx.outboundDispatcher.Send(ack, sendVerKey, dest)
+	}, nil
 }
