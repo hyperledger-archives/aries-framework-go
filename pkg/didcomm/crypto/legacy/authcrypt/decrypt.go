@@ -14,16 +14,23 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/nacl/box"
 )
 
 // Decrypt will decode the envelope using the legacy format
-// Using (X)Chacha20 encryption algorithm and Poly1305 authenticator
-func (c *Crypter) Decrypt(envelope []byte, recipientKey *keyPairEd25519) ([]byte, error) {
+// Using (X)Chacha20 encryption algorithm and Poly1035 authenticator
+func (c *Crypter) Decrypt(envelope []byte, recipient crypto.KeyPair) ([]byte, error) {
+	edRecipient, err := keyToEdKey(recipient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt, recipient %s", err.Error())
+	}
+
 	var envelopeData legacyEnvelope
-	err := json.Unmarshal(envelope, &envelopeData)
+	err = json.Unmarshal(envelope, &envelopeData)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +55,7 @@ func (c *Crypter) Decrypt(envelope []byte, recipientKey *keyPairEd25519) ([]byte
 		return nil, fmt.Errorf("message format %s not supported", protectedData.Alg)
 	}
 
-	cek, err := getCEK(protectedData.Recipients, recipientKey)
+	cek, err := getCEK(protectedData.Recipients, edRecipient)
 	if err != nil {
 		return nil, err
 	}
@@ -61,15 +68,15 @@ func getCEK(recipients []recipient, recKey *keyPairEd25519) (*[chacha.KeySize]by
 		header := candidate.Header
 		pubKey := base58.Decode(header.KID)
 
-		if !bytes.Equal(pubKey, recKey.pub[:]) {
+		if !bytes.Equal(pubKey, recKey.Pub[:]) {
 			continue
 		}
 
-		pk, err := publicEd25519toCurve25519(recKey.pub)
+		pk, err := publicEd25519toCurve25519(recKey.Pub)
 		if err != nil {
 			return nil, err
 		}
-		sk, err := secretEd25519toCurve25519(recKey.priv)
+		sk, err := secretEd25519toCurve25519(recKey.Priv)
 		if err != nil {
 			return nil, err
 		}

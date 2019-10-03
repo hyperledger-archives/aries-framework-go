@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+
 	"github.com/agl/ed25519/extra25519"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/nacl/box"
@@ -22,8 +24,8 @@ type privateEd25519 [ed25519.PrivateKeySize]byte
 type publicEd25519 [ed25519.PublicKeySize]byte
 
 type keyPairEd25519 struct {
-	priv *privateEd25519
-	pub  *publicEd25519
+	Priv *privateEd25519
+	Pub  *publicEd25519
 }
 
 // CurveKeySize is the size of public and private Curve25519 keys in bytes
@@ -33,49 +35,25 @@ type privateCurve25519 [CurveKeySize]byte
 type publicCurve25519 [CurveKeySize]byte
 
 type keyPairCurve25519 struct {
-	priv *privateCurve25519
-	pub  *publicCurve25519
+	Priv *privateCurve25519
+	Pub  *publicCurve25519
 }
 
 // Crypter represents an Authcrypt Encrypter (Decrypter) that outputs/reads legacy Aries envelopes
 type Crypter struct {
-	sender     keyPairEd25519
-	recipients []*publicEd25519
 	randSource io.Reader
 }
 
 // New will create a Crypter that encrypts messages using the legacy Aries format
-// Note: legacy crypter does not support XChacha20Poly1305 (XC20P), only Chacha20Poly1305 (C20P)
-func New(sender keyPairEd25519, recipients []*publicEd25519) (*Crypter, error) { // nolint: lll
-	if len(recipients) == 0 {
-		return nil, errors.New("empty recipients keys, must have at least one recipient")
-	}
-
-	c := &Crypter{
-		sender:     sender,
-		recipients: recipients,
+// Note: legacy crypter does not support XChacha20Poly1035 (XC20P), only Chacha20Poly1035 (C20P)
+func New() *Crypter {
+	return &Crypter{
 		randSource: rand.Reader,
 	}
-
-	if !isKeyPairValid(sender) {
-		return nil, fmt.Errorf(
-			"sender keyPair not supported, it must have a %d byte private key and %d byte public key",
-			ed25519.PrivateKeySize, ed25519.PublicKeySize)
-	}
-
-	return c, nil
 }
 
 func (c *Crypter) setRandSource(source io.Reader) {
 	c.randSource = source
-}
-
-func isKeyPairValid(kp keyPairEd25519) bool {
-	if kp.priv == nil || kp.pub == nil {
-		return false
-	}
-
-	return true
 }
 
 // legacyEnvelope is the full payload envelope for the JSON message
@@ -105,6 +83,24 @@ type recipientHeader struct {
 	KID    string `json:"kid,omitempty"`
 	Sender string `json:"sender,omitempty"`
 	IV     string `json:"iv,omitempty"`
+}
+
+func keyToEdKey(keyPair crypto.KeyPair) (*keyPairEd25519, error) {
+	if !crypto.IsKeyPairValid(keyPair) ||
+		len(keyPair.Priv) != ed25519.PrivateKeySize ||
+		len(keyPair.Pub) != ed25519.PublicKeySize {
+		return nil, fmt.Errorf(
+			"keyPair not supported, it must have a %d byte private key and %d byte public key",
+			ed25519.PrivateKeySize, ed25519.PublicKeySize)
+	}
+
+	sk := privateEd25519{}
+	vk := publicEd25519{}
+	copy(sk[:], keyPair.Priv)
+	copy(vk[:], keyPair.Pub)
+
+	out := keyPairEd25519{&sk, &vk}
+	return &out, nil
 }
 
 // publicEd25519toCurve25519 takes an Ed25519 public key and provides the corresponding Curve25519 public key
