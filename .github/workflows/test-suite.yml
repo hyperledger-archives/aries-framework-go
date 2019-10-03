@@ -1,0 +1,51 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+name: test-suite
+on: 
+  push:
+    paths:
+    - 'pkg/doc/verifiable/**'
+    - 'scripts/*_test_suite.sh'
+    - '.github/workflows/test-suite.yml'
+    - 'Makefile'
+  pull_request:
+    paths:
+    - 'pkg/doc/verifiable/**'
+    - 'scripts/*_test_suite.sh'
+    - '.github/workflows/test-suite.yml'
+    - 'Makefile'
+jobs:
+  vcTestSuite:
+    name: VC test suite
+    runs-on: ubuntu-18.04
+    timeout-minutes: 10
+    steps:
+
+    - name: Setup Go 1.13
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.13
+      id: go
+
+    - name: Setup node
+      uses: actions/setup-node@v1
+      with:
+        node-version: '10.x'
+
+    - name: Setup mocha
+      timeout-minutes: 10
+      run: npm install -g mocha
+
+    - uses: actions/checkout@v1
+
+    - name: Run test suite
+      timeout-minutes: 10
+      run: make vc-test-suite
+
+    - uses: actions/upload-artifact@v1
+      with:
+        name: vc-report
+        path: build/vc-test-suite/suite/implementations/aries-framework-go-report.json
