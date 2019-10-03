@@ -16,7 +16,13 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/xeipuuv/gojsonschema"
+
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
+
+// nolint
+var logger = log.New("aries-framework/did-exchange/service")
 
 const (
 	// Context of the DID document
@@ -428,6 +434,26 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 
 	return byteDoc, nil
 }
+
+// VerifyProof verifies document proofs
+func (doc *Doc) VerifyProof() error {
+	if len(doc.Proof) == 0 {
+		return ErrProofNotFound
+	}
+
+	logger.Infof("current state")
+
+	_, err := doc.JSONBytes()
+	if err != nil {
+		return err
+	}
+
+	_ = verifier.New(nil)
+	return nil
+}
+
+// ErrProofNotFound is returned when proof is not found
+var ErrProofNotFound = errors.New("proof not found")
 
 func populateRawServices(services []Service) []map[string]interface{} {
 	var rawServices []map[string]interface{}

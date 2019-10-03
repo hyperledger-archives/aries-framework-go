@@ -219,13 +219,6 @@ func TestPublicKeys(t *testing.T) {
 	})
 }
 
-func TestFromBytes(t *testing.T) {
-	// test error from Unmarshal
-	_, err := FromBytes([]byte("wrongData"))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "validation of DID doc failed")
-}
-
 func TestValidateDidDocContext(t *testing.T) {
 	t.Run("test did doc with empty context", func(t *testing.T) {
 		raw := &rawDoc{}

@@ -6,7 +6,7 @@ GO_CMD ?= go
 # Controller API entry point to be used for generating Open API specifications
 OPENAPI_SPEC_META=cmd/aries-agentd/main.go
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
-OPENAPI_DOCKER_IMG_VERSION=v0.20.1
+OPENAPI_DOCKER_IMG_VERSION=dev
 
 .PHONY: all
 all: checks generate-openapi-spec unit-test bdd-test
