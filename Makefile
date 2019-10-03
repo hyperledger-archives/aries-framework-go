@@ -38,7 +38,6 @@ vc-test-suite: clean
 clean:
 	rm -f coverage.txt
 	rm -Rf ./build
-	rm -Rf ./vc_test_suite
 	rm -Rf ./test/bdd/db
 
 .PHONY: generate-openapi-spec
