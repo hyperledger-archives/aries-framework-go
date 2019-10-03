@@ -48,7 +48,7 @@ func TestNew(t *testing.T) {
 func TestClient_CreateInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &did.MockDIDCreator{}, &mockProvider{}),
-			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
+			WalletValue: &mockwallet.CloseableWallet{CreateSigningKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
@@ -65,6 +65,15 @@ func TestClient_CreateInvitation(t *testing.T) {
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "createSigningKeyErr")
+	})
+
+	t.Run("test error from save record", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{ServiceValue: didexchange.New(nil, &did.MockDIDCreator{}, &mockProvider{}),
+			WalletValue: &mockwallet.CloseableWallet{}})
+		require.NoError(t, err)
+		_, err = c.CreateInvitation("agent")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to save invitation")
 	})
 }
 
@@ -89,7 +98,7 @@ func TestClient_RemoveConnection(t *testing.T) {
 func TestClient_HandleInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{ServiceValue: &mockprotocol.MockDIDExchangeSvc{},
-			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
+			WalletValue: &mockwallet.CloseableWallet{CreateSigningKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
@@ -101,7 +110,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg dispatcher.DIDCommMsg) error {
 				return fmt.Errorf("handle error")
 			}},
-			WalletValue: &mockwallet.CloseableWallet{}, InboundEndpointValue: "endpoint"})
+			WalletValue: &mockwallet.CloseableWallet{CreateSigningKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)

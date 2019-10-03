@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
@@ -45,6 +46,7 @@ type provider interface {
 	Service(id string) (interface{}, error)
 	CryptoWallet() wallet.Crypto
 	InboundTransportEndpoint() string
+	StorageProvider() storage.Provider
 }
 
 // New returns new DID Exchange rest client protocol instance
