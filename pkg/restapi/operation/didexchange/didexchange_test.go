@@ -271,7 +271,7 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 				return handleErr
 			},
 		},
-		WalletValue:          &mockwallet.CloseableWallet{},
+		WalletValue:          &mockwallet.CloseableWallet{CreateSigningKeyValue: "sample-key"},
 		InboundEndpointValue: "endpoint",
 	},
 	)

@@ -17,6 +17,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange/persistence"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
@@ -25,6 +27,7 @@ type provider interface {
 	Service(id string) (interface{}, error)
 	CryptoWallet() wallet.Crypto
 	InboundTransportEndpoint() string
+	StorageProvider() storage.Provider
 }
 
 // Client enable access to didexchange api
@@ -40,6 +43,7 @@ type Client struct {
 	actionEventlock          sync.RWMutex
 	msgEvents                []chan<- dispatcher.StateMsg
 	msgEventsLock            sync.RWMutex
+	recorder                 *persistence.ConnectionRecorder
 }
 
 // New return new instance of didexchange client
@@ -48,10 +52,17 @@ func New(ctx provider) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	didexchangeSvc, ok := svc.(dispatcher.DIDCommService)
 	if !ok {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
+
+	store, err := ctx.StorageProvider().GetStoreHandle()
+	if err != nil {
+		return nil, err
+	}
+
 	c := &Client{
 		didexchangeSvc:           didexchangeSvc,
 		wallet:                   ctx.CryptoWallet(),
@@ -59,6 +70,7 @@ func New(ctx provider) (*Client, error) {
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		actionCh: make(chan dispatcher.DIDCommAction, 10),
 		msgCh:    make(chan dispatcher.StateMsg, 10),
+		recorder: persistence.NewConnectionRecorder(store),
 	}
 
 	// start listening for action/message events
@@ -77,13 +89,20 @@ func (c *Client) CreateInvitation(label string) (*didexchange.Invitation, error)
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
 	}
 
-	return &didexchange.Invitation{
+	invitation := &didexchange.Invitation{
 		ID:              uuid.New().String(),
 		Label:           label,
 		RecipientKeys:   []string{verKey},
 		ServiceEndpoint: c.inboundTransportEndpoint,
 		Type:            didexchange.ConnectionInvite,
-	}, nil
+	}
+
+	err = c.recorder.SaveInvitation(verKey, invitation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save invitation: %w", err)
+	}
+
+	return invitation, nil
 }
 
 // HandleInvitation handle incoming invitation
