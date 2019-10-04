@@ -47,6 +47,8 @@ type StateMsg struct {
 	Type    StateMsgType
 	StateID string
 	Msg     DIDCommMsg
+	// Properties contains different values from different protocols
+	Properties map[string]interface{}
 }
 
 // Destination provides the recipientKeys, routingKeys, and serviceEndpoint populated from Invitation
@@ -76,6 +78,8 @@ type DIDCommAction struct {
 	Message DIDCommMsg
 	// Callback function to be called by the consumer for further processing the message.
 	Callback Callback
+	// Properties contains different values from different protocols
+	Properties map[string]interface{}
 }
 
 // DIDCommCallback message type to pass service callback in go channels.

@@ -22,6 +22,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
+const (
+	// ConnectionID connection id is created to retriever connection record from db
+	ConnectionID = didexchange.ConnectionID
+	// InvitationID invitation id is created in invitation request
+	InvitationID = didexchange.InvitationID
+)
+
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	Service(id string) (interface{}, error)
