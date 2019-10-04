@@ -44,7 +44,11 @@ func TestBaseWallet_CreateKey(t *testing.T) {
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
-		verKey, err := w.CreateKey()
+		encKey, err := w.CreateEncryptionKey()
+		require.NoError(t, err)
+		require.NotEmpty(t, encKey)
+
+		verKey, err := w.CreateSigningKey()
 		require.NoError(t, err)
 		require.NotEmpty(t, verKey)
 	})
@@ -54,7 +58,10 @@ func TestBaseWallet_CreateKey(t *testing.T) {
 			Store: make(map[string][]byte), ErrPut: fmt.Errorf("put error"),
 		}}))
 		require.NoError(t, err)
-		_, err = w.CreateKey()
+		_, err = w.CreateEncryptionKey()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "put error")
+		_, err = w.CreateSigningKey()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "put error")
 	})

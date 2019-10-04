@@ -22,14 +22,23 @@ type Wallet interface {
 // Crypto interface
 type Crypto interface {
 
-	// CreateKey create a new public/private signing keypair.
+	// CreateEncryptionKey create a new public/private encryption keypair.
 	//
 	// Returns:
 	//
 	// string: verKey
 	//
 	// error: error
-	CreateKey() (string, error)
+	CreateEncryptionKey() (string, error)
+
+	// CreateSigningKey create a new public/private signing keypair.
+	//
+	// Returns:
+	//
+	// string: verKey
+	//
+	// error: error
+	CreateSigningKey() (string, error)
 
 	// SignMessage sign a message using the private key associated with a given verification key.
 	//

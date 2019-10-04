@@ -91,7 +91,7 @@ func New(ctx provider) (*Client, error) {
 
 // CreateInvitation create invitation
 func (c *Client) CreateInvitation(label string) (*didexchange.Invitation, error) {
-	verKey, err := c.wallet.CreateKey()
+	verKey, err := c.wallet.CreateEncryptionKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
 	}
