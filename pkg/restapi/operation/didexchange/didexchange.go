@@ -9,6 +9,7 @@ package didexchange
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -66,8 +67,20 @@ func New(ctx provider) (*Operation, error) {
 		return nil, errors.New("failed to lookup didexchange service from context")
 	}
 
-	svc := &Operation{ctx: ctx, client: didExchange, service: didexchangeSvc}
+	svc := &Operation{
+		ctx:     ctx,
+		client:  didExchange,
+		service: didexchangeSvc,
+		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
+		actionCh: make(chan dispatcher.DIDCommAction, 10),
+		msgCh:    make(chan dispatcher.StateMsg, 10),
+	}
 	svc.registerHandler()
+
+	err = svc.startClientEventListener()
+	if err != nil {
+		return nil, fmt.Errorf("event listener startup failed: %w", err)
+	}
 
 	return svc, nil
 }
@@ -78,6 +91,8 @@ type Operation struct {
 	client   *didexchange.Client
 	service  dispatcher.Service
 	handlers []operation.Handler
+	actionCh chan dispatcher.DIDCommAction
+	msgCh    chan dispatcher.StateMsg
 }
 
 // CreateInvitation swagger:route POST /connections/create-invitation did-exchange createInvitation
@@ -338,4 +353,38 @@ func getQueryParams(v interface{}, vals url.Values) error {
 	}
 
 	return json.Unmarshal(bytes, v)
+}
+
+// startClientEventListener listens to action and message events from DID Exchange service.
+func (c *Operation) startClientEventListener() error {
+	// register the action event channel
+	err := c.client.RegisterActionEvent(c.actionCh)
+	if err != nil {
+		return fmt.Errorf("didexchange action event registration failed: %w", err)
+	}
+
+	// register the message event channel
+	err = c.client.RegisterMsgEvent(c.msgCh)
+	if err != nil {
+		return fmt.Errorf("didexchange message event registration failed: %w", err)
+	}
+
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/200 - Webhook integration
+	// for now, auto execute the actions
+	go func() {
+		err := didexchange.AutoExecuteActionEvent(c.actionCh)
+		if err != nil {
+			logger.Errorf("auto action event execution failed: %s", err)
+		}
+	}()
+
+	go func() {
+		for e := range c.msgCh {
+			// TODO https://github.com/hyperledger/aries-framework-go/issues/200 - Webhook integration
+			// for now, log the messages
+			logger.Infof("message event received : type=%s", e.Type)
+		}
+	}()
+
+	return nil
 }
