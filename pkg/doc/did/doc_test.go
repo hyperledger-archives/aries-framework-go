@@ -7,15 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package did
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 )
 
 const pemPK = `-----BEGIN PUBLIC KEY-----
@@ -69,8 +74,13 @@ const validDoc = `{
   "created": "2002-10-10T17:00:00Z"
 }`
 
+const did = "did:method:abc"
+const creator = did + "#key-1"
+const keyType = "Ed25519VerificationKey2018"
+const signatureType = "Ed25519Signature2018"
+
 func TestValid(t *testing.T) {
-	doc, err := FromBytes([]byte(validDoc))
+	doc, err := ParseDocument([]byte(validDoc))
 	require.NoError(t, err)
 	require.NotNil(t, doc)
 	require.Equal(t, "https://w3id.org/did/v1", doc.Context[0])
@@ -119,7 +129,7 @@ func TestValid(t *testing.T) {
 }
 
 func TestValidWithProof(t *testing.T) {
-	doc, err := FromBytes([]byte(validDocWithProof))
+	doc, err := ParseDocument([]byte(validDocWithProof))
 	require.NoError(t, err)
 	require.NotNil(t, doc)
 
@@ -145,7 +155,7 @@ func TestValidWithProof(t *testing.T) {
 	require.NotNil(t, byteDoc)
 
 	// test invalid created
-	invalidDoc, err := FromBytes([]byte(docWithInvalidCreatedInProof))
+	invalidDoc, err := ParseDocument([]byte(docWithInvalidCreatedInProof))
 	require.NotNil(t, err)
 	require.Nil(t, invalidDoc)
 	require.Contains(t, err.Error(), "populate proofs failed")
@@ -186,7 +196,7 @@ func TestPopulateAuthentications(t *testing.T) {
 		raw.Authentication[0] = "did:example:123456789abcdefghs#key4"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = FromBytes(bytes)
+		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
 		expected := "authentication key did:example:123456789abcdefghs#key4 not exist in did doc public key"
@@ -201,7 +211,7 @@ func TestPublicKeys(t *testing.T) {
 		raw.PublicKey[1][jsonldPublicKeyPem] = "wrongData"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = FromBytes(bytes)
+		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to decode PEM block containing public key")
 	})
@@ -213,15 +223,15 @@ func TestPublicKeys(t *testing.T) {
 		raw.PublicKey[1]["publicKeyMultibase"] = "wrongData"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = FromBytes(bytes)
+		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "public key encoding not supported")
 	})
 }
 
-func TestFromBytes(t *testing.T) {
+func TestParseDocument(t *testing.T) {
 	// test error from Unmarshal
-	_, err := FromBytes([]byte("wrongData"))
+	_, err := ParseDocument([]byte("wrongData"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "validation of DID doc failed")
 }
@@ -450,7 +460,7 @@ func TestValidateDidDocCreated(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("test did doc with wrong format created", func(t *testing.T) {
-		doc, err := FromBytes([]byte(docWithInvalidCreated))
+		doc, err := ParseDocument([]byte(docWithInvalidCreated))
 		require.Error(t, err)
 		require.Nil(t, doc)
 		require.Contains(t, err.Error(), "cannot parse")
@@ -468,7 +478,7 @@ func TestValidateDidDocUpdated(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("test did doc with wrong format updated", func(t *testing.T) {
-		doc, err := FromBytes([]byte(docWithInvalidUpdated))
+		doc, err := ParseDocument([]byte(docWithInvalidUpdated))
 		require.Error(t, err)
 		require.Nil(t, doc)
 		require.Contains(t, err.Error(), "cannot parse")
@@ -565,7 +575,7 @@ func TestValidateDidDocProof(t *testing.T) {
 
 func TestJSONConversion(t *testing.T) {
 	// setup -> create Document from json byte data
-	doc, err := FromBytes([]byte(validDoc))
+	doc, err := ParseDocument([]byte(validDoc))
 	require.NoError(t, err)
 	require.NotEmpty(t, doc)
 
@@ -575,12 +585,121 @@ func TestJSONConversion(t *testing.T) {
 	require.NotEmpty(t, byteDoc)
 
 	// convert json byte data to document
-	doc2, err := FromBytes(byteDoc)
+	doc2, err := ParseDocument(byteDoc)
 	require.NoError(t, err)
 	require.NotEmpty(t, doc2)
 
-	// verify documents created by FromBytes and JSONBytes function matches
+	// verify documents created by ParseDocument and JSONBytes function matches
 	require.Equal(t, doc, doc2)
+}
+
+func TestVerifyProof(t *testing.T) {
+	signedDoc := createSignedDidDocument()
+
+	// happy path - valid signed document
+	doc, err := ParseDocument(signedDoc)
+	require.Nil(t, err)
+	require.NotNil(t, doc)
+	err = doc.VerifyProof()
+	require.NoError(t, err)
+
+	// error - doc with invalid proof value
+	doc.Proof[0].ProofValue = []byte("invalid")
+	err = doc.VerifyProof()
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "signature doesn't match")
+
+	// error - doc with no proof
+	doc, err = ParseDocument([]byte(validDoc))
+	require.NoError(t, err)
+	require.NotNil(t, doc)
+	err = doc.VerifyProof()
+	require.Equal(t, ErrProofNotFound, err)
+	require.Contains(t, err.Error(), "proof not found")
+}
+
+func TestDidKeyResolver_Resolve(t *testing.T) {
+	// error - key not found
+	keyResolver := didKeyResolver{}
+	key, err := keyResolver.Resolve("id")
+	require.Equal(t, ErrKeyNotFound, err)
+	require.Nil(t, key)
+
+	testKeyVal := []byte("pub key")
+	pubKeys := []PublicKey{{
+		ID:    "id",
+		Value: testKeyVal,
+	}}
+
+	// happy path - key found
+	keyResolver = didKeyResolver{PubKeys: pubKeys}
+	key, err = keyResolver.Resolve("id")
+	require.NoError(t, err)
+	require.Equal(t, testKeyVal, key)
+}
+
+func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
+	const didContext = "https://w3id.org/did/v1"
+
+	signingKey := PublicKey{
+		ID:         creator,
+		Type:       keyType,
+		Controller: did,
+		Value:      pubKey,
+	}
+
+	createdTime := time.Now()
+
+	didDoc := &Doc{
+		Context:   []string{didContext},
+		ID:        did,
+		PublicKey: []PublicKey{signingKey},
+		Created:   &createdTime,
+		Updated:   &createdTime,
+	}
+
+	return didDoc
+}
+
+func createSignedDidDocument() []byte {
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	didDoc := createDidDocumentWithSigningKey(pubKey)
+
+	jsonDoc, err := didDoc.JSONBytes()
+	if err != nil {
+		panic(err)
+	}
+
+	context := &signer.Context{Creator: creator,
+		SignatureType: signatureType,
+		Signer:        getSigner(privKey)}
+
+	s := signer.New()
+	signedDoc, err := s.Sign(context, jsonDoc)
+	if err != nil {
+		panic(err)
+	}
+
+	return signedDoc
+}
+
+func getSigner(privKey []byte) *testSigner {
+	return &testSigner{privateKey: privKey}
+}
+
+type testSigner struct {
+	privateKey []byte
+}
+
+func (s *testSigner) Sign(doc []byte) ([]byte, error) {
+	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
+		return nil, errors.New("ed25519: bad private key length")
+	}
+	return ed25519.Sign(s.privateKey, doc), nil
 }
 
 const validDocWithProof = `{

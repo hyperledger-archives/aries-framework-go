@@ -55,4 +55,12 @@ func TestPeerDIDStore(t *testing.T) {
 	// put - missing doc
 	err = store.Put(nil, nil)
 	require.Error(t, err)
+
+	// get - not json document
+	err = dbstore.Put("not-json", []byte("not json"))
+	require.NoError(t, err)
+	v, err := store.Get("not-json")
+	require.NotNil(t, err)
+	require.Nil(t, v)
+	require.Contains(t, err.Error(), "delta data fetch from store failed")
 }
