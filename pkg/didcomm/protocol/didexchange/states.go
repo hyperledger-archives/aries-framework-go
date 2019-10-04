@@ -255,14 +255,16 @@ func (s *completed) Execute(msg dispatcher.DIDCommMsg, thid string, ctx context)
 		}
 		return &noOp{}, action, nil
 	case ConnectionAck:
+		action := func() error { return nil }
 		if msg.Outbound {
-			err := ctx.sendOutboundAck(msg)
+			var err error
+			action, err = ctx.sendOutboundAck(msg)
 			if err != nil {
 				return nil, nil, fmt.Errorf("send outbound ack failed: %s", err)
 			}
 		}
 		//TODO: issue-333 otherwise save did-exchange connection
-		return &noOp{}, func() error { return nil }, nil
+		return &noOp{}, action, nil
 	default:
 		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
 	}
@@ -432,10 +434,10 @@ func prepareConnectionSignature(connection *Connection) (*ConnectionSignature, e
 		SignVerKey: string(pubKey),
 	}, nil
 }
-func (ctx *context) sendOutboundAck(msg dispatcher.DIDCommMsg) error {
+func (ctx *context) sendOutboundAck(msg dispatcher.DIDCommMsg) (stateAction, error) {
 	ack := &model.Ack{}
 	if msg.OutboundDestination == nil {
-		return fmt.Errorf("outboundDestination cannot be empty for outbound Response")
+		return nil, fmt.Errorf("outboundDestination cannot be empty for outbound Response")
 	}
 	destination := &dispatcher.Destination{
 		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
@@ -445,11 +447,15 @@ func (ctx *context) sendOutboundAck(msg dispatcher.DIDCommMsg) error {
 
 	err := json.Unmarshal(msg.Payload, ack)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// TODO : Issue-353
 	sendVerKey := temp
-	return ctx.outboundDispatcher.Send(ack, sendVerKey, destination)
+
+	action := func() error {
+		return ctx.outboundDispatcher.Send(ack, sendVerKey, destination)
+	}
+	return action, nil
 }
 func (ctx *context) handleInboundResponse(response *Response) (stateAction, error) {
 	ack := &model.Ack{

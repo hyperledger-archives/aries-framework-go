@@ -65,14 +65,14 @@ func (c *Crypter) Encrypt(payload []byte, sender crypto.KeyPair, recipientPubKey
 		return nil, err
 	}
 
-	protected := protected{
+	p := protected{
 		Enc:        "chacha20poly1305_ietf",
 		Typ:        "JWM/1.0",
 		Alg:        "Authcrypt",
 		Recipients: recipients,
 	}
 
-	return c.buildEnvelope(nonce, payload, cek[:], &protected)
+	return c.buildEnvelope(nonce, payload, cek[:], &p)
 }
 
 func (c *Crypter) buildEnvelope(nonce, payload, cek []byte, protected *protected) ([]byte, error) {
