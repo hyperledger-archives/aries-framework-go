@@ -46,6 +46,10 @@ const (
 	ConnectionAck = DIDExchangeSpec + "ack"
 	// DIDExchangeServiceType is the service type to be used in DID document
 	DIDExchangeServiceType = "did-communication"
+	// ConnectionID connection id is created to retriever connection record from db
+	ConnectionID = "connectionID"
+	// InvitationID invitation id is created in invitation request
+	InvitationID = "invitationID"
 )
 
 // message type to store data for eventing. This is retrieved during callback.
@@ -127,8 +131,11 @@ func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
 		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
 	// trigger message events
-	logger.Infof("send pre event for state %s", next.Name())
-	s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PreState, Msg: msg, StateID: next.Name()})
+	// TODO change from thread id to connection id #397
+	// TODO pass invitation id #397
+	s.sendMsgEvents(&dispatcher.StateMsg{
+		Type: dispatcher.PreState, Msg: msg, StateID: next.Name(), Properties: s.createEventProperties(thid, "")})
+	logger.Infof("sent pre event for state %s", next.Name())
 
 	// trigger action event based on message type for inbound messages
 	if !msg.Outbound && canTriggerActionEvents(msg.Type) {
@@ -204,56 +211,49 @@ func (s *Service) handle(msg *message) error {
 	if err != nil {
 		return fmt.Errorf("invalid state name: %w", err)
 	}
-
 	logger.Infof("next valid state to transition -> %s ", next.Name())
 
-	followup, action, err := next.Execute(msg.Msg, msg.ThreadID, s.ctx)
-	if err != nil {
-		return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
-	}
-	logger.Infof("follow up state that need to be executed immediately -> %s", followup.Name())
-
-	err = s.update(msg.ThreadID, next)
-	if err != nil {
-		return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
-	}
-	logger.Infof("persisted the connection using %s and updating the state to %s", msg.ThreadID, followup.Name())
-
-	err = action()
-	if err != nil {
-		return fmt.Errorf("failed to execute state action %s %w", followup.Name(), err)
-	}
-	logger.Infof("finish execute state action: %s", followup.Name())
-
-	logger.Infof("send post event for state %s", next.Name())
-	s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PostState, Msg: msg.Msg, StateID: next.Name()})
-
-	for ; !isNoOp(followup); followup = next {
-		logger.Infof("send pre event for state %s", followup.Name())
-		s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PreState, Msg: msg.Msg, StateID: followup.Name()})
-		logger.Infof("execute next state: %s", followup.Name())
+	for !isNoOp(next) {
+		// TODO change from thread id to connection id #397
+		// TODO pass invitation id #397
+		s.sendMsgEvents(&dispatcher.StateMsg{
+			Type: dispatcher.PreState, Msg: msg.Msg, StateID: next.Name(),
+			Properties: s.createEventProperties(msg.ThreadID, "")})
+		logger.Infof("sent pre event for state %s", next.Name())
 		var action stateAction
-		next, action, err = followup.Execute(msg.Msg, msg.ThreadID, s.ctx)
+		var followup state
+		followup, action, err = next.Execute(msg.Msg, msg.ThreadID, s.ctx)
 		if err != nil {
-			return fmt.Errorf("failed to execute state %s %w", followup.Name(), err)
+			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 		}
-		logger.Infof("finish execute next state: %s", followup.Name())
-		err = s.update(msg.ThreadID, followup)
-		if err != nil {
-			return fmt.Errorf("failed to persist state %s %w", followup.Name(), err)
+		logger.Infof("finish execute next state: %s", next.Name())
+		if err = s.update(msg.ThreadID, next); err != nil {
+			return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 		}
-		logger.Infof("persisted the connection using %s and updating the state to %s", msg.ThreadID, followup.Name())
-		err = action()
-		if err != nil {
-			return fmt.Errorf("failed to execute state action %s %w", followup.Name(), err)
+		logger.Infof("persisted the connection using %s and updated the state to %s",
+			msg.ThreadID, next.Name())
+		if err := action(); err != nil {
+			return fmt.Errorf("failed to execute state action %s %w", next.Name(), err)
 		}
-		logger.Infof("finish execute state action: %s", followup.Name())
+		logger.Infof("finish execute state action: %s", next.Name())
 
-		logger.Infof("send post event for state %s", followup.Name())
-		s.sendMsgEvents(&dispatcher.StateMsg{Type: dispatcher.PostState, Msg: msg.Msg, StateID: followup.Name()})
+		// TODO change from thread id to connection id #397
+		// TODO pass invitation id #397
+		s.sendMsgEvents(&dispatcher.StateMsg{
+			Type: dispatcher.PostState, Msg: msg.Msg, StateID: next.Name(),
+			Properties: s.createEventProperties(msg.ThreadID, "")})
+		logger.Infof("sent post event for state %s", next.Name())
+
+		next = followup
 	}
-	logger.Infof("--exited internal handle function--")
 	return nil
+}
+
+func (s *Service) createEventProperties(connectionID, invitationID string) map[string]interface{} { //nolint: unparam
+	properties := make(map[string]interface{})
+	properties[ConnectionID] = connectionID
+	properties[InvitationID] = invitationID
+	return properties
 }
 
 // sendEvent triggers the action event. This function stores the state of current processing and passes a callback
@@ -276,13 +276,15 @@ func (s *Service) sendActionEvent(msg dispatcher.DIDCommMsg, aEvent chan<- dispa
 	if err != nil {
 		return fmt.Errorf("JSON marshalling of document failed: %w", err)
 	}
-
 	// create the message for the channel
+	// TODO change from thread id to connection id #397
+	// TODO pass invitation id #397
 	didCommAction := dispatcher.DIDCommAction{
 		Message: msg,
 		Callback: func(didCommCallback dispatcher.DIDCommCallback) {
 			s.processCallback(id, didCommCallback)
 		},
+		Properties: s.createEventProperties(threadID, ""),
 	}
 
 	// trigger the registered action event
