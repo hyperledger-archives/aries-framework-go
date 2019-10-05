@@ -20,11 +20,12 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
-
 	"github.com/stretchr/testify/require"
 )
 
 type mockServer struct{}
+
+const agentUnexpectedExitErrMsg = "agent server exited unexpectedly"
 
 func (s *mockServer) ListenAndServe(host string, router *mux.Router) error {
 	return nil
@@ -102,8 +103,9 @@ func TestStartAriesDRequests(t *testing.T) {
 	testInboundHostURL := randomURL()
 
 	go func() {
-		err := startAgent(&HTTPServer{}, testHostURL, testInboundHostURL, path)
-		require.NoError(t, err)
+		parameters := &agentParameters{&HTTPServer{}, testHostURL, testInboundHostURL, path, []string{}}
+		err := startAgent(parameters)
+		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
 	}()
 
 	waitForServerToStart(t, testHostURL, testInboundHostURL)
@@ -111,8 +113,8 @@ func TestStartAriesDRequests(t *testing.T) {
 	validateRequests(t, testHostURL, testInboundHostURL)
 }
 
-func listenFor(host string, d time.Duration) error {
-	timeout := time.After(d)
+func listenFor(host string) error {
+	timeout := time.After(2 * time.Second)
 	for {
 		select {
 		case <-timeout:
@@ -158,7 +160,7 @@ func validateRequests(t *testing.T, testHostURL, testInboundHostURL string) {
 		// DIDComm inbound API test
 		{
 			name: "200: testing didcomm inbound",
-			r: newreq("POST",
+			r: newreq(http.MethodPost,
 				fmt.Sprintf("http://%s", testInboundHostURL),
 				strings.NewReader(`
 							{
@@ -205,7 +207,8 @@ func isJSON(res []byte) bool {
 func TestStartCmdWithMissingHostArg(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
-	args := []string{"--" + AgentInboundHostFlagName, randomURL(), "--" + AgentDBPathFlagName, ""}
+	args := []string{"--" + AgentInboundHostFlagName, randomURL(), "--" + AgentDBPathFlagName, "",
+		"--" + AgentWebhookFlagName, ""}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
@@ -215,16 +218,18 @@ func TestStartCmdWithMissingHostArg(t *testing.T) {
 }
 
 func TestStartAgentWithBlankHost(t *testing.T) {
-	err := startAgent(&mockServer{}, "", randomURL(), "")
+	parameters := &agentParameters{&mockServer{}, "", randomURL(), "", []string{}}
+	err := startAgent(parameters)
 
 	require.NotNil(t, err)
-	require.Equal(t, strings.ToLower(MissingHostErrorMessage), err.Error())
+	require.Equal(t, ErrMissingHost, err)
 }
 
 func TestStartCmdWithoutInboundHostArg(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
-	args := []string{"--" + AgentHostFlagName, randomURL(), "--" + AgentDBPathFlagName, ""}
+	args := []string{"--" + AgentHostFlagName, randomURL(), "--" + AgentDBPathFlagName, "",
+		"--" + AgentWebhookFlagName, ""}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
@@ -234,10 +239,11 @@ func TestStartCmdWithoutInboundHostArg(t *testing.T) {
 }
 
 func TestStartAgentWithBlankInboundHost(t *testing.T) {
-	err := startAgent(&mockServer{}, randomURL(), "", "")
+	parameters := &agentParameters{&mockServer{}, randomURL(), "", "", []string{}}
+	err := startAgent(parameters)
 
 	require.NotNil(t, err)
-	require.Equal(t, strings.ToLower(MissingInboundHostErrorMessage), err.Error())
+	require.Equal(t, ErrMissingInboundHost, err)
 	if err == nil {
 		t.Fatal()
 	}
@@ -246,7 +252,8 @@ func TestStartAgentWithBlankInboundHost(t *testing.T) {
 func TestStartCmdWithoutDBPath(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
-	args := []string{"--" + AgentHostFlagName, randomURL(), "--" + AgentInboundHostFlagName, randomURL()}
+	args := []string{"--" + AgentHostFlagName, randomURL(), "--" + AgentInboundHostFlagName, randomURL(),
+		"--" + AgentWebhookFlagName, ""}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
@@ -261,14 +268,15 @@ func TestStartCmdMissingAllArgs(t *testing.T) {
 
 	err = startCmd.Execute()
 	require.NotNil(t, err)
-	require.Equal(t, `required flag(s) "api-host", "db-path", "inbound-host" not set`, err.Error())
+	require.Equal(t,
+		`required flag(s) "api-host", "db-path", "inbound-host", "webhook-url" not set`, err.Error())
 }
 
 func TestStartCmdValidArgs(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 	args := []string{"--" + AgentHostFlagName, randomURL(), "--" + AgentInboundHostFlagName,
-		randomURL(), "--" + AgentDBPathFlagName, ""}
+		randomURL(), "--" + AgentDBPathFlagName, "", "--" + AgentWebhookFlagName, ""}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
@@ -284,15 +292,17 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 	path1, cleanup1 := generateTempDir(t)
 	defer cleanup1()
 	go func() {
-		err := startAgent(&HTTPServer{}, host, inboundHost, path1)
-		require.NoError(t, err)
+		parameters := &agentParameters{&HTTPServer{}, host, inboundHost, path1, []string{}}
+		err := startAgent(parameters)
+		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
 	}()
 
 	waitForServerToStart(t, host, inboundHost)
 
 	path2, cleanup2 := generateTempDir(t)
 	defer cleanup2()
-	err := startAgent(&HTTPServer{}, host, inboundHost2, path2)
+	parameters := &agentParameters{&HTTPServer{}, host, inboundHost2, path2, []string{}}
+	err := startAgent(parameters)
 
 	require.NotNil(t, err)
 	addressAlreadyInUseErrorMessage := "failed to start aries agentd on port [" + host +
@@ -309,23 +319,25 @@ func TestStartMultipleAgentsWithSameDBPath(t *testing.T) {
 	defer cleanup()
 
 	go func() {
-		err := startAgent(&HTTPServer{}, host1, inboundHost1, path)
-		require.NoError(t, err)
+		parameters := &agentParameters{&HTTPServer{}, host1, inboundHost1, path, []string{}}
+		err := startAgent(parameters)
+		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
 	}()
 
 	waitForServerToStart(t, host1, inboundHost1)
 
-	err := startAgent(&HTTPServer{}, host2, inboundHost2, path)
+	parameters := &agentParameters{&HTTPServer{}, host2, inboundHost2, path, []string{}}
+	err := startAgent(parameters)
 
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "storage initialization failed")
 }
 
 func waitForServerToStart(t *testing.T, host, inboundHost string) {
-	if err := listenFor(host, 2*time.Second); err != nil {
+	if err := listenFor(host); err != nil {
 		t.Fatal(err)
 	}
-	if err := listenFor(inboundHost, 2*time.Second); err != nil {
+	if err := listenFor(inboundHost); err != nil {
 		t.Fatal(err)
 	}
 }
