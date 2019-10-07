@@ -25,7 +25,7 @@ import (
 
 var logger = log.New("aries-framework/did-exchange/service")
 
-// didCommChMessage type to correlate actionEvent message(go channel) with callback message(internal go channel).
+// didCommChMessage type to correlate actionEvent Message(go channel) with callback Message(internal go channel).
 type didCommChMessage struct {
 	ID  string
 	Err error
@@ -36,13 +36,13 @@ const (
 	DIDExchange = "didexchange"
 	// DIDExchangeSpec defines the did-exchange spec
 	DIDExchangeSpec = metadata.AriesCommunityDID + ";spec/didexchange/1.0/"
-	// ConnectionInvite defines the did-exchange invite message type.
+	// ConnectionInvite defines the did-exchange invite Message type.
 	ConnectionInvite = DIDExchangeSpec + "invitation"
-	// ConnectionRequest defines the did-exchange request message type.
+	// ConnectionRequest defines the did-exchange request Message type.
 	ConnectionRequest = DIDExchangeSpec + "request"
-	// ConnectionResponse defines the did-exchange response message type.
+	// ConnectionResponse defines the did-exchange response Message type.
 	ConnectionResponse = DIDExchangeSpec + "response"
-	// ConnectionAck defines the did-exchange ack message type.
+	// ConnectionAck defines the did-exchange ack Message type.
 	ConnectionAck = DIDExchangeSpec + "ack"
 	// DIDExchangeServiceType is the service type to be used in DID document
 	DIDExchangeServiceType = "did-communication"
@@ -52,11 +52,13 @@ const (
 	InvitationID = "invitationID"
 )
 
-// message type to store data for eventing. This is retrieved during callback.
-type message struct {
+// Message type to store data for eventing. This is retrieved during callback.
+type Message struct {
 	Msg           dispatcher.DIDCommMsg
 	ThreadID      string
+	ConnectionID string
 	NextStateName string
+	State string
 }
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
@@ -103,10 +105,10 @@ func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
 	aEvent := s.actionEvent
 	s.lock.RUnlock()
 
-	logger.Infof("entered into Handle exchange message : %s", msg.Payload)
+	logger.Infof("entered into Handle exchange Message : %s", msg.Payload)
 
 	if !msg.Outbound && aEvent == nil {
-		return errors.New("no clients are registered to handle the message")
+		return errors.New("no clients are registered to handle the Message")
 	}
 
 	thid, err := threadID(msg)
@@ -130,14 +132,14 @@ func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
 	if !current.CanTransitionTo(next) {
 		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
-	// trigger message events
+	// trigger Message events
 	// TODO change from thread id to connection id #397
 	// TODO pass invitation id #397
 	s.sendMsgEvents(&dispatcher.StateMsg{
 		Type: dispatcher.PreState, Msg: msg, StateID: next.Name(), Properties: s.createEventProperties(thid, "")})
 	logger.Infof("sent pre event for state %s", next.Name())
 
-	// trigger action event based on message type for inbound messages
+	// trigger action event based on Message type for inbound messages
 	if !msg.Outbound && canTriggerActionEvents(msg.Type) {
 		err = s.sendActionEvent(msg, aEvent, thid, next)
 		if err != nil {
@@ -146,10 +148,10 @@ func (s *Service) Handle(msg dispatcher.DIDCommMsg) error {
 		return nil
 	}
 	// if no action event is triggered, continue the execution
-	return s.handle(&message{Msg: msg, ThreadID: thid, NextStateName: next.Name()})
+	return s.handle(&Message{Msg: msg, ThreadID: thid, NextStateName: next.Name()})
 }
 
-// RegisterActionEvent on DID Exchange protocol messages. The events are triggered for incoming message types based on
+// RegisterActionEvent on DID Exchange protocol messages. The events are triggered for incoming Message types based on
 // canTriggerActionEvents() function. The consumer need to invoke the callback to resume processing.
 // Only one channel can be registered for the action events. The function will throw error if a channel is already
 // registered. The AutoExecuteActionEvent() function can be used to automatically trigger callback function for the
@@ -180,7 +182,7 @@ func (s *Service) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) erro
 	return nil
 }
 
-// RegisterMsgEvent on DID Exchange protocol messages. The message events are triggered for incoming messages. Service
+// RegisterMsgEvent on DID Exchange protocol messages. The Message events are triggered for incoming messages. Service
 // will not expect any callback on these events unlike Action events.
 func (s *Service) RegisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
 	s.msgEventLock.Lock()
@@ -204,8 +206,8 @@ func (s *Service) UnregisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
 	return nil
 }
 
-func (s *Service) handle(msg *message) error {
-	logger.Infof("entered into private handle didcomm message: %s ", msg)
+func (s *Service) handle(msg *Message) error {
+	logger.Infof("entered into private handle didcomm Message: %s ", msg)
 
 	next, err := stateFromName(msg.NextStateName)
 	if err != nil {
@@ -257,10 +259,10 @@ func (s *Service) createEventProperties(connectionID, invitationID string) map[s
 }
 
 // sendEvent triggers the action event. This function stores the state of current processing and passes a callback
-// function in the event message.
+// function in the event Message.
 func (s *Service) sendActionEvent(msg dispatcher.DIDCommMsg, aEvent chan<- dispatcher.DIDCommAction,
 	threadID string, nextState state) error {
-	jsonDoc, err := json.Marshal(&message{
+	jsonDoc, err := json.Marshal(&Message{
 		Msg:           msg,
 		ThreadID:      threadID,
 		NextStateName: nextState.Name(),
@@ -270,13 +272,13 @@ func (s *Service) sendActionEvent(msg dispatcher.DIDCommMsg, aEvent chan<- dispa
 		return fmt.Errorf("JSON marshalling of document failed: %w", err)
 	}
 
-	// save the incoming message in the store (to retrieve later when callback events are fired)
+	// save the incoming Message in the store (to retrieve later when callback events are fired)
 	id := generateRandomID()
 	err = s.store.Put(id, jsonDoc)
 	if err != nil {
 		return fmt.Errorf("JSON marshalling of document failed: %w", err)
 	}
-	// create the message for the channel
+	// create the Message for the channel
 	// TODO change from thread id to connection id #397
 	// TODO pass invitation id #397
 	didCommAction := dispatcher.DIDCommAction{
@@ -296,9 +298,9 @@ func (s *Service) sendActionEvent(msg dispatcher.DIDCommMsg, aEvent chan<- dispa
 	return nil
 }
 
-// sendEvent triggers the message events.
+// sendEvent triggers the Message events.
 func (s *Service) sendMsgEvents(msg *dispatcher.StateMsg) {
-	// trigger the message events
+	// trigger the Message events
 	s.msgEventLock.RLock()
 	statusEvents := s.msgEvents
 	s.msgEventLock.RUnlock()
@@ -341,7 +343,7 @@ func (s *Service) process(msg didCommChMessage) error {
 		return fmt.Errorf("document for the id doesn't exists in the database: %w", err)
 	}
 
-	document := &message{}
+	document := &Message{}
 	err = json.Unmarshal(jsonDoc, document)
 	if err != nil {
 		return fmt.Errorf("JSON marshalling failed: %w", err)
@@ -350,7 +352,7 @@ func (s *Service) process(msg didCommChMessage) error {
 	// continue the processing
 	err = s.handle(document)
 	if err != nil {
-		return fmt.Errorf("processing of the message failed: %w", err)
+		return fmt.Errorf("processing of the Message failed: %w", err)
 	}
 	return nil
 }
@@ -473,7 +475,7 @@ func AutoExecuteActionEvent(ch chan dispatcher.DIDCommAction) error {
 	return nil
 }
 
-// canTriggerActionEvents checks if the incoming message type matches either ConnectionRequest, ConnectionResponse or
+// canTriggerActionEvents checks if the incoming Message type matches either ConnectionRequest, ConnectionResponse or
 // ConnectionAck type.
 func canTriggerActionEvents(msgType string) bool {
 	if msgType != ConnectionRequest &&

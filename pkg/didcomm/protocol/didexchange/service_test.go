@@ -648,7 +648,7 @@ func TestService_Events(t *testing.T) {
 
 	validateStoreDataCorruptionError(t, svc)
 
-	// signal the end of tests (to make sure all the message types are processed)
+	// signal the end of tests (to make sure all the Message types are processed)
 	func() {
 		id := "done"
 		request, err := json.Marshal(
@@ -689,13 +689,13 @@ func startConsumer(t *testing.T, svc *Service, done chan bool) {
 			msg := e
 			// receive the events
 			switch e.Message.Type {
-			// receive the event on ConnectionRequest message type
+			// receive the event on ConnectionRequest Message type
 			case ConnectionRequest:
 				handleConnectionRequestEvents(t, svc, &msg, done)
-			// receive the event on ConnectionResponse message type
+			// receive the event on ConnectionResponse Message type
 			case ConnectionResponse:
 				handleConnectionResponseEvents(t, svc, &msg)
-			// receive the event on ConnectionAck message type
+			// receive the event on ConnectionAck Message type
 			case ConnectionAck:
 				handleConnectionAckEvents(t, svc, &msg)
 			}
@@ -772,7 +772,7 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e *dispatcher.DI
 	}
 
 	if pl.ID == handleError {
-		jsonDoc, err := json.Marshal(&message{
+		jsonDoc, err := json.Marshal(&Message{
 			NextStateName: "invalid",
 		})
 		require.NoError(t, err)
@@ -872,7 +872,7 @@ func validateSuccessCase(t *testing.T, svc *Service) {
 func validateUserError(t *testing.T, svc *Service) {
 	id := invalidThreadID
 
-	// verify the state before connection request message
+	// verify the state before connection request Message
 	s, err := svc.currentState(id)
 	require.NoError(t, err)
 	require.Equal(t, "null", s.Name())
@@ -898,11 +898,11 @@ func validateUserError(t *testing.T, svc *Service) {
 func validateStoreError(t *testing.T, svc *Service) {
 	id := changeID
 
-	// update the state to requested for this thread ID (to bypass the validations for ConnectionResponse message type)
+	// update the state to requested for this thread ID (to bypass the validations for ConnectionResponse Message type)
 	err := svc.update(id, &requested{})
 	require.NoError(t, err)
 
-	// verify the state before connection response message
+	// verify the state before connection response Message
 	s, err := svc.currentState(id)
 	require.NoError(t, err)
 	require.Equal(t, "requested", s.Name())
@@ -928,7 +928,7 @@ func validateStoreError(t *testing.T, svc *Service) {
 func validateStoreDataCorruptionError(t *testing.T, svc *Service) {
 	id := corrupt
 
-	// update the state to responded for this thread ID (to bypass the validations for ConnectionAck message type)
+	// update the state to responded for this thread ID (to bypass the validations for ConnectionAck Message type)
 	err := svc.update(id, &responded{})
 	require.NoError(t, err)
 
@@ -958,7 +958,7 @@ func validateStoreDataCorruptionError(t *testing.T, svc *Service) {
 func validateHandleError(t *testing.T, svc *Service) {
 	id := handleError
 
-	// update the state to requested for this thread ID (to bypass the validations for ConnectionResponse message type)
+	// update the state to requested for this thread ID (to bypass the validations for ConnectionResponse Message type)
 	err := svc.update(id, &requested{})
 	require.NoError(t, err)
 
@@ -1015,7 +1015,7 @@ func TestService_No_Execution(t *testing.T) {
 
 	err := svc.Handle(msg)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "no clients are registered to handle the message")
+	require.Contains(t, err.Error(), "no clients are registered to handle the Message")
 }
 
 func validateState(t *testing.T, svc *Service, id, expected string) {
@@ -1172,7 +1172,7 @@ func TestServiceErrors(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot fetch state from store")
 
-	// invalid message type
+	// invalid Message type
 	svc.store = dbstore
 	msg.Type = "invalid"
 	err = svc.Handle(msg)
@@ -1181,7 +1181,7 @@ func TestServiceErrors(t *testing.T) {
 
 	// test handle - invalid state name
 	msg.Type = ConnectionResponse
-	message := &message{Msg: msg, ThreadID: randomString()}
+	message := &Message{Msg: msg, ThreadID: randomString()}
 	err = svc.handle(message)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid state name:")
