@@ -79,7 +79,7 @@ func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}) er
 			return err
 		}
 
-		message, err := proof.CreateVerifyHashAlgorithm(suite, jsonLdObject, p.JSONLdObject())
+		message, err := proof.CreateVerifyHash(suite, jsonLdObject, p.JSONLdObject())
 		if err != nil {
 			return err
 		}

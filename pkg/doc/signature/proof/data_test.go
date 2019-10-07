@@ -25,13 +25,13 @@ func TestCreateVerifyHashAlgorithm(t *testing.T) {
 	err := json.Unmarshal([]byte(validDoc), &doc)
 	require.NoError(t, err)
 
-	normalizedDoc, err := CreateVerifyHashAlgorithm(&mockSignatureSuite{}, doc, proofOptions)
+	normalizedDoc, err := CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions)
 	require.NoError(t, err)
 	require.NotEmpty(t, normalizedDoc)
 
 	// test error due to missing proof option
 	delete(proofOptions, jsonldCreator)
-	normalizedDoc, err = CreateVerifyHashAlgorithm(&mockSignatureSuite{}, doc, proofOptions)
+	normalizedDoc, err = CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions)
 	require.NotNil(t, err)
 	require.Nil(t, normalizedDoc)
 	require.Contains(t, err.Error(), "creator is missing")
