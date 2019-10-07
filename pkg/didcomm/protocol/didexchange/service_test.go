@@ -685,17 +685,19 @@ func startConsumer(t *testing.T, svc *Service, done chan bool) {
 
 	go func() {
 		for e := range actionCh {
+			// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
+			msg := e
 			// receive the events
 			switch e.Message.Type {
 			// receive the event on ConnectionRequest message type
 			case ConnectionRequest:
-				handleConnectionRequestEvents(t, svc, e, done)
+				handleConnectionRequestEvents(t, svc, &msg, done)
 			// receive the event on ConnectionResponse message type
 			case ConnectionResponse:
-				handleConnectionResponseEvents(t, svc, e)
+				handleConnectionResponseEvents(t, svc, &msg)
 			// receive the event on ConnectionAck message type
 			case ConnectionAck:
-				handleConnectionAckEvents(t, svc, e)
+				handleConnectionAckEvents(t, svc, &msg)
 			}
 		}
 	}()
@@ -715,7 +717,7 @@ func startConsumer(t *testing.T, svc *Service, done chan bool) {
 	}()
 }
 
-func handleConnectionRequestEvents(t *testing.T, svc *Service, e dispatcher.DIDCommAction, done chan bool) {
+func handleConnectionRequestEvents(t *testing.T, svc *Service, e *dispatcher.DIDCommAction, done chan bool) {
 	require.NotEmpty(t, e.Message)
 	require.Equal(t, ConnectionRequest, e.Message.Type)
 
@@ -727,7 +729,7 @@ func handleConnectionRequestEvents(t *testing.T, svc *Service, e dispatcher.DIDC
 		done <- true
 		return
 	}
-	err = func(e dispatcher.DIDCommAction) error {
+	err = func(e *dispatcher.DIDCommAction) error {
 		errUnmarshal := json.Unmarshal(e.Message.Payload, &pl)
 		require.NoError(t, errUnmarshal)
 
@@ -739,7 +741,11 @@ func handleConnectionRequestEvents(t *testing.T, svc *Service, e dispatcher.DIDC
 	}(e)
 
 	// invoke callback
-	e.Callback(dispatcher.DIDCommCallback{Err: err})
+	if err != nil {
+		e.Stop(err)
+	} else {
+		e.Continue()
+	}
 
 	if pl.ID == invalidThreadID {
 		// no state change since there was a error with processing
@@ -751,7 +757,7 @@ func handleConnectionRequestEvents(t *testing.T, svc *Service, e dispatcher.DIDC
 	}
 }
 
-func handleConnectionResponseEvents(t *testing.T, svc *Service, e dispatcher.DIDCommAction) {
+func handleConnectionResponseEvents(t *testing.T, svc *Service, e *dispatcher.DIDCommAction) {
 	require.NotEmpty(t, e.Message)
 	require.Equal(t, ConnectionResponse, e.Message.Type)
 
@@ -760,8 +766,8 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e dispatcher.DID
 	require.NoError(t, err)
 
 	if pl.ID == changeID {
-		e.Callback = func(didCommCallback dispatcher.DIDCommCallback) {
-			svc.processCallback("invalid-id", didCommCallback)
+		e.Continue = func() {
+			svc.processCallback("invalid-id", nil)
 		}
 	}
 
@@ -775,13 +781,13 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e dispatcher.DID
 		err = svc.store.Put(id, jsonDoc)
 		require.NoError(t, err)
 
-		e.Callback = func(didCommCallback dispatcher.DIDCommCallback) {
-			svc.processCallback(id, didCommCallback)
+		e.Continue = func() {
+			svc.processCallback(id, nil)
 		}
 	}
 
 	// invoke callback
-	e.Callback(dispatcher.DIDCommCallback{Err: nil})
+	e.Continue()
 	switch pl.ID {
 	case changeID:
 		// no state change since there was a error with processing
@@ -798,7 +804,7 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e dispatcher.DID
 	}
 }
 
-func handleConnectionAckEvents(t *testing.T, svc *Service, e dispatcher.DIDCommAction) {
+func handleConnectionAckEvents(t *testing.T, svc *Service, e *dispatcher.DIDCommAction) {
 	require.NotEmpty(t, e.Message)
 	require.Equal(t, ConnectionAck, e.Message.Type)
 
@@ -811,13 +817,13 @@ func handleConnectionAckEvents(t *testing.T, svc *Service, e dispatcher.DIDCommA
 		err := svc.store.Put(id, []byte("invalid json"))
 		require.NoError(t, err)
 
-		e.Callback = func(didCommCallback dispatcher.DIDCommCallback) {
-			svc.processCallback(id, didCommCallback)
+		e.Continue = func() {
+			svc.processCallback(id, nil)
 		}
 	}
 
 	// invoke callback
-	e.Callback(dispatcher.DIDCommCallback{Err: nil})
+	e.Continue()
 	if pl.ID == corrupt {
 		// no state change since there was a error with processing
 		s, err := svc.currentState(pl.ID)

@@ -76,20 +76,14 @@ type OutboundCreator func(prov Provider) (Outbound, error)
 type DIDCommAction struct {
 	// DIDComm message
 	Message DIDCommMsg
-	// Callback function to be called by the consumer for further processing the message.
-	Callback Callback
+	// Continue function to be called by the consumer for further processing the message.
+	Continue func()
+	// Stop invocation notifies the service that the consumer action event processing has failed or the consumer wants
+	// to stop the processing.
+	Stop func(err error)
 	// Properties contains different values from different protocols
 	Properties map[string]interface{}
 }
-
-// DIDCommCallback message type to pass service callback in go channels.
-type DIDCommCallback struct {
-	// Set the value in case of any error while processing the DIDComm message event by the consumer.
-	Err error
-}
-
-// Callback type to pass service callbacks.
-type Callback func(DIDCommCallback)
 
 // Event related apis.
 type Event interface {
