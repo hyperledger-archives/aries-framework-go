@@ -15,16 +15,23 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
+	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
@@ -296,4 +303,87 @@ type mockWriter struct {
 
 func (m mockWriter) Write([]byte) (int, error) {
 	return 0, m.failure
+}
+
+func TestServiceEvents(t *testing.T) {
+	store := &mockstore.MockStore{Store: make(map[string][]byte)}
+	didExSvc := didexsvc.New(store, &did.MockDIDCreator{}, &mockProvider{})
+
+	// create the client
+	op, err := New(&mockprovider.Provider{ServiceValue: didExSvc})
+	require.NoError(t, err)
+	require.NotNil(t, op)
+
+	// send connection request message
+	id := "valid-thread-id"
+	newDidDoc, err := (&did.MockDIDCreator{}).CreateDID()
+	require.NoError(t, err)
+
+	request, err := json.Marshal(
+		&didexsvc.Request{
+			Type:  didexsvc.ConnectionRequest,
+			ID:    id,
+			Label: "test",
+			Connection: &didexsvc.Connection{
+				DID:    "B.did@B:A",
+				DIDDoc: newDidDoc,
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	msg := dispatcher.DIDCommMsg{
+		Type:    didexsvc.ConnectionRequest,
+		Payload: request,
+	}
+
+	err = didExSvc.Handle(msg)
+	require.NoError(t, err)
+
+	validateState(t, store, id, "responded", 100*time.Millisecond)
+}
+
+func validateState(t *testing.T, store storage.Store, id, expected string, timeoutDuration time.Duration) {
+	actualState := ""
+	timeout := time.After(timeoutDuration)
+	for {
+		select {
+		case <-timeout:
+			require.Fail(t, fmt.Sprintf("id=%s expectedState=%s actualState=%s", id, expected, actualState))
+			return
+		default:
+			v, err := store.Get(id)
+			actualState = string(v)
+			if err != nil || expected != string(v) {
+				continue
+			}
+			return
+		}
+	}
+}
+
+type mockProvider struct {
+}
+
+func (m *mockProvider) OutboundDispatcher() dispatcher.Outbound {
+	return &mockdispatcher.MockOutbound{}
+}
+
+func TestOperationEventError(t *testing.T) {
+	client, err := didexchange.New(&mockprovider.Provider{ServiceValue: &protocol.MockDIDExchangeSvc{}})
+	require.NoError(t, err)
+
+	ops := &Operation{client: client}
+
+	aCh := make(chan dispatcher.DIDCommAction)
+	err = client.RegisterActionEvent(aCh)
+	require.NoError(t, err)
+
+	err = ops.startClientEventListener()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "didexchange action event registration failed: channel is already "+
+		"registered for the action event")
+
+	err = client.UnregisterActionEvent(aCh)
+	require.NoError(t, err)
 }
