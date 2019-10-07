@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
-	mockStorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -18,6 +17,7 @@ type Provider struct {
 	ServiceErr           error
 	WalletValue          wallet.Crypto
 	InboundEndpointValue string
+	StorageProviderValue storage.Provider
 }
 
 // Service return service
@@ -37,5 +37,5 @@ func (p *Provider) InboundTransportEndpoint() string {
 
 // StorageProvider returns the storage provider
 func (p *Provider) StorageProvider() storage.Provider {
-	return mockStorage.NewMockStoreProvider()
+	return p.StorageProviderValue
 }

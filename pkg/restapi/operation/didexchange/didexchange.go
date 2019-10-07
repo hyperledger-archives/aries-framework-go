@@ -218,7 +218,7 @@ func (c *Operation) QueryConnections(rw http.ResponseWriter, req *http.Request) 
 
 	response := models.QueryConnectionsResponse{
 		Body: struct {
-			Results []*didexchange.QueryConnectionResult `json:"results"`
+			Results []*didexchange.ConnectionResult `json:"results"`
 		}{
 			Results: results,
 		},
@@ -238,7 +238,7 @@ func (c *Operation) QueryConnectionByID(rw http.ResponseWriter, req *http.Reques
 	params := mux.Vars(req)
 	logger.Debugf("Querying connection invitation for id [%s]", params["id"])
 
-	result, err := c.client.QueryConnectionByID(params["id"])
+	result, err := c.client.GetConnection(params["id"])
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return

@@ -1,6 +1,5 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
-
 SPDX-License-Identifier: Apache-2.0
 */
 
@@ -31,7 +30,7 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		_, err = New(&mockprovider.Provider{ServiceValue: svc})
+		_, err = New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc})
 		require.NoError(t, err)
 	})
 
@@ -54,7 +53,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		c, err := New(&mockprovider.Provider{ServiceValue: svc,
+		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc,
 			WalletValue: &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
@@ -71,7 +70,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		c, err := New(&mockprovider.Provider{ServiceValue: svc,
+		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc,
 			WalletValue: &mockwallet.CloseableWallet{CreateEncryptionKeyErr: fmt.Errorf("createEncryptionKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
@@ -84,7 +83,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		c, err := New(&mockprovider.Provider{ServiceValue: svc,
+		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc,
 			WalletValue: &mockwallet.CloseableWallet{}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
@@ -94,17 +93,53 @@ func TestClient_CreateInvitation(t *testing.T) {
 }
 
 func TestClient_QueryConnectionByID(t *testing.T) {
-	svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
-	require.NoError(t, err)
-	require.NotNil(t, svc)
+	t.Run("test success", func(t *testing.T) {
+		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+		s := mockstore.MockStore{Store: make(map[string][]byte)}
+		c, err := New(&mockprovider.Provider{
+			ServiceValue:         svc,
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &s}})
+		require.NoError(t, err)
+		require.NoError(t, s.Put("id1", []byte("complete")))
+		result, err := c.GetConnection("id1")
+		require.NoError(t, err)
+		require.Equal(t, "complete", result.State)
+		require.Equal(t, "id1", result.ConnectionID)
+	})
 
-	c, err := New(&mockprovider.Provider{ServiceValue: svc})
-	require.NoError(t, err)
+	t.Run("test error", func(t *testing.T) {
+		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+		s := mockstore.MockStore{Store: make(map[string][]byte),
+			ErrGet: fmt.Errorf("query connection error")}
+		c, err := New(&mockprovider.Provider{
+			ServiceValue:         svc,
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &s}})
+		require.NoError(t, err)
 
-	result, err := c.QueryConnectionByID("sample-id")
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.NotNil(t, result.ConnectionID)
+		require.NoError(t, s.Put("id1", []byte("complete")))
+		_, err = c.GetConnection("id1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "query connection error")
+	})
+
+	t.Run("test connection not found", func(t *testing.T) {
+		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+		s := mockstore.MockStore{ErrGet: storage.ErrDataNotFound}
+		c, err := New(&mockprovider.Provider{
+			ServiceValue:         svc,
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &s}})
+		require.NoError(t, err)
+
+		_, err = c.GetConnection("id1")
+		require.Error(t, err)
+		require.True(t, errors.Is(err, ErrConnectionNotFound))
+	})
 }
 
 func TestClient_RemoveConnection(t *testing.T) {
@@ -112,7 +147,7 @@ func TestClient_RemoveConnection(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
-	c, err := New(&mockprovider.Provider{ServiceValue: svc})
+	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc})
 	require.NoError(t, err)
 
 	err = c.RemoveConnection("sample-id")
@@ -121,8 +156,9 @@ func TestClient_RemoveConnection(t *testing.T) {
 
 func TestClient_HandleInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		c, err := New(&mockprovider.Provider{ServiceValue: &mockprotocol.MockDIDExchangeSvc{},
-			WalletValue: &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
+		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+			ServiceValue: &mockprotocol.MockDIDExchangeSvc{},
+			WalletValue:  &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
@@ -131,7 +167,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 	})
 
 	t.Run("test error from handle msg", func(t *testing.T) {
-		c, err := New(&mockprovider.Provider{
+		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
 			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg dispatcher.DIDCommMsg) error {
 				return fmt.Errorf("handle error")
 			}},
@@ -150,7 +186,8 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
-	c, err := New(&mockprovider.Provider{ServiceValue: svc})
+	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		ServiceValue: svc})
 	require.NoError(t, err)
 
 	results, err := c.QueryConnections(&QueryConnectionsParams{InvitationKey: "sample-inv-key"})
@@ -168,7 +205,7 @@ func TestServiceEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the client
-	c, err := New(&mockprovider.Provider{ServiceValue: didExSvc})
+	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: didExSvc})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -246,21 +283,22 @@ func TestServiceEventError(t *testing.T) {
 	}
 
 	// register action event on service throws error
-	_, err := New(&mockprovider.Provider{ServiceValue: &didExSvc})
+	_, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: &didExSvc})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "service event listener startup failed: didexchange action event "+
 		"registration failed: action event registration failed")
 
 	// register msg event on service throws error
 	didExSvc.RegisterActionEventErr = nil
-	_, err = New(&mockprovider.Provider{ServiceValue: &didExSvc})
+	_, err = New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: &didExSvc})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "service event listener startup failed: didexchange message event "+
 		"registration failed: msg event registration failed")
 }
 
 func TestService_ActionEvent(t *testing.T) {
-	c, err := New(&mockprovider.Provider{ServiceValue: &mockprotocol.MockDIDExchangeSvc{}})
+	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		ServiceValue: &mockprotocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 
 	// validate before register
@@ -293,7 +331,8 @@ func TestService_ActionEvent(t *testing.T) {
 }
 
 func TestService_MsgEvents(t *testing.T) {
-	c, err := New(&mockprovider.Provider{ServiceValue: &mockprotocol.MockDIDExchangeSvc{}})
+	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		ServiceValue: &mockprotocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 
 	// validate before register

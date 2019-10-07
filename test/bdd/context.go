@@ -15,13 +15,15 @@ import (
 type Context struct {
 	DIDExchangeClients map[string]*didexchange.Client
 	Invitations        map[string]*didexchange2.Invitation
-	PostStatesFlag     map[string]chan bool
+	PostStatesFlag     map[string]map[string]chan bool
+	ConnectionID       map[string]string
 }
 
 // NewContext create new Context
 func NewContext() (*Context, error) {
 	instance := Context{DIDExchangeClients: make(map[string]*didexchange.Client),
-		Invitations: make(map[string]*didexchange2.Invitation), PostStatesFlag: make(map[string]chan bool)}
+		Invitations: make(map[string]*didexchange2.Invitation), PostStatesFlag: make(map[string]map[string]chan bool),
+		ConnectionID: make(map[string]string)}
 	return &instance, nil
 }
 

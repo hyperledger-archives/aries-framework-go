@@ -34,7 +34,8 @@ import (
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
-	svc, err := New(&mockprovider.Provider{ServiceValue: &protocol.MockDIDExchangeSvc{}})
+	svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		ServiceValue: &protocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -215,7 +216,8 @@ func TestOperation_RemoveConnection(t *testing.T) {
 func TestOperation_WriteGenericError(t *testing.T) {
 	const errMsg = "sample-error-msg"
 
-	svc, err := New(&mockprovider.Provider{ServiceValue: &protocol.MockDIDExchangeSvc{}})
+	svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		ServiceValue: &protocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -235,7 +237,8 @@ func TestOperation_WriteGenericError(t *testing.T) {
 }
 
 func TestOperation_WriteResponse(t *testing.T) {
-	svc, err := New(&mockprovider.Provider{ServiceValue: &protocol.MockDIDExchangeSvc{}})
+	svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		ServiceValue: &protocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 	svc.writeResponse(&mockWriter{errors.New("failed to write")}, &models.QueryConnectionResponse{})
@@ -270,6 +273,8 @@ func getResponseFromHandler(handler operation.Handler, requestBody io.Reader, pa
 }
 
 func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler {
+	s := mockstore.MockStore{Store: make(map[string][]byte)}
+	require.NoError(t, s.Put("1234", []byte("complete")))
 	svc, err := New(&mockprovider.Provider{
 		ServiceValue: &protocol.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
@@ -279,7 +284,7 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 		},
 		WalletValue:          &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"},
 		InboundEndpointValue: "endpoint",
-	},
+		StorageProviderValue: &mockstore.MockStoreProvider{Store: &s}},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, svc)
@@ -310,7 +315,8 @@ func TestServiceEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the client
-	op, err := New(&mockprovider.Provider{ServiceValue: didExSvc})
+	op, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		ServiceValue: didExSvc})
 	require.NoError(t, err)
 	require.NotNil(t, op)
 
@@ -363,7 +369,8 @@ func validateState(t *testing.T, store storage.Store, id, expected string, timeo
 }
 
 func TestOperationEventError(t *testing.T) {
-	client, err := didexchange.New(&mockprovider.Provider{ServiceValue: &protocol.MockDIDExchangeSvc{}})
+	client, err := didexchange.New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		ServiceValue: &protocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 
 	ops := &Operation{client: client}

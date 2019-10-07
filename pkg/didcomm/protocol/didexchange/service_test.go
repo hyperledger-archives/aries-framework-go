@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
-
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -24,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -505,9 +504,9 @@ func TestService_threadID(t *testing.T) {
 func TestService_currentState(t *testing.T) {
 	t.Run("null state if not found in store", func(t *testing.T) {
 		svc := &Service{
-			store: &mockStore{
+			connectionStore: NewConnectionRecorder(&mockStore{
 				get: func(string) ([]byte, error) { return nil, storage.ErrDataNotFound },
-			},
+			}),
 		}
 		s, err := svc.currentState("ignored")
 		require.NoError(t, err)
@@ -516,9 +515,9 @@ func TestService_currentState(t *testing.T) {
 	t.Run("returns state from store", func(t *testing.T) {
 		expected := &requested{}
 		svc := &Service{
-			store: &mockStore{
+			connectionStore: NewConnectionRecorder(&mockStore{
 				get: func(string) ([]byte, error) { return []byte(expected.Name()), nil },
-			},
+			}),
 		}
 		actual, err := svc.currentState("ignored")
 		require.NoError(t, err)
@@ -526,11 +525,11 @@ func TestService_currentState(t *testing.T) {
 	})
 	t.Run("forwards generic error from store", func(t *testing.T) {
 		svc := &Service{
-			store: &mockStore{
+			connectionStore: NewConnectionRecorder(&mockStore{
 				get: func(string) ([]byte, error) {
 					return nil, errors.New("test")
 				},
-			},
+			}),
 		}
 		_, err := svc.currentState("ignored")
 		require.Error(t, err)
@@ -1143,17 +1142,19 @@ func TestServiceErrors(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to write to store")
 
 	// fetch current state error
-	svc.store = &mockStore{get: func(s string) (bytes []byte, e error) {
+	mockStore := &mockStore{get: func(s string) (bytes []byte, e error) {
 		return nil, errors.New("error")
 	}}
+	svc.store = mockStore
+	svc.connectionStore = NewConnectionRecorder(mockStore)
 	err = svc.Handle(msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot fetch state from store")
 
 	// invalid message type
-
 	msg.Type = "invalid"
 	svc.store, err = mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
+	svc.connectionStore = NewConnectionRecorder(svc.store)
 	require.NoError(t, err)
 	err = svc.Handle(msg)
 	require.Error(t, err)

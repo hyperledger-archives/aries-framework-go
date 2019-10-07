@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -117,5 +118,27 @@ func TestConnectionRecorder_GetInvitation(t *testing.T) {
 		valueFound, err := record.GetInvitation("")
 		require.Contains(t, err.Error(), "empty bytes")
 		require.Nil(t, valueFound)
+	})
+}
+
+func TestConnectionRecorder_GetConnection(t *testing.T) {
+	t.Run("test success", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+		require.NoError(t, store.Put("key1", []byte("value1")))
+		v, err := record.GetConnection("key1")
+		require.NoError(t, err)
+		require.Equal(t, "value1", v.State)
+	})
+
+	t.Run("test success", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte), ErrGet: fmt.Errorf("get error")}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+		require.NoError(t, store.Put("key1", []byte("value1")))
+		_, err := record.GetConnection("key1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get error")
 	})
 }

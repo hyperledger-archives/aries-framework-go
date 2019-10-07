@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -27,6 +26,9 @@ const (
 	// InvitationID invitation id is created in invitation request
 	InvitationID = didexchange.InvitationID
 )
+
+// ErrConnectionNotFound is returned when connection not found
+var ErrConnectionNotFound = errors.New("connection not found")
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
@@ -49,7 +51,7 @@ type Client struct {
 	actionEventlock          sync.RWMutex
 	msgEvents                []chan<- dispatcher.StateMsg
 	msgEventsLock            sync.RWMutex
-	recorder                 *didexchange.ConnectionRecorder
+	connectionStore          *didexchange.ConnectionRecorder
 }
 
 // New return new instance of didexchange client
@@ -74,9 +76,9 @@ func New(ctx provider) (*Client, error) {
 		wallet:                   ctx.CryptoWallet(),
 		inboundTransportEndpoint: ctx.InboundTransportEndpoint(),
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
-		actionCh: make(chan dispatcher.DIDCommAction, 10),
-		msgCh:    make(chan dispatcher.StateMsg, 10),
-		recorder: didexchange.NewConnectionRecorder(store),
+		actionCh:        make(chan dispatcher.DIDCommAction, 10),
+		msgCh:           make(chan dispatcher.StateMsg, 10),
+		connectionStore: didexchange.NewConnectionRecorder(store),
 	}
 
 	// start listening for action/message events
@@ -103,7 +105,7 @@ func (c *Client) CreateInvitation(label string) (*didexchange.Invitation, error)
 		Type:            didexchange.ConnectionInvite,
 	}
 
-	err = c.recorder.SaveInvitation(verKey, invitation)
+	err = c.connectionStore.SaveInvitation(verKey, invitation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save invitation: %w", err)
 	}
@@ -124,19 +126,25 @@ func (c *Client) HandleInvitation(invitation *didexchange.Invitation) error {
 }
 
 // QueryConnections queries connections matching given parameters
-func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*QueryConnectionResult, error) {
+func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*ConnectionResult, error) {
 	// TODO sample response, to be implemented as part of #226
-	return []*QueryConnectionResult{
-		{ConnectionID: uuid.New().String(), CreatedTime: time.Now()},
-		{ConnectionID: uuid.New().String(), CreatedTime: time.Now()},
+	return []*ConnectionResult{
+		{didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
+		{didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
 	}, nil
 }
 
-// QueryConnectionByID fetches single connection record for given id
-func (c *Client) QueryConnectionByID(id string) (*QueryConnectionResult, error) {
-	// TODO sample response, to be implemented as part of #226
-	return &QueryConnectionResult{
-		ConnectionID: uuid.New().String(), CreatedTime: time.Now(),
+// GetConnection fetches single connection record for given id
+func (c *Client) GetConnection(connectionID string) (*ConnectionResult, error) {
+	conn, err := c.connectionStore.GetConnection(connectionID)
+	if err != nil {
+		if errors.Is(err, storage.ErrDataNotFound) {
+			return nil, ErrConnectionNotFound
+		}
+		return nil, fmt.Errorf("cannot fetch state from store: connectionid=%s err=%s", connectionID, err)
+	}
+	return &ConnectionResult{
+		didexchange.ConnectionRecord{ConnectionID: connectionID, State: conn.State},
 	}, nil
 }
 

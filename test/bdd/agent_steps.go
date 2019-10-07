@@ -77,19 +77,20 @@ func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error
 }
 
 func (a *AgentSteps) registerPostMsgEvent(agentID, statesValue string) error {
-	statusCh := make(chan dispatcher.StateMsg, 10)
+	statusCh := make(chan dispatcher.StateMsg, 1)
 	if err := a.bddContext.DIDExchangeClients[agentID].RegisterMsgEvent(statusCh); err != nil {
 		return fmt.Errorf("failed to register msg event: %w", err)
 	}
 	states := strings.Split(statesValue, ",")
-	a.initializeStates(states)
+	a.initializeStates(agentID, states)
 	go func() {
 		for e := range statusCh {
+			a.bddContext.ConnectionID[agentID] = e.Properties[didexchange.ConnectionID].(string)
 			if e.Type == dispatcher.PostState {
 				for _, state := range states {
 					// receive the events
 					if e.StateID == state {
-						a.bddContext.PostStatesFlag[state] <- true
+						a.bddContext.PostStatesFlag[agentID][state] <- true
 					}
 
 				}
@@ -100,9 +101,10 @@ func (a *AgentSteps) registerPostMsgEvent(agentID, statesValue string) error {
 	return nil
 }
 
-func (a *AgentSteps) initializeStates(states []string) {
+func (a *AgentSteps) initializeStates(agentID string, states []string) {
+	a.bddContext.PostStatesFlag[agentID] = make(map[string]chan bool)
 	for _, state := range states {
-		a.bddContext.PostStatesFlag[state] = make(chan bool)
+		a.bddContext.PostStatesFlag[agentID][state] = make(chan bool)
 	}
 }
 
