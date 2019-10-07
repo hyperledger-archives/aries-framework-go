@@ -27,8 +27,8 @@ var logger = log.New("aries-framework/did-exchange/service")
 
 // didCommChMessage type to correlate actionEvent message(go channel) with callback message(internal go channel).
 type didCommChMessage struct {
-	ID              string
-	DIDCommCallback dispatcher.DIDCommCallback
+	ID  string
+	Err error
 }
 
 const (
@@ -281,8 +281,11 @@ func (s *Service) sendActionEvent(msg dispatcher.DIDCommMsg, aEvent chan<- dispa
 	// TODO pass invitation id #397
 	didCommAction := dispatcher.DIDCommAction{
 		Message: msg,
-		Callback: func(didCommCallback dispatcher.DIDCommCallback) {
-			s.processCallback(id, didCommCallback)
+		Continue: func() {
+			s.processCallback(id, nil)
+		},
+		Stop: func(err error) {
+			s.processCallback(id, err)
 		},
 		Properties: s.createEventProperties(threadID, ""),
 	}
@@ -310,7 +313,7 @@ func (s *Service) startInternalListener() {
 	go func() {
 		for msg := range s.callbackChannel {
 			// TODO handle error in callback - https://github.com/hyperledger/aries-framework-go/issues/242
-			if err := s.process(msg.ID, msg.DIDCommCallback); err != nil {
+			if err := s.process(msg); err != nil {
 				// TODO handle error
 				logger.Errorf(err.Error())
 			}
@@ -318,29 +321,30 @@ func (s *Service) startInternalListener() {
 	}()
 }
 
-func (s *Service) processCallback(id string, didCommCallback dispatcher.DIDCommCallback) {
+func (s *Service) processCallback(id string, err error) {
 	// pass the callback data to internal channel. This is created to unblock consumer go routine and wrap the callback
 	// channel internally.
-	s.callbackChannel <- didCommChMessage{ID: id, DIDCommCallback: didCommCallback}
+	s.callbackChannel <- didCommChMessage{ID: id, Err: err}
 }
 
 // processCallback processes the callback events.
-func (s *Service) process(id string, didCommCallback dispatcher.DIDCommCallback) error {
-	if didCommCallback.Err != nil {
-		// TODO https://github.com/hyperledger/aries-framework-go/issues/242 Service callback processing error handling
+func (s *Service) process(msg didCommChMessage) error {
+	if msg.Err != nil {
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/438 Cleanup/Update data on Stop Event Action
+		logger.Errorf("client action event processing failed - msgID:%s error:%s", msg.ID, msg.Err)
 		return nil
 	}
 
 	// fetch the record
-	jsonDoc, err := s.store.Get(id)
+	jsonDoc, err := s.store.Get(msg.ID)
 	if err != nil {
-		return fmt.Errorf("document for the id doesn't exists in the database: %w", didCommCallback.Err)
+		return fmt.Errorf("document for the id doesn't exists in the database: %w", err)
 	}
 
 	document := &message{}
 	err = json.Unmarshal(jsonDoc, document)
 	if err != nil {
-		return fmt.Errorf("JSON marshalling failed: %w", didCommCallback.Err)
+		return fmt.Errorf("JSON marshalling failed: %w", err)
 	}
 
 	// continue the processing
@@ -463,7 +467,7 @@ func GenerateInviteWithKeyAndEndpoint(invite *Invitation) (string, error) {
 //	go didexchange.AutoExecuteActionEvent(actionCh)
 func AutoExecuteActionEvent(ch chan dispatcher.DIDCommAction) error {
 	for msg := range ch {
-		msg.Callback(dispatcher.DIDCommCallback{Err: nil})
+		msg.Continue()
 	}
 
 	return nil
