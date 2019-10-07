@@ -19,13 +19,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const (
-	serviceEndpoint    = "sample-endpoint.com"
+	serviceEndpoint    = "https://abc.example.com/83hfh37dj"
 	serviceTypeDIDComm = "did-communication"
 )
 
@@ -268,11 +269,12 @@ func TestBaseWallet_PackMessage(t *testing.T) {
 }
 
 func TestBaseWallet_SignMessage(t *testing.T) {
-	t.Run("test error not implemented", func(t *testing.T) {
+	t.Run("test key not found error", func(t *testing.T) {
 		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{}))
 		require.NoError(t, err)
 		_, err = w.SignMessage(nil, "")
 		require.Error(t, err)
+		require.Contains(t, err.Error(), "key not found")
 	})
 }
 
@@ -319,6 +321,12 @@ func TestBaseWallet_NewDID(t *testing.T) {
 
 		// verify DID identifier
 		require.Equal(t, didDoc.ID, fmt.Sprintf(didFormat, method, pub[:16]))
+
+		// check that document has been signed
+		require.True(t, len(didDoc.Proof) > 0)
+		require.Equal(t, didDoc.Proof[0].Type, "Ed25519Signature2018")
+		require.Equal(t, didDoc.ID+"#keys-2", didDoc.Proof[0].Creator)
+		require.NotEmpty(t, didDoc.Proof[0].ProofValue)
 	}
 
 	t.Run("create new DID with service type", func(t *testing.T) {
@@ -354,6 +362,17 @@ func TestBaseWallet_NewDID(t *testing.T) {
 		// verify services
 		require.Empty(t, didDoc.Service)
 	})
+}
+
+func TestSignDocumentError(t *testing.T) {
+	context := &signer.Context{
+		SignatureType: "Ed25519Signature2018",
+	}
+
+	signedDoc, err := signDocument(context, &did.Doc{})
+	require.NotNil(t, err)
+	require.Nil(t, signedDoc)
+	require.Contains(t, err.Error(), "creator is missing")
 }
 
 func newMockWalletProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvider {

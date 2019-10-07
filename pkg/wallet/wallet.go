@@ -20,6 +20,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -87,7 +89,11 @@ func (w *BaseWallet) CreateSigningKey() (string, error) {
 
 // SignMessage sign a message using the private key associated with a given verification key.
 func (w *BaseWallet) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
-	return nil, fmt.Errorf("not implemented")
+	keyPair, err := w.getKey(fromVerKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get key: %w", err)
+	}
+	return ed25519signature2018.New().Sign(keyPair.Priv, message)
 }
 
 // DecryptMessage decrypt message
@@ -157,30 +163,45 @@ func (w *BaseWallet) Close() error {
 
 // CreateDID returns new DID Document
 // TODO write the DID Doc to the chosen DID method.
-func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error) {
+// TODO remove lint when encryption key gets removed from function
+func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error) { //nolint:funlen
 	docOpts := &createDIDOpts{}
 	// Apply options
 	for _, opt := range opts {
 		opt(docOpts)
 	}
 
-	// Generate key pair
-	pub, err := w.CreateEncryptionKey()
+	// TODO: remove generate key pair for encryption (there is no key type in DID Spec for this one)
+	// It seems that we only need one signing key in DID Doc and that we can
+	// generate encryption key from that signing key when we need it
+	pubEncryption, err := w.CreateEncryptionKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create DID: %w", err)
 	}
 
 	// DID identifier
-	id := fmt.Sprintf(didFormat, method, pub[:16])
+	id := fmt.Sprintf(didFormat, method, pubEncryption[:16])
 
-	// Supporting only one public key now
-	pubKey := did.PublicKey{
-		ID: fmt.Sprintf(didPKID, id, 1),
+	pubKeyEncryption := did.PublicKey{
+		ID:         fmt.Sprintf(didPKID, id, 1),
+		Type:       "Curve25519",
+		Controller: id,
+		Value:      []byte(pubEncryption),
+	}
+
+	// Generate key pair for signing
+	pubSigning, err := w.CreateSigningKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create DID: %w", err)
+	}
+
+	pubKeySigning := did.PublicKey{
+		ID: fmt.Sprintf(didPKID, id, 2),
 		// TODO hardcoding public key type for now
 		// Should be dynamic for multi-key support
 		Type:       "Ed25519VerificationKey2018",
 		Controller: id,
-		Value:      []byte(pub),
+		Value:      []byte(pubSigning),
 	}
 
 	// Service model to be included only if service type is provided through opts
@@ -199,14 +220,50 @@ func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
 	// Created time
 	createdTime := time.Now()
 
-	return &did.Doc{
+	doc := &did.Doc{
 		Context:   []string{did.Context},
 		ID:        id,
-		PublicKey: []did.PublicKey{pubKey},
+		PublicKey: []did.PublicKey{pubKeyEncryption, pubKeySigning},
 		Service:   service,
 		Created:   &createdTime,
 		Updated:   &createdTime,
-	}, nil
+	}
+
+	// TODO: Resolve signature type based on key type
+	signingContext := &signer.Context{
+		SignatureType: "Ed25519Signature2018",
+		Creator:       pubKeySigning.ID,
+		Signer:        newSigner(pubSigning, w),
+	}
+
+	return signDocument(signingContext, doc)
+}
+
+func newSigner(keyID string, wallet Crypto) *didSigner {
+	return &didSigner{keyID: keyID, wallet: wallet}
+}
+
+type didSigner struct {
+	keyID  string
+	wallet Crypto
+}
+
+func (s *didSigner) Sign(doc []byte) ([]byte, error) {
+	return s.wallet.SignMessage(doc, s.keyID)
+}
+
+func signDocument(context *signer.Context, doc *did.Doc) (*did.Doc, error) {
+	docBytes, err := doc.JSONBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	signedDocBytes, err := signer.New().Sign(context, docBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return did.ParseDocument(signedDocBytes)
 }
 
 // persistKey save key in storage
