@@ -19,9 +19,9 @@ type signatureSuite interface {
 	GetDigest(doc []byte) []byte
 }
 
-// CreateVerifyHashAlgorithm returns data that is used to generate or verify a digital signature
+// CreateVerifyHash returns data that is used to generate or verify a digital signature
 // Algorithm steps are described here https://w3c-dvcg.github.io/ld-signatures/#create-verify-hash-algorithm
-func CreateVerifyHashAlgorithm(suite signatureSuite, jsonldDoc, proofOptions map[string]interface{}) ([]byte, error) {
+func CreateVerifyHash(suite signatureSuite, jsonldDoc, proofOptions map[string]interface{}) ([]byte, error) {
 	// in  order to generate canonical form we need context
 	// if context is not passed, use document's context
 	// spec doesn't mention anything about context

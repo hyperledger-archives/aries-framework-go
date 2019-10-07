@@ -102,7 +102,7 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		Nonce:   context.Nonce,
 	}
 
-	message, err := proof.CreateVerifyHashAlgorithm(suite, jsonLdObject, p.JSONLdObject())
+	message, err := proof.CreateVerifyHash(suite, jsonLdObject, p.JSONLdObject())
 	if err != nil {
 		return err
 	}
