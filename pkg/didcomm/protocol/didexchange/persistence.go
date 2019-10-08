@@ -20,6 +20,14 @@ const (
 	invKeyPrefix = "inv_"
 )
 
+// ConnectionRecord contain info about did exchange connection
+type ConnectionRecord struct {
+	// State of the connection invitation
+	State string
+
+	ConnectionID string
+}
+
 // NewConnectionRecorder returns new connection record instance
 func NewConnectionRecorder(store storage.Store) *ConnectionRecorder {
 	return &ConnectionRecorder{store: store}
@@ -84,6 +92,15 @@ func (c *ConnectionRecorder) GetInvitation(verKey string) (*Invitation, error) {
 	}
 
 	return result, nil
+}
+
+// GetConnection return connection record
+func (c *ConnectionRecorder) GetConnection(connectionID string) (*ConnectionRecord, error) {
+	name, err := c.store.Get(connectionID)
+	if err != nil {
+		return nil, err
+	}
+	return &ConnectionRecord{State: string(name)}, nil
 }
 
 // invitationKey computes key for invitation object

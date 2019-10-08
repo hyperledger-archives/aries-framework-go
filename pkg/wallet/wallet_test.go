@@ -40,7 +40,7 @@ func TestBaseWallet_New(t *testing.T) {
 
 func TestBaseWallet_CreateKey(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestBaseWallet_CreateKey(t *testing.T) {
 	})
 
 	t.Run("test error from persistKey", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte), ErrPut: fmt.Errorf("put error"),
 		}}))
 		require.NoError(t, err)
@@ -79,7 +79,7 @@ func TestBaseWallet_UnpackMessage(t *testing.T) {
 	t.Run("test failed from getKey", func(t *testing.T) {
 		m := make(map[string][]byte)
 		m["key1"] = nil
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: m, ErrGet: fmt.Errorf("get error"),
 		}}))
 		require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestBaseWallet_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test failed to unmarshal encMessage", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
@@ -107,7 +107,7 @@ func TestBaseWallet_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test key not found", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestBaseWallet_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test decrypt failed", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
@@ -178,7 +178,7 @@ func TestBaseWallet_UnpackMessage(t *testing.T) {
 
 func TestBaseWallet_PackMessage(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
@@ -209,7 +209,7 @@ func TestBaseWallet_PackMessage(t *testing.T) {
 	})
 
 	t.Run("test envelope is nil", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
@@ -219,7 +219,7 @@ func TestBaseWallet_PackMessage(t *testing.T) {
 	})
 
 	t.Run("test key not found error", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
@@ -236,7 +236,7 @@ func TestBaseWallet_PackMessage(t *testing.T) {
 	})
 
 	t.Run("test encrypt failed", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
 
@@ -288,7 +288,7 @@ func TestBaseWallet_DecryptMessage(t *testing.T) {
 func TestBaseWallet_NewDID(t *testing.T) {
 	const method = "example"
 
-	storeProvider := &mockstorage.MockStoreProvider{Store: mockstorage.MockStore{
+	storeProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 		Store: make(map[string][]byte),
 	}}
 	verifyDID := func(t *testing.T, didDoc *did.Doc) {

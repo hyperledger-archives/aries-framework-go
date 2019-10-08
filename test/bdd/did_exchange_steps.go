@@ -48,14 +48,25 @@ func (d *DIDExchangeSteps) receiveInvitation(inviteeAgentID, inviterAgentID stri
 	return nil
 }
 
-func (d *DIDExchangeSteps) waitForPostEvent(inviteeAgentID, statesValue string) error {
+func (d *DIDExchangeSteps) waitForPostEvent(agentID, statesValue string) error {
 	states := strings.Split(statesValue, ",")
 	for _, state := range states {
 		select {
-		case <-d.bddContext.PostStatesFlag[state]:
+		case <-d.bddContext.PostStatesFlag[agentID][state]:
 		case <-time.After(5 * time.Second):
 			return fmt.Errorf("timeout waiting for post state event %s", state)
 		}
+	}
+	return nil
+}
+
+func (d *DIDExchangeSteps) validateConnection(agentID, stateValue string) error {
+	conn, err := d.bddContext.DIDExchangeClients[agentID].GetConnection(d.bddContext.ConnectionID[agentID])
+	if err != nil {
+		return fmt.Errorf("failed to query connection by id: %w", err)
+	}
+	if conn.State != stateValue {
+		return fmt.Errorf("state from connection %s not equal %s", conn.State, stateValue)
 	}
 	return nil
 }
@@ -65,5 +76,6 @@ func (d *DIDExchangeSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)"$`, d.receiveInvitation)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)"$`, d.waitForPostEvent)
+	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`, d.validateConnection)
 
 }

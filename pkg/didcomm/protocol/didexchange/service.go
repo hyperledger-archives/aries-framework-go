@@ -65,6 +65,10 @@ type provider interface {
 	StorageProvider() storage.Provider
 }
 
+type connectionStore interface {
+	GetConnection(connectionID string) (*ConnectionRecord, error)
+}
+
 // Service for DID exchange protocol
 type Service struct {
 	ctx             context
@@ -74,6 +78,7 @@ type Service struct {
 	msgEvents       []chan<- dispatcher.StateMsg
 	lock            sync.RWMutex
 	msgEventLock    sync.RWMutex
+	connectionStore connectionStore
 }
 
 type context struct {
@@ -95,6 +100,7 @@ func New(didMaker did.Creator, prov provider) (*Service, error) {
 		store: store,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan didCommChMessage, 10),
+		connectionStore: NewConnectionRecorder(store),
 	}
 
 	svc.startInternalListener()
@@ -387,14 +393,14 @@ func threadID(didCommMsg dispatcher.DIDCommMsg) (string, error) {
 }
 
 func (s *Service) currentState(thid string) (state, error) {
-	name, err := s.store.Get(thid)
+	conn, err := s.connectionStore.GetConnection(thid)
 	if err != nil {
 		if errors.Is(err, storage.ErrDataNotFound) {
 			return &null{}, nil
 		}
 		return nil, fmt.Errorf("cannot fetch state from store: thid=%s err=%s", thid, err)
 	}
-	return stateFromName(string(name))
+	return stateFromName(conn.State)
 }
 
 func (s *Service) update(thid string, state state) error {
@@ -416,12 +422,6 @@ func (s *Service) Accept(msgType string) bool {
 // Name return service name
 func (s *Service) Name() string {
 	return DIDExchange
-}
-
-// Connection return connection
-func (s *Service) Connection(id string) {
-	// TODO add Connection logic
-
 }
 
 // Connections return all connections

@@ -15,13 +15,13 @@ import (
 // MockStoreProvider mock store provider.
 type MockStoreProvider struct {
 	Custom             storage.Store
-	Store              MockStore
+	Store              *MockStore
 	ErrOpenStoreHandle error
 }
 
 // NewMockStoreProvider new store provider instance.
 func NewMockStoreProvider() *MockStoreProvider {
-	return &MockStoreProvider{Store: MockStore{
+	return &MockStoreProvider{Store: &MockStore{
 		Store: make(map[string][]byte),
 	}}
 }
@@ -36,7 +36,7 @@ func (s *MockStoreProvider) OpenStore(name string) (storage.Store, error) {
 	if s.Custom != nil {
 		return s.Custom, s.ErrOpenStoreHandle
 	}
-	return &s.Store, s.ErrOpenStoreHandle
+	return s.Store, s.ErrOpenStoreHandle
 }
 
 // Close closes all stores created under this store provider

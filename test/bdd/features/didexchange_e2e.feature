@@ -18,4 +18,5 @@ Feature: Decentralized Identifier(DID) exchange between the agents
     And   "Bob" receives invitation from "Alice"
     And   "Alice" waits for post state event "completed"
     And   "Bob" waits for post state event "completed"
-
+    And   "Alice" retrieves connection record and validates that connection state is "completed"
+    And   "Bob" retrieves connection record and validates that connection state is "completed"
