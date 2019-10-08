@@ -9,6 +9,7 @@ package didexchange
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -107,7 +108,8 @@ func TestService_Handle_Inviter(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		require.Fail(t, "didn't receive post event complete")
 	}
-	validateState(t, s, thid, (&completed{}).Name())
+	namspace := findNameSpace(didMsg.Header.Type)
+	validateState(t, s, thid, namspace, (&completed{}).Name())
 }
 
 func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFlag, completedFlag chan struct{}) {
@@ -207,15 +209,16 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.NoError(t, err)
 
 	// Alice automatically sends a Request to Bob and is now in REQUESTED state.
-	var thid string
-	var currState string
-	for k, v := range data {
-		thid = k
-		currState = v
-		break
+	connRecord := &ConnectionRecord{}
+	for _, v := range data {
+		currentData := v
+		err = json.Unmarshal([]byte(currentData), connRecord)
+		if err == nil && (&requested{}).Name() == connRecord.State {
+			break
+		}
+		continue
 	}
-	require.NotEmpty(t, thid)
-	require.Equal(t, (&requested{}).Name(), currState)
+	require.Equal(t, (&requested{}).Name(), connRecord.State)
 
 	connection := &Connection{
 		DID:    newDidDoc.ID,
@@ -231,7 +234,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 			Type:                ConnectionResponse,
 			ID:                  randomString(),
 			ConnectionSignature: connectionSignature,
-			Thread:              &decorator.Thread{ID: thid},
+			Thread:              &decorator.Thread{ID: connRecord.ThreadID},
 		},
 	)
 	require.NoError(t, err)
@@ -247,12 +250,13 @@ func TestService_Handle_Invitee(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		require.Fail(t, "didn't receive post event complete")
 	}
-	validateState(t, s, thid, (&completed{}).Name())
+	namspace := findNameSpace(didMsg.Header.Type)
+	validateState(t, s, connRecord.ThreadID, namspace, (&completed{}).Name())
 }
 
 func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("must not start with Response msg", func(t *testing.T) {
-		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
+		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		mockStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
 		require.NoError(t, err)
@@ -268,7 +272,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("must not start with ACK msg", func(t *testing.T) {
-		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
+		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		mockStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
 		require.NoError(t, err)
@@ -334,8 +338,9 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			require.Fail(t, "didn't receive post event responded")
 		}
+		namspace := findNameSpace(didMsg.Header.Type)
 		// state machine has automatically transitioned to responded state
-		validateState(t, s, thid, (&responded{}).Name())
+		validateState(t, s, thid, namspace, (&responded{}).Name())
 		// therefore cannot transition Responded state
 		response, err := json.Marshal(
 			&Response{
@@ -351,7 +356,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("error when updating store on first state transition", func(t *testing.T) {
-		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
+		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		s := &Service{
 			ctx: ctx,
@@ -377,7 +382,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 	t.Run("error when updating store on followup state transition", func(t *testing.T) {
 		counter := 0
-		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
+		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		s := &Service{
 			ctx: ctx,
@@ -407,7 +412,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("error on invalid msg type", func(t *testing.T) {
-		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
+		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		mockStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
 		require.NoError(t, err)
@@ -430,7 +435,7 @@ func TestService_Accept(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context{outboundDispatcher: newMockOutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-	s := &Service{ctx: ctx, store: dbstore}
+	s := &Service{ctx: &ctx, store: dbstore}
 
 	resp := s.Accept("did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation")
 	require.Equal(t, true, resp)
@@ -468,18 +473,20 @@ func TestService_currentState(t *testing.T) {
 				get: func(string) ([]byte, error) { return nil, storage.ErrDataNotFound },
 			}),
 		}
-		s, err := svc.currentState("ignored")
+		s, err := svc.currentState("ignored", myNSPrefix)
 		require.NoError(t, err)
 		require.Equal(t, (&null{}).Name(), s.Name())
 	})
 	t.Run("returns state from store", func(t *testing.T) {
 		expected := &requested{}
+		connRec, err := json.Marshal(&ConnectionRecord{State: expected.Name()})
+		require.NoError(t, err)
 		svc := &Service{
 			connectionStore: NewConnectionRecorder(&mockStore{
-				get: func(string) ([]byte, error) { return []byte(expected.Name()), nil },
+				get: func(string) ([]byte, error) { return connRec, nil },
 			}),
 		}
-		actual, err := svc.currentState("ignored")
+		actual, err := svc.currentState("ignored", myNSPrefix)
 		require.NoError(t, err)
 		require.Equal(t, expected.Name(), actual.Name())
 	})
@@ -491,23 +498,36 @@ func TestService_currentState(t *testing.T) {
 				},
 			}),
 		}
-		_, err := svc.currentState("ignored")
+		_, err := svc.currentState("ignored", "")
 		require.Error(t, err)
 	})
 }
 
 func TestService_update(t *testing.T) {
 	const thid = "123"
-	s := &responded{}
+	const ConnID = "123456"
+	s := &requested{}
 	data := make(map[string][]byte)
-	store := &mockStore{
-		put: func(k string, v []byte) error {
-			data[k] = v
-			return nil
-		},
+	connRec := &ConnectionRecord{ThreadID: thid, ConnectionID: ConnID, State: s.Name()}
+	bytes, err := json.Marshal(connRec)
+	require.NoError(t, err)
+	svc := &Service{
+		connectionStore: NewConnectionRecorder(&mockStore{
+			put: func(k string, v []byte) error {
+				data[k] = bytes
+				return nil
+			},
+			get: func(k string) ([]byte, error) {
+				return bytes, nil
+			},
+		}),
 	}
-	require.NoError(t, (&Service{store: store}).update("123", s))
-	require.Equal(t, s.Name(), string(data[thid]))
+
+	require.NoError(t, svc.update(&service.DIDCommMsg{Header: &service.Header{Type: ConnectionRequest}}, connRec))
+	cr := &ConnectionRecord{}
+	err = json.Unmarshal(bytes, cr)
+	require.NoError(t, err)
+	require.Equal(t, cr, connRec)
 }
 
 func newMockOutboundDispatcher() dispatcher.Outbound {
@@ -692,7 +712,7 @@ func handleConnectionRequestEvents(t *testing.T, svc *Service, e *service.DIDCom
 
 	if pl.ID == invalidThreadID {
 		// no state change since there was a error with processing
-		s, err := svc.currentState(pl.ID)
+		s, err := svc.currentState(pl.ID, myNSPrefix)
 		require.NoError(t, err)
 		require.Equal(t, "null", s.Name())
 	} else {
@@ -734,12 +754,12 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e *service.DIDCo
 	switch pl.ID {
 	case changeID:
 		// no state change since there was a error with processing
-		s, err := svc.currentState(pl.ID)
+		s, err := svc.currentState(pl.ID, myNSPrefix)
 		require.NoError(t, err)
 		require.Equal(t, "requested", s.Name())
 	case handleError:
 		// no s change since there was a error with processing
-		s, err := svc.currentState(pl.ID)
+		s, err := svc.currentState(pl.ID, myNSPrefix)
 		require.NoError(t, err)
 		require.Equal(t, "requested", s.Name())
 	default:
@@ -769,7 +789,7 @@ func handleConnectionAckEvents(t *testing.T, svc *Service, e *service.DIDCommAct
 	e.Continue()
 	if pl.ID == corrupt {
 		// no state change since there was a error with processing
-		s, err := svc.currentState(pl.ID)
+		s, err := svc.currentState(pl.ID, theirNSPrefix)
 		require.NoError(t, err)
 		require.Equal(t, "responded", s.Name())
 	} else {
@@ -789,7 +809,7 @@ func writeToDB(t *testing.T, svc *Service, e *service.DIDCommMsg) {
 func validateSuccessCase(t *testing.T, svc *Service) {
 	id := "valid-thread-id"
 	// verify the state before invite
-	s, err := svc.currentState(id)
+	s, err := svc.currentState(id, myNSPrefix)
 	require.NoError(t, err)
 	require.Equal(t, "null", s.Name())
 
@@ -811,9 +831,9 @@ func validateSuccessCase(t *testing.T, svc *Service) {
 
 func validateUserError(t *testing.T, svc *Service) {
 	id := invalidThreadID
-
+	connDid := "ddid:@Ab"
 	// verify the state before connection request message
-	s, err := svc.currentState(id)
+	s, err := svc.currentState(id, myNSPrefix)
 	require.NoError(t, err)
 	require.Equal(t, "null", s.Name())
 
@@ -822,6 +842,12 @@ func validateUserError(t *testing.T, svc *Service) {
 			Type:  ConnectionRequest,
 			ID:    id,
 			Label: "test",
+			Connection: &Connection{
+				DID: connDid,
+				DIDDoc: &did.Doc{
+					ID: id,
+				},
+			},
 		},
 	)
 	require.NoError(t, err)
@@ -834,53 +860,65 @@ func validateUserError(t *testing.T, svc *Service) {
 
 func validateStoreError(t *testing.T, svc *Service) {
 	id := changeID
-
-	// update the state to requested for this thread ID (to bypass the validations for ConnectionResponse message type)
-	err := svc.update(id, &requested{})
+	st := &requested{}
+	response := &Response{
+		Type: ConnectionResponse,
+		ID:   id,
+		Thread: &decorator.Thread{
+			ID: id,
+		}}
+	responseBytes, err := json.Marshal(response)
 	require.NoError(t, err)
 
+	didMsg := &service.DIDCommMsg{Payload: responseBytes, Header: &service.Header{ID: id, Type: ConnectionResponse,
+		Thread: decorator.Thread{ID: response.Thread.ID}}}
+	require.NoError(t, err)
+
+	connID := generateRandomID()
+	connRec := &ConnectionRecord{ConnectionID: connID, ThreadID: response.Thread.ID, State: st.Name()}
+	// update the state to requested for this thread ID (to bypass the validations for ConnectionResponse message type)
+	err = svc.update(didMsg, connRec)
+	require.NoError(t, err)
+
+	err = svc.connectionStore.saveThreadID(id, connID, findNameSpace(ConnectionResponse))
+	require.NoError(t, err)
 	// verify the state before connection response message
-	s, err := svc.currentState(id)
+	s, err := svc.currentState(id, myNSPrefix)
 	require.NoError(t, err)
 	require.Equal(t, "requested", s.Name())
 
-	request, err := json.Marshal(
-		&Request{
-			Type:  ConnectionResponse,
-			ID:    id,
-			Label: "test",
-		},
-	)
-	require.NoError(t, err)
-
-	didMsg, err := service.NewDIDCommMsg(request)
-	require.NoError(t, err)
 	err = svc.HandleInbound(didMsg)
 	require.NoError(t, err)
 }
-
 func validateStoreDataCorruptionError(t *testing.T, svc *Service) {
 	id := corrupt
+	connRec := &ConnectionRecord{ConnectionID: generateRandomID(), ThreadID: id, State: (&responded{}).Name()}
 
-	// update the state to responded for this thread ID (to bypass the validations for ConnectionAck message type)
-	err := svc.update(id, &responded{})
-	require.NoError(t, err)
-
-	// verify the s
-	s, err := svc.currentState(id)
-	require.NoError(t, err)
-	require.Equal(t, "responded", s.Name())
-
-	request, err := json.Marshal(
-		&Request{
-			Type:  ConnectionAck,
-			ID:    id,
-			Label: "test",
+	ack, err := json.Marshal(
+		&model.Ack{
+			Type: ConnectionAck,
+			ID:   id,
+			Thread: &decorator.Thread{
+				ID: id,
+			},
 		},
 	)
 	require.NoError(t, err)
+	didMsg, err := service.NewDIDCommMsg(ack)
+	require.NoError(t, err)
 
-	didMsg, err := service.NewDIDCommMsg(request)
+	// update the state to responded for this thread ID (to bypass the validations for ConnectionAck message type)
+	err = svc.update(didMsg, connRec)
+	require.NoError(t, err)
+
+	err = svc.connectionStore.saveThreadID(id, connRec.ConnectionID, findNameSpace(ConnectionRequest))
+	require.NoError(t, err)
+
+	// verify the s
+	s, err := svc.currentState(id, theirNSPrefix)
+	require.NoError(t, err)
+	require.Equal(t, "responded", s.Name())
+
 	require.NoError(t, err)
 	err = svc.HandleInbound(didMsg)
 	require.NoError(t, err)
@@ -888,28 +926,44 @@ func validateStoreDataCorruptionError(t *testing.T, svc *Service) {
 
 func validateHandleError(t *testing.T, svc *Service) {
 	id := handleError
-
+	connRec := &ConnectionRecord{ConnectionID: generateRandomID(), ThreadID: id, State: (&invited{}).Name()}
+	msg := &service.DIDCommMsg{Header: &service.Header{Type: ConnectionInvite}}
 	// update the state to requested for this thread ID (to bypass the validations for ConnectionResponse message type)
-	err := svc.update(id, &requested{})
+	err := svc.update(msg, connRec)
 	require.NoError(t, err)
 
-	// verify the s before invite
-	s, err := svc.currentState(id)
+	nameSpace := findNameSpace(ConnectionInvite)
+	// verify the s before sending response
+	s, err := svc.currentState(id, nameSpace)
 	require.NoError(t, err)
-	require.Equal(t, "requested", s.Name())
+	require.Equal(t, "invited", s.Name())
 
-	request, err := json.Marshal(
-		&Request{
-			Type:  ConnectionResponse,
-			ID:    id,
-			Label: "test",
+	newDidDoc := getMockDIDPublicKey()
+	connection := &Connection{
+		DID:    newDidDoc.ID,
+		DIDDoc: newDidDoc,
+	}
+	connectionSignature, err := prepareConnectionSignature(connection)
+	require.NoError(t, err)
+	require.NotNil(t, connectionSignature)
+
+	response, err := json.Marshal(
+		&Response{
+			Type: ConnectionResponse,
+			ID:   id,
+			Thread: &decorator.Thread{
+				ID: id,
+			},
+			ConnectionSignature: &ConnectionSignature{
+				SignedData: connectionSignature.SignedData,
+			},
 		},
 	)
 	require.NoError(t, err)
-
-	didMsg, err := service.NewDIDCommMsg(request)
+	didMsg, err := service.NewDIDCommMsg(response)
+	m := &message{Msg: didMsg, ThreadID: id, NextStateName: (&responded{}).Name()}
 	require.NoError(t, err)
-	err = svc.HandleInbound(didMsg)
+	err = svc.handle(m)
 	require.NoError(t, err)
 }
 
@@ -943,23 +997,22 @@ func TestService_No_Execution(t *testing.T) {
 	require.Contains(t, err.Error(), "no clients are registered to handle the message")
 }
 
-func validateState(t *testing.T, svc *Service, id, expected string) {
-	s, err := svc.currentState(id)
+func validateState(t *testing.T, svc *Service, id, namespace, expected string) {
+	s, err := svc.currentState(id, namespace)
 	require.NoError(t, err)
 	require.Equal(t, expected, s.Name())
 }
 
 func TestServiceErrors(t *testing.T) {
-	request, err := json.Marshal(
-		&Request{
-			Type:  ConnectionResponse,
-			ID:    randomString(),
-			Label: "test",
-		},
-	)
+	request := &Request{
+		Type:  ConnectionResponse,
+		ID:    randomString(),
+		Label: "test",
+	}
+	requestBytes, err := json.Marshal(request)
 	require.NoError(t, err)
 
-	msg, err := service.NewDIDCommMsg(request)
+	msg, err := service.NewDIDCommMsg(requestBytes)
 	require.NoError(t, err)
 
 	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
@@ -968,8 +1021,9 @@ func TestServiceErrors(t *testing.T) {
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
 
+	connRec := &ConnectionRecord{State: (&requested{}).Name()}
 	// state update error
-	err = svc.update("", &responded{})
+	err = svc.update(msg, connRec)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to write to store")
 
@@ -1014,9 +1068,18 @@ func TestServiceErrors(t *testing.T) {
 }
 
 func TestMsgEventProtocolFailure(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	k, err := computeHash([]byte(changeID))
 	require.NoError(t, err)
-
+	key := fmt.Sprintf(keyPattern, theirNSPrefix, k)
+	connRec := &ConnectionRecord{ConnectionID: generateRandomID(), ThreadID: key, State: (&responded{}).Name()}
+	connBytes, err := json.Marshal(connRec)
+	require.NoError(t, err)
+	pv := mockstorage.NewMockStoreProvider()
+	require.NoError(t, pv.Store.Put("conn_"+connRec.ConnectionID, connBytes))
+	require.NoError(t, pv.Store.Put(connRec.ThreadID, []byte(connRec.ConnectionID)))
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	svc.connectionStore = NewConnectionRecorder(pv.Store)
+	require.NoError(t, err)
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
@@ -1043,28 +1106,25 @@ func TestMsgEventProtocolFailure(t *testing.T) {
 			}
 		}
 	}()
-
-	// update the state to responded for this thread ID (to bypass the validations for ConnectionAck message type)
 	id := randomString()
-	err = svc.update(id, &responded{})
+	ack := &model.Ack{
+		Type: ConnectionAck,
+		ID:   id,
+		Thread: &decorator.Thread{
+			ID: changeID,
+		},
+	}
+	namespace := findNameSpace(ConnectionAck)
+	ackBytes, err := json.Marshal(ack)
+	require.NoError(t, err)
+
+	msg, err := service.NewDIDCommMsg(ackBytes)
 	require.NoError(t, err)
 
 	// verify the current state
-	s, err := svc.currentState(id)
+	st, err := svc.currentState(changeID, namespace)
 	require.NoError(t, err)
-	require.Equal(t, (&responded{}).Name(), s.Name())
-
-	request, err := json.Marshal(
-		&Request{
-			Type:  ConnectionAck,
-			ID:    id,
-			Label: "test",
-		},
-	)
-	require.NoError(t, err)
-
-	msg, err := service.NewDIDCommMsg(request)
-	require.NoError(t, err)
+	require.Equal(t, (&responded{}).Name(), st.Name())
 
 	err = svc.HandleInbound(msg)
 	require.NoError(t, err)
@@ -1074,10 +1134,9 @@ func TestMsgEventProtocolFailure(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		require.Fail(t, "tests are not validated")
 	}
-
-	s, err = svc.currentState(id)
+	st, err = svc.currentState(changeID, namespace)
 	require.NoError(t, err)
-	require.Equal(t, (&abandoned{}).Name(), s.Name())
+	require.Equal(t, (&abandoned{}).Name(), st.Name())
 }
 
 func TestHandleOutbound(t *testing.T) {

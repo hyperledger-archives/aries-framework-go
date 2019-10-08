@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"crypto"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -136,17 +137,23 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 }
 
 func TestClient_QueryConnectionByID(t *testing.T) {
+	connID := "id1"
+	threadID := "thid1"
 	t.Run("test success", func(t *testing.T) {
 		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
-		s := mockstore.MockStore{Store: make(map[string][]byte)}
-		c, err := New(&mockprovider.Provider{
-			ServiceValue:         svc,
-			StorageProviderValue: &mockstore.MockStoreProvider{Store: &s}})
+		s := &mockstore.MockStore{Store: make(map[string][]byte)}
+		connRec := &didexchange.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
+		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		require.NoError(t, s.Put("id1", []byte("complete")))
-		result, err := c.GetConnection("id1")
+		require.NoError(t, s.Put("conn_id1", connBytes))
+		h := crypto.SHA256.New()
+		hash := h.Sum([]byte(connRec.ThreadID))
+		key := fmt.Sprintf("%x", hash)
+		require.NoError(t, s.Put("my_"+key, []byte(connRec.ConnectionID)))
+		c := didexchange.NewConnectionRecorder(s)
+		result, err := c.GetConnectionRecord(threadID, "my")
 		require.NoError(t, err)
 		require.Equal(t, "complete", result.State)
 		require.Equal(t, "id1", result.ConnectionID)
@@ -158,15 +165,13 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		require.NotNil(t, svc)
 		s := mockstore.MockStore{Store: make(map[string][]byte),
 			ErrGet: fmt.Errorf("query connection error")}
-		c, err := New(&mockprovider.Provider{
-			ServiceValue:         svc,
-			StorageProviderValue: &mockstore.MockStoreProvider{Store: &s}})
+		connRec := &didexchange.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
+		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-
-		require.NoError(t, s.Put("id1", []byte("complete")))
-		_, err = c.GetConnection("id1")
+		require.NoError(t, s.Put("conn_id1", connBytes))
+		c := didexchange.NewConnectionRecorder(&s)
+		_, err = c.GetConnectionRecord(threadID, "my")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "query connection error")
 	})
 
 	t.Run("test connection not found", func(t *testing.T) {
@@ -179,7 +184,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &s}})
 		require.NoError(t, err)
 
-		_, err = c.GetConnection("id1")
+		_, err = c.GetConnectionRecord("id1")
 		require.Error(t, err)
 		require.True(t, errors.Is(err, ErrConnectionNotFound))
 	})
@@ -304,9 +309,9 @@ func validateState(t *testing.T, store storage.Store, id, expected string, timeo
 			require.Fail(t, fmt.Sprintf("id=%s expectedState=%s actualState=%s", id, expected, actualState))
 			return
 		default:
-			v, err := store.Get(id)
-			actualState = string(v)
-			if err != nil || expected != string(v) {
+			r := didexchange.NewConnectionRecorder(store)
+			cr, err := r.GetConnectionRecord(id, "their")
+			if err != nil || expected != cr.State {
 				continue
 			}
 			return

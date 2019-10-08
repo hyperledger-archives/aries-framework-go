@@ -54,9 +54,10 @@ const (
 
 // message type to store data for eventing. This is retrieved during callback.
 type message struct {
-	Msg           *service.DIDCommMsg
-	ThreadID      string
-	NextStateName string
+	Msg              *service.DIDCommMsg
+	ThreadID         string
+	NextStateName    string
+	ConnectionRecord *ConnectionRecord
 }
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
@@ -69,6 +70,9 @@ type provider interface {
 
 type connectionStore interface {
 	GetConnectionRecord(connectionID string) (*ConnectionRecord, error)
+	saveConnectionRecord(record *ConnectionRecord) error
+	saveNewConnectionRecord(record *ConnectionRecord) error
+	saveThreadID(thid, connectionID, namespace string) error
 }
 
 // stateMachineMsg is an internal struct used to pass data to state machine.
@@ -83,7 +87,7 @@ type stateMachineMsg struct {
 type Service struct {
 	service.Action
 	service.Message
-	ctx             context
+	ctx             *context
 	store           storage.Store
 	callbackChannel chan didCommChMessage
 	connectionStore connectionStore
@@ -94,6 +98,7 @@ type context struct {
 	didCreator         did.Creator
 	signer             wallet.Signer
 	didResolver        didresolver.Resolver
+	connectionStore    connectionStore
 }
 
 // New return didexchange service
@@ -104,11 +109,12 @@ func New(didMaker did.Creator, prov provider) (*Service, error) {
 	}
 
 	svc := &Service{
-		ctx: context{
+		ctx: &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator:         didMaker,
 			signer:             prov.Signer(),
 			didResolver:        prov.DIDResolver(),
+			connectionStore:    NewConnectionRecorder(store),
 		},
 		store: store,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
@@ -132,13 +138,11 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 	if aEvent == nil {
 		return errors.New("no clients are registered to handle the message")
 	}
-
 	thid, err := threadID(msg)
 	if err != nil {
 		return err
 	}
 	logger.Infof("thread id value for the did exchange msg : %s", thid)
-
 	current, err := s.currentState(thid)
 	if err != nil {
 		return err
@@ -154,7 +158,6 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 	if !current.CanTransitionTo(next) {
 		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
-
 	// trigger message events
 	// TODO change from thread id to connection id #397
 	// TODO pass invitation id #397
@@ -179,6 +182,14 @@ func (s *Service) Name() string {
 	return DIDExchange
 }
 
+func findNameSpace(msgType string) string {
+	if msgType == ConnectionInvite || msgType == ConnectionResponse {
+		return myNSPrefix
+	} else {
+		return theirNSPrefix
+	}
+}
+
 // Accept msg checks the msg type
 func (s *Service) Accept(msgType string) bool {
 	return msgType == ConnectionInvite ||
@@ -194,14 +205,13 @@ func (s *Service) HandleOutbound(msg *service.DIDCommMsg, destination *service.D
 }
 
 func (s *Service) handle(msg *message) error {
-	logger.Infof("entered into private handle didcomm message: %s ", msg)
+	logger.Infof("entered into private handle didcomm message: %s ", msg.ThreadID)
 
 	next, err := stateFromName(msg.NextStateName)
 	if err != nil {
 		return fmt.Errorf("invalid state name: %w", err)
 	}
 	logger.Infof("next valid state to transition -> %s ", next.Name())
-
 	for !isNoOp(next) {
 		// TODO change from thread id to connection id #397
 		// TODO pass invitation id #397
@@ -212,25 +222,27 @@ func (s *Service) handle(msg *message) error {
 
 		var action stateAction
 		var followup state
+		var connectionRecord *ConnectionRecord
 
-		followup, action, err = next.Execute(&stateMachineMsg{
+		connectionRecord, followup, action, err = next.Execute(&stateMachineMsg{
 			header: msg.Msg.Header, payload: msg.Msg.Payload}, msg.ThreadID, s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 		}
-		logger.Infof("finish execute next state: %s", next.Name())
+		connectionRecord.State = next.Name()
+		logger.Infof("finish execute next state: %s -> namespace -> %s", next.Name(), findNameSpace(msg.Msg.Header.Type))
 
-		if err = s.update(msg.ThreadID, next); err != nil {
+		if err = s.update(msg.Msg, connectionRecord); err != nil {
 			return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 		}
+
 		logger.Infof("persisted the connection using %s and updated the state to %s",
 			msg.ThreadID, next.Name())
 
-		if err := action(); err != nil {
+		if err := action(); err != nil { //nolint
 			return fmt.Errorf("failed to execute state action %s %w", next.Name(), err)
 		}
 		logger.Infof("finish execute state action: %s", next.Name())
-
 		// TODO change from thread id to connection id #397
 		// TODO pass invitation id #397
 		s.sendMsgEvents(&service.StateMsg{
@@ -262,20 +274,23 @@ func createErrorEventProperties(connectionID, invitationID string, err error) *d
 func (s *Service) sendActionEvent(msg *service.DIDCommMsg, aEvent chan<- service.DIDCommAction,
 	threadID string, nextState state) error {
 	jsonDoc, err := json.Marshal(&message{
-		Msg:           msg,
-		ThreadID:      threadID,
-		NextStateName: nextState.Name(),
+		Msg:              msg,
+		ThreadID:         threadID,
+		NextStateName:    nextState.Name(),
+		ConnectionRecord: &ConnectionRecord{State: nextState.Name(), ThreadID: threadID},
 	})
-
 	if err != nil {
 		return fmt.Errorf("JSON marshalling of document failed: %w", err)
 	}
-
-	// save the incoming message in the store (to retrieve later when callback events are fired)
 	id := generateRandomID()
 	err = s.store.Put(id, jsonDoc)
 	if err != nil {
-		return fmt.Errorf("JSON marshalling of document failed: %w", err)
+		return fmt.Errorf("failed to write to the store: %w", err)
+	}
+	// store mapping of thread ID and connection id
+	err = s.store.Put(threadID, []byte(id))
+	if err != nil {
+		return fmt.Errorf("failed to write mapping to the store: %w", err)
 	}
 	// create the message for the channel
 	// TODO change from thread id to connection id #397
@@ -301,7 +316,6 @@ func (s *Service) sendActionEvent(msg *service.DIDCommMsg, aEvent chan<- service
 // sendEvent triggers the message events.
 func (s *Service) sendMsgEvents(msg *service.StateMsg) {
 	msg.ProtocolName = DIDExchange
-
 	// trigger the message events
 	statusEvents := s.GetMsgEvents()
 
@@ -352,7 +366,12 @@ func (s *Service) processFailure(id string, processErr error) error {
 // abandon updates the state to abandoned and trigger failure event.
 func (s *Service) abandon(thid string, msg *service.DIDCommMsg, processErr error) error {
 	// update the state to abandoned
-	err := s.update(thid, &abandoned{})
+	connRec, err := s.connectionStore.GetConnectionRecord(thid)
+	if err != nil {
+		return fmt.Errorf("unable to update the state to abandoned: %w", err)
+	}
+	connRec.State = (&abandoned{}).Name()
+	err = s.update(msg, connRec)
 	if err != nil {
 		return fmt.Errorf("unable to update the state to abandoned: %w", err)
 	}
@@ -374,13 +393,12 @@ func (s *Service) processCallback(id string, err error) {
 	s.callbackChannel <- didCommChMessage{ID: id, Err: err}
 }
 
-// processCallback processes the callback events.
+// process processes the callback events.
 func (s *Service) process(id string) error {
 	data, err := s.getTransientEventData(id)
 	if err != nil {
 		return fmt.Errorf("unable to fetch the event transient data: %w", err)
 	}
-
 	// continue the processing
 	err = s.handle(data)
 	if err != nil {
@@ -396,7 +414,6 @@ func (s *Service) getTransientEventData(id string) (*message, error) {
 	if err != nil {
 		return nil, fmt.Errorf("document for the id doesn't exists in the database: %w", err)
 	}
-
 	data := &message{}
 	err = json.Unmarshal(jsonDoc, data)
 	if err != nil {
@@ -419,20 +436,27 @@ func threadID(didCommMsg *service.DIDCommMsg) (string, error) {
 }
 
 func (s *Service) currentState(thid string) (state, error) {
-	conn, err := s.connectionStore.GetConnectionRecord(thid)
+	connRec, err := s.connectionStore.GetConnectionRecord(thid)
 	if err != nil {
 		if errors.Is(err, storage.ErrDataNotFound) {
 			return &null{}, nil
+		} else {
+			return nil, fmt.Errorf("cannot fetch state from store: thid=%s err=%s", thid, err)
 		}
-		return nil, fmt.Errorf("cannot fetch state from store: thid=%s err=%s", thid, err)
 	}
-	return stateFromName(conn.State)
+	return stateFromName(connRec.State)
 }
 
-func (s *Service) update(thid string, state state) error {
-	err := s.store.Put(thid, []byte(state.Name()))
+func (s *Service) update(msg *service.DIDCommMsg, connectionRecord *ConnectionRecord) error {
+	if msg.Header.Type == ConnectionRequest && connectionRecord.State == stateNameRequested {
+		return s.connectionStore.saveNewConnectionRecord(connectionRecord)
+	}
+	if msg.Header.Type == ConnectionInvite && connectionRecord.State == stateNameInvited {
+		return s.connectionStore.saveNewConnectionRecord(connectionRecord)
+	}
+	err := s.connectionStore.saveConnectionRecord(connectionRecord)
 	if err != nil {
-		return fmt.Errorf("failed to write to store: %s", err)
+		return fmt.Errorf("failed to write to store : %s", err)
 	}
 	return nil
 }
@@ -448,6 +472,5 @@ func canTriggerActionEvents(msgType string) bool {
 		msgType != ConnectionResponse && msgType != ConnectionAck {
 		return false
 	}
-
 	return true
 }

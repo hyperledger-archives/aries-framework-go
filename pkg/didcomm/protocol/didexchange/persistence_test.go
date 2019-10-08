@@ -16,6 +16,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+const (
+	threadIDValue = "xyz"
+	connIDValue   = "connValue"
+)
+
 func Test_ComputeHash(t *testing.T) {
 	h1, err := computeHash([]byte("sample-bytes-123"))
 	require.NoError(t, err)
@@ -119,17 +124,7 @@ func TestConnectionRecorder_GetInvitation(t *testing.T) {
 }
 
 func TestConnectionRecorder_GetConnection(t *testing.T) {
-	t.Run("test success", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
-		require.NotNil(t, record)
-		require.NoError(t, store.Put("key1", []byte("value1")))
-		v, err := record.GetConnectionRecord("key1")
-		require.NoError(t, err)
-		require.Equal(t, "value1", v.State)
-	})
-
-	t.Run("test success", func(t *testing.T) {
+	t.Run("test error", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte), ErrGet: fmt.Errorf("get error")}
 		record := NewConnectionRecorder(store)
 		require.NotNil(t, record)
@@ -137,5 +132,80 @@ func TestConnectionRecorder_GetConnection(t *testing.T) {
 		_, err := record.GetConnectionRecord("key1")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get error")
+	})
+}
+
+func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
+	t.Run("save connection record and get connection Record from my namespace success", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+		connRec := &ConnectionRecord{ThreadID: threadIDValue,
+			ConnectionID: connIDValue, State: stateNameInvited, Namespace: theirNSPrefix}
+		err := record.saveNewConnectionRecord(connRec)
+		require.NoError(t, err)
+
+		// get the prefixed hashed threadID
+		thid, err := createTheirNSKey(threadIDValue)
+		require.NoError(t, err)
+		storedRecord, err := record.GetConnectionRecord(thid)
+		require.NoError(t, err)
+		require.Equal(t, connRec, storedRecord)
+	})
+	t.Run("save connection record and fetch from their namespace success", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+		connRec := &ConnectionRecord{ThreadID: threadIDValue,
+			ConnectionID: connIDValue, State: stateNameInvited, Namespace: myNSPrefix}
+		err := record.saveNewConnectionRecord(connRec)
+		require.NoError(t, err)
+
+		err = record.saveConnectionRecord(connRec)
+		require.NoError(t, err)
+
+		// get the prefixed and hashed threadID
+		thid, err := createMyNSKey(threadIDValue)
+		require.NoError(t, err)
+		storedRecord, err := record.GetConnectionRecord(thid)
+		require.NoError(t, err)
+		require.Equal(t, connRec, storedRecord)
+	})
+	t.Run("save connection record and fetch from no namespace error", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+		connRec := &ConnectionRecord{ThreadID: threadIDValue,
+			ConnectionID: connIDValue, State: stateNameInvited}
+		err := record.saveNewConnectionRecord(connRec)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "empty")
+	})
+	t.Run("save connection record error", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: fmt.Errorf("get error")}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+		connRec := &ConnectionRecord{ThreadID: "",
+			ConnectionID: "test", State: stateNameInvited, Namespace: theirNSPrefix}
+		err := record.saveConnectionRecord(connRec)
+		require.Contains(t, err.Error(), "get error")
+	})
+}
+func TestConnectionRecorder_GetConnectionID(t *testing.T) {
+	t.Run(" get connection ID empty bytes error", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+	})
+}
+func TestConnectionRecorder_CreateTheirNSkey(t *testing.T) {
+	t.Run(" creating their name space key success", func(t *testing.T) {
+		key, err := createTheirNSKey(threadIDValue)
+		require.NoError(t, err)
+		require.NotNil(t, key)
+	})
+	t.Run(" check error while creating their name space key", func(t *testing.T) {
+		_, err := createTheirNSKey("")
+		require.Error(t, err)
 	})
 }

@@ -16,16 +16,26 @@ import (
 )
 
 const (
-	keyPattern   = "%s_%s"
-	invKeyPrefix = "inv_"
+	keyPattern      = "%s_%s"
+	invKeyPrefix    = "inv"
+	connIDKeyPrefix = "conn"
+	myNSPrefix      = "my"
+	//Todo: It will not be constant, this name space will need to be figured with verification key
+	theirNSPrefix = "their"
 )
 
 // ConnectionRecord contain info about did exchange connection
 type ConnectionRecord struct {
-	// State of the connection invitation
-	State string
-
-	ConnectionID string
+	ConnectionID    string
+	State           string
+	ThreadID        string
+	TheirLabel      string
+	TheirDID        string
+	MyDID           string
+	ServiceEndPoint string
+	RecipientKeys   []string
+	InvitationID    string
+	Namespace       string
 }
 
 // NewConnectionRecorder returns new connection record instance
@@ -95,12 +105,80 @@ func (c *ConnectionRecorder) GetInvitation(id string) (*Invitation, error) {
 }
 
 // GetConnectionRecord return connection record
-func (c *ConnectionRecorder) GetConnectionRecord(connectionID string) (*ConnectionRecord, error) {
-	name, err := c.store.Get(connectionID)
+func (c *ConnectionRecorder) GetConnectionRecord(thid string) (*ConnectionRecord, error) {
+	connectionID, err := c.getConnectionID(thid)
 	if err != nil {
 		return nil, err
 	}
-	return &ConnectionRecord{State: string(name)}, nil
+	k := connectionKeyPrefix(connectionID)
+	connRecordBytes, err := c.store.Get(k)
+	if err != nil {
+		return nil, err
+	}
+	connRecord := &ConnectionRecord{}
+	err = json.Unmarshal(connRecordBytes, connRecord)
+	if err != nil {
+		return nil, err
+	}
+	return connRecord, nil
+}
+
+// saveConnectionRecord saves the connection record against the connection id  in the store
+func (c *ConnectionRecorder) saveConnectionRecord(record *ConnectionRecord) error {
+	if record.ConnectionID == "" || record.Namespace == "" {
+		return fmt.Errorf("connectionID or namespace is empty")
+	}
+	k := connectionKeyPrefix(record.ConnectionID)
+	bytes, err := json.Marshal(record)
+	if err != nil {
+		return fmt.Errorf("error while marshalling save connection record %s : ", err)
+	}
+	return c.store.Put(k, bytes)
+}
+
+// saveNewConnectionRecord saves the connection record against the connection id  in the store
+func (c *ConnectionRecorder) saveNewConnectionRecord(record *ConnectionRecord) error {
+	if record.ThreadID == "" || record.ConnectionID == "" || record.Namespace == "" {
+		return fmt.Errorf("input parameters thid -> %s and connectionId-> %s namespace-> %s cannot be empty",
+			record.ThreadID, record.ConnectionID, record.Namespace)
+	}
+	k := connectionKeyPrefix(record.ConnectionID)
+	bytes, err := json.Marshal(record)
+	if err != nil {
+		return fmt.Errorf("error while marshalling save connection record %s : ", err)
+	}
+	err = c.saveThreadID(record.ThreadID, record.ConnectionID, record.Namespace)
+	if err != nil {
+		return err
+	}
+	return c.store.Put(k, bytes)
+}
+func (c *ConnectionRecorder) saveThreadID(thid, connectionID, namespace string) error {
+	switch namespace {
+	case myNSPrefix:
+		k, err := createMyNSKey(thid)
+		if err != nil {
+			return err
+		}
+		return c.store.Put(k, []byte(connectionID))
+	case theirNSPrefix:
+		k, err := createTheirNSKey(thid)
+		if err != nil {
+			return err
+		}
+		return c.store.Put(k, []byte(connectionID))
+	default:
+		return fmt.Errorf("namespace not supported")
+	}
+}
+
+// getConnectionID enables you to fetch the connection id based on the thread ID
+func (c *ConnectionRecorder) getConnectionID(thid string) (string, error) {
+	connectionIDBytes, err := c.store.Get(thid)
+	if err != nil {
+		return "", err
+	}
+	return string(connectionIDBytes), nil
 }
 
 // invitationKey computes key for invitation object
@@ -122,4 +200,27 @@ func computeHash(bytes []byte) (string, error) {
 	h := crypto.SHA256.New()
 	hash := h.Sum(bytes)
 	return fmt.Sprintf("%x", hash), nil
+}
+
+// connectionKey computes key for connection record object
+func connectionKeyPrefix(connectionID string) string {
+	return fmt.Sprintf(keyPattern, connIDKeyPrefix, connectionID)
+}
+
+// createMyNSKey computes key for storing connection ID
+func createMyNSKey(protocolID string) (string, error) {
+	storeKey, err := computeHash([]byte(protocolID))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(keyPattern, myNSPrefix, storeKey), nil
+}
+
+// createTheirNSKey computes key for storing their thid
+func createTheirNSKey(thid string) (string, error) {
+	storeKey, err := computeHash([]byte(thid))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(keyPattern, theirNSPrefix, storeKey), nil
 }

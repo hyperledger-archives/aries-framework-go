@@ -61,7 +61,7 @@ func (d *DIDExchangeSteps) waitForPostEvent(agentID, statesValue string) error {
 }
 
 func (d *DIDExchangeSteps) validateConnection(agentID, stateValue string) error {
-	conn, err := d.bddContext.DIDExchangeClients[agentID].GetConnection(d.bddContext.ConnectionID[agentID])
+	conn, err := d.bddContext.DIDExchangeClients[agentID].GetConnectionRecord(d.bddContext.ConnectionID[agentID])
 	if err != nil {
 		return fmt.Errorf("failed to query connection by id: %w", err)
 	}

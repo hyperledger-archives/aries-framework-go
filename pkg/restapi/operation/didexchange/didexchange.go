@@ -245,7 +245,7 @@ func (c *Operation) QueryConnectionByID(rw http.ResponseWriter, req *http.Reques
 	params := mux.Vars(req)
 	logger.Debugf("Querying connection invitation for id [%s]", params["id"])
 
-	result, err := c.client.GetConnection(params["id"])
+	result, err := c.client.GetConnectionRecord(params["id"])
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
