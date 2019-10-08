@@ -32,6 +32,8 @@ const (
 	stateNameResponded = "responded"
 	stateNameCompleted = "completed"
 	ackStatusOK        = "ok"
+	// Todo:How to find the key type -Issue-439
+	supportedPublicKeyType = "Ed25519VerificationKey2018"
 )
 
 //TODO: This is temporary to move forward with bdd test will be fixed in Issue-353
@@ -280,8 +282,11 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string)
 	if err != nil {
 		return nil, err
 	}
-	// choose the first public key
-	sendVerKey := string(newDidDoc.PublicKey[0].Value)
+	pubKey, err := getPublicKeys(newDidDoc, supportedPublicKeyType)
+	if err != nil {
+		return nil, fmt.Errorf("error while getting public key %s", err)
+	}
+	sendVerKey := string(pubKey[0].Value)
 	temp = sendVerKey
 	// prepare the request :
 	// TODO Service.Handle() is using the ID from the Invitation as the threadID when instead it should be
@@ -327,7 +332,11 @@ func (ctx *context) handleInboundRequest(request *Request) (stateAction, error) 
 
 	destination := prepareDestination(request.Connection.DIDDoc)
 
-	sendVerKey := string(newDidDoc.PublicKey[0].Value)
+	pubKey, err := getPublicKeys(newDidDoc, supportedPublicKeyType)
+	if err != nil {
+		return nil, err
+	}
+	sendVerKey := string(pubKey[0].Value)
 	// send exchange response
 	return func() error {
 		return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
@@ -348,7 +357,11 @@ func (ctx *context) sendOutboundRequest(msg dispatcher.DIDCommMsg) (stateAction,
 		return nil, err
 	}
 	// choose the first public key
-	sendVerKey := string(request.Connection.DIDDoc.PublicKey[0].Value)
+	pubKey, err := getPublicKeys(request.Connection.DIDDoc, supportedPublicKeyType)
+	if err != nil {
+		return nil, err
+	}
+	sendVerKey := string(pubKey[0].Value)
 	// send the exchange request
 	return func() error {
 		return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
@@ -385,8 +398,13 @@ func (ctx *context) sendOutboundResponse(msg dispatcher.DIDCommMsg) (stateAction
 	if err != nil {
 		return nil, err
 	}
+
+	pubKey, err := getPublicKeys(connection.DIDDoc, supportedPublicKeyType)
+	if err != nil {
+		return nil, err
+	}
 	// choose the first public key
-	sendVerKey := string(connection.DIDDoc.PublicKey[0].Value)
+	sendVerKey := string(pubKey[0].Value)
 
 	return func() error {
 		return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
@@ -491,4 +509,16 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, erro
 
 func getEpochTime() int64 {
 	return time.Now().Unix()
+}
+func getPublicKeys(didDoc *did.Doc, pubKeyType string) ([]did.PublicKey, error) {
+	var publicKeys []did.PublicKey
+	for k, pubKey := range didDoc.PublicKey {
+		if pubKey.Type == pubKeyType {
+			publicKeys = append(publicKeys, didDoc.PublicKey[k])
+		}
+	}
+	if len(publicKeys) == 0 {
+		return nil, fmt.Errorf("public key not supported")
+	}
+	return publicKeys, nil
 }

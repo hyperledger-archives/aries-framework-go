@@ -260,6 +260,29 @@ func TestRequestedState_Execute(t *testing.T) {
 		require.NoError(t, err)
 		require.IsType(t, &noOp{}, followup)
 	})
+	t.Run("err in sendind outbound requests", func(t *testing.T) {
+		ctx2 := context{outboundDispatcher: prov.OutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()}}
+		newDidDoc, err := ctx2.didCreator.CreateDID()
+		require.NoError(t, err)
+		requestPayloadBytes, err := json.Marshal(
+			&Request{
+				Type:  ConnectionRequest,
+				ID:    randomString(),
+				Label: "Bob",
+				Connection: &Connection{
+					DID:    newDidDoc.ID,
+					DIDDoc: newDidDoc,
+				},
+			},
+		)
+		require.NoError(t, err)
+		followup, _, err := (&requested{}).
+			Execute(dispatcher.DIDCommMsg{
+				Type: ConnectionRequest, Payload: requestPayloadBytes, Outbound: true, OutboundDestination: dest}, "", ctx2)
+		require.Error(t, err)
+		require.Nil(t, followup)
+	})
 	t.Run("followup to 'responded' on inbound requests", func(t *testing.T) {
 		followup, _, err := (&requested{}).
 			Execute(dispatcher.DIDCommMsg{Type: ConnectionRequest, Outbound: false}, "", context{})
@@ -293,6 +316,14 @@ func TestRequestedState_Execute(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, followup)
 		require.Error(t, action())
+	})
+	t.Run("handle inbound invitation public key error", func(t *testing.T) {
+		ctx2 := context{outboundDispatcher: prov.OutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()}}
+		followup, _, err := (&requested{}).
+			Execute(dispatcher.DIDCommMsg{Type: ConnectionInvite, Payload: invitationPayloadBytes, Outbound: false}, "", ctx2)
+		require.Error(t, err)
+		require.Nil(t, followup)
 	})
 }
 
@@ -363,6 +394,33 @@ func TestRespondedState_Execute(t *testing.T) {
 		require.IsType(t, &noOp{}, followup)
 	})
 
+	t.Run("error for outbound responses", func(t *testing.T) {
+		ctx2 := context{outboundDispatcher: prov.OutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()}}
+		newDidDoc, err = ctx2.didCreator.CreateDID()
+		require.NoError(t, err)
+		connection := &Connection{
+			DID:    newDidDoc.ID,
+			DIDDoc: newDidDoc,
+		}
+		connectionSignature, err = prepareConnectionSignature(connection)
+		require.NoError(t, err)
+
+		response := &Response{
+			Type:                ConnectionRequest,
+			ID:                  randomString(),
+			ConnectionSignature: connectionSignature,
+		}
+		// Bob sends an exchange request to Alice
+		responsePayloadBytes, err = json.Marshal(response)
+		require.NoError(t, err)
+		m := dispatcher.DIDCommMsg{Type: ConnectionResponse,
+			Outbound: true, Payload: responsePayloadBytes, OutboundDestination: outboundDestination}
+		followup, _, e := (&responded{}).Execute(m, "", ctx2)
+		require.Error(t, e)
+		require.Nil(t, followup)
+	})
+
 	t.Run("no followup for outbound responses error", func(t *testing.T) {
 		followup, _, e := (&responded{}).
 			Execute(dispatcher.DIDCommMsg{Type: ConnectionResponse, Payload: nil, Outbound: true}, "", context{})
@@ -396,6 +454,14 @@ func TestRespondedState_Execute(t *testing.T) {
 		require.NoError(t, err)
 		followup, _, err := (&responded{}).Execute(dispatcher.DIDCommMsg{Type: ConnectionResponse, Outbound: true,
 			Payload: responsePayloadBytes, OutboundDestination: outboundDestination}, "", ctx)
+		require.Error(t, err)
+		require.Nil(t, followup)
+	})
+	t.Run("handle inbound request public key error", func(t *testing.T) {
+		ctx2 := context{outboundDispatcher: prov.OutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()}}
+		followup, _, err := (&responded{}).
+			Execute(dispatcher.DIDCommMsg{Type: ConnectionRequest, Payload: requestPayloadBytes, Outbound: false}, "", ctx2)
 		require.Error(t, err)
 		require.Nil(t, followup)
 	})
@@ -541,7 +607,7 @@ func TestPrepareDestination(t *testing.T) {
 	require.NotNil(t, dest)
 	require.Equal(t, dest.ServiceEndpoint, "https://localhost:8090")
 	// 2 Public keys inside the didDoc
-	require.Len(t, dest.RecipientKeys, 2)
+	require.Len(t, dest.RecipientKeys, 3)
 }
 
 func TestNewRequestFromInvitation(t *testing.T) {
@@ -604,5 +670,27 @@ func TestNewResponseFromRequest(t *testing.T) {
 		request := &Request{}
 		_, err := ctx.handleInboundRequest(request)
 		require.Error(t, err)
+	})
+}
+
+func TestGetPublicKey(t *testing.T) {
+	t.Run("successfully getting public key", func(t *testing.T) {
+		prov := mockProvider{}
+		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+		newDidDoc, err := ctx.didCreator.CreateDID()
+		require.NoError(t, err)
+		pubkey, err := getPublicKeys(newDidDoc, supportedPublicKeyType)
+		require.NoError(t, err)
+		require.NotNil(t, pubkey)
+		require.Len(t, pubkey, 1)
+	})
+	t.Run("failed to get public key", func(t *testing.T) {
+		prov := mockProvider{}
+		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+		newDidDoc, err := ctx.didCreator.CreateDID()
+		require.NoError(t, err)
+		pubkey, err := getPublicKeys(newDidDoc, "invalid key")
+		require.Error(t, err)
+		require.Nil(t, pubkey)
 	})
 }
