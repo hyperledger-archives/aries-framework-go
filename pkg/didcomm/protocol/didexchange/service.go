@@ -27,8 +27,34 @@ var logger = log.New("aries-framework/did-exchange/service")
 
 // didCommChMessage type to correlate actionEvent message(go channel) with callback message(internal go channel).
 type didCommChMessage struct {
-	ID  string
-	Err error
+	id      string
+	err     error
+	action  *dispatcher.DIDCommAction
+	errChan chan<- ActionError
+}
+
+func (msg *didCommChMessage) applyOptions(args ...interface{}) {
+	for _, arg := range args {
+		if opt, ok := arg.(Opt); ok {
+			opt(msg)
+		}
+	}
+}
+
+// ActionError structure for error handling
+type ActionError struct {
+	Err    error
+	Action *dispatcher.DIDCommAction
+}
+
+// Opt options for didCommChMessage
+type Opt func(m *didCommChMessage)
+
+// WithError provides the possibility to receive errors
+func WithError(eChan chan<- ActionError) Opt {
+	return func(m *didCommChMessage) {
+		m.errChan = eChan
+	}
 }
 
 const (
@@ -281,13 +307,22 @@ func (s *Service) sendActionEvent(msg dispatcher.DIDCommMsg, aEvent chan<- dispa
 	// TODO pass invitation id #397
 	didCommAction := dispatcher.DIDCommAction{
 		Message: msg,
-		Continue: func() {
-			s.processCallback(id, nil)
-		},
 		Stop: func(err error) {
-			s.processCallback(id, err)
+			s.processCallback(didCommChMessage{
+				id:  id,
+				err: err,
+			})
 		},
 		Properties: s.createEventProperties(threadID, ""),
+	}
+
+	didCommAction.Continue = func(args ...interface{}) {
+		msg := didCommChMessage{
+			id:     id,
+			action: &didCommAction,
+		}
+		msg.applyOptions(args...)
+		s.processCallback(msg)
 	}
 
 	// trigger the registered action event
@@ -312,31 +347,36 @@ func (s *Service) sendMsgEvents(msg *dispatcher.StateMsg) {
 func (s *Service) startInternalListener() {
 	go func() {
 		for msg := range s.callbackChannel {
-			// TODO handle error in callback - https://github.com/hyperledger/aries-framework-go/issues/242
 			if err := s.process(msg); err != nil {
-				// TODO handle error
-				logger.Errorf(err.Error())
+				if msg.errChan == nil {
+					logger.Errorf(err.Error())
+					continue
+				}
+				msg.errChan <- ActionError{
+					Err:    err,
+					Action: msg.action,
+				}
 			}
 		}
 	}()
 }
 
-func (s *Service) processCallback(id string, err error) {
+func (s *Service) processCallback(msg didCommChMessage) {
 	// pass the callback data to internal channel. This is created to unblock consumer go routine and wrap the callback
 	// channel internally.
-	s.callbackChannel <- didCommChMessage{ID: id, Err: err}
+	s.callbackChannel <- msg
 }
 
 // processCallback processes the callback events.
 func (s *Service) process(msg didCommChMessage) error {
-	if msg.Err != nil {
+	if msg.err != nil {
 		// TODO https://github.com/hyperledger/aries-framework-go/issues/438 Cleanup/Update data on Stop Event Action
-		logger.Errorf("client action event processing failed - msgID:%s error:%s", msg.ID, msg.Err)
+		logger.Errorf("client action event processing failed - msgID:%s error:%s", msg.id, msg.err)
 		return nil
 	}
 
 	// fetch the record
-	jsonDoc, err := s.store.Get(msg.ID)
+	jsonDoc, err := s.store.Get(msg.id)
 	if err != nil {
 		return fmt.Errorf("document for the id doesn't exists in the database: %w", err)
 	}

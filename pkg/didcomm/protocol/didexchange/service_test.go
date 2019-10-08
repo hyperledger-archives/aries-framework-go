@@ -765,10 +765,14 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e *dispatcher.DI
 	err := json.Unmarshal(e.Message.Payload, &pl)
 	require.NoError(t, err)
 
+	var invalid bool
 	if pl.ID == changeID {
-		e.Continue = func() {
-			svc.processCallback("invalid-id", nil)
+		e.Continue = func(args ...interface{}) {
+			msg := didCommChMessage{id: "invalid-id", action: e}
+			msg.applyOptions(args...)
+			svc.processCallback(msg)
 		}
+		invalid = true
 	}
 
 	if pl.ID == handleError {
@@ -781,13 +785,26 @@ func handleConnectionResponseEvents(t *testing.T, svc *Service, e *dispatcher.DI
 		err = svc.store.Put(id, jsonDoc)
 		require.NoError(t, err)
 
-		e.Continue = func() {
-			svc.processCallback(id, nil)
+		e.Continue = func(...interface{}) {
+			svc.processCallback(didCommChMessage{id: id})
 		}
 	}
 
+	if invalid {
+		eChan := make(chan ActionError)
+		e.Continue(WithError(eChan))
+		select {
+		case res := <-eChan:
+			require.EqualError(t, res.Err, "document for the id doesn't exists in the database: data not found")
+			require.Equal(t, e, res.Action)
+		case <-time.After(time.Millisecond * 50):
+			t.Error("timeout: did not receive a result")
+		}
+	} else {
+		e.Continue()
+	}
+
 	// invoke callback
-	e.Continue()
 	switch pl.ID {
 	case changeID:
 		// no state change since there was a error with processing
@@ -817,8 +834,8 @@ func handleConnectionAckEvents(t *testing.T, svc *Service, e *dispatcher.DIDComm
 		err := svc.store.Put(id, []byte("invalid json"))
 		require.NoError(t, err)
 
-		e.Continue = func() {
-			svc.processCallback(id, nil)
+		e.Continue = func(...interface{}) {
+			svc.processCallback(didCommChMessage{id: id})
 		}
 	}
 
