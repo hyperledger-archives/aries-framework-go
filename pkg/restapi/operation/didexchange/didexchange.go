@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	didexchange2 "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	didexchangesvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
@@ -57,7 +57,7 @@ func New(ctx provider) (*Operation, error) {
 		return nil, err
 	}
 
-	service, err := ctx.Service(didexchange2.DIDExchange)
+	service, err := ctx.Service(didexchangesvc.DIDExchange)
 	if err != nil {
 		return nil, err
 	}

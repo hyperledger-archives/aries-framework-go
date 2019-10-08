@@ -24,7 +24,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
-	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -307,7 +306,8 @@ func (m mockWriter) Write([]byte) (int, error) {
 
 func TestServiceEvents(t *testing.T) {
 	store := &mockstore.MockStore{Store: make(map[string][]byte)}
-	didExSvc := didexsvc.New(store, &did.MockDIDCreator{}, &mockProvider{})
+	didExSvc, err := didexsvc.New(&did.MockDIDCreator{}, &protocol.MockProvider{CustomStore: store})
+	require.NoError(t, err)
 
 	// create the client
 	op, err := New(&mockprovider.Provider{ServiceValue: didExSvc})
@@ -360,13 +360,6 @@ func validateState(t *testing.T, store storage.Store, id, expected string, timeo
 			return
 		}
 	}
-}
-
-type mockProvider struct {
-}
-
-func (m *mockProvider) OutboundDispatcher() dispatcher.Outbound {
-	return &mockdispatcher.MockOutbound{}
 }
 
 func TestOperationEventError(t *testing.T) {

@@ -17,7 +17,7 @@ import (
 
 func TestPeerDIDStore(t *testing.T) {
 	prov := storage.NewMockStoreProvider()
-	dbstore, err := prov.GetStoreHandle()
+	dbstore, err := prov.OpenStore(StoreNamespace)
 	require.NoError(t, err)
 
 	context := []string{"https://w3id.org/did/v1"}

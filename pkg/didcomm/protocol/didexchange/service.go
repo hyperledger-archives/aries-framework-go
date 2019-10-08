@@ -62,6 +62,7 @@ type message struct {
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
+	StorageProvider() storage.Provider
 }
 
 // Service for DID exchange protocol
@@ -81,7 +82,12 @@ type context struct {
 }
 
 // New return didexchange service
-func New(store storage.Store, didMaker did.Creator, prov provider) *Service {
+func New(didMaker did.Creator, prov provider) (*Service, error) {
+	store, err := prov.StorageProvider().OpenStore(DIDExchange)
+	if err != nil {
+		return nil, err
+	}
+
 	svc := &Service{
 		ctx: context{
 			outboundDispatcher: prov.OutboundDispatcher(),
@@ -93,7 +99,7 @@ func New(store storage.Store, didMaker did.Creator, prov provider) *Service {
 
 	svc.startInternalListener()
 
-	return svc
+	return svc, nil
 }
 
 // Handle didexchange msg

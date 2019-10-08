@@ -24,6 +24,7 @@ import (
 )
 
 const (
+	storageName  = "basewallet"
 	didFormat    = "did:%s:%s"
 	didPKID      = "%s#keys-%d"
 	didServiceID = "%s#endpoint-%d"
@@ -49,9 +50,9 @@ func New(ctx provider) (*BaseWallet, error) {
 		return nil, fmt.Errorf("new authcrypt failed: %w", err)
 	}
 
-	store, err := ctx.StorageProvider().GetStoreHandle()
+	store, err := ctx.StorageProvider().OpenStore(storageName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to GetStoreHandle: %w", err)
+		return nil, fmt.Errorf("failed to OpenStore for '%s', cause: %w", storageName, err)
 	}
 
 	return &BaseWallet{store: store, crypter: crypter, inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil

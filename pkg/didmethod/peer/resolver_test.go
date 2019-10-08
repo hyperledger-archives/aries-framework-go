@@ -68,7 +68,7 @@ const peerDIDDoc = `{
 
 func TestPeerDIDResolver(t *testing.T) {
 	prov := storage.NewMockStoreProvider()
-	dbstore, err := prov.GetStoreHandle()
+	dbstore, err := prov.OpenStore(StoreNamespace)
 	require.NoError(t, err)
 
 	context := []string{"https://w3id.org/did/v1"}
@@ -101,7 +101,7 @@ func TestPeerDIDResolver(t *testing.T) {
 
 func TestWithDIDResolveAPI(t *testing.T) {
 	prov := storage.NewMockStoreProvider()
-	dbstore, err := prov.GetStoreHandle()
+	dbstore, err := prov.OpenStore(StoreNamespace)
 	require.NoError(t, err)
 
 	// save did document

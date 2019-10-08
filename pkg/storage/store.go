@@ -13,10 +13,13 @@ var ErrDataNotFound = errors.New("data not found")
 
 // Provider storage provider interface
 type Provider interface {
-	// GetStoreHandle returns a handle to the store
-	GetStoreHandle() (Store, error)
+	// OpenStore opens a store with given name space and returns the handle
+	OpenStore(name string) (Store, error)
 
-	// Close closes the store provider
+	// CloseStore closes store of given name space
+	CloseStore(name string) error
+
+	// Close closes all stores created under this store provider
 	Close() error
 }
 

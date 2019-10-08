@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -22,7 +24,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
-	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -99,23 +100,21 @@ func TestGenerateInviteWithKeyAndEndpoint(t *testing.T) {
 }
 
 func TestService_Name(t *testing.T) {
-	dbstore, cleanup := store(t)
-	defer cleanup()
-	prov := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
+	prov, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
 
 	require.Equal(t, DIDExchange, prov.Name())
+	require.NoError(t, err)
 }
 
 // did-exchange flow with role Inviter
 func TestService_Handle_Inviter(t *testing.T) {
-	dbstore, cleanup := store(t)
-	defer cleanup()
-	prov := mockProvider{}
+	prov := protocol.MockProvider{}
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 
-	s := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
+	s, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
 	actionCh := make(chan dispatcher.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
@@ -207,12 +206,13 @@ func TestService_Handle_Invitee(t *testing.T) {
 			return nil, storage.ErrDataNotFound
 		},
 	}
-	prov := mockProvider{}
+	prov := protocol.MockProvider{}
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 
-	s := New(store, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
+	s, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{CustomStore: store})
+	require.NoError(t, err)
 	actionCh := make(chan dispatcher.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
@@ -293,7 +293,9 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("must not start with Response msg", func(t *testing.T) {
 		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		s := &Service{ctx: ctx, store: newMockStore()}
+		mockStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
+		require.NoError(t, err)
+		s := &Service{ctx: ctx, store: mockStore}
 		response, err := json.Marshal(
 			&Response{
 				Type: ConnectionResponse,
@@ -307,7 +309,9 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("must not start with ACK msg", func(t *testing.T) {
 		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		s := &Service{ctx: ctx, store: newMockStore()}
+		mockStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
+		require.NoError(t, err)
+		s := &Service{ctx: ctx, store: mockStore}
 		ack, err := json.Marshal(
 			&model.Ack{
 				Type: ConnectionAck,
@@ -319,13 +323,14 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("must not transition to same state", func(t *testing.T) {
-		prov := mockProvider{}
+		prov := protocol.MockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		newDidDoc, err := ctx.didCreator.CreateDID()
 		require.NoError(t, err)
 
-		s := New(newMockStore(), &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
+		s, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		require.NoError(t, err)
 		actionCh := make(chan dispatcher.DIDCommAction, 10)
 		err = s.RegisterActionEvent(actionCh)
 		require.NoError(t, err)
@@ -439,7 +444,9 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("error on invalid msg type", func(t *testing.T) {
 		ctx := context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		s := &Service{ctx: ctx, store: newMockStore()}
+		mockStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
+		require.NoError(t, err)
+		s := &Service{ctx: ctx, store: mockStore}
 		request, err := json.Marshal(
 			&Request{
 				Type:  ConnectionRequest,
@@ -454,8 +461,9 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 }
 
 func TestService_Accept(t *testing.T) {
-	dbstore, cleanup := store(t)
-	defer cleanup()
+	dbstore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
+	require.NoError(t, err)
+
 	ctx := context{outboundDispatcher: newMockOutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 	s := &Service{ctx: ctx, store: dbstore}
 
@@ -544,29 +552,7 @@ func TestService_update(t *testing.T) {
 }
 
 func newMockOutboundDispatcher() dispatcher.Outbound {
-	return (&mockProvider{}).OutboundDispatcher()
-}
-
-func newMockStore() storage.Store {
-	var lock sync.RWMutex
-	data := make(map[string][]byte)
-	return &mockStore{
-		put: func(k string, v []byte) error {
-			lock.Lock()
-			defer lock.Unlock()
-			data[k] = v
-			return nil
-		},
-		get: func(k string) ([]byte, error) {
-			lock.RLock()
-			defer lock.RUnlock()
-			v, found := data[k]
-			if !found {
-				return nil, storage.ErrDataNotFound
-			}
-			return v, nil
-		},
-	}
+	return (&protocol.MockProvider{}).OutboundDispatcher()
 }
 
 type mockStore struct {
@@ -582,13 +568,6 @@ func (m *mockStore) Put(k string, v []byte) error {
 // Get fetches the record based on key
 func (m *mockStore) Get(k string) ([]byte, error) {
 	return m.get(k)
-}
-
-type mockProvider struct {
-}
-
-func (p *mockProvider) OutboundDispatcher() dispatcher.Outbound {
-	return &mockdispatcher.MockOutbound{}
 }
 
 func getMockDID() *did.Doc {
@@ -630,16 +609,6 @@ func getMockDIDPublicKey() *did.Doc {
 	}
 }
 
-func store(t testing.TB) (storage.Store, func()) {
-	prov := mockstorage.NewMockStoreProvider()
-	dbstore, err := prov.GetStoreHandle()
-	require.NoError(t, err)
-	return dbstore, func() {
-		err := prov.Close()
-		require.NoError(t, err)
-	}
-}
-
 func randomString() string {
 	u := uuid.New()
 	return u.String()
@@ -650,9 +619,8 @@ type payload struct {
 }
 
 func TestService_Events(t *testing.T) {
-	dbstore, cleanup := store(t)
-	defer cleanup()
-	svc := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
 	done := make(chan bool)
 
 	startConsumer(t, svc, done)
@@ -1023,16 +991,13 @@ func validateStatusEventAction(t *testing.T, svc *Service, duration time.Duratio
 }
 
 func TestService_No_Execution(t *testing.T) {
-	dbstore, cleanup := store(t)
-	defer cleanup()
-
-	svc := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
-
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
 	msg := dispatcher.DIDCommMsg{
 		Type: ConnectionResponse,
 	}
 
-	err := svc.Handle(msg)
+	err = svc.Handle(msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no clients are registered to handle the message")
 }
@@ -1044,17 +1009,15 @@ func validateState(t *testing.T, svc *Service, id, expected string) {
 }
 
 func TestService_ActionEvent(t *testing.T) {
-	dbstore, cleanup := store(t)
-	defer cleanup()
-
-	svc := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
 
 	// validate before register
 	require.Nil(t, svc.actionEvent)
 
 	// register an action event
 	ch := make(chan dispatcher.DIDCommAction)
-	err := svc.RegisterActionEvent(ch)
+	err = svc.RegisterActionEvent(ch)
 	require.NoError(t, err)
 
 	// register another action event
@@ -1079,10 +1042,8 @@ func TestService_ActionEvent(t *testing.T) {
 }
 
 func TestService_MsgEvents(t *testing.T) {
-	dbstore, cleanup := store(t)
-	defer cleanup()
-
-	svc := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
 
 	// validate before register
 	require.Nil(t, svc.msgEvents)
@@ -1090,7 +1051,7 @@ func TestService_MsgEvents(t *testing.T) {
 
 	// register a status event
 	ch := make(chan dispatcher.StateMsg)
-	err := svc.RegisterMsgEvent(ch)
+	err = svc.RegisterMsgEvent(ch)
 	require.NoError(t, err)
 
 	// validate after register
@@ -1151,9 +1112,6 @@ func Test_AutoExecute(t *testing.T) {
 }
 
 func TestServiceErrors(t *testing.T) {
-	dbstore, cleanup := store(t)
-	defer cleanup()
-
 	request, err := json.Marshal(
 		&Request{
 			Type:  ConnectionResponse,
@@ -1168,7 +1126,8 @@ func TestServiceErrors(t *testing.T) {
 		Payload: request,
 	}
 
-	svc := New(dbstore, &mockdid.MockDIDCreator{Doc: getMockDID()}, &mockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
 	actionCh := make(chan dispatcher.DIDCommAction, 10)
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
@@ -1192,8 +1151,10 @@ func TestServiceErrors(t *testing.T) {
 	require.Contains(t, err.Error(), "cannot fetch state from store")
 
 	// invalid message type
-	svc.store = dbstore
+
 	msg.Type = "invalid"
+	svc.store, err = mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
+	require.NoError(t, err)
 	err = svc.Handle(msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unrecognized msgType: invalid")

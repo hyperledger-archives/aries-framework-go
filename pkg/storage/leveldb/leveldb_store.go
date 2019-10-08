@@ -8,43 +8,98 @@ package leveldb
 
 import (
 	"errors"
+	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+const pathPattern = "%s-%s"
+
 // Provider leveldb implementation of storage.Provider interface
 type Provider struct {
-	db *leveldb.DB
+	dbPath string
+	dbs    map[string]*leveldbStore
+	lock   sync.RWMutex
 }
 
 // NewProvider instantiates Provider
 func NewProvider(dbPath string) (*Provider, error) {
-	db, err := leveldb.OpenFile(dbPath, nil)
+	return &Provider{dbs: make(map[string]*leveldbStore), dbPath: dbPath}, nil
+}
+
+// OpenStore opens and returns a store for given name space.
+func (p *Provider) OpenStore(name string) (storage.Store, error) {
+	store := p.getLeveldbStore(name)
+	if store == nil {
+		return p.newLeveldbStore(name)
+	}
+	return store, nil
+}
+
+// getLeveldbStore finds level db store with given name
+// returns nil if not found
+func (p *Provider) getLeveldbStore(name string) *leveldbStore {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	return p.dbs[strings.ToLower(name)]
+}
+
+// newLeveldbStore creates level db store for given name space
+// returns nil if not found
+func (p *Provider) newLeveldbStore(name string) (*leveldbStore, error) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	db, err := leveldb.OpenFile(fmt.Sprintf(pathPattern, p.dbPath, name), nil)
 	if err != nil {
 		return nil, err
 	}
-	return &Provider{db}, nil
+
+	store := &leveldbStore{db}
+	p.dbs[strings.ToLower(name)] = store
+	return store, nil
 }
 
-// GetStoreHandle returns a handle to the store
-func (provider *Provider) GetStoreHandle() (storage.Store, error) {
-	return newLeveldbStore(provider.db), nil
+// Close closes all stores created under this store provider
+func (p *Provider) Close() error {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	var errs []error
+	for _, v := range p.dbs {
+		e := v.db.Close()
+		if e != nil && e != leveldb.ErrClosed {
+			errs = append(errs, e)
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to close stores, %v", errs)
+	}
+	p.dbs = make(map[string]*leveldbStore)
+	return nil
 }
 
-// Close closes the underlying provider
-func (provider *Provider) Close() error {
-	return provider.db.Close()
+// CloseStore closes level db store of given name
+func (p *Provider) CloseStore(name string) error {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	k := strings.ToLower(name)
+	store, ok := p.dbs[k]
+	if ok {
+		delete(p.dbs, k)
+		return store.db.Close()
+	}
+	return nil
 }
 
 type leveldbStore struct {
 	db *leveldb.DB
-}
-
-func newLeveldbStore(db *leveldb.DB) *leveldbStore {
-	return &leveldbStore{db}
 }
 
 // Put stores the key and the record

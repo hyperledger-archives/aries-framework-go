@@ -1,0 +1,121 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package didexchange
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+)
+
+func Test_ComputeHash(t *testing.T) {
+	h1, err := computeHash([]byte("sample-bytes-123"))
+	require.NoError(t, err)
+	require.NotEmpty(t, h1)
+
+	h2, err := computeHash([]byte("sample-bytes-321"))
+	require.NoError(t, err)
+	require.NotEmpty(t, h2)
+
+	h3, err := computeHash([]byte("sample-bytes-123"))
+	require.NoError(t, err)
+	require.NotEmpty(t, h1)
+
+	require.NotEqual(t, h1, h2)
+	require.Equal(t, h1, h3)
+
+	h4, err := computeHash([]byte(""))
+	require.Error(t, err)
+	require.Empty(t, h4)
+}
+
+func TestConnectionRecord_SaveInvitation(t *testing.T) {
+	t.Run("test save invitation success", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+
+		key := "sample-key1"
+		value := &Invitation{
+			ID:    "sample-id1",
+			Label: "sample-label1",
+		}
+
+		err := record.SaveInvitation(key, value)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, store)
+
+		k, err := invitationKey(key)
+		require.NoError(t, err)
+		require.NotEmpty(t, k)
+
+		v, err := record.store.Get(k)
+		require.NoError(t, err)
+		require.NotEmpty(t, v)
+	})
+
+	t.Run("test save invitation failure due to invalid key", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+
+		value := &Invitation{
+			ID:    "sample-id2",
+			Label: "sample-label2",
+		}
+		err := record.SaveInvitation("", value)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "empty bytes")
+		require.Empty(t, store.Store)
+	})
+}
+
+func TestConnectionRecorder_GetInvitation(t *testing.T) {
+	t.Run("test get invitation - success", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+
+		key := "sample-key3"
+		valueStored := &Invitation{
+			ID:    "sample-id-3",
+			Label: "sample-label-3",
+		}
+
+		err := record.SaveInvitation(key, valueStored)
+		require.NoError(t, err)
+
+		valueFound, err := record.GetInvitation(key)
+		require.NoError(t, err)
+		require.Equal(t, valueStored, valueFound)
+	})
+
+	t.Run("test get invitation - not found scenario", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+
+		valueFound, err := record.GetInvitation("sample-key4")
+		require.Error(t, err)
+		require.Equal(t, err, storage.ErrDataNotFound)
+		require.Nil(t, valueFound)
+	})
+
+	t.Run("test get invitation - invalid key scenario", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(store)
+		require.NotNil(t, record)
+
+		valueFound, err := record.GetInvitation("")
+		require.Contains(t, err.Error(), "empty bytes")
+		require.Nil(t, valueFound)
+	})
+}

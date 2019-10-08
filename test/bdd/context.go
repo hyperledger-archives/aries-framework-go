@@ -8,20 +8,20 @@ package bdd
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
-	didexchangesvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	didexchange2 "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 )
 
 // Context
 type Context struct {
 	DIDExchangeClients map[string]*didexchange.Client
-	Invitations        map[string]*didexchangesvc.Invitation
+	Invitations        map[string]*didexchange2.Invitation
 	PostStatesFlag     map[string]chan bool
 }
 
 // NewContext create new Context
 func NewContext() (*Context, error) {
 	instance := Context{DIDExchangeClients: make(map[string]*didexchange.Client),
-		Invitations: make(map[string]*didexchangesvc.Invitation), PostStatesFlag: make(map[string]chan bool)}
+		Invitations: make(map[string]*didexchange2.Invitation), PostStatesFlag: make(map[string]chan bool)}
 	return &instance, nil
 }
 
