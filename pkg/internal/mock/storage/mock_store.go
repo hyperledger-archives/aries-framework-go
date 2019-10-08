@@ -14,8 +14,9 @@ import (
 
 // MockStoreProvider mock store provider.
 type MockStoreProvider struct {
-	Store             MockStore
-	ErrGetStoreHandle error
+	Custom             storage.Store
+	Store              MockStore
+	ErrOpenStoreHandle error
 }
 
 // NewMockStoreProvider new store provider instance.
@@ -25,13 +26,26 @@ func NewMockStoreProvider() *MockStoreProvider {
 	}}
 }
 
-// GetStoreHandle returns a store.
-func (s *MockStoreProvider) GetStoreHandle() (storage.Store, error) {
-	return &s.Store, s.ErrGetStoreHandle
+// NewMockCustomStoreProvider new customized store provider instance.
+func NewMockCustomStoreProvider(custom storage.Store) *MockStoreProvider {
+	return &MockStoreProvider{Custom: custom}
 }
 
-// Close closes the store provider.
+// OpenStore opens and returns a store for given name space.
+func (s *MockStoreProvider) OpenStore(name string) (storage.Store, error) {
+	if s.Custom != nil {
+		return s.Custom, s.ErrOpenStoreHandle
+	}
+	return &s.Store, s.ErrOpenStoreHandle
+}
+
+// Close closes all stores created under this store provider
 func (s *MockStoreProvider) Close() error {
+	return nil
+}
+
+// CloseStore closes store for given name space
+func (s *MockStoreProvider) CloseStore(name string) error {
 	return nil
 }
 

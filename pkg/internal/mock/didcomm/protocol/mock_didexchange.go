@@ -6,7 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 package protocol
 
-import "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+)
 
 // MockDIDExchangeSvc mock did exchange service
 type MockDIDExchangeSvc struct {
@@ -73,4 +78,22 @@ func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- dispatcher.StateMsg) e
 		return m.UnregisterMsgEventErr
 	}
 	return nil
+}
+
+// MockProvider is provider for DIDExchange Service
+type MockProvider struct {
+	CustomStore storage.Store
+}
+
+// OutboundDispatcher is mock outbound dispatcher for DID exchange service
+func (p *MockProvider) OutboundDispatcher() dispatcher.Outbound {
+	return &mockdispatcher.MockOutbound{}
+}
+
+// StorageProvider is mock storage provider for DID exchange service
+func (p *MockProvider) StorageProvider() storage.Provider {
+	if p.CustomStore != nil {
+		return mockstore.NewMockCustomStoreProvider(p.CustomStore)
+	}
+	return mockstore.NewMockStoreProvider()
 }

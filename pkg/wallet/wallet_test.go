@@ -30,11 +30,11 @@ const (
 )
 
 func TestBaseWallet_New(t *testing.T) {
-	t.Run("test error from GetStoreHandle", func(t *testing.T) {
+	t.Run("test error from OpenStore", func(t *testing.T) {
 		_, err := New(newMockWalletProvider(
-			&mockstorage.MockStoreProvider{ErrGetStoreHandle: fmt.Errorf("error from GetStoreHandle")}))
+			&mockstorage.MockStoreProvider{ErrOpenStoreHandle: fmt.Errorf("error from OpenStore")}))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "error from GetStoreHandle")
+		require.Contains(t, err.Error(), "error from OpenStore")
 	})
 }
 
@@ -308,7 +308,7 @@ func TestBaseWallet_NewDID(t *testing.T) {
 		}
 
 		// test if corresponding secret is saved in wallet store
-		store, err := storeProvider.GetStoreHandle()
+		store, err := storeProvider.OpenStore(storageName)
 		require.NoError(t, err)
 		require.NotNil(t, store)
 

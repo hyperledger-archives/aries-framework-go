@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 )
 
 func TestNoopState(t *testing.T) {
@@ -202,7 +203,7 @@ func TestInvitedState_Execute(t *testing.T) {
 }
 
 func TestRequestedState_Execute(t *testing.T) {
-	prov := mockProvider{}
+	prov := protocol.MockProvider{}
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
@@ -328,7 +329,7 @@ func TestRequestedState_Execute(t *testing.T) {
 }
 
 func TestRespondedState_Execute(t *testing.T) {
-	prov := mockProvider{}
+	prov := protocol.MockProvider{}
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
@@ -469,7 +470,7 @@ func TestRespondedState_Execute(t *testing.T) {
 
 // completed is an end state
 func TestCompletedState_Execute(t *testing.T) {
-	prov := mockProvider{}
+	prov := protocol.MockProvider{}
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
@@ -576,7 +577,7 @@ func TestCompletedState_Execute(t *testing.T) {
 }
 func TestPrepareConnectionSignature(t *testing.T) {
 	t.Run("prepare connection signature", func(t *testing.T) {
-		prov := mockProvider{}
+		prov := protocol.MockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		newDidDoc, err := ctx.didCreator.CreateDID()
 		require.NoError(t, err)
@@ -599,7 +600,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 }
 
 func TestPrepareDestination(t *testing.T) {
-	prov := mockProvider{}
+	prov := protocol.MockProvider{}
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
@@ -612,7 +613,7 @@ func TestPrepareDestination(t *testing.T) {
 
 func TestNewRequestFromInvitation(t *testing.T) {
 	t.Run("successful new request from invitation", func(t *testing.T) {
-		prov := mockProvider{}
+		prov := protocol.MockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		invitation := &Invitation{
 			Type:            ConnectionInvite,
@@ -631,7 +632,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("unsuccessful new request from invitation ", func(t *testing.T) {
-		prov := mockProvider{}
+		prov := protocol.MockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Failure: fmt.Errorf("create DID error")}}
 		invitation := &Invitation{}
@@ -647,7 +648,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 
 func TestNewResponseFromRequest(t *testing.T) {
 	t.Run("successful new response from request", func(t *testing.T) {
-		prov := mockProvider{}
+		prov := protocol.MockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		newDidDoc, err := ctx.didCreator.CreateDID()
 		require.NoError(t, err)
@@ -664,7 +665,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("unsuccessful new response from request", func(t *testing.T) {
-		prov := mockProvider{}
+		prov := protocol.MockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Failure: fmt.Errorf("create DID error")}}
 		request := &Request{}
@@ -675,7 +676,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 
 func TestGetPublicKey(t *testing.T) {
 	t.Run("successfully getting public key", func(t *testing.T) {
-		prov := mockProvider{}
+		prov := protocol.MockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		newDidDoc, err := ctx.didCreator.CreateDID()
 		require.NoError(t, err)
@@ -685,7 +686,7 @@ func TestGetPublicKey(t *testing.T) {
 		require.Len(t, pubkey, 1)
 	})
 	t.Run("failed to get public key", func(t *testing.T) {
-		prov := mockProvider{}
+		prov := protocol.MockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		newDidDoc, err := ctx.didCreator.CreateDID()
 		require.NoError(t, err)

@@ -321,10 +321,7 @@ func TestStartMultipleAgentsWithSameDBPath(t *testing.T) {
 	err := startAgent(&HTTPServer{}, host2, inboundHost2, path)
 
 	require.NotNil(t, err)
-	dbResourceUnavailableErrorMessage := "failed to start aries agentd on port [" + host2 +
-		"], failed to initialize framework :  close err: <nil> Error in option passed to New: leveldb " +
-		"provider initialization failed : resource temporarily unavailable"
-	require.Equal(t, dbResourceUnavailableErrorMessage, err.Error())
+	require.Contains(t, err.Error(), "storage initialization failed")
 }
 
 func waitForServerToStart(t *testing.T, host, inboundHost string) {

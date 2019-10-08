@@ -137,6 +137,10 @@ func TestFramework(t *testing.T) {
 
 	// framework new - success
 	t.Run("test DID resolver - with user provided resolver", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
 		peerDID := "did:peer:123"
 		// with consumer provider DID resolver
 		resolver := didresolver.New(
@@ -163,7 +167,7 @@ func TestFramework(t *testing.T) {
 		dbprov, err := leveldb.NewProvider(dbPath)
 		require.NoError(t, err)
 
-		dbstore, err := dbprov.GetStoreHandle()
+		dbstore, err := dbprov.OpenStore(peer.StoreNamespace)
 		require.NoError(t, err)
 
 		peerDID := "did:peer:21tDAKCERh95uGgKbJNHYp"
@@ -259,6 +263,10 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test Inbound transport - with options", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
 		aries, err := New(WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)

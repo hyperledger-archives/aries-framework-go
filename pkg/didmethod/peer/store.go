@@ -17,6 +17,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+const (
+	// StoreNamespace store name space for DID Store
+	StoreNamespace = "didresolver"
+)
+
 // DIDModifiedBy key/signature used to update the Peer DID Document
 type DIDModifiedBy struct {
 	Key string `json:"key,omitempty"`

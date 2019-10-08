@@ -17,7 +17,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange/persistence"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -50,7 +49,7 @@ type Client struct {
 	actionEventlock          sync.RWMutex
 	msgEvents                []chan<- dispatcher.StateMsg
 	msgEventsLock            sync.RWMutex
-	recorder                 *persistence.ConnectionRecorder
+	recorder                 *didexchange.ConnectionRecorder
 }
 
 // New return new instance of didexchange client
@@ -65,7 +64,7 @@ func New(ctx provider) (*Client, error) {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
 
-	store, err := ctx.StorageProvider().GetStoreHandle()
+	store, err := ctx.StorageProvider().OpenStore(didexchange.DIDExchange)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +76,7 @@ func New(ctx provider) (*Client, error) {
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		actionCh: make(chan dispatcher.DIDCommAction, 10),
 		msgCh:    make(chan dispatcher.StateMsg, 10),
-		recorder: persistence.NewConnectionRecorder(store),
+		recorder: didexchange.NewConnectionRecorder(store),
 	}
 
 	// start listening for action/message events

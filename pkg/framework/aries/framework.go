@@ -238,7 +238,7 @@ func startInboundTransport(frameworkOpts *Aries) error {
 
 func loadServices(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
-		context.WithWallet(frameworkOpts.wallet))
+		context.WithWallet(frameworkOpts.wallet), context.WithStorageProvider(frameworkOpts.storeProvider))
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
 	}

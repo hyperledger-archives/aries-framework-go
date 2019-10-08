@@ -38,7 +38,7 @@ func transportProviderFactory() api.TransportProviderFactory {
 
 // didResolverProvider provides default DID resolver.
 func didResolverProvider(dbprov storage.Provider) (DIDResolver, error) {
-	dbstore, err := dbprov.GetStoreHandle()
+	dbstore, err := dbprov.OpenStore(peer.StoreNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("storage initialization failed : %w", err)
 	}
@@ -87,17 +87,12 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.inboundTransport = inbound
 	}
 
-	store, err := frameworkOpts.storeProvider.GetStoreHandle()
-	if err != nil {
-		return fmt.Errorf("get store handle failed : %w", err)
-	}
-
 	if frameworkOpts.didResolver == nil {
-		reslv, err := didResolverProvider(frameworkOpts.storeProvider)
+		resolver, err := didResolverProvider(frameworkOpts.storeProvider)
 		if err != nil {
 			return fmt.Errorf("resolver initialization failed : %w", err)
 		}
-		frameworkOpts.didResolver = reslv
+		frameworkOpts.didResolver = resolver
 	}
 
 	if frameworkOpts.walletCreator == nil {
@@ -109,7 +104,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 	setDefaultOutboundDispatcher(frameworkOpts)
 
 	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) {
-		return didexchange.New(store, did.NewLocalDIDCreator(prv), prv), nil
+		return didexchange.New(did.NewLocalDIDCreator(prv), prv)
 	}
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc)
 

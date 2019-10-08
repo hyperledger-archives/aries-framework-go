@@ -20,7 +20,7 @@ func TestWithDBPath(t *testing.T) {
 	t.Run("test with db path error", func(t *testing.T) {
 		_, err := aries.New(WithStorePath("/////////////"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "leveldb provider initialization failed")
+		require.Contains(t, err.Error(), "storage initialization failed")
 	})
 
 	t.Run("test with db path success", func(t *testing.T) {
