@@ -61,7 +61,7 @@ func main() {
 	}
 
 	if *jwtNoJws {
-		// TODO Encode credential into JWT without signature #372
+		encodeVCToJWTUnsecured(vcBytes)
 		return
 	}
 
@@ -76,12 +76,41 @@ func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
 		abort()
 	}
 
-	credJWT, err := credential.JWT(verifiable.RS256, privateKey, "any", true)
+	jwtClaims, err := credential.JWTClaims(true)
 	if err != nil {
 		log.Println(fmt.Errorf("verifiable credential encoding to JWT failed: %w", err))
 		abort()
 	}
-	fmt.Println(credJWT)
+
+	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, privateKey, "any")
+	if err != nil {
+		log.Println(fmt.Errorf("failed to serialize JWS: %w", err))
+		abort()
+	}
+
+	fmt.Println(jws)
+}
+
+func encodeVCToJWTUnsecured(vcBytes []byte) {
+	credential, err := verifiable.NewCredential(vcBytes)
+	if err != nil {
+		log.Println(fmt.Errorf("failed to decode credential: %w", err))
+		abort()
+	}
+
+	jwtClaims, err := credential.JWTClaims(true)
+	if err != nil {
+		log.Println(fmt.Errorf("verifiable credential encoding to JWT failed: %w", err))
+		abort()
+	}
+
+	jwtUnsecured, err := jwtClaims.MarshalUnsecuredJWT()
+	if err != nil {
+		log.Println(fmt.Errorf("failed to serialize unsecured JWT: %w", err))
+		abort()
+	}
+
+	fmt.Println(jwtUnsecured)
 }
 
 func decodeVCJWTToJSON(vcBytes []byte, publicKey interface{}) {
@@ -94,7 +123,7 @@ func decodeVCJWTToJSON(vcBytes []byte, publicKey interface{}) {
 		log.Println(fmt.Errorf("failed to decode credential: %w", err))
 		abort()
 	}
-	jsonBytes, err := credential.JSON()
+	jsonBytes, err := credential.MarshalJSON()
 	if err != nil {
 		log.Println(fmt.Errorf("failed to marshall verifiable credential to JSON: %w", err))
 		abort()
@@ -155,7 +184,7 @@ func encodeVCToJSON(vcBytes []byte) {
 		log.Println(fmt.Errorf("failed to decode credential: %w", err))
 		abort()
 	}
-	encoded, err := credential.JSON()
+	encoded, err := credential.MarshalJSON()
 	if err != nil {
 		log.Println(fmt.Errorf("failed to encode credential: %w", err))
 		abort()
