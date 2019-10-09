@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -26,7 +27,7 @@ func NewOutbound(prov Provider) *OutboundDispatcher {
 }
 
 // Send msg
-func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *Destination) error {
+func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
 	for _, v := range o.outboundTransports {
 		if !v.Accept(des.ServiceEndpoint) {
 			continue

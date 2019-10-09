@@ -18,6 +18,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -91,7 +92,7 @@ func TestFramework(t *testing.T) {
 		ctx, err := aries.Context()
 		require.NoError(t, err)
 
-		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), "", &dispatcher.Destination{ServiceEndpoint: serverURL})
+		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), "", &service.Destination{ServiceEndpoint: serverURL})
 		require.NoError(t, e)
 	})
 
@@ -110,7 +111,7 @@ func TestFramework(t *testing.T) {
 		ctx, err := aries.Context()
 		require.NoError(t, err)
 
-		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), "", &dispatcher.Destination{})
+		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), "", &service.Destination{})
 		require.NoError(t, e)
 	})
 

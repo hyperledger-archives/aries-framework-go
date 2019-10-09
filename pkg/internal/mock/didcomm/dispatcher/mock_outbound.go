@@ -5,7 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package dispatcher
 
-import "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+)
 
 // MockOutbound mock outbound dispatcher
 type MockOutbound struct {
@@ -13,6 +15,6 @@ type MockOutbound struct {
 }
 
 // Send msg
-func (m *MockOutbound) Send(msg interface{}, senderVerKey string, des *dispatcher.Destination) error {
+func (m *MockOutbound) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
 	return m.SendErr
 }

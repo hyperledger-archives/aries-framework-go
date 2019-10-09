@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	didexchangesvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
@@ -57,12 +58,12 @@ func New(ctx provider) (*Operation, error) {
 		return nil, err
 	}
 
-	service, err := ctx.Service(didexchangesvc.DIDExchange)
+	didexsvc, err := ctx.Service(didexchangesvc.DIDExchange)
 	if err != nil {
 		return nil, err
 	}
 
-	didexchangeSvc, ok := service.(dispatcher.Service)
+	didexchangeSvc, ok := didexsvc.(dispatcher.Service)
 	if !ok {
 		return nil, errors.New("failed to lookup didexchange service from context")
 	}
@@ -72,8 +73,8 @@ func New(ctx provider) (*Operation, error) {
 		client:  didExchange,
 		service: didexchangeSvc,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
-		actionCh: make(chan dispatcher.DIDCommAction, 10),
-		msgCh:    make(chan dispatcher.StateMsg, 10),
+		actionCh: make(chan service.DIDCommAction, 10),
+		msgCh:    make(chan service.StateMsg, 10),
 	}
 	svc.registerHandler()
 
@@ -91,8 +92,8 @@ type Operation struct {
 	client   *didexchange.Client
 	service  dispatcher.Service
 	handlers []operation.Handler
-	actionCh chan dispatcher.DIDCommAction
-	msgCh    chan dispatcher.StateMsg
+	actionCh chan service.DIDCommAction
+	msgCh    chan service.StateMsg
 }
 
 // CreateInvitation swagger:route POST /connections/create-invitation did-exchange createInvitation
@@ -138,7 +139,7 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	err = c.service.Handle(dispatcher.DIDCommMsg{Type: request.Params.Type, Payload: payload})
+	err = c.service.Handle(service.DIDCommMsg{Type: request.Params.Type, Payload: payload})
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return

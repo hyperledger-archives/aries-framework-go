@@ -18,7 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 )
@@ -57,7 +57,7 @@ func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error
 		return fmt.Errorf("failed to create new didexchange client: %w", err)
 	}
 
-	actionCh := make(chan dispatcher.DIDCommAction)
+	actionCh := make(chan service.DIDCommAction)
 	err = didexchangeClient.RegisterActionEvent(actionCh)
 	go func() {
 		if err := didexchange.AutoExecuteActionEvent(actionCh); err != nil {
@@ -77,7 +77,7 @@ func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error
 }
 
 func (a *AgentSteps) registerPostMsgEvent(agentID, statesValue string) error {
-	statusCh := make(chan dispatcher.StateMsg, 1)
+	statusCh := make(chan service.StateMsg, 1)
 	if err := a.bddContext.DIDExchangeClients[agentID].RegisterMsgEvent(statusCh); err != nil {
 		return fmt.Errorf("failed to register msg event: %w", err)
 	}
@@ -86,7 +86,7 @@ func (a *AgentSteps) registerPostMsgEvent(agentID, statesValue string) error {
 	go func() {
 		for e := range statusCh {
 			a.bddContext.ConnectionID[agentID] = e.Properties[didexchange.ConnectionID].(string)
-			if e.Type == dispatcher.PostState {
+			if e.Type == service.PostState {
 				for _, state := range states {
 					// receive the events
 					if e.StateID == state {

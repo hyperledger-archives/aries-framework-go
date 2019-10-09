@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
@@ -95,7 +96,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		// find the service which accepts the message type
 		for _, svc := range p.services {
 			if svc.Accept(msgType.Type) {
-				return svc.Handle(dispatcher.DIDCommMsg{Type: msgType.Type, Payload: payload})
+				return svc.Handle(service.DIDCommMsg{Type: msgType.Type, Payload: payload})
 			}
 		}
 		return fmt.Errorf("no message handlers found for the message type: %s", msgType.Type)

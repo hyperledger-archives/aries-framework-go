@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
@@ -278,7 +278,7 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 	svc, err := New(&mockprovider.Provider{
 		ServiceValue: &protocol.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
-			HandleFunc: func(msg dispatcher.DIDCommMsg) error {
+			HandleFunc: func(msg service.DIDCommMsg) error {
 				return handleErr
 			},
 		},
@@ -338,7 +338,7 @@ func TestServiceEvents(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	msg := dispatcher.DIDCommMsg{
+	msg := service.DIDCommMsg{
 		Type:    didexsvc.ConnectionRequest,
 		Payload: request,
 	}
@@ -375,7 +375,7 @@ func TestOperationEventError(t *testing.T) {
 
 	ops := &Operation{client: client}
 
-	aCh := make(chan dispatcher.DIDCommAction)
+	aCh := make(chan service.DIDCommAction)
 	err = client.RegisterActionEvent(aCh)
 	require.NoError(t, err)
 
