@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/google/uuid"
 
@@ -72,13 +71,11 @@ type connectionStore interface {
 
 // Service for DID exchange protocol
 type Service struct {
+	service.Action
+	service.Message
 	ctx             context
 	store           storage.Store
 	callbackChannel chan didCommChMessage
-	actionEvent     chan<- service.DIDCommAction
-	msgEvents       []chan<- service.StateMsg
-	lock            sync.RWMutex
-	msgEventLock    sync.RWMutex
 	connectionStore connectionStore
 }
 
@@ -112,9 +109,7 @@ func New(didMaker did.Creator, prov provider) (*Service, error) {
 // Handle didexchange msg
 func (s *Service) Handle(msg service.DIDCommMsg) error {
 	// throw error if there is no action event registered for inbound messages
-	s.lock.RLock()
-	aEvent := s.actionEvent
-	s.lock.RUnlock()
+	aEvent := s.GetActionEvent()
 
 	logger.Infof("entered into Handle exchange message : %s", msg.Payload)
 
@@ -160,61 +155,6 @@ func (s *Service) Handle(msg service.DIDCommMsg) error {
 	}
 	// if no action event is triggered, continue the execution
 	return s.handle(&message{Msg: msg, ThreadID: thid, NextStateName: next.Name()})
-}
-
-// RegisterActionEvent on DID Exchange protocol messages. The events are triggered for incoming message types based on
-// canTriggerActionEvents() function. The consumer need to invoke the callback to resume processing.
-// Only one channel can be registered for the action events. The function will throw error if a channel is already
-// registered. The AutoExecuteActionEvent() function can be used to automatically trigger callback function for the
-// event.
-func (s *Service) RegisterActionEvent(ch chan<- service.DIDCommAction) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	if s.actionEvent != nil {
-		return errors.New("channel is already registered for the action event")
-	}
-
-	s.actionEvent = ch
-	return nil
-}
-
-// UnregisterActionEvent on DID Exchange protocol messages. Refer RegisterActionEvent().
-func (s *Service) UnregisterActionEvent(ch chan<- service.DIDCommAction) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	if s.actionEvent != ch {
-		return errors.New("invalid channel passed to unregister the action event")
-	}
-
-	s.actionEvent = nil
-
-	return nil
-}
-
-// RegisterMsgEvent on DID Exchange protocol messages. The message events are triggered for incoming messages. Event
-// will not expect any callback on these events unlike Action events.
-func (s *Service) RegisterMsgEvent(ch chan<- service.StateMsg) error {
-	s.msgEventLock.Lock()
-	s.msgEvents = append(s.msgEvents, ch)
-	s.msgEventLock.Unlock()
-
-	return nil
-}
-
-// UnregisterMsgEvent on DID Exchange protocol messages. Refer RegisterMsgEvent().
-func (s *Service) UnregisterMsgEvent(ch chan<- service.StateMsg) error {
-	s.msgEventLock.Lock()
-	for i := 0; i < len(s.msgEvents); i++ {
-		if s.msgEvents[i] == ch {
-			s.msgEvents = append(s.msgEvents[:i], s.msgEvents[i+1:]...)
-			i--
-		}
-	}
-	s.msgEventLock.Unlock()
-
-	return nil
 }
 
 func (s *Service) handle(msg *message) error {
@@ -312,9 +252,7 @@ func (s *Service) sendActionEvent(msg service.DIDCommMsg, aEvent chan<- service.
 // sendEvent triggers the message events.
 func (s *Service) sendMsgEvents(msg *service.StateMsg) {
 	// trigger the message events
-	s.msgEventLock.RLock()
-	statusEvents := s.msgEvents
-	s.msgEventLock.RUnlock()
+	statusEvents := s.GetMsgEvents()
 
 	for _, handler := range statusEvents {
 		handler <- *msg
