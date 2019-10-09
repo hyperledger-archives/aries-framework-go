@@ -19,6 +19,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 )
@@ -85,7 +86,12 @@ func (a *AgentSteps) registerPostMsgEvent(agentID, statesValue string) error {
 	a.initializeStates(agentID, states)
 	go func() {
 		for e := range statusCh {
-			a.bddContext.ConnectionID[agentID] = e.Properties[didexchange.ConnectionID].(string)
+			props, ok := e.Properties.(didexsvc.Event)
+			if !ok {
+				panic("cast event properties to DIDExchange Props failed")
+			}
+
+			a.bddContext.ConnectionID[agentID] = props.ConnectionID()
 			if e.Type == service.PostState {
 				for _, state := range states {
 					// receive the events

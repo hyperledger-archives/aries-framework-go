@@ -202,11 +202,24 @@ func (s *Service) handle(msg *message) error {
 	return nil
 }
 
-func (s *Service) createEventProperties(connectionID, invitationID string) map[string]interface{} { //nolint: unparam
-	properties := make(map[string]interface{})
-	properties[ConnectionID] = connectionID
-	properties[InvitationID] = invitationID
-	return properties
+func (s *Service) createEventProperties(connectionID, invitationID string) *didExchangeEvent { //nolint: unparam
+	return &didExchangeEvent{connectionID: connectionID, invitationID: invitationID}
+}
+
+// didExchangeEvent implements didexchange.Event interface.
+type didExchangeEvent struct {
+	connectionID string
+	invitationID string
+}
+
+// ConnectionID returns DIDExchange connectionID.
+func (ex *didExchangeEvent) ConnectionID() string {
+	return ex.connectionID
+}
+
+// InvitationID returns DIDExchange invitationID.
+func (ex *didExchangeEvent) InvitationID() string {
+	return ex.invitationID
 }
 
 // sendEvent triggers the action event. This function stores the state of current processing and passes a callback
@@ -233,7 +246,8 @@ func (s *Service) sendActionEvent(msg service.DIDCommMsg, aEvent chan<- service.
 	// TODO change from thread id to connection id #397
 	// TODO pass invitation id #397
 	didCommAction := service.DIDCommAction{
-		Message: msg,
+		ProtocolName: DIDExchange,
+		Message:      msg,
 		Continue: func() {
 			s.processCallback(id, nil)
 		},
@@ -251,6 +265,8 @@ func (s *Service) sendActionEvent(msg service.DIDCommMsg, aEvent chan<- service.
 
 // sendEvent triggers the message events.
 func (s *Service) sendMsgEvents(msg *service.StateMsg) {
+	msg.ProtocolName = DIDExchange
+
 	// trigger the message events
 	statusEvents := s.GetMsgEvents()
 
