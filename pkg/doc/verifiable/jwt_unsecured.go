@@ -8,6 +8,7 @@ package verifiable
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -35,11 +36,11 @@ func unmarshalUnsecuredJWT(rawJWT []byte) (joseHeaders map[string]string, bytesC
 	parts := strings.Split(string(rawJWT), ".")
 
 	if len(parts) != 3 {
-		return nil, nil, fmt.Errorf("JWT format must have three parts")
+		return nil, nil, errors.New("JWT format must have three parts")
 	}
 
 	if parts[2] != "" {
-		return nil, nil, fmt.Errorf("unsecured JWT must have empty signature part")
+		return nil, nil, errors.New("unsecured JWT must have empty signature part")
 	}
 
 	bytesHeader, err := base64.RawURLEncoding.DecodeString(parts[0])
