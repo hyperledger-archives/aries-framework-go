@@ -27,6 +27,11 @@ const (
 	peerPrefix = "did:peer:"
 )
 
+// nolint:gochecknoglobals
+var (
+	didRegex = regexp.MustCompile(`did:peer:11-([a-fA-F0-9]){64}`)
+)
+
 // NewDoc returns the resolved variant of the genesis version of the peer DID document
 func NewDoc(publicKey []did.PublicKey, authorization []did.VerificationMethod) (*did.Doc, error) {
 	// Create a did doc based on the mandatory value: publicKeys & authorization
@@ -64,10 +69,7 @@ func computeDid(doc *did.Doc) (string, error) {
 func validateDID(doc *did.Doc) error {
 	peerDid := doc.ID
 
-	matched, err := regexp.MatchString(`did:peer:11-([a-fA-F0-9]){64}`, peerDid)
-	if err != nil {
-		return fmt.Errorf("regex match string failed %w", err)
-	}
+	matched := didRegex.MatchString(peerDid)
 	if !matched {
 		return fmt.Errorf("did doesnt follow matching regex")
 	}
