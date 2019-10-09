@@ -324,6 +324,20 @@ type CredentialTemplate func() *Credential
 // If not defined, JWT encoding is not tested.
 type PublicKeyFetcher func(issuerID, keyID string) (interface{}, error)
 
+// jwtDecoding defines if to decode VC from JWT
+type jwtDecoding int
+
+const (
+	// noJwtDecoding not a JWT
+	noJwtDecoding jwtDecoding = iota
+
+	// jwsDecoding indicated to unmarshal from Signed Token
+	jwsDecoding
+
+	// unsecuredJWTDecoding indicates to unmarshal from Unsecured Token
+	unsecuredJWTDecoding
+)
+
 // credentialOpts holds options for the Verifiable Credential decoding
 // it has a http.Client instance initialized with default parameters
 type credentialOpts struct {
@@ -332,7 +346,7 @@ type credentialOpts struct {
 	decoders               []CredentialDecoder
 	template               CredentialTemplate
 	issuerPublicKeyFetcher PublicKeyFetcher
-	unsecuredJWT           bool
+	jwtDecoding            jwtDecoding
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
@@ -368,17 +382,19 @@ func WithTemplate(template CredentialTemplate) CredentialOpt {
 	}
 }
 
-// WithJWTPublicKeyFetcher defines a fetcher of public key required for verification of JWT signature
-func WithJWTPublicKeyFetcher(fetcher PublicKeyFetcher) CredentialOpt {
+// WithJWSDecoding indicates that Verifiable Credential should be decoded from JWS using
+// the public key fetcher.
+func WithJWSDecoding(fetcher PublicKeyFetcher) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.issuerPublicKeyFetcher = fetcher
+		opts.jwtDecoding = jwsDecoding
 	}
 }
 
-// WithUnsecuredJWT indicates the need to decode Verifiable Credential from unsecured JWT
-func WithUnsecuredJWT() CredentialOpt {
+// WithUnsecuredJWTDecoding indicates that Verifiable Credential should be decoded from unsecured JWT.
+func WithUnsecuredJWTDecoding() CredentialOpt {
 	return func(opts *credentialOpts) {
-		opts.unsecuredJWT = true
+		opts.jwtDecoding = unsecuredJWTDecoding
 	}
 }
 
@@ -474,15 +490,15 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 }
 
 func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, *rawCredential, error) {
-	if crOpts.issuerPublicKeyFetcher != nil {
+	switch crOpts.jwtDecoding {
+	case jwsDecoding:
 		vcDataFromJwt, rawCred, err := decodeCredJWS(vcData, crOpts.issuerPublicKeyFetcher)
 		if err != nil {
 			return nil, nil, fmt.Errorf("JWS decoding failed: %w", err)
 		}
 		return vcDataFromJwt, rawCred, nil
-	}
 
-	if crOpts.unsecuredJWT {
+	case unsecuredJWTDecoding:
 		rawBytes, rawCred, err := decodeCredJWTUnsecured(vcData)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unsecured JWT decoding failed: %w", err)
@@ -490,6 +506,7 @@ func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, *rawCredential, e
 		return rawBytes, rawCred, nil
 	}
 
+	// unmarshal VC from JSON
 	raw := &rawCredential{}
 	err := json.Unmarshal(vcData, raw)
 	if err != nil {
@@ -515,6 +532,7 @@ func defaultCredentialOpts() *credentialOpts {
 		disabledCustomSchema: false,
 		decoders:             []CredentialDecoder{decodeIssuer, decodeType},
 		template:             func() *Credential { return &Credential{} },
+		jwtDecoding:          noJwtDecoding,
 	}
 }
 

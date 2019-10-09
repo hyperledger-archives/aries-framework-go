@@ -48,7 +48,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 	t.Run("JWS decoding with fields minimization", func(t *testing.T) {
 		vcFromJWT, err := NewCredential(
 			createJWS(t, testCred, false),
-			WithJWTPublicKeyFetcher(keyFetcher))
+			WithJWSDecoding(keyFetcher))
 
 		require.NoError(t, err)
 
@@ -61,7 +61,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 	t.Run("JWS decoding with minimized fields", func(t *testing.T) {
 		vcFromJWT, err := NewCredential(
 			createJWS(t, testCred, true),
-			WithJWTPublicKeyFetcher(keyFetcher))
+			WithJWSDecoding(keyFetcher))
 
 		require.NoError(t, err)
 
@@ -74,9 +74,8 @@ func TestNewCredentialFromJWS(t *testing.T) {
 	t.Run("Failed JWT signature verification", func(t *testing.T) {
 		_, err := NewCredential(
 			createJWS(t, testCred, true),
-
 			// passing holder's key, while expecting issuer one
-			WithJWTPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
+			WithJWSDecoding(func(issuerID, keyID string) (interface{}, error) {
 				publicKey, err := readPublicKey(filepath.Join(certPrefix, "holder_public.pem"))
 				require.NoError(t, err)
 				require.NotNil(t, publicKey)
@@ -93,7 +92,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 			createJWS(t, testCred, true),
 
 			// passing holder's key, while expecting issuer one
-			WithJWTPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
+			WithJWSDecoding(func(issuerID, keyID string) (interface{}, error) {
 				return nil, errors.New("test: public key is not found")
 			}))
 
@@ -107,7 +106,7 @@ func TestNewCredentialFromUnsecuredJWT(t *testing.T) {
 	t.Run("Unsecured JWT decoding with fields minimization", func(t *testing.T) {
 		vcFromJWT, err := NewCredential(
 			createUnsecuredJWT(t, testCred, false),
-			WithUnsecuredJWT())
+			WithUnsecuredJWTDecoding())
 
 		require.NoError(t, err)
 
@@ -120,7 +119,7 @@ func TestNewCredentialFromUnsecuredJWT(t *testing.T) {
 	t.Run("Unsecured JWT decoding with minimized fields", func(t *testing.T) {
 		vcFromJWT, err := NewCredential(
 			createUnsecuredJWT(t, testCred, true),
-			WithUnsecuredJWT())
+			WithUnsecuredJWTDecoding())
 
 		require.NoError(t, err)
 
@@ -133,7 +132,7 @@ func TestNewCredentialFromUnsecuredJWT(t *testing.T) {
 	t.Run("Failed JWT signature verification", func(t *testing.T) {
 		_, err := NewCredential(
 			[]byte("invalid unsecured JWT"),
-			WithUnsecuredJWT())
+			WithUnsecuredJWTDecoding())
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unsecured JWT decoding failed")
@@ -144,7 +143,7 @@ func TestJwtWithExtension(t *testing.T) {
 	// Decode to base credential.
 	cred, err := NewCredential(
 		createJWS(t, []byte(jwtTestCredential), true),
-		WithJWTPublicKeyFetcher(createKeyFetcher(t)),
+		WithJWSDecoding(createKeyFetcher(t)),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, cred)
