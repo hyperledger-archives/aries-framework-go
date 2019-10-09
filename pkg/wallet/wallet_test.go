@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -268,11 +269,35 @@ func TestBaseWallet_PackMessage(t *testing.T) {
 }
 
 func TestBaseWallet_SignMessage(t *testing.T) {
-	t.Run("test error not implemented", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{}))
+	t.Run("test key not found", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{
+				Store: make(map[string][]byte),
+			}}))
 		require.NoError(t, err)
 		_, err = w.SignMessage(nil, "")
 		require.Error(t, err)
+		require.Contains(t, err.Error(), "key not found")
+	})
+
+	t.Run("test success", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{
+				Store: make(map[string][]byte),
+			}}))
+		require.NoError(t, err)
+		fromVerKey, err := w.CreateSigningKey()
+		require.NoError(t, err)
+		require.NotEmpty(t, fromVerKey)
+
+		testMsg := []byte("hello")
+		signature, err := w.SignMessage(testMsg, fromVerKey)
+		require.NoError(t, err)
+		require.NotEmpty(t, signature)
+
+		// verify signature
+		err = ed25519signature2018.New().Verify(base58.Decode(fromVerKey), testMsg, signature)
+		require.NoError(t, err)
 	})
 }
 

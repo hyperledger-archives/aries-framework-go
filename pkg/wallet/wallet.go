@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -88,7 +89,11 @@ func (w *BaseWallet) CreateSigningKey() (string, error) {
 
 // SignMessage sign a message using the private key associated with a given verification key.
 func (w *BaseWallet) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
-	return nil, fmt.Errorf("not implemented")
+	keyPair, err := w.getKey(fromVerKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get key: %w", err)
+	}
+	return ed25519signature2018.New().Sign(keyPair.Priv, message)
 }
 
 // DecryptMessage decrypt message
