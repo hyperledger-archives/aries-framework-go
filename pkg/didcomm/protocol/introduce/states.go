@@ -48,8 +48,8 @@ func (s *noOp) Name() string {
 	return stateNameNoop
 }
 
-func (s *noOp) CanTransitionTo(_ state) bool {
-	return false
+func (s *noOp) CanTransitionTo(_ state) (v bool) {
+	return
 }
 
 func (s *noOp) Execute(_ service.DIDCommMsg) (state, error) {
