@@ -116,7 +116,7 @@ func encodeVCToJWTUnsecured(vcBytes []byte) {
 func decodeVCJWTToJSON(vcBytes []byte, publicKey interface{}) {
 	// Asked to decode JWT
 	credential, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithJWTPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
+		verifiable.WithJWSDecoding(func(issuerID, keyID string) (interface{}, error) {
 			return publicKey, nil
 		}))
 	if err != nil {
