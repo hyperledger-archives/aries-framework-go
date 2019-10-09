@@ -121,21 +121,9 @@ func TestService_Handle_Inviter(t *testing.T) {
 	statusCh := make(chan service.StateMsg, 10)
 	err = s.RegisterMsgEvent(statusCh)
 	require.NoError(t, err)
-	completeFlag := make(chan bool)
-	respondedFlag := make(chan bool)
-	go func() {
-		for e := range statusCh {
-			if e.Type == service.PostState {
-				// receive the events
-				if e.StateID == "completed" {
-					completeFlag <- true
-				}
-				if e.StateID == "responded" {
-					respondedFlag <- true
-				}
-			}
-		}
-	}()
+	completedFlag := make(chan struct{})
+	respondedFlag := make(chan struct{})
+	go msgEventListener(t, statusCh, respondedFlag, completedFlag)
 	go func() { require.NoError(t, AutoExecuteActionEvent(actionCh)) }()
 	thid := randomString()
 
@@ -177,11 +165,45 @@ func TestService_Handle_Inviter(t *testing.T) {
 	require.NoError(t, err)
 
 	select {
-	case <-completeFlag:
+	case <-completedFlag:
 	case <-time.After(2 * time.Second):
 		require.Fail(t, "didn't receive post event complete")
 	}
 	validateState(t, s, thid, (&completed{}).Name())
+}
+
+func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFlag, completedFlag chan struct{}) {
+	connectionID := ""
+	invitationID := ""
+	for e := range statusCh {
+		require.Equal(t, DIDExchange, e.ProtocolName)
+		prop, ok := e.Properties.(Event)
+		if !ok {
+			require.Fail(t, "Failed to cast the event properties to service.Event")
+		}
+		// Get the connectionID when it's created
+		if e.Type == service.PreState {
+			if e.StateID == "requested" {
+				connectionID = prop.ConnectionID()
+				invitationID = prop.InvitationID()
+			}
+		}
+		if e.Type == service.PostState {
+			// receive the events
+			if e.StateID == "completed" {
+				// validate connectionID received during state transition with original connectionID
+				require.Equal(t, connectionID, prop.ConnectionID())
+				require.Equal(t, invitationID, prop.InvitationID())
+				close(completedFlag)
+			}
+			if e.StateID == "responded" {
+				// validate connectionID received during state transition with original connectionID
+				require.Equal(t, connectionID, prop.ConnectionID())
+				require.Equal(t, invitationID, prop.InvitationID())
+				close(respondedFlag)
+			}
+		}
+	}
 }
 
 // did-exchange flow with role Invitee
@@ -672,6 +694,7 @@ func startConsumer(t *testing.T, svc *Service, done chan bool) {
 
 	go func() {
 		for e := range actionCh {
+			require.Equal(t, DIDExchange, e.ProtocolName)
 			// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
 			msg := e
 			// receive the events
