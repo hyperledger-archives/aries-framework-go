@@ -15,12 +15,12 @@ import (
 	insecurerand "math/rand"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
-
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/nacl/sign"
+
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
 // failReader wraps a Reader, used for testing different failure checks for encryption tests.
@@ -78,7 +78,7 @@ func TestEncrypt(t *testing.T) {
 			"Bxp2KpXeh6RgXXRVGRQUskT9qT35aSSz1JvdbMUcB2Yc",
 			"2QqgiHtrUtDPpfoZG2C3Qi8a1MbLQuTZaaScu5LzQbUCkw5YnXngKLMJ8VuPgoN3Piqt1PBUACVd6uQRmtayZp2x")
 
-		senderKey := crypto.KeyPair{
+		senderKey := cryptoutil.KeyPair{
 			Priv: []byte{1, 2, 3, 4},
 			Pub:  []byte{1, 2, 3, 4},
 		}
@@ -376,7 +376,7 @@ func decryptComponentFailureTest(
 	t *testing.T,
 	protectedHeader,
 	msg string,
-	recKey *crypto.KeyPair,
+	recKey *cryptoutil.KeyPair,
 	errString string) {
 	fullMessage := `{"protected": "` + base64.URLEncoding.EncodeToString([]byte(protectedHeader)) + "\", " + msg
 	recCrypter := New()
@@ -539,7 +539,7 @@ func TestDecryptComponents(t *testing.T) {
 		decryptComponentFailureTest(t,
 			prot,
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
-			&crypto.KeyPair{},
+			&cryptoutil.KeyPair{},
 			"failed to decrypt, recipient keyPair not supported, it must have a 64 byte private key and 32 byte public key")
 	})
 }
@@ -806,8 +806,8 @@ func randEdKeyPair(randReader io.Reader) (*keyPairEd25519, error) {
 	return &keyPair, nil
 }
 
-func randKeyPair(randReader io.Reader) (*crypto.KeyPair, error) {
-	keyPair := crypto.KeyPair{}
+func randKeyPair(randReader io.Reader) (*cryptoutil.KeyPair, error) {
+	keyPair := cryptoutil.KeyPair{}
 	pk, sk, err := sign.GenerateKey(randReader)
 	if err != nil {
 		return nil, err
@@ -826,8 +826,8 @@ func randCurveKeyPair(randReader io.Reader) (*keyPairCurve25519, error) {
 	return &keyPair, nil
 }
 
-func getB58Key(pub, priv string) *crypto.KeyPair {
-	key := crypto.KeyPair{
+func getB58Key(pub, priv string) *cryptoutil.KeyPair {
+	key := cryptoutil.KeyPair{
 		Priv: base58.Decode(priv),
 		Pub:  base58.Decode(pub),
 	}

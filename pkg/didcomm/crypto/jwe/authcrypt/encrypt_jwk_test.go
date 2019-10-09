@@ -13,17 +13,22 @@ import (
 
 	"github.com/stretchr/testify/require"
 	chacha "golang.org/x/crypto/chacha20poly1305"
+
+	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 )
 
 func TestNilEncryptSenderJwk(t *testing.T) {
-	crypter, err := New(XC20P)
+	mockWalletProvider, err := mockwallet.NewMockProvider()
+	require.NoError(t, err)
+
+	crypter, err := New(mockWalletProvider, XC20P)
 	require.NoError(t, err)
 
 	spk, err := crypter.generateSPK(nil, nil)
 	require.Error(t, err)
 	require.Empty(t, spk)
 
-	s, l, m, err := crypter.encryptSymKey(nil, nil)
+	s, l, m, err := crypter.encryptCEK(nil, nil)
 	require.Error(t, err)
 	require.Empty(t, s)
 	require.Empty(t, l)
@@ -48,6 +53,20 @@ func TestNilEncryptSenderJwk(t *testing.T) {
 	spk, err = crypter.generateSPK(someKey, someKey)
 	require.Error(t, err)
 	require.Empty(t, spk)
+
+	r, err := crypter.encodeRecipient(someKey, someKey, someKey)
+	require.Error(t, err)
+	require.Empty(t, r)
+
+	s, l, m, err = crypter.encryptCEK(someKey[:], someKey[:])
+	require.Error(t, err)
+	require.Empty(t, s)
+	require.Empty(t, l)
+	require.Empty(t, m)
+
+	pld, err := crypter.Encrypt([]byte(""), someKey[:], [][]byte{someKey[:]})
+	require.Error(t, err)
+	require.Empty(t, pld)
 }
 
 // Reset random reader to original value

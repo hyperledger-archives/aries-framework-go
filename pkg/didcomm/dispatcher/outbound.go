@@ -11,19 +11,19 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // OutboundDispatcher dispatch msgs to destination
 type OutboundDispatcher struct {
 	outboundTransports []transport.OutboundTransport
-	wallet             wallet.Pack
+	packager           envelope.Packager
 }
 
 // NewOutbound return new dispatcher outbound instance
 func NewOutbound(prov Provider) *OutboundDispatcher {
-	return &OutboundDispatcher{outboundTransports: prov.OutboundTransports(), wallet: prov.PackWallet()}
+	return &OutboundDispatcher{outboundTransports: prov.OutboundTransports(), packager: prov.Packager()}
 }
 
 // Send msg
@@ -36,8 +36,8 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		if err != nil {
 			return fmt.Errorf("failed marshal to bytes: %w", err)
 		}
-		packedMsg, err := o.wallet.PackMessage(
-			&wallet.Envelope{Message: bytes, FromVerKey: senderVerKey, ToVerKeys: des.RecipientKeys})
+		packedMsg, err := o.packager.PackMessage(
+			&envelope.Envelope{Message: bytes, FromVerKey: senderVerKey, ToVerKeys: des.RecipientKeys})
 		if err != nil {
 			return fmt.Errorf("failed to pack msg: %w", err)
 		}

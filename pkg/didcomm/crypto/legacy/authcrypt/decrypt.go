@@ -14,16 +14,16 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
-
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/nacl/box"
+
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
 // Decrypt will decode the envelope using the legacy format
 // Using (X)Chacha20 encryption algorithm and Poly1035 authenticator
-func (c *Crypter) Decrypt(envelope []byte, recipient crypto.KeyPair) ([]byte, error) {
+func (c *Crypter) Decrypt(envelope []byte, recipient cryptoutil.KeyPair) ([]byte, error) {
 	edRecipient, err := keyToEdKey(recipient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt, recipient %s", err.Error())

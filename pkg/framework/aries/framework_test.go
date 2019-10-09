@@ -19,7 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
@@ -28,6 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	mockenvelope "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
@@ -82,10 +85,17 @@ func TestFramework(t *testing.T) {
 		}()
 		serverURL := fmt.Sprintf("http://localhost:%d", port)
 
-		aries, err := New(WithInboundTransport(
-			&mockInboundTransport{}), WithWallet(func(ctx api.Provider) (api.CloseableWallet, error) {
-			return &mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue")}, nil
-		}))
+		aries, err := New(
+			WithInboundTransport(&mockInboundTransport{}),
+			WithWallet(func(ctx api.Provider) (api.CloseableWallet, error) {
+				return &mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue")}, nil
+			}),
+			WithCrypter(func(ctx crypto.Provider) (crypto.Crypter, error) {
+				return &didcomm.MockAuthCrypt{EncryptValue: nil}, nil
+			}),
+			WithPackager(func(ctx envelope.Provider) (envelope.Packager, error) {
+				return &mockenvelope.BasePackager{PackValue: []byte("mockPackValue")}, nil
+			}))
 		require.NoError(t, err)
 
 		// context

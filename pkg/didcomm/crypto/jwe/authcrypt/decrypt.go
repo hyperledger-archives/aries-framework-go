@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package authcrypt
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -15,8 +14,6 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
-
-	jwecrypto "github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 )
 
 // Decrypt will JWE decode the envelope argument for the recipientPrivKey and validates
@@ -25,34 +22,29 @@ import (
 // encrypted CEK.
 // The current recipient is the one with the sender's encrypted key that successfully
 // decrypts with recipientKeyPair.Priv Key.
-func (c *Crypter) Decrypt(envelope []byte, recipientKeyPair jwecrypto.KeyPair) ([]byte, error) { //nolint:lll,funlen
-	if !jwecrypto.IsKeyPairValid(recipientKeyPair) {
-		return nil, errInvalidKeypair
-	}
-
+func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 	jwe := &Envelope{}
 	err := json.Unmarshal(envelope, jwe)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt message: %w", err)
 	}
-	pubK := new([chacha.KeySize]byte)
-	copy(pubK[:], recipientKeyPair.Pub)
-	recipient, err := c.findRecipient(jwe.Recipients, pubK)
+
+	recipientPubKey, recipient, err := c.findRecipient(jwe.Recipients)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt message: %w", err)
 	}
 
-	senderKey, err := c.decryptSPK(recipientKeyPair, recipient.Header.SPK)
+	senderKey, err := c.decryptSPK(recipientPubKey, recipient.Header.SPK)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt sender key: %w", err)
 	}
 
 	// senderKey must not be empty to proceed
 	if senderKey != nil {
-		var senderPubKey [chacha.KeySize]byte
+		senderPubKey := new([chacha.KeySize]byte)
 		copy(senderPubKey[:], senderKey)
 
-		sharedKey, er := c.decryptSharedKey(recipientKeyPair, &senderPubKey, recipient)
+		sharedKey, er := c.decryptCEK(recipientPubKey, senderPubKey, recipient)
 		if er != nil {
 			return nil, fmt.Errorf("failed to decrypt shared key: %w", er)
 		}
@@ -69,7 +61,7 @@ func (c *Crypter) Decrypt(envelope []byte, recipientKeyPair jwecrypto.KeyPair) (
 }
 
 func (c *Crypter) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
-	crypter, er := createCipher(c.nonceSize, cek)
+	cipher, er := createCipher(c.nonceSize, cek)
 	if er != nil {
 		return nil, er
 	}
@@ -88,21 +80,28 @@ func (c *Crypter) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
 		return nil, er
 	}
 	payload = append(payload, tag...)
-	return crypter.Open(nil, nonce, payload, []byte(pldAAD))
+	return cipher.Open(nil, nonce, payload, []byte(pldAAD))
 }
 
-// findRecipient will loop through jweRecipients and returns the first matching key from recipients
-func (c *Crypter) findRecipient(jweRecipients []Recipient, recipientPubKey *[chacha.KeySize]byte) (*Recipient, error) {
+// findRecipient will loop through jweRecipients and returns the first matching key from the wallet
+func (c *Crypter) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byte, *Recipient, error) {
+	var recipientsKeys []string
 	for _, recipient := range jweRecipients {
-		recipient := recipient // pin!
-		if bytes.Equal(recipientPubKey[:], base58.Decode(recipient.Header.KID)) {
-			return &recipient, nil
-		}
+		recipientsKeys = append(recipientsKeys, recipient.Header.KID)
 	}
-	return nil, errRecipientNotFound
+
+	i, err := c.wallet.FindVerKey(recipientsKeys)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pubK := new([chacha.KeySize]byte)
+	copy(pubK[:], base58.Decode(recipientsKeys[i]))
+	return pubK, &jweRecipients[i], nil
 }
 
-func (c *Crypter) decryptSharedKey(recipientKp jwecrypto.KeyPair, senderPubKey *[chacha.KeySize]byte, recipient *Recipient) ([]byte, error) { //nolint:lll
+// decryptCEK will decrypt the CEK found in recipient using recipientKp's private key and senderPubKey
+func (c *Crypter) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte, recipient *Recipient) ([]byte, error) { //nolint:lll
 	apu, err := base64.RawURLEncoding.DecodeString(recipient.Header.APU)
 	if err != nil {
 		return nil, err
@@ -120,27 +119,24 @@ func (c *Crypter) decryptSharedKey(recipientKp jwecrypto.KeyPair, senderPubKey *
 	if err != nil {
 		return nil, err
 	}
-	sharedEncryptedKey, err := base64.RawURLEncoding.DecodeString(recipient.EncryptedKey)
+	encryptedCEK, err := base64.RawURLEncoding.DecodeString(recipient.EncryptedKey)
 	if err != nil {
 		return nil, err
 	}
-
-	privK := new([chacha.KeySize]byte)
-	copy(privK[:], recipientKp.Priv)
 
 	// derive an ephemeral key for the recipient
-	kek, err := c.deriveKEK([]byte(c.alg), apu, privK, senderPubKey)
+	kek, err := c.wallet.DeriveKEK([]byte(c.alg), apu, recipientPubKey[:], senderPubKey[:])
 	if err != nil {
 		return nil, err
 	}
 
-	// create a new (chacha20poly1305) cipher with this new key to encrypt the shared key (cek)
+	// create a new (chacha20poly1305) cipher with this new key to decrypt the cek
 	cipher, err := createCipher(c.nonceSize, kek)
 	if err != nil {
 		return nil, err
 	}
 
-	cipherText := sharedEncryptedKey
+	cipherText := encryptedCEK
 	cipherText = append(cipherText, tag...)
 
 	return cipher.Open(nil, nonce, cipherText, nil)

@@ -13,21 +13,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/envelope"
 )
 
 func TestOutboundDispatcher_Send(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		o := NewOutbound(&provider{walletValue: &mockwallet.CloseableWallet{},
+		o := NewOutbound(&provider{packagerValue: &mockpackager.BasePackager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}}})
 		require.NoError(t, o.Send("data", "", &service.Destination{ServiceEndpoint: "url"}))
 	})
 
 	t.Run("test no outbound transport found", func(t *testing.T) {
-		o := NewOutbound(&provider{walletValue: &mockwallet.CloseableWallet{},
+		o := NewOutbound(&provider{packagerValue: &mockpackager.BasePackager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}}})
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
@@ -35,7 +35,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 	})
 
 	t.Run("test pack msg failure", func(t *testing.T) {
-		o := NewOutbound(&provider{walletValue: &mockwallet.CloseableWallet{PackErr: fmt.Errorf("pack error")},
+		o := NewOutbound(&provider{packagerValue: &mockpackager.BasePackager{PackErr: fmt.Errorf("pack error")},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}}})
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
@@ -43,7 +43,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 	})
 
 	t.Run("test outbound send failure", func(t *testing.T) {
-		o := NewOutbound(&provider{walletValue: &mockwallet.CloseableWallet{},
+		o := NewOutbound(&provider{packagerValue: &mockpackager.BasePackager{},
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")}}})
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
@@ -53,12 +53,12 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 }
 
 type provider struct {
-	walletValue             wallet.Pack
+	packagerValue           envelope.Packager
 	outboundTransportsValue []transport.OutboundTransport
 }
 
-func (p *provider) PackWallet() wallet.Pack {
-	return p.walletValue
+func (p *provider) Packager() envelope.Packager {
+	return p.packagerValue
 }
 
 func (p *provider) OutboundTransports() []transport.OutboundTransport {

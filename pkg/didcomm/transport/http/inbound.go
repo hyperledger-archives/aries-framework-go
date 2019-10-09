@@ -13,9 +13,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
-
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
 
@@ -24,7 +23,7 @@ var logger = log.New("aries-framework/transport")
 // provider contains dependencies for the HTTP Handler creation and is typically created by using aries.Context()
 type provider interface {
 	InboundMessageHandler() transport.InboundMessageHandler
-	PackWallet() wallet.Pack
+	Packager() envelope.Packager
 }
 
 // NewInboundHandler will create a new handler to enforce Did-Comm HTTP transport specs
@@ -58,7 +57,7 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.I
 		http.Error(w, "Failed to read payload", http.StatusInternalServerError)
 		return
 	}
-	unpackMsg, err := prov.PackWallet().UnpackMessage(body)
+	unpackMsg, err := prov.Packager().UnpackMessage(body)
 	if err != nil {
 		logger.Errorf("failed to unpack msg: %s - returning Code: %d", err, http.StatusInternalServerError)
 		http.Error(w, "failed to unpack msg", http.StatusInternalServerError)
