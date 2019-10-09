@@ -124,7 +124,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	completedFlag := make(chan struct{})
 	respondedFlag := make(chan struct{})
 	go msgEventListener(t, statusCh, respondedFlag, completedFlag)
-	go func() { require.NoError(t, AutoExecuteActionEvent(actionCh)) }()
+	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
 	thid := randomString()
 
 	// Invitation was previously sent by Alice to Bob.
@@ -252,7 +252,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 			}
 		}
 	}()
-	go func() { require.NoError(t, AutoExecuteActionEvent(actionCh)) }()
+	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
 
 	// Alice receives an invitation from Bob
 	payloadBytes, err := json.Marshal(
@@ -370,7 +370,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 				}
 			}
 		}()
-		go func() { require.NoError(t, AutoExecuteActionEvent(actionCh)) }()
+		go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
 
 		thid := randomString()
 		request, err := json.Marshal(
@@ -1029,19 +1029,6 @@ func validateState(t *testing.T, svc *Service, id, expected string) {
 	s, err := svc.currentState(id)
 	require.NoError(t, err)
 	require.Equal(t, expected, s.Name())
-}
-
-func Test_AutoExecute(t *testing.T) {
-	ch := make(chan service.DIDCommAction)
-	done := make(chan struct{})
-
-	go func() {
-		require.NoError(t, AutoExecuteActionEvent(ch))
-		close(done)
-	}()
-
-	close(ch)
-	<-done
 }
 
 func TestServiceErrors(t *testing.T) {

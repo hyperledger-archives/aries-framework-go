@@ -259,17 +259,3 @@ func (c *Client) handleMessageEvent(msg *service.StateMsg) {
 		handler <- *msg
 	}
 }
-
-// AutoExecuteActionEvent is a utility function to execute events automatically. The function requires a channel to be
-// passed-in to listen for dispatcher.DIDCommAction and triggers the callback. This is a blocking function and use
-// this function with a goroutine.
-//
-// Usage:
-//  c := didexchange.New(....)
-//	actionCh := make(chan dispatcher.DIDCommAction)
-//	err = c.RegisterActionEvent(actionCh)
-//	go didexchange.AutoExecuteActionEvent(actionCh)
-func AutoExecuteActionEvent(ch chan service.DIDCommAction) error {
-	// wrap utility from client package
-	return didexchange.AutoExecuteActionEvent(ch)
-}

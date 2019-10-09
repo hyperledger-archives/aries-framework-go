@@ -87,3 +87,20 @@ type Event interface {
 	// UnregisterMsgEvent on protocol messages. Refer RegisterMsgEvent().
 	UnregisterMsgEvent(ch chan<- StateMsg) error
 }
+
+// AutoExecuteActionEvent is a utility function to execute Action events automatically. The function requires
+// a channel to be passed-in to listen to dispatcher.DIDCommAction and triggers the Continue function on the
+// action event. This is a blocking function and use this function with a goroutine.
+//
+// Usage:
+//  s := didexchange.New(....)
+//	actionCh := make(chan dispatcher.DIDCommAction)
+//	err = s.RegisterActionEvent(actionCh)
+//	go service.AutoExecuteActionEvent(actionCh)
+func AutoExecuteActionEvent(ch chan DIDCommAction) error {
+	for msg := range ch {
+		msg.Continue()
+	}
+
+	return nil
+}
