@@ -417,23 +417,6 @@ func GenerateInviteWithKeyAndEndpoint(invite *Invitation) (string, error) {
 	return encodedExchangeInvitation(invite)
 }
 
-// AutoExecuteActionEvent is a utility function to execute events automatically. The function requires a channel to be
-// passed-in to listen for dispatcher.DIDCommAction and triggers the callback. This is a blocking function and use
-// this function with a goroutine.
-//
-// Usage:
-//  s := didexchange.New(....)
-//	actionCh := make(chan dispatcher.DIDCommAction)
-//	err = s.RegisterActionEvent(actionCh)
-//	go didexchange.AutoExecuteActionEvent(actionCh)
-func AutoExecuteActionEvent(ch chan service.DIDCommAction) error {
-	for msg := range ch {
-		msg.Continue()
-	}
-
-	return nil
-}
-
 // canTriggerActionEvents checks if the incoming message type matches either ConnectionRequest, ConnectionResponse or
 // ConnectionAck type.
 func canTriggerActionEvents(msgType string) bool {

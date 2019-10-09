@@ -214,7 +214,7 @@ func TestServiceEvents(t *testing.T) {
 	err = c.RegisterActionEvent(aCh)
 	require.NoError(t, err)
 	go func() {
-		require.NoError(t, AutoExecuteActionEvent(aCh))
+		require.NoError(t, service.AutoExecuteActionEvent(aCh))
 	}()
 
 	// register message event channel

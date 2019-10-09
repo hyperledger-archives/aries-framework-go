@@ -61,7 +61,7 @@ func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error
 	actionCh := make(chan service.DIDCommAction)
 	err = didexchangeClient.RegisterActionEvent(actionCh)
 	go func() {
-		if err := didexchange.AutoExecuteActionEvent(actionCh); err != nil {
+		if err := service.AutoExecuteActionEvent(actionCh); err != nil {
 			panic(err)
 		}
 	}()

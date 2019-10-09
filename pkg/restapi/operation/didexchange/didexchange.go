@@ -373,7 +373,7 @@ func (c *Operation) startClientEventListener() error {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/200 - Webhook integration
 	// for now, auto execute the actions
 	go func() {
-		err := didexchange.AutoExecuteActionEvent(c.actionCh)
+		err := service.AutoExecuteActionEvent(c.actionCh)
 		if err != nil {
 			logger.Errorf("auto action event execution failed: %s", err)
 		}
