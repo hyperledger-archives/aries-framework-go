@@ -6,61 +6,22 @@ SPDX-License-Identifier: Apache-2.0
 
 package dispatcher
 
-// TODO https://github.com/hyperledger/aries-framework-go/issues/342 - refactor the pkg, currently contains dispatcher,
-//  messages and events fuctionalities. (need to avoid cyclical dependecy)
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // Service protocol service
 type Service interface {
-	Handle(msg DIDCommMsg) error
+	service.Handler
 	Accept(msgType string) bool
 	Name() string
 }
 
-// DIDCommMsg did comm msg
-type DIDCommMsg struct {
-	// Outbound indicates the direction of this DIDComm message:
-	//   - outgoing (to another agent)
-	//   - incoming (from another agent)
-	Outbound bool
-	Type     string
-	Payload  []byte
-	// TODO : might need refactor as per the issue-226
-	OutboundDestination *Destination
-}
-
-// StateMsgType state msg type
-type StateMsgType int
-
-const (
-	// PreState pre state
-	PreState StateMsgType = iota
-	// PostState post state
-	PostState
-)
-
-// StateMsg msg
-type StateMsg struct {
-	Type    StateMsgType
-	StateID string
-	Msg     DIDCommMsg
-	// Properties contains different values from different protocols
-	Properties map[string]interface{}
-}
-
-// Destination provides the recipientKeys, routingKeys, and serviceEndpoint populated from Invitation
-type Destination struct {
-	RecipientKeys   []string
-	ServiceEndpoint string
-	RoutingKeys     []string
-}
-
 // Outbound interface
 type Outbound interface {
-	Send(interface{}, string, *Destination) error
+	Send(interface{}, string, *service.Destination) error
 }
 
 // Provider interface for outbound ctx
@@ -71,44 +32,3 @@ type Provider interface {
 
 // OutboundCreator method to create new outbound dispatcher service
 type OutboundCreator func(prov Provider) (Outbound, error)
-
-// DIDCommAction message type to pass events in go channels.
-type DIDCommAction struct {
-	// DIDComm message
-	Message DIDCommMsg
-	// Continue function to be called by the consumer for further processing the message.
-	Continue func()
-	// Stop invocation notifies the service that the consumer action event processing has failed or the consumer wants
-	// to stop the processing.
-	Stop func(err error)
-	// Properties contains different values from different protocols
-	Properties map[string]interface{}
-}
-
-// Event related apis.
-type Event interface {
-	// RegisterActionEvent on protocol messages. The events are triggered for incoming message types based on
-	// the protocol service. The consumer need to invoke the callback to resume processing.
-	// Only one channel can be registered for the action events. The function will throw error if a channel is already
-	// registered.
-	RegisterActionEvent(ch chan<- DIDCommAction) error
-
-	// UnregisterActionEvent on protocol messages. Refer RegisterActionEvent().
-	UnregisterActionEvent(ch chan<- DIDCommAction) error
-
-	// RegisterMsgEvent on protocol messages. The message events are triggered for incoming messages. Service
-	// will not expect any callback on these events unlike Action event.
-	RegisterMsgEvent(ch chan<- StateMsg) error
-
-	// UnregisterMsgEvent on protocol messages. Refer RegisterMsgEvent().
-	UnregisterMsgEvent(ch chan<- StateMsg) error
-}
-
-// DIDCommService defines service APIs.
-type DIDCommService interface {
-	// dispatcher service
-	Service
-
-	// event service
-	Event
-}

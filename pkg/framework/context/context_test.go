@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
@@ -66,7 +66,7 @@ func TestNewProvider(t *testing.T) {
 			AcceptFunc: func(msgType string) bool {
 				return msgType == "valid-message-type"
 			},
-			HandleFunc: func(msg dispatcher.DIDCommMsg) error {
+			HandleFunc: func(msg service.DIDCommMsg) error {
 				payload := &struct {
 					Label string `json:"label,omitempty"`
 				}{}

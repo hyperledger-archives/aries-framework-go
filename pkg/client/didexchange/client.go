@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -42,14 +42,14 @@ type provider interface {
 // TODO add support for Accept Exchange Request & Accept Invitation
 //  using events & callback (#198 & #238)
 type Client struct {
-	didexchangeSvc           dispatcher.DIDCommService
+	didexchangeSvc           service.DIDComm
 	wallet                   wallet.Crypto
 	inboundTransportEndpoint string
-	actionCh                 chan dispatcher.DIDCommAction
-	msgCh                    chan dispatcher.StateMsg
-	actionEvent              chan<- dispatcher.DIDCommAction
+	actionCh                 chan service.DIDCommAction
+	msgCh                    chan service.StateMsg
+	actionEvent              chan<- service.DIDCommAction
 	actionEventlock          sync.RWMutex
-	msgEvents                []chan<- dispatcher.StateMsg
+	msgEvents                []chan<- service.StateMsg
 	msgEventsLock            sync.RWMutex
 	connectionStore          *didexchange.ConnectionRecorder
 }
@@ -61,7 +61,7 @@ func New(ctx provider) (*Client, error) {
 		return nil, err
 	}
 
-	didexchangeSvc, ok := svc.(dispatcher.DIDCommService)
+	didexchangeSvc, ok := svc.(service.DIDComm)
 	if !ok {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
@@ -76,8 +76,8 @@ func New(ctx provider) (*Client, error) {
 		wallet:                   ctx.CryptoWallet(),
 		inboundTransportEndpoint: ctx.InboundTransportEndpoint(),
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
-		actionCh:        make(chan dispatcher.DIDCommAction, 10),
-		msgCh:           make(chan dispatcher.StateMsg, 10),
+		actionCh:        make(chan service.DIDCommAction, 10),
+		msgCh:           make(chan service.StateMsg, 10),
 		connectionStore: didexchange.NewConnectionRecorder(store),
 	}
 
@@ -119,7 +119,7 @@ func (c *Client) HandleInvitation(invitation *didexchange.Invitation) error {
 	if err != nil {
 		return fmt.Errorf("failed marshal invitation: %w", err)
 	}
-	if err = c.didexchangeSvc.Handle(dispatcher.DIDCommMsg{Type: invitation.Type, Payload: payload}); err != nil {
+	if err = c.didexchangeSvc.Handle(service.DIDCommMsg{Type: invitation.Type, Payload: payload}); err != nil {
 		return fmt.Errorf("failed from didexchange service handle: %w", err)
 	}
 	return nil
@@ -191,7 +191,7 @@ func (c *Client) startServiceEventListener() error {
 // Only one channel can be registered for the action events. The function will throw error if a channel is already
 // registered. The AutoExecuteActionEvent() function can be used to automatically trigger callback function for the
 // event.
-func (c *Client) RegisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+func (c *Client) RegisterActionEvent(ch chan<- service.DIDCommAction) error {
 	c.actionEventlock.Lock()
 	defer c.actionEventlock.Unlock()
 
@@ -205,7 +205,7 @@ func (c *Client) RegisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
 }
 
 // UnregisterActionEvent on DID Exchange protocol messages. Refer RegisterActionEvent().
-func (c *Client) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+func (c *Client) UnregisterActionEvent(ch chan<- service.DIDCommAction) error {
 	c.actionEventlock.Lock()
 	defer c.actionEventlock.Unlock()
 
@@ -220,7 +220,7 @@ func (c *Client) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) error
 
 // RegisterMsgEvent on DID Exchange protocol messages. The message events are triggered for state transitions. Client
 // will not expect any callback on these events unlike Action events.
-func (c *Client) RegisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
+func (c *Client) RegisterMsgEvent(ch chan<- service.StateMsg) error {
 	c.msgEventsLock.Lock()
 	c.msgEvents = append(c.msgEvents, ch)
 	c.msgEventsLock.Unlock()
@@ -229,7 +229,7 @@ func (c *Client) RegisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
 }
 
 // UnregisterMsgEvent on DID Exchange protocol messages.
-func (c *Client) UnregisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
+func (c *Client) UnregisterMsgEvent(ch chan<- service.StateMsg) error {
 	c.msgEventsLock.Lock()
 	for i := 0; i < len(c.msgEvents); i++ {
 		if c.msgEvents[i] == ch {
@@ -242,7 +242,7 @@ func (c *Client) UnregisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
 	return nil
 }
 
-func (c *Client) handleActionEvent(msg *dispatcher.DIDCommAction) {
+func (c *Client) handleActionEvent(msg *service.DIDCommAction) {
 	c.actionEventlock.RLock()
 	aEvent := c.actionEvent
 	c.actionEventlock.RLock()
@@ -250,7 +250,7 @@ func (c *Client) handleActionEvent(msg *dispatcher.DIDCommAction) {
 	aEvent <- *msg
 }
 
-func (c *Client) handleMessageEvent(msg *dispatcher.StateMsg) {
+func (c *Client) handleMessageEvent(msg *service.StateMsg) {
 	c.msgEventsLock.RLock()
 	statusEvents := c.msgEvents
 	c.msgEventsLock.RUnlock()
@@ -269,7 +269,7 @@ func (c *Client) handleMessageEvent(msg *dispatcher.StateMsg) {
 //	actionCh := make(chan dispatcher.DIDCommAction)
 //	err = c.RegisterActionEvent(actionCh)
 //	go didexchange.AutoExecuteActionEvent(actionCh)
-func AutoExecuteActionEvent(ch chan dispatcher.DIDCommAction) error {
+func AutoExecuteActionEvent(ch chan service.DIDCommAction) error {
 	// wrap utility from client package
 	return didexchange.AutoExecuteActionEvent(ch)
 }

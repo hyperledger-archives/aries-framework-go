@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package protocol
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -16,7 +17,7 @@ import (
 // MockDIDExchangeSvc mock did exchange service
 type MockDIDExchangeSvc struct {
 	ProtocolName             string
-	HandleFunc               func(dispatcher.DIDCommMsg) error
+	HandleFunc               func(service.DIDCommMsg) error
 	AcceptFunc               func(string) bool
 	RegisterActionEventErr   error
 	UnregisterActionEventErr error
@@ -25,7 +26,7 @@ type MockDIDExchangeSvc struct {
 }
 
 // Handle msg
-func (m *MockDIDExchangeSvc) Handle(msg dispatcher.DIDCommMsg) error {
+func (m *MockDIDExchangeSvc) Handle(msg service.DIDCommMsg) error {
 	if m.HandleFunc != nil {
 		return m.HandleFunc(msg)
 	}
@@ -49,7 +50,7 @@ func (m *MockDIDExchangeSvc) Name() string {
 }
 
 // RegisterActionEvent register action event.
-func (m *MockDIDExchangeSvc) RegisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+func (m *MockDIDExchangeSvc) RegisterActionEvent(ch chan<- service.DIDCommAction) error {
 	if m.RegisterActionEventErr != nil {
 		return m.RegisterActionEventErr
 	}
@@ -57,7 +58,7 @@ func (m *MockDIDExchangeSvc) RegisterActionEvent(ch chan<- dispatcher.DIDCommAct
 }
 
 // UnregisterActionEvent unregister action event.
-func (m *MockDIDExchangeSvc) UnregisterActionEvent(ch chan<- dispatcher.DIDCommAction) error {
+func (m *MockDIDExchangeSvc) UnregisterActionEvent(ch chan<- service.DIDCommAction) error {
 	if m.UnregisterActionEventErr != nil {
 		return m.UnregisterActionEventErr
 	}
@@ -65,7 +66,7 @@ func (m *MockDIDExchangeSvc) UnregisterActionEvent(ch chan<- dispatcher.DIDCommA
 }
 
 // RegisterMsgEvent register message event.
-func (m *MockDIDExchangeSvc) RegisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
+func (m *MockDIDExchangeSvc) RegisterMsgEvent(ch chan<- service.StateMsg) error {
 	if m.RegisterMsgEventErr != nil {
 		return m.RegisterMsgEventErr
 	}
@@ -73,7 +74,7 @@ func (m *MockDIDExchangeSvc) RegisterMsgEvent(ch chan<- dispatcher.StateMsg) err
 }
 
 // UnregisterMsgEvent unregister message event.
-func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- dispatcher.StateMsg) error {
+func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- service.StateMsg) error {
 	if m.UnregisterMsgEventErr != nil {
 		return m.UnregisterMsgEventErr
 	}
