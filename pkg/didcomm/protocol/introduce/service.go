@@ -9,7 +9,6 @@ package introduce
 import "github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 
 const (
-	// Introduce protocol name
 	Introduce = "introduce"
 	// IntroduceSpec defines the introduce spec
 	IntroduceSpec = metadata.AriesCommunityDID + ";spec/introduce/1.0/"
