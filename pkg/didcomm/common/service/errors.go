@@ -11,6 +11,9 @@ const (
 	ErrChannelRegistered = serviceError("channel is already registered for the action event")
 	ErrNilChannel        = serviceError("cannot pass nil channel")
 	ErrInvalidChannel    = serviceError("invalid channel passed to unregister the action event")
+	ErrThreadIDNotFound  = serviceError("threadID not found")
+	ErrInvalidMessage    = serviceError("invalid message")
+	ErrNoHeader          = serviceError("the header is not provided")
 )
 
 // serviceError defines service error

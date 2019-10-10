@@ -337,13 +337,9 @@ func TestServiceEvents(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-
-	msg := service.DIDCommMsg{
-		Type:    didexsvc.ConnectionRequest,
-		Payload: request,
-	}
-
-	err = didExSvc.Handle(&msg)
+	msg, err := service.NewDIDCommMsg(request)
+	require.NoError(t, err)
+	err = didExSvc.Handle(msg)
 	require.NoError(t, err)
 
 	validateState(t, store, id, "responded", 100*time.Millisecond)
