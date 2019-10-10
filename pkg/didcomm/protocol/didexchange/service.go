@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -138,6 +137,7 @@ func (s *Service) Handle(msg service.DIDCommMsg) error {
 	if !current.CanTransitionTo(next) {
 		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
+
 	// trigger message events
 	// TODO change from thread id to connection id #397
 	// TODO pass invitation id #397
@@ -157,6 +157,19 @@ func (s *Service) Handle(msg service.DIDCommMsg) error {
 	return s.handle(&message{Msg: msg, ThreadID: thid, NextStateName: next.Name()})
 }
 
+// Name return service name
+func (s *Service) Name() string {
+	return DIDExchange
+}
+
+// Accept msg checks the msg type
+func (s *Service) Accept(msgType string) bool {
+	return msgType == ConnectionInvite ||
+		msgType == ConnectionRequest ||
+		msgType == ConnectionResponse ||
+		msgType == ConnectionAck
+}
+
 func (s *Service) handle(msg *message) error {
 	logger.Infof("entered into private handle didcomm message: %s ", msg)
 
@@ -173,18 +186,22 @@ func (s *Service) handle(msg *message) error {
 			Type: service.PreState, Msg: msg.Msg, StateID: next.Name(),
 			Properties: s.createEventProperties(msg.ThreadID, "")})
 		logger.Infof("sent pre event for state %s", next.Name())
+
 		var action stateAction
 		var followup state
+
 		followup, action, err = next.Execute(msg.Msg, msg.ThreadID, s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 		}
 		logger.Infof("finish execute next state: %s", next.Name())
+
 		if err = s.update(msg.ThreadID, next); err != nil {
 			return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 		}
 		logger.Infof("persisted the connection using %s and updated the state to %s",
 			msg.ThreadID, next.Name())
+
 		if err := action(); err != nil {
 			return fmt.Errorf("failed to execute state action %s %w", next.Name(), err)
 		}
@@ -366,55 +383,8 @@ func (s *Service) update(thid string, state state) error {
 	return nil
 }
 
-// Accept msg checks the msg type
-func (s *Service) Accept(msgType string) bool {
-	return msgType == ConnectionInvite ||
-		msgType == ConnectionRequest ||
-		msgType == ConnectionResponse ||
-		msgType == ConnectionAck
-}
-
-// Name return service name
-func (s *Service) Name() string {
-	return DIDExchange
-}
-
-// Connections return all connections
-func (s *Service) Connections() {
-	// TODO add Connections logic
-
-}
 func generateRandomID() string {
 	return uuid.New().String()
-}
-
-func encodedExchangeInvitation(inviteMessage *Invitation) (string, error) {
-	inviteMessage.Type = ConnectionInvite
-
-	invitationJSON, err := json.Marshal(inviteMessage)
-	if err != nil {
-		return "", fmt.Errorf("JSON Marshal Error : %w", err)
-	}
-
-	return base64.URLEncoding.EncodeToString(invitationJSON), nil
-}
-
-// GenerateInviteWithPublicDID generates the DID exchange invitation string with public DID
-func GenerateInviteWithPublicDID(invite *Invitation) (string, error) {
-	if invite.ID == "" || invite.DID == "" {
-		return "", errors.New("ID and DID are mandatory")
-	}
-
-	return encodedExchangeInvitation(invite)
-}
-
-// GenerateInviteWithKeyAndEndpoint generates the DID exchange invitation string with recipient key and endpoint
-func GenerateInviteWithKeyAndEndpoint(invite *Invitation) (string, error) {
-	if invite.ID == "" || invite.ServiceEndpoint == "" || len(invite.RecipientKeys) == 0 {
-		return "", errors.New("ID, Event Endpoint and Recipient Key are mandatory")
-	}
-
-	return encodedExchangeInvitation(invite)
 }
 
 // canTriggerActionEvents checks if the incoming message type matches either ConnectionRequest, ConnectionResponse or
