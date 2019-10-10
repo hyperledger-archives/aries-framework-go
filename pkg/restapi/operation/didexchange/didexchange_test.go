@@ -343,7 +343,7 @@ func TestServiceEvents(t *testing.T) {
 		Payload: request,
 	}
 
-	err = didExSvc.Handle(msg)
+	err = didExSvc.Handle(&msg)
 	require.NoError(t, err)
 
 	validateState(t, store, id, "responded", 100*time.Millisecond)

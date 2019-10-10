@@ -139,7 +139,7 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	err = c.service.Handle(service.DIDCommMsg{Type: request.Params.Type, Payload: payload})
+	err = c.service.Handle(&service.DIDCommMsg{Type: request.Params.Type, Payload: payload})
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return

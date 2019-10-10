@@ -38,7 +38,7 @@ func New() *Service {
 }
 
 // Handle didexchange msg
-func (s *Service) Handle(msg service.DIDCommMsg) error {
+func (s *Service) Handle(msg *service.DIDCommMsg) error {
 	return nil
 }
 

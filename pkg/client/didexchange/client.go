@@ -119,7 +119,7 @@ func (c *Client) HandleInvitation(invitation *didexchange.Invitation) error {
 	if err != nil {
 		return fmt.Errorf("failed marshal invitation: %w", err)
 	}
-	if err = c.didexchangeSvc.Handle(service.DIDCommMsg{Type: invitation.Type, Payload: payload}); err != nil {
+	if err = c.didexchangeSvc.Handle(&service.DIDCommMsg{Type: invitation.Type, Payload: payload}); err != nil {
 		return fmt.Errorf("failed from didexchange service handle: %w", err)
 	}
 	return nil

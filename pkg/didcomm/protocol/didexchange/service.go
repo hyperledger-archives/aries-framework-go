@@ -53,7 +53,7 @@ const (
 
 // message type to store data for eventing. This is retrieved during callback.
 type message struct {
-	Msg           service.DIDCommMsg
+	Msg           *service.DIDCommMsg
 	ThreadID      string
 	NextStateName string
 }
@@ -106,7 +106,7 @@ func New(didMaker did.Creator, prov provider) (*Service, error) {
 }
 
 // Handle didexchange msg
-func (s *Service) Handle(msg service.DIDCommMsg) error {
+func (s *Service) Handle(msg *service.DIDCommMsg) error {
 	// throw error if there is no action event registered for inbound messages
 	aEvent := s.GetActionEvent()
 
@@ -241,7 +241,7 @@ func (ex *didExchangeEvent) InvitationID() string {
 
 // sendEvent triggers the action event. This function stores the state of current processing and passes a callback
 // function in the event message.
-func (s *Service) sendActionEvent(msg service.DIDCommMsg, aEvent chan<- service.DIDCommAction,
+func (s *Service) sendActionEvent(msg *service.DIDCommMsg, aEvent chan<- service.DIDCommAction,
 	threadID string, nextState state) error {
 	jsonDoc, err := json.Marshal(&message{
 		Msg:           msg,
@@ -344,7 +344,7 @@ func isNoOp(s state) bool {
 	return ok
 }
 
-func threadID(didCommMsg service.DIDCommMsg) (string, error) {
+func threadID(didCommMsg *service.DIDCommMsg) (string, error) {
 	var thid string
 	if !didCommMsg.Outbound && didCommMsg.Type == ConnectionInvite {
 		return uuid.New().String(), nil
