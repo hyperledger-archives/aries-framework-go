@@ -13,8 +13,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/square/go-jose/v3"
-	"github.com/square/go-jose/v3/jwt"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -237,33 +235,6 @@ type Credential struct {
 	Evidence       *Evidence
 	TermsOfUse     []TermsOfUse
 	RefreshService *RefreshService
-}
-
-// JWTAlgorithm defines JWT signature algorithms of Verifiable Credential
-type JWTAlgorithm int
-
-const (
-	// ES256K JWT Algorithm
-	ES256K JWTAlgorithm = iota
-	// RS256 JWT Algorithm
-	RS256
-	// EdDSA JWT Algorithm
-	EdDSA
-)
-
-// Jose converts JWTAlgorithm to JOSE one.
-func (ja JWTAlgorithm) Jose() jose.SignatureAlgorithm {
-	switch ja {
-	case ES256K:
-		return jose.ES256
-	case RS256:
-		return jose.RS256
-	case EdDSA:
-		return jose.EdDSA
-	default:
-		logger.Errorf("Unsupported algorithm: %v, fallback to RS256", ja)
-		return jose.ES256
-	}
 }
 
 // rawCredential is a basic verifiable credential
@@ -519,7 +490,7 @@ func loadCredentialSchemas(raw *rawCredential, vcDataDecoded []byte) ([]Credenti
 	if raw.Schema != nil {
 		schemas, err := decodeCredentialSchema(vcDataDecoded)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode credential schemas")
+			return nil, fmt.Errorf("failed to decode credential schemas: %w", err)
 		}
 		return schemas, nil
 	}
@@ -545,11 +516,11 @@ func issuerFromBytes(data []byte) (issuerID, issuerName string, err error) {
 
 	eci := &embeddedCompositeIssuer{}
 	err = json.Unmarshal(data, &eci)
-	if err == nil {
-		return eci.CompositeIssuer.ID, eci.CompositeIssuer.Name, nil
+	if err != nil {
+		return "", "", errors.New("verifiable credential issuer is not valid")
 	}
 
-	return "", "", fmt.Errorf("verifiable credential issuer is not valid")
+	return eci.CompositeIssuer.ID, eci.CompositeIssuer.Name, nil
 }
 
 func issuerToSerialize(vc *Credential) interface{} {
@@ -641,41 +612,7 @@ func loadCredentialSchema(url string, client *http.Client) ([]byte, error) {
 // JWTClaims converts Verifiable Credential into JWT Credential claims, which can be than serialized
 // e.g. into JWS.
 func (vc *Credential) JWTClaims(minimizeVc bool) (*JWTCredClaims, error) {
-	subjectID, err := vc.SubjectID()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get VC subject id: %w", err)
-	}
-
-	// currently jwt encoding supports only single subject (by the spec)
-	jwtClaims := &jwt.Claims{
-		Issuer:    vc.Issuer.ID,                   // iss
-		NotBefore: jwt.NewNumericDate(*vc.Issued), // nbf
-		ID:        vc.ID,                          // jti
-		Subject:   subjectID,                      // sub
-		IssuedAt:  jwt.NewNumericDate(*vc.Issued), // iat (not in spec, follow the interop project approach)
-	}
-	if vc.Expired != nil {
-		jwtClaims.Expiry = jwt.NewNumericDate(*vc.Expired) // exp
-	}
-
-	var raw *rawCredential
-	if minimizeVc {
-		vcCopy := *vc
-		vcCopy.Expired = nil
-		vcCopy.Issuer.ID = ""
-		vcCopy.Issued = nil
-		vcCopy.ID = ""
-		raw = vcCopy.raw()
-	} else {
-		raw = vc.raw()
-	}
-
-	credClaims := &JWTCredClaims{
-		Claims:     jwtClaims,
-		Credential: raw,
-	}
-
-	return credClaims, nil
+	return newJWTCredClaims(vc, minimizeVc)
 }
 
 // SubjectID gets ID of single subject if present or

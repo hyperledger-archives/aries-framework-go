@@ -1,6 +1,10 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
+
+This is not actually a test but rather a stand-alone generator application
+that is used by VC Test Suite (https://github.com/w3c/vc-test-suite).
+To run VC Test Suite, execute `make vc-test-suite`.
 */
 
 package main
@@ -12,20 +16,21 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 
 	"github.com/square/go-jose/v3"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
+
+var logger = log.New("aries-framework/doc/verifiable/test-suite")
 
 func main() {
 	inputFile := os.Args[len(os.Args)-1]
 	vcBytes, readErr := ioutil.ReadFile(inputFile) // nolint:gosec
 	if readErr != nil {
-		log.Println(fmt.Errorf("cannot open input file %s: %w", inputFile, readErr))
-		abort()
+		abort("cannot open input file %s: %v", inputFile, readErr)
 	}
 
 	jwt := flag.String("jwt", "", "base64encoded JSON object containing es256kPrivateKeyJwk and rs256PrivateKeyJwk.")
@@ -39,8 +44,7 @@ func main() {
 
 	if *isPresentation {
 		// todo support Verifiable Presentations #371
-		log.Println("verifiable presentations are not supported")
-		abort()
+		abort("verifiable presentations are not supported")
 	}
 
 	if *jwt == "" {
@@ -56,8 +60,7 @@ func main() {
 
 	if *jwtPresentation {
 		// TODO Encode Verifiable Presentation #371
-		log.Println("verifiable presentations are not supported")
-		abort()
+		abort("verifiable presentations are not supported")
 	}
 
 	if *jwtNoJws {
@@ -72,20 +75,17 @@ func main() {
 func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
 	credential, err := verifiable.NewCredential(vcBytes)
 	if err != nil {
-		log.Println(fmt.Errorf("failed to decode credential: %w", err))
-		abort()
+		abort("failed to decode credential: %v", err)
 	}
 
 	jwtClaims, err := credential.JWTClaims(true)
 	if err != nil {
-		log.Println(fmt.Errorf("verifiable credential encoding to JWT failed: %w", err))
-		abort()
+		abort("verifiable credential encoding to JWT failed: %v", err)
 	}
 
 	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, privateKey, "any")
 	if err != nil {
-		log.Println(fmt.Errorf("failed to serialize JWS: %w", err))
-		abort()
+		abort("failed to serialize JWS: %v", err)
 	}
 
 	fmt.Println(jws)
@@ -94,20 +94,17 @@ func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
 func encodeVCToJWTUnsecured(vcBytes []byte) {
 	credential, err := verifiable.NewCredential(vcBytes)
 	if err != nil {
-		log.Println(fmt.Errorf("failed to decode credential: %w", err))
-		abort()
+		abort("failed to decode credential: %v", err)
 	}
 
 	jwtClaims, err := credential.JWTClaims(true)
 	if err != nil {
-		log.Println(fmt.Errorf("verifiable credential encoding to JWT failed: %w", err))
-		abort()
+		abort("verifiable credential encoding to JWT failed: %v", err)
 	}
 
 	jwtUnsecured, err := jwtClaims.MarshalUnsecuredJWT()
 	if err != nil {
-		log.Println(fmt.Errorf("failed to serialize unsecured JWT: %w", err))
-		abort()
+		abort("failed to serialize unsecured JWT: %v", err)
 	}
 
 	fmt.Println(jwtUnsecured)
@@ -120,13 +117,11 @@ func decodeVCJWTToJSON(vcBytes []byte, publicKey interface{}) {
 			return publicKey, nil
 		}))
 	if err != nil {
-		log.Println(fmt.Errorf("failed to decode credential: %w", err))
-		abort()
+		abort("failed to decode credential: %v", err)
 	}
 	jsonBytes, err := credential.MarshalJSON()
 	if err != nil {
-		log.Println(fmt.Errorf("failed to marshall verifiable credential to JSON: %w", err))
-		abort()
+		abort("failed to marshall verifiable credential to JSON: %v", err)
 	}
 	fmt.Println(string(jsonBytes))
 }
@@ -135,42 +130,36 @@ func parseKeys(packedKeys string) (private, public interface{}) {
 	// there are several JWKs which are based64
 	decodedJwt, err := base64.StdEncoding.DecodeString(packedKeys)
 	if err != nil {
-		log.Println(fmt.Errorf("cannot decode base64 of JSON containing JWT keys: %w", err))
-		abort()
+		abort("cannot decode base64 of JSON containing JWT keys: %v", err)
 	}
 
 	// found the target JWK
 	decodedJwtMap := make(map[string]interface{})
 	err = json.Unmarshal(decodedJwt, &decodedJwtMap)
 	if err != nil {
-		log.Println(fmt.Errorf("failed to decode JSON containing JWT keys: %w", err))
-		abort()
+		abort("failed to decode JSON containing JWT keys: %v", err)
 	}
 
 	rs256PrivateKeyJwk, exist := decodedJwtMap["rs256PrivateKeyJwk"]
 	if !exist {
-		log.Println(fmt.Errorf("cannot get rs256PrivateKeyJwk key"))
-		abort()
+		abort("cannot get rs256PrivateKeyJwk key")
 	}
 
 	// marshal found key back to bytes
 	jwkBytes, err := json.Marshal(rs256PrivateKeyJwk)
 	if err != nil {
-		log.Println(fmt.Errorf("JSON marshalling error: %w", err))
-		abort()
+		abort("JSON marshalling error: %v", err)
 	}
 
 	jwk := &jose.JSONWebKey{}
 	err = jwk.UnmarshalJSON(jwkBytes)
 	if err != nil {
-		log.Println(fmt.Errorf("JWK unmarshalling error: %w", err))
-		abort()
+		abort("JWK unmarshalling error: %v", err)
 	}
 
 	privateKey, ok := jwk.Key.(*rsa.PrivateKey)
 	if !ok {
-		log.Println("expected to get *rsa.PrivateKey, but got smth different")
-		abort()
+		abort("expected to get *rsa.PrivateKey, but got smth different")
 	}
 
 	publicKey := &privateKey.PublicKey
@@ -181,17 +170,16 @@ func parseKeys(packedKeys string) (private, public interface{}) {
 func encodeVCToJSON(vcBytes []byte) {
 	credential, err := verifiable.NewCredential(vcBytes, verifiable.WithNoCustomSchemaCheck())
 	if err != nil {
-		log.Println(fmt.Errorf("failed to decode credential: %w", err))
-		abort()
+		abort("failed to decode credential: %v", err)
 	}
 	encoded, err := credential.MarshalJSON()
 	if err != nil {
-		log.Println(fmt.Errorf("failed to encode credential: %w", err))
-		abort()
+		abort("failed to encode credential: %v", err)
 	}
 	fmt.Println(string(encoded))
 }
 
-func abort() {
+func abort(msg string, args ...interface{}) {
+	logger.Errorf(msg, args...)
 	os.Exit(1)
 }

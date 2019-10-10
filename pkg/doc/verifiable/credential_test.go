@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -875,10 +874,4 @@ func TestDecodeType(t *testing.T) {
 		err := decodeType([]byte(multipleType), vc)
 		require.Error(t, err)
 	})
-}
-
-func TestJwtAlgorithm_Jose(t *testing.T) {
-	require.Equal(t, jose.ES256, ES256K.Jose())
-	require.Equal(t, jose.RS256, RS256.Jose())
-	require.Equal(t, jose.EdDSA, EdDSA.Jose())
 }

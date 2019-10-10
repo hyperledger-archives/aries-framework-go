@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/square/go-jose/v3"
 	"github.com/square/go-jose/v3/jwt"
 )
 
@@ -21,37 +20,44 @@ type JWTCredClaims struct {
 	Credential *rawCredential `json:"vc,omitempty"`
 }
 
-// MarshalJWS serializes JWT into signed form (JWS)
-func (vcc *JWTCredClaims) MarshalJWS(signatureAlg JWTAlgorithm, privateKey interface{}, keyID string) (string, error) { //nolint:lll
-	key := jose.SigningKey{Algorithm: signatureAlg.Jose(), Key: privateKey}
-
-	var signerOpts = &jose.SignerOptions{}
-	signerOpts.WithType("JWT")
-	signerOpts.WithHeader("kid", keyID)
-
-	signer, err := jose.NewSigner(key, signerOpts)
+// newJWTCredClaims creates JWT Claims of VC with an option to minimize certain fields of VC
+// which is put into "vc" claim.
+func newJWTCredClaims(vc *Credential, minimizeVc bool) (*JWTCredClaims, error) {
+	subjectID, err := vc.SubjectID()
 	if err != nil {
-		return "", fmt.Errorf("failed to create signer: %w", err)
+		return nil, fmt.Errorf("failed to get VC subject id: %w", err)
 	}
 
-	// create an instance of Builder that uses the signer
-	builder := jwt.Signed(signer).Claims(vcc)
-
-	// validate all ok, sign with the key, and return a compact JWT
-	jws, err := builder.CompactSerialize()
-	if err != nil {
-		return "", fmt.Errorf("failed to sign JWT: %w", err)
+	// currently jwt encoding supports only single subject (by the spec)
+	jwtClaims := &jwt.Claims{
+		Issuer:    vc.Issuer.ID,                   // iss
+		NotBefore: jwt.NewNumericDate(*vc.Issued), // nbf
+		ID:        vc.ID,                          // jti
+		Subject:   subjectID,                      // sub
+		IssuedAt:  jwt.NewNumericDate(*vc.Issued), // iat (not in spec, follow the interop project approach)
+	}
+	if vc.Expired != nil {
+		jwtClaims.Expiry = jwt.NewNumericDate(*vc.Expired) // exp
 	}
 
-	return jws, nil
-}
-
-// MarshalUnsecuredJWT serialized JWT into unsecured JWT.
-func (vcc *JWTCredClaims) MarshalUnsecuredJWT() (string, error) {
-	headers := map[string]string{
-		"alg": "none",
+	var raw *rawCredential
+	if minimizeVc {
+		vcCopy := *vc
+		vcCopy.Expired = nil
+		vcCopy.Issuer.ID = ""
+		vcCopy.Issued = nil
+		vcCopy.ID = ""
+		raw = vcCopy.raw()
+	} else {
+		raw = vc.raw()
 	}
-	return marshalUnsecuredJWT(headers, vcc)
+
+	credClaims := &JWTCredClaims{
+		Claims:     jwtClaims,
+		Credential: raw,
+	}
+
+	return credClaims, nil
 }
 
 // jwtVCClaim is used to get content of "vc" claim of JWT.
@@ -80,95 +86,22 @@ func mergeRefinedVC(jsonCred map[string]interface{}, rawCred *rawCredential) err
 	return nil
 }
 
-// credJWTDecoder parses JWT claims from serialized token into JWTCredClaims struct and JSON object.
+// jwtCredClaimsDecoder parses JWT claims from serialized token into JWTCredClaims struct and JSON object.
 // The implementation depends on the type of serialization, e.g. signed (JWT), unsecured (plain JWT).
-type credJWTDecoder interface {
+type jwtCredClaimsDecoder interface {
 	UnmarshalClaims(rawJwt []byte) (*JWTCredClaims, error)
 	UnmarshalVCClaim(rawJwt []byte) (map[string]interface{}, error)
 }
 
-// credJWSDecoder parses and verifies signature of serialized JWT. To verify the signature,
-// Public Key Fetcher is used.
-type credJWSDecoder struct {
-	PKFetcher PublicKeyFetcher
-}
-
-func (jd *credJWSDecoder) UnmarshalClaims(rawJwt []byte) (*JWTCredClaims, error) {
-	parsedJwt, err := jwt.ParseSigned(string(rawJwt))
-	if err != nil {
-		return nil, fmt.Errorf("VC is not valid serialized JWS: %w", err)
-	}
-
-	credClaims := new(JWTCredClaims)
-	err = parsedJwt.UnsafeClaimsWithoutVerification(credClaims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JWT claims: %w", err)
-	}
-
-	if verifyErr := verifyJWTSignature(parsedJwt, jd.PKFetcher, credClaims); verifyErr != nil {
-		return nil, fmt.Errorf("JWT signature verification failed: %w", verifyErr)
-	}
-
-	return credClaims, nil
-}
-
-func (jd *credJWSDecoder) UnmarshalVCClaim(rawJwt []byte) (map[string]interface{}, error) {
-	parsedJwt, err := jwt.ParseSigned(string(rawJwt))
-	if err != nil {
-		return nil, fmt.Errorf("VC is not valid serialized JWS: %w", err)
-	}
-
-	jsonObjClaims := new(jwtVCClaim)
-	err = parsedJwt.UnsafeClaimsWithoutVerification(jsonObjClaims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JWT claims: %w", err)
-	}
-
-	return jsonObjClaims.VC, nil
-}
-
-// credUnsecuredJWTDecoder parses serialized unsecured JWT.
-type credUnsecuredJWTDecoder struct{}
-
-func (ud *credUnsecuredJWTDecoder) UnmarshalClaims(rawJwt []byte) (*JWTCredClaims, error) {
-	_, bytesClaim, err := unmarshalUnsecuredJWT(rawJwt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode unsecured JWT")
-	}
-
-	credClaims := new(JWTCredClaims)
-	err = json.Unmarshal(bytesClaim, credClaims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JWT claims: %w", err)
-	}
-
-	return credClaims, nil
-}
-
-func (ud *credUnsecuredJWTDecoder) UnmarshalVCClaim(rawJwt []byte) (map[string]interface{}, error) {
-	_, bytesClaim, err := unmarshalUnsecuredJWT(rawJwt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode unsecured JWT")
-	}
-
-	rawClaims := new(jwtVCClaim)
-	err = json.Unmarshal(bytesClaim, rawClaims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JWT claims: %w", err)
-	}
-
-	return rawClaims.VC, nil
-}
-
 // decodeCredJWT parses JWT from the specified bytes array in compact format using jwtDecoder.
 // It returns decoded Verifiable Credential refined by JWT Claims in raw byte array and rawCredential form.
-func decodeCredJWT(rawJWT []byte, jwtDecoder credJWTDecoder) ([]byte, *rawCredential, error) {
-	credClaims, err := jwtDecoder.UnmarshalClaims(rawJWT)
+func decodeCredJWT(rawJWT []byte, credClaimsDecoder jwtCredClaimsDecoder) ([]byte, *rawCredential, error) {
+	credClaims, err := credClaimsDecoder.UnmarshalClaims(rawJWT)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode Verifiable Credential JWT claims: %w", err)
 	}
 
-	credJSON, err := jwtDecoder.UnmarshalVCClaim(rawJWT)
+	credJSON, err := credClaimsDecoder.UnmarshalVCClaim(rawJWT)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode raw Verifiable Credential JWT claims: %w", err)
 	}
@@ -188,61 +121,31 @@ func decodeCredJWT(rawJWT []byte, jwtDecoder credJWTDecoder) ([]byte, *rawCreden
 	return vcData, credClaims.Credential, nil
 }
 
-func (vcc *JWTCredClaims) refineCredFromJWTClaims() {
-	raw := vcc.Credential
+func (jcc *JWTCredClaims) refineCredFromJWTClaims() {
+	raw := jcc.Credential
 
-	if iss := vcc.Issuer; iss != "" {
+	if iss := jcc.Issuer; iss != "" {
 		refineVCIssuerFromJWTClaims(raw, iss)
 	}
 
-	if nbf := vcc.NotBefore; nbf != nil {
+	if nbf := jcc.NotBefore; nbf != nil {
 		nbfTime := nbf.Time().UTC()
 		raw.Issued = &nbfTime
 	}
 
-	if jti := vcc.ID; jti != "" {
-		raw.ID = vcc.ID
+	if jti := jcc.ID; jti != "" {
+		raw.ID = jcc.ID
 	}
 
-	if iat := vcc.IssuedAt; iat != nil {
+	if iat := jcc.IssuedAt; iat != nil {
 		iatTime := iat.Time().UTC()
 		raw.Issued = &iatTime
 	}
 
-	if exp := vcc.Expiry; exp != nil {
+	if exp := jcc.Expiry; exp != nil {
 		expTime := exp.Time().UTC()
 		raw.Expired = &expTime
 	}
-}
-
-func decodeCredJWS(rawJwt []byte, fetcher PublicKeyFetcher) ([]byte, *rawCredential, error) {
-	decoder := &credJWSDecoder{
-		PKFetcher: fetcher,
-	}
-	return decodeCredJWT(rawJwt, decoder)
-}
-
-func decodeCredJWTUnsecured(rawJwt []byte) ([]byte, *rawCredential, error) {
-	decoder := &credUnsecuredJWTDecoder{}
-	return decodeCredJWT(rawJwt, decoder)
-}
-
-func verifyJWTSignature(parsedJwt *jwt.JSONWebToken, fetcher PublicKeyFetcher, credClaims *JWTCredClaims) error {
-	var keyID string
-	for _, h := range parsedJwt.Headers {
-		if h.KeyID != "" {
-			keyID = h.KeyID
-			break
-		}
-	}
-	publicKey, err := fetcher(credClaims.Issuer, keyID)
-	if err != nil {
-		return fmt.Errorf("failed to get public key for JWT signature verification: %w", err)
-	}
-	if err = parsedJwt.Claims(publicKey, credClaims); err != nil {
-		return fmt.Errorf("JWT signature verification failed: %w", err)
-	}
-	return nil
 }
 
 func refineVCIssuerFromJWTClaims(raw *rawCredential, iss string) {
