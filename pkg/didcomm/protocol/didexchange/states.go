@@ -50,7 +50,7 @@ type state interface {
 	CanTransitionTo(next state) bool
 	// Executes this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	Execute(msg service.DIDCommMsg, thid string, ctx context) (followup state, action stateAction, err error)
+	Execute(msg *service.DIDCommMsg, thid string, ctx context) (followup state, action stateAction, err error)
 }
 
 // Returns the state towards which the protocol will transition to if the msgType is processed.
@@ -101,7 +101,7 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) Execute(_ service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+func (s *noOp) Execute(_ *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
 	return nil, nil, errors.New("cannot execute no-op")
 }
 
@@ -117,7 +117,7 @@ func (s *null) CanTransitionTo(next state) bool {
 	return stateNameInvited == next.Name() || stateNameRequested == next.Name()
 }
 
-func (s *null) Execute(msg service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+func (s *null) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
 	return &noOp{}, nil, nil
 }
 
@@ -133,7 +133,7 @@ func (s *invited) CanTransitionTo(next state) bool {
 	return stateNameRequested == next.Name()
 }
 
-func (s *invited) Execute(msg service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+func (s *invited) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
 	if msg.Type != ConnectionInvite {
 		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
 	}
@@ -156,7 +156,7 @@ func (s *requested) CanTransitionTo(next state) bool {
 	return stateNameResponded == next.Name()
 }
 
-func (s *requested) Execute(msg service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+func (s *requested) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
 	switch msg.Type {
 	case ConnectionInvite:
 		if msg.Outbound {
@@ -198,7 +198,7 @@ func (s *responded) CanTransitionTo(next state) bool {
 	return stateNameCompleted == next.Name()
 }
 
-func (s *responded) Execute(msg service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+func (s *responded) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
 	switch msg.Type {
 	case ConnectionRequest:
 		if msg.Outbound {
@@ -240,7 +240,7 @@ func (s *completed) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *completed) Execute(msg service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+func (s *completed) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
 	switch msg.Type {
 	case ConnectionResponse:
 		if msg.Outbound {
@@ -342,7 +342,7 @@ func (ctx *context) handleInboundRequest(request *Request) (stateAction, error) 
 		return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
 	}, nil
 }
-func (ctx *context) sendOutboundRequest(msg service.DIDCommMsg) (stateAction, error) {
+func (ctx *context) sendOutboundRequest(msg *service.DIDCommMsg) (stateAction, error) {
 	if msg.OutboundDestination == nil {
 		return nil, fmt.Errorf("outboundDestination cannot be empty for outbound Request")
 	}
@@ -368,7 +368,7 @@ func (ctx *context) sendOutboundRequest(msg service.DIDCommMsg) (stateAction, er
 	}, nil
 }
 
-func (ctx *context) sendOutboundResponse(msg service.DIDCommMsg) (stateAction, error) {
+func (ctx *context) sendOutboundResponse(msg *service.DIDCommMsg) (stateAction, error) {
 	if msg.OutboundDestination == nil {
 		return nil, fmt.Errorf("outboundDestination cannot be empty for outbound Request")
 	}
@@ -452,7 +452,7 @@ func prepareConnectionSignature(connection *Connection) (*ConnectionSignature, e
 		SignVerKey: string(pubKey),
 	}, nil
 }
-func (ctx *context) sendOutboundAck(msg service.DIDCommMsg) (stateAction, error) {
+func (ctx *context) sendOutboundAck(msg *service.DIDCommMsg) (stateAction, error) {
 	ack := &model.Ack{}
 	if msg.OutboundDestination == nil {
 		return nil, fmt.Errorf("outboundDestination cannot be empty for outbound Response")

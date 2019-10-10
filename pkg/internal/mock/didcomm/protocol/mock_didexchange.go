@@ -26,9 +26,9 @@ type MockDIDExchangeSvc struct {
 }
 
 // Handle msg
-func (m *MockDIDExchangeSvc) Handle(msg service.DIDCommMsg) error {
+func (m *MockDIDExchangeSvc) Handle(msg *service.DIDCommMsg) error {
 	if m.HandleFunc != nil {
-		return m.HandleFunc(msg)
+		return m.HandleFunc(*msg)
 	}
 	return nil
 }

@@ -141,7 +141,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 		})
 	require.NoError(t, err)
 	msg := service.DIDCommMsg{Type: ConnectionRequest, Payload: payloadBytes}
-	err = s.Handle(msg)
+	err = s.Handle(&msg)
 	require.NoError(t, err)
 
 	select {
@@ -161,7 +161,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 		})
 	require.NoError(t, err)
 	msg = service.DIDCommMsg{Type: ConnectionAck, Payload: payloadBytes}
-	err = s.Handle(msg)
+	err = s.Handle(&msg)
 	require.NoError(t, err)
 
 	select {
@@ -265,7 +265,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	)
 	require.NoError(t, err)
 	msg := service.DIDCommMsg{Type: ConnectionInvite, Outbound: false, Payload: payloadBytes}
-	err = s.Handle(msg)
+	err = s.Handle(&msg)
 	require.NoError(t, err)
 
 	// Alice automatically sends a Request to Bob and is now in REQUESTED state.
@@ -298,7 +298,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	)
 	require.NoError(t, err)
 	msg = service.DIDCommMsg{Type: ConnectionResponse, Outbound: false, Payload: payloadBytes}
-	err = s.Handle(msg)
+	err = s.Handle(&msg)
 	require.NoError(t, err)
 
 	// Alice automatically sends an ACK to Bob
@@ -325,7 +325,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(service.DIDCommMsg{Type: ConnectionResponse, Payload: response})
+		err = s.Handle(&service.DIDCommMsg{Type: ConnectionResponse, Payload: response})
 		require.Error(t, err)
 	})
 	t.Run("must not start with ACK msg", func(t *testing.T) {
@@ -341,7 +341,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(service.DIDCommMsg{Type: ConnectionAck, Payload: ack})
+		err = s.Handle(&service.DIDCommMsg{Type: ConnectionAck, Payload: ack})
 		require.Error(t, err)
 	})
 	t.Run("must not transition to same state", func(t *testing.T) {
@@ -385,7 +385,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(service.DIDCommMsg{Type: ConnectionRequest, Outbound: false, Payload: request})
+		err = s.Handle(&service.DIDCommMsg{Type: ConnectionRequest, Outbound: false, Payload: request})
 		require.NoError(t, err)
 
 		select {
@@ -404,7 +404,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(service.DIDCommMsg{Type: ConnectionResponse, Outbound: false, Payload: response})
+		err = s.Handle(&service.DIDCommMsg{Type: ConnectionResponse, Outbound: false, Payload: response})
 		require.Error(t, err)
 	})
 	t.Run("error when updating store on first state transition", func(t *testing.T) {
@@ -429,7 +429,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(service.DIDCommMsg{Type: ConnectionRequest, Outbound: false, Payload: request})
+		err = s.Handle(&service.DIDCommMsg{Type: ConnectionRequest, Outbound: false, Payload: request})
 		require.Error(t, err)
 	})
 	t.Run("error when updating store on followup state transition", func(t *testing.T) {
@@ -459,7 +459,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(service.DIDCommMsg{Type: ConnectionRequest, Outbound: false, Payload: request})
+		err = s.Handle(&service.DIDCommMsg{Type: ConnectionRequest, Outbound: false, Payload: request})
 		require.Error(t, err)
 	})
 
@@ -477,7 +477,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.Handle(service.DIDCommMsg{Type: "INVALID", Outbound: false, Payload: request})
+		err = s.Handle(&service.DIDCommMsg{Type: "INVALID", Outbound: false, Payload: request})
 		require.Error(t, err)
 	})
 }
@@ -507,18 +507,18 @@ func TestService_Accept(t *testing.T) {
 
 func TestService_threadID(t *testing.T) {
 	t.Run("returns new thid for ", func(t *testing.T) {
-		thid, err := threadID(service.DIDCommMsg{Type: ConnectionInvite, Outbound: false})
+		thid, err := threadID(&service.DIDCommMsg{Type: ConnectionInvite, Outbound: false})
 		require.NoError(t, err)
 		require.NotNil(t, thid)
 	})
 	t.Run("returns unmarshall error", func(t *testing.T) {
-		thid, err := threadID(service.DIDCommMsg{Type: ConnectionRequest, Outbound: true})
+		thid, err := threadID(&service.DIDCommMsg{Type: ConnectionRequest, Outbound: true})
 		require.Error(t, err)
 		require.Equal(t, "", thid)
 	})
 	msg := []byte(`{"~thread": {"thid": "xyz"}}`)
 	t.Run("returns unmarshall error", func(t *testing.T) {
-		thid, err := threadID(service.DIDCommMsg{Type: ConnectionRequest, Outbound: true, Payload: msg})
+		thid, err := threadID(&service.DIDCommMsg{Type: ConnectionRequest, Outbound: true, Payload: msg})
 		require.NoError(t, err)
 		require.Equal(t, "xyz", thid)
 	})
@@ -673,7 +673,7 @@ func TestService_Events(t *testing.T) {
 			Payload: request,
 		}
 
-		err = svc.Handle(msg)
+		err = svc.Handle(&msg)
 		require.NoError(t, err)
 	}()
 
@@ -844,7 +844,7 @@ func handleConnectionAckEvents(t *testing.T, svc *Service, e *service.DIDCommAct
 	}
 }
 
-func writeToDB(t *testing.T, svc *Service, e service.DIDCommMsg) {
+func writeToDB(t *testing.T, svc *Service, e *service.DIDCommMsg) {
 	require.NotEmpty(t, e)
 
 	pl := payload{}
@@ -875,7 +875,7 @@ func validateSuccessCase(t *testing.T, svc *Service) {
 		Payload: invite,
 	}
 
-	err = svc.Handle(msg)
+	err = svc.Handle(&msg)
 	require.NoError(t, err)
 }
 
@@ -901,7 +901,7 @@ func validateUserError(t *testing.T, svc *Service) {
 		Payload: request,
 	}
 
-	err = svc.Handle(msg)
+	err = svc.Handle(&msg)
 	require.NoError(t, err)
 }
 
@@ -931,7 +931,7 @@ func validateStoreError(t *testing.T, svc *Service) {
 		Payload: request,
 	}
 
-	err = svc.Handle(msg)
+	err = svc.Handle(&msg)
 	require.NoError(t, err)
 }
 
@@ -961,7 +961,7 @@ func validateStoreDataCorruptionError(t *testing.T, svc *Service) {
 		Payload: request,
 	}
 
-	err = svc.Handle(msg)
+	err = svc.Handle(&msg)
 	require.NoError(t, err)
 }
 
@@ -991,7 +991,7 @@ func validateHandleError(t *testing.T, svc *Service) {
 		Payload: request,
 	}
 
-	err = svc.Handle(msg)
+	err = svc.Handle(&msg)
 	require.NoError(t, err)
 }
 
@@ -1020,7 +1020,7 @@ func TestService_No_Execution(t *testing.T) {
 		Type: ConnectionResponse,
 	}
 
-	err = svc.Handle(msg)
+	err = svc.Handle(&msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no clients are registered to handle the message")
 }
@@ -1053,7 +1053,7 @@ func TestServiceErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	// thid error
-	err = svc.Handle(service.DIDCommMsg{Payload: nil})
+	err = svc.Handle(&service.DIDCommMsg{Payload: nil})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot unmarshal @id and ~thread: error=")
 
@@ -1068,7 +1068,7 @@ func TestServiceErrors(t *testing.T) {
 	}}
 	svc.store = mockStore
 	svc.connectionStore = NewConnectionRecorder(mockStore)
-	err = svc.Handle(msg)
+	err = svc.Handle(&msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot fetch state from store")
 
@@ -1077,13 +1077,13 @@ func TestServiceErrors(t *testing.T) {
 	svc.store, err = mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
 	svc.connectionStore = NewConnectionRecorder(svc.store)
 	require.NoError(t, err)
-	err = svc.Handle(msg)
+	err = svc.Handle(&msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unrecognized msgType: invalid")
 
 	// test handle - invalid state name
 	msg.Type = ConnectionResponse
-	message := &message{Msg: msg, ThreadID: randomString()}
+	message := &message{Msg: &msg, ThreadID: randomString()}
 	err = svc.handle(message)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid state name:")

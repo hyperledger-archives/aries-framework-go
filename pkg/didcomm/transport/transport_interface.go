@@ -19,7 +19,7 @@ type OutboundTransport interface {
 
 // InboundMessageHandler handles the inbound requests. The transport will unpack the payload prior to the
 // message handle invocation.
-type InboundMessageHandler func(payload []byte) error
+type InboundMessageHandler func(envelope *wallet.Envelope) error
 
 // InboundProvider contains dependencies for starting the inbound transport.
 // It is typically created by using aries.Context().

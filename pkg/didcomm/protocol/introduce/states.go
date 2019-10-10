@@ -37,7 +37,7 @@ type state interface {
 	CanTransitionTo(next state) bool
 	// Executes this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	Execute(msg service.DIDCommMsg) (followup state, err error)
+	Execute(msg *service.DIDCommMsg) (followup state, err error)
 }
 
 // noOp state
@@ -52,7 +52,7 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) Execute(_ service.DIDCommMsg) (state, error) {
+func (s *noOp) Execute(_ *service.DIDCommMsg) (state, error) {
 	return nil, errors.New("cannot execute no-op")
 }
 
@@ -70,7 +70,7 @@ func (s *start) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameArranging || next.Name() == stateNameDelivering || next.Name() == stateNameDeciding
 }
 
-func (s *start) Execute(msg service.DIDCommMsg) (state, error) {
+func (s *start) Execute(msg *service.DIDCommMsg) (state, error) {
 	return nil, errors.New("start execute: not implemented yet")
 }
 
@@ -87,7 +87,7 @@ func (s *done) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *done) Execute(msg service.DIDCommMsg) (state, error) {
+func (s *done) Execute(msg *service.DIDCommMsg) (state, error) {
 	return nil, errors.New("done execute: not implemented yet")
 }
 
@@ -103,7 +103,7 @@ func (s *arranging) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameArranging || next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-func (s *arranging) Execute(msg service.DIDCommMsg) (state, error) {
+func (s *arranging) Execute(msg *service.DIDCommMsg) (state, error) {
 	return nil, errors.New("arranging execute: not implemented yet")
 }
 
@@ -119,7 +119,7 @@ func (s *delivering) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameConfirming || next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-func (s *delivering) Execute(msg service.DIDCommMsg) (state, error) {
+func (s *delivering) Execute(msg *service.DIDCommMsg) (state, error) {
 	return nil, errors.New("delivering execute: not implemented yet")
 }
 
@@ -135,7 +135,7 @@ func (s *confirming) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-func (s *confirming) Execute(msg service.DIDCommMsg) (state, error) {
+func (s *confirming) Execute(msg *service.DIDCommMsg) (state, error) {
 	return nil, errors.New("confirming execute: not implemented yet")
 }
 
@@ -151,7 +151,7 @@ func (s *abandoning) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone
 }
 
-func (s *abandoning) Execute(msg service.DIDCommMsg) (state, error) {
+func (s *abandoning) Execute(msg *service.DIDCommMsg) (state, error) {
 	return nil, errors.New("abandoning execute: not implemented yet")
 }
 
@@ -167,7 +167,7 @@ func (s *deciding) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameWaiting || next.Name() == stateNameDone
 }
 
-func (s *deciding) Execute(msg service.DIDCommMsg) (state, error) {
+func (s *deciding) Execute(msg *service.DIDCommMsg) (state, error) {
 	return nil, errors.New("deciding execute: not implemented yet")
 }
 
@@ -183,6 +183,6 @@ func (s *waiting) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone
 }
 
-func (s *waiting) Execute(msg service.DIDCommMsg) (state, error) {
+func (s *waiting) Execute(msg *service.DIDCommMsg) (state, error) {
 	return nil, errors.New("waiting execute: not implemented yet")
 }

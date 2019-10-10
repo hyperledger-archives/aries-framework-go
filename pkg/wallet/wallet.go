@@ -151,7 +151,7 @@ func (w *BaseWallet) UnpackMessage(encMessage []byte) (*Envelope, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed from decrypt: %w", err)
 		}
-		return &Envelope{Message: bytes}, nil
+		return &Envelope{Message: bytes, ToVerKeys: []string{recipVKeyB58}}, nil
 	}
 	return nil, fmt.Errorf("no corresponding recipient key found in {%s}", keysNotFound)
 }

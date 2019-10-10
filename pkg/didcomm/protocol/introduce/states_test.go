@@ -34,7 +34,7 @@ func TestNoopState(t *testing.T) {
 
 // noOp.Execute() returns nil, error
 func TestNoOpState_Execute(t *testing.T) {
-	followup, err := (&noOp{}).Execute(service.DIDCommMsg{})
+	followup, err := (&noOp{}).Execute(&service.DIDCommMsg{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -57,7 +57,7 @@ func TestStartState(t *testing.T) {
 }
 
 func TestStartState_Execute(t *testing.T) {
-	followup, err := (&start{}).Execute(service.DIDCommMsg{})
+	followup, err := (&start{}).Execute(&service.DIDCommMsg{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -70,7 +70,7 @@ func TestDoneState(t *testing.T) {
 }
 
 func TestDoneState_Execute(t *testing.T) {
-	followup, err := (&done{}).Execute(service.DIDCommMsg{})
+	followup, err := (&done{}).Execute(&service.DIDCommMsg{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -93,7 +93,7 @@ func TestArrangingState(t *testing.T) {
 }
 
 func TestArrangingState_Execute(t *testing.T) {
-	followup, err := (&arranging{}).Execute(service.DIDCommMsg{})
+	followup, err := (&arranging{}).Execute(&service.DIDCommMsg{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -116,7 +116,7 @@ func TestDeliveringState(t *testing.T) {
 }
 
 func TestDeliveringState_Execute(t *testing.T) {
-	followup, err := (&delivering{}).Execute(service.DIDCommMsg{})
+	followup, err := (&delivering{}).Execute(&service.DIDCommMsg{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -139,7 +139,7 @@ func TestConfirmingState(t *testing.T) {
 }
 
 func TestConfirmingState_Execute(t *testing.T) {
-	followup, err := (&confirming{}).Execute(service.DIDCommMsg{})
+	followup, err := (&confirming{}).Execute(&service.DIDCommMsg{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -162,7 +162,7 @@ func TestAbandoningState(t *testing.T) {
 }
 
 func TestAbandoningState_Execute(t *testing.T) {
-	followup, err := (&abandoning{}).Execute(service.DIDCommMsg{})
+	followup, err := (&abandoning{}).Execute(&service.DIDCommMsg{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -185,7 +185,7 @@ func TestDecidingState(t *testing.T) {
 }
 
 func TestDecidingState_Execute(t *testing.T) {
-	followup, err := (&deciding{}).Execute(service.DIDCommMsg{})
+	followup, err := (&deciding{}).Execute(&service.DIDCommMsg{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -208,7 +208,7 @@ func TestWaitingState(t *testing.T) {
 }
 
 func TestWaitingState_Execute(t *testing.T) {
-	followup, err := (&waiting{}).Execute(service.DIDCommMsg{})
+	followup, err := (&waiting{}).Execute(&service.DIDCommMsg{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }

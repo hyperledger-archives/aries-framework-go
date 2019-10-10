@@ -207,6 +207,7 @@ func TestBaseWallet_PackMessage(t *testing.T) {
 		unpackMsg, err := w.UnpackMessage(packMsg)
 		require.NoError(t, err)
 		require.Equal(t, []byte("msg1"), unpackMsg.Message)
+		require.Equal(t, []string{base58.Encode(pub2[:])}, unpackMsg.ToVerKeys)
 	})
 
 	t.Run("test envelope is nil", func(t *testing.T) {

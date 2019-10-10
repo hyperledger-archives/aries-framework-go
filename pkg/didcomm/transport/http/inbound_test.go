@@ -30,8 +30,8 @@ type mockProvider struct {
 }
 
 func (p *mockProvider) InboundMessageHandler() transport.InboundMessageHandler {
-	return func(payload []byte) error {
-		logger.Debugf("Payload received is %s", payload)
+	return func(envelope *wallet.Envelope) error {
+		logger.Debugf("Envelope received is %s", envelope)
 		return nil
 	}
 }

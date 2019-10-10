@@ -91,38 +91,38 @@ func TestNewProvider(t *testing.T) {
 		inboundHandler := ctx.InboundMessageHandler()
 
 		// valid json and message type
-		err = inboundHandler([]byte(`
+		err = inboundHandler(&wallet.Envelope{Message: []byte(`
 		{
 			"@id": "5678876542345",
 			"@type": "valid-message-type"
-		}`))
+		}`)})
 		require.NoError(t, err)
 
 		// invalid json
-		err = inboundHandler([]byte("invalid json"))
+		err = inboundHandler(&wallet.Envelope{Message: []byte("invalid json")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid payload data format")
 
 		// invalid json
-		err = inboundHandler([]byte("invalid json"))
+		err = inboundHandler(&wallet.Envelope{Message: []byte("invalid json")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid payload data format")
 
 		// no handlers
-		err = inboundHandler([]byte(`
+		err = inboundHandler(&wallet.Envelope{Message: []byte(`
 		{
 			"@type": "invalid-message-type",
 			"label": "Bob"
-		}`))
+		}`)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no message handlers found for the message type: invalid-message-type")
 
 		// valid json, message type but service handlers returns error
-		err = inboundHandler([]byte(`
+		err = inboundHandler(&wallet.Envelope{Message: []byte(`
 		{
 			"label": "Carol",
 			"@type": "valid-message-type"
-		}`))
+		}`)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error handling the message")
 	})
