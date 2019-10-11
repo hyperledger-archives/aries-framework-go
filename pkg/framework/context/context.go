@@ -83,12 +83,12 @@ func (p *Provider) InboundTransportEndpoint() string {
 
 // InboundMessageHandler return inbound message handler
 func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
-	return func(envelope *wallet.Envelope) error {
+	return func(message []byte) error {
 		// get the message type from the payload and dispatch based on the services
 		msgType := &struct {
 			Type string `json:"@type,omitempty"`
 		}{}
-		err := json.Unmarshal(envelope.Message, msgType)
+		err := json.Unmarshal(message, msgType)
 		if err != nil {
 			return fmt.Errorf("invalid payload data format: %w", err)
 		}
@@ -96,7 +96,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		// find the service which accepts the message type
 		for _, svc := range p.services {
 			if svc.Accept(msgType.Type) {
-				return svc.Handle(&service.DIDCommMsg{Type: msgType.Type, Payload: envelope.Message, ToVerKeys: envelope.ToVerKeys})
+				return svc.Handle(&service.DIDCommMsg{Type: msgType.Type, Payload: message})
 			}
 		}
 		return fmt.Errorf("no message handlers found for the message type: %s", msgType.Type)

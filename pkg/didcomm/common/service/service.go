@@ -30,8 +30,6 @@ type DIDCommMsg struct {
 	Payload  []byte
 	// TODO : might need refactor as per the issue-226
 	OutboundDestination *Destination
-	// ToVerKeys are recipient keys
-	ToVerKeys []string
 }
 
 // Destination provides the recipientKeys, routingKeys, and serviceEndpoint populated from Invitation

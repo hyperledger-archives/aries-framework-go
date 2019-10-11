@@ -66,7 +66,7 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.I
 	}
 
 	messageHandler := prov.InboundMessageHandler()
-	err = messageHandler(unpackMsg)
+	err = messageHandler(unpackMsg.Message)
 	if err != nil {
 		// TODO HTTP Response Codes based on errors from service https://github.com/hyperledger/aries-framework-go/issues/271
 		logger.Errorf("incoming msg processing failed: %s", err)
