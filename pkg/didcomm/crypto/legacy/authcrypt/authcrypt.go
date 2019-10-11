@@ -13,11 +13,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
-
 	"github.com/agl/ed25519/extra25519"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/nacl/box"
+
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
 type privateEd25519 [ed25519.PrivateKeySize]byte
@@ -85,8 +85,8 @@ type recipientHeader struct {
 	IV     string `json:"iv,omitempty"`
 }
 
-func keyToEdKey(keyPair crypto.KeyPair) (*keyPairEd25519, error) {
-	if !crypto.IsKeyPairValid(keyPair) ||
+func keyToEdKey(keyPair cryptoutil.KeyPair) (*keyPairEd25519, error) {
+	if !cryptoutil.IsKeyPairValid(keyPair) ||
 		len(keyPair.Priv) != ed25519.PrivateKeySize ||
 		len(keyPair.Pub) != ed25519.PublicKeySize {
 		return nil, fmt.Errorf(

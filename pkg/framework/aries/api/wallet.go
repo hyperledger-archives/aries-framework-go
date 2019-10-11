@@ -16,7 +16,6 @@ import (
 type CloseableWallet interface {
 	io.Closer
 	wallet.Crypto
-	wallet.Pack
 	wallet.DIDCreator
 }
 

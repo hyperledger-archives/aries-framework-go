@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -18,6 +19,7 @@ type Provider struct {
 	WalletValue          wallet.Crypto
 	InboundEndpointValue string
 	StorageProviderValue storage.Provider
+	CrypterValue         crypto.Crypter
 }
 
 // Service return service
@@ -38,4 +40,9 @@ func (p *Provider) InboundTransportEndpoint() string {
 // StorageProvider returns the storage provider
 func (p *Provider) StorageProvider() storage.Provider {
 	return p.StorageProviderValue
+}
+
+// Crypter returns the crypter service
+func (p *Provider) Crypter() crypto.Crypter {
+	return p.CrypterValue
 }

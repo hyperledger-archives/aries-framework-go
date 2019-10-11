@@ -7,7 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package wallet
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
@@ -21,7 +23,7 @@ type CloseableWallet struct {
 	SignMessageErr           error
 	PackValue                []byte
 	PackErr                  error
-	UnpackValue              *wallet.Envelope
+	UnpackValue              *envelope.Envelope
 	UnpackErr                error
 	MockDID                  *did.Doc
 }
@@ -46,19 +48,16 @@ func (m *CloseableWallet) SignMessage(message []byte, fromVerKey string) ([]byte
 	return m.SignMessageValue, m.SignMessageErr
 }
 
-// DecryptMessage decrypt message
-func (m *CloseableWallet) DecryptMessage(encMessage []byte, toVerKey string) ([]byte, string, error) {
-	return nil, "", nil
+// DeriveKEK derives a key encryption key from two keys
+// mocked to return empty derived KEK
+func (m *CloseableWallet) DeriveKEK(alg, apu, fromKey, toPubKey []byte) ([]byte, error) { // nolint:lll
+	return []byte(""), nil
 }
 
-// PackMessage Pack a message for one or more recipients.
-func (m *CloseableWallet) PackMessage(envelope *wallet.Envelope) ([]byte, error) {
-	return m.PackValue, m.PackErr
-}
-
-// UnpackMessage Unpack a message.
-func (m *CloseableWallet) UnpackMessage(encMessage []byte) (*wallet.Envelope, error) {
-	return m.UnpackValue, m.UnpackErr
+// FindVerKey returns the index of candidateKeys that has the first match in the wallet
+// mocked to return not found key
+func (m *CloseableWallet) FindVerKey(candidateKeys []string) (int, error) {
+	return -1, cryptoutil.ErrKeyNotFound
 }
 
 // CreateDID returns new DID Document

@@ -20,13 +20,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/envelope"
 )
 
 type mockProvider struct {
-	packWalletValue wallet.Pack
+	packagerValue envelope.Packager
 }
 
 func (p *mockProvider) InboundMessageHandler() transport.InboundMessageHandler {
@@ -36,8 +36,8 @@ func (p *mockProvider) InboundMessageHandler() transport.InboundMessageHandler {
 	}
 }
 
-func (p *mockProvider) PackWallet() wallet.Pack {
-	return p.packWalletValue
+func (p *mockProvider) Packager() envelope.Packager {
+	return p.packagerValue
 }
 
 func TestInboundHandler(t *testing.T) {
@@ -45,9 +45,9 @@ func TestInboundHandler(t *testing.T) {
 	inHandler, err := NewInboundHandler(nil)
 	require.Error(t, err)
 	require.Nil(t, inHandler)
-	mockWallet := &mockwallet.CloseableWallet{UnpackValue: &wallet.Envelope{Message: []byte("data")}}
+	mockPackager := &mockpackager.BasePackager{UnpackValue: &envelope.Envelope{Message: []byte("data")}}
 	// now create a valid inboundHandler to continue testing..
-	inHandler, err = NewInboundHandler(&mockProvider{packWalletValue: mockWallet})
+	inHandler, err = NewInboundHandler(&mockProvider{packagerValue: mockPackager})
 
 	require.NoError(t, err)
 	require.NotNil(t, inHandler)
@@ -112,8 +112,8 @@ func TestInboundHandler(t *testing.T) {
 	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 	// test unpack error
-	mockWallet.UnpackValue = nil
-	mockWallet.UnpackErr = fmt.Errorf("unpack error")
+	mockPackager.UnpackValue = nil
+	mockPackager.UnpackErr = fmt.Errorf("unpack error")
 	resp, err = client.Post(serverURL+"/", commContentType, bytes.NewBuffer([]byte(data)))
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -135,8 +135,8 @@ func TestInboundTransport(t *testing.T) {
 		inbound, err := NewInbound(":26602")
 		require.NoError(t, err)
 		require.NotEmpty(t, inbound)
-		packWalletValue := &mockwallet.CloseableWallet{UnpackValue: &wallet.Envelope{Message: []byte("data")}}
-		err = inbound.Start(&mockProvider{packWalletValue: packWalletValue})
+		mockPackager := &mockpackager.BasePackager{UnpackValue: &envelope.Envelope{Message: []byte("data")}}
+		err = inbound.Start(&mockProvider{packagerValue: mockPackager})
 		require.NoError(t, err)
 
 		err = inbound.Stop()
@@ -165,8 +165,8 @@ func TestInboundTransport(t *testing.T) {
 		require.NotEmpty(t, inbound)
 
 		// start server
-		packWalletValue := &mockwallet.CloseableWallet{UnpackValue: &wallet.Envelope{Message: []byte("data")}}
-		err = inbound.Start(&mockProvider{packWalletValue: packWalletValue})
+		mockPackager := &mockpackager.BasePackager{UnpackValue: &envelope.Envelope{Message: []byte("data")}}
+		err = inbound.Start(&mockProvider{packagerValue: mockPackager})
 		require.NoError(t, err)
 		require.NoError(t, listenFor("localhost:26604", time.Second))
 		// invoke a endpoint

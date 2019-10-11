@@ -16,11 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -76,199 +74,6 @@ func TestBaseWallet_Close(t *testing.T) {
 	})
 }
 
-func TestBaseWallet_UnpackMessage(t *testing.T) {
-	t.Run("test failed from getKey", func(t *testing.T) {
-		m := make(map[string][]byte)
-		m["key1"] = nil
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-			Store: m, ErrGet: fmt.Errorf("get error"),
-		}}))
-		require.NoError(t, err)
-
-		crypter, err := authcrypt.New(authcrypt.XC20P)
-		require.NoError(t, err)
-		w.crypter = crypter
-
-		packMsg, err := json.Marshal(authcrypt.Envelope{
-			Recipients: []authcrypt.Recipient{{Header: authcrypt.RecipientHeaders{KID: "key1"}}}})
-		require.NoError(t, err)
-		_, err = w.UnpackMessage(packMsg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "get error")
-	})
-
-	t.Run("test failed to unmarshal encMessage", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-			Store: make(map[string][]byte),
-		}}))
-		require.NoError(t, err)
-		_, err = w.UnpackMessage(nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to unmarshal encMessage")
-	})
-
-	t.Run("test key not found", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-			Store: make(map[string][]byte),
-		}}))
-		require.NoError(t, err)
-
-		crypter, err := authcrypt.New(authcrypt.XC20P)
-		require.NoError(t, err)
-		w.crypter = crypter
-
-		pub1, priv1, err := box.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		base58FromVerKey := base58.Encode(pub1[:])
-		require.NoError(t, w.persistKey(base58FromVerKey, &crypto.KeyPair{Pub: pub1[:],
-			Priv: priv1[:]}))
-
-		pub2, _, err := box.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		packMsg, err := w.PackMessage(&Envelope{Message: []byte("msg1"),
-			FromVerKey: base58FromVerKey,
-			ToVerKeys:  []string{base58.Encode(pub2[:])}})
-		require.NoError(t, err)
-
-		_, err = w.UnpackMessage(packMsg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "no corresponding recipient key found in")
-	})
-
-	t.Run("test decrypt failed", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-			Store: make(map[string][]byte),
-		}}))
-		require.NoError(t, err)
-
-		decryptValue := func(envelope []byte, recipientKeyPair crypto.KeyPair) ([]byte, error) {
-			return nil, fmt.Errorf("decrypt error")
-		}
-		e := func(payload []byte, sender crypto.KeyPair, recipients [][]byte) (bytes []byte, e error) {
-			crypter, e := authcrypt.New(authcrypt.XC20P)
-			require.NoError(t, e)
-			return crypter.Encrypt(payload, sender, recipients)
-		}
-		mockCrypter := &didcomm.MockAuthCrypt{DecryptValue: decryptValue,
-			EncryptValue: e}
-
-		w.crypter = mockCrypter
-
-		pub1, priv1, err := box.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		base58FromVerKey := base58.Encode(pub1[:])
-		require.NoError(t, w.persistKey(base58FromVerKey, &crypto.KeyPair{Pub: pub1[:],
-			Priv: priv1[:]}))
-
-		pub2, priv2, err := box.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		require.NoError(t, w.persistKey(base58.Encode(pub2[:]), &crypto.KeyPair{Pub: pub2[:],
-			Priv: priv2[:]}))
-
-		packMsg, err := w.PackMessage(&Envelope{Message: []byte("msg1"),
-			FromVerKey: base58FromVerKey,
-			ToVerKeys:  []string{base58.Encode(pub2[:])}})
-		require.NoError(t, err)
-
-		_, err = w.UnpackMessage(packMsg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "decrypt error")
-	})
-}
-
-func TestBaseWallet_PackMessage(t *testing.T) {
-	t.Run("test success", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-			Store: make(map[string][]byte),
-		}}))
-		require.NoError(t, err)
-
-		crypter, err := authcrypt.New(authcrypt.XC20P)
-		require.NoError(t, err)
-		w.crypter = crypter
-
-		pub1, priv1, err := box.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		base58FromVerKey := base58.Encode(pub1[:])
-		require.NoError(t, w.persistKey(base58FromVerKey, &crypto.KeyPair{Pub: pub1[:],
-			Priv: priv1[:]}))
-
-		pub2, priv2, err := box.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		require.NoError(t, w.persistKey(base58.Encode(pub2[:]), &crypto.KeyPair{Pub: pub2[:],
-			Priv: priv2[:]}))
-
-		packMsg, err := w.PackMessage(&Envelope{Message: []byte("msg1"),
-			FromVerKey: base58FromVerKey,
-			ToVerKeys:  []string{base58.Encode(pub2[:])}})
-		require.NoError(t, err)
-
-		unpackMsg, err := w.UnpackMessage(packMsg)
-		require.NoError(t, err)
-		require.Equal(t, []byte("msg1"), unpackMsg.Message)
-		require.Equal(t, []string{base58.Encode(pub2[:])}, unpackMsg.ToVerKeys)
-	})
-
-	t.Run("test envelope is nil", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-			Store: make(map[string][]byte),
-		}}))
-		require.NoError(t, err)
-		_, err = w.PackMessage(nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "envelope argument is nil")
-	})
-
-	t.Run("test key not found error", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-			Store: make(map[string][]byte),
-		}}))
-		require.NoError(t, err)
-
-		crypter, err := authcrypt.New(authcrypt.XC20P)
-		require.NoError(t, err)
-		w.crypter = crypter
-
-		_, err = w.PackMessage(&Envelope{Message: []byte("msg1"),
-			FromVerKey: "key1",
-			ToVerKeys:  []string{}})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed from getKey")
-	})
-
-	t.Run("test encrypt failed", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-			Store: make(map[string][]byte),
-		}}))
-
-		encryptValue := func(payload []byte, sender crypto.KeyPair, recipients [][]byte) (bytes []byte, e error) {
-			return nil, fmt.Errorf("encrypt error")
-		}
-
-		w.crypter = &didcomm.MockAuthCrypt{EncryptValue: encryptValue}
-
-		require.NoError(t, err)
-
-		pub1, priv1, err := box.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		base58FromVerKey := base58.Encode(pub1[:])
-		require.NoError(t, w.persistKey(base58FromVerKey, &crypto.KeyPair{Pub: pub1[:],
-			Priv: priv1[:]}))
-
-		pub2, priv2, err := box.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		require.NoError(t, w.persistKey(base58.Encode(pub2[:]), &crypto.KeyPair{Pub: pub2[:],
-			Priv: priv2[:]}))
-
-		_, err = w.PackMessage(&Envelope{Message: []byte("msg1"),
-			FromVerKey: base58FromVerKey,
-			ToVerKeys:  []string{base58.Encode(pub2[:])}})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "encrypt error")
-	})
-}
-
 func TestBaseWallet_SignMessage(t *testing.T) {
 	t.Run("test key not found", func(t *testing.T) {
 		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{
@@ -299,15 +104,6 @@ func TestBaseWallet_SignMessage(t *testing.T) {
 		// verify signature
 		err = ed25519signature2018.New().Verify(base58.Decode(fromVerKey), testMsg, signature)
 		require.NoError(t, err)
-	})
-}
-
-func TestBaseWallet_DecryptMessage(t *testing.T) {
-	t.Run("test error not implemented", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{}))
-		require.NoError(t, err)
-		_, _, err = w.DecryptMessage(nil, "")
-		require.Error(t, err)
 	})
 }
 
@@ -379,6 +175,130 @@ func TestBaseWallet_NewDID(t *testing.T) {
 
 		// verify services
 		require.Empty(t, didDoc.Service)
+	})
+}
+
+func TestBaseWallet_DeriveKEK(t *testing.T) {
+	pk32, sk32, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	kp := cryptoutil.KeyPair{Pub: pk32[:], Priv: sk32[:]}
+	kpm, err := json.Marshal(kp)
+	require.NoError(t, err)
+
+	pk32a, _, err := box.GenerateKey(rand.Reader)
+	w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+		Store: map[string][]byte{
+			base58.Encode(pk32[:]): kpm,
+		},
+	}}))
+
+	t.Run("test success", func(t *testing.T) {
+		// test DeriveKEK from wallet where fromKey is a public key (private fromKey will be fetched from the wallet)
+		require.NoError(t, err)
+		kek, e := w.DeriveKEK(nil, nil, pk32[:], pk32a[:])
+		require.NoError(t, e)
+		require.NotEmpty(t, kek)
+
+		// test Derive25519KEK from the util function where fromKey is a private key
+		kek, e = cryptoutil.Derive25519KEK(nil, nil, sk32, pk32a)
+		require.NoError(t, e)
+		require.NotEmpty(t, kek)
+	})
+
+	t.Run("test failure fromKey empty and toKey not empty", func(t *testing.T) {
+		// test DeriveKEK from wallet where fromKey is a public key (private fromKey will be fetched from the wallet)
+		kek, e := w.DeriveKEK(nil, nil, nil, pk32a[:])
+		require.EqualError(t, e, cryptoutil.ErrInvalidKey.Error())
+		require.Empty(t, kek)
+
+		// test Derive25519KEK from the util function where fromKey is a private key
+		kek, e = cryptoutil.Derive25519KEK(nil, nil, nil, pk32a)
+		require.EqualError(t, e, cryptoutil.ErrInvalidKey.Error())
+		require.Empty(t, kek)
+	})
+
+	t.Run("test failure fromKey not empty and toKey empty", func(t *testing.T) {
+		// test DeriveKEK from wallet where fromKey is a public key (private fromKey will be fetched from the wallet)
+		kek, e := w.DeriveKEK(nil, nil, pk32[:], nil)
+		require.EqualError(t, e, cryptoutil.ErrInvalidKey.Error())
+		require.Empty(t, kek)
+
+		// test Derive25519KEK from the util function where fromKey is a private key
+		kek, e = cryptoutil.Derive25519KEK(nil, nil, sk32, nil)
+		require.EqualError(t, e, cryptoutil.ErrInvalidKey.Error())
+		require.Empty(t, kek)
+	})
+
+	t.Run("test failure fromPubKey not found in wallet", func(t *testing.T) {
+		// test DeriveKEK from wallet where fromKey is a public key (private fromKey will be fetched from the wallet)
+		kek, e := w.DeriveKEK(nil, nil, pk32a[:], pk32[:])
+		require.EqualError(t, e, "failed from getKey: "+cryptoutil.ErrKeyNotFound.Error())
+		require.Empty(t, kek)
+	})
+}
+
+func TestBaseWallet_FindVerKey(t *testing.T) {
+	pk1, sk1, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	kp := cryptoutil.KeyPair{Pub: pk1[:], Priv: sk1[:]}
+	kpm1, err := json.Marshal(kp)
+	require.NoError(t, err)
+
+	pk2, sk2, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	kp = cryptoutil.KeyPair{Pub: pk2[:], Priv: sk2[:]}
+	kpm2, err := json.Marshal(kp)
+	require.NoError(t, err)
+
+	pk3, sk3, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	kp = cryptoutil.KeyPair{Pub: pk3[:], Priv: sk3[:]}
+	kpm3, err := json.Marshal(kp)
+	require.NoError(t, err)
+
+	w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+		Store: map[string][]byte{
+			base58.Encode(pk1[:]): kpm1,
+			base58.Encode(pk2[:]): kpm2,
+			base58.Encode(pk3[:]): kpm3,
+		},
+	}}))
+	require.NoError(t, err)
+
+	t.Run("test success", func(t *testing.T) {
+		candidateKeys := []string{
+			"somekey1",
+			"somekey2",
+			base58.Encode(pk1[:]),
+		}
+		i, e := w.FindVerKey(candidateKeys)
+		require.NoError(t, e)
+		require.Equal(t, 2, i)
+		candidateKeys = []string{
+			"somekey1",
+			base58.Encode(pk1[:]),
+			"somekey2",
+		}
+		i, e = w.FindVerKey(candidateKeys)
+		require.NoError(t, e)
+		require.Equal(t, 1, i)
+		candidateKeys = []string{
+			base58.Encode(pk1[:]),
+			"somekey1",
+			"somekey2",
+		}
+		i, e = w.FindVerKey(candidateKeys)
+		require.NoError(t, e)
+		require.Equal(t, 0, i)
+		candidateKeys = []string{
+			"somekey1",
+			base58.Encode(pk2[:]),
+			"somekey2",
+			base58.Encode(pk1[:]),
+		}
+		i, e = w.FindVerKey(candidateKeys)
+		require.NoError(t, e)
+		require.Equal(t, 1, i)
 	})
 }
 

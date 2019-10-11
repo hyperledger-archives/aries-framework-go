@@ -12,6 +12,8 @@ import (
 
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/nacl/box"
+
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
 // generateSPK will encrypt a msg (in the case of this package, it will be
@@ -19,7 +21,7 @@ import (
 // a compact JWE wrapping a JWK containing the (encrypted) sender's public key
 func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byte) (string, error) {
 	if recipientPubKey == nil {
-		return "", errInvalidKey
+		return "", cryptoutil.ErrInvalidKey
 	}
 
 	// generate ephemeral asymmetric keys
@@ -28,20 +30,20 @@ func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byt
 		return "", err
 	}
 
-	// derive an ephemeral key for the recipient
-	kek, err := c.deriveKEK([]byte(c.alg+"KW"), nil, esk, recipientPubKey)
+	// derive an ephemeral key for the recipient and an ephemeral secret key (esk)
+	kek, err := cryptoutil.Derive25519KEK([]byte(c.alg+"KW"), nil, esk, recipientPubKey)
 	if err != nil {
 		return "", err
 	}
 
-	// generate a sharedSymKey for encryption
-	sharedSymKey := &[chacha.KeySize]byte{}
-	_, err = randReader.Read(sharedSymKey[:])
+	// generate a cek for encryption
+	cek := &[chacha.KeySize]byte{}
+	_, err = randReader.Read(cek[:])
 	if err != nil {
 		return "", err
 	}
 
-	kCipherEncoded, kTagEncoded, kNonceEncoded, err := c.encryptSymKey(kek, sharedSymKey[:])
+	kCipherEncoded, kTagEncoded, kNonceEncoded, err := c.encryptCEK(kek, cek[:])
 	if err != nil {
 		return "", err
 	}
@@ -57,13 +59,13 @@ func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byt
 		Crv: "X25519",
 		X:   base64.RawURLEncoding.EncodeToString(senderPubKey[:]),
 	}
-	// senderJWKJSON is the payload to be encrypted with sharedSymKey
+	// senderJWKJSON is the payload to be encrypted with cek
 	senderJWKJSON, err := json.Marshal(senderJWK)
 	if err != nil {
 		return "", err
 	}
 
-	return c.encryptSenderJWK(kCipherEncoded, headersEncoded, senderJWKJSON, sharedSymKey[:])
+	return c.encryptSenderJWK(kCipherEncoded, headersEncoded, senderJWKJSON, cek[:])
 }
 
 func (c *Crypter) buildJWKHeaders(epk *[32]byte, kNonceEncoded, kTagEncoded string) (string, error) {
@@ -89,7 +91,7 @@ func (c *Crypter) buildJWKHeaders(epk *[32]byte, kNonceEncoded, kTagEncoded stri
 	return base64.RawURLEncoding.EncodeToString(headersJSON), nil
 }
 
-func (c *Crypter) encryptSenderJWK(encKey, headers string, senderJWKJSON, sharedSymKey []byte) (string, error) {
+func (c *Crypter) encryptSenderJWK(encKey, headers string, senderJWKJSON, cek []byte) (string, error) {
 	// create a new nonce
 	nonce := make([]byte, c.nonceSize)
 	_, err := randReader.Read(nonce)
@@ -97,15 +99,15 @@ func (c *Crypter) encryptSenderJWK(encKey, headers string, senderJWKJSON, shared
 		return "", err
 	}
 
-	// create a cipher for the given nonceSize and generated sharedSymKey above
-	crypter, err := createCipher(c.nonceSize, sharedSymKey)
+	// create a cipher for the given nonceSize and cek
+	cipher, err := createCipher(c.nonceSize, cek)
 	if err != nil {
 		return "", err
 	}
 
 	// encrypt the sender's encoded JWK using generated nonce and JWK encoded headers as AAD
 	// the output is a []byte containing the cipherText + tag
-	symOutput := crypter.Seal(nil, nonce, senderJWKJSON, []byte(headers))
+	symOutput := cipher.Seal(nil, nonce, senderJWKJSON, []byte(headers))
 
 	tagEncoded := extractTag(symOutput)
 	cipherJWKEncoded := extractCipherText(symOutput)

@@ -13,20 +13,12 @@ import (
 	"strings"
 
 	chacha "golang.org/x/crypto/chacha20poly1305"
-
-	jwecrypto "github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 )
 
 // decryptSPK will decrypt a recipient's encrypted SPK (in the case of this package, it is represented as
 // the sender's public key as a jwk). It uses the recipent's private/public keypair for decryption
 // the returned decrypted value is the sender's public key
-func (c *Crypter) decryptSPK(recipientKeyPair jwecrypto.KeyPair, spk string) ([]byte, error) {
-	var recPubKey [chacha.KeySize]byte
-	copy(recPubKey[:], recipientKeyPair.Pub)
-
-	recPrivKey := new([chacha.KeySize]byte)
-	copy(recPrivKey[:], recipientKeyPair.Priv)
-
+func (c *Crypter) decryptSPK(recipientPubKey *[chacha.KeySize]byte, spk string) ([]byte, error) {
 	jwe := strings.Split(spk, ".")
 	if len(jwe) != 5 {
 		return nil, fmt.Errorf("bad SPK format")
@@ -66,7 +58,7 @@ func (c *Crypter) decryptSPK(recipientKeyPair jwecrypto.KeyPair, spk string) ([]
 		return nil, err
 	}
 
-	sharedKey, err := c.decryptJWKSharedKey(cipherKEK, headersJSON, recPrivKey)
+	sharedKey, err := c.decryptJWKSharedKey(cipherKEK, headersJSON, recipientPubKey[:])
 	if err != nil {
 		return nil, err
 	}
@@ -77,15 +69,13 @@ func (c *Crypter) decryptSPK(recipientKeyPair jwecrypto.KeyPair, spk string) ([]
 
 // decryptJWKSharedKey will decrypt the cek using recPrivKey for decryption and rebuild the cipher text, nonce
 // kek from headersJSON, the result is the sharedKey to be used for decrypting the sender JWK
-func (c *Crypter) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientSPKJWEHeaders, recPrivKey *[chacha.KeySize]byte) ([]byte, error) { //nolint:lll
+func (c *Crypter) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientSPKJWEHeaders, recPubKey []byte) ([]byte, error) { //nolint:lll
 	epk, err := base64.RawURLEncoding.DecodeString(headersJSON.EPK.X)
 	if err != nil {
 		return nil, err
 	}
 
-	epKey := new([chacha.KeySize]byte)
-	copy(epKey[:], epk)
-	kek, err := c.deriveKEK([]byte(c.alg+"KW"), nil, recPrivKey, epKey)
+	kek, err := c.wallet.DeriveKEK([]byte(c.alg+"KW"), nil, recPubKey, epk)
 	if err != nil {
 		return nil, err
 	}

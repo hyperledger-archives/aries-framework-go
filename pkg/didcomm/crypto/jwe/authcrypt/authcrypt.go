@@ -11,6 +11,9 @@ import (
 	"errors"
 
 	chacha "golang.org/x/crypto/chacha20poly1305"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // This package deals with Authcrypt encryption for Packing/Unpacking DID Comm exchange
@@ -30,18 +33,6 @@ const XC20P = ContentEncryption("XC20P") // XChacha20 encryption + Poly1305 auth
 //nolint:gochecknoglobals
 var randReader = rand.Reader
 
-// errEmptyRecipients is used when recipients list is empty
-var errEmptyRecipients = errors.New("empty recipients")
-
-// errInvalidKeypair is used when a keypair is invalid
-var errInvalidKeypair = errors.New("invalid keypair")
-
-// errInvalidKey is used when a key is invalid
-var errInvalidKey = errors.New("invalid key")
-
-// errRecipientNotFound is used when a recipient is not found
-var errRecipientNotFound = errors.New("recipient not found")
-
 // errUnsupportedAlg is used when a bad encryption algorithm is used
 var errUnsupportedAlg = errors.New("algorithm not supported")
 
@@ -49,6 +40,7 @@ var errUnsupportedAlg = errors.New("algorithm not supported")
 type Crypter struct {
 	alg       ContentEncryption
 	nonceSize int
+	wallet    wallet.Crypto
 }
 
 // Envelope represents a JWE envelope as per the Aries Encryption envelope specs
@@ -106,7 +98,8 @@ type jwk struct {
 // C20P (chacha20-poly1305 ietf)
 // XC20P (xchacha20-poly1305 ietf)
 // The returned crypter contains all the information required to encrypt payloads.
-func New(alg ContentEncryption) (*Crypter, error) {
+func New(ctx crypto.Provider, alg ContentEncryption) (*Crypter, error) {
+	w := ctx.CryptoWallet()
 	var nonceSize int
 	switch alg {
 	case C20P:
@@ -117,16 +110,9 @@ func New(alg ContentEncryption) (*Crypter, error) {
 		return nil, errUnsupportedAlg
 	}
 
-	c := &Crypter{
-		alg,
-		nonceSize,
-	}
-
-	return c, nil
-}
-
-// IsChachaKeyValid will return true if key size is the same as chacha20poly1305.keySize
-// false otherwise
-func IsChachaKeyValid(key []byte) bool {
-	return len(key) == chacha.KeySize
+	return &Crypter{
+		alg:       alg,
+		nonceSize: nonceSize,
+		wallet:    w,
+	}, nil
 }

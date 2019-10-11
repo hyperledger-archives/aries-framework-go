@@ -15,13 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	mockenvelope "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -127,24 +128,29 @@ func TestNewProvider(t *testing.T) {
 		require.Contains(t, err.Error(), "error handling the message")
 	})
 
-	t.Run("test new with wallet service", func(t *testing.T) {
-		prov, err := New(WithWallet(&mockwallet.CloseableWallet{
-			SignMessageValue: []byte("mockValue"), PackValue: []byte("data")}))
+	t.Run("test new with wallet and packager service", func(t *testing.T) {
+		prov, err := New(
+			WithWallet(&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue")}),
+			WithPackager(&mockenvelope.BasePackager{PackValue: []byte("data")}),
+		)
 		require.NoError(t, err)
 		v, err := prov.CryptoWallet().SignMessage(nil, "")
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
-		v, err = prov.PackWallet().PackMessage(&wallet.Envelope{})
+		v, err = prov.packager.PackMessage(&envelope.Envelope{})
 		require.NoError(t, err)
 		require.Equal(t, []byte("data"), v)
 	})
 
-	t.Run("test new with did wallet service", func(t *testing.T) {
-		prov, err := New(WithWallet(&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue"),
-			PackValue: []byte("data"),
-			MockDID: &did.Doc{
-				Context: []string{"https://w3id.org/did/v1"},
-				ID:      "did:example:123456789abcdefghi#inbox"}}),
+	t.Run("test new with did wallet packager service", func(t *testing.T) {
+		prov, err := New(
+			WithWallet(
+				&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue"),
+					MockDID: &did.Doc{
+						Context: []string{"https://w3id.org/did/v1"},
+						ID:      "did:example:123456789abcdefghi#inbox"}},
+			),
+			WithPackager(&mockenvelope.BasePackager{PackValue: []byte("data")}),
 		)
 		require.NoError(t, err)
 		v, err := prov.CryptoWallet().SignMessage(nil, "")

@@ -13,17 +13,17 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
-
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/poly1305"
+
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
 // Encrypt will encode the payload argument
 // Using the protocol defined by Aries RFC 0019
-func (c *Crypter) Encrypt(payload []byte, sender crypto.KeyPair, recipientPubKeys [][]byte) ([]byte, error) {
+func (c *Crypter) Encrypt(payload []byte, sender cryptoutil.KeyPair, recipientPubKeys [][]byte) ([]byte, error) {
 	var err error
 
 	if len(recipientPubKeys) == 0 {

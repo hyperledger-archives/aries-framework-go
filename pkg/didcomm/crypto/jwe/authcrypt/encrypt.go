@@ -18,17 +18,19 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
 
-	jwecrypto "github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
 // Encrypt will JWE encode the payload argument for the sender and recipients
 // Using (X)Chacha20 encryption algorithm and Poly1305 authenticator
 // It will encrypt using the sender's keypair and the list of recipients arguments
-func (c *Crypter) Encrypt(payload []byte, sender jwecrypto.KeyPair, recipients [][]byte) ([]byte, error) { //nolint:lll,funlen
-	err := verifyKeys(sender, recipients)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt message: %w", err)
+func (c *Crypter) Encrypt(payload, senderKey []byte, recipients [][]byte) ([]byte, error) { //nolint:funlen
+	if len(senderKey) == 0 {
+		return nil, fmt.Errorf("failed to encrypt message: empty sender key")
 	}
+
+	senderPubKey := &[chacha.KeySize]byte{}
+	copy(senderPubKey[:], senderKey)
 
 	headers := jweHeaders{
 		Typ: "prs.hyperledger.aries-auth-message",
@@ -36,6 +38,9 @@ func (c *Crypter) Encrypt(payload []byte, sender jwecrypto.KeyPair, recipients [
 		Enc: string(c.alg),
 	}
 
+	if len(recipients) == 0 {
+		return nil, fmt.Errorf("failed to encrypt message: empty recipients")
+	}
 	chachaRecipients, err := convertRecipients(recipients)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt message: %w", err)
@@ -69,20 +74,20 @@ func (c *Crypter) Encrypt(payload []byte, sender jwecrypto.KeyPair, recipients [
 	}
 
 	// create a cipher for the given nonceSize and generated cek above
-	crypter, err := createCipher(c.nonceSize, cek[:])
+	cipher, err := createCipher(c.nonceSize, cek[:])
 	if err != nil {
 		return nil, err
 	}
 
 	// encrypt payload using generated nonce, payload and its AAD
 	// the output is a []byte containing the cipherText + tag
-	symOutput := crypter.Seal(nil, nonce, payload, []byte(pldAAD))
+	symOutput := cipher.Seal(nil, nonce, payload, []byte(pldAAD))
 
 	tagEncoded := extractTag(symOutput)
 	cipherTextEncoded := extractCipherText(symOutput)
 
 	// now build, encode recipients and include the encrypted cek (with a recipient's ephemeral key)
-	encRec, err := c.encodeRecipients(cek, chachaRecipients, sender)
+	encRec, err := c.encodeRecipients(cek, chachaRecipients, senderPubKey)
 	if err != nil {
 		return nil, err
 	}
@@ -95,27 +100,13 @@ func (c *Crypter) Encrypt(payload []byte, sender jwecrypto.KeyPair, recipients [
 	return jwe, nil
 }
 
-func verifyKeys(sender jwecrypto.KeyPair, recipients [][]byte) error {
-	if len(recipients) == 0 {
-		return errEmptyRecipients
-	}
-
-	if !jwecrypto.IsKeyPairValid(sender) {
-		return errInvalidKeypair
-	}
-
-	if !IsChachaKeyValid(sender.Priv) || !IsChachaKeyValid(sender.Pub) {
-		return errInvalidKey
-	}
-	return nil
-}
-
+// convertRecipients is a utility function that converts keys from [][]byte type into []*[chacha.KeySize]byte type
 func convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byte, error) {
 	var chachaRecipients []*[chacha.KeySize]byte
 
 	for i, r := range recipients {
-		if !IsChachaKeyValid(r) {
-			return nil, fmt.Errorf("%w - for recipient %d", errInvalidKey, i+1)
+		if !cryptoutil.IsChachaKeyValid(r) {
+			return nil, fmt.Errorf("%w - for recipient %d", cryptoutil.ErrInvalidKey, i+1)
 		}
 
 		chachaRec := new([chacha.KeySize]byte)
@@ -125,7 +116,7 @@ func convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byte, error) {
 	return chachaRecipients, nil
 }
 
-// extractTag extracts the base64UrlEncoded tag sub slice from symOutput returned by cipher.Seal
+// extractTag is a utility function that extracts base64UrlEncoded tag sub-slice from symOutput returned by cipher.Seal
 func extractTag(symOutput []byte) string {
 	// symOutput has a length of len(clear msg) + poly1305.TagSize
 	// fetch the tag from the tail of symOutput
@@ -135,7 +126,8 @@ func extractTag(symOutput []byte) string {
 	return base64.RawURLEncoding.EncodeToString(tag)
 }
 
-// extractCipherText extracts the base64UrlEncoded cipherText sub slice from symOutput returned by cipher.Seal
+// extractCipherText is a utility function that extracts base64UrlEncoded cipherText sub-slice
+// from symOutput returned by cipher.Seal
 func extractCipherText(symOutput []byte) string {
 	// fetch the cipherText from the head of symOutput (0:up to the trailing tag)
 	cipherText := symOutput[0 : len(symOutput)-poly1305.TagSize]
@@ -146,7 +138,7 @@ func extractCipherText(symOutput []byte) string {
 
 // buildJWE builds the JSON object representing the JWE output of the encryption
 // and returns its marshaled []byte representation
-func (c *Crypter) buildJWE(headers string, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) {
+func (c *Crypter) buildJWE(headers string, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) { //nolint:lll
 	jwe := Envelope{
 		Protected:  headers,
 		Recipients: recipients,
@@ -164,7 +156,7 @@ func (c *Crypter) buildJWE(headers string, recipients []Recipient, aad, iv, tag,
 	return jweBytes, nil
 }
 
-// buildAAD to build the Additional Authentication Data for the AEAD (chach20poly1305) cipher.
+// buildAAD is a utility function to build the Additional Authentication Data for the AEAD (chach20poly1305) cipher.
 // the build takes the list of recipients keys base58 encoded and sorted then SHA256 hash
 // the concatenation of these keys with a '.' separator
 func buildAAD(recipients []*[chacha.KeySize]byte) []byte {
@@ -183,12 +175,12 @@ func hashAAD(keys []string) []byte {
 	return sha[:]
 }
 
-// encodeRecipients will encode the sharedKey (cek) for each recipient
-// and return a list of encoded recipient keys
-func (c *Crypter) encodeRecipients(sharedSymKey *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderKp jwecrypto.KeyPair) ([]Recipient, error) { //nolint:lll
+// encodeRecipients is a utility function that will encrypt the cek (content encryption key) for each recipient
+// and return a list of encoded recipient keys in a JWE compliant format ([]Recipient)
+func (c *Crypter) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderPubKey *[chacha.KeySize]byte) ([]Recipient, error) { //nolint:lll
 	var encodedRecipients []Recipient
 	for _, e := range recipients {
-		rec, err := c.encodeRecipient(sharedSymKey, e, senderKp)
+		rec, err := c.encodeRecipient(cek, e, senderPubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -197,9 +189,10 @@ func (c *Crypter) encodeRecipients(sharedSymKey *[chacha.KeySize]byte, recipient
 	return encodedRecipients, nil
 }
 
-// encodeRecipient will encode the sharedKey (cek) with recipientKey
-// by generating a new ephemeral key to be used by the recipient to decrypt the cek
-func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]byte, senderKp jwecrypto.KeyPair) (*Recipient, error) { //nolint:lll
+// encodeRecipient will encrypt the cek (content encryption key) with a recipientKey
+// by generating a new ephemeral key to be used by the recipient to later decrypt it
+// it returns a JWE compliant Recipient
+func (c *Crypter) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
 	// generate a random APU value (Agreement PartyUInfo: https://tools.ietf.org/html/rfc7518#section-4.6.1.2)
 	apu := make([]byte, 64)
 	_, err := randReader.Read(apu)
@@ -207,32 +200,27 @@ func (c *Crypter) encodeRecipient(sharedSymKey, recipientKey *[chacha.KeySize]by
 		return nil, err
 	}
 
-	privK := new([chacha.KeySize]byte)
-	copy(privK[:], senderKp.Priv)
-	// derive an ephemeral key for the recipient
-	kek, err := c.deriveKEK([]byte(c.alg), apu, privK, recipientKey)
+	// derive an ephemeral key for the sender and recipient
+	kek, err := c.wallet.DeriveKEK([]byte(c.alg), apu, senderPubKey[:], recipientPubKey[:])
 	if err != nil {
 		return nil, err
 	}
 
-	sharedKeyCipher, tag, nonce, err := c.encryptSymKey(kek, sharedSymKey[:])
+	sharedKeyCipher, tag, nonce, err := c.encryptCEK(kek, cek[:])
 	if err != nil {
 		return nil, err
 	}
 
-	pubK := new([chacha.KeySize]byte)
-	copy(pubK[:], senderKp.Pub)
+	spk, err := c.generateSPK(recipientPubKey, senderPubKey)
+	if err != nil {
+		return nil, err
+	}
 
-	return c.buildRecipient(sharedKeyCipher, apu, nonce, tag, pubK, recipientKey)
+	return c.buildRecipient(sharedKeyCipher, apu, spk, nonce, tag, recipientPubKey)
 }
 
-// buildRecipient will build a proper JSON formatted Recipient
-func (c *Crypter) buildRecipient(key string, apu []byte, nonceEncoded, tagEncoded string, senderPubKey, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
-	spkEncoded, err := c.generateSPK(recipientKey, senderPubKey)
-	if err != nil {
-		return nil, err
-	}
-
+// buildRecipient will build a proper JSON formatted and JWE compliant Recipient
+func (c *Crypter) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded, tagEncoded string, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
 	recipientHeaders := RecipientHeaders{
 		APU: base64.RawURLEncoding.EncodeToString(apu),
 		IV:  nonceEncoded,
@@ -249,14 +237,14 @@ func (c *Crypter) buildRecipient(key string, apu []byte, nonceEncoded, tagEncode
 	return recipient, nil
 }
 
-// encryptSymKey will encrypt symKey with the given kek and a newly generated nonce
+// encryptCEK will encrypt symKey with the given kek and a newly generated nonce
 // returns:
 // 		encrypted cipher of symKey
 //		resulting tag of the encryption
 //		generated nonce used by the encryption
 //		error in case of failure
-func (c *Crypter) encryptSymKey(kek, symKey []byte) (string, string, string, error) {
-	crypter, err := createCipher(c.nonceSize, kek)
+func (c *Crypter) encryptCEK(kek, cek []byte) (string, string, string, error) {
+	cipher, err := createCipher(c.nonceSize, kek)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -269,7 +257,7 @@ func (c *Crypter) encryptSymKey(kek, symKey []byte) (string, string, string, err
 	}
 
 	// encrypt symmetric shared key using the key encryption key (kek)
-	kekOutput := crypter.Seal(nil, nonce, symKey, nil)
+	kekOutput := cipher.Seal(nil, nonce, cek, nil)
 
 	symKeyCipherEncoded := extractCipherText(kekOutput)
 	tagEncoded := extractTag(kekOutput)

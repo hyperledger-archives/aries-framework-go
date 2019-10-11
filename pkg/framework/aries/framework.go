@@ -9,7 +9,9 @@ package aries
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
@@ -35,6 +37,10 @@ type Aries struct {
 	wallet                    api.CloseableWallet
 	outboundDispatcherCreator dispatcher.OutboundCreator
 	outboundDispatcher        dispatcher.Outbound
+	packagerCreator           envelope.PackagerCreator
+	packager                  envelope.Packager
+	crypterCreator            crypto.CrypterCreator
+	crypter                   crypto.Crypter
 }
 
 // Option configures the framework.
@@ -71,6 +77,12 @@ func New(opts ...Option) (*Aries, error) {
 	// Create wallet
 	if e := createWallet(frameworkOpts); e != nil {
 		return nil, e
+	}
+
+	// create create crypter and packager (must be done after Wallet)
+	err = createCrypterAndPackager(frameworkOpts)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create outbound dispatcher
@@ -150,6 +162,22 @@ func WithWallet(w api.WalletCreator) Option {
 	}
 }
 
+// WithCrypter injects a crypter service to the Aries framework
+func WithCrypter(c crypto.CrypterCreator) Option {
+	return func(opts *Aries) error {
+		opts.crypterCreator = c
+		return nil
+	}
+}
+
+// WithPackager injects a WithPackager service to the Aries framework
+func WithPackager(p envelope.PackagerCreator) Option {
+	return func(opts *Aries) error {
+		opts.packagerCreator = p
+		return nil
+	}
+}
+
 // DIDResolver returns the framework configured DID Resolver.
 func (a *Aries) DIDResolver() DIDResolver {
 	return a.didResolver
@@ -167,6 +195,8 @@ func (a *Aries) Context() (*context.Provider, error) {
 		// TODO configure inbound external endpoints
 		context.WithWallet(a.wallet), context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 		context.WithStorageProvider(a.storeProvider),
+		context.WithCrypter(a.crypter),
+		context.WithPackager(a.packager),
 	)
 }
 
@@ -211,7 +241,9 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 	if err != nil {
 		return fmt.Errorf("outbound transport initialization failed: %w", err)
 	}
-	ctx, err := context.New(context.WithWallet(frameworkOpts.wallet), context.WithOutboundTransport(ot))
+	ctx, err := context.New(context.WithWallet(frameworkOpts.wallet),
+		context.WithOutboundTransport(ot),
+		context.WithPackager(frameworkOpts.packager))
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
 	}
@@ -224,6 +256,7 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 
 func startInboundTransport(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithWallet(frameworkOpts.wallet),
+		context.WithPackager(frameworkOpts.packager),
 		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()),
 		context.WithProtocolServices(frameworkOpts.services...))
 	if err != nil {
@@ -238,7 +271,9 @@ func startInboundTransport(frameworkOpts *Aries) error {
 
 func loadServices(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
-		context.WithWallet(frameworkOpts.wallet), context.WithStorageProvider(frameworkOpts.storeProvider))
+		context.WithStorageProvider(frameworkOpts.storeProvider),
+		context.WithWallet(frameworkOpts.wallet),
+		context.WithPackager(frameworkOpts.packager))
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
 	}
@@ -248,6 +283,29 @@ func loadServices(frameworkOpts *Aries) error {
 			return fmt.Errorf("new protocol service failed: %w", svcErr)
 		}
 		frameworkOpts.services = append(frameworkOpts.services, svc)
+	}
+	return nil
+}
+
+func createCrypterAndPackager(frameworkOpts *Aries) error {
+	ctx, err := context.New(context.WithWallet(frameworkOpts.wallet))
+	if err != nil {
+		return fmt.Errorf("create crypter context failed: %w", err)
+	}
+
+	frameworkOpts.crypter, err = frameworkOpts.crypterCreator(ctx)
+	if err != nil {
+		return fmt.Errorf("create crypter failed: %w", err)
+	}
+
+	ctx, err = context.New(context.WithCrypter(frameworkOpts.crypter))
+	if err != nil {
+		return fmt.Errorf("create packager context failed: %w", err)
+	}
+
+	frameworkOpts.packager, err = frameworkOpts.packagerCreator(ctx)
+	if err != nil {
+		return fmt.Errorf("create packager failed: %w", err)
 	}
 	return nil
 }

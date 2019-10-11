@@ -10,7 +10,10 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/did"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
@@ -95,13 +98,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.didResolver = resolver
 	}
 
-	if frameworkOpts.walletCreator == nil {
-		frameworkOpts.walletCreator = func(provider api.Provider) (api.CloseableWallet, error) {
-			return wallet.New(provider)
-		}
-	}
-
-	setDefaultOutboundDispatcher(frameworkOpts)
+	setAdditionalDefaultOpts(frameworkOpts)
 
 	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) {
 		return didexchange.New(did.NewLocalDIDCreator(prv), prv)
@@ -111,7 +108,25 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 	return nil
 }
 
-func setDefaultOutboundDispatcher(frameworkOpts *Aries) {
+func setAdditionalDefaultOpts(frameworkOpts *Aries) {
+	if frameworkOpts.walletCreator == nil {
+		frameworkOpts.walletCreator = func(provider api.Provider) (api.CloseableWallet, error) {
+			return wallet.New(provider)
+		}
+	}
+
+	if frameworkOpts.crypterCreator == nil {
+		frameworkOpts.crypterCreator = func(provider crypto.Provider) (crypto.Crypter, error) {
+			return authcrypt.New(provider, authcrypt.XC20P)
+		}
+	}
+
+	if frameworkOpts.packagerCreator == nil {
+		frameworkOpts.packagerCreator = func(provider envelope.Provider) (envelope.Packager, error) {
+			return envelope.New(provider)
+		}
+	}
+
 	if frameworkOpts.outboundDispatcherCreator == nil {
 		frameworkOpts.outboundDispatcherCreator = func(prv dispatcher.Provider) (dispatcher.Outbound, error) {
 			return dispatcher.NewOutbound(prv), nil

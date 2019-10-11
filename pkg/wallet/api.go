@@ -7,15 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package wallet
 
 import (
-	"errors"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
 // Wallet interface
 type Wallet interface {
 	Crypto
-	Pack
 	DIDCreator
 }
 
@@ -55,49 +52,24 @@ type Crypto interface {
 	// error: error
 	SignMessage(message []byte, fromVerKey string) ([]byte, error)
 
-	// DecryptMessage decrypt message
+	// DeriveKEK will derive an ephemeral symmetric key (kek) using a private from key fetched from
+	// from the wallet corresponding to fromPubKey and derived with toPubKey.
 	//
-	// Args:
+	// This function assumes both fromPubKey and toPubKey to be on curve25519.
 	//
-	// encMessage: The encrypted message content
-	//
-	// toVerKey:The verification key of the recipient.
-	//
-	// []byte: Decrypted message content
-	//
-	// string: The sender verification key
-	//
-	// error: error
-	DecryptMessage(encMessage []byte, toVerKey string) ([]byte, string, error)
-}
+	// returns:
+	// 		kek []byte the key encryption key used to decrypt a cek (a shared key)
+	//		error in case of errors
+	DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, error)
 
-// Pack provide methods to pack and unpack msg
-type Pack interface {
-	// PackMessage Pack a message for one or more recipients.
+	// FindVerKey will search the wallet to find stored keys that match any of candidateKeys and
+	// 		return the index of the first match
+	// returns:
+	// 		int index of candidateKeys that matches the first key found in the wallet
+	//		error in case of errors (including ErrKeyNotFound)
 	//
-	// Args:
-	//
-	// envelope: The message to pack
-	//
-	// Returns:
-	//
-	// []byte: The packed message
-	//
-	// error: error
-	PackMessage(envelope *Envelope) ([]byte, error)
-
-	// UnpackMessage Unpack a message.
-	//
-	// Args:
-	//
-	// encMessage: The encrypted message
-	//
-	// Returns:
-	//
-	// envelope: unpack message
-	//
-	// error: error
-	UnpackMessage(encMessage []byte) (*Envelope, error)
+	//		in case of error, the index will be -1
+	FindVerKey(candidateKeys []string) (int, error)
 }
 
 // DIDCreator provide method to create DID document
@@ -118,14 +90,6 @@ type DIDCreator interface {
 	CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
 }
 
-// Envelope contain msg,FromVerKey and ToVerKeys
-type Envelope struct {
-	Message    []byte
-	FromVerKey string
-	// TODO add key type - issue #272
-	ToVerKeys []string
-}
-
 // createDIDOpts holds the options for creating DID
 type createDIDOpts struct {
 	serviceType string
@@ -140,6 +104,3 @@ func WithServiceType(serviceType string) DocOpts {
 		opts.serviceType = serviceType
 	}
 }
-
-// ErrKeyNotFound is returned when key not found
-var ErrKeyNotFound = errors.New("key not found")

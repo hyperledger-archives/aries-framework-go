@@ -8,8 +8,8 @@ package dispatcher
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // Service protocol service
@@ -26,7 +26,7 @@ type Outbound interface {
 
 // Provider interface for outbound ctx
 type Provider interface {
-	PackWallet() wallet.Pack
+	Packager() envelope.Packager
 	OutboundTransports() []transport.OutboundTransport
 }
 

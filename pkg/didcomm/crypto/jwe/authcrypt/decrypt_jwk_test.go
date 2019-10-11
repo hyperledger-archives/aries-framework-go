@@ -13,55 +13,59 @@ import (
 	"github.com/stretchr/testify/require"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
-	jwecrypto "github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 )
 
 //nolint:lll
 func TestNilDecryptSenderJwk(t *testing.T) {
-	crypter, err := New(XC20P)
+	mockWalletProvider, err := mockwallet.NewMockProvider()
 	require.NoError(t, err)
 
-	spk, err := crypter.decryptSPK(jwecrypto.KeyPair{}, "!-.t.t.t.t")
+	crypter, err := New(mockWalletProvider, XC20P)
+	require.NoError(t, err)
+
+	spk, err := crypter.decryptSPK(nil, "!-.t.t.t.t")
 	require.Error(t, err)
 	require.Empty(t, spk)
 
-	spk, err = crypter.decryptSPK(jwecrypto.KeyPair{}, "eyJ0eXAiOiJqb3NlIiwiY3R5IjoiandrK2pzb24iLCJhbGciOiJFQ0RILUVTK1hDMjBQS1ciLCJlbmMiOiJYQzIwUCIsIml2IjoiNWhwNEVrWGtqSHR0SFlmY1IySXQ4d2dnZndjanNQaWwiLCJ0YWciOiJuMjg1OGplTXhZVE0tYzRZc2J0ZlBRIiwiZXBrIjp7Imt0eSI6Ik9LUCIsImNydiI6IlgyNTUxOSIsIngiOiJ3OW1EZ1FENnJVdWkyLVMyRjV6SVNqZXBua1FOZWEwMGtvTnRBOUhEeUIwIn19.!-.t.t.t")
+	spk, err = crypter.decryptSPK(nil, "eyJ0eXAiOiJqb3NlIiwiY3R5IjoiandrK2pzb24iLCJhbGciOiJFQ0RILUVTK1hDMjBQS1ciLCJlbmMiOiJYQzIwUCIsIml2IjoiNWhwNEVrWGtqSHR0SFlmY1IySXQ4d2dnZndjanNQaWwiLCJ0YWciOiJuMjg1OGplTXhZVE0tYzRZc2J0ZlBRIiwiZXBrIjp7Imt0eSI6Ik9LUCIsImNydiI6IlgyNTUxOSIsIngiOiJ3OW1EZ1FENnJVdWkyLVMyRjV6SVNqZXBua1FOZWEwMGtvTnRBOUhEeUIwIn19.!-.t.t.t")
 	require.Error(t, err)
 	require.Empty(t, spk)
 
-	spk, err = crypter.decryptSPK(jwecrypto.KeyPair{}, "eyJ0eXAiOiJqb3NlIiwiY3R5IjoiandrK2pzb24iLCJhbGciOiJFQ0RILUVTK1hDMjBQS1ciLCJlbmMiOiJYQzIwUCIsIml2IjoiNWhwNEVrWGtqSHR0SFlmY1IySXQ4d2dnZndjanNQaWwiLCJ0YWciOiJuMjg1OGplTXhZVE0tYzRZc2J0ZlBRIiwiZXBrIjp7Imt0eSI6Ik9LUCIsImNydiI6IlgyNTUxOSIsIngiOiJ3OW1EZ1FENnJVdWkyLVMyRjV6SVNqZXBua1FOZWEwMGtvTnRBOUhEeUIwIn19.U-AXyneFJ5x4QayrZ3GcuDCg1yHYHC9Kn1s8gtd7O4c.!-.t.t")
+	spk, err = crypter.decryptSPK(nil, "eyJ0eXAiOiJqb3NlIiwiY3R5IjoiandrK2pzb24iLCJhbGciOiJFQ0RILUVTK1hDMjBQS1ciLCJlbmMiOiJYQzIwUCIsIml2IjoiNWhwNEVrWGtqSHR0SFlmY1IySXQ4d2dnZndjanNQaWwiLCJ0YWciOiJuMjg1OGplTXhZVE0tYzRZc2J0ZlBRIiwiZXBrIjp7Imt0eSI6Ik9LUCIsImNydiI6IlgyNTUxOSIsIngiOiJ3OW1EZ1FENnJVdWkyLVMyRjV6SVNqZXBua1FOZWEwMGtvTnRBOUhEeUIwIn19.U-AXyneFJ5x4QayrZ3GcuDCg1yHYHC9Kn1s8gtd7O4c.!-.t.t")
 	require.Error(t, err)
 	require.Empty(t, spk)
 
-	spk, err = crypter.decryptSPK(jwecrypto.KeyPair{}, "eyJ0eXAiOiJqb3NlIiwiY3R5IjoiandrK2pzb24iLCJhbGciOiJFQ0RILUVTK1hDMjBQS1ciLCJlbmMiOiJYQzIwUCIsIml2IjoiNWhwNEVrWGtqSHR0SFlmY1IySXQ4d2dnZndjanNQaWwiLCJ0YWciOiJuMjg1OGplTXhZVE0tYzRZc2J0ZlBRIiwiZXBrIjp7Imt0eSI6Ik9LUCIsImNydiI6IlgyNTUxOSIsIngiOiJ3OW1EZ1FENnJVdWkyLVMyRjV6SVNqZXBua1FOZWEwMGtvTnRBOUhEeUIwIn19.U-AXyneFJ5x4QayrZ3GcuDCg1yHYHC9Kn1s8gtd7O4c.aigDJrko05dw-9Hk4LQbfOCCG9Dzskw6.!-.t")
+	spk, err = crypter.decryptSPK(nil, "eyJ0eXAiOiJqb3NlIiwiY3R5IjoiandrK2pzb24iLCJhbGciOiJFQ0RILUVTK1hDMjBQS1ciLCJlbmMiOiJYQzIwUCIsIml2IjoiNWhwNEVrWGtqSHR0SFlmY1IySXQ4d2dnZndjanNQaWwiLCJ0YWciOiJuMjg1OGplTXhZVE0tYzRZc2J0ZlBRIiwiZXBrIjp7Imt0eSI6Ik9LUCIsImNydiI6IlgyNTUxOSIsIngiOiJ3OW1EZ1FENnJVdWkyLVMyRjV6SVNqZXBua1FOZWEwMGtvTnRBOUhEeUIwIn19.U-AXyneFJ5x4QayrZ3GcuDCg1yHYHC9Kn1s8gtd7O4c.aigDJrko05dw-9Hk4LQbfOCCG9Dzskw6.!-.t")
 	require.Error(t, err)
 	require.Empty(t, spk)
 
-	spk, err = crypter.decryptSPK(jwecrypto.KeyPair{}, "eyJ0eXAiOiJqb3NlIiwiY3R5IjoiandrK2pzb24iLCJhbGciOiJFQ0RILUVTK1hDMjBQS1ciLCJlbmMiOiJYQzIwUCIsIml2IjoiNWhwNEVrWGtqSHR0SFlmY1IySXQ4d2dnZndjanNQaWwiLCJ0YWciOiJuMjg1OGplTXhZVE0tYzRZc2J0ZlBRIiwiZXBrIjp7Imt0eSI6Ik9LUCIsImNydiI6IlgyNTUxOSIsIngiOiJ3OW1EZ1FENnJVdWkyLVMyRjV6SVNqZXBua1FOZWEwMGtvTnRBOUhEeUIwIn19.U-AXyneFJ5x4QayrZ3GcuDCg1yHYHC9Kn1s8gtd7O4c.aigDJrko05dw-9Hk4LQbfOCCG9Dzskw6.tY10QY9fXvqV_vfhzBKkqw.!-")
+	spk, err = crypter.decryptSPK(nil, "eyJ0eXAiOiJqb3NlIiwiY3R5IjoiandrK2pzb24iLCJhbGciOiJFQ0RILUVTK1hDMjBQS1ciLCJlbmMiOiJYQzIwUCIsIml2IjoiNWhwNEVrWGtqSHR0SFlmY1IySXQ4d2dnZndjanNQaWwiLCJ0YWciOiJuMjg1OGplTXhZVE0tYzRZc2J0ZlBRIiwiZXBrIjp7Imt0eSI6Ik9LUCIsImNydiI6IlgyNTUxOSIsIngiOiJ3OW1EZ1FENnJVdWkyLVMyRjV6SVNqZXBua1FOZWEwMGtvTnRBOUhEeUIwIn19.U-AXyneFJ5x4QayrZ3GcuDCg1yHYHC9Kn1s8gtd7O4c.aigDJrko05dw-9Hk4LQbfOCCG9Dzskw6.tY10QY9fXvqV_vfhzBKkqw.!-")
 	require.Error(t, err)
 	require.Empty(t, spk)
 	headersJSON := &recipientSPKJWEHeaders{EPK: jwk{
 		X: "test",
 	}}
-	spk, err = crypter.decryptJWKSharedKey([]byte(""), headersJSON, nil)
+	someKey := new([chacha.KeySize]byte)
+	spk, err = crypter.decryptJWKSharedKey([]byte(""), headersJSON, someKey[:])
 	require.Error(t, err)
 	require.Empty(t, spk)
 
 	headersJSON.EPK.X = "!-"
-	spk, err = crypter.decryptJWKSharedKey([]byte(""), headersJSON, nil)
+	spk, err = crypter.decryptJWKSharedKey([]byte(""), headersJSON, someKey[:])
 	require.Error(t, err)
 	require.Empty(t, spk)
 
 	headersJSON.EPK.X = "test"
 	headersJSON.Tag = "!-"
-	someKey := new([chacha.KeySize]byte)
-	spk, err = crypter.decryptJWKSharedKey([]byte(""), headersJSON, someKey)
+
+	spk, err = crypter.decryptJWKSharedKey([]byte(""), headersJSON, someKey[:])
 	require.Error(t, err)
 	require.Empty(t, spk)
 
 	headersJSON.Tag = "test"
 	headersJSON.IV = "!-"
-	spk, err = crypter.decryptJWKSharedKey([]byte(""), headersJSON, someKey)
+	spk, err = crypter.decryptJWKSharedKey([]byte(""), headersJSON, someKey[:])
 	require.Error(t, err)
 	require.Empty(t, spk)
 

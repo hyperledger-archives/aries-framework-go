@@ -11,7 +11,9 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -24,6 +26,8 @@ type Provider struct {
 	services                 []dispatcher.Service
 	storeProvider            storage.Provider
 	wallet                   wallet.Wallet
+	packager                 envelope.Packager
+	crypter                  crypto.Crypter
 	inboundTransportEndpoint string
 	outboundTransport        transport.OutboundTransport
 }
@@ -66,9 +70,14 @@ func (p *Provider) CryptoWallet() wallet.Crypto {
 	return p.wallet
 }
 
-// PackWallet returns the pack wallet service
-func (p *Provider) PackWallet() wallet.Pack {
-	return p.wallet
+// Packager returns the packager service
+func (p *Provider) Packager() envelope.Packager {
+	return p.packager
+}
+
+// Crypter returns the crypter service to be used by the packager
+func (p *Provider) Crypter() crypto.Crypter {
+	return p.crypter
 }
 
 // DIDWallet returns the pack wallet service
@@ -155,6 +164,22 @@ func WithInboundTransportEndpoint(endpoint string) ProviderOption {
 func WithStorageProvider(s storage.Provider) ProviderOption {
 	return func(opts *Provider) error {
 		opts.storeProvider = s
+		return nil
+	}
+}
+
+// WithPackager injects a packager into the context
+func WithPackager(p envelope.Packager) ProviderOption {
+	return func(opts *Provider) error {
+		opts.packager = p
+		return nil
+	}
+}
+
+// WithCrypter injects a crypter into the context
+func WithCrypter(p crypto.Crypter) ProviderOption {
+	return func(opts *Provider) error {
+		opts.crypter = p
 		return nil
 	}
 }
