@@ -29,6 +29,7 @@ type Provider interface {
 	Packager() envelope.Packager
 	InboundTransportEndpoint() string
 	DIDWallet() wallet.DIDCreator
+	Signer() wallet.Signer
 }
 
 // ProtocolSvcCreator method to create new protocol service

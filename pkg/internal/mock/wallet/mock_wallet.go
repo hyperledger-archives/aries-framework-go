@@ -21,6 +21,8 @@ type CloseableWallet struct {
 	CreateSigningKeyErr      error
 	SignMessageValue         []byte
 	SignMessageErr           error
+	DecryptMessageValue      []byte
+	DecryptMessageErr        error
 	PackValue                []byte
 	PackErr                  error
 	UnpackValue              *envelope.Envelope

@@ -80,6 +80,11 @@ func (p *Provider) Crypter() crypto.Crypter {
 	return p.crypter
 }
 
+// Signer returns the wallet signing service
+func (p *Provider) Signer() wallet.Signer {
+	return p.wallet
+}
+
 // DIDWallet returns the pack wallet service
 func (p *Provider) DIDWallet() wallet.DIDCreator {
 	return p.wallet

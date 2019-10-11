@@ -134,9 +134,12 @@ func TestNewProvider(t *testing.T) {
 			WithPackager(&mockenvelope.BasePackager{PackValue: []byte("data")}),
 		)
 		require.NoError(t, err)
-		v, err := prov.CryptoWallet().SignMessage(nil, "")
+		v, err := prov.Signer().SignMessage(nil, "")
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
+		index, err := prov.CryptoWallet().FindVerKey([]string{"non-existent"})
+		require.Error(t, err)
+		require.Equal(t, -1, index)
 		v, err = prov.packager.PackMessage(&envelope.Envelope{})
 		require.NoError(t, err)
 		require.Equal(t, []byte("data"), v)
@@ -153,7 +156,7 @@ func TestNewProvider(t *testing.T) {
 			WithPackager(&mockenvelope.BasePackager{PackValue: []byte("data")}),
 		)
 		require.NoError(t, err)
-		v, err := prov.CryptoWallet().SignMessage(nil, "")
+		v, err := prov.Signer().SignMessage(nil, "")
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
 		didDoc, err := prov.DIDWallet().CreateDID("example")

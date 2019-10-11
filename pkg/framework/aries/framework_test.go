@@ -342,7 +342,7 @@ func TestFramework(t *testing.T) {
 		ctx, err := aries.Context()
 		require.NoError(t, err)
 
-		v, err := ctx.CryptoWallet().SignMessage(nil, "")
+		v, err := ctx.Signer().SignMessage(nil, "")
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
 		err = aries.Close()

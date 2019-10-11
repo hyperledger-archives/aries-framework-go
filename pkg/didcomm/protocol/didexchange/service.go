@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 var logger = log.New("aries-framework/did-exchange/service")
@@ -62,6 +63,7 @@ type message struct {
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
+	Signer() wallet.Signer
 }
 
 type connectionStore interface {
@@ -81,6 +83,7 @@ type Service struct {
 type context struct {
 	outboundDispatcher dispatcher.Outbound
 	didCreator         did.Creator
+	signer             wallet.Signer
 }
 
 // New return didexchange service
@@ -93,7 +96,8 @@ func New(didMaker did.Creator, prov provider) (*Service, error) {
 	svc := &Service{
 		ctx: context{
 			outboundDispatcher: prov.OutboundDispatcher(),
-			didCreator:         didMaker},
+			didCreator:         didMaker,
+			signer:             prov.Signer()},
 		store: store,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan didCommChMessage, 10),
