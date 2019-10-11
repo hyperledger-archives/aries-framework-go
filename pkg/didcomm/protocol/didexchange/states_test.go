@@ -204,7 +204,9 @@ func TestInvitedState_Execute(t *testing.T) {
 
 func TestRequestedState_Execute(t *testing.T) {
 	prov := protocol.MockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
+		didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()},
+		signer:     &mockSigner{}}
 	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 	t.Run("rejects msgs other than invitations or requests", func(t *testing.T) {
@@ -263,7 +265,8 @@ func TestRequestedState_Execute(t *testing.T) {
 	})
 	t.Run("err in sendind outbound requests", func(t *testing.T) {
 		ctx2 := context{outboundDispatcher: prov.OutboundDispatcher(),
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()}}
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()},
+			signer:     &mockSigner{}}
 		newDidDoc, err := ctx2.didCreator.CreateDID()
 		require.NoError(t, err)
 		requestPayloadBytes, err := json.Marshal(
@@ -311,7 +314,7 @@ func TestRequestedState_Execute(t *testing.T) {
 	})
 	t.Run("handle inbound invitation  error", func(t *testing.T) {
 		ctx2 := context{outboundDispatcher: &mockdispatcher.MockOutbound{SendErr: fmt.Errorf("error")},
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}, signer: &mockSigner{}}
 		followup, action, err := (&requested{}).
 			Execute(&service.DIDCommMsg{Type: ConnectionInvite, Payload: invitationPayloadBytes, Outbound: false}, "", ctx2)
 		require.NoError(t, err)
@@ -320,7 +323,8 @@ func TestRequestedState_Execute(t *testing.T) {
 	})
 	t.Run("handle inbound invitation public key error", func(t *testing.T) {
 		ctx2 := context{outboundDispatcher: prov.OutboundDispatcher(),
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()}}
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()},
+			signer:     &mockSigner{}}
 		followup, _, err := (&requested{}).
 			Execute(&service.DIDCommMsg{Type: ConnectionInvite, Payload: invitationPayloadBytes, Outbound: false}, "", ctx2)
 		require.Error(t, err)
@@ -330,7 +334,9 @@ func TestRequestedState_Execute(t *testing.T) {
 
 func TestRespondedState_Execute(t *testing.T) {
 	prov := protocol.MockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
+		didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()},
+		signer:     &mockSigner{}}
 	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 
@@ -397,7 +403,8 @@ func TestRespondedState_Execute(t *testing.T) {
 
 	t.Run("error for outbound responses", func(t *testing.T) {
 		ctx2 := context{outboundDispatcher: prov.OutboundDispatcher(),
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()}}
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()},
+			signer:     &mockSigner{}}
 		newDidDoc, err = ctx2.didCreator.CreateDID()
 		require.NoError(t, err)
 		connection := &Connection{
@@ -436,7 +443,7 @@ func TestRespondedState_Execute(t *testing.T) {
 	})
 	t.Run("handle inbound request  error", func(t *testing.T) {
 		ctx2 := context{outboundDispatcher: &mockdispatcher.MockOutbound{SendErr: fmt.Errorf("error")},
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}, signer: &mockSigner{}}
 		followup, action, e := (&responded{}).
 			Execute(&service.DIDCommMsg{Type: ConnectionRequest, Payload: requestPayloadBytes,
 				Outbound: false, OutboundDestination: outboundDestination}, "", ctx2)
@@ -460,7 +467,7 @@ func TestRespondedState_Execute(t *testing.T) {
 	})
 	t.Run("handle inbound request public key error", func(t *testing.T) {
 		ctx2 := context{outboundDispatcher: prov.OutboundDispatcher(),
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()}}
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()}, signer: &mockSigner{}}
 		followup, _, err := (&responded{}).
 			Execute(&service.DIDCommMsg{Type: ConnectionRequest, Payload: requestPayloadBytes, Outbound: false}, "", ctx2)
 		require.Error(t, err)
@@ -471,7 +478,9 @@ func TestRespondedState_Execute(t *testing.T) {
 // completed is an end state
 func TestCompletedState_Execute(t *testing.T) {
 	prov := protocol.MockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
+		didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()},
+		signer:     &mockSigner{}}
 	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 	outboundDestination := &service.Destination{RecipientKeys: []string{"test", "test2"}, ServiceEndpoint: "xyz"}
@@ -566,7 +575,7 @@ func TestCompletedState_Execute(t *testing.T) {
 	})
 	t.Run("handle inbound response  error", func(t *testing.T) {
 		ctx2 := context{outboundDispatcher: &mockdispatcher.MockOutbound{SendErr: fmt.Errorf("error")},
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}, signer: &mockSigner{}}
 		followup, action, err := (&completed{}).
 			Execute(&service.DIDCommMsg{Type: ConnectionResponse, Payload: responsePayloadBytes,
 				Outbound: false, OutboundDestination: outboundDestination}, "", ctx2)
@@ -580,7 +589,6 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		prov := protocol.MockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 		newDidDoc, err := ctx.didCreator.CreateDID()
-		require.NoError(t, err)
 		require.NoError(t, err)
 		connection := &Connection{
 			DID:    newDidDoc.ID,
@@ -649,7 +657,8 @@ func TestNewRequestFromInvitation(t *testing.T) {
 func TestNewResponseFromRequest(t *testing.T) {
 	t.Run("successful new response from request", func(t *testing.T) {
 		prov := protocol.MockProvider{}
-		ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+		ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
+			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}, signer: &mockSigner{}}
 		newDidDoc, err := ctx.didCreator.CreateDID()
 		require.NoError(t, err)
 		request := &Request{
@@ -671,6 +680,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		request := &Request{}
 		_, err := ctx.handleInboundRequest(request)
 		require.Error(t, err)
+		require.Equal(t, "create DID error", err.Error())
 	})
 }
 
@@ -692,6 +702,15 @@ func TestGetPublicKey(t *testing.T) {
 		require.NoError(t, err)
 		pubkey, err := getPublicKeys(newDidDoc, "invalid key")
 		require.Error(t, err)
+		require.Contains(t, err.Error(), "public key not supported")
 		require.Nil(t, pubkey)
 	})
+}
+
+type mockSigner struct {
+	Err error
+}
+
+func (s *mockSigner) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
+	return nil, s.Err
 }

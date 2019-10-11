@@ -13,6 +13,7 @@ import (
 // Wallet interface
 type Wallet interface {
 	Crypto
+	Signer
 	DIDCreator
 }
 
@@ -37,21 +38,6 @@ type Crypto interface {
 	// error: error
 	CreateSigningKey() (string, error)
 
-	// SignMessage sign a message using the private key associated with a given verification key.
-	//
-	// Args:
-	//
-	// message: The message to sign
-	//
-	// fromVerKey: Sign using the private key related to this verification key
-	//
-	// Returns:
-	//
-	// []byte: The signature
-	//
-	// error: error
-	SignMessage(message []byte, fromVerKey string) ([]byte, error)
-
 	// DeriveKEK will derive an ephemeral symmetric key (kek) using a private from key fetched from
 	// from the wallet corresponding to fromPubKey and derived with toPubKey.
 	//
@@ -70,6 +56,25 @@ type Crypto interface {
 	//
 	//		in case of error, the index will be -1
 	FindVerKey(candidateKeys []string) (int, error)
+}
+
+// Signer interface provides signing capabilities
+type Signer interface {
+
+	// SignMessage sign a message using the private key associated with a given verification key.
+	//
+	// Args:
+	//
+	// message: The message to sign
+	//
+	// fromVerKey: Sign using the private key related to this verification key
+	//
+	// Returns:
+	//
+	// []byte: The signature
+	//
+	// error: error
+	SignMessage(message []byte, fromVerKey string) ([]byte, error)
 }
 
 // DIDCreator provide method to create DID document

@@ -11,7 +11,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // MockDIDExchangeSvc mock did exchange service
@@ -97,4 +99,9 @@ func (p *MockProvider) StorageProvider() storage.Provider {
 		return mockstore.NewMockCustomStoreProvider(p.CustomStore)
 	}
 	return mockstore.NewMockStoreProvider()
+}
+
+// Signer is mock signer for DID exchange service
+func (p *MockProvider) Signer() wallet.Signer {
+	return &mockwallet.CloseableWallet{}
 }
