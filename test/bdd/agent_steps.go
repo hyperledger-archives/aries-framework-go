@@ -158,10 +158,7 @@ func listenFor(host string, d time.Duration) error {
 			if err != nil {
 				continue
 			}
-			if err := conn.Close(); err != nil {
-				return err
-			}
-			return nil
+			return conn.Close()
 		}
 	}
 }
