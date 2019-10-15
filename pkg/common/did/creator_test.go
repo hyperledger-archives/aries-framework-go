@@ -26,15 +26,28 @@ func getMockDID() *d.Doc {
 	}
 }
 
-func TestLocalDIDCreator_CreateDID(t *testing.T) {
-	creator := NewLocalDIDCreator(&mockProvider{})
-	require.NotNil(t, creator)
+func TestLocalDIDCreator(t *testing.T) {
+	t.Run("create new local DID ", func(t *testing.T) {
+		creator := NewLocalDIDCreator(&mockProvider{})
+		require.NotNil(t, creator)
 
-	did, err := creator.CreateDID()
-	require.NotNil(t, did)
-	require.NoError(t, err)
+		did, err := creator.CreateDID()
+		require.NotNil(t, did)
+		require.NoError(t, err)
 
-	require.Equal(t, did, getMockDID())
+		require.Equal(t, did, getMockDID())
+	})
+
+	t.Run("get DID ", func(t *testing.T) {
+		creator := NewLocalDIDCreator(&mockProvider{})
+		require.NotNil(t, creator)
+
+		did, err := creator.GetDID(getMockDID().ID)
+		require.NotNil(t, did)
+		require.NoError(t, err)
+
+		require.Equal(t, did, getMockDID())
+	})
 }
 
 // mockProvider is mock provider for DID creator

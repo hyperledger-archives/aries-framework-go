@@ -25,10 +25,11 @@ import (
 )
 
 const (
-	storageName  = "basewallet"
-	didFormat    = "did:%s:%s"
-	didPKID      = "%s#keys-%d"
-	didServiceID = "%s#endpoint-%d"
+	keyStoreNamespace = "keystore"
+	didStoreNamespace = "didstore"
+	didFormat         = "did:%s:%s"
+	didPKID           = "%s#keys-%d"
+	didServiceID      = "%s#endpoint-%d"
 )
 
 // provider contains dependencies for the base wallet and is typically created by using aries.Context()
@@ -39,18 +40,24 @@ type provider interface {
 
 // BaseWallet wallet implementation
 type BaseWallet struct {
-	store                    storage.Store
+	keystore                 storage.Store
+	didstore                 storage.Store
 	inboundTransportEndpoint string
 }
 
 // New return new instance of wallet implementation
 func New(ctx provider) (*BaseWallet, error) {
-	store, err := ctx.StorageProvider().OpenStore(storageName)
+	ks, err := ctx.StorageProvider().OpenStore(keyStoreNamespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to OpenStore for '%s', cause: %w", storageName, err)
+		return nil, fmt.Errorf("failed to OpenStore for '%s', cause: %w", keyStoreNamespace, err)
 	}
 
-	return &BaseWallet{store: store, inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
+	ds, err := ctx.StorageProvider().OpenStore(didStoreNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to OpenStore for '%s', cause: %w", didStoreNamespace, err)
+	}
+
+	return &BaseWallet{keystore: ks, didstore: ds, inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
 }
 
 // CreateEncryptionKey create a new public/private encryption keypair.
@@ -61,7 +68,7 @@ func (w *BaseWallet) CreateEncryptionKey() (string, error) {
 	}
 	base58Pub := base58.Encode(pub[:])
 	// TODO - need to encrypt the priv before putting them in the store.
-	if err := w.persistKey(base58Pub, &cryptoutil.KeyPair{Pub: pub[:], Priv: priv[:]}); err != nil {
+	if err := persist(w.keystore, base58Pub, &cryptoutil.KeyPair{Pub: pub[:], Priv: priv[:]}); err != nil {
 		return "", err
 	}
 	return base58Pub, nil
@@ -75,7 +82,7 @@ func (w *BaseWallet) CreateSigningKey() (string, error) {
 	}
 	base58Pub := base58.Encode(pub[:])
 	// TODO - need to encrypt the priv before putting them in the store.
-	if err := w.persistKey(base58Pub, &cryptoutil.KeyPair{Pub: pub[:], Priv: priv[:]}); err != nil {
+	if err := persist(w.keystore, base58Pub, &cryptoutil.KeyPair{Pub: pub[:], Priv: priv[:]}); err != nil {
 		return "", err
 	}
 	return base58Pub, nil
@@ -96,7 +103,6 @@ func (w *BaseWallet) Close() error {
 }
 
 // CreateDID returns new DID Document
-// TODO write the DID Doc to the chosen DID method.
 func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error) {
 	docOpts := &createDIDOpts{}
 	// Apply options
@@ -139,32 +145,42 @@ func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
 	// Created time
 	createdTime := time.Now()
 
-	return &did.Doc{
+	didDoc := &did.Doc{
 		Context:   []string{did.Context},
 		ID:        id,
 		PublicKey: []did.PublicKey{pubKey},
 		Service:   service,
 		Created:   &createdTime,
 		Updated:   &createdTime,
-	}, nil
+	}
+
+	// persist in did store
+	err = persist(w.didstore, id, didDoc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to persist DID : %w", err)
+	}
+
+	return didDoc, nil
 }
 
-// persistKey save key in storage
-func (w *BaseWallet) persistKey(key string, value *cryptoutil.KeyPair) error {
-	bytes, err := json.Marshal(value)
+// GetDID gets already created DID document from underlying store
+func (w *BaseWallet) GetDID(id string) (*did.Doc, error) {
+	bytes, err := w.didstore.Get(id)
 	if err != nil {
-		return fmt.Errorf("failed to marshal key: %w", err)
+		return nil, err
 	}
-	err = w.store.Put(key, bytes)
-	if err != nil {
-		return fmt.Errorf("failed to marshal key: %w", err)
+
+	didDoc := did.Doc{}
+	if err := json.Unmarshal(bytes, &didDoc); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal did document: %w", err)
 	}
-	return nil
+
+	return &didDoc, nil
 }
 
 // getKey get key
 func (w *BaseWallet) getKey(verkey string) (*cryptoutil.KeyPair, error) {
-	bytes, err := w.store.Get(verkey)
+	bytes, err := w.keystore.Get(verkey)
 	if err != nil {
 		if errors.Is(storage.ErrDataNotFound, err) {
 			return nil, cryptoutil.ErrKeyNotFound
@@ -214,4 +230,17 @@ func (w *BaseWallet) FindVerKey(candidateKeys []string) (int, error) {
 		return i, nil
 	}
 	return -1, cryptoutil.ErrKeyNotFound
+}
+
+// persist marshals value and saves it in store for given key
+func persist(store storage.Store, key string, value interface{}) error {
+	bytes, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("failed to marshal : %w", err)
+	}
+	err = store.Put(key, bytes)
+	if err != nil {
+		return fmt.Errorf("failed to save in store: %w", err)
+	}
+	return nil
 }

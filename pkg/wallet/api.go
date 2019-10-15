@@ -77,7 +77,7 @@ type Signer interface {
 	SignMessage(message []byte, fromVerKey string) ([]byte, error)
 }
 
-// DIDCreator provide method to create DID document
+// DIDCreator provides features to create and query DID document
 type DIDCreator interface {
 	// Creates new DID document.
 	//
@@ -93,6 +93,19 @@ type DIDCreator interface {
 	//
 	// error: error
 	CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
+
+	// Gets already created DID document by ID.
+	//
+	// Args:
+	//
+	// id: DID identifier
+	//
+	// Returns:
+	//
+	// did: DID document
+	//
+	// error: when document is not found or for any other error conditions
+	GetDID(id string) (*did.Doc, error)
 }
 
 // createDIDOpts holds the options for creating DID
