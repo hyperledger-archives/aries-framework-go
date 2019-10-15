@@ -34,7 +34,7 @@ func main() {
 	}
 
 	jwt := flag.String("jwt", "", "base64encoded JSON object containing es256kPrivateKeyJwk and rs256PrivateKeyJwk.")
-	// todo use jwtAud #371
+	// todo use jwtAud #483
 	flag.String("jwt-aud", "", "indication to use aud attribute in all JWTs")
 	jwtNoJws := flag.Bool("jwt-no-jws", false, "indication to suppress the JWS although keys are present")
 	jwtPresentation := flag.Bool("jwt-presentation", false, "indication to generate a verifiable presentation")
@@ -42,25 +42,24 @@ func main() {
 	isPresentation := flag.Bool("presentation", false, "presentation is passed")
 	flag.Parse()
 
-	if *isPresentation {
-		// todo support Verifiable Presentations #371
-		abort("verifiable presentations are not supported")
+	if *jwt == "" {
+		if *isPresentation {
+			encodeVPToJSON(vcBytes)
+		} else {
+			encodeVCToJSON(vcBytes)
+		}
+		return
 	}
 
-	if *jwt == "" {
-		encodeVCToJSON(vcBytes)
-		return
+	if *jwtPresentation {
+		// TODO Encode Verifiable Presentation #483
+		abort("verifiable presentations are not supported")
 	}
 
 	privateKey, publicKey := parseKeys(*jwt)
 
 	if *jwtDecode {
 		decodeVCJWTToJSON(vcBytes, publicKey)
-	}
-
-	if *jwtPresentation {
-		// TODO Encode Verifiable Presentation #371
-		abort("verifiable presentations are not supported")
 	}
 
 	if *jwtNoJws {
@@ -175,6 +174,18 @@ func encodeVCToJSON(vcBytes []byte) {
 	encoded, err := credential.MarshalJSON()
 	if err != nil {
 		abort("failed to encode credential: %v", err)
+	}
+	fmt.Println(string(encoded))
+}
+
+func encodeVPToJSON(vcBytes []byte) {
+	vp, err := verifiable.NewPresentation(vcBytes)
+	if err != nil {
+		abort("failed to decode presentation: %v", err)
+	}
+	encoded, err := vp.MarshalJSON()
+	if err != nil {
+		abort("failed to encode presentation: %v", err)
 	}
 	fmt.Println(string(encoded))
 }

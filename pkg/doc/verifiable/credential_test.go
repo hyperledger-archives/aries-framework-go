@@ -164,26 +164,13 @@ func TestValidateVerCredContext(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Does not match pattern '^https://www.w3.org/2018/credentials/v1$'")
 	})
-
-	t.Run("test verifiable credential with invalid root context", func(t *testing.T) {
-		raw := &rawCredential{}
-		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Context = []interface{}{
-			"https://www.w3.org/2018/credentials/v2",
-			"https://www.w3.org/2018/credentials/examples/v1"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "Does not match pattern '^https://www.w3.org/2018/credentials/v1$'")
-	})
 }
 
 func TestValidateVerCredID(t *testing.T) {
 	t.Run("test verifiable credential with non-url id", func(t *testing.T) {
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.ID = "not url"
+		raw.ID = "not valid credential ID URL"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
