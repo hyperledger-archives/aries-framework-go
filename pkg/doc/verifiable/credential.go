@@ -188,16 +188,8 @@ const jsonSchema2018Type = "JsonSchemaValidator2018"
 //nolint:gochecknoglobals
 var defaultSchemaLoader = gojsonschema.NewStringLoader(defaultSchema)
 
-// Proof defines embedded proof of Verifiable Credential
-type Proof interface{}
-
 // Evidence defines evidence of Verifiable Credential
 type Evidence interface{}
-
-type typedID struct {
-	ID   string `json:"id,omitempty"`
-	Type string `json:"type,omitempty"`
-}
 
 // Issuer of the Verifiable Credential
 type Issuer struct {
@@ -213,12 +205,6 @@ type CredentialStatus typedID
 
 // CredentialSchema defines a link to data schema which enforces a specific structure of Verifiable Credential.
 type CredentialSchema typedID
-
-// RefreshService provides a way to automatic refresh of expired Verifiable Credential
-type RefreshService typedID
-
-// TermsOfUse represents terms of use of Verifiable Credential by Issuer or Verifiable Presentation by Holder.
-type TermsOfUse typedID
 
 // Credential Verifiable Credential definition
 type Credential struct {
@@ -295,22 +281,7 @@ type CredentialTemplate func() *Credential
 // If not defined, JWT encoding is not tested.
 type PublicKeyFetcher func(issuerID, keyID string) (interface{}, error)
 
-// jwtDecoding defines if to decode VC from JWT
-type jwtDecoding int
-
-const (
-	// noJwtDecoding not a JWT
-	noJwtDecoding jwtDecoding = iota
-
-	// jwsDecoding indicated to unmarshal from Signed Token
-	jwsDecoding
-
-	// unsecuredJWTDecoding indicates to unmarshal from Unsecured Token
-	unsecuredJWTDecoding
-)
-
 // credentialOpts holds options for the Verifiable Credential decoding
-// it has a http.Client instance initialized with default parameters
 type credentialOpts struct {
 	schemaDownloadClient   *http.Client
 	disabledCustomSchema   bool
@@ -545,19 +516,11 @@ func validate(data []byte, schemas []CredentialSchema, opts *credentialOpts) err
 	}
 
 	if !result.Valid() {
-		errMsg := describeSchemaValidationError(result)
+		errMsg := describeSchemaValidationError(result, "verifiable credential")
 		return errors.New(errMsg)
 	}
 
 	return nil
-}
-
-func describeSchemaValidationError(result *gojsonschema.Result) string {
-	errMsg := "verifiable credential is not valid:\n"
-	for _, desc := range result.Errors() {
-		errMsg += fmt.Sprintf("- %s\n", desc)
-	}
-	return errMsg
 }
 
 func getSchemaLoader(schemas []CredentialSchema, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
