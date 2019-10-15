@@ -134,8 +134,8 @@ func (s *invited) CanTransitionTo(next state) bool {
 }
 
 func (s *invited) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
-	if msg.Type != ConnectionInvite {
-		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
+	if msg.Header.Type != ConnectionInvite {
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Header.Type, s.Name())
 	}
 	if msg.Outbound {
 		// illegal
@@ -157,7 +157,7 @@ func (s *requested) CanTransitionTo(next state) bool {
 }
 
 func (s *requested) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
-	switch msg.Type {
+	switch msg.Header.Type {
 	case ConnectionInvite:
 		if msg.Outbound {
 			return nil, nil, fmt.Errorf("outbound invitations are not allowed for state %s", s.Name())
@@ -182,7 +182,7 @@ func (s *requested) Execute(msg *service.DIDCommMsg, thid string, ctx context) (
 		}
 		return &responded{}, func() error { return nil }, nil
 	default:
-		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Header.Type, s.Name())
 	}
 }
 
@@ -199,7 +199,7 @@ func (s *responded) CanTransitionTo(next state) bool {
 }
 
 func (s *responded) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
-	switch msg.Type {
+	switch msg.Header.Type {
 	case ConnectionRequest:
 		if msg.Outbound {
 			return nil, nil, fmt.Errorf("outbound requests are not allowed for state %s", s.Name())
@@ -224,7 +224,7 @@ func (s *responded) Execute(msg *service.DIDCommMsg, thid string, ctx context) (
 		}
 		return &completed{}, func() error { return nil }, nil
 	default:
-		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Header.Type, s.Name())
 	}
 }
 
@@ -241,7 +241,7 @@ func (s *completed) CanTransitionTo(next state) bool {
 }
 
 func (s *completed) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
-	switch msg.Type {
+	switch msg.Header.Type {
 	case ConnectionResponse:
 		if msg.Outbound {
 			return nil, nil, fmt.Errorf("outbound responses are not allowed for state %s", s.Name())
@@ -268,7 +268,7 @@ func (s *completed) Execute(msg *service.DIDCommMsg, thid string, ctx context) (
 		//TODO: issue-333 otherwise save did-exchange connection
 		return &noOp{}, action, nil
 	default:
-		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type, s.Name())
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Header.Type, s.Name())
 	}
 }
 func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string) (stateAction, error) {

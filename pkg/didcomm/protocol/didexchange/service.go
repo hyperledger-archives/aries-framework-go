@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -132,7 +131,7 @@ func (s *Service) Handle(msg *service.DIDCommMsg) error {
 	}
 	logger.Infof("current state : %s", current.Name())
 
-	next, err := stateFromMsgType(msg.Type)
+	next, err := stateFromMsgType(msg.Header.Type)
 	if err != nil {
 		return err
 	}
@@ -150,7 +149,7 @@ func (s *Service) Handle(msg *service.DIDCommMsg) error {
 	logger.Infof("sent pre event for state %s", next.Name())
 
 	// trigger action event based on message type for inbound messages
-	if !msg.Outbound && canTriggerActionEvents(msg.Type) {
+	if !msg.Outbound && canTriggerActionEvents(msg.Header.Type) {
 		err = s.sendActionEvent(msg, aEvent, thid, next)
 		if err != nil {
 			return fmt.Errorf("send events failed: %w", err)
@@ -349,23 +348,11 @@ func isNoOp(s state) bool {
 }
 
 func threadID(didCommMsg *service.DIDCommMsg) (string, error) {
-	var thid string
-	if !didCommMsg.Outbound && didCommMsg.Type == ConnectionInvite {
-		return uuid.New().String(), nil
+	if !didCommMsg.Outbound && didCommMsg.Header.Type == ConnectionInvite {
+		return generateRandomID(), nil
 	}
-	msg := struct {
-		ID     string           `json:"@id"`
-		Thread decorator.Thread `json:"~thread,omitempty"`
-	}{}
-	err := json.Unmarshal(didCommMsg.Payload, &msg)
-	if err != nil {
-		return "", fmt.Errorf("cannot unmarshal @id and ~thread: error=%s", err)
-	}
-	thid = msg.ID
-	if len(msg.Thread.ID) > 0 {
-		thid = msg.Thread.ID
-	}
-	return thid, nil
+
+	return didCommMsg.ThreadID()
 }
 
 func (s *Service) currentState(thid string) (state, error) {
