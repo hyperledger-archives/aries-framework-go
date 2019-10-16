@@ -32,7 +32,7 @@ type DIDComm interface {
 type Header struct {
 	ID     string           `json:"@id"`
 	Thread decorator.Thread `json:"~thread"`
-	Type   string           `json:"@type,omitempty"`
+	Type   string           `json:"@type"`
 }
 
 // DIDCommMsg did comm msg
