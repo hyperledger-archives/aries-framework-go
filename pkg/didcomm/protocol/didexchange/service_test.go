@@ -1013,3 +1013,70 @@ func TestServiceErrors(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to persist state null")
 }
+
+func TestMsgEventProtocolFailure(t *testing.T) {
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
+
+	actionCh := make(chan service.DIDCommAction, 10)
+	err = svc.RegisterActionEvent(actionCh)
+	require.NoError(t, err)
+
+	go func() {
+		for e := range actionCh {
+			e.Stop(errors.New("user error"))
+		}
+	}()
+
+	statusCh := make(chan service.StateMsg, 10)
+	err = svc.RegisterMsgEvent(statusCh)
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		for e := range statusCh {
+			if e.Type == service.PostState && e.StateID == (&abandoned{}).Name() {
+				svcErr, ok := e.Properties.(error)
+				require.Equal(t, true, ok)
+				require.Equal(t, "user error", svcErr.Error())
+
+				done <- struct{}{}
+			}
+		}
+	}()
+
+	// update the state to responded for this thread ID (to bypass the validations for ConnectionAck message type)
+	id := randomString()
+	err = svc.update(id, &responded{})
+	require.NoError(t, err)
+
+	// verify the current state
+	s, err := svc.currentState(id)
+	require.NoError(t, err)
+	require.Equal(t, (&responded{}).Name(), s.Name())
+
+	request, err := json.Marshal(
+		&Request{
+			Type:  ConnectionAck,
+			ID:    id,
+			Label: "test",
+		},
+	)
+	require.NoError(t, err)
+
+	msg, err := service.NewDIDCommMsg(request)
+	require.NoError(t, err)
+
+	err = svc.Handle(msg)
+	require.NoError(t, err)
+
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		require.Fail(t, "tests are not validated")
+	}
+
+	s, err = svc.currentState(id)
+	require.NoError(t, err)
+	require.Equal(t, (&abandoned{}).Name(), s.Name())
+}

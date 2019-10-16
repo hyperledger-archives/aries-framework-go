@@ -35,12 +35,12 @@ type StateMsg struct {
 	// DIDComm message along with message type
 	Msg *DIDCommMsg
 
-	// Properties contains value based on specific protocol. The consumers need to cast this to specific interface
-	// based on the protocol event.
+	// Properties contains value based on specific protocol. The consumers need to call the protocol client
+	// functions to get the data.
 	//
-	// Cast to following interfaces based on protocol
-	//   - DID Exchange :  service.DIDExchangeEvent
-	Properties interface{}
+	// Clients function to retrieve data based on protocol.
+	//   - DID Exchange :  didexchange.EventProperties
+	Properties EventProperties
 }
 
 // DIDCommAction message type to pass events in go channels.
@@ -61,13 +61,16 @@ type DIDCommAction struct {
 	// to stop the processing.
 	Stop func(err error)
 
-	// Properties contains value based on specific protocol. The consumers need to cast this to specific interface
-	// based on the protocol event.
+	// Properties contains value based on specific protocol. The consumers need to call the protocol client
+	// functions to get the data.
 	//
-	// Cast to following interfaces based on protocol
-	//   - DID Exchange :  service.DIDExchangeEvent
-	Properties interface{}
+	// Clients function to retrieve data based on protocol.
+	//   - DID Exchange :  didexchange.EventProperties
+	Properties EventProperties
 }
+
+// EventProperties type for event related data.
+type EventProperties interface{}
 
 // Event event related apis.
 type Event interface {

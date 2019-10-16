@@ -31,6 +31,7 @@ const (
 	stateNameRequested = "requested"
 	stateNameResponded = "responded"
 	stateNameCompleted = "completed"
+	stateNameAbandoned = "abandoned"
 	ackStatusOK        = "ok"
 	// Todo:How to find the key type -Issue-439
 	supportedPublicKeyType = "Ed25519VerificationKey2018"
@@ -85,6 +86,8 @@ func stateFromName(name string) (state, error) {
 		return &responded{}, nil
 	case stateNameCompleted:
 		return &completed{}, nil
+	case stateNameAbandoned:
+		return &abandoned{}, nil
 	default:
 		return nil, fmt.Errorf("invalid state name %s", name)
 	}
@@ -271,6 +274,23 @@ func (s *completed) Execute(msg *service.DIDCommMsg, thid string, ctx context) (
 		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Header.Type, s.Name())
 	}
 }
+
+// abandoned state
+type abandoned struct {
+}
+
+func (s *abandoned) Name() string {
+	return stateNameAbandoned
+}
+
+func (s *abandoned) CanTransitionTo(next state) bool {
+	return false
+}
+
+func (s *abandoned) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
 func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string) (stateAction, error) {
 	// create a request from invitation
 	destination := &service.Destination{
@@ -305,6 +325,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string)
 		return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
 	}, nil
 }
+
 func (ctx *context) handleInboundRequest(request *Request) (stateAction, error) {
 	// create a response from Request
 	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
@@ -342,6 +363,7 @@ func (ctx *context) handleInboundRequest(request *Request) (stateAction, error) 
 		return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
 	}, nil
 }
+
 func (ctx *context) sendOutboundRequest(msg *service.DIDCommMsg) (stateAction, error) {
 	if msg.OutboundDestination == nil {
 		return nil, fmt.Errorf("outboundDestination cannot be empty for outbound Request")
@@ -452,6 +474,7 @@ func prepareConnectionSignature(connection *Connection) (*ConnectionSignature, e
 		SignVerKey: string(pubKey),
 	}, nil
 }
+
 func (ctx *context) sendOutboundAck(msg *service.DIDCommMsg) (stateAction, error) {
 	ack := &model.Ack{}
 	if msg.OutboundDestination == nil {
@@ -475,6 +498,7 @@ func (ctx *context) sendOutboundAck(msg *service.DIDCommMsg) (stateAction, error
 	}
 	return action, nil
 }
+
 func (ctx *context) handleInboundResponse(response *Response) (stateAction, error) {
 	ack := &model.Ack{
 		Type:   ConnectionAck,
@@ -510,6 +534,7 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, erro
 func getEpochTime() int64 {
 	return time.Now().Unix()
 }
+
 func getPublicKeys(didDoc *did.Doc, pubKeyType string) ([]did.PublicKey, error) {
 	var publicKeys []did.PublicKey
 	for k, pubKey := range didDoc.PublicKey {
