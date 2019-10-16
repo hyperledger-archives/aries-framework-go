@@ -81,11 +81,20 @@ func New(ctx provider) (*Client, error) {
 		connectionStore: didexchange.NewConnectionRecorder(store),
 	}
 
-	// start listening for action/message events
-	err = c.startServiceEventListener()
+	// register the action event channel
+	err = c.didexchangeSvc.RegisterActionEvent(c.actionCh)
 	if err != nil {
-		return nil, fmt.Errorf("service event listener startup failed: %w", err)
+		return nil, fmt.Errorf("didexchange action event registration: %w", err)
 	}
+
+	// register the message event channel
+	err = c.didexchangeSvc.RegisterMsgEvent(c.msgCh)
+	if err != nil {
+		return nil, fmt.Errorf("didexchange message event registration: %w", err)
+	}
+
+	// start listening for action/message events
+	go c.startServiceEventListener()
 
 	return c, nil
 }
@@ -161,35 +170,20 @@ func (c *Client) RemoveConnection(id string) error {
 }
 
 // startServiceEventListener listens to action and message events from DID Exchange service.
-func (c *Client) startServiceEventListener() error {
-	err := c.didexchangeSvc.RegisterActionEvent(c.actionCh)
-	if err != nil {
-		return fmt.Errorf("didexchange action event registration failed: %w", err)
-	}
-
-	// register the message event channel
-	err = c.didexchangeSvc.RegisterMsgEvent(c.msgCh)
-	if err != nil {
-		return fmt.Errorf("didexchange message event registration failed: %w", err)
-	}
-
+func (c *Client) startServiceEventListener() {
 	// listen for action event and message events
-	go func() {
-		for {
-			select {
-			case e := <-c.actionCh:
-				// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
-				msg := e
-				c.handleActionEvent(&msg)
-			case e := <-c.msgCh:
-				// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
-				msg := e
-				c.handleMessageEvent(&msg)
-			}
+	for {
+		select {
+		case e := <-c.actionCh:
+			// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
+			msg := e
+			c.handleActionEvent(&msg)
+		case e := <-c.msgCh:
+			// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
+			msg := e
+			c.handleMessageEvent(&msg)
 		}
-	}()
-
-	return nil
+	}
 }
 
 // RegisterActionEvent on DID Exchange protocol messages. The events are triggered for incoming exchangeRequest,

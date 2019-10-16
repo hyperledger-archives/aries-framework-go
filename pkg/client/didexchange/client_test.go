@@ -281,15 +281,15 @@ func TestServiceEventError(t *testing.T) {
 	// register action event on service throws error
 	_, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: &didExSvc})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "service event listener startup failed: didexchange action event "+
-		"registration failed: action event registration failed")
+	require.Contains(t, err.Error(), "didexchange action event "+
+		"registration: action event registration failed")
 
 	// register msg event on service throws error
 	didExSvc.RegisterActionEventErr = nil
 	_, err = New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: &didExSvc})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "service event listener startup failed: didexchange message event "+
-		"registration failed: msg event registration failed")
+	require.Contains(t, err.Error(), "didexchange message event "+
+		"registration: msg event registration failed")
 }
 
 func TestService_ActionEvent(t *testing.T) {

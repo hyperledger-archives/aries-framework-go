@@ -111,7 +111,8 @@ func New(didMaker did.Creator, prov provider) (*Service, error) {
 		connectionStore: NewConnectionRecorder(store),
 	}
 
-	svc.startInternalListener()
+	// start the listener
+	go svc.startInternalListener()
 
 	return svc, nil
 }
@@ -306,28 +307,26 @@ func (s *Service) sendMsgEvents(msg *service.StateMsg) {
 
 // startInternalListener listens to messages in gochannel for callback messages from clients.
 func (s *Service) startInternalListener() {
-	go func() {
-		for msg := range s.callbackChannel {
-			if msg.Err != nil {
-				// TODO https://github.com/hyperledger/aries-framework-go/issues/438 Cleanup/Update data on Stop Event Action
-				logger.Errorf("client action event processing - msgID:%s error:%s", msg.ID, msg.Err)
-				err := s.processFailure(msg.ID, msg.Err)
-				if err != nil {
-					logger.Errorf("process callback : %s", err)
-				}
-				continue
+	for msg := range s.callbackChannel {
+		if msg.Err != nil {
+			// TODO https://github.com/hyperledger/aries-framework-go/issues/438 Cleanup/Update data on Stop Event Action
+			logger.Errorf("client action event processing - msgID:%s error:%s", msg.ID, msg.Err)
+			err := s.processFailure(msg.ID, msg.Err)
+			if err != nil {
+				logger.Errorf("process callback : %s", err)
 			}
+			continue
+		}
 
-			// TODO https://github.com/hyperledger/aries-framework-go/issues/242 - retry logic
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/242 - retry logic
 
-			if err := s.process(msg.ID); err != nil {
-				procErr := s.processFailure(msg.ID, err)
-				if procErr != nil {
-					logger.Errorf("process callback : %s", procErr)
-				}
+		if err := s.process(msg.ID); err != nil {
+			procErr := s.processFailure(msg.ID, err)
+			if procErr != nil {
+				logger.Errorf("process callback : %s", procErr)
 			}
 		}
-	}()
+	}
 }
 
 func (s *Service) processFailure(id string, processErr error) error {
