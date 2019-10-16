@@ -32,3 +32,5 @@ coverage.txt
 build
 vc-test-suite
 test/bdd/db
+test/bdd/fixtures/keys/tls
+*.log

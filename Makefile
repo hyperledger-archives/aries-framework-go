@@ -28,7 +28,7 @@ unit-test:
 	@scripts/check_unit.sh
 
 .PHONY: bdd-test
-bdd-test: clean
+bdd-test: clean generate-test-keys
 	@scripts/check_integration.sh
 
 .PHONY: vc-test-suite
@@ -40,6 +40,15 @@ clean:
 	rm -f coverage.txt
 	rm -Rf ./build
 	rm -Rf ./test/bdd/db
+	rm -Rf ./test/bdd/fixtures/keys/tls
+	rm -Rf ./test/bdd/*.log
+
+generate-test-keys: clean
+	@mkdir -p -p test/bdd/fixtures/keys/tls
+	@docker run -i --rm \
+		-v $(abspath .):/opt/go/src/github.com/hyperledger/aries-framework-go \
+		--entrypoint "/opt/go/src/github.com/hyperledger/aries-framework-go/scripts/generate_test_keys.sh" \
+		frapsoft/openssl
 
 .PHONY: generate-openapi-spec
 generate-openapi-spec: clean

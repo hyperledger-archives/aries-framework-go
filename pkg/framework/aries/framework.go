@@ -191,6 +191,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithStorageProvider(a.storeProvider),
 		context.WithCrypter(a.crypter),
 		context.WithPackager(a.packager),
+		context.WithDIDResolver(a.didResolver),
 	)
 }
 
