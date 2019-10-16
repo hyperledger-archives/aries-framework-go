@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -63,6 +64,7 @@ type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	Signer() wallet.Signer
+	DIDResolver() didresolver.Resolver
 }
 
 type connectionStore interface {
@@ -91,6 +93,7 @@ type context struct {
 	outboundDispatcher dispatcher.Outbound
 	didCreator         did.Creator
 	signer             wallet.Signer
+	didResolver        didresolver.Resolver
 }
 
 // New return didexchange service
@@ -104,7 +107,9 @@ func New(didMaker did.Creator, prov provider) (*Service, error) {
 		ctx: context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator:         didMaker,
-			signer:             prov.Signer()},
+			signer:             prov.Signer(),
+			didResolver:        prov.DIDResolver(),
+		},
 		store: store,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan didCommChMessage, 10),

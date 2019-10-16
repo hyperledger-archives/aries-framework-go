@@ -8,7 +8,14 @@ package didresolver
 import (
 	"errors"
 	"time"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
+
+// Resolver interface for DID resolver.
+type Resolver interface {
+	Resolve(did string, opts ...ResolveOpt) (*did.Doc, error)
+}
 
 // ResultType input option can be used to request a certain type of result.
 type ResultType int

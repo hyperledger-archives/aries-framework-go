@@ -13,22 +13,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// DIDResolver interface for DID resolver.
-type DIDResolver interface {
-	Resolve(did string, opts ...didresolver.ResolveOpt) (*did.Doc, error)
-}
-
 // Aries provides access to clients being managed by the framework.
 type Aries struct {
 	transport                 api.TransportProviderFactory
-	didResolver               DIDResolver
 	storeProvider             storage.Provider
 	protocolSvcCreators       []api.ProtocolSvcCreator
 	services                  []dispatcher.Service
@@ -41,6 +34,7 @@ type Aries struct {
 	packager                  envelope.Packager
 	crypterCreator            crypto.CrypterCreator
 	crypter                   crypto.Crypter
+	didResolver               didresolver.Resolver
 }
 
 // Option configures the framework.
@@ -123,7 +117,7 @@ func WithInboundTransport(inboundTransport transport.InboundTransport) Option {
 }
 
 // WithDIDResolver injects a DID resolver to the Aries framework
-func WithDIDResolver(didResolver DIDResolver) Option {
+func WithDIDResolver(didResolver didresolver.Resolver) Option {
 	return func(opts *Aries) error {
 		opts.didResolver = didResolver
 		return nil
@@ -179,7 +173,7 @@ func WithPackager(p envelope.PackagerCreator) Option {
 }
 
 // DIDResolver returns the framework configured DID Resolver.
-func (a *Aries) DIDResolver() DIDResolver {
+func (a *Aries) DIDResolver() didresolver.Resolver {
 	return a.didResolver
 }
 

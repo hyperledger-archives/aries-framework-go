@@ -21,6 +21,7 @@ import (
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockenvelope "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 )
@@ -175,6 +176,13 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithStorageProvider(s))
 		require.NoError(t, err)
 		require.Equal(t, s, prov.StorageProvider())
+	})
+
+	t.Run("test new with did resolver", func(t *testing.T) {
+		r := didresolver.NewMockResolver()
+		prov, err := New(WithDIDResolver(r))
+		require.NoError(t, err)
+		require.Equal(t, r, prov.DIDResolver())
 	})
 
 	t.Run("test new with outbound transport service", func(t *testing.T) {
