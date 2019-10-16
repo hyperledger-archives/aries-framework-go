@@ -85,10 +85,13 @@ func (a *AgentSteps) registerPostMsgEvent(agentID, statesValue string) error {
 	states := strings.Split(statesValue, ",")
 	a.initializeStates(agentID, states)
 	go func() {
+		var props didexsvc.Event
 		for e := range statusCh {
-			props, ok := e.Properties.(didexsvc.Event)
-			if !ok {
-				panic("cast event properties to DIDExchange Props failed")
+			switch v := e.Properties.(type) {
+			case didexsvc.Event:
+				props = v
+			case error:
+				panic(fmt.Sprintf("Service processing failed: %s", v))
 			}
 
 			a.bddContext.ConnectionID[agentID] = props.ConnectionID()

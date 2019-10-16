@@ -91,6 +91,20 @@ func TestCompletedState(t *testing.T) {
 	require.False(t, completed.CanTransitionTo(completed))
 }
 
+func TestAbandonedState(t *testing.T) {
+	abandoned := &abandoned{}
+	require.Equal(t, stateNameAbandoned, abandoned.Name())
+	require.False(t, abandoned.CanTransitionTo(&null{}))
+	require.False(t, abandoned.CanTransitionTo(&invited{}))
+	require.False(t, abandoned.CanTransitionTo(&requested{}))
+	require.False(t, abandoned.CanTransitionTo(&responded{}))
+	require.False(t, abandoned.CanTransitionTo(&completed{}))
+
+	_, _, err := abandoned.Execute(&service.DIDCommMsg{}, "", context{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not implemented")
+}
+
 func TestStateFromMsgType(t *testing.T) {
 	t.Run("invited", func(t *testing.T) {
 		expected := &invited{}
