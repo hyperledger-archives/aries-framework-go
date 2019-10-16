@@ -7,6 +7,7 @@ package storage
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -17,6 +18,7 @@ type MockStoreProvider struct {
 	Custom             storage.Store
 	Store              *MockStore
 	ErrOpenStoreHandle error
+	FailNameSpace      string
 }
 
 // NewMockStoreProvider new store provider instance.
@@ -33,6 +35,9 @@ func NewMockCustomStoreProvider(custom storage.Store) *MockStoreProvider {
 
 // OpenStore opens and returns a store for given name space.
 func (s *MockStoreProvider) OpenStore(name string) (storage.Store, error) {
+	if name == s.FailNameSpace {
+		return nil, fmt.Errorf("failed to open store for name space %s", name)
+	}
 	if s.Custom != nil {
 		return s.Custom, s.ErrOpenStoreHandle
 	}

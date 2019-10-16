@@ -66,3 +66,8 @@ func (m *CloseableWallet) FindVerKey(candidateKeys []string) (int, error) {
 func (m *CloseableWallet) CreateDID(method string, opts ...wallet.DocOpts) (*did.Doc, error) {
 	return m.MockDID, nil
 }
+
+// GetDID gets already created DID document by ID.
+func (m *CloseableWallet) GetDID(id string) (*did.Doc, error) {
+	return m.MockDID, nil
+}

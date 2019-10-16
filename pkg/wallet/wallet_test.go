@@ -9,6 +9,7 @@ package wallet
 import (
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -29,11 +30,18 @@ const (
 )
 
 func TestBaseWallet_New(t *testing.T) {
-	t.Run("test error from OpenStore", func(t *testing.T) {
+	t.Run("test error from OpenStore for keystore", func(t *testing.T) {
+		const errMsg = "error from OpenStore"
 		_, err := New(newMockWalletProvider(
-			&mockstorage.MockStoreProvider{ErrOpenStoreHandle: fmt.Errorf("error from OpenStore")}))
+			&mockstorage.MockStoreProvider{ErrOpenStoreHandle: fmt.Errorf(errMsg)}))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "error from OpenStore")
+		require.Contains(t, err.Error(), errMsg)
+	})
+	t.Run("test error from OpenStore for did store", func(t *testing.T) {
+		_, err := New(newMockWalletProvider(
+			&mockstorage.MockStoreProvider{FailNameSpace: didStoreNamespace}))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to open store for name space")
 	})
 }
 
@@ -107,7 +115,7 @@ func TestBaseWallet_SignMessage(t *testing.T) {
 	})
 }
 
-func TestBaseWallet_NewDID(t *testing.T) {
+func TestBaseWallet_DIDCreator(t *testing.T) {
 	const method = "example"
 
 	storeProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
@@ -130,20 +138,20 @@ func TestBaseWallet_NewDID(t *testing.T) {
 		}
 
 		// test if corresponding secret is saved in wallet store
-		store, err := storeProvider.OpenStore(storageName)
+		store, err := storeProvider.OpenStore(keyStoreNamespace)
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
 		pub := string(didDoc.PublicKey[0].Value)
 		private, err := store.Get(pub)
-		require.NoError(t, err)
+		require.Nil(t, err)
 		require.NotNil(t, private)
 
 		// verify DID identifier
 		require.Equal(t, didDoc.ID, fmt.Sprintf(didFormat, method, pub[:16]))
 	}
 
-	t.Run("create new DID with service type", func(t *testing.T) {
+	t.Run("create new DID with service type and query", func(t *testing.T) {
 		w, err := New(newMockWalletProvider(storeProvider))
 		require.NoError(t, err)
 		didDoc, err := w.CreateDID(method, WithServiceType(serviceTypeDIDComm))
@@ -162,6 +170,12 @@ func TestBaseWallet_NewDID(t *testing.T) {
 			require.NotEmpty(t, service.ServiceEndpoint)
 			require.Equal(t, serviceEndpoint, service.ServiceEndpoint)
 		}
+
+		result, err := w.GetDID(didDoc.ID)
+		verifyDID(t, didDoc)
+		require.Nil(t, err)
+		require.Equal(t, result.Service, didDoc.Service)
+		require.Equal(t, result.PublicKey, didDoc.PublicKey)
 	})
 
 	t.Run("create new DID without service type", func(t *testing.T) {
@@ -175,6 +189,45 @@ func TestBaseWallet_NewDID(t *testing.T) {
 
 		// verify services
 		require.Empty(t, didDoc.Service)
+
+		result, err := w.GetDID(didDoc.ID)
+		verifyDID(t, didDoc)
+		require.Nil(t, err)
+		require.Empty(t, result.Service)
+		require.Equal(t, result.PublicKey, didDoc.PublicKey)
+	})
+
+	t.Run("try to get non existing DID", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(storeProvider))
+		require.Nil(t, err)
+		require.NotNil(t, w)
+
+		result, err := w.GetDID("non-existing-did")
+		require.Equal(t, err, storage.ErrDataNotFound)
+		require.Nil(t, result)
+	})
+
+	t.Run("failure while getting DID by ID", func(t *testing.T) {
+		const errMsg = "sample-error-msg"
+		mockStoreProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+			Store:  make(map[string][]byte),
+			ErrPut: errors.New(errMsg),
+			ErrGet: errors.New(errMsg),
+		}}
+
+		w, err := New(newMockWalletProvider(mockStoreProvider))
+		require.NoError(t, err)
+
+		didDoc, err := w.CreateDID(method, WithServiceType(serviceTypeDIDComm))
+		require.Nil(t, didDoc)
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "failed to create DID")
+		require.Contains(t, err.Error(), errMsg)
+
+		didDoc, err = w.GetDID("sample-did")
+		require.Nil(t, didDoc)
+		require.NotNil(t, err)
+		require.Equal(t, err, storage.ErrDataNotFound)
 	})
 }
 
@@ -300,6 +353,37 @@ func TestBaseWallet_FindVerKey(t *testing.T) {
 		require.NoError(t, e)
 		require.Equal(t, 1, i)
 	})
+}
+
+func Test_Persist(t *testing.T) {
+	store := &mockstorage.MockStore{
+		Store: make(map[string][]byte),
+	}
+	const key = "sample-key"
+	value := struct {
+		Code    int32
+		Message string
+	}{
+		Code:    1,
+		Message: "message",
+	}
+
+	require.NoError(t, persist(store, key, value))
+
+	result, err := store.Get(key)
+	require.Nil(t, err)
+	require.NotEmpty(t, result)
+
+	invalidVal := struct {
+		Code    int32
+		Channel chan bool
+	}{
+		Code: 1,
+	}
+
+	err = persist(store, key, invalidVal)
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "failed to marshal")
 }
 
 func newMockWalletProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvider {
