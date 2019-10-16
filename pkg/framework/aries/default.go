@@ -40,7 +40,7 @@ func transportProviderFactory() api.TransportProviderFactory {
 }
 
 // didResolverProvider provides default DID resolver.
-func didResolverProvider(dbprov storage.Provider) (DIDResolver, error) {
+func didResolverProvider(dbprov storage.Provider) (didresolver.Resolver, error) {
 	dbstore, err := dbprov.OpenStore(peer.StoreNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("storage initialization failed : %w", err)

@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -29,6 +30,7 @@ type Provider struct {
 	crypter                  crypto.Crypter
 	inboundTransportEndpoint string
 	outboundTransport        transport.OutboundTransport
+	didResolver              didresolver.Resolver
 }
 
 // New instantiated new context provider
@@ -117,6 +119,11 @@ func (p *Provider) StorageProvider() storage.Provider {
 	return p.storeProvider
 }
 
+// DIDResolver returns did resolver
+func (p *Provider) DIDResolver() didresolver.Resolver {
+	return p.didResolver
+}
+
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
@@ -164,6 +171,14 @@ func WithInboundTransportEndpoint(endpoint string) ProviderOption {
 func WithStorageProvider(s storage.Provider) ProviderOption {
 	return func(opts *Provider) error {
 		opts.storeProvider = s
+		return nil
+	}
+}
+
+// WithDIDResolver injects did resolver into the context
+func WithDIDResolver(r didresolver.Resolver) ProviderOption {
+	return func(opts *Provider) error {
+		opts.didResolver = r
 		return nil
 	}
 }
