@@ -20,7 +20,7 @@ import (
 )
 
 func TestNew_Failure(t *testing.T) {
-	controller, err := New(&context.Provider{})
+	controller, err := New(&context.Provider{}, nil)
 	require.Error(t, err)
 	require.Equal(t, err, api.ErrSvcNotFound)
 	require.Nil(t, controller)
@@ -44,7 +44,7 @@ func TestNew_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ctx)
 
-	controller, err := New(ctx)
+	controller, err := New(ctx, nil)
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 

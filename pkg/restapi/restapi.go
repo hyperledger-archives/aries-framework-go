@@ -10,12 +10,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
 )
 
 // New returns new controller REST API instance.
 //
 // TODO: Allow customized operations.
-func New(ctx *context.Provider) (*Controller, error) {
+// TODO: Make webhookURLs an optional parameter (#472)
+func New(ctx *context.Provider, webhookURLs []string) (*Controller, error) {
 	var allHandlers []operation.Handler
 
 	// Add DID Exchange Rest Handlers
@@ -25,6 +27,8 @@ func New(ctx *context.Provider) (*Controller, error) {
 	}
 
 	allHandlers = append(allHandlers, exchange.GetRESTHandlers()...)
+
+	webhook.StartWebhookDispatcher(webhookURLs)
 
 	return &Controller{handlers: allHandlers}, nil
 }

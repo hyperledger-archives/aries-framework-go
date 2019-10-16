@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
@@ -48,14 +47,30 @@ const (
 	// AgentDBPathFlagUsage is the flag usage text for the database path command line argument.
 	AgentDBPathFlagUsage = "Path to database"
 
-	// MissingHostErrorMessage is the error message shown when the user provides a blank host argument.
-	MissingHostErrorMessage = "Unable to start aries agentd, host not provided"
+	// AgentWebhookFlagName is the flag name for the webhook command line argument.
+	AgentWebhookFlagName = "webhook-url"
 
-	// MissingInboundHostErrorMessage is the error message shown when the user provides a blank inbound host argument.
-	MissingInboundHostErrorMessage = "Unable to start aries agentd, HTTP Inbound transport host not provided"
+	// AgentWebhookFlagShorthand is the flag shorthand name for the webhook command line argument.
+	AgentWebhookFlagShorthand = "w"
+
+	// AgentWebhookFlagUsage is the flag usage text for the webhook command line argument.
+	AgentWebhookFlagUsage = "URL to send notifications to." +
+		" This flag can be repeated, allowing for multiple listeners."
 )
 
+// ErrMissingHost is the error when the user provides a blank host argument.
+var ErrMissingHost = errors.New("unable to start aries agentd, host not provided")
+
+// ErrMissingInboundHost is the error when the user provides a blank inbound host argument.
+var ErrMissingInboundHost = errors.New("unable to start aries agentd, HTTP Inbound transport host not provided")
+
 var logger = log.New("aries-framework/agentd")
+
+type agentParameters struct {
+	server                    server
+	host, inboundHost, dbPath string
+	webhookURLs               []string
+}
 
 type server interface {
 	ListenAndServe(host string, router *mux.Router) error
@@ -71,6 +86,7 @@ func (s *HTTPServer) ListenAndServe(host string, router *mux.Router) error {
 
 // Cmd returns the Cobra start command.
 func Cmd(server server) (*cobra.Command, error) {
+	var webhookURLs []string
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start an agent",
@@ -92,7 +108,8 @@ func Cmd(server server) (*cobra.Command, error) {
 				return fmt.Errorf("agent DB path flag not found: %s", err)
 			}
 
-			err = startAgent(server, host, inboundHost, dbPath)
+			parameters := &agentParameters{server, host, inboundHost, dbPath, webhookURLs}
+			err = startAgent(parameters)
 			if err != nil {
 				return fmt.Errorf("unable to start agent: %s", err)
 			}
@@ -117,38 +134,48 @@ func Cmd(server server) (*cobra.Command, error) {
 		return nil, fmt.Errorf("tried to mark DB path flag as required but it was not found: %s", err)
 	}
 
+	startCmd.Flags().StringSliceVarP(&webhookURLs, AgentWebhookFlagName, AgentWebhookFlagShorthand, []string{},
+		AgentWebhookFlagUsage)
+	err = startCmd.MarkFlagRequired(AgentWebhookFlagName)
+	if err != nil {
+		return nil, fmt.Errorf("tried to mark agent webhook host flag as required but it was not found: %s", err)
+	}
+
 	return startCmd, nil
 }
 
-func startAgent(server server, host, inboundHost, dbPath string) error {
-	if host == "" {
-		return errors.New(strings.ToLower(MissingHostErrorMessage))
+func startAgent(parameters *agentParameters) error {
+	if parameters.host == "" {
+		return ErrMissingHost
 	}
 
-	if inboundHost == "" {
-		return errors.New(strings.ToLower(MissingInboundHostErrorMessage))
+	if parameters.inboundHost == "" {
+		return ErrMissingInboundHost
 	}
 	var opts []aries.Option
-	opts = append(opts, defaults.WithInboundHTTPAddr(inboundHost))
+	opts = append(opts, defaults.WithInboundHTTPAddr(parameters.inboundHost))
 
-	if dbPath != "" {
-		opts = append(opts, defaults.WithStorePath(dbPath))
+	if parameters.dbPath != "" {
+		opts = append(opts, defaults.WithStorePath(parameters.dbPath))
 	}
 
 	framework, err := aries.New(opts...)
 	if err != nil {
-		return fmt.Errorf("failed to start aries agentd on port [%s], failed to initialize framework :  %w", host, err)
+		return fmt.Errorf("failed to start aries agentd on port [%s], failed to initialize framework :  %w",
+			parameters.host, err)
 	}
 
 	ctx, err := framework.Context()
 	if err != nil {
-		return fmt.Errorf("failed to start aries agentd on port [%s], failed to get aries context : %w", host, err)
+		return fmt.Errorf("failed to start aries agentd on port [%s], failed to get aries context : %w",
+			parameters.host, err)
 	}
 
-	// get all HTTP REST API handlers available for controller A PI
-	restService, err := restapi.New(ctx)
+	// get all HTTP REST API handlers available for controller API
+	restService, err := restapi.New(ctx, parameters.webhookURLs)
 	if err != nil {
-		return fmt.Errorf("failed to start aries agentd on port [%s], failed to get rest service api :  %w", host, err)
+		return fmt.Errorf("failed to start aries agentd on port [%s], failed to get rest service api :  %w",
+			parameters.host, err)
 	}
 	handlers := restService.GetOperations()
 
@@ -158,12 +185,12 @@ func startAgent(server server, host, inboundHost, dbPath string) error {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
-	logger.Infof("Starting aries agentd on host [%s]", host)
+	logger.Infof("Starting aries agentd on host [%s]", parameters.host)
 
 	// start server on given port and serve using given handlers
-	err = server.ListenAndServe(host, router)
+	err = parameters.server.ListenAndServe(parameters.host, router)
 	if err != nil {
-		return fmt.Errorf("failed to start aries agentd on port [%s], cause:  %w", host, err)
+		return fmt.Errorf("failed to start aries agentd on port [%s], cause:  %w", parameters.host, err)
 	}
 
 	return nil
