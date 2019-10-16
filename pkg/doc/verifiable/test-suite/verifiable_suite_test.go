@@ -34,8 +34,7 @@ func main() {
 	}
 
 	jwt := flag.String("jwt", "", "base64encoded JSON object containing es256kPrivateKeyJwk and rs256PrivateKeyJwk.")
-	// todo use jwtAud #483
-	flag.String("jwt-aud", "", "indication to use aud attribute in all JWTs")
+	jwtAud := flag.String("jwt-aud", "", "indication to use aud attribute in all JWTs")
 	jwtNoJws := flag.Bool("jwt-no-jws", false, "indication to suppress the JWS although keys are present")
 	jwtPresentation := flag.Bool("jwt-presentation", false, "indication to generate a verifiable presentation")
 	jwtDecode := flag.Bool("jwt-decode", false, "indication to generate a credential from a JWT verifiable credential. The input file will be a JWT instead of a JSON-LD file.") // nolint: lll
@@ -51,15 +50,11 @@ func main() {
 		return
 	}
 
-	if *jwtPresentation {
-		// TODO Encode Verifiable Presentation #483
-		abort("verifiable presentations are not supported")
-	}
-
 	privateKey, publicKey := parseKeys(*jwt)
 
 	if *jwtDecode {
 		decodeVCJWTToJSON(vcBytes, publicKey)
+		return
 	}
 
 	if *jwtNoJws {
@@ -67,8 +62,11 @@ func main() {
 		return
 	}
 
-	// Asked to just encode credential
-	encodeVCToJWS(vcBytes, privateKey)
+	if *jwtPresentation {
+		encodeVPToJWS(vcBytes, *jwtAud, privateKey)
+	} else {
+		encodeVCToJWS(vcBytes, privateKey)
+	}
 }
 
 func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
@@ -79,8 +77,24 @@ func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
 
 	jwtClaims, err := credential.JWTClaims(true)
 	if err != nil {
-		abort("verifiable credential encoding to JWT failed: %v", err)
+		abort("verifiable credential encoding to JWS failed: %v", err)
 	}
+
+	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, privateKey, "any")
+	if err != nil {
+		abort("failed to serialize JWS: %v", err)
+	}
+
+	fmt.Println(jws)
+}
+
+func encodeVPToJWS(vpBytes []byte, audience string, privateKey interface{}) {
+	vp, err := verifiable.NewPresentation(vpBytes, verifiable.WithPresSkippedEmbeddedProofCheck())
+	if err != nil {
+		abort("failed to decode presentation: %v", err)
+	}
+
+	jwtClaims := vp.JWTClaims([]string{audience}, true)
 
 	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, privateKey, "any")
 	if err != nil {

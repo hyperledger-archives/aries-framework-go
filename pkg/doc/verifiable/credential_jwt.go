@@ -107,7 +107,7 @@ func decodeCredJWT(rawJWT []byte, credClaimsDecoder jwtCredClaimsDecoder) ([]byt
 	}
 
 	// Apply VC-related claims from JWT.
-	credClaims.refineCredFromJWTClaims()
+	credClaims.refineFromJWTClaims()
 	// Complement original "vc" JSON claim with data refined from JWT claims.
 	if err = mergeRefinedVC(credJSON, credClaims.Credential); err != nil {
 		return nil, nil, fmt.Errorf("failed to merge refined VC: %w", err)
@@ -121,7 +121,7 @@ func decodeCredJWT(rawJWT []byte, credClaimsDecoder jwtCredClaimsDecoder) ([]byt
 	return vcData, credClaims.Credential, nil
 }
 
-func (jcc *JWTCredClaims) refineCredFromJWTClaims() {
+func (jcc *JWTCredClaims) refineFromJWTClaims() {
 	raw := jcc.Credential
 
 	if iss := jcc.Issuer; iss != "" {
@@ -134,7 +134,7 @@ func (jcc *JWTCredClaims) refineCredFromJWTClaims() {
 	}
 
 	if jti := jcc.ID; jti != "" {
-		raw.ID = jcc.ID
+		raw.ID = jti
 	}
 
 	if iat := jcc.IssuedAt; iat != nil {

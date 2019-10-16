@@ -8,6 +8,7 @@ package verifiable
 import (
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -149,7 +150,13 @@ func readPrivateKey(keyFilePath string) (*rsa.PrivateKey, error) {
 }
 
 func (raw *rawCredential) stringJSON(t *testing.T) string {
-	bytes, err := raw.marshalJSON()
+	bytes, err := json.Marshal(raw)
+	require.NoError(t, err)
+	return string(bytes)
+}
+
+func (raw *rawPresentation) stringJSON(t *testing.T) string {
+	bytes, err := json.Marshal(raw)
 	require.NoError(t, err)
 	return string(bytes)
 }

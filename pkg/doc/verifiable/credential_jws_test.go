@@ -135,8 +135,3 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		require.Contains(t, err.Error(), "JWT signature verification failed")
 	})
 }
-
-func TestJwtAlgorithm_Jose(t *testing.T) {
-	require.Equal(t, jose.RS256, RS256.Jose())
-	require.Equal(t, jose.EdDSA, EdDSA.Jose())
-}

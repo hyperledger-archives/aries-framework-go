@@ -300,7 +300,7 @@ func TestValidateVP_RefreshService(t *testing.T) {
 }
 
 func TestPresentation_Credentials(t *testing.T) {
-	t.Run("decode verifiable credential from presentation", func(t *testing.T) {
+	t.Run("extracts verifiable credentials from list", func(t *testing.T) {
 		vp, err := NewPresentation([]byte(validPresentation))
 		require.NoError(t, err)
 
@@ -317,20 +317,6 @@ func TestPresentation_Credentials(t *testing.T) {
 		require.Equal(t, []string{"VerifiableCredential", "AlumniCredential"}, vc.Type)
 	})
 
-	t.Run("extracts verifiable credentials from list", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation))
-		require.NoError(t, err)
-
-		credsData, err := vp.Credentials()
-		require.NoError(t, err)
-		require.Len(t, credsData, 1)
-
-		// Decode the first verifiable credential
-		vc, err := NewCredential(credsData[0])
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-	})
-
 	t.Run("failure handling on extraction of verifiable credentials from list", func(t *testing.T) {
 		vp, err := NewPresentation([]byte(validPresentation))
 		require.NoError(t, err)
@@ -342,6 +328,7 @@ func TestPresentation_Credentials(t *testing.T) {
 
 		_, err = vp.Credentials()
 		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to marshal credentials from presentation")
 	})
 
 	t.Run("extracts verifiable credentials from single credential", func(t *testing.T) {
@@ -374,6 +361,7 @@ func TestPresentation_Credentials(t *testing.T) {
 
 		_, err = vp.Credentials()
 		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to marshal credentials from presentation")
 	})
 }
 
@@ -394,4 +382,13 @@ func TestPresentation_MarshalJSON(t *testing.T) {
 
 	// verify that verifiable presentations created by NewPresentation() and MarshalJSON() matches
 	require.Equal(t, vp, vp2)
+}
+
+func TestWithPresSkippedEmbeddedProofCheck(t *testing.T) {
+	vpOpt := WithPresSkippedEmbeddedProofCheck()
+	require.NotNil(t, vpOpt)
+
+	opts := &presentationOpts{}
+	vpOpt(opts)
+	require.True(t, opts.skipEmbeddedProofCheck)
 }
