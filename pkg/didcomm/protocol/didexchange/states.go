@@ -51,7 +51,7 @@ type state interface {
 	CanTransitionTo(next state) bool
 	// Executes this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	Execute(msg *service.DIDCommMsg, thid string, ctx context) (followup state, action stateAction, err error)
+	Execute(msg *stateMachineMsg, thid string, ctx context) (followup state, action stateAction, err error)
 }
 
 // Returns the state towards which the protocol will transition to if the msgType is processed.
@@ -104,7 +104,7 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) Execute(_ *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+func (s *noOp) Execute(_ *stateMachineMsg, thid string, ctx context) (state, stateAction, error) {
 	return nil, nil, errors.New("cannot execute no-op")
 }
 
@@ -120,7 +120,7 @@ func (s *null) CanTransitionTo(next state) bool {
 	return stateNameInvited == next.Name() || stateNameRequested == next.Name()
 }
 
-func (s *null) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+func (s *null) Execute(msg *stateMachineMsg, thid string, ctx context) (state, stateAction, error) {
 	return &noOp{}, nil, nil
 }
 
@@ -136,11 +136,11 @@ func (s *invited) CanTransitionTo(next state) bool {
 	return stateNameRequested == next.Name()
 }
 
-func (s *invited) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
-	if msg.Header.Type != ConnectionInvite {
-		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Header.Type, s.Name())
+func (s *invited) Execute(msg *stateMachineMsg, thid string, ctx context) (state, stateAction, error) {
+	if msg.header.Type != ConnectionInvite {
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
 	}
-	if msg.Outbound {
+	if msg.outbound {
 		// illegal
 		return nil, nil, errors.New("outbound invitations are not allowed")
 	}
@@ -159,14 +159,14 @@ func (s *requested) CanTransitionTo(next state) bool {
 	return stateNameResponded == next.Name()
 }
 
-func (s *requested) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
-	switch msg.Header.Type {
+func (s *requested) Execute(msg *stateMachineMsg, thid string, ctx context) (state, stateAction, error) {
+	switch msg.header.Type {
 	case ConnectionInvite:
-		if msg.Outbound {
+		if msg.outbound {
 			return nil, nil, fmt.Errorf("outbound invitations are not allowed for state %s", s.Name())
 		}
 		invitation := &Invitation{}
-		err := json.Unmarshal(msg.Payload, invitation)
+		err := json.Unmarshal(msg.payload, invitation)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
@@ -176,7 +176,7 @@ func (s *requested) Execute(msg *service.DIDCommMsg, thid string, ctx context) (
 		}
 		return &noOp{}, action, nil
 	case ConnectionRequest:
-		if msg.Outbound {
+		if msg.outbound {
 			action, err := ctx.sendOutboundRequest(msg)
 			if err != nil {
 				return nil, nil, fmt.Errorf("send outbound request failed: %s", err)
@@ -185,7 +185,7 @@ func (s *requested) Execute(msg *service.DIDCommMsg, thid string, ctx context) (
 		}
 		return &responded{}, func() error { return nil }, nil
 	default:
-		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Header.Type, s.Name())
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
 	}
 }
 
@@ -201,14 +201,14 @@ func (s *responded) CanTransitionTo(next state) bool {
 	return stateNameCompleted == next.Name()
 }
 
-func (s *responded) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
-	switch msg.Header.Type {
+func (s *responded) Execute(msg *stateMachineMsg, thid string, ctx context) (state, stateAction, error) {
+	switch msg.header.Type {
 	case ConnectionRequest:
-		if msg.Outbound {
+		if msg.outbound {
 			return nil, nil, fmt.Errorf("outbound requests are not allowed for state %s", s.Name())
 		}
 		request := &Request{}
-		err := json.Unmarshal(msg.Payload, request)
+		err := json.Unmarshal(msg.payload, request)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
@@ -218,7 +218,7 @@ func (s *responded) Execute(msg *service.DIDCommMsg, thid string, ctx context) (
 		}
 		return &noOp{}, action, nil
 	case ConnectionResponse:
-		if msg.Outbound {
+		if msg.outbound {
 			action, err := ctx.sendOutboundResponse(msg)
 			if err != nil {
 				return nil, nil, fmt.Errorf("send outbound response failed: %s", err)
@@ -227,7 +227,7 @@ func (s *responded) Execute(msg *service.DIDCommMsg, thid string, ctx context) (
 		}
 		return &completed{}, func() error { return nil }, nil
 	default:
-		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Header.Type, s.Name())
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
 	}
 }
 
@@ -243,14 +243,14 @@ func (s *completed) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *completed) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
-	switch msg.Header.Type {
+func (s *completed) Execute(msg *stateMachineMsg, thid string, ctx context) (state, stateAction, error) {
+	switch msg.header.Type {
 	case ConnectionResponse:
-		if msg.Outbound {
+		if msg.outbound {
 			return nil, nil, fmt.Errorf("outbound responses are not allowed for state %s", s.Name())
 		}
 		response := &Response{}
-		err := json.Unmarshal(msg.Payload, response)
+		err := json.Unmarshal(msg.payload, response)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
@@ -261,7 +261,7 @@ func (s *completed) Execute(msg *service.DIDCommMsg, thid string, ctx context) (
 		return &noOp{}, action, nil
 	case ConnectionAck:
 		action := func() error { return nil }
-		if msg.Outbound {
+		if msg.outbound {
 			var err error
 			action, err = ctx.sendOutboundAck(msg)
 			if err != nil {
@@ -271,7 +271,7 @@ func (s *completed) Execute(msg *service.DIDCommMsg, thid string, ctx context) (
 		//TODO: issue-333 otherwise save did-exchange connection
 		return &noOp{}, action, nil
 	default:
-		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Header.Type, s.Name())
+		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
 	}
 }
 
@@ -287,7 +287,7 @@ func (s *abandoned) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *abandoned) Execute(msg *service.DIDCommMsg, thid string, ctx context) (state, stateAction, error) {
+func (s *abandoned) Execute(msg *stateMachineMsg, thid string, ctx context) (state, stateAction, error) {
 	return nil, nil, errors.New("not implemented")
 }
 
@@ -363,18 +363,17 @@ func (ctx *context) handleInboundRequest(request *Request) (stateAction, error) 
 		return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
 	}, nil
 }
-
-func (ctx *context) sendOutboundRequest(msg *service.DIDCommMsg) (stateAction, error) {
-	if msg.OutboundDestination == nil {
+func (ctx *context) sendOutboundRequest(msg *stateMachineMsg) (stateAction, error) {
+	if msg.outboundDestination == nil {
 		return nil, fmt.Errorf("outboundDestination cannot be empty for outbound Request")
 	}
 	destination := &service.Destination{
-		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
-		ServiceEndpoint: msg.OutboundDestination.ServiceEndpoint,
-		RoutingKeys:     msg.OutboundDestination.RoutingKeys,
+		RecipientKeys:   msg.outboundDestination.RecipientKeys,
+		ServiceEndpoint: msg.outboundDestination.ServiceEndpoint,
+		RoutingKeys:     msg.outboundDestination.RoutingKeys,
 	}
 	request := &Request{}
-	err := json.Unmarshal(msg.Payload, request)
+	err := json.Unmarshal(msg.payload, request)
 	if err != nil {
 		return nil, err
 	}
@@ -390,17 +389,17 @@ func (ctx *context) sendOutboundRequest(msg *service.DIDCommMsg) (stateAction, e
 	}, nil
 }
 
-func (ctx *context) sendOutboundResponse(msg *service.DIDCommMsg) (stateAction, error) {
-	if msg.OutboundDestination == nil {
+func (ctx *context) sendOutboundResponse(msg *stateMachineMsg) (stateAction, error) {
+	if msg.outboundDestination == nil {
 		return nil, fmt.Errorf("outboundDestination cannot be empty for outbound Request")
 	}
 	destination := &service.Destination{
-		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
-		ServiceEndpoint: msg.OutboundDestination.ServiceEndpoint,
-		RoutingKeys:     msg.OutboundDestination.RoutingKeys,
+		RecipientKeys:   msg.outboundDestination.RecipientKeys,
+		ServiceEndpoint: msg.outboundDestination.ServiceEndpoint,
+		RoutingKeys:     msg.outboundDestination.RoutingKeys,
 	}
 	response := &Response{}
-	err := json.Unmarshal(msg.Payload, response)
+	err := json.Unmarshal(msg.payload, response)
 	if err != nil {
 		return nil, fmt.Errorf("unmarhalling outbound response: %s", err)
 	}
@@ -475,18 +474,18 @@ func prepareConnectionSignature(connection *Connection) (*ConnectionSignature, e
 	}, nil
 }
 
-func (ctx *context) sendOutboundAck(msg *service.DIDCommMsg) (stateAction, error) {
+func (ctx *context) sendOutboundAck(msg *stateMachineMsg) (stateAction, error) {
 	ack := &model.Ack{}
-	if msg.OutboundDestination == nil {
+	if msg.outboundDestination == nil {
 		return nil, fmt.Errorf("outboundDestination cannot be empty for outbound Response")
 	}
 	destination := &service.Destination{
-		RecipientKeys:   msg.OutboundDestination.RecipientKeys,
-		ServiceEndpoint: msg.OutboundDestination.ServiceEndpoint,
-		RoutingKeys:     msg.OutboundDestination.RoutingKeys,
+		RecipientKeys:   msg.outboundDestination.RecipientKeys,
+		ServiceEndpoint: msg.outboundDestination.ServiceEndpoint,
+		RoutingKeys:     msg.outboundDestination.RoutingKeys,
 	}
 
-	err := json.Unmarshal(msg.Payload, ack)
+	err := json.Unmarshal(msg.payload, ack)
 	if err != nil {
 		return nil, err
 	}

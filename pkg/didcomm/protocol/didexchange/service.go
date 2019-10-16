@@ -69,6 +69,14 @@ type connectionStore interface {
 	GetConnection(connectionID string) (*ConnectionRecord, error)
 }
 
+// stateMachineMsg is an internal struct used to pass data to state machine.
+type stateMachineMsg struct {
+	outbound            bool
+	outboundDestination *service.Destination
+	header              *service.Header
+	payload             []byte
+}
+
 // Service for DID exchange protocol
 type Service struct {
 	service.Action
@@ -108,14 +116,14 @@ func New(didMaker did.Creator, prov provider) (*Service, error) {
 	return svc, nil
 }
 
-// Handle didexchange msg
-func (s *Service) Handle(msg *service.DIDCommMsg) error {
+// HandleInbound handles inbound didexchange messages.
+func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 	// throw error if there is no action event registered for inbound messages
 	aEvent := s.GetActionEvent()
 
-	logger.Infof("entered into Handle exchange message : %s", msg.Payload)
+	logger.Infof("entered into HandleInbound exchange message : %s", msg.Payload)
 
-	if !msg.Outbound && aEvent == nil {
+	if aEvent == nil {
 		return errors.New("no clients are registered to handle the message")
 	}
 
@@ -149,7 +157,7 @@ func (s *Service) Handle(msg *service.DIDCommMsg) error {
 	logger.Infof("sent pre event for state %s", next.Name())
 
 	// trigger action event based on message type for inbound messages
-	if !msg.Outbound && canTriggerActionEvents(msg.Header.Type) {
+	if canTriggerActionEvents(msg.Header.Type) {
 		err = s.sendActionEvent(msg, aEvent, thid, next)
 		if err != nil {
 			return fmt.Errorf("send events failed: %w", err)
@@ -173,6 +181,12 @@ func (s *Service) Accept(msgType string) bool {
 		msgType == ConnectionAck
 }
 
+// HandleOutbound handles outbound didexchange messages.
+func (s *Service) HandleOutbound(msg *service.DIDCommMsg, destination *service.Destination) error {
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/500 Support to initiate DIDExchange through exRequest
+	return errors.New("not implemented")
+}
+
 func (s *Service) handle(msg *message) error {
 	logger.Infof("entered into private handle didcomm message: %s ", msg)
 
@@ -193,7 +207,8 @@ func (s *Service) handle(msg *message) error {
 		var action stateAction
 		var followup state
 
-		followup, action, err = next.Execute(msg.Msg, msg.ThreadID, s.ctx)
+		followup, action, err = next.Execute(&stateMachineMsg{
+			header: msg.Msg.Header, payload: msg.Msg.Payload}, msg.ThreadID, s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 		}
@@ -392,7 +407,7 @@ func isNoOp(s state) bool {
 }
 
 func threadID(didCommMsg *service.DIDCommMsg) (string, error) {
-	if !didCommMsg.Outbound && didCommMsg.Header.Type == ConnectionInvite {
+	if didCommMsg.Header.Type == ConnectionInvite {
 		return generateRandomID(), nil
 	}
 

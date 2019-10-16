@@ -105,7 +105,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		// find the service which accepts the message type
 		for _, svc := range p.services {
 			if svc.Accept(msg.Header.Type) {
-				return svc.Handle(msg)
+				return svc.HandleInbound(msg)
 			}
 		}
 		return fmt.Errorf("no message handlers found for the message type: %s", msg.Header.Type)

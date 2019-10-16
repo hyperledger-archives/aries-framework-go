@@ -145,7 +145,7 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	err = c.service.Handle(msg)
+	err = c.service.HandleInbound(msg)
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
