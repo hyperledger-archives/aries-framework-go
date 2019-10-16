@@ -27,8 +27,8 @@ type MockDIDExchangeSvc struct {
 	UnregisterMsgEventErr    error
 }
 
-// Handle msg
-func (m *MockDIDExchangeSvc) Handle(msg *service.DIDCommMsg) error {
+// HandleInbound msg
+func (m *MockDIDExchangeSvc) HandleInbound(msg *service.DIDCommMsg) error {
 	if m.HandleFunc != nil {
 		return m.HandleFunc(*msg)
 	}

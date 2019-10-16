@@ -51,7 +51,7 @@ func TestService_Name(t *testing.T) {
 }
 
 func TestService_Handle(t *testing.T) {
-	require.Nil(t, New().Handle(&service.DIDCommMsg{}))
+	require.Nil(t, New().HandleInbound(&service.DIDCommMsg{}))
 }
 
 func TestService_Accept(t *testing.T) {

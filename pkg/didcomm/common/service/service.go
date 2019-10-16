@@ -15,7 +15,8 @@ import (
 
 // Handler provides protocol service handle api.
 type Handler interface {
-	Handle(msg *DIDCommMsg) error
+	// HandleInbound handles inbound didexchange messages.
+	HandleInbound(msg *DIDCommMsg) error
 }
 
 // DIDComm defines service APIs.
@@ -36,14 +37,8 @@ type Header struct {
 
 // DIDCommMsg did comm msg
 type DIDCommMsg struct {
-	// Outbound indicates the direction of this DIDComm message:
-	//   - outgoing (to another agent)
-	//   - incoming (from another agent)
-	Outbound bool
-	Payload  []byte
-	// TODO : might need refactor as per the issue-226
-	OutboundDestination *Destination
-	Header              *Header
+	Header  *Header
+	Payload []byte
 }
 
 // NewDIDCommMsg returns DIDCommMsg with Header

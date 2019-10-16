@@ -125,7 +125,7 @@ func (c *Client) HandleInvitation(invitation *didexchange.Invitation) error {
 		return fmt.Errorf("failed to create DIDCommMsg: %w", err)
 	}
 
-	if err = c.didexchangeSvc.Handle(msg); err != nil {
+	if err = c.didexchangeSvc.HandleInbound(msg); err != nil {
 		return fmt.Errorf("failed from didexchange service handle: %w", err)
 	}
 	return nil
