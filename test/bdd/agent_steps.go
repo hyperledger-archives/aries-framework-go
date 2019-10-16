@@ -84,28 +84,8 @@ func (a *AgentSteps) registerPostMsgEvent(agentID, statesValue string) error {
 	}
 	states := strings.Split(statesValue, ",")
 	a.initializeStates(agentID, states)
-	go func() {
-		var props didexsvc.Event
-		for e := range statusCh {
-			switch v := e.Properties.(type) {
-			case didexsvc.Event:
-				props = v
-			case error:
-				panic(fmt.Sprintf("Service processing failed: %s", v))
-			}
 
-			a.bddContext.ConnectionID[agentID] = props.ConnectionID()
-			if e.Type == service.PostState {
-				for _, state := range states {
-					// receive the events
-					if e.StateID == state {
-						a.bddContext.PostStatesFlag[agentID][state] <- true
-					}
-
-				}
-			}
-		}
-	}()
+	go a.eventListener(statusCh, agentID, states)
 
 	return nil
 }
@@ -162,6 +142,29 @@ func listenFor(host string, d time.Duration) error {
 				continue
 			}
 			return conn.Close()
+		}
+	}
+}
+
+func (a *AgentSteps) eventListener(statusCh chan service.StateMsg, agentID string, states []string) {
+	var props didexsvc.Event
+	for e := range statusCh {
+		switch v := e.Properties.(type) {
+		case didexsvc.Event:
+			props = v
+		case error:
+			panic(fmt.Sprintf("Service processing failed: %s", v))
+		}
+
+		a.bddContext.ConnectionID[agentID] = props.ConnectionID()
+		if e.Type == service.PostState {
+			for _, state := range states {
+				// receive the events
+				if e.StateID == state {
+					a.bddContext.PostStatesFlag[agentID][state] <- true
+				}
+
+			}
 		}
 	}
 }
