@@ -88,6 +88,33 @@ func (w *BaseWallet) CreateSigningKey() (string, error) {
 	return base58Pub, nil
 }
 
+// ConvertToEncryptionKey converts an ed25519 keypair present in the wallet,
+// persists the resulting keypair, and returns the result public key.
+func (w *BaseWallet) ConvertToEncryptionKey(key []byte) ([]byte, error) {
+	encPub, err := cryptoutil.PublicEd25519toCurve25519(key)
+	if err != nil {
+		return nil, err
+	}
+	encPubB58 := base58.Encode(encPub)
+
+	keyB58 := base58.Encode(key)
+	kp, err := w.getKey(keyB58)
+	if err != nil {
+		return nil, err
+	}
+	encPriv, err := cryptoutil.SecretEd25519toCurve25519(kp.Priv)
+	if err != nil {
+		return nil, err
+	}
+	kpEnc := cryptoutil.KeyPair{Priv: encPriv, Pub: encPub}
+	err = persist(w.keystore, encPubB58, &kpEnc)
+	if err != nil {
+		return nil, err
+	}
+
+	return encPub, nil
+}
+
 // SignMessage sign a message using the private key associated with a given verification key.
 func (w *BaseWallet) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
 	keyPair, err := w.getKey(fromVerKey)

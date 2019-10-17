@@ -115,6 +115,65 @@ func TestBaseWallet_SignMessage(t *testing.T) {
 	})
 }
 
+func TestBaseWallet_ConvertToEncryptionKey(t *testing.T) {
+	t.Run("Success: generate and convert a signing key", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(
+			&mockstorage.MockStoreProvider{
+				Store: &mockstorage.MockStore{
+					Store: map[string][]byte{},
+				},
+			}))
+		require.NoError(t, err)
+		require.NotNil(t, w)
+
+		pub, err := w.CreateSigningKey()
+		require.NoError(t, err)
+
+		_, err = w.ConvertToEncryptionKey(base58.Decode(pub))
+		require.NoError(t, err)
+	})
+
+	t.Run("Fail: convert keypair with invalid pub key", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(
+			&mockstorage.MockStoreProvider{
+				Store: &mockstorage.MockStore{
+					Store: map[string][]byte{},
+				},
+			}))
+		require.NoError(t, err)
+		require.NotNil(t, w)
+
+		badkp := cryptoutil.KeyPair{
+			Priv: base58.Decode("6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV76ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7"),
+			Pub:  base58.Decode("6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7"),
+		}
+
+		err = persist(w.keystore, "6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7", &badkp)
+		require.NoError(t, err)
+
+		_, err = w.ConvertToEncryptionKey(base58.Decode("6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7"))
+		require.EqualError(t, err, "error converting public key")
+	})
+
+	t.Run("Fail: convert keypair with corrupt data stored", func(t *testing.T) {
+		data := map[string][]byte{}
+		data["CTsYpNjdhK68mjkE4wNrnTVW2qERFNoPXWBnUW9E9bhz"] = []byte{0, 0, 0}
+
+		w, err := New(newMockWalletProvider(
+			&mockstorage.MockStoreProvider{
+				Store: &mockstorage.MockStore{
+					Store: data,
+				},
+			}))
+		require.NoError(t, err)
+		require.NotNil(t, w)
+
+		_, err = w.ConvertToEncryptionKey(base58.Decode("CTsYpNjdhK68mjkE4wNrnTVW2qERFNoPXWBnUW9E9bhz"))
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "failed unmarshal to key struct")
+	})
+}
+
 func TestBaseWallet_DIDCreator(t *testing.T) {
 	const method = "example"
 
@@ -352,6 +411,19 @@ func TestBaseWallet_FindVerKey(t *testing.T) {
 		i, e = w.FindVerKey(candidateKeys)
 		require.NoError(t, e)
 		require.Equal(t, 1, i)
+	})
+
+	t.Run("test candidate signing key is corrupted", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(
+			&mockstorage.MockStoreProvider{
+				Store: &mockstorage.MockStore{
+					Store: map[string][]byte{"testkey": {0, 0, 1, 0, 0}},
+				},
+			}))
+		require.NoError(t, err)
+		_, err = w.FindVerKey([]string{"not present", "testkey"})
+		require.NotNil(t, err)
+		require.Contains(t, err.Error(), "failed from getKey: failed unmarshal to key struct")
 	})
 }
 

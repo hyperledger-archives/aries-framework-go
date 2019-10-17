@@ -9,7 +9,6 @@ package wallet
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
@@ -19,6 +18,8 @@ type CloseableWallet struct {
 	CreateEncryptionKeyErr   error
 	CreateSigningKeyValue    string
 	CreateSigningKeyErr      error
+	FindVerKeyValue          int
+	FindVerKeyErr            error
 	SignMessageValue         []byte
 	SignMessageErr           error
 	DecryptMessageValue      []byte
@@ -45,6 +46,11 @@ func (m *CloseableWallet) CreateSigningKey() (string, error) {
 	return m.CreateSigningKeyValue, m.CreateSigningKeyErr
 }
 
+// FindVerKey return a verification key from the list of candidates
+func (m *CloseableWallet) FindVerKey(candidateKeys []string) (int, error) {
+	return m.FindVerKeyValue, m.FindVerKeyErr
+}
+
 // SignMessage sign a message using the private key associated with a given verification key.
 func (m *CloseableWallet) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
 	return m.SignMessageValue, m.SignMessageErr
@@ -54,12 +60,6 @@ func (m *CloseableWallet) SignMessage(message []byte, fromVerKey string) ([]byte
 // mocked to return empty derived KEK
 func (m *CloseableWallet) DeriveKEK(alg, apu, fromKey, toPubKey []byte) ([]byte, error) { // nolint:lll
 	return []byte(""), nil
-}
-
-// FindVerKey returns the index of candidateKeys that has the first match in the wallet
-// mocked to return not found key
-func (m *CloseableWallet) FindVerKey(candidateKeys []string) (int, error) {
-	return -1, cryptoutil.ErrKeyNotFound
 }
 
 // CreateDID returns new DID Document
