@@ -16,7 +16,6 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/nacl/box"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -59,68 +58,118 @@ func New(ctx provider) (*BaseWallet, error) {
 	return &BaseWallet{keystore: ks, didstore: ds, inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
 }
 
-// CreateEncryptionKey create a new public/private encryption keypair.
-func (w *BaseWallet) CreateEncryptionKey() (string, error) {
-	pub, priv, err := box.GenerateKey(rand.Reader)
+// CreateKeySet creates a new public/private encryption and signature keypairs combo.
+// returns:
+// 		string: encryption key id base58 encoded of the marshaled cryptoutil.KayPairCombo stored in the wallet
+// 		string: signature key id base58 encoded of the marshaled cryptoutil.KayPairCombo stored in the wallet
+//		error: in case of errors
+func (w *BaseWallet) CreateKeySet() (string, string, error) {
+	// TODO - need to encrypt the encPriv and sigPriv before putting them in the store.
+	sigKp, err := createSigKeyPair()
 	if err != nil {
-		return "", fmt.Errorf("failed to GenerateKey: %w", err)
+		return "", "", err
 	}
-	base58Pub := base58.Encode(pub[:])
-	// TODO - need to encrypt the priv before putting them in the store.
-	if err := persist(w.keystore, base58Pub, &cryptoutil.KeyPair{Pub: pub[:], Priv: priv[:]}); err != nil {
-		return "", err
+	encKp, err := createEncKeyPair(sigKp)
+	if err != nil {
+		return "", "", err
 	}
-	return base58Pub, nil
+	encBase58Pub := base58.Encode(encKp.Pub)
+	kpCombo := &cryptoutil.MessagingKeys{
+		EncKeyPair: encKp,
+		SigKeyPair: sigKp,
+	}
+
+	// TODO - need to encrypt kpCombo.sigKp.Priv and kpCombo.encKp.Priv before putting them in the store.
+	if er := persist(w.keystore, encBase58Pub, kpCombo); er != nil {
+		return "", "", er
+	}
+
+	// TODO - find a better way to point both signature and encryption public keys as keyIds to
+	//  	the same kpCombo value in the store
+	// for now the keypair combo is stored twice (once for encPubKey and once for sigPubKey)
+	sigBase58Pub := base58.Encode(sigKp.Pub)
+	if er := persist(w.keystore, sigBase58Pub, kpCombo); er != nil {
+		return "", "", er
+	}
+
+	return encBase58Pub, sigBase58Pub, nil
 }
 
-// CreateSigningKey create a new public/private signing keypair.
-func (w *BaseWallet) CreateSigningKey() (string, error) {
-	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+// createEncKeyPair will convert sigKp into an encKeyPair - for now it's a key conversion operation.
+// it can be modified to be generated independently from sigKp - this has implications on
+// the wallet store and the Packager/Crypter as they use Signature keys as arguments and use the converted
+//  to Encryption keys for Pack/Unpack.
+func createEncKeyPair(sigKp *cryptoutil.SigKeyPair) (*cryptoutil.EncKeyPair, error) {
+	encPub, err := cryptoutil.PublicEd25519toCurve25519(sigKp.Pub)
 	if err != nil {
-		return "", fmt.Errorf("failed to GenerateKey: %w", err)
+		return nil, fmt.Errorf("failed to create encPub: %w", err)
 	}
-	base58Pub := base58.Encode(pub[:])
-	// TODO - need to encrypt the priv before putting them in the store.
-	if err := persist(w.keystore, base58Pub, &cryptoutil.KeyPair{Pub: pub[:], Priv: priv[:]}); err != nil {
-		return "", err
+	encPriv, err := cryptoutil.SecretEd25519toCurve25519(sigKp.Priv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create encPriv: %w", err)
 	}
-	return base58Pub, nil
+	return &cryptoutil.EncKeyPair{
+		KeyPair: cryptoutil.KeyPair{Pub: encPub, Priv: encPriv},
+		Alg:     cryptoutil.Curve25519,
+	}, nil
+}
+
+func createSigKeyPair() (*cryptoutil.SigKeyPair, error) {
+	sigPub, sigPriv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to Generate SigKeyPair: %w", err)
+	}
+
+	return &cryptoutil.SigKeyPair{
+		KeyPair: cryptoutil.KeyPair{
+			Pub:  sigPub[:],
+			Priv: sigPriv[:]},
+		Alg: cryptoutil.EdDSA,
+	}, nil
 }
 
 // ConvertToEncryptionKey converts an ed25519 keypair present in the wallet,
 // persists the resulting keypair, and returns the result public key.
-func (w *BaseWallet) ConvertToEncryptionKey(key []byte) ([]byte, error) {
-	encPub, err := cryptoutil.PublicEd25519toCurve25519(key)
+func (w *BaseWallet) ConvertToEncryptionKey(verKey []byte) ([]byte, error) {
+	encPub, err := cryptoutil.PublicEd25519toCurve25519(verKey)
 	if err != nil {
 		return nil, err
 	}
 	encPubB58 := base58.Encode(encPub)
 
-	keyB58 := base58.Encode(key)
-	kp, err := w.getKey(keyB58)
+	sigPubB58 := base58.Encode(verKey)
+	kpc, err := w.getKeyPairSet(sigPubB58)
 	if err != nil {
 		return nil, err
 	}
-	encPriv, err := cryptoutil.SecretEd25519toCurve25519(kp.Priv)
+	encPriv, err := cryptoutil.SecretEd25519toCurve25519(kpc.SigKeyPair.Priv)
 	if err != nil {
 		return nil, err
 	}
-	kpEnc := cryptoutil.KeyPair{Priv: encPriv, Pub: encPub}
-	err = persist(w.keystore, encPubB58, &kpEnc)
+	kpNew := &cryptoutil.MessagingKeys{
+		EncKeyPair: &cryptoutil.EncKeyPair{KeyPair: cryptoutil.KeyPair{Priv: encPriv, Pub: encPub}},
+		SigKeyPair: kpc.SigKeyPair,
+	}
+	err = persist(w.keystore, encPubB58, kpNew)
 	if err != nil {
 		return nil, err
 	}
-
+	// TODO duplicate MessagingKeys in store or use a metadata store to map sig->enc?
+	// 		for now we're duplicating entries as we only have 'keystore' (update when 'metadatastore' is added)
+	err = persist(w.keystore, sigPubB58, kpNew)
+	if err != nil {
+		return nil, err
+	}
 	return encPub, nil
 }
 
 // SignMessage sign a message using the private key associated with a given verification key.
 func (w *BaseWallet) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
-	keyPair, err := w.getKey(fromVerKey)
+	kpc, err := w.getKeyPairSet(fromVerKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get key: %w", err)
 	}
-	return ed25519signature2018.New().Sign(keyPair.Priv, message)
+	return ed25519signature2018.New().Sign(kpc.SigKeyPair.Priv, message)
 }
 
 // Close wallet
@@ -136,8 +185,8 @@ func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
 		opt(docOpts)
 	}
 
-	// Generate key pair
-	base58PubKey, err := w.CreateEncryptionKey()
+	// Generate Encryption & Signing key pairs and store them in the wallet
+	_, pubVerKey, err := w.CreateKeySet()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create DID: %w", err)
 	}
@@ -146,7 +195,7 @@ func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
 
 	switch method {
 	case peerDIDMethod:
-		didDoc, err = w.buildPeerDIDDoc(base58PubKey, docOpts)
+		didDoc, err = w.buildPeerDIDDoc(pubVerKey, docOpts)
 		if err != nil {
 			return nil, fmt.Errorf("create peer DID : %w", err)
 		}
@@ -178,16 +227,16 @@ func (w *BaseWallet) GetDID(id string) (*did.Doc, error) {
 	return &didDoc, nil
 }
 
-// getKey get key
-func (w *BaseWallet) getKey(verkey string) (*cryptoutil.KeyPair, error) {
-	bytes, err := w.keystore.Get(verkey)
+// getKeyPairSet get encryption & signature key pairs combo
+func (w *BaseWallet) getKeyPairSet(verKey string) (*cryptoutil.MessagingKeys, error) {
+	bytes, err := w.keystore.Get(verKey)
 	if err != nil {
 		if errors.Is(storage.ErrDataNotFound, err) {
 			return nil, cryptoutil.ErrKeyNotFound
 		}
 		return nil, err
 	}
-	var key cryptoutil.KeyPair
+	var key cryptoutil.MessagingKeys
 	if err := json.Unmarshal(bytes, &key); err != nil {
 		return nil, fmt.Errorf("failed unmarshal to key struct: %w", err)
 	}
@@ -204,12 +253,12 @@ func (w *BaseWallet) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, e
 	fromPrivKey := new([chacha.KeySize]byte)
 	copy(fromPrivKey[:], fromPubKey)
 
-	// get keypair from wallet store
-	walletKeyPair, err := w.getKey(base58.Encode(fromPubKey))
+	// get key pairs combo from wallet store
+	kpc, err := w.getKeyPairSet(base58.Encode(fromPubKey))
 	if err != nil {
-		return nil, fmt.Errorf("failed from getKey: %w", err)
+		return nil, fmt.Errorf("failed from getKeyPairSet: %w", err)
 	}
-	copy(fromPrivKey[:], walletKeyPair.Priv)
+	copy(fromPrivKey[:], kpc.EncKeyPair.Priv)
 
 	toKey := new([chacha.KeySize]byte)
 	copy(toKey[:], toPubKey)
@@ -219,12 +268,12 @@ func (w *BaseWallet) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, e
 // FindVerKey selects a signing key which is present in candidateKeys that is present in the wallet
 func (w *BaseWallet) FindVerKey(candidateKeys []string) (int, error) {
 	for i, key := range candidateKeys {
-		_, err := w.getKey(key)
+		_, err := w.getKeyPairSet(key)
 		if err != nil {
 			if errors.Is(err, cryptoutil.ErrKeyNotFound) {
 				continue
 			}
-			return -1, fmt.Errorf("failed from getKey: %w", err)
+			return -1, fmt.Errorf("failed from getKeyPairSet: %w", err)
 		}
 		// Currently chooses the first usable key, but could use different logic (eg, priorities)
 		return i, nil
@@ -281,4 +330,14 @@ func (w *BaseWallet) buildPeerDIDDoc(base58PubKey string, docOpts *createDIDOpts
 		did.WithCreatedTime(t),
 		did.WithUpdatedTime(t),
 	)
+}
+
+// GetEncryptionKey will return the public encryption key corresponding to the public verKey argument
+func (w *BaseWallet) GetEncryptionKey(verKey []byte) ([]byte, error) {
+	b58VerKey := base58.Encode(verKey)
+	kpCombo, err := w.getKeyPairSet(b58VerKey)
+	if err != nil {
+		return nil, err
+	}
+	return kpCombo.EncKeyPair.Pub, nil
 }

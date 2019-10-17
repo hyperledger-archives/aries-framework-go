@@ -16,15 +16,15 @@ import (
 )
 
 func TestIsKeyPairValid(t *testing.T) {
-	require.False(t, IsKeyPairValid(KeyPair{}))
+	require.False(t, isKeyPairValid(KeyPair{}))
 	pubKey := []byte("testpublickey")
 	privKey := []byte("testprivatekey")
 	validChachaKey, err := base64.RawURLEncoding.DecodeString("c8CSJr_27PN9xWCpzXNmepRndD6neQcnO9DS0YWjhNs")
 	require.NoError(t, err)
 
-	require.False(t, IsKeyPairValid(KeyPair{Priv: privKey, Pub: nil}))
-	require.False(t, IsKeyPairValid(KeyPair{Priv: nil, Pub: pubKey}))
-	require.True(t, IsKeyPairValid(KeyPair{Priv: privKey, Pub: pubKey}))
+	require.False(t, isKeyPairValid(KeyPair{Priv: privKey, Pub: nil}))
+	require.False(t, isKeyPairValid(KeyPair{Priv: nil, Pub: pubKey}))
+	require.True(t, isKeyPairValid(KeyPair{Priv: privKey, Pub: pubKey}))
 
 	require.EqualError(t,
 		VerifyKeys(
@@ -38,6 +38,36 @@ func TestIsKeyPairValid(t *testing.T) {
 		errEmptyRecipients.Error())
 	require.EqualError(t, VerifyKeys(KeyPair{}, [][]byte{[]byte("abc"), []byte("def")}), errInvalidKeypair.Error())
 	require.NoError(t, VerifyKeys(KeyPair{Priv: validChachaKey, Pub: validChachaKey}, [][]byte{validChachaKey}))
+
+	require.False(t, IsMessagingKeysValid(&MessagingKeys{
+		&EncKeyPair{KeyPair{Priv: privKey, Pub: nil}, Curve25519},
+		&SigKeyPair{KeyPair{Priv: nil, Pub: pubKey}, EdDSA},
+	}))
+
+	require.False(t, IsMessagingKeysValid(&MessagingKeys{
+		&EncKeyPair{KeyPair{Priv: nil, Pub: pubKey}, Curve25519},
+		&SigKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, EdDSA},
+	}))
+
+	require.False(t, IsMessagingKeysValid(&MessagingKeys{
+		&EncKeyPair{KeyPair{Priv: nil, Pub: pubKey}, Curve25519},
+		&SigKeyPair{KeyPair{Priv: privKey, Pub: nil}, EdDSA},
+	}))
+
+	require.False(t, IsMessagingKeysValid(&MessagingKeys{
+		&EncKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, ""},
+		&SigKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, EdDSA},
+	}))
+
+	require.False(t, IsMessagingKeysValid(&MessagingKeys{
+		&EncKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, Curve25519},
+		&SigKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, ""},
+	}))
+
+	require.True(t, IsMessagingKeysValid(&MessagingKeys{
+		&EncKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, Curve25519},
+		&SigKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, EdDSA},
+	}))
 }
 
 func TestDeriveKEK_Util(t *testing.T) {

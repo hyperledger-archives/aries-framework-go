@@ -8,14 +8,14 @@ package authcrypt
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	chacha "golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/nacl/box"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
@@ -23,41 +23,106 @@ import (
 
 func TestEncrypt(t *testing.T) {
 	var err error
-	var ecKeyPub *[chacha.KeySize]byte
-	var ecKeyPriv *[chacha.KeySize]byte
-	// create temporary keys for testing
-	ecKeyPub, ecKeyPriv, err = box.GenerateKey(randReader)
+	// create temporary signing keys for tests
+	sigPubKey, sigPrivKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	senderKp := cryptoutil.KeyPair{Priv: ecKeyPriv[:], Pub: ecKeyPub[:]}
-	t.Logf("sender key pub: %v", base64.RawURLEncoding.EncodeToString(senderKp.Pub))
-	t.Logf("sender key priv: %v", base64.RawURLEncoding.EncodeToString(senderKp.Priv))
+	// convert signing keys to encryption keys
+	encPubKey, err := cryptoutil.PublicEd25519toCurve25519(sigPubKey)
+	require.NoError(t, err)
+	encPrivKey, err := cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
+	require.NoError(t, err)
 
-	ecKeyPub, ecKeyPriv, err = box.GenerateKey(randReader)
 	require.NoError(t, err)
-	recipient1Kp := cryptoutil.KeyPair{Priv: ecKeyPriv[:], Pub: ecKeyPub[:]}
-	t.Logf("recipient1Kp pub: %v", base64.RawURLEncoding.EncodeToString(recipient1Kp.Pub))
-	t.Logf("recipient1Kp priv: %v", base64.RawURLEncoding.EncodeToString(recipient1Kp.Priv))
 
-	ecKeyPub, ecKeyPriv, err = box.GenerateKey(randReader)
-	require.NoError(t, err)
-	recipient2Kp := cryptoutil.KeyPair{Priv: ecKeyPriv[:], Pub: ecKeyPub[:]}
-	t.Logf("recipient2Kp pub: %v", base64.RawURLEncoding.EncodeToString(recipient2Kp.Pub))
-	t.Logf("recipient2Kp priv: %v", base64.RawURLEncoding.EncodeToString(recipient2Kp.Priv))
+	sender := &cryptoutil.MessagingKeys{
+		SigKeyPair: &cryptoutil.SigKeyPair{
+			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
+			Alg:     cryptoutil.EdDSA,
+		},
+		EncKeyPair: &cryptoutil.EncKeyPair{
+			KeyPair: cryptoutil.KeyPair{Pub: encPubKey, Priv: encPrivKey},
+			Alg:     cryptoutil.Curve25519,
+		},
+	}
+	t.Logf("sender Signature key pub: %v", base64.RawURLEncoding.EncodeToString(sender.SigKeyPair.Pub))
+	t.Logf("sender Signature key priv: %v", base64.RawURLEncoding.EncodeToString(sender.SigKeyPair.Priv))
+	t.Logf("sender Encryption key pub: %v", base64.RawURLEncoding.EncodeToString(sender.EncKeyPair.Pub))
+	t.Logf("sender Encryption key priv: %v", base64.RawURLEncoding.EncodeToString(sender.EncKeyPair.Priv))
 
-	ecKeyPub, ecKeyPriv, err = box.GenerateKey(randReader)
+	sigPubKey, sigPrivKey, err = ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	recipient3Kp := cryptoutil.KeyPair{Priv: ecKeyPriv[:], Pub: ecKeyPub[:]}
-	t.Logf("recipient3Kp pub: %v", base64.RawURLEncoding.EncodeToString(recipient3Kp.Pub))
-	t.Logf("recipient3Kp priv: %v", base64.RawURLEncoding.EncodeToString(recipient3Kp.Priv))
-	senderWalletProvider, err := mockwallet.NewMockProvider(senderKp)
+	// convert signing keys to encryption keys
+	encPubKey, err = cryptoutil.PublicEd25519toCurve25519(sigPubKey)
 	require.NoError(t, err)
-	senderAndRec1WalletProvider, err := mockwallet.NewMockProvider(senderKp, recipient1Kp)
+	encPrivKey, err = cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
 	require.NoError(t, err)
-	recipient1WalletProvider, err := mockwallet.NewMockProvider(recipient1Kp)
+	rec1 := &cryptoutil.MessagingKeys{
+		SigKeyPair: &cryptoutil.SigKeyPair{
+			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
+			Alg:     cryptoutil.EdDSA,
+		},
+		EncKeyPair: &cryptoutil.EncKeyPair{
+			KeyPair: cryptoutil.KeyPair{Pub: encPubKey, Priv: encPrivKey},
+			Alg:     cryptoutil.Curve25519,
+		},
+	}
+	t.Logf("rec1 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(rec1.SigKeyPair.Pub))
+	t.Logf("rec1 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(rec1.SigKeyPair.Priv))
+	t.Logf("rec1 Enc pub: %v", base64.RawURLEncoding.EncodeToString(rec1.EncKeyPair.Pub))
+	t.Logf("rec1 Enc priv: %v", base64.RawURLEncoding.EncodeToString(rec1.EncKeyPair.Priv))
+
+	sigPubKey, sigPrivKey, err = ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	recipient2WalletProvider, err := mockwallet.NewMockProvider(recipient2Kp)
+	// convert signing keys to encryption keys
+	encPubKey, err = cryptoutil.PublicEd25519toCurve25519(sigPubKey)
 	require.NoError(t, err)
-	recipient3WalletProvider, err := mockwallet.NewMockProvider(recipient3Kp)
+	encPrivKey, err = cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
+	require.NoError(t, err)
+	rec2 := &cryptoutil.MessagingKeys{
+		SigKeyPair: &cryptoutil.SigKeyPair{
+			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
+			Alg:     cryptoutil.EdDSA,
+		},
+		EncKeyPair: &cryptoutil.EncKeyPair{
+			KeyPair: cryptoutil.KeyPair{Pub: encPubKey, Priv: encPrivKey},
+			Alg:     cryptoutil.Curve25519,
+		},
+	}
+	t.Logf("rec2 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(rec2.SigKeyPair.Pub))
+	t.Logf("rec2 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(rec2.SigKeyPair.Priv))
+	t.Logf("rec2 Enc pub: %v", base64.RawURLEncoding.EncodeToString(rec2.EncKeyPair.Pub))
+	t.Logf("rec2 Enc priv: %v", base64.RawURLEncoding.EncodeToString(rec2.EncKeyPair.Priv))
+
+	sigPubKey, sigPrivKey, err = ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	// convert signing keys to encryption keys
+	encPubKey, err = cryptoutil.PublicEd25519toCurve25519(sigPubKey)
+	require.NoError(t, err)
+	encPrivKey, err = cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
+	require.NoError(t, err)
+	rec3 := &cryptoutil.MessagingKeys{
+		SigKeyPair: &cryptoutil.SigKeyPair{
+			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
+			Alg:     cryptoutil.EdDSA,
+		},
+		EncKeyPair: &cryptoutil.EncKeyPair{
+			KeyPair: cryptoutil.KeyPair{Pub: encPubKey, Priv: encPrivKey},
+			Alg:     cryptoutil.Curve25519,
+		},
+	}
+	t.Logf("rec3 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(rec3.SigKeyPair.Pub))
+	t.Logf("rec3 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(rec3.SigKeyPair.Priv))
+	t.Logf("rec3 Enc pub: %v", base64.RawURLEncoding.EncodeToString(rec3.EncKeyPair.Pub))
+	t.Logf("rec3 Enc priv: %v", base64.RawURLEncoding.EncodeToString(rec3.EncKeyPair.Priv))
+	allWalletProvider, err := mockwallet.NewMockProvider(sender, rec1, rec2, rec3)
+	require.NoError(t, err)
+	senderWalletProvider, err := mockwallet.NewMockProvider(sender)
+	require.NoError(t, err)
+	recipient1WalletProvider, err := mockwallet.NewMockProvider(rec1)
+	require.NoError(t, err)
+	recipient2WalletProvider, err := mockwallet.NewMockProvider(rec2)
+	require.NoError(t, err)
+	recipient3WalletProvider, err := mockwallet.NewMockProvider(rec3)
 	require.NoError(t, err)
 	badKey := cryptoutil.KeyPair{
 		Pub:  nil,
@@ -76,7 +141,7 @@ func TestEncrypt(t *testing.T) {
 		require.NotEmpty(t, crypter)
 		badKey.Pub = []byte{}
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			badKey.Pub, [][]byte{recipient1Kp.Pub, recipient2Kp.Pub, recipient3Kp.Pub})
+			badKey.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
 		require.EqualError(t, e, "failed to encrypt message: empty sender key")
 		require.Empty(t, enc)
 	})
@@ -89,8 +154,8 @@ func TestEncrypt(t *testing.T) {
 		badKey.Pub = []byte("badkey")
 
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			badKey.Pub, [][]byte{recipient1Kp.Pub, recipient2Kp.Pub, recipient3Kp.Pub})
-		require.EqualError(t, e, "failed from getKey: key not found")
+			badKey.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+		require.EqualError(t, e, "key not found")
 		require.Empty(t, enc)
 
 		// reset badKey
@@ -98,18 +163,26 @@ func TestEncrypt(t *testing.T) {
 
 		// test bad recipient 1 public key size
 		enc, e = crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			senderKp.Pub, [][]byte{[]byte("badkeysize"), recipient2Kp.Pub, recipient3Kp.Pub})
+			sender.SigKeyPair.Pub, [][]byte{[]byte("badkeysize"), rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
 		require.EqualError(t, e, "failed to encrypt message: invalid key - for recipient 1")
 		require.Empty(t, enc)
 		// test bad recipient 2 public key size
 		enc, e = crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			senderKp.Pub, [][]byte{recipient1Kp.Pub, []byte("badkeysize"), recipient3Kp.Pub})
+			sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, []byte("badkeysize"), rec3.SigKeyPair.Pub})
 		require.EqualError(t, e, "failed to encrypt message: invalid key - for recipient 2")
 		require.Empty(t, enc)
 		// test bad recipient 3 publick key size
 		enc, e = crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			senderKp.Pub, [][]byte{recipient1Kp.Pub, recipient2Kp.Pub, []byte("badkeysize")})
+			sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, []byte("badkeysize")})
 		require.EqualError(t, e, "failed to encrypt message: invalid key - for recipient 3")
+		require.Empty(t, enc)
+
+		// test invalid recipient 1 key
+		k, e := base64.RawURLEncoding.DecodeString("-----vh1JG9hO0123pO3gWyngGwLivn32PzUdUDwW4w")
+		require.NoError(t, e)
+		enc, e = crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
+			sender.SigKeyPair.Pub, [][]byte{k, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+		require.EqualError(t, e, "failed to encrypt message: error converting public key")
 		require.Empty(t, enc)
 	})
 
@@ -117,17 +190,17 @@ func TestEncrypt(t *testing.T) {
 		crypter, e := New(senderWalletProvider, "XC20P")
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
-		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"), senderKp.Pub, [][]byte{})
+		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"), sender.SigKeyPair.Pub, [][]byte{})
 		require.EqualError(t, e, "failed to encrypt message: empty recipients")
 		require.Empty(t, enc)
 	})
 
 	t.Run("Success test case: Create a valid AuthCrypter for ChachaPoly1305 encryption (alg: C20P)", func(t *testing.T) {
-		crypter, e := New(senderWalletProvider, C20P)
+		crypter, e := New(allWalletProvider, C20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			senderKp.Pub, [][]byte{recipient1Kp.Pub, recipient2Kp.Pub, recipient3Kp.Pub})
+			sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -137,11 +210,11 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Success test case: Create a valid AuthCrypter for XChachaPoly1305 encryption (alg: XC20P)", func(t *testing.T) {
-		crypter, e := New(senderWalletProvider, XC20P)
+		crypter, e := New(allWalletProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-			senderKp.Pub, [][]byte{recipient1Kp.Pub, recipient2Kp.Pub, recipient3Kp.Pub})
+			sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -152,20 +225,20 @@ func TestEncrypt(t *testing.T) {
 		t.Run("Error test Case: use a valid AuthCrypter but scramble the nonce size", func(t *testing.T) {
 			crypter.nonceSize = 0
 			_, err = crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
-				senderKp.Pub, [][]byte{recipient1Kp.Pub, recipient2Kp.Pub, recipient3Kp.Pub})
+				sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
 			require.Error(t, err)
 		})
 	})
 
 	t.Run("Success test case: Decrypting a message (with the same crypter)", func(t *testing.T) {
-		// not a real life scenario, the wallet is using both sender and recipient1 key pairs
+		// not a real life scenario, the wallet is using both sender and rec1 key pairs
 		// senderAndRec1WalletProvider is used here for testing purposes only
-		crypter, e := New(senderAndRec1WalletProvider, XC20P)
+		crypter, e := New(allWalletProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
-		enc, e := crypter.Encrypt(pld, senderKp.Pub,
-			[][]byte{recipient1Kp.Pub, recipient2Kp.Pub, recipient3Kp.Pub})
+		enc, e := crypter.Encrypt(pld, sender.SigKeyPair.Pub,
+			[][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -174,7 +247,7 @@ func TestEncrypt(t *testing.T) {
 		t.Logf("Encryption with unescaped XC20P: %s", enc)
 		t.Logf("Encryption with XC20P: %s", m)
 
-		// decrypt for recipient1 (as found in wallet)
+		// decrypt for rec1 (as found in wallet)
 		dec, e := crypter.Decrypt(enc)
 		require.NoError(t, e)
 		require.NotEmpty(t, dec)
@@ -183,12 +256,12 @@ func TestEncrypt(t *testing.T) {
 
 	t.Run("Success test case: Decrypting a message with two Crypter instances to simulate two agents", func(t *testing.T) { //nolint:lll
 		// encrypt with sender
-		crypter, e := New(senderWalletProvider, XC20P)
+		crypter, e := New(allWalletProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
-		enc, e := crypter.Encrypt(pld, senderKp.Pub,
-			[][]byte{recipient1Kp.Pub, recipient2Kp.Pub, recipient3Kp.Pub})
+		enc, e := crypter.Encrypt(pld, sender.SigKeyPair.Pub,
+			[][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -216,11 +289,11 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Failure test case: Decrypting a message with an unauthorized (recipient2) agent", func(t *testing.T) {
-		crypter, e := New(senderWalletProvider, XC20P)
+		crypter, e := New(allWalletProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
-		enc, e := crypter.Encrypt(pld, senderKp.Pub, [][]byte{recipient1Kp.Pub, recipient3Kp.Pub})
+		enc, e := crypter.Encrypt(pld, sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -238,12 +311,12 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Failure test case: Decrypting a message but scramble JWE beforehand", func(t *testing.T) {
-		crypter, e := New(senderWalletProvider, XC20P)
+		crypter, e := New(allWalletProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
-		enc, e := crypter.Encrypt(pld, senderKp.Pub,
-			[][]byte{recipient1Kp.Pub, recipient2Kp.Pub, recipient3Kp.Pub})
+		enc, e := crypter.Encrypt(pld, sender.SigKeyPair.Pub,
+			[][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -255,7 +328,7 @@ func TestEncrypt(t *testing.T) {
 		jwe := &Envelope{}
 		deepCopy(jwe, validJwe)
 
-		// create a new crypter for recipient1 for testing decryption
+		// create a new crypter for rec1 for testing decryption
 		crypter, e = New(recipient1WalletProvider, XC20P)
 
 		// test bad jwe format
@@ -440,8 +513,18 @@ func TestRefEncrypt(t *testing.T) {
 	recipientPub, err := base64.RawURLEncoding.DecodeString(recipientPubStr)
 	require.NoError(t, err)
 
+	recKpCombo := &cryptoutil.MessagingKeys{
+		SigKeyPair: &cryptoutil.SigKeyPair{
+			KeyPair: cryptoutil.KeyPair{Priv: recipientPub, Pub: recipientPub}, // mocking signature keys as enc keys
+			Alg:     cryptoutil.EdDSA,
+		},
+		EncKeyPair: &cryptoutil.EncKeyPair{
+			KeyPair: cryptoutil.KeyPair{Pub: recipientPub, Priv: recipientPriv},
+			Alg:     cryptoutil.Curve25519,
+		},
+	}
 	// create mockwallet provider with the above keys
-	mockWalletProvider, err := mockwallet.NewMockProvider(cryptoutil.KeyPair{Pub: recipientPub, Priv: recipientPriv})
+	mockWalletProvider, err := mockwallet.NewMockProvider(recKpCombo)
 	require.NoError(t, err)
 
 	// refJWE created by executing PHP test code at:

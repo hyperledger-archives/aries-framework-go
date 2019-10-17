@@ -23,14 +23,13 @@ import (
 
 // Encrypt will JWE encode the payload argument for the sender and recipients
 // Using (X)Chacha20 encryption algorithm and Poly1305 authenticator
-// It will encrypt using the sender's keypair and the list of recipients arguments
-func (c *Crypter) Encrypt(payload, senderKey []byte, recipients [][]byte) ([]byte, error) { //nolint:funlen
-	if len(senderKey) == 0 {
-		return nil, fmt.Errorf("failed to encrypt message: empty sender key")
+// It will encrypt by fetching the sender's encryption key corresponding to senderVerKey and converting the list
+// of recipientsVerKeys into a list of encryption keys
+func (c *Crypter) Encrypt(payload, senderVerKey []byte, recipientsVerKeys [][]byte) ([]byte, error) { //nolint:funlen
+	senderPubKey, err := c.getSenderPubEncKey(senderVerKey)
+	if err != nil {
+		return nil, err
 	}
-
-	senderPubKey := &[chacha.KeySize]byte{}
-	copy(senderPubKey[:], senderKey)
 
 	headers := jweHeaders{
 		Typ: "prs.hyperledger.aries-auth-message",
@@ -38,10 +37,10 @@ func (c *Crypter) Encrypt(payload, senderKey []byte, recipients [][]byte) ([]byt
 		Enc: string(c.alg),
 	}
 
-	if len(recipients) == 0 {
+	if len(recipientsVerKeys) == 0 {
 		return nil, fmt.Errorf("failed to encrypt message: empty recipients")
 	}
-	chachaRecipients, err := convertRecipients(recipients)
+	chachaRecipients, err := c.convertRecipients(recipientsVerKeys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt message: %w", err)
 	}
@@ -100,17 +99,36 @@ func (c *Crypter) Encrypt(payload, senderKey []byte, recipients [][]byte) ([]byt
 	return jwe, nil
 }
 
-// convertRecipients is a utility function that converts keys from [][]byte type into []*[chacha.KeySize]byte type
-func convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byte, error) {
+func (c *Crypter) getSenderPubEncKey(senderVerKey []byte) (*[chacha.KeySize]byte, error) {
+	if len(senderVerKey) == 0 {
+		return nil, fmt.Errorf("failed to encrypt message: empty sender key")
+	}
+
+	senderKey, err := c.wallet.GetEncryptionKey(senderVerKey)
+	if err != nil {
+		return nil, err
+	}
+	senderPubKey := &[chacha.KeySize]byte{}
+	copy(senderPubKey[:], senderKey)
+	return senderPubKey, nil
+}
+
+// convertRecipients is a utility function that converts keys from signature keys ([][]byte type)
+// into encryption keys ([]*[chacha.KeySize]byte type)
+func (c *Crypter) convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byte, error) {
 	var chachaRecipients []*[chacha.KeySize]byte
 
-	for i, r := range recipients {
-		if !cryptoutil.IsChachaKeyValid(r) {
+	for i, rVer := range recipients {
+		if !cryptoutil.IsChachaKeyValid(rVer) {
 			return nil, fmt.Errorf("%w - for recipient %d", cryptoutil.ErrInvalidKey, i+1)
+		}
+		rEnc, err := cryptoutil.PublicEd25519toCurve25519(rVer)
+		if err != nil {
+			return nil, err
 		}
 
 		chachaRec := new([chacha.KeySize]byte)
-		copy(chachaRec[:], r)
+		copy(chachaRec[:], rEnc)
 		chachaRecipients = append(chachaRecipients, chachaRec)
 	}
 	return chachaRecipients, nil

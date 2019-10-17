@@ -15,9 +15,8 @@ import (
 // CloseableWallet mock wallet
 type CloseableWallet struct {
 	CreateEncryptionKeyValue string
-	CreateEncryptionKeyErr   error
+	CreateKeyErr             error
 	CreateSigningKeyValue    string
-	CreateSigningKeyErr      error
 	FindVerKeyValue          int
 	FindVerKeyErr            error
 	SignMessageValue         []byte
@@ -29,6 +28,8 @@ type CloseableWallet struct {
 	UnpackValue              *envelope.Envelope
 	UnpackErr                error
 	MockDID                  *did.Doc
+	EncryptionKeyValue       []byte
+	EncryptionKeyErr         error
 }
 
 // Close previously-opened wallet, removing it if so configured.
@@ -36,14 +37,9 @@ func (m *CloseableWallet) Close() error {
 	return nil
 }
 
-// CreateEncryptionKey create a new public/private encryption keypair.
-func (m *CloseableWallet) CreateEncryptionKey() (string, error) {
-	return m.CreateEncryptionKeyValue, m.CreateEncryptionKeyErr
-}
-
-// CreateSigningKey create a new public/private signing keypair.
-func (m *CloseableWallet) CreateSigningKey() (string, error) {
-	return m.CreateSigningKeyValue, m.CreateSigningKeyErr
+// CreateKeySet create a new public/private encryption and signature key pairs combo.
+func (m *CloseableWallet) CreateKeySet() (string, string, error) {
+	return m.CreateEncryptionKeyValue, m.CreateSigningKeyValue, m.CreateKeyErr
 }
 
 // FindVerKey return a verification key from the list of candidates
@@ -70,4 +66,9 @@ func (m *CloseableWallet) CreateDID(method string, opts ...wallet.DocOpts) (*did
 // GetDID gets already created DID document by ID.
 func (m *CloseableWallet) GetDID(id string) (*did.Doc, error) {
 	return m.MockDID, nil
+}
+
+// GetEncryptionKey will return the public encryption key corresponding to the public verKey argument
+func (m *CloseableWallet) GetEncryptionKey(verKey []byte) ([]byte, error) {
+	return m.EncryptionKeyValue, m.EncryptionKeyErr
 }

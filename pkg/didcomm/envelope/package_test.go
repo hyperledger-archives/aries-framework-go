@@ -7,13 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package envelope
 
 import (
-	"crypto/rand"
 	"fmt"
 	"testing"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/nacl/box"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
@@ -45,9 +42,10 @@ func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test key not found", func(t *testing.T) {
-		w, err := wallet.New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+		wp := newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
-		}}))
+		}})
+		w, err := wallet.New(wp)
 		require.NoError(t, err)
 
 		mockedProviders := &mprovider.Provider{
@@ -62,20 +60,23 @@ func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// fromKey is stored in the wallet
-		base58FromVerKey, err := w.CreateEncryptionKey()
+		_, base58FromVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 
-		// toKey is not stored in the wallet
-		pub2, _, err := box.GenerateKey(rand.Reader)
+		// toVerKey is stored in the wallet as well
+		base58ToEncKey, base58ToVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 
-		// PackMessage should pass without toPrivKey (only fromKey is required in the wallet)
+		// PackMessage should pass with both value from and to verification keys
 		packMsg, err := packager.PackMessage(&Envelope{Message: []byte("msg1"),
 			FromVerKey: base58FromVerKey,
-			ToVerKeys:  []string{base58.Encode(pub2[:])}})
+			ToVerKeys:  []string{base58ToVerKey}})
 		require.NoError(t, err)
 
-		// UnpackMessage requires toPrivKey in the wallet (should fail to unpack/decrypt message)
+		// mock wallet without ToVerKey and ToEncKey then try UnpackMessage
+		delete(wp.storage.Store.Store, base58ToVerKey)
+		delete(wp.storage.Store.Store, base58ToEncKey)
+		// It should fail since Recipient keys are not found in the wallet
 		_, err = packager.UnpackMessage(packMsg)
 		require.Error(t, err)
 		require.EqualError(t, err, "failed from decrypt: failed to decrypt message: key not found")
@@ -109,10 +110,10 @@ func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
-		base58FromVerKey, err := w.CreateEncryptionKey()
+		_, base58FromVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 
-		base58ToVerKey, err := w.CreateEncryptionKey()
+		_, base58ToVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 
 		// try pack with nil envelope - should fail
@@ -131,7 +132,22 @@ func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {
 		// see 'decryptValue' above
 		_, err = packager.UnpackMessage(packMsg)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "decrypt error")
+		require.EqualError(t, err, "failed from decrypt: decrypt error")
+
+		// now mock encrypt failure to test PackMessage with non empty envelope
+		e = func(payload []byte, senderPubKey []byte, recipientsKeys [][]byte) (bytes []byte, e error) {
+			return nil, fmt.Errorf("encrypt error")
+		}
+		mockCrypter = &didcomm.MockAuthCrypt{EncryptValue: e}
+		mockedProviders.CrypterValue = mockCrypter
+		packager, err = New(mockedProviders)
+		require.NoError(t, err)
+		packMsg, err = packager.PackMessage(&Envelope{Message: []byte("msg1"),
+			FromVerKey: base58FromVerKey,
+			ToVerKeys:  []string{base58ToVerKey}})
+		require.Error(t, err)
+		require.Empty(t, packMsg)
+		require.EqualError(t, err, "failed from encrypt: encrypt error")
 	})
 
 	t.Run("test Pack/Unpack success", func(t *testing.T) {
@@ -151,10 +167,10 @@ func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
-		base58FromVerKey, err := w.CreateEncryptionKey()
+		_, base58FromVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 
-		base58ToVerKey, err := w.CreateEncryptionKey()
+		_, base58ToVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 
 		// pack an non empty envelope - should pass

@@ -182,7 +182,7 @@ func sendHTTPRequest(url string, req *models.Request) (*http.Response, error) {
 }
 
 func createSidetreeDoc(ctx *context.Provider) *document.Document {
-	pub, err := ctx.CryptoWallet().CreateEncryptionKey()
+	_, pubVerKey, err := ctx.CryptoWallet().CreateKeySet()
 	if err != nil {
 		panic(err)
 	}
@@ -191,7 +191,7 @@ func createSidetreeDoc(ctx *context.Provider) *document.Document {
 		ID:         "#keys-1",
 		Type:       "Ed25519VerificationKey2018",
 		Controller: "controller",
-		Value:      []byte(pub),
+		Value:      []byte(pubVerKey),
 	}
 
 	services := []diddoc.Service{
