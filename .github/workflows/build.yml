@@ -27,7 +27,7 @@ jobs:
       timeout-minutes: 10
       run: make unit-test
 
-    - name: Upload coverage to Codecov  
+    - name: Upload coverage to Codecov
       timeout-minutes: 10
       # GitHub Actions currently only allow secret usage access during push events
       if: github.event_name == 'push' && matrix.os == 'ubuntu-18.04'
@@ -38,11 +38,8 @@ jobs:
 
   bddTest:
     name: BDD test
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-18.04
     timeout-minutes: 10
-    strategy:
-      matrix:
-        os: [ubuntu-18.04, macOS-10.14]
     steps:
 
       - name: Setup Go 1.13

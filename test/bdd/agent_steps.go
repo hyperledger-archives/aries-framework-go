@@ -20,8 +20,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didmethod/httpbinding"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 )
 
 const (
@@ -41,10 +43,26 @@ func NewAgentSteps(context *Context) *AgentSteps {
 }
 
 func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error {
+	return a.create(agentID, inboundHost, inboundPort)
+}
+
+func (a *AgentSteps) createAgentWithHttpDIDResolver(agentID, inboundHost, inboundPort, endpointURL string) error {
+	var opts []aries.Option
+	httpResolver, err := httpbinding.New(endpointURL)
+	if err != nil {
+		return fmt.Errorf("failed from httpbinding new ")
+	}
+	opts = append(opts, aries.WithDIDResolver(didresolver.New(didresolver.WithDidMethod(httpResolver))))
+	return a.create(agentID, inboundHost, inboundPort, opts...)
+}
+
+func (a *AgentSteps) create(agentID, inboundHost, inboundPort string, opts ...aries.Option) error {
 	if inboundPort == "random" {
 		inboundPort = strconv.Itoa(mustGetRandomPort(5))
 	}
-	agent, err := aries.New(defaults.WithInboundHTTPAddr(fmt.Sprintf("%s:%s", inboundHost, inboundPort)), defaults.WithStorePath(dbPath+"/"+agentID))
+	opts = append(opts, defaults.WithInboundHTTPAddr(fmt.Sprintf("%s:%s", inboundHost, inboundPort)))
+	opts = append(opts, defaults.WithStorePath(dbPath+"/"+agentID))
+	agent, err := aries.New(opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create new agent: %w", err)
 	}
@@ -52,6 +70,8 @@ func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error
 	if err != nil {
 		return fmt.Errorf("failed to create context: %w", err)
 	}
+	a.bddContext.AgentCtx[agentID] = ctx
+
 	// create new did exchange client
 	didexchangeClient, err := didexchange.New(ctx)
 	if err != nil {
@@ -100,6 +120,7 @@ func (a *AgentSteps) initializeStates(agentID string, states []string) {
 // RegisterSteps registers agent steps
 func (a *AgentSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)"$`, a.createAgent)
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with http-binding did resolver url "([^"]*)"$`, a.createAgentWithHttpDIDResolver)
 	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, a.registerPostMsgEvent)
 }
 
