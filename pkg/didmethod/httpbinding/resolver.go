@@ -20,10 +20,14 @@ import (
 
 var logger = log.New("aries-framework/didmethod/httpbinding")
 
+// Accept is method to accept did method
+type Accept func(method string) bool
+
 // resolverOpts holds options for the DID Resolver
 // it has a http.Client instance initialized with default parameters
 type resolverOpts struct {
 	client *http.Client
+	accept Accept
 }
 
 // ResolverOpt is the DID Resolver option
@@ -42,6 +46,13 @@ func WithTLSConfig(tlsConfig *tls.Config) ResolverOpt {
 		opts.client.Transport = &http.Transport{
 			TLSClientConfig: tlsConfig,
 		}
+	}
+}
+
+// WithAccept option is for accept did method
+func WithAccept(accept Accept) ResolverOpt {
+	return func(opts *resolverOpts) {
+		opts.accept = accept
 	}
 }
 
@@ -72,7 +83,8 @@ func (res *DIDResolver) resolveDID(uri string) ([]byte, error) {
 		return nil, fmt.Errorf("DID does not exist: %w", err)
 	}
 
-	return nil, fmt.Errorf("unsupported response from DID resolver [%v]", resp.StatusCode)
+	return nil, fmt.Errorf("unsupported response from DID resolver [%v] header [%s]",
+		resp.StatusCode, resp.Header.Get("Content-type"))
 }
 
 // notExistentDID checks if requested DID is not found on remote DID resolver
@@ -99,9 +111,14 @@ func New(endpointURL string, opts ...ResolverOpt) (*DIDResolver, error) {
 		return nil, fmt.Errorf("base URL invalid: %w", err)
 	}
 
+	if clOpts.accept == nil {
+		clOpts.accept = func(method string) bool { return true }
+	}
+
 	return &DIDResolver{
 		endpointURL: endpointURL,
 		client:      clOpts.client,
+		accept:      clOpts.accept,
 	}, nil
 }
 
@@ -119,11 +136,12 @@ func (res *DIDResolver) Read(did string, _ ...didresolver.ResolveOpt) ([]byte, e
 
 // Accept did method - attempt to resolve any method
 func (res *DIDResolver) Accept(method string) bool {
-	return true
+	return res.accept(method)
 }
 
 // DIDResolver DID Resolver via HTTP(s) endpoint
 type DIDResolver struct {
 	endpointURL string
 	client      *http.Client
+	accept      Accept
 }
