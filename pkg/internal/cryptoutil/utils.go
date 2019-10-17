@@ -8,9 +8,12 @@ package cryptoutil
 
 import (
 	"crypto"
+	"crypto/ed25519"
 	"encoding/binary"
 	"errors"
+	"fmt"
 
+	"github.com/agl/ed25519/extra25519"
 	josecipher "github.com/square/go-jose/v3/cipher"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/curve25519"
@@ -115,6 +118,44 @@ func lengthPrefix(array []byte) []byte {
 	binary.BigEndian.PutUint32(arrInfo, uint32(len(array)))
 	copy(arrInfo[4:], array)
 	return arrInfo
+}
+
+// Curve25519KeySize number of bytes in a Curve25519 public or private key
+const Curve25519KeySize = 32
+
+// NonceSize size of a nonce used by Box encryption (Xchacha20Poly1305)
+const NonceSize = 24
+
+// PublicEd25519toCurve25519 takes an Ed25519 public key and provides the corresponding Curve25519 public key
+//  This function wraps PublicKeyToCurve25519 from Adam Langley's ed25519 repo: https://github.com/agl/ed25519
+func PublicEd25519toCurve25519(pub []byte) ([]byte, error) {
+	if len(pub) == 0 {
+		return nil, errors.New("key is nil")
+	}
+	if len(pub) != ed25519.PublicKeySize {
+		return nil, fmt.Errorf("%d-byte key size is invalid", len(pub))
+	}
+	pkOut := new([Curve25519KeySize]byte)
+	pKIn := new([Curve25519KeySize]byte)
+	copy(pKIn[:], pub)
+	success := extra25519.PublicKeyToCurve25519(pkOut, pKIn)
+	if !success {
+		return nil, errors.New("error converting public key")
+	}
+	return pkOut[:], nil
+}
+
+// SecretEd25519toCurve25519 converts a secret key from Ed25519 to curve25519 format
+//  This function wraps PrivateKeyToCurve25519 from Adam Langley's ed25519 repo: https://github.com/agl/ed25519
+func SecretEd25519toCurve25519(priv []byte) ([]byte, error) {
+	if len(priv) == 0 {
+		return nil, errors.New("key is nil")
+	}
+	sKIn := new([ed25519.PrivateKeySize]byte)
+	copy(sKIn[:], priv)
+	sKOut := new([Curve25519KeySize]byte)
+	extra25519.PrivateKeyToCurve25519(sKOut, sKIn)
+	return sKOut[:], nil
 }
 
 // ErrKeyNotFound is returned when key not found

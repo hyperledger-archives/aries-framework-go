@@ -108,6 +108,13 @@ type DIDCreator interface {
 	GetDID(id string) (*did.Doc, error)
 }
 
+// KeyConverter provides methods for converting signing to encryption keys
+type KeyConverter interface {
+	// ConvertToEncryptionKey creates and persists a Curve25519 keypair created from the given SigningPubKey's
+	// Ed25519 keypair, returning the EncryptionPubKey for this new keypair.
+	ConvertToEncryptionKey(key []byte) ([]byte, error)
+}
+
 // createDIDOpts holds the options for creating DID
 type createDIDOpts struct {
 	serviceType string
