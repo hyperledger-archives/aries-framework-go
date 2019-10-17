@@ -114,9 +114,26 @@ func (c *Client) CreateInvitation(label string) (*didexchange.Invitation, error)
 		Type:            didexchange.ConnectionInvite,
 	}
 
-	err = c.connectionStore.SaveInvitation(verKey, invitation)
+	err = c.connectionStore.SaveInvitation(invitation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save invitation: %w", err)
+	}
+
+	return invitation, nil
+}
+
+// CreateInvitationWithDID creates invitation with specified public DID
+func (c *Client) CreateInvitationWithDID(label, did string) (*didexchange.Invitation, error) {
+	invitation := &didexchange.Invitation{
+		ID:    uuid.New().String(),
+		Label: label,
+		DID:   did,
+		Type:  didexchange.ConnectionInvite,
+	}
+
+	err := c.connectionStore.SaveInvitation(invitation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save invitation with DID: %w", err)
 	}
 
 	return invitation, nil

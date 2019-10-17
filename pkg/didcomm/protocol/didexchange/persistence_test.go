@@ -43,18 +43,17 @@ func TestConnectionRecord_SaveInvitation(t *testing.T) {
 		record := NewConnectionRecorder(store)
 		require.NotNil(t, record)
 
-		key := "sample-key1"
 		value := &Invitation{
 			ID:    "sample-id1",
 			Label: "sample-label1",
 		}
 
-		err := record.SaveInvitation(key, value)
+		err := record.SaveInvitation(value)
 		require.NoError(t, err)
 
 		require.NotEmpty(t, store)
 
-		k, err := invitationKey(key)
+		k, err := invitationKey(value.ID)
 		require.NoError(t, err)
 		require.NotEmpty(t, k)
 
@@ -69,10 +68,9 @@ func TestConnectionRecord_SaveInvitation(t *testing.T) {
 		require.NotNil(t, record)
 
 		value := &Invitation{
-			ID:    "sample-id2",
 			Label: "sample-label2",
 		}
-		err := record.SaveInvitation("", value)
+		err := record.SaveInvitation(value)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "empty bytes")
 		require.Empty(t, store.Store)
@@ -85,16 +83,15 @@ func TestConnectionRecorder_GetInvitation(t *testing.T) {
 		record := NewConnectionRecorder(store)
 		require.NotNil(t, record)
 
-		key := "sample-key3"
 		valueStored := &Invitation{
 			ID:    "sample-id-3",
 			Label: "sample-label-3",
 		}
 
-		err := record.SaveInvitation(key, valueStored)
+		err := record.SaveInvitation(valueStored)
 		require.NoError(t, err)
 
-		valueFound, err := record.GetInvitation(key)
+		valueFound, err := record.GetInvitation(valueStored.ID)
 		require.NoError(t, err)
 		require.Equal(t, valueStored, valueFound)
 	})

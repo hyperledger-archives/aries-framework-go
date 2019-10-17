@@ -83,10 +83,53 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc,
-			WalletValue: &mockwallet.CloseableWallet{}})
+		store := &mockstore.MockStore{Store: make(map[string][]byte)}
+		store.ErrPut = errors.New("store error")
+		c, err := New(&mockprovider.Provider{StorageProviderValue: &mockstore.MockStoreProvider{Custom: store},
+			ServiceValue: svc, WalletValue: &mockwallet.CloseableWallet{}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to save invitation")
+	})
+}
+
+func TestClient_CreateInvitationWithDID(t *testing.T) {
+	t.Run("test success", func(t *testing.T) {
+		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		c, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			ServiceValue:         svc,
+			WalletValue:          &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
+		require.NoError(t, err)
+
+		const label = "agent"
+		const id = "did:sidetree:123"
+		inviteReq, err := c.CreateInvitationWithDID(label, id)
+		require.NoError(t, err)
+		require.NotNil(t, inviteReq)
+		require.Equal(t, label, inviteReq.Label)
+		require.NotEmpty(t, inviteReq.ID)
+		require.Equal(t, id, inviteReq.DID)
+	})
+	t.Run("test error from save invitation", func(t *testing.T) {
+		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		store := &mockstore.MockStore{Store: make(map[string][]byte)}
+		store.ErrPut = errors.New("store error")
+		c, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Custom: store},
+			ServiceValue:         svc,
+			WalletValue:          &mockwallet.CloseableWallet{}})
+		require.NoError(t, err)
+
+		_, err = c.CreateInvitationWithDID("agent", "did:sidetree:123")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to save invitation")
 	})

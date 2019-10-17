@@ -35,6 +35,7 @@ const (
 	ackStatusOK        = "ok"
 	// Todo:How to find the key type -Issue-439
 	supportedPublicKeyType = "Ed25519VerificationKey2018"
+	serviceType            = "did-communication"
 )
 
 //TODO: This is temporary to move forward with bdd test will be fixed in Issue-353
@@ -292,11 +293,10 @@ func (s *abandoned) Execute(msg *stateMachineMsg, thid string, ctx context) (sta
 }
 
 func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string) (stateAction, error) {
-	// create a request from invitation
-	destination := &service.Destination{
-		RecipientKeys:   invitation.RecipientKeys,
-		ServiceEndpoint: invitation.ServiceEndpoint,
-		RoutingKeys:     invitation.RoutingKeys,
+	// create a destination from invitation
+	destination, err := ctx.getDestination(invitation)
+	if err != nil {
+		return nil, err
 	}
 	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
 	if err != nil {
@@ -363,6 +363,54 @@ func (ctx *context) handleInboundRequest(request *Request) (stateAction, error) 
 		return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
 	}, nil
 }
+
+func (ctx *context) getDestination(invitation *Invitation) (*service.Destination, error) {
+	if invitation.DID != "" {
+		return ctx.getDestinationFromDID(invitation.DID)
+	}
+
+	return &service.Destination{
+		RecipientKeys:   invitation.RecipientKeys,
+		ServiceEndpoint: invitation.ServiceEndpoint,
+		RoutingKeys:     invitation.RoutingKeys,
+	}, nil
+}
+
+func (ctx *context) getDestinationFromDID(id string) (*service.Destination, error) {
+	didDoc, err := ctx.didResolver.Resolve(id)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKeys, err := getPublicKeys(didDoc, supportedPublicKeyType)
+	if err != nil {
+		return nil, err
+	}
+
+	recepientKey := string(pubKeys[0].Value)
+
+	serviceEndpoint, err := getServiceEndpoint(didDoc)
+	if err != nil {
+		return nil, err
+	}
+
+	return &service.Destination{
+		RecipientKeys:   []string{recepientKey},
+		ServiceEndpoint: serviceEndpoint,
+		RoutingKeys:     []string{recepientKey},
+	}, nil
+}
+
+func getServiceEndpoint(didDoc *did.Doc) (string, error) {
+	for _, s := range didDoc.Service {
+		if s.Type == serviceType {
+			return s.ServiceEndpoint, nil
+		}
+	}
+
+	return "", errors.New("service not found in DID document")
+}
+
 func (ctx *context) sendOutboundRequest(msg *stateMachineMsg) (stateAction, error) {
 	if msg.outboundDestination == nil {
 		return nil, fmt.Errorf("outboundDestination cannot be empty for outbound Request")

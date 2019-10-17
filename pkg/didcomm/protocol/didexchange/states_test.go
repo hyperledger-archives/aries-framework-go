@@ -8,20 +8,27 @@ package didexchange
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mockdidresolver "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didresolver"
 )
 
 func TestNoopState(t *testing.T) {
@@ -246,7 +253,6 @@ func TestRequestedState_Execute(t *testing.T) {
 			Type:            ConnectionInvite,
 			ID:              randomString(),
 			Label:           "Bob",
-			DID:             "did:example:bob",
 			RecipientKeys:   []string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
 			ServiceEndpoint: "https://localhost:8090",
 			RoutingKeys:     []string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
@@ -720,7 +726,6 @@ func TestNewRequestFromInvitation(t *testing.T) {
 			Type:            ConnectionInvite,
 			ID:              randomString(),
 			Label:           "Bob",
-			DID:             "did:example:bob",
 			RecipientKeys:   []string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
 			ServiceEndpoint: "https://localhost:8090",
 			RoutingKeys:     []string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
@@ -806,10 +811,93 @@ func TestGetPublicKey(t *testing.T) {
 	})
 }
 
+func TestGetDestinationFromDID(t *testing.T) {
+	t.Run("successfully getting destination from public DID", func(t *testing.T) {
+		doc := createDIDDoc()
+		ctx := context{didResolver: &mockdidresolver.MockResolver{Doc: doc}}
+		destination, err := ctx.getDestinationFromDID(doc.ID)
+		require.NoError(t, err)
+		require.NotNil(t, destination)
+	})
+	t.Run("test public key not found", func(t *testing.T) {
+		doc := createDIDDoc()
+		doc.PublicKey = nil
+		ctx := context{didResolver: &mockdidresolver.MockResolver{Doc: doc}}
+		destination, err := ctx.getDestinationFromDID(doc.ID)
+		require.Error(t, err)
+		require.Nil(t, destination)
+		require.Contains(t, err.Error(), "public key not supported")
+	})
+	t.Run("test service not found", func(t *testing.T) {
+		doc := createDIDDoc()
+		doc.Service = nil
+		ctx := context{didResolver: &mockdidresolver.MockResolver{Doc: doc}}
+		destination, err := ctx.getDestinationFromDID(doc.ID)
+		require.Error(t, err)
+		require.Nil(t, destination)
+		require.Contains(t, err.Error(), "service not found in DID document")
+	})
+	t.Run("test did document not found", func(t *testing.T) {
+		doc := createDIDDoc()
+		ctx := context{didResolver: &mockdidresolver.MockResolver{Err: errors.New("resolver error")}}
+		destination, err := ctx.getDestinationFromDID(doc.ID)
+		require.Error(t, err)
+		require.Nil(t, destination)
+		require.Contains(t, err.Error(), "resolver error")
+	})
+}
+
 type mockSigner struct {
 	Err error
 }
 
 func (s *mockSigner) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
 	return nil, s.Err
+}
+
+func createDIDDoc() *diddoc.Doc {
+	const didFormat = "did:%s:%s"
+	const didPKID = "%s#keys-%d"
+	const didServiceID = "%s#endpoint-%d"
+	const method = "test"
+
+	pub := generateKeyPair()
+
+	id := fmt.Sprintf(didFormat, method, pub[:16])
+	pubKey := diddoc.PublicKey{
+		ID:         fmt.Sprintf(didPKID, id, 1),
+		Type:       "Ed25519VerificationKey2018",
+		Controller: id,
+		Value:      []byte(pub),
+	}
+
+	services := []diddoc.Service{
+		{
+			ID:              fmt.Sprintf(didServiceID, id, 1),
+			Type:            "did-communication",
+			ServiceEndpoint: "http://localhost:58416",
+		},
+	}
+
+	createdTime := time.Now()
+
+	didDoc := &diddoc.Doc{
+		Context:   []string{diddoc.Context},
+		ID:        id,
+		PublicKey: []diddoc.PublicKey{pubKey},
+		Service:   services,
+		Created:   &createdTime,
+		Updated:   &createdTime,
+	}
+
+	return didDoc
+}
+
+func generateKeyPair() string {
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	return base58.Encode(pubKey[:])
 }
