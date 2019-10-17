@@ -46,9 +46,10 @@ func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error
 	return a.create(agentID, inboundHost, inboundPort)
 }
 
-func (a *AgentSteps) createAgentWithHttpDIDResolver(agentID, inboundHost, inboundPort, endpointURL string) error {
+func (a *AgentSteps) createAgentWithHttpDIDResolver(agentID, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
 	var opts []aries.Option
-	httpResolver, err := httpbinding.New(endpointURL)
+	httpResolver, err := httpbinding.New(endpointURL,
+		httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
 	if err != nil {
 		return fmt.Errorf("failed from httpbinding new ")
 	}
@@ -120,7 +121,8 @@ func (a *AgentSteps) initializeStates(agentID string, states []string) {
 // RegisterSteps registers agent steps
 func (a *AgentSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)"$`, a.createAgent)
-	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with http-binding did resolver url "([^"]*)"$`, a.createAgentWithHttpDIDResolver)
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
+		a.createAgentWithHttpDIDResolver)
 	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, a.registerPostMsgEvent)
 }
 

@@ -169,8 +169,12 @@ github.com/syndtr/goleveldb v1.0.0 h1:fBdIW9lB4Iz0n9khmH8w27SJ3QEJ7+IgjPEwGSZiFd
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/trustbloc/sidetree-core-go v0.0.0-20190704193342-317707b882f9 h1:5r4VBw0iVkjEJie/kAZAUnbBtzKz2tcBvij8FCGYWGI=
 github.com/trustbloc/sidetree-core-go v0.0.0-20190704193342-317707b882f9/go.mod h1:4OAmI4hk+c3NUftL2PnAdEjGBsE+0zuqN3m6Rob15S8=
+github.com/trustbloc/sidetree-core-go v0.0.0-20191017153620-a489e16494b3 h1:vi+IjLXWxNbqdHV5cEPVOw4Swyc34PjcSPEUiQqk8D0=
+github.com/trustbloc/sidetree-core-go v0.0.0-20191017153620-a489e16494b3/go.mod h1:LE64iLCPUEID6kBC+1j10dKs+rfP5SVMafo/crpRycI=
 github.com/trustbloc/sidetree-node v0.0.0-20190715191925-1163ec4ac9ad h1:WrSYsU/88jHMeDNgnE6qs9DxaEYwywrBCJjjVgJIxN0=
 github.com/trustbloc/sidetree-node v0.0.0-20190715191925-1163ec4ac9ad/go.mod h1:B09Mh8IhfPbEF0VgKeGAB31QA5TtWxuzI+NjddVnARU=
+github.com/trustbloc/sidetree-node v0.0.0-20191017194101-9674831a60aa h1:VKQGOxFcnbLTSemnh3LjoAktPppx3fjT+M4QknI09pA=
+github.com/trustbloc/sidetree-node v0.0.0-20191017194101-9674831a60aa/go.mod h1:fLPGr+yoUVmjUwL0phw7MZ0k+OfDlQPZshc/2yeDdVU=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/vishvananda/netlink v1.0.0 h1:bqNY2lgheFIu1meHUFSH3d7vG93AFyqg3oGbJCOJgSM=
 github.com/vishvananda/netlink v1.0.0/go.mod h1:+SR5DhBJrl6ZM7CoCKvpw5BKroDKQ+PJqOg65H/2ktk=

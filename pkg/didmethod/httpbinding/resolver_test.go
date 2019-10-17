@@ -148,7 +148,13 @@ func TestRead_HTTPGetFailed(t *testing.T) {
 }
 
 func TestDIDResolver_Accept(t *testing.T) {
-	res := &DIDResolver{}
-	accepted := res.Accept("foo")
-	require.True(t, accepted)
+	resolver, err := New("localhost:8080")
+	require.NoError(t, err)
+	require.True(t, resolver.accept("example"))
+
+	resolver, err = New("localhost:8080", WithAccept(func(method string) bool {
+		return false
+	}))
+	require.NoError(t, err)
+	require.False(t, resolver.accept("example"))
 }

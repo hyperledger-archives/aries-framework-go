@@ -12,8 +12,8 @@ require (
 	github.com/go-openapi/swag v0.19.0
 	github.com/hyperledger/aries-framework-go v0.0.0
 	github.com/sirupsen/logrus v1.3.0
-	github.com/trustbloc/sidetree-core-go v0.0.0-20190704193342-317707b882f9
-	github.com/trustbloc/sidetree-node v0.0.0-20190715191925-1163ec4ac9ad
+	github.com/trustbloc/sidetree-core-go v0.0.0-20191017153620-a489e16494b3
+	github.com/trustbloc/sidetree-node v0.0.0-20191017194101-9674831a60aa
 
 )
 
