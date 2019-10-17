@@ -48,8 +48,8 @@ type ConnectionRecorder struct {
 // Returns:
 //
 // error: error
-func (c *ConnectionRecorder) SaveInvitation(verKey string, invitation *Invitation) error {
-	k, err := invitationKey(verKey)
+func (c *ConnectionRecorder) SaveInvitation(invitation *Invitation) error {
+	k, err := invitationKey(invitation.ID)
 	if err != nil {
 		return err
 	}
@@ -67,14 +67,14 @@ func (c *ConnectionRecorder) SaveInvitation(verKey string, invitation *Invitatio
 //
 // Args:
 //
-// verKey: recipient key of the invitation object to be saved in store
+// id: invitation id
 //
 // Returns:
 //
 // invitation found
 // error: error
-func (c *ConnectionRecorder) GetInvitation(verKey string) (*Invitation, error) {
-	k, err := invitationKey(verKey)
+func (c *ConnectionRecorder) GetInvitation(id string) (*Invitation, error) {
+	k, err := invitationKey(id)
 	if err != nil {
 		return nil, err
 	}

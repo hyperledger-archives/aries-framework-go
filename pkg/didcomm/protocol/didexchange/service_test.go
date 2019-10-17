@@ -198,7 +198,6 @@ func TestService_Handle_Invitee(t *testing.T) {
 			Type:  ConnectionInvite,
 			ID:    randomString(),
 			Label: "Bob",
-			DID:   "did:example:bob",
 		},
 	)
 	require.NoError(t, err)
