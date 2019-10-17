@@ -69,12 +69,12 @@ func TestWebhookDispatcherMultipleWebhooks(t *testing.T) {
 	allTestClientData := []clientData{clientData1, clientData2}
 
 	for _, testClientData := range allTestClientData {
-		go func() {
+		go func(testClientData clientData) {
 			err := runClient(testClientData)
 			if err != nil {
 				require.FailNow(t, err.Error())
 			}
-		}()
+		}(testClientData)
 
 		if err := listenFor(testClientData.clientHost); err != nil {
 			t.Fatal(err)
