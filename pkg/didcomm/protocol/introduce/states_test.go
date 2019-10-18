@@ -33,13 +33,13 @@ func TestNoopState(t *testing.T) {
 }
 
 func TestNoOpState_ExecuteInbound(t *testing.T) {
-	followup, err := (&noOp{}).ExecuteInbound(&service.DIDCommMsg{})
+	followup, err := (&noOp{}).ExecuteInbound(&metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestNoOpState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&noOp{}).ExecuteOutbound(&service.DIDCommMsg{}, &service.Destination{})
+	followup, err := (&noOp{}).ExecuteOutbound(&metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -62,15 +62,15 @@ func TestStartState(t *testing.T) {
 }
 
 func TestStartState_ExecuteInbound(t *testing.T) {
-	followup, err := (&start{}).ExecuteInbound(&service.DIDCommMsg{})
-	require.Error(t, err)
-	require.Nil(t, followup)
+	followup, err := (&start{}).ExecuteInbound(&metaData{})
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
 }
 
 func TestStartState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&start{}).ExecuteOutbound(&service.DIDCommMsg{}, &service.Destination{})
-	require.Error(t, err)
-	require.Nil(t, followup)
+	followup, err := (&start{}).ExecuteOutbound(&metaData{}, &service.Destination{})
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
 }
 
 // done state can transition to ...
@@ -81,13 +81,13 @@ func TestDoneState(t *testing.T) {
 }
 
 func TestDoneState_ExecuteInbound(t *testing.T) {
-	followup, err := (&done{}).ExecuteInbound(&service.DIDCommMsg{})
+	followup, err := (&done{}).ExecuteInbound(&metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestDoneState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&done{}).ExecuteOutbound(&service.DIDCommMsg{}, &service.Destination{})
+	followup, err := (&done{}).ExecuteOutbound(&metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -110,13 +110,13 @@ func TestArrangingState(t *testing.T) {
 }
 
 func TestArrangingState_ExecuteInbound(t *testing.T) {
-	followup, err := (&arranging{}).ExecuteInbound(&service.DIDCommMsg{})
+	followup, err := (&arranging{}).ExecuteInbound(&metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestArrangingState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&arranging{}).ExecuteOutbound(&service.DIDCommMsg{}, &service.Destination{})
+	followup, err := (&arranging{}).ExecuteOutbound(&metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -139,13 +139,13 @@ func TestDeliveringState(t *testing.T) {
 }
 
 func TestDeliveringState_ExecuteInbound(t *testing.T) {
-	followup, err := (&delivering{}).ExecuteInbound(&service.DIDCommMsg{})
+	followup, err := (&delivering{}).ExecuteInbound(&metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestDeliveringState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&delivering{}).ExecuteOutbound(&service.DIDCommMsg{}, &service.Destination{})
+	followup, err := (&delivering{}).ExecuteOutbound(&metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -168,13 +168,13 @@ func TestConfirmingState(t *testing.T) {
 }
 
 func TestConfirmingState_ExecuteInbound(t *testing.T) {
-	followup, err := (&confirming{}).ExecuteInbound(&service.DIDCommMsg{})
+	followup, err := (&confirming{}).ExecuteInbound(&metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestConfirmingState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&confirming{}).ExecuteOutbound(&service.DIDCommMsg{}, &service.Destination{})
+	followup, err := (&confirming{}).ExecuteOutbound(&metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -197,13 +197,13 @@ func TestAbandoningState(t *testing.T) {
 }
 
 func TestAbandoningState_ExecuteInbound(t *testing.T) {
-	followup, err := (&abandoning{}).ExecuteInbound(&service.DIDCommMsg{})
+	followup, err := (&abandoning{}).ExecuteInbound(&metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestAbandoningState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&abandoning{}).ExecuteOutbound(&service.DIDCommMsg{}, &service.Destination{})
+	followup, err := (&abandoning{}).ExecuteOutbound(&metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -226,13 +226,13 @@ func TestDecidingState(t *testing.T) {
 }
 
 func TestDecidingState_ExecuteInbound(t *testing.T) {
-	followup, err := (&deciding{}).ExecuteInbound(&service.DIDCommMsg{})
+	followup, err := (&deciding{}).ExecuteInbound(&metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestDecidingState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&deciding{}).ExecuteOutbound(&service.DIDCommMsg{}, &service.Destination{})
+	followup, err := (&deciding{}).ExecuteOutbound(&metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -255,13 +255,13 @@ func TestWaitingState(t *testing.T) {
 }
 
 func TestWaitingState_ExecuteInbound(t *testing.T) {
-	followup, err := (&waiting{}).ExecuteInbound(&service.DIDCommMsg{})
+	followup, err := (&waiting{}).ExecuteInbound(&metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestWaitingState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&waiting{}).ExecuteOutbound(&service.DIDCommMsg{}, &service.Destination{})
+	followup, err := (&waiting{}).ExecuteOutbound(&metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
