@@ -80,7 +80,7 @@ func (res *DIDResolver) resolveDID(uri string) ([]byte, error) {
 
 		return gotBody, nil
 	} else if notExistentDID(resp) {
-		return nil, fmt.Errorf("DID does not exist: %w", err)
+		return nil, fmt.Errorf("DID does not exist for request: %s", uri)
 	}
 
 	return nil, fmt.Errorf("unsupported response from DID resolver [%v] header [%s]",
