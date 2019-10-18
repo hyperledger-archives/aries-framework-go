@@ -8,6 +8,7 @@ package verifiable
 import (
 	"fmt"
 
+	"github.com/square/go-jose/v3"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -24,6 +25,31 @@ const (
 	// unsecuredJWTDecoding indicates to unmarshal from Unsecured Token
 	unsecuredJWTDecoding
 )
+
+// JWSAlgorithm defines JWT signature algorithms of Verifiable Credential
+type JWSAlgorithm int
+
+const (
+	// RS256 JWT Algorithm
+	RS256 JWSAlgorithm = iota
+
+	// EdDSA JWT Algorithm
+	EdDSA
+
+	// TODO support ES256K (https://github.com/square/go-jose/issues/263)
+)
+
+// jose converts JWSAlgorithm to JOSE one.
+func (ja JWSAlgorithm) jose() (jose.SignatureAlgorithm, error) {
+	switch ja {
+	case RS256:
+		return jose.RS256, nil
+	case EdDSA:
+		return jose.EdDSA, nil
+	default:
+		return "", fmt.Errorf("unsupported algorithm: %v", ja)
+	}
+}
 
 // Proof defines embedded proof of Verifiable Credential
 type Proof interface{}

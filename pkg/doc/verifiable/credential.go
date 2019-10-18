@@ -431,6 +431,7 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	return cred, nil
 }
 
+// TODO Auto-detection for decoding (https://github.com/hyperledger/aries-framework-go/issues/514)
 func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, *rawCredential, error) {
 	switch crOpts.jwtDecoding {
 	case jwsDecoding:
@@ -639,15 +640,6 @@ func (vc *Credential) raw() *rawCredential {
 		RefreshService: vc.RefreshService,
 		TermsOfUse:     vc.TermsOfUse,
 	}
-}
-
-func (raw *rawCredential) marshalJSON() ([]byte, error) {
-	byteCred, err := json.Marshal(raw)
-	if err != nil {
-		return nil, fmt.Errorf("JSON marshalling of raw verifiable credential failed: %w", err)
-	}
-
-	return byteCred, nil
 }
 
 // MarshalJSON converts Verifiable Credential to JSON bytes

@@ -45,7 +45,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 
 	keyFetcher := createKeyFetcher(t)
 
-	t.Run("JWS decoding with fields minimization", func(t *testing.T) {
+	t.Run("Decoding credential from JWS", func(t *testing.T) {
 		vcFromJWT, err := NewCredential(
 			createJWS(t, testCred, false),
 			WithJWSDecoding(keyFetcher))
@@ -58,7 +58,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 		require.Equal(t, vc, vcFromJWT)
 	})
 
-	t.Run("JWS decoding with minimized fields", func(t *testing.T) {
+	t.Run("Decoding credential from JWS with minimized fields of \"vc\" claim", func(t *testing.T) {
 		vcFromJWT, err := NewCredential(
 			createJWS(t, testCred, true),
 			WithJWSDecoding(keyFetcher))
@@ -71,7 +71,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 		require.Equal(t, vc, vcFromJWT)
 	})
 
-	t.Run("Failed JWT signature verification", func(t *testing.T) {
+	t.Run("Failed JWT signature verification of credential", func(t *testing.T) {
 		_, err := NewCredential(
 			createJWS(t, testCred, true),
 			// passing holder's key, while expecting issuer one
@@ -91,7 +91,6 @@ func TestNewCredentialFromJWS(t *testing.T) {
 		_, err := NewCredential(
 			createJWS(t, testCred, true),
 
-			// passing holder's key, while expecting issuer one
 			WithJWSDecoding(func(issuerID, keyID string) (interface{}, error) {
 				return nil, errors.New("test: public key is not found")
 			}))
@@ -198,7 +197,7 @@ func TestRefineVcFromJwtClaims(t *testing.T) {
 		Credential: rawCred,
 	}
 
-	credClaims.refineCredFromJWTClaims()
+	credClaims.refineFromJWTClaims()
 
 	require.Equal(t, issuerID, rawCred.Issuer)
 	require.Equal(t, issued, *rawCred.Issued)

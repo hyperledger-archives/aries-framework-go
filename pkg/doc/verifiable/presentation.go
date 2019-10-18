@@ -171,6 +171,12 @@ func (vp *Presentation) MarshalJSON() ([]byte, error) {
 	return byteCred, nil
 }
 
+// JWTClaims converts Verifiable Presentation into JWT Presentation claims, which can be than serialized
+// e.g. into JWS.
+func (vp *Presentation) JWTClaims(audience []string, minimizeVc bool) *JWTPresClaims {
+	return newJWTPresClaims(vp, audience, minimizeVc)
+}
+
 // Credentials provides Verifiable Credentials enclosed into Presentation in raw byte array format.
 func (vp *Presentation) Credentials() ([]PresentationCredential, error) {
 	marshalSingleCredFn := func(cred interface{}) (PresentationCredential, error) {
@@ -226,9 +232,49 @@ type rawPresentation struct {
 	RefreshService *RefreshService `json:"refreshService,omitempty"`
 }
 
+// presentationOpts holds options for the Verifiable Presentation decoding
+type presentationOpts struct {
+	holderPublicKeyFetcher PublicKeyFetcher
+	jwtDecoding            jwtDecoding
+	skipEmbeddedProofCheck bool
+}
+
+// PresentationOpt is the Verifiable Presentation decoding option
+type PresentationOpt func(opts *presentationOpts)
+
+// WithPresJWSDecoding indicates that Verifiable Presentation should be decoded from JWS using
+// the public key fetcher.
+func WithPresJWSDecoding(fetcher PublicKeyFetcher) PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.holderPublicKeyFetcher = fetcher
+		opts.jwtDecoding = jwsDecoding
+	}
+}
+
+// WithPresUnsecuredJWTDecoding indicates that Verifiable Presentation should be decoded from unsecured JWT.
+func WithPresUnsecuredJWTDecoding() PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.jwtDecoding = unsecuredJWTDecoding
+	}
+}
+
+// WithPresSkippedEmbeddedProofCheck tells to skip a check of embedded proof presence.
+func WithPresSkippedEmbeddedProofCheck() PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.skipEmbeddedProofCheck = true
+	}
+}
+
 // NewPresentation creates an instance of Verifiable Presentation by reading a JSON document from bytes.
-func NewPresentation(vpData []byte) (*Presentation, error) {
-	vpDataDecoded, vpRaw, err := decodeRawPresentation(vpData)
+// It also applies miscellaneous options like custom decoders or settings of schema validation.
+func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, error) {
+	// Apply options
+	vpOpts := defaultPresentationOpts()
+	for _, opt := range opts {
+		opt(vpOpts)
+	}
+
+	vpDataDecoded, vpRaw, err := decodeRawPresentation(vpData, vpOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -236,6 +282,11 @@ func NewPresentation(vpData []byte) (*Presentation, error) {
 	err = validatePresentation(vpDataDecoded)
 	if err != nil {
 		return nil, err
+	}
+
+	// check that embedded proof is present, if not, it's not a verifiable presentation
+	if !vpOpts.skipEmbeddedProofCheck && vpRaw.Proof == nil {
+		return nil, errors.New("embedded proof is missing")
 	}
 
 	vp := &Presentation{
@@ -266,7 +317,28 @@ func validatePresentation(data []byte) error {
 	return nil
 }
 
-func decodeRawPresentation(vpData []byte) ([]byte, *rawPresentation, error) {
+// TODO Auto-detection for decoding (https://github.com/hyperledger/aries-framework-go/issues/514)
+func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *rawPresentation, error) {
+	switch vpOpts.jwtDecoding {
+	case jwsDecoding:
+		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpData, vpOpts.holderPublicKeyFetcher)
+		if err != nil {
+			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from JWS failed: %w", err)
+		}
+		return vcDataFromJwt, rawCred, nil
+
+	case unsecuredJWTDecoding:
+		rawBytes, rawCred, err := decodeVPFromUnsecuredJWT(vpData)
+		if err != nil {
+			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT failed: %w", err)
+		}
+		return rawBytes, rawCred, nil
+	}
+
+	return decodeVPFromJSON(vpData)
+}
+
+func decodeVPFromJSON(vpData []byte) ([]byte, *rawPresentation, error) {
 	// unmarshal VP from JSON
 	raw := new(rawPresentation)
 	err := json.Unmarshal(vpData, raw)
@@ -274,10 +346,11 @@ func decodeRawPresentation(vpData []byte) ([]byte, *rawPresentation, error) {
 		return nil, nil, fmt.Errorf("JSON unmarshalling of verifiable presentation failed: %w", err)
 	}
 
-	// check that embedded proof is present, if not, it's not a verifiable credential
-	if raw.Proof == nil {
-		return nil, nil, errors.New("embedded proof is missing")
-	}
-
 	return vpData, raw, nil
+}
+
+func defaultPresentationOpts() *presentationOpts {
+	return &presentationOpts{
+		jwtDecoding: noJwtDecoding,
+	}
 }
