@@ -18,6 +18,7 @@ A Go framework for Aries
 ##### Prerequisites (for running tests)
 - Go 1.13
 - Docker
+- Docker-Compose
 - Make
 
 ##### Targets
