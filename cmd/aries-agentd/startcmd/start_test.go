@@ -114,7 +114,7 @@ func TestStartAriesDRequests(t *testing.T) {
 }
 
 func listenFor(host string) error {
-	timeout := time.After(2 * time.Second)
+	timeout := time.After(5 * time.Second)
 	for {
 		select {
 		case <-timeout:
