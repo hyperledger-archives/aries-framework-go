@@ -20,7 +20,7 @@ import (
 )
 
 func TestNew_Failure(t *testing.T) {
-	controller, err := New(&context.Provider{}, nil)
+	controller, err := New(&context.Provider{})
 	require.Error(t, err)
 	require.Equal(t, err, api.ErrSvcNotFound)
 	require.Nil(t, controller)
@@ -44,11 +44,22 @@ func TestNew_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ctx)
 
-	controller, err := New(ctx, nil)
+	controller, err := New(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 
 	require.NotEmpty(t, controller.GetOperations())
+}
+
+func TestAddWebhookNotifierOption(t *testing.T) {
+	restAPIOpts := &allOpts{}
+
+	webhookURLs := []string{"localhost:8080"}
+	webhookNotifierOpt := WithWebhookURLs(webhookURLs...)
+
+	webhookNotifierOpt(restAPIOpts)
+
+	require.Equal(t, webhookURLs, restAPIOpts.webhookURLs)
 }
 
 func generateTempDir(t testing.TB) (string, func()) {

@@ -30,12 +30,13 @@ import (
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
 	svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-		ServiceValue: &protocol.MockDIDExchangeSvc{}})
+		ServiceValue: &protocol.MockDIDExchangeSvc{}}, webhook.NewHTTPNotifier(nil))
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -44,7 +45,7 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 }
 
 func TestNew_Fail(t *testing.T) {
-	svc, err := New(&mockprovider.Provider{ServiceErr: errors.New("test-error")})
+	svc, err := New(&mockprovider.Provider{ServiceErr: errors.New("test-error")}, webhook.NewHTTPNotifier(nil))
 	require.Error(t, err)
 	require.Nil(t, svc)
 }
@@ -217,7 +218,7 @@ func TestOperation_WriteGenericError(t *testing.T) {
 	const errMsg = "sample-error-msg"
 
 	svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-		ServiceValue: &protocol.MockDIDExchangeSvc{}})
+		ServiceValue: &protocol.MockDIDExchangeSvc{}}, webhook.NewHTTPNotifier(nil))
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -238,7 +239,7 @@ func TestOperation_WriteGenericError(t *testing.T) {
 
 func TestOperation_WriteResponse(t *testing.T) {
 	svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-		ServiceValue: &protocol.MockDIDExchangeSvc{}})
+		ServiceValue: &protocol.MockDIDExchangeSvc{}}, webhook.NewHTTPNotifier(nil))
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 	svc.writeResponse(&mockWriter{errors.New("failed to write")}, &models.QueryConnectionResponse{})
@@ -285,6 +286,7 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 		WalletValue:          &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"},
 		InboundEndpointValue: "endpoint",
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &s}},
+		webhook.NewHTTPNotifier(nil),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, svc)
@@ -316,7 +318,7 @@ func TestServiceEvents(t *testing.T) {
 
 	// create the client
 	op, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-		ServiceValue: didExSvc})
+		ServiceValue: didExSvc}, webhook.NewHTTPNotifier(nil))
 	require.NoError(t, err)
 	require.NotNil(t, op)
 

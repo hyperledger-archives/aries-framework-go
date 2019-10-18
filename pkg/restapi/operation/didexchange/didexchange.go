@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -49,7 +50,7 @@ type provider interface {
 }
 
 // New returns new DID Exchange rest client protocol instance
-func New(ctx provider) (*Operation, error) {
+func New(ctx provider, notifier webhook.Notifier) (*Operation, error) {
 	didExchange, err := didexchange.New(ctx)
 	if err != nil {
 		return nil, err
@@ -61,6 +62,7 @@ func New(ctx provider) (*Operation, error) {
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		actionCh: make(chan service.DIDCommAction, 10),
 		msgCh:    make(chan service.StateMsg, 10),
+		notifier: notifier,
 	}
 	svc.registerHandler()
 
@@ -79,6 +81,7 @@ type Operation struct {
 	handlers []operation.Handler
 	actionCh chan service.DIDCommAction
 	msgCh    chan service.StateMsg
+	notifier webhook.Notifier
 }
 
 // CreateInvitation swagger:route POST /connections/create-invitation did-exchange createInvitation
