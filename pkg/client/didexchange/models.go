@@ -46,3 +46,8 @@ type QueryConnectionsParams struct {
 type Connection struct {
 	didexchange.ConnectionRecord
 }
+
+// Invitation model for DID Exchange invitation.
+type Invitation struct {
+	didexchange.Invitation
+}

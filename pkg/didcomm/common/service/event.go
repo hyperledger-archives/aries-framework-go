@@ -39,7 +39,7 @@ type StateMsg struct {
 	// functions to get the data.
 	//
 	// Clients function to retrieve data based on protocol.
-	//   - DID Exchange :  didexchange.EventProperties
+	//   - DID Exchange :  didexchange.Event
 	Properties EventProperties
 }
 
