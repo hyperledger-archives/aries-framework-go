@@ -221,7 +221,7 @@ type QueryConnections struct {
 type QueryConnectionResponse struct {
 
 	// in: body
-	Result *didexchange.ConnectionResult `json:"result"`
+	Result *didexchange.Connection `json:"result"`
 }
 
 // QueryConnectionsResponse model
@@ -233,7 +233,7 @@ type QueryConnectionsResponse struct {
 
 	// in: body
 	Body struct {
-		Results []*didexchange.ConnectionResult `json:"results"`
+		Results []*didexchange.Connection `json:"results"`
 	}
 }
 

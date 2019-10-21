@@ -158,24 +158,24 @@ func (c *Client) HandleInvitation(invitation *didexchange.Invitation) error {
 }
 
 // QueryConnections queries connections matching given parameters
-func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*ConnectionResult, error) {
+func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connection, error) {
 	// TODO sample response, to be implemented as part of #226
-	return []*ConnectionResult{
+	return []*Connection{
 		{didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
 		{didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
 	}, nil
 }
 
 // GetConnection fetches single connection record for given id
-func (c *Client) GetConnection(connectionID string) (*ConnectionResult, error) {
-	conn, err := c.connectionStore.GetConnection(connectionID)
+func (c *Client) GetConnection(connectionID string) (*Connection, error) {
+	conn, err := c.connectionStore.GetConnectionRecord(connectionID)
 	if err != nil {
 		if errors.Is(err, storage.ErrDataNotFound) {
 			return nil, ErrConnectionNotFound
 		}
 		return nil, fmt.Errorf("cannot fetch state from store: connectionid=%s err=%s", connectionID, err)
 	}
-	return &ConnectionResult{
+	return &Connection{
 		didexchange.ConnectionRecord{ConnectionID: connectionID, State: conn.State},
 	}, nil
 }
