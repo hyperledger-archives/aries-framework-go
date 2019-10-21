@@ -26,3 +26,12 @@ func TestJwtAlgorithm_Jose(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported algorithm")
 }
+
+func TestStringSlice(t *testing.T) {
+	strings, err := stringSlice([]interface{}{"str1", "str2"})
+	require.NoError(t, err)
+	require.Equal(t, []string{"str1", "str2"}, strings)
+
+	_, err = stringSlice([]interface{}{"str1", 15})
+	require.Error(t, err)
+}

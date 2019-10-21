@@ -9,9 +9,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
-	"time"
 
-	"github.com/square/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
 )
 
@@ -149,7 +147,7 @@ func TestJwtWithExtension(t *testing.T) {
 
 	// Check that it's match our VC extension.
 	require.Contains(t, cred.Context, "https://www.w3.org/2018/credentials/examples/v1")
-	require.Contains(t, cred.Type, "UniversityDegreeCredential")
+	require.Contains(t, cred.Types, "UniversityDegreeCredential")
 
 	// Decode to the Credential extension.
 	udc := &UniversityDegreeCredential{}
@@ -165,43 +163,30 @@ func TestJwtWithExtension(t *testing.T) {
 
 func TestRefineVcIssuerFromJwtClaims(t *testing.T) {
 	t.Run("refine verifiable credential issuer defined by plain id", func(t *testing.T) {
-		raw := &rawCredential{Issuer: "id to override"}
-		refineVCIssuerFromJWTClaims(raw, "did:example:76e12ec712ebc6f1c221ebfeb1f")
-		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", raw.Issuer)
+		vcMap := map[string]interface{}{
+			"issuer": "id to override",
+		}
+		refineVCIssuerFromJWTClaims(vcMap, "did:example:76e12ec712ebc6f1c221ebfeb1f")
+		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", vcMap["issuer"])
 	})
 
 	t.Run("refine verifiable credential issuer defined by structure", func(t *testing.T) {
 		issuerMap := map[string]interface{}{"id": "id to override", "name": "Example University"}
-		raw := &rawCredential{Issuer: issuerMap}
-		refineVCIssuerFromJWTClaims(raw, "did:example:76e12ec712ebc6f1c221ebfeb1f")
-		require.Equal(t, "Example University", issuerMap["name"])
+		vcMap := map[string]interface{}{
+			"issuer": issuerMap,
+		}
+		refineVCIssuerFromJWTClaims(vcMap, "did:example:76e12ec712ebc6f1c221ebfeb1f")
+		// issuer id is refined
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuerMap["id"])
+		// issuer name remains the same (i.e. not erased)
+		require.Equal(t, "Example University", issuerMap["name"])
 	})
-}
 
-func TestRefineVcFromJwtClaims(t *testing.T) {
-	issuerID := "did:example:76e12ec712ebc6f1c221ebfeb1f"
-	issued := time.Date(2019, time.August, 10, 0, 0, 0, 0, time.UTC)
-	vcID := "http://example.edu/credentials/3732"
-	expired := time.Date(2029, time.August, 10, 0, 0, 0, 0, time.UTC)
-
-	rawCred := &rawCredential{Issuer: "unknown"}
-	credClaims := &JWTCredClaims{
-		Claims: &jwt.Claims{
-			Issuer:    issuerID,
-			NotBefore: jwt.NewNumericDate(issued),
-			ID:        vcID,
-			IssuedAt:  jwt.NewNumericDate(issued),
-			Expiry:    jwt.NewNumericDate(expired),
-		},
-		Credential: rawCred,
-	}
-
-	credClaims.refineFromJWTClaims()
-
-	require.Equal(t, issuerID, rawCred.Issuer)
-	require.Equal(t, issued, *rawCred.Issued)
-	require.Equal(t, expired, *rawCred.Expired)
+	t.Run("refine not defined verifiable credential issuer", func(t *testing.T) {
+		vcMap := make(map[string]interface{})
+		refineVCIssuerFromJWTClaims(vcMap, "did:example:76e12ec712ebc6f1c221ebfeb1f")
+		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", vcMap["issuer"])
+	})
 }
 
 func createKeyFetcher(t *testing.T) func(issuerID string, keyID string) (interface{}, error) {

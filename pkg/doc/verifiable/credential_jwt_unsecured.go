@@ -18,10 +18,7 @@ func (jcc *JWTCredClaims) MarshalUnsecuredJWT() (string, error) {
 	return marshalUnsecuredJWT(headers, jcc)
 }
 
-// credUnsecuredJWTDecoder parses serialized unsecured JWT.
-type credUnsecuredJWTDecoder struct{}
-
-func (ud *credUnsecuredJWTDecoder) UnmarshalClaims(rawJwt []byte) (*JWTCredClaims, error) {
+func unmarshalUnsecuredJWTClaims(rawJwt []byte) (*JWTCredClaims, error) {
 	_, bytesClaim, err := unmarshalUnsecuredJWT(rawJwt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode unsecured JWT: %w", err)
@@ -36,22 +33,6 @@ func (ud *credUnsecuredJWTDecoder) UnmarshalClaims(rawJwt []byte) (*JWTCredClaim
 	return credClaims, nil
 }
 
-func (ud *credUnsecuredJWTDecoder) UnmarshalVCClaim(rawJwt []byte) (map[string]interface{}, error) {
-	_, bytesClaim, err := unmarshalUnsecuredJWT(rawJwt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode unsecured JWT: %w", err)
-	}
-
-	rawClaims := new(jwtVCClaim)
-	err = json.Unmarshal(bytesClaim, rawClaims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JWT claims: %w", err)
-	}
-
-	return rawClaims.VC, nil
-}
-
-func decodeCredJWTUnsecured(rawJwt []byte) ([]byte, *rawCredential, error) {
-	decoder := new(credUnsecuredJWTDecoder)
-	return decodeCredJWT(rawJwt, decoder)
+func decodeCredJWTUnsecured(rawJwt []byte) ([]byte, error) {
+	return decodeCredJWT(rawJwt, unmarshalUnsecuredJWTClaims)
 }

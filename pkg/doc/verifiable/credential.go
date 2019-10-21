@@ -208,9 +208,10 @@ type CredentialSchema typedID
 
 // Credential Verifiable Credential definition
 type Credential struct {
-	Context        []interface{}
+	Context        []string
+	CustomContext  []interface{}
 	ID             string
-	Type           interface{}
+	Types          []string
 	Subject        Subject
 	Issuer         Issuer
 	Issued         *time.Time
@@ -221,11 +222,16 @@ type Credential struct {
 	Evidence       *Evidence
 	TermsOfUse     []TermsOfUse
 	RefreshService *RefreshService
+
+	CredentialExtraFields
 }
+
+// CredentialExtraFields is a map of extra fields which extend base data model.
+type CredentialExtraFields map[string]interface{}
 
 // rawCredential is a basic verifiable credential
 type rawCredential struct {
-	Context        []interface{}     `json:"@context,omitempty"`
+	Context        interface{}       `json:"@context,omitempty"`
 	ID             string            `json:"id,omitempty"`
 	Type           interface{}       `json:"type,omitempty"`
 	Subject        Subject           `json:"credentialSubject,omitempty"`
@@ -238,14 +244,81 @@ type rawCredential struct {
 	Evidence       *Evidence         `json:"evidence,omitempty"`
 	TermsOfUse     []TermsOfUse      `json:"termsOfUse,omitempty"`
 	RefreshService *RefreshService   `json:"refreshService,omitempty"`
+
+	// All unmapped fields are put here.
+	CredentialExtraFields `json:"-"`
 }
 
-type typeSingle struct {
-	Type string `json:"type,omitempty"`
+func (rc *rawCredential) marshalJSON() ([]byte, error) {
+	// Convert raw credential into a JSON map of known fields.
+	nf, err := rc.asMap()
+	if err != nil {
+		return nil, err
+	}
+
+	// Supplement raw credential map with unknown fields.
+	uf := rc.CredentialExtraFields
+	for k, v := range uf {
+		if _, exists := nf[k]; !exists {
+			nf[k] = v
+		}
+	}
+
+	// Marshal extended known fields map.
+	return json.Marshal(nf)
 }
 
-type typeMultiple struct {
-	Types []string `json:"type,omitempty"`
+func (rc *rawCredential) asMap() (map[string]interface{}, error) {
+	// Convert raw credential into a JSON map of known fields.
+	rcBytes, err := json.Marshal(rc)
+	if err != nil {
+		return nil, err
+	}
+
+	var nf map[string]interface{}
+	err = json.Unmarshal(rcBytes, &nf)
+	if err != nil {
+		return nil, err
+	}
+
+	return nf, nil
+}
+
+func newRawCredential(bytes []byte) (*rawCredential, error) {
+	rc := new(rawCredential)
+	err := json.Unmarshal(bytes, rc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal raw verifiable credential: %w", err)
+	}
+
+	// Collect known fields map.
+	rcBytes, err := json.Marshal(rc)
+	if err != nil {
+		return nil, err
+	}
+
+	var kf map[string]interface{}
+	err = json.Unmarshal(rcBytes, &kf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Collect all fields map.
+	var af map[string]interface{}
+	err = json.Unmarshal(bytes, &af)
+	if err != nil {
+		return nil, err
+	}
+
+	// Complement all fields with known fields to become a set of unknown fields.
+	for k := range kf {
+		delete(af, k)
+	}
+
+	// Save unknown fields.
+	rc.CredentialExtraFields = af
+
+	return rc, err
 }
 
 type credentialSchemaSingle struct {
@@ -256,22 +329,14 @@ type credentialSchemaMultiple struct {
 	Schemas []CredentialSchema `json:"credentialSchema,omitempty"`
 }
 
-type issuerPlain struct {
-	ID string `json:"issuer,omitempty"`
-}
-
 type compositeIssuer struct {
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
 }
 
-type embeddedCompositeIssuer struct {
-	CompositeIssuer compositeIssuer `json:"issuer,omitempty"`
-}
-
 // CredentialDecoder makes a custom decoding of Verifiable Credential in JSON form to existent
 // instance of Credential.
-type CredentialDecoder func(dataJSON []byte, credential *Credential) error
+type CredentialDecoder func(dataJSON []byte, vc *Credential) error
 
 // CredentialTemplate defines a factory method to create new Credential template.
 type CredentialTemplate func() *Credential
@@ -340,35 +405,104 @@ func WithUnsecuredJWTDecoding() CredentialOpt {
 	}
 }
 
-func decodeIssuer(data []byte, credential *Credential) error {
-	issuerID, issuerName, err := issuerFromBytes(data)
-	if err != nil {
-		return fmt.Errorf("JSON unmarshalling of Verifiable Credential Issuer failed: %w", err)
+// decodeIssuer decodes raw issuer.
+//
+// Issuer can be defined by:
+//
+// - a string which is ID of the issuer;
+//
+// - object with mandatory "id" field and optional "name" field.
+func decodeIssuer(rc *rawCredential) (Issuer, error) {
+	getStringEntry := func(m map[string]interface{}, k string) (string, error) {
+		v, exists := m[k]
+		if !exists {
+			return "", nil
+		}
+
+		s, valid := v.(string)
+		if !valid {
+			return "", fmt.Errorf("value of key '%s' is not a string", k)
+		}
+
+		return s, nil
 	}
 
-	credential.Issuer = Issuer{ID: issuerID, Name: issuerName}
-	return nil
+	switch iss := rc.Issuer.(type) {
+	case string:
+		return Issuer{ID: iss}, nil
+	case map[string]interface{}:
+		id, err := getStringEntry(iss, "id")
+		if err != nil {
+			return Issuer{}, err
+		}
+		if id == "" {
+			return Issuer{}, errors.New("issuer ID is not defined")
+		}
+
+		name, err := getStringEntry(iss, "name")
+		if err != nil {
+			return Issuer{}, err
+		}
+
+		return Issuer{
+			ID:   id,
+			Name: name,
+		}, nil
+	default:
+		return Issuer{}, errors.New("unsupported format of issuer")
+	}
 }
 
-func decodeType(data []byte, vc *Credential) error {
-	single := typeSingle{}
-	err := json.Unmarshal(data, &single)
-	if err == nil {
-		vc.Type = single.Type
-		return nil
+// decodeType decodes raw type(s).
+//
+// type can be defined as a single string value or array of strings.
+func decodeType(rc *rawCredential) ([]string, error) {
+	switch rType := rc.Type.(type) {
+	case string:
+		return []string{rType}, nil
+	case []interface{}:
+		types, err := stringSlice(rType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to map credential types: %w", err)
+		}
+		return types, nil
+	default:
+		return nil, errors.New("credential type of unknown type")
 	}
-
-	multiple := typeMultiple{}
-	err = json.Unmarshal(data, &multiple)
-	if err == nil {
-		vc.Type = multiple.Types
-		return nil
-	}
-
-	return fmt.Errorf("JSON unmarshalling of Verifiable Credential Type failed: %w", err)
 }
 
+// decodeContext decodes raw context(s).
+//
+// context can be defined as a single string value or array;
+// at the second case, the array can be a mix of string and object types
+// (objects can express context information); object context are
+// defined at the tail of the array.
+func decodeContext(rc *rawCredential) ([]string, []interface{}, error) {
+	switch rContext := rc.Context.(type) {
+	case string:
+		return []string{rContext}, nil, nil
+	case []interface{}:
+		strings := make([]string, 0)
+		for i := range rContext {
+			c, valid := rContext[i].(string)
+			if !valid {
+				// the remaining contexts are of custom type
+				return strings, rContext[i:], nil
+			}
+			strings = append(strings, c)
+		}
+		// no contexts of custom type, just string contexts found
+		return strings, nil, nil
+	default:
+		return nil, nil, errors.New("credential context of unknown type")
+	}
+}
+
+// decodeCredentialSchema decodes credential schema(s).
+//
+// credential schema can be defined as a single object or array of objects.
 func decodeCredentialSchema(data []byte) ([]CredentialSchema, error) {
+	// Credential schema is defined by
 	single := credentialSchemaSingle{}
 	err := json.Unmarshal(data, &single)
 	if err == nil {
@@ -393,9 +527,15 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 		opt(crOpts)
 	}
 
-	vcDataDecoded, raw, err := decodeRaw(vcData, crOpts)
+	vcDataDecoded, err := decodeRaw(vcData, crOpts)
 	if err != nil {
 		return nil, err
+	}
+
+	// unmarshal VC from JSON
+	raw, err := newRawCredential(vcDataDecoded)
+	if err != nil {
+		return nil, fmt.Errorf("JSON unmarshalling of verifiable credential failed: %w", err)
 	}
 
 	schemas, err := loadCredentialSchemas(raw, vcDataDecoded)
@@ -409,17 +549,11 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	}
 
 	cred := crOpts.template()
-	cred.Context = raw.Context
-	cred.ID = raw.ID
-	cred.Subject = raw.Subject
-	cred.Issued = raw.Issued
-	cred.Expired = raw.Expired
-	cred.Proof = raw.Proof
-	cred.Status = raw.Status
+	err = cred.applyRaw(raw)
+	if err != nil {
+		return nil, err
+	}
 	cred.Schemas = schemas
-	cred.Evidence = raw.Evidence
-	cred.RefreshService = raw.RefreshService
-	cred.TermsOfUse = raw.TermsOfUse
 
 	for _, decoder := range crOpts.decoders {
 		err = decoder(vcDataDecoded, cred)
@@ -431,31 +565,58 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	return cred, nil
 }
 
+func (vc *Credential) applyRaw(raw *rawCredential) error {
+	types, err := decodeType(raw)
+	if err != nil {
+		return fmt.Errorf("cannot decode type: %w", err)
+	}
+
+	issuer, err := decodeIssuer(raw)
+	if err != nil {
+		return fmt.Errorf("cannot decode issuer: %w", err)
+	}
+
+	context, customContext, err := decodeContext(raw)
+	if err != nil {
+		return fmt.Errorf("cannot decode context: %w", err)
+	}
+
+	vc.Context = context
+	vc.CustomContext = customContext
+	vc.ID = raw.ID
+	vc.Subject = raw.Subject
+	vc.Issued = raw.Issued
+	vc.Expired = raw.Expired
+	vc.Proof = raw.Proof
+	vc.Status = raw.Status
+	vc.Evidence = raw.Evidence
+	vc.RefreshService = raw.RefreshService
+	vc.TermsOfUse = raw.TermsOfUse
+	vc.CredentialExtraFields = raw.CredentialExtraFields
+	vc.Types = types
+	vc.Issuer = issuer
+
+	return nil
+}
+
 // TODO Auto-detection for decoding (https://github.com/hyperledger/aries-framework-go/issues/514)
-func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, *rawCredential, error) {
+func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, error) {
 	switch crOpts.jwtDecoding {
 	case jwsDecoding:
-		vcDataFromJwt, rawCred, err := decodeCredJWS(vcData, crOpts.issuerPublicKeyFetcher)
+		vcDecodedBytes, err := decodeCredJWS(vcData, crOpts.issuerPublicKeyFetcher)
 		if err != nil {
-			return nil, nil, fmt.Errorf("JWS decoding failed: %w", err)
+			return nil, fmt.Errorf("JWS decoding failed: %w", err)
 		}
-		return vcDataFromJwt, rawCred, nil
+		return vcDecodedBytes, nil
 
 	case unsecuredJWTDecoding:
-		rawBytes, rawCred, err := decodeCredJWTUnsecured(vcData)
+		vcDecodedBytes, err := decodeCredJWTUnsecured(vcData)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unsecured JWT decoding failed: %w", err)
+			return nil, fmt.Errorf("unsecured JWT decoding failed: %w", err)
 		}
-		return rawBytes, rawCred, nil
+		return vcDecodedBytes, nil
 	}
-
-	// unmarshal VC from JSON
-	raw := &rawCredential{}
-	err := json.Unmarshal(vcData, raw)
-	if err != nil {
-		return nil, nil, fmt.Errorf("JSON unmarshalling of verifiable credential failed: %w", err)
-	}
-	return vcData, raw, nil
+	return vcData, nil
 }
 
 func loadCredentialSchemas(raw *rawCredential, vcDataDecoded []byte) ([]CredentialSchema, error) {
@@ -473,26 +634,10 @@ func defaultCredentialOpts() *credentialOpts {
 	return &credentialOpts{
 		schemaDownloadClient: &http.Client{},
 		disabledCustomSchema: false,
-		decoders:             []CredentialDecoder{decodeIssuer, decodeType},
+		decoders:             []CredentialDecoder{},
 		template:             func() *Credential { return &Credential{} },
 		jwtDecoding:          noJwtDecoding,
 	}
-}
-
-func issuerFromBytes(data []byte) (issuerID, issuerName string, err error) {
-	issuerPlain := &issuerPlain{}
-	err = json.Unmarshal(data, &issuerPlain)
-	if err == nil {
-		return issuerPlain.ID, "", nil
-	}
-
-	eci := &embeddedCompositeIssuer{}
-	err = json.Unmarshal(data, &eci)
-	if err != nil {
-		return "", "", errors.New("verifiable credential issuer is not valid")
-	}
-
-	return eci.CompositeIssuer.ID, eci.CompositeIssuer.Name, nil
 }
 
 func issuerToSerialize(vc *Credential) interface{} {
@@ -613,33 +758,48 @@ func (vc *Credential) SubjectID() (string, error) {
 	}
 }
 
-// Types returns a list containing types of minimum one string type
-func (vc *Credential) Types() []string {
-	switch t := vc.Type.(type) {
-	case string:
-		return []string{t}
-	case []string:
-		return t
-	}
-	return []string{}
-}
-
 func (vc *Credential) raw() *rawCredential {
 	return &rawCredential{
-		Context:        vc.Context,
-		ID:             vc.ID,
-		Type:           vc.Type,
-		Subject:        vc.Subject,
-		Issued:         vc.Issued,
-		Expired:        vc.Expired,
-		Proof:          vc.Proof,
-		Status:         vc.Status,
-		Issuer:         issuerToSerialize(vc),
-		Schema:         vc.Schemas,
-		Evidence:       vc.Evidence,
-		RefreshService: vc.RefreshService,
-		TermsOfUse:     vc.TermsOfUse,
+		Context:               contextToSerialize(vc.Context, vc.CustomContext),
+		ID:                    vc.ID,
+		Type:                  typesToSerialize(vc.Types),
+		Subject:               vc.Subject,
+		Issued:                vc.Issued,
+		Expired:               vc.Expired,
+		Proof:                 vc.Proof,
+		Status:                vc.Status,
+		Issuer:                issuerToSerialize(vc),
+		Schema:                vc.Schemas,
+		Evidence:              vc.Evidence,
+		RefreshService:        vc.RefreshService,
+		TermsOfUse:            vc.TermsOfUse,
+		CredentialExtraFields: vc.CredentialExtraFields,
 	}
+}
+
+func typesToSerialize(types []string) interface{} {
+	if len(types) == 1 {
+		// as string
+		return types[0]
+	}
+	// as string array
+	return types
+}
+
+func contextToSerialize(context []string, cContext []interface{}) interface{} {
+	if len(cContext) > 0 {
+		// return as array
+		sContext := make([]interface{}, len(context), len(context)+len(cContext))
+		for i := range context {
+			sContext[i] = context[i]
+		}
+		sContext = append(sContext, cContext...)
+		return sContext
+	}
+	if len(context) == 1 {
+		return context[0] // return single context
+	}
+	return context
 }
 
 // MarshalJSON converts Verifiable Credential to JSON bytes

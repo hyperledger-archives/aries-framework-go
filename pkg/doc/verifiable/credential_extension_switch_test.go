@@ -124,7 +124,7 @@ func Cred1Producer() CustomCredentialProducer {
 		},
 		Accept: func(vc *Credential) bool {
 			return hasContext(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type1") &&
-				hasType(vc.Types(), "CredType1")
+				hasType(vc.Types, "CredType1")
 		},
 	}
 }
@@ -150,7 +150,7 @@ func Cred2Producer() CustomCredentialProducer {
 		},
 		Accept: func(vc *Credential) bool {
 			return hasContext(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type2") &&
-				hasType(vc.Types(), "CredType2")
+				hasType(vc.Types, "CredType2")
 		},
 	}
 }
@@ -178,7 +178,7 @@ func DecodeCredentials(dataJSON []byte, producers ...CustomCredentialProducer) (
 	return baseCred, nil
 }
 
-func hasContext(allContexts []interface{}, targetContext string) bool {
+func hasContext(allContexts []string, targetContext string) bool {
 	for _, thatType := range allContexts {
 		if thatType == targetContext {
 			return true
@@ -205,7 +205,7 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	cred1, correct := i1.(*Cred1)
 	require.True(t, correct)
 	require.NotNil(t, cred1.Base)
-	require.Equal(t, []string{"VerifiableCredential", "CredType1"}, cred1.Base.Type)
+	require.Equal(t, []string{"VerifiableCredential", "CredType1"}, cred1.Base.Types)
 	require.Equal(t, "custom field 1", cred1.CustomField)
 	require.Equal(t, "custom subject 1", cred1.Subject.CustomSubjectField)
 
@@ -215,7 +215,7 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	cred2, correct := i2.(*Cred2)
 	require.True(t, correct)
 	require.NotNil(t, cred2.Base)
-	require.Equal(t, []string{"VerifiableCredential", "CredType2"}, cred2.Base.Type)
+	require.Equal(t, []string{"VerifiableCredential", "CredType2"}, cred2.Base.Types)
 	require.Equal(t, "custom field 2", cred2.CustomField)
 	require.Equal(t, "custom subject 2", cred2.Subject.CustomSubjectField)
 
