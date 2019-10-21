@@ -54,19 +54,7 @@ func (d *DIDExchangeSteps) createInvitationWithDID(inviterAgentID string) error 
 }
 
 func (d *DIDExchangeSteps) waitForPublicDID(agentID string, maxSeconds int) error {
-	publicDID := d.bddContext.PublicDIDs[agentID].ID
-
-	var err error
-	for i := 0; i < maxSeconds; i++ {
-		_, err = d.bddContext.AgentCtx[agentID].DIDResolver().Resolve(publicDID)
-		if err == nil || !strings.Contains(err.Error(), " DID does not exist") {
-			return err
-		}
-
-		time.Sleep(1 * time.Second)
-		logger.Infof("Waiting [%d] second(s)\n", i+1)
-	}
-
+	_, err := resolveDID(d.bddContext.AgentCtx[agentID].DIDResolver(), d.bddContext.PublicDIDs[agentID].ID, maxSeconds)
 	return err
 }
 

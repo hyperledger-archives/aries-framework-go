@@ -21,6 +21,7 @@ import (
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
 	"github.com/trustbloc/sidetree-core-go/pkg/document"
 	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
@@ -29,6 +30,7 @@ import (
 
 const sha2_256 = 18
 const didDocNamespace = "did:sidetree:"
+const maxRetry = 5
 
 // DIDResolverSideTreeNodeSteps
 type DIDResolverSideTreeNodeSteps struct {
@@ -91,19 +93,15 @@ func (d *DIDResolverSideTreeNodeSteps) resolveDID(agentID string) error {
 	if err != nil {
 		return err
 	}
-	doc, err := d.bddContext.AgentCtx[agentID].DIDResolver().Resolve(didID)
+
+	doc, err := resolveDID(d.bddContext.AgentCtx[agentID].DIDResolver(), didID, maxRetry)
 	if err != nil {
 		return err
 	}
+
 	if doc.ID != didID {
 		return fmt.Errorf("resolved did ID %s not equal to %s", doc.ID, didID)
 	}
-	return nil
-}
-
-func (d *DIDResolverSideTreeNodeSteps) wait(seconds int) error {
-	logger.Infof("Waiting [%d] seconds\n", seconds)
-	time.Sleep(time.Duration(seconds) * time.Second)
 	return nil
 }
 
@@ -218,11 +216,26 @@ func createSidetreeDoc(ctx *context.Provider) *document.Document {
 	return &doc
 }
 
+func resolveDID(resolver didresolver.Resolver, did string, maxRetry int) (*diddoc.Doc, error) {
+	var err error
+	var doc *diddoc.Doc
+	for i := 1; i <= maxRetry; i++ {
+		doc, err = resolver.Resolve(did)
+		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
+			return doc, err
+		}
+
+		time.Sleep(1 * time.Second)
+		logger.Infof("Waiting for public did to be published in sidtree: %d second(s)\n", i)
+	}
+
+	return doc, err
+}
+
 // RegisterSteps registers did exchange steps
 func (d *DIDResolverSideTreeNodeSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^client sends request to sidetree "([^"]*)" for create DID document "([^"]*)"`, d.createDIDDocumentFromFile)
 	s.Step(`^check success response contains "([^"]*)"$`, d.checkSuccessResp)
 	s.Step(`^"([^"]*)" creates public DID using sidetree "([^"]*)"`, d.createDIDDocument)
-	s.Step(`^"([^"]*)" agent resolve DID document$`, d.resolveDID)
-	s.Step(`^we wait (\d+) seconds$`, d.wait)
+	s.Step(`^"([^"]*)" agent sucessfully resolves DID document$`, d.resolveDID)
 }
