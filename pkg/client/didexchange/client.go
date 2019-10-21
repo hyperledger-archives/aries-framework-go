@@ -100,7 +100,7 @@ func New(ctx provider) (*Client, error) {
 }
 
 // CreateInvitation create invitation
-func (c *Client) CreateInvitation(label string) (*didexchange.Invitation, error) {
+func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	verKey, err := c.wallet.CreateEncryptionKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
@@ -119,11 +119,11 @@ func (c *Client) CreateInvitation(label string) (*didexchange.Invitation, error)
 		return nil, fmt.Errorf("failed to save invitation: %w", err)
 	}
 
-	return invitation, nil
+	return &Invitation{*invitation}, nil
 }
 
 // CreateInvitationWithDID creates invitation with specified public DID
-func (c *Client) CreateInvitationWithDID(label, did string) (*didexchange.Invitation, error) {
+func (c *Client) CreateInvitationWithDID(label, did string) (*Invitation, error) {
 	invitation := &didexchange.Invitation{
 		ID:    uuid.New().String(),
 		Label: label,
@@ -136,11 +136,11 @@ func (c *Client) CreateInvitationWithDID(label, did string) (*didexchange.Invita
 		return nil, fmt.Errorf("failed to save invitation with DID: %w", err)
 	}
 
-	return invitation, nil
+	return &Invitation{*invitation}, nil
 }
 
 // HandleInvitation handle incoming invitation
-func (c *Client) HandleInvitation(invitation *didexchange.Invitation) error {
+func (c *Client) HandleInvitation(invitation *Invitation) error {
 	payload, err := json.Marshal(invitation)
 	if err != nil {
 		return fmt.Errorf("failed marshal invitation: %w", err)

@@ -6,15 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package didexchange
 
-// Event properties related api.
-type Event interface {
-	// connection ID
-	ConnectionID() string
-
-	// invitation ID
-	InvitationID() string
-}
-
 // didExchangeEvent implements didexchange.Event interface.
 type didExchangeEvent struct {
 	connectionID string

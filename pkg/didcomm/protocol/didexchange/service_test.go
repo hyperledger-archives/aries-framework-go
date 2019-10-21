@@ -111,11 +111,19 @@ func TestService_Handle_Inviter(t *testing.T) {
 }
 
 func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFlag, completedFlag chan struct{}) {
+	type event interface {
+		// connection ID
+		ConnectionID() string
+
+		// invitation ID
+		InvitationID() string
+	}
+
 	connectionID := ""
 	invitationID := ""
 	for e := range statusCh {
 		require.Equal(t, DIDExchange, e.ProtocolName)
-		prop, ok := e.Properties.(Event)
+		prop, ok := e.Properties.(event)
 		if !ok {
 			require.Fail(t, "Failed to cast the event properties to service.Event")
 		}

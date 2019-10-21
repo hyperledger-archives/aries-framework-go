@@ -19,7 +19,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/httpbinding"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
@@ -170,10 +169,10 @@ func listenFor(host string, d time.Duration) error {
 }
 
 func (a *AgentSteps) eventListener(statusCh chan service.StateMsg, agentID string, states []string) {
-	var props didexsvc.Event
+	var props didexchange.Event
 	for e := range statusCh {
 		switch v := e.Properties.(type) {
-		case didexsvc.Event:
+		case didexchange.Event:
 			props = v
 		case error:
 			panic(fmt.Sprintf("Service processing failed: %s", v))
