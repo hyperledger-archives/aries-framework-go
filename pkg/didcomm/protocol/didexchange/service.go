@@ -155,13 +155,6 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
 
-	// trigger message events
-	// TODO change from thread id to connection id #397
-	// TODO pass invitation id #397
-	s.sendMsgEvents(&service.StateMsg{
-		Type: service.PreState, Msg: msg, StateID: next.Name(), Properties: createEventProperties(thid, "")})
-	logger.Infof("sent pre event for state %s", next.Name())
-
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg.Header.Type) {
 		err = s.sendActionEvent(msg, aEvent, thid, next)
