@@ -529,3 +529,52 @@ func populateRawProofs(proofs []Proof) []interface{} {
 	}
 	return rawProofs
 }
+
+// DocOption provides options to build DID Doc.
+type DocOption func(opts *Doc)
+
+// WithPublicKey DID doc PublicKey.
+func WithPublicKey(pubKey []PublicKey) DocOption {
+	return func(opts *Doc) {
+		opts.PublicKey = pubKey
+	}
+}
+
+// WithAuthentication DID doc Authentication.
+func WithAuthentication(auth []VerificationMethod) DocOption {
+	return func(opts *Doc) {
+		opts.Authentication = auth
+	}
+}
+
+// WithService DID doc services.
+func WithService(svc []Service) DocOption {
+	return func(opts *Doc) {
+		opts.Service = svc
+	}
+}
+
+// WithCreatedTime DID doc created time.
+func WithCreatedTime(t time.Time) DocOption {
+	return func(opts *Doc) {
+		opts.Created = &t
+	}
+}
+
+// WithUpdatedTime DID doc updated time.
+func WithUpdatedTime(t time.Time) DocOption {
+	return func(opts *Doc) {
+		opts.Updated = &t
+	}
+}
+
+// BuildDoc creates the DID Doc from options.
+func BuildDoc(opts ...DocOption) *Doc {
+	doc := &Doc{}
+	doc.Context = []string{Context}
+	for _, opt := range opts {
+		opt(doc)
+	}
+
+	return doc
+}

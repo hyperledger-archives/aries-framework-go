@@ -11,7 +11,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
-const method = "local"
+const method = "peer"
 
 // Creator is a DID creator interface
 type Creator interface {
@@ -46,23 +46,23 @@ type provider interface {
 	DIDWallet() wallet.DIDCreator
 }
 
-// NewLocalDIDCreator returns new Local DID creator
-func NewLocalDIDCreator(ctx provider) *LocalDIDCreator {
-	return &LocalDIDCreator{ctx.DIDWallet(), method}
+// NewPeerDIDCreator returns new Peer DID creator
+func NewPeerDIDCreator(ctx provider) *PeerDIDCreator {
+	return &PeerDIDCreator{ctx.DIDWallet(), method}
 }
 
-// LocalDIDCreator creates local DIDs
-type LocalDIDCreator struct {
+// PeerDIDCreator creates Peer DIDs
+type PeerDIDCreator struct {
 	wallet.DIDCreator
 	method string
 }
 
-// CreateDID creates new local DID
-func (l *LocalDIDCreator) CreateDID(opts ...wallet.DocOpts) (*did.Doc, error) {
+// CreateDID creates new Peer DID
+func (l *PeerDIDCreator) CreateDID(opts ...wallet.DocOpts) (*did.Doc, error) {
 	return l.DIDCreator.CreateDID(l.method, opts...)
 }
 
 // GetDID gets already created DID document by ID.
-func (l *LocalDIDCreator) GetDID(id string) (*did.Doc, error) {
+func (l *PeerDIDCreator) GetDID(id string) (*did.Doc, error) {
 	return l.DIDCreator.GetDID(id)
 }

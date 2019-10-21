@@ -638,6 +638,18 @@ func TestDidKeyResolver_Resolve(t *testing.T) {
 	require.Equal(t, testKeyVal, key)
 }
 
+func TestBuildDoc(t *testing.T) {
+	ti := time.Now()
+	doc := BuildDoc(WithPublicKey([]PublicKey{{}}), WithService([]Service{{}, {}}),
+		WithAuthentication([]VerificationMethod{{}}), WithCreatedTime(ti), WithUpdatedTime(ti))
+	require.NotEmpty(t, doc)
+	require.Equal(t, 1, len(doc.PublicKey))
+	require.Equal(t, 2, len(doc.Service))
+	require.Equal(t, 1, len(doc.Authentication))
+	require.Equal(t, ti, *doc.Created)
+	require.Equal(t, ti, *doc.Updated)
+}
+
 func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
 	const didContext = "https://w3id.org/did/v1"
 

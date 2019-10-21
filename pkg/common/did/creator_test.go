@@ -26,9 +26,9 @@ func getMockDID() *d.Doc {
 	}
 }
 
-func TestLocalDIDCreator(t *testing.T) {
+func TestPeerDIDCreator(t *testing.T) {
 	t.Run("create new local DID ", func(t *testing.T) {
-		creator := NewLocalDIDCreator(&mockProvider{})
+		creator := NewPeerDIDCreator(&mockProvider{})
 		require.NotNil(t, creator)
 
 		did, err := creator.CreateDID()
@@ -39,7 +39,7 @@ func TestLocalDIDCreator(t *testing.T) {
 	})
 
 	t.Run("get DID ", func(t *testing.T) {
-		creator := NewLocalDIDCreator(&mockProvider{})
+		creator := NewPeerDIDCreator(&mockProvider{})
 		require.NotNil(t, creator)
 
 		did, err := creator.GetDID(getMockDID().ID)

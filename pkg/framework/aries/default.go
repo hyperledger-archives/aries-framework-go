@@ -101,7 +101,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 	setAdditionalDefaultOpts(frameworkOpts)
 
 	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) {
-		return didexchange.New(did.NewLocalDIDCreator(prv), prv)
+		return didexchange.New(did.NewPeerDIDCreator(prv), prv)
 	}
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc)
 
