@@ -39,8 +39,6 @@ type provider interface {
 }
 
 // Client enable access to didexchange api
-// TODO add support for Accept Exchange Request & Accept Invitation
-//  using events & callback (#198 & #238)
 type Client struct {
 	didexchangeSvc           service.DIDComm
 	wallet                   wallet.Crypto
@@ -159,7 +157,7 @@ func (c *Client) HandleInvitation(invitation *Invitation) error {
 
 // QueryConnections queries connections matching given parameters
 func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connection, error) {
-	// TODO sample response, to be implemented as part of #226
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/429 query all connections from did exchange service
 	return []*Connection{
 		{didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
 		{didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
@@ -182,7 +180,7 @@ func (c *Client) GetConnection(connectionID string) (*Connection, error) {
 
 // RemoveConnection removes connection record for given id
 func (c *Client) RemoveConnection(id string) error {
-	// TODO sample response, to be implemented as part of #226
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/553 RemoveConnection from did exchange service
 	return nil
 }
 

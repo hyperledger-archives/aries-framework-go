@@ -91,7 +91,7 @@ type Operation struct {
 func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) {
 	logger.Debugf("Creating connection invitation ")
 	// call didexchange client
-	// TODO pass label value as args in aries-agentd
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/552 pass label value as args in aries-agentd
 	response, err := c.client.CreateInvitation("agent")
 	if err != nil {
 		c.writeGenericError(rw, err)
@@ -124,7 +124,7 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	// TODO returning sample response since listener on DID exchange service is still need to be implemented
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/537 Return Connection data
 	sampleResponse := models.ReceiveInvitationResponse{
 		ConnectionID:  "f52024c4-04e7-4aeb-8486-1040155c6764",
 		DID:           "TAaW9Dmxa93B8e5x6iLwFJ",
@@ -154,7 +154,7 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 	params := mux.Vars(req)
 	logger.Debugf("Accepting connection invitation for id[%s]", params["id"])
 
-	// TODO returning sample response since event listening/handling with DID exchange service needs to be implemented
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/550 Support for AcceptInvitation API
 	response := models.AcceptInvitationResponse{
 		ConnectionID:  params["id"],
 		DID:           "TAaW9Dmxa93B8e5x6iLwFJ",
@@ -184,7 +184,7 @@ func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Requ
 	params := mux.Vars(req)
 	logger.Debugf("Accepting connection request for id [%s]", params["id"])
 
-	// TODO returning sample response below, Accept Exchange Request to be added using events & callback (#198 & #238)
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/549 Support for AcceptExchangeRequest API
 	result := &models.ExchangeResponse{
 		ConnectionID: uuid.New().String(), CreatedTime: time.Now(),
 	}
@@ -268,8 +268,6 @@ func (c *Operation) RemoveConnection(rw http.ResponseWriter, req *http.Request) 
 		c.writeGenericError(rw, err)
 		return
 	}
-
-	// TODO to be implemented as part of #226
 }
 
 // writeGenericError writes given error to writer as generic error response
@@ -349,8 +347,7 @@ func (c *Operation) startClientEventListener() error {
 		return fmt.Errorf("didexchange message event registration failed: %w", err)
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/200 - Webhook integration
-	// for now, auto execute the actions
+	// auto execute the actions
 	go func() {
 		err := service.AutoExecuteActionEvent(c.actionCh)
 		if err != nil {
@@ -360,7 +357,7 @@ func (c *Operation) startClientEventListener() error {
 
 	go func() {
 		for e := range c.msgCh {
-			// TODO https://github.com/hyperledger/aries-framework-go/issues/200 - Webhook integration
+			// TODO https://github.com/hyperledger/aries-framework-go/issues/551 - Integrate Message event with Webhook
 			// for now, log the messages
 			logger.Infof("message event received : type=%s", e.Type)
 		}
