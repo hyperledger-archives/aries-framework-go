@@ -22,7 +22,7 @@ import (
 	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
 	"github.com/trustbloc/sidetree-node/models"
 
-	"github.com/hyperledger/aries-framework-go/test/dockerutil"
+	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
 )
 
 const sha2_256 = 18
