@@ -18,11 +18,13 @@ import (
 
 	"github.com/DATA-DOG/godog"
 	"github.com/go-openapi/swag"
+
+	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
 	"github.com/trustbloc/sidetree-core-go/pkg/document"
 	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
 	"github.com/trustbloc/sidetree-node/models"
-
-	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
 )
 
 const sha2_256 = 18
@@ -40,8 +42,25 @@ func NewDIDResolverSideTreeNodeSteps(context *Context) *DIDResolverSideTreeNodeS
 	return &DIDResolverSideTreeNodeSteps{bddContext: context}
 }
 
-func (d *DIDResolverSideTreeNodeSteps) createDIDDocument(sideTreeURL, didDocumentPath string) error {
-	req := newCreateRequest(didDocumentPath)
+func (d *DIDResolverSideTreeNodeSteps) createDIDDocument(agentID string, sideTreeURL string) error {
+	req := newCreateRequest(createSidetreeDoc(d.bddContext.AgentCtx[agentID]))
+	d.reqEncodedDIDDoc = swag.StringValue(req.Payload)
+	resp, err := sendRequest(sideTreeURL, req)
+	if err != nil {
+		return fmt.Errorf("failed to create public DID document: %s", d.resp.errorMsg)
+	}
+
+	doc, err := diddoc.ParseDocument(resp.payload)
+	if err != nil {
+		return fmt.Errorf("failed to parse public DID document: %s", err)
+	}
+
+	d.bddContext.PublicDIDs[agentID] = doc
+	return nil
+}
+
+func (d *DIDResolverSideTreeNodeSteps) createDIDDocumentFromFile(sideTreeURL, didDocumentPath string) error {
+	req := newCreateRequest(didDocFromFile(didDocumentPath))
 	d.reqEncodedDIDDoc = swag.StringValue(req.Payload)
 	var err error
 	d.resp, err = sendRequest(sideTreeURL, req)
@@ -88,8 +107,8 @@ func (d *DIDResolverSideTreeNodeSteps) wait(seconds int) error {
 	return nil
 }
 
-func newCreateRequest(didDocumentPath string) *models.Request {
-	payload := encodeDidDocument(didDocumentPath)
+func newCreateRequest(doc *document.Document) *models.Request {
+	payload := encodeDidDocument(doc)
 	return &models.Request{
 		Header: &models.Header{
 			Operation: models.OperationTypeCreate, Alg: swag.String(""), Kid: swag.String("")},
@@ -97,12 +116,15 @@ func newCreateRequest(didDocumentPath string) *models.Request {
 		Signature: swag.String("")}
 }
 
-func encodeDidDocument(didDocumentPath string) string {
+func didDocFromFile(didDocumentPath string) *document.Document {
 	r, _ := os.Open(didDocumentPath)
 	data, _ := ioutil.ReadAll(r)
 	doc, _ := document.FromBytes(data)
 	// add new key to make the document unique
 	doc["unique"] = generateUUID()
+	return &doc
+}
+func encodeDidDocument(doc *document.Document) string {
 	bytes, _ := doc.Bytes()
 	return base64.URLEncoding.EncodeToString(bytes)
 }
@@ -156,11 +178,51 @@ func sendHTTPRequest(url string, req *models.Request) (*http.Response, error) {
 	return client.Do(httpReq)
 }
 
+func createSidetreeDoc(ctx *context.Provider) *document.Document {
+	pub, err := ctx.CryptoWallet().CreateEncryptionKey()
+	if err != nil {
+		panic(err)
+	}
+
+	pubKey := diddoc.PublicKey{
+		ID:         "#keys-1",
+		Type:       "Ed25519VerificationKey2018",
+		Controller: "controller",
+		Value:      []byte(pub),
+	}
+
+	services := []diddoc.Service{
+		{
+			ID:              "#endpoint-1",
+			Type:            "did-communication",
+			ServiceEndpoint: ctx.InboundTransportEndpoint(),
+		},
+	}
+
+	didDoc := &diddoc.Doc{
+		Context:   []string{diddoc.Context},
+		PublicKey: []diddoc.PublicKey{pubKey},
+		Service:   services,
+	}
+
+	bytes, err := didDoc.JSONBytes()
+	if err != nil {
+		panic(err)
+	}
+
+	doc, err := document.FromBytes(bytes)
+	if err != nil {
+		panic(err)
+	}
+
+	return &doc
+}
+
 // RegisterSteps registers did exchange steps
 func (d *DIDResolverSideTreeNodeSteps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^client sends request to sidetree "([^"]*)" for create DID document "([^"]*)"`, d.createDIDDocument)
+	s.Step(`^client sends request to sidetree "([^"]*)" for create DID document "([^"]*)"`, d.createDIDDocumentFromFile)
 	s.Step(`^check success response contains "([^"]*)"$`, d.checkSuccessResp)
+	s.Step(`^"([^"]*)" creates public DID using sidetree "([^"]*)"`, d.createDIDDocument)
 	s.Step(`^"([^"]*)" agent resolve DID document$`, d.resolveDID)
 	s.Step(`^we wait (\d+) seconds$`, d.wait)
-
 }

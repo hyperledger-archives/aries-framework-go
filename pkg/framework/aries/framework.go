@@ -268,7 +268,8 @@ func loadServices(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithWallet(frameworkOpts.wallet),
-		context.WithPackager(frameworkOpts.packager))
+		context.WithPackager(frameworkOpts.packager),
+		context.WithDIDResolver(frameworkOpts.didResolver))
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
 	}

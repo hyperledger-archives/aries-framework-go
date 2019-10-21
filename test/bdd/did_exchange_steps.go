@@ -28,6 +28,20 @@ func NewDIDExchangeSteps(context *Context) *DIDExchangeSteps {
 func (d *DIDExchangeSteps) createInvitation(inviterAgentID string) error {
 	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitation(inviterAgentID)
 	if err != nil {
+		return fmt.Errorf("create invitation: %w", err)
+	}
+	d.bddContext.Invitations[inviterAgentID] = invitation
+	invitationBytes, err := json.Marshal(invitation)
+	if err != nil {
+		return fmt.Errorf("marshal invitation: %w", err)
+	}
+	logger.Infof("Agent %s create invitation %s", inviterAgentID, invitationBytes)
+	return nil
+}
+
+func (d *DIDExchangeSteps) createInvitationWithDID(inviterAgentID string) error {
+	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitationWithDID(inviterAgentID, d.bddContext.PublicDIDs[inviterAgentID].ID)
+	if err != nil {
 		return fmt.Errorf("failed to create invitation: %w", err)
 	}
 	d.bddContext.Invitations[inviterAgentID] = invitation
@@ -37,6 +51,23 @@ func (d *DIDExchangeSteps) createInvitation(inviterAgentID string) error {
 	}
 	logger.Infof("Agent %s create invitation %s", inviterAgentID, invitationBytes)
 	return nil
+}
+
+func (d *DIDExchangeSteps) waitForPublicDID(agentID string, maxSeconds int) error {
+	publicDID := d.bddContext.PublicDIDs[agentID].ID
+
+	var err error
+	for i := 0; i < maxSeconds; i++ {
+		_, err = d.bddContext.AgentCtx[agentID].DIDResolver().Resolve(publicDID)
+		if err == nil || !strings.Contains(err.Error(), " DID does not exist") {
+			return err
+		}
+
+		time.Sleep(1 * time.Second)
+		logger.Infof("Waiting [%d] second(s)\n", i+1)
+	}
+
+	return err
 }
 
 func (d *DIDExchangeSteps) receiveInvitation(inviteeAgentID, inviterAgentID string) error {
@@ -74,8 +105,9 @@ func (d *DIDExchangeSteps) validateConnection(agentID, stateValue string) error 
 // RegisterSteps registers did exchange steps
 func (d *DIDExchangeSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
+	s.Step(`^"([^"]*)" creates invitation with public DID$`, d.createInvitationWithDID)
+	s.Step(`^"([^"]*)" waits for public did to become avaiable in sidetree for up to (\d+) seconds$`, d.waitForPublicDID)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)"$`, d.receiveInvitation)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)"$`, d.waitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`, d.validateConnection)
-
 }
