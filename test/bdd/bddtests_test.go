@@ -17,7 +17,7 @@ import (
 
 	"github.com/DATA-DOG/godog"
 
-	"github.com/hyperledger/aries-framework-go/test/dockerutil"
+	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
 )
 
 var composition []*dockerutil.Composition
