@@ -8,7 +8,6 @@ package didexchange
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,8 +20,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	didexchangesvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
@@ -58,20 +55,9 @@ func New(ctx provider) (*Operation, error) {
 		return nil, err
 	}
 
-	didexsvc, err := ctx.Service(didexchangesvc.DIDExchange)
-	if err != nil {
-		return nil, err
-	}
-
-	didexchangeSvc, ok := didexsvc.(dispatcher.Service)
-	if !ok {
-		return nil, errors.New("failed to lookup didexchange service from context")
-	}
-
 	svc := &Operation{
-		ctx:     ctx,
-		client:  didExchange,
-		service: didexchangeSvc,
+		ctx:    ctx,
+		client: didExchange,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		actionCh: make(chan service.DIDCommAction, 10),
 		msgCh:    make(chan service.StateMsg, 10),
@@ -90,7 +76,6 @@ func New(ctx provider) (*Operation, error) {
 type Operation struct {
 	ctx      provider
 	client   *didexchange.Client
-	service  dispatcher.Service
 	handlers []operation.Handler
 	actionCh chan service.DIDCommAction
 	msgCh    chan service.StateMsg
@@ -133,19 +118,7 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	payload, err := json.Marshal(request.Params)
-	if err != nil {
-		c.writeGenericError(rw, err)
-		return
-	}
-
-	msg, err := service.NewDIDCommMsg(payload)
-	if err != nil {
-		c.writeGenericError(rw, err)
-		return
-	}
-
-	err = c.service.HandleInbound(msg)
+	err = c.client.HandleInvitation(request.Params)
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
@@ -196,6 +169,27 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 		RequestID:     "678ad4b6-4e2b-40a1-804e-8ba504945e26",
 		RoutingState:  "none",
 	}
+
+	c.writeResponse(rw, response)
+}
+
+// AcceptExchangeRequest swagger:route POST /connections/{id}/accept-request did-exchange acceptRequest
+//
+// Accepts a stored connection request.
+//
+// Responses:
+//    default: genericError
+//        200: acceptExchangeResponse
+func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Request) {
+	params := mux.Vars(req)
+	logger.Debugf("Accepting connection request for id [%s]", params["id"])
+
+	// TODO returning sample response below, Accept Exchange Request to be added using events & callback (#198 & #238)
+	result := &models.ExchangeResponse{
+		ConnectionID: uuid.New().String(), CreatedTime: time.Now(),
+	}
+
+	response := models.AcceptExchangeResult{Result: result}
 
 	c.writeResponse(rw, response)
 }
@@ -254,27 +248,6 @@ func (c *Operation) QueryConnectionByID(rw http.ResponseWriter, req *http.Reques
 	response := models.QueryConnectionResponse{
 		Result: result,
 	}
-
-	c.writeResponse(rw, response)
-}
-
-// AcceptExchangeRequest swagger:route POST /connections/{id}/accept-request did-exchange acceptRequest
-//
-// Accepts a stored connection request.
-//
-// Responses:
-//    default: genericError
-//        200: acceptExchangeResponse
-func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Request) {
-	params := mux.Vars(req)
-	logger.Debugf("Accepting connection request for id [%s]", params["id"])
-
-	// TODO returning sample response below, Accept Exchange Request to be added using events & callback (#198 & #238)
-	result := &models.ExchangeResponse{
-		ConnectionID: uuid.New().String(), CreatedTime: time.Now(),
-	}
-
-	response := models.AcceptExchangeResult{Result: result}
 
 	c.writeResponse(rw, response)
 }
