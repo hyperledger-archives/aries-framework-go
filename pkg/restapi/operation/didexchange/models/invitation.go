@@ -45,30 +45,7 @@ type ReceiveInvitationRequest struct {
 	//
 	// required: true
 	// in: body
-	Params *ReceiveInvitationParams `json:"invitation"`
-}
-
-// ReceiveInvitationParams model
-//
-// This model defines DID exchange receive invitation parameters
-//
-// swagger:model ReceiveInvitationParams
-type ReceiveInvitationParams struct {
-
-	// the Type of the connection invitation
-	Type string `json:"@type,omitempty"`
-
-	// the ID of the connection invitation
-	ID string `json:"@id"`
-
-	// the Service endpoint of the connection invitation
-	ServiceEndpoint string `json:"serviceEndpoint,omitempty"`
-
-	// the Label of the connection invitation
-	Label string `json:"label,omitempty"`
-
-	// the RecipientKeys for the connection invitation
-	RecipientKeys []string `json:"recipientKeys,omitempty"`
+	Params *didexchange.Invitation `json:"invitation"`
 }
 
 // ReceiveInvitationResponse model
