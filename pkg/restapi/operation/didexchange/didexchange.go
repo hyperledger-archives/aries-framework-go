@@ -225,7 +225,7 @@ func (c *Operation) QueryConnections(rw http.ResponseWriter, req *http.Request) 
 
 	response := models.QueryConnectionsResponse{
 		Body: struct {
-			Results []*didexchange.ConnectionResult `json:"results"`
+			Results []*didexchange.Connection `json:"results"`
 		}{
 			Results: results,
 		},

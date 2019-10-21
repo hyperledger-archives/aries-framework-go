@@ -37,12 +37,12 @@ type QueryConnectionsParams struct {
 	TheirRole string `json:"their_role,omitempty"`
 }
 
-// ConnectionResult model
+// Connection model
 //
 // This is used to represent query connection result
 // TODO: this model is not final, to be updated as part of #226
 //
-// swagger:model ConnectionResult
-type ConnectionResult struct {
+// swagger:model Connection
+type Connection struct {
 	didexchange.ConnectionRecord
 }

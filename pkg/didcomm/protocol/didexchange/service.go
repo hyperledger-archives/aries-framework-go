@@ -68,7 +68,7 @@ type provider interface {
 }
 
 type connectionStore interface {
-	GetConnection(connectionID string) (*ConnectionRecord, error)
+	GetConnectionRecord(connectionID string) (*ConnectionRecord, error)
 }
 
 // stateMachineMsg is an internal struct used to pass data to state machine.
@@ -419,7 +419,7 @@ func threadID(didCommMsg *service.DIDCommMsg) (string, error) {
 }
 
 func (s *Service) currentState(thid string) (state, error) {
-	conn, err := s.connectionStore.GetConnection(thid)
+	conn, err := s.connectionStore.GetConnectionRecord(thid)
 	if err != nil {
 		if errors.Is(err, storage.ErrDataNotFound) {
 			return &null{}, nil

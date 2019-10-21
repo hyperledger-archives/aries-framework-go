@@ -94,8 +94,8 @@ func (c *ConnectionRecorder) GetInvitation(id string) (*Invitation, error) {
 	return result, nil
 }
 
-// GetConnection return connection record
-func (c *ConnectionRecorder) GetConnection(connectionID string) (*ConnectionRecord, error) {
+// GetConnectionRecord return connection record
+func (c *ConnectionRecorder) GetConnectionRecord(connectionID string) (*ConnectionRecord, error) {
 	name, err := c.store.Get(connectionID)
 	if err != nil {
 		return nil, err
