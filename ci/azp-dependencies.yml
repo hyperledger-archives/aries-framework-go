@@ -1,0 +1,16 @@
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+steps:
+  - task: GoTool@0
+    displayName: 'Use Go $(GO_VERSION)'
+    inputs:
+      version: $(GO_VERSION)
+      goPath: $(GOPATH)
+  - script: echo "##vso[task.setvariable variable=PATH]$(Agent.BuildDirectory)/go/bin:${PATH}"
+    displayName: Include go/bin in PATH
+  - task: Go@0
+    displayName: 'go get gobin'
+    inputs:
+      arguments: github.com/myitcv/gobin
