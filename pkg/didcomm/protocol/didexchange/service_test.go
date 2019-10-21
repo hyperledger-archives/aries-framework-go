@@ -30,6 +30,7 @@ import (
 
 const (
 	invalidThreadID = "invalidThreadID"
+	validThreadID   = "valid-thread-id"
 	corrupt         = "corrupt"
 	handleError     = "handle-error"
 	changeID        = "change-id"
@@ -652,7 +653,7 @@ func startConsumer(t *testing.T, svc *Service, done chan bool) {
 		for e := range statusCh {
 			if e.Type == service.PreState {
 				// receive the events
-				if e.Msg.Header.Type == ConnectionRequest {
+				if e.Msg.Header.Type == ConnectionInvite {
 					writeToDB(t, svc, e.Msg)
 				}
 			}
@@ -787,7 +788,7 @@ func writeToDB(t *testing.T, svc *Service, e *service.DIDCommMsg) {
 }
 
 func validateSuccessCase(t *testing.T, svc *Service) {
-	id := "valid-thread-id"
+	id := validThreadID
 	// verify the state before invite
 	s, err := svc.currentState(id)
 	require.NoError(t, err)
@@ -921,7 +922,7 @@ func validateStatusEventAction(t *testing.T, svc *Service, duration time.Duratio
 			t.Error("deadline exceeded")
 			return
 		default:
-			val, err := svc.store.Get("status-event" + invalidThreadID)
+			val, err := svc.store.Get("status-event" + validThreadID)
 			if err != nil {
 				continue
 			}
