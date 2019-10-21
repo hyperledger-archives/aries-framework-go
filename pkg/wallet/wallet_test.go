@@ -175,12 +175,10 @@ func TestBaseWallet_ConvertToEncryptionKey(t *testing.T) {
 }
 
 func TestBaseWallet_DIDCreator(t *testing.T) {
-	const method = "example"
-
 	storeProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 		Store: make(map[string][]byte),
 	}}
-	verifyDID := func(t *testing.T, didDoc *did.Doc) {
+	verifyDID := func(t *testing.T, method string, didDoc *did.Doc) {
 		require.NotEmpty(t, didDoc.Context)
 		require.Equal(t, didDoc.Context[0], did.Context)
 		require.NotEmpty(t, didDoc.Updated)
@@ -188,9 +186,14 @@ func TestBaseWallet_DIDCreator(t *testing.T) {
 		require.NotEmpty(t, didDoc.ID)
 		require.NotEmpty(t, didDoc.PublicKey)
 
-		for i, pubK := range didDoc.PublicKey {
+		for _, pubK := range didDoc.PublicKey {
 			require.NotEmpty(t, pubK.ID)
-			require.Equal(t, pubK.ID, fmt.Sprintf(didPKID, didDoc.ID, i+1))
+			switch method {
+			case peerDIDMethod:
+				require.Equal(t, pubK.ID, string(pubK.Value)[0:7])
+			default:
+				require.Fail(t, "Invalid DID Method")
+			}
 			require.NotEmpty(t, pubK.Value)
 			require.NotEmpty(t, pubK.Type)
 			require.NotEmpty(t, pubK.Controller)
@@ -207,23 +210,28 @@ func TestBaseWallet_DIDCreator(t *testing.T) {
 		require.NotNil(t, private)
 
 		// verify DID identifier
-		require.Equal(t, didDoc.ID, fmt.Sprintf(didFormat, method, pub[:16]))
+		switch method {
+		case peerDIDMethod:
+			require.Equal(t, didDoc.ID[0:9], "did:peer:")
+		default:
+			require.Fail(t, "Invalid DID Method")
+		}
 	}
 
-	t.Run("create new DID with service type and query", func(t *testing.T) {
+	t.Run("create/fetch Peer DID with service type", func(t *testing.T) {
 		w, err := New(newMockWalletProvider(storeProvider))
 		require.NoError(t, err)
-		didDoc, err := w.CreateDID(method, WithServiceType(serviceTypeDIDComm))
+		didDoc, err := w.CreateDID(peerDIDMethod, WithServiceType(serviceTypeDIDComm))
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 
-		verifyDID(t, didDoc)
+		verifyDID(t, peerDIDMethod, didDoc)
 
 		// verify services
 		require.NotEmpty(t, didDoc.Service)
-		for i, service := range didDoc.Service {
+		for _, service := range didDoc.Service {
 			require.NotEmpty(t, service.ID)
-			require.Equal(t, service.ID, fmt.Sprintf(didServiceID, didDoc.ID, i+1))
+			require.Equal(t, "#agent", service.ID)
 			require.NotEmpty(t, service.Type)
 			require.Equal(t, serviceTypeDIDComm, service.Type)
 			require.NotEmpty(t, service.ServiceEndpoint)
@@ -231,7 +239,7 @@ func TestBaseWallet_DIDCreator(t *testing.T) {
 		}
 
 		result, err := w.GetDID(didDoc.ID)
-		verifyDID(t, didDoc)
+		verifyDID(t, peerDIDMethod, didDoc)
 		require.Nil(t, err)
 		require.Equal(t, result.Service, didDoc.Service)
 		require.Equal(t, result.PublicKey, didDoc.PublicKey)
@@ -240,17 +248,17 @@ func TestBaseWallet_DIDCreator(t *testing.T) {
 	t.Run("create new DID without service type", func(t *testing.T) {
 		w, err := New(newMockWalletProvider(storeProvider))
 		require.NoError(t, err)
-		didDoc, err := w.CreateDID(method)
+		didDoc, err := w.CreateDID(peerDIDMethod)
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 
-		verifyDID(t, didDoc)
+		verifyDID(t, peerDIDMethod, didDoc)
 
 		// verify services
 		require.Empty(t, didDoc.Service)
 
 		result, err := w.GetDID(didDoc.ID)
-		verifyDID(t, didDoc)
+		verifyDID(t, peerDIDMethod, didDoc)
 		require.Nil(t, err)
 		require.Empty(t, result.Service)
 		require.Equal(t, result.PublicKey, didDoc.PublicKey)
@@ -277,7 +285,7 @@ func TestBaseWallet_DIDCreator(t *testing.T) {
 		w, err := New(newMockWalletProvider(mockStoreProvider))
 		require.NoError(t, err)
 
-		didDoc, err := w.CreateDID(method, WithServiceType(serviceTypeDIDComm))
+		didDoc, err := w.CreateDID(peerDIDMethod, WithServiceType(serviceTypeDIDComm))
 		require.Nil(t, didDoc)
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "failed to create DID")
@@ -287,6 +295,14 @@ func TestBaseWallet_DIDCreator(t *testing.T) {
 		require.Nil(t, didDoc)
 		require.NotNil(t, err)
 		require.Equal(t, err, storage.ErrDataNotFound)
+	})
+
+	t.Run("invalid DID method", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(storeProvider))
+		require.NoError(t, err)
+		_, err = w.CreateDID("invalid")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid DID Method")
 	})
 }
 

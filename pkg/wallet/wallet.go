@@ -18,6 +18,7 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/nacl/box"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
@@ -27,9 +28,7 @@ import (
 const (
 	keyStoreNamespace = "keystore"
 	didStoreNamespace = "didstore"
-	didFormat         = "did:%s:%s"
-	didPKID           = "%s#keys-%d"
-	didServiceID      = "%s#endpoint-%d"
+	peerDIDMethod     = "peer"
 )
 
 // provider contains dependencies for the base wallet and is typically created by using aries.Context()
@@ -138,51 +137,25 @@ func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
 	}
 
 	// Generate key pair
-	pub, err := w.CreateEncryptionKey()
+	base58PubKey, err := w.CreateEncryptionKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create DID: %w", err)
 	}
 
-	// DID identifier
-	id := fmt.Sprintf(didFormat, method, pub[:16])
+	var didDoc *did.Doc
 
-	// Supporting only one public key now
-	pubKey := did.PublicKey{
-		ID: fmt.Sprintf(didPKID, id, 1),
-		// TODO hardcoding public key type for now
-		// Should be dynamic for multi-key support
-		Type:       "Ed25519VerificationKey2018",
-		Controller: id,
-		Value:      []byte(pub),
-	}
-
-	// Service model to be included only if service type is provided through opts
-	var service []did.Service
-	if docOpts.serviceType != "" {
-		// Service endpoints
-		service = []did.Service{
-			{
-				ID:              fmt.Sprintf(didServiceID, id, 1),
-				Type:            docOpts.serviceType,
-				ServiceEndpoint: w.inboundTransportEndpoint,
-			},
+	switch method {
+	case peerDIDMethod:
+		didDoc, err = w.buildPeerDIDDoc(base58PubKey, docOpts)
+		if err != nil {
+			return nil, fmt.Errorf("create peer DID : %w", err)
 		}
-	}
-
-	// Created time
-	createdTime := time.Now()
-
-	didDoc := &did.Doc{
-		Context:   []string{did.Context},
-		ID:        id,
-		PublicKey: []did.PublicKey{pubKey},
-		Service:   service,
-		Created:   &createdTime,
-		Updated:   &createdTime,
+	default:
+		return nil, errors.New("invalid DID Method")
 	}
 
 	// persist in did store
-	err = persist(w.didstore, id, didDoc)
+	err = persist(w.didstore, didDoc.ID, didDoc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to persist DID : %w", err)
 	}
@@ -270,4 +243,42 @@ func persist(store storage.Store, key string, value interface{}) error {
 		return fmt.Errorf("failed to save in store: %w", err)
 	}
 	return nil
+}
+
+func (w *BaseWallet) buildPeerDIDDoc(base58PubKey string, docOpts *createDIDOpts) (*did.Doc, error) {
+	// Supporting only one public key now
+	publicKey := did.PublicKey{
+		ID: base58PubKey[0:7],
+		// TODO hardcoding public key type for now
+		// Should be dynamic for multi-key support
+		Type:       "Ed25519VerificationKey2018",
+		Controller: "#id",
+		Value:      []byte(base58PubKey),
+	}
+
+	// Service model to be included only if service type is provided through opts
+	var service []did.Service
+	if docOpts.serviceType != "" {
+		// Service endpoints
+		service = []did.Service{
+			{
+				ID:              "#agent",
+				Type:            docOpts.serviceType,
+				ServiceEndpoint: w.inboundTransportEndpoint,
+			},
+		}
+	}
+
+	// Created/Updated time
+	t := time.Now()
+
+	return peer.NewDoc(
+		[]did.PublicKey{publicKey},
+		[]did.VerificationMethod{
+			{PublicKey: publicKey},
+		},
+		did.WithService(service),
+		did.WithCreatedTime(t),
+		did.WithUpdatedTime(t),
+	)
 }

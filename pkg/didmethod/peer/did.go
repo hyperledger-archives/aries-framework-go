@@ -33,9 +33,14 @@ var (
 )
 
 // NewDoc returns the resolved variant of the genesis version of the peer DID document
-func NewDoc(publicKey []did.PublicKey, authorization []did.VerificationMethod) (*did.Doc, error) {
-	// Create a did doc based on the mandatory value: publicKeys & authorization
-	doc := &did.Doc{PublicKey: publicKey, Authentication: authorization}
+func NewDoc(publicKey []did.PublicKey, authentication []did.VerificationMethod,
+	opts ...did.DocOption) (*did.Doc, error) {
+	// build DID Doc
+	doc := did.BuildDoc(opts...)
+
+	// Create a did doc based on the mandatory value: publicKeys & authentication
+	doc.PublicKey = publicKey
+	doc.Authentication = authentication
 
 	id, err := computeDid(doc)
 	if err != nil {
