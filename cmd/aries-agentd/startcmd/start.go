@@ -172,7 +172,7 @@ func startAgent(parameters *agentParameters) error {
 	}
 
 	// get all HTTP REST API handlers available for controller API
-	restService, err := restapi.New(ctx, parameters.webhookURLs)
+	restService, err := restapi.New(ctx, restapi.WithWebhookURLs(parameters.webhookURLs...))
 	if err != nil {
 		return fmt.Errorf("failed to start aries agentd on port [%s], failed to get rest service api :  %w",
 			parameters.host, err)

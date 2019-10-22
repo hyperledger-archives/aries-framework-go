@@ -17,43 +17,52 @@ import (
 )
 
 const (
-	notificationInterval    = 2 * time.Second
 	notificationSendTimeout = 10 * time.Second
+	emptyTopicErrMsg        = "cannot notify with an empty topic"
+	emptyMessageErrMsg      = "cannot notify with an empty message"
 )
 
 var logger = log.New("aries-framework/agentd")
 
-// StartWebhookDispatcher will launch the webhook dispatcher in a new goroutine.
-// The dispatcher is responsible for sending notifications to subscribers.
-func StartWebhookDispatcher(subscriberURLs []string) {
-	if len(subscriberURLs) == 0 {
-		logger.Warnf("No subscriber URLs provided. Webhook dispatcher will not start.")
-		return
-	}
-
-	go dispatch(subscriberURLs)
+// Notifier represents a webhook dispatcher.
+type Notifier interface {
+	Notify(topic string, message []byte) error
 }
 
-func dispatch(subscriberURLs []string) {
-	// TODO: Data should should be pushed whenever a record is created or its state property is updated  (see #472).
-	ticker := time.NewTicker(notificationInterval)
-	defer ticker.Stop()
-	for range ticker.C {
-		for _, subscriberURL := range subscriberURLs {
-			err := sendNotification(subscriberURL)
-			if err != nil {
-				logger.Errorf(err.Error())
-			}
-		}
-	}
+// HTTPNotifier is a webhook dispatcher capable of notifying multiple subscribers via HTTP.
+type HTTPNotifier struct {
+	WebhookURLs []string
 }
 
-func sendNotification(destination string) error {
-	//TODO: This HTTP post request needs to supply real data, not this sample text (see #472).
+// NewHTTPNotifier returns a new instance of an HTTPNotifier.
+func NewHTTPNotifier(webhookURLs []string) HTTPNotifier {
+	return HTTPNotifier{WebhookURLs: webhookURLs}
+}
+
+// Notify sends the given message to all of the WebhookURLs.
+// Topic is appended to the end of the webhook (subscriber) URL. E.g. localhost:8080/topic
+// If multiple errors are encountered, then the first one is returned.
+func (n HTTPNotifier) Notify(topic string, message []byte) error {
+	if topic == "" {
+		return fmt.Errorf(emptyTopicErrMsg)
+	}
+
+	if len(message) == 0 {
+		return fmt.Errorf(emptyMessageErrMsg)
+	}
+	var allErrs error
+	for _, webhookURL := range n.WebhookURLs {
+		err := notify(fmt.Sprintf("%s%s%s", webhookURL, "/", topic), message)
+		allErrs = appendError(allErrs, err)
+	}
+	return allErrs
+}
+
+func notify(destination string, message []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), notificationSendTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, destination,
-		bytes.NewBufferString("Sample notification from aries-agentd."))
+		bytes.NewBuffer(message))
 	if err != nil {
 		return fmt.Errorf("failed to create new http post request for %s: %s", destination, err)
 	}
@@ -78,4 +87,11 @@ func closeResponse(c io.Closer) {
 	if err != nil {
 		logger.Errorf("Failed to close response body")
 	}
+}
+
+func appendError(errToAppendTo, err error) error {
+	if errToAppendTo == nil {
+		return err
+	}
+	return fmt.Errorf("%v;%v", errToAppendTo, err)
 }

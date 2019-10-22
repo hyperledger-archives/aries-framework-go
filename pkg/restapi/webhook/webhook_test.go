@@ -9,42 +9,47 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/square/go-jose/v3/json"
 	"github.com/stretchr/testify/require"
 )
 
+const topic = "basicmessages"
+const topicWithLeadingSlash = "/" + topic
+const localhost8080URL = "http://localhost:8080"
+
 type clientData struct {
 	clientHost                     string
-	clientHandlerPattern           string
 	subscriberReceivedNotification chan struct{}
 }
 
-func TestWebhookDispatcherOneWebhook(t *testing.T) {
+func TestNotifyOneWebhook(t *testing.T) {
 	testClientData := clientData{
 		clientHost:                     randomURL(),
-		clientHandlerPattern:           "/webhookListen1",
 		subscriberReceivedNotification: make(chan struct{}),
 	}
 
-	go func() {
-		err := listenAndStopAfterReceivingNotification(testClientData.clientHost, testClientData.clientHandlerPattern)
+	go func(testClientData clientData) {
+		err := runClient(testClientData)
 		if err != nil {
 			require.FailNow(t, err.Error())
-		} else {
-			close(testClientData.subscriberReceivedNotification)
 		}
-	}()
+	}(testClientData)
 
 	if err := listenFor(testClientData.clientHost); err != nil {
 		t.Fatal(err)
 	}
 
-	StartWebhookDispatcher([]string{fmt.Sprintf("http://%s%s", testClientData.clientHost,
-		testClientData.clientHandlerPattern)})
+	testNotifier := NewHTTPNotifier([]string{fmt.Sprintf("http://%s", testClientData.clientHost)})
+
+	err := testNotifier.Notify(topic, getTestBasicMessageJSON())
+
+	require.NoError(t, err)
 
 	select {
 	case <-testClientData.subscriberReceivedNotification:
@@ -54,15 +59,13 @@ func TestWebhookDispatcherOneWebhook(t *testing.T) {
 	}
 }
 
-func TestWebhookDispatcherMultipleWebhooks(t *testing.T) {
+func TestNotifyMultipleWebhooks(t *testing.T) {
 	clientData1 := clientData{
 		clientHost:                     randomURL(),
-		clientHandlerPattern:           "/webhookListen2",
 		subscriberReceivedNotification: make(chan struct{}),
 	}
 	clientData2 := clientData{
 		clientHost:                     randomURL(),
-		clientHandlerPattern:           "/webhookListen3",
 		subscriberReceivedNotification: make(chan struct{}),
 	}
 
@@ -81,9 +84,12 @@ func TestWebhookDispatcherMultipleWebhooks(t *testing.T) {
 		}
 	}
 
-	StartWebhookDispatcher([]string{fmt.Sprintf("http://%s%s", allTestClientData[0].clientHost,
-		allTestClientData[0].clientHandlerPattern),
-		fmt.Sprintf("http://%s%s", allTestClientData[1].clientHost, allTestClientData[1].clientHandlerPattern)})
+	testNotifier := NewHTTPNotifier([]string{fmt.Sprintf("http://%s", allTestClientData[0].clientHost),
+		fmt.Sprintf("http://%s", allTestClientData[1].clientHost)})
+
+	err := testNotifier.Notify(topic, getTestBasicMessageJSON())
+
+	require.NoError(t, err)
 
 	select {
 	case <-allTestClientData[0].subscriberReceivedNotification:
@@ -98,21 +104,19 @@ func TestWebhookDispatcherMultipleWebhooks(t *testing.T) {
 	}
 }
 
-func runClient(testClientData clientData) error {
-	err := listenAndStopAfterReceivingNotification(testClientData.clientHost, testClientData.clientHandlerPattern)
-	if err != nil {
-		return err
-	}
-	close(testClientData.subscriberReceivedNotification)
-	return nil
+func TestNotifyUnsupportedProtocol(t *testing.T) {
+	testNotifier := NewHTTPNotifier([]string{"badURL"})
+
+	err := testNotifier.Notify(topic, getTestBasicMessageJSON())
+
+	require.Contains(t, err.Error(), "unsupported protocol")
 }
 
-func TestWebhookSendNotification(t *testing.T) {
+func TestNotifyCorrectJSON(t *testing.T) {
 	clientHost := randomURL()
-	clientHandlerPattern := "/webhookListen4"
 
 	go func() {
-		err := listenAndStopAfterReceivingNotification(clientHost, clientHandlerPattern)
+		err := listenAndStopAfterReceivingNotification(clientHost)
 		if err != nil {
 			require.FailNow(t, err.Error())
 		}
@@ -122,23 +126,74 @@ func TestWebhookSendNotification(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := sendNotification(fmt.Sprintf("http://%s%s", clientHost, clientHandlerPattern))
+	err := notify(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), getTestBasicMessageJSON())
 	require.NoError(t, err)
 }
 
+func TestNotifyMalformedJSON(t *testing.T) {
+	clientHost := randomURL()
+
+	go func() {
+		err := listenAndStopAfterReceivingNotification(clientHost)
+		if err != nil {
+			require.FailNow(t, err.Error())
+		}
+	}()
+
+	if err := listenFor(clientHost); err != nil {
+		t.Fatal(err)
+	}
+
+	malformedBasicMessage := []byte(`
+   {
+       "thisIsWrong",
+		"state": "SomeState"
+   }
+		`)
+	err := notify(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), malformedBasicMessage)
+	require.Contains(t, err.Error(), "400 Bad Request")
+}
+
 func TestWebhookNotificationMalformedURL(t *testing.T) {
-	err := sendNotification("%")
+	err := notify("%", nil)
 	require.Contains(t, err.Error(), `invalid URL escape "%"`)
 }
 
-func TestWebhookNotificationClientURLNoResponse(t *testing.T) {
-	err := sendNotification("http://localhost:8080")
+func TestWebhookNotificationNoResponse(t *testing.T) {
+	err := notify(localhost8080URL, nil)
 	require.Contains(t, err.Error(), "connection refused")
+}
+
+func TestNotifyEmptyTopic(t *testing.T) {
+	testNotifier := NewHTTPNotifier([]string{localhost8080URL})
+
+	err := testNotifier.Notify("", getTestBasicMessageJSON())
+
+	require.Equal(t, emptyTopicErrMsg, err.Error())
+}
+
+func TestNotifyEmptyMessage(t *testing.T) {
+	testNotifier := NewHTTPNotifier([]string{localhost8080URL})
+
+	err := testNotifier.Notify("someTopic", nil)
+
+	require.Equal(t, emptyMessageErrMsg, err.Error())
+}
+
+func TestNotifyMultipleErrors(t *testing.T) {
+	testNotifier := NewHTTPNotifier([]string{"badURL1", "badURL2"})
+
+	err := testNotifier.Notify("someTopic", []byte(`someMessage`))
+
+	require.Contains(t, err.Error(), `failed to post notification to badURL1/someTopic: `+
+		`Post badURL1/someTopic: unsupported protocol scheme ""`)
+	require.Contains(t, err.Error(), `failed to post notification to badURL2/someTopic: `+
+		`Post badURL2/someTopic: unsupported protocol scheme ""`)
 }
 
 func TestWebhookNotificationClient500Response(t *testing.T) {
 	clientHost := randomURL()
-	clientHandlerPattern := "/webhookListen5"
+	clientHandlerPattern := "/webhookListen6"
 	srv := &http.Server{Addr: clientHost, Handler: http.DefaultServeMux}
 
 	http.HandleFunc(clientHandlerPattern, func(resp http.ResponseWriter, req *http.Request) {
@@ -154,8 +209,76 @@ func TestWebhookNotificationClient500Response(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := sendNotification(fmt.Sprintf("http://%s%s", clientHost, clientHandlerPattern))
+	err := notify(fmt.Sprintf("http://%s%s", clientHost, clientHandlerPattern), nil)
 	require.Contains(t, err.Error(), "500 Internal Server Error", err.Error())
+}
+
+func getTestBasicMessageJSON() []byte {
+	return []byte(`
+   {
+       "connection_id": "SomeConnectionID",
+       "message_id": "SomeMessageId",
+		"content": "SomeContent",
+		"state": "SomeState"
+   }
+		`)
+}
+
+func runClient(testClientData clientData) error {
+	err := listenAndStopAfterReceivingNotification(testClientData.clientHost)
+	if err != nil {
+		return err
+	}
+	close(testClientData.subscriberReceivedNotification)
+	return nil
+}
+
+func listenAndStopAfterReceivingNotification(addr string) error {
+	m := http.NewServeMux()
+	srv := &http.Server{Addr: addr, Handler: m}
+	ctx, cancel := context.WithCancel(context.Background())
+	m.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {
+		response, err := ioutil.ReadAll(req.Body)
+		if err == nil {
+			var receivedMessage BasicMsg
+			err = json.Unmarshal(response, &receivedMessage)
+			if err != nil {
+				resp.WriteHeader(http.StatusBadRequest)
+			}
+			expectedTestBasicMessage := BasicMsg{
+				ConnectionID: "SomeConnectionID",
+				MessageID:    "SomeMessageId",
+				Content:      "SomeContent",
+				State:        "SomeState",
+			}
+			if receivedMessage != expectedTestBasicMessage {
+				resp.WriteHeader(http.StatusBadRequest)
+			}
+		} else {
+			resp.WriteHeader(http.StatusBadRequest)
+		}
+		cancel()
+	})
+
+	errorChannel := make(chan error)
+
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil {
+			errorChannel <- err
+			cancel()
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		if err := srv.Shutdown(ctx); err != nil && err != context.Canceled {
+			return fmt.Errorf("failed to shutdown sample webhook client server: %s", err)
+		}
+		return nil
+	case err := <-errorChannel:
+		return fmt.Errorf("webhook sample client failed: %s", err)
+	}
 }
 
 func randomURL() string {
@@ -205,35 +328,5 @@ func listenFor(host string) error {
 			}
 			return nil
 		}
-	}
-}
-
-func listenAndStopAfterReceivingNotification(addr, handlerPattern string) error {
-	srv := &http.Server{Addr: addr, Handler: http.DefaultServeMux}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	http.HandleFunc(handlerPattern, func(resp http.ResponseWriter, req *http.Request) {
-		logger.Infof("Sample webhook client just received webhook notification")
-		cancel()
-	})
-
-	errorChannel := make(chan error)
-
-	go func() {
-		err := srv.ListenAndServe()
-		if err != nil {
-			errorChannel <- err
-			cancel()
-		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		if err := srv.Shutdown(ctx); err != nil && err != context.Canceled {
-			return fmt.Errorf("failed to shutdown sample webhook client server: %s", err)
-		}
-		return nil
-	case err := <-errorChannel:
-		return fmt.Errorf("webhook sample client failed: %s", err)
 	}
 }
