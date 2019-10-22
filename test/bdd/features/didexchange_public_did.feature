@@ -10,11 +10,11 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
 
   @didexchange_public_did
   Scenario: did exchange e2e flow using public DID in invitation
-    Given "Maria" agent is running on "localhost" port "random" with http-binding did resolver url "http://localhost:48326/.sidetree/document" which accepts did method "sidetree"
+    Given "Maria" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
     And   "Maria" registers to receive notification for post state event "completed"
-    Given "Lisa" agent is running on "localhost" port "random" with http-binding did resolver url "http://localhost:48326/.sidetree/document" which accepts did method "sidetree"
+    Given "Lisa" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
     And   "Lisa" registers to receive notification for post state event "completed"
-    And   "Maria" creates public DID using sidetree "http://localhost:48326/.sidetree/document"
+    And   "Maria" creates public DID using sidetree "${SIDETREE_URL}"
     # we wait until observer polls sidetree txn
     Then  "Maria" waits for public did to become avaiable in sidetree for up to 5 seconds
     And   "Maria" creates invitation with public DID

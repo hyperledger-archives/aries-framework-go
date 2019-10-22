@@ -5,12 +5,14 @@
 module github.com/hyperledger/aries-framework-go
 
 require (
+	github.com/DATA-DOG/godog v0.7.13 // indirect
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/piprate/json-gold v0.2.0
+	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/square/go-jose/v3 v3.0.0-20190722231519-723929d55157
 	github.com/stretchr/testify v1.3.0

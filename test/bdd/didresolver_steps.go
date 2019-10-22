@@ -19,35 +19,40 @@ import (
 	"github.com/DATA-DOG/godog"
 	"github.com/go-openapi/swag"
 
+	"github.com/trustbloc/sidetree-core-go/pkg/document"
+	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
+	"github.com/trustbloc/sidetree-node/models"
+
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
-	"github.com/trustbloc/sidetree-core-go/pkg/document"
-	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
-	"github.com/trustbloc/sidetree-node/models"
 )
 
-const sha2_256 = 18
-const didDocNamespace = "did:sidetree:"
-const maxRetry = 5
+const (
+	SideTreeURL     = "${SIDETREE_URL}"
+	DIDDocPath      = "${DID_DOC_PATH}"
+	sha2_256        = 18
+	didDocNamespace = "did:sidetree:"
+	maxRetry        = 10
+)
 
-// DIDResolverSideTreeNodeSteps
-type DIDResolverSideTreeNodeSteps struct {
+// DIDResolverSteps
+type DIDResolverSteps struct {
 	bddContext       *Context
 	reqEncodedDIDDoc string
 	resp             *httpRespone
 }
 
 // NewDIDResolverSteps
-func NewDIDResolverSideTreeNodeSteps(context *Context) *DIDResolverSideTreeNodeSteps {
-	return &DIDResolverSideTreeNodeSteps{bddContext: context}
+func NewDIDResolverSteps(context *Context) *DIDResolverSteps {
+	return &DIDResolverSteps{bddContext: context}
 }
 
-func (d *DIDResolverSideTreeNodeSteps) createDIDDocument(agentID string, sideTreeURL string) error {
+func (d *DIDResolverSteps) createDIDDocument(agentID string, sideTreeURL string) error {
 	req := newCreateRequest(createSidetreeDoc(d.bddContext.AgentCtx[agentID]))
 	d.reqEncodedDIDDoc = swag.StringValue(req.Payload)
-	resp, err := sendRequest(sideTreeURL, req)
+	resp, err := sendRequest(d.bddContext.Args[sideTreeURL], req)
 	if err != nil {
 		return fmt.Errorf("failed to create public DID document: %s", d.resp.errorMsg)
 	}
@@ -61,15 +66,15 @@ func (d *DIDResolverSideTreeNodeSteps) createDIDDocument(agentID string, sideTre
 	return nil
 }
 
-func (d *DIDResolverSideTreeNodeSteps) createDIDDocumentFromFile(sideTreeURL, didDocumentPath string) error {
-	req := newCreateRequest(didDocFromFile(didDocumentPath))
+func (d *DIDResolverSteps) createDIDDocumentFromFile(sideTreeURL, didDocumentPath string) error {
+	req := newCreateRequest(didDocFromFile(d.bddContext.Args[didDocumentPath]))
 	d.reqEncodedDIDDoc = swag.StringValue(req.Payload)
 	var err error
-	d.resp, err = sendRequest(sideTreeURL, req)
+	d.resp, err = sendRequest(d.bddContext.Args[sideTreeURL], req)
 	return err
 }
 
-func (d *DIDResolverSideTreeNodeSteps) checkSuccessResp(msg string) error {
+func (d *DIDResolverSteps) checkSuccessResp(msg string) error {
 	if d.resp.errorMsg != "" {
 		return fmt.Errorf("error resp %s", d.resp.errorMsg)
 	}
@@ -88,7 +93,7 @@ func (d *DIDResolverSideTreeNodeSteps) checkSuccessResp(msg string) error {
 	return nil
 }
 
-func (d *DIDResolverSideTreeNodeSteps) resolveDID(agentID string) error {
+func (d *DIDResolverSteps) resolveDID(agentID string) error {
 	didID, err := docutil.CalculateID(didDocNamespace, d.reqEncodedDIDDoc, sha2_256)
 	if err != nil {
 		return err
@@ -233,7 +238,7 @@ func resolveDID(resolver didresolver.Resolver, did string, maxRetry int) (*diddo
 }
 
 // RegisterSteps registers did exchange steps
-func (d *DIDResolverSideTreeNodeSteps) RegisterSteps(s *godog.Suite) {
+func (d *DIDResolverSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^client sends request to sidetree "([^"]*)" for create DID document "([^"]*)"`, d.createDIDDocumentFromFile)
 	s.Step(`^check success response contains "([^"]*)"$`, d.checkSuccessResp)
 	s.Step(`^"([^"]*)" creates public DID using sidetree "([^"]*)"`, d.createDIDDocument)

@@ -11,7 +11,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.3.0
 	github.com/go-openapi/swag v0.19.5
 	github.com/hyperledger/aries-framework-go v0.0.0
-	github.com/sirupsen/logrus v1.3.0
+	github.com/sirupsen/logrus v1.4.2
 	github.com/trustbloc/sidetree-core-go v0.0.0-20191017153620-a489e16494b3
 	github.com/trustbloc/sidetree-node v0.0.0-20191017194101-9674831a60aa
 
