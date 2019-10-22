@@ -6,9 +6,9 @@
 # Reference : https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange
 
 @all
-Feature: Decentralized Identifier(DID) exchange between the agents
+Feature: Decentralized Identifier(DID) exchange between the agents using SDK
 
-  @didexchange_e2e
+  @didexchange_e2e_sdk
   Scenario: did exchange e2e flow
     Given "Alice" agent is running on "localhost" port "random"
     And   "Alice" creates did exchange client

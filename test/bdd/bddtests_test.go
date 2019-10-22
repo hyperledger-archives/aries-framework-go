@@ -16,12 +16,11 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/godog"
-
 	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
 )
 
 var composition []*dockerutil.Composition
-var composeFiles = []string{"./fixtures/sidetree-node"}
+var composeFiles = []string{"./fixtures/sidetree-node", "./fixtures/agent"}
 
 func TestMain(m *testing.M) {
 
@@ -50,8 +49,8 @@ func TestMain(m *testing.M) {
 					}
 					composition = append(composition, newComposition)
 				}
-				fmt.Println("docker-compose up ... waiting for peer to start ...")
-				testSleep := 5
+				fmt.Println("docker-compose up ... waiting for containers to start ...")
+				testSleep := 15
 				if os.Getenv("TEST_SLEEP") != "" {
 					testSleep, _ = strconv.Atoi(os.Getenv("TEST_SLEEP"))
 				}
@@ -99,10 +98,24 @@ func FeatureContext(s *godog.Suite) {
 	context.Args[SideTreeURL] = "http://localhost:48326/.sidetree/document"
 	context.Args[DIDDocPath] = "fixtures/sidetree-node/config/didDocument.json"
 
+	// alice agent container configuration
+	context.Args[AliceAgentHost] = "alice.agent.example.com"
+	context.Args[AliceAgentPort] = "8081"
+	context.Args[AliceAgentController] = "http://localhost:8082"
+	context.Args[AliceAgentWebhook] = "http://localhost:8083/sample"
+
+	// bob agent container configuration
+	context.Args[BobAgentHost] = "bob.agent.example.com"
+	context.Args[BobAgentPort] = "9081"
+	context.Args[BobAgentController] = "http://localhost:9082"
+	context.Args[BobAgentWebhook] = "http://localhost:9083/sample"
+
 	// Context is shared between tests
-	NewAgentSteps(context).RegisterSteps(s)
+	NewAgentSDKSteps(context).RegisterSteps(s)
+	NewAgentControllerSteps(context).RegisterSteps(s)
 	NewDIDExchangeSteps(context).RegisterSteps(s)
 	NewDIDResolverSteps(context).RegisterSteps(s)
+
 }
 
 func initBDDConfig() {
