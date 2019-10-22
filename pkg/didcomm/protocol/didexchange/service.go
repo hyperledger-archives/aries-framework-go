@@ -423,7 +423,15 @@ func (s *Service) currentState(thid string) (state, error) {
 }
 
 func (s *Service) update(thid string, state state) error {
-	err := s.store.Put(thid, []byte(state.Name()))
+	// todo will be refactored in the issue-397
+	connRecBytes, err := json.Marshal(&ConnectionRecord{State: state.Name(), ThreadID: thid,
+		ConnectionID: generateRandomID()})
+	if err != nil {
+		return err
+	}
+
+	// todo following function will be replaced by persistence connection store save connection record
+	err = s.store.Put("conn_"+thid, connRecBytes)
 	if err != nil {
 		return fmt.Errorf("failed to write to store: %s", err)
 	}

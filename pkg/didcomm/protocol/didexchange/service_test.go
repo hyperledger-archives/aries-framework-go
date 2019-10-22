@@ -216,15 +216,15 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.NoError(t, err)
 
 	// Alice automatically sends a Request to Bob and is now in REQUESTED state.
-	var thid string
-	var currState string
-	for k, v := range data {
-		thid = k
-		currState = v
-		break
+	connRecord := &ConnectionRecord{}
+	for _, v := range data {
+		currentData := v
+		err = json.Unmarshal([]byte(currentData), connRecord)
+		if err == nil && (&requested{}).Name() == connRecord.State {
+			break
+		}
 	}
-	require.NotEmpty(t, thid)
-	require.Equal(t, (&requested{}).Name(), currState)
+	require.Equal(t, (&requested{}).Name(), connRecord.State)
 
 	connection := &Connection{
 		DID:    newDidDoc.ID,
@@ -240,7 +240,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 			Type:                ConnectionResponse,
 			ID:                  randomString(),
 			ConnectionSignature: connectionSignature,
-			Thread:              &decorator.Thread{ID: thid},
+			Thread:              &decorator.Thread{ID: connRecord.ThreadID},
 		},
 	)
 	require.NoError(t, err)
@@ -256,7 +256,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		require.Fail(t, "didn't receive post event complete")
 	}
-	validateState(t, s, thid, (&completed{}).Name())
+	validateState(t, s, connRecord.ThreadID, (&completed{}).Name())
 }
 
 func TestService_Handle_EdgeCases(t *testing.T) {
@@ -483,9 +483,11 @@ func TestService_currentState(t *testing.T) {
 	})
 	t.Run("returns state from store", func(t *testing.T) {
 		expected := &requested{}
+		connRecBytes, err := json.Marshal(&ConnectionRecord{State: expected.Name()})
+		require.NoError(t, err)
 		svc := &Service{
 			connectionStore: NewConnectionRecorder(&mockStore{
-				get: func(string) ([]byte, error) { return []byte(expected.Name()), nil },
+				get: func(string) ([]byte, error) { return connRecBytes, nil },
 			}),
 		}
 		actual, err := svc.currentState("ignored")
@@ -507,16 +509,28 @@ func TestService_currentState(t *testing.T) {
 
 func TestService_update(t *testing.T) {
 	const thid = "123"
-	s := &responded{}
+	const ConnID = "123456"
+	s := &requested{}
 	data := make(map[string][]byte)
-	store := &mockStore{
-		put: func(k string, v []byte) error {
-			data[k] = v
-			return nil
+	connRec := &ConnectionRecord{ThreadID: thid, ConnectionID: ConnID, State: s.Name()}
+	bytes, err := json.Marshal(connRec)
+	require.NoError(t, err)
+	svc := &Service{
+		store: &mockStore{
+			put: func(k string, v []byte) error {
+				data[k] = bytes
+				return nil
+			},
+			get: func(k string) ([]byte, error) {
+				return bytes, nil
+			},
 		},
 	}
-	require.NoError(t, (&Service{store: store}).update("123", s))
-	require.Equal(t, s.Name(), string(data[thid]))
+	require.NoError(t, svc.update("123", s))
+	cr := &ConnectionRecord{}
+	err = json.Unmarshal(bytes, cr)
+	require.NoError(t, err)
+	require.Equal(t, cr, connRec)
 }
 
 func newMockOutboundDispatcher() dispatcher.Outbound {
@@ -977,11 +991,6 @@ func TestServiceErrors(t *testing.T) {
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
 
-	// state update error
-	err = svc.update("", &responded{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to write to store")
-
 	// fetch current state error
 	mockStore := &mockStore{get: func(s string) (bytes []byte, e error) {
 		return nil, errors.New("error")
@@ -1013,13 +1022,6 @@ func TestServiceErrors(t *testing.T) {
 	err = svc.handle(message)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to execute state invited")
-
-	// empty thread id
-	message.NextStateName = stateNameNull
-	message.ThreadID = ""
-	err = svc.handle(message)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to persist state null")
 }
 
 func TestMsgEventProtocolFailure(t *testing.T) {
