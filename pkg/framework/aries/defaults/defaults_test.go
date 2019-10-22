@@ -9,6 +9,7 @@ package defaults
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,15 @@ import (
 
 func TestWithDBPath(t *testing.T) {
 	t.Run("test with db path error", func(t *testing.T) {
-		_, err := aries.New(WithStorePath("/////////////"))
+		// create an non-writeable directory so that the store path will cause error
+		tempPath, cleanup := generateTempDir(t)
+		defer cleanup()
+		err := os.Chmod(tempPath, 0000)
+		require.NoError(t, err)
+
+		path := filepath.Join(tempPath, "db")
+
+		_, err = aries.New(WithStorePath(path))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "storage initialization failed")
 	})
