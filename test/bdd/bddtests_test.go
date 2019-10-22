@@ -21,7 +21,7 @@ import (
 )
 
 var composition []*dockerutil.Composition
-var composeFiles = []string{"./fixtures/did_resolver_sidetree_node"}
+var composeFiles = []string{"./fixtures/sidetree-node"}
 
 func TestMain(m *testing.M) {
 
@@ -95,10 +95,14 @@ func FeatureContext(s *godog.Suite) {
 		panic(fmt.Sprintf("Error returned from NewBDDContext: %s", err))
 	}
 
+	// set dynamic args
+	context.Args[SideTreeURL] = "http://localhost:48326/.sidetree/document"
+	context.Args[DIDDocPath] = "fixtures/sidetree-node/config/didDocument.json"
+
 	// Context is shared between tests
 	NewAgentSteps(context).RegisterSteps(s)
 	NewDIDExchangeSteps(context).RegisterSteps(s)
-	NewDIDResolverSideTreeNodeSteps(context).RegisterSteps(s)
+	NewDIDResolverSteps(context).RegisterSteps(s)
 }
 
 func initBDDConfig() {

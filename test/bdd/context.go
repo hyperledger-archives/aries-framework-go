@@ -20,6 +20,7 @@ type Context struct {
 	Invitations        map[string]*didexchange.Invitation
 	PostStatesFlag     map[string]map[string]chan bool
 	ConnectionID       map[string]string
+	Args               map[string]string
 }
 
 // NewContext create new Context
@@ -31,6 +32,7 @@ func NewContext() (*Context, error) {
 		PostStatesFlag:     make(map[string]map[string]chan bool),
 		ConnectionID:       make(map[string]string),
 		AgentCtx:           make(map[string]*context.Provider),
+		Args:               make(map[string]string),
 	}
 	return &instance, nil
 }

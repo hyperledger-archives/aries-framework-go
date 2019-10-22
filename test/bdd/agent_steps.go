@@ -47,7 +47,7 @@ func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error
 
 func (a *AgentSteps) createAgentWithHttpDIDResolver(agentID, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
 	var opts []aries.Option
-	httpResolver, err := httpbinding.New(endpointURL,
+	httpResolver, err := httpbinding.New(a.bddContext.Args[endpointURL],
 		httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
 	if err != nil {
 		return fmt.Errorf("failed from httpbinding new ")
