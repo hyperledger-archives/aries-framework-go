@@ -333,11 +333,97 @@ func TestStartMultipleAgentsWithSameDBPath(t *testing.T) {
 	require.Contains(t, err.Error(), "storage initialization failed")
 }
 
+func TestController(t *testing.T) {
+	path, cleanup := generateTempDir(t)
+	defer cleanup()
+
+	hostURL := randomURL()
+	inboundHostURL := randomURL()
+	controllerURL := randomURL()
+
+	// start reference agent with controller server in same process
+	go func() {
+		parameters := &agentParameters{
+			server:      &HTTPServer{},
+			host:        hostURL,
+			inboundHost: inboundHostURL,
+			dbPath:      path,
+			webhookURLs: []string{controllerURL}}
+		err := startAgent(parameters)
+		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
+	}()
+
+	waitForServerToStartWithController(t, hostURL, inboundHostURL, controllerURL)
+
+	validateControllerRequests(t, controllerURL)
+}
+
+func validateControllerRequests(t *testing.T, controllerURL string) {
+	createReq := func(method, url string, body io.Reader, contentType string) *http.Request {
+		r, err := http.NewRequest(method, url, body)
+		if contentType != "" {
+			r.Header.Add("Content-Type", contentType)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+
+	tests := []struct {
+		name           string
+		req            *http.Request
+		expectedStatus int
+	}{
+		// Controller API test
+		{
+			name: "1: Test Connection API",
+			req: createReq(http.MethodPost,
+				fmt.Sprintf("http://%s/connections", controllerURL),
+				nil,
+				""),
+			expectedStatus: http.StatusNotImplemented,
+		},
+		// Controller API test
+		{
+			name: "1: Test Basic Messages API",
+			req: createReq(http.MethodPost,
+				fmt.Sprintf("http://%s/basicmessages", controllerURL),
+				nil,
+				""),
+			expectedStatus: http.StatusNotImplemented,
+		},
+	}
+	for _, tt := range tests {
+		resp, err := http.DefaultClient.Do(tt.req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		defer func() {
+			e := resp.Body.Close()
+			if e != nil {
+				panic(err)
+			}
+		}()
+
+		require.Equal(t, tt.expectedStatus, resp.StatusCode)
+	}
+}
+
 func waitForServerToStart(t *testing.T, host, inboundHost string) {
 	if err := listenFor(host); err != nil {
 		t.Fatal(err)
 	}
 	if err := listenFor(inboundHost); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func waitForServerToStartWithController(t *testing.T, host, inboundHost, controller string) {
+	waitForServerToStart(t, host, inboundHost)
+
+	if err := listenFor(controller); err != nil {
 		t.Fatal(err)
 	}
 }

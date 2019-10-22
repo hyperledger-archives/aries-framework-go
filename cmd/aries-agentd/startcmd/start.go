@@ -171,6 +171,11 @@ func startAgent(parameters *agentParameters) error {
 			parameters.host, err)
 	}
 
+	// Start controller server. For now, starting controller service inside agent and webhookURL is
+	// used as the url of the controller server. Added here, as this is a reference implementation
+	// and not actually part of the framework.
+	startController(parameters.webhookURLs)
+
 	// get all HTTP REST API handlers available for controller API
 	restService, err := restapi.New(ctx, parameters.webhookURLs)
 	if err != nil {
@@ -194,4 +199,38 @@ func startAgent(parameters *agentParameters) error {
 	}
 
 	return nil
+}
+
+// startController starts the controller/webhook server.
+func startController(webhookURLs []string) {
+	if len(webhookURLs) == 0 {
+		logger.Infof("Controller hot not provided")
+		return
+	}
+
+	// Assumption : Get the url for reference controller directly from webhookURLs.
+	webhookURL := webhookURLs[0]
+
+	// register handlers
+	router := mux.NewRouter()
+
+	// handler for connections
+	router.HandleFunc("/connections", func(w http.ResponseWriter, r *http.Request) {
+		logger.Infof("received connection message")
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/542 Process "/connections"
+		w.WriteHeader(http.StatusNotImplemented)
+	}).Methods(http.MethodPost)
+
+	// handler for basic messages
+	router.HandleFunc("/basicmessages", func(w http.ResponseWriter, r *http.Request) {
+		logger.Infof("received basicmessages")
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/543 Controller - Process "/basicmessages"
+		w.WriteHeader(http.StatusNotImplemented)
+	}).Methods(http.MethodPost)
+
+	go func() {
+		if err := http.ListenAndServe(webhookURL, router); err != http.ErrServerClosed {
+			logger.Fatalf("HTTP Controller start with address [%s] failed, cause:  %s", webhookURL, err)
+		}
+	}()
 }
