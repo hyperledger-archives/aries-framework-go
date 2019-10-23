@@ -187,10 +187,8 @@ func (c *Client) startServiceEventListener() {
 	for {
 		select {
 		case e := <-c.actionCh:
-			// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
 			c.ActionEvent() <- e
 		case e := <-c.msgCh:
-			// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
 			c.handleMessageEvent(e)
 		}
 	}
