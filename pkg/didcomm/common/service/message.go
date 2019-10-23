@@ -14,8 +14,8 @@ type Message struct {
 	events []chan<- StateMsg
 }
 
-// GetMsgEvents returns event message channels
-func (m *Message) GetMsgEvents() []chan<- StateMsg {
+// MsgEvents returns event message channels
+func (m *Message) MsgEvents() []chan<- StateMsg {
 	m.mu.RLock()
 	events := append(m.events[:0:0], m.events...)
 	m.mu.RUnlock()

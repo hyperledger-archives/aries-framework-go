@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAction_GetActionEvent(t *testing.T) {
+func TestAction_ActionEvent(t *testing.T) {
 	a := Action{}
-	require.Nil(t, a.GetActionEvent())
+	require.Nil(t, a.ActionEvent())
 }
 
 func TestAction_RegisterActionEvent(t *testing.T) {
@@ -25,7 +25,7 @@ func TestAction_RegisterActionEvent(t *testing.T) {
 	// channel should be the same
 	ch := make(chan DIDCommAction)
 	require.Nil(t, a.RegisterActionEvent(ch))
-	require.EqualValues(t, ch, a.GetActionEvent())
+	require.EqualValues(t, ch, a.ActionEvent())
 
 	// register the same channel twice
 	newCh := make(chan DIDCommAction)

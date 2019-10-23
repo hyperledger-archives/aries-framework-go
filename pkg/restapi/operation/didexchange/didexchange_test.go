@@ -375,7 +375,7 @@ func TestOperationEventError(t *testing.T) {
 		ServiceValue: &protocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 
-	ops := &Operation{client: client}
+	ops := &Operation{client: client, actionCh: make(chan service.DIDCommAction)}
 
 	aCh := make(chan service.DIDCommAction)
 	err = client.RegisterActionEvent(aCh)
