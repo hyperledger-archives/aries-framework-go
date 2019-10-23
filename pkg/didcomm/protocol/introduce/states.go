@@ -37,8 +37,8 @@ type state interface {
 	CanTransitionTo(next state) bool
 	// Executes this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	ExecuteInbound(msg *service.DIDCommMsg) (followup state, err error)
-	ExecuteOutbound(msg *service.DIDCommMsg, destination *service.Destination) (followup state, err error)
+	ExecuteInbound(msg *metaData) (followup state, err error)
+	ExecuteOutbound(msg *metaData, dest *service.Destination) (followup state, err error)
 }
 
 // noOp state
@@ -53,11 +53,11 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) ExecuteInbound(_ *service.DIDCommMsg) (state, error) {
+func (s *noOp) ExecuteInbound(_ *metaData) (state, error) {
 	return nil, errors.New("cannot execute no-op")
 }
 
-func (s *noOp) ExecuteOutbound(_ *service.DIDCommMsg, destination *service.Destination) (state, error) {
+func (s *noOp) ExecuteOutbound(_ *metaData, _ *service.Destination) (state, error) {
 	return nil, errors.New("cannot execute no-op")
 }
 
@@ -75,12 +75,12 @@ func (s *start) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameArranging || next.Name() == stateNameDelivering || next.Name() == stateNameDeciding
 }
 
-func (s *start) ExecuteInbound(msg *service.DIDCommMsg) (state, error) {
-	return nil, errors.New("start ExecuteInbound: not implemented yet")
+func (s *start) ExecuteInbound(_ *metaData) (state, error) {
+	return &noOp{}, nil
 }
 
-func (s *start) ExecuteOutbound(_ *service.DIDCommMsg, destination *service.Destination) (state, error) {
-	return nil, errors.New("start ExecuteOutbound: not implemented yet")
+func (s *start) ExecuteOutbound(_ *metaData, _ *service.Destination) (state, error) {
+	return &noOp{}, nil
 }
 
 // done state
@@ -96,11 +96,11 @@ func (s *done) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *done) ExecuteInbound(msg *service.DIDCommMsg) (state, error) {
+func (s *done) ExecuteInbound(_ *metaData) (state, error) {
 	return nil, errors.New("done ExecuteInbound: not implemented yet")
 }
 
-func (s *done) ExecuteOutbound(_ *service.DIDCommMsg, destination *service.Destination) (state, error) {
+func (s *done) ExecuteOutbound(_ *metaData, _ *service.Destination) (state, error) {
 	return nil, errors.New("done ExecuteOutbound: not implemented yet")
 }
 
@@ -116,11 +116,11 @@ func (s *arranging) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameArranging || next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-func (s *arranging) ExecuteInbound(msg *service.DIDCommMsg) (state, error) {
+func (s *arranging) ExecuteInbound(_ *metaData) (state, error) {
 	return nil, errors.New("arranging ExecuteInbound: not implemented yet")
 }
 
-func (s *arranging) ExecuteOutbound(_ *service.DIDCommMsg, destination *service.Destination) (state, error) {
+func (s *arranging) ExecuteOutbound(_ *metaData, _ *service.Destination) (state, error) {
 	return nil, errors.New("arranging ExecuteOutbound: not implemented yet")
 }
 
@@ -136,11 +136,11 @@ func (s *delivering) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameConfirming || next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-func (s *delivering) ExecuteInbound(msg *service.DIDCommMsg) (state, error) {
+func (s *delivering) ExecuteInbound(_ *metaData) (state, error) {
 	return nil, errors.New("delivering ExecuteInbound: not implemented yet")
 }
 
-func (s *delivering) ExecuteOutbound(_ *service.DIDCommMsg, destination *service.Destination) (state, error) {
+func (s *delivering) ExecuteOutbound(_ *metaData, _ *service.Destination) (state, error) {
 	return nil, errors.New("delivering ExecuteOutbound: not implemented yet")
 }
 
@@ -156,11 +156,11 @@ func (s *confirming) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-func (s *confirming) ExecuteInbound(msg *service.DIDCommMsg) (state, error) {
+func (s *confirming) ExecuteInbound(_ *metaData) (state, error) {
 	return nil, errors.New("confirming ExecuteInbound: not implemented yet")
 }
 
-func (s *confirming) ExecuteOutbound(_ *service.DIDCommMsg, destination *service.Destination) (state, error) {
+func (s *confirming) ExecuteOutbound(_ *metaData, _ *service.Destination) (state, error) {
 	return nil, errors.New("confirming ExecuteOutbound: not implemented yet")
 }
 
@@ -176,11 +176,11 @@ func (s *abandoning) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone
 }
 
-func (s *abandoning) ExecuteInbound(msg *service.DIDCommMsg) (state, error) {
+func (s *abandoning) ExecuteInbound(_ *metaData) (state, error) {
 	return nil, errors.New("abandoning ExecuteInbound: not implemented yet")
 }
 
-func (s *abandoning) ExecuteOutbound(_ *service.DIDCommMsg, destination *service.Destination) (state, error) {
+func (s *abandoning) ExecuteOutbound(_ *metaData, _ *service.Destination) (state, error) {
 	return nil, errors.New("abandoning ExecuteOutbound: not implemented yet")
 }
 
@@ -196,11 +196,11 @@ func (s *deciding) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameWaiting || next.Name() == stateNameDone
 }
 
-func (s *deciding) ExecuteInbound(msg *service.DIDCommMsg) (state, error) {
+func (s *deciding) ExecuteInbound(_ *metaData) (state, error) {
 	return nil, errors.New("deciding ExecuteInbound: not implemented yet")
 }
 
-func (s *deciding) ExecuteOutbound(_ *service.DIDCommMsg, destination *service.Destination) (state, error) {
+func (s *deciding) ExecuteOutbound(_ *metaData, _ *service.Destination) (state, error) {
 	return nil, errors.New("deciding ExecuteOutbound: not implemented yet")
 }
 
@@ -216,10 +216,10 @@ func (s *waiting) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone
 }
 
-func (s *waiting) ExecuteInbound(msg *service.DIDCommMsg) (state, error) {
+func (s *waiting) ExecuteInbound(_ *metaData) (state, error) {
 	return nil, errors.New("waiting ExecuteInbound: not implemented yet")
 }
 
-func (s *waiting) ExecuteOutbound(_ *service.DIDCommMsg, destination *service.Destination) (state, error) {
+func (s *waiting) ExecuteOutbound(_ *metaData, _ *service.Destination) (state, error) {
 	return nil, errors.New("waiting ExecuteOutbound: not implemented yet")
 }
