@@ -16,8 +16,8 @@ type Action struct {
 	event chan<- DIDCommAction
 }
 
-// GetActionEvent returns event action channel
-func (a *Action) GetActionEvent() chan<- DIDCommAction {
+// ActionEvent returns event action channel
+func (a *Action) ActionEvent() chan<- DIDCommAction {
 	a.mu.RLock()
 	e := a.event
 	a.mu.RUnlock()

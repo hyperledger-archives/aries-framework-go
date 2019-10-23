@@ -130,15 +130,15 @@ func TestService_Action(t *testing.T) {
 	ch := make(chan<- service.DIDCommAction)
 
 	// by default
-	require.Nil(t, svc.GetActionEvent())
+	require.Nil(t, svc.ActionEvent())
 
 	// register action event
 	require.Nil(t, svc.RegisterActionEvent(ch))
-	require.Equal(t, ch, svc.GetActionEvent())
+	require.Equal(t, ch, svc.ActionEvent())
 
 	// unregister action event
 	require.Nil(t, svc.UnregisterActionEvent(ch))
-	require.Nil(t, svc.GetActionEvent())
+	require.Nil(t, svc.ActionEvent())
 }
 
 func TestService_Message(t *testing.T) {
@@ -148,15 +148,15 @@ func TestService_Message(t *testing.T) {
 	ch := make(chan<- service.StateMsg)
 
 	// by default
-	require.Nil(t, svc.GetMsgEvents())
+	require.Nil(t, svc.MsgEvents())
 
 	// register message event
 	require.Nil(t, svc.RegisterMsgEvent(ch))
-	require.Equal(t, ch, svc.GetMsgEvents()[0])
+	require.Equal(t, ch, svc.MsgEvents()[0])
 
 	// unregister message event
 	require.Nil(t, svc.UnregisterMsgEvent(ch))
-	require.Equal(t, 0, len(svc.GetMsgEvents()))
+	require.Equal(t, 0, len(svc.MsgEvents()))
 }
 
 func TestService_Name(t *testing.T) {

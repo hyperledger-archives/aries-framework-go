@@ -347,7 +347,7 @@ func TestService_ActionEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	// validate before register
-	require.Nil(t, c.actionEvent)
+	require.Nil(t, c.ActionEvent())
 
 	// register an action event
 	ch := make(chan service.DIDCommAction)
@@ -360,14 +360,14 @@ func TestService_ActionEvent(t *testing.T) {
 	require.Contains(t, err.Error(), "channel is already registered for the action event")
 
 	// validate after register
-	require.NotNil(t, c.actionEvent)
+	require.NotNil(t, c.ActionEvent())
 
 	// unregister a action event
 	err = c.UnregisterActionEvent(ch)
 	require.NoError(t, err)
 
 	// validate after unregister
-	require.Nil(t, c.actionEvent)
+	require.Nil(t, c.ActionEvent())
 
 	// unregister with different channel
 	err = c.UnregisterActionEvent(make(chan service.DIDCommAction))
@@ -381,8 +381,8 @@ func TestService_MsgEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	// validate before register
-	require.Nil(t, c.msgEvents)
-	require.Equal(t, 0, len(c.msgEvents))
+	require.Nil(t, c.MsgEvents())
+	require.Equal(t, 0, len(c.MsgEvents()))
 
 	// register a status event
 	ch := make(chan service.StateMsg)
@@ -390,45 +390,21 @@ func TestService_MsgEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	// validate after register
-	require.NotNil(t, c.msgEvents)
-	require.Equal(t, 1, len(c.msgEvents))
+	require.NotNil(t, c.MsgEvents())
+	require.Equal(t, 1, len(c.MsgEvents()))
 
 	// register a new status event
 	err = c.RegisterMsgEvent(make(chan service.StateMsg))
 	require.NoError(t, err)
 
 	// validate after new register
-	require.NotNil(t, c.msgEvents)
-	require.Equal(t, 2, len(c.msgEvents))
+	require.NotNil(t, c.MsgEvents())
+	require.Equal(t, 2, len(c.MsgEvents()))
 
 	// unregister a status event
 	err = c.UnregisterMsgEvent(ch)
 	require.NoError(t, err)
 
 	// validate after unregister
-	require.Equal(t, 1, len(c.msgEvents))
-
-	// add channels and remove in opposite order
-	c.msgEvents = nil
-	ch1 := make(chan service.StateMsg)
-	ch2 := make(chan service.StateMsg)
-	ch3 := make(chan service.StateMsg)
-
-	err = c.RegisterMsgEvent(ch1)
-	require.NoError(t, err)
-
-	err = c.RegisterMsgEvent(ch2)
-	require.NoError(t, err)
-
-	err = c.RegisterMsgEvent(ch3)
-	require.NoError(t, err)
-
-	err = c.UnregisterMsgEvent(ch3)
-	require.NoError(t, err)
-
-	err = c.UnregisterMsgEvent(ch2)
-	require.NoError(t, err)
-
-	err = c.UnregisterMsgEvent(ch1)
-	require.NoError(t, err)
+	require.Equal(t, 1, len(c.MsgEvents()))
 }

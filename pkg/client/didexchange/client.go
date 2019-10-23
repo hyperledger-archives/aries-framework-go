@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/google/uuid"
 
@@ -40,15 +39,13 @@ type provider interface {
 
 // Client enable access to didexchange api
 type Client struct {
+	service.Action
+	service.Message
 	didexchangeSvc           service.DIDComm
 	wallet                   wallet.Crypto
 	inboundTransportEndpoint string
 	actionCh                 chan service.DIDCommAction
 	msgCh                    chan service.StateMsg
-	actionEvent              chan<- service.DIDCommAction
-	actionEventlock          sync.RWMutex
-	msgEvents                []chan<- service.StateMsg
-	msgEventsLock            sync.RWMutex
 	connectionStore          *didexchange.ConnectionRecorder
 }
 
@@ -191,86 +188,16 @@ func (c *Client) startServiceEventListener() {
 		select {
 		case e := <-c.actionCh:
 			// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
-			msg := e
-			c.handleActionEvent(&msg)
+			c.ActionEvent() <- e
 		case e := <-c.msgCh:
 			// assigned to var as lint fails with : Using a reference for the variable on range scope (scopelint)
-			msg := e
-			c.handleMessageEvent(&msg)
+			c.handleMessageEvent(e)
 		}
 	}
 }
 
-// RegisterActionEvent on DID Exchange protocol messages. The events are triggered for incoming exchangeRequest,
-// exchangeResponse and exchangeAck message types. The consumer need to invoke the callback to resume processing.
-// Only one channel can be registered for the action events. The function will throw error if a channel is already
-// registered. The AutoExecuteActionEvent() function can be used to automatically trigger callback function for the
-// event.
-func (c *Client) RegisterActionEvent(ch chan<- service.DIDCommAction) error {
-	c.actionEventlock.Lock()
-	defer c.actionEventlock.Unlock()
-
-	if c.actionEvent != nil {
-		return errors.New("channel is already registered for the action event")
-	}
-
-	c.actionEvent = ch
-
-	return nil
-}
-
-// UnregisterActionEvent on DID Exchange protocol messages. Refer RegisterActionEvent().
-func (c *Client) UnregisterActionEvent(ch chan<- service.DIDCommAction) error {
-	c.actionEventlock.Lock()
-	defer c.actionEventlock.Unlock()
-
-	if c.actionEvent != ch {
-		return errors.New("invalid channel passed to unregister the action event")
-	}
-
-	c.actionEvent = nil
-
-	return nil
-}
-
-// RegisterMsgEvent on DID Exchange protocol messages. The message events are triggered for state transitions. Client
-// will not expect any callback on these events unlike Action events.
-func (c *Client) RegisterMsgEvent(ch chan<- service.StateMsg) error {
-	c.msgEventsLock.Lock()
-	c.msgEvents = append(c.msgEvents, ch)
-	c.msgEventsLock.Unlock()
-
-	return nil
-}
-
-// UnregisterMsgEvent on DID Exchange protocol messages.
-func (c *Client) UnregisterMsgEvent(ch chan<- service.StateMsg) error {
-	c.msgEventsLock.Lock()
-	for i := 0; i < len(c.msgEvents); i++ {
-		if c.msgEvents[i] == ch {
-			c.msgEvents = append(c.msgEvents[:i], c.msgEvents[i+1:]...)
-			i--
-		}
-	}
-	c.msgEventsLock.Unlock()
-
-	return nil
-}
-
-func (c *Client) handleActionEvent(msg *service.DIDCommAction) {
-	c.actionEventlock.RLock()
-	aEvent := c.actionEvent
-	c.actionEventlock.RLock()
-
-	aEvent <- *msg
-}
-
-func (c *Client) handleMessageEvent(msg *service.StateMsg) {
-	c.msgEventsLock.RLock()
-	statusEvents := c.msgEvents
-	c.msgEventsLock.RUnlock()
-
-	for _, handler := range statusEvents {
-		handler <- *msg
+func (c *Client) handleMessageEvent(msg service.StateMsg) {
+	for _, handler := range c.MsgEvents() {
+		handler <- msg
 	}
 }

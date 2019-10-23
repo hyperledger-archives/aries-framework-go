@@ -125,7 +125,7 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 
 // HandleInbound handles inbound message (introduce protocol)
 func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
-	aEvent := s.GetActionEvent()
+	aEvent := s.ActionEvent()
 
 	logger.Infof("entered into HandleInbound: %v", msg.Header)
 	// throw error if there is no action event registered for inbound messages
@@ -176,7 +176,7 @@ func (s *Service) HandleOutbound(msg *service.DIDCommMsg, dest *service.Destinat
 // sendMsgEvents triggers the message events.
 func (s *Service) sendMsgEvents(msg service.StateMsg) {
 	// trigger the message events
-	for _, handler := range s.GetMsgEvents() {
+	for _, handler := range s.MsgEvents() {
 		handler <- msg
 	}
 }

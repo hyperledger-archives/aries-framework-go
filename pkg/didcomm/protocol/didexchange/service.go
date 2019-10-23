@@ -125,7 +125,7 @@ func New(didMaker did.Creator, prov provider) (*Service, error) {
 // HandleInbound handles inbound didexchange messages.
 func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 	// throw error if there is no action event registered for inbound messages
-	aEvent := s.GetActionEvent()
+	aEvent := s.ActionEvent()
 
 	logger.Infof("entered into HandleInbound exchange message : %s", msg.Payload)
 
@@ -296,7 +296,7 @@ func (s *Service) sendMsgEvents(msg *service.StateMsg) {
 	msg.ProtocolName = DIDExchange
 
 	// trigger the message events
-	statusEvents := s.GetMsgEvents()
+	statusEvents := s.MsgEvents()
 
 	for _, handler := range statusEvents {
 		handler <- *msg
