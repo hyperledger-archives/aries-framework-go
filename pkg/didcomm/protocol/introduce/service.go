@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,21 +57,94 @@ type record struct {
 	WaitCount int
 }
 
+type callback struct {
+	id  string
+	err error
+}
+
 // Service for introduce protocol
 type Service struct {
 	service.Action
 	service.Message
-	store storage.Store
+	store     storage.Store
+	callbacks chan callback
 }
 
 // New returns introduce service
-func New(s storage.Provider) (*Service, error) {
+func New(ctx context.Context, s storage.Provider) (*Service, error) {
 	store, err := s.OpenStore(Introduce)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Service{store: store}, nil
+	svc := &Service{
+		store:     store,
+		callbacks: make(chan callback),
+	}
+
+	// start the listener
+	go svc.startInternalListener(ctx)
+
+	return svc, nil
+}
+
+// startInternalListener listens to messages in gochannel for callback messages from clients.
+func (s *Service) startInternalListener(ctx context.Context) {
+	for {
+		select {
+		case msg := <-s.callbacks:
+			// if no error - do process
+			if msg.err == nil {
+				msg.err = s.process(msg.id)
+			}
+
+			// no error - continue
+			if msg.err == nil {
+				continue
+			}
+
+			// callback has an error
+			if err := s.processFailure(msg.id, msg.err); err != nil {
+				logger.Errorf("process callback : %s", err)
+			}
+		case <-ctx.Done():
+			logger.Infof("the listener was stopped by context")
+			return
+		}
+	}
+}
+
+// processCallback processes the callback events.
+func (s *Service) process(id string) error {
+	return nil
+}
+
+func (s *Service) processFailure(id string, pErr error) error {
+	// get the transient data
+	data, err := s.getTransientData(id)
+	if err != nil {
+		return fmt.Errorf("get transient data: %w", err)
+	}
+
+	return s.abandon(data.ThreadID, data.Msg, pErr)
+}
+
+// abandon updates the state to abandoned and trigger failure event.
+func (s *Service) abandon(thID string, msg *service.DIDCommMsg, _ error) error {
+	// update the state to abandoned
+	if err := s.save(thID, &abandoning{}); err != nil {
+		return fmt.Errorf("save abandoning sate: %w", err)
+	}
+
+	// TODO: add received error to Properties
+	// send the message event
+	s.sendMsgEvents(service.StateMsg{
+		Type:    service.PostState,
+		Msg:     msg,
+		StateID: stateNameAbandoning,
+	})
+
+	return nil
 }
 
 func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, error) {
@@ -181,6 +255,22 @@ func (s *Service) sendMsgEvents(msg service.StateMsg) {
 	}
 }
 
+// getTransientData fetches the transient data.
+func (s *Service) getTransientData(id string) (*metaData, error) {
+	// fetch the record
+	src, err := s.store.Get(id)
+	if err != nil {
+		return nil, fmt.Errorf("store get: %w", err)
+	}
+
+	var mData *metaData
+	if err := json.Unmarshal(src, &mData); err != nil {
+		return nil, fmt.Errorf("JSON marshalling : %w", err)
+	}
+
+	return mData, nil
+}
+
 // sendEvent triggers the action event. This function stores the state of current processing and passes a callback
 // function in the event message.
 func (s *Service) sendActionEvent(msg *metaData, aEvent chan<- service.DIDCommAction) error {
@@ -209,7 +299,11 @@ func (s *Service) sendActionEvent(msg *metaData, aEvent chan<- service.DIDCommAc
 	return nil
 }
 
-func (s *Service) processCallback(id string, err error) {}
+func (s *Service) processCallback(id string, err error) {
+	// pass the callback data to internal channel. This is created to unblock consumer go routine and wrap the callback
+	// channel internally.
+	s.callbacks <- callback{id: id, err: err}
+}
 
 func nextState(msg *service.DIDCommMsg, rec *record, outbound bool) (state, error) {
 	switch msg.Header.Type {

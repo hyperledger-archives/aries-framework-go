@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,7 +70,7 @@ func TestService_handle(t *testing.T) {
 	t.Parallel()
 	t.Run("Happy path", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		require.EqualError(t, svc.handle(&metaData{
 			Msg: &service.DIDCommMsg{},
@@ -78,7 +79,7 @@ func TestService_handle(t *testing.T) {
 
 	t.Run("Happy path", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		ch := make(chan service.StateMsg)
 		require.NoError(t, svc.RegisterMsgEvent(ch))
@@ -118,14 +119,65 @@ func TestService_New(t *testing.T) {
 	const errMsg = "test err"
 	store := mockstore.NewMockStoreProvider()
 	store.ErrOpenStoreHandle = errors.New(errMsg)
-	svc, err := New(store)
+	svc, err := New(context.Background(), store)
 	require.EqualError(t, err, "test err")
 	require.Nil(t, svc)
 }
 
+func TestService_processFailure(t *testing.T) {
+	store := mockstore.NewMockStoreProvider()
+	svc, err := New(context.Background(), store)
+	require.NotNil(t, svc)
+	require.NoError(t, err)
+	const errMsg = "get transient data: store get: data not found"
+	require.EqualError(t, svc.processFailure("ID", nil), errMsg)
+}
+
+func TestService_abandon(t *testing.T) {
+	const errMsg = "test err"
+	store := mockstore.NewMockStoreProvider()
+	store.Store.ErrPut = errors.New(errMsg)
+	svc, err := New(context.Background(), store)
+	require.NotNil(t, svc)
+	require.NoError(t, err)
+	const errStr = "save abandoning sate: " + errMsg
+	require.EqualError(t, svc.abandon("ID", nil, nil), errStr)
+}
+
+func TestService_getTransientData(t *testing.T) {
+	store := mockstore.NewMockStoreProvider()
+	require.NoError(t, store.Store.Put("ID", []byte(`[]`)))
+	svc, err := New(context.Background(), store)
+	require.NotNil(t, svc)
+	require.NoError(t, err)
+	const errStr = "JSON marshalling : json: cannot unmarshal array into Go value of type introduce.metaData"
+	res, err := svc.getTransientData("ID")
+	require.Nil(t, res)
+	require.EqualError(t, err, errStr)
+}
+
+func TestService_startInternalListener(t *testing.T) {
+	svc := &Service{
+		callbacks: make(chan callback),
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		svc.startInternalListener(ctx)
+		close(done)
+	}()
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Error("timeout")
+	}
+}
+
 func TestService_Action(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
-	svc, err := New(store)
+	svc, err := New(context.Background(), store)
 	require.NoError(t, err)
 	ch := make(chan<- service.DIDCommAction)
 
@@ -143,7 +195,7 @@ func TestService_Action(t *testing.T) {
 
 func TestService_Message(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
-	svc, err := New(store)
+	svc, err := New(context.Background(), store)
 	require.NoError(t, err)
 	ch := make(chan<- service.StateMsg)
 
@@ -161,7 +213,7 @@ func TestService_Message(t *testing.T) {
 
 func TestService_Name(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
-	svc, err := New(store)
+	svc, err := New(context.Background(), store)
 	require.NoError(t, err)
 	require.Equal(t, Introduce, svc.Name())
 }
@@ -170,7 +222,7 @@ func TestService_HandleOutbound(t *testing.T) {
 	t.Run("Storage JSON Error", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
 		require.NoError(t, store.Store.Put("ID", []byte(`[]`)))
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ResponseMsgType)))
 		require.NoError(t, err)
@@ -182,7 +234,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
 		raw := fmt.Sprintf(`{"StateName":%q, "WaitCount":%d}`, "unknown", 1)
 		require.NoError(t, store.Store.Put("ID", []byte(raw)))
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
@@ -193,7 +245,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 	t.Run("Happy path", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
@@ -209,7 +261,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 	t.Run("Happy path (Request)", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, RequestMsgType)))
 		require.NoError(t, err)
@@ -219,19 +271,46 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 }
 
+func TestService_HandleInboundStop(t *testing.T) {
+	store := mockstore.NewMockStoreProvider()
+	svc, err := New(context.Background(), store)
+	require.NoError(t, err)
+	msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
+	require.NoError(t, err)
+	aCh := make(chan service.DIDCommAction)
+	require.NoError(t, svc.RegisterActionEvent(aCh))
+	sCh := make(chan service.StateMsg)
+	require.NoError(t, svc.RegisterMsgEvent(sCh))
+	go func() { require.NoError(t, svc.HandleInbound(msg)) }()
+
+	for {
+		select {
+		case res := <-aCh:
+			res.Stop(errors.New("test error"))
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		case res := <-sCh:
+			// test is done here!
+			if res.StateID == stateNameAbandoning {
+				return
+			}
+		}
+	}
+}
+
 func TestService_HandleInbound(t *testing.T) {
 	t.Parallel()
 
 	t.Run("No clients", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		require.EqualError(t, svc.HandleInbound(&service.DIDCommMsg{}), "no clients are registered to handle the message")
 	})
 
 	t.Run("ThreadID Error", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(`{}`))
 		require.NoError(t, err)
@@ -245,7 +324,7 @@ func TestService_HandleInbound(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
 		store.Store.ErrGet = errors.New(errMsg)
 		require.NoError(t, store.Store.Put("ID", nil))
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
@@ -256,7 +335,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 	t.Run("Bad transition", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		require.NoError(t, svc.save("ID", record{
 			StateName: stateNameNoop,
@@ -273,7 +352,7 @@ func TestService_HandleInbound(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
 		raw := fmt.Sprintf(`{"StateName":%q, "WaitCount":%d}`, "unknown", 1)
 		require.NoError(t, store.Store.Put("ID", []byte(raw)))
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
@@ -284,7 +363,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 	t.Run("Unknown msg type error", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(`{"@id":"ID","@type":"unknown"}`))
 		require.NoError(t, err)
@@ -295,7 +374,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 	t.Run("Happy path (send an action event)", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
@@ -313,9 +392,8 @@ func TestService_HandleInbound(t *testing.T) {
 
 		select {
 		case res := <-aCh:
-			// TODO: need to check `Continue` and `Stop` functions after implantation `processCallback`
+			// TODO: need to check `Continue` function after implantation `processCallback`
 			res.Continue()
-			res.Stop(nil)
 		case <-time.After(time.Second):
 			t.Error("timeout")
 		}
@@ -323,26 +401,24 @@ func TestService_HandleInbound(t *testing.T) {
 
 	t.Run("Happy path (Request)", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, RequestMsgType)))
 		require.NoError(t, err)
-		aCh := make(chan service.DIDCommAction)
+		aCh := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(aCh))
+		require.NoError(t, svc.HandleInbound(msg))
 
-		go func() { require.NoError(t, svc.HandleInbound(msg)) }()
-
-		select {
-		case res := <-aCh:
-			require.Equal(t, RequestMsgType, res.Message.Header.Type)
-		case <-time.After(time.Second):
-			t.Error("timeout")
+		if len(aCh) != 1 {
+			t.Error("action was not received")
 		}
+		res := <-aCh
+		require.Equal(t, RequestMsgType, res.Message.Header.Type)
 	})
 
 	t.Run("SkipProposal to Proposal", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, SkipProposalMsgType)))
 		require.NoError(t, err)
@@ -362,7 +438,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 	t.Run("Happy path (execute handle)", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ResponseMsgType)))
 		require.NoError(t, err)
@@ -374,7 +450,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 func TestService_Accept(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
-	svc, err := New(store)
+	svc, err := New(context.Background(), store)
 	require.NoError(t, err)
 	require.False(t, svc.Accept(""))
 	require.True(t, svc.Accept(ProposalMsgType))
@@ -428,7 +504,7 @@ func Test_stateFromName(t *testing.T) {
 func TestService_save(t *testing.T) {
 	t.Run("Happy path", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		data := &metaData{
 			record: record{
@@ -456,7 +532,7 @@ func TestService_save(t *testing.T) {
 
 	t.Run("JSON Error", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
-		svc, err := New(store)
+		svc, err := New(context.Background(), store)
 		require.NoError(t, err)
 		const errMsg = "service save: json: unsupported type: chan int"
 		require.EqualError(t, svc.save("ID", struct{ A chan int }{}), errMsg)
