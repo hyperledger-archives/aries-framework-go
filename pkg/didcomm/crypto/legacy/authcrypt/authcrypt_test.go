@@ -19,10 +19,11 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	mockStorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // failReader wraps a Reader, used for testing different failure checks for encryption tests.
@@ -72,6 +73,20 @@ func newWallet(t *testing.T) (*wallet.BaseWallet, storage.Store) {
 	return ret, store
 }
 
+func persistKeyPairPair(pub, priv string, store storage.Store) error {
+	pubenc, privenc, err := toEncryptionKey(pub, priv)
+	if err != nil {
+		return err
+	}
+
+	err = persistKey(pub, priv, store)
+	if err != nil {
+		return err
+	}
+
+	return persistKey(pubenc, privenc, store)
+}
+
 func persistKey(pub, priv string, store storage.Store) error {
 	kp := cryptoutil.KeyPair{
 		Priv: base58.Decode(priv),
@@ -84,6 +99,19 @@ func persistKey(pub, priv string, store storage.Store) error {
 	}
 
 	return store.Put(pub, bytes)
+}
+
+func toEncryptionKey(pub, priv string) (string, string, error) {
+	pubOut, err := cryptoutil.PublicEd25519toCurve25519(base58.Decode(pub))
+	if err != nil {
+		return "", "", err
+	}
+	privOut, err := cryptoutil.SecretEd25519toCurve25519(base58.Decode(priv))
+	if err != nil {
+		return "", "", err
+	}
+
+	return base58.Encode(pubOut), base58.Encode(privOut), nil
 }
 
 func TestEncrypt(t *testing.T) {
@@ -167,9 +195,9 @@ func TestEncrypt(t *testing.T) {
 		recipientPriv := "5aFcdEMws6ZUL7tWYrJ6DsZvY2GHZYui1jLcYquGr8uHfmyHCs96QU3nRUarH1gVYnMU2i4uUPV5STh2mX7EHpNu"
 
 		wallet2, store := newWallet(t)
-		err := persistKey(senderPub, senderPriv, store)
+		err := persistKeyPairPair(senderPub, senderPriv, store)
 		require.NoError(t, err)
-		err = persistKey(recipientPub, recipientPriv, store)
+		err = persistKeyPairPair(recipientPub, recipientPriv, store)
 		require.NoError(t, err)
 
 		source := insecurerand.NewSource(5937493) // constant fixed to ensure constant output
@@ -190,7 +218,7 @@ func TestEncrypt(t *testing.T) {
 		senderPub := "9NKZ9pHL9YVS7BzqJsz3e9uVvk44rJodKfLKbq4hmeUw"
 		senderPriv := "2VZLugb22G3iovUvGrecKj3VHFUNeCetkApeB4Fn4zkgBqYaMSFTW2nvF395voJ76vHkfnUXH2qvJoJnFydRoQBR"
 		senderWallet, senderStore := newWallet(t)
-		err := persistKey(senderPub, senderPriv, senderStore)
+		err := persistKeyPairPair(senderPub, senderPriv, senderStore)
 		require.NoError(t, err)
 
 		rec1Pub := base58.Decode("DDk4ac2ZA19P8qXjk8XaCY9Fx7WwAmCtELkxeDNqS6Vs")
@@ -214,6 +242,19 @@ func TestEncrypt(t *testing.T) {
 
 		require.Equal(t, test, base64.URLEncoding.EncodeToString(enc))
 	})
+
+	t.Run("Test decrypt with box unable to initialize", func(t *testing.T) {
+		w := mockwallet.CloseableWallet{
+			AttachCryptoOperatorErr: fmt.Errorf("fail"),
+			FindVerKeyValue:         0,
+		}
+
+		c := New(&w)
+
+		_, err := c.Encrypt(nil, base58.Decode("DDk4ac2ZA19P8qXjk8XaCY9Fx7WwAmCtELkxeDNqS6Vs"),
+			[][]byte{base58.Decode("DDk4ac2ZA19P8qXjk8XaCY9Fx7WwAmCtELkxeDNqS6Vs")})
+		require.EqualError(t, err, "fail")
+	})
 }
 
 func TestEncryptComponents(t *testing.T) {
@@ -222,7 +263,7 @@ func TestEncryptComponents(t *testing.T) {
 	rec1Pub := "DDk4ac2ZA19P8qXjk8XaCY9Fx7WwAmCtELkxeDNqS6Vs"
 
 	testWallet, store := newWallet(t)
-	e := persistKey(senderPub, senderPriv, store)
+	e := persistKeyPairPair(senderPub, senderPriv, store)
 	require.NoError(t, e)
 
 	crypter := New(testWallet)
@@ -343,7 +384,7 @@ func TestDecrypt(t *testing.T) {
 		require.Contains(t, err.Error(), "no key accessible")
 	})
 
-	t.Run("Test decrypting python envelope", func(t *testing.T) {
+	t.Run("Test decrypting reference envelope (python built)", func(t *testing.T) {
 		env := `{"protected": "eyJlbmMiOiAieGNoYWNoYTIwcG9seTEzMDVfaWV0ZiIsICJ0eXAiOiAiSldNLzEuMCIsICJhbGciOiAiQXV0aGNyeXB0IiwgInJlY2lwaWVudHMiOiBbeyJlbmNyeXB0ZWRfa2V5IjogIkVhTVl4b3RKYjg4Vmt2ZmxNN1htajdFUzdvVVVSOEJSWWZ1akJGS1FGT3Y4Q2o3c0F2RndVWE5QdWVWanZ0SkEiLCAiaGVhZGVyIjogeyJraWQiOiAiRjdtTnRGMmZyTHVSdTJjTUVqWEJuV2RZY1RaQVhOUDlqRWtwclh4aWFaaTEiLCAic2VuZGVyIjogInJna1lWLUlxTWxlQUNkdE1qYXE4YnpwQXBKLXlRbjdWdzRIUnFZODNJVFozNzJkc0Y5RzV6bTVKMGhyNDVuSzBnS2JUYzRRYk5VZ1NreUExUlpZbEl6WHBwanN5eGdZUkU5ek9IbUFDcF9ldWZzejZ4YUxFOVRxN01KVT0iLCAiaXYiOiAiQ04wZWd4TFM2R19oUThDVXBjZkdZWmxzNjFtMm9YUVQifX1dfQ==", "iv": "Y4osZIg1IWaa1kFb", "ciphertext": "m9otQmcqYHOxZh4XfLbdCNouqnuPz7lGtcL5ga_1PZcPZDrhnGWPyLW2rPN2lRTftyYGPPT3tOlu4GFecZIz4zXI9kdz", "tag": "CoV9tCdrFnBbVe2h-pYyhQ=="}` // nolint: lll
 
 		msg := "Yvgu yrf vy jgbuffi tvjc hgsj fhlusfm hsuf tiw fun s kb si kfuh bssnc"
@@ -352,7 +393,7 @@ func TestDecrypt(t *testing.T) {
 		recPriv := "2nYsWTQ1ZguQ7G2HYfMWjMNqWagBQfaKB9GLbsFk7Z7tKVBEr2arwpVKDwgLUbaxguUzQuf7o67aWKzgtHmKaypM"
 
 		recWallet, store := newWallet(t)
-		err := persistKey(recPub, recPriv, store)
+		err := persistKeyPairPair(recPub, recPriv, store)
 		require.NoError(t, err)
 
 		recCrypter := New(recWallet)
@@ -362,7 +403,7 @@ func TestDecrypt(t *testing.T) {
 		require.ElementsMatch(t, []byte(msg), msgOut)
 	})
 
-	t.Run("Test decrypting python envelope with multiple recipients", func(t *testing.T) {
+	t.Run("Test decrypting reference envelope (python built) with multiple recipients", func(t *testing.T) {
 		env := `{"protected": "eyJlbmMiOiAieGNoYWNoYTIwcG9seTEzMDVfaWV0ZiIsICJ0eXAiOiAiSldNLzEuMCIsICJhbGciOiAiQXV0aGNyeXB0IiwgInJlY2lwaWVudHMiOiBbeyJlbmNyeXB0ZWRfa2V5IjogImd4X3NySTljSEtNTEJnaktNOTlybUx3alFZUjJxVTdMOXc0QWo3Z1lTbDJvUTRubE5WN2tZSmJ0bVFlaWVueE8iLCAiaGVhZGVyIjogeyJraWQiOiAiQ2ZGUmluZDh0eGYxOHJmVHl1aE1pZ2t4UVBhbVNUb3hVM2prdW5ldjR5dnUiLCAic2VuZGVyIjogImFWRW03ak5Kajg2Zm9NM0VYaXZjYWpOWlFnN3pGUm0wTnk5ZzdZTzFueUpvblI2bmNVaV9EZWZzWVBHa25KcG1ZbFhuRDIzVU5nLXNBN1lWUnh5WW15aFZBSm5XNWZwdjBuNE5jaFdBTjl5S3pIMTd3NjZQLVV2WjVDcz0iLCAiaXYiOiAieVB0NGhHZVpObWFLN0hMMGtoWjhreFJzQjc3c3BOX2UifX0sIHsiZW5jcnlwdGVkX2tleSI6ICJ3a3RrWjY3VDR4R2NjTW1GZnRIRmNEV2FZMVQxRFQ3YURhMHBPeUpqTHU2REU2UGVKMUhuVXlRWXlOZ2VPR3ExIiwgImhlYWRlciI6IHsia2lkIjogIko1c2hTVlo2QW9DWHFxWWROR2tVdjFDTWZRYWVLRnNGRU4zaFdwNVBLVEN3IiwgInNlbmRlciI6ICJWdEQtakZfZFNDbmVxOUtTcVB0SUtHbHdHb0FzVHB0UkhzMTRYaWhNR0U4LUh4SjU5aVhtSnVLellxTjM2b19ZOWxfYmRFT1pRSjN0R2tRX1BqbTJyQ3VqWkRIbjdDS3Fsd3N4QlNVemYweW43aWliaDFQazJ6R0wyb2M9IiwgIml2IjogIm5acW1CbzBfT2QyTHlXejlHclJJMUlhWlRXUk4zbGVBIn19LCB7ImVuY3J5cHRlZF9rZXkiOiAiUlBsQWtTS1NsdFpGeEFJc1VzbWNiUVVMUTJWWHhRT2kzUEIxelhTbGs3TlBtMkZ2TE9zVDdQSEFHQU5Hem5oNiIsICJoZWFkZXIiOiB7ImtpZCI6ICJCS3ZqbUZFYkMyYjF3YkVycUN4R2syYmdxdkc5dUx3UlU5cWdOS3lINXRURiIsICJzZW5kZXIiOiAiTVhvRXl0NlZULXVFQnFzWEM1SWF1VXdZYXFxakxIYTdWWlF0NGRJX3FBaFZHVWhUTi01c004cXB6TnBnQlpUUHJrazFSMlBnbjlraU4waEpTUXk1T0FmOGdkSE43YXRTVDhUWEtMSHJNdm4wcDcyNUNUd3pZVnZFVnlNPSIsICJpdiI6ICJPb2FTVWgycVdOVk5qWVV6ZnZTNTdCQ1RnY3ZQYVhMeCJ9fSwgeyJlbmNyeXB0ZWRfa2V5IjogImY1cXV2amt1c2l6TmtRcm9HMk51akFsa0NzbllleUF1R1pMWDZmXy1DeG4taUNENjI2akp0aEk4OFBSei1TWWUiLCAiaGVhZGVyIjogeyJraWQiOiAiRWZ3cFR3aFVSU0QzY3lxanNWYlNWU0VMeU4yN250Tlk4V3dhZHNnVUNEOW0iLCAic2VuZGVyIjogImlOMDJNRzllSEpZZmQ3V3pGd1VFeWJBNmFWeU1Ma1JHcXVhYlJGQnJobFU3Q29EMzFHdW5yTWhEWTZETGFJV0FoX2dPMVRLMWtpMzYtTzQ4TlEyZGdOLU1RdS0wZTV5V2dQS1dzV1MtQ2xPbllEQ0RpVkc1VHBJS2dpVT0iLCAiaXYiOiAiZUg0cDZOX0dGNnpzU2trQk5nY0dWN3RRQkxfRl93MS0ifX0sIHsiZW5jcnlwdGVkX2tleSI6ICJqa3FnbHlmUlNWSXZqVnpkZ04wSGN4SGVzMTBoTjE3ckJLejZhcUtlczR3UTRLWGNGYjNpa3pNSmFSWHAwblVSIiwgImhlYWRlciI6IHsia2lkIjogIkFROW5IdExubXVHODFweTY0WUc1Z2VGMnZkNWhRQ0tIaTVNcnFRMUxZQ1hFIiwgInNlbmRlciI6ICJpSXJFOVUyOUVUbTRWa045aFdvYy1UN0dGYjVrdHB4SGtGeWp6d3BLcDJ5MWh2WWQ0NDF0SzdFUXlhTXhHeG9KNklMaWFHNnNpbTF4WS05UHV2Ny03clB4QTFCb3FxMTY0VzJZZU9FRjFwbnBOV2VmYmdTc1dtQUk0QlU9IiwgIml2IjogIm03S2h3THJ1OGtyQ1VXN1BiNTczZWpGblI3Ymlod3lNIn19XX0=", "iv": "1_pOOQhySyaYcVxi", "ciphertext": "CYHrOg1HeNxhUECoRIQRLNAOXwAjagUYf0xLp0Knnj6mEALg8lFbfmoh_oDptJ4El8jVbgDLiBExaEXIxYVnR7DR-hZjxjdbOBQAOAMUYnnvAk0lHJM0KBWlhE0AWrek1JlAfTnq-L6VsCXEqGYHg1uvpBIJicE=", "tag": "l1KfDt-VQIAImCTl7SA2og=="}` // nolint: lll
 
 		msg := "Iiwufh utiweuop fji olioy pio omlim, om kutxrwu gvgbkn kutxr " +
@@ -372,7 +413,7 @@ func TestDecrypt(t *testing.T) {
 		recPriv := "2YbSVZzSVaim41bWDdsBzamrhXrPFKKEpzXZRmgDuoFJco5VQELRSj1oWFR9aRdaufsdUyw8sozTtZuX8Mzsqboz"
 
 		recWallet, store := newWallet(t)
-		err := persistKey(recPub, recPriv, store)
+		err := persistKeyPairPair(recPub, recPriv, store)
 		require.NoError(t, err)
 
 		recCrypter := New(recWallet)
@@ -382,14 +423,14 @@ func TestDecrypt(t *testing.T) {
 		require.ElementsMatch(t, []byte(msg), msgOut)
 	})
 
-	t.Run("Test decrypting python envelope with invalid recipient", func(t *testing.T) {
-		env := `{"protected": "eyJlbmMiOiAieGNoYWNoYTIwcG9seTEzMDVfaWV0ZiIsICJ0eXAiOiAiSldNLzEuMCIsICJhbGciOiAiQXV0aGNyeXB0IiwgInJlY2lwaWVudHMiOiBbeyJlbmNyeXB0ZWRfa2V5IjogIjdzN0ZTRXR6Sy1vTzdSWmdISklsSTlzX1lVU2xkMUpnRldPeUNhYUdGY1Y0aHBSTWxQbG0wNDBFcUJXRWVwY3oiLCAiaGVhZGVyIjogeyJraWQiOiAiN0RLbk56TWJHRWNYODYxOGp2WWtiNlhQTFR6eXU2YnhSbTh3RnhZb0d3SHEiLCAic2VuZGVyIjogInFLYTRDeXV1OXZOcmJzX1RCLXhQWXI2aFg2cXJZLTM4Vjd4VXdOQjFyd0J1TjVNTUVJYmRERDFvRElhV2o0QUpSYUZDTEVhSzMtakFSZHBsR1UtM2d4TWY2dkpRZWhiZkZhZHNwemdxRE9iWFZDWUJONGxrVXZLZWhvND0iLCAiaXYiOiAiSWFqeVdudFdSMENxS1BYUWJpWWptbWJRWFNNTEp2X1UifX0sIHsiZW5jcnlwdGVkX2tleSI6ICJZa05vVGh2ZUlIcC13NGlrRW1kQU51VHdxTEx1ZjBocVlVbXRJc2c5WlJMd1BKaUZHWVZuTXl1ZktKZWRvcmthIiwgImhlYWRlciI6IHsia2lkIjogIjdDRURlZUpZTnlRUzhyQjdNVHpvUHhWYXFIWm9ZZkQxNUVIVzhaVVN3VnVhIiwgInNlbmRlciI6ICJ3ZEhjc1hDemdTSjhucDRFU0pDcmJ5OWNrNjJaUEFFVjhJRjYwQmotaUhhbXJLRnBKOTJpZVNTaE1JcTdwdTNmQWZQLWo5S3J6ajAwMEV0SXB5cm05SmNrM0QwSnRBcmtYV2VsSzBoUF9ZeDR4Vlc5dW43MWlfdFBXNWM9IiwgIml2IjogIkRlbUlJbHRKaXd5TU1faGhIS29kcTZpQkx4Q1J5Z2Z3In19XX0=", "iv": "BKWHs6z0UHxGddwg", "ciphertext": "YC2eQQPYVjPHj3wIxUXxBj0yXFLuRN5Lc-9WM8hY6TXoekh-ca9-UWbHasikbcxyukTT3e-QiteOilG-6X7e9x4wiQmWn_NFLOLrqoFe669JIbkgvjHYwuQEQkIVfbD-2woSxsMUl9yln5RS-NssI5cEIVH_C1w=", "tag": "M8GPexbguDoZk5L51AvLjA=="}` // nolint: lll
+	env := `{"protected": "eyJlbmMiOiAieGNoYWNoYTIwcG9seTEzMDVfaWV0ZiIsICJ0eXAiOiAiSldNLzEuMCIsICJhbGciOiAiQXV0aGNyeXB0IiwgInJlY2lwaWVudHMiOiBbeyJlbmNyeXB0ZWRfa2V5IjogIjdzN0ZTRXR6Sy1vTzdSWmdISklsSTlzX1lVU2xkMUpnRldPeUNhYUdGY1Y0aHBSTWxQbG0wNDBFcUJXRWVwY3oiLCAiaGVhZGVyIjogeyJraWQiOiAiN0RLbk56TWJHRWNYODYxOGp2WWtiNlhQTFR6eXU2YnhSbTh3RnhZb0d3SHEiLCAic2VuZGVyIjogInFLYTRDeXV1OXZOcmJzX1RCLXhQWXI2aFg2cXJZLTM4Vjd4VXdOQjFyd0J1TjVNTUVJYmRERDFvRElhV2o0QUpSYUZDTEVhSzMtakFSZHBsR1UtM2d4TWY2dkpRZWhiZkZhZHNwemdxRE9iWFZDWUJONGxrVXZLZWhvND0iLCAiaXYiOiAiSWFqeVdudFdSMENxS1BYUWJpWWptbWJRWFNNTEp2X1UifX0sIHsiZW5jcnlwdGVkX2tleSI6ICJZa05vVGh2ZUlIcC13NGlrRW1kQU51VHdxTEx1ZjBocVlVbXRJc2c5WlJMd1BKaUZHWVZuTXl1ZktKZWRvcmthIiwgImhlYWRlciI6IHsia2lkIjogIjdDRURlZUpZTnlRUzhyQjdNVHpvUHhWYXFIWm9ZZkQxNUVIVzhaVVN3VnVhIiwgInNlbmRlciI6ICJ3ZEhjc1hDemdTSjhucDRFU0pDcmJ5OWNrNjJaUEFFVjhJRjYwQmotaUhhbXJLRnBKOTJpZVNTaE1JcTdwdTNmQWZQLWo5S3J6ajAwMEV0SXB5cm05SmNrM0QwSnRBcmtYV2VsSzBoUF9ZeDR4Vlc5dW43MWlfdFBXNWM9IiwgIml2IjogIkRlbUlJbHRKaXd5TU1faGhIS29kcTZpQkx4Q1J5Z2Z3In19XX0=", "iv": "BKWHs6z0UHxGddwg", "ciphertext": "YC2eQQPYVjPHj3wIxUXxBj0yXFLuRN5Lc-9WM8hY6TXoekh-ca9-UWbHasikbcxyukTT3e-QiteOilG-6X7e9x4wiQmWn_NFLOLrqoFe669JIbkgvjHYwuQEQkIVfbD-2woSxsMUl9yln5RS-NssI5cEIVH_C1w=", "tag": "M8GPexbguDoZk5L51AvLjA=="}` // nolint: lll
 
+	t.Run("Test decrypting reference envelope (python built) with invalid recipient", func(t *testing.T) {
 		recPub := "A3KnccxQu27yWQrSLwA2YFbfoSs4CHo3q6LjvhmpKz9h"
 		recPriv := "49Y63zwonNoj2jEhMYE22TDwQCn7RLKMqNeSkSoBBucbAWceJuXXNCACXfpbXD7PHKM13SWaySyDukEakPVn5sWs"
 
 		recWallet, store := newWallet(t)
-		err := persistKey(recPub, recPriv, store)
+		err := persistKeyPairPair(recPub, recPriv, store)
 		require.NoError(t, err)
 
 		recCrypter := New(recWallet)
@@ -397,6 +438,18 @@ func TestDecrypt(t *testing.T) {
 		_, err = recCrypter.Decrypt([]byte(env))
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "no key accessible")
+	})
+
+	t.Run("Test decrypt with box unable to initialize", func(t *testing.T) {
+		w := mockwallet.CloseableWallet{
+			AttachCryptoOperatorErr: fmt.Errorf("fail"),
+			FindVerKeyValue:         0,
+		}
+
+		c := New(&w)
+
+		_, err := c.Decrypt([]byte(env))
+		require.EqualError(t, err, "fail")
 	})
 }
 
@@ -409,8 +462,11 @@ func decryptComponentFailureTest(
 	fullMessage := `{"protected": "` + base64.URLEncoding.EncodeToString([]byte(protectedHeader)) + "\", " + msg
 
 	w, s := newWallet(t)
-	err := persistKey(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
-	require.NoError(t, err)
+	err := persistKeyPairPair(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
+	if err != nil {
+		require.Contains(t, err.Error(), errString)
+		return
+	}
 
 	recCrypter := New(w)
 	_, err = recCrypter.Decrypt([]byte(fullMessage))
@@ -426,7 +482,7 @@ func TestDecryptComponents(t *testing.T) {
 		msg := `ed": "eyJlbmMiOiAieGNoYWNoYTIwcG9seTEzMDVfaWV0ZiIsICJ0eXAiOiAiSldNLzEu"}`
 
 		w, s := newWallet(t)
-		err := persistKey(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
+		err := persistKeyPairPair(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
 		require.NoError(t, err)
 
 		recCrypter := New(w)
@@ -439,7 +495,7 @@ func TestDecryptComponents(t *testing.T) {
 		msg := `{"protected": "&**^(&^%", "iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}` // nolint: lll
 
 		w, s := newWallet(t)
-		err := persistKey(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
+		err := persistKeyPairPair(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
 		require.NoError(t, err)
 
 		recCrypter := New(w)
@@ -581,7 +637,7 @@ func TestDecryptComponents(t *testing.T) {
 			prot,
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
 			&cryptoutil.KeyPair{Pub: []byte{0, 0, 1, 0, 0}, Priv: []byte{0, 0, 1, 0, 0}},
-			"no key accessible")
+			"is invalid")
 	})
 }
 

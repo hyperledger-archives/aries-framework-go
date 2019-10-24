@@ -12,8 +12,8 @@ import (
 
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // This package deals with Authcrypt encryption for Packing/Unpacking DID Comm exchange

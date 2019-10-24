@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/did"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -23,7 +24,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // TODO handle the test scenario better (make dbPath constant).

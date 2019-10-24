@@ -14,8 +14,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/operator/box"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // Decrypt will decode the envelope using the legacy format
@@ -55,7 +55,7 @@ func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 	return c.decodeCipherText(cek, &envelopeData)
 }
 
-func getCEK(recipients []recipient, w *wallet.BaseWallet) (*[chacha.KeySize]byte, error) {
+func getCEK(recipients []recipient, w legacyWallet) (*[chacha.KeySize]byte, error) {
 	var candidateKeys []string
 
 	for _, candidate := range recipients {
@@ -70,12 +70,17 @@ func getCEK(recipients []recipient, w *wallet.BaseWallet) (*[chacha.KeySize]byte
 	recip := recipients[recKeyIdx]
 	recKey := recip.Header.KID
 
-	recCurvePub, err := w.ConvertToEncryptionKey(base58.Decode(recKey))
+	recCurvePub, err := cryptoutil.PublicEd25519toCurve25519(base58.Decode(recKey))
 	if err != nil {
 		return nil, err
 	}
 
-	sender, err := decodeSender(recip.Header.Sender, recCurvePub, w)
+	cryptoBox, err := box.New(w)
+	if err != nil {
+		return nil, err
+	}
+
+	sender, err := decodeSender(recip.Header.Sender, recCurvePub, cryptoBox)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +95,7 @@ func getCEK(recipients []recipient, w *wallet.BaseWallet) (*[chacha.KeySize]byte
 		return nil, err
 	}
 
-	cekSlice, err := wallet.NewCryptoBox(w).EasyOpen(encCEK, nonceSlice, sender, recCurvePub)
+	cekSlice, err := cryptoBox.EasyOpen(encCEK, nonceSlice, sender, recCurvePub)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt CEK: %s", err)
 	}
@@ -101,13 +106,13 @@ func getCEK(recipients []recipient, w *wallet.BaseWallet) (*[chacha.KeySize]byte
 	return &cek, nil
 }
 
-func decodeSender(b64Sender string, pk []byte, w *wallet.BaseWallet) ([]byte, error) {
+func decodeSender(b64Sender string, pk []byte, cryptoBox *box.CryptoBox) ([]byte, error) {
 	encSender, err := base64.URLEncoding.DecodeString(b64Sender)
 	if err != nil {
 		return nil, err
 	}
 
-	senderSlice, err := wallet.NewCryptoBox(w).SealOpen(encSender, pk)
+	senderSlice, err := cryptoBox.SealOpen(encSender, pk)
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/didcreator"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/operator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
@@ -129,7 +131,7 @@ func TestBaseWallet_ConvertToEncryptionKey(t *testing.T) {
 		pub, err := w.CreateSigningKey()
 		require.NoError(t, err)
 
-		_, err = w.ConvertToEncryptionKey(base58.Decode(pub))
+		_, err = w.convertToEncryptionKey(base58.Decode(pub))
 		require.NoError(t, err)
 	})
 
@@ -151,7 +153,7 @@ func TestBaseWallet_ConvertToEncryptionKey(t *testing.T) {
 		err = persist(w.keystore, "6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7", &badkp)
 		require.NoError(t, err)
 
-		_, err = w.ConvertToEncryptionKey(base58.Decode("6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7"))
+		_, err = w.convertToEncryptionKey(base58.Decode("6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7"))
 		require.EqualError(t, err, "error converting public key")
 	})
 
@@ -168,7 +170,7 @@ func TestBaseWallet_ConvertToEncryptionKey(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, w)
 
-		_, err = w.ConvertToEncryptionKey(base58.Decode("CTsYpNjdhK68mjkE4wNrnTVW2qERFNoPXWBnUW9E9bhz"))
+		_, err = w.convertToEncryptionKey(base58.Decode("CTsYpNjdhK68mjkE4wNrnTVW2qERFNoPXWBnUW9E9bhz"))
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "failed unmarshal to key struct")
 	})
@@ -221,7 +223,7 @@ func TestBaseWallet_DIDCreator(t *testing.T) {
 	t.Run("create/fetch Peer DID with service type", func(t *testing.T) {
 		w, err := New(newMockWalletProvider(storeProvider))
 		require.NoError(t, err)
-		didDoc, err := w.CreateDID(peerDIDMethod, WithServiceType(serviceTypeDIDComm))
+		didDoc, err := w.CreateDID(peerDIDMethod, didcreator.WithServiceType(serviceTypeDIDComm))
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 
@@ -285,7 +287,7 @@ func TestBaseWallet_DIDCreator(t *testing.T) {
 		w, err := New(newMockWalletProvider(mockStoreProvider))
 		require.NoError(t, err)
 
-		didDoc, err := w.CreateDID(peerDIDMethod, WithServiceType(serviceTypeDIDComm))
+		didDoc, err := w.CreateDID(peerDIDMethod, didcreator.WithServiceType(serviceTypeDIDComm))
 		require.Nil(t, didDoc)
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "failed to create DID")
@@ -360,7 +362,7 @@ func TestBaseWallet_DeriveKEK(t *testing.T) {
 	t.Run("test failure fromPubKey not found in wallet", func(t *testing.T) {
 		// test DeriveKEK from wallet where fromKey is a public key (private fromKey will be fetched from the wallet)
 		kek, e := w.DeriveKEK(nil, nil, pk32a[:], pk32[:])
-		require.EqualError(t, e, "failed from getKey: "+cryptoutil.ErrKeyNotFound.Error())
+		require.EqualError(t, e, "failed from GetKey: "+cryptoutil.ErrKeyNotFound.Error())
 		require.Empty(t, kek)
 	})
 }
@@ -430,16 +432,100 @@ func TestBaseWallet_FindVerKey(t *testing.T) {
 	})
 
 	t.Run("test candidate signing key is corrupted", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(
+		w2, e := New(newMockWalletProvider(
 			&mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{
 					Store: map[string][]byte{"testkey": {0, 0, 1, 0, 0}},
 				},
 			}))
+		require.NoError(t, e)
+		_, e = w2.FindVerKey([]string{"not present", "testkey"})
+		require.NotNil(t, e)
+		require.Contains(t, e.Error(), "failed from GetKey: failed unmarshal to key struct")
+	})
+
+	t.Run("test candidate signing key is not present", func(t *testing.T) {
+		_, err = w.FindVerKey([]string{"not present"})
+		require.EqualError(t, err, cryptoutil.ErrKeyNotFound.Error())
+	})
+}
+
+func TestSecretWallet_GetKey(t *testing.T) {
+	t.Run("test error getting corrupted key data", func(t *testing.T) {
+		errGet := fmt.Errorf("error reading store")
+		w, err := New(newMockWalletProvider(
+			&mockstorage.MockStoreProvider{
+				Store: &mockstorage.MockStore{
+					Store: map[string][]byte{"testkey": {0, 0, 1, 0, 0}}, ErrGet: errGet,
+				},
+			}))
 		require.NoError(t, err)
-		_, err = w.FindVerKey([]string{"not present", "testkey"})
-		require.NotNil(t, err)
-		require.Contains(t, err.Error(), "failed from getKey: failed unmarshal to key struct")
+
+		kp, err := w.GetKey("testkey")
+		require.Equal(t, (*cryptoutil.KeyPair)(nil), kp)
+		require.EqualError(t, err, errGet.Error())
+	})
+}
+func TestSecretWallet_PutKey(t *testing.T) {
+	t.Run("test error from persistKey", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+			Store: make(map[string][]byte), ErrPut: fmt.Errorf("put error"),
+		}}))
+		require.NoError(t, err)
+
+		kp := cryptoutil.KeyPair{
+			Priv: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9},
+			Pub:  []byte{0, 1, 0, 1, 0, 1, 0, 1, 0},
+		}
+
+		err = w.PutKey("pub", &kp)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "put error")
+	})
+}
+
+type mockCryptoOp struct {
+	ret error
+	kh  operator.KeyHolder
+}
+
+func (m *mockCryptoOp) InjectKeyHolder(kh operator.KeyHolder) error {
+	m.kh = kh
+	return m.ret
+}
+
+func TestSecretWallet_AttachCryptoOperator(t *testing.T) {
+	t.Run("test attaching crypto op", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+			Store: make(map[string][]byte),
+		}}))
+		require.NoError(t, err)
+
+		m := mockCryptoOp{
+			ret: nil,
+			kh:  nil,
+		}
+
+		err = w.AttachCryptoOperator(&m)
+		require.NoError(t, err)
+		require.Equal(t, w, m.kh)
+
+		m2 := mockCryptoOp{
+			ret: fmt.Errorf("test error"),
+			kh:  nil,
+		}
+		err = w.AttachCryptoOperator(&m2)
+		require.EqualError(t, err, "test error")
+	})
+
+	t.Run("test attaching nil crypto op", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+			Store: make(map[string][]byte),
+		}}))
+		require.NoError(t, err)
+
+		err = w.AttachCryptoOperator(nil)
+		require.EqualError(t, err, "cannot attach nil crypto operator")
 	})
 }
 

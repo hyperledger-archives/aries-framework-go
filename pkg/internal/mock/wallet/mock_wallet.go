@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package wallet
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/didcreator"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/operator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // CloseableWallet mock wallet
@@ -18,16 +18,13 @@ type CloseableWallet struct {
 	CreateEncryptionKeyErr   error
 	CreateSigningKeyValue    string
 	CreateSigningKeyErr      error
+	AttachCryptoOperatorErr  error
 	FindVerKeyValue          int
 	FindVerKeyErr            error
 	SignMessageValue         []byte
 	SignMessageErr           error
 	DecryptMessageValue      []byte
 	DecryptMessageErr        error
-	PackValue                []byte
-	PackErr                  error
-	UnpackValue              *envelope.Envelope
-	UnpackErr                error
 	MockDID                  *did.Doc
 }
 
@@ -51,6 +48,11 @@ func (m *CloseableWallet) FindVerKey(candidateKeys []string) (int, error) {
 	return m.FindVerKeyValue, m.FindVerKeyErr
 }
 
+// AttachCryptoOperator attaches a crypto operator to this wallet, so the operator can use its private keys.
+func (m *CloseableWallet) AttachCryptoOperator(cryptoOp operator.CryptoOperator) error {
+	return m.AttachCryptoOperatorErr
+}
+
 // SignMessage sign a message using the private key associated with a given verification key.
 func (m *CloseableWallet) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
 	return m.SignMessageValue, m.SignMessageErr
@@ -63,7 +65,7 @@ func (m *CloseableWallet) DeriveKEK(alg, apu, fromKey, toPubKey []byte) ([]byte,
 }
 
 // CreateDID returns new DID Document
-func (m *CloseableWallet) CreateDID(method string, opts ...wallet.DocOpts) (*did.Doc, error) {
+func (m *CloseableWallet) CreateDID(method string, opts ...didcreator.DocOpts) (*did.Doc, error) {
 	return m.MockDID, nil
 }
 

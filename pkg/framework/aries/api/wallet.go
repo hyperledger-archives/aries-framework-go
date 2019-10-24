@@ -9,7 +9,8 @@ package api
 import (
 	"io"
 
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/didcreator"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/wallet"
 )
 
 // CloseableWallet interface
@@ -17,7 +18,7 @@ type CloseableWallet interface {
 	io.Closer
 	wallet.Crypto
 	wallet.Signer
-	wallet.DIDCreator
+	didcreator.DIDCreator
 }
 
 // WalletCreator method to create new wallet service

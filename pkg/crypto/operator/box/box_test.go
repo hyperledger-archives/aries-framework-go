@@ -4,20 +4,23 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package wallet
+package box_test
 
 import (
 	"crypto/rand"
+	"fmt"
 	"io"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/nacl/box"
+	naclbox "golang.org/x/crypto/nacl/box"
 
-	mockStorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/internal/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/operator/box"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
+	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -33,14 +36,31 @@ func (p *testProvider) InboundTransportEndpoint() string {
 	return ""
 }
 
-func newWallet(t *testing.T) (*BaseWallet, storage.Store) {
-	msp := mockStorage.NewMockStoreProvider()
+func newWallet(t *testing.T) (*wallet.SecretWallet, storage.Store) {
+	msp := mockstorage.NewMockStoreProvider()
 	p := testProvider{storeProvider: msp}
 	store, err := p.StorageProvider().OpenStore("test-wallet")
 	require.NoError(t, err)
-	ret, err := New(&p)
+	ret, err := wallet.New(&p)
 	require.NoError(t, err)
 	return ret, store
+}
+
+func TestCryptoBox_InjectKeyHolder(t *testing.T) {
+	w, _ := newWallet(t)
+
+	b, err := box.New(w)
+	require.NoError(t, err)
+
+	err = b.InjectKeyHolder(nil)
+	require.EqualError(t, err, "keyholder is nil")
+
+	badWallet := mockwallet.CloseableWallet{
+		AttachCryptoOperatorErr: fmt.Errorf("fail message"),
+	}
+
+	_, err = box.New(&badWallet)
+	require.EqualError(t, err, "fail message")
 }
 
 func TestBoxSeal(t *testing.T) {
@@ -50,10 +70,11 @@ func TestBoxSeal(t *testing.T) {
 	require.NoError(t, err)
 
 	w, _ := newWallet(t)
-	err = persist(w.keystore, base58.Encode(recipient1Key.Pub), recipient1Key)
+	err = w.PutKey(base58.Encode(recipient1Key.Pub), recipient1Key)
 	require.NoError(t, err)
 
-	b := NewCryptoBox(w)
+	b, err := box.New(w)
+	require.NoError(t, err)
 
 	t.Run("Seal a message with sodiumBoxSeal and unseal it with sodiumBoxSealOpen", func(t *testing.T) {
 		msg := []byte("lorem ipsum dolor sit amet consectetur adipiscing elit ")
@@ -101,7 +122,7 @@ func TestBoxEasy(t *testing.T) {
 	require.NoError(t, err)
 
 	w, _ := newWallet(t)
-	err = persist(w.keystore, base58.Encode(recipient1Key.Pub), recipient1Key)
+	err = w.PutKey(base58.Encode(recipient1Key.Pub), recipient1Key)
 	require.NoError(t, err)
 
 	nonce := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
@@ -115,12 +136,13 @@ func TestBoxEasy(t *testing.T) {
 		Pub:  base58.Decode("7usXitPNvWFEyfH3xNvqxtmn6xwt8jggPVTZ56qxM2G8"),
 	}
 
-	err = persist(w.keystore, base58.Encode(kp1.Pub), &kp1)
+	err = w.PutKey(base58.Encode(kp1.Pub), &kp1)
 	require.NoError(t, err)
-	err = persist(w.keystore, base58.Encode(kp2.Pub), &kp2)
+	err = w.PutKey(base58.Encode(kp2.Pub), &kp2)
 	require.NoError(t, err)
 
-	b := NewCryptoBox(w)
+	b, err := box.New(w)
+	require.NoError(t, err)
 
 	t.Run("Failed encrypt, key missing from wallet", func(t *testing.T) {
 		msg := []byte("pretend this is an encrypted message")
@@ -174,7 +196,7 @@ func TestBoxEasy(t *testing.T) {
 }
 
 func randCurveKeyPair(randReader io.Reader) (*cryptoutil.KeyPair, error) {
-	pk, sk, err := box.GenerateKey(randReader)
+	pk, sk, err := naclbox.GenerateKey(randReader)
 	if err != nil {
 		return nil, err
 	}

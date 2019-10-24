@@ -9,6 +9,8 @@ package context
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/didcreator"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -17,7 +19,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // Provider supplies the framework configuration to client objects.
@@ -87,7 +88,7 @@ func (p *Provider) Signer() wallet.Signer {
 }
 
 // DIDWallet returns the pack wallet service
-func (p *Provider) DIDWallet() wallet.DIDCreator {
+func (p *Provider) DIDWallet() didcreator.DIDCreator {
 	return p.wallet
 }
 

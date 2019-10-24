@@ -11,9 +11,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/didcreator"
 	d "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 func getMockDID() *d.Doc {
@@ -54,6 +54,6 @@ func TestPeerDIDCreator(t *testing.T) {
 type mockProvider struct {
 }
 
-func (m *mockProvider) DIDWallet() wallet.DIDCreator {
+func (m *mockProvider) DIDWallet() didcreator.DIDCreator {
 	return &mockwallet.CloseableWallet{MockDID: getMockDID()}
 }

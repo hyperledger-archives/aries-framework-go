@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // MockDIDCreator mock implementation of DID creator
@@ -26,7 +26,7 @@ type MockDIDCreator struct {
 }
 
 // CreateDID mock implementation of create DID
-func (m *MockDIDCreator) CreateDID(opts ...wallet.DocOpts) (*did.Doc, error) {
+func (m *MockDIDCreator) CreateDID(opts ...didcreator.DocOpts) (*did.Doc, error) {
 	if m.Failure != nil {
 		return nil, m.Failure
 	}

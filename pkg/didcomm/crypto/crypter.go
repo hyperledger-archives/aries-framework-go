@@ -6,7 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package crypto
 
-import "github.com/hyperledger/aries-framework-go/pkg/wallet"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/wallet"
+)
 
 // Provider interface for Crypter ctx
 type Provider interface {

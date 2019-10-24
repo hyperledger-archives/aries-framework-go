@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // Provider mocks provider needed for did exchange service initialization

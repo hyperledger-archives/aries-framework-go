@@ -17,11 +17,11 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 const (
@@ -298,7 +298,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string)
 	if err != nil {
 		return nil, err
 	}
-	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
+	newDidDoc, err := ctx.didCreator.CreateDID(didcreator.WithServiceType(DIDExchangeServiceType))
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +328,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string)
 
 func (ctx *context) handleInboundRequest(request *Request) (stateAction, error) {
 	// create a response from Request
-	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
+	newDidDoc, err := ctx.didCreator.CreateDID(didcreator.WithServiceType(DIDExchangeServiceType))
 	if err != nil {
 		return nil, err
 	}

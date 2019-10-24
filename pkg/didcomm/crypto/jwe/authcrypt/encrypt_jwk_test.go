@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/walletprovider"
 )
 
 func TestNilEncryptSenderJwk(t *testing.T) {
-	mockWalletProvider, err := mockwallet.NewMockProvider()
+	mockWalletProvider, err := walletprovider.NewMockProvider()
 	require.NoError(t, err)
 
 	crypter, err := New(mockWalletProvider, XC20P)

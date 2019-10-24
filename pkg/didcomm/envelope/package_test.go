@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {

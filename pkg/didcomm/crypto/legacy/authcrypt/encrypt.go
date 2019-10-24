@@ -11,12 +11,11 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
-
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/operator/box"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
@@ -125,8 +124,7 @@ func (c *Crypter) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey st
 		return nil, err
 	}
 
-	// We need the private key to be converted and keypair to be persisted
-	senderEncKey, err := c.wallet.ConvertToEncryptionKey(base58.Decode(senderKey))
+	senderEncKey, err := cryptoutil.PublicEd25519toCurve25519(base58.Decode(senderKey))
 	if err != nil {
 		return nil, err
 	}
@@ -136,15 +134,18 @@ func (c *Crypter) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey st
 		return nil, err
 	}
 
-	box := wallet.NewCryptoBox(c.wallet)
+	cryptoBox, err := box.New(c.wallet)
+	if err != nil {
+		return nil, err
+	}
 
-	encCEK, err := box.Easy(cek[:], nonce[:], recEncKey, senderEncKey)
+	encCEK, err := cryptoBox.Easy(cek[:], nonce[:], recEncKey, senderEncKey)
 	if err != nil {
 		return nil, err
 	}
 
 	// assumption: senderKey (ed25519) is a base58 string
-	encSender, err := box.Seal([]byte(senderKey), recEncKey, c.randSource)
+	encSender, err := cryptoBox.Seal([]byte(senderKey), recEncKey, c.randSource)
 	if err != nil {
 		return nil, err
 	}

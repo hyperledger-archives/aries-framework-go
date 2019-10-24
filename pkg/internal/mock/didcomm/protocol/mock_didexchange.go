@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package protocol
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
@@ -15,7 +16,6 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // MockDIDExchangeSvc mock did exchange service

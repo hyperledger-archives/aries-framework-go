@@ -18,7 +18,7 @@ import (
 	"golang.org/x/crypto/nacl/box"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/walletprovider"
 )
 
 func TestEncrypt(t *testing.T) {
@@ -49,15 +49,15 @@ func TestEncrypt(t *testing.T) {
 	recipient3Kp := cryptoutil.KeyPair{Priv: ecKeyPriv[:], Pub: ecKeyPub[:]}
 	t.Logf("recipient3Kp pub: %v", base64.RawURLEncoding.EncodeToString(recipient3Kp.Pub))
 	t.Logf("recipient3Kp priv: %v", base64.RawURLEncoding.EncodeToString(recipient3Kp.Priv))
-	senderWalletProvider, err := mockwallet.NewMockProvider(senderKp)
+	senderWalletProvider, err := walletprovider.NewMockProvider(senderKp)
 	require.NoError(t, err)
-	senderAndRec1WalletProvider, err := mockwallet.NewMockProvider(senderKp, recipient1Kp)
+	senderAndRec1WalletProvider, err := walletprovider.NewMockProvider(senderKp, recipient1Kp)
 	require.NoError(t, err)
-	recipient1WalletProvider, err := mockwallet.NewMockProvider(recipient1Kp)
+	recipient1WalletProvider, err := walletprovider.NewMockProvider(recipient1Kp)
 	require.NoError(t, err)
-	recipient2WalletProvider, err := mockwallet.NewMockProvider(recipient2Kp)
+	recipient2WalletProvider, err := walletprovider.NewMockProvider(recipient2Kp)
 	require.NoError(t, err)
-	recipient3WalletProvider, err := mockwallet.NewMockProvider(recipient3Kp)
+	recipient3WalletProvider, err := walletprovider.NewMockProvider(recipient3Kp)
 	require.NoError(t, err)
 	badKey := cryptoutil.KeyPair{
 		Pub:  nil,
@@ -90,7 +90,7 @@ func TestEncrypt(t *testing.T) {
 
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
 			badKey.Pub, [][]byte{recipient1Kp.Pub, recipient2Kp.Pub, recipient3Kp.Pub})
-		require.EqualError(t, e, "failed from getKey: key not found")
+		require.EqualError(t, e, "failed from GetKey: key not found")
 		require.Empty(t, enc)
 
 		// reset badKey
@@ -441,7 +441,7 @@ func TestRefEncrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	// create mockwallet provider with the above keys
-	mockWalletProvider, err := mockwallet.NewMockProvider(cryptoutil.KeyPair{Pub: recipientPub, Priv: recipientPriv})
+	mockWalletProvider, err := walletprovider.NewMockProvider(cryptoutil.KeyPair{Pub: recipientPub, Priv: recipientPriv})
 	require.NoError(t, err)
 
 	// refJWE created by executing PHP test code at:

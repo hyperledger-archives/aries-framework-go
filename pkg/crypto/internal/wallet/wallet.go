@@ -18,6 +18,9 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/nacl/box"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/didcreator"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/internal/didopts"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/operator"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
@@ -37,15 +40,18 @@ type provider interface {
 	InboundTransportEndpoint() string
 }
 
-// BaseWallet wallet implementation
-type BaseWallet struct {
+// SecretWallet wallet implementation, including access to private keys.
+// Note: this is not exposed to the rest of the library, only to pkg/crypto.
+// Other packages need to use pkg/crypto/wallet, which wraps this,
+//   hiding the access to private keys.
+type SecretWallet struct {
 	keystore                 storage.Store
 	didstore                 storage.Store
 	inboundTransportEndpoint string
 }
 
 // New return new instance of wallet implementation
-func New(ctx provider) (*BaseWallet, error) {
+func New(ctx provider) (*SecretWallet, error) {
 	ks, err := ctx.StorageProvider().OpenStore(keyStoreNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to OpenStore for '%s', cause: %w", keyStoreNamespace, err)
@@ -56,11 +62,11 @@ func New(ctx provider) (*BaseWallet, error) {
 		return nil, fmt.Errorf("failed to OpenStore for '%s', cause: %w", didStoreNamespace, err)
 	}
 
-	return &BaseWallet{keystore: ks, didstore: ds, inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
+	return &SecretWallet{keystore: ks, didstore: ds, inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
 }
 
 // CreateEncryptionKey create a new public/private encryption keypair.
-func (w *BaseWallet) CreateEncryptionKey() (string, error) {
+func (w *SecretWallet) CreateEncryptionKey() (string, error) {
 	pub, priv, err := box.GenerateKey(rand.Reader)
 	if err != nil {
 		return "", fmt.Errorf("failed to GenerateKey: %w", err)
@@ -74,22 +80,29 @@ func (w *BaseWallet) CreateEncryptionKey() (string, error) {
 }
 
 // CreateSigningKey create a new public/private signing keypair.
-func (w *BaseWallet) CreateSigningKey() (string, error) {
+func (w *SecretWallet) CreateSigningKey() (string, error) {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return "", fmt.Errorf("failed to GenerateKey: %w", err)
 	}
 	base58Pub := base58.Encode(pub[:])
 	// TODO - need to encrypt the priv before putting them in the store.
-	if err := persist(w.keystore, base58Pub, &cryptoutil.KeyPair{Pub: pub[:], Priv: priv[:]}); err != nil {
+	if e := persist(w.keystore, base58Pub, &cryptoutil.KeyPair{Pub: pub[:], Priv: priv[:]}); e != nil {
+		return "", e
+	}
+
+	// generate the corresponding encryption keypair for any signing keypair
+	_, err = w.convertToEncryptionKey(pub)
+	if err != nil {
 		return "", err
 	}
+
 	return base58Pub, nil
 }
 
-// ConvertToEncryptionKey converts an ed25519 keypair present in the wallet,
+// convertToEncryptionKey converts an ed25519 keypair present in the wallet,
 // persists the resulting keypair, and returns the result public key.
-func (w *BaseWallet) ConvertToEncryptionKey(key []byte) ([]byte, error) {
+func (w *SecretWallet) convertToEncryptionKey(key []byte) ([]byte, error) {
 	encPub, err := cryptoutil.PublicEd25519toCurve25519(key)
 	if err != nil {
 		return nil, err
@@ -97,7 +110,7 @@ func (w *BaseWallet) ConvertToEncryptionKey(key []byte) ([]byte, error) {
 	encPubB58 := base58.Encode(encPub)
 
 	keyB58 := base58.Encode(key)
-	kp, err := w.getKey(keyB58)
+	kp, err := w.GetKey(keyB58)
 	if err != nil {
 		return nil, err
 	}
@@ -115,8 +128,8 @@ func (w *BaseWallet) ConvertToEncryptionKey(key []byte) ([]byte, error) {
 }
 
 // SignMessage sign a message using the private key associated with a given verification key.
-func (w *BaseWallet) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
-	keyPair, err := w.getKey(fromVerKey)
+func (w *SecretWallet) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
+	keyPair, err := w.GetKey(fromVerKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get key: %w", err)
 	}
@@ -124,13 +137,13 @@ func (w *BaseWallet) SignMessage(message []byte, fromVerKey string) ([]byte, err
 }
 
 // Close wallet
-func (w *BaseWallet) Close() error {
+func (w *SecretWallet) Close() error {
 	return nil
 }
 
 // CreateDID returns new DID Document
-func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error) {
-	docOpts := &createDIDOpts{}
+func (w *SecretWallet) CreateDID(method string, opts ...didcreator.DocOpts) (*did.Doc, error) {
+	docOpts := &didopts.CreateDIDOpts{}
 	// Apply options
 	for _, opt := range opts {
 		opt(docOpts)
@@ -164,7 +177,7 @@ func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
 }
 
 // GetDID gets already created DID document from underlying store
-func (w *BaseWallet) GetDID(id string) (*did.Doc, error) {
+func (w *SecretWallet) GetDID(id string) (*did.Doc, error) {
 	bytes, err := w.didstore.Get(id)
 	if err != nil {
 		return nil, err
@@ -178,9 +191,9 @@ func (w *BaseWallet) GetDID(id string) (*did.Doc, error) {
 	return &didDoc, nil
 }
 
-// getKey get key
-func (w *BaseWallet) getKey(verkey string) (*cryptoutil.KeyPair, error) {
-	bytes, err := w.keystore.Get(verkey)
+// GetKey gets the keypair associated to the given pubkey
+func (w *SecretWallet) GetKey(pub string) (*cryptoutil.KeyPair, error) {
+	bytes, err := w.keystore.Get(pub)
 	if err != nil {
 		if errors.Is(storage.ErrDataNotFound, err) {
 			return nil, cryptoutil.ErrKeyNotFound
@@ -194,10 +207,23 @@ func (w *BaseWallet) getKey(verkey string) (*cryptoutil.KeyPair, error) {
 	return &key, nil
 }
 
+// PutKey persists a keypair in the keystore
+func (w *SecretWallet) PutKey(pub string, pair *cryptoutil.KeyPair) error {
+	return persist(w.keystore, pub, pair)
+}
+
+// AttachCryptoOperator attaches a crypto operator to this wallet, so the operator can use its private keys.
+func (w *SecretWallet) AttachCryptoOperator(cryptoOp operator.CryptoOperator) error {
+	if cryptoOp == nil {
+		return fmt.Errorf("cannot attach nil crypto operator")
+	}
+	return cryptoOp.InjectKeyHolder(w)
+}
+
 // DeriveKEK will derive an ephemeral symmetric key (kek) using a private key fetched from
 // the wallet corresponding to fromPubKey and derived with toPubKey
 // This implementation is for curve 25519 only
-func (w *BaseWallet) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, error) { // nolint:lll
+func (w *SecretWallet) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, error) { // nolint:lll
 	if fromPubKey == nil || toPubKey == nil {
 		return nil, cryptoutil.ErrInvalidKey
 	}
@@ -205,9 +231,9 @@ func (w *BaseWallet) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, e
 	copy(fromPrivKey[:], fromPubKey)
 
 	// get keypair from wallet store
-	walletKeyPair, err := w.getKey(base58.Encode(fromPubKey))
+	walletKeyPair, err := w.GetKey(base58.Encode(fromPubKey))
 	if err != nil {
-		return nil, fmt.Errorf("failed from getKey: %w", err)
+		return nil, fmt.Errorf("failed from GetKey: %w", err)
 	}
 	copy(fromPrivKey[:], walletKeyPair.Priv)
 
@@ -217,14 +243,14 @@ func (w *BaseWallet) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, e
 }
 
 // FindVerKey selects a signing key which is present in candidateKeys that is present in the wallet
-func (w *BaseWallet) FindVerKey(candidateKeys []string) (int, error) {
+func (w *SecretWallet) FindVerKey(candidateKeys []string) (int, error) {
 	for i, key := range candidateKeys {
-		_, err := w.getKey(key)
+		_, err := w.GetKey(key)
 		if err != nil {
 			if errors.Is(err, cryptoutil.ErrKeyNotFound) {
 				continue
 			}
-			return -1, fmt.Errorf("failed from getKey: %w", err)
+			return -1, fmt.Errorf("failed from GetKey: %w", err)
 		}
 		// Currently chooses the first usable key, but could use different logic (eg, priorities)
 		return i, nil
@@ -245,7 +271,7 @@ func persist(store storage.Store, key string, value interface{}) error {
 	return nil
 }
 
-func (w *BaseWallet) buildPeerDIDDoc(base58PubKey string, docOpts *createDIDOpts) (*did.Doc, error) {
+func (w *SecretWallet) buildPeerDIDDoc(base58PubKey string, docOpts *didopts.CreateDIDOpts) (*did.Doc, error) {
 	// Supporting only one public key now
 	publicKey := did.PublicKey{
 		ID: base58PubKey[0:7],
@@ -258,12 +284,12 @@ func (w *BaseWallet) buildPeerDIDDoc(base58PubKey string, docOpts *createDIDOpts
 
 	// Service model to be included only if service type is provided through opts
 	var service []did.Service
-	if docOpts.serviceType != "" {
+	if docOpts.ServiceType != "" {
 		// Service endpoints
 		service = []did.Service{
 			{
 				ID:              "#agent",
-				Type:            docOpts.serviceType,
+				Type:            docOpts.ServiceType,
 				ServiceEndpoint: w.inboundTransportEndpoint,
 			},
 		}

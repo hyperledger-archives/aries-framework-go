@@ -9,12 +9,13 @@ package api
 import (
 	"errors"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/didcreator"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // ErrSvcNotFound is returned when service not found
@@ -29,7 +30,7 @@ type Provider interface {
 	Crypter() crypto.Crypter
 	Packager() envelope.Packager
 	InboundTransportEndpoint() string
-	DIDWallet() wallet.DIDCreator
+	DIDWallet() didcreator.DIDCreator
 	Signer() wallet.Signer
 	DIDResolver() didresolver.Resolver
 }

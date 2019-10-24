@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package did
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 const method = "peer"
@@ -25,7 +25,7 @@ type Creator interface {
 	// did: DID document
 	//
 	// error: error
-	CreateDID(opts ...wallet.DocOpts) (*did.Doc, error)
+	CreateDID(opts ...didcreator.DocOpts) (*did.Doc, error)
 
 	// Gets already created DID document by ID.
 	//
@@ -43,7 +43,7 @@ type Creator interface {
 
 // provider contains dependencies for DID creator and is typically created by using aries.Context()
 type provider interface {
-	DIDWallet() wallet.DIDCreator
+	DIDWallet() didcreator.DIDCreator
 }
 
 // NewPeerDIDCreator returns new Peer DID creator
@@ -53,12 +53,12 @@ func NewPeerDIDCreator(ctx provider) *PeerDIDCreator {
 
 // PeerDIDCreator creates Peer DIDs
 type PeerDIDCreator struct {
-	wallet.DIDCreator
+	didcreator.DIDCreator
 	method string
 }
 
 // CreateDID creates new Peer DID
-func (l *PeerDIDCreator) CreateDID(opts ...wallet.DocOpts) (*did.Doc, error) {
+func (l *PeerDIDCreator) CreateDID(opts ...didcreator.DocOpts) (*did.Doc, error) {
 	return l.DIDCreator.CreateDID(l.method, opts...)
 }
 

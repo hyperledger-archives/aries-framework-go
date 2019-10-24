@@ -7,14 +7,23 @@ SPDX-License-Identifier: Apache-2.0
 package wallet
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"io"
+
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/didcreator"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/operator"
 )
 
 // Wallet interface
 type Wallet interface {
 	Crypto
 	Signer
-	DIDCreator
+	didcreator.DIDCreator
+}
+
+// CloseableWallet interface for wallets that can be closed
+type CloseableWallet interface {
+	io.Closer
+	Wallet
 }
 
 // Crypto interface
@@ -56,6 +65,9 @@ type Crypto interface {
 	//
 	//		in case of error, the index will be -1
 	FindVerKey(candidateKeys []string) (int, error)
+
+	// AttachCryptoOperator attaches a crypto operator to this wallet, so the operator can use its private keys.
+	AttachCryptoOperator(cryptoOp operator.CryptoOperator) error
 }
 
 // Signer interface provides signing capabilities
@@ -75,57 +87,4 @@ type Signer interface {
 	//
 	// error: error
 	SignMessage(message []byte, fromVerKey string) ([]byte, error)
-}
-
-// DIDCreator provides features to create and query DID document
-type DIDCreator interface {
-	// Creates new DID document.
-	//
-	// Args:
-	//
-	// method: DID method
-	//
-	// opts: options to create DID
-	//
-	// Returns:
-	//
-	// did: DID document
-	//
-	// error: error
-	CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
-
-	// Gets already created DID document by ID.
-	//
-	// Args:
-	//
-	// id: DID identifier
-	//
-	// Returns:
-	//
-	// did: DID document
-	//
-	// error: when document is not found or for any other error conditions
-	GetDID(id string) (*did.Doc, error)
-}
-
-// KeyConverter provides methods for converting signing to encryption keys
-type KeyConverter interface {
-	// ConvertToEncryptionKey creates and persists a Curve25519 keypair created from the given SigningPubKey's
-	// Ed25519 keypair, returning the EncryptionPubKey for this new keypair.
-	ConvertToEncryptionKey(key []byte) ([]byte, error)
-}
-
-// createDIDOpts holds the options for creating DID
-type createDIDOpts struct {
-	serviceType string
-}
-
-// DocOpts is a create DID option
-type DocOpts func(opts *createDIDOpts)
-
-// WithServiceType service type of DID document to be created
-func WithServiceType(serviceType string) DocOpts {
-	return func(opts *createDIDOpts) {
-		opts.serviceType = serviceType
-	}
 }
