@@ -94,7 +94,7 @@ func (d *DIDExchangeSteps) validateConnection(agentID, stateValue string) error 
 func (d *DIDExchangeSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
 	s.Step(`^"([^"]*)" creates invitation with public DID$`, d.createInvitationWithDID)
-	s.Step(`^"([^"]*)" waits for public did to become avaiable in sidetree for up to (\d+) seconds$`, d.waitForPublicDID)
+	s.Step(`^"([^"]*)" waits for public did to become available in sidetree for up to (\d+) seconds$`, d.waitForPublicDID)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)"$`, d.receiveInvitation)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)"$`, d.waitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`, d.validateConnection)
