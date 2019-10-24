@@ -332,7 +332,7 @@ func TestServiceEvents(t *testing.T) {
 
 	request, err := json.Marshal(
 		&didexsvc.Request{
-			Type:  didexsvc.ConnectionRequest,
+			Type:  didexsvc.RequestMsgType,
 			ID:    id,
 			Label: "test",
 			Connection: &didexsvc.Connection{
