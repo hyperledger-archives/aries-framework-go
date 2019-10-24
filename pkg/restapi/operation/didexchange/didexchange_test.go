@@ -8,6 +8,7 @@ package didexchange
 
 import (
 	"bytes"
+	"crypto"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,7 +32,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
@@ -104,7 +104,6 @@ func TestOperation_QueryConnectionByID(t *testing.T) {
 
 	// verify response
 	require.NotEmpty(t, response)
-	require.NotEmpty(t, response.Result)
 	require.NotEmpty(t, response.Result.ConnectionID)
 }
 
@@ -279,6 +278,10 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 	require.NoError(t, s.Put("conn_1234", connBytes))
+	h := crypto.SHA256.New()
+	hash := h.Sum([]byte(connRec.ConnectionID))
+	key := fmt.Sprintf("%x", hash)
+	require.NoError(t, s.Put("my_"+key, []byte(connRec.ConnectionID)))
 	svc, err := New(&mockprovider.Provider{
 		ServiceValue: &protocol.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
@@ -316,6 +319,7 @@ func (m mockWriter) Write([]byte) (int, error) {
 
 func TestServiceEvents(t *testing.T) {
 	store := &mockstore.MockStore{Store: make(map[string][]byte)}
+	recorder := didexsvc.NewConnectionRecorder(store)
 	didExSvc, err := didexsvc.New(&did.MockDIDCreator{}, &protocol.MockProvider{CustomStore: store})
 	require.NoError(t, err)
 
@@ -346,13 +350,13 @@ func TestServiceEvents(t *testing.T) {
 	require.NoError(t, err)
 	err = didExSvc.HandleInbound(msg)
 	require.NoError(t, err)
-	// todo this function is refactored in issue-397 with update being changed. Dumming the test for this pr only
-	//	validateState(t, store, id, "responded", 100*time.Millisecond) nolint:
+	validateState(t, recorder, id, "responded", 100*time.Millisecond)
 }
 
-func validateState(t *testing.T, store storage.Store, id, expected string, //nolint:unused,deadcode
+func validateState(t *testing.T, recorder *didexsvc.ConnectionRecorder, id, expected string,
 	timeoutDuration time.Duration) {
 	actualState := ""
+	theirPrefix := "their"
 	timeout := time.After(timeoutDuration)
 	for {
 		select {
@@ -360,16 +364,21 @@ func validateState(t *testing.T, store storage.Store, id, expected string, //nol
 			require.Fail(t, fmt.Sprintf("id=%s expectedState=%s actualState=%s", id, expected, actualState))
 			return
 		default:
-			v, err := store.Get(id)
-			actualState = string(v)
-			if err != nil || expected != string(v) {
+			key := createNSKey(theirPrefix, id)
+			connRec, err := recorder.GetConnectionRecordByNSThreadID(key)
+			if err != nil || expected != connRec.State {
 				continue
 			}
 			return
 		}
 	}
 }
-
+func createNSKey(prefix, id string) string {
+	h := crypto.SHA256.New()
+	hash := h.Sum([]byte(id))
+	storeKey := fmt.Sprintf("%x", hash)
+	return fmt.Sprintf("%s_%s", prefix, storeKey)
+}
 func TestOperationEventError(t *testing.T) {
 	client, err := didexchange.New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
 		ServiceValue: &protocol.MockDIDExchangeSvc{}})
