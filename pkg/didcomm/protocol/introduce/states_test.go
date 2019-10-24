@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 )
 
 func notTransition(t *testing.T, st state) {
@@ -33,13 +34,15 @@ func TestNoopState(t *testing.T) {
 }
 
 func TestNoOpState_ExecuteInbound(t *testing.T) {
-	followup, err := (&noOp{}).ExecuteInbound(&metaData{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&noOp{}).ExecuteInbound(ctx, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestNoOpState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&noOp{}).ExecuteOutbound(&metaData{}, &service.Destination{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&noOp{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -51,8 +54,8 @@ func TestStartState(t *testing.T) {
 
 	require.True(t, st.CanTransitionTo(&arranging{}))
 	require.True(t, st.CanTransitionTo(&deciding{}))
-	require.True(t, st.CanTransitionTo(&delivering{}))
 
+	require.False(t, st.CanTransitionTo(&delivering{}))
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	require.False(t, st.CanTransitionTo(&start{}))
 	require.False(t, st.CanTransitionTo(&done{}))
@@ -62,13 +65,15 @@ func TestStartState(t *testing.T) {
 }
 
 func TestStartState_ExecuteInbound(t *testing.T) {
-	followup, err := (&start{}).ExecuteInbound(&metaData{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&start{}).ExecuteInbound(ctx, &metaData{})
 	require.NoError(t, err)
-	require.Equal(t, &noOp{}, followup)
+	require.Equal(t, &arranging{}, followup)
 }
 
 func TestStartState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&start{}).ExecuteOutbound(&metaData{}, &service.Destination{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&start{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 }
@@ -81,13 +86,15 @@ func TestDoneState(t *testing.T) {
 }
 
 func TestDoneState_ExecuteInbound(t *testing.T) {
-	followup, err := (&done{}).ExecuteInbound(&metaData{})
-	require.Error(t, err)
-	require.Nil(t, followup)
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&done{}).ExecuteInbound(ctx, &metaData{})
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
 }
 
 func TestDoneState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&done{}).ExecuteOutbound(&metaData{}, &service.Destination{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&done{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -100,25 +107,27 @@ func TestArrangingState(t *testing.T) {
 	require.True(t, st.CanTransitionTo(&arranging{}))
 	require.True(t, st.CanTransitionTo(&abandoning{}))
 	require.True(t, st.CanTransitionTo(&done{}))
+	require.True(t, st.CanTransitionTo(&delivering{}))
 
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	require.False(t, st.CanTransitionTo(&start{}))
-	require.False(t, st.CanTransitionTo(&delivering{}))
 	require.False(t, st.CanTransitionTo(&confirming{}))
 	require.False(t, st.CanTransitionTo(&deciding{}))
 	require.False(t, st.CanTransitionTo(&waiting{}))
 }
 
 func TestArrangingState_ExecuteInbound(t *testing.T) {
-	followup, err := (&arranging{}).ExecuteInbound(&metaData{})
-	require.Error(t, err)
-	require.Nil(t, followup)
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&arranging{}).ExecuteInbound(ctx, &metaData{})
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
 }
 
 func TestArrangingState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&arranging{}).ExecuteOutbound(&metaData{}, &service.Destination{})
-	require.Error(t, err)
-	require.Nil(t, followup)
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&arranging{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
 }
 
 // delivering state can transition to ...
@@ -139,13 +148,15 @@ func TestDeliveringState(t *testing.T) {
 }
 
 func TestDeliveringState_ExecuteInbound(t *testing.T) {
-	followup, err := (&delivering{}).ExecuteInbound(&metaData{})
-	require.Error(t, err)
-	require.Nil(t, followup)
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{})
+	require.NoError(t, err)
+	require.Equal(t, &done{}, followup)
 }
 
 func TestDeliveringState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&delivering{}).ExecuteOutbound(&metaData{}, &service.Destination{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&delivering{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -168,13 +179,15 @@ func TestConfirmingState(t *testing.T) {
 }
 
 func TestConfirmingState_ExecuteInbound(t *testing.T) {
-	followup, err := (&confirming{}).ExecuteInbound(&metaData{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&confirming{}).ExecuteInbound(ctx, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestConfirmingState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&confirming{}).ExecuteOutbound(&metaData{}, &service.Destination{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&confirming{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -197,13 +210,15 @@ func TestAbandoningState(t *testing.T) {
 }
 
 func TestAbandoningState_ExecuteInbound(t *testing.T) {
-	followup, err := (&abandoning{}).ExecuteInbound(&metaData{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&abandoning{}).ExecuteInbound(ctx, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestAbandoningState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&abandoning{}).ExecuteOutbound(&metaData{}, &service.Destination{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&abandoning{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -226,13 +241,15 @@ func TestDecidingState(t *testing.T) {
 }
 
 func TestDecidingState_ExecuteInbound(t *testing.T) {
-	followup, err := (&deciding{}).ExecuteInbound(&metaData{})
-	require.Error(t, err)
-	require.Nil(t, followup)
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&deciding{}).ExecuteInbound(ctx, &metaData{})
+	require.NoError(t, err)
+	require.Equal(t, &waiting{}, followup)
 }
 
 func TestDecidingState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&deciding{}).ExecuteOutbound(&metaData{}, &service.Destination{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&deciding{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -255,13 +272,15 @@ func TestWaitingState(t *testing.T) {
 }
 
 func TestWaitingState_ExecuteInbound(t *testing.T) {
-	followup, err := (&waiting{}).ExecuteInbound(&metaData{})
-	require.Error(t, err)
-	require.Nil(t, followup)
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&waiting{}).ExecuteInbound(ctx, &metaData{})
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
 }
 
 func TestWaitingState_ExecuteOutbound(t *testing.T) {
-	followup, err := (&waiting{}).ExecuteOutbound(&metaData{}, &service.Destination{})
+	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	followup, err := (&waiting{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }

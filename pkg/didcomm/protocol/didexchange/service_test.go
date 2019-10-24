@@ -9,7 +9,6 @@ package didexchange
 import (
 	"encoding/json"
 	"errors"
-	"sync"
 	"testing"
 	"time"
 
@@ -144,32 +143,13 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 
 // did-exchange flow with role Invitee
 func TestService_Handle_Invitee(t *testing.T) {
-	data := make(map[string]string)
-	// using this mockStore as a hack in order to obtain the auto-generated thid after
-	// automatically sending the request back to Bob
-	var lock sync.RWMutex
-	store := &mockStore{
-		put: func(s string, bytes []byte) error {
-			lock.Lock()
-			defer lock.Unlock()
-			data[s] = string(bytes)
-			return nil
-		},
-		get: func(s string) (bytes []byte, e error) {
-			lock.RLock()
-			defer lock.RUnlock()
-			if state, found := data[s]; found {
-				return []byte(state), nil
-			}
-			return nil, storage.ErrDataNotFound
-		},
-	}
+	store := mockstorage.NewMockStoreProvider()
 	prov := protocol.MockProvider{}
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 	newDidDoc, err := ctx.didCreator.CreateDID()
 	require.NoError(t, err)
 
-	s, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{CustomStore: store})
+	s, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{StoreProvider: store})
 	require.NoError(t, err)
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
@@ -206,9 +186,8 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 	// Alice automatically sends a Request to Bob and is now in REQUESTED state.
 	connRecord := &ConnectionRecord{}
-	for _, v := range data {
-		currentData := v
-		err = json.Unmarshal([]byte(currentData), connRecord)
+	for _, v := range store.Store.Store {
+		err = json.Unmarshal(v, connRecord)
 		if err == nil && (&requested{}).Name() == connRecord.State {
 			break
 		}

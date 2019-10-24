@@ -84,9 +84,9 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		store := &mockstore.MockStore{Store: make(map[string][]byte)}
-		store.ErrPut = errors.New("store error")
-		c, err := New(&mockprovider.Provider{StorageProviderValue: &mockstore.MockStoreProvider{Custom: store},
+		store := mockstore.NewMockStoreProvider()
+		store.Store.ErrPut = errors.New("store error")
+		c, err := New(&mockprovider.Provider{StorageProviderValue: store,
 			ServiceValue: svc, WalletValue: &mockwallet.CloseableWallet{}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
@@ -122,10 +122,10 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		store := &mockstore.MockStore{Store: make(map[string][]byte)}
-		store.ErrPut = errors.New("store error")
+		store := mockstore.NewMockStoreProvider()
+		store.Store.ErrPut = errors.New("store error")
 		c, err := New(&mockprovider.Provider{
-			StorageProviderValue: &mockstore.MockStoreProvider{Custom: store},
+			StorageProviderValue: store,
 			ServiceValue:         svc,
 			WalletValue:          &mockwallet.CloseableWallet{}})
 		require.NoError(t, err)
@@ -264,9 +264,10 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 }
 
 func TestServiceEvents(t *testing.T) {
-	store := &mockstore.MockStore{Store: make(map[string][]byte)}
-	recorder := didexchange.NewConnectionRecorder(store)
-	didExSvc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{CustomStore: store})
+	store := mockstore.NewMockStoreProvider()
+	recorder := didexchange.NewConnectionRecorder(store.Store)
+	didExSvc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{StoreProvider: store})
+
 	require.NoError(t, err)
 
 	// create the client
