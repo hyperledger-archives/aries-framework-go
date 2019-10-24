@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package webhook
 
 // ConnectionMsg is sent when a pairwise connection record is updated.
-// TODO: This model is not final and was simply copied from ACA-Py for now (see #540).
 type ConnectionMsg struct {
 	ConnectionID        string `json:"connection_id"`
 	State               string `json:"state"`

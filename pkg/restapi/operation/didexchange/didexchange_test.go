@@ -319,13 +319,31 @@ func (m mockWriter) Write([]byte) (int, error) {
 
 func TestServiceEvents(t *testing.T) {
 	store := &mockstore.MockStore{Store: make(map[string][]byte)}
-	recorder := didexsvc.NewConnectionRecorder(store)
+
 	didExSvc, err := didexsvc.New(&did.MockDIDCreator{}, &protocol.MockProvider{CustomStore: store})
 	require.NoError(t, err)
 
+	done := make(chan struct{})
+
 	// create the client
 	op, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-		ServiceValue: didExSvc}, webhook.NewHTTPNotifier(nil))
+		ServiceValue: didExSvc},
+		&mockNotifier{
+			notifyFunc: func(topic string, message []byte) error {
+				require.Equal(t, connectionsWebhookTopic, topic)
+
+				conn := didexchange.Connection{}
+				jsonErr := json.Unmarshal(message, &conn)
+				require.NoError(t, jsonErr)
+
+				if conn.State == "responded" {
+					close(done)
+				}
+
+				return nil
+			},
+		},
+	)
 	require.NoError(t, err)
 	require.NotNil(t, op)
 
@@ -346,39 +364,20 @@ func TestServiceEvents(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+
 	msg, err := service.NewDIDCommMsg(request)
 	require.NoError(t, err)
+
 	err = didExSvc.HandleInbound(msg)
 	require.NoError(t, err)
-	validateState(t, recorder, id, "responded", 100*time.Millisecond)
-}
 
-func validateState(t *testing.T, recorder *didexsvc.ConnectionRecorder, id, expected string,
-	timeoutDuration time.Duration) {
-	actualState := ""
-	theirPrefix := "their"
-	timeout := time.After(timeoutDuration)
-	for {
-		select {
-		case <-timeout:
-			require.Fail(t, fmt.Sprintf("id=%s expectedState=%s actualState=%s", id, expected, actualState))
-			return
-		default:
-			key := createNSKey(theirPrefix, id)
-			connRec, err := recorder.GetConnectionRecordByNSThreadID(key)
-			if err != nil || expected != connRec.State {
-				continue
-			}
-			return
-		}
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
+		require.Fail(t, "tests are not validated")
 	}
 }
-func createNSKey(prefix, id string) string {
-	h := crypto.SHA256.New()
-	hash := h.Sum([]byte(id))
-	storeKey := fmt.Sprintf("%x", hash)
-	return fmt.Sprintf("%s_%s", prefix, storeKey)
-}
+
 func TestOperationEventError(t *testing.T) {
 	client, err := didexchange.New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
 		ServiceValue: &protocol.MockDIDExchangeSvc{}})
@@ -397,4 +396,61 @@ func TestOperationEventError(t *testing.T) {
 
 	err = client.UnregisterActionEvent(aCh)
 	require.NoError(t, err)
+}
+
+func TestHandleMessageEvent(t *testing.T) {
+	op, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		ServiceValue: &protocol.MockDIDExchangeSvc{}}, webhook.NewHTTPNotifier(nil))
+	require.NoError(t, err)
+	require.NotNil(t, op)
+
+	err = op.handleMessageEvents(service.StateMsg{Type: service.PostState, Properties: "invalid didex prop type"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "event is not of DIDExchange event type")
+
+	err = op.handleMessageEvents(service.StateMsg{Type: service.PostState, Properties: errors.New("err type")})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "service processing failed : err type")
+
+	op.notifier = &mockNotifier{notifyFunc: func(topic string, message []byte) error {
+		return errors.New("webhook error")
+	}}
+	err = op.handleMessageEvents(service.StateMsg{Type: service.PostState, Properties: &didExEvent{}})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "send connection notification failed : "+
+		"connection notification webhook : webhook error")
+}
+
+func TestSendConnectionNotification(t *testing.T) {
+	op, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		ServiceValue: &protocol.MockDIDExchangeSvc{}}, &mockNotifier{
+		notifyFunc: func(topic string, message []byte) error {
+			return errors.New("webhook error")
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, op)
+
+	err = op.sendConnectionNotification("abc", "responded")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "connection notification webhook : webhook error")
+}
+
+type mockNotifier struct {
+	notifyFunc func(topic string, message []byte) error
+}
+
+func (n *mockNotifier) Notify(topic string, message []byte) error {
+	return n.notifyFunc(topic, message)
+}
+
+type didExEvent struct {
+}
+
+func (e *didExEvent) ConnectionID() string {
+	return "abc"
+}
+
+func (e *didExEvent) InvitationID() string {
+	return "xyz"
 }
