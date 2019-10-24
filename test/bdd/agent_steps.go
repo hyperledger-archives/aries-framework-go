@@ -71,9 +71,18 @@ func (a *AgentSteps) create(agentID, inboundHost, inboundPort string, opts ...ar
 		return fmt.Errorf("failed to create context: %w", err)
 	}
 	a.bddContext.AgentCtx[agentID] = ctx
+	if err := listenFor(fmt.Sprintf("%s:%s", inboundHost, inboundPort), 2*time.Second); err != nil {
+		return err
+	}
+
+	logger.Infof("Agent %s start listening on %s:%s", agentID, inboundHost, inboundPort)
+	return nil
+}
+
+func (a *AgentSteps) createDIDExchangeClient(agentID string) error {
 
 	// create new did exchange client
-	didexchangeClient, err := didexchange.New(ctx)
+	didexchangeClient, err := didexchange.New(a.bddContext.AgentCtx[agentID])
 	if err != nil {
 		return fmt.Errorf("failed to create new didexchange client: %w", err)
 	}
@@ -87,14 +96,7 @@ func (a *AgentSteps) create(agentID, inboundHost, inboundPort string, opts ...ar
 	}()
 
 	a.bddContext.DIDExchangeClients[agentID] = didexchangeClient
-
-	if err := listenFor(fmt.Sprintf("%s:%s", inboundHost, inboundPort), 2*time.Second); err != nil {
-		return err
-	}
-
-	logger.Infof("Agent %s start listening on %s:%s", agentID, inboundHost, inboundPort)
 	return nil
-
 }
 
 func (a *AgentSteps) registerPostMsgEvent(agentID, statesValue string) error {
@@ -122,6 +124,7 @@ func (a *AgentSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)"$`, a.createAgent)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
 		a.createAgentWithHttpDIDResolver)
+	s.Step(`^"([^"]*)" creates did exchange client$`, a.createDIDExchangeClient)
 	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, a.registerPostMsgEvent)
 }
 
