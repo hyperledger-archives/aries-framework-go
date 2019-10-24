@@ -58,13 +58,13 @@ type state interface {
 // Returns the state towards which the protocol will transition to if the msgType is processed.
 func stateFromMsgType(msgType string) (state, error) {
 	switch msgType {
-	case ConnectionInvite:
+	case InvitationMsgType:
 		return &invited{}, nil
-	case ConnectionRequest:
+	case RequestMsgType:
 		return &requested{}, nil
-	case ConnectionResponse:
+	case ResponseMsgType:
 		return &responded{}, nil
-	case ConnectionAck:
+	case AckMsgType:
 		return &completed{}, nil
 	default:
 		return nil, fmt.Errorf("unrecognized msgType: %s", msgType)
@@ -138,7 +138,7 @@ func (s *invited) CanTransitionTo(next state) bool {
 }
 
 func (s *invited) Execute(msg *stateMachineMsg, thid string, ctx context) (state, stateAction, error) {
-	if msg.header.Type != ConnectionInvite {
+	if msg.header.Type != InvitationMsgType {
 		return nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
 	}
 	if msg.outbound {
@@ -162,7 +162,7 @@ func (s *requested) CanTransitionTo(next state) bool {
 
 func (s *requested) Execute(msg *stateMachineMsg, thid string, ctx context) (state, stateAction, error) {
 	switch msg.header.Type {
-	case ConnectionInvite:
+	case InvitationMsgType:
 		if msg.outbound {
 			return nil, nil, fmt.Errorf("outbound invitations are not allowed for state %s", s.Name())
 		}
@@ -176,7 +176,7 @@ func (s *requested) Execute(msg *stateMachineMsg, thid string, ctx context) (sta
 			return nil, nil, fmt.Errorf("handle inbound invitation failed: %s", err)
 		}
 		return &noOp{}, action, nil
-	case ConnectionRequest:
+	case RequestMsgType:
 		if msg.outbound {
 			action, err := ctx.sendOutboundRequest(msg)
 			if err != nil {
@@ -204,7 +204,7 @@ func (s *responded) CanTransitionTo(next state) bool {
 
 func (s *responded) Execute(msg *stateMachineMsg, thid string, ctx context) (state, stateAction, error) {
 	switch msg.header.Type {
-	case ConnectionRequest:
+	case RequestMsgType:
 		if msg.outbound {
 			return nil, nil, fmt.Errorf("outbound requests are not allowed for state %s", s.Name())
 		}
@@ -218,7 +218,7 @@ func (s *responded) Execute(msg *stateMachineMsg, thid string, ctx context) (sta
 			return nil, nil, fmt.Errorf("handle inbound request failed: %s", err)
 		}
 		return &noOp{}, action, nil
-	case ConnectionResponse:
+	case ResponseMsgType:
 		if msg.outbound {
 			action, err := ctx.sendOutboundResponse(msg)
 			if err != nil {
@@ -246,7 +246,7 @@ func (s *completed) CanTransitionTo(next state) bool {
 
 func (s *completed) Execute(msg *stateMachineMsg, thid string, ctx context) (state, stateAction, error) {
 	switch msg.header.Type {
-	case ConnectionResponse:
+	case ResponseMsgType:
 		if msg.outbound {
 			return nil, nil, fmt.Errorf("outbound responses are not allowed for state %s", s.Name())
 		}
@@ -260,7 +260,7 @@ func (s *completed) Execute(msg *stateMachineMsg, thid string, ctx context) (sta
 			return nil, nil, fmt.Errorf("handle inbound failed: %s", err)
 		}
 		return &noOp{}, action, nil
-	case ConnectionAck:
+	case AckMsgType:
 		action := func() error { return nil }
 		if msg.outbound {
 			var err error
@@ -312,7 +312,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string)
 	// TODO Service.Handle() is using the ID from the Invitation as the threadID when instead it should be
 	//  using this request's ID. issue-280
 	request := &Request{
-		Type:  ConnectionRequest,
+		Type:  RequestMsgType,
 		ID:    thid,
 		Label: "",
 		Connection: &Connection{
@@ -343,7 +343,7 @@ func (ctx *context) handleInboundRequest(request *Request) (stateAction, error) 
 	}
 	// prepare the response
 	response := &Response{
-		Type: ConnectionResponse,
+		Type: ResponseMsgType,
 		ID:   uuid.New().String(),
 		Thread: &decorator.Thread{
 			ID: request.ID,
@@ -548,7 +548,7 @@ func (ctx *context) sendOutboundAck(msg *stateMachineMsg) (stateAction, error) {
 
 func (ctx *context) handleInboundResponse(response *Response) (stateAction, error) {
 	ack := &model.Ack{
-		Type:   ConnectionAck,
+		Type:   AckMsgType,
 		ID:     uuid.New().String(),
 		Status: ackStatusOK,
 		Thread: &decorator.Thread{

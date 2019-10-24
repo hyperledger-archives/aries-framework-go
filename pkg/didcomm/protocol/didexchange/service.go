@@ -36,14 +36,14 @@ const (
 	DIDExchange = "didexchange"
 	// DIDExchangeSpec defines the did-exchange spec
 	DIDExchangeSpec = metadata.AriesCommunityDID + ";spec/didexchange/1.0/"
-	// ConnectionInvite defines the did-exchange invite message type.
-	ConnectionInvite = DIDExchangeSpec + "invitation"
-	// ConnectionRequest defines the did-exchange request message type.
-	ConnectionRequest = DIDExchangeSpec + "request"
-	// ConnectionResponse defines the did-exchange response message type.
-	ConnectionResponse = DIDExchangeSpec + "response"
-	// ConnectionAck defines the did-exchange ack message type.
-	ConnectionAck = DIDExchangeSpec + "ack"
+	// InvitationMsgType defines the did-exchange invite message type.
+	InvitationMsgType = DIDExchangeSpec + "invitation"
+	// RequestMsgType defines the did-exchange request message type.
+	RequestMsgType = DIDExchangeSpec + "request"
+	// ResponseMsgType defines the did-exchange response message type.
+	ResponseMsgType = DIDExchangeSpec + "response"
+	// AckMsgType defines the did-exchange ack message type.
+	AckMsgType = DIDExchangeSpec + "ack"
 	// DIDExchangeServiceType is the service type to be used in DID document
 	DIDExchangeServiceType = "did-communication"
 	// ConnectionID connection id is created to retriever connection record from db
@@ -174,10 +174,10 @@ func (s *Service) Name() string {
 
 // Accept msg checks the msg type
 func (s *Service) Accept(msgType string) bool {
-	return msgType == ConnectionInvite ||
-		msgType == ConnectionRequest ||
-		msgType == ConnectionResponse ||
-		msgType == ConnectionAck
+	return msgType == InvitationMsgType ||
+		msgType == RequestMsgType ||
+		msgType == ResponseMsgType ||
+		msgType == AckMsgType
 }
 
 // HandleOutbound handles outbound didexchange messages.
@@ -404,7 +404,7 @@ func isNoOp(s state) bool {
 }
 
 func threadID(didCommMsg *service.DIDCommMsg) (string, error) {
-	if didCommMsg.Header.Type == ConnectionInvite {
+	if didCommMsg.Header.Type == InvitationMsgType {
 		return generateRandomID(), nil
 	}
 
@@ -423,6 +423,10 @@ func (s *Service) currentState(thid string) (state, error) {
 }
 
 func (s *Service) update(thid string, state state) error {
+	if thid == "" {
+		return errors.New("thread id is mandatory")
+	}
+
 	// todo will be refactored in the issue-397
 	connRecBytes, err := json.Marshal(&ConnectionRecord{State: state.Name(), ThreadID: thid,
 		ConnectionID: generateRandomID()})
@@ -442,13 +446,7 @@ func generateRandomID() string {
 	return uuid.New().String()
 }
 
-// canTriggerActionEvents checks if the incoming message type matches either ConnectionRequest, ConnectionResponse or
-// ConnectionAck type.
+// canTriggerActionEvents checks if the incoming message type matches either RequestMsgType type.
 func canTriggerActionEvents(msgType string) bool {
-	if msgType != ConnectionRequest &&
-		msgType != ConnectionResponse && msgType != ConnectionAck {
-		return false
-	}
-
-	return true
+	return msgType == RequestMsgType
 }

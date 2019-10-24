@@ -109,7 +109,7 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 		Label:           label,
 		RecipientKeys:   []string{verKey},
 		ServiceEndpoint: c.inboundTransportEndpoint,
-		Type:            didexchange.ConnectionInvite,
+		Type:            didexchange.InvitationMsgType,
 	}
 
 	err = c.connectionStore.SaveInvitation(invitation)
@@ -126,7 +126,7 @@ func (c *Client) CreateInvitationWithDID(label, did string) (*Invitation, error)
 		ID:    uuid.New().String(),
 		Label: label,
 		DID:   did,
-		Type:  didexchange.ConnectionInvite,
+		Type:  didexchange.InvitationMsgType,
 	}
 
 	err := c.connectionStore.SaveInvitation(invitation)
