@@ -709,6 +709,9 @@ func TestEventStoreError(t *testing.T) {
 			Type:  RequestMsgType,
 			ID:    id,
 			Label: "test",
+			Connection: &Connection{
+				DID: "xyz",
+			},
 		},
 	)
 	require.NoError(t, err)
@@ -810,6 +813,7 @@ func TestServiceErrors(t *testing.T) {
 
 	// invalid state name
 	message.NextStateName = stateNameInvited
+	message.connRecord = &ConnectionRecord{ConnectionID: "abc"}
 	err = svc.handle(message)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to execute state invited")
@@ -878,4 +882,128 @@ func TestHandleOutbound(t *testing.T) {
 	err = svc.HandleOutbound(&service.DIDCommMsg{}, &service.Destination{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not implemented")
+}
+
+func TestConnectionRecord(t *testing.T) {
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
+
+	requestBytes, err := json.Marshal(&Request{
+		Type: RequestMsgType,
+		ID:   "id",
+		Connection: &Connection{
+			DID: "xyz",
+		},
+	})
+	require.NoError(t, err)
+
+	msg, err := service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	conn, err := svc.connectionRecord(msg)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+
+	// invalid type
+	requestBytes, err = json.Marshal(&Request{
+		Type: "invalid-type",
+	})
+	require.NoError(t, err)
+	msg, err = service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	_, err = svc.connectionRecord(msg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid message type")
+}
+
+func TestInvitationRecord(t *testing.T) {
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
+
+	requestBytes, err := json.Marshal(&Request{
+		Type: InvitationMsgType,
+		ID:   "id",
+	})
+	require.NoError(t, err)
+
+	msg, err := service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	conn, err := svc.invitationMsgRecord(msg)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+
+	// invalid thread id
+	requestBytes, err = json.Marshal(&Request{
+		Type: "invalid-type",
+	})
+	require.NoError(t, err)
+	msg, err = service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	_, err = svc.invitationMsgRecord(msg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "threadID not found")
+
+	// db error
+	svc.store = &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
+	svc.connectionStore = NewConnectionRecorder(svc.store)
+
+	requestBytes, err = json.Marshal(&Request{
+		Type: InvitationMsgType,
+		ID:   "id",
+		Connection: &Connection{
+			DID: "xyz",
+		},
+	})
+	require.NoError(t, err)
+
+	msg, err = service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	_, err = svc.invitationMsgRecord(msg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "save connection record")
+}
+
+func TestRequestRecord(t *testing.T) {
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
+
+	requestBytes, err := json.Marshal(&Request{
+		Type: RequestMsgType,
+		ID:   "id",
+		Connection: &Connection{
+			DID: "xyz",
+		},
+	})
+	require.NoError(t, err)
+
+	msg, err := service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	conn, err := svc.requestMsgRecord(msg)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+
+	// db error
+	svc.store = &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
+	svc.connectionStore = NewConnectionRecorder(svc.store)
+
+	requestBytes, err = json.Marshal(&Request{
+		Type: RequestMsgType,
+		ID:   "id",
+		Connection: &Connection{
+			DID: "xyz",
+		},
+	})
+	require.NoError(t, err)
+
+	msg, err = service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	_, err = svc.requestMsgRecord(msg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "save connection record")
 }
