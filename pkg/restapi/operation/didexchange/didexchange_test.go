@@ -315,9 +315,8 @@ func (m mockWriter) Write([]byte) (int, error) {
 }
 
 func TestServiceEvents(t *testing.T) {
-	store := &mockstore.MockStore{Store: make(map[string][]byte)}
-
-	didExSvc, err := didexsvc.New(&did.MockDIDCreator{}, &protocol.MockProvider{CustomStore: store})
+	store := mockstore.NewMockStoreProvider()
+	didExSvc, err := didexsvc.New(&did.MockDIDCreator{}, &protocol.MockProvider{StoreProvider: store})
 	require.NoError(t, err)
 
 	done := make(chan struct{})

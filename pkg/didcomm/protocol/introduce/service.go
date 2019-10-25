@@ -7,17 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -66,30 +67,56 @@ type callback struct {
 type Service struct {
 	service.Action
 	service.Message
-	store     storage.Store
-	callbacks chan callback
+	store       storage.Store
+	callbacks   chan callback
+	ctx         internalContext
+	stop        chan struct{}
+	closedMutex sync.Mutex
+	closed      bool
+}
+
+// provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
+type provider interface {
+	OutboundDispatcher() dispatcher.Outbound
+	StorageProvider() storage.Provider
 }
 
 // New returns introduce service
-func New(ctx context.Context, s storage.Provider) (*Service, error) {
-	store, err := s.OpenStore(Introduce)
+func New(p provider) (*Service, error) {
+	store, err := p.StorageProvider().OpenStore(Introduce)
 	if err != nil {
 		return nil, err
 	}
 
 	svc := &Service{
+		ctx: internalContext{
+			Outbound: p.OutboundDispatcher(),
+		},
 		store:     store,
 		callbacks: make(chan callback),
+		stop:      make(chan struct{}),
 	}
 
 	// start the listener
-	go svc.startInternalListener(ctx)
+	go svc.startInternalListener()
 
 	return svc, nil
 }
 
+// Stop stops service (callback listener)
+func (s *Service) Stop() error {
+	s.closedMutex.Lock()
+	defer s.closedMutex.Unlock()
+	if s.closed {
+		return errors.New("server was already stopped")
+	}
+	close(s.stop)
+	s.closed = true
+	return nil
+}
+
 // startInternalListener listens to messages in gochannel for callback messages from clients.
-func (s *Service) startInternalListener(ctx context.Context) {
+func (s *Service) startInternalListener() {
 	for {
 		select {
 		case msg := <-s.callbacks:
@@ -107,16 +134,22 @@ func (s *Service) startInternalListener(ctx context.Context) {
 			if err := s.processFailure(msg.id, msg.err); err != nil {
 				logger.Errorf("process callback : %s", err)
 			}
-		case <-ctx.Done():
-			logger.Infof("the listener was stopped by context")
+		case <-s.stop:
+			logger.Infof("the callback listener was stopped")
 			return
 		}
 	}
 }
 
-// processCallback processes the callback events.
+// process processes the callback events.
 func (s *Service) process(id string) error {
-	return nil
+	data, err := s.getTransientData(id)
+	if err != nil {
+		return fmt.Errorf("unable to fetch the event transient data: %w", err)
+	}
+
+	// continue the processing
+	return s.handle(data, nil)
 }
 
 func (s *Service) processFailure(id string, pErr error) error {
@@ -163,7 +196,7 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 	if err != nil {
 		return nil, err
 	}
-	logger.Infof("current state : %s", current.Name())
+	logger.Infof("current state: %s", current.Name())
 
 	next, err := nextState(msg, rec, outbound)
 	if err != nil {
@@ -175,15 +208,6 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 	if !current.CanTransitionTo(next) {
 		return nil, fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
-
-	// trigger message events
-	s.sendMsgEvents(service.StateMsg{
-		Type:         service.PreState,
-		Msg:          msg,
-		ProtocolName: Introduce,
-		StateID:      next.Name(),
-		Properties:   nil,
-	})
 
 	logger.Infof("sent pre event for state %s", next.Name())
 
@@ -209,7 +233,18 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 
 	// request is not a part of any state machine, so we just need to trigger an actionEvent
 	if msg.Header.Type == RequestMsgType {
-		return s.sendActionEvent(&metaData{Msg: msg}, aEvent)
+		thID, err := msg.ThreadID()
+		if err != nil {
+			return err
+		}
+		return s.sendActionEvent(&metaData{
+			record: record{
+				StateName: stateNameStart,
+				WaitCount: initialWaitCount,
+			},
+			Msg:      msg,
+			ThreadID: thID,
+		}, aEvent)
 	}
 
 	mData, err := s.doHandle(msg, false)
@@ -392,7 +427,7 @@ func stateFromName(name string) (state, error) {
 // canTriggerActionEvents checks if the incoming message can trigger an action event
 func canTriggerActionEvents(msg *service.DIDCommMsg) bool {
 	// TODO: need to check more msg.Header.Type
-	return msg.Header.Type == ProposalMsgType
+	return msg.Header.Type == ProposalMsgType || msg.Header.Type == ResponseMsgType
 }
 
 func isNoOp(s state) bool {
@@ -402,10 +437,9 @@ func isNoOp(s state) bool {
 
 func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 	logger.Infof("entered into private handle message: %v ", msg.Msg.Header)
-
 	next, err := stateFromName(msg.StateName)
 	if err != nil {
-		return fmt.Errorf("invalid state name: %w", err)
+		return fmt.Errorf("state from name: %w", err)
 	}
 	logger.Infof("next valid state to transition -> %s ", next.Name())
 
@@ -421,13 +455,13 @@ func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 		)
 
 		if dest != nil {
-			followup, err = next.ExecuteOutbound(msg, dest)
+			followup, err = next.ExecuteOutbound(s.ctx, msg, dest)
 		} else {
-			followup, err = next.ExecuteInbound(msg)
+			followup, err = next.ExecuteInbound(s.ctx, msg)
 		}
 
 		if err != nil {
-			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
+			return fmt.Errorf("execute state %s %w", next.Name(), err)
 		}
 
 		logger.Infof("finish execute next state: %s", next.Name())

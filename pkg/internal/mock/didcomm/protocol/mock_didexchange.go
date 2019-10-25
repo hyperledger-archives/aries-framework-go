@@ -87,7 +87,7 @@ func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- service.StateMsg) erro
 
 // MockProvider is provider for DIDExchange Service
 type MockProvider struct {
-	CustomStore storage.Store
+	StoreProvider *mockstore.MockStoreProvider
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service
@@ -97,8 +97,8 @@ func (p *MockProvider) OutboundDispatcher() dispatcher.Outbound {
 
 // StorageProvider is mock storage provider for DID exchange service
 func (p *MockProvider) StorageProvider() storage.Provider {
-	if p.CustomStore != nil {
-		return mockstore.NewMockCustomStoreProvider(p.CustomStore)
+	if p.StoreProvider != nil {
+		return p.StoreProvider
 	}
 	return mockstore.NewMockStoreProvider()
 }

@@ -15,7 +15,6 @@ import (
 
 // MockStoreProvider mock store provider.
 type MockStoreProvider struct {
-	Custom             storage.Store
 	Store              *MockStore
 	ErrOpenStoreHandle error
 	FailNameSpace      string
@@ -28,19 +27,12 @@ func NewMockStoreProvider() *MockStoreProvider {
 	}}
 }
 
-// NewMockCustomStoreProvider new customized store provider instance.
-func NewMockCustomStoreProvider(custom storage.Store) *MockStoreProvider {
-	return &MockStoreProvider{Custom: custom}
-}
-
 // OpenStore opens and returns a store for given name space.
 func (s *MockStoreProvider) OpenStore(name string) (storage.Store, error) {
 	if name == s.FailNameSpace {
 		return nil, fmt.Errorf("failed to open store for name space %s", name)
 	}
-	if s.Custom != nil {
-		return s.Custom, s.ErrOpenStoreHandle
-	}
+
 	return s.Store, s.ErrOpenStoreHandle
 }
 

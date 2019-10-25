@@ -7,17 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 )
 
@@ -69,19 +70,17 @@ func Test_nextState(t *testing.T) {
 func TestService_handle(t *testing.T) {
 	t.Parallel()
 	t.Run("Happy path", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.EqualError(t, svc.handle(&metaData{
 			Msg: &service.DIDCommMsg{},
-		}, nil), "invalid state name: invalid state name ")
+		}, nil), "state from name: invalid state name ")
 	})
 
 	t.Run("Happy path", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
-		ch := make(chan service.StateMsg)
+		ch := make(chan service.StateMsg, 2)
 		require.NoError(t, svc.RegisterMsgEvent(ch))
 		done := make(chan struct{})
 
@@ -119,14 +118,13 @@ func TestService_New(t *testing.T) {
 	const errMsg = "test err"
 	store := mockstore.NewMockStoreProvider()
 	store.ErrOpenStoreHandle = errors.New(errMsg)
-	svc, err := New(context.Background(), store)
+	svc, err := New(&protocol.MockProvider{StoreProvider: store})
 	require.EqualError(t, err, "test err")
 	require.Nil(t, svc)
 }
 
 func TestService_processFailure(t *testing.T) {
-	store := mockstore.NewMockStoreProvider()
-	svc, err := New(context.Background(), store)
+	svc, err := New(&protocol.MockProvider{})
 	require.NotNil(t, svc)
 	require.NoError(t, err)
 	const errMsg = "get transient data: store get: data not found"
@@ -137,7 +135,7 @@ func TestService_abandon(t *testing.T) {
 	const errMsg = "test err"
 	store := mockstore.NewMockStoreProvider()
 	store.Store.ErrPut = errors.New(errMsg)
-	svc, err := New(context.Background(), store)
+	svc, err := New(&protocol.MockProvider{StoreProvider: store})
 	require.NotNil(t, svc)
 	require.NoError(t, err)
 	const errStr = "save abandoning sate: " + errMsg
@@ -147,7 +145,7 @@ func TestService_abandon(t *testing.T) {
 func TestService_getTransientData(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
 	require.NoError(t, store.Store.Put("ID", []byte(`[]`)))
-	svc, err := New(context.Background(), store)
+	svc, err := New(&protocol.MockProvider{StoreProvider: store})
 	require.NotNil(t, svc)
 	require.NoError(t, err)
 	const errStr = "JSON marshalling : json: cannot unmarshal array into Go value of type introduce.metaData"
@@ -159,25 +157,28 @@ func TestService_getTransientData(t *testing.T) {
 func TestService_startInternalListener(t *testing.T) {
 	svc := &Service{
 		callbacks: make(chan callback),
+		stop:      make(chan struct{}),
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+
 	done := make(chan struct{})
 	go func() {
-		svc.startInternalListener(ctx)
+		svc.startInternalListener()
 		close(done)
 	}()
-	cancel()
+
+	require.NoError(t, svc.Stop())
 
 	select {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Error("timeout")
 	}
+
+	require.EqualError(t, svc.Stop(), "server was already stopped")
 }
 
 func TestService_Action(t *testing.T) {
-	store := mockstore.NewMockStoreProvider()
-	svc, err := New(context.Background(), store)
+	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
 	ch := make(chan<- service.DIDCommAction)
 
@@ -194,8 +195,7 @@ func TestService_Action(t *testing.T) {
 }
 
 func TestService_Message(t *testing.T) {
-	store := mockstore.NewMockStoreProvider()
-	svc, err := New(context.Background(), store)
+	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
 	ch := make(chan<- service.StateMsg)
 
@@ -212,8 +212,7 @@ func TestService_Message(t *testing.T) {
 }
 
 func TestService_Name(t *testing.T) {
-	store := mockstore.NewMockStoreProvider()
-	svc, err := New(context.Background(), store)
+	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
 	require.Equal(t, Introduce, svc.Name())
 }
@@ -222,7 +221,7 @@ func TestService_HandleOutbound(t *testing.T) {
 	t.Run("Storage JSON Error", func(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
 		require.NoError(t, store.Store.Put("ID", []byte(`[]`)))
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{StoreProvider: store})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ResponseMsgType)))
 		require.NoError(t, err)
@@ -234,7 +233,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
 		raw := fmt.Sprintf(`{"StateName":%q, "WaitCount":%d}`, "unknown", 1)
 		require.NoError(t, store.Store.Put("ID", []byte(raw)))
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{StoreProvider: store})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
@@ -244,8 +243,7 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Happy path", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
@@ -255,13 +253,11 @@ func TestService_HandleOutbound(t *testing.T) {
 			StateName: stateNameStart,
 			WaitCount: 1,
 		}))
-		const errMsg = "failed to execute state arranging arranging ExecuteOutbound: not implemented yet"
-		require.EqualError(t, svc.HandleOutbound(msg, &service.Destination{}), errMsg)
+		require.NoError(t, svc.HandleOutbound(msg, &service.Destination{}))
 	})
 
 	t.Run("Happy path (Request)", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, RequestMsgType)))
 		require.NoError(t, err)
@@ -272,8 +268,7 @@ func TestService_HandleOutbound(t *testing.T) {
 }
 
 func TestService_HandleInboundStop(t *testing.T) {
-	store := mockstore.NewMockStoreProvider()
-	svc, err := New(context.Background(), store)
+	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
 	msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 	require.NoError(t, err)
@@ -302,15 +297,13 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Parallel()
 
 	t.Run("No clients", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.EqualError(t, svc.HandleInbound(&service.DIDCommMsg{}), "no clients are registered to handle the message")
 	})
 
 	t.Run("ThreadID Error", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(`{}`))
 		require.NoError(t, err)
@@ -324,7 +317,7 @@ func TestService_HandleInbound(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
 		store.Store.ErrGet = errors.New(errMsg)
 		require.NoError(t, store.Store.Put("ID", nil))
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{StoreProvider: store})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
@@ -334,8 +327,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Bad transition", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NoError(t, svc.save("ID", record{
 			StateName: stateNameNoop,
@@ -352,7 +344,7 @@ func TestService_HandleInbound(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
 		raw := fmt.Sprintf(`{"StateName":%q, "WaitCount":%d}`, "unknown", 1)
 		require.NoError(t, store.Store.Put("ID", []byte(raw)))
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{StoreProvider: store})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
@@ -362,8 +354,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Unknown msg type error", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(`{"@id":"ID","@type":"unknown"}`))
 		require.NoError(t, err)
@@ -373,25 +364,16 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Happy path (send an action event)", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
-		aCh := make(chan service.DIDCommAction)
-		require.NoError(t, svc.RegisterActionEvent(aCh))
-		sCh := make(chan service.StateMsg)
-		require.NoError(t, svc.RegisterMsgEvent(sCh))
+		ch := make(chan service.DIDCommAction)
+		require.NoError(t, svc.RegisterActionEvent(ch))
 		go func() { require.NoError(t, svc.HandleInbound(msg)) }()
 
 		select {
-		case <-sCh:
-		case <-time.After(time.Second):
-			t.Error("timeout")
-		}
-
-		select {
-		case res := <-aCh:
+		case res := <-ch:
 			// TODO: need to check `Continue` function after implantation `processCallback`
 			res.Continue()
 		case <-time.After(time.Second):
@@ -400,8 +382,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Happy path (Request)", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, RequestMsgType)))
 		require.NoError(t, err)
@@ -417,8 +398,7 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("SkipProposal to Proposal", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, SkipProposalMsgType)))
 		require.NoError(t, err)
@@ -437,20 +417,18 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Happy path (execute handle)", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ResponseMsgType)))
 		require.NoError(t, err)
-		ch := make(chan service.DIDCommAction)
+		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
-		require.EqualError(t, errors.Unwrap(svc.HandleInbound(msg)), "arranging ExecuteInbound: not implemented yet")
+		require.Nil(t, errors.Unwrap(svc.HandleInbound(msg)))
 	})
 }
 
 func TestService_Accept(t *testing.T) {
-	store := mockstore.NewMockStoreProvider()
-	svc, err := New(context.Background(), store)
+	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
 	require.False(t, svc.Accept(""))
 	require.True(t, svc.Accept(ProposalMsgType))
@@ -503,8 +481,7 @@ func Test_stateFromName(t *testing.T) {
 
 func TestService_save(t *testing.T) {
 	t.Run("Happy path", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		data := &metaData{
 			record: record{
@@ -531,10 +508,219 @@ func TestService_save(t *testing.T) {
 	})
 
 	t.Run("JSON Error", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		svc, err := New(context.Background(), store)
+		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 		const errMsg = "service save: json: unsupported type: chan int"
 		require.EqualError(t, svc.save("ID", struct{ A chan int }{}), errMsg)
 	})
+}
+
+// Skip proposal (The introducer has a public invitation)
+func TestService_SkipProposal(t *testing.T) {
+	t.Run("Introducer", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		// register action event channel
+		aCh := make(chan service.DIDCommAction)
+		require.NoError(t, svc.RegisterActionEvent(aCh))
+
+		// register action event channel
+		sCh := make(chan service.StateMsg)
+		require.NoError(t, svc.RegisterMsgEvent(sCh))
+
+		// creates threadID
+		thID := uuid.New().String()
+
+		// creates skip proposal msg
+		reqMsg, err := service.NewDIDCommMsg(toBytes(t, Proposal{
+			Type: SkipProposalMsgType,
+			ID:   thID,
+		}))
+		require.NoError(t, err)
+
+		// handle outbound SkipProposal msg (sends Proposal)
+		go func() { require.NoError(t, svc.HandleOutbound(reqMsg, &service.Destination{})) }()
+		checkStateMsg(t, sCh, service.PreState, SkipProposalMsgType, stateNameArranging)
+		checkStateMsg(t, sCh, service.PostState, SkipProposalMsgType, stateNameArranging)
+
+		respMsg, err := service.NewDIDCommMsg(toBytes(t, Response{
+			Type:   ResponseMsgType,
+			ID:     uuid.New().String(),
+			Thread: &decorator.Thread{ID: thID},
+		}))
+		require.NoError(t, err)
+
+		// handle Response msg
+		go func() { require.NoError(t, svc.HandleInbound(respMsg)) }()
+		continueAction(t, aCh, ResponseMsgType)
+		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDelivering)
+		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDelivering)
+		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDone)
+		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDone)
+	})
+
+	t.Run("Introducee", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		// register action event channel
+		aCh := make(chan service.DIDCommAction)
+		require.NoError(t, svc.RegisterActionEvent(aCh))
+
+		// register action event channel
+		sCh := make(chan service.StateMsg)
+		require.NoError(t, svc.RegisterMsgEvent(sCh))
+
+		// creates threadID
+		thID := uuid.New().String()
+
+		// creates proposal msg
+		reqMsg, err := service.NewDIDCommMsg(toBytes(t, Proposal{
+			Type: ProposalMsgType,
+			ID:   thID,
+		}))
+		require.NoError(t, err)
+
+		// handle Proposal msg (sends Request)
+		go func() { require.NoError(t, svc.HandleInbound(reqMsg)) }()
+		continueAction(t, aCh, ProposalMsgType)
+		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
+		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
+		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameWaiting)
+		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameWaiting)
+	})
+}
+
+// Proposal with request
+func TestService_ProposalWithRequest(t *testing.T) {
+	t.Run("Introducer", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		// register action event channel
+		aCh := make(chan service.DIDCommAction)
+		require.NoError(t, svc.RegisterActionEvent(aCh))
+
+		// register action event channel
+		sCh := make(chan service.StateMsg)
+		require.NoError(t, svc.RegisterMsgEvent(sCh))
+
+		// creates threadID
+		thID := uuid.New().String()
+
+		// creates Request msg
+		reqMsg, err := service.NewDIDCommMsg(toBytes(t, Request{
+			Type: RequestMsgType,
+			ID:   thID,
+		}))
+		require.NoError(t, err)
+		// handle inbound Request msg
+		go func() { require.NoError(t, svc.HandleInbound(reqMsg)) }()
+		// sends the first Proposal
+		continueAction(t, aCh, RequestMsgType)
+		checkStateMsg(t, sCh, service.PreState, RequestMsgType, stateNameStart)
+		checkStateMsg(t, sCh, service.PostState, RequestMsgType, stateNameStart)
+		checkStateMsg(t, sCh, service.PreState, RequestMsgType, stateNameArranging)
+		checkStateMsg(t, sCh, service.PostState, RequestMsgType, stateNameArranging)
+
+		// creates first Response msg
+		firstRespMsg, err := service.NewDIDCommMsg(toBytes(t, Response{
+			Type:   ResponseMsgType,
+			ID:     uuid.New().String(),
+			Thread: &decorator.Thread{ID: thID},
+		}))
+		require.NoError(t, err)
+		// handle inbound Response msg
+		go func() { require.NoError(t, svc.HandleInbound(firstRespMsg)) }()
+		// sends the second Proposal
+		continueAction(t, aCh, ResponseMsgType)
+		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameArranging)
+		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameArranging)
+
+		// creates the second Response msg
+		secondRespMsg, err := service.NewDIDCommMsg(toBytes(t, Response{
+			Type:   ResponseMsgType,
+			ID:     uuid.New().String(),
+			Thread: &decorator.Thread{ID: thID},
+		}))
+		require.NoError(t, err)
+		// handle inbound second Response msg
+		go func() { require.NoError(t, svc.HandleInbound(secondRespMsg)) }()
+		continueAction(t, aCh, ResponseMsgType)
+		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDelivering)
+		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDelivering)
+		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDone)
+		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDone)
+	})
+
+	t.Run("Introducee", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		// register action event channel
+		aCh := make(chan service.DIDCommAction)
+		require.NoError(t, svc.RegisterActionEvent(aCh))
+
+		// register action event channel
+		sCh := make(chan service.StateMsg)
+		require.NoError(t, svc.RegisterMsgEvent(sCh))
+
+		// creates threadID
+		thID := uuid.New().String()
+
+		// creates Request msg
+		reqMsg, err := service.NewDIDCommMsg(toBytes(t, Request{
+			Type: RequestMsgType,
+			ID:   thID,
+		}))
+		require.NoError(t, err)
+
+		// handle outbound Request msg
+		go func() { require.NoError(t, svc.HandleOutbound(reqMsg, &service.Destination{})) }()
+
+		// creates proposal msg
+		propMsg, err := service.NewDIDCommMsg(toBytes(t, Proposal{
+			Type: ProposalMsgType,
+			ID:   thID,
+		}))
+		require.NoError(t, err)
+
+		// handle Proposal msg (sends Request)
+		go func() { require.NoError(t, svc.HandleInbound(propMsg)) }()
+		continueAction(t, aCh, ProposalMsgType)
+		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
+		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
+		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameWaiting)
+		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameWaiting)
+	})
+}
+
+func checkStateMsg(t *testing.T, ch chan service.StateMsg, sType service.StateMsgType, dType, stateID string) {
+	select {
+	case res := <-ch:
+		require.Equal(t, sType, res.Type)
+		require.Equal(t, dType, res.Msg.Header.Type)
+		require.Equal(t, stateID, res.StateID)
+		return
+	case <-time.After(time.Second):
+		t.Error("timeout")
+	}
+}
+
+func continueAction(t *testing.T, ch chan service.DIDCommAction, action string) {
+	select {
+	case res := <-ch:
+		require.Equal(t, action, res.Message.Header.Type)
+		res.Continue()
+		return
+	case <-time.After(time.Second):
+		t.Error("timeout")
+	}
+}
+
+func toBytes(t *testing.T, data interface{}) []byte {
+	src, err := json.Marshal(data)
+	require.NoError(t, err)
+	return src
 }
