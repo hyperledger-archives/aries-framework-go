@@ -66,7 +66,7 @@ func TestMain(m *testing.M) {
 					composition = append(composition, newComposition)
 				}
 				fmt.Println("docker-compose up ... waiting for containers to start ...")
-				testSleep := 15
+				testSleep := 5
 				if os.Getenv("TEST_SLEEP") != "" {
 					testSleep, _ = strconv.Atoi(os.Getenv("TEST_SLEEP"))
 				}
@@ -112,7 +112,6 @@ func getCmdArg(argName string) string {
 }
 
 func FeatureContext(s *godog.Suite) {
-
 	context, err := NewContext()
 	if err != nil {
 		panic(fmt.Sprintf("Error returned from NewBDDContext: %s", err))
@@ -122,17 +121,9 @@ func FeatureContext(s *godog.Suite) {
 	context.Args[SideTreeURL] = "http://localhost:48326/.sidetree/document"
 	context.Args[DIDDocPath] = "fixtures/sidetree-node/config/didDocument.json"
 
-	// alice agent container configuration
+	// TODO below 2 env variables to be removed as part of issue #572
 	context.Args[AliceAgentHost] = "alice.agent.example.com"
-	context.Args[AliceAgentPort] = "8081"
-	context.Args[AliceAgentController] = "http://localhost:8082"
-	context.Args[AliceAgentWebhook] = "http://localhost:8083/sample"
-
-	// bob agent container configuration
 	context.Args[BobAgentHost] = "bob.agent.example.com"
-	context.Args[BobAgentPort] = "9081"
-	context.Args[BobAgentController] = "http://localhost:9082"
-	context.Args[BobAgentWebhook] = "http://localhost:9083/sample"
 
 	// Context is shared between tests
 	NewAgentSDKSteps(context).RegisterSteps(s)

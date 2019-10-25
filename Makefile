@@ -3,11 +3,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 GO_CMD ?= go
-# Controller API entry point to be used for generating Open API specifications
-OPENAPI_SPEC_META=cmd/aries-agentd/main.go
+ARIES_AGENTD_MAIN=cmd/aries-agentd/main.go
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
 # TODO: Switched to dev since release version doesn't support go 1.13
 OPENAPI_DOCKER_IMG_VERSION=dev
+
+# Namespace for the agent images
+DOCKER_OUTPUT_NS  ?= aries-framework-go
+AGENT_IMAGE_NAME  ?= agent
+
+# Tool commands (overridable)
+DOCKER_CMD ?= docker
+GO_CMD     ?= go
+ALPINE_VER ?= 3.10
+GO_TAGS    ?=
+GO_VER ?= 1.13.1
 
 .PHONY: all
 all: checks generate-openapi-spec unit-test bdd-test
@@ -28,7 +38,7 @@ unit-test:
 	@scripts/check_unit.sh
 
 .PHONY: bdd-test
-bdd-test: clean generate-test-keys
+bdd-test: clean generate-test-keys agent-docker sample-webhook-docker
 	@scripts/check_integration.sh
 
 .PHONY: vc-test-suite
@@ -54,6 +64,36 @@ generate-test-keys: clean
 generate-openapi-spec: clean
 	@echo "Generating and validating controller API specifications using Open API"
 	@mkdir -p build/rest/openapi/spec
-	@SPEC_META=$(OPENAPI_SPEC_META) SPEC_LOC=build/rest/openapi/spec  \
+	@SPEC_META=$(ARIES_AGENTD_MAIN) SPEC_LOC=build/rest/openapi/spec  \
 	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
 	scripts/generate-openapi-spec.sh
+
+.PHONY: agent
+agent:
+	@echo "Building aries-agentd"
+	@mkdir -p ./build/bin
+	@go build -o ./build/bin/aries-agentd ${ARIES_AGENTD_MAIN}
+
+.PHONY: agent-docker
+agent-docker:
+	@echo "Building aries agent docker image"
+	@docker build -f ./images/agent/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(AGENT_IMAGE_NAME):latest \
+	--build-arg GO_VER=$(GO_VER) \
+	--build-arg ALPINE_VER=$(ALPINE_VER) \
+	--build-arg GO_TAGS=$(GO_TAGS) \
+	--build-arg GOPROXY=$(GOPROXY) .
+
+.PHONY: sample-webhook
+sample-webhook:
+	@echo "Building sample webhook server"
+	@mkdir -p ./build/bin
+	@go build -o ./build/bin/webhook-server test/bdd/webhook/main.go
+
+.PHONY: sample-webhook-docker
+sample-webhook-docker:
+	@echo "Building sample webhook server docker image"
+	@docker build -f ./images/mocks/webhook/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/sample-webhook:latest \
+	--build-arg GO_VER=$(GO_VER) \
+	--build-arg ALPINE_VER=$(ALPINE_VER) \
+	--build-arg GO_TAGS=$(GO_TAGS) \
+	--build-arg GOPROXY=$(GOPROXY) .

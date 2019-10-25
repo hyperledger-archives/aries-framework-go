@@ -396,6 +396,7 @@ func (c *Operation) handleActionEvents(e service.DIDCommAction) {
 func (c *Operation) sendConnectionNotification(connectionID string) error {
 	conn, err := c.client.GetConnection(connectionID)
 	if err != nil {
+		logger.Errorf("Send notification failed, topic[%s], connectionID[%s]", connectionsWebhookTopic, connectionID)
 		return fmt.Errorf("connection notification webhook : %w", err)
 	}
 
@@ -413,6 +414,7 @@ func (c *Operation) sendConnectionNotification(connectionID string) error {
 		return fmt.Errorf("connection notification json marshal : %w", err)
 	}
 
+	logger.Debugf("Sending notification on topic '%s', message body : %s", connectionsWebhookTopic, jsonMessage)
 	err = c.notifier.Notify(connectionsWebhookTopic, jsonMessage)
 	if err != nil {
 		return fmt.Errorf("connection notification webhook : %w", err)
