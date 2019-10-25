@@ -34,7 +34,7 @@ var logger = log.New("aries-framework/did-exchange")
 const (
 	operationID             = "/connections"
 	createInvitationPath    = operationID + "/create-invitation"
-	receiveInvtiationPath   = operationID + "/receive-invitation"
+	receiveInvitationPath   = operationID + "/receive-invitation"
 	acceptInvitationPath    = operationID + "/{id}/accept-invitation"
 	connections             = operationID
 	connectionsByID         = operationID + "/{id}"
@@ -52,7 +52,7 @@ type provider interface {
 }
 
 // New returns new DID Exchange rest client protocol instance
-func New(ctx provider, notifier webhook.Notifier) (*Operation, error) {
+func New(ctx provider, notifier webhook.Notifier, invitationLabel string) (*Operation, error) {
 	didExchange, err := didexchange.New(ctx)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func New(ctx provider, notifier webhook.Notifier) (*Operation, error) {
 		msgCh:    make(chan service.StateMsg, 10),
 		notifier: notifier,
 	}
-	svc.registerHandler()
+	svc.registerHandlers(invitationLabel)
 
 	err = svc.startClientEventListener()
 	if err != nil {
@@ -93,17 +93,16 @@ type Operation struct {
 // Responses:
 //    default: genericError
 //        200: createInvitationResponse
-func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) {
+func (c *Operation) CreateInvitation(w io.Writer, req *http.Request, invitationLabel string) {
 	logger.Debugf("Creating connection invitation ")
 	// call didexchange client
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/552 pass label value as args in aries-agentd
-	response, err := c.client.CreateInvitation("agent")
+	response, err := c.client.CreateInvitation(invitationLabel)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		c.writeGenericError(w, err)
 		return
 	}
 
-	c.writeResponse(rw, &models.CreateInvitationResponse{Payload: response})
+	c.writeResponse(w, &models.CreateInvitationResponse{Payload: response})
 }
 
 // ReceiveInvitation swagger:route POST /connections/receive-invitation did-exchange receiveInvitation
@@ -304,14 +303,16 @@ func (c *Operation) GetRESTHandlers() []operation.Handler {
 	return c.handlers
 }
 
-// registerHandler register handlers to be exposed from this protocol service as REST API endpoints
-func (c *Operation) registerHandler() {
+// registerHandlers register handlers to be exposed from this protocol service as REST API endpoints
+func (c *Operation) registerHandlers(invitationLabel string) {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	c.handlers = []operation.Handler{
 		support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
 		support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
-		support.NewHTTPHandler(createInvitationPath, http.MethodPost, c.CreateInvitation),
-		support.NewHTTPHandler(receiveInvtiationPath, http.MethodPost, c.ReceiveInvitation),
+		support.NewHTTPHandler(createInvitationPath, http.MethodPost, func(rw http.ResponseWriter, req *http.Request) {
+			c.CreateInvitation(rw, req, invitationLabel)
+		}),
+		support.NewHTTPHandler(receiveInvitationPath, http.MethodPost, c.ReceiveInvitation),
 		support.NewHTTPHandler(acceptInvitationPath, http.MethodPost, c.AcceptInvitation),
 		support.NewHTTPHandler(acceptExchangeRequest, http.MethodPost, c.AcceptExchangeRequest),
 		support.NewHTTPHandler(removeConnection, http.MethodPost, c.RemoveConnection),

@@ -36,7 +36,7 @@ const (
 	AgentInboundHostFlagShorthand = "i"
 
 	// AgentInboundHostFlagUsage is the usage text for the agent inbound host command line argument.
-	AgentInboundHostFlagUsage = "Inbound Host Name:Port"
+	AgentInboundHostFlagUsage = "Inbound Host Name:Port. The port will be used to create the local inbound server."
 
 	// AgentDBPathFlagName is the flag name for the database path command line argument.
 	AgentDBPathFlagName = "db-path"
@@ -50,12 +50,16 @@ const (
 	// AgentWebhookFlagName is the flag name for the webhook command line argument.
 	AgentWebhookFlagName = "webhook-url"
 
-	// AgentWebhookFlagShorthand is the flag shorthand name for the webhook command line argument.
-	AgentWebhookFlagShorthand = "w"
+	agentWebhookFlagShorthand = "w"
 
-	// AgentWebhookFlagUsage is the flag usage text for the webhook command line argument.
-	AgentWebhookFlagUsage = "URL to send notifications to." +
+	agentWebhookFlagUsage = "URL to send notifications to." +
 		" This flag can be repeated, allowing for multiple listeners."
+
+	agentInvitationLabelFlagName = "invitation-label"
+
+	agentInvitationLabelFlagShorthand = "l"
+
+	agentInvitationLabelFlagUsage = `Label to be attached to connection invitations. Defaults to "agent" if not set. `
 )
 
 // ErrMissingHost is the error when the user provides a blank host argument.
@@ -70,6 +74,7 @@ type agentParameters struct {
 	server                    server
 	host, inboundHost, dbPath string
 	webhookURLs               []string
+	invitationLabel           string
 }
 
 type server interface {
@@ -85,7 +90,7 @@ func (s *HTTPServer) ListenAndServe(host string, router *mux.Router) error {
 }
 
 // Cmd returns the Cobra start command.
-func Cmd(server server) (*cobra.Command, error) {
+func Cmd(s server) (*cobra.Command, error) {
 	var webhookURLs []string
 	startCmd := &cobra.Command{
 		Use:   "start",
@@ -93,22 +98,10 @@ func Cmd(server server) (*cobra.Command, error) {
 		Long:  `Start an Aries agent controller`,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-			host, err := cmd.Flags().GetString(AgentHostFlagName)
+			parameters, err := getAgentParameters(cmd, s, webhookURLs)
 			if err != nil {
-				return fmt.Errorf("agent host flag not found: %s", err)
+				return err
 			}
-
-			inboundHost, err := cmd.Flags().GetString(AgentInboundHostFlagName)
-			if err != nil {
-				return fmt.Errorf("agent inbound host flag not found: %s", err)
-			}
-
-			dbPath, err := cmd.Flags().GetString(AgentDBPathFlagName)
-			if err != nil {
-				return fmt.Errorf("agent DB path flag not found: %s", err)
-			}
-
-			parameters := &agentParameters{server, host, inboundHost, dbPath, webhookURLs}
 			err = startAgent(parameters)
 			if err != nil {
 				return fmt.Errorf("unable to start agent: %s", err)
@@ -117,6 +110,7 @@ func Cmd(server server) (*cobra.Command, error) {
 			return nil
 		},
 	}
+
 	startCmd.Flags().StringP(AgentHostFlagName, AgentHostFlagShorthand, "", AgentHostFlagUsage)
 	err := startCmd.MarkFlagRequired(AgentHostFlagName)
 	if err != nil {
@@ -128,20 +122,48 @@ func Cmd(server server) (*cobra.Command, error) {
 	if err != nil {
 		return nil, fmt.Errorf("tried to mark inbound host flag as required but it was not found: %s", err)
 	}
+
 	startCmd.Flags().StringP(AgentDBPathFlagName, AgentDBPathFlagShorthand, "", AgentDBPathFlagUsage)
 	err = startCmd.MarkFlagRequired(AgentDBPathFlagName)
 	if err != nil {
 		return nil, fmt.Errorf("tried to mark DB path flag as required but it was not found: %s", err)
 	}
 
-	startCmd.Flags().StringSliceVarP(&webhookURLs, AgentWebhookFlagName, AgentWebhookFlagShorthand, []string{},
-		AgentWebhookFlagUsage)
+	startCmd.Flags().StringSliceVarP(&webhookURLs, AgentWebhookFlagName, agentWebhookFlagShorthand, []string{},
+		agentWebhookFlagUsage)
 	err = startCmd.MarkFlagRequired(AgentWebhookFlagName)
 	if err != nil {
 		return nil, fmt.Errorf("tried to mark agent webhook host flag as required but it was not found: %s", err)
 	}
 
+	startCmd.Flags().StringP(agentInvitationLabelFlagName, agentInvitationLabelFlagShorthand, "",
+		agentInvitationLabelFlagUsage)
+
 	return startCmd, nil
+}
+
+func getAgentParameters(cmd *cobra.Command, s server, webhookURLs []string) (*agentParameters, error) {
+	host, err := cmd.Flags().GetString(AgentHostFlagName)
+	if err != nil {
+		return nil, fmt.Errorf("agent host flag not found: %s", err)
+	}
+	inboundHost, err := cmd.Flags().GetString(AgentInboundHostFlagName)
+	if err != nil {
+		return nil, fmt.Errorf("agent inbound host flag not found: %s", err)
+	}
+	dbPath, err := cmd.Flags().GetString(AgentDBPathFlagName)
+	if err != nil {
+		return nil, fmt.Errorf("agent DB path flag not found: %s", err)
+	}
+	invitationLabel := "agent"
+	if cmd.Flags().Changed(agentInvitationLabelFlagName) {
+		invitationLabel, err = cmd.Flags().GetString(agentInvitationLabelFlagName)
+		if err != nil {
+			return nil, fmt.Errorf("agent DB path flag not found: %s", err)
+		}
+	}
+	parameters := &agentParameters{s, host, inboundHost, dbPath, webhookURLs, invitationLabel}
+	return parameters, err
 }
 
 func startAgent(parameters *agentParameters) error {
@@ -172,7 +194,8 @@ func startAgent(parameters *agentParameters) error {
 	}
 
 	// get all HTTP REST API handlers available for controller API
-	restService, err := restapi.New(ctx, restapi.WithWebhookURLs(parameters.webhookURLs...))
+	restService, err := restapi.New(ctx, restapi.WithWebhookURLs(parameters.webhookURLs...),
+		restapi.WithInvitationLabel(parameters.invitationLabel))
 	if err != nil {
 		return fmt.Errorf("failed to start aries agentd on port [%s], failed to get rest service api :  %w",
 			parameters.host, err)

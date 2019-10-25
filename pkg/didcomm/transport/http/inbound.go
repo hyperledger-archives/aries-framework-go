@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -102,7 +103,8 @@ func validateHTTPMethod(w http.ResponseWriter, r *http.Request) bool {
 
 // Inbound http type.
 type Inbound struct {
-	server *http.Server
+	serverAddr string
+	server     *http.Server
 }
 
 // NewInbound creates a new HTTP inbound transport instance.
@@ -111,7 +113,7 @@ func NewInbound(addr string) (*Inbound, error) {
 		return nil, errors.New("http address is mandatory")
 	}
 
-	return &Inbound{server: &http.Server{Addr: addr}}, nil
+	return &Inbound{serverAddr: addr}, nil
 }
 
 // Start the http server.
@@ -120,6 +122,12 @@ func (i *Inbound) Start(prov transport.InboundProvider) error {
 	if err != nil {
 		return fmt.Errorf("HTTP server start failed: %w", err)
 	}
+
+	_, inboundPort, err := net.SplitHostPort(i.serverAddr)
+	if err != nil {
+		panic(err)
+	}
+	i.server = &http.Server{Addr: ":" + inboundPort}
 
 	i.server.Handler = handler
 
@@ -145,5 +153,5 @@ func (i *Inbound) Stop() error {
 // Endpoint provides the http connection details.
 func (i *Inbound) Endpoint() string {
 	// return http prefix as framework only supports http
-	return "http://" + i.server.Addr
+	return "http://" + i.serverAddr
 }
