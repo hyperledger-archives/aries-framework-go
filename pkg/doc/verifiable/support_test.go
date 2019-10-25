@@ -149,8 +149,8 @@ func readPrivateKey(keyFilePath string) (*rsa.PrivateKey, error) {
 	return privKey, nil
 }
 
-func (raw *rawCredential) stringJSON(t *testing.T) string {
-	bytes, err := json.Marshal(raw)
+func (rc *rawCredential) stringJSON(t *testing.T) string {
+	bytes, err := rc.marshalJSON()
 	require.NoError(t, err)
 	return string(bytes)
 }

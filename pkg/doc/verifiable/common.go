@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/square/go-jose/v3"
@@ -63,7 +64,7 @@ type typedID struct {
 type RefreshService typedID
 
 // TermsOfUse represents terms of use of Verifiable Credential by Issuer or Verifiable Presentation by Holder.
-type TermsOfUse typedID
+type TermsOfUse interface{}
 
 func describeSchemaValidationError(result *gojsonschema.Result, what string) string {
 	errMsg := what + " is not valid:\n"
@@ -71,4 +72,16 @@ func describeSchemaValidationError(result *gojsonschema.Result, what string) str
 		errMsg += fmt.Sprintf("- %s\n", desc)
 	}
 	return errMsg
+}
+
+func stringSlice(values []interface{}) ([]string, error) {
+	strings := make([]string, len(values))
+	for i := range values {
+		t, valid := values[i].(string)
+		if !valid {
+			return nil, errors.New("array element is not a string")
+		}
+		strings[i] = t
+	}
+	return strings, nil
 }

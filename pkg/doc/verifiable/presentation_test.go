@@ -314,7 +314,7 @@ func TestPresentation_Credentials(t *testing.T) {
 
 		// check some VC properties to double check that conversion is OK
 		require.Equal(t, "http://example.edu/credentials/1872", vc.ID)
-		require.Equal(t, []string{"VerifiableCredential", "AlumniCredential"}, vc.Type)
+		require.Equal(t, []string{"VerifiableCredential", "AlumniCredential"}, vc.Types)
 	})
 
 	t.Run("failure handling on extraction of verifiable credentials from list", func(t *testing.T) {

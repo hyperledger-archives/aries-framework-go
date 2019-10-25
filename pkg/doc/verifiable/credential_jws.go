@@ -17,13 +17,7 @@ func (jcc *JWTCredClaims) MarshalJWS(signatureAlg JWSAlgorithm, privateKey inter
 	return marshalJWS(jcc, signatureAlg, privateKey, keyID)
 }
 
-// credJWSDecoder parses and verifies signature of serialized JWT. To verify the signature,
-// Public Key Fetcher is used.
-type credJWSDecoder struct {
-	PKFetcher PublicKeyFetcher
-}
-
-func (jd *credJWSDecoder) UnmarshalClaims(rawJwt []byte) (*JWTCredClaims, error) {
+func unmarshalJWSClaims(rawJwt []byte, fetcher PublicKeyFetcher) (*JWTCredClaims, error) {
 	parsedJwt, err := jwt.ParseSigned(string(rawJwt))
 	if err != nil {
 		return nil, fmt.Errorf("VC is not valid serialized JWS: %w", err)
@@ -35,7 +29,7 @@ func (jd *credJWSDecoder) UnmarshalClaims(rawJwt []byte) (*JWTCredClaims, error)
 		return nil, fmt.Errorf("failed to parse JWT claims: %w", err)
 	}
 
-	err = verifyJWTSignature(parsedJwt, jd.PKFetcher, credClaims.Issuer, credClaims)
+	err = verifyJWTSignature(parsedJwt, fetcher, credClaims.Issuer, credClaims)
 	if err != nil {
 		return nil, fmt.Errorf("JWT signature verification failed: %w", err)
 	}
@@ -43,24 +37,8 @@ func (jd *credJWSDecoder) UnmarshalClaims(rawJwt []byte) (*JWTCredClaims, error)
 	return credClaims, nil
 }
 
-func (jd *credJWSDecoder) UnmarshalVCClaim(rawJwt []byte) (map[string]interface{}, error) {
-	parsedJwt, err := jwt.ParseSigned(string(rawJwt))
-	if err != nil {
-		return nil, fmt.Errorf("VC is not valid serialized JWS: %w", err)
-	}
-
-	jsonObjClaims := new(jwtVCClaim)
-	err = parsedJwt.UnsafeClaimsWithoutVerification(jsonObjClaims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JWT claims: %w", err)
-	}
-
-	return jsonObjClaims.VC, nil
-}
-
-func decodeCredJWS(rawJwt []byte, fetcher PublicKeyFetcher) ([]byte, *rawCredential, error) {
-	decoder := &credJWSDecoder{
-		PKFetcher: fetcher,
-	}
-	return decodeCredJWT(rawJwt, decoder)
+func decodeCredJWS(rawJwt []byte, fetcher PublicKeyFetcher) ([]byte, error) {
+	return decodeCredJWT(rawJwt, func(vcJWTBytes []byte) (*JWTCredClaims, error) {
+		return unmarshalJWSClaims(rawJwt, fetcher)
+	})
 }

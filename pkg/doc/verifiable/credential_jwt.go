@@ -9,15 +9,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/square/go-jose/v3/jwt"
+)
+
+const (
+	vcIssuanceDateField   = "issuanceDate"
+	vcIDField             = "id"
+	vcExpirationDateField = "expirationDate"
+	vcIssuerField         = "issuer"
+	vcIssuerIDField       = "id"
 )
 
 // JWTCredClaims is JWT Claims extension by Verifiable Credential (with custom "vc" claim).
 type JWTCredClaims struct {
 	*jwt.Claims
 
-	Credential *rawCredential `json:"vc,omitempty"`
+	VC map[string]interface{} `json:"vc,omitempty"`
 }
 
 // newJWTCredClaims creates JWT Claims of VC with an option to minimize certain fields of VC
@@ -52,108 +61,79 @@ func newJWTCredClaims(vc *Credential, minimizeVc bool) (*JWTCredClaims, error) {
 		raw = vc.raw()
 	}
 
-	credClaims := &JWTCredClaims{
-		Claims:     jwtClaims,
-		Credential: raw,
+	vcMap, err := raw.asMap()
+	if err != nil {
+		return nil, err
 	}
 
+	credClaims := &JWTCredClaims{
+		Claims: jwtClaims,
+		VC:     vcMap,
+	}
 	return credClaims, nil
 }
 
-// jwtVCClaim is used to get content of "vc" claim of JWT.
-type jwtVCClaim struct {
-	VC map[string]interface{} `json:"vc,omitempty"`
-}
+// JWTCredClaimsUnmarshaller unmarshals verifiable credential bytes into JWT claims with extra "vc" claim.
+type JWTCredClaimsUnmarshaller func(vcJWTBytes []byte) (*JWTCredClaims, error)
 
-func mergeRefinedVC(jsonCred map[string]interface{}, rawCred *rawCredential) error {
-	rawData, err := json.Marshal(rawCred)
+// decodeCredJWT parses JWT from the specified bytes array in compact format using unmarshaller.
+// It returns decoded Verifiable Credential refined by JWT Claims in raw byte array form.
+func decodeCredJWT(rawJWT []byte, unmarshaller JWTCredClaimsUnmarshaller) ([]byte, error) {
+	credClaims, err := unmarshaller(rawJWT)
 	if err != nil {
-		return err
-	}
-
-	var rawMap map[string]interface{}
-
-	err = json.Unmarshal(rawData, &rawMap)
-	if err != nil {
-		return err
-	}
-
-	// make the merge
-	for k, v := range rawMap {
-		jsonCred[k] = v
-	}
-
-	return nil
-}
-
-// jwtCredClaimsDecoder parses JWT claims from serialized token into JWTCredClaims struct and JSON object.
-// The implementation depends on the type of serialization, e.g. signed (JWT), unsecured (plain JWT).
-type jwtCredClaimsDecoder interface {
-	UnmarshalClaims(rawJwt []byte) (*JWTCredClaims, error)
-	UnmarshalVCClaim(rawJwt []byte) (map[string]interface{}, error)
-}
-
-// decodeCredJWT parses JWT from the specified bytes array in compact format using jwtDecoder.
-// It returns decoded Verifiable Credential refined by JWT Claims in raw byte array and rawCredential form.
-func decodeCredJWT(rawJWT []byte, credClaimsDecoder jwtCredClaimsDecoder) ([]byte, *rawCredential, error) {
-	credClaims, err := credClaimsDecoder.UnmarshalClaims(rawJWT)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode Verifiable Credential JWT claims: %w", err)
-	}
-
-	credJSON, err := credClaimsDecoder.UnmarshalVCClaim(rawJWT)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode raw Verifiable Credential JWT claims: %w", err)
+		return nil, fmt.Errorf("failed to decode Verifiable Credential JWT claims: %w", err)
 	}
 
 	// Apply VC-related claims from JWT.
 	credClaims.refineFromJWTClaims()
-	// Complement original "vc" JSON claim with data refined from JWT claims.
-	if err = mergeRefinedVC(credJSON, credClaims.Credential); err != nil {
-		return nil, nil, fmt.Errorf("failed to merge refined VC: %w", err)
-	}
 
 	var vcData []byte
-	if vcData, err = json.Marshal(credJSON); err != nil {
-		return nil, nil, errors.New("failed to marshal 'vc' claim of JWT")
+	if vcData, err = json.Marshal(credClaims.VC); err != nil {
+		return nil, errors.New("failed to marshal 'vc' claim of JWT")
 	}
 
-	return vcData, credClaims.Credential, nil
+	return vcData, nil
 }
 
 func (jcc *JWTCredClaims) refineFromJWTClaims() {
-	raw := jcc.Credential
+	vcMap := jcc.VC
+	claims := jcc.Claims
 
-	if iss := jcc.Issuer; iss != "" {
-		refineVCIssuerFromJWTClaims(raw, iss)
+	if iss := claims.Issuer; iss != "" {
+		refineVCIssuerFromJWTClaims(vcMap, iss)
 	}
 
-	if nbf := jcc.NotBefore; nbf != nil {
+	if nbf := claims.NotBefore; nbf != nil {
 		nbfTime := nbf.Time().UTC()
-		raw.Issued = &nbfTime
+		vcMap[vcIssuanceDateField] = nbfTime.Format(time.RFC3339)
 	}
 
-	if jti := jcc.ID; jti != "" {
-		raw.ID = jti
+	if jti := claims.ID; jti != "" {
+		vcMap[vcIDField] = jti
 	}
 
-	if iat := jcc.IssuedAt; iat != nil {
+	if iat := claims.IssuedAt; iat != nil {
 		iatTime := iat.Time().UTC()
-		raw.Issued = &iatTime
+		vcMap[vcIssuanceDateField] = iatTime.Format(time.RFC3339)
 	}
 
-	if exp := jcc.Expiry; exp != nil {
+	if exp := claims.Expiry; exp != nil {
 		expTime := exp.Time().UTC()
-		raw.Expired = &expTime
+		vcMap[vcExpirationDateField] = expTime.Format(time.RFC3339)
 	}
 }
 
-func refineVCIssuerFromJWTClaims(raw *rawCredential, iss string) {
+func refineVCIssuerFromJWTClaims(vcMap map[string]interface{}, iss string) {
 	// Issuer of Verifiable Credential could be either string (id) or struct (with "id" field).
-	switch issuer := raw.Issuer.(type) {
+	if _, exists := vcMap[vcIssuerField]; !exists {
+		vcMap[vcIssuerField] = iss
+		return
+	}
+
+	switch issuer := vcMap[vcIssuerField].(type) {
 	case string:
-		raw.Issuer = iss
+		vcMap[vcIssuerField] = iss
 	case map[string]interface{}:
-		issuer["id"] = iss
+		issuer[vcIssuerIDField] = iss
 	}
 }

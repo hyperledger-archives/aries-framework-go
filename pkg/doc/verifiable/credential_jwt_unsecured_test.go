@@ -23,10 +23,14 @@ func TestCredentialJWTClaimsMarshallingToUnsecuredJWT(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, sJWT)
 
-	_, rawVC, err := decodeCredJWTUnsecured([]byte(sJWT))
+	vcBytes, err := decodeCredJWTUnsecured([]byte(sJWT))
+	require.NoError(t, err)
+
+	vcRaw, err := newRawCredential(vcBytes)
+	require.NoError(t, err)
 
 	require.NoError(t, err)
-	require.Equal(t, vc.raw().stringJSON(t), rawVC.stringJSON(t))
+	require.Equal(t, vc.raw().stringJSON(t), vcRaw.stringJSON(t))
 }
 
 func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
@@ -40,21 +44,13 @@ func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
 		sJWT, err := jwtClaims.MarshalUnsecuredJWT()
 		require.NoError(t, err)
 
-		decoder := &credUnsecuredJWTDecoder{}
-
-		decodedCred, err := decoder.UnmarshalClaims([]byte(sJWT))
+		decodedCred, err := decodeCredJWTUnsecured([]byte(sJWT))
 		require.NoError(t, err)
 		require.NotNil(t, decodedCred)
 	})
 
 	t.Run("Invalid serialized unsecured JWT", func(t *testing.T) {
-		decoder := new(credUnsecuredJWTDecoder)
-
-		_, err := decoder.UnmarshalClaims([]byte("invalid JWS"))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to decode unsecured JWT")
-
-		_, err = decoder.UnmarshalVCClaim([]byte("invalid JWS"))
+		_, err := decodeCredJWTUnsecured([]byte("invalid JWS"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to decode unsecured JWT")
 	})
@@ -68,13 +64,7 @@ func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
 		rawJWT, err := marshalUnsecuredJWT(map[string]string{}, claims)
 		require.NoError(t, err)
 
-		decoder := new(credUnsecuredJWTDecoder)
-
-		_, err = decoder.UnmarshalClaims([]byte(rawJWT))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to parse JWT claims")
-
-		_, err = decoder.UnmarshalVCClaim([]byte(rawJWT))
+		_, err = decodeCredJWTUnsecured([]byte(rawJWT))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to parse JWT claims")
 	})

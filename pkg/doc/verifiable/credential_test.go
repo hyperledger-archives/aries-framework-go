@@ -8,6 +8,7 @@ package verifiable
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -52,46 +53,46 @@ func TestNewCredential(t *testing.T) {
 		require.NotNil(t, vc)
 
 		// validate @context
-		require.Equal(t, vc.Context, []interface{}{
+		require.Equal(t, []string{
 			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"})
+			"https://www.w3.org/2018/credentials/examples/v1"}, vc.Context)
 
 		// validate id
-		require.Equal(t, vc.ID, "http://example.edu/credentials/1872")
+		require.Equal(t, "http://example.edu/credentials/1872", vc.ID)
 
 		// validate type
-		require.Equal(t, vc.Type, []string{
+		require.Equal(t, []string{
 			"VerifiableCredential",
-			"UniversityDegreeCredential"})
+			"UniversityDegreeCredential"}, vc.Types)
 
 		// validate not null credential subject
 		require.NotNil(t, vc.Subject)
 
 		// validate not null credential subject
 		require.NotNil(t, vc.Issuer)
-		require.Equal(t, vc.Issuer.ID, "did:example:76e12ec712ebc6f1c221ebfeb1f")
-		require.Equal(t, vc.Issuer.Name, "Example University")
+		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", vc.Issuer.ID)
+		require.Equal(t, "Example University", vc.Issuer.Name)
 
 		// check issued date
 		expectedIssued := time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
-		require.Equal(t, vc.Issued, &expectedIssued)
+		require.Equal(t, &expectedIssued, vc.Issued)
 
 		// check issued date
 		expectedExpired := time.Date(2020, time.January, 1, 19, 23, 24, 0, time.UTC)
-		require.Equal(t, vc.Expired, &expectedExpired)
+		require.Equal(t, &expectedExpired, vc.Expired)
 
 		// validate proof
 		require.NotNil(t, vc.Proof)
 
 		// check credential status
 		require.NotNil(t, vc.Status)
-		require.Equal(t, vc.Status.ID, "https://example.edu/status/24")
-		require.Equal(t, vc.Status.Type, "CredentialStatusList2017")
+		require.Equal(t, "https://example.edu/status/24", vc.Status.ID)
+		require.Equal(t, "CredentialStatusList2017", vc.Status.Type)
 
 		// check refresh service
 		require.NotNil(t, vc.RefreshService)
-		require.Equal(t, vc.RefreshService.ID, "https://example.edu/refresh/3732")
-		require.Equal(t, vc.RefreshService.Type, "ManualRefreshService2018")
+		require.Equal(t, "https://example.edu/refresh/3732", vc.RefreshService.ID)
+		require.Equal(t, "ManualRefreshService2018", vc.RefreshService.Type)
 
 		require.NotNil(t, vc.Evidence)
 
@@ -715,7 +716,7 @@ func TestDefaultCredentialOpts(t *testing.T) {
 	require.NotNil(t, opts.schemaDownloadClient)
 	require.False(t, opts.disabledCustomSchema)
 	require.NotNil(t, opts.template)
-	require.NotEmpty(t, opts.decoders)
+	require.NotNil(t, opts.decoders)
 }
 
 func TestCredentialSubjectId(t *testing.T) {
@@ -813,52 +814,232 @@ func TestCredentialSubjectId(t *testing.T) {
 	})
 }
 
-func TestCredentialTypes(t *testing.T) {
-	vcWithSingleType := &Credential{
-		Type: "VerifiableCredential",
-	}
-	require.Equal(t, []string{"VerifiableCredential"}, vcWithSingleType.Types())
+func TestRawCredentialSerialization(t *testing.T) {
+	cBytes := []byte(validCredential)
 
-	vcWithSeveralTypes := &Credential{
-		Type: []string{"VerifiableCredential", "UniversityDegree"},
-	}
-	require.Equal(t, []string{"VerifiableCredential", "UniversityDegree"}, vcWithSeveralTypes.Types())
+	rc, err := newRawCredential(cBytes)
+	require.NoError(t, err)
+	rcBytes, err := rc.marshalJSON()
+	require.NoError(t, err)
 
-	// probably could not be a case due to validation reasons
-	vcWithNoType := &Credential{
-		Type: nil,
-	}
-	require.Equal(t, []string{}, vcWithNoType.Types())
+	var cMap map[string]interface{}
+	err = json.Unmarshal(cBytes, &cMap)
+	require.NoError(t, err)
+	mBytes, err := json.Marshal(cMap)
+	require.NoError(t, err)
+
+	fmt.Println(string(rcBytes))
+	fmt.Println(string(mBytes))
+
+	require.Equal(t, string(mBytes), string(rcBytes))
 }
 
 func TestDecodeType(t *testing.T) {
-	t.Run("Decode single Verifiable Credential Type", func(t *testing.T) {
-		singleType := `{
-  "type": "VerifiableCredential"
-}`
-
-		vc := new(Credential)
-		err := decodeType([]byte(singleType), vc)
+	t.Run("Decode single Verifiable Credential types", func(t *testing.T) {
+		rc := &rawCredential{
+			Type: "VerifiableCredential",
+		}
+		types, err := decodeType(rc)
 		require.NoError(t, err)
-		require.Equal(t, "VerifiableCredential", vc.Type)
+		require.Equal(t, []string{"VerifiableCredential"}, types)
 	})
 
-	t.Run("Decode several Verifiable Credential Types", func(t *testing.T) {
-		multipleType := `{
-  "type": ["VerifiableCredential", "UniversityDegreeCredential"]
-}`
-		vc := new(Credential)
-		err := decodeType([]byte(multipleType), vc)
+	t.Run("Decode several Verifiable Credential types", func(t *testing.T) {
+		rc := &rawCredential{
+			Type: []interface{}{"VerifiableCredential", "UniversityDegreeCredential"},
+		}
+
+		types, err := decodeType(rc)
 		require.NoError(t, err)
-		require.Equal(t, []string{"VerifiableCredential", "UniversityDegreeCredential"}, vc.Type)
+		require.Equal(t, []string{"VerifiableCredential", "UniversityDegreeCredential"}, types)
 	})
 
-	t.Run("Error on decoding of invalid Verifiable Credential Type", func(t *testing.T) {
-		multipleType := `{
-  "type": 77
-}`
-		vc := new(Credential)
-		err := decodeType([]byte(multipleType), vc)
+	t.Run("Error on decoding of invalid Verifiable Credential type", func(t *testing.T) {
+		rc := &rawCredential{
+			Type: 77,
+		}
+		_, err := decodeType(rc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "credential type of unknown type")
+	})
+
+	t.Run("Error on decoding of invalid Verifiable Credential types", func(t *testing.T) {
+		rc := &rawCredential{
+			Type: []interface{}{"VerifiableCredential", 777},
+		}
+		_, err := decodeType(rc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to map credential types")
+	})
+}
+
+func TestDecodeContext(t *testing.T) {
+	t.Run("Decode single context", func(t *testing.T) {
+		rc := &rawCredential{
+			Context: "https://www.w3.org/2018/credentials/v1",
+		}
+		contexts, extraContexts, err := decodeContext(rc)
+		require.NoError(t, err)
+		require.Equal(t, []string{"https://www.w3.org/2018/credentials/v1"}, contexts)
+		require.Empty(t, extraContexts)
+	})
+
+	t.Run("Decode several contexts", func(t *testing.T) {
+		rc := &rawCredential{
+			Context: []interface{}{
+				"https://www.w3.org/2018/credentials/v1",
+				"https://www.w3.org/2018/credentials/examples/v1",
+			},
+		}
+		contexts, extraContexts, err := decodeContext(rc)
+		require.NoError(t, err)
+		require.Equal(t,
+			[]string{"https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"},
+			contexts)
+		require.Empty(t, extraContexts)
+	})
+
+	t.Run("Decode several contexts with custom objects", func(t *testing.T) {
+		customContext := map[string]interface{}{
+			"image": map[string]interface{}{"@id": "schema:image", "@type": "@id"},
+		}
+		rc := &rawCredential{
+			Context: []interface{}{
+				"https://www.w3.org/2018/credentials/v1",
+				"https://www.w3.org/2018/credentials/examples/v1",
+				customContext,
+			},
+		}
+		contexts, extraContexts, err := decodeContext(rc)
+		require.NoError(t, err)
+		require.Equal(t,
+			[]string{"https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"},
+			contexts)
+		require.Equal(t, []interface{}{customContext}, extraContexts)
+	})
+
+	t.Run("Decode context of invalid type", func(t *testing.T) {
+		rc := &rawCredential{
+			Context: 55,
+		}
+		_, _, err := decodeContext(rc)
 		require.Error(t, err)
 	})
+}
+
+func TestDecodeIssuer(t *testing.T) {
+	t.Run("Decode Issuer defined by ID only", func(t *testing.T) {
+		rc := &rawCredential{
+			Issuer: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		}
+		issuer, err := decodeIssuer(rc)
+		require.NoError(t, err)
+		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
+		require.Empty(t, issuer.Name)
+	})
+
+	t.Run("Decode Issuer identified by ID and name", func(t *testing.T) {
+		rc := &rawCredential{
+			Issuer: map[string]interface{}{
+				"id":   "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				"name": "Example University",
+			},
+		}
+		issuer, err := decodeIssuer(rc)
+		require.NoError(t, err)
+		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
+		require.Equal(t, "Example University", issuer.Name)
+	})
+
+	t.Run("Decode Issuer identified by ID and empty name", func(t *testing.T) {
+		rc := &rawCredential{
+			Issuer: map[string]interface{}{
+				"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+		}
+		issuer, err := decodeIssuer(rc)
+		require.NoError(t, err)
+		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
+		require.Empty(t, issuer.Name)
+	})
+
+	t.Run("Decode Issuer identified by empty ID and name", func(t *testing.T) {
+		rc := &rawCredential{
+			Issuer: map[string]interface{}{
+				"name": "Example University",
+			},
+		}
+		_, err := decodeIssuer(rc)
+		require.Error(t, err)
+		require.EqualError(t, err, "issuer ID is not defined")
+	})
+
+	t.Run("Decode Issuer with invalid type of ID", func(t *testing.T) {
+		rc := &rawCredential{
+			Issuer: map[string]interface{}{
+				"id": 55,
+			},
+		}
+		_, err := decodeIssuer(rc)
+		require.Error(t, err)
+		require.EqualError(t, err, "value of key 'id' is not a string")
+	})
+
+	t.Run("Decode Issuer with invalid type of name", func(t *testing.T) {
+		rc := &rawCredential{
+			Issuer: map[string]interface{}{
+				"id":   "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				"name": 55,
+			},
+		}
+		_, err := decodeIssuer(rc)
+		require.Error(t, err)
+		require.EqualError(t, err, "value of key 'name' is not a string")
+	})
+
+	t.Run("Decode Issuer of invalid type", func(t *testing.T) {
+		rc := &rawCredential{
+			Issuer: 77,
+		}
+		_, err := decodeIssuer(rc)
+		require.Error(t, err)
+		require.EqualError(t, err, "unsupported format of issuer")
+	})
+}
+
+func TestTypesToSerialize(t *testing.T) {
+	// single type
+	require.Equal(t, "VerifiableCredential", typesToSerialize([]string{"VerifiableCredential"}))
+
+	// several types
+	require.Equal(t,
+		[]string{"VerifiableCredential", "UniversityDegreeCredential"},
+		typesToSerialize([]string{"VerifiableCredential", "UniversityDegreeCredential"}))
+}
+
+func TestContextToSerialize(t *testing.T) {
+	// single context without custom objects
+	require.Equal(t,
+		"https://www.w3.org/2018/credentials/v1",
+		contextToSerialize([]string{"https://www.w3.org/2018/credentials/v1"}, []interface{}{}))
+
+	// several contexts without custom objects
+	require.Equal(t, []string{
+		"https://www.w3.org/2018/credentials/v1",
+		"https://www.w3.org/2018/credentials/examples/v1"},
+		contextToSerialize([]string{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1"},
+			[]interface{}{}))
+
+	// context with custom objects
+	customContext := map[string]interface{}{
+		"image": map[string]interface{}{"@id": "schema:image", "@type": "@id"},
+	}
+	require.Equal(t,
+		[]interface{}{"https://www.w3.org/2018/credentials/v1", customContext},
+		contextToSerialize([]string{"https://www.w3.org/2018/credentials/v1"},
+			[]interface{}{
+				customContext,
+			}))
 }
