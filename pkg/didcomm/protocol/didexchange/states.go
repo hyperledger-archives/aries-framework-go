@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 const (
@@ -36,6 +35,7 @@ const (
 	// Todo:How to find the key type -Issue-439
 	supportedPublicKeyType = "Ed25519VerificationKey2018"
 	serviceType            = "did-communication"
+	didMethod              = "peer"
 )
 
 //TODO: This is temporary to move forward with bdd test will be fixed in Issue-353
@@ -405,7 +405,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 	if err != nil {
 		return nil, nil, err
 	}
-	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
+	newDidDoc, err := ctx.didCreator.Create(didMethod)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -445,7 +445,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 func (ctx *context) handleInboundRequest(request *Request) (stateAction,
 	*ConnectionRecord, error) {
 	// create a response from Request
-	newDidDoc, err := ctx.didCreator.CreateDID(wallet.WithServiceType(DIDExchangeServiceType))
+	newDidDoc, err := ctx.didCreator.Create(didMethod)
 	if err != nil {
 		return nil, nil, err
 	}

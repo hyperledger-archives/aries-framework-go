@@ -25,10 +25,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdr/didcreator"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
@@ -317,7 +317,8 @@ func (m mockWriter) Write([]byte) (int, error) {
 
 func TestServiceEvents(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
-	didExSvc, err := didexsvc.New(&did.MockDIDCreator{}, &protocol.MockProvider{StoreProvider: store})
+	didExSvc, err := didexsvc.New(&didcreator.MockDIDCreator{}, &protocol.MockProvider{StoreProvider: store})
+
 	require.NoError(t, err)
 
 	done := make(chan struct{})
@@ -349,7 +350,7 @@ func TestServiceEvents(t *testing.T) {
 
 	// send connection request message
 	id := "valid-thread-id"
-	newDidDoc, err := (&did.MockDIDCreator{}).CreateDID()
+	newDidDoc, err := (&didcreator.MockDIDCreator{}).Create("peer")
 	require.NoError(t, err)
 
 	request, err := json.Marshal(

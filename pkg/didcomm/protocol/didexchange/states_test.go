@@ -24,11 +24,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockdidresolver "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didresolver"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdr/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -268,7 +268,7 @@ func TestRequestedState_Execute(t *testing.T) {
 		connectionStore: NewConnectionRecorder(&mockStore{
 			get: func(string) ([]byte, error) { return connRec, nil },
 		})}
-	newDidDoc, err := ctx.didCreator.CreateDID()
+	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 	t.Run("rejects msgs other than invitations or requests", func(t *testing.T) {
 		others := []string{ResponseMsgType, AckMsgType}
@@ -334,7 +334,7 @@ func TestRequestedState_Execute(t *testing.T) {
 		ctx2 := &context{outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()},
 			signer:     &mockSigner{}}
-		newDidDoc, err = ctx2.didCreator.CreateDID()
+		newDidDoc, err = ctx2.didCreator.Create(testMethod)
 		require.NoError(t, err)
 		requestPayloadBytes, err := json.Marshal(
 			&Request{
@@ -375,7 +375,7 @@ func TestRequestedState_Execute(t *testing.T) {
 	t.Run("create DID error", func(t *testing.T) {
 		ctx2 := &context{outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Failure: fmt.Errorf("create DID error")}}
-		didDoc, err := ctx2.didCreator.CreateDID()
+		didDoc, err := ctx2.didCreator.Create(testMethod)
 		require.Error(t, err)
 		require.Nil(t, didDoc)
 	})
@@ -415,7 +415,7 @@ func TestRespondedState_Execute(t *testing.T) {
 		signer:          &mockSigner{},
 		connectionStore: NewConnectionRecorder(store),
 	}
-	newDidDoc, err := ctx.didCreator.CreateDID()
+	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 
 	outboundDestination := &service.Destination{RecipientKeys: []string{"test", "test2"}, ServiceEndpoint: "xyz"}
@@ -514,7 +514,7 @@ func TestRespondedState_Execute(t *testing.T) {
 		ctx2 := &context{outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()},
 			signer:     &mockSigner{}}
-		newDidDoc, err = ctx2.didCreator.CreateDID()
+		newDidDoc, err = ctx2.didCreator.Create(testMethod)
 		require.NoError(t, err)
 		connection := &Connection{
 			DID:    newDidDoc.ID,
@@ -621,7 +621,7 @@ func TestCompletedState_Execute(t *testing.T) {
 	ctx := &context{outboundDispatcher: prov.OutboundDispatcher(),
 		didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()},
 		signer:     &mockSigner{}, connectionStore: NewConnectionRecorder(store)}
-	newDidDoc, err := ctx.didCreator.CreateDID()
+	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 	outboundDestination := &service.Destination{RecipientKeys: []string{"test", "test2"}, ServiceEndpoint: "xyz"}
 	t.Run("rejects msgs other than responses and acks", func(t *testing.T) {
@@ -769,7 +769,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 	t.Run("prepare connection signature", func(t *testing.T) {
 		prov := protocol.MockProvider{}
 		ctx := &context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		newDidDoc, err := ctx.didCreator.CreateDID()
+		newDidDoc, err := ctx.didCreator.Create(testMethod)
 		require.NoError(t, err)
 		connection := &Connection{
 			DID:    newDidDoc.ID,
@@ -791,7 +791,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 func TestPrepareDestination(t *testing.T) {
 	prov := protocol.MockProvider{}
 	ctx := &context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-	newDidDoc, err := ctx.didCreator.CreateDID()
+	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 	dest := prepareDestination(newDidDoc)
 	require.NotNil(t, dest)
@@ -855,7 +855,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		ctx := &context{outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}, signer: &mockSigner{},
 			connectionStore: NewConnectionRecorder(store)}
-		newDidDoc, err := ctx.didCreator.CreateDID()
+		newDidDoc, err := ctx.didCreator.Create(testMethod)
 		require.NoError(t, err)
 		request := &Request{
 			Type:  RequestMsgType,
@@ -889,7 +889,7 @@ func TestGetPublicKey(t *testing.T) {
 	t.Run("successfully getting public key", func(t *testing.T) {
 		prov := protocol.MockProvider{}
 		ctx := &context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		newDidDoc, err := ctx.didCreator.CreateDID()
+		newDidDoc, err := ctx.didCreator.Create(testMethod)
 		require.NoError(t, err)
 		pubkey, err := getPublicKeys(newDidDoc, supportedPublicKeyType)
 		require.NoError(t, err)
@@ -899,7 +899,7 @@ func TestGetPublicKey(t *testing.T) {
 	t.Run("failed to get public key", func(t *testing.T) {
 		prov := protocol.MockProvider{}
 		ctx := &context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		newDidDoc, err := ctx.didCreator.CreateDID()
+		newDidDoc, err := ctx.didCreator.Create(testMethod)
 		require.NoError(t, err)
 		pubkey, err := getPublicKeys(newDidDoc, "invalid key")
 		require.Error(t, err)

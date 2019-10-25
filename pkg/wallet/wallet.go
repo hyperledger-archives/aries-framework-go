@@ -12,13 +12,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -26,21 +23,16 @@ import (
 
 const (
 	keyStoreNamespace = "keystore"
-	didStoreNamespace = "didstore"
-	peerDIDMethod     = "peer"
 )
 
 // provider contains dependencies for the base wallet and is typically created by using aries.Context()
 type provider interface {
 	StorageProvider() storage.Provider
-	InboundTransportEndpoint() string
 }
 
 // BaseWallet wallet implementation
 type BaseWallet struct {
-	keystore                 storage.Store
-	didstore                 storage.Store
-	inboundTransportEndpoint string
+	keystore storage.Store
 }
 
 // New return new instance of wallet implementation
@@ -50,12 +42,7 @@ func New(ctx provider) (*BaseWallet, error) {
 		return nil, fmt.Errorf("failed to OpenStore for '%s', cause: %w", keyStoreNamespace, err)
 	}
 
-	ds, err := ctx.StorageProvider().OpenStore(didStoreNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to OpenStore for '%s', cause: %w", didStoreNamespace, err)
-	}
-
-	return &BaseWallet{keystore: ks, didstore: ds, inboundTransportEndpoint: ctx.InboundTransportEndpoint()}, nil
+	return &BaseWallet{keystore: ks}, nil
 }
 
 // CreateKeySet creates a new public/private encryption and signature keypairs combo.
@@ -177,56 +164,6 @@ func (w *BaseWallet) Close() error {
 	return nil
 }
 
-// CreateDID returns new DID Document
-func (w *BaseWallet) CreateDID(method string, opts ...DocOpts) (*did.Doc, error) {
-	docOpts := &createDIDOpts{}
-	// Apply options
-	for _, opt := range opts {
-		opt(docOpts)
-	}
-
-	// Generate Encryption & Signing key pairs and store them in the wallet
-	_, pubVerKey, err := w.CreateKeySet()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create DID: %w", err)
-	}
-
-	var didDoc *did.Doc
-
-	switch method {
-	case peerDIDMethod:
-		didDoc, err = w.buildPeerDIDDoc(pubVerKey, docOpts)
-		if err != nil {
-			return nil, fmt.Errorf("create peer DID : %w", err)
-		}
-	default:
-		return nil, errors.New("invalid DID Method")
-	}
-
-	// persist in did store
-	err = persist(w.didstore, didDoc.ID, didDoc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to persist DID : %w", err)
-	}
-
-	return didDoc, nil
-}
-
-// GetDID gets already created DID document from underlying store
-func (w *BaseWallet) GetDID(id string) (*did.Doc, error) {
-	bytes, err := w.didstore.Get(id)
-	if err != nil {
-		return nil, err
-	}
-
-	didDoc := did.Doc{}
-	if err := json.Unmarshal(bytes, &didDoc); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal did document: %w", err)
-	}
-
-	return &didDoc, nil
-}
-
 // getKeyPairSet get encryption & signature key pairs combo
 func (w *BaseWallet) getKeyPairSet(verKey string) (*cryptoutil.MessagingKeys, error) {
 	bytes, err := w.keystore.Get(verKey)
@@ -292,44 +229,6 @@ func persist(store storage.Store, key string, value interface{}) error {
 		return fmt.Errorf("failed to save in store: %w", err)
 	}
 	return nil
-}
-
-func (w *BaseWallet) buildPeerDIDDoc(base58PubKey string, docOpts *createDIDOpts) (*did.Doc, error) {
-	// Supporting only one public key now
-	publicKey := did.PublicKey{
-		ID: base58PubKey[0:7],
-		// TODO hardcoding public key type for now
-		// Should be dynamic for multi-key support
-		Type:       "Ed25519VerificationKey2018",
-		Controller: "#id",
-		Value:      []byte(base58PubKey),
-	}
-
-	// Service model to be included only if service type is provided through opts
-	var service []did.Service
-	if docOpts.serviceType != "" {
-		// Service endpoints
-		service = []did.Service{
-			{
-				ID:              "#agent",
-				Type:            docOpts.serviceType,
-				ServiceEndpoint: w.inboundTransportEndpoint,
-			},
-		}
-	}
-
-	// Created/Updated time
-	t := time.Now()
-
-	return peer.NewDoc(
-		[]did.PublicKey{publicKey},
-		[]did.VerificationMethod{
-			{PublicKey: publicKey},
-		},
-		did.WithService(service),
-		did.WithCreatedTime(t),
-		did.WithUpdatedTime(t),
-	)
 }
 
 // GetEncryptionKey will return the public encryption key corresponding to the public verKey argument

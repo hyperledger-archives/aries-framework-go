@@ -12,6 +12,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -29,7 +30,7 @@ type Provider interface {
 	Crypter() crypto.Crypter
 	Packager() envelope.Packager
 	InboundTransportEndpoint() string
-	DIDWallet() wallet.DIDCreator
+	DIDCreator() didcreator.Creator
 	Signer() wallet.Signer
 	DIDResolver() didresolver.Resolver
 }

@@ -12,11 +12,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/did"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -84,14 +84,14 @@ type Service struct {
 
 type context struct {
 	outboundDispatcher dispatcher.Outbound
-	didCreator         did.Creator
+	didCreator         didcreator.Creator
 	signer             wallet.Signer
 	didResolver        didresolver.Resolver
 	connectionStore    *ConnectionRecorder
 }
 
 // New return didexchange service
-func New(didMaker did.Creator, prov provider) (*Service, error) {
+func New(didMaker didcreator.Creator, prov provider) (*Service, error) {
 	store, err := prov.StorageProvider().OpenStore(DIDExchange)
 	if err != nil {
 		return nil, err

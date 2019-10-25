@@ -17,17 +17,17 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockcreator "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdr/didcreator"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 func TestNew(t *testing.T) {
 	t.Run("test new client", func(t *testing.T) {
-		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -50,7 +50,7 @@ func TestNew(t *testing.T) {
 
 func TestClient_CreateInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -67,7 +67,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 	})
 
 	t.Run("test error from createSigningKey", func(t *testing.T) {
-		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -80,7 +80,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 	})
 
 	t.Run("test error from save record", func(t *testing.T) {
-		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -97,7 +97,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 
 func TestClient_CreateInvitationWithDID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -118,7 +118,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		require.Equal(t, id, inviteReq.DID)
 	})
 	t.Run("test error from save invitation", func(t *testing.T) {
-		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -140,7 +140,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 	const connID = "id1"
 	const threadID = "thid1"
 	t.Run("test success", func(t *testing.T) {
-		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 		s := &mockstore.MockStore{Store: make(map[string][]byte)}
@@ -157,7 +157,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 	})
 
 	t.Run("test error", func(t *testing.T) {
-		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 		s := &mockstore.MockStore{Store: make(map[string][]byte),
@@ -173,7 +173,8 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 	})
 
 	t.Run("test data not found", func(t *testing.T) {
-		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
+
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 		s := mockstore.MockStore{ErrGet: storage.ErrDataNotFound}
@@ -189,7 +190,7 @@ func TestClient_GetConnection(t *testing.T) {
 	connID := "id1"
 	threadID := "thid1"
 	t.Run("test failure", func(t *testing.T) {
-		svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 		s := &mockstore.MockStore{Store: make(map[string][]byte), ErrGet: ErrConnectionNotFound}
@@ -207,7 +208,7 @@ func TestClient_GetConnection(t *testing.T) {
 }
 
 func TestClient_RemoveConnection(t *testing.T) {
-	svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+	svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -246,7 +247,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 }
 
 func TestClient_QueryConnectionsByParams(t *testing.T) {
-	svc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{})
+	svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -266,8 +267,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 func TestServiceEvents(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
 	recorder := didexchange.NewConnectionRecorder(store.Store)
-	didExSvc, err := didexchange.New(&did.MockDIDCreator{}, &mockprotocol.MockProvider{StoreProvider: store})
-
+	didExSvc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{StoreProvider: store})
 	require.NoError(t, err)
 
 	// create the client
@@ -295,7 +295,7 @@ func TestServiceEvents(t *testing.T) {
 
 	// send connection request message
 	id := "valid-thread-id"
-	newDidDoc, err := (&did.MockDIDCreator{}).CreateDID()
+	newDidDoc, err := (&mockcreator.MockDIDCreator{}).Create("test")
 	require.NoError(t, err)
 
 	request, err := json.Marshal(
