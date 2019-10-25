@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -24,12 +23,6 @@ import (
 )
 
 var logger = log.New("aries-framework/did-exchange/service")
-
-// didCommChMessage type to correlate actionEvent message(go channel) with callback message(internal go channel).
-type didCommChMessage struct {
-	ID  string
-	Err error
-}
 
 const (
 	// DIDExchange did exchange protocol
@@ -58,6 +51,10 @@ type message struct {
 	ThreadID      string
 	NextStateName string
 	Record        *ConnectionRecord
+	// err is used to determine whether callback was stopped
+	// e.g the user received an action event and executes Stop(err) function
+	// in that case `err` is equal to `err` which was passing to Stop function
+	err error
 }
 
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
@@ -82,7 +79,7 @@ type Service struct {
 	service.Message
 	ctx             *context
 	store           storage.Store
-	callbackChannel chan didCommChMessage
+	callbackChannel chan *message
 	connectionStore *ConnectionRecorder
 }
 
@@ -111,7 +108,7 @@ func New(didMaker did.Creator, prov provider) (*Service, error) {
 		},
 		store: store,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
-		callbackChannel: make(chan didCommChMessage, 10),
+		callbackChannel: make(chan *message, 10),
 		connectionStore: NewConnectionRecorder(store),
 	}
 
@@ -131,19 +128,19 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 	if aEvent == nil {
 		return errors.New("no clients are registered to handle the message")
 	}
-	thid, err := threadID(msg)
+	thID, err := threadID(msg)
 	if err != nil {
 		return err
 	}
-	nsThid, err := createNSKey(findNameSpace(msg.Header.Type), thid)
+	nsThID, err := createNSKey(findNameSpace(msg.Header.Type), thID)
 	if err != nil {
 		return err
 	}
-	current, err := s.currentState(nsThid)
+	current, err := s.currentState(nsThID)
 	if err != nil {
 		return err
 	}
-	logger.Debugf("retrieved current state [%s] using nsThid [%s]", current.Name(), nsThid)
+	logger.Debugf("retrieved current state [%s] using nsThID [%s]", current.Name(), nsThID)
 
 	next, err := stateFromMsgType(msg.Header.Type)
 	if err != nil {
@@ -157,16 +154,13 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 	}
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg.Header.Type) {
-		err = s.sendActionEvent(msg, aEvent, thid, next)
-		if err != nil {
-			return fmt.Errorf("send events failed: %w", err)
-		}
+		s.sendActionEvent(msg, aEvent, thID, next)
 		return nil
 	}
 
 	// if no action event is triggered, continue the execution
 	go func() {
-		if err = s.handle(&message{Msg: msg, ThreadID: thid, NextStateName: next.Name()}); err != nil {
+		if err = s.handle(&message{Msg: msg, ThreadID: thID, NextStateName: next.Name()}); err != nil {
 			logger.Errorf("didexchange processing error : %s", err)
 		}
 	}()
@@ -209,8 +203,12 @@ func (s *Service) handle(msg *message) error {
 	for !isNoOp(next) {
 		//TODO: Issue-578 is created to consider if we need to create connection ID at pre state level or no
 		s.sendMsgEvents(&service.StateMsg{
-			Type: service.PreState, Msg: msg.Msg, StateID: next.Name(),
-			Properties: createEventProperties("", "")})
+			ProtocolName: DIDExchange,
+			Type:         service.PreState,
+			Msg:          msg.Msg.Clone(),
+			StateID:      next.Name(),
+			Properties:   createEventProperties("", ""),
+		})
 		logger.Debugf("sent pre event for state %s", next.Name())
 
 		var action stateAction
@@ -236,8 +234,12 @@ func (s *Service) handle(msg *message) error {
 		}
 		logger.Debugf("finish execute state action: %s", next.Name())
 		s.sendMsgEvents(&service.StateMsg{
-			Type: service.PostState, Msg: msg.Msg, StateID: next.Name(),
-			Properties: createEventProperties(connectionRecord.ConnectionID, connectionRecord.InvitationID)})
+			ProtocolName: DIDExchange,
+			Type:         service.PostState,
+			Msg:          msg.Msg.Clone(),
+			StateID:      next.Name(),
+			Properties:   createEventProperties(connectionRecord.ConnectionID, connectionRecord.InvitationID),
+		})
 		logger.Debugf("sent post event for state %s", next.Name())
 
 		next = followup
@@ -259,52 +261,38 @@ func createErrorEventProperties(connectionID, invitationID string, err error) *d
 	}
 }
 
-// sendEvent triggers the action event. This function stores the state of current processing and passes a callback
+// sendActionEvent triggers the action event. This function stores the state of current processing and passes a callback
 // function in the event message.
 func (s *Service) sendActionEvent(msg *service.DIDCommMsg, aEvent chan<- service.DIDCommAction,
-	threadID string, nextState state) error {
-	jsonDoc, err := json.Marshal(&message{
+	threadID string, nextState state) {
+	internalMsg := &message{
 		Msg:           msg,
 		ThreadID:      threadID,
 		NextStateName: nextState.Name(),
-	})
-
-	if err != nil {
-		return fmt.Errorf("JSON marshalling of document failed: %w", err)
 	}
 
-	// save the incoming message in the store (to retrieve later when callback events are fired)
-	id := generateRandomID()
-	err = s.store.Put(id, jsonDoc)
-	if err != nil {
-		return fmt.Errorf("JSON marshalling of document failed: %w", err)
-	}
 	// create the message for the channel
+	// trigger the registered action event
 	// TODO change from thread id to connection id #397
 	// TODO pass invitation id #397
-	didCommAction := service.DIDCommAction{
+	aEvent <- service.DIDCommAction{
 		ProtocolName: DIDExchange,
-		Message:      msg,
+		Message:      msg.Clone(),
 		Continue: func() {
-			s.processCallback(id, nil)
+			s.processCallback(internalMsg)
 		},
 		Stop: func(err error) {
-			s.processCallback(id, err)
+			// sets an error to the message
+			internalMsg.err = err
+			s.processCallback(internalMsg)
 		},
 	}
-
-	// trigger the registered action event
-	aEvent <- didCommAction
-	return nil
 }
 
 // sendEvent triggers the message events.
 func (s *Service) sendMsgEvents(msg *service.StateMsg) {
-	msg.ProtocolName = DIDExchange
 	// trigger the message events
-	statusEvents := s.MsgEvents()
-
-	for _, handler := range statusEvents {
+	for _, handler := range s.MsgEvents() {
 		handler <- *msg
 	}
 }
@@ -312,50 +300,31 @@ func (s *Service) sendMsgEvents(msg *service.StateMsg) {
 // startInternalListener listens to messages in gochannel for callback messages from clients.
 func (s *Service) startInternalListener() {
 	for msg := range s.callbackChannel {
-		if msg.Err != nil {
-			// TODO https://github.com/hyperledger/aries-framework-go/issues/438 Cleanup/Update data on Stop Event Action
-			logger.Errorf("client action event processing - msgID:%s error:%s", msg.ID, msg.Err)
-			err := s.processFailure(msg.ID, msg.Err)
-			if err != nil {
-				logger.Errorf("process callback : %s", err)
-			}
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/242 - retry logic
+		// if no error - do handle
+		if msg.err == nil {
+			msg.err = s.handle(msg)
+		}
+
+		// no error - continue
+		if msg.err == nil {
 			continue
 		}
 
-		// TODO https://github.com/hyperledger/aries-framework-go/issues/242 - retry logic
-
-		if err := s.process(msg.ID); err != nil {
-			procErr := s.processFailure(msg.ID, err)
-			if procErr != nil {
-				logger.Errorf("process callback : %s", procErr)
-			}
+		if err := s.abandon(msg.ThreadID, msg.Msg, msg.err); err != nil {
+			logger.Errorf("process callback : %s", err)
 		}
 	}
 }
 
-func (s *Service) processFailure(id string, processErr error) error {
-	// get the transient data
-	data, err := s.getTransientEventData(id)
-	if err != nil {
-		return fmt.Errorf("unable to fetch the event transient data: %w", err)
-	}
-
-	err = s.abandon(data.ThreadID, data.Msg, processErr)
-	if err != nil {
-		return fmt.Errorf("abandon : %w", err)
-	}
-
-	return nil
-}
-
 // abandon updates the state to abandoned and trigger failure event.
-func (s *Service) abandon(thid string, msg *service.DIDCommMsg, processErr error) error {
+func (s *Service) abandon(thID string, msg *service.DIDCommMsg, processErr error) error {
 	// update the state to abandoned
-	nsThid, err := createNSKey(findNameSpace(msg.Header.Type), thid)
+	nsThID, err := createNSKey(findNameSpace(msg.Header.Type), thID)
 	if err != nil {
 		return err
 	}
-	connRec, err := s.connectionStore.GetConnectionRecordByNSThreadID(nsThid)
+	connRec, err := s.connectionStore.GetConnectionRecordByNSThreadID(nsThID)
 	if err != nil {
 		return fmt.Errorf("unable to update the state to abandoned: %w", err)
 	}
@@ -367,48 +336,20 @@ func (s *Service) abandon(thid string, msg *service.DIDCommMsg, processErr error
 
 	// send the message event
 	s.sendMsgEvents(&service.StateMsg{
-		Type:       service.PostState,
-		Msg:        msg,
-		StateID:    stateNameAbandoned,
-		Properties: createErrorEventProperties(thid, "", processErr),
+		ProtocolName: DIDExchange,
+		Type:         service.PostState,
+		Msg:          msg.Clone(),
+		StateID:      stateNameAbandoned,
+		Properties:   createErrorEventProperties(thID, "", processErr),
 	})
 
 	return nil
 }
 
-func (s *Service) processCallback(id string, err error) {
+func (s *Service) processCallback(msg *message) {
 	// pass the callback data to internal channel. This is created to unblock consumer go routine and wrap the callback
 	// channel internally.
-	s.callbackChannel <- didCommChMessage{ID: id, Err: err}
-}
-
-// process processes the callback events.
-func (s *Service) process(id string) error {
-	data, err := s.getTransientEventData(id)
-	if err != nil {
-		return fmt.Errorf("unable to fetch the event transient data: %w", err)
-	}
-	// continue the processing
-	err = s.handle(data)
-	if err != nil {
-		return fmt.Errorf("processing of the message : %w", err)
-	}
-	return nil
-}
-
-// getTransientEventData fetches the transient event data.
-func (s *Service) getTransientEventData(id string) (*message, error) {
-	// fetch the record
-	jsonDoc, err := s.store.Get(id)
-	if err != nil {
-		return nil, fmt.Errorf("document for the id doesn't exists in the database: %w", err)
-	}
-	data := &message{}
-	err = json.Unmarshal(jsonDoc, data)
-	if err != nil {
-		return nil, fmt.Errorf("JSON marshalling : %w", err)
-	}
-	return data, nil
+	s.callbackChannel <- msg
 }
 
 func isNoOp(s state) bool {
@@ -424,13 +365,13 @@ func threadID(didCommMsg *service.DIDCommMsg) (string, error) {
 	return didCommMsg.ThreadID()
 }
 
-func (s *Service) currentState(nsThid string) (state, error) {
-	connRec, err := s.connectionStore.GetConnectionRecordByNSThreadID(nsThid)
+func (s *Service) currentState(nsThID string) (state, error) {
+	connRec, err := s.connectionStore.GetConnectionRecordByNSThreadID(nsThID)
 	if err != nil {
 		if errors.Is(err, storage.ErrDataNotFound) {
 			return &null{}, nil
 		}
-		return nil, fmt.Errorf("cannot fetch state from store: thid=%s err=%s", nsThid, err)
+		return nil, fmt.Errorf("cannot fetch state from store: thID=%s err=%s", nsThID, err)
 	}
 	return stateFromName(connRec.State)
 }

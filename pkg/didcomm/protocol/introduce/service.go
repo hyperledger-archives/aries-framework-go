@@ -13,8 +13,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/uuid"
-
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -49,6 +47,10 @@ type metaData struct {
 	record
 	Msg      *service.DIDCommMsg
 	ThreadID string
+	// err is used to determine whether callback was stopped
+	// e.g the user received an action event and executes Stop(err) function
+	// in that case `err` is equal to `err` which was passing to Stop function
+	err error
 }
 
 type record struct {
@@ -58,17 +60,12 @@ type record struct {
 	WaitCount int
 }
 
-type callback struct {
-	id  string
-	err error
-}
-
 // Service for introduce protocol
 type Service struct {
 	service.Action
 	service.Message
 	store       storage.Store
-	callbacks   chan callback
+	callbacks   chan *metaData
 	ctx         internalContext
 	stop        chan struct{}
 	closedMutex sync.Mutex
@@ -93,7 +90,7 @@ func New(p provider) (*Service, error) {
 			Outbound: p.OutboundDispatcher(),
 		},
 		store:     store,
-		callbacks: make(chan callback),
+		callbacks: make(chan *metaData),
 		stop:      make(chan struct{}),
 	}
 
@@ -120,9 +117,9 @@ func (s *Service) startInternalListener() {
 	for {
 		select {
 		case msg := <-s.callbacks:
-			// if no error - do process
+			// if no error - do handle
 			if msg.err == nil {
-				msg.err = s.process(msg.id)
+				msg.err = s.handle(msg, nil)
 			}
 
 			// no error - continue
@@ -130,8 +127,7 @@ func (s *Service) startInternalListener() {
 				continue
 			}
 
-			// callback has an error
-			if err := s.processFailure(msg.id, msg.err); err != nil {
+			if err := s.abandon(msg.ThreadID, msg.Msg, msg.err); err != nil {
 				logger.Errorf("process callback : %s", err)
 			}
 		case <-s.stop:
@@ -139,27 +135,6 @@ func (s *Service) startInternalListener() {
 			return
 		}
 	}
-}
-
-// process processes the callback events.
-func (s *Service) process(id string) error {
-	data, err := s.getTransientData(id)
-	if err != nil {
-		return fmt.Errorf("unable to fetch the event transient data: %w", err)
-	}
-
-	// continue the processing
-	return s.handle(data, nil)
-}
-
-func (s *Service) processFailure(id string, pErr error) error {
-	// get the transient data
-	data, err := s.getTransientData(id)
-	if err != nil {
-		return fmt.Errorf("get transient data: %w", err)
-	}
-
-	return s.abandon(data.ThreadID, data.Msg, pErr)
 }
 
 // abandon updates the state to abandoned and trigger failure event.
@@ -171,10 +146,11 @@ func (s *Service) abandon(thID string, msg *service.DIDCommMsg, _ error) error {
 
 	// TODO: add received error to Properties
 	// send the message event
-	s.sendMsgEvents(service.StateMsg{
-		Type:    service.PostState,
-		Msg:     msg,
-		StateID: stateNameAbandoning,
+	s.sendMsgEvents(&service.StateMsg{
+		ProtocolName: Introduce,
+		Type:         service.PostState,
+		Msg:          msg.Clone(),
+		StateID:      stateNameAbandoning,
 	})
 
 	return nil
@@ -237,7 +213,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 		if err != nil {
 			return err
 		}
-		return s.sendActionEvent(&metaData{
+		s.sendActionEvent(&metaData{
 			record: record{
 				StateName: stateNameStart,
 				WaitCount: initialWaitCount,
@@ -245,6 +221,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 			Msg:      msg,
 			ThreadID: thID,
 		}, aEvent)
+		return nil
 	}
 
 	mData, err := s.doHandle(msg, false)
@@ -254,7 +231,8 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg) {
-		return s.sendActionEvent(mData, aEvent)
+		s.sendActionEvent(mData, aEvent)
+		return nil
 	}
 
 	// if no action event is triggered, continue the execution
@@ -283,61 +261,36 @@ func (s *Service) HandleOutbound(msg *service.DIDCommMsg, dest *service.Destinat
 }
 
 // sendMsgEvents triggers the message events.
-func (s *Service) sendMsgEvents(msg service.StateMsg) {
+func (s *Service) sendMsgEvents(msg *service.StateMsg) {
 	// trigger the message events
 	for _, handler := range s.MsgEvents() {
-		handler <- msg
+		handler <- *msg
 	}
 }
 
-// getTransientData fetches the transient data.
-func (s *Service) getTransientData(id string) (*metaData, error) {
-	// fetch the record
-	src, err := s.store.Get(id)
-	if err != nil {
-		return nil, fmt.Errorf("store get: %w", err)
-	}
-
-	var mData *metaData
-	if err := json.Unmarshal(src, &mData); err != nil {
-		return nil, fmt.Errorf("JSON marshalling : %w", err)
-	}
-
-	return mData, nil
-}
-
-// sendEvent triggers the action event. This function stores the state of current processing and passes a callback
+// sendActionEvent triggers the action event. This function stores the state of current processing and passes a callback
 // function in the event message.
-func (s *Service) sendActionEvent(msg *metaData, aEvent chan<- service.DIDCommAction) error {
-	// save the incoming message in the store (to retrieve later when callback events are fired)
-	ID := uuid.New().String()
-	err := s.save(ID, msg)
-	if err != nil {
-		return fmt.Errorf("JSON marshalling of document failed: %w", err)
-	}
-
+func (s *Service) sendActionEvent(msg *metaData, aEvent chan<- service.DIDCommAction) {
 	// create the message for the channel
-	didCommAction := service.DIDCommAction{
+	// trigger the registered action event
+	aEvent <- service.DIDCommAction{
 		ProtocolName: Introduce,
-		Message:      msg.Msg,
+		Message:      msg.Msg.Clone(),
 		Continue: func() {
-			s.processCallback(ID, nil)
+			s.processCallback(msg)
 		},
 		Stop: func(err error) {
-			s.processCallback(ID, err)
+			// sets an error to the message
+			msg.err = err
+			s.processCallback(msg)
 		},
 	}
-
-	// trigger the registered action event
-	aEvent <- didCommAction
-
-	return nil
 }
 
-func (s *Service) processCallback(id string, err error) {
+func (s *Service) processCallback(msg *metaData) {
 	// pass the callback data to internal channel. This is created to unblock consumer go routine and wrap the callback
 	// channel internally.
-	s.callbacks <- callback{id: id, err: err}
+	s.callbacks <- msg
 }
 
 func nextState(msg *service.DIDCommMsg, rec *record, outbound bool) (state, error) {
@@ -444,8 +397,11 @@ func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 	logger.Infof("next valid state to transition -> %s ", next.Name())
 
 	for !isNoOp(next) {
-		s.sendMsgEvents(service.StateMsg{
-			Type: service.PreState, Msg: msg.Msg, StateID: next.Name(),
+		s.sendMsgEvents(&service.StateMsg{
+			ProtocolName: Introduce,
+			Type:         service.PreState,
+			Msg:          msg.Msg.Clone(),
+			StateID:      next.Name(),
 		})
 		logger.Infof("sent pre event for state %s", next.Name())
 
@@ -475,8 +431,11 @@ func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 
 		logger.Infof("persisted the connection using %s and updated the state to %s", msg.ThreadID, next.Name())
 
-		s.sendMsgEvents(service.StateMsg{
-			Type: service.PostState, Msg: msg.Msg, StateID: next.Name(),
+		s.sendMsgEvents(&service.StateMsg{
+			ProtocolName: Introduce,
+			Type:         service.PostState,
+			Msg:          msg.Msg.Clone(),
+			StateID:      next.Name(),
 		})
 		logger.Infof("sent post event for state %s", next.Name())
 

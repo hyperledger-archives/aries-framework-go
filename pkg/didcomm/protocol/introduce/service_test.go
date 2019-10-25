@@ -123,14 +123,6 @@ func TestService_New(t *testing.T) {
 	require.Nil(t, svc)
 }
 
-func TestService_processFailure(t *testing.T) {
-	svc, err := New(&protocol.MockProvider{})
-	require.NotNil(t, svc)
-	require.NoError(t, err)
-	const errMsg = "get transient data: store get: data not found"
-	require.EqualError(t, svc.processFailure("ID", nil), errMsg)
-}
-
 func TestService_abandon(t *testing.T) {
 	const errMsg = "test err"
 	store := mockstore.NewMockStoreProvider()
@@ -139,24 +131,12 @@ func TestService_abandon(t *testing.T) {
 	require.NotNil(t, svc)
 	require.NoError(t, err)
 	const errStr = "save abandoning sate: " + errMsg
-	require.EqualError(t, svc.abandon("ID", nil, nil), errStr)
-}
-
-func TestService_getTransientData(t *testing.T) {
-	store := mockstore.NewMockStoreProvider()
-	require.NoError(t, store.Store.Put("ID", []byte(`[]`)))
-	svc, err := New(&protocol.MockProvider{StoreProvider: store})
-	require.NotNil(t, svc)
-	require.NoError(t, err)
-	const errStr = "JSON marshalling : json: cannot unmarshal array into Go value of type introduce.metaData"
-	res, err := svc.getTransientData("ID")
-	require.Nil(t, res)
-	require.EqualError(t, err, errStr)
+	require.EqualError(t, svc.abandon("ID", &service.DIDCommMsg{}, nil), errStr)
 }
 
 func TestService_startInternalListener(t *testing.T) {
 	svc := &Service{
-		callbacks: make(chan callback),
+		callbacks: make(chan *metaData),
 		stop:      make(chan struct{}),
 	}
 

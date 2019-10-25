@@ -68,7 +68,7 @@ func TestNewProvider(t *testing.T) {
 			AcceptFunc: func(msgType string) bool {
 				return msgType == "valid-message-type"
 			},
-			HandleFunc: func(msg service.DIDCommMsg) error {
+			HandleFunc: func(msg *service.DIDCommMsg) error {
 				payload := &struct {
 					Label string `json:"label,omitempty"`
 				}{}
