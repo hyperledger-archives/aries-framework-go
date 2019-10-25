@@ -35,7 +35,7 @@ func (d *DIDExchangeSteps) createInvitation(inviterAgentID string) error {
 	if err != nil {
 		return fmt.Errorf("marshal invitation: %w", err)
 	}
-	logger.Infof("Agent %s create invitation %s", inviterAgentID, invitationBytes)
+	logger.Debugf("Agent %s create invitation %s", inviterAgentID, invitationBytes)
 	return nil
 }
 
@@ -49,7 +49,7 @@ func (d *DIDExchangeSteps) createInvitationWithDID(inviterAgentID string) error 
 	if err != nil {
 		return fmt.Errorf("failed to marshal invitation: %w", err)
 	}
-	logger.Infof("Agent %s create invitation %s", inviterAgentID, invitationBytes)
+	logger.Debugf("Agent %s create invitation %s", inviterAgentID, invitationBytes)
 	return nil
 }
 
@@ -63,7 +63,6 @@ func (d *DIDExchangeSteps) receiveInvitation(inviteeAgentID, inviterAgentID stri
 	if err != nil {
 		return fmt.Errorf("failed to handle invitation: %w", err)
 	}
-	logger.Infof("Agent %s receive invitation from Agent %s", inviteeAgentID, inviterAgentID)
 	return nil
 }
 

@@ -79,7 +79,7 @@ func (a *AgentWithControllerSteps) checkAgentIsRunning(agentID, inboundHost, inb
 		return err
 	}
 	a.controllerURLs[agentID] = controllerURL
-	logger.Infof("Agent '%s' running controller '%s'", agentID, controllerURL)
+	logger.Debugf("Agent '%s' running controller '%s'", agentID, controllerURL)
 
 	// verify inbound
 	err = a.healthCheck(fmt.Sprintf("http://%s:%s", inboundHost, inboundPort))
@@ -88,7 +88,7 @@ func (a *AgentWithControllerSteps) checkAgentIsRunning(agentID, inboundHost, inb
 		return err
 	}
 
-	logger.Infof("Agent '%s' running inbound on '%s' and port '%s'", agentID, inboundHost, inboundPort)
+	logger.Debugf("Agent '%s' running inbound on '%s' and port '%s'", agentID, inboundHost, inboundPort)
 
 	// TODO health check webhook URL (Issue #542)
 	a.webhookURLs[agentID] = webhookURL

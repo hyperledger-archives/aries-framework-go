@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package bdd
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -76,7 +78,7 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort string, opts ..
 		return err
 	}
 
-	logger.Infof("Agent %s start listening on %s:%s", agentID, inboundHost, inboundPort)
+	logger.Debugf("Agent %s start listening on %s:%s", agentID, inboundHost, inboundPort)
 	return nil
 }
 
@@ -191,6 +193,13 @@ func (a *AgentSDKSteps) eventListener(statusCh chan service.StateMsg, agentID st
 
 		a.bddContext.ConnectionID[agentID] = props.ConnectionID()
 		if e.Type == service.PostState {
+			dst := &bytes.Buffer{}
+			if err := json.Indent(dst, e.Msg.Payload, "", "  "); err != nil {
+				panic(err)
+			}
+			if e.StateID != "invited" {
+				logger.Debugf("Agent %s done processing %s message \n%s\n*****", agentID, e.Msg.Header.Type, dst)
+			}
 			for _, state := range states {
 				// receive the events
 				if e.StateID == state {

@@ -86,7 +86,7 @@ func (d *DIDResolverSteps) checkSuccessResp(msg string) error {
 		}
 		msg = strings.Replace(msg, "#didID", didID, -1)
 	}
-	logger.Infof("check success resp %s contain %s", string(d.resp.payload), msg)
+	logger.Debugf("check success resp %s contain %s", string(d.resp.payload), msg)
 	if !strings.Contains(string(d.resp.payload), msg) {
 		return fmt.Errorf("success resp %s doesn't contain %s", d.resp.payload, msg)
 	}
@@ -231,7 +231,7 @@ func resolveDID(resolver didresolver.Resolver, did string, maxRetry int) (*diddo
 		}
 
 		time.Sleep(1 * time.Second)
-		logger.Infof("Waiting for public did to be published in sidtree: %d second(s)\n", i)
+		logger.Debugf("Waiting for public did to be published in sidtree: %d second(s)\n", i)
 	}
 
 	return doc, err
