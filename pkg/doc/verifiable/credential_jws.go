@@ -20,18 +20,18 @@ func (jcc *JWTCredClaims) MarshalJWS(signatureAlg JWSAlgorithm, privateKey inter
 func unmarshalJWSClaims(rawJwt []byte, fetcher PublicKeyFetcher) (*JWTCredClaims, error) {
 	parsedJwt, err := jwt.ParseSigned(string(rawJwt))
 	if err != nil {
-		return nil, fmt.Errorf("VC is not valid serialized JWS: %w", err)
+		return nil, fmt.Errorf("parse VC from signed JWS: %w", err)
 	}
 
 	credClaims := new(JWTCredClaims)
 	err = parsedJwt.UnsafeClaimsWithoutVerification(credClaims)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse JWT claims: %w", err)
+		return nil, fmt.Errorf("parse VC JWT claims: %w", err)
 	}
 
 	err = verifyJWTSignature(parsedJwt, fetcher, credClaims.Issuer, credClaims)
 	if err != nil {
-		return nil, fmt.Errorf("JWT signature verification failed: %w", err)
+		return nil, fmt.Errorf("VC JWT signature verification: %w", err)
 	}
 
 	return credClaims, nil

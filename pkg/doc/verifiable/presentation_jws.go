@@ -32,12 +32,12 @@ func unmarshalPresJWSClaims(jwtBytes []byte, fetcher PublicKeyFetcher) (claims *
 	credClaims := new(JWTPresClaims)
 	err = parsedJwt.UnsafeClaimsWithoutVerification(credClaims)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse JWT claims: %w", err)
+		return nil, fmt.Errorf("parse JWT claims: %w", err)
 	}
 
 	err = verifyJWTSignature(parsedJwt, fetcher, credClaims.Issuer, credClaims)
 	if err != nil {
-		return nil, fmt.Errorf("JWT signature verification failed: %w", err)
+		return nil, fmt.Errorf("JWT signature verification: %w", err)
 	}
 
 	return credClaims, nil

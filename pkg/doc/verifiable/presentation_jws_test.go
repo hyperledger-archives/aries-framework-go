@@ -71,7 +71,7 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 
 		_, err = unmarshalPresJWSClaims([]byte(token), testFetcher)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to parse JWT claims")
+		require.Contains(t, err.Error(), "parse JWT claims")
 	})
 
 	t.Run("Invalid signature of JWS", func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 			return publicKey, nil
 		})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "JWT signature verification failed")
+		require.Contains(t, err.Error(), "JWT signature verification: verify JWT signature")
 	})
 }
 

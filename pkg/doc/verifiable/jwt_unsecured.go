@@ -17,12 +17,12 @@ import (
 func marshalUnsecuredJWT(headers map[string]string, claims interface{}) (string, error) {
 	bHeader, err := json.Marshal(headers)
 	if err != nil {
-		return "", fmt.Errorf("failed to serialize JOSE headers: %w", err)
+		return "", fmt.Errorf("serialize JOSE headers: %w", err)
 	}
 
 	bPayload, err := json.Marshal(claims)
 	if err != nil {
-		return "", fmt.Errorf("failed to serialize JWT claims: %w", err)
+		return "", fmt.Errorf("serialize JWT claims: %w", err)
 	}
 
 	return fmt.Sprintf("%s.%s.",
@@ -51,7 +51,7 @@ func unmarshalUnsecuredJWT(rawJWT []byte) (joseHeaders map[string]string, bytesC
 	headers := make(map[string]string)
 	err = json.Unmarshal(bytesHeader, &headers)
 	if err != nil {
-		return nil, nil, fmt.Errorf("JOSE headers must be JSON document: %w", err)
+		return nil, nil, fmt.Errorf("unmarshal JSON-based JOSE headers: %w", err)
 	}
 
 	bytesPayload, err := base64.RawURLEncoding.DecodeString(parts[1])
@@ -62,7 +62,7 @@ func unmarshalUnsecuredJWT(rawJWT []byte) (joseHeaders map[string]string, bytesC
 	claims := make(map[string]interface{})
 	err = json.Unmarshal(bytesPayload, &claims)
 	if err != nil {
-		return nil, nil, fmt.Errorf("JWT Claims must be JSON document: %w", err)
+		return nil, nil, fmt.Errorf("unmarshal JSON-based JWT claims: %w", err)
 	}
 
 	return headers, bytesPayload, nil

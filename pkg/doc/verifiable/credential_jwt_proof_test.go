@@ -82,7 +82,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 			}))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "JWS decoding failed")
+		require.Contains(t, err.Error(), "JWS decoding: unmarshal VC JWT claims")
 	})
 
 	t.Run("Failed public key fetching", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestNewCredentialFromUnsecuredJWT(t *testing.T) {
 			WithUnsecuredJWTDecoding())
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unsecured JWT decoding failed")
+		require.Contains(t, err.Error(), "unsecured JWT decoding: unmarshal VC JWT claims")
 	})
 }
 

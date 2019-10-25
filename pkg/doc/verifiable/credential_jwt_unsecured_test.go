@@ -52,7 +52,7 @@ func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
 	t.Run("Invalid serialized unsecured JWT", func(t *testing.T) {
 		_, err := decodeCredJWTUnsecured([]byte("invalid JWS"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to decode unsecured JWT")
+		require.Contains(t, err.Error(), "unmarshal VC JWT claims: decode unsecured JWT")
 	})
 
 	t.Run("Invalid format of \"vc\" claim", func(t *testing.T) {
@@ -66,6 +66,6 @@ func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
 
 		_, err = decodeCredJWTUnsecured([]byte(rawJWT))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to parse JWT claims")
+		require.Contains(t, err.Error(), "unmarshal VC JWT claims: parse JWT claims")
 	})
 }

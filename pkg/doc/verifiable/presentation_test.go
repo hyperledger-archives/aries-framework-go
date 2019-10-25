@@ -114,7 +114,7 @@ func TestNewPresentation(t *testing.T) {
 	t.Run("fails to create a new Verifiable Presentation from non-JSON doc", func(t *testing.T) {
 		_, err := NewPresentation([]byte("non json"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "JSON unmarshalling of verifiable presentation failed")
+		require.Contains(t, err.Error(), "JSON unmarshalling of verifiable presentation")
 	})
 }
 
@@ -328,7 +328,7 @@ func TestPresentation_Credentials(t *testing.T) {
 
 		_, err = vp.Credentials()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to marshal credentials from presentation")
+		require.Contains(t, err.Error(), "marshal credentials from presentation")
 	})
 
 	t.Run("extracts verifiable credentials from single credential", func(t *testing.T) {
@@ -361,7 +361,7 @@ func TestPresentation_Credentials(t *testing.T) {
 
 		_, err = vp.Credentials()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to marshal credentials from presentation")
+		require.Contains(t, err.Error(), "marshal credentials from presentation")
 	})
 }
 
