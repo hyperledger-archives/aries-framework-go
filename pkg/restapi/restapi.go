@@ -14,7 +14,8 @@ import (
 )
 
 type allOpts struct {
-	webhookURLs []string
+	webhookURLs     []string
+	invitationLabel string
 }
 
 // Opt represents a REST Api option.
@@ -24,6 +25,13 @@ type Opt func(opts *allOpts)
 func WithWebhookURLs(webhookURLs ...string) Opt {
 	return func(opts *allOpts) {
 		opts.webhookURLs = webhookURLs
+	}
+}
+
+// WithInvitationLabel is an option allowing for the invitation label to be set.
+func WithInvitationLabel(invitationLabel string) Opt {
+	return func(opts *allOpts) {
+		opts.invitationLabel = invitationLabel
 	}
 }
 
@@ -39,7 +47,7 @@ func New(ctx *context.Provider, opts ...Opt) (*Controller, error) {
 	var allHandlers []operation.Handler
 
 	// Add DID Exchange Rest Handlers
-	exchange, err := didexchange.New(ctx, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs))
+	exchange, err := didexchange.New(ctx, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs), restAPIOpts.invitationLabel)
 	if err != nil {
 		return nil, err
 	}
