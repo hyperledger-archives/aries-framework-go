@@ -399,7 +399,16 @@ func (c *Operation) sendConnectionNotification(connectionID string) error {
 		return fmt.Errorf("connection notification webhook : %w", err)
 	}
 
-	jsonMessage, err := json.Marshal(conn)
+	connMsg := &ConnectionMsg{
+		ConnectionID: conn.ConnectionID,
+		State:        conn.State,
+		MyDid:        conn.MyDID,
+		TheirDid:     conn.TheirDID,
+		TheirLabel:   conn.TheirLabel,
+		TheirRole:    conn.TheirLabel,
+	}
+
+	jsonMessage, err := json.Marshal(connMsg)
 	if err != nil {
 		return fmt.Errorf("connection notification json marshal : %w", err)
 	}
