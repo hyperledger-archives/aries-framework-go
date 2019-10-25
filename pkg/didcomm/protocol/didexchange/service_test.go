@@ -157,17 +157,9 @@ func TestService_Handle_Invitee(t *testing.T) {
 	statusCh := make(chan service.StateMsg, 10)
 	err = s.RegisterMsgEvent(statusCh)
 	require.NoError(t, err)
-	done := make(chan bool)
-	go func() {
-		for e := range statusCh {
-			if e.Type == service.PostState {
-				// receive the events
-				if e.StateID == "completed" {
-					done <- true
-				}
-			}
-		}
-	}()
+	requestedCh := make(chan struct{})
+	completedCh := make(chan struct{})
+	go handleMessagesInvitee(statusCh, requestedCh, completedCh)
 	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
 
 	// Alice receives an invitation from Bob
@@ -183,6 +175,12 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.NoError(t, err)
 	err = s.HandleInbound(didMsg)
 	require.NoError(t, err)
+
+	select {
+	case <-requestedCh:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "didn't receive post event requested")
+	}
 
 	// Alice automatically sends a Request to Bob and is now in REQUESTED state.
 	connRecord := &ConnectionRecord{}
@@ -220,11 +218,24 @@ func TestService_Handle_Invitee(t *testing.T) {
 	// Alice automatically sends an ACK to Bob
 	// Alice must now be in COMPLETED state
 	select {
-	case <-done:
+	case <-completedCh:
 	case <-time.After(2 * time.Second):
 		require.Fail(t, "didn't receive post event complete")
 	}
 	validateState(t, s, connRecord.ThreadID, findNameSpace(ResponseMsgType), (&completed{}).Name())
+}
+
+func handleMessagesInvitee(statusCh chan service.StateMsg, requestedCh, completedCh chan struct{}) {
+	for e := range statusCh {
+		if e.Type == service.PostState {
+			// receive the events
+			if e.StateID == stateNameCompleted {
+				close(completedCh)
+			} else if e.StateID == stateNameRequested {
+				close(requestedCh)
+			}
+		}
+	}
 }
 
 func TestService_Handle_EdgeCases(t *testing.T) {
