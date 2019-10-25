@@ -8,6 +8,7 @@ package didexchange
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,14 +32,15 @@ import (
 var logger = log.New("aries-framework/did-exchange")
 
 const (
-	operationID           = "/connections"
-	createInvitationPath  = operationID + "/create-invitation"
-	receiveInvtiationPath = operationID + "/receive-invitation"
-	acceptInvitationPath  = operationID + "/{id}/accept-invitation"
-	connections           = operationID
-	connectionsByID       = operationID + "/{id}"
-	acceptExchangeRequest = operationID + "/{id}/accept-request"
-	removeConnection      = operationID + "/{id}/remove"
+	operationID             = "/connections"
+	createInvitationPath    = operationID + "/create-invitation"
+	receiveInvtiationPath   = operationID + "/receive-invitation"
+	acceptInvitationPath    = operationID + "/{id}/accept-invitation"
+	connections             = operationID
+	connectionsByID         = operationID + "/{id}"
+	acceptExchangeRequest   = operationID + "/{id}/accept-request"
+	removeConnection        = operationID + "/{id}/remove"
+	connectionsWebhookTopic = "connections"
 )
 
 // provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
@@ -350,21 +352,64 @@ func (c *Operation) startClientEventListener() error {
 		return fmt.Errorf("didexchange message event registration failed: %w", err)
 	}
 
-	// auto execute the actions
+	// event listeners
 	go func() {
-		err := service.AutoExecuteActionEvent(c.actionCh)
-		if err != nil {
-			logger.Errorf("auto action event execution failed: %s", err)
+		for {
+			select {
+			case e := <-c.actionCh:
+				c.handleActionEvents(e)
+			case e := <-c.msgCh:
+				err := c.handleMessageEvents(e)
+				if err != nil {
+					logger.Errorf("handle message events failed : %s", err)
+				}
+			}
 		}
 	}()
 
-	go func() {
-		for e := range c.msgCh {
-			// TODO https://github.com/hyperledger/aries-framework-go/issues/551 - Integrate Message event with Webhook
-			// for now, log the messages
-			logger.Infof("message event received : type=%s", e.Type)
+	return nil
+}
+
+func (c *Operation) handleMessageEvents(e service.StateMsg) error {
+	if e.Type == service.PostState {
+		switch v := e.Properties.(type) {
+		case didexchange.Event:
+			props := v
+			err := c.sendConnectionNotification(props.ConnectionID(), e.StateID)
+			if err != nil {
+				return fmt.Errorf("send connection notification failed : %w", err)
+			}
+		case error:
+			return fmt.Errorf("service processing failed : %w", v)
+		default:
+			return errors.New("event is not of DIDExchange event type")
 		}
-	}()
+	}
+	return nil
+}
+
+func (c *Operation) handleActionEvents(e service.DIDCommAction) {
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/579 - Integrate Action events with webhooks
+	e.Continue()
+}
+
+func (c *Operation) sendConnectionNotification(connectionID, stateID string) error {
+	// TODO - fetch connection data from DB (update once https://github.com/hyperledger/aries-framework-go/pull/573
+	// is merged)
+	conn := &webhook.ConnectionMsg{
+		ConnectionID: connectionID,
+		State:        stateID,
+	}
+
+	jsonMessage, err := json.Marshal(conn)
+	if err != nil {
+		return fmt.Errorf("connection notification json marshal : %w", err)
+	}
+
+	err = c.notifier.Notify(connectionsWebhookTopic, jsonMessage)
+	if err != nil {
+		return fmt.Errorf("connection notification webhook : %w", err)
+	}
 
 	return nil
 }

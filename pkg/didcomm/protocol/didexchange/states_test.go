@@ -605,11 +605,11 @@ func TestRespondedState_Execute(t *testing.T) {
 }
 func TestAbandonedState_Execute(t *testing.T) {
 	t.Run("execute abandon state", func(t *testing.T) {
-		connRec, state, action, err := (&abandoned{}).Execute(&stateMachineMsg{
+		connRec, s, action, err := (&abandoned{}).Execute(&stateMachineMsg{
 			header: &service.Header{Type: ResponseMsgType}}, "", &context{})
 		require.Contains(t, err.Error(), "not implemented")
 		require.Nil(t, connRec)
-		require.Nil(t, state)
+		require.Nil(t, s)
 		require.Nil(t, action)
 	})
 }
