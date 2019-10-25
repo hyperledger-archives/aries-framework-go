@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/godog"
+
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
 )
 
@@ -23,13 +25,22 @@ var composition []*dockerutil.Composition
 var composeFiles = []string{"./fixtures/sidetree-node", "./fixtures/agent"}
 
 func TestMain(m *testing.M) {
-
 	// default is to run all tests with tag @all
 	tags := "all"
 	flag.Parse()
-	cmdTags := flag.CommandLine.Lookup("test.run")
-	if cmdTags != nil && cmdTags.Value != nil && cmdTags.Value.String() != "" {
-		tags = cmdTags.Value.String()
+
+	runArg := getCmdArg("test.run")
+	if runArg != "" {
+		tags = runArg
+	}
+
+	agentLogLevel := os.Getenv("AGENT_LOG_LEVEL")
+	if agentLogLevel != "" {
+		logLevel, err := log.ParseLevel(agentLogLevel)
+		if err != nil {
+			panic(err)
+		}
+		log.SetLevel("", logLevel)
 	}
 
 	initBDDConfig()
@@ -85,6 +96,14 @@ func TestMain(m *testing.M) {
 		status = st
 	}
 	os.Exit(status)
+}
+
+func getCmdArg(argName string) string {
+	cmdTags := flag.CommandLine.Lookup(argName)
+	if cmdTags != nil && cmdTags.Value != nil && cmdTags.Value.String() != "" {
+		return cmdTags.Value.String()
+	}
+	return ""
 }
 
 func FeatureContext(s *godog.Suite) {

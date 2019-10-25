@@ -126,7 +126,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 	// throw error if there is no action event registered for inbound messages
 	aEvent := s.ActionEvent()
 
-	logger.Infof("entered into HandleInbound exchange message : %s", msg.Payload)
+	logger.Debugf("receive inbound message : %s", msg.Payload)
 
 	if aEvent == nil {
 		return errors.New("no clients are registered to handle the message")
@@ -135,8 +135,6 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 	if err != nil {
 		return err
 	}
-	logger.Infof("thread id value for the did exchange msg : %s", thid)
-
 	nsThid, err := createNSKey(findNameSpace(msg.Header.Type), thid)
 	if err != nil {
 		return err
@@ -145,13 +143,14 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 	if err != nil {
 		return err
 	}
-	logger.Infof("current state : %s", current.Name())
+	logger.Debugf("retrieved current state [%s] using nsThid [%s]", current.Name(), nsThid)
 
 	next, err := stateFromMsgType(msg.Header.Type)
 	if err != nil {
 		return err
 	}
-	logger.Infof("state will transition to -> %s if the msgType is processed", next.Name())
+
+	logger.Debugf("check if current state [%s] can transition to [%s]", current.Name(), next.Name())
 
 	if !current.CanTransitionTo(next) {
 		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
@@ -196,19 +195,16 @@ func (s *Service) HandleOutbound(msg *service.DIDCommMsg, destination *service.D
 }
 
 func (s *Service) handle(msg *message) error {
-	logger.Infof("entered into private handle didcomm message with threadID: %s ", msg.ThreadID)
-
 	next, err := stateFromName(msg.NextStateName)
 	if err != nil {
 		return fmt.Errorf("invalid state name: %w", err)
 	}
-	logger.Infof("next valid state to transition -> %s ", next.Name())
 	for !isNoOp(next) {
 		//TODO: Issue-578 is created to consider if we need to create connection ID at pre state level or no
 		s.sendMsgEvents(&service.StateMsg{
 			Type: service.PreState, Msg: msg.Msg, StateID: next.Name(),
 			Properties: createEventProperties("", "")})
-		logger.Infof("sent pre event for state %s", next.Name())
+		logger.Debugf("sent pre event for state %s", next.Name())
 
 		var action stateAction
 		var followup state
@@ -220,23 +216,22 @@ func (s *Service) handle(msg *message) error {
 			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 		}
 		connectionRecord.State = next.Name()
-		logger.Infof("finish execute next state: %s -> namespace -> %s", next.Name(), connectionRecord.Namespace)
+		logger.Debugf("finished execute state: %s", next.Name())
 
 		if err = s.update(msg.Msg.Header.Type, connectionRecord); err != nil {
 			return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 		}
 
-		logger.Infof("persisted the connection using %s and updated the state to %s",
-			connectionRecord.ThreadID, next.Name())
+		logger.Debugf("persisted the connection record using connection id %s", connectionRecord.ConnectionID)
 
 		if err := action(); err != nil {
 			return fmt.Errorf("failed to execute state action %s %w", next.Name(), err)
 		}
-		logger.Infof("finish execute state action: %s", next.Name())
+		logger.Debugf("finish execute state action: %s", next.Name())
 		s.sendMsgEvents(&service.StateMsg{
 			Type: service.PostState, Msg: msg.Msg, StateID: next.Name(),
 			Properties: createEventProperties(connectionRecord.ConnectionID, connectionRecord.InvitationID)})
-		logger.Infof("sent post event for state %s", next.Name())
+		logger.Debugf("sent post event for state %s", next.Name())
 
 		next = followup
 	}
