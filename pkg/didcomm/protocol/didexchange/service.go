@@ -164,8 +164,15 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 		}
 		return nil
 	}
+
 	// if no action event is triggered, continue the execution
-	return s.handle(&message{Msg: msg, ThreadID: thid, NextStateName: next.Name()})
+	go func() {
+		if err = s.handle(&message{Msg: msg, ThreadID: thid, NextStateName: next.Name()}); err != nil {
+			logger.Errorf("didexchange processing error : %s", err)
+		}
+	}()
+
+	return nil
 }
 
 // Name return service name
