@@ -115,7 +115,7 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 	logger.Debugf("Receiving connection invitation ")
 
 	var request models.ReceiveInvitationRequest
-	err := json.NewDecoder(req.Body).Decode(&request.Params)
+	err := json.NewDecoder(req.Body).Decode(&request)
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return

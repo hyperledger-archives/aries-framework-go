@@ -1,0 +1,44 @@
+#
+# Copyright IBM Corp, SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+services:
+
+  alice.agent.example.com:
+    container_name: alice.aries.example.com
+    image: ${AGENT_FIXTURE_IMAGE}:${AGENT_FIXUTRE_IMAGE_TAG}
+    environment:
+      - GOPATH=/opt/gopath
+      - ID=${ALICE_AGENT_ID}
+      - API_HOST=${ALICE_HOST}:${ALICE_API_PORT}
+      - INBOUND_HOST=${ALICE_HOST}:${ALICE_INBOUND_PORT}
+      - WEBHOOK_URL=${ALICE_WEBHOOK_URL}
+      - DB_LOC=${ALICE_DB_LOC}
+    working_dir: /opt/gopath/src/github.com/hyperledger/aries-framework-go
+    command: /bin/bash -c 'scripts/start-aries-agentd.sh'
+    ports:
+      - 8081:${ALICE_INBOUND_PORT}
+      - 8082:${ALICE_API_PORT}
+    volumes:
+      - ../../../../:/opt/gopath/src/github.com/hyperledger/aries-framework-go
+
+  bob.agent.example.com:
+    container_name: bob.aries.example.com
+    image: ${AGENT_FIXTURE_IMAGE}:${AGENT_FIXUTRE_IMAGE_TAG}
+    environment:
+      - GOPATH=/opt/gopath
+      - ID=${BOB_AGENT_ID}
+      - API_HOST=${BOB_HOST}:${BOB_API_PORT}
+      - INBOUND_HOST=${BOB_HOST}:${BOB_INBOUND_PORT}
+      - WEBHOOK_URL=${BOB_WEBHOOK_URL}
+      - DB_LOC=${BOB_DB_LOC}
+    working_dir: /opt/gopath/src/github.com/hyperledger/aries-framework-go
+    command: /bin/bash -c 'scripts/start-aries-agentd.sh'
+    ports:
+      - 9081:${BOB_INBOUND_PORT}
+      - 9082:${BOB_API_PORT}
+    volumes:
+      - ../../../../:/opt/gopath/src/github.com/hyperledger/aries-framework-go

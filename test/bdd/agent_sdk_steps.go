@@ -9,15 +9,16 @@ package bdd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/DATA-DOG/godog"
-	"github.com/sirupsen/logrus"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/httpbinding"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
@@ -29,23 +30,23 @@ const (
 	dbPath = "./db"
 )
 
-var logger = logrus.New()
+var logger = log.New("aries-framework/tests")
 
-// AgentSteps
-type AgentSteps struct {
+// AgentSDKSteps
+type AgentSDKSteps struct {
 	bddContext *Context
 }
 
-// NewAgentSteps
-func NewAgentSteps(context *Context) *AgentSteps {
-	return &AgentSteps{bddContext: context}
+// NewAgentSDKSteps
+func NewAgentSDKSteps(context *Context) *AgentSDKSteps {
+	return &AgentSDKSteps{bddContext: context}
 }
 
-func (a *AgentSteps) createAgent(agentID, inboundHost, inboundPort string) error {
+func (a *AgentSDKSteps) createAgent(agentID, inboundHost, inboundPort string) error {
 	return a.create(agentID, inboundHost, inboundPort)
 }
 
-func (a *AgentSteps) createAgentWithHttpDIDResolver(agentID, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
+func (a *AgentSDKSteps) createAgentWithHttpDIDResolver(agentID, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
 	var opts []aries.Option
 	httpResolver, err := httpbinding.New(a.bddContext.Args[endpointURL],
 		httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
@@ -56,7 +57,7 @@ func (a *AgentSteps) createAgentWithHttpDIDResolver(agentID, inboundHost, inboun
 	return a.create(agentID, inboundHost, inboundPort, opts...)
 }
 
-func (a *AgentSteps) create(agentID, inboundHost, inboundPort string, opts ...aries.Option) error {
+func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort string, opts ...aries.Option) error {
 	if inboundPort == "random" {
 		inboundPort = strconv.Itoa(mustGetRandomPort(5))
 	}
@@ -79,7 +80,7 @@ func (a *AgentSteps) create(agentID, inboundHost, inboundPort string, opts ...ar
 	return nil
 }
 
-func (a *AgentSteps) createDIDExchangeClient(agentID string) error {
+func (a *AgentSDKSteps) createDIDExchangeClient(agentID string) error {
 
 	// create new did exchange client
 	didexchangeClient, err := didexchange.New(a.bddContext.AgentCtx[agentID])
@@ -99,7 +100,14 @@ func (a *AgentSteps) createDIDExchangeClient(agentID string) error {
 	return nil
 }
 
-func (a *AgentSteps) registerPostMsgEvent(agentID, statesValue string) error {
+func closeResponse(c io.Closer) {
+	err := c.Close()
+	if err != nil {
+		logger.Errorf("Failed to close response body : %s", err)
+	}
+}
+
+func (a *AgentSDKSteps) registerPostMsgEvent(agentID, statesValue string) error {
 	statusCh := make(chan service.StateMsg, 1)
 	if err := a.bddContext.DIDExchangeClients[agentID].RegisterMsgEvent(statusCh); err != nil {
 		return fmt.Errorf("failed to register msg event: %w", err)
@@ -112,7 +120,7 @@ func (a *AgentSteps) registerPostMsgEvent(agentID, statesValue string) error {
 	return nil
 }
 
-func (a *AgentSteps) initializeStates(agentID string, states []string) {
+func (a *AgentSDKSteps) initializeStates(agentID string, states []string) {
 	a.bddContext.PostStatesFlag[agentID] = make(map[string]chan bool)
 	for _, state := range states {
 		a.bddContext.PostStatesFlag[agentID][state] = make(chan bool)
@@ -120,7 +128,7 @@ func (a *AgentSteps) initializeStates(agentID string, states []string) {
 }
 
 // RegisterSteps registers agent steps
-func (a *AgentSteps) RegisterSteps(s *godog.Suite) {
+func (a *AgentSDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)"$`, a.createAgent)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
 		a.createAgentWithHttpDIDResolver)
@@ -171,7 +179,7 @@ func listenFor(host string, d time.Duration) error {
 	}
 }
 
-func (a *AgentSteps) eventListener(statusCh chan service.StateMsg, agentID string, states []string) {
+func (a *AgentSDKSteps) eventListener(statusCh chan service.StateMsg, agentID string, states []string) {
 	var props didexchange.Event
 	for e := range statusCh {
 		switch v := e.Properties.(type) {

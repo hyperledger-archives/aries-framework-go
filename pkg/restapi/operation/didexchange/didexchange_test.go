@@ -66,15 +66,12 @@ func TestOperation_CreateInvitation(t *testing.T) {
 }
 
 func TestOperation_ReceiveInvitation(t *testing.T) {
-	var jsonStr = []byte(`{
-    	"@type": "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/invitation",
-    	"@id": "4e8650d9-6cc9-491e-b00e-7bf6cb5858fc",
-    	"serviceEndpoint": "http://ip10-0-46-4-blikjbs9psqg8vrg4p10-8020.direct.play-with-von.vonx.io",
-    	"label": "Faber Agent",
-    	"recipientKeys": [
-      		"6LE8yhZB8Xffc5vFgFntE3YLrxq5JVUsoAvUQgUyktGt"
-    		]
-  	}`)
+	var jsonStr = []byte(`{"invitation":{
+		"serviceEndpoint":"http://alice.agent.example.com:8081",
+		"recipientKeys":["FDmegH8upiNquathbHZiGBZKwcudNfNWPeGQFBt8eNNi"],
+		"@id":"a35c0ac6-4fc3-46af-a072-c1036d036057",
+		"label":"agent",
+		"@type":"did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation"}}`)
 
 	handler := getHandler(t, receiveInvtiationPath, nil)
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
