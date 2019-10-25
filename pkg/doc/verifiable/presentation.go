@@ -165,7 +165,7 @@ type Presentation struct {
 func (vp *Presentation) MarshalJSON() ([]byte, error) {
 	byteCred, err := json.Marshal(vp.raw())
 	if err != nil {
-		return nil, fmt.Errorf("JSON marshalling of verifiable credential failed: %w", err)
+		return nil, fmt.Errorf("JSON marshalling of verifiable credential: %w", err)
 	}
 
 	return byteCred, nil
@@ -182,7 +182,7 @@ func (vp *Presentation) Credentials() ([]PresentationCredential, error) {
 	marshalSingleCredFn := func(cred interface{}) (PresentationCredential, error) {
 		credBytes, err := json.Marshal(cred)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal credentials from presentation: %w", err)
+			return nil, fmt.Errorf("marshal credentials from presentation: %w", err)
 		}
 		return credBytes, nil
 	}
@@ -306,7 +306,7 @@ func validatePresentation(data []byte) error {
 	loader := gojsonschema.NewStringLoader(string(data))
 	result, err := gojsonschema.Validate(basePresentationSchemaLoader, loader)
 	if err != nil {
-		return fmt.Errorf("validation of verifiable credential failed: %w", err)
+		return fmt.Errorf("validation of verifiable credential: %w", err)
 	}
 
 	if !result.Valid() {
@@ -323,14 +323,14 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 	case jwsDecoding:
 		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpData, vpOpts.holderPublicKeyFetcher)
 		if err != nil {
-			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from JWS failed: %w", err)
+			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from JWS: %w", err)
 		}
 		return vcDataFromJwt, rawCred, nil
 
 	case unsecuredJWTDecoding:
 		rawBytes, rawCred, err := decodeVPFromUnsecuredJWT(vpData)
 		if err != nil {
-			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT failed: %w", err)
+			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT: %w", err)
 		}
 		return rawBytes, rawCred, nil
 	}
@@ -343,7 +343,7 @@ func decodeVPFromJSON(vpData []byte) ([]byte, *rawPresentation, error) {
 	raw := new(rawPresentation)
 	err := json.Unmarshal(vpData, raw)
 	if err != nil {
-		return nil, nil, fmt.Errorf("JSON unmarshalling of verifiable presentation failed: %w", err)
+		return nil, nil, fmt.Errorf("JSON unmarshalling of verifiable presentation: %w", err)
 	}
 
 	return vpData, raw, nil

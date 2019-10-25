@@ -70,7 +70,7 @@ func TestUnmarshalUnsecuredJWT(t *testing.T) {
 		invalidJWT := fmt.Sprintf("%s.eyJwcm9kdWN0SWRzIjpbMSwyXSwic3ViIjoidXNlcjEyMyJ9.", notJSON)
 		_, _, err := unmarshalUnsecuredJWT([]byte(invalidJWT))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "JOSE headers must be JSON document")
+		require.Contains(t, err.Error(), "unmarshal JSON-based JOSE headers")
 	})
 
 	t.Run("rejects serialized JWT claims not in base64 format", func(t *testing.T) {
@@ -79,10 +79,10 @@ func TestUnmarshalUnsecuredJWT(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("rejects JWT headers which are not JSON", func(t *testing.T) {
+	t.Run("rejects JWT claims which are not JSON", func(t *testing.T) {
 		invalidJWT := fmt.Sprintf("eyJhbGciOiJub25lIn0.%s.", notJSON)
 		_, _, err := unmarshalUnsecuredJWT([]byte(invalidJWT))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "JWT Claims must be JSON document")
+		require.Contains(t, err.Error(), "unmarshal JSON-based JWT claims")
 	})
 }

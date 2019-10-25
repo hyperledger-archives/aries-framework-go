@@ -155,11 +155,11 @@ func Cred2Producer() CustomCredentialProducer {
 	}
 }
 
-func DecodeCredentials(dataJSON []byte, producers ...CustomCredentialProducer) (interface{}, error) {
+func decodeCredentials(dataJSON []byte, producers ...CustomCredentialProducer) (interface{}, error) {
 	var baseCred *Credential
 	var credErr error
 	if baseCred, credErr = NewCredential(dataJSON); credErr != nil {
-		return nil, fmt.Errorf("failed to build base verifiable credential: %w", credErr)
+		return nil, fmt.Errorf("build base verifiable credential: %w", credErr)
 	}
 
 	for _, p := range producers {
@@ -199,7 +199,7 @@ func hasType(allTypes []string, targetType string) bool {
 func TestCredentialExtensibilitySwitch(t *testing.T) {
 	producers := []CustomCredentialProducer{Cred1Producer(), Cred2Producer()}
 
-	i1, err := DecodeCredentials([]byte(validCred1), producers...)
+	i1, err := decodeCredentials([]byte(validCred1), producers...)
 	require.NoError(t, err)
 	require.IsType(t, &Cred1{}, i1)
 	cred1, correct := i1.(*Cred1)
@@ -209,7 +209,7 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	require.Equal(t, "custom field 1", cred1.CustomField)
 	require.Equal(t, "custom subject 1", cred1.Subject.CustomSubjectField)
 
-	i2, err := DecodeCredentials([]byte(validCred2), producers...)
+	i2, err := decodeCredentials([]byte(validCred2), producers...)
 	require.NoError(t, err)
 	require.IsType(t, &Cred2{}, i2)
 	cred2, correct := i2.(*Cred2)
@@ -219,11 +219,11 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	require.Equal(t, "custom field 2", cred2.CustomField)
 	require.Equal(t, "custom subject 2", cred2.Subject.CustomSubjectField)
 
-	i3, err := DecodeCredentials([]byte(validCredential), producers...)
+	i3, err := decodeCredentials([]byte(validCredential), producers...)
 	require.NoError(t, err)
 	require.IsType(t, &Credential{}, i3)
 
-	_, err = DecodeCredentials([]byte(credMissingMandatoryFields), producers...)
+	_, err = decodeCredentials([]byte(credMissingMandatoryFields), producers...)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to build base verifiable credential")
+	require.Contains(t, err.Error(), "build base verifiable credential")
 }

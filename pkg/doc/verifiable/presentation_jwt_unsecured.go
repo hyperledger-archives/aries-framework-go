@@ -22,13 +22,13 @@ func decodeVPFromUnsecuredJWT(vpJWTBytes []byte) ([]byte, *rawPresentation, erro
 	return decodePresJWT(vpJWTBytes, func(vpJWTBytes []byte) (*JWTPresClaims, error) {
 		_, bytesClaim, err := unmarshalUnsecuredJWT(vpJWTBytes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode unsecured JWT: %w", err)
+			return nil, fmt.Errorf("decode unsecured JWT: %w", err)
 		}
 
 		vpClaims := new(JWTPresClaims)
 		err = json.Unmarshal(bytesClaim, vpClaims)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse JWT claims: %w", err)
+			return nil, fmt.Errorf("parse JWT claims: %w", err)
 		}
 
 		return vpClaims, nil

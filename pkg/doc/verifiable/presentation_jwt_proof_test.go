@@ -54,7 +54,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 			}))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "decoding of Verifiable Presentation from JWS failed")
+		require.Contains(t, err.Error(), "decoding of Verifiable Presentation from JWS")
 	})
 
 	t.Run("Failed public key fetching", func(t *testing.T) {
@@ -66,7 +66,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 			}))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "decoding of Verifiable Presentation from JWS failed")
+		require.Contains(t, err.Error(), "get public key for JWT signature verification")
 	})
 }
 
@@ -105,7 +105,7 @@ func TestNewPresentationFromUnsecuredJWT(t *testing.T) {
 			WithPresUnsecuredJWTDecoding())
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "decoding of Verifiable Presentation from unsecured JWT failed")
+		require.Contains(t, err.Error(), "decoding of Verifiable Presentation from unsecured JWT")
 	})
 }
 

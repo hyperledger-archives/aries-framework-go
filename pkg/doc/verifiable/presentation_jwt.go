@@ -68,7 +68,7 @@ type JWTPresClaimsUnmarshaller func(vpJWTBytes []byte) (*JWTPresClaims, error)
 func decodePresJWT(vpJWTBytes []byte, unmarshaller JWTPresClaimsUnmarshaller) ([]byte, *rawPresentation, error) {
 	presClaims, err := unmarshaller(vpJWTBytes)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to decode Verifiable Presentation JWT claims: %w", err)
+		return nil, nil, fmt.Errorf("decode Verifiable Presentation JWT claims: %w", err)
 	}
 
 	// Apply VC-related claims from JWT.
@@ -77,7 +77,7 @@ func decodePresJWT(vpJWTBytes []byte, unmarshaller JWTPresClaimsUnmarshaller) ([
 	vpRaw := presClaims.Presentation
 	rawBytes, err := json.Marshal(vpRaw)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to marshal \"vp\" claim of JWT: %w", err)
+		return nil, nil, fmt.Errorf("marshal \"vp\" claim of JWT: %w", err)
 	}
 
 	return rawBytes, vpRaw, nil

@@ -27,7 +27,7 @@ func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, privateKey int
 
 	signer, err := jose.NewSigner(key, signerOpts)
 	if err != nil {
-		return "", fmt.Errorf("failed to create signer: %w", err)
+		return "", fmt.Errorf("create signer: %w", err)
 	}
 
 	// create an instance of Builder that uses the signer
@@ -36,7 +36,7 @@ func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, privateKey int
 	// validate all ok, sign with the key, and return a compact JWT
 	jws, err := builder.CompactSerialize()
 	if err != nil {
-		return "", fmt.Errorf("failed to sign JWT: %w", err)
+		return "", fmt.Errorf("sign and serialize JWT: %w", err)
 	}
 
 	return jws, nil
@@ -52,10 +52,10 @@ func verifyJWTSignature(token *jwt.JSONWebToken, fetcher PublicKeyFetcher, issue
 	}
 	publicKey, err := fetcher(issuer, keyID)
 	if err != nil {
-		return fmt.Errorf("failed to get public key for JWT signature verification: %w", err)
+		return fmt.Errorf("get public key for JWT signature verification: %w", err)
 	}
 	if err = token.Claims(publicKey, jwtClaims); err != nil {
-		return fmt.Errorf("JWT signature verification failed: %w", err)
+		return fmt.Errorf("verify JWT signature: %w", err)
 	}
 	return nil
 }

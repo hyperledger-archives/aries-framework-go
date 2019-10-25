@@ -34,7 +34,7 @@ type JWTCredClaims struct {
 func newJWTCredClaims(vc *Credential, minimizeVc bool) (*JWTCredClaims, error) {
 	subjectID, err := vc.SubjectID()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get VC subject id: %w", err)
+		return nil, fmt.Errorf("get VC subject id: %w", err)
 	}
 
 	// currently jwt encoding supports only single subject (by the spec)
@@ -81,7 +81,7 @@ type JWTCredClaimsUnmarshaller func(vcJWTBytes []byte) (*JWTCredClaims, error)
 func decodeCredJWT(rawJWT []byte, unmarshaller JWTCredClaimsUnmarshaller) ([]byte, error) {
 	credClaims, err := unmarshaller(rawJWT)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode Verifiable Credential JWT claims: %w", err)
+		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)
 	}
 
 	// Apply VC-related claims from JWT.

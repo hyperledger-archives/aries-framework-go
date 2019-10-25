@@ -288,7 +288,7 @@ func newRawCredential(bytes []byte) (*rawCredential, error) {
 	rc := new(rawCredential)
 	err := json.Unmarshal(bytes, rc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal raw verifiable credential: %w", err)
+		return nil, fmt.Errorf("raw verifiable credential: %w", err)
 	}
 
 	// Collect known fields map.
@@ -463,7 +463,7 @@ func decodeType(rc *rawCredential) ([]string, error) {
 	case []interface{}:
 		types, err := stringSlice(rType)
 		if err != nil {
-			return nil, fmt.Errorf("failed to map credential types: %w", err)
+			return nil, fmt.Errorf("vc types: %w", err)
 		}
 		return types, nil
 	default:
@@ -515,7 +515,7 @@ func decodeCredentialSchema(data []byte) ([]CredentialSchema, error) {
 		return multiple.Schemas, nil
 	}
 
-	return nil, fmt.Errorf("JSON unmarshalling of Verifiable Credential Schema failed: %w", err)
+	return nil, errors.New("verifiable credential schema of unsupported format")
 }
 
 // NewCredential creates an instance of Verifiable Credential by reading a JSON document from bytes.
@@ -535,7 +535,7 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	// unmarshal VC from JSON
 	raw, err := newRawCredential(vcDataDecoded)
 	if err != nil {
-		return nil, fmt.Errorf("JSON unmarshalling of verifiable credential failed: %w", err)
+		return nil, fmt.Errorf("new credential: %w", err)
 	}
 
 	schemas, err := loadCredentialSchemas(raw, vcDataDecoded)
@@ -549,7 +549,7 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	}
 
 	cred := crOpts.template()
-	err = cred.applyRaw(raw)
+	err = cred.fill(raw)
 	if err != nil {
 		return nil, err
 	}
@@ -565,20 +565,20 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	return cred, nil
 }
 
-func (vc *Credential) applyRaw(raw *rawCredential) error {
+func (vc *Credential) fill(raw *rawCredential) error {
 	types, err := decodeType(raw)
 	if err != nil {
-		return fmt.Errorf("cannot decode type: %w", err)
+		return fmt.Errorf("fill vc types from raw: %w", err)
 	}
 
 	issuer, err := decodeIssuer(raw)
 	if err != nil {
-		return fmt.Errorf("cannot decode issuer: %w", err)
+		return fmt.Errorf("fill vc issuer from raw: %w", err)
 	}
 
 	context, customContext, err := decodeContext(raw)
 	if err != nil {
-		return fmt.Errorf("cannot decode context: %w", err)
+		return fmt.Errorf("fill vc context from raw: %w", err)
 	}
 
 	vc.Context = context
@@ -605,14 +605,14 @@ func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, error) {
 	case jwsDecoding:
 		vcDecodedBytes, err := decodeCredJWS(vcData, crOpts.issuerPublicKeyFetcher)
 		if err != nil {
-			return nil, fmt.Errorf("JWS decoding failed: %w", err)
+			return nil, fmt.Errorf("JWS decoding: %w", err)
 		}
 		return vcDecodedBytes, nil
 
 	case unsecuredJWTDecoding:
 		vcDecodedBytes, err := decodeCredJWTUnsecured(vcData)
 		if err != nil {
-			return nil, fmt.Errorf("unsecured JWT decoding failed: %w", err)
+			return nil, fmt.Errorf("unsecured JWT decoding: %w", err)
 		}
 		return vcDecodedBytes, nil
 	}
@@ -623,7 +623,7 @@ func loadCredentialSchemas(raw *rawCredential, vcDataDecoded []byte) ([]Credenti
 	if raw.Schema != nil {
 		schemas, err := decodeCredentialSchema(vcDataDecoded)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode credential schemas: %w", err)
+			return nil, fmt.Errorf("load credential schema: %w", err)
 		}
 		return schemas, nil
 	}
@@ -658,7 +658,7 @@ func validate(data []byte, schemas []CredentialSchema, opts *credentialOpts) err
 	loader := gojsonschema.NewStringLoader(string(data))
 	result, err := gojsonschema.Validate(schemaLoader, loader)
 	if err != nil {
-		return fmt.Errorf("validation of verifiable credential failed: %w", err)
+		return fmt.Errorf("validation of verifiable credential: %w", err)
 	}
 
 	if !result.Valid() {
@@ -679,7 +679,7 @@ func getSchemaLoader(schemas []CredentialSchema, opts *credentialOpts) (gojsonsc
 		case jsonSchema2018Type:
 			customSchemaData, err := loadCredentialSchema(schema.ID, opts.schemaDownloadClient)
 			if err != nil {
-				return nil, fmt.Errorf("loading custom credential schema from %s failed: %w", schema.ID, err)
+				return nil, fmt.Errorf("load of custom credential schema from %s: %w", schema.ID, err)
 			}
 			return gojsonschema.NewBytesLoader(customSchemaData), nil
 		default:
@@ -695,7 +695,7 @@ func getSchemaLoader(schemas []CredentialSchema, opts *credentialOpts) (gojsonsc
 func loadCredentialSchema(url string, client *http.Client) ([]byte, error) {
 	resp, err := client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("HTTP request failed: %w", err)
+		return nil, fmt.Errorf("load credential schema: %w", err)
 	}
 
 	defer func() {
@@ -712,7 +712,7 @@ func loadCredentialSchema(url string, client *http.Client) ([]byte, error) {
 	var gotBody []byte
 	gotBody, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response body failed: %w", err)
+		return nil, fmt.Errorf("credential schema: read response body: %w", err)
 	}
 
 	return gotBody, nil
@@ -806,7 +806,7 @@ func contextToSerialize(context []string, cContext []interface{}) interface{} {
 func (vc *Credential) MarshalJSON() ([]byte, error) {
 	byteCred, err := json.Marshal(vc.raw())
 	if err != nil {
-		return nil, fmt.Errorf("JSON marshalling of verifiable credential failed: %w", err)
+		return nil, fmt.Errorf("JSON marshalling of verifiable credential: %w", err)
 	}
 
 	return byteCred, nil

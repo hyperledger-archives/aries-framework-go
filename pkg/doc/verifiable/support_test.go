@@ -109,7 +109,7 @@ const validCredential = `
 func readPublicKey(keyFilePath string) (*rsa.PublicKey, error) {
 	pub, err := ioutil.ReadFile(filepath.Clean(keyFilePath))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read pem file: %s", keyFilePath)
+		return nil, fmt.Errorf("read pem file: %s", keyFilePath)
 	}
 
 	pubPem, _ := pem.Decode(pub)
@@ -119,7 +119,7 @@ func readPublicKey(keyFilePath string) (*rsa.PublicKey, error) {
 
 	var parsedKey interface{}
 	if parsedKey, err = x509.ParsePKIXPublicKey(pubPem.Bytes); err != nil {
-		return nil, fmt.Errorf("failed to parse public key: %w", err)
+		return nil, fmt.Errorf("parse public key: %w", err)
 	}
 
 	var pubKey *rsa.PublicKey
@@ -133,7 +133,7 @@ func readPublicKey(keyFilePath string) (*rsa.PublicKey, error) {
 func readPrivateKey(keyFilePath string) (*rsa.PrivateKey, error) {
 	priv, err := ioutil.ReadFile(filepath.Clean(keyFilePath))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read pem file: %s", keyFilePath)
+		return nil, fmt.Errorf("read pem file: %s", keyFilePath)
 	}
 
 	privPem, _ := pem.Decode(priv)
@@ -143,7 +143,7 @@ func readPrivateKey(keyFilePath string) (*rsa.PrivateKey, error) {
 
 	var privKey *rsa.PrivateKey
 	if privKey, err = x509.ParsePKCS1PrivateKey(privPem.Bytes); err != nil {
-		return nil, fmt.Errorf("failed to parse private key: %w", err)
+		return nil, fmt.Errorf("parse private key: %w", err)
 	}
 
 	return privKey, nil

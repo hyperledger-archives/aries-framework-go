@@ -21,13 +21,13 @@ func (jcc *JWTCredClaims) MarshalUnsecuredJWT() (string, error) {
 func unmarshalUnsecuredJWTClaims(rawJwt []byte) (*JWTCredClaims, error) {
 	_, bytesClaim, err := unmarshalUnsecuredJWT(rawJwt)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode unsecured JWT: %w", err)
+		return nil, fmt.Errorf("decode unsecured JWT: %w", err)
 	}
 
 	credClaims := new(JWTCredClaims)
 	err = json.Unmarshal(bytesClaim, credClaims)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse JWT claims: %w", err)
+		return nil, fmt.Errorf("parse JWT claims: %w", err)
 	}
 
 	return credClaims, nil
