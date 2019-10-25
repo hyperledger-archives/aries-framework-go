@@ -375,7 +375,7 @@ func (c *Operation) handleMessageEvents(e service.StateMsg) error {
 		switch v := e.Properties.(type) {
 		case didexchange.Event:
 			props := v
-			err := c.sendConnectionNotification(props.ConnectionID(), e.StateID)
+			err := c.sendConnectionNotification(props.ConnectionID())
 			if err != nil {
 				return fmt.Errorf("send connection notification failed : %w", err)
 			}
@@ -393,12 +393,10 @@ func (c *Operation) handleActionEvents(e service.DIDCommAction) {
 	e.Continue()
 }
 
-func (c *Operation) sendConnectionNotification(connectionID, stateID string) error {
-	// TODO - fetch connection data from DB (update once https://github.com/hyperledger/aries-framework-go/pull/573
-	// is merged)
-	conn := &webhook.ConnectionMsg{
-		ConnectionID: connectionID,
-		State:        stateID,
+func (c *Operation) sendConnectionNotification(connectionID string) error {
+	conn, err := c.client.GetConnection(connectionID)
+	if err != nil {
+		return fmt.Errorf("connection notification webhook : %w", err)
 	}
 
 	jsonMessage, err := json.Marshal(conn)
