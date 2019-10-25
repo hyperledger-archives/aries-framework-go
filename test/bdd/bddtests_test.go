@@ -29,6 +29,11 @@ func TestMain(m *testing.M) {
 	tags := "all"
 	flag.Parse()
 
+	format := "progress"
+	if getCmdArg("test.v") == "true" {
+		format = "pretty"
+	}
+
 	runArg := getCmdArg("test.run")
 	if runArg != "" {
 		tags = runArg
@@ -40,7 +45,7 @@ func TestMain(m *testing.M) {
 		if err != nil {
 			panic(err)
 		}
-		log.SetLevel("", logLevel)
+		log.SetLevel(os.Getenv("AGENT_LOG_MODULE"), logLevel)
 	}
 
 	initBDDConfig()
@@ -85,7 +90,7 @@ func TestMain(m *testing.M) {
 		FeatureContext(s)
 	}, godog.Options{
 		Tags:          tags,
-		Format:        "progress",
+		Format:        format,
 		Paths:         []string{"features"},
 		Randomize:     time.Now().UTC().UnixNano(), // randomize scenario execution order
 		Strict:        true,
