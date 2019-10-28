@@ -35,7 +35,7 @@ func TestWithDBPath(t *testing.T) {
 	t.Run("test with db path success", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
-		a, err := aries.New(WithStorePath(path), WithInboundHTTPAddr(":26502"))
+		a, err := aries.New(WithStorePath(path), WithInboundHTTPAddr(":26502", ""))
 		require.NoError(t, err)
 		require.NoError(t, a.Close())
 	})
@@ -46,13 +46,13 @@ func TestWithInboundHTTPPort(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
 
-		a, err := aries.New(WithStorePath(path), WithInboundHTTPAddr(":26503"))
+		a, err := aries.New(WithStorePath(path), WithInboundHTTPAddr(":26503", ""))
 		require.NoError(t, err)
 		require.NoError(t, a.Close())
 	})
 
 	t.Run("test inbound with http port - empty address", func(t *testing.T) {
-		_, err := aries.New(WithInboundHTTPAddr(""))
+		_, err := aries.New(WithInboundHTTPAddr("", ""))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "http inbound transport initialization failed")
 	})
