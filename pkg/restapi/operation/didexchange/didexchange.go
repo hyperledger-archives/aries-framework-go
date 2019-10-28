@@ -95,15 +95,30 @@ type Operation struct {
 //        200: createInvitationResponse
 func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) {
 	logger.Debugf("Creating connection invitation ")
-	// call didexchange client
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/552 pass label value as args in aries-agentd
-	response, err := c.client.CreateInvitation("agent")
+
+	var request models.CreateInvitationRequest
+	err := getQueryParams(&request, req.URL.Query())
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
 	}
 
-	c.writeResponse(rw, &models.CreateInvitationResponse{Payload: response})
+	// derive label from alias for now
+	var alias string
+	if request.CreateInvitationParams != nil {
+		alias = request.CreateInvitationParams.Alias
+	}
+
+	// call didexchange client
+	invitation, err := c.client.CreateInvitation(alias)
+	if err != nil {
+		c.writeGenericError(rw, err)
+		return
+	}
+
+	c.writeResponse(rw, &models.CreateInvitationResponse{
+		Invitation: invitation,
+		Alias:      alias})
 }
 
 // ReceiveInvitation swagger:route POST /connections/receive-invitation did-exchange receiveInvitation

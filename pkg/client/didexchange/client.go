@@ -95,14 +95,16 @@ func New(ctx provider) (*Client, error) {
 }
 
 // CreateInvitation create invitation
-func (c *Client) CreateInvitation(label string) (*Invitation, error) {
+// TODO 'invitation.label' should come though 'provider' [Issue #552]
+// TODO 'alias' should be passed as arg and persisted with connection record [Issue #623]
+func (c *Client) CreateInvitation(alias string) (*Invitation, error) {
 	_, sigPubKey, err := c.wallet.CreateKeySet()
 	if err != nil {
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
 	}
 	invitation := &didexchange.Invitation{
 		ID:              uuid.New().String(),
-		Label:           label,
+		Label:           alias,
 		RecipientKeys:   []string{sigPubKey},
 		ServiceEndpoint: c.inboundTransportEndpoint,
 		Type:            didexchange.InvitationMsgType,
@@ -113,7 +115,7 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 		return nil, fmt.Errorf("failed to save invitation: %w", err)
 	}
 
-	return &Invitation{*invitation}, nil
+	return &Invitation{invitation}, nil
 }
 
 // CreateInvitationWithDID creates invitation with specified public DID
@@ -130,7 +132,7 @@ func (c *Client) CreateInvitationWithDID(label, did string) (*Invitation, error)
 		return nil, fmt.Errorf("failed to save invitation with DID: %w", err)
 	}
 
-	return &Invitation{*invitation}, nil
+	return &Invitation{invitation}, nil
 }
 
 // HandleInvitation handle incoming invitation

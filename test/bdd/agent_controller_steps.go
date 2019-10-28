@@ -60,7 +60,7 @@ func NewAgentControllerSteps(context *Context) *AgentWithControllerSteps {
 // RegisterSteps registers agent steps
 func (a *AgentWithControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with controller "([^"]*)" and webhook "([^"]*)"$`, a.checkAgentIsRunning)
-	s.Step(`^"([^"]*)" creates invitation through controller$`, a.createInvitation)
+	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)" to webhook`, a.waitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`, a.validateConnection)
@@ -94,32 +94,38 @@ func (a *AgentWithControllerSteps) checkAgentIsRunning(agentID, inboundHost, inb
 	return nil
 }
 
-func (a *AgentWithControllerSteps) createInvitation(inviterAgentID string) error {
+func (a *AgentWithControllerSteps) createInvitation(inviterAgentID, label string) error {
 	destination, ok := a.controllerURLs[inviterAgentID]
 	if !ok {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", inviterAgentID)
 	}
 
 	// call controller
+	path := fmt.Sprintf("%s%s?alias=%s", destination, createInvitationPath, label)
 	var result models.CreateInvitationResponse
-	err := sendHTTP(http.MethodPost, destination+createInvitationPath, nil, &result)
+	err := sendHTTP(http.MethodPost, path, nil, &result)
 	if err != nil {
 		logger.Errorf("Failed to create invitation, cause : %s", err)
 		return err
 	}
 
 	// validate payload
-	if result.Payload == nil {
+	if result.Invitation == nil {
 		return fmt.Errorf("failed to get valid payload from create invitation for agent [%s]", inviterAgentID)
 	}
 
-	// save invitation for later use
-	if strings.Contains(result.Payload.ServiceEndpoint, "0.0.0.0") {
-		//TODO to be fixed, use local address in service endpoint of invitation object [issue #572]
-		result.Payload.ServiceEndpoint = strings.Replace(result.Payload.ServiceEndpoint, "0.0.0.0", a.bddContext.Args[AliceAgentHost], 1)
-		logger.Debugf("service endpoint host in invitation changed to %s", result.Payload.ServiceEndpoint)
+	// verify result
+	if result.Invitation.Label != label {
+		return fmt.Errorf("invitation label mismatch, expected[%s] but got [%s]", label, result.Invitation.Label)
 	}
-	a.invitations[inviterAgentID] = result.Payload
+
+	// save invitation for later use
+	if strings.Contains(result.Invitation.ServiceEndpoint, "0.0.0.0") {
+		//TODO to be fixed, use local address in service endpoint of invitation object [issue #572]
+		result.Invitation.ServiceEndpoint = strings.Replace(result.Invitation.ServiceEndpoint, "0.0.0.0", a.bddContext.Args[AliceAgentHost], 1)
+		logger.Debugf("service endpoint host in invitation changed to %s", result.Invitation.ServiceEndpoint)
+	}
+	a.invitations[inviterAgentID] = result.Invitation
 
 	return nil
 }

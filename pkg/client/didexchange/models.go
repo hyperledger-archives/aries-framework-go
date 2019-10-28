@@ -49,5 +49,5 @@ type Connection struct {
 
 // Invitation model for DID Exchange invitation.
 type Invitation struct {
-	didexchange.Invitation
+	*didexchange.Invitation
 }
