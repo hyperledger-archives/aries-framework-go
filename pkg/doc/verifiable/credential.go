@@ -200,12 +200,6 @@ type Issuer struct {
 // Subject of the Verifiable Credential
 type Subject interface{}
 
-// CredentialStatus defines status of Verifiable Credential
-type CredentialStatus typedID
-
-// CredentialSchema defines a link to data schema which enforces a specific structure of Verifiable Credential.
-type CredentialSchema typedID
-
 // Credential Verifiable Credential definition
 type Credential struct {
 	Context        []string
@@ -217,116 +211,63 @@ type Credential struct {
 	Issued         *time.Time
 	Expired        *time.Time
 	Proof          *Proof
-	Status         *CredentialStatus
-	Schemas        []CredentialSchema
+	Status         *TypedID
+	Schemas        []TypedID
 	Evidence       *Evidence
-	TermsOfUse     []TermsOfUse
-	RefreshService *RefreshService
+	TermsOfUse     []TypedID
+	RefreshService *TypedID
 
-	CredentialExtraFields
+	ExtraFields ExtraFields
 }
-
-// CredentialExtraFields is a map of extra fields which extend base data model.
-type CredentialExtraFields map[string]interface{}
 
 // rawCredential is a basic verifiable credential
 type rawCredential struct {
-	Context        interface{}       `json:"@context,omitempty"`
-	ID             string            `json:"id,omitempty"`
-	Type           interface{}       `json:"type,omitempty"`
-	Subject        Subject           `json:"credentialSubject,omitempty"`
-	Issued         *time.Time        `json:"issuanceDate,omitempty"`
-	Expired        *time.Time        `json:"expirationDate,omitempty"`
-	Proof          *Proof            `json:"proof,omitempty"`
-	Status         *CredentialStatus `json:"credentialStatus,omitempty"`
-	Issuer         interface{}       `json:"issuer,omitempty"`
-	Schema         interface{}       `json:"credentialSchema,omitempty"`
-	Evidence       *Evidence         `json:"evidence,omitempty"`
-	TermsOfUse     []TermsOfUse      `json:"termsOfUse,omitempty"`
-	RefreshService *RefreshService   `json:"refreshService,omitempty"`
+	Context        interface{} `json:"@context,omitempty"`
+	ID             string      `json:"id,omitempty"`
+	Type           interface{} `json:"type,omitempty"`
+	Subject        Subject     `json:"credentialSubject,omitempty"`
+	Issued         *time.Time  `json:"issuanceDate,omitempty"`
+	Expired        *time.Time  `json:"expirationDate,omitempty"`
+	Proof          *Proof      `json:"proof,omitempty"`
+	Status         *TypedID    `json:"credentialStatus,omitempty"`
+	Issuer         interface{} `json:"issuer,omitempty"`
+	Schema         interface{} `json:"credentialSchema,omitempty"`
+	Evidence       *Evidence   `json:"evidence,omitempty"`
+	TermsOfUse     []TypedID   `json:"termsOfUse,omitempty"`
+	RefreshService *TypedID    `json:"refreshService,omitempty"`
 
 	// All unmapped fields are put here.
-	CredentialExtraFields `json:"-"`
+	ExtraFields `json:"-"`
 }
 
-func (rc *rawCredential) marshalJSON() ([]byte, error) {
-	// Convert raw credential into a JSON map of known fields.
-	nf, err := rc.asMap()
-	if err != nil {
-		return nil, err
-	}
+// MarshalJSON defines custom marshalling of rawCredential to JSON.
+func (rc *rawCredential) MarshalJSON() ([]byte, error) {
+	type Alias rawCredential
+	alias := (*Alias)(rc)
 
-	// Supplement raw credential map with unknown fields.
-	uf := rc.CredentialExtraFields
-	for k, v := range uf {
-		if _, exists := nf[k]; !exists {
-			nf[k] = v
-		}
-	}
-
-	// Marshal extended known fields map.
-	return json.Marshal(nf)
+	return marshalWithExtraFields(alias, rc.ExtraFields)
 }
 
-func (rc *rawCredential) asMap() (map[string]interface{}, error) {
-	// Convert raw credential into a JSON map of known fields.
-	rcBytes, err := json.Marshal(rc)
+// UnmarshalJSON defines custom unmarshalling of rawCredential from JSON.
+func (rc *rawCredential) UnmarshalJSON(data []byte) error {
+	type Alias rawCredential
+	alias := (*Alias)(rc)
+
+	rc.ExtraFields = make(ExtraFields)
+	err := unmarshalWithExtraFields(data, alias, rc.ExtraFields)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var nf map[string]interface{}
-	err = json.Unmarshal(rcBytes, &nf)
-	if err != nil {
-		return nil, err
-	}
-
-	return nf, nil
-}
-
-func newRawCredential(bytes []byte) (*rawCredential, error) {
-	rc := new(rawCredential)
-	err := json.Unmarshal(bytes, rc)
-	if err != nil {
-		return nil, fmt.Errorf("raw verifiable credential: %w", err)
-	}
-
-	// Collect known fields map.
-	rcBytes, err := json.Marshal(rc)
-	if err != nil {
-		return nil, err
-	}
-
-	var kf map[string]interface{}
-	err = json.Unmarshal(rcBytes, &kf)
-	if err != nil {
-		return nil, err
-	}
-
-	// Collect all fields map.
-	var af map[string]interface{}
-	err = json.Unmarshal(bytes, &af)
-	if err != nil {
-		return nil, err
-	}
-
-	// Complement all fields with known fields to become a set of unknown fields.
-	for k := range kf {
-		delete(af, k)
-	}
-
-	// Save unknown fields.
-	rc.CredentialExtraFields = af
-
-	return rc, err
+	return nil
 }
 
 type credentialSchemaSingle struct {
-	Schema CredentialSchema `json:"credentialSchema,omitempty"`
+	Schema TypedID `json:"credentialSchema,omitempty"`
 }
 
 type credentialSchemaMultiple struct {
-	Schemas []CredentialSchema `json:"credentialSchema,omitempty"`
+	Schemas []TypedID `json:"credentialSchema,omitempty"`
 }
 
 type compositeIssuer struct {
@@ -501,12 +442,12 @@ func decodeContext(rc *rawCredential) ([]string, []interface{}, error) {
 // decodeCredentialSchema decodes credential schema(s).
 //
 // credential schema can be defined as a single object or array of objects.
-func decodeCredentialSchema(data []byte) ([]CredentialSchema, error) {
+func decodeCredentialSchema(data []byte) ([]TypedID, error) {
 	// Credential schema is defined by
 	single := credentialSchemaSingle{}
 	err := json.Unmarshal(data, &single)
 	if err == nil {
-		return []CredentialSchema{single.Schema}, nil
+		return []TypedID{single.Schema}, nil
 	}
 
 	multiple := credentialSchemaMultiple{}
@@ -533,12 +474,13 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	}
 
 	// unmarshal VC from JSON
-	raw, err := newRawCredential(vcDataDecoded)
+	var raw rawCredential
+	err = json.Unmarshal(vcDataDecoded, &raw)
 	if err != nil {
 		return nil, fmt.Errorf("new credential: %w", err)
 	}
 
-	schemas, err := loadCredentialSchemas(raw, vcDataDecoded)
+	schemas, err := loadCredentialSchemas(&raw, vcDataDecoded)
 	if err != nil {
 		return nil, err
 	}
@@ -549,7 +491,7 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	}
 
 	cred := crOpts.template()
-	err = cred.fill(raw)
+	err = cred.fill(&raw)
 	if err != nil {
 		return nil, err
 	}
@@ -591,10 +533,10 @@ func (vc *Credential) fill(raw *rawCredential) error {
 	vc.Status = raw.Status
 	vc.Evidence = raw.Evidence
 	vc.RefreshService = raw.RefreshService
-	vc.TermsOfUse = raw.TermsOfUse
-	vc.CredentialExtraFields = raw.CredentialExtraFields
+	vc.ExtraFields = raw.ExtraFields
 	vc.Types = types
 	vc.Issuer = issuer
+	vc.TermsOfUse = raw.TermsOfUse
 
 	return nil
 }
@@ -619,7 +561,7 @@ func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, error) {
 	return vcData, nil
 }
 
-func loadCredentialSchemas(raw *rawCredential, vcDataDecoded []byte) ([]CredentialSchema, error) {
+func loadCredentialSchemas(raw *rawCredential, vcDataDecoded []byte) ([]TypedID, error) {
 	if raw.Schema != nil {
 		schemas, err := decodeCredentialSchema(vcDataDecoded)
 		if err != nil {
@@ -627,7 +569,7 @@ func loadCredentialSchemas(raw *rawCredential, vcDataDecoded []byte) ([]Credenti
 		}
 		return schemas, nil
 	}
-	return []CredentialSchema{}, nil
+	return []TypedID{}, nil
 }
 
 func defaultCredentialOpts() *credentialOpts {
@@ -640,14 +582,14 @@ func defaultCredentialOpts() *credentialOpts {
 	}
 }
 
-func issuerToSerialize(vc *Credential) interface{} {
-	if vc.Issuer.Name != "" {
-		return &compositeIssuer{ID: vc.Issuer.ID, Name: vc.Issuer.Name}
+func issuerToSerialize(issuer Issuer) interface{} {
+	if issuer.Name != "" {
+		return &compositeIssuer{ID: issuer.ID, Name: issuer.Name}
 	}
-	return vc.Issuer.ID
+	return issuer.ID
 }
 
-func validate(data []byte, schemas []CredentialSchema, opts *credentialOpts) error {
+func validate(data []byte, schemas []TypedID, opts *credentialOpts) error {
 	// Validate that the Verifiable Credential conforms to the serialization of the Verifiable Credential data model
 	// (https://w3c.github.io/vc-data-model/#example-1-a-simple-example-of-a-verifiable-credential)
 	schemaLoader, err := getSchemaLoader(schemas, opts)
@@ -669,7 +611,7 @@ func validate(data []byte, schemas []CredentialSchema, opts *credentialOpts) err
 	return nil
 }
 
-func getSchemaLoader(schemas []CredentialSchema, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
+func getSchemaLoader(schemas []TypedID, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
 	if opts.disabledCustomSchema {
 		return defaultSchemaLoader, nil
 	}
@@ -760,20 +702,20 @@ func (vc *Credential) SubjectID() (string, error) {
 
 func (vc *Credential) raw() *rawCredential {
 	return &rawCredential{
-		Context:               contextToSerialize(vc.Context, vc.CustomContext),
-		ID:                    vc.ID,
-		Type:                  typesToSerialize(vc.Types),
-		Subject:               vc.Subject,
-		Issued:                vc.Issued,
-		Expired:               vc.Expired,
-		Proof:                 vc.Proof,
-		Status:                vc.Status,
-		Issuer:                issuerToSerialize(vc),
-		Schema:                vc.Schemas,
-		Evidence:              vc.Evidence,
-		RefreshService:        vc.RefreshService,
-		TermsOfUse:            vc.TermsOfUse,
-		CredentialExtraFields: vc.CredentialExtraFields,
+		Context:        contextToSerialize(vc.Context, vc.CustomContext),
+		ID:             vc.ID,
+		Type:           typesToSerialize(vc.Types),
+		Subject:        vc.Subject,
+		Issued:         vc.Issued,
+		Expired:        vc.Expired,
+		Proof:          vc.Proof,
+		Status:         vc.Status,
+		Issuer:         issuerToSerialize(vc.Issuer),
+		Schema:         vc.Schemas,
+		Evidence:       vc.Evidence,
+		RefreshService: vc.RefreshService,
+		TermsOfUse:     vc.TermsOfUse,
+		ExtraFields:    vc.ExtraFields,
 	}
 }
 

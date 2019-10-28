@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/square/go-jose/v3/jwt"
@@ -26,7 +27,8 @@ func TestCredentialJWTClaimsMarshallingToUnsecuredJWT(t *testing.T) {
 	vcBytes, err := decodeCredJWTUnsecured([]byte(sJWT))
 	require.NoError(t, err)
 
-	vcRaw, err := newRawCredential(vcBytes)
+	vcRaw := new(rawCredential)
+	err = json.Unmarshal(vcBytes, &vcRaw)
 	require.NoError(t, err)
 
 	require.NoError(t, err)

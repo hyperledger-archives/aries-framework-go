@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"testing"
 
@@ -38,7 +39,8 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		vcRaw, err := newRawCredential(vcBytes)
+		vcRaw := new(rawCredential)
+		err = json.Unmarshal(vcBytes, &vcRaw)
 		require.NoError(t, err)
 
 		require.NoError(t, err)
@@ -76,7 +78,8 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		vcBytes, err := decodeCredJWS(validJWS, pkFetcher)
 		require.NoError(t, err)
 
-		vcRaw, err := newRawCredential(vcBytes)
+		vcRaw := new(rawCredential)
+		err = json.Unmarshal(vcBytes, &vcRaw)
 		require.NoError(t, err)
 
 		vc, err := NewCredential([]byte(jwtTestCredential))

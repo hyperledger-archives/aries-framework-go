@@ -55,16 +55,47 @@ func (ja JWSAlgorithm) jose() (jose.SignatureAlgorithm, error) {
 // Proof defines embedded proof of Verifiable Credential
 type Proof interface{}
 
-type typedID struct {
+// ExtraFields is a map of extra fields of struct build when unmarshalling JSON which are not
+// mapped to the struct fields.
+type ExtraFields map[string]interface{}
+
+// TypedID defines a flexible structure with id and name fields and arbitrary extra fields
+// kept in ExtraFields.
+type TypedID struct {
 	ID   string `json:"id,omitempty"`
 	Type string `json:"type,omitempty"`
+
+	ExtraFields `json:"-"`
 }
 
-// RefreshService provides a way to automatic refresh of expired Verifiable Credential
-type RefreshService typedID
+// MarshalJSON defines custom marshalling of TypedID to JSON.
+// TODO hide this exported method
+func (tid *TypedID) MarshalJSON() ([]byte, error) {
+	type Alias TypedID
+	alias := (*Alias)(tid)
 
-// TermsOfUse represents terms of use of Verifiable Credential by Issuer or Verifiable Presentation by Holder.
-type TermsOfUse interface{}
+	data, err := marshalWithExtraFields(alias, tid.ExtraFields)
+	if err != nil {
+		return nil, fmt.Errorf("marshal TypedID: %w", err)
+	}
+
+	return data, nil
+}
+
+// UnmarshalJSON defines custom unmarshalling of TypedID from JSON.
+// TODO hide this exported method
+func (tid *TypedID) UnmarshalJSON(data []byte) error {
+	type Alias TypedID
+	alias := (*Alias)(tid)
+
+	tid.ExtraFields = make(ExtraFields)
+	err := unmarshalWithExtraFields(data, alias, tid.ExtraFields)
+	if err != nil {
+		return fmt.Errorf("unmarshal TypedID: %w", err)
+	}
+
+	return nil
+}
 
 func describeSchemaValidationError(result *gojsonschema.Result, what string) string {
 	errMsg := what + " is not valid:\n"

@@ -61,7 +61,7 @@ func newJWTCredClaims(vc *Credential, minimizeVc bool) (*JWTCredClaims, error) {
 		raw = vc.raw()
 	}
 
-	vcMap, err := raw.asMap()
+	vcMap, err := mergeExtraFields(raw, raw.ExtraFields)
 	if err != nil {
 		return nil, err
 	}

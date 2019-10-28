@@ -267,7 +267,7 @@ func TestValidateVP_RefreshService(t *testing.T) {
 	t.Run("test verifiable presentation with undefined id of refresh service", func(t *testing.T) {
 		raw := &rawPresentation{}
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.RefreshService = &RefreshService{Type: "ManualRefreshService2018"}
+		raw.RefreshService = &TypedID{Type: "ManualRefreshService2018"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		_, err = NewPresentation(bytes)
@@ -278,7 +278,7 @@ func TestValidateVP_RefreshService(t *testing.T) {
 	t.Run("test verifiable presentation with undefined type of refresh service", func(t *testing.T) {
 		raw := &rawPresentation{}
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.RefreshService = &RefreshService{ID: "https://example.edu/refresh/3732"}
+		raw.RefreshService = &TypedID{ID: "https://example.edu/refresh/3732"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		_, err = NewPresentation(bytes)
@@ -289,7 +289,7 @@ func TestValidateVP_RefreshService(t *testing.T) {
 	t.Run("test verifiable presentation with invalid URL of id of credential schema", func(t *testing.T) {
 		raw := &rawPresentation{}
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.RefreshService = &RefreshService{ID: "invalid URL", Type: "ManualRefreshService2018"}
+		raw.RefreshService = &TypedID{ID: "invalid URL", Type: "ManualRefreshService2018"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		_, err = NewPresentation(bytes)
