@@ -32,6 +32,7 @@ import (
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockenvelope "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mockdidstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
@@ -357,6 +358,44 @@ func TestFramework(t *testing.T) {
 			}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error from wallet")
+	})
+
+	t.Run("test DID store - with default", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		originalDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+
+		// with default DID store
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		err = aries.didStore.Put(originalDoc)
+		require.NoError(t, err)
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test DID store - with user provided did store", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		originalDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+
+		// with default DID store
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}), WithDIDStore(&mockdidstore.MockDidStore{}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		err = aries.didStore.Put(originalDoc)
+		require.NoError(t, err)
+		err = aries.Close()
+		require.NoError(t, err)
 	})
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -33,6 +34,7 @@ type Provider interface {
 	DIDCreator() didcreator.Creator
 	Signer() wallet.Signer
 	DIDResolver() didresolver.Resolver
+	DIDStore() didstore.Storage
 }
 
 // ProtocolSvcCreator method to create new protocol service

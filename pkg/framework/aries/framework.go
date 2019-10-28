@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -35,6 +36,8 @@ type Aries struct {
 	crypterCreator            crypto.CrypterCreator
 	crypter                   crypto.Crypter
 	didResolver               didresolver.Resolver
+	// TODO: the DID provider options should be part of a verifiable data registry (vdr) option.
+	didStore didstore.Storage
 }
 
 // Option configures the framework.
@@ -172,6 +175,14 @@ func WithPackager(p envelope.PackagerCreator) Option {
 	}
 }
 
+// WithDIDStore injects a did store to the Aries framework
+func WithDIDStore(didStore didstore.Storage) Option {
+	return func(opts *Aries) error {
+		opts.didStore = didStore
+		return nil
+	}
+}
+
 // DIDResolver returns the framework configured DID Resolver.
 func (a *Aries) DIDResolver() didresolver.Resolver {
 	return a.didResolver
@@ -192,6 +203,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithCrypter(a.crypter),
 		context.WithPackager(a.packager),
 		context.WithDIDResolver(a.didResolver),
+		context.WithDIDStore(a.didStore),
 	)
 }
 

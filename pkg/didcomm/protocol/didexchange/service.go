@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -63,6 +64,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 	Signer() wallet.Signer
 	DIDResolver() didresolver.Resolver
+	DIDStore() didstore.Storage
 }
 
 // stateMachineMsg is an internal struct used to pass data to state machine.
@@ -88,6 +90,7 @@ type context struct {
 	signer             wallet.Signer
 	didResolver        didresolver.Resolver
 	connectionStore    *ConnectionRecorder
+	didStore           didstore.Storage
 }
 
 // New return didexchange service
@@ -104,6 +107,7 @@ func New(didMaker didcreator.Creator, prov provider) (*Service, error) {
 			signer:             prov.Signer(),
 			didResolver:        prov.DIDResolver(),
 			connectionStore:    NewConnectionRecorder(store),
+			didStore:           prov.DIDStore(),
 		},
 		store: store,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246

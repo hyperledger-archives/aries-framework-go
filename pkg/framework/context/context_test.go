@@ -16,11 +16,13 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockenvelope "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didresolver"
+	mockdidstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 )
@@ -171,5 +173,12 @@ func TestNewProvider(t *testing.T) {
 		r, err := prov.OutboundTransports()[0].Send([]byte("data"), "url")
 		require.NoError(t, err)
 		require.Equal(t, "data", r)
+	})
+
+	t.Run("test new with did store", func(t *testing.T) {
+		prov, err := New(WithDIDStore(&mockdidstore.MockDidStore{}))
+		require.NoError(t, err)
+		err = prov.DIDStore().Put(&did.Doc{})
+		require.NoError(t, err)
 	})
 }
