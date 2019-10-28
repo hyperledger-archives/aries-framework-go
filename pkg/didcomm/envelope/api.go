@@ -46,6 +46,5 @@ type Packager interface {
 type Envelope struct {
 	Message    []byte
 	FromVerKey string
-	// TODO add key type - issue #272
-	ToVerKeys []string
+	ToVerKeys  []string
 }

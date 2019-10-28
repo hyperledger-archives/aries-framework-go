@@ -44,13 +44,13 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub, myPub []byte) ([]byte, error)
 	copy(recPubBytes[:], theirPub)
 
 	//	 myPub is used to get the sender private key for encryption
-	kp, err := b.w.getKey(base58.Encode(myPub))
+	kp, err := b.w.getKeyPairSet(base58.Encode(myPub))
 	if err != nil {
 		return nil, err
 	}
 
 	var priv [cryptoutil.Curve25519KeySize]byte
-	copy(priv[:], kp.Priv)
+	copy(priv[:], kp.EncKeyPair.Priv)
 
 	var nonceBytes [cryptoutil.NonceSize]byte
 	copy(nonceBytes[:], nonce)
@@ -66,13 +66,13 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 	var sendPubBytes [cryptoutil.Curve25519KeySize]byte
 	copy(sendPubBytes[:], theirPub)
 
-	kp, err := b.w.getKey(base58.Encode(myPub))
+	kp, err := b.w.getKeyPairSet(base58.Encode(myPub))
 	if err != nil {
 		return nil, err
 	}
 
 	var priv [cryptoutil.Curve25519KeySize]byte
-	copy(priv[:], kp.Priv)
+	copy(priv[:], kp.EncKeyPair.Priv)
 
 	var nonceBytes [cryptoutil.NonceSize]byte
 	copy(nonceBytes[:], nonce)
@@ -121,13 +121,13 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 	var epk [cryptoutil.Curve25519KeySize]byte
 	copy(epk[:], cipherText[:cryptoutil.Curve25519KeySize])
 
-	kp, err := b.w.getKey(base58.Encode(myPub))
+	kp, err := b.w.getKeyPairSet(base58.Encode(myPub))
 	if err != nil {
 		return nil, err
 	}
 
 	var priv [cryptoutil.Curve25519KeySize]byte
-	copy(priv[:], kp.Priv)
+	copy(priv[:], kp.EncKeyPair.Priv)
 
 	nonce, err := cryptoutil.Nonce(epk[:], myPub)
 	if err != nil {

@@ -51,12 +51,9 @@ func TestBaseWallet_CreateKey(t *testing.T) {
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
-		encKey, err := w.CreateEncryptionKey()
+		encKey, verKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 		require.NotEmpty(t, encKey)
-
-		verKey, err := w.CreateSigningKey()
-		require.NoError(t, err)
 		require.NotEmpty(t, verKey)
 	})
 
@@ -65,12 +62,51 @@ func TestBaseWallet_CreateKey(t *testing.T) {
 			Store: make(map[string][]byte), ErrPut: fmt.Errorf("put error"),
 		}}))
 		require.NoError(t, err)
-		_, err = w.CreateEncryptionKey()
+		_, _, err = w.CreateKeySet()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "put error")
-		_, err = w.CreateSigningKey()
+	})
+
+	t.Run("test error from createEncKeyPair", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+			Store: make(map[string][]byte),
+		}}))
+		require.NoError(t, err)
+		encKey, verKey, err := w.CreateKeySet()
+		require.NoError(t, err)
+		require.NotEmpty(t, encKey)
+		require.NotEmpty(t, verKey)
+		kpb, err := w.getKeyPairSet(verKey)
+		require.NoError(t, err)
+		encKp, err := createEncKeyPair(kpb.SigKeyPair)
+		require.NoError(t, err)
+		require.NotEmpty(t, encKp)
+		// now break keys to force an error
+		tmp := kpb.SigKeyPair.Pub
+		kpb.SigKeyPair.Pub = append(kpb.SigKeyPair.Pub, byte('*'))
+		encKp, err = createEncKeyPair(kpb.SigKeyPair)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "put error")
+		require.Empty(t, encKp)
+		kpb.SigKeyPair.Priv = nil
+		kpb.SigKeyPair.Pub = tmp
+		encKp, err = createEncKeyPair(kpb.SigKeyPair)
+		require.Error(t, err)
+		require.Empty(t, encKp)
+	})
+
+	t.Run("test GetEncryption Key", func(t *testing.T) {
+		w, err := New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+			Store: make(map[string][]byte),
+		}}))
+		require.NoError(t, err)
+		encPubK, sigPubK, err := w.CreateKeySet()
+		require.NoError(t, err)
+		encK, err := w.GetEncryptionKey([]byte{})
+		require.Error(t, err)
+		require.Empty(t, encK)
+		encK, err = w.GetEncryptionKey(base58.Decode(sigPubK))
+		require.NoError(t, err)
+		require.Equal(t, encPubK, base58.Encode(encK))
 	})
 }
 
@@ -100,7 +136,7 @@ func TestBaseWallet_SignMessage(t *testing.T) {
 				Store: make(map[string][]byte),
 			}}))
 		require.NoError(t, err)
-		fromVerKey, err := w.CreateSigningKey()
+		_, fromVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 		require.NotEmpty(t, fromVerKey)
 
@@ -126,7 +162,7 @@ func TestBaseWallet_ConvertToEncryptionKey(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, w)
 
-		pub, err := w.CreateSigningKey()
+		_, pub, err := w.CreateKeySet()
 		require.NoError(t, err)
 
 		_, err = w.ConvertToEncryptionKey(base58.Decode(pub))
@@ -310,7 +346,15 @@ func TestBaseWallet_DeriveKEK(t *testing.T) {
 	pk32, sk32, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	kp := cryptoutil.KeyPair{Pub: pk32[:], Priv: sk32[:]}
-	kpm, err := json.Marshal(kp)
+
+	kpCombo := &cryptoutil.MessagingKeys{
+		EncKeyPair: &cryptoutil.EncKeyPair{
+			KeyPair: kp,
+			Alg:     cryptoutil.Curve25519,
+		},
+		SigKeyPair: nil,
+	}
+	kpm, err := json.Marshal(kpCombo)
 	require.NoError(t, err)
 
 	pk32a, _, err := box.GenerateKey(rand.Reader)
@@ -360,7 +404,7 @@ func TestBaseWallet_DeriveKEK(t *testing.T) {
 	t.Run("test failure fromPubKey not found in wallet", func(t *testing.T) {
 		// test DeriveKEK from wallet where fromKey is a public key (private fromKey will be fetched from the wallet)
 		kek, e := w.DeriveKEK(nil, nil, pk32a[:], pk32[:])
-		require.EqualError(t, e, "failed from getKey: "+cryptoutil.ErrKeyNotFound.Error())
+		require.EqualError(t, e, "failed from getKeyPairSet: "+cryptoutil.ErrKeyNotFound.Error())
 		require.Empty(t, kek)
 	})
 }
@@ -439,7 +483,7 @@ func TestBaseWallet_FindVerKey(t *testing.T) {
 		require.NoError(t, err)
 		_, err = w.FindVerKey([]string{"not present", "testkey"})
 		require.NotNil(t, err)
-		require.Contains(t, err.Error(), "failed from getKey: failed unmarshal to key struct")
+		require.Contains(t, err.Error(), "failed from getKeyPairSet: failed unmarshal to key struct")
 	})
 }
 

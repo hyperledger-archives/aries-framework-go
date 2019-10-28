@@ -20,23 +20,13 @@ type Wallet interface {
 // Crypto interface
 type Crypto interface {
 
-	// CreateEncryptionKey create a new public/private encryption keypair.
+	// CreateKeySet create a new public/private encryption and signature key pairs set.
 	//
 	// Returns:
-	//
-	// string: verKey
-	//
+	// string: enc public key of the encryption keypair
+	// string: sig public key of the signature keypair
 	// error: error
-	CreateEncryptionKey() (string, error)
-
-	// CreateSigningKey create a new public/private signing keypair.
-	//
-	// Returns:
-	//
-	// string: verKey
-	//
-	// error: error
-	CreateSigningKey() (string, error)
+	CreateKeySet() (string, string, error)
 
 	// DeriveKEK will derive an ephemeral symmetric key (kek) using a private from key fetched from
 	// from the wallet corresponding to fromPubKey and derived with toPubKey.
@@ -56,6 +46,9 @@ type Crypto interface {
 	//
 	//		in case of error, the index will be -1
 	FindVerKey(candidateKeys []string) (int, error)
+
+	// GetEncryptionKey will return the public encryption key corresponding to the public verKey argument
+	GetEncryptionKey(verKey []byte) ([]byte, error)
 }
 
 // Signer interface provides signing capabilities

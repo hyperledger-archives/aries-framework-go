@@ -77,8 +77,15 @@ func persistKey(pub, priv string, store storage.Store) error {
 		Priv: base58.Decode(priv),
 		Pub:  base58.Decode(pub),
 	}
+	kpCombo := &cryptoutil.MessagingKeys{
+		EncKeyPair: nil,
+		SigKeyPair: &cryptoutil.SigKeyPair{
+			KeyPair: kp,
+			Alg:     cryptoutil.EdDSA,
+		},
+	}
 
-	bytes, err := json.Marshal(kp)
+	bytes, err := json.Marshal(kpCombo)
 	if err != nil {
 		return fmt.Errorf("failed to marshal key: %w", err)
 	}
@@ -88,7 +95,7 @@ func persistKey(pub, priv string, store storage.Store) error {
 
 func TestEncrypt(t *testing.T) {
 	testingWallet, _ := newWallet(t)
-	senderKey, e := testingWallet.CreateSigningKey()
+	_, senderKey, e := testingWallet.CreateKeySet()
 	require.NoError(t, e)
 
 	t.Run("Failure: encrypt without any recipients", func(t *testing.T) {
@@ -109,7 +116,7 @@ func TestEncrypt(t *testing.T) {
 		require.EqualError(t, err, "error converting public key")
 	})
 
-	recipientKey, e := testingWallet.CreateSigningKey()
+	_, recipientKey, e := testingWallet.CreateKeySet()
 	require.NoError(t, e)
 
 	t.Run("Failure: encrypt with an invalid-size sender key", func(t *testing.T) {
@@ -131,15 +138,15 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Generate testcase with multiple recipients", func(t *testing.T) {
-		senderKey, err := testingWallet.CreateSigningKey()
+		_, senderKey, err := testingWallet.CreateKeySet()
 		require.NoError(t, err)
-		rec1Key, err := testingWallet.CreateSigningKey()
+		_, rec1Key, err := testingWallet.CreateKeySet()
 		require.NoError(t, err)
-		rec2Key, err := testingWallet.CreateSigningKey()
+		_, rec2Key, err := testingWallet.CreateKeySet()
 		require.NoError(t, err)
-		rec3Key, err := testingWallet.CreateSigningKey()
+		_, rec3Key, err := testingWallet.CreateKeySet()
 		require.NoError(t, err)
-		rec4Key, err := testingWallet.CreateSigningKey()
+		_, rec4Key, err := testingWallet.CreateKeySet()
 		require.NoError(t, err)
 
 		recipientKeys := [][]byte{
@@ -291,9 +298,9 @@ func TestEncryptComponents(t *testing.T) {
 
 func TestDecrypt(t *testing.T) {
 	testingWallet, _ := newWallet(t)
-	senderKey, err := testingWallet.CreateSigningKey()
+	_, senderKey, err := testingWallet.CreateKeySet()
 	require.NoError(t, err)
-	recKey, err := testingWallet.CreateSigningKey()
+	_, recKey, err := testingWallet.CreateKeySet()
 	require.NoError(t, err)
 
 	t.Run("Success: encrypt then decrypt, same crypter", func(t *testing.T) {
@@ -312,15 +319,16 @@ func TestDecrypt(t *testing.T) {
 
 	t.Run("Success: encrypt and decrypt, different crypters, including fail recipient who wasn't sent the message", func(t *testing.T) { // nolint: lll
 		rec1Wallet, _ := newWallet(t)
-		rec1Key, err := rec1Wallet.CreateSigningKey()
+		_, rec1Key, err := rec1Wallet.CreateKeySet()
 		require.NoError(t, err)
 
 		rec2Wallet, _ := newWallet(t)
-		rec2Key, err := rec2Wallet.CreateSigningKey()
+		_, rec2Key, err := rec2Wallet.CreateKeySet()
 		require.NoError(t, err)
 
 		rec3Wallet, _ := newWallet(t)
-		rec3Key, err := rec3Wallet.CreateSigningKey()
+		_, rec3Key, err := rec3Wallet.CreateKeySet()
+
 		require.NoError(t, err)
 
 		sendCrypter := New(testingWallet)

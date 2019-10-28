@@ -189,8 +189,8 @@ func prepareConnectionRecord(connRecBytes []byte) (*ConnectionRecord, error) {
 }
 
 // invitationKey computes key for invitation object
-func invitationKey(verKey string) (string, error) {
-	storeKey, err := computeHash([]byte(verKey))
+func invitationKey(invID string) (string, error) {
+	storeKey, err := computeHash([]byte(invID))
 	if err != nil {
 		return "", err
 	}

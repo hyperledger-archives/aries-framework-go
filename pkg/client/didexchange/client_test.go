@@ -72,11 +72,11 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc,
-			WalletValue: &mockwallet.CloseableWallet{CreateEncryptionKeyErr: fmt.Errorf("createEncryptionKeyErr")}})
+			WalletValue: &mockwallet.CloseableWallet{CreateKeyErr: fmt.Errorf("createKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "createEncryptionKeyErr")
+		require.Contains(t, err.Error(), "createKeyErr")
 	})
 
 	t.Run("test error from save record", func(t *testing.T) {

@@ -44,8 +44,6 @@ func (p *BasePackager) PackMessage(envelope *Envelope) ([]byte, error) {
 		// there is no guarantee that each recipient is using the same key types
 		// for now this package uses Curve25519 encryption keys. Other key schemes should have their own
 		// crypter implementations.
-		// Change the key types to use Ed25519 signing keys and convert them to encryption keys
-		// ref: https://github.com/hyperledger/aries-framework-go/issues/454
 		// decode base58 ver key
 		verKeyBytes := base58.Decode(verKey)
 		// create 32 byte key

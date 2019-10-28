@@ -50,7 +50,7 @@ func TestBoxSeal(t *testing.T) {
 	require.NoError(t, err)
 
 	w, _ := newWallet(t)
-	err = persist(w.keystore, base58.Encode(recipient1Key.Pub), recipient1Key)
+	err = persist(w.keystore, base58.Encode(recipient1Key.EncKeyPair.Pub), recipient1Key)
 	require.NoError(t, err)
 
 	b := NewCryptoBox(w)
@@ -58,9 +58,9 @@ func TestBoxSeal(t *testing.T) {
 	t.Run("Seal a message with sodiumBoxSeal and unseal it with sodiumBoxSealOpen", func(t *testing.T) {
 		msg := []byte("lorem ipsum dolor sit amet consectetur adipiscing elit ")
 
-		enc, err := b.Seal(msg, recipient1Key.Pub, rand.Reader)
+		enc, err := b.Seal(msg, recipient1Key.EncKeyPair.Pub, rand.Reader)
 		require.NoError(t, err)
-		dec, err := b.SealOpen(enc, recipient1Key.Pub)
+		dec, err := b.SealOpen(enc, recipient1Key.EncKeyPair.Pub)
 		require.NoError(t, err)
 
 		require.Equal(t, msg, dec)
@@ -77,19 +77,19 @@ func TestBoxSeal(t *testing.T) {
 	t.Run("Failed decrypt, short message", func(t *testing.T) {
 		enc := []byte("Bad message")
 
-		_, err := b.SealOpen(enc, recipient1Key.Pub)
+		_, err := b.SealOpen(enc, recipient1Key.EncKeyPair.Pub)
 		require.EqualError(t, err, "message too short")
 	})
 
 	t.Run("Failed decrypt, garbled message", func(t *testing.T) {
 		msg := []byte("lorem ipsum dolor sit amet consectetur adipiscing elit ")
 
-		enc, err := b.Seal(msg, recipient1Key.Pub, rand.Reader)
+		enc, err := b.Seal(msg, recipient1Key.EncKeyPair.Pub, rand.Reader)
 		require.NoError(t, err)
 
 		enc[0]++ // garbling
 
-		_, err = b.SealOpen(enc, recipient1Key.Pub)
+		_, err = b.SealOpen(enc, recipient1Key.EncKeyPair.Pub)
 		require.EqualError(t, err, "failed to unpack")
 	})
 }
@@ -101,7 +101,7 @@ func TestBoxEasy(t *testing.T) {
 	require.NoError(t, err)
 
 	w, _ := newWallet(t)
-	err = persist(w.keystore, base58.Encode(recipient1Key.Pub), recipient1Key)
+	err = persist(w.keystore, base58.Encode(recipient1Key.EncKeyPair.Pub), recipient1Key)
 	require.NoError(t, err)
 
 	nonce := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
@@ -110,14 +110,26 @@ func TestBoxEasy(t *testing.T) {
 		Priv: base58.Decode("4BsY8pbXj2fjSnAafAvBL2qChnePw5cZML9qjQgAJrUd"),
 		Pub:  base58.Decode("7cWi6z8efvAHwjNzkdjZe8huoJtqpy6zihsKANJmcAnD"),
 	}
+	kp1Combo := &cryptoutil.MessagingKeys{
+		EncKeyPair: &cryptoutil.EncKeyPair{
+			KeyPair: kp1,
+			Alg:     cryptoutil.Curve25519,
+		},
+	}
 	kp2 := cryptoutil.KeyPair{
 		Priv: base58.Decode("2U3zcoveWe1BAGem9ije1WwRvDguTPyXCvJRytWcEnS7"),
 		Pub:  base58.Decode("7usXitPNvWFEyfH3xNvqxtmn6xwt8jggPVTZ56qxM2G8"),
 	}
+	kp2Combo := &cryptoutil.MessagingKeys{
+		EncKeyPair: &cryptoutil.EncKeyPair{
+			KeyPair: kp2,
+			Alg:     cryptoutil.Curve25519,
+		},
+	}
 
-	err = persist(w.keystore, base58.Encode(kp1.Pub), &kp1)
+	err = persist(w.keystore, base58.Encode(kp1.Pub), kp1Combo)
 	require.NoError(t, err)
-	err = persist(w.keystore, base58.Encode(kp2.Pub), &kp2)
+	err = persist(w.keystore, base58.Encode(kp2.Pub), kp2Combo)
 	require.NoError(t, err)
 
 	b := NewCryptoBox(w)
@@ -173,11 +185,16 @@ func TestBoxEasy(t *testing.T) {
 	})
 }
 
-func randCurveKeyPair(randReader io.Reader) (*cryptoutil.KeyPair, error) {
+func randCurveKeyPair(randReader io.Reader) (*cryptoutil.MessagingKeys, error) {
 	pk, sk, err := box.GenerateKey(randReader)
 	if err != nil {
 		return nil, err
 	}
 	keyPair := cryptoutil.KeyPair{Priv: sk[:], Pub: pk[:]}
-	return &keyPair, nil
+	return &cryptoutil.MessagingKeys{
+		EncKeyPair: &cryptoutil.EncKeyPair{
+			KeyPair: keyPair,
+			Alg:     cryptoutil.Curve25519,
+		},
+	}, nil
 }
