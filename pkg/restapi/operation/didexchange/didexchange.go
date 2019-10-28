@@ -359,6 +359,7 @@ func (c *Operation) startClientEventListener() error {
 			case e := <-c.actionCh:
 				c.handleActionEvents(e)
 			case e := <-c.msgCh:
+				logger.Debugf("***** handle %s\n", e.StateID)
 				err := c.handleMessageEvents(e)
 				if err != nil {
 					logger.Errorf("handle message events failed : %s", err)

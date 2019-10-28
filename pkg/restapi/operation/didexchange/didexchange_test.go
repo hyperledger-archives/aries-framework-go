@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
@@ -315,6 +317,7 @@ func (m mockWriter) Write([]byte) (int, error) {
 }
 
 func TestServiceEvents(t *testing.T) {
+	log.SetLevel("", log.DEBUG)
 	store := mockstore.NewMockStoreProvider()
 	didExSvc, err := didexsvc.New(&did.MockDIDCreator{}, &protocol.MockProvider{StoreProvider: store})
 	require.NoError(t, err)
@@ -331,7 +334,7 @@ func TestServiceEvents(t *testing.T) {
 				conn := didexchange.Connection{}
 				jsonErr := json.Unmarshal(message, &conn)
 				require.NoError(t, jsonErr)
-
+				fmt.Printf("recieve msg %s\n", conn.State)
 				if conn.State == "responded" {
 					close(done)
 				}
@@ -342,7 +345,7 @@ func TestServiceEvents(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, op)
-
+	//
 	// send connection request message
 	id := "valid-thread-id"
 	newDidDoc, err := (&did.MockDIDCreator{}).CreateDID()
