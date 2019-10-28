@@ -48,11 +48,17 @@ type stateAction func() error
 type state interface {
 	// Name of this state.
 	Name() string
+
 	// Whether this state allows transitioning into the next state.
 	CanTransitionTo(next state) bool
-	// Executes this state, returning a followup state to be immediately executed as well.
+
+	// ExecuteInbound this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	Execute(msg *stateMachineMsg, thid string,
+	ExecuteInbound(msg *stateMachineMsg, thid string,
+		ctx *context) (connRecord *ConnectionRecord, state state, action stateAction, err error)
+
+	// ExecuteOutbound handles outbound state transition.
+	ExecuteOutbound(msg *stateMachineMsg, thid string,
 		ctx *context) (connRecord *ConnectionRecord, state state, action stateAction, err error)
 }
 
@@ -106,7 +112,12 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) Execute(_ *stateMachineMsg, thid string,
+func (s *noOp) ExecuteInbound(_ *stateMachineMsg, thid string,
+	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+	return nil, nil, nil, errors.New("cannot execute no-op")
+}
+
+func (s *noOp) ExecuteOutbound(_ *stateMachineMsg, thid string,
 	ctx *context) (*ConnectionRecord, state, stateAction, error) {
 	return nil, nil, nil, errors.New("cannot execute no-op")
 }
@@ -123,7 +134,12 @@ func (s *null) CanTransitionTo(next state) bool {
 	return stateNameInvited == next.Name() || stateNameRequested == next.Name()
 }
 
-func (s *null) Execute(msg *stateMachineMsg, thid string,
+func (s *null) ExecuteInbound(msg *stateMachineMsg, thid string,
+	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+	return &ConnectionRecord{}, &noOp{}, nil, nil
+}
+
+func (s *null) ExecuteOutbound(msg *stateMachineMsg, thid string,
 	ctx *context) (*ConnectionRecord, state, stateAction, error) {
 	return &ConnectionRecord{}, &noOp{}, nil, nil
 }
@@ -140,14 +156,10 @@ func (s *invited) CanTransitionTo(next state) bool {
 	return stateNameRequested == next.Name()
 }
 
-func (s *invited) Execute(msg *stateMachineMsg, thid string,
+func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string,
 	ctx *context) (*ConnectionRecord, state, stateAction, error) {
 	if msg.header.Type != InvitationMsgType {
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
-	}
-	if msg.outbound {
-		// illegal
-		return nil, nil, nil, errors.New("outbound invitations are not allowed")
 	}
 	invitation := &Invitation{}
 	err := json.Unmarshal(msg.payload, invitation)
@@ -158,6 +170,11 @@ func (s *invited) Execute(msg *stateMachineMsg, thid string,
 		InvitationID: invitation.ID, ServiceEndPoint: invitation.ServiceEndpoint,
 		RecipientKeys: invitation.RecipientKeys, TheirLabel: invitation.Label, Namespace: findNameSpace(msg.header.Type)}
 	return connRecord, &requested{}, func() error { return nil }, nil
+}
+
+func (s *invited) ExecuteOutbound(msg *stateMachineMsg, thid string,
+	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+	return nil, nil, nil, errors.New("outbound invitations are not allowed")
 }
 
 // requested state
@@ -171,13 +188,11 @@ func (s *requested) Name() string {
 func (s *requested) CanTransitionTo(next state) bool {
 	return stateNameResponded == next.Name()
 }
-func (s *requested) Execute(msg *stateMachineMsg,
+
+func (s *requested) ExecuteInbound(msg *stateMachineMsg,
 	thid string, ctx *context) (*ConnectionRecord, state, stateAction, error) {
 	switch msg.header.Type {
 	case InvitationMsgType:
-		if msg.outbound {
-			return nil, nil, nil, fmt.Errorf("outbound invitations are not allowed for state %s", s.Name())
-		}
 		invitation := &Invitation{}
 		err := json.Unmarshal(msg.payload, invitation)
 		if err != nil {
@@ -189,18 +204,27 @@ func (s *requested) Execute(msg *stateMachineMsg,
 		}
 		return connRecord, &noOp{}, action, nil
 	case RequestMsgType:
-		if msg.outbound {
-			action, connRec, err := ctx.sendOutboundRequest(msg)
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("send outbound request failed: %s", err)
-			}
-			return connRec, &noOp{}, action, nil
-		}
 		connRec, err := prepareRequestConnectionRecord(msg.payload)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		return connRec, &responded{}, func() error { return nil }, nil
+	default:
+		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
+	}
+}
+
+func (s *requested) ExecuteOutbound(msg *stateMachineMsg, thid string,
+	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+	switch msg.header.Type {
+	case InvitationMsgType:
+		return nil, nil, nil, fmt.Errorf("outbound invitations are not allowed for state %s", s.Name())
+	case RequestMsgType:
+		action, connRec, err := ctx.sendOutboundRequest(msg)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("send outbound request failed: %s", err)
+		}
+		return connRec, &noOp{}, action, nil
 	default:
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
 	}
@@ -218,13 +242,10 @@ func (s *responded) CanTransitionTo(next state) bool {
 	return stateNameCompleted == next.Name()
 }
 
-func (s *responded) Execute(msg *stateMachineMsg,
+func (s *responded) ExecuteInbound(msg *stateMachineMsg,
 	thid string, ctx *context) (*ConnectionRecord, state, stateAction, error) {
 	switch msg.header.Type {
 	case RequestMsgType:
-		if msg.outbound {
-			return nil, nil, nil, fmt.Errorf("outbound requests are not allowed for state %s", s.Name())
-		}
 		request := &Request{}
 		err := json.Unmarshal(msg.payload, request)
 		if err != nil {
@@ -236,18 +257,27 @@ func (s *responded) Execute(msg *stateMachineMsg,
 		}
 		return connRecord, &noOp{}, action, nil
 	case ResponseMsgType:
-		if msg.outbound {
-			action, connRec, err := ctx.sendOutboundResponse(msg)
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("send outbound response failed: %s", err)
-			}
-			return connRec, &noOp{}, action, nil
-		}
 		connRec, err := ctx.prepareResponseConnectionRecord(msg.payload)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		return connRec, &completed{}, func() error { return nil }, nil
+	default:
+		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
+	}
+}
+
+func (s *responded) ExecuteOutbound(msg *stateMachineMsg, thid string,
+	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+	switch msg.header.Type {
+	case ResponseMsgType:
+		action, connRec, err := ctx.sendOutboundResponse(msg)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("send outbound response failed: %s", err)
+		}
+		return connRec, &noOp{}, action, nil
+	case RequestMsgType:
+		return nil, nil, nil, fmt.Errorf("outbound requests are not allowed for state %s", s.Name())
 	default:
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
 	}
@@ -265,13 +295,10 @@ func (s *completed) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *completed) Execute(msg *stateMachineMsg, thid string,
+func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string,
 	ctx *context) (*ConnectionRecord, state, stateAction, error) {
 	switch msg.header.Type {
 	case ResponseMsgType:
-		if msg.outbound {
-			return nil, nil, nil, fmt.Errorf("outbound responses are not allowed for state %s", s.Name())
-		}
 		response := &Response{}
 		err := json.Unmarshal(msg.payload, response)
 		if err != nil {
@@ -284,12 +311,26 @@ func (s *completed) Execute(msg *stateMachineMsg, thid string,
 		return connRecord, &noOp{}, action, nil
 	case AckMsgType:
 		action := func() error { return nil }
-		if msg.outbound {
-			var err error
-			action, err = ctx.sendOutboundAck(msg)
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("send outbound ack failed: %s", err)
-			}
+		connRec, err := ctx.prepareAckConnectionRecord(msg.payload)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return connRec, &noOp{}, action, nil
+	default:
+		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
+	}
+}
+
+func (s *completed) ExecuteOutbound(msg *stateMachineMsg, thid string,
+	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+	switch msg.header.Type {
+	case ResponseMsgType:
+		return nil, nil, nil, fmt.Errorf("outbound responses are not allowed for state %s", s.Name())
+	case AckMsgType:
+		var err error
+		action, err := ctx.sendOutboundAck(msg)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("send outbound ack failed: %s", err)
 		}
 		connRec, err := ctx.prepareAckConnectionRecord(msg.payload)
 		if err != nil {
@@ -313,7 +354,12 @@ func (s *abandoned) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *abandoned) Execute(msg *stateMachineMsg, thid string,
+func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string,
+	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+	return nil, nil, nil, errors.New("not implemented")
+}
+
+func (s *abandoned) ExecuteOutbound(msg *stateMachineMsg, thid string,
 	ctx *context) (*ConnectionRecord, state, stateAction, error) {
 	return nil, nil, nil, errors.New("not implemented")
 }
@@ -395,6 +441,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 		return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
 	}, connRec, nil
 }
+
 func (ctx *context) handleInboundRequest(request *Request) (stateAction,
 	*ConnectionRecord, error) {
 	// create a response from Request
@@ -629,6 +676,7 @@ func (ctx *context) sendOutboundAck(msg *stateMachineMsg) (stateAction, error) {
 	}
 	return action, nil
 }
+
 func (ctx *context) handleInboundResponse(response *Response) (stateAction,
 	*ConnectionRecord, error) {
 	ack := &model.Ack{
