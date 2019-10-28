@@ -44,7 +44,7 @@ type QueryConnectionsParams struct {
 //
 // swagger:model Connection
 type Connection struct {
-	didexchange.ConnectionRecord
+	*didexchange.ConnectionRecord
 }
 
 // Invitation model for DID Exchange invitation.

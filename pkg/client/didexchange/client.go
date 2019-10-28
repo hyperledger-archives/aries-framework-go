@@ -156,8 +156,8 @@ func (c *Client) HandleInvitation(invitation *Invitation) error {
 func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connection, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/429 query all connections from did exchange service
 	return []*Connection{
-		{didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
-		{didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
+		{&didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
+		{&didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
 	}, nil
 }
 
@@ -171,7 +171,7 @@ func (c *Client) GetConnection(connectionID string) (*Connection, error) {
 		return nil, fmt.Errorf("cannot fetch state from store: connectionid=%s err=%s", connectionID, err)
 	}
 	return &Connection{
-		didexchange.ConnectionRecord{ConnectionID: connectionID, State: conn.State},
+		conn,
 	}, nil
 }
 

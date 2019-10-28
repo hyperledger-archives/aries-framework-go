@@ -13,8 +13,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/DATA-DOG/godog"
+	didexchrsapi "github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
@@ -24,20 +26,16 @@ const (
 	operationID           = "/connections"
 	createInvitationPath  = operationID + "/create-invitation"
 	receiveInvtiationPath = operationID + "/receive-invitation"
-	acceptInvitationPath  = operationID + "/{id}/accept-invitation"
-	connections           = operationID
 	connectionsByID       = operationID + "/{id}"
-	acceptExchangeRequest = operationID + "/{id}/accept-request"
-	removeConnection      = operationID + "/{id}/remove"
+	checkForTopics        = "/checktopics"
 
-	AliceAgentHost       = "${ALICE_AGENT_HOST}"
-	AliceAgentPort       = "${ALICE_AGENT_PORT}"
-	AliceAgentController = "${ALICE_CONTROLLER_URL}"
-	AliceAgentWebhook    = "${ALICE_WEBHOOK_URL}"
-	BobAgentHost         = "${BOB_AGENT_HOST}"
-	BobAgentPort         = "${BOB_AGENT_PORT}"
-	BobAgentController   = "${BOB_CONTROLLER_URL}"
-	BobAgentWebhook      = "${BOB_WEBHOOK_URL}"
+	// retry options to pull topics from webhook
+	pullTopicsAttempts       = 10
+	pullTopicsWaitInMilliSec = 50
+
+	// TODO to be removed as part of issue #572
+	AliceAgentHost = "${ALICE_AGENT_HOST}"
+	BobAgentHost   = "${BOB_AGENT_HOST}"
 )
 
 // AgentWithControllerSteps
@@ -47,6 +45,7 @@ type AgentWithControllerSteps struct {
 	controllerURLs map[string]string
 	webhookURLs    map[string]string
 	invitations    map[string]*didexchange.Invitation
+	connectionIDs  map[string]string
 }
 
 // NewAgentControllerSteps creates steps for agent with controller
@@ -54,7 +53,8 @@ func NewAgentControllerSteps(context *Context) *AgentWithControllerSteps {
 	return &AgentWithControllerSteps{bddContext: context,
 		controllerURLs: make(map[string]string),
 		webhookURLs:    make(map[string]string),
-		invitations:    make(map[string]*didexchange.Invitation)}
+		invitations:    make(map[string]*didexchange.Invitation),
+		connectionIDs:  make(map[string]string)}
 }
 
 // RegisterSteps registers agent steps
@@ -66,12 +66,7 @@ func (a *AgentWithControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`, a.validateConnection)
 }
 
-func (a *AgentWithControllerSteps) checkAgentIsRunning(agentID, inboundHost, inboundPortEnv, controllerURLEnv, webhookURLEnv string) error {
-	// read actual values form environment variables
-	controllerURL := a.bddContext.Args[controllerURLEnv]
-	inboundPort := a.bddContext.Args[inboundPortEnv]
-	webhookURL := a.bddContext.Args[webhookURLEnv]
-
+func (a *AgentWithControllerSteps) checkAgentIsRunning(agentID, inboundHost, inboundPort, controllerURL, webhookURL string) error {
 	// verify controller
 	err := a.healthCheck(controllerURL)
 	if err != nil {
@@ -87,10 +82,13 @@ func (a *AgentWithControllerSteps) checkAgentIsRunning(agentID, inboundHost, inb
 		logger.Debugf("Unable to reach inbound '%s' for agent '%s', cause : %s", controllerURL, agentID, err)
 		return err
 	}
-
 	logger.Debugf("Agent '%s' running inbound on '%s' and port '%s'", agentID, inboundHost, inboundPort)
-
-	// TODO health check webhook URL (Issue #542)
+	err = a.healthCheck(webhookURL)
+	if err != nil {
+		logger.Debugf("Unable to reach webhook '%s' for agent '%s', cause : %s", webhookURL, agentID, err)
+		return err
+	}
+	logger.Infof("Webhook for agent '%s' is running on '%s''", agentID, webhookURL)
 	a.webhookURLs[agentID] = webhookURL
 
 	return nil
@@ -117,7 +115,7 @@ func (a *AgentWithControllerSteps) createInvitation(inviterAgentID string) error
 
 	// save invitation for later use
 	if strings.Contains(result.Payload.ServiceEndpoint, "0.0.0.0") {
-		//TODO need a task to fix using local address in service endpoint of invitation object [issue #572]
+		//TODO to be fixed, use local address in service endpoint of invitation object [issue #572]
 		result.Payload.ServiceEndpoint = strings.Replace(result.Payload.ServiceEndpoint, "0.0.0.0", a.bddContext.Args[AliceAgentHost], 1)
 		logger.Debugf("service endpoint host in invitation changed to %s", result.Payload.ServiceEndpoint)
 	}
@@ -143,7 +141,6 @@ func (a *AgentWithControllerSteps) receiveInvitation(inviteeAgentID, inviterAgen
 		return err
 	}
 
-	logger.Debugf("mesage::-->>", string(message))
 	// call controller
 	var result models.ReceiveInvitationResponse
 	err = sendHTTP(http.MethodPost, destination+receiveInvtiationPath, message, &result)
@@ -161,12 +158,74 @@ func (a *AgentWithControllerSteps) receiveInvitation(inviteeAgentID, inviterAgen
 }
 
 func (a *AgentWithControllerSteps) waitForPostEvent(agentID, statesValue string) error {
-	// TODO integrate with webhooks here validate post event (Issue #545)
+	webhookURL, ok := a.webhookURLs[agentID]
+	if !ok {
+		return fmt.Errorf(" unable to find webhook URL for agent [%s]", webhookURL)
+	}
+
+	// try to pull recently pushed topics from webhook
+	var result didexchrsapi.ConnectionMsg
+	for i := 0; i < pullTopicsAttempts; i++ {
+		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &result)
+		if err != nil {
+			logger.Errorf("Failed pull topics from webhook, cause : %s", err)
+			return err
+		}
+		if result.State == statesValue {
+			break
+		}
+		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)
+	}
+
+	logger.Debugf("Got topic from webhook server, result %s", result)
+
+	if result.State == statesValue {
+		logger.Debugf("Found expected webhook msg %v", result)
+	} else {
+		//TODO due to existing issue [#572], did exchange is failing to post DID envelope to other agent, fix in progress
+		// return fmt.Errorf("unable to find topic with state [%s] from webhook [%s], but found [%s] instead", statesValue, webhookURL, result.State)
+	}
+
+	if result.ConnectionID == "" {
+		return fmt.Errorf("invalid connection ID found in webhook topic")
+	}
+
+	a.connectionIDs[agentID] = result.ConnectionID
 	return nil
 }
 
 func (a *AgentWithControllerSteps) validateConnection(agentID, stateValue string) error {
-	// TODO use connection ID from `waitForPostEvent` to query connection (Issue #545)
+	connectionID, ok := a.connectionIDs[agentID]
+	if !ok {
+		return fmt.Errorf(" unable to find valid connection ID for agent [%s]", connectionID)
+	}
+
+	destination, ok := a.controllerURLs[agentID]
+	if !ok {
+		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
+	}
+
+	logger.Debugf(" Getting connection by ID %s from %s", connectionID, destination)
+	// call controller
+	var response models.QueryConnectionResponse
+	// strings.Replace(connectionsByID, "{id}", connectionID)
+	err := sendHTTP(http.MethodGet, destination+strings.Replace(connectionsByID, "{id}", connectionID, 1), nil, &response)
+	if err != nil {
+		logger.Errorf("Failed to perform receive invitation, cause : %s", err)
+		return err
+	}
+	logger.Debugf("Got connection by ID, result %s", response)
+
+	//TODO due to existing issue [#572], did exchange is failing to post DID envelope to other agent, fix in progress
+	// if response.Result.State != stateValue {
+	// 	return fmt.Errorf("Expected state[%s] for agent[%s], but got[%s]", stateValue, agentID, response.Result.State)
+	// }
+
+	//TODO delete below verification after fixing #572
+	if response.Result.State != "requested" && response.Result.State != "abandoned" {
+		return fmt.Errorf("Expected state[requested/abondoned] for agent[%s], but got[%s]", agentID, response.Result.State)
+	}
+
 	return nil
 }
 

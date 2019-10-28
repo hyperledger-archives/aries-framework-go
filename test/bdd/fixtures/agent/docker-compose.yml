@@ -9,36 +9,40 @@ services:
 
   alice.agent.example.com:
     container_name: alice.aries.example.com
-    image: ${AGENT_FIXTURE_IMAGE}:${AGENT_FIXUTRE_IMAGE_TAG}
+    image: ${AGENTD_IMAGE}:${AGENTD_IMAGE_TAG}
     environment:
-      - GOPATH=/opt/gopath
-      - ID=${ALICE_AGENT_ID}
       - API_HOST=${ALICE_HOST}:${ALICE_API_PORT}
       - INBOUND_HOST=${ALICE_HOST}:${ALICE_INBOUND_PORT}
-      - WEBHOOK_URL=${ALICE_WEBHOOK_URL}
+      - WEBHOOK_URL=http://${ALICE_WEBHOOK_CONTAINER_NAME}:${ALICE_WEBHOOK_PORT}
       - DB_LOC=${ALICE_DB_LOC}
-    working_dir: /opt/gopath/src/github.com/hyperledger/aries-framework-go
-    command: /bin/bash -c 'scripts/start-aries-agentd.sh'
     ports:
-      - 8081:${ALICE_INBOUND_PORT}
-      - 8082:${ALICE_API_PORT}
-    volumes:
-      - ../../../../:/opt/gopath/src/github.com/hyperledger/aries-framework-go
+      - ${ALICE_INBOUND_PORT}:${ALICE_INBOUND_PORT}
+      - ${ALICE_API_PORT}:${ALICE_API_PORT}
 
   bob.agent.example.com:
     container_name: bob.aries.example.com
-    image: ${AGENT_FIXTURE_IMAGE}:${AGENT_FIXUTRE_IMAGE_TAG}
+    image: ${AGENTD_IMAGE}:${AGENTD_IMAGE_TAG}
     environment:
-      - GOPATH=/opt/gopath
-      - ID=${BOB_AGENT_ID}
       - API_HOST=${BOB_HOST}:${BOB_API_PORT}
       - INBOUND_HOST=${BOB_HOST}:${BOB_INBOUND_PORT}
-      - WEBHOOK_URL=${BOB_WEBHOOK_URL}
+      - WEBHOOK_URL=http://${BOB_WEBHOOK_CONTAINER_NAME}:${BOB_WEBHOOK_PORT}
       - DB_LOC=${BOB_DB_LOC}
-    working_dir: /opt/gopath/src/github.com/hyperledger/aries-framework-go
-    command: /bin/bash -c 'scripts/start-aries-agentd.sh'
     ports:
-      - 9081:${BOB_INBOUND_PORT}
-      - 9082:${BOB_API_PORT}
-    volumes:
-      - ../../../../:/opt/gopath/src/github.com/hyperledger/aries-framework-go
+      - ${BOB_INBOUND_PORT}:${BOB_INBOUND_PORT}
+      - ${BOB_API_PORT}:${BOB_API_PORT}
+
+  alice.webhook.example.com:
+    container_name: ${ALICE_WEBHOOK_CONTAINER_NAME}
+    image: ${SAMPLE_WEBHOOK_IMAGE}:${SAMPLE_WEBHOOK_IMAGE_TAG}
+    environment:
+      - WEBHOOK_PORT=${ALICE_WEBHOOK_PORT}
+    ports:
+      - ${ALICE_WEBHOOK_PORT}:${ALICE_WEBHOOK_PORT}
+
+  bob.webhook.example.com:
+    container_name: ${BOB_WEBHOOK_CONTAINER_NAME}
+    image: ${SAMPLE_WEBHOOK_IMAGE}:${SAMPLE_WEBHOOK_IMAGE_TAG}
+    environment:
+      - WEBHOOK_PORT=${BOB_WEBHOOK_PORT}
+    ports:
+      - ${BOB_WEBHOOK_PORT}:${BOB_WEBHOOK_PORT}
