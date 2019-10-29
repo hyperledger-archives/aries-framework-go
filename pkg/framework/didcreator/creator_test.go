@@ -18,10 +18,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	api "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 const (
@@ -142,7 +142,7 @@ func TestDIDCreator(t *testing.T) {
 
 	t.Run("test error while generating key", func(t *testing.T) {
 		mockProvider := newMockProvider()
-		mockProvider.crypto = &mockwallet.CloseableWallet{CreateKeyErr: errors.New("encryption error")}
+		mockProvider.crypto = &mockkms.CloseableKMS{CreateKeyErr: errors.New("encryption error")}
 		c, err := New(mockProvider, WithDidMethod(&peer.DIDCreator{}))
 		require.NoError(t, err)
 
@@ -154,7 +154,7 @@ func TestDIDCreator(t *testing.T) {
 }
 
 func newMockProvider() *mockProvider {
-	crypto := &mockwallet.CloseableWallet{}
+	crypto := &mockkms.CloseableKMS{}
 	crypto.CreateSigningKeyValue = getSigningKey()
 	return &mockProvider{storage: mockstorage.NewMockStoreProvider(), crypto: crypto}
 }
@@ -170,13 +170,13 @@ func getSigningKey() string {
 // mockProvider mocks provider for creator
 type mockProvider struct {
 	storage *mockstorage.MockStoreProvider
-	crypto  *mockwallet.CloseableWallet
+	crypto  *mockkms.CloseableKMS
 }
 
 func (m *mockProvider) StorageProvider() storage.Provider {
 	return m.storage
 }
 
-func (m *mockProvider) CryptoWallet() wallet.Crypto {
+func (m *mockProvider) KMS() kms.KeyManager {
 	return m.crypto
 }

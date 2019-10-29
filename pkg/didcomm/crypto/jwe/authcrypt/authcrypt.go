@@ -13,7 +13,7 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // This package deals with Authcrypt encryption for Packing/Unpacking DID Comm exchange
@@ -40,7 +40,7 @@ var errUnsupportedAlg = errors.New("algorithm not supported")
 type Crypter struct {
 	alg       ContentEncryption
 	nonceSize int
-	wallet    wallet.Crypto
+	kms       kms.KeyManager
 }
 
 // Envelope represents a JWE envelope as per the Aries Encryption envelope specs
@@ -99,7 +99,7 @@ type jwk struct {
 // XC20P (xchacha20-poly1305 ietf)
 // The returned crypter contains all the information required to encrypt payloads.
 func New(ctx crypto.Provider, alg ContentEncryption) (*Crypter, error) {
-	w := ctx.CryptoWallet()
+	k := ctx.KMS()
 	var nonceSize int
 	switch alg {
 	case C20P:
@@ -113,6 +113,6 @@ func New(ctx crypto.Provider, alg ContentEncryption) (*Crypter, error) {
 	return &Crypter{
 		alg:       alg,
 		nonceSize: nonceSize,
-		wallet:    w,
+		kms:       k,
 	}, nil
 }

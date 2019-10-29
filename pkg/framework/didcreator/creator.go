@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	api "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const (
@@ -21,7 +21,7 @@ const (
 
 // provider contains dependencies for the did creator
 type provider interface {
-	CryptoWallet() wallet.Crypto
+	KMS() kms.KeyManager
 }
 
 // Option configures the did creator
@@ -29,7 +29,7 @@ type Option func(opts *DIDCreator)
 
 // DIDCreator implements creation of new dids
 type DIDCreator struct {
-	crypto          wallet.Crypto
+	crypto          kms.KeyManager
 	keyType         string
 	serviceEndpoint string
 	serviceType     string
@@ -38,7 +38,7 @@ type DIDCreator struct {
 
 // New return new instance of did creator
 func New(provider provider, opts ...Option) (*DIDCreator, error) {
-	creator := &DIDCreator{crypto: provider.CryptoWallet()}
+	creator := &DIDCreator{crypto: provider.KMS()}
 	for _, option := range opts {
 		option(creator)
 	}

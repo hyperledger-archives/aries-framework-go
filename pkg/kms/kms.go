@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package wallet
+package kms
 
 import (
 	"crypto/ed25519"
@@ -25,32 +25,32 @@ const (
 	keyStoreNamespace = "keystore"
 )
 
-// provider contains dependencies for the base wallet and is typically created by using aries.Context()
+// provider contains dependencies for the base KMS and is typically created by using aries.Context()
 type provider interface {
 	StorageProvider() storage.Provider
 }
 
-// BaseWallet wallet implementation
-type BaseWallet struct {
+// BaseKMS Base Key Management Service implementation
+type BaseKMS struct {
 	keystore storage.Store
 }
 
-// New return new instance of wallet implementation
-func New(ctx provider) (*BaseWallet, error) {
+// New return new instance of KMS implementation
+func New(ctx provider) (*BaseKMS, error) {
 	ks, err := ctx.StorageProvider().OpenStore(keyStoreNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to OpenStore for '%s', cause: %w", keyStoreNamespace, err)
 	}
 
-	return &BaseWallet{keystore: ks}, nil
+	return &BaseKMS{keystore: ks}, nil
 }
 
 // CreateKeySet creates a new public/private encryption and signature keypairs combo.
 // returns:
-// 		string: encryption key id base58 encoded of the marshaled cryptoutil.KayPairCombo stored in the wallet
-// 		string: signature key id base58 encoded of the marshaled cryptoutil.KayPairCombo stored in the wallet
+// 		string: encryption key id base58 encoded of the marshaled cryptoutil.KayPairCombo stored in the KMS store
+// 		string: signature key id base58 encoded of the marshaled cryptoutil.KayPairCombo stored in the KMS store
 //		error: in case of errors
-func (w *BaseWallet) CreateKeySet() (string, string, error) {
+func (w *BaseKMS) CreateKeySet() (string, string, error) {
 	// TODO - need to encrypt the encPriv and sigPriv before putting them in the store.
 	sigKp, err := createSigKeyPair()
 	if err != nil {
@@ -84,7 +84,7 @@ func (w *BaseWallet) CreateKeySet() (string, string, error) {
 
 // createEncKeyPair will convert sigKp into an encKeyPair - for now it's a key conversion operation.
 // it can be modified to be generated independently from sigKp - this has implications on
-// the wallet store and the Packager/Crypter as they use Signature keys as arguments and use the converted
+// the KMS store and the Packager/Crypter as they use Signature keys as arguments and use the converted
 //  to Encryption keys for Pack/Unpack.
 func createEncKeyPair(sigKp *cryptoutil.SigKeyPair) (*cryptoutil.EncKeyPair, error) {
 	encPub, err := cryptoutil.PublicEd25519toCurve25519(sigKp.Pub)
@@ -115,9 +115,9 @@ func createSigKeyPair() (*cryptoutil.SigKeyPair, error) {
 	}, nil
 }
 
-// ConvertToEncryptionKey converts an ed25519 keypair present in the wallet,
+// ConvertToEncryptionKey converts an ed25519 keypair present in the KMS,
 // persists the resulting keypair, and returns the result public key.
-func (w *BaseWallet) ConvertToEncryptionKey(verKey []byte) ([]byte, error) {
+func (w *BaseKMS) ConvertToEncryptionKey(verKey []byte) ([]byte, error) {
 	encPub, err := cryptoutil.PublicEd25519toCurve25519(verKey)
 	if err != nil {
 		return nil, err
@@ -151,7 +151,7 @@ func (w *BaseWallet) ConvertToEncryptionKey(verKey []byte) ([]byte, error) {
 }
 
 // SignMessage sign a message using the private key associated with a given verification key.
-func (w *BaseWallet) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
+func (w *BaseKMS) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
 	kpc, err := w.getKeyPairSet(fromVerKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get key: %w", err)
@@ -159,13 +159,13 @@ func (w *BaseWallet) SignMessage(message []byte, fromVerKey string) ([]byte, err
 	return ed25519signature2018.New().Sign(kpc.SigKeyPair.Priv, message)
 }
 
-// Close wallet
-func (w *BaseWallet) Close() error {
+// Close the KMS
+func (w *BaseKMS) Close() error {
 	return nil
 }
 
 // getKeyPairSet get encryption & signature key pairs combo
-func (w *BaseWallet) getKeyPairSet(verKey string) (*cryptoutil.MessagingKeys, error) {
+func (w *BaseKMS) getKeyPairSet(verKey string) (*cryptoutil.MessagingKeys, error) {
 	bytes, err := w.keystore.Get(verKey)
 	if err != nil {
 		if errors.Is(storage.ErrDataNotFound, err) {
@@ -181,16 +181,16 @@ func (w *BaseWallet) getKeyPairSet(verKey string) (*cryptoutil.MessagingKeys, er
 }
 
 // DeriveKEK will derive an ephemeral symmetric key (kek) using a private key fetched from
-// the wallet corresponding to fromPubKey and derived with toPubKey
+// the KMS corresponding to fromPubKey and derived with toPubKey
 // This implementation is for curve 25519 only
-func (w *BaseWallet) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, error) { // nolint:lll
+func (w *BaseKMS) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, error) { // nolint:lll
 	if fromPubKey == nil || toPubKey == nil {
 		return nil, cryptoutil.ErrInvalidKey
 	}
 	fromPrivKey := new([chacha.KeySize]byte)
 	copy(fromPrivKey[:], fromPubKey)
 
-	// get key pairs combo from wallet store
+	// get key pairs combo from KMS store
 	kpc, err := w.getKeyPairSet(base58.Encode(fromPubKey))
 	if err != nil {
 		return nil, fmt.Errorf("failed from getKeyPairSet: %w", err)
@@ -202,8 +202,8 @@ func (w *BaseWallet) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, e
 	return cryptoutil.Derive25519KEK(alg, apu, fromPrivKey, toKey)
 }
 
-// FindVerKey selects a signing key which is present in candidateKeys that is present in the wallet
-func (w *BaseWallet) FindVerKey(candidateKeys []string) (int, error) {
+// FindVerKey selects a signing key which is present in candidateKeys that is present in the KMS
+func (w *BaseKMS) FindVerKey(candidateKeys []string) (int, error) {
 	for i, key := range candidateKeys {
 		_, err := w.getKeyPairSet(key)
 		if err != nil {
@@ -232,7 +232,7 @@ func persist(store storage.Store, key string, value interface{}) error {
 }
 
 // GetEncryptionKey will return the public encryption key corresponding to the public verKey argument
-func (w *BaseWallet) GetEncryptionKey(verKey []byte) ([]byte, error) {
+func (w *BaseKMS) GetEncryptionKey(verKey []byte) ([]byte, error) {
 	b58VerKey := base58.Encode(verKey)
 	kpCombo, err := w.getKeyPairSet(b58VerKey)
 	if err != nil {

@@ -22,9 +22,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didstore"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // TODO handle the test scenario better (make dbPath constant).
@@ -116,9 +116,9 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 }
 
 func setAdditionalDefaultOpts(frameworkOpts *Aries) {
-	if frameworkOpts.walletCreator == nil {
-		frameworkOpts.walletCreator = func(provider api.Provider) (api.CloseableWallet, error) {
-			return wallet.New(provider)
+	if frameworkOpts.kmsCreator == nil {
+		frameworkOpts.kmsCreator = func(provider api.Provider) (api.CloseableKMS, error) {
+			return kms.New(provider)
 		}
 	}
 

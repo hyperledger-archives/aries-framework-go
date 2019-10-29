@@ -8,15 +8,15 @@ package provider
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // Provider mocks provider needed for did exchange service initialization
 type Provider struct {
 	ServiceValue         interface{}
 	ServiceErr           error
-	WalletValue          wallet.Crypto
+	KMSValue             kms.KeyManager
 	InboundEndpointValue string
 	StorageProviderValue storage.Provider
 	CrypterValue         crypto.Crypter
@@ -27,9 +27,9 @@ func (p *Provider) Service(id string) (interface{}, error) {
 	return p.ServiceValue, p.ServiceErr
 }
 
-// CryptoWallet return crypto wallet
-func (p *Provider) CryptoWallet() wallet.Crypto {
-	return p.WalletValue
+// KMS returns a KMS instance
+func (p *Provider) KMS() kms.KeyManager {
+	return p.KMSValue
 }
 
 // InboundTransportEndpoint returns the inbound transport endpoint

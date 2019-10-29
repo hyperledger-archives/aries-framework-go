@@ -83,14 +83,14 @@ func (c *Crypter) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
 	return cipher.Open(nil, nonce, payload, []byte(pldAAD))
 }
 
-// findRecipient will loop through jweRecipients and returns the first matching key from the wallet
+// findRecipient will loop through jweRecipients and returns the first matching key from the kms
 func (c *Crypter) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byte, *Recipient, error) {
 	var recipientsKeys []string
 	for _, recipient := range jweRecipients {
 		recipientsKeys = append(recipientsKeys, recipient.Header.KID)
 	}
 
-	i, err := c.wallet.FindVerKey(recipientsKeys)
+	i, err := c.kms.FindVerKey(recipientsKeys)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -125,7 +125,7 @@ func (c *Crypter) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte
 	}
 
 	// derive an ephemeral key for the recipient
-	kek, err := c.wallet.DeriveKEK([]byte(c.alg), apu, recipientPubKey[:], senderPubKey[:])
+	kek, err := c.kms.DeriveKEK([]byte(c.alg), apu, recipientPubKey[:], senderPubKey[:])
 	if err != nil {
 		return nil, err
 	}

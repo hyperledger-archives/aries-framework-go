@@ -185,7 +185,7 @@ func sendHTTPRequest(url string, req *model.Request) (*http.Response, error) {
 }
 
 func createSidetreeDoc(ctx *context.Provider) (*document.Document, error) {
-	_, pubVerKey, err := ctx.CryptoWallet().CreateKeySet()
+	_, pubVerKey, err := ctx.KMS().CreateKeySet()
 	if err != nil {
 		return nil, err
 	}

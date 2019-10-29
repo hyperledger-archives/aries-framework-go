@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package wallet
+package kms
 
 import (
 	"errors"
@@ -17,8 +17,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
-// TODO: move CryptoBox out of the wallet package.
-//   this currently only sits inside wallet so it can access private keys. See issue #511
+// TODO: move CryptoBox out of the KMS package.
+//   this currently only sits inside KMS so it can access private keys. See issue #511
 
 // CryptoBox provides an elliptic-curve-based authenticated encryption scheme
 //
@@ -26,21 +26,21 @@ import (
 // using a shared key derived from a shared secret created by
 //   Curve25519 Elliptic Curve Diffie-Hellman key exchange.
 //
-// CryptoBox is created by a wallet, and reads secret keys from the wallet
+// CryptoBox is created by a KMS, and reads secret keys from the KMS
 //   for encryption/decryption, so clients do not need to see
 //   the secrets themselves.
 type CryptoBox struct {
-	w *BaseWallet
+	km *BaseKMS
 }
 
-// NewCryptoBox creates a CryptoBox which provides crypto box encryption using the given wallet's keypairs
-func NewCryptoBox(w Crypto) (*CryptoBox, error) {
-	wa, ok := w.(*BaseWallet)
+// NewCryptoBox creates a CryptoBox which provides crypto box encryption using the given KMS's keypairs
+func NewCryptoBox(w KeyManager) (*CryptoBox, error) {
+	wa, ok := w.(*BaseKMS)
 	if !ok {
-		return nil, fmt.Errorf("cannot use parameter as wallet")
+		return nil, fmt.Errorf("cannot use parameter as KMS")
 	}
 
-	return &CryptoBox{w: wa}, nil
+	return &CryptoBox{km: wa}, nil
 }
 
 // Easy seals a message with a provided nonce
@@ -50,7 +50,7 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub, myPub []byte) ([]byte, error)
 	copy(recPubBytes[:], theirPub)
 
 	//	 myPub is used to get the sender private key for encryption
-	kp, err := b.w.getKeyPairSet(base58.Encode(myPub))
+	kp, err := b.km.getKeyPairSet(base58.Encode(myPub))
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 	var sendPubBytes [cryptoutil.Curve25519KeySize]byte
 	copy(sendPubBytes[:], theirPub)
 
-	kp, err := b.w.getKeyPairSet(base58.Encode(myPub))
+	kp, err := b.km.getKeyPairSet(base58.Encode(myPub))
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 	var epk [cryptoutil.Curve25519KeySize]byte
 	copy(epk[:], cipherText[:cryptoutil.Curve25519KeySize])
 
-	kp, err := b.w.getKeyPairSet(base58.Encode(myPub))
+	kp, err := b.km.getKeyPairSet(base58.Encode(myPub))
 	if err != nil {
 		return nil, err
 	}

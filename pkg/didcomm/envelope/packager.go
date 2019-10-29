@@ -25,7 +25,7 @@ type BasePackager struct {
 	crypter crypto.Crypter
 }
 
-// New return new instance of wallet implementation
+// New return new instance of KMS implementation
 func New(ctx Provider) (*BasePackager, error) {
 	crypter := ctx.Crypter()
 

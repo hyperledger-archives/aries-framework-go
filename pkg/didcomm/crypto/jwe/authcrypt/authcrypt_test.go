@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 )
 
 func TestEncrypt(t *testing.T) {
@@ -114,15 +114,15 @@ func TestEncrypt(t *testing.T) {
 	t.Logf("rec3 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(rec3.SigKeyPair.Priv))
 	t.Logf("rec3 Enc pub: %v", base64.RawURLEncoding.EncodeToString(rec3.EncKeyPair.Pub))
 	t.Logf("rec3 Enc priv: %v", base64.RawURLEncoding.EncodeToString(rec3.EncKeyPair.Priv))
-	allWalletProvider, err := mockwallet.NewMockProvider(sender, rec1, rec2, rec3)
+	allKMSProvider, err := mockkms.NewMockProvider(sender, rec1, rec2, rec3)
 	require.NoError(t, err)
-	senderWalletProvider, err := mockwallet.NewMockProvider(sender)
+	senderKMSProvider, err := mockkms.NewMockProvider(sender)
 	require.NoError(t, err)
-	recipient1WalletProvider, err := mockwallet.NewMockProvider(rec1)
+	recipient1KMSProvider, err := mockkms.NewMockProvider(rec1)
 	require.NoError(t, err)
-	recipient2WalletProvider, err := mockwallet.NewMockProvider(rec2)
+	recipient2KMSProvider, err := mockkms.NewMockProvider(rec2)
 	require.NoError(t, err)
-	recipient3WalletProvider, err := mockwallet.NewMockProvider(rec3)
+	recipient3KMSProvider, err := mockkms.NewMockProvider(rec3)
 	require.NoError(t, err)
 	badKey := cryptoutil.KeyPair{
 		Pub:  nil,
@@ -130,13 +130,13 @@ func TestEncrypt(t *testing.T) {
 	}
 
 	t.Run("Error test case: Create a new AuthCrypter with bad encryption algorithm", func(t *testing.T) {
-		_, e := New(senderWalletProvider, "BAD")
+		_, e := New(senderKMSProvider, "BAD")
 		require.Error(t, e)
 		require.EqualError(t, e, errUnsupportedAlg.Error())
 	})
 
 	t.Run("Error test case: Create a new AuthCrypter and use an empty keys for encryption", func(t *testing.T) {
-		crypter, e := New(senderWalletProvider, XC20P)
+		crypter, e := New(senderKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		badKey.Pub = []byte{}
@@ -147,7 +147,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Error test case: Create a new AuthCrypter and use a bad key for encryption", func(t *testing.T) {
-		crypter, e := New(senderWalletProvider, XC20P)
+		crypter, e := New(senderKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		// test bad sender public key
@@ -187,7 +187,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Error test case: Create a new AuthCrypter and use an empty recipient keys list for encryption", func(t *testing.T) { //nolint:lll
-		crypter, e := New(senderWalletProvider, "XC20P")
+		crypter, e := New(senderKMSProvider, "XC20P")
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"), sender.SigKeyPair.Pub, [][]byte{})
@@ -196,7 +196,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Success test case: Create a valid AuthCrypter for ChachaPoly1305 encryption (alg: C20P)", func(t *testing.T) {
-		crypter, e := New(allWalletProvider, C20P)
+		crypter, e := New(allKMSProvider, C20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
@@ -210,7 +210,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Success test case: Create a valid AuthCrypter for XChachaPoly1305 encryption (alg: XC20P)", func(t *testing.T) {
-		crypter, e := New(allWalletProvider, XC20P)
+		crypter, e := New(allKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		enc, e := crypter.Encrypt([]byte("lorem ipsum dolor sit amet"),
@@ -231,9 +231,9 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Success test case: Decrypting a message (with the same crypter)", func(t *testing.T) {
-		// not a real life scenario, the wallet is using both sender and rec1 key pairs
-		// senderAndRec1WalletProvider is used here for testing purposes only
-		crypter, e := New(allWalletProvider, XC20P)
+		// not a real life scenario, the kms is using both sender and rec1 key pairs
+		// allKMSProvider is used here for testing purposes only
+		crypter, e := New(allKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
@@ -247,7 +247,7 @@ func TestEncrypt(t *testing.T) {
 		t.Logf("Encryption with unescaped XC20P: %s", enc)
 		t.Logf("Encryption with XC20P: %s", m)
 
-		// decrypt for rec1 (as found in wallet)
+		// decrypt for rec1 (as found in kms)
 		dec, e := crypter.Decrypt(enc)
 		require.NoError(t, e)
 		require.NotEmpty(t, dec)
@@ -256,7 +256,7 @@ func TestEncrypt(t *testing.T) {
 
 	t.Run("Success test case: Decrypting a message with two Crypter instances to simulate two agents", func(t *testing.T) { //nolint:lll
 		// encrypt with sender
-		crypter, e := New(allWalletProvider, XC20P)
+		crypter, e := New(allKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
@@ -271,7 +271,7 @@ func TestEncrypt(t *testing.T) {
 		t.Logf("Encryption with XC20P: %s", m)
 
 		// now decrypt with recipient3
-		crypter1, e := New(recipient3WalletProvider, XC20P)
+		crypter1, e := New(recipient3KMSProvider, XC20P)
 		require.NoError(t, e)
 		dec, e := crypter1.Decrypt(enc)
 		require.NoError(t, e)
@@ -279,7 +279,7 @@ func TestEncrypt(t *testing.T) {
 		require.EqualValues(t, dec, pld)
 
 		// now try decrypting with recipient2
-		crypter2, e := New(recipient2WalletProvider, XC20P)
+		crypter2, e := New(recipient2KMSProvider, XC20P)
 		require.NoError(t, e)
 		dec, e = crypter2.Decrypt(enc)
 		require.NoError(t, e)
@@ -289,7 +289,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Failure test case: Decrypting a message with an unauthorized (recipient2) agent", func(t *testing.T) {
-		crypter, e := New(allWalletProvider, XC20P)
+		crypter, e := New(allKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
@@ -303,7 +303,7 @@ func TestEncrypt(t *testing.T) {
 		t.Logf("Encryption with XC20P: %s", m)
 
 		// decrypting for recipient 2 (unauthorized)
-		crypter1, e := New(recipient2WalletProvider, XC20P)
+		crypter1, e := New(recipient2KMSProvider, XC20P)
 		require.NoError(t, e)
 		dec, e := crypter1.Decrypt(enc)
 		require.Error(t, e)
@@ -311,7 +311,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Failure test case: Decrypting a message but scramble JWE beforehand", func(t *testing.T) {
-		crypter, e := New(allWalletProvider, XC20P)
+		crypter, e := New(allKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, crypter)
 		pld := []byte("lorem ipsum dolor sit amet")
@@ -329,7 +329,7 @@ func TestEncrypt(t *testing.T) {
 		deepCopy(jwe, validJwe)
 
 		// create a new crypter for rec1 for testing decryption
-		crypter, e = New(recipient1WalletProvider, XC20P)
+		crypter, e = New(recipient1KMSProvider, XC20P)
 
 		// test bad jwe format
 		enc = []byte("{badJWE}")
@@ -523,8 +523,8 @@ func TestRefEncrypt(t *testing.T) {
 			Alg:     cryptoutil.Curve25519,
 		},
 	}
-	// create mockwallet provider with the above keys
-	mockWalletProvider, err := mockwallet.NewMockProvider(recKpCombo)
+	// create mockkms provider with the above keys
+	mockKMSProvider, err := mockkms.NewMockProvider(recKpCombo)
 	require.NoError(t, err)
 
 	// refJWE created by executing PHP test code at:
@@ -550,7 +550,7 @@ func TestRefEncrypt(t *testing.T) {
     "ciphertext": "qQyzvajdvCDJbwxM"
 }`
 
-	crypter, err := New(mockWalletProvider, XC20P)
+	crypter, err := New(mockKMSProvider, XC20P)
 	require.NoError(t, err)
 	require.NotNil(t, crypter)
 

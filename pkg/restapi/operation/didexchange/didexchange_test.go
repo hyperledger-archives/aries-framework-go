@@ -25,10 +25,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdr/didcreator"
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
@@ -320,7 +320,7 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 				return handleErr
 			},
 		},
-		WalletValue:          &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"},
+		KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 		InboundEndpointValue: "endpoint",
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &s}},
 		webhook.NewHTTPNotifier(nil),

@@ -23,8 +23,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didresolver"
 	mockdidstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -130,16 +130,16 @@ func TestNewProvider(t *testing.T) {
 		require.Contains(t, err.Error(), "error handling the message")
 	})
 
-	t.Run("test new with wallet and packager service", func(t *testing.T) {
+	t.Run("test new with kms and packager service", func(t *testing.T) {
 		prov, err := New(
-			WithWallet(&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue")}),
+			WithKMS(&mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}),
 			WithPackager(&mockenvelope.BasePackager{PackValue: []byte("data")}),
 		)
 		require.NoError(t, err)
 		v, err := prov.Signer().SignMessage(nil, "")
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
-		index, err := prov.CryptoWallet().FindVerKey([]string{"non-existent"})
+		index, err := prov.KMS().FindVerKey([]string{"non-existent"})
 		require.NoError(t, err)
 		require.Equal(t, 0, index)
 		v, err = prov.packager.PackMessage(&envelope.Envelope{})

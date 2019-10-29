@@ -18,8 +18,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // Provider supplies the framework configuration to client objects.
@@ -27,7 +27,7 @@ type Provider struct {
 	outboundDispatcher       dispatcher.Outbound
 	services                 []dispatcher.Service
 	storeProvider            storage.Provider
-	wallet                   wallet.Wallet
+	kms                      kms.KMS
 	packager                 envelope.Packager
 	crypter                  crypto.Crypter
 	inboundTransportEndpoint string
@@ -70,9 +70,9 @@ func (p *Provider) Service(id string) (interface{}, error) {
 	return nil, api.ErrSvcNotFound
 }
 
-// CryptoWallet returns the crypto wallet service
-func (p *Provider) CryptoWallet() wallet.Crypto {
-	return p.wallet
+// KMS returns the kms service
+func (p *Provider) KMS() kms.KeyManager {
+	return p.kms
 }
 
 // Packager returns the packager service
@@ -85,9 +85,9 @@ func (p *Provider) Crypter() crypto.Crypter {
 	return p.crypter
 }
 
-// Signer returns the wallet signing service
-func (p *Provider) Signer() wallet.Signer {
-	return p.wallet
+// Signer returns the kms signing service
+func (p *Provider) Signer() kms.Signer {
+	return p.kms
 }
 
 // InboundTransportEndpoint returns the inbound transport endpoint
@@ -168,10 +168,10 @@ func WithDIDStore(store didstore.Storage) ProviderOption {
 	}
 }
 
-// WithWallet injects a wallet service into the context
-func WithWallet(w wallet.Wallet) ProviderOption {
+// WithKMS injects a kms service into the context
+func WithKMS(w kms.KMS) ProviderOption {
 	return func(opts *Provider) error {
-		opts.wallet = w
+		opts.kms = w
 		return nil
 	}
 }

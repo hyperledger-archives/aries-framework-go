@@ -104,7 +104,7 @@ func (c *Crypter) getSenderPubEncKey(senderVerKey []byte) (*[chacha.KeySize]byte
 		return nil, fmt.Errorf("failed to encrypt message: empty sender key")
 	}
 
-	senderKey, err := c.wallet.GetEncryptionKey(senderVerKey)
+	senderKey, err := c.kms.GetEncryptionKey(senderVerKey)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +219,7 @@ func (c *Crypter) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.Ke
 	}
 
 	// derive an ephemeral key for the sender and recipient
-	kek, err := c.wallet.DeriveKEK([]byte(c.alg), apu, senderPubKey[:], recipientPubKey[:])
+	kek, err := c.kms.DeriveKEK([]byte(c.alg), apu, senderPubKey[:], recipientPubKey[:])
 	if err != nil {
 		return nil, err
 	}

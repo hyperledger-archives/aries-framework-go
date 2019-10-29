@@ -11,13 +11,12 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
-
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // Encrypt will encode the payload argument
@@ -126,7 +125,7 @@ func (c *Crypter) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey []
 	}
 
 	// We need the private key to be converted and keypair to be persisted
-	senderEncKey, err := c.wallet.ConvertToEncryptionKey(senderKey)
+	senderEncKey, err := c.kms.ConvertToEncryptionKey(senderKey)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +135,7 @@ func (c *Crypter) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey []
 		return nil, err
 	}
 
-	box, err := wallet.NewCryptoBox(c.wallet)
+	box, err := kms.NewCryptoBox(c.kms)
 	if err != nil {
 		return nil, err
 	}
