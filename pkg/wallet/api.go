@@ -14,6 +14,7 @@ type Wallet interface {
 
 // Crypto interface
 type Crypto interface {
+	KeyConverter
 
 	// CreateKeySet create a new public/private encryption and signature key pairs set.
 	//

@@ -49,7 +49,7 @@ func (c *Crypter) Encrypt(payload, sender []byte, recipientPubKeys [][]byte) ([]
 		recKeys[i] = base58.Encode(key)
 	}
 
-	recipients, err = c.buildRecipients(cek, base58.Encode(sender), recKeys)
+	recipients, err = c.buildRecipients(cek, sender, recipientPubKeys)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (c *Crypter) buildEnvelope(nonce, payload, cek []byte, protected *protected
 	return out, nil
 }
 
-func (c *Crypter) buildRecipients(cek *[chacha.KeySize]byte, senderKey string, recPubKeys []string) ([]recipient, error) { // nolint: lll
+func (c *Crypter) buildRecipients(cek *[chacha.KeySize]byte, senderKey []byte, recPubKeys [][]byte) ([]recipient, error) { // nolint: lll
 	var encodedRecipients = make([]recipient, len(recPubKeys))
 
 	for i, recKey := range recPubKeys {
@@ -117,7 +117,7 @@ func (c *Crypter) buildRecipients(cek *[chacha.KeySize]byte, senderKey string, r
 
 // buildRecipient encodes the necessary data for the recipient to decrypt the message
 // 	encrypting the CEK and sender Pub key
-func (c *Crypter) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey string) (*recipient, error) { // nolint: lll
+func (c *Crypter) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey []byte) (*recipient, error) { // nolint: lll
 	var nonce [24]byte
 
 	_, err := c.randSource.Read(nonce[:])
@@ -126,25 +126,28 @@ func (c *Crypter) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey st
 	}
 
 	// We need the private key to be converted and keypair to be persisted
-	senderEncKey, err := c.wallet.ConvertToEncryptionKey(base58.Decode(senderKey))
+	senderEncKey, err := c.wallet.ConvertToEncryptionKey(senderKey)
 	if err != nil {
 		return nil, err
 	}
 
-	recEncKey, err := cryptoutil.PublicEd25519toCurve25519(base58.Decode(recKey))
+	recEncKey, err := cryptoutil.PublicEd25519toCurve25519(recKey)
 	if err != nil {
 		return nil, err
 	}
 
-	box := wallet.NewCryptoBox(c.wallet)
+	box, err := wallet.NewCryptoBox(c.wallet)
+	if err != nil {
+		return nil, err
+	}
 
 	encCEK, err := box.Easy(cek[:], nonce[:], recEncKey, senderEncKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// assumption: senderKey (ed25519) is a base58 string
-	encSender, err := box.Seal([]byte(senderKey), recEncKey, c.randSource)
+	// assumption: senderKey is ed25519
+	encSender, err := box.Seal([]byte(base58.Encode(senderKey)), recEncKey, c.randSource)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +155,7 @@ func (c *Crypter) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey st
 	return &recipient{
 		EncryptedKey: base64.URLEncoding.EncodeToString(encCEK),
 		Header: recipientHeader{
-			KID:    recKey, // recKey is the Ed25519 recipient pk in b58 encoding
+			KID:    base58.Encode(recKey), // recKey is the Ed25519 recipient pk in b58 encoding
 			Sender: base64.URLEncoding.EncodeToString(encSender),
 			IV:     base64.URLEncoding.EncodeToString(nonce[:]),
 		},

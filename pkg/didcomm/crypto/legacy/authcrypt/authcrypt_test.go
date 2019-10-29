@@ -21,6 +21,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	mockStorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
@@ -52,6 +53,7 @@ func (fw *failReader) Read(out []byte) (int, error) {
 
 type provider struct {
 	storeProvider storage.Provider
+	crypto        wallet.Crypto
 }
 
 func (p *provider) StorageProvider() storage.Provider {
@@ -77,20 +79,53 @@ func persistKey(pub, priv string, store storage.Store) error {
 		Priv: base58.Decode(priv),
 		Pub:  base58.Decode(pub),
 	}
+
+	sk, err := cryptoutil.SecretEd25519toCurve25519(kp.Priv)
+	if err != nil {
+		return err
+	}
+	pk, err := cryptoutil.PublicEd25519toCurve25519(kp.Pub)
+	if err != nil {
+		return err
+	}
+
+	enc := cryptoutil.KeyPair{
+		Priv: sk,
+		Pub:  pk,
+	}
+
 	kpCombo := &cryptoutil.MessagingKeys{
-		EncKeyPair: nil,
+		EncKeyPair: &cryptoutil.EncKeyPair{
+			KeyPair: enc,
+			Alg:     cryptoutil.Curve25519,
+		},
 		SigKeyPair: &cryptoutil.SigKeyPair{
 			KeyPair: kp,
 			Alg:     cryptoutil.EdDSA,
 		},
 	}
 
-	bytes, err := json.Marshal(kpCombo)
+	data, err := json.Marshal(kpCombo)
 	if err != nil {
 		return fmt.Errorf("failed to marshal key: %w", err)
 	}
 
-	return store.Put(pub, bytes)
+	err = store.Put(base58.Encode(pk), data)
+	if err != nil {
+		return err
+	}
+
+	return store.Put(pub, data)
+}
+
+func (p *provider) CryptoWallet() wallet.Crypto {
+	return p.crypto
+}
+
+func newWithWallet(w wallet.Crypto) *Crypter {
+	return New(&provider{
+		crypto: w,
+	})
 }
 
 func TestEncrypt(t *testing.T) {
@@ -99,7 +134,7 @@ func TestEncrypt(t *testing.T) {
 	require.NoError(t, e)
 
 	t.Run("Failure: encrypt without any recipients", func(t *testing.T) {
-		crypter := New(testingWallet)
+		crypter := newWithWallet(testingWallet)
 		require.NotEmpty(t, crypter)
 
 		_, err := crypter.Encrypt([]byte("Test Message"), base58.Decode(senderKey), [][]byte{})
@@ -107,7 +142,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Failure: encrypt with an invalid recipient key", func(t *testing.T) {
-		crypter := New(testingWallet)
+		crypter := newWithWallet(testingWallet)
 		require.NotEmpty(t, crypter)
 
 		badKey := "6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7"
@@ -120,7 +155,7 @@ func TestEncrypt(t *testing.T) {
 	require.NoError(t, e)
 
 	t.Run("Failure: encrypt with an invalid-size sender key", func(t *testing.T) {
-		crypter := New(testingWallet)
+		crypter := newWithWallet(testingWallet)
 		require.NotEmpty(t, crypter)
 
 		_, err := crypter.Encrypt([]byte("Test Message"), []byte{1, 2, 3}, [][]byte{base58.Decode(recipientKey)})
@@ -128,7 +163,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Success test case: given keys, generate envelope", func(t *testing.T) {
-		crypter := New(testingWallet)
+		crypter := newWithWallet(testingWallet)
 		require.NotEmpty(t, crypter)
 
 		enc, e := crypter.Encrypt([]byte("Pack my box with five dozen liquor jugs!"),
@@ -156,7 +191,7 @@ func TestEncrypt(t *testing.T) {
 			base58.Decode(rec4Key),
 		}
 
-		crypter := New(testingWallet)
+		crypter := newWithWallet(testingWallet)
 		require.NoError(t, err)
 		require.NotEmpty(t, crypter)
 		enc, err := crypter.Encrypt(
@@ -182,7 +217,7 @@ func TestEncrypt(t *testing.T) {
 		source := insecurerand.NewSource(5937493) // constant fixed to ensure constant output
 		constRand := insecurerand.New(source)
 
-		crypter := New(wallet2)
+		crypter := newWithWallet(wallet2)
 		require.NotEmpty(t, crypter)
 		crypter.randSource = constRand
 		enc, err := crypter.Encrypt(nil, base58.Decode(senderPub), [][]byte{base58.Decode(recipientPub)})
@@ -208,7 +243,7 @@ func TestEncrypt(t *testing.T) {
 		source := insecurerand.NewSource(6572692) // constant fixed to ensure constant output
 		constRand := insecurerand.New(source)
 
-		crypter := New(senderWallet)
+		crypter := newWithWallet(senderWallet)
 		require.NotEmpty(t, crypter)
 		crypter.randSource = constRand
 		enc, err := crypter.Encrypt(
@@ -232,7 +267,7 @@ func TestEncryptComponents(t *testing.T) {
 	e := persistKey(senderPub, senderPriv, store)
 	require.NoError(t, e)
 
-	crypter := New(testWallet)
+	crypter := newWithWallet(testWallet)
 
 	t.Run("Failure: content encryption nonce generation fails", func(t *testing.T) {
 		failRand := newFailReader(0, rand.Reader)
@@ -283,15 +318,15 @@ func TestEncryptComponents(t *testing.T) {
 			base58.Decode(senderPub), [][]byte{base58.Decode(rec1Pub)})
 		require.NoError(t, err)
 	})
-	crypter2 := New(testWallet)
+	crypter2 := newWithWallet(testWallet)
 
 	t.Run("Failure: generate recipient header with bad sender key", func(t *testing.T) {
-		_, err := crypter2.buildRecipient(&[32]byte{}, "", rec1Pub)
+		_, err := crypter2.buildRecipient(&[32]byte{}, []byte(""), base58.Decode(rec1Pub))
 		require.EqualError(t, err, "key is nil")
 	})
 
 	t.Run("Failure: generate recipient header with bad recipient key", func(t *testing.T) {
-		_, err := crypter2.buildRecipient(&[32]byte{}, senderPub, "AAAA")
+		_, err := crypter2.buildRecipient(&[32]byte{}, base58.Decode(senderPub), base58.Decode("AAAA"))
 		require.EqualError(t, err, "3-byte key size is invalid")
 	})
 }
@@ -304,7 +339,7 @@ func TestDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Success: encrypt then decrypt, same crypter", func(t *testing.T) {
-		crypter := New(testingWallet)
+		crypter := newWithWallet(testingWallet)
 		require.NoError(t, err)
 
 		msgIn := []byte("Junky qoph-flags vext crwd zimb.")
@@ -331,8 +366,8 @@ func TestDecrypt(t *testing.T) {
 
 		require.NoError(t, err)
 
-		sendCrypter := New(testingWallet)
-		rec2Crypter := New(rec2Wallet)
+		sendCrypter := newWithWallet(testingWallet)
+		rec2Crypter := newWithWallet(rec2Wallet)
 
 		msgIn := []byte("Junky qoph-flags vext crwd zimb.")
 
@@ -344,7 +379,7 @@ func TestDecrypt(t *testing.T) {
 		require.ElementsMatch(t, msgIn, msgOut)
 
 		emptyWallet, _ := newWallet(t)
-		rec4Crypter := New(emptyWallet)
+		rec4Crypter := newWithWallet(emptyWallet)
 
 		_, err = rec4Crypter.Decrypt(enc)
 		require.NotNil(t, err)
@@ -363,7 +398,7 @@ func TestDecrypt(t *testing.T) {
 		err := persistKey(recPub, recPriv, store)
 		require.NoError(t, err)
 
-		recCrypter := New(recWallet)
+		recCrypter := newWithWallet(recWallet)
 
 		msgOut, err := recCrypter.Decrypt([]byte(env))
 		require.NoError(t, err)
@@ -383,7 +418,7 @@ func TestDecrypt(t *testing.T) {
 		err := persistKey(recPub, recPriv, store)
 		require.NoError(t, err)
 
-		recCrypter := New(recWallet)
+		recCrypter := newWithWallet(recWallet)
 
 		msgOut, err := recCrypter.Decrypt([]byte(env))
 		require.NoError(t, err)
@@ -400,7 +435,7 @@ func TestDecrypt(t *testing.T) {
 		err := persistKey(recPub, recPriv, store)
 		require.NoError(t, err)
 
-		recCrypter := New(recWallet)
+		recCrypter := newWithWallet(recWallet)
 
 		_, err = recCrypter.Decrypt([]byte(env))
 		require.NotNil(t, err)
@@ -418,9 +453,12 @@ func decryptComponentFailureTest(
 
 	w, s := newWallet(t)
 	err := persistKey(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
-	require.NoError(t, err)
+	if err != nil {
+		require.Contains(t, err.Error(), errString)
+		return
+	}
 
-	recCrypter := New(w)
+	recCrypter := newWithWallet(w)
 	_, err = recCrypter.Decrypt([]byte(fullMessage))
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), errString)
@@ -437,7 +475,7 @@ func TestDecryptComponents(t *testing.T) {
 		err := persistKey(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
 		require.NoError(t, err)
 
-		recCrypter := New(w)
+		recCrypter := newWithWallet(w)
 
 		_, err = recCrypter.Decrypt([]byte(msg))
 		require.EqualError(t, err, "invalid character 'e' looking for beginning of value")
@@ -450,7 +488,7 @@ func TestDecryptComponents(t *testing.T) {
 		err := persistKey(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
 		require.NoError(t, err)
 
-		recCrypter := New(w)
+		recCrypter := newWithWallet(w)
 
 		_, err = recCrypter.Decrypt([]byte(msg))
 		require.EqualError(t, err, "illegal base64 data at input byte 0")
@@ -584,13 +622,37 @@ func TestDecryptComponents(t *testing.T) {
 			"illegal base64 data at input byte 0")
 	})
 
+	badKey := cryptoutil.KeyPair{
+		Priv: []byte("badkeyabcdefghijklmnopqrstuvwxyzbadkeyabcdefghijklmnopqrstuvwxyz"),
+		Pub:  []byte("badkeyabcdefghijklmnopqrstuvwxyz"),
+	}
+
 	t.Run("Recipient Key not valid key", func(t *testing.T) {
 		decryptComponentFailureTest(t,
 			prot,
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
-			&cryptoutil.KeyPair{Pub: []byte{0, 0, 1, 0, 0}, Priv: []byte{0, 0, 1, 0, 0}},
-			"no key accessible")
+			&badKey,
+			"error converting public key")
 	})
+}
+
+func Test_getCEK(t *testing.T) {
+	w := mockwallet.CloseableWallet{
+		FindVerKeyValue:  0,
+		EncryptionKeyErr: fmt.Errorf("mock error"),
+	}
+
+	recs := []recipient{
+		{
+			EncryptedKey: "",
+			Header: recipientHeader{
+				KID: "BADKEY",
+			},
+		},
+	}
+
+	_, err := getCEK(recs, &w)
+	require.EqualError(t, err, "mock error")
 }
 
 func getB58Key(pub, priv string) *cryptoutil.KeyPair {

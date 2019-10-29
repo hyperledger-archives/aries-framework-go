@@ -55,7 +55,7 @@ func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 	return c.decodeCipherText(cek, &envelopeData)
 }
 
-func getCEK(recipients []recipient, w *wallet.BaseWallet) (*[chacha.KeySize]byte, error) {
+func getCEK(recipients []recipient, w wallet.Crypto) (*[chacha.KeySize]byte, error) {
 	var candidateKeys []string
 
 	for _, candidate := range recipients {
@@ -90,7 +90,12 @@ func getCEK(recipients []recipient, w *wallet.BaseWallet) (*[chacha.KeySize]byte
 		return nil, err
 	}
 
-	cekSlice, err := wallet.NewCryptoBox(w).EasyOpen(encCEK, nonceSlice, sender, recCurvePub)
+	b, err := wallet.NewCryptoBox(w)
+	if err != nil {
+		return nil, err
+	}
+
+	cekSlice, err := b.EasyOpen(encCEK, nonceSlice, sender, recCurvePub)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt CEK: %s", err)
 	}
@@ -101,13 +106,18 @@ func getCEK(recipients []recipient, w *wallet.BaseWallet) (*[chacha.KeySize]byte
 	return &cek, nil
 }
 
-func decodeSender(b64Sender string, pk []byte, w *wallet.BaseWallet) ([]byte, error) {
+func decodeSender(b64Sender string, pk []byte, w wallet.Crypto) ([]byte, error) {
 	encSender, err := base64.URLEncoding.DecodeString(b64Sender)
 	if err != nil {
 		return nil, err
 	}
 
-	senderSlice, err := wallet.NewCryptoBox(w).SealOpen(encSender, pk)
+	b, err := wallet.NewCryptoBox(w)
+	if err != nil {
+		return nil, err
+	}
+
+	senderSlice, err := b.SealOpen(encSender, pk)
 	if err != nil {
 		return nil, err
 	}

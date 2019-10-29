@@ -11,11 +11,11 @@ import (
 	"io"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
+
+	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 
 	mockStorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -43,6 +43,16 @@ func newWallet(t *testing.T) (*BaseWallet, storage.Store) {
 	return ret, store
 }
 
+func TestNewCryptoBox(t *testing.T) {
+	w, _ := newWallet(t)
+	b, err := NewCryptoBox(w)
+	require.NoError(t, err)
+	require.Equal(t, b.w, w)
+
+	_, err = NewCryptoBox(Crypto(nil))
+	require.EqualError(t, err, "cannot use parameter as wallet")
+}
+
 func TestBoxSeal(t *testing.T) {
 	var err error
 
@@ -53,7 +63,8 @@ func TestBoxSeal(t *testing.T) {
 	err = persist(w.keystore, base58.Encode(recipient1Key.EncKeyPair.Pub), recipient1Key)
 	require.NoError(t, err)
 
-	b := NewCryptoBox(w)
+	b, err := NewCryptoBox(w)
+	require.NoError(t, err)
 
 	t.Run("Seal a message with sodiumBoxSeal and unseal it with sodiumBoxSealOpen", func(t *testing.T) {
 		msg := []byte("lorem ipsum dolor sit amet consectetur adipiscing elit ")
@@ -132,7 +143,8 @@ func TestBoxEasy(t *testing.T) {
 	err = persist(w.keystore, base58.Encode(kp2.Pub), kp2Combo)
 	require.NoError(t, err)
 
-	b := NewCryptoBox(w)
+	b, err := NewCryptoBox(w)
+	require.NoError(t, err)
 
 	t.Run("Failed encrypt, key missing from wallet", func(t *testing.T) {
 		msg := []byte("pretend this is an encrypted message")
