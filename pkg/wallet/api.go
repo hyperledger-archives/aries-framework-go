@@ -6,15 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package wallet
 
-import (
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-)
-
 // Wallet interface
 type Wallet interface {
 	Crypto
 	Signer
-	DIDCreator
 }
 
 // Crypto interface
@@ -68,37 +63,6 @@ type Signer interface {
 	//
 	// error: error
 	SignMessage(message []byte, fromVerKey string) ([]byte, error)
-}
-
-// DIDCreator provides features to create and query DID document
-type DIDCreator interface {
-	// Creates new DID document.
-	//
-	// Args:
-	//
-	// method: DID method
-	//
-	// opts: options to create DID
-	//
-	// Returns:
-	//
-	// did: DID document
-	//
-	// error: error
-	CreateDID(method string, opts ...DocOpts) (*did.Doc, error)
-
-	// Gets already created DID document by ID.
-	//
-	// Args:
-	//
-	// id: DID identifier
-	//
-	// Returns:
-	//
-	// did: DID document
-	//
-	// error: when document is not found or for any other error conditions
-	GetDID(id string) (*did.Doc, error)
 }
 
 // KeyConverter provides methods for converting signing to encryption keys

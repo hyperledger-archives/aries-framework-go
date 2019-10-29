@@ -9,7 +9,6 @@ package wallet
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 // CloseableWallet mock wallet
@@ -56,16 +55,6 @@ func (m *CloseableWallet) SignMessage(message []byte, fromVerKey string) ([]byte
 // mocked to return empty derived KEK
 func (m *CloseableWallet) DeriveKEK(alg, apu, fromKey, toPubKey []byte) ([]byte, error) { // nolint:lll
 	return []byte(""), nil
-}
-
-// CreateDID returns new DID Document
-func (m *CloseableWallet) CreateDID(method string, opts ...wallet.DocOpts) (*did.Doc, error) {
-	return m.MockDID, nil
-}
-
-// GetDID gets already created DID document by ID.
-func (m *CloseableWallet) GetDID(id string) (*did.Doc, error) {
-	return m.MockDID, nil
 }
 
 // GetEncryptionKey will return the public encryption key corresponding to the public verKey argument

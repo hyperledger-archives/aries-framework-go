@@ -9,7 +9,6 @@ package aries
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/did"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -20,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/factory/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
@@ -101,7 +101,14 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 	setAdditionalDefaultOpts(frameworkOpts)
 
 	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) {
-		return didexchange.New(did.NewPeerDIDCreator(prv), prv)
+		dc, err := didcreator.New(prv,
+			didcreator.WithDidMethod(peer.NewDIDCreator()),
+			didcreator.WithCreatorServiceType("did-communication"),
+			didcreator.WithCreatorServiceEndpoint(prv.InboundTransportEndpoint()))
+		if err != nil {
+			return nil, err
+		}
+		return didexchange.New(dc, prv)
 	}
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc)
 

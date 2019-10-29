@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -31,6 +32,7 @@ type Provider struct {
 	inboundTransportEndpoint string
 	outboundTransport        transport.OutboundTransport
 	didResolver              didresolver.Resolver
+	didCreator               didcreator.Creator
 }
 
 // New instantiated new context provider
@@ -86,11 +88,6 @@ func (p *Provider) Signer() wallet.Signer {
 	return p.wallet
 }
 
-// DIDWallet returns the pack wallet service
-func (p *Provider) DIDWallet() wallet.DIDCreator {
-	return p.wallet
-}
-
 // InboundTransportEndpoint returns the inbound transport endpoint
 func (p *Provider) InboundTransportEndpoint() string {
 	return p.inboundTransportEndpoint
@@ -122,6 +119,11 @@ func (p *Provider) StorageProvider() storage.Provider {
 // DIDResolver returns did resolver
 func (p *Provider) DIDResolver() didresolver.Resolver {
 	return p.didResolver
+}
+
+// DIDCreator returns did creator
+func (p *Provider) DIDCreator() didcreator.Creator {
+	return p.didCreator
 }
 
 // ProviderOption configures the framework.

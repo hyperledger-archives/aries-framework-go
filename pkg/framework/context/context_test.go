@@ -16,7 +16,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockenvelope "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/envelope"
@@ -144,25 +143,6 @@ func TestNewProvider(t *testing.T) {
 		v, err = prov.packager.PackMessage(&envelope.Envelope{})
 		require.NoError(t, err)
 		require.Equal(t, []byte("data"), v)
-	})
-
-	t.Run("test new with did wallet packager service", func(t *testing.T) {
-		prov, err := New(
-			WithWallet(
-				&mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue"),
-					MockDID: &did.Doc{
-						Context: []string{"https://w3id.org/did/v1"},
-						ID:      "did:example:123456789abcdefghi#inbox"}},
-			),
-			WithPackager(&mockenvelope.BasePackager{PackValue: []byte("data")}),
-		)
-		require.NoError(t, err)
-		v, err := prov.Signer().SignMessage(nil, "")
-		require.NoError(t, err)
-		require.Equal(t, []byte("mockValue"), v)
-		didDoc, err := prov.DIDWallet().CreateDID("example")
-		require.NoError(t, err)
-		require.Equal(t, "did:example:123456789abcdefghi#inbox", didDoc.ID)
 	})
 
 	t.Run("test new with inbound transport endpoint", func(t *testing.T) {

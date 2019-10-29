@@ -17,7 +17,6 @@ type CloseableWallet interface {
 	io.Closer
 	wallet.Crypto
 	wallet.Signer
-	wallet.DIDCreator
 }
 
 // WalletCreator method to create new wallet service

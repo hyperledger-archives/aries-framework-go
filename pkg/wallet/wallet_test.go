@@ -9,7 +9,6 @@ package wallet
 import (
 	"crypto/rand"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -17,16 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-)
-
-const (
-	serviceEndpoint    = "sample-endpoint.com"
-	serviceTypeDIDComm = "did-communication"
 )
 
 func TestBaseWallet_New(t *testing.T) {
@@ -36,12 +29,6 @@ func TestBaseWallet_New(t *testing.T) {
 			&mockstorage.MockStoreProvider{ErrOpenStoreHandle: fmt.Errorf(errMsg)}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), errMsg)
-	})
-	t.Run("test error from OpenStore for did store", func(t *testing.T) {
-		_, err := New(newMockWalletProvider(
-			&mockstorage.MockStoreProvider{FailNameSpace: didStoreNamespace}))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to open store for name space")
 	})
 }
 
@@ -207,138 +194,6 @@ func TestBaseWallet_ConvertToEncryptionKey(t *testing.T) {
 		_, err = w.ConvertToEncryptionKey(base58.Decode("CTsYpNjdhK68mjkE4wNrnTVW2qERFNoPXWBnUW9E9bhz"))
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "failed unmarshal to key struct")
-	})
-}
-
-func TestBaseWallet_DIDCreator(t *testing.T) {
-	storeProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-		Store: make(map[string][]byte),
-	}}
-	verifyDID := func(t *testing.T, method string, didDoc *did.Doc) {
-		require.NotEmpty(t, didDoc.Context)
-		require.Equal(t, didDoc.Context[0], did.Context)
-		require.NotEmpty(t, didDoc.Updated)
-		require.NotEmpty(t, didDoc.Created)
-		require.NotEmpty(t, didDoc.ID)
-		require.NotEmpty(t, didDoc.PublicKey)
-
-		for _, pubK := range didDoc.PublicKey {
-			require.NotEmpty(t, pubK.ID)
-			switch method {
-			case peerDIDMethod:
-				require.Equal(t, pubK.ID, string(pubK.Value)[0:7])
-			default:
-				require.Fail(t, "Invalid DID Method")
-			}
-			require.NotEmpty(t, pubK.Value)
-			require.NotEmpty(t, pubK.Type)
-			require.NotEmpty(t, pubK.Controller)
-		}
-
-		// test if corresponding secret is saved in wallet store
-		store, err := storeProvider.OpenStore(keyStoreNamespace)
-		require.NoError(t, err)
-		require.NotNil(t, store)
-
-		pub := string(didDoc.PublicKey[0].Value)
-		private, err := store.Get(pub)
-		require.Nil(t, err)
-		require.NotNil(t, private)
-
-		// verify DID identifier
-		switch method {
-		case peerDIDMethod:
-			require.Equal(t, didDoc.ID[0:9], "did:peer:")
-		default:
-			require.Fail(t, "Invalid DID Method")
-		}
-	}
-
-	t.Run("create/fetch Peer DID with service type", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(storeProvider))
-		require.NoError(t, err)
-		didDoc, err := w.CreateDID(peerDIDMethod, WithServiceType(serviceTypeDIDComm))
-		require.NoError(t, err)
-		require.NotNil(t, didDoc)
-
-		verifyDID(t, peerDIDMethod, didDoc)
-
-		// verify services
-		require.NotEmpty(t, didDoc.Service)
-		for _, service := range didDoc.Service {
-			require.NotEmpty(t, service.ID)
-			require.Equal(t, "#agent", service.ID)
-			require.NotEmpty(t, service.Type)
-			require.Equal(t, serviceTypeDIDComm, service.Type)
-			require.NotEmpty(t, service.ServiceEndpoint)
-			require.Equal(t, serviceEndpoint, service.ServiceEndpoint)
-		}
-
-		result, err := w.GetDID(didDoc.ID)
-		verifyDID(t, peerDIDMethod, didDoc)
-		require.Nil(t, err)
-		require.Equal(t, result.Service, didDoc.Service)
-		require.Equal(t, result.PublicKey, didDoc.PublicKey)
-	})
-
-	t.Run("create new DID without service type", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(storeProvider))
-		require.NoError(t, err)
-		didDoc, err := w.CreateDID(peerDIDMethod)
-		require.NoError(t, err)
-		require.NotNil(t, didDoc)
-
-		verifyDID(t, peerDIDMethod, didDoc)
-
-		// verify services
-		require.Empty(t, didDoc.Service)
-
-		result, err := w.GetDID(didDoc.ID)
-		verifyDID(t, peerDIDMethod, didDoc)
-		require.Nil(t, err)
-		require.Empty(t, result.Service)
-		require.Equal(t, result.PublicKey, didDoc.PublicKey)
-	})
-
-	t.Run("try to get non existing DID", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(storeProvider))
-		require.Nil(t, err)
-		require.NotNil(t, w)
-
-		result, err := w.GetDID("non-existing-did")
-		require.Equal(t, err, storage.ErrDataNotFound)
-		require.Nil(t, result)
-	})
-
-	t.Run("failure while getting DID by ID", func(t *testing.T) {
-		const errMsg = "sample-error-msg"
-		mockStoreProvider := &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-			Store:  make(map[string][]byte),
-			ErrPut: errors.New(errMsg),
-			ErrGet: errors.New(errMsg),
-		}}
-
-		w, err := New(newMockWalletProvider(mockStoreProvider))
-		require.NoError(t, err)
-
-		didDoc, err := w.CreateDID(peerDIDMethod, WithServiceType(serviceTypeDIDComm))
-		require.Nil(t, didDoc)
-		require.NotNil(t, err)
-		require.Contains(t, err.Error(), "failed to create DID")
-		require.Contains(t, err.Error(), errMsg)
-
-		didDoc, err = w.GetDID("sample-did")
-		require.Nil(t, didDoc)
-		require.NotNil(t, err)
-		require.Equal(t, err, storage.ErrDataNotFound)
-	})
-
-	t.Run("invalid DID method", func(t *testing.T) {
-		w, err := New(newMockWalletProvider(storeProvider))
-		require.NoError(t, err)
-		_, err = w.CreateDID("invalid")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid DID Method")
 	})
 }
 
@@ -529,8 +384,4 @@ type mockProvider struct {
 
 func (m *mockProvider) StorageProvider() storage.Provider {
 	return m.storage
-}
-
-func (m *mockProvider) InboundTransportEndpoint() string {
-	return serviceEndpoint
 }

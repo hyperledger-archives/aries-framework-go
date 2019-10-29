@@ -21,11 +21,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/common/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdr/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
+
+const testMethod = "peer"
 
 func TestService_Name(t *testing.T) {
 	prov, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
@@ -38,7 +40,7 @@ func TestService_Name(t *testing.T) {
 func TestService_Handle_Inviter(t *testing.T) {
 	prov := protocol.MockProvider{}
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-	newDidDoc, err := ctx.didCreator.CreateDID()
+	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 
 	s, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
@@ -146,7 +148,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	store := mockstorage.NewMockStoreProvider()
 	prov := protocol.MockProvider{}
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-	newDidDoc, err := ctx.didCreator.CreateDID()
+	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 
 	s, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{StoreProvider: store})
@@ -275,7 +277,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		prov := protocol.MockProvider{}
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		newDidDoc, err := ctx.didCreator.CreateDID()
+		newDidDoc, err := ctx.didCreator.Create(testMethod)
 		require.NoError(t, err)
 
 		s, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
