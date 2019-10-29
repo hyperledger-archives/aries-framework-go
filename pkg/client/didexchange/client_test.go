@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
-	"crypto"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -207,6 +206,23 @@ func TestClient_GetConnection(t *testing.T) {
 	})
 }
 
+func TestClientGetConnectionAtState(t *testing.T) {
+	// create service
+	svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
+	require.NoError(t, err)
+	require.NotNil(t, svc)
+
+	// create client
+	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		ServiceValue: svc})
+	require.NoError(t, err)
+
+	// not found
+	result, err := c.GetConnectionAtState("id1", "complete")
+	require.Equal(t, err.Error(), ErrConnectionNotFound.Error())
+	require.Nil(t, result)
+}
+
 func TestClient_RemoveConnection(t *testing.T) {
 	svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 	require.NoError(t, err)
@@ -266,12 +282,11 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 
 func TestServiceEvents(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
-	recorder := didexchange.NewConnectionRecorder(store.Store)
 	didExSvc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{StoreProvider: store})
 	require.NoError(t, err)
 
 	// create the client
-	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: didExSvc})
+	c, err := New(&mockprovider.Provider{StorageProviderValue: store, ServiceValue: didExSvc})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -287,9 +302,13 @@ func TestServiceEvents(t *testing.T) {
 	mCh := make(chan service.StateMsg, 10)
 	err = c.RegisterMsgEvent(mCh)
 	require.NoError(t, err)
+
+	stateMsg := make(chan service.StateMsg)
 	go func() {
 		for e := range mCh {
-			fmt.Println("message = ", e.Type)
+			if e.Type == service.PostState && e.StateID == "responded" {
+				stateMsg <- e
+			}
 		}
 	}()
 
@@ -316,35 +335,22 @@ func TestServiceEvents(t *testing.T) {
 	err = didExSvc.HandleInbound(msg)
 	require.NoError(t, err)
 
-	validateState(t, recorder, id, "responded", 100*time.Millisecond)
-}
-
-func validateState(t *testing.T, recorder *didexchange.ConnectionRecorder, id, expected string,
-	timeoutDuration time.Duration) {
-	actualState := ""
-	theirPrefix := "their"
-	timeout := time.After(timeoutDuration)
-	for {
-		select {
-		case <-timeout:
-			require.Fail(t, fmt.Sprintf("id=%s expectedState=%s actualState=%s", id, expected, actualState))
-			return
+	select {
+	case e := <-stateMsg:
+		switch v := e.Properties.(type) {
+		case Event:
+			props := v
+			conn, err := c.GetConnectionAtState(props.ConnectionID(), e.StateID)
+			require.NoError(t, err)
+			require.Equal(t, e.StateID, conn.State)
 		default:
-			key := createNSKey(theirPrefix, id)
-			connRec, err := recorder.GetConnectionRecordByNSThreadID(key)
-			if err != nil || expected != connRec.State {
-				continue
-			}
-			return
+			require.Fail(t, "unable to cast to did exchange event")
 		}
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "tests are not validated due to timeout")
 	}
 }
-func createNSKey(prefix, id string) string {
-	h := crypto.SHA256.New()
-	hash := h.Sum([]byte(id))
-	storeKey := fmt.Sprintf("%x", hash)
-	return fmt.Sprintf("%s_%s", prefix, storeKey)
-}
+
 func TestServiceEventError(t *testing.T) {
 	didExSvc := mockprotocol.MockDIDExchangeSvc{
 		ProtocolName:           didexchange.DIDExchange,

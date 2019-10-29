@@ -114,7 +114,19 @@ func (c *ConnectionRecorder) GetInvitation(id string) (*Invitation, error) {
 
 // GetConnectionRecord return connection record based on the connection ID
 func (c *ConnectionRecorder) GetConnectionRecord(connectionID string) (*ConnectionRecord, error) {
-	k := connectionKeyPrefix(connectionID)
+	return c.getAndUnmarshal(connectionKeyPrefix(connectionID))
+}
+
+// GetConnectionRecordAtState return connection record based on the connection ID and state.
+func (c *ConnectionRecorder) GetConnectionRecordAtState(connectionID, stateID string) (*ConnectionRecord, error) {
+	if stateID == "" {
+		return nil, errors.New("stateID can't be empty")
+	}
+
+	return c.getAndUnmarshal(connectionKeyPrefix(connectionID + stateID))
+}
+
+func (c *ConnectionRecorder) getAndUnmarshal(k string) (*ConnectionRecord, error) {
 	connRecordBytes, err := c.store.Get(k)
 	if err != nil {
 		return nil, fmt.Errorf("get connection record: %w", err)
@@ -139,12 +151,26 @@ func (c *ConnectionRecorder) GetConnectionRecordByNSThreadID(nsThreadID string) 
 }
 
 // saveConnectionRecord saves the connection record against the connection id  in the store
+// TODO - https://github.com/hyperledger/aries-framework-go/issues/622 Transient v Permanent Data store
 func (c *ConnectionRecorder) saveConnectionRecord(record *ConnectionRecord) error {
-	k := connectionKeyPrefix(record.ConnectionID)
-	bytes, err := json.Marshal(record)
+	if err := c.marshalAndSave(connectionKeyPrefix(record.ConnectionID), record); err != nil {
+		return fmt.Errorf("save connection record: %w", err)
+	}
+
+	if record.State != "" {
+		return c.marshalAndSave(connectionKeyPrefix(record.ConnectionID+record.State), record)
+	}
+
+	return nil
+}
+
+func (c *ConnectionRecorder) marshalAndSave(k string, v *ConnectionRecord) error {
+	bytes, err := json.Marshal(v)
+
 	if err != nil {
 		return fmt.Errorf("save connection record: %w", err)
 	}
+
 	return c.store.Put(k, bytes)
 }
 
@@ -179,6 +205,7 @@ func (c *ConnectionRecorder) saveNSThreadID(thid, namespace, connectionID string
 
 	return c.store.Put(k, []byte(connectionID))
 }
+
 func prepareConnectionRecord(connRecBytes []byte) (*ConnectionRecord, error) {
 	connRecord := &ConnectionRecord{}
 	err := json.Unmarshal(connRecBytes, connRecord)
