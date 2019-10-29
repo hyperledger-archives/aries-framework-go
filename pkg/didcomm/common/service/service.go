@@ -35,10 +35,37 @@ type Header struct {
 	Type   string           `json:"@type"`
 }
 
+func (h *Header) clone() *Header {
+	if h == nil {
+		return nil
+	}
+
+	return &Header{
+		ID: h.ID,
+		Thread: decorator.Thread{
+			ID: h.Thread.ID,
+		},
+		Type: h.Type,
+	}
+}
+
 // DIDCommMsg did comm msg
 type DIDCommMsg struct {
 	Header  *Header
 	Payload []byte
+}
+
+// Clone creates new DIDCommMsg with the same data
+// the cloned message is safe for delivering to the client
+// it prevents modifying by the client
+func (m *DIDCommMsg) Clone() *DIDCommMsg {
+	if m == nil {
+		return nil
+	}
+	return &DIDCommMsg{
+		Header:  m.Header.clone(),
+		Payload: append(m.Payload[:0:0], m.Payload...),
+	}
 }
 
 // NewDIDCommMsg returns DIDCommMsg with Header

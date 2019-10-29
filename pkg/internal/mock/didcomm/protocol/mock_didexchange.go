@@ -21,7 +21,7 @@ import (
 // MockDIDExchangeSvc mock did exchange service
 type MockDIDExchangeSvc struct {
 	ProtocolName             string
-	HandleFunc               func(service.DIDCommMsg) error
+	HandleFunc               func(*service.DIDCommMsg) error
 	AcceptFunc               func(string) bool
 	RegisterActionEventErr   error
 	UnregisterActionEventErr error
@@ -32,7 +32,7 @@ type MockDIDExchangeSvc struct {
 // HandleInbound msg
 func (m *MockDIDExchangeSvc) HandleInbound(msg *service.DIDCommMsg) error {
 	if m.HandleFunc != nil {
-		return m.HandleFunc(*msg)
+		return m.HandleFunc(msg)
 	}
 	return nil
 }

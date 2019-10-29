@@ -232,7 +232,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 
 	t.Run("test error from handle msg", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg service.DIDCommMsg) error {
+			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg *service.DIDCommMsg) error {
 				return fmt.Errorf("handle error")
 			}},
 			WalletValue: &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})

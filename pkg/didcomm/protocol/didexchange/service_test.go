@@ -694,7 +694,7 @@ func TestEventStoreError(t *testing.T) {
 	go func() {
 		for e := range actionCh {
 			e.Continue = func() {
-				svc.processCallback("invalid-id", nil)
+				svc.processCallback(&message{Msg: &service.DIDCommMsg{Header: &service.Header{}}})
 			}
 			e.Continue()
 		}
@@ -722,46 +722,18 @@ func TestEventProcessCallback(t *testing.T) {
 	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
-	jsonDoc, err := json.Marshal(&message{ThreadID: threadIDValue,
-		Msg: &service.DIDCommMsg{Header: &service.Header{Type: AckMsgType}}})
-	require.NoError(t, err)
+	msg := &message{
+		ThreadID: threadIDValue,
+		Msg:      &service.DIDCommMsg{Header: &service.Header{Type: AckMsgType}},
+	}
 
-	id := generateRandomID()
-
-	err = svc.store.Put(id, jsonDoc)
-	require.NoError(t, err)
-
-	err = svc.process(id)
+	err = svc.handle(msg)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "processing of the message : invalid state name: invalid state name")
+	require.Contains(t, err.Error(), "invalid state name: invalid state name ")
 
-	err = svc.processFailure(id, nil)
+	err = svc.abandon(msg.ThreadID, msg.Msg, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unable to update the state to abandoned")
-}
-
-func TestTransientEventData(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
-	require.NoError(t, err)
-
-	id := generateRandomID()
-	thid := generateRandomID()
-
-	err = svc.store.Put(id, []byte("invalid json"))
-	require.NoError(t, err)
-
-	_, err = svc.getTransientEventData(id)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "JSON marshalling : invalid character")
-
-	jsonDoc, err := json.Marshal(&message{ThreadID: thid})
-	require.NoError(t, err)
-	err = svc.store.Put(id, jsonDoc)
-	require.NoError(t, err)
-
-	m, err := svc.getTransientEventData(id)
-	require.NoError(t, err)
-	require.Equal(t, thid, m.ThreadID)
 }
 
 func TestUpdateState(t *testing.T) {
@@ -775,44 +747,12 @@ func TestUpdateState(t *testing.T) {
 	require.Contains(t, err.Error(), "db error")
 }
 
-func TestHandleInboundError(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
-	require.NoError(t, err)
-
-	svc.store = &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
-
-	actionCh := make(chan service.DIDCommAction, 10)
-	err = svc.RegisterActionEvent(actionCh)
-	require.NoError(t, err)
-
-	id := randomString()
-
-	request, err := json.Marshal(
-		&Request{
-			Type:  RequestMsgType,
-			ID:    id,
-			Label: "test",
-		},
-	)
-	require.NoError(t, err)
-	didMsg, err := service.NewDIDCommMsg(request)
-	require.NoError(t, err)
-
-	err = svc.HandleInbound(didMsg)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "send events failed")
-}
-
 func TestService_No_Execution(t *testing.T) {
 	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
 	require.NoError(t, err)
-	msg := service.DIDCommMsg{
+	require.EqualError(t, svc.HandleInbound(&service.DIDCommMsg{
 		Header: &service.Header{Type: ResponseMsgType},
-	}
-
-	err = svc.HandleInbound(&msg)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no clients are registered to handle the message")
+	}), "no clients are registered to handle the message")
 }
 
 func validateState(t *testing.T, svc *Service, id, namespace, expected string) {

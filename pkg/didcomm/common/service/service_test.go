@@ -75,6 +75,11 @@ func TestDIDCommMsg_ThreadID(t *testing.T) {
 		msg:  DIDCommMsg{Header: &Header{Thread: decorator.Thread{ID: "thID"}}},
 		val:  "",
 		err:  ErrInvalidMessage.Error(),
+	}, {
+		name: "No Thread ID and ID",
+		msg:  DIDCommMsg{Header: &Header{}},
+		val:  "",
+		err:  ErrThreadIDNotFound.Error(),
 	}}
 	t.Parallel()
 	for _, test := range tests {
@@ -87,4 +92,31 @@ func TestDIDCommMsg_ThreadID(t *testing.T) {
 			require.Equal(t, tc.val, val)
 		})
 	}
+}
+
+func TestDIDCommMsg_Clone(t *testing.T) {
+	var didMsg *DIDCommMsg
+	require.Nil(t, didMsg)
+	// clone nil DIDCommMsg
+	require.Equal(t, didMsg, didMsg.Clone())
+
+	// clone DIDCommMsg with Payload and modified Payload
+	didMsg = &DIDCommMsg{Payload: []byte{0x1}}
+	cloned := didMsg.Clone()
+	require.Equal(t, didMsg, cloned)
+	// modifies Payload
+	didMsg.Payload[0] = 0x2
+	require.NotEqual(t, didMsg, cloned)
+
+	// clone DIDCommMsg with Payload and Header
+	didMsg = &DIDCommMsg{Payload: []byte{0x1}, Header: &Header{
+		ID:     "ID",
+		Thread: decorator.Thread{ID: "ID"},
+		Type:   "Type",
+	}}
+	cloned = didMsg.Clone()
+	require.Equal(t, didMsg, cloned)
+	// modifies Header
+	didMsg.Header.ID = "newID"
+	require.NotEqual(t, didMsg, cloned)
 }

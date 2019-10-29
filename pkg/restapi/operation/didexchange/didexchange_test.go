@@ -15,6 +15,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -282,7 +283,7 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 	svc, err := New(&mockprovider.Provider{
 		ServiceValue: &protocol.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
-			HandleFunc: func(msg service.DIDCommMsg) error {
+			HandleFunc: func(msg *service.DIDCommMsg) error {
 				return handleErr
 			},
 		},
@@ -320,6 +321,9 @@ func TestServiceEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	done := make(chan struct{})
+	// TODO: the test is failing sometimes, need to review the test logic
+	//       and make sure that `once` solution is fine or fix this test according to logic
+	var once sync.Once
 
 	// create the client
 	op, err := New(&mockprovider.Provider{StorageProviderValue: store,
@@ -333,7 +337,7 @@ func TestServiceEvents(t *testing.T) {
 				require.NoError(t, jsonErr)
 
 				if conn.State == "responded" {
-					close(done)
+					once.Do(func() { close(done) })
 				}
 
 				return nil
@@ -406,7 +410,6 @@ func TestHandleMessageEvent(t *testing.T) {
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 	require.NoError(t, storeProv.Store.Put("conn_"+e.ConnectionID(), connBytes))
-
 	err = op.handleMessageEvents(service.StateMsg{Type: service.PostState, Properties: "invalid didex prop type"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "event is not of DIDExchange event type")
