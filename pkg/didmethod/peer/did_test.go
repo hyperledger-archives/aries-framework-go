@@ -20,8 +20,8 @@ func TestComputeDID(t *testing.T) {
 	require.NotNil(t, storedDoc)
 	peerDID, err := computeDid(storedDoc)
 	require.NoError(t, err)
-	require.NotNil(t, peerDID)
-	assert.Contains(t, peerDID, "did:peer:11")
+	require.Len(t, peerDID, 57)
+	require.Equal(t, peerDID, "did:peer:1zQmVP6iorWky5rP9f6qxCyhRJ4tkEkvXWkbCpVXnbzFu4aL")
 }
 
 func TestComputeDIDError(t *testing.T) {
@@ -29,18 +29,6 @@ func TestComputeDIDError(t *testing.T) {
 	_, err := computeDid(storedDoc)
 	require.Error(t, err)
 	assert.Equal(t, err.Error(), "the genesis version must include public keys and authentication")
-}
-
-func TestComputeHash(t *testing.T) {
-	hash, err := computeHash([]byte("Test"))
-	assert.Nil(t, err)
-	assert.NotNil(t, hash)
-}
-func TestComputeHashError(t *testing.T) {
-	hash, err := computeHash([]byte(""))
-	assert.NotNil(t, err)
-	assert.Contains(t, err.Error(), "empty bytes")
-	assert.Nil(t, hash)
 }
 func TestValidateDid(t *testing.T) {
 	peerDoc, err := peerDidDoc()
@@ -54,30 +42,30 @@ func TestValidateDIDError(t *testing.T) {
 	require.NotNil(t, peerDoc)
 	err := validateDID(peerDoc)
 	require.Error(t, err)
-	require.Equal(t, "did doesnt follow matching regex", err.Error())
+	require.Contains(t, err.Error(), "did doesnt follow matching regex")
 }
 func TestValidateErrorHashString(t *testing.T) {
-	peerDoc := &did.Doc{ID: "did:peer:11-479cbc07c3f991725836a3aa2a581ca2029198aa420b9d99bc0e131d9f3e2cbe"}
+	peerDoc := &did.Doc{ID: "did:peer:1zQmVP6iorWky5rP9f6qxCyhRJ4tkEkvXWkbCpVXnbzFu4ay"}
 	err := validateDID(peerDoc)
 	require.Error(t, err)
-	require.Equal(t, "hash of the doc doesnt match the computed hash", err.Error())
+	require.Contains(t, err.Error(), "multiHash of the doc doesnt match the computed multiHash")
 }
 
 func TestValidateDIDRegex(t *testing.T) {
 	did1 := &did.Doc{ID: "did:peer:22"}
 	err := validateDID(did1)
 	require.Error(t, err)
-	require.Equal(t, err.Error(), "did doesnt follow matching regex")
+	require.Contains(t, err.Error(), "did doesnt follow matching regex")
 
 	did2 := &did.Doc{ID: "did:sidetree:22"}
 	err = validateDID(did2)
 	require.Error(t, err)
-	require.Equal(t, err.Error(), "did doesnt follow matching regex")
+	require.Contains(t, err.Error(), "did doesnt follow matching regex")
 
 	did3 := &did.Doc{ID: "did:peer:1-*&$*|||"}
 	err = validateDID(did3)
 	require.Error(t, err)
-	require.Equal(t, err.Error(), "did doesnt follow matching regex")
+	require.Contains(t, err.Error(), "did doesnt follow matching regex")
 }
 
 func TestNewDoc(t *testing.T) {
