@@ -9,9 +9,11 @@ package protocol
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockdidresolver "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didresolver"
+	mockdidstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -111,4 +113,9 @@ func (p *MockProvider) Signer() wallet.Signer {
 // DIDResolver is mock DID resolver
 func (p *MockProvider) DIDResolver() didresolver.Resolver {
 	return &mockdidresolver.MockResolver{}
+}
+
+// DIDStore is mock DID store
+func (p *MockProvider) DIDStore() didstore.Storage {
+	return &mockdidstore.MockDidStore{}
 }

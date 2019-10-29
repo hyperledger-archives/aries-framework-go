@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -33,6 +34,7 @@ type Provider struct {
 	outboundTransport        transport.OutboundTransport
 	didResolver              didresolver.Resolver
 	didCreator               didcreator.Creator
+	didStore                 didstore.Storage
 }
 
 // New instantiated new context provider
@@ -126,6 +128,11 @@ func (p *Provider) DIDCreator() didcreator.Creator {
 	return p.didCreator
 }
 
+// DIDStore returns did store
+func (p *Provider) DIDStore() didstore.Storage {
+	return p.didStore
+}
+
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
@@ -149,6 +156,14 @@ func WithOutboundTransport(ot transport.OutboundTransport) ProviderOption {
 func WithProtocolServices(services ...dispatcher.Service) ProviderOption {
 	return func(opts *Provider) error {
 		opts.services = services
+		return nil
+	}
+}
+
+// WithDIDStore injects did store into the context.
+func WithDIDStore(store didstore.Storage) ProviderOption {
+	return func(opts *Provider) error {
+		opts.didStore = store
 		return nil
 	}
 }

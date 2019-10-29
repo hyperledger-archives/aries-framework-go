@@ -47,7 +47,7 @@ func (dc *DIDCreator) Build(pubKey *api.PubKey, opts *api.CreateDIDOpts) (*did.D
 
 // Accept did method
 func (dc *DIDCreator) Accept(method string) bool {
-	return method == "peer"
+	return method == didMethod
 }
 
 // applyCreatorOpts applies creator options to doc options

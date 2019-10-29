@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -22,16 +23,10 @@ const (
 	StoreNamespace = "didresolver"
 )
 
-// DIDModifiedBy key/signature used to update the Peer DID Document
-type DIDModifiedBy struct {
-	Key string `json:"key,omitempty"`
-	Sig string `json:"sig,omitempty"`
-}
-
 type docDelta struct {
-	Change     string           `json:"change,omitempty"`
-	ModifiedBy *[]DIDModifiedBy `json:"by,omitempty"`
-	ModifiedAt time.Time        `json:"when,omitempty"`
+	Change     string                 `json:"change,omitempty"`
+	ModifiedBy *[]didstore.ModifiedBy `json:"by,omitempty"`
+	ModifiedAt time.Time              `json:"when,omitempty"`
 }
 
 // DIDStore Peer DID Document store
@@ -47,7 +42,7 @@ func NewDIDStore(s storage.Store) *DIDStore {
 }
 
 // Put saves Peer DID Document along with user key/signature.
-func (s *DIDStore) Put(doc *did.Doc, by *[]DIDModifiedBy) error {
+func (s *DIDStore) Put(doc *did.Doc, by *[]didstore.ModifiedBy) error {
 	if doc == nil || doc.ID == "" {
 		return errors.New("DID and document are mandatory")
 	}
@@ -105,6 +100,11 @@ func (s *DIDStore) Get(id string) (*did.Doc, error) {
 	}
 
 	return document, nil
+}
+
+// Accept did method
+func (s *DIDStore) Accept(method string) bool {
+	return method == didMethod
 }
 
 func (s *DIDStore) getDeltas(id string) ([]docDelta, error) {

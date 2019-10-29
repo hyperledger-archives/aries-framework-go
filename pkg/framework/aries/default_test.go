@@ -33,7 +33,7 @@ func TestDefaultFramework(t *testing.T) {
 
 		err := defFrameworkOpts(aries)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "resolver initialization failed")
+		require.Contains(t, err.Error(), "storage initialization failed")
 	})
 
 	t.Run("test default framework - inbound transport error", func(t *testing.T) {

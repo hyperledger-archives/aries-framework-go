@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/factory/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -40,14 +41,8 @@ func transportProviderFactory() api.TransportProviderFactory {
 }
 
 // didResolverProvider provides default DID resolver.
-func didResolverProvider(dbprov storage.Provider) (didresolver.Resolver, error) {
-	dbstore, err := dbprov.OpenStore(peer.StoreNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("storage initialization failed : %w", err)
-	}
-
-	resl := didresolver.New(didresolver.WithDidMethod(peer.NewDIDResolver(peer.NewDIDStore(dbstore))))
-	return resl, nil
+func didResolverProvider(dbstore storage.Store) didresolver.Resolver {
+	return didresolver.New(didresolver.WithDidMethod(peer.NewDIDResolver(peer.NewDIDStore(dbstore))))
 }
 
 func storeProvider() (storage.Provider, error) {
@@ -90,15 +85,18 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.inboundTransport = inbound
 	}
 
-	if frameworkOpts.didResolver == nil {
-		resolver, err := didResolverProvider(frameworkOpts.storeProvider)
-		if err != nil {
-			return fmt.Errorf("resolver initialization failed : %w", err)
-		}
-		frameworkOpts.didResolver = resolver
+	didDBStore, err := frameworkOpts.storeProvider.OpenStore(peer.StoreNamespace)
+	if err != nil {
+		return fmt.Errorf("storage initialization failed : %w", err)
 	}
 
-	setAdditionalDefaultOpts(frameworkOpts)
+	if frameworkOpts.didResolver == nil {
+		frameworkOpts.didResolver = didResolverProvider(didDBStore)
+	}
+
+	if frameworkOpts.didStore == nil {
+		frameworkOpts.didStore = didstore.New(didstore.WithDidMethod(peer.NewDIDStore(didDBStore)))
+	}
 
 	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) {
 		dc, err := didcreator.New(prv,
@@ -111,6 +109,8 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		return didexchange.New(dc, prv)
 	}
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc)
+
+	setAdditionalDefaultOpts(frameworkOpts)
 
 	return nil
 }
