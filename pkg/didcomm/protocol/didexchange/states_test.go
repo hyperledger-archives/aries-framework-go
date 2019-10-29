@@ -108,7 +108,7 @@ func TestAbandonedState(t *testing.T) {
 	require.False(t, abandoned.CanTransitionTo(&requested{}))
 	require.False(t, abandoned.CanTransitionTo(&responded{}))
 	require.False(t, abandoned.CanTransitionTo(&completed{}))
-	connRec, _, _, err := abandoned.Execute(&stateMachineMsg{}, "", &context{})
+	connRec, _, _, err := abandoned.ExecuteInbound(&stateMachineMsg{}, "", &context{})
 	require.Error(t, err)
 	require.Nil(t, connRec)
 	require.Contains(t, err.Error(), "not implemented")
@@ -197,16 +197,25 @@ func TestStateFromName(t *testing.T) {
 	})
 }
 
-// noOp.Execute() returns nil, error
+// noOp.ExecuteInbound() returns nil, error
 func TestNoOpState_Execute(t *testing.T) {
-	_, followup, _, err := (&noOp{}).Execute(&stateMachineMsg{}, "", &context{})
+	_, followup, _, err := (&noOp{}).ExecuteInbound(&stateMachineMsg{}, "", &context{})
 	require.Error(t, err)
+	require.Nil(t, followup)
+
+	_, followup, _, err = (&noOp{}).ExecuteOutbound(&stateMachineMsg{}, "", &context{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cannot execute no-op")
 	require.Nil(t, followup)
 }
 
-// null.Execute() is a no-op
+// null.ExecuteInbound() is a no-op
 func TestNullState_Execute(t *testing.T) {
-	_, followup, _, err := (&null{}).Execute(&stateMachineMsg{}, "", &context{})
+	_, followup, _, err := (&null{}).ExecuteInbound(&stateMachineMsg{}, "", &context{})
+	require.NoError(t, err)
+	require.IsType(t, &noOp{}, followup)
+
+	_, followup, _, err = (&null{}).ExecuteOutbound(&stateMachineMsg{}, "", &context{})
 	require.NoError(t, err)
 	require.IsType(t, &noOp{}, followup)
 }
@@ -215,14 +224,13 @@ func TestInvitedState_Execute(t *testing.T) {
 	t.Run("rejects msgs other than invitations", func(t *testing.T) {
 		others := []string{RequestMsgType, ResponseMsgType, AckMsgType}
 		for _, o := range others {
-			_, _, _, err := (&invited{}).Execute(&stateMachineMsg{header: &service.Header{Type: o}}, "", &context{})
+			_, _, _, err := (&invited{}).ExecuteInbound(&stateMachineMsg{header: &service.Header{Type: o}}, "", &context{})
 			require.Error(t, err)
 		}
 	})
 	t.Run("rejects outbound invitations", func(t *testing.T) {
-		_, _, _, err := (&invited{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: InvitationMsgType},
-			outbound: true,
+		_, _, _, err := (&invited{}).ExecuteOutbound(&stateMachineMsg{
+			header: &service.Header{Type: InvitationMsgType},
 		}, "", &context{})
 		require.Error(t, err)
 	})
@@ -238,9 +246,9 @@ func TestInvitedState_Execute(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		connRec, followup, _, err := (&invited{}).Execute(
+		connRec, followup, _, err := (&invited{}).ExecuteInbound(
 			&stateMachineMsg{header: &service.Header{Type: InvitationMsgType},
-				outbound: false, payload: invitationPayloadBytes},
+				payload: invitationPayloadBytes},
 			"",
 			&context{})
 		require.NoError(t, err)
@@ -265,14 +273,13 @@ func TestRequestedState_Execute(t *testing.T) {
 	t.Run("rejects msgs other than invitations or requests", func(t *testing.T) {
 		others := []string{ResponseMsgType, AckMsgType}
 		for _, o := range others {
-			_, _, _, e := (&requested{}).Execute(&stateMachineMsg{header: &service.Header{Type: o}}, "", &context{})
+			_, _, _, e := (&requested{}).ExecuteInbound(&stateMachineMsg{header: &service.Header{Type: o}}, "", &context{})
 			require.Error(t, e)
 		}
 	})
 	t.Run("rejects outbound invitations", func(t *testing.T) {
-		_, _, _, e := (&requested{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: InvitationMsgType},
-			outbound: true,
+		_, _, _, e := (&requested{}).ExecuteOutbound(&stateMachineMsg{
+			header: &service.Header{Type: InvitationMsgType},
 		}, "", &context{})
 		require.Error(t, e)
 	})
@@ -295,7 +302,7 @@ func TestRequestedState_Execute(t *testing.T) {
 		// nolint: govet
 		thid, err := threadID(msg)
 		require.NoError(t, err)
-		connRec, _, _, e := (expected).Execute(&stateMachineMsg{header: msg.Header, payload: msg.Payload}, thid, ctx)
+		connRec, _, _, e := (expected).ExecuteInbound(&stateMachineMsg{header: msg.Header, payload: msg.Payload}, thid, ctx)
 		require.NoError(t, e)
 		require.Equal(t, expected.Name(), connRec.State)
 	})
@@ -315,10 +322,9 @@ func TestRequestedState_Execute(t *testing.T) {
 	require.NoError(t, err)
 	// OutboundDestination needs to be present
 	t.Run("no followup for outbound requests", func(t *testing.T) {
-		_, followup, _, e := (&requested{}).Execute(&stateMachineMsg{
+		_, followup, _, e := (&requested{}).ExecuteOutbound(&stateMachineMsg{
 			header:              &service.Header{Type: RequestMsgType},
 			payload:             requestPayloadBytes,
-			outbound:            true,
 			outboundDestination: dest,
 		}, "", ctx)
 		require.NoError(t, e)
@@ -342,29 +348,26 @@ func TestRequestedState_Execute(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		_, followup, _, err := (&requested{}).Execute(&stateMachineMsg{
+		_, followup, _, err := (&requested{}).ExecuteOutbound(&stateMachineMsg{
 			header:              &service.Header{Type: RequestMsgType},
 			payload:             requestPayloadBytes,
-			outbound:            true,
 			outboundDestination: dest,
 		}, "", ctx2)
 		require.Error(t, err)
 		require.Nil(t, followup)
 	})
 	t.Run("followup to 'responded' on inbound requests", func(t *testing.T) {
-		_, followup, _, err := (&requested{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: RequestMsgType},
-			payload:  nil,
-			outbound: true,
+		_, followup, _, err := (&requested{}).ExecuteOutbound(&stateMachineMsg{
+			header:  &service.Header{Type: RequestMsgType},
+			payload: nil,
 		}, "", &context{})
 		require.Error(t, err)
 		require.Nil(t, followup)
 	})
 	t.Run("inbound request error", func(t *testing.T) {
-		_, followup, _, err := (&requested{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: InvitationMsgType},
-			payload:  nil,
-			outbound: false,
+		_, followup, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+			header:  &service.Header{Type: InvitationMsgType},
+			payload: nil,
 		}, "", &context{})
 		require.Error(t, err)
 		require.Nil(t, followup)
@@ -383,10 +386,9 @@ func TestRequestedState_Execute(t *testing.T) {
 				error) {
 				return nil, storage.ErrDataNotFound
 			}})}
-		connRec, followup, _, err := (&requested{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: InvitationMsgType},
-			payload:  invitationPayloadBytes,
-			outbound: false,
+		connRec, followup, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+			header:  &service.Header{Type: InvitationMsgType},
+			payload: invitationPayloadBytes,
 		}, "", ctx2)
 		require.Error(t, err)
 		require.Nil(t, followup)
@@ -396,10 +398,9 @@ func TestRequestedState_Execute(t *testing.T) {
 		ctx2 := &context{outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()},
 			signer:     &mockSigner{}}
-		_, followup, _, err := (&requested{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: InvitationMsgType},
-			payload:  invitationPayloadBytes,
-			outbound: false,
+		_, followup, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+			header:  &service.Header{Type: InvitationMsgType},
+			payload: invitationPayloadBytes,
 		}, "", ctx2)
 		require.Error(t, err)
 		require.Nil(t, followup)
@@ -421,14 +422,13 @@ func TestRespondedState_Execute(t *testing.T) {
 	t.Run("rejects msgs other than requests and responses", func(t *testing.T) {
 		others := []string{InvitationMsgType, AckMsgType}
 		for _, o := range others {
-			_, _, _, e := (&responded{}).Execute(&stateMachineMsg{header: &service.Header{Type: o}}, "", &context{})
+			_, _, _, e := (&responded{}).ExecuteInbound(&stateMachineMsg{header: &service.Header{Type: o}}, "", &context{})
 			require.Error(t, e)
 		}
 	})
 	t.Run("rejects outbound requests", func(t *testing.T) {
-		_, _, _, e := (&responded{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: RequestMsgType},
-			outbound: true,
+		_, _, _, e := (&responded{}).ExecuteOutbound(&stateMachineMsg{
+			header: &service.Header{Type: RequestMsgType},
 		}, "", &context{})
 		require.Error(t, e)
 	})
@@ -470,10 +470,9 @@ func TestRespondedState_Execute(t *testing.T) {
 		require.NoError(t, err)
 		err = ctx.connectionStore.saveNSThreadID(request.ID, findNameSpace(RequestMsgType), connRec.ConnectionID)
 		require.NoError(t, err)
-		connRec, followup, _, e := (&responded{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: RequestMsgType},
-			outbound: false,
-			payload:  requestPayloadBytes,
+		connRec, followup, _, e := (&responded{}).ExecuteInbound(&stateMachineMsg{
+			header:  &service.Header{Type: RequestMsgType},
+			payload: requestPayloadBytes,
 		}, "", ctx)
 		require.NoError(t, e)
 		require.NotNil(t, connRec)
@@ -485,20 +484,18 @@ func TestRespondedState_Execute(t *testing.T) {
 		require.NoError(t, err)
 		err = ctx.connectionStore.saveNSThreadID(request.ID, findNameSpace(ResponseMsgType), connRec.ConnectionID)
 		require.NoError(t, err)
-		connRec, followup, _, e := (&responded{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: ResponseMsgType},
-			outbound: false,
-			payload:  responsePayloadBytes,
+		connRec, followup, _, e := (&responded{}).ExecuteInbound(&stateMachineMsg{
+			header:  &service.Header{Type: ResponseMsgType},
+			payload: responsePayloadBytes,
 		}, "", ctx)
 		require.NoError(t, e)
 		require.NotNil(t, connRec)
 		require.Equal(t, (&completed{}).Name(), followup.Name())
 
 		// outboundDestination needs to be present
-		connRec, followup, _, e = (&responded{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: ResponseMsgType},
-			outbound: false,
-			payload:  nil,
+		connRec, followup, _, e = (&responded{}).ExecuteInbound(&stateMachineMsg{
+			header:  &service.Header{Type: ResponseMsgType},
+			payload: nil,
 		}, "", ctx)
 		require.Error(t, e)
 		require.Nil(t, connRec)
@@ -507,8 +504,8 @@ func TestRespondedState_Execute(t *testing.T) {
 	// OutboundDestination needs to be present
 	t.Run("no followup for outbound responses", func(t *testing.T) {
 		m := stateMachineMsg{header: &service.Header{Type: ResponseMsgType},
-			outbound: true, payload: responsePayloadBytes, outboundDestination: outboundDestination}
-		_, followup, _, e := (&responded{}).Execute(&m, "", ctx)
+			payload: responsePayloadBytes, outboundDestination: outboundDestination}
+		_, followup, _, e := (&responded{}).ExecuteOutbound(&m, "", ctx)
 		require.NoError(t, e)
 		require.IsType(t, &noOp{}, followup)
 	})
@@ -535,26 +532,24 @@ func TestRespondedState_Execute(t *testing.T) {
 		responsePayloadBytes, err = json.Marshal(response)
 		require.NoError(t, err)
 		m := stateMachineMsg{header: &service.Header{Type: ResponseMsgType},
-			outbound: true, payload: responsePayloadBytes, outboundDestination: outboundDestination}
-		_, followup, _, e := (&responded{}).Execute(&m, "", ctx2)
+			payload: responsePayloadBytes, outboundDestination: outboundDestination}
+		_, followup, _, e := (&responded{}).ExecuteOutbound(&m, "", ctx2)
 		require.Error(t, e)
 		require.Nil(t, followup)
 	})
 
 	t.Run("no followup for outbound responses error", func(t *testing.T) {
-		_, followup, _, e := (&responded{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: ResponseMsgType},
-			payload:  nil,
-			outbound: true,
+		_, followup, _, e := (&responded{}).ExecuteOutbound(&stateMachineMsg{
+			header:  &service.Header{Type: ResponseMsgType},
+			payload: nil,
 		}, "", &context{})
 		require.Error(t, e)
 		require.Nil(t, followup)
 	})
 	t.Run("inbound request error", func(t *testing.T) {
-		_, followup, _, e := (&responded{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: RequestMsgType},
-			payload:  nil,
-			outbound: false,
+		_, followup, _, e := (&responded{}).ExecuteOutbound(&stateMachineMsg{
+			header:  &service.Header{Type: RequestMsgType},
+			payload: nil,
 		}, "", &context{})
 		require.Error(t, e)
 		require.Nil(t, followup)
@@ -564,10 +559,9 @@ func TestRespondedState_Execute(t *testing.T) {
 		ctx2 := &context{outboundDispatcher: &mockdispatcher.MockOutbound{SendErr: fmt.Errorf("error")},
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}, signer: &mockSigner{},
 			connectionStore: NewConnectionRecorder(store)}
-		_, _, action, e := (&responded{}).Execute(&stateMachineMsg{
+		_, _, action, e := (&responded{}).ExecuteInbound(&stateMachineMsg{
 			header:              &service.Header{Type: RequestMsgType},
 			payload:             requestPayloadBytes,
-			outbound:            false,
 			outboundDestination: outboundDestination,
 		}, "", ctx2)
 		require.Error(t, e)
@@ -582,9 +576,8 @@ func TestRespondedState_Execute(t *testing.T) {
 		}
 		responsePayloadBytes, err := json.Marshal(response)
 		require.NoError(t, err)
-		_, followup, _, err := (&responded{}).Execute(&stateMachineMsg{
+		_, followup, _, err := (&responded{}).ExecuteOutbound(&stateMachineMsg{
 			header:              &service.Header{Type: ResponseMsgType},
-			outbound:            true,
 			payload:             responsePayloadBytes,
 			outboundDestination: outboundDestination,
 		}, "", ctx)
@@ -594,10 +587,9 @@ func TestRespondedState_Execute(t *testing.T) {
 	t.Run("handle inbound request public key error", func(t *testing.T) {
 		ctx2 := &context{outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDIDPublicKey()}, signer: &mockSigner{}}
-		_, followup, _, err := (&responded{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: RequestMsgType},
-			payload:  requestPayloadBytes,
-			outbound: false,
+		_, followup, _, err := (&responded{}).ExecuteInbound(&stateMachineMsg{
+			header:  &service.Header{Type: RequestMsgType},
+			payload: requestPayloadBytes,
 		}, "", ctx2)
 		require.Error(t, err)
 		require.Nil(t, followup)
@@ -605,7 +597,15 @@ func TestRespondedState_Execute(t *testing.T) {
 }
 func TestAbandonedState_Execute(t *testing.T) {
 	t.Run("execute abandon state", func(t *testing.T) {
-		connRec, s, action, err := (&abandoned{}).Execute(&stateMachineMsg{
+		connRec, s, action, err := (&abandoned{}).ExecuteInbound(&stateMachineMsg{
+			header: &service.Header{Type: ResponseMsgType}}, "", &context{})
+		require.Contains(t, err.Error(), "not implemented")
+		require.Nil(t, connRec)
+		require.Nil(t, s)
+		require.Nil(t, action)
+	})
+	t.Run("execute abandon state - outbound", func(t *testing.T) {
+		connRec, s, action, err := (&abandoned{}).ExecuteOutbound(&stateMachineMsg{
 			header: &service.Header{Type: ResponseMsgType}}, "", &context{})
 		require.Contains(t, err.Error(), "not implemented")
 		require.Nil(t, connRec)
@@ -627,7 +627,7 @@ func TestCompletedState_Execute(t *testing.T) {
 	t.Run("rejects msgs other than responses and acks", func(t *testing.T) {
 		others := []string{InvitationMsgType, RequestMsgType}
 		for _, o := range others {
-			_, _, _, err = (&completed{}).Execute(&stateMachineMsg{header: &service.Header{Type: o}}, "", &context{})
+			_, _, _, err = (&completed{}).ExecuteInbound(&stateMachineMsg{header: &service.Header{Type: o}}, "", &context{})
 			require.Error(t, err)
 		}
 	})
@@ -658,9 +658,8 @@ func TestCompletedState_Execute(t *testing.T) {
 	responsePayloadBytes, err := json.Marshal(response)
 
 	t.Run("rejects outbound responses", func(t *testing.T) {
-		_, _, _, err = (&completed{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: ResponseMsgType},
-			outbound: true,
+		_, _, _, err = (&completed{}).ExecuteOutbound(&stateMachineMsg{
+			header: &service.Header{Type: ResponseMsgType},
 		}, "", &context{})
 		require.Error(t, err)
 	})
@@ -671,9 +670,8 @@ func TestCompletedState_Execute(t *testing.T) {
 		err = ctx.connectionStore.saveNSThreadID(response.Thread.ID, findNameSpace(ResponseMsgType), connRec.ConnectionID)
 		require.NoError(t, err)
 
-		_, followup, _, e := (&completed{}).Execute(&stateMachineMsg{
+		_, followup, _, e := (&completed{}).ExecuteInbound(&stateMachineMsg{
 			header:              &service.Header{Type: ResponseMsgType},
-			outbound:            false,
 			payload:             responsePayloadBytes,
 			outboundDestination: outboundDestination,
 		}, "", ctx)
@@ -691,9 +689,8 @@ func TestCompletedState_Execute(t *testing.T) {
 		}
 		respPayloadBytes, err := json.Marshal(response)
 		require.NoError(t, err)
-		_, followup, _, err := (&completed{}).Execute(&stateMachineMsg{
+		_, followup, _, err := (&completed{}).ExecuteInbound(&stateMachineMsg{
 			header:              &service.Header{Type: ResponseMsgType},
-			outbound:            false,
 			payload:             respPayloadBytes,
 			outboundDestination: outboundDestination,
 		}, "", ctx)
@@ -701,9 +698,8 @@ func TestCompletedState_Execute(t *testing.T) {
 		require.Nil(t, followup)
 	})
 	t.Run("no followup for inbound responses error", func(t *testing.T) {
-		_, followup, _, err := (&completed{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: ResponseMsgType},
-			outbound: false,
+		_, followup, _, err := (&completed{}).ExecuteInbound(&stateMachineMsg{
+			header: &service.Header{Type: ResponseMsgType},
 		}, "", &context{})
 		require.Error(t, err)
 		require.Nil(t, followup)
@@ -724,37 +720,33 @@ func TestCompletedState_Execute(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		_, followup, _, err := (&completed{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: AckMsgType},
-			outbound: false,
-			payload:  ackPayloadBytes,
+		_, followup, _, err := (&completed{}).ExecuteInbound(&stateMachineMsg{
+			header:  &service.Header{Type: AckMsgType},
+			payload: ackPayloadBytes,
 		}, "", ctx)
 		require.NoError(t, err)
 		require.IsType(t, &noOp{}, followup)
 	})
 
 	t.Run("no followup for outbound acks error", func(t *testing.T) {
-		_, followup, _, err := (&completed{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: AckMsgType},
-			outbound: false,
-			payload:  nil,
+		_, followup, _, err := (&completed{}).ExecuteInbound(&stateMachineMsg{
+			header:  &service.Header{Type: AckMsgType},
+			payload: nil,
 		}, "", ctx)
 		require.Error(t, err)
 		require.Nil(t, followup)
 	})
 	t.Run("no followup for outbound acks outbound destination error", func(t *testing.T) {
-		_, followup, _, err := (&completed{}).Execute(&stateMachineMsg{
-			header:   &service.Header{Type: AckMsgType},
-			outbound: true,
-			payload:  ackPayloadBytes,
+		_, followup, _, err := (&completed{}).ExecuteOutbound(&stateMachineMsg{
+			header:  &service.Header{Type: AckMsgType},
+			payload: ackPayloadBytes,
 		}, "", ctx)
 		require.Error(t, err)
 		require.Nil(t, followup)
 	})
 	t.Run("no followup for outbound acks error", func(t *testing.T) {
-		_, followup, _, err := (&completed{}).Execute(&stateMachineMsg{
+		_, followup, _, err := (&completed{}).ExecuteOutbound(&stateMachineMsg{
 			header:              &service.Header{Type: AckMsgType},
-			outbound:            true,
 			outboundDestination: outboundDestination,
 		}, "", ctx)
 		require.Error(t, err)
@@ -766,8 +758,8 @@ func TestCompletedState_Execute(t *testing.T) {
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}, signer: &mockSigner{},
 			connectionStore: NewConnectionRecorder(store)}
 		_, followup, action, err := (&completed{}).
-			Execute(&stateMachineMsg{header: &service.Header{Type: ResponseMsgType}, payload: responsePayloadBytes,
-				outbound: false, outboundDestination: outboundDestination}, "", ctx2)
+			ExecuteInbound(&stateMachineMsg{header: &service.Header{Type: ResponseMsgType}, payload: responsePayloadBytes,
+				outboundDestination: outboundDestination}, "", ctx2)
 		require.Error(t, err)
 		require.Nil(t, followup)
 		require.Nil(t, action)

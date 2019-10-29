@@ -67,7 +67,6 @@ type provider interface {
 
 // stateMachineMsg is an internal struct used to pass data to state machine.
 type stateMachineMsg struct {
-	outbound            bool
 	outboundDestination *service.Destination
 	header              *service.Header
 	payload             []byte
@@ -215,7 +214,7 @@ func (s *Service) handle(msg *message) error {
 		var followup state
 		var connectionRecord *ConnectionRecord
 
-		connectionRecord, followup, action, err = next.Execute(&stateMachineMsg{
+		connectionRecord, followup, action, err = next.ExecuteInbound(&stateMachineMsg{
 			header: msg.Msg.Header, payload: msg.Msg.Payload}, msg.ThreadID, s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
