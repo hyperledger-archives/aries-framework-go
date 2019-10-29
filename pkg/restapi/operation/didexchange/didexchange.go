@@ -375,7 +375,7 @@ func (c *Operation) handleMessageEvents(e service.StateMsg) error {
 		switch v := e.Properties.(type) {
 		case didexchange.Event:
 			props := v
-			err := c.sendConnectionNotification(props.ConnectionID())
+			err := c.sendConnectionNotification(props.ConnectionID(), e.StateID)
 			if err != nil {
 				return fmt.Errorf("send connection notification failed : %w", err)
 			}
@@ -393,8 +393,8 @@ func (c *Operation) handleActionEvents(e service.DIDCommAction) {
 	e.Continue()
 }
 
-func (c *Operation) sendConnectionNotification(connectionID string) error {
-	conn, err := c.client.GetConnection(connectionID)
+func (c *Operation) sendConnectionNotification(connectionID, stateID string) error {
+	conn, err := c.client.GetConnectionAtState(connectionID, stateID)
 	if err != nil {
 		logger.Errorf("Send notification failed, topic[%s], connectionID[%s]", connectionsWebhookTopic, connectionID)
 		return fmt.Errorf("connection notification webhook : %w", err)

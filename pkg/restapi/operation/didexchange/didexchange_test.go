@@ -15,7 +15,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 
@@ -322,9 +321,6 @@ func TestServiceEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	done := make(chan struct{})
-	// TODO: the test is failing sometimes, need to review the test logic
-	//       and make sure that `once` solution is fine or fix this test according to logic
-	var once sync.Once
 
 	// create the client
 	op, err := New(&mockprovider.Provider{StorageProviderValue: store,
@@ -338,7 +334,7 @@ func TestServiceEvents(t *testing.T) {
 				require.NoError(t, jsonErr)
 
 				if conn.State == "responded" {
-					once.Do(func() { close(done) })
+					close(done)
 				}
 
 				return nil
@@ -419,13 +415,10 @@ func TestHandleMessageEvent(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "service processing failed : err type")
 
-	op.notifier = &mockNotifier{notifyFunc: func(topic string, message []byte) error {
-		return errors.New("webhook error")
-	}}
 	err = op.handleMessageEvents(service.StateMsg{Type: service.PostState, Properties: &didExEvent{}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "send connection notification failed : "+
-		"connection notification webhook : webhook error")
+		"connection notification webhook :")
 }
 
 func TestSendConnectionNotification(t *testing.T) {
@@ -438,20 +431,21 @@ func TestSendConnectionNotification(t *testing.T) {
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 	require.NoError(t, storeProv.Store.Put("conn_id1", connBytes))
+	require.NoError(t, storeProv.Store.Put("conn_id1"+"completed", connBytes))
 	t.Run("send notification success", func(t *testing.T) {
 		op, err := New(&mockprovider.Provider{StorageProviderValue: storeProv,
 			ServiceValue: &protocol.MockDIDExchangeSvc{}}, webhook.NewHTTPNotifier(nil))
 		require.NoError(t, err)
-		err = op.sendConnectionNotification(connID)
+		err = op.sendConnectionNotification(connID, "completed")
 		require.NoError(t, err)
 	})
 	t.Run("send notification connection not found error", func(t *testing.T) {
 		op, err := New(&mockprovider.Provider{StorageProviderValue: storeProv,
 			ServiceValue: &protocol.MockDIDExchangeSvc{}}, webhook.NewHTTPNotifier(nil))
 		require.NoError(t, err)
-		err = op.sendConnectionNotification("id2")
+		err = op.sendConnectionNotification("id2", "")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "connection notification webhook : connection not found")
+		require.Contains(t, err.Error(), "connection notification webhook : cannot fetch state from store:")
 	})
 	t.Run("send notification webhook error", func(t *testing.T) {
 		op, err := New(&mockprovider.Provider{StorageProviderValue: storeProv,
@@ -462,7 +456,7 @@ func TestSendConnectionNotification(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
-		err = op.sendConnectionNotification(connID)
+		err = op.sendConnectionNotification(connID, "completed")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "connection notification webhook : webhook error")
 	})

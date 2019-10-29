@@ -174,6 +174,20 @@ func (c *Client) GetConnection(connectionID string) (*Connection, error) {
 	}, nil
 }
 
+// GetConnectionAtState fetches connection record for connection id at particular state.
+func (c *Client) GetConnectionAtState(connectionID, stateID string) (*Connection, error) {
+	conn, err := c.connectionStore.GetConnectionRecordAtState(connectionID, stateID)
+	if err != nil {
+		if errors.Is(err, storage.ErrDataNotFound) {
+			return nil, ErrConnectionNotFound
+		}
+		return nil, fmt.Errorf("cannot fetch state from store: connectionid=%s err=%s", connectionID, err)
+	}
+	return &Connection{
+		conn,
+	}, nil
+}
+
 // RemoveConnection removes connection record for given id
 func (c *Client) RemoveConnection(id string) error {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/553 RemoveConnection from did exchange service
