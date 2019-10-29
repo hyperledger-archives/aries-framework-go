@@ -103,7 +103,8 @@ func TestStartAriesDRequests(t *testing.T) {
 	testInboundHostURL := randomURL()
 
 	go func() {
-		parameters := &agentParameters{&HTTPServer{}, testHostURL, testInboundHostURL, path, []string{}}
+		parameters := &agentParameters{&HTTPServer{}, testHostURL, testInboundHostURL,
+			"", path, []string{}}
 		err := startAgent(parameters)
 		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
 	}()
@@ -218,7 +219,7 @@ func TestStartCmdWithMissingHostArg(t *testing.T) {
 }
 
 func TestStartAgentWithBlankHost(t *testing.T) {
-	parameters := &agentParameters{&mockServer{}, "", randomURL(), "", []string{}}
+	parameters := &agentParameters{&mockServer{}, "", randomURL(), "", "", []string{}}
 	err := startAgent(parameters)
 
 	require.NotNil(t, err)
@@ -239,7 +240,8 @@ func TestStartCmdWithoutInboundHostArg(t *testing.T) {
 }
 
 func TestStartAgentWithBlankInboundHost(t *testing.T) {
-	parameters := &agentParameters{&mockServer{}, randomURL(), "", "", []string{}}
+	parameters := &agentParameters{&mockServer{}, randomURL(), "",
+		"", "", []string{}}
 	err := startAgent(parameters)
 
 	require.NotNil(t, err)
@@ -292,7 +294,8 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 	path1, cleanup1 := generateTempDir(t)
 	defer cleanup1()
 	go func() {
-		parameters := &agentParameters{&HTTPServer{}, host, inboundHost, path1, []string{}}
+		parameters := &agentParameters{&HTTPServer{}, host, inboundHost,
+			"", path1, []string{}}
 		err := startAgent(parameters)
 		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
 	}()
@@ -301,7 +304,7 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 
 	path2, cleanup2 := generateTempDir(t)
 	defer cleanup2()
-	parameters := &agentParameters{&HTTPServer{}, host, inboundHost2, path2, []string{}}
+	parameters := &agentParameters{&HTTPServer{}, host, inboundHost2, "", path2, []string{}}
 	err := startAgent(parameters)
 
 	require.NotNil(t, err)
@@ -319,14 +322,14 @@ func TestStartMultipleAgentsWithSameDBPath(t *testing.T) {
 	defer cleanup()
 
 	go func() {
-		parameters := &agentParameters{&HTTPServer{}, host1, inboundHost1, path, []string{}}
+		parameters := &agentParameters{&HTTPServer{}, host1, inboundHost1, "", path, []string{}}
 		err := startAgent(parameters)
 		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
 	}()
 
 	waitForServerToStart(t, host1, inboundHost1)
 
-	parameters := &agentParameters{&HTTPServer{}, host2, inboundHost2, path, []string{}}
+	parameters := &agentParameters{&HTTPServer{}, host2, inboundHost2, "", path, []string{}}
 	err := startAgent(parameters)
 
 	require.NotNil(t, err)

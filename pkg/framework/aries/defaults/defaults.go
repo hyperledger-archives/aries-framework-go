@@ -26,9 +26,9 @@ func WithStorePath(storePath string) aries.Option {
 }
 
 // WithInboundHTTPAddr return new default inbound transport.
-func WithInboundHTTPAddr(addr string) aries.Option {
+func WithInboundHTTPAddr(internalAddr, externalAddr string) aries.Option {
 	return func(opts *aries.Aries) error {
-		inbound, err := http.NewInbound(addr)
+		inbound, err := http.NewInbound(internalAddr, externalAddr)
 		if err != nil {
 			return fmt.Errorf("http inbound transport initialization failed : %w", err)
 		}

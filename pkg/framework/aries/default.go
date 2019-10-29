@@ -54,7 +54,7 @@ func storeProvider() (storage.Provider, error) {
 }
 
 func inboundTransport() (didcommtrans.InboundTransport, error) {
-	inbound, err := http.NewInbound(defaultInboundPort)
+	inbound, err := http.NewInbound(defaultInboundPort, "")
 	if err != nil {
 		return nil, fmt.Errorf("http inbound transport initialization failed: %w", err)
 	}

@@ -102,16 +102,20 @@ func validateHTTPMethod(w http.ResponseWriter, r *http.Request) bool {
 
 // Inbound http type.
 type Inbound struct {
-	server *http.Server
+	externalAddr string
+	server       *http.Server
 }
 
 // NewInbound creates a new HTTP inbound transport instance.
-func NewInbound(addr string) (*Inbound, error) {
-	if addr == "" {
+func NewInbound(internalAddr, externalAddr string) (*Inbound, error) {
+	if internalAddr == "" {
 		return nil, errors.New("http address is mandatory")
 	}
 
-	return &Inbound{server: &http.Server{Addr: addr}}, nil
+	if externalAddr == "" {
+		return &Inbound{externalAddr: internalAddr, server: &http.Server{Addr: internalAddr}}, nil
+	}
+	return &Inbound{externalAddr: externalAddr, server: &http.Server{Addr: internalAddr}}, nil
 }
 
 // Start the http server.
@@ -145,5 +149,5 @@ func (i *Inbound) Stop() error {
 // Endpoint provides the http connection details.
 func (i *Inbound) Endpoint() string {
 	// return http prefix as framework only supports http
-	return "http://" + i.server.Addr
+	return "http://" + i.externalAddr
 }

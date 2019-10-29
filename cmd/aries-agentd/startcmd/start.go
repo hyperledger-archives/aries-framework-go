@@ -36,7 +36,15 @@ const (
 	AgentInboundHostFlagShorthand = "i"
 
 	// AgentInboundHostFlagUsage is the usage text for the agent inbound host command line argument.
-	AgentInboundHostFlagUsage = "Inbound Host Name:Port"
+	AgentInboundHostFlagUsage = "Inbound Host Name:Port. This is used internally to start the inbound server."
+
+	agentInboundHostExternalFlagName = "inbound-host-external"
+
+	agentInboundHostExternalFlagShorthand = "e"
+
+	agentInboundHostExternalFlagUsage = "Inbound Host External Name:Port." +
+		" This is the URL for the inbound server as seen externally." +
+		" If not provided, then the internal inbound host will be used here."
 
 	// AgentDBPathFlagName is the flag name for the database path command line argument.
 	AgentDBPathFlagName = "db-path"
@@ -50,11 +58,9 @@ const (
 	// AgentWebhookFlagName is the flag name for the webhook command line argument.
 	AgentWebhookFlagName = "webhook-url"
 
-	// AgentWebhookFlagShorthand is the flag shorthand name for the webhook command line argument.
-	AgentWebhookFlagShorthand = "w"
+	agentWebhookFlagShorthand = "w"
 
-	// AgentWebhookFlagUsage is the flag usage text for the webhook command line argument.
-	AgentWebhookFlagUsage = "URL to send notifications to." +
+	agentWebhookFlagUsage = "URL to send notifications to." +
 		" This flag can be repeated, allowing for multiple listeners."
 )
 
@@ -67,9 +73,9 @@ var ErrMissingInboundHost = errors.New("unable to start aries agentd, HTTP Inbou
 var logger = log.New("aries-framework/agentd")
 
 type agentParameters struct {
-	server                    server
-	host, inboundHost, dbPath string
-	webhookURLs               []string
+	server                                                 server
+	host, inboundHostInternal, inboundHostExternal, dbPath string
+	webhookURLs                                            []string
 }
 
 type server interface {
@@ -108,7 +114,13 @@ func Cmd(server server) (*cobra.Command, error) {
 				return fmt.Errorf("agent DB path flag not found: %s", err)
 			}
 
-			parameters := &agentParameters{server, host, inboundHost, dbPath, webhookURLs}
+			inboundHostExternal, err := cmd.Flags().GetString(agentInboundHostExternalFlagName)
+			if err != nil {
+				return fmt.Errorf("agent DB path flag not found: %s", err)
+			}
+
+			parameters := &agentParameters{server, host, inboundHost,
+				inboundHostExternal, dbPath, webhookURLs}
 			err = startAgent(parameters)
 			if err != nil {
 				return fmt.Errorf("unable to start agent: %s", err)
@@ -117,31 +129,45 @@ func Cmd(server server) (*cobra.Command, error) {
 			return nil
 		},
 	}
+
+	err := createFlags(startCmd, &webhookURLs)
+	if err != nil {
+		return nil, err
+	}
+
+	return startCmd, nil
+}
+
+func createFlags(startCmd *cobra.Command, webhookURLs *[]string) error {
 	startCmd.Flags().StringP(AgentHostFlagName, AgentHostFlagShorthand, "", AgentHostFlagUsage)
 	err := startCmd.MarkFlagRequired(AgentHostFlagName)
 	if err != nil {
-		return nil, fmt.Errorf("tried to mark host flag as required but it was not found: %s", err)
+		return fmt.Errorf("tried to mark host flag as required but it was not found: %s", err)
 	}
 
 	startCmd.Flags().StringP(AgentInboundHostFlagName, AgentInboundHostFlagShorthand, "", AgentInboundHostFlagUsage)
 	err = startCmd.MarkFlagRequired(AgentInboundHostFlagName)
 	if err != nil {
-		return nil, fmt.Errorf("tried to mark inbound host flag as required but it was not found: %s", err)
+		return fmt.Errorf("tried to mark inbound host flag as required but it was not found: %s", err)
 	}
+
 	startCmd.Flags().StringP(AgentDBPathFlagName, AgentDBPathFlagShorthand, "", AgentDBPathFlagUsage)
 	err = startCmd.MarkFlagRequired(AgentDBPathFlagName)
 	if err != nil {
-		return nil, fmt.Errorf("tried to mark DB path flag as required but it was not found: %s", err)
+		return fmt.Errorf("tried to mark DB path flag as required but it was not found: %s", err)
 	}
 
-	startCmd.Flags().StringSliceVarP(&webhookURLs, AgentWebhookFlagName, AgentWebhookFlagShorthand, []string{},
-		AgentWebhookFlagUsage)
+	startCmd.Flags().StringSliceVarP(webhookURLs, AgentWebhookFlagName, agentWebhookFlagShorthand, []string{},
+		agentWebhookFlagUsage)
 	err = startCmd.MarkFlagRequired(AgentWebhookFlagName)
 	if err != nil {
-		return nil, fmt.Errorf("tried to mark agent webhook host flag as required but it was not found: %s", err)
+		return fmt.Errorf("tried to mark agent webhook host flag as required but it was not found: %s", err)
 	}
 
-	return startCmd, nil
+	startCmd.Flags().StringP(agentInboundHostExternalFlagName, agentInboundHostExternalFlagShorthand,
+		"", agentInboundHostExternalFlagUsage)
+
+	return nil
 }
 
 func startAgent(parameters *agentParameters) error {
@@ -149,11 +175,12 @@ func startAgent(parameters *agentParameters) error {
 		return ErrMissingHost
 	}
 
-	if parameters.inboundHost == "" {
+	if parameters.inboundHostInternal == "" {
 		return ErrMissingInboundHost
 	}
 	var opts []aries.Option
-	opts = append(opts, defaults.WithInboundHTTPAddr(parameters.inboundHost))
+
+	opts = append(opts, defaults.WithInboundHTTPAddr(parameters.inboundHostInternal, parameters.inboundHostExternal))
 
 	if parameters.dbPath != "" {
 		opts = append(opts, defaults.WithStorePath(parameters.dbPath))

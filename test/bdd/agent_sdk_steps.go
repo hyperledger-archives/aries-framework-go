@@ -63,7 +63,7 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort string, opts ..
 	if inboundPort == "random" {
 		inboundPort = strconv.Itoa(mustGetRandomPort(5))
 	}
-	opts = append(opts, defaults.WithInboundHTTPAddr(fmt.Sprintf("%s:%s", inboundHost, inboundPort)))
+	opts = append(opts, defaults.WithInboundHTTPAddr(fmt.Sprintf("%s:%s", inboundHost, inboundPort), ""))
 	opts = append(opts, defaults.WithStorePath(dbPath+"/"+agentID))
 	agent, err := aries.New(opts...)
 	if err != nil {

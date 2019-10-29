@@ -34,7 +34,7 @@ var logger = log.New("aries-framework/did-exchange")
 const (
 	operationID             = "/connections"
 	createInvitationPath    = operationID + "/create-invitation"
-	receiveInvtiationPath   = operationID + "/receive-invitation"
+	receiveInvitationPath   = operationID + "/receive-invitation"
 	acceptInvitationPath    = operationID + "/{id}/accept-invitation"
 	connections             = operationID
 	connectionsByID         = operationID + "/{id}"
@@ -326,7 +326,7 @@ func (c *Operation) registerHandler() {
 		support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
 		support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
 		support.NewHTTPHandler(createInvitationPath, http.MethodPost, c.CreateInvitation),
-		support.NewHTTPHandler(receiveInvtiationPath, http.MethodPost, c.ReceiveInvitation),
+		support.NewHTTPHandler(receiveInvitationPath, http.MethodPost, c.ReceiveInvitation),
 		support.NewHTTPHandler(acceptInvitationPath, http.MethodPost, c.AcceptInvitation),
 		support.NewHTTPHandler(acceptExchangeRequest, http.MethodPost, c.AcceptExchangeRequest),
 		support.NewHTTPHandler(removeConnection, http.MethodPost, c.RemoveConnection),

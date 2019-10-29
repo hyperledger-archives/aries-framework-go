@@ -107,7 +107,7 @@ func TestOperation_ReceiveInvitation(t *testing.T) {
 		"label":"agent",
 		"@type":"did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation"}}`)
 
-	handler := getHandler(t, receiveInvtiationPath, nil)
+	handler := getHandler(t, receiveInvitationPath, nil)
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 
@@ -191,14 +191,14 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
       		"6LE8yhZB8Xffc5vFgFntE3YLrxq5JVUsoAvUQgUyktGt"
     		]
   	}`)
-	handler := getHandler(t, receiveInvtiationPath, errors.New("handler failed"))
+	handler := getHandler(t, receiveInvitationPath, errors.New("handler failed"))
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 	verifyError(buf.Bytes())
 
 	// Failure due to invalid request body
 	jsonStr = []byte("")
-	handler = getHandler(t, receiveInvtiationPath, nil)
+	handler = getHandler(t, receiveInvitationPath, nil)
 	buf, err = getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 	verifyError(buf.Bytes())

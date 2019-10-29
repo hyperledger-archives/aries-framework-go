@@ -126,13 +126,22 @@ func TestInboundHandler(t *testing.T) {
 
 func TestInboundTransport(t *testing.T) {
 	t.Run("test inbound transport - with host/port", func(t *testing.T) {
-		inbound, err := NewInbound("example.com:26601")
+		port := "26601"
+		externalAddr := "example.com:" + port
+		inbound, err := NewInbound("localhost:"+port, externalAddr)
 		require.NoError(t, err)
-		require.Equal(t, "http://example.com:26601", inbound.Endpoint())
+		require.Equal(t, "http://"+externalAddr, inbound.Endpoint())
+	})
+
+	t.Run("test inbound transport - with host/port, no external address", func(t *testing.T) {
+		internalAddr := "example.com:26602"
+		inbound, err := NewInbound(internalAddr, "")
+		require.NoError(t, err)
+		require.Equal(t, "http://"+internalAddr, inbound.Endpoint())
 	})
 
 	t.Run("test inbound transport - without host/port", func(t *testing.T) {
-		inbound, err := NewInbound(":26602")
+		inbound, err := NewInbound(":26603", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, inbound)
 		mockPackager := &mockpackager.BasePackager{UnpackValue: &envelope.Envelope{Message: []byte("data")}}
@@ -144,7 +153,7 @@ func TestInboundTransport(t *testing.T) {
 	})
 
 	t.Run("test inbound transport - nil context", func(t *testing.T) {
-		inbound, err := NewInbound(":26603")
+		inbound, err := NewInbound(":26604", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, inbound)
 
@@ -153,14 +162,14 @@ func TestInboundTransport(t *testing.T) {
 	})
 
 	t.Run("test inbound transport - invalid port number", func(t *testing.T) {
-		_, err := NewInbound("")
+		_, err := NewInbound("", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "http address is mandatory")
 	})
 
 	t.Run("test inbound transport - invoke endpoint", func(t *testing.T) {
 		// initiate inbound with port
-		inbound, err := NewInbound(":26604")
+		inbound, err := NewInbound(":26605", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, inbound)
 
@@ -168,10 +177,10 @@ func TestInboundTransport(t *testing.T) {
 		mockPackager := &mockpackager.BasePackager{UnpackValue: &envelope.Envelope{Message: []byte("data")}}
 		err = inbound.Start(&mockProvider{packagerValue: mockPackager})
 		require.NoError(t, err)
-		require.NoError(t, listenFor("localhost:26604", time.Second))
+		require.NoError(t, listenFor("localhost:26605", time.Second))
 		// invoke a endpoint
 		client := http.Client{}
-		resp, err := client.Post("http://localhost:26604", commContentType, bytes.NewBuffer([]byte("success")))
+		resp, err := client.Post("http://localhost:26605", commContentType, bytes.NewBuffer([]byte("success")))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusAccepted, resp.StatusCode)
 		require.NotNil(t, resp)
@@ -184,7 +193,7 @@ func TestInboundTransport(t *testing.T) {
 		require.NoError(t, err)
 
 		// try after server stop
-		_, err = client.Post("http://localhost:26604", commContentType, bytes.NewBuffer([]byte("success"))) // nolint
+		_, err = client.Post("http://localhost:26605", commContentType, bytes.NewBuffer([]byte("success"))) // nolint
 		require.Error(t, err)
 	})
 }
