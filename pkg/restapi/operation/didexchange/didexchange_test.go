@@ -51,18 +51,52 @@ func TestNew_Fail(t *testing.T) {
 }
 
 func TestOperation_CreateInvitation(t *testing.T) {
-	handler := getHandler(t, createInvitationPath, nil)
-	buf, err := getResponseFromHandler(handler, nil, handler.Path())
-	require.NoError(t, err)
+	t.Run("Successful CreateInvitation with params", func(t *testing.T) {
+		handler := getHandler(t, createInvitationPath, nil)
+		buf, err := getResponseFromHandler(handler, nil, handler.Path()+"?alias=mylabel&public=true")
+		require.NoError(t, err)
 
-	response := models.CreateInvitationResponse{}
-	err = json.Unmarshal(buf.Bytes(), &response)
-	require.NoError(t, err)
+		response := models.CreateInvitationResponse{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
 
-	// verify response
-	require.NotEmpty(t, response.Payload)
-	require.Equal(t, "endpoint", response.Payload.ServiceEndpoint)
-	require.NotEmpty(t, response.Payload.Label)
+		// verify response
+		require.NotEmpty(t, response.Invitation)
+		require.Equal(t, "endpoint", response.Invitation.ServiceEndpoint)
+		require.NotEmpty(t, response.Invitation.Label)
+		require.NotEmpty(t, response.Alias)
+	})
+
+	t.Run("Successful CreateInvitation with default params", func(t *testing.T) {
+		handler := getHandler(t, createInvitationPath, nil)
+		buf, err := getResponseFromHandler(handler, nil, handler.Path())
+		require.NoError(t, err)
+
+		response := models.CreateInvitationResponse{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response.Invitation)
+		require.Equal(t, "endpoint", response.Invitation.ServiceEndpoint)
+		require.Empty(t, response.Invitation.Label)
+		require.Empty(t, response.Alias)
+	})
+
+	t.Run("Failed CreateInvitation with error", func(t *testing.T) {
+		handler := getHandler(t, createInvitationPath, nil)
+		buf, err := getResponseFromHandler(handler, nil, handler.Path()+"?alias=mylabel&public=345")
+		require.NoError(t, err)
+
+		errResponse := models.GenericError{}
+		err = json.Unmarshal(buf.Bytes(), &errResponse)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, errResponse.Body)
+		require.NotEmpty(t, errResponse.Body.Code)
+		require.NotEmpty(t, errResponse.Body.Message)
+	})
 }
 
 func TestOperation_ReceiveInvitation(t *testing.T) {

@@ -24,6 +24,31 @@ type GenericError struct {
 	} `json:"body"`
 }
 
+// CreateInvitationRequest model
+//
+// This is used for operation to create invitation
+//
+// swagger:parameters createInvitation
+type CreateInvitationRequest struct {
+	// Params for creating invitation
+	//
+	// in: path
+	*CreateInvitationParams
+}
+
+// CreateInvitationParams model
+//
+// This is used for creating invitation
+//
+type CreateInvitationParams struct {
+
+	// The Alias to be used in invitation to be created
+	Alias string `json:"alias"`
+
+	// The Public flag to create an invitation from the public DID
+	Public bool `json:"public,string,omitempty"`
+}
+
 // CreateInvitationResponse model
 //
 // This is used for returning a create invitation response with a single connection invitation as body
@@ -32,7 +57,13 @@ type GenericError struct {
 type CreateInvitationResponse struct {
 
 	// in: body
-	Payload *didexchange.Invitation `json:""`
+	Invitation *didexchange.Invitation `json:"invitation"`
+
+	// in: body
+	Alias string `json:"alias"`
+
+	// in: body
+	InvitationURL string `json:"invitation_url"`
 }
 
 // ReceiveInvitationRequest model
