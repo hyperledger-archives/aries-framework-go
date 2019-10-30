@@ -13,6 +13,7 @@ require (
 	github.com/multiformats/go-multibase v0.0.1
 	github.com/multiformats/go-multihash v0.0.8
 	github.com/piprate/json-gold v0.2.0
+	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v0.0.5
 	github.com/square/go-jose/v3 v3.0.0-20190722231519-723929d55157
 	github.com/stretchr/testify v1.3.0

@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -79,14 +80,14 @@ type agentParameters struct {
 }
 
 type server interface {
-	ListenAndServe(host string, router *mux.Router) error
+	ListenAndServe(host string, router http.Handler) error
 }
 
 // HTTPServer represents an actual server implementation.
 type HTTPServer struct{}
 
 // ListenAndServe starts the server using the standard Go HTTP server implementation.
-func (s *HTTPServer) ListenAndServe(host string, router *mux.Router) error {
+func (s *HTTPServer) ListenAndServe(host string, router http.Handler) error {
 	return http.ListenAndServe(host, router)
 }
 
@@ -213,9 +214,9 @@ func startAgent(parameters *agentParameters) error {
 	}
 
 	logger.Infof("Starting aries agentd on host [%s]", parameters.host)
-
 	// start server on given port and serve using given handlers
-	err = parameters.server.ListenAndServe(parameters.host, router)
+	handler := cors.Default().Handler(router)
+	err = parameters.server.ListenAndServe(parameters.host, handler)
 	if err != nil {
 		return fmt.Errorf("failed to start aries agentd on port [%s], cause:  %w", parameters.host, err)
 	}
