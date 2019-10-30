@@ -6,7 +6,6 @@
 #
 set -e
 
-CODEBASE="$(dirname "$PWD")"
 SPEC_LOC="${SPEC_LOC}"
 SPEC_META="${SPEC_META:-cmd/aries-agentd/main.go}"
 OUTPUT="$SPEC_LOC/openAPI.yml"

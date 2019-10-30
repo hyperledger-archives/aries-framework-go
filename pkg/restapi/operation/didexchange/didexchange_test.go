@@ -272,7 +272,7 @@ func TestOperation_WriteResponse(t *testing.T) {
 		ServiceValue: &protocol.MockDIDExchangeSvc{}}, webhook.NewHTTPNotifier(nil))
 	require.NoError(t, err)
 	require.NotNil(t, svc)
-	svc.writeResponse(&mockWriter{errors.New("failed to write")}, &models.QueryConnectionResponse{})
+	svc.writeResponse(&httptest.ResponseRecorder{}, &models.QueryConnectionResponse{})
 }
 
 // getResponseFromHandler reads response from given http handle func
@@ -338,14 +338,6 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 	}
 	require.Fail(t, "unable to find handler")
 	return nil
-}
-
-type mockWriter struct {
-	failure error
-}
-
-func (m mockWriter) Write([]byte) (int, error) {
-	return 0, m.failure
 }
 
 func TestServiceEvents(t *testing.T) {

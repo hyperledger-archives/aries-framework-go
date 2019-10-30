@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -291,7 +290,7 @@ func (c *Operation) RemoveConnection(rw http.ResponseWriter, req *http.Request) 
 }
 
 // writeGenericError writes given error to writer as generic error response
-func (c *Operation) writeGenericError(rw io.Writer, err error) {
+func (c *Operation) writeGenericError(rw http.ResponseWriter, err error) {
 	errResponse := models.GenericError{
 		Body: struct {
 			Code    int32  `json:"code"`
@@ -306,7 +305,11 @@ func (c *Operation) writeGenericError(rw io.Writer, err error) {
 }
 
 // writeResponse writes interface value to response
-func (c *Operation) writeResponse(rw io.Writer, v interface{}) {
+func (c *Operation) writeResponse(rw http.ResponseWriter, v interface{}) {
+	// TODO CORS response header should be added through customizable response filters to REST API [Issue #624]
+	// add CORS response header
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+
 	err := json.NewEncoder(rw).Encode(v)
 	// as of now, just log errors for writing response
 	if err != nil {
