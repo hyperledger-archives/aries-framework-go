@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
@@ -205,11 +204,17 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 //        200: acceptExchangeResponse
 func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Request) {
 	params := mux.Vars(req)
-	logger.Debugf("Accepting connection request for id [%s]", params["id"])
+	logger.Infof("Accepting connection request for id [%s]", params["id"])
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/549 Support for AcceptExchangeRequest API
+	err := c.client.AcceptExchangeRequest(params["id"])
+	if err != nil {
+		logger.Errorf("accepting connection request failed for id %s with error %s", params["id"], err)
+		c.writeGenericError(rw, err)
+		return
+	}
+
 	result := &models.ExchangeResponse{
-		ConnectionID: uuid.New().String(), CreatedTime: time.Now(),
+		ConnectionID: params["id"],
 	}
 
 	response := models.AcceptExchangeResult{Result: result}
@@ -384,7 +389,10 @@ func (c *Operation) startClientEventListener() error {
 		for {
 			select {
 			case e := <-c.actionCh:
-				c.handleActionEvents(e)
+				err = c.handleActionEvents(e)
+				if err != nil {
+					logger.Errorf("handle action events failed : %s", err)
+				}
 			case e := <-c.msgCh:
 				err := c.handleMessageEvents(e)
 				if err != nil {
@@ -415,9 +423,21 @@ func (c *Operation) handleMessageEvents(e service.StateMsg) error {
 	return nil
 }
 
-func (c *Operation) handleActionEvents(e service.DIDCommAction) {
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/579 - Integrate Action events with webhooks
-	e.Continue()
+func (c *Operation) handleActionEvents(e service.DIDCommAction) error {
+	switch v := e.Properties.(type) {
+	case didexchange.Event:
+		props := v
+		err := c.sendConnectionNotification(props.ConnectionID(), "null")
+		if err != nil {
+			return fmt.Errorf("send connection notification failed : %w", err)
+		}
+	case error:
+		return fmt.Errorf("service processing failed : %w", v)
+	default:
+		return errors.New("event is not of DIDExchange event type")
+	}
+
+	return nil
 }
 
 func (c *Operation) sendConnectionNotification(connectionID, stateID string) error {

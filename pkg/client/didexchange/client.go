@@ -22,8 +22,6 @@ import (
 const (
 	// ConnectionID connection id is created to retriever connection record from db
 	ConnectionID = didexchange.ConnectionID
-	// InvitationID invitation id is created in invitation request
-	InvitationID = didexchange.InvitationID
 )
 
 // ErrConnectionNotFound is returned when connection not found
@@ -41,12 +39,21 @@ type provider interface {
 type Client struct {
 	service.Action
 	service.Message
-	didexchangeSvc           service.DIDComm
+	didexchangeSvc           protocolService
 	kms                      kms.KeyManager
 	inboundTransportEndpoint string
 	actionCh                 chan service.DIDCommAction
 	msgCh                    chan service.StateMsg
 	connectionStore          *didexchange.ConnectionRecorder
+}
+
+// protocolService defines DID Exchange service.
+type protocolService interface {
+	// DIDComm service
+	service.DIDComm
+
+	// Accepts/Approves exchange request
+	AcceptExchangeRequest(connectionID string) error
 }
 
 // New return new instance of didexchange client
@@ -56,7 +63,7 @@ func New(ctx provider) (*Client, error) {
 		return nil, err
 	}
 
-	didexchangeSvc, ok := svc.(service.DIDComm)
+	didexchangeSvc, ok := svc.(protocolService)
 	if !ok {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
@@ -149,6 +156,15 @@ func (c *Client) HandleInvitation(invitation *Invitation) error {
 	if err = c.didexchangeSvc.HandleInbound(msg); err != nil {
 		return fmt.Errorf("failed from didexchange service handle: %w", err)
 	}
+	return nil
+}
+
+// AcceptExchangeRequest accepts/approves exchange request.
+func (c *Client) AcceptExchangeRequest(connectionID string) error {
+	if err := c.didexchangeSvc.AcceptExchangeRequest(connectionID); err != nil {
+		return fmt.Errorf("did exchange client - accept exchange request: %w", err)
+	}
+
 	return nil
 }
 

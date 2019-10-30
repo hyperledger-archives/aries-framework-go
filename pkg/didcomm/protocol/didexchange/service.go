@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -49,7 +50,7 @@ type message struct {
 	Msg           *service.DIDCommMsg
 	ThreadID      string
 	NextStateName string
-	connRecord    *ConnectionRecord
+	ConnRecord    *ConnectionRecord
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -160,19 +161,19 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 		return err
 	}
 
+	internalMsg := &message{Msg: msg, ThreadID: thID, NextStateName: next.Name(), ConnRecord: connRecord}
+
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg.Header.Type) {
-		s.sendActionEvent(msg, aEvent, thID, next, connRecord)
-		return nil
+		return s.sendActionEvent(internalMsg, aEvent)
 	}
 
 	// if no action event is triggered, continue the execution
-	go func() {
-		msg := &message{Msg: msg, ThreadID: thID, NextStateName: next.Name(), connRecord: connRecord}
+	go func(msg *message) {
 		if err = s.handle(msg); err != nil {
 			logger.Errorf("didexchange processing error : %s", err)
 		}
-	}()
+	}(internalMsg)
 
 	return nil
 }
@@ -216,7 +217,7 @@ func (s *Service) handle(msg *message) error {
 			Type:         service.PreState,
 			Msg:          msg.Msg.Clone(),
 			StateID:      next.Name(),
-			Properties:   createEventProperties(msg.connRecord.ConnectionID, ""),
+			Properties:   createEventProperties(msg.ConnRecord.ConnectionID, ""),
 		})
 		logger.Debugf("sent pre event for state %s", next.Name())
 
@@ -225,7 +226,7 @@ func (s *Service) handle(msg *message) error {
 		var connectionRecord *ConnectionRecord
 
 		connectionRecord, followup, action, err = next.ExecuteInbound(&stateMachineMsg{
-			header: msg.Msg.Header, payload: msg.Msg.Payload, connRecord: msg.connRecord}, msg.ThreadID, s.ctx)
+			header: msg.Msg.Header, payload: msg.Msg.Payload, connRecord: msg.ConnRecord}, msg.ThreadID, s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 		}
@@ -272,22 +273,18 @@ func createErrorEventProperties(connectionID, invitationID string, err error) *d
 
 // sendActionEvent triggers the action event. This function stores the state of current processing and passes a callback
 // function in the event message.
-func (s *Service) sendActionEvent(msg *service.DIDCommMsg, aEvent chan<- service.DIDCommAction,
-	threadID string, nextState state, connRecord *ConnectionRecord) {
-	internalMsg := &message{
-		Msg:           msg,
-		ThreadID:      threadID,
-		NextStateName: nextState.Name(),
-		connRecord:    connRecord,
+func (s *Service) sendActionEvent(internalMsg *message, aEvent chan<- service.DIDCommAction) error {
+	// save data to support AcceptExchangeRequest APIs (when client will not be able to invoke the callback function)
+	err := s.storeEventTransientData(internalMsg)
+	if err != nil {
+		return fmt.Errorf("send action event : %w", err)
 	}
 
-	// create the message for the channel
-	// trigger the registered action event
-	// TODO change from thread id to connection id #397
+	// trigger action event
 	// TODO pass invitation id #397
 	aEvent <- service.DIDCommAction{
 		ProtocolName: DIDExchange,
-		Message:      msg.Clone(),
+		Message:      internalMsg.Msg.Clone(),
 		Continue: func() {
 			s.processCallback(internalMsg)
 		},
@@ -296,8 +293,10 @@ func (s *Service) sendActionEvent(msg *service.DIDCommMsg, aEvent chan<- service
 			internalMsg.err = err
 			s.processCallback(internalMsg)
 		},
-		Properties: createEventProperties(connRecord.ConnectionID, ""),
+		Properties: createEventProperties(internalMsg.ConnRecord.ConnectionID, ""),
 	}
+
+	return nil
 }
 
 // sendEvent triggers the message events.
@@ -326,6 +325,44 @@ func (s *Service) startInternalListener() {
 			logger.Errorf("process callback : %s", err)
 		}
 	}
+}
+
+// AcceptExchangeRequest accepts/approves connection request
+func (s *Service) AcceptExchangeRequest(connectionID string) error {
+	msg, err := s.getEventTransientData(connectionID)
+	if err != nil {
+		return fmt.Errorf("accept exchange request : %w", err)
+	}
+
+	return s.handle(msg)
+}
+
+func (s *Service) storeEventTransientData(msg *message) error {
+	bytes, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("store transient data : %w", err)
+	}
+
+	return s.store.Put(eventTransientDataKey(msg.ConnRecord.ConnectionID), bytes)
+}
+
+func (s *Service) getEventTransientData(connectionID string) (*message, error) {
+	val, err := s.store.Get(eventTransientDataKey(connectionID))
+	if err != nil {
+		return nil, fmt.Errorf("get transient data : %w", err)
+	}
+
+	msg := &message{}
+	err = json.Unmarshal(val, msg)
+	if err != nil {
+		return nil, fmt.Errorf("get transient data : %w", err)
+	}
+
+	return msg, nil
+}
+
+func eventTransientDataKey(connectionID string) string {
+	return "didex-event-" + connectionID
 }
 
 // abandon updates the state to abandoned and trigger failure event.

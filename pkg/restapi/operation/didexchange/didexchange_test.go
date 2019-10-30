@@ -268,7 +268,6 @@ func TestOperation_AcceptExchangeRequest(t *testing.T) {
 	// verify response
 	require.NotEmpty(t, response)
 	require.NotEmpty(t, response.Result.ConnectionID)
-	require.NotEmpty(t, response.Result.CreatedTime)
 }
 
 func TestOperation_RemoveConnection(t *testing.T) {
@@ -363,7 +362,11 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
-	handlers := svc.GetRESTHandlers()
+	return handlerLookup(t, svc, lookup)
+}
+
+func handlerLookup(t *testing.T, op *Operation, lookup string) operation.Handler {
+	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
 	for _, h := range handlers {
@@ -382,6 +385,7 @@ func TestServiceEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	done := make(chan struct{})
+	connID := make(chan string)
 
 	// create the client
 	op, err := New(&mockprovider.Provider{StorageProviderValue: store,
@@ -390,9 +394,13 @@ func TestServiceEvents(t *testing.T) {
 			notifyFunc: func(topic string, message []byte) error {
 				require.Equal(t, connectionsWebhookTopic, topic)
 
-				conn := didexchange.Connection{}
+				conn := ConnectionMsg{}
 				jsonErr := json.Unmarshal(message, &conn)
 				require.NoError(t, jsonErr)
+
+				if conn.State == "null" {
+					connID <- conn.ConnectionID
+				}
 
 				if conn.State == "responded" {
 					close(done)
@@ -430,9 +438,19 @@ func TestServiceEvents(t *testing.T) {
 	err = didExSvc.HandleInbound(msg)
 	require.NoError(t, err)
 
+	cid := <-connID
+
+	buf, err := getResponseFromHandler(handlerLookup(t, op, acceptExchangeRequest), bytes.NewBuffer([]byte("")),
+		operationID+"/"+cid+"/accept-request")
+	require.NoError(t, err)
+
+	response := models.AcceptExchangeResult{}
+	err = json.Unmarshal(buf.Bytes(), &response)
+	require.NoError(t, err)
+
 	select {
 	case <-done:
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		require.Fail(t, "tests are not validated")
 	}
 }
