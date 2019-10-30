@@ -4,16 +4,18 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package wallet
+package kms
 
-// Wallet interface
-type Wallet interface {
-	Crypto
+// KMS Key Management Service interface
+// TODO Signer is not part of KMS and should be moved elsewhere,
+// 		merge KMS and KeyManager interface when Signer is removed.
+type KMS interface {
+	KeyManager
 	Signer
 }
 
-// Crypto interface
-type Crypto interface {
+// KeyManager interface provides key management operations (create, find, get, derive, etc.)
+type KeyManager interface {
 	KeyConverter
 
 	// CreateKeySet create a new public/private encryption and signature key pairs set.
@@ -25,7 +27,7 @@ type Crypto interface {
 	CreateKeySet() (string, string, error)
 
 	// DeriveKEK will derive an ephemeral symmetric key (kek) using a private from key fetched from
-	// from the wallet corresponding to fromPubKey and derived with toPubKey.
+	// from the KMS corresponding to fromPubKey and derived with toPubKey.
 	//
 	// This function assumes both fromPubKey and toPubKey to be on curve25519.
 	//
@@ -34,10 +36,10 @@ type Crypto interface {
 	//		error in case of errors
 	DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, error)
 
-	// FindVerKey will search the wallet to find stored keys that match any of candidateKeys and
+	// FindVerKey will search the KMS to find stored keys that match any of candidateKeys and
 	// 		return the index of the first match
 	// returns:
-	// 		int index of candidateKeys that matches the first key found in the wallet
+	// 		int index of candidateKeys that matches the first key found in the KMS
 	//		error in case of errors (including ErrKeyNotFound)
 	//
 	//		in case of error, the index will be -1

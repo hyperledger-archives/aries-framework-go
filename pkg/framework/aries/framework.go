@@ -27,8 +27,8 @@ type Aries struct {
 	protocolSvcCreators       []api.ProtocolSvcCreator
 	services                  []dispatcher.Service
 	inboundTransport          transport.InboundTransport
-	walletCreator             api.WalletCreator
-	wallet                    api.CloseableWallet
+	kmsCreator                api.KMSCreator
+	kms                       api.CloseableKMS
 	outboundDispatcherCreator dispatcher.OutboundCreator
 	outboundDispatcher        dispatcher.Outbound
 	packagerCreator           envelope.PackagerCreator
@@ -71,12 +71,12 @@ func New(opts ...Option) (*Aries, error) {
 
 	// Order of initializing service is important
 
-	// Create wallet
-	if e := createWallet(frameworkOpts); e != nil {
+	// Create kms
+	if e := createKMS(frameworkOpts); e != nil {
 		return nil, e
 	}
 
-	// create create crypter and packager (must be done after Wallet)
+	// create create crypter and packager (must be done after KMS)
 	err = createCrypterAndPackager(frameworkOpts)
 	if err != nil {
 		return nil, err
@@ -151,10 +151,10 @@ func WithOutboundDispatcher(o dispatcher.OutboundCreator) Option {
 	}
 }
 
-// WithWallet injects a wallet service to the Aries framework
-func WithWallet(w api.WalletCreator) Option {
+// WithKMS injects a KMS service to the Aries framework
+func WithKMS(k api.KMSCreator) Option {
 	return func(opts *Aries) error {
-		opts.walletCreator = w
+		opts.kmsCreator = k
 		return nil
 	}
 }
@@ -198,7 +198,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithOutboundDispatcher(a.outboundDispatcher),
 		context.WithOutboundTransport(ot), context.WithProtocolServices(a.services...),
 		// TODO configure inbound external endpoints
-		context.WithWallet(a.wallet), context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
+		context.WithKMS(a.kms), context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 		context.WithStorageProvider(a.storeProvider),
 		context.WithCrypter(a.crypter),
 		context.WithPackager(a.packager),
@@ -209,10 +209,10 @@ func (a *Aries) Context() (*context.Provider, error) {
 
 // Close frees resources being maintained by the framework.
 func (a *Aries) Close() error {
-	if a.wallet != nil {
-		err := a.wallet.Close()
+	if a.kms != nil {
+		err := a.kms.Close()
 		if err != nil {
-			return fmt.Errorf("failed to close the wallet: %w", err)
+			return fmt.Errorf("failed to close the kms: %w", err)
 		}
 	}
 	if a.storeProvider != nil {
@@ -230,15 +230,15 @@ func (a *Aries) Close() error {
 	return nil
 }
 
-func createWallet(frameworkOpts *Aries) error {
+func createKMS(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()),
 		context.WithStorageProvider(frameworkOpts.storeProvider))
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
 	}
-	frameworkOpts.wallet, err = frameworkOpts.walletCreator(ctx)
+	frameworkOpts.kms, err = frameworkOpts.kmsCreator(ctx)
 	if err != nil {
-		return fmt.Errorf("create wallet failed: %w", err)
+		return fmt.Errorf("create kms failed: %w", err)
 	}
 	return nil
 }
@@ -248,7 +248,7 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 	if err != nil {
 		return fmt.Errorf("outbound transport initialization failed: %w", err)
 	}
-	ctx, err := context.New(context.WithWallet(frameworkOpts.wallet),
+	ctx, err := context.New(context.WithKMS(frameworkOpts.kms),
 		context.WithOutboundTransport(ot),
 		context.WithPackager(frameworkOpts.packager))
 	if err != nil {
@@ -262,7 +262,7 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 }
 
 func startInboundTransport(frameworkOpts *Aries) error {
-	ctx, err := context.New(context.WithWallet(frameworkOpts.wallet),
+	ctx, err := context.New(context.WithKMS(frameworkOpts.kms),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()),
 		context.WithProtocolServices(frameworkOpts.services...))
@@ -279,7 +279,7 @@ func startInboundTransport(frameworkOpts *Aries) error {
 func loadServices(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
-		context.WithWallet(frameworkOpts.wallet),
+		context.WithKMS(frameworkOpts.kms),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithDIDResolver(frameworkOpts.didResolver),
 		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()))
@@ -297,7 +297,7 @@ func loadServices(frameworkOpts *Aries) error {
 }
 
 func createCrypterAndPackager(frameworkOpts *Aries) error {
-	ctx, err := context.New(context.WithWallet(frameworkOpts.wallet))
+	ctx, err := context.New(context.WithKMS(frameworkOpts.kms))
 	if err != nil {
 		return fmt.Errorf("create crypter context failed: %w", err)
 	}

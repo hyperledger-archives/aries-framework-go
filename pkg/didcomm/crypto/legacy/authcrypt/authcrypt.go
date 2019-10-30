@@ -11,23 +11,22 @@ import (
 	"io"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // Crypter represents an Authcrypt Encrypter (Decrypter) that outputs/reads legacy Aries envelopes
 type Crypter struct {
 	randSource io.Reader
-	wallet     wallet.Crypto
+	kms        kms.KeyManager
 }
 
 // New will create a Crypter that encrypts messages using the legacy Aries format
 // Note: legacy crypter does not support XChacha20Poly1035 (XC20P), only Chacha20Poly1035 (C20P)
 func New(ctx crypto.Provider) *Crypter {
-	w := ctx.CryptoWallet()
-
+	k := ctx.KMS()
 	return &Crypter{
 		randSource: rand.Reader,
-		wallet:     w,
+		kms:        k,
 	}
 }
 

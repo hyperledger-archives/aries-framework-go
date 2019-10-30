@@ -637,7 +637,7 @@ func prepareConnectionSignature(connection *Connection) (*ConnectionSignature, e
 	concatenateSignData := []byte(timestamp + connAttributeString)
 	pubKey := connection.DIDDoc.PublicKey[0].Value
 
-	// Todo signature : wallets needs to return signer interface that will have Sign function
+	// Todo signature : KMSs need to return signer interface that will have Sign function
 	//  where sigData is passed issue-319
 	return &ConnectionSignature{
 		Type:       "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single",

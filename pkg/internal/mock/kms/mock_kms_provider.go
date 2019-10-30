@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package wallet
+package kms
 
 import (
 	"encoding/json"
@@ -14,11 +14,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
-// NewMockProvider will create a new mock Wallet Provider that builds a wallet with the keypairs list kp
+// NewMockProvider will create a new mock KMS Provider that builds a KMS with the keypairs list kp
 func NewMockProvider(kp ...*cryptoutil.MessagingKeys) (*mockprovider.Provider, error) {
 	store := make(map[string][]byte)
 	for _, k := range kp {
@@ -27,9 +27,9 @@ func NewMockProvider(kp ...*cryptoutil.MessagingKeys) (*mockprovider.Provider, e
 			return nil, err
 		}
 		store[base58.Encode(k.EncKeyPair.Pub)] = marshalledKP
-		// mocking behaviour in BaseWallet.ConvertToEncryptionKey() where it stores
+		// mocking behaviour in BaseKMS.ConvertToEncryptionKey() where it stores
 		// MessagingKeys twice (1 for enc and 1 for sig)
-		// TODO change this logic if BaseWallet behaviour changes (ie adding a second store like metadatastore)
+		// TODO change this logic if BaseKMS behaviour changes (ie adding a second store like metadatastore)
 		store[base58.Encode(k.SigKeyPair.Pub)] = marshalledKP
 	}
 
@@ -37,23 +37,23 @@ func NewMockProvider(kp ...*cryptoutil.MessagingKeys) (*mockprovider.Provider, e
 		Store: &mockstorage.MockStore{
 			Store: store,
 		}}}
-	w, err := wallet.New(mProvider)
+	w, err := kms.New(mProvider)
 	if err != nil {
 		return nil, err
 	}
 
-	mockWalletProvider := &mockprovider.Provider{
-		WalletValue: w,
+	mockKMSProvider := &mockprovider.Provider{
+		KMSValue: w,
 	}
-	return mockWalletProvider, nil
+	return mockKMSProvider, nil
 }
 
-// mockProvider mocks provider for wallet
+// mockProvider mocks provider for KMS
 type mockProvider struct {
 	storage *mockstorage.MockStoreProvider
 }
 
-// StorageProvider() returns the mock storage provider of this mock wallet provider
+// StorageProvider() returns the mock storage provider of this mock KMS provider
 func (m *mockProvider) StorageProvider() storage.Provider {
 	return m.storage
 }

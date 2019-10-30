@@ -15,7 +15,7 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // Decrypt will decode the envelope using the legacy format
@@ -47,7 +47,7 @@ func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 		return nil, fmt.Errorf("message format %s not supported", protectedData.Alg)
 	}
 
-	cek, err := getCEK(protectedData.Recipients, c.wallet)
+	cek, err := getCEK(protectedData.Recipients, c.kms)
 	if err != nil {
 		return nil, err
 	}
@@ -55,14 +55,14 @@ func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 	return c.decodeCipherText(cek, &envelopeData)
 }
 
-func getCEK(recipients []recipient, w wallet.Crypto) (*[chacha.KeySize]byte, error) {
+func getCEK(recipients []recipient, km kms.KeyManager) (*[chacha.KeySize]byte, error) {
 	var candidateKeys []string
 
 	for _, candidate := range recipients {
 		candidateKeys = append(candidateKeys, candidate.Header.KID)
 	}
 
-	recKeyIdx, err := w.FindVerKey(candidateKeys)
+	recKeyIdx, err := km.FindVerKey(candidateKeys)
 	if err != nil {
 		return nil, fmt.Errorf("no key accessible %w", err)
 	}
@@ -70,12 +70,12 @@ func getCEK(recipients []recipient, w wallet.Crypto) (*[chacha.KeySize]byte, err
 	recip := recipients[recKeyIdx]
 	recKey := recip.Header.KID
 
-	recCurvePub, err := w.ConvertToEncryptionKey(base58.Decode(recKey))
+	recCurvePub, err := km.ConvertToEncryptionKey(base58.Decode(recKey))
 	if err != nil {
 		return nil, err
 	}
 
-	sender, err := decodeSender(recip.Header.Sender, recCurvePub, w)
+	sender, err := decodeSender(recip.Header.Sender, recCurvePub, km)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func getCEK(recipients []recipient, w wallet.Crypto) (*[chacha.KeySize]byte, err
 		return nil, err
 	}
 
-	b, err := wallet.NewCryptoBox(w)
+	b, err := kms.NewCryptoBox(km)
 	if err != nil {
 		return nil, err
 	}
@@ -106,13 +106,13 @@ func getCEK(recipients []recipient, w wallet.Crypto) (*[chacha.KeySize]byte, err
 	return &cek, nil
 }
 
-func decodeSender(b64Sender string, pk []byte, w wallet.Crypto) ([]byte, error) {
+func decodeSender(b64Sender string, pk []byte, km kms.KeyManager) ([]byte, error) {
 	encSender, err := base64.URLEncoding.DecodeString(b64Sender)
 	if err != nil {
 		return nil, err
 	}
 
-	b, err := wallet.NewCryptoBox(w)
+	b, err := kms.NewCryptoBox(km)
 	if err != nil {
 		return nil, err
 	}

@@ -19,8 +19,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 var logger = log.New("aries-framework/did-exchange/service")
@@ -60,7 +60,7 @@ type message struct {
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
-	Signer() wallet.Signer
+	Signer() kms.Signer
 	DIDResolver() didresolver.Resolver
 	DIDStore() didstore.Storage
 }
@@ -86,7 +86,7 @@ type Service struct {
 type context struct {
 	outboundDispatcher dispatcher.Outbound
 	didCreator         didcreator.Creator
-	signer             wallet.Signer
+	signer             kms.Signer
 	didResolver        didresolver.Resolver
 	connectionStore    *ConnectionRecorder
 	didStore           didstore.Storage

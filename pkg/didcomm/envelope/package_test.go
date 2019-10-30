@@ -16,19 +16,19 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
-func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {
+func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	t.Run("test failed to unmarshal encMessage", func(t *testing.T) {
-		w, err := wallet.New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+		w, err := kms.New(newMockKMSProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
 
 		mockedProviders := &mprovider.Provider{
-			WalletValue: w,
+			KMSValue: w,
 		}
 		crypter, err := authcrypt.New(mockedProviders, authcrypt.XC20P)
 		require.NoError(t, err)
@@ -42,28 +42,28 @@ func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test key not found", func(t *testing.T) {
-		wp := newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+		wp := newMockKMSProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}})
-		w, err := wallet.New(wp)
+		w, err := kms.New(wp)
 		require.NoError(t, err)
 
 		mockedProviders := &mprovider.Provider{
-			WalletValue: w,
+			KMSValue: w,
 		}
 		crypter, err := authcrypt.New(mockedProviders, authcrypt.XC20P)
 		require.NoError(t, err)
 
-		// use a real crypter with a mocked wallet to validate pack/unpack
+		// use a real crypter with a mocked KMS to validate pack/unpack
 		mockedProviders.CrypterValue = crypter
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
-		// fromKey is stored in the wallet
+		// fromKey is stored in the KMS
 		_, base58FromVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 
-		// toVerKey is stored in the wallet as well
+		// toVerKey is stored in the KMS as well
 		base58ToEncKey, base58ToVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 
@@ -73,17 +73,17 @@ func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {
 			ToVerKeys:  []string{base58ToVerKey}})
 		require.NoError(t, err)
 
-		// mock wallet without ToVerKey and ToEncKey then try UnpackMessage
+		// mock KMS without ToVerKey and ToEncKey then try UnpackMessage
 		delete(wp.storage.Store.Store, base58ToVerKey)
 		delete(wp.storage.Store.Store, base58ToEncKey)
-		// It should fail since Recipient keys are not found in the wallet
+		// It should fail since Recipient keys are not found in the KMS
 		_, err = packager.UnpackMessage(packMsg)
 		require.Error(t, err)
 		require.EqualError(t, err, "failed from decrypt: failed to decrypt message: key not found")
 	})
 
 	t.Run("test Pack/Unpack fails", func(t *testing.T) {
-		w, err := wallet.New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+		w, err := kms.New(newMockKMSProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: make(map[string][]byte),
 		}}))
 		require.NoError(t, err)
@@ -93,10 +93,10 @@ func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {
 		}
 
 		mockedProviders := &mprovider.Provider{
-			WalletValue: w,
+			KMSValue: w,
 		}
 
-		// use a mocked crypter with a mocked wallet to validate pack/unpack
+		// use a mocked crypter with a mocked KMS to validate pack/unpack
 		e := func(payload []byte, senderPubKey []byte, recipientsKeys [][]byte) (bytes []byte, e error) {
 			crypter, e := authcrypt.New(mockedProviders, authcrypt.XC20P)
 			require.NoError(t, e)
@@ -151,12 +151,12 @@ func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test Pack/Unpack success", func(t *testing.T) {
-		// create a mock wallet with storage as a map
-		w, err := wallet.New(newMockWalletProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
+		// create a mock KMS with storage as a map
+		w, err := kms.New(newMockKMSProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: map[string][]byte{}}}))
 		require.NoError(t, err)
 		mockedProviders := &mprovider.Provider{
-			WalletValue: w,
+			KMSValue: w,
 		}
 		// create a real crypter (no mocking here)
 		crypter, err := authcrypt.New(mockedProviders, authcrypt.XC20P)
@@ -186,11 +186,11 @@ func TestBaseWalletInPackager_UnpackMessage(t *testing.T) {
 	})
 }
 
-func newMockWalletProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvider {
+func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvider {
 	return &mockProvider{storagePvdr}
 }
 
-// mockProvider mocks provider for wallet
+// mockProvider mocks provider for KMS
 type mockProvider struct {
 	storage *mockstorage.MockStoreProvider
 }

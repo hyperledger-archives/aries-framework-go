@@ -75,7 +75,7 @@ func (c *Crypter) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientSP
 		return nil, err
 	}
 
-	kek, err := c.wallet.DeriveKEK([]byte(c.alg+"KW"), nil, recPubKey, epk)
+	kek, err := c.kms.DeriveKEK([]byte(c.alg+"KW"), nil, recPubKey, epk)
 	if err != nil {
 		return nil, err
 	}

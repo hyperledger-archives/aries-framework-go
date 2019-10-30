@@ -13,15 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 )
 
 //nolint:lll
 func TestNilDecryptSenderJwk(t *testing.T) {
-	mockWalletProvider, err := mockwallet.NewMockProvider()
+	mockKMSProvider, err := mockkms.NewMockProvider()
 	require.NoError(t, err)
 
-	crypter, err := New(mockWalletProvider, XC20P)
+	crypter, err := New(mockKMSProvider, XC20P)
 	require.NoError(t, err)
 
 	spk, err := crypter.decryptSPK(nil, "!-.t.t.t.t")

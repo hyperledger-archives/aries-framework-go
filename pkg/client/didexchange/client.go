@@ -15,8 +15,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 )
 
 const (
@@ -32,7 +32,7 @@ var ErrConnectionNotFound = errors.New("connection not found")
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	Service(id string) (interface{}, error)
-	CryptoWallet() wallet.Crypto
+	KMS() kms.KeyManager
 	InboundTransportEndpoint() string
 	StorageProvider() storage.Provider
 }
@@ -42,7 +42,7 @@ type Client struct {
 	service.Action
 	service.Message
 	didexchangeSvc           service.DIDComm
-	wallet                   wallet.Crypto
+	kms                      kms.KeyManager
 	inboundTransportEndpoint string
 	actionCh                 chan service.DIDCommAction
 	msgCh                    chan service.StateMsg
@@ -68,7 +68,7 @@ func New(ctx provider) (*Client, error) {
 
 	c := &Client{
 		didexchangeSvc:           didexchangeSvc,
-		wallet:                   ctx.CryptoWallet(),
+		kms:                      ctx.KMS(),
 		inboundTransportEndpoint: ctx.InboundTransportEndpoint(),
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		actionCh:        make(chan service.DIDCommAction, 10),
@@ -98,7 +98,7 @@ func New(ctx provider) (*Client, error) {
 // TODO 'invitation.label' should come though 'provider' [Issue #552]
 // TODO 'alias' should be passed as arg and persisted with connection record [Issue #623]
 func (c *Client) CreateInvitation(alias string) (*Invitation, error) {
-	_, sigPubKey, err := c.wallet.CreateKeySet()
+	_, sigPubKey, err := c.kms.CreateKeySet()
 	if err != nil {
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
 	}

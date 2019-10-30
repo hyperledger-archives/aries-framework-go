@@ -17,10 +17,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockcreator "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdr/didcreator"
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -54,7 +54,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc,
-			WalletValue: &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
+			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
@@ -71,7 +71,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc,
-			WalletValue: &mockwallet.CloseableWallet{CreateKeyErr: fmt.Errorf("createKeyErr")}})
+			KMSValue: &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("createKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
@@ -86,7 +86,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
 		store.Store.ErrPut = errors.New("store error")
 		c, err := New(&mockprovider.Provider{StorageProviderValue: store,
-			ServiceValue: svc, WalletValue: &mockwallet.CloseableWallet{}})
+			ServiceValue: svc, KMSValue: &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
@@ -103,7 +103,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
 			ServiceValue:         svc,
-			WalletValue:          &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -126,7 +126,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			StorageProviderValue: store,
 			ServiceValue:         svc,
-			WalletValue:          &mockwallet.CloseableWallet{}})
+			KMSValue:             &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
 
 		_, err = c.CreateInvitationWithDID("agent", "did:sidetree:123")
@@ -239,7 +239,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
 			ServiceValue: &mockprotocol.MockDIDExchangeSvc{},
-			WalletValue:  &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
+			KMSValue:     &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
@@ -252,7 +252,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg *service.DIDCommMsg) error {
 				return fmt.Errorf("handle error")
 			}},
-			WalletValue: &mockwallet.CloseableWallet{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
+			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)

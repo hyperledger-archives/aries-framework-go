@@ -6,11 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package crypto
 
-import "github.com/hyperledger/aries-framework-go/pkg/wallet"
+import "github.com/hyperledger/aries-framework-go/pkg/kms"
 
 // Provider interface for Crypter ctx
 type Provider interface {
-	CryptoWallet() wallet.Crypto
+	KMS() kms.KeyManager
 }
 
 // CrypterCreator method to create new crypter service
@@ -28,7 +28,7 @@ type Crypter interface {
 	// TODO add key type of recipients and sender keys to be validated by the implementation - Issue #272
 	Encrypt(payload []byte, senderKey []byte, recipients [][]byte) ([]byte, error)
 	// Decrypt an envelope in an Aries compliant format.
-	// 		The recipient's key will be matched from the wallet with the list of recipients in the envelope
+	// 		The recipient's key will be the one found in KMS that matches one of the list of recipients in the envelope
 	//
 	// returns:
 	// 		[]byte containing the decrypted payload

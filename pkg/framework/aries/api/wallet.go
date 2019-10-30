@@ -9,15 +9,15 @@ package api
 import (
 	"io"
 
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-// CloseableWallet interface
-type CloseableWallet interface {
+// CloseableKMS interface
+type CloseableKMS interface {
 	io.Closer
-	wallet.Crypto
-	wallet.Signer
+	kms.KeyManager
+	kms.Signer
 }
 
-// WalletCreator method to create new wallet service
-type WalletCreator func(provider Provider) (CloseableWallet, error)
+// KMSCreator method to create new key management service
+type KMSCreator func(provider Provider) (CloseableKMS, error)

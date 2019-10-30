@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package wallet
+package kms
 
 import (
 	"crypto/rand"
@@ -16,7 +16,6 @@ import (
 	"golang.org/x/crypto/nacl/box"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-
 	mockStorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -33,10 +32,10 @@ func (p *testProvider) InboundTransportEndpoint() string {
 	return ""
 }
 
-func newWallet(t *testing.T) (*BaseWallet, storage.Store) {
+func newKMS(t *testing.T) (*BaseKMS, storage.Store) {
 	msp := mockStorage.NewMockStoreProvider()
 	p := testProvider{storeProvider: msp}
-	store, err := p.StorageProvider().OpenStore("test-wallet")
+	store, err := p.StorageProvider().OpenStore("test-kms")
 	require.NoError(t, err)
 	ret, err := New(&p)
 	require.NoError(t, err)
@@ -44,13 +43,13 @@ func newWallet(t *testing.T) (*BaseWallet, storage.Store) {
 }
 
 func TestNewCryptoBox(t *testing.T) {
-	w, _ := newWallet(t)
-	b, err := NewCryptoBox(w)
+	k, _ := newKMS(t)
+	b, err := NewCryptoBox(k)
 	require.NoError(t, err)
-	require.Equal(t, b.w, w)
+	require.Equal(t, b.km, k)
 
-	_, err = NewCryptoBox(Crypto(nil))
-	require.EqualError(t, err, "cannot use parameter as wallet")
+	_, err = NewCryptoBox(KMS(nil))
+	require.EqualError(t, err, "cannot use parameter as KMS")
 }
 
 func TestBoxSeal(t *testing.T) {
@@ -59,11 +58,11 @@ func TestBoxSeal(t *testing.T) {
 	recipient1Key, err := randCurveKeyPair(rand.Reader)
 	require.NoError(t, err)
 
-	w, _ := newWallet(t)
-	err = persist(w.keystore, base58.Encode(recipient1Key.EncKeyPair.Pub), recipient1Key)
+	k, _ := newKMS(t)
+	err = persist(k.keystore, base58.Encode(recipient1Key.EncKeyPair.Pub), recipient1Key)
 	require.NoError(t, err)
 
-	b, err := NewCryptoBox(w)
+	b, err := NewCryptoBox(k)
 	require.NoError(t, err)
 
 	t.Run("Seal a message with sodiumBoxSeal and unseal it with sodiumBoxSealOpen", func(t *testing.T) {
@@ -77,7 +76,7 @@ func TestBoxSeal(t *testing.T) {
 		require.Equal(t, msg, dec)
 	})
 
-	t.Run("Failed decrypt, key missing from wallet", func(t *testing.T) {
+	t.Run("Failed decrypt, key missing from KMS", func(t *testing.T) {
 		msg := []byte("pretend this is an encrypted message")
 
 		_, err := b.SealOpen(msg, base58.Decode("BADKEY23452345234523452345"))
@@ -111,7 +110,7 @@ func TestBoxEasy(t *testing.T) {
 	recipient1Key, err := randCurveKeyPair(rand.Reader)
 	require.NoError(t, err)
 
-	w, _ := newWallet(t)
+	w, _ := newKMS(t)
 	err = persist(w.keystore, base58.Encode(recipient1Key.EncKeyPair.Pub), recipient1Key)
 	require.NoError(t, err)
 
@@ -146,7 +145,7 @@ func TestBoxEasy(t *testing.T) {
 	b, err := NewCryptoBox(w)
 	require.NoError(t, err)
 
-	t.Run("Failed encrypt, key missing from wallet", func(t *testing.T) {
+	t.Run("Failed encrypt, key missing from KMS", func(t *testing.T) {
 		msg := []byte("pretend this is an encrypted message")
 
 		_, err := b.Easy(msg, nonce, base58.Decode("BADKEY1"), base58.Decode("BADKEY2"))
@@ -154,7 +153,7 @@ func TestBoxEasy(t *testing.T) {
 		require.EqualError(t, err, "key not found")
 	})
 
-	t.Run("Failed decrypt, key missing from wallet", func(t *testing.T) {
+	t.Run("Failed decrypt, key missing from KMS", func(t *testing.T) {
 		msg := []byte("pretend this is an encrypted message")
 
 		_, err := b.EasyOpen(msg, nonce, base58.Decode("BADKEY1"), base58.Decode("BADKEY2"))

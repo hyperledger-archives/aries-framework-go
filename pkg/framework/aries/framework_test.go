@@ -33,7 +33,7 @@ import (
 	mockenvelope "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockdidstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
-	mockwallet "github.com/hyperledger/aries-framework-go/pkg/internal/mock/wallet"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
 
@@ -88,8 +88,8 @@ func TestFramework(t *testing.T) {
 
 		aries, err := New(
 			WithInboundTransport(&mockInboundTransport{}),
-			WithWallet(func(ctx api.Provider) (api.CloseableWallet, error) {
-				return &mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue")}, nil
+			WithKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
+				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
 			}),
 			WithCrypter(func(ctx crypto.Provider) (crypto.Crypter, error) {
 				return &didcomm.MockAuthCrypt{EncryptValue: nil}, nil
@@ -327,15 +327,15 @@ func TestFramework(t *testing.T) {
 		require.Contains(t, err.Error(), "inbound transport close failed")
 	})
 
-	t.Run("test wallet svc - with user provided wallet", func(t *testing.T) {
+	t.Run("test kms svc - with user provided kms", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
 
-		// with custom wallet
+		// with custom kms
 		aries, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithWallet(func(ctx api.Provider) (api.CloseableWallet, error) {
-				return &mockwallet.CloseableWallet{SignMessageValue: []byte("mockValue")}, nil
+			WithKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
+				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
 			}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
@@ -350,14 +350,14 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("test error from wallet svc", func(t *testing.T) {
-		// with custom wallet
+	t.Run("test error from kms svc", func(t *testing.T) {
+		// with custom kms
 		_, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithWallet(func(ctx api.Provider) (api.CloseableWallet, error) {
-				return nil, fmt.Errorf("error from wallet")
+			WithKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
+				return nil, fmt.Errorf("error from kms")
 			}))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "error from wallet")
+		require.Contains(t, err.Error(), "error from kms")
 	})
 
 	t.Run("test DID store - with default", func(t *testing.T) {
