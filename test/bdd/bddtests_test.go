@@ -121,10 +121,6 @@ func FeatureContext(s *godog.Suite) {
 	context.Args[SideTreeURL] = "http://localhost:48326/.sidetree/document"
 	context.Args[DIDDocPath] = "fixtures/sidetree-node/config/didDocument.json"
 
-	// TODO below 2 env variables to be removed as part of issue #572
-	context.Args[AliceAgentHost] = "alice.agent.example.com"
-	context.Args[BobAgentHost] = "bob.agent.example.com"
-
 	// Context is shared between tests
 	NewAgentSDKSteps(context).RegisterSteps(s)
 	NewAgentControllerSteps(context).RegisterSteps(s)
