@@ -54,12 +54,12 @@ type state interface {
 
 	// ExecuteInbound this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	ExecuteInbound(msg *stateMachineMsg, thid string,
-		ctx *context) (connRecord *ConnectionRecord, state state, action stateAction, err error)
+	ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (connRecord *ConnectionRecord,
+		state state, action stateAction, err error)
 
 	// ExecuteOutbound handles outbound state transition.
-	ExecuteOutbound(msg *stateMachineMsg, thid string,
-		ctx *context) (connRecord *ConnectionRecord, state state, action stateAction, err error)
+	ExecuteOutbound(msg *stateMachineMsg, thid string, ctx *context) (connRecord *ConnectionRecord,
+		state state, action stateAction, err error)
 }
 
 // Returns the state towards which the protocol will transition to if the msgType is processed.
@@ -112,13 +112,13 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) ExecuteInbound(_ *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *noOp) ExecuteInbound(_ *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	return nil, nil, nil, errors.New("cannot execute no-op")
 }
 
-func (s *noOp) ExecuteOutbound(_ *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *noOp) ExecuteOutbound(_ *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	return nil, nil, nil, errors.New("cannot execute no-op")
 }
 
@@ -134,13 +134,13 @@ func (s *null) CanTransitionTo(next state) bool {
 	return stateNameInvited == next.Name() || stateNameRequested == next.Name()
 }
 
-func (s *null) ExecuteInbound(msg *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *null) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	return &ConnectionRecord{}, &noOp{}, nil, nil
 }
 
-func (s *null) ExecuteOutbound(msg *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *null) ExecuteOutbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	return &ConnectionRecord{}, &noOp{}, nil, nil
 }
 
@@ -156,24 +156,18 @@ func (s *invited) CanTransitionTo(next state) bool {
 	return stateNameRequested == next.Name()
 }
 
-func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	if msg.header.Type != InvitationMsgType {
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
 	}
-	invitation := &Invitation{}
-	err := json.Unmarshal(msg.payload, invitation)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	connRecord := &ConnectionRecord{ConnectionID: generateRandomID(), ThreadID: thid,
-		InvitationID: invitation.ID, ServiceEndPoint: invitation.ServiceEndpoint,
-		RecipientKeys: invitation.RecipientKeys, TheirLabel: invitation.Label, Namespace: findNameSpace(msg.header.Type)}
-	return connRecord, &requested{}, func() error { return nil }, nil
+
+	msg.connRecord.ThreadID = thid
+	return msg.connRecord, &requested{}, func() error { return nil }, nil
 }
 
-func (s *invited) ExecuteOutbound(msg *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *invited) ExecuteOutbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	return nil, nil, nil, errors.New("outbound invitations are not allowed")
 }
 
@@ -189,8 +183,8 @@ func (s *requested) CanTransitionTo(next state) bool {
 	return stateNameResponded == next.Name()
 }
 
-func (s *requested) ExecuteInbound(msg *stateMachineMsg,
-	thid string, ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	switch msg.header.Type {
 	case InvitationMsgType:
 		invitation := &Invitation{}
@@ -198,24 +192,20 @@ func (s *requested) ExecuteInbound(msg *stateMachineMsg,
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
-		action, connRecord, err := ctx.handleInboundInvitation(invitation, thid)
+		action, connRecord, err := ctx.handleInboundInvitation(invitation, thid, msg.connRecord)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("handle inbound invitation failed: %s", err)
 		}
 		return connRecord, &noOp{}, action, nil
 	case RequestMsgType:
-		connRec, err := prepareRequestConnectionRecord(msg.payload)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		return connRec, &responded{}, func() error { return nil }, nil
+		return msg.connRecord, &responded{}, func() error { return nil }, nil
 	default:
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
 	}
 }
 
-func (s *requested) ExecuteOutbound(msg *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *requested) ExecuteOutbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	switch msg.header.Type {
 	case InvitationMsgType:
 		return nil, nil, nil, fmt.Errorf("outbound invitations are not allowed for state %s", s.Name())
@@ -242,8 +232,8 @@ func (s *responded) CanTransitionTo(next state) bool {
 	return stateNameCompleted == next.Name()
 }
 
-func (s *responded) ExecuteInbound(msg *stateMachineMsg,
-	thid string, ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	switch msg.header.Type {
 	case RequestMsgType:
 		request := &Request{}
@@ -251,24 +241,20 @@ func (s *responded) ExecuteInbound(msg *stateMachineMsg,
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
-		action, connRecord, err := ctx.handleInboundRequest(request)
+		action, connRecord, err := ctx.handleInboundRequest(request, msg.connRecord)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("handle inbound request failed: %s", err)
 		}
 		return connRecord, &noOp{}, action, nil
 	case ResponseMsgType:
-		connRec, err := ctx.prepareResponseConnectionRecord(msg.payload)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		return connRec, &completed{}, func() error { return nil }, nil
+		return msg.connRecord, &completed{}, func() error { return nil }, nil
 	default:
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
 	}
 }
 
-func (s *responded) ExecuteOutbound(msg *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *responded) ExecuteOutbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	switch msg.header.Type {
 	case ResponseMsgType:
 		action, connRec, err := ctx.sendOutboundResponse(msg)
@@ -295,8 +281,8 @@ func (s *completed) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	switch msg.header.Type {
 	case ResponseMsgType:
 		response := &Response{}
@@ -311,18 +297,14 @@ func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string,
 		return connRecord, &noOp{}, action, nil
 	case AckMsgType:
 		action := func() error { return nil }
-		connRec, err := ctx.prepareAckConnectionRecord(msg.payload)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		return connRec, &noOp{}, action, nil
+		return msg.connRecord, &noOp{}, action, nil
 	default:
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
 	}
 }
 
-func (s *completed) ExecuteOutbound(msg *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *completed) ExecuteOutbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	switch msg.header.Type {
 	case ResponseMsgType:
 		return nil, nil, nil, fmt.Errorf("outbound responses are not allowed for state %s", s.Name())
@@ -354,13 +336,13 @@ func (s *abandoned) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	return nil, nil, nil, errors.New("not implemented")
 }
 
-func (s *abandoned) ExecuteOutbound(msg *stateMachineMsg, thid string,
-	ctx *context) (*ConnectionRecord, state, stateAction, error) {
+func (s *abandoned) ExecuteOutbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+	state, stateAction, error) {
 	return nil, nil, nil, errors.New("not implemented")
 }
 
@@ -376,15 +358,41 @@ func (ctx *context) prepareAckConnectionRecord(payload []byte) (*ConnectionRecor
 	}
 	return ctx.connectionStore.GetConnectionRecordByNSThreadID(key)
 }
+
+func prepareInvitationConnectionRecord(thid string, header *service.Header, payload []byte) (*ConnectionRecord, error) {
+	invitation := &Invitation{}
+	err := json.Unmarshal(payload, invitation)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConnectionRecord{
+		ConnectionID:    generateRandomID(),
+		ThreadID:        thid,
+		State:           stateNameNull,
+		InvitationID:    invitation.ID,
+		ServiceEndPoint: invitation.ServiceEndpoint,
+		RecipientKeys:   invitation.RecipientKeys,
+		TheirLabel:      invitation.Label,
+		Namespace:       findNameSpace(header.Type),
+	}, nil
+}
+
 func prepareRequestConnectionRecord(payload []byte) (*ConnectionRecord, error) {
 	request := Request{}
 	err := json.Unmarshal(payload, &request)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshalling failed: %s", err)
 	}
-	return &ConnectionRecord{ThreadID: request.ID, ConnectionID: generateRandomID(),
-		TheirDID: request.Connection.DID, Namespace: theirNSPrefix}, nil
+	return &ConnectionRecord{
+		ConnectionID: generateRandomID(),
+		ThreadID:     request.ID,
+		State:        stateNameNull,
+		TheirDID:     request.Connection.DID,
+		Namespace:    theirNSPrefix,
+	}, nil
 }
+
 func (ctx *context) prepareResponseConnectionRecord(payload []byte) (*ConnectionRecord, error) {
 	response := &Response{}
 	err := json.Unmarshal(payload, response)
@@ -399,7 +407,7 @@ func (ctx *context) prepareResponseConnectionRecord(payload []byte) (*Connection
 }
 
 func (ctx *context) handleInboundInvitation(invitation *Invitation,
-	thid string) (stateAction, *ConnectionRecord, error) {
+	thid string, connRec *ConnectionRecord) (stateAction, *ConnectionRecord, error) {
 	// create a destination from invitation
 	destination, err := ctx.getDestination(invitation)
 	if err != nil {
@@ -427,14 +435,6 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 			DIDDoc: newDidDoc,
 		},
 	}
-	nsThid, err := createNSKey(myNSPrefix, thid)
-	if err != nil {
-		return nil, nil, err
-	}
-	connRec, err := ctx.connectionStore.GetConnectionRecordByNSThreadID(nsThid)
-	if err != nil {
-		return nil, nil, err
-	}
 	connRec.MyDID = request.Connection.DID
 	// send the exchange request
 	return func() error {
@@ -442,7 +442,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 	}, connRec, nil
 }
 
-func (ctx *context) handleInboundRequest(request *Request) (stateAction,
+func (ctx *context) handleInboundRequest(request *Request, connRec *ConnectionRecord) (stateAction,
 	*ConnectionRecord, error) {
 	// create a response from Request
 	newDidDoc, err := ctx.didCreator.Create(didMethod)
@@ -476,14 +476,6 @@ func (ctx *context) handleInboundRequest(request *Request) (stateAction,
 			err
 	}
 	sendVerKey := string(pubKey[0].Value)
-	nsThid, err := createNSKey(theirNSPrefix, request.ID)
-	if err != nil {
-		return nil, nil, err
-	}
-	connRec, err := ctx.connectionStore.GetConnectionRecordByNSThreadID(nsThid)
-	if err != nil {
-		return nil, nil, err
-	}
 	connRec.MyDID = connection.DID
 	// send exchange response
 	return func() error {

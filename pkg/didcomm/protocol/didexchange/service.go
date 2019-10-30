@@ -38,8 +38,6 @@ const (
 	ResponseMsgType = DIDExchangeSpec + "response"
 	// AckMsgType defines the did-exchange ack message type.
 	AckMsgType = DIDExchangeSpec + "ack"
-	// DIDExchangeServiceType is the service type to be used in DID document
-	DIDExchangeServiceType = "did-communication"
 	// ConnectionID connection id is created to retriever connection record from db
 	ConnectionID = "connectionID"
 	// InvitationID invitation id is created in invitation request
@@ -51,7 +49,7 @@ type message struct {
 	Msg           *service.DIDCommMsg
 	ThreadID      string
 	NextStateName string
-	Record        *ConnectionRecord
+	connRecord    *ConnectionRecord
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -72,6 +70,7 @@ type stateMachineMsg struct {
 	outboundDestination *service.Destination
 	header              *service.Header
 	payload             []byte
+	connRecord          *ConnectionRecord
 }
 
 // Service for DID exchange protocol
@@ -155,15 +154,22 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 	if !current.CanTransitionTo(next) {
 		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
+
+	connRecord, err := s.connectionRecord(msg)
+	if err != nil {
+		return err
+	}
+
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg.Header.Type) {
-		s.sendActionEvent(msg, aEvent, thID, next)
+		s.sendActionEvent(msg, aEvent, thID, next, connRecord)
 		return nil
 	}
 
 	// if no action event is triggered, continue the execution
 	go func() {
-		if err = s.handle(&message{Msg: msg, ThreadID: thID, NextStateName: next.Name()}); err != nil {
+		msg := &message{Msg: msg, ThreadID: thID, NextStateName: next.Name(), connRecord: connRecord}
+		if err = s.handle(msg); err != nil {
 			logger.Errorf("didexchange processing error : %s", err)
 		}
 	}()
@@ -210,7 +216,7 @@ func (s *Service) handle(msg *message) error {
 			Type:         service.PreState,
 			Msg:          msg.Msg.Clone(),
 			StateID:      next.Name(),
-			Properties:   createEventProperties("", ""),
+			Properties:   createEventProperties(msg.connRecord.ConnectionID, ""),
 		})
 		logger.Debugf("sent pre event for state %s", next.Name())
 
@@ -219,7 +225,7 @@ func (s *Service) handle(msg *message) error {
 		var connectionRecord *ConnectionRecord
 
 		connectionRecord, followup, action, err = next.ExecuteInbound(&stateMachineMsg{
-			header: msg.Msg.Header, payload: msg.Msg.Payload}, msg.ThreadID, s.ctx)
+			header: msg.Msg.Header, payload: msg.Msg.Payload, connRecord: msg.connRecord}, msg.ThreadID, s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 		}
@@ -267,11 +273,12 @@ func createErrorEventProperties(connectionID, invitationID string, err error) *d
 // sendActionEvent triggers the action event. This function stores the state of current processing and passes a callback
 // function in the event message.
 func (s *Service) sendActionEvent(msg *service.DIDCommMsg, aEvent chan<- service.DIDCommAction,
-	threadID string, nextState state) {
+	threadID string, nextState state, connRecord *ConnectionRecord) {
 	internalMsg := &message{
 		Msg:           msg,
 		ThreadID:      threadID,
 		NextStateName: nextState.Name(),
+		connRecord:    connRecord,
 	}
 
 	// create the message for the channel
@@ -289,6 +296,7 @@ func (s *Service) sendActionEvent(msg *service.DIDCommMsg, aEvent chan<- service
 			internalMsg.err = err
 			s.processCallback(internalMsg)
 		},
+		Properties: createEventProperties(connRecord.ConnectionID, ""),
 	}
 }
 
@@ -385,6 +393,52 @@ func (s *Service) update(msgType string, connectionRecord *ConnectionRecord) err
 		return s.connectionStore.saveNewConnectionRecord(connectionRecord)
 	}
 	return s.connectionStore.saveConnectionRecord(connectionRecord)
+}
+
+func (s *Service) connectionRecord(msg *service.DIDCommMsg) (*ConnectionRecord, error) {
+	switch msg.Header.Type {
+	case InvitationMsgType:
+		return s.invitationMsgRecord(msg)
+	case RequestMsgType:
+		return s.requestMsgRecord(msg)
+	case ResponseMsgType:
+		return s.ctx.prepareResponseConnectionRecord(msg.Payload)
+	case AckMsgType:
+		return s.ctx.prepareAckConnectionRecord(msg.Payload)
+	}
+
+	return nil, errors.New("invalid message type")
+}
+
+func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecord, error) {
+	thID, msgErr := msg.ThreadID()
+	if msgErr != nil {
+		return nil, msgErr
+	}
+
+	connRecord, err := prepareInvitationConnectionRecord(thID, msg.Header, msg.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.connectionStore.saveConnectionRecord(connRecord); err != nil {
+		return nil, err
+	}
+
+	return connRecord, nil
+}
+
+func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecord, error) {
+	connRecord, err := prepareRequestConnectionRecord(msg.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.connectionStore.saveConnectionRecord(connRecord); err != nil {
+		return nil, err
+	}
+
+	return connRecord, nil
 }
 
 func generateRandomID() string {
