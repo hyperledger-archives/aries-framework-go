@@ -176,7 +176,7 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with did store", func(t *testing.T) {
-		prov, err := New(WithDIDStore(&mockdidstore.MockDidStore{}))
+		prov, err := New(WithDIDStore(mockdidstore.NewMockDidStore()))
 		require.NoError(t, err)
 		err = prov.DIDStore().Put(&did.Doc{})
 		require.NoError(t, err)

@@ -68,7 +68,7 @@ func (d *DIDStore) Get(id string) (*did.Doc, error) {
 	}
 	for _, v := range d.didMethods {
 		if v.Accept(didMethod) {
-			doc, err := v.Get(didMethod)
+			doc, err := v.Get(id)
 			if err != nil {
 				return nil, fmt.Errorf("get did doc : %w", err)
 			}

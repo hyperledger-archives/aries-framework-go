@@ -6,22 +6,35 @@ SPDX-License-Identifier: Apache-2.0
 package didstore
 
 import (
-	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	didDoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 // MockDidStore is mock did store
 type MockDidStore struct {
-	PutErr   error
-	GetValue *diddoc.Doc
-	GetErr   error
+	Store  map[string]*didDoc.Doc
+	PutErr error
+	GetErr error
 }
 
-// Put did document
-func (r *MockDidStore) Put(doc *diddoc.Doc) error {
-	return r.PutErr
+// NewMockDidStore new didStore instance.
+func NewMockDidStore() *MockDidStore {
+	return &MockDidStore{Store: make(map[string]*didDoc.Doc)}
 }
 
-// Get did document
-func (r *MockDidStore) Get(id string) (*diddoc.Doc, error) {
-	return r.GetValue, r.GetErr
+// Put stores the key and the record
+func (m *MockDidStore) Put(doc *didDoc.Doc) error {
+	k := doc.ID
+	m.Store[k] = doc
+	return m.PutErr
+}
+
+// Get fetches the record based on key
+func (m *MockDidStore) Get(k string) (*didDoc.Doc, error) {
+	val, ok := m.Store[k]
+	if !ok {
+		return nil, storage.ErrDataNotFound
+	}
+
+	return val, m.GetErr
 }

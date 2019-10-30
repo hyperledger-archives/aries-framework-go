@@ -282,7 +282,9 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithKMS(frameworkOpts.kms),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithDIDResolver(frameworkOpts.didResolver),
-		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()))
+		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()),
+		context.WithDIDStore(frameworkOpts.didStore))
+
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
 	}

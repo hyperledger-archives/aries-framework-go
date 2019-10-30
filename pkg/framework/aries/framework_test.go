@@ -388,7 +388,7 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 
 		// with default DID store
-		aries, err := New(WithInboundTransport(&mockInboundTransport{}), WithDIDStore(&mockdidstore.MockDidStore{}))
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}), WithDIDStore(mockdidstore.NewMockDidStore()))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
