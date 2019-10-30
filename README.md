@@ -15,7 +15,7 @@ A Go framework for Aries
 ##### Prerequisites (General)
 - Go 1.13
 
-##### Prerequisites (for running tests)
+##### Prerequisites (for running tests and demos)
 - Go 1.13
 - Docker
 - Docker-Compose
@@ -32,6 +32,15 @@ make checks
 # run unit tests
 make unit-test
 ```
+##### Running demo locally
+The demo is to play around with APIs using the OpenAPI (Swagger) user interface and JSON.
+
+The demo can be launched by `make run-openapi-demo`
+This target will start Alice and Bob demo agent containers. Once started, OpenAPI user interface for agents can be accessed using below URLs.
+
+[Alice agent OpenAPI user interface](http://localhost:8089/openapi/)
+
+[Bob agent OpenAPI user interface](http://localhost:9089/openapi/),
 
 ##### Crypto material generation for tests
 For unit-tests, crypto material is generated under:

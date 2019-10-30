@@ -1,0 +1,30 @@
+#
+# Copyright IBM Corp, SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+services:
+
+  alice.openapi.demo.com:
+    container_name: alice.openpi.demo.com
+    image: swaggerapi/swagger-ui
+    environment:
+      - SWAGGER_JSON=/specs/openapi-${ALICE_API_HOST}.yml
+      - BASE_URL=/openapi
+    ports:
+      - 8089:8080
+    volumes:
+      - ./specs:/specs
+
+  bob.openapi.demo.com:
+    container_name: bob.openpi.demo.com
+    image: swaggerapi/swagger-ui
+    environment:
+      - SWAGGER_JSON=/specs/openapi-${BOB_API_HOST}.yml
+      - BASE_URL=/openapi
+    ports:
+      - 9089:8080
+    volumes:
+      - ./specs:/specs

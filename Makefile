@@ -5,6 +5,7 @@
 GO_CMD ?= go
 ARIES_AGENTD_MAIN=cmd/aries-agentd/main.go
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
+OPENAPI_SPEC_PATH=build/rest/openapi/spec
 # TODO: Switched to dev since release version doesn't support go 1.13
 OPENAPI_DOCKER_IMG_VERSION=dev
 
@@ -51,6 +52,7 @@ clean:
 	rm -Rf ./build
 	rm -Rf ./test/bdd/db
 	rm -Rf ./test/bdd/fixtures/keys/tls
+	rm -Rf ./test/bdd/fixtures/demo/openapi/specs
 	rm -Rf ./test/bdd/*.log
 
 generate-test-keys: clean
@@ -64,9 +66,22 @@ generate-test-keys: clean
 generate-openapi-spec: clean
 	@echo "Generating and validating controller API specifications using Open API"
 	@mkdir -p build/rest/openapi/spec
-	@SPEC_META=$(ARIES_AGENTD_MAIN) SPEC_LOC=build/rest/openapi/spec  \
+	@SPEC_META=$(ARIES_AGENTD_MAIN) SPEC_LOC=${OPENAPI_SPEC_PATH}  \
 	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
 	scripts/generate-openapi-spec.sh
+
+.PHONY: generate-openapi-demo-specs
+generate-openapi-demo-specs: clean generate-openapi-spec agent-docker
+	@echo "Generate demo agent controller API specifications using Open API"
+	@SPEC_PATH=${OPENAPI_SPEC_PATH} OPENAPI_DEMO_PATH=test/bdd/fixtures/demo/openapi \
+    	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
+    	scripts/generate-openapi-demo-specs.sh
+
+.PHONY: run-openapi-demo
+run-openapi-demo: generate-openapi-demo-specs
+	@echo "Starting demo agent containers"
+	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi AGENT_COMPOSE_PATH=test/bdd/fixtures/agent  \
+        scripts/run_openapi_demo.sh
 
 .PHONY: agent
 agent:

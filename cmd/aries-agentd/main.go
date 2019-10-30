@@ -11,7 +11,6 @@ SPDX-License-Identifier: Apache-2.0
 //
 //
 //     Schemes: http, https
-//     Host: 127.0.0.1:8080
 //     Version: 0.1.0
 //     License: SPDX-License-Identifier: Apache-2.0
 //
