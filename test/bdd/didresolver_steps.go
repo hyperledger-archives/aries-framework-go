@@ -9,6 +9,7 @@ package bdd
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -17,11 +18,10 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/godog"
-	"github.com/go-openapi/swag"
 
 	"github.com/trustbloc/sidetree-core-go/pkg/document"
 	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
-	"github.com/trustbloc/sidetree-node/models"
+	"github.com/trustbloc/sidetree-core-go/pkg/restapi/model"
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -50,13 +50,16 @@ func NewDIDResolverSteps(context *Context) *DIDResolverSteps {
 }
 
 func (d *DIDResolverSteps) createDIDDocument(agentID string, sideTreeURL string) error {
-	req := newCreateRequest(createSidetreeDoc(d.bddContext.AgentCtx[agentID]))
-	d.reqEncodedDIDDoc = swag.StringValue(req.Payload)
+	sideTreeDoc, err := createSidetreeDoc(d.bddContext.AgentCtx[agentID])
+	if err != nil {
+		return err
+	}
+	req := newCreateRequest(sideTreeDoc)
+	d.reqEncodedDIDDoc = req.Payload
 	resp, err := sendRequest(d.bddContext.Args[sideTreeURL], req)
 	if err != nil {
 		return fmt.Errorf("failed to create public DID document: %s", d.resp.errorMsg)
 	}
-
 	doc, err := diddoc.ParseDocument(resp.payload)
 	if err != nil {
 		return fmt.Errorf("failed to parse public DID document: %s", err)
@@ -68,7 +71,7 @@ func (d *DIDResolverSteps) createDIDDocument(agentID string, sideTreeURL string)
 
 func (d *DIDResolverSteps) createDIDDocumentFromFile(sideTreeURL, didDocumentPath string) error {
 	req := newCreateRequest(didDocFromFile(d.bddContext.Args[didDocumentPath]))
-	d.reqEncodedDIDDoc = swag.StringValue(req.Payload)
+	d.reqEncodedDIDDoc = req.Payload
 	var err error
 	d.resp, err = sendRequest(d.bddContext.Args[sideTreeURL], req)
 	return err
@@ -110,13 +113,13 @@ func (d *DIDResolverSteps) resolveDID(agentID string) error {
 	return nil
 }
 
-func newCreateRequest(doc *document.Document) *models.Request {
+func newCreateRequest(doc *document.Document) *model.Request {
 	payload := encodeDidDocument(doc)
-	return &models.Request{
-		Header: &models.Header{
-			Operation: models.OperationTypeCreate, Alg: swag.String(""), Kid: swag.String("")},
-		Payload:   swag.String(payload),
-		Signature: swag.String("")}
+	return &model.Request{
+		Header: &model.Header{
+			Operation: model.OperationTypeCreate, Alg: "", Kid: ""},
+		Payload:   payload,
+		Signature: ""}
 }
 
 func didDocFromFile(didDocumentPath string) *document.Document {
@@ -145,7 +148,7 @@ type httpRespone struct {
 
 // sendRequest sends a regular POST request to the sidetree-node
 // - If post request has operation "create" then return sidetree document else no response
-func sendRequest(url string, req *models.Request) (*httpRespone, error) {
+func sendRequest(url string, req *model.Request) (*httpRespone, error) {
 	resp, err := sendHTTPRequest(url, req)
 	if err != nil {
 		return nil, err
@@ -164,9 +167,9 @@ func handleHttpResp(resp *http.Response) (*httpRespone, error) {
 	return &httpRespone{payload: body}, nil
 }
 
-func sendHTTPRequest(url string, req *models.Request) (*http.Response, error) {
+func sendHTTPRequest(url string, req *model.Request) (*http.Response, error) {
 	client := &http.Client{}
-	b, err := req.MarshalBinary()
+	b, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
 	}
@@ -181,10 +184,10 @@ func sendHTTPRequest(url string, req *models.Request) (*http.Response, error) {
 	return client.Do(httpReq)
 }
 
-func createSidetreeDoc(ctx *context.Provider) *document.Document {
+func createSidetreeDoc(ctx *context.Provider) (*document.Document, error) {
 	_, pubVerKey, err := ctx.CryptoWallet().CreateKeySet()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	pubKey := diddoc.PublicKey{
@@ -210,15 +213,15 @@ func createSidetreeDoc(ctx *context.Provider) *document.Document {
 
 	bytes, err := didDoc.JSONBytes()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	doc, err := document.FromBytes(bytes)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return &doc
+	return &doc, nil
 }
 
 func resolveDID(resolver didresolver.Resolver, did string, maxRetry int) (*diddoc.Doc, error) {

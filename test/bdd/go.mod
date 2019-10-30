@@ -9,11 +9,9 @@ go 1.13
 require (
 	github.com/DATA-DOG/godog v0.7.13
 	github.com/fsouza/go-dockerclient v1.5.0
-	github.com/go-openapi/swag v0.19.5
 	github.com/gorilla/mux v1.7.3
 	github.com/hyperledger/aries-framework-go v0.0.0
-	github.com/trustbloc/sidetree-core-go v0.0.0-20191017153620-a489e16494b3
-	github.com/trustbloc/sidetree-node v0.0.0-20191017194101-9674831a60aa
+	github.com/trustbloc/sidetree-core-go v0.0.0-20191030160623-b6a8afec3cb8
 
 )
 
