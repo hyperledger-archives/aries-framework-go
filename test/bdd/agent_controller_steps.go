@@ -132,7 +132,7 @@ func (a *AgentWithControllerSteps) receiveInvitation(inviteeAgentID, inviterAgen
 		return fmt.Errorf(" unable to find invitation for inviter [%s]", inviterAgentID)
 	}
 
-	message, err := json.Marshal(&models.ReceiveInvitationRequest{Params: invitation})
+	message, err := json.Marshal(invitation)
 	if err != nil {
 		logger.Errorf("Failed to create receiver invitation message, cause : %s", err)
 		return err

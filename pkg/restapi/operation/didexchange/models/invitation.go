@@ -76,7 +76,7 @@ type ReceiveInvitationRequest struct {
 	//
 	// required: true
 	// in: body
-	Params *didexchange.Invitation `json:"invitation"`
+	Invitation *didexchange.Invitation `json:""`
 }
 
 // ReceiveInvitationResponse model

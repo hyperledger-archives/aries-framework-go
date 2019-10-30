@@ -100,12 +100,12 @@ func TestOperation_CreateInvitation(t *testing.T) {
 }
 
 func TestOperation_ReceiveInvitation(t *testing.T) {
-	var jsonStr = []byte(`{"invitation":{
+	var jsonStr = []byte(`{
 		"serviceEndpoint":"http://alice.agent.example.com:8081",
 		"recipientKeys":["FDmegH8upiNquathbHZiGBZKwcudNfNWPeGQFBt8eNNi"],
 		"@id":"a35c0ac6-4fc3-46af-a072-c1036d036057",
 		"label":"agent",
-		"@type":"did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation"}}`)
+		"@type":"did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation"}`)
 
 	handler := getHandler(t, receiveInvitationPath, nil)
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())

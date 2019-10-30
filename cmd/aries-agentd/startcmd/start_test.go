@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +26,7 @@ type mockServer struct{}
 
 const agentUnexpectedExitErrMsg = "agent server exited unexpectedly"
 
-func (s *mockServer) ListenAndServe(host string, router *mux.Router) error {
+func (s *mockServer) ListenAndServe(host string, handler http.Handler) error {
 	return nil
 }
 

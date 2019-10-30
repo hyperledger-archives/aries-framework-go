@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -131,13 +132,13 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 	logger.Debugf("Receiving connection invitation ")
 
 	var request models.ReceiveInvitationRequest
-	err := json.NewDecoder(req.Body).Decode(&request)
+	err := json.NewDecoder(req.Body).Decode(&request.Invitation)
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
 	}
 
-	err = c.client.HandleInvitation(request.Params)
+	err = c.client.HandleInvitation(request.Invitation)
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
@@ -290,7 +291,7 @@ func (c *Operation) RemoveConnection(rw http.ResponseWriter, req *http.Request) 
 }
 
 // writeGenericError writes given error to writer as generic error response
-func (c *Operation) writeGenericError(rw http.ResponseWriter, err error) {
+func (c *Operation) writeGenericError(rw io.Writer, err error) {
 	errResponse := models.GenericError{
 		Body: struct {
 			Code    int32  `json:"code"`
@@ -305,11 +306,7 @@ func (c *Operation) writeGenericError(rw http.ResponseWriter, err error) {
 }
 
 // writeResponse writes interface value to response
-func (c *Operation) writeResponse(rw http.ResponseWriter, v interface{}) {
-	// TODO CORS response header should be added through customizable response filters to REST API [Issue #624]
-	// add CORS response header
-	rw.Header().Set("Access-Control-Allow-Origin", "*")
-
+func (c *Operation) writeResponse(rw io.Writer, v interface{}) {
 	err := json.NewEncoder(rw).Encode(v)
 	// as of now, just log errors for writing response
 	if err != nil {
