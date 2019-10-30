@@ -32,10 +32,6 @@ const (
 	// retry options to pull topics from webhook
 	pullTopicsAttempts       = 10
 	pullTopicsWaitInMilliSec = 50
-
-	// TODO to be removed as part of issue #572
-	AliceAgentHost = "${ALICE_AGENT_HOST}"
-	BobAgentHost   = "${BOB_AGENT_HOST}"
 )
 
 // AgentWithControllerSteps
@@ -120,11 +116,6 @@ func (a *AgentWithControllerSteps) createInvitation(inviterAgentID, label string
 	}
 
 	// save invitation for later use
-	if strings.Contains(result.Invitation.ServiceEndpoint, "0.0.0.0") {
-		//TODO to be fixed, use local address in service endpoint of invitation object [issue #572]
-		result.Invitation.ServiceEndpoint = strings.Replace(result.Invitation.ServiceEndpoint, "0.0.0.0", a.bddContext.Args[AliceAgentHost], 1)
-		logger.Debugf("service endpoint host in invitation changed to %s", result.Invitation.ServiceEndpoint)
-	}
 	a.invitations[inviterAgentID] = result.Invitation
 
 	return nil
@@ -183,13 +174,10 @@ func (a *AgentWithControllerSteps) waitForPostEvent(agentID, statesValue string)
 		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)
 	}
 
-	logger.Debugf("Got topic from webhook server, result %s", result)
+	logger.Debugf("Got topic from webhook server, %s", result)
 
-	if result.State == statesValue {
-		logger.Debugf("Found expected webhook msg %v", result)
-	} else {
-		//TODO due to existing issue [#572], did exchange is failing to post DID envelope to other agent, fix in progress
-		// return fmt.Errorf("unable to find topic with state [%s] from webhook [%s], but found [%s] instead", statesValue, webhookURL, result.State)
+	if result.State != statesValue {
+		return fmt.Errorf("expected post event with state[%s], but got[%s]", statesValue, result.State)
 	}
 
 	if result.ConnectionID == "" {
@@ -222,14 +210,9 @@ func (a *AgentWithControllerSteps) validateConnection(agentID, stateValue string
 	}
 	logger.Debugf("Got connection by ID, result %s", response)
 
-	//TODO due to existing issue [#572], did exchange is failing to post DID envelope to other agent, fix in progress
-	// if response.Result.State != stateValue {
-	// 	return fmt.Errorf("Expected state[%s] for agent[%s], but got[%s]", stateValue, agentID, response.Result.State)
-	// }
-
-	//TODO delete below verification after fixing #572
-	if response.Result.State != "requested" && response.Result.State != "abandoned" {
-		return fmt.Errorf("Expected state[requested/abondoned] for agent[%s], but got[%s]", agentID, response.Result.State)
+	// Verify state
+	if response.Result.State != stateValue {
+		return fmt.Errorf("Expected state[%s] for agent[%s], but got[%s]", stateValue, agentID, response.Result.State)
 	}
 
 	return nil

@@ -13,6 +13,7 @@ services:
     environment:
       - API_HOST=${ALICE_HOST}:${ALICE_API_PORT}
       - INBOUND_HOST=${ALICE_HOST}:${ALICE_INBOUND_PORT}
+      - INBOUND_HOST_EXTERNAL=alice.aries.example.com:${ALICE_INBOUND_PORT}
       - WEBHOOK_URL=http://${ALICE_WEBHOOK_CONTAINER_NAME}:${ALICE_WEBHOOK_PORT}
       - DB_LOC=${ALICE_DB_LOC}
     ports:
@@ -25,6 +26,7 @@ services:
     environment:
       - API_HOST=${BOB_HOST}:${BOB_API_PORT}
       - INBOUND_HOST=${BOB_HOST}:${BOB_INBOUND_PORT}
+      - INBOUND_HOST_EXTERNAL=bob.aries.example.com:${BOB_INBOUND_PORT}
       - WEBHOOK_URL=http://${BOB_WEBHOOK_CONTAINER_NAME}:${BOB_WEBHOOK_PORT}
       - DB_LOC=${BOB_DB_LOC}
     ports:
