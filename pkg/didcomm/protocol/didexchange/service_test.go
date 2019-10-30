@@ -39,11 +39,14 @@ func TestService_Name(t *testing.T) {
 // did-exchange flow with role Inviter
 func TestService_Handle_Inviter(t *testing.T) {
 	prov := protocol.MockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	pubKey, privKey := generateKeyPair()
+	ctx := &context{outboundDispatcher: prov.OutboundDispatcher(),
+		didCreator: &mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)},
+		signer:     &mockSigner{privateKey: privKey}}
 	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 
-	s, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	s, err := New(&mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)}, &protocol.MockProvider{})
 	require.NoError(t, err)
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
@@ -147,11 +150,14 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 func TestService_Handle_Invitee(t *testing.T) {
 	store := mockstorage.NewMockStoreProvider()
 	prov := protocol.MockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	pubKey, privKey := generateKeyPair()
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
+		didCreator: &mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)},
+		signer:     &mockSigner{privateKey: privKey}}
 	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 
-	s, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{StoreProvider: store})
+	s, err := New(&mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)}, &protocol.MockProvider{StoreProvider: store})
 	require.NoError(t, err)
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
@@ -199,7 +205,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 		DIDDoc: newDidDoc,
 	}
 
-	connectionSignature, err := prepareConnectionSignature(connection)
+	connectionSignature, err := ctx.prepareConnectionSignature(connection)
 	require.NoError(t, err)
 
 	// Bob replies with a Response
@@ -275,12 +281,13 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 	t.Run("must not transition to same state", func(t *testing.T) {
 		prov := protocol.MockProvider{}
+		pubKey, _ := generateKeyPair()
 		ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+			didCreator: &mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)}}
 		newDidDoc, err := ctx.didCreator.Create(testMethod)
 		require.NoError(t, err)
 
-		s, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		s, err := New(&mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)}, &protocol.MockProvider{})
 		require.NoError(t, err)
 		actionCh := make(chan service.DIDCommAction, 10)
 		err = s.RegisterActionEvent(actionCh)
