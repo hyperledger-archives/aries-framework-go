@@ -61,3 +61,8 @@ func (m *CloseableWallet) DeriveKEK(alg, apu, fromKey, toPubKey []byte) ([]byte,
 func (m *CloseableWallet) GetEncryptionKey(verKey []byte) ([]byte, error) {
 	return m.EncryptionKeyValue, m.EncryptionKeyErr
 }
+
+// ConvertToEncryptionKey converts the keypair containing the given verkey to an encryption keypair
+func (m *CloseableWallet) ConvertToEncryptionKey(key []byte) ([]byte, error) {
+	return m.EncryptionKeyValue, m.EncryptionKeyErr
+}

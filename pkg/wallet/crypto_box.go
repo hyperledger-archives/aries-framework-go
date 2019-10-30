@@ -8,6 +8,7 @@ package wallet
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -33,8 +34,13 @@ type CryptoBox struct {
 }
 
 // NewCryptoBox creates a CryptoBox which provides crypto box encryption using the given wallet's keypairs
-func NewCryptoBox(w *BaseWallet) *CryptoBox {
-	return &CryptoBox{w: w}
+func NewCryptoBox(w Crypto) (*CryptoBox, error) {
+	wa, ok := w.(*BaseWallet)
+	if !ok {
+		return nil, fmt.Errorf("cannot use parameter as wallet")
+	}
+
+	return &CryptoBox{w: wa}, nil
 }
 
 // Easy seals a message with a provided nonce

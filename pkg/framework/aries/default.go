@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -124,7 +124,7 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) {
 
 	if frameworkOpts.crypterCreator == nil {
 		frameworkOpts.crypterCreator = func(provider crypto.Provider) (crypto.Crypter, error) {
-			return authcrypt.New(provider, authcrypt.XC20P)
+			return authcrypt.New(provider), nil
 		}
 	}
 
