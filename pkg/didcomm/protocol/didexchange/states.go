@@ -15,12 +15,14 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 )
 
 const (
@@ -36,6 +38,7 @@ const (
 	supportedPublicKeyType = "Ed25519VerificationKey2018"
 	serviceType            = "did-communication"
 	didMethod              = "peer"
+	signatureDataDelimiter = '|'
 )
 
 //TODO: This is temporary to move forward with bdd test will be fixed in Issue-353
@@ -454,7 +457,7 @@ func (ctx *context) handleInboundRequest(request *Request, connRec *ConnectionRe
 		DIDDoc: newDidDoc,
 	}
 	// prepare connection signature
-	encodedConnectionSignature, err := prepareConnectionSignature(connection)
+	encodedConnectionSignature, err := ctx.prepareConnectionSignature(connection)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -626,23 +629,31 @@ func prepareDestination(didDoc *did.Doc) *service.Destination {
 
 // Encode the connection and convert to Connection Signature as per the spec:
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange
-func prepareConnectionSignature(connection *Connection) (*ConnectionSignature, error) {
+func (ctx *context) prepareConnectionSignature(connection *Connection) (*ConnectionSignature, error) {
 	connAttributeBytes, err := json.Marshal(connection)
 	if err != nil {
 		return nil, err
 	}
 	now := getEpochTime()
 	timestamp := strconv.FormatInt(now, 10)
-	connAttributeString := string(connAttributeBytes)
-	concatenateSignData := []byte(timestamp + connAttributeString)
-	pubKey := connection.DIDDoc.PublicKey[0].Value
+	prefix := append([]byte(timestamp), signatureDataDelimiter)
+	concatenateSignData := append(prefix, connAttributeBytes...)
 
-	// Todo signature : KMSs need to return signer interface that will have Sign function
-	//  where sigData is passed issue-319
+	// TODO: As per spec we should sign using recipientKeys - this will be done upon completing issue-625
+	// that allows for correlation between exchange-request and invitation using pthid
+	pubKey := string(connection.DIDDoc.PublicKey[0].Value)
+
+	// TODO: Replace with signed attachments issue-626
+	signature, err := ctx.signer.SignMessage(concatenateSignData, pubKey)
+	if err != nil {
+		return nil, fmt.Errorf("sign response message: %w", err)
+	}
+
 	return &ConnectionSignature{
 		Type:       "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single",
 		SignedData: base64.URLEncoding.EncodeToString(concatenateSignData),
-		SignVerKey: string(pubKey),
+		SignVerKey: base64.URLEncoding.EncodeToString(base58.Decode(pubKey)),
+		Signature:  base64.URLEncoding.EncodeToString(signature),
 	}, nil
 }
 
@@ -680,20 +691,11 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction,
 		},
 	}
 
-	var connBytes []byte
-	sigData, err := base64.URLEncoding.DecodeString(response.ConnectionSignature.SignedData)
+	conn, err := verifySignature(response.ConnectionSignature)
 	if err != nil {
-		return nil, nil, fmt.Errorf("decode string failed : %s", err)
+		return nil, nil, err
 	}
-	if len(sigData) != 0 {
-		// trimming the timestamp and only taking out connection attribute Bytes
-		connBytes = sigData[bytes.IndexRune(sigData, '{'):]
-	}
-	conn := &Connection{}
-	err = json.Unmarshal(connBytes, conn)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unmarshalling failed : %s", err)
-	}
+
 	dest := prepareDestination(conn.DIDDoc)
 	// TODO : Issue-353
 	sendVerKey := temp
@@ -708,6 +710,52 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction,
 	return func() error {
 		return ctx.outboundDispatcher.Send(ack, sendVerKey, dest)
 	}, connRecord, nil
+}
+
+// verifySignature verifies connection signature and returns connection
+func verifySignature(connSignature *ConnectionSignature) (*Connection, error) {
+	sigData, err := base64.URLEncoding.DecodeString(connSignature.SignedData)
+	if err != nil {
+		return nil, fmt.Errorf("decode signature data: %w", err)
+	}
+
+	if len(sigData) == 0 || !bytes.ContainsRune(sigData, signatureDataDelimiter) {
+		return nil, fmt.Errorf("missing or invalid signature data")
+	}
+
+	signature, err := base64.URLEncoding.DecodeString(connSignature.Signature)
+	if err != nil {
+		return nil, fmt.Errorf("decode signature: %w", err)
+	}
+
+	// TODO: As per spec inviter should sign using recipientKeys - this will be done upon completing issue-625
+	// The signature data must be used to verify against the invitation's recipientKeys for continuity.
+	pubKey, err := base64.URLEncoding.DecodeString(connSignature.SignVerKey)
+	if err != nil {
+		return nil, fmt.Errorf("decode public key: %w", err)
+	}
+
+	// TODO: Replace with signed attachments issue-626
+	signatureSuite := ed25519signature2018.New()
+	err = signatureSuite.Verify(pubKey, sigData, signature)
+	if err != nil {
+		return nil, fmt.Errorf("verify signature: %w", err)
+	}
+
+	// trimming the timestamp and delimiter - only taking out connection attribute bytes
+	connectionIndex := bytes.IndexRune(sigData, signatureDataDelimiter) + 1
+	if connectionIndex >= len(sigData) {
+		return nil, fmt.Errorf("missing connection attribute bytes")
+	}
+	connBytes := sigData[connectionIndex:]
+
+	conn := &Connection{}
+	err = json.Unmarshal(connBytes, conn)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal failed: %w", err)
+	}
+
+	return conn, nil
 }
 
 func getEpochTime() int64 {
