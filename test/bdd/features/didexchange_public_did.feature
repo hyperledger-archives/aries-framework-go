@@ -13,7 +13,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     Given "Maria" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
     And   "Maria" creates public DID using sidetree "${SIDETREE_URL}"
     # we wait until observer polls sidetree txn
-    Then  "Maria" waits for public did to become available in sidetree for up to 5 seconds
+    Then  "Maria" waits for public did to become available in sidetree for up to 10 seconds
     And   "Maria" creates did exchange client
     And   "Maria" registers to receive notification for post state event "completed"
     Given "Lisa" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"

@@ -22,7 +22,7 @@ import (
 )
 
 var composition []*dockerutil.Composition
-var composeFiles = []string{"./fixtures/sidetree-node", "./fixtures/agent"}
+var composeFiles = []string{"./fixtures/sidetree-mock", "./fixtures/agent"}
 
 func TestMain(m *testing.M) {
 	// default is to run all tests with tag @all
@@ -118,8 +118,8 @@ func FeatureContext(s *godog.Suite) {
 	}
 
 	// set dynamic args
-	context.Args[SideTreeURL] = "http://localhost:48326/.sidetree/document"
-	context.Args[DIDDocPath] = "fixtures/sidetree-node/config/didDocument.json"
+	context.Args[SideTreeURL] = "http://localhost:48326/document"
+	context.Args[DIDDocPath] = "fixtures/sidetree-mock/config/didDocument.json"
 
 	// Context is shared between tests
 	NewAgentSDKSteps(context).RegisterSteps(s)
