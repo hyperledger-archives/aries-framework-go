@@ -11,7 +11,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.5.0
 	github.com/gorilla/mux v1.7.3
 	github.com/hyperledger/aries-framework-go v0.0.0
-	github.com/trustbloc/sidetree-core-go v0.0.0-20191030160623-b6a8afec3cb8
+	github.com/trustbloc/sidetree-core-go v0.1.0
 
 )
 
