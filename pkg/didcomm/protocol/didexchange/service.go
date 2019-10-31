@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
@@ -30,7 +29,7 @@ const (
 	// DIDExchange did exchange protocol
 	DIDExchange = "didexchange"
 	// DIDExchangeSpec defines the did-exchange spec
-	DIDExchangeSpec = metadata.AriesCommunityDID + ";spec/didexchange/1.0/"
+	DIDExchangeSpec = "https://didcomm.org/didexchange/1.0/"
 	// InvitationMsgType defines the did-exchange invite message type.
 	InvitationMsgType = DIDExchangeSpec + "invitation"
 	// RequestMsgType defines the did-exchange request message type.

@@ -497,16 +497,16 @@ func TestService_Accept(t *testing.T) {
 	ctx := context{outboundDispatcher: newMockOutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 	s := &Service{ctx: &ctx, transientStore: dbstore}
 
-	resp := s.Accept("did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation")
+	resp := s.Accept("https://didcomm.org/didexchange/1.0/invitation")
 	require.Equal(t, true, resp)
 
-	resp = s.Accept("did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/request")
+	resp = s.Accept("https://didcomm.org/didexchange/1.0/request")
 	require.Equal(t, true, resp)
 
-	resp = s.Accept("did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/response")
+	resp = s.Accept("https://didcomm.org/didexchange/1.0/response")
 	require.Equal(t, true, resp)
 
-	resp = s.Accept("did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/ack")
+	resp = s.Accept("https://didcomm.org/didexchange/1.0/ack")
 	require.Equal(t, true, resp)
 
 	resp = s.Accept("unsupported msg type")
@@ -1193,8 +1193,8 @@ func TestNextState(t *testing.T) {
 		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
 		require.NoError(t, err)
 
-		state, errState := svc.nextState(RequestMsgType, generateRandomID())
+		s, errState := svc.nextState(RequestMsgType, generateRandomID())
 		require.NoError(t, errState)
-		require.Equal(t, stateNameRequested, state.Name())
+		require.Equal(t, stateNameRequested, s.Name())
 	})
 }
