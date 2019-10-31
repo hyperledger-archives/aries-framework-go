@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package bdd
 
 import (
+	"sync"
+
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -21,6 +23,7 @@ type Context struct {
 	PostStatesFlag     map[string]map[string]chan bool
 	ConnectionID       map[string]string
 	Args               map[string]string
+	sync.RWMutex
 }
 
 // NewContext create new Context
