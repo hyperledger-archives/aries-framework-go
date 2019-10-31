@@ -116,6 +116,7 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 h1:J9b7z+QKAmPf4YLrFg6oQUotqHQeUNWwkvo7jZp1GLU=
 github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35/go.mod h1:prYjPmNq4d1NPVmpShWobRqXY3q7Vp+80DqgxxUrUIA=
+github.com/rs/cors v1.7.0/go.mod h1:gFx+x8UowdsKA9AchylcLynDq+nNFfI8FkUZdN/jGCU=
 github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=
 github.com/sirupsen/logrus v1.3.0 h1:hI/7Q+DtNZ2kINb6qt/lS+IyXnHQe9e90POfeewL/ME=
 github.com/sirupsen/logrus v1.3.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
@@ -140,12 +141,8 @@ github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJy
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/syndtr/goleveldb v1.0.0 h1:fBdIW9lB4Iz0n9khmH8w27SJ3QEJ7+IgjPEwGSZiFdE=
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
-github.com/trustbloc/sidetree-core-go v0.0.0-20191028174235-80e3b92d0da1 h1:uJdOEwzFYMpFLIFl28+zutAoIyihF591ZDLdCKD9VMM=
-github.com/trustbloc/sidetree-core-go v0.0.0-20191028174235-80e3b92d0da1/go.mod h1:FC7RAK7yPS2Y7iKQL2gt01fVi1JtYLbpUklNYcxCfYQ=
-github.com/trustbloc/sidetree-core-go v0.0.0-20191030143807-717ed28e9b4d h1:bZ0xYsf/gUwbpWQqv/16qOQMYDfl/iegBFTJuBRH5E0=
-github.com/trustbloc/sidetree-core-go v0.0.0-20191030143807-717ed28e9b4d/go.mod h1:FC7RAK7yPS2Y7iKQL2gt01fVi1JtYLbpUklNYcxCfYQ=
-github.com/trustbloc/sidetree-core-go v0.0.0-20191030160623-b6a8afec3cb8 h1:OsfQluDIg4hz//oI3f9JewCQyOSKxkLsjGI7SioqhTs=
-github.com/trustbloc/sidetree-core-go v0.0.0-20191030160623-b6a8afec3cb8/go.mod h1:FC7RAK7yPS2Y7iKQL2gt01fVi1JtYLbpUklNYcxCfYQ=
+github.com/trustbloc/sidetree-core-go v0.1.0 h1:XO7up5EK3FfqzijCJHXt0Cidd6XfN/RO6ifAR0mZXbU=
+github.com/trustbloc/sidetree-core-go v0.1.0/go.mod h1:FC7RAK7yPS2Y7iKQL2gt01fVi1JtYLbpUklNYcxCfYQ=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=
