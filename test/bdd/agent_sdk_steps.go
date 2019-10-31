@@ -190,8 +190,9 @@ func (a *AgentSDKSteps) eventListener(statusCh chan service.StateMsg, agentID st
 		case error:
 			panic(fmt.Sprintf("Service processing failed: %s", v))
 		}
-
+		a.bddContext.Lock()
 		a.bddContext.ConnectionID[agentID] = props.ConnectionID()
+		a.bddContext.Unlock()
 		if e.Type == service.PostState {
 			dst := &bytes.Buffer{}
 			if err := json.Indent(dst, e.Msg.Payload, "", "  "); err != nil {
