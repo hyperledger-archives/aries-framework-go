@@ -117,5 +117,5 @@ func (p *MockProvider) DIDResolver() didresolver.Resolver {
 
 // DIDStore is mock DID store
 func (p *MockProvider) DIDStore() didstore.Storage {
-	return &mockdidstore.MockDidStore{}
+	return mockdidstore.NewMockDidStore()
 }

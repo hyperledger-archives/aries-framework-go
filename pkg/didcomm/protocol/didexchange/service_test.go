@@ -68,7 +68,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 			ID:    thid,
 			Label: "Bob",
 			Connection: &Connection{
-				DID:    "B.did@B:A",
+				DID:    "did:peer:did@B:A",
 				DIDDoc: newDidDoc,
 			},
 		})
@@ -551,7 +551,7 @@ func (m *mockStore) Get(k string) ([]byte, error) {
 func getMockDID() *did.Doc {
 	return &did.Doc{
 		Context: []string{"https://w3id.org/did/v1"},
-		ID:      "did:example:123456789abcdefghi#inbox",
+		ID:      "did:peer:123456789abcdefghi#inbox",
 		Service: []did.Service{{
 			ServiceEndpoint: "https://localhost:8090",
 		}},
@@ -574,7 +574,7 @@ func getMockDID() *did.Doc {
 func getMockDIDPublicKey() *did.Doc {
 	return &did.Doc{
 		Context: []string{"https://w3id.org/did/v1"},
-		ID:      "did:example:123456789abcdefghi#inbox",
+		ID:      "did:peer:123456789abcdefghi#inbox",
 		Service: []did.Service{{
 			ServiceEndpoint: "https://localhost:8090",
 		}},

@@ -41,9 +41,6 @@ const (
 	signatureDataDelimiter = '|'
 )
 
-//TODO: This is temporary to move forward with bdd test will be fixed in Issue-353
-var temp string //nolint
-
 // state action for network call
 type stateAction func() error
 
@@ -420,12 +417,10 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 	if err != nil {
 		return nil, nil, err
 	}
-	pubKey, err := getPublicKeys(newDidDoc, supportedPublicKeyType)
+	err = ctx.didStore.Put(newDidDoc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error while getting public key %s", err)
+		return nil, nil, fmt.Errorf("storing doc in did store: %w", err)
 	}
-	sendVerKey := string(pubKey[0].Value)
-	temp = sendVerKey
 	// prepare the request :
 	// TODO Service.Handle() is using the ID from the Invitation as the threadID when instead it should be
 	//  using this request's ID. issue-280
@@ -439,9 +434,12 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 		},
 	}
 	connRec.MyDID = request.Connection.DID
-	// send the exchange request
+	pubKey, err := getPublicKeys(request.Connection.DIDDoc, supportedPublicKeyType)
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting public key %s", err)
+	}
 	return func() error {
-		return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
+		return ctx.outboundDispatcher.Send(request, string(pubKey[0].Value), destination)
 	}, connRec, nil
 }
 
@@ -451,6 +449,10 @@ func (ctx *context) handleInboundRequest(request *Request, connRec *ConnectionRe
 	newDidDoc, err := ctx.didCreator.Create(didMethod)
 	if err != nil {
 		return nil, nil, err
+	}
+	err = ctx.didStore.Put(newDidDoc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("storing doc in did store: %w", err)
 	}
 	connection := &Connection{
 		DID:    newDidDoc.ID,
@@ -470,19 +472,16 @@ func (ctx *context) handleInboundRequest(request *Request, connRec *ConnectionRe
 		},
 		ConnectionSignature: encodedConnectionSignature,
 	}
-
-	destination := prepareDestination(request.Connection.DIDDoc)
-
-	pubKey, err := getPublicKeys(newDidDoc, supportedPublicKeyType)
-	if err != nil {
-		return nil, nil,
-			err
-	}
-	sendVerKey := string(pubKey[0].Value)
+	connRec.TheirDID = request.Connection.DID
 	connRec.MyDID = connection.DID
+	destination := prepareDestination(request.Connection.DIDDoc)
+	pubKey, err := getPublicKeys(connection.DIDDoc, supportedPublicKeyType)
+	if err != nil {
+		return nil, nil, err
+	}
 	// send exchange response
 	return func() error {
-		return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
+		return ctx.outboundDispatcher.Send(response, string(pubKey[0].Value), destination)
 	}, connRec, nil
 }
 
@@ -547,18 +546,20 @@ func (ctx *context) sendOutboundRequest(msg *stateMachineMsg) (stateAction, *Con
 	if err != nil {
 		return nil, nil, err
 	}
+	err = ctx.didStore.Put(request.Connection.DIDDoc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("storing doc in did store: %w", err)
+	}
 	// choose the first public key
 	pubKey, err := getPublicKeys(request.Connection.DIDDoc, supportedPublicKeyType)
 	if err != nil {
 		return nil, nil, err
 	}
-	sendVerKey := string(pubKey[0].Value)
-
 	connRecord := &ConnectionRecord{ConnectionID: generateRandomID(), ThreadID: request.ID,
 		TheirDID: request.Connection.DID, TheirLabel: request.Label}
 	// send the exchange request
 	return func() error {
-		return ctx.outboundDispatcher.Send(request, sendVerKey, destination)
+		return ctx.outboundDispatcher.Send(request, string(pubKey[0].Value), destination)
 	}, connRecord, nil
 }
 
@@ -577,33 +578,19 @@ func (ctx *context) sendOutboundResponse(msg *stateMachineMsg) (stateAction, *Co
 		return nil, nil, fmt.Errorf("unmarhalling outbound response: %s", err)
 	}
 
-	var connBytes []byte
-	sigData, err := base64.URLEncoding.DecodeString(response.ConnectionSignature.SignedData)
-	if err != nil {
-		return nil, nil, fmt.Errorf("decoding string failed : %s", err)
-	}
-	if len(sigData) != 0 {
-		// trimming the timestamp and only taking out connection attribute Bytes
-		connBytes = sigData[bytes.IndexRune(sigData, '{'):]
-	}
-
-	connection := &Connection{}
-	err = json.Unmarshal(connBytes, connection)
+	connection, err := verifySignature(response.ConnectionSignature)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	pubKey, err := getPublicKeys(connection.DIDDoc, supportedPublicKeyType)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("get public keys: %w", err)
 	}
-	// choose the first public key
-	sendVerKey := string(pubKey[0].Value)
-
 	connRecord := &ConnectionRecord{ConnectionID: generateRandomID(), ThreadID: response.Thread.ID,
 		TheirDID: connection.DID}
 	return func() error {
-		return ctx.outboundDispatcher.Send(response, sendVerKey, destination)
+		return ctx.outboundDispatcher.Send(response, string(pubKey[0].Value), destination)
 	}, connRecord, nil
 }
 
@@ -656,7 +643,6 @@ func (ctx *context) prepareConnectionSignature(connection *Connection) (*Connect
 		Signature:  base64.URLEncoding.EncodeToString(signature),
 	}, nil
 }
-
 func (ctx *context) sendOutboundAck(msg *stateMachineMsg) (stateAction, error) {
 	ack := &model.Ack{}
 	if msg.outboundDestination == nil {
@@ -672,14 +658,28 @@ func (ctx *context) sendOutboundAck(msg *stateMachineMsg) (stateAction, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO : Issue-353
-	sendVerKey := temp
+	nsThID, err := createNSKey(theirNSPrefix, ack.Thread.ID)
+	if err != nil {
+		return nil, err
+	}
+	connRecord, err := ctx.connectionStore.GetConnectionRecordByNSThreadID(nsThID)
+	if err != nil {
+		return nil, fmt.Errorf("get connection record: %w", err)
+	}
+	// todo issue-645 get the did doc from did resolver
+	didDoc, err := ctx.didStore.Get(connRecord.MyDID)
+	if err != nil {
+		return nil, fmt.Errorf("fetching did document: %w", err)
+	}
+	pubKey, err := getPublicKeys(didDoc, supportedPublicKeyType)
+	if err != nil {
+		return nil, fmt.Errorf("get public keys: %w", err)
+	}
 	action := func() error {
-		return ctx.outboundDispatcher.Send(ack, sendVerKey, destination)
+		return ctx.outboundDispatcher.Send(ack, string(pubKey[0].Value), destination)
 	}
 	return action, nil
 }
-
 func (ctx *context) handleInboundResponse(response *Response) (stateAction,
 	*ConnectionRecord, error) {
 	ack := &model.Ack{
@@ -690,25 +690,32 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction,
 			ID: response.Thread.ID,
 		},
 	}
-
 	conn, err := verifySignature(response.ConnectionSignature)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	dest := prepareDestination(conn.DIDDoc)
-	// TODO : Issue-353
-	sendVerKey := temp
-	nsThid, err := createNSKey(myNSPrefix, ack.Thread.ID)
+	nsThID, err := createNSKey(myNSPrefix, ack.Thread.ID)
 	if err != nil {
 		return nil, nil, err
 	}
-	connRecord, err := ctx.connectionStore.GetConnectionRecordByNSThreadID(nsThid)
+	connRecord, err := ctx.connectionStore.GetConnectionRecordByNSThreadID(nsThID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("get connection record: %w", err)
+	}
+	connRecord.TheirDID = conn.DID
+
+	destination := prepareDestination(conn.DIDDoc)
+	// todo issue-645 get the did doc from did resolver
+	myDidDoc, err := ctx.didStore.Get(connRecord.MyDID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("fetching did document: %w", err)
+	}
+	pubKey, err := getPublicKeys(myDidDoc, supportedPublicKeyType)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get public keys: %w", err)
 	}
 	return func() error {
-		return ctx.outboundDispatcher.Send(ack, sendVerKey, dest)
+		return ctx.outboundDispatcher.Send(ack, string(pubKey[0].Value), destination)
 	}, connRecord, nil
 }
 
