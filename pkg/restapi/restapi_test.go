@@ -51,7 +51,7 @@ func TestNew_Success(t *testing.T) {
 	require.NotEmpty(t, controller.GetOperations())
 }
 
-func TestAddWebhookNotifierOption(t *testing.T) {
+func TestWithWebhookNotifierOption(t *testing.T) {
 	restAPIOpts := &allOpts{}
 
 	webhookURLs := []string{"localhost:8080"}
@@ -60,6 +60,17 @@ func TestAddWebhookNotifierOption(t *testing.T) {
 	webhookNotifierOpt(restAPIOpts)
 
 	require.Equal(t, webhookURLs, restAPIOpts.webhookURLs)
+}
+
+func TestWithDefaultLabelOption(t *testing.T) {
+	restAPIOpts := &allOpts{}
+
+	label := "testLabel"
+	webhookNotifierOpt := WithDefaultLabel(label)
+
+	webhookNotifierOpt(restAPIOpts)
+
+	require.Equal(t, label, restAPIOpts.defaultLabel)
 }
 
 func generateTempDir(t testing.TB) (string, func()) {

@@ -63,6 +63,12 @@ const (
 
 	agentWebhookFlagUsage = "URL to send notifications to." +
 		" This flag can be repeated, allowing for multiple listeners."
+
+	agentDefaultLabelFlagName = "agent-default-label"
+
+	agentDefaultLabelFlagShorthand = "l"
+
+	agentDefaultLabelFlagUsage = "Default Label for this agent. Defaults to blank if not set."
 )
 
 // ErrMissingHost is the error when the user provides a blank host argument.
@@ -74,9 +80,9 @@ var ErrMissingInboundHost = errors.New("unable to start aries agentd, HTTP Inbou
 var logger = log.New("aries-framework/agentd")
 
 type agentParameters struct {
-	server                                                 server
-	host, inboundHostInternal, inboundHostExternal, dbPath string
-	webhookURLs                                            []string
+	server                                                               server
+	host, inboundHostInternal, inboundHostExternal, dbPath, defaultLabel string
+	webhookURLs                                                          []string
 }
 
 type server interface {
@@ -120,8 +126,13 @@ func Cmd(server server) (*cobra.Command, error) {
 				return fmt.Errorf("agent DB path flag not found: %s", err)
 			}
 
+			invitationLabel, err := cmd.Flags().GetString(agentDefaultLabelFlagName)
+			if err != nil {
+				return fmt.Errorf("agent DB path flag not found: %s", err)
+			}
+
 			parameters := &agentParameters{server, host, inboundHost,
-				inboundHostExternal, dbPath, webhookURLs}
+				inboundHostExternal, dbPath, invitationLabel, webhookURLs}
 			err = startAgent(parameters)
 			if err != nil {
 				return fmt.Errorf("unable to start agent: %s", err)
@@ -168,6 +179,9 @@ func createFlags(startCmd *cobra.Command, webhookURLs *[]string) error {
 	startCmd.Flags().StringP(agentInboundHostExternalFlagName, agentInboundHostExternalFlagShorthand,
 		"", agentInboundHostExternalFlagUsage)
 
+	startCmd.Flags().StringP(agentDefaultLabelFlagName, agentDefaultLabelFlagShorthand, "",
+		agentDefaultLabelFlagUsage)
+
 	return nil
 }
 
@@ -200,7 +214,8 @@ func startAgent(parameters *agentParameters) error {
 	}
 
 	// get all HTTP REST API handlers available for controller API
-	restService, err := restapi.New(ctx, restapi.WithWebhookURLs(parameters.webhookURLs...))
+	restService, err := restapi.New(ctx, restapi.WithWebhookURLs(parameters.webhookURLs...),
+		restapi.WithDefaultLabel(parameters.defaultLabel))
 	if err != nil {
 		return fmt.Errorf("failed to start aries agentd on port [%s], failed to get rest service api :  %w",
 			parameters.host, err)

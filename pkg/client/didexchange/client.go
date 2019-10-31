@@ -95,16 +95,15 @@ func New(ctx provider) (*Client, error) {
 }
 
 // CreateInvitation create invitation
-// TODO 'invitation.label' should come though 'provider' [Issue #552]
 // TODO 'alias' should be passed as arg and persisted with connection record [Issue #623]
-func (c *Client) CreateInvitation(alias string) (*Invitation, error) {
+func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	_, sigPubKey, err := c.kms.CreateKeySet()
 	if err != nil {
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
 	}
 	invitation := &didexchange.Invitation{
 		ID:              uuid.New().String(),
-		Label:           alias,
+		Label:           label,
 		RecipientKeys:   []string{sigPubKey},
 		ServiceEndpoint: c.inboundTransportEndpoint,
 		Type:            didexchange.InvitationMsgType,

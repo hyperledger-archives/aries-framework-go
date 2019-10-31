@@ -52,7 +52,7 @@ type provider interface {
 }
 
 // New returns new DID Exchange rest client protocol instance
-func New(ctx provider, notifier webhook.Notifier) (*Operation, error) {
+func New(ctx provider, notifier webhook.Notifier, defaultLabel string) (*Operation, error) {
 	didExchange, err := didexchange.New(ctx)
 	if err != nil {
 		return nil, err
@@ -62,9 +62,10 @@ func New(ctx provider, notifier webhook.Notifier) (*Operation, error) {
 		ctx:    ctx,
 		client: didExchange,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
-		actionCh: make(chan service.DIDCommAction, 10),
-		msgCh:    make(chan service.StateMsg, 10),
-		notifier: notifier,
+		actionCh:     make(chan service.DIDCommAction, 10),
+		msgCh:        make(chan service.StateMsg, 10),
+		notifier:     notifier,
+		defaultLabel: defaultLabel,
 	}
 	svc.registerHandler()
 
@@ -78,12 +79,13 @@ func New(ctx provider, notifier webhook.Notifier) (*Operation, error) {
 
 // Operation is controller REST service controller for DID Exchange
 type Operation struct {
-	ctx      provider
-	client   *didexchange.Client
-	handlers []operation.Handler
-	actionCh chan service.DIDCommAction
-	msgCh    chan service.StateMsg
-	notifier webhook.Notifier
+	ctx          provider
+	client       *didexchange.Client
+	handlers     []operation.Handler
+	actionCh     chan service.DIDCommAction
+	msgCh        chan service.StateMsg
+	notifier     webhook.Notifier
+	defaultLabel string
 }
 
 // CreateInvitation swagger:route POST /connections/create-invitation did-exchange createInvitation
@@ -103,14 +105,13 @@ func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	// derive label from alias for now
 	var alias string
 	if request.CreateInvitationParams != nil {
 		alias = request.CreateInvitationParams.Alias
 	}
 
 	// call didexchange client
-	invitation, err := c.client.CreateInvitation(alias)
+	invitation, err := c.client.CreateInvitation(c.defaultLabel)
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
