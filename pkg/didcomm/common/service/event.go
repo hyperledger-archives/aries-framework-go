@@ -55,7 +55,7 @@ type DIDCommAction struct {
 	Message *DIDCommMsg
 
 	// Continue function to be called by the consumer for further processing the message.
-	Continue func()
+	Continue func(args ...interface{})
 
 	// Stop invocation notifies the service that the consumer action event processing has failed or the consumer wants
 	// to stop the processing.

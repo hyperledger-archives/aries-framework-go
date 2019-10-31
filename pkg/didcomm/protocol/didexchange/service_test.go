@@ -702,7 +702,7 @@ func TestEventStoreError(t *testing.T) {
 
 	go func() {
 		for e := range actionCh {
-			e.Continue = func() {
+			e.Continue = func(...interface{}) {
 				svc.processCallback(&message{Msg: &service.DIDCommMsg{Header: &service.Header{}}})
 			}
 			e.Continue()

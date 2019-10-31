@@ -268,6 +268,24 @@ func (s *Service) sendMsgEvents(msg *service.StateMsg) {
 	}
 }
 
+// Opt option for Continue function
+type Opt func(msg *metaData)
+
+// WithSkipProposal is used when the client received request message and he has a public invitation
+func WithSkipProposal() Opt {
+	return func(msg *metaData) {
+		msg.WaitCount--
+	}
+}
+
+func applyOptions(msg *metaData, args ...interface{}) {
+	for _, arg := range args {
+		if fn, ok := arg.(Opt); ok {
+			fn(msg)
+		}
+	}
+}
+
 // sendActionEvent triggers the action event. This function stores the state of current processing and passes a callback
 // function in the event message.
 func (s *Service) sendActionEvent(msg *metaData, aEvent chan<- service.DIDCommAction) {
@@ -276,7 +294,8 @@ func (s *Service) sendActionEvent(msg *metaData, aEvent chan<- service.DIDCommAc
 	aEvent <- service.DIDCommAction{
 		ProtocolName: Introduce,
 		Message:      msg.Msg.Clone(),
-		Continue: func() {
+		Continue: func(args ...interface{}) {
+			applyOptions(msg, args...)
 			s.processCallback(msg)
 		},
 		Stop: func(err error) {

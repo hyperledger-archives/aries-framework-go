@@ -582,7 +582,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		aCh := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(aCh))
 
-		// register action event channel
+		// register StateMsg channel
 		sCh := make(chan service.StateMsg)
 		require.NoError(t, svc.RegisterMsgEvent(sCh))
 
@@ -642,7 +642,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		aCh := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(aCh))
 
-		// register action event channel
+		// register StateMsg channel
 		sCh := make(chan service.StateMsg)
 		require.NoError(t, svc.RegisterMsgEvent(sCh))
 
@@ -676,6 +676,55 @@ func TestService_ProposalWithRequest(t *testing.T) {
 	})
 }
 
+// SkipProposal with request
+func TestService_SkipProposalWithRequest(t *testing.T) {
+	t.Run("Introducer", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		// register action event channel
+		aCh := make(chan service.DIDCommAction)
+		require.NoError(t, svc.RegisterActionEvent(aCh))
+
+		// register StateMsg channel
+		sCh := make(chan service.StateMsg)
+		require.NoError(t, svc.RegisterMsgEvent(sCh))
+
+		// creates threadID
+		thID := uuid.New().String()
+
+		// creates Request msg
+		reqMsg, err := service.NewDIDCommMsg(toBytes(t, Request{
+			Type: RequestMsgType,
+			ID:   thID,
+		}))
+		require.NoError(t, err)
+		// handle inbound Request msg
+		go func() { require.NoError(t, svc.HandleInbound(reqMsg)) }()
+		// sends the Proposal
+		continueAction(t, aCh, RequestMsgType, WithSkipProposal())
+		checkStateMsg(t, sCh, service.PreState, RequestMsgType, stateNameStart)
+		checkStateMsg(t, sCh, service.PostState, RequestMsgType, stateNameStart)
+		checkStateMsg(t, sCh, service.PreState, RequestMsgType, stateNameArranging)
+		checkStateMsg(t, sCh, service.PostState, RequestMsgType, stateNameArranging)
+
+		respMsg, err := service.NewDIDCommMsg(toBytes(t, Response{
+			Type:   ResponseMsgType,
+			ID:     uuid.New().String(),
+			Thread: &decorator.Thread{ID: thID},
+		}))
+		require.NoError(t, err)
+
+		// handle Response msg
+		go func() { require.NoError(t, svc.HandleInbound(respMsg)) }()
+		continueAction(t, aCh, ResponseMsgType)
+		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDelivering)
+		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDelivering)
+		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDone)
+		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDone)
+	})
+}
+
 func checkStateMsg(t *testing.T, ch chan service.StateMsg, sType service.StateMsgType, dType, stateID string) {
 	select {
 	case res := <-ch:
@@ -688,11 +737,11 @@ func checkStateMsg(t *testing.T, ch chan service.StateMsg, sType service.StateMs
 	}
 }
 
-func continueAction(t *testing.T, ch chan service.DIDCommAction, action string) {
+func continueAction(t *testing.T, ch chan service.DIDCommAction, action string, args ...interface{}) {
 	select {
 	case res := <-ch:
 		require.Equal(t, action, res.Message.Header.Type)
-		res.Continue()
+		res.Continue(args...)
 		return
 	case <-time.After(time.Second):
 		t.Error("timeout")

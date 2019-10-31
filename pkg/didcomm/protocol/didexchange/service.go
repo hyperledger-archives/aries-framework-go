@@ -288,7 +288,7 @@ func (s *Service) sendActionEvent(msg *service.DIDCommMsg, aEvent chan<- service
 	aEvent <- service.DIDCommAction{
 		ProtocolName: DIDExchange,
 		Message:      msg.Clone(),
-		Continue: func() {
+		Continue: func(...interface{}) {
 			s.processCallback(internalMsg)
 		},
 		Stop: func(err error) {

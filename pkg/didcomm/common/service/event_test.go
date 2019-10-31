@@ -21,8 +21,7 @@ func TestAutoExecuteActionEvent(t *testing.T) {
 		close(done)
 	}()
 
-	ch <- DIDCommAction{Continue: func() {
-	}}
+	ch <- DIDCommAction{Continue: func(...interface{}) {}}
 
 	close(ch)
 	<-done
