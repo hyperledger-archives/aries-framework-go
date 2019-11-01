@@ -13,7 +13,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,7 +21,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	didexchangeSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
@@ -234,27 +232,14 @@ func (c *Operation) QueryConnections(rw http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	records, err := c.client.QueryConnections(&request)
+	results, err := c.client.QueryConnections(&request)
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
 	}
 
-	// TODO more filters to be applied as part of [Issue #655]
-	var result []*didexchangeSvc.ConnectionRecord
-	if request.State != "" {
-		// filter by state
-		for _, record := range records {
-			if strings.EqualFold(record.State, request.State) {
-				result = append(result, record)
-			}
-		}
-	} else {
-		result = records
-	}
-
 	response := models.QueryConnectionsResponse{
-		Results: result,
+		Results: results,
 	}
 
 	c.writeResponse(rw, response)
