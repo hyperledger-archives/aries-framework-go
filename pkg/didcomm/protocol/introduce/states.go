@@ -128,18 +128,16 @@ func (s *arranging) CanTransitionTo(next state) bool {
 func (s *arranging) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
 	// TODO: need to get destination and key
 	return &noOp{}, ctx.Send(&Proposal{
-		Type:   ProposalMsgType,
-		ID:     uuid.New().String(),
-		Thread: &decorator.Thread{ID: m.ThreadID},
+		Type: ProposalMsgType,
+		ID:   uuid.New().String(),
 	}, "", nil)
 }
 
 func (s *arranging) ExecuteOutbound(ctx internalContext, m *metaData, dest *service.Destination) (state, error) {
 	// TODO: need to get a key
 	return &noOp{}, ctx.Send(&Proposal{
-		Type:   ProposalMsgType,
-		ID:     uuid.New().String(),
-		Thread: &decorator.Thread{ID: m.ThreadID},
+		Type: ProposalMsgType,
+		ID:   uuid.New().String(),
 	}, "", dest)
 }
 

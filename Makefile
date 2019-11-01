@@ -19,6 +19,8 @@ GO_CMD     ?= go
 ALPINE_VER ?= 3.10
 GO_TAGS    ?=
 GO_VER ?= 1.13.1
+PROJECT_ROOT = github.com/hyperledger/aries-framework-go
+MOCKGEN = $(shell go env GOPATH)/bin/mockgen
 
 .PHONY: all
 all: checks generate-openapi-spec unit-test bdd-test
@@ -27,7 +29,7 @@ all: checks generate-openapi-spec unit-test bdd-test
 checks: license lint generate-openapi-spec
 
 .PHONY: lint
-lint:
+lint: mocks
 	@scripts/check_lint.sh
 
 .PHONY: license
@@ -35,7 +37,7 @@ license:
 	@scripts/check_license.sh
 
 .PHONY: unit-test
-unit-test:
+unit-test: mocks
 	@scripts/check_unit.sh
 
 .PHONY: bdd-test
@@ -58,8 +60,8 @@ clean:
 generate-test-keys: clean
 	@mkdir -p -p test/bdd/fixtures/keys/tls
 	@docker run -i --rm \
-		-v $(abspath .):/opt/go/src/github.com/hyperledger/aries-framework-go \
-		--entrypoint "/opt/go/src/github.com/hyperledger/aries-framework-go/scripts/generate_test_keys.sh" \
+		-v $(abspath .):/opt/go/src/$(PROJECT_ROOT) \
+		--entrypoint "/opt/go/src/$(PROJECT_ROOT)/scripts/generate_test_keys.sh" \
 		frapsoft/openssl
 
 .PHONY: generate-openapi-spec
@@ -112,3 +114,20 @@ sample-webhook-docker:
 	--build-arg ALPINE_VER=$(ALPINE_VER) \
 	--build-arg GO_TAGS=$(GO_TAGS) \
 	--build-arg GOPROXY=$(GOPROXY) .
+
+comma:= ,
+semicolon:= ;
+
+define create_mock
+  mkdir -p $(1)/mocks && rm -rf $(1)/mocks/*
+  $(MOCKGEN) -destination $(1)/mocks/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
+endef
+
+build-mockgen:
+	go get github.com/golang/mock/mockgen
+
+.PHONY: mocks
+mocks: build-mockgen
+	$(call create_mock,pkg/client/introduce,Provider)
+	$(call create_mock,pkg/storage,Provider;Store)
+	$(call create_mock,pkg/didcomm/common/service,DIDComm)
