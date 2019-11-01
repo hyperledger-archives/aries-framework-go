@@ -169,10 +169,21 @@ func (c *Client) AcceptExchangeRequest(connectionID string) error {
 }
 
 // QueryConnections queries connections matching given parameters
-func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*didexchange.ConnectionRecord, error) {
-	// TODO query all connections from criteria [Issue #655]
+func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connection, error) {
+	// TODO query all connections from all criteria [Issue #655]
 	// TODO also results needs to be paged  [Issue #655]
-	return c.connectionStore.QueryConnectionRecords()
+	records, err := c.connectionStore.QueryConnectionRecords()
+	if err != nil {
+		return nil, fmt.Errorf("failed query connections: %w", err)
+	}
+	var result []*Connection
+	for _, record := range records {
+		if request.State != "" && request.State != record.State {
+			continue
+		}
+		result = append(result, &Connection{ConnectionRecord: record})
+	}
+	return result, nil
 }
 
 // GetConnection fetches single connection record for given id

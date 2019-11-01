@@ -263,31 +263,97 @@ func TestClient_HandleInvitation(t *testing.T) {
 }
 
 func TestClient_QueryConnectionsByParams(t *testing.T) {
-	svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
-	require.NoError(t, err)
-	require.NotNil(t, svc)
+	t.Run("test get all connections", func(t *testing.T) {
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
 
-	storageProvider := mockstore.NewMockStoreProvider()
-	c, err := New(&mockprovider.Provider{StorageProviderValue: storageProvider,
-		ServiceValue: svc})
-	require.NoError(t, err)
+		storageProvider := mockstore.NewMockStoreProvider()
+		c, err := New(&mockprovider.Provider{StorageProviderValue: storageProvider,
+			ServiceValue: svc})
+		require.NoError(t, err)
 
-	const count = 5
-	const keyPrefix = "conn_"
-	for i := 0; i < count; i++ {
-		val, e := json.Marshal(&didexchange.ConnectionRecord{
-			ConnectionID: string(i),
-		})
-		require.NoError(t, e)
-		require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc%d", keyPrefix, i), val))
-	}
+		const count = 10
+		const keyPrefix = "conn_"
+		const state = "completed"
+		for i := 0; i < count; i++ {
+			val, e := json.Marshal(&didexchange.ConnectionRecord{
+				ConnectionID: string(i),
+				State:        state,
+			})
+			require.NoError(t, e)
+			require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc%d", keyPrefix, i), val))
+		}
 
-	results, err := c.QueryConnections(&QueryConnectionsParams{})
-	require.NoError(t, err)
-	require.Len(t, results, count)
-	for _, result := range results {
-		require.NotEmpty(t, result.ConnectionID)
-	}
+		results, err := c.QueryConnections(&QueryConnectionsParams{})
+		require.NoError(t, err)
+		require.Len(t, results, count)
+		for _, result := range results {
+			require.NotEmpty(t, result.ConnectionID)
+		}
+	})
+
+	t.Run("test get connections by state param", func(t *testing.T) {
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		storageProvider := mockstore.NewMockStoreProvider()
+		c, err := New(&mockprovider.Provider{StorageProviderValue: storageProvider,
+			ServiceValue: svc})
+		require.NoError(t, err)
+
+		const count = 10
+		const countWithState = 5
+		const keyPrefix = "conn_"
+		const state = "completed"
+		for i := 0; i < count; i++ {
+			var queryState string
+			if i < countWithState {
+				queryState = state
+			}
+
+			val, e := json.Marshal(&didexchange.ConnectionRecord{
+				ConnectionID: string(i),
+				State:        queryState,
+			})
+			require.NoError(t, e)
+			require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc%d", keyPrefix, i), val))
+		}
+
+		results, err := c.QueryConnections(&QueryConnectionsParams{})
+		require.NoError(t, err)
+		require.Len(t, results, count)
+		for _, result := range results {
+			require.NotEmpty(t, result.ConnectionID)
+		}
+
+		results, err = c.QueryConnections(&QueryConnectionsParams{State: state})
+		require.NoError(t, err)
+		require.Len(t, results, countWithState)
+		for _, result := range results {
+			require.NotEmpty(t, result.ConnectionID)
+			require.Equal(t, result.State, state)
+		}
+	})
+
+	t.Run("test get connections error", func(t *testing.T) {
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+		const keyPrefix = "conn_"
+
+		storageProvider := mockstore.NewMockStoreProvider()
+		c, err := New(&mockprovider.Provider{StorageProviderValue: storageProvider,
+			ServiceValue: svc})
+		require.NoError(t, err)
+
+		require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc", keyPrefix), []byte("----")))
+
+		results, err := c.QueryConnections(&QueryConnectionsParams{})
+		require.Error(t, err)
+		require.Empty(t, results)
+	})
 }
 
 func TestServiceEvents(t *testing.T) {

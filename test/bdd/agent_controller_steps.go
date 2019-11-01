@@ -215,7 +215,6 @@ func (a *AgentWithControllerSteps) validateConnection(agentID, stateValue string
 	logger.Debugf(" Getting connection by ID %s from %s", connectionID, destination)
 	// call controller
 	var response models.QueryConnectionResponse
-	// strings.Replace(connectionsByID, "{id}", connectionID)
 	err := sendHTTP(http.MethodGet, destination+strings.Replace(connectionsByID, "{id}", connectionID, 1), nil, &response)
 	if err != nil {
 		logger.Errorf("Failed to perform receive invitation, cause : %s", err)
@@ -226,6 +225,43 @@ func (a *AgentWithControllerSteps) validateConnection(agentID, stateValue string
 	// Verify state
 	if response.Result.State != stateValue {
 		return fmt.Errorf("Expected state[%s] for agent[%s], but got[%s]", stateValue, agentID, response.Result.State)
+	}
+
+	// Also make sure new connection is available in list of connections for given agent
+	return a.verifyConnectionList(agentID, stateValue, connectionID)
+}
+
+func (a *AgentWithControllerSteps) verifyConnectionList(agentID, queryState, verifyID string) error {
+	destination, ok := a.controllerURLs[agentID]
+	if !ok {
+		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
+	}
+
+	logger.Debugf(" Getting connections by state %s from %s", queryState, destination)
+
+	// call controller
+	var response models.QueryConnectionsResponse
+	err := sendHTTP(http.MethodGet, destination+operationID+"?state="+queryState, nil, &response)
+	if err != nil {
+		logger.Errorf("Failed to perform receive invitation, cause : %s", err)
+		return err
+	}
+	logger.Debugf("Got %d connections for state `%s`", len(response.Results), queryState)
+
+	if len(response.Results) == 0 {
+		return fmt.Errorf("no connections found with state '%s' in connections list", queryState)
+	}
+
+	var found bool
+	for _, connection := range response.Results {
+		if connection.State == queryState && connection.ConnectionID == verifyID {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("no connections found with state '%s' and connection ID '%s' in connections list", queryState, verifyID)
 	}
 
 	return nil

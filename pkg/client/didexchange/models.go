@@ -42,7 +42,6 @@ type QueryConnectionsParams struct {
 // This is used to represent query connection result
 // TODO: this model is not final, to be updated as part of #226
 //
-// swagger:model Connection
 type Connection struct {
 	*didexchange.ConnectionRecord
 }
