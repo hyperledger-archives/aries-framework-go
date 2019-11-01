@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/DATA-DOG/godog"
@@ -37,21 +38,22 @@ const (
 // AgentWithControllerSteps
 // TODO all steps in this package needs to be placed in different packages instead of sharing same package [Issue #584]
 type AgentWithControllerSteps struct {
-	bddContext     *Context
-	controllerURLs map[string]string
-	webhookURLs    map[string]string
-	invitations    map[string]*didexchange.Invitation
-	connectionIDs  map[string]string
+	controllerURLs      map[string]string
+	webhookURLs         map[string]string
+	invitations         map[string]*didexchange.Invitation
+	connectionIDs       map[string]string
+	stateNotificationCh map[string]map[string]chan string // map[agentID]map[stateID]notificationCh
+	stateNotificationMu sync.RWMutex
 }
 
 // NewAgentControllerSteps creates steps for agent with controller
-func NewAgentControllerSteps(context *Context) *AgentWithControllerSteps {
+func NewAgentControllerSteps() *AgentWithControllerSteps {
 	return &AgentWithControllerSteps{
-		bddContext:     context,
-		controllerURLs: make(map[string]string),
-		webhookURLs:    make(map[string]string),
-		invitations:    make(map[string]*didexchange.Invitation),
-		connectionIDs:  make(map[string]string),
+		controllerURLs:      make(map[string]string),
+		webhookURLs:         make(map[string]string),
+		invitations:         make(map[string]*didexchange.Invitation),
+		connectionIDs:       make(map[string]string),
+		stateNotificationCh: make(map[string]map[string]chan string),
 	}
 }
 
@@ -60,6 +62,7 @@ func (a *AgentWithControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with controller "([^"]*)" and webhook "([^"]*)"$`, a.checkAgentIsRunning)
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
+	s.Step(`^"([^"]*)" approves exchange request`, a.approveRequest)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)" to webhook`, a.waitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`, a.validateConnection)
 }
@@ -88,6 +91,49 @@ func (a *AgentWithControllerSteps) checkAgentIsRunning(agentID, inboundHost, inb
 	}
 	logger.Infof("Webhook for agent '%s' is running on '%s''", agentID, webhookURL)
 	a.webhookURLs[agentID] = webhookURL
+
+	go a.pullWebhookEvents(agentID)
+
+	return nil
+}
+
+func (a *AgentWithControllerSteps) registerForStateNotification(agentID, state string, ch chan string) error {
+	a.stateNotificationMu.Lock()
+
+	if a.stateNotificationCh[agentID] == nil {
+		a.stateNotificationCh[agentID] = make(map[string]chan string)
+	}
+	a.stateNotificationCh[agentID][state] = ch
+
+	a.stateNotificationMu.Unlock()
+
+	return nil
+}
+
+func (a *AgentWithControllerSteps) pullWebhookEvents(agentID string) error {
+	webhookURL, ok := a.webhookURLs[agentID]
+	if !ok {
+		return fmt.Errorf("unable to find webhook URL for agent [%s]", webhookURL)
+	}
+
+	// try to pull recently pushed topics from webhook
+	var connectionMsg didexchrsapi.ConnectionMsg
+	for i := 0; i < pullTopicsAttempts; i++ {
+		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &connectionMsg)
+		if err != nil {
+			logger.Errorf("Failed pull topics from webhook, cause : %s", err)
+			return err
+		}
+
+		a.stateNotificationMu.RLock()
+		ch := a.stateNotificationCh[agentID][connectionMsg.State]
+		a.stateNotificationMu.RUnlock()
+
+		if ch != nil {
+			ch <- connectionMsg.ConnectionID
+		}
+		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)
+	}
 
 	return nil
 }
@@ -156,48 +202,35 @@ func (a *AgentWithControllerSteps) receiveInvitation(inviteeAgentID, inviterAgen
 	return nil
 }
 
-func (a *AgentWithControllerSteps) waitForPostEvent(agentID, statesValue string) error {
-	webhookURL, ok := a.webhookURLs[agentID]
-	if !ok {
-		return fmt.Errorf("unable to find webhook URL for agent [%s]", webhookURL)
+func (a *AgentWithControllerSteps) approveRequest(agentID string) error {
+	ch := make(chan string)
+	err := a.registerForStateNotification(agentID, "null", ch)
+	if err != nil {
+		return fmt.Errorf("aprove exchange request : %w", err)
 	}
+
+	// wait to receive action event
+	connectionID := <-ch
 
 	controllerURL, ok := a.controllerURLs[agentID]
 	if !ok {
 		return fmt.Errorf("unable to find contoller URL for agent [%s]", controllerURL)
 	}
 
-	// try to pull recently pushed topics from webhook
-	var result didexchrsapi.ConnectionMsg
-	for i := 0; i < pullTopicsAttempts; i++ {
-		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &result)
-		if err != nil {
-			logger.Errorf("Failed pull topics from webhook, cause : %s", err)
-			return err
-		}
-		// TODO https://github.com/hyperledger/aries-framework-go/issues/660 - Extract this to a BDD step
-		if result.State == "null" {
-			err = sendHTTP(http.MethodPost, controllerURL+"/connections/"+result.ConnectionID+"/accept-request",
-				nil, &result)
-			continue
-		}
-		if result.State == statesValue {
-			break
-		}
-		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)
+	var connMsg didexchrsapi.ConnectionMsg
+
+	return sendHTTP(http.MethodPost, controllerURL+"/connections/"+connectionID+"/accept-request",
+		nil, &connMsg)
+}
+
+func (a *AgentWithControllerSteps) waitForPostEvent(agentID, statesValue string) error {
+	ch := make(chan string)
+	err := a.registerForStateNotification(agentID, statesValue, ch)
+	if err != nil {
+		return fmt.Errorf("wait for post event : %w", err)
 	}
+	a.connectionIDs[agentID] = <-ch
 
-	logger.Debugf("Got topic from webhook server, %s", result)
-
-	if result.State != statesValue {
-		return fmt.Errorf("expected post event with state[%s], but got[%s]", statesValue, result.State)
-	}
-
-	if result.ConnectionID == "" {
-		return fmt.Errorf("invalid connection ID found in webhook topic")
-	}
-
-	a.connectionIDs[agentID] = result.ConnectionID
 	return nil
 }
 

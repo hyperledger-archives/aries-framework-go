@@ -123,7 +123,7 @@ func FeatureContext(s *godog.Suite) {
 
 	// Context is shared between tests
 	NewAgentSDKSteps(context).RegisterSteps(s)
-	NewAgentControllerSteps(context).RegisterSteps(s)
+	NewAgentControllerSteps().RegisterSteps(s)
 	NewDIDExchangeSteps(context).RegisterSteps(s)
 	NewDIDResolverSteps(context).RegisterSteps(s)
 
