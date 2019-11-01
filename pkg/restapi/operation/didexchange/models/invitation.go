@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	didexchangeSvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 )
 
 // A GenericError is the default error message that is generated.
@@ -239,9 +240,7 @@ type QueryConnectionResponse struct {
 type QueryConnectionsResponse struct {
 
 	// in: body
-	Body struct {
-		Results []*didexchange.Connection `json:"results"`
-	}
+	Results []*didexchangeSvc.ConnectionRecord `json:"results"`
 }
 
 // AcceptExchangeRequestParams model

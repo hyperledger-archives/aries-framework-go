@@ -153,12 +153,10 @@ func (c *Client) HandleInvitation(invitation *Invitation) error {
 }
 
 // QueryConnections queries connections matching given parameters
-func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connection, error) {
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/429 query all connections from did exchange service
-	return []*Connection{
-		{&didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
-		{&didexchange.ConnectionRecord{ConnectionID: uuid.New().String()}},
-	}, nil
+func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*didexchange.ConnectionRecord, error) {
+	// TODO query all connections from criteria [Issue #655]
+	// TODO also results needs to be paged  [Issue #655]
+	return c.connectionStore.QueryConnectionRecords()
 }
 
 // GetConnection fetches single connection record for given id

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package leveldb
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -207,6 +208,46 @@ func TestLevelDBStore(t *testing.T) {
 		err = prov.Close()
 		require.NoError(t, err)
 	})
+
+	t.Run("Test Leveldb store iterator", func(t *testing.T) {
+		prov, err := NewProvider(path)
+		require.NoError(t, err)
+		store, err := prov.OpenStore("test-iterator")
+		require.NoError(t, err)
+
+		const valPrefix = "val-for-%s"
+		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123"}
+
+		for _, key := range keys {
+			err = store.Put(key, []byte(fmt.Sprintf(valPrefix, key)))
+			require.NoError(t, err)
+		}
+
+		itr := store.Iterator("abc_", "abc_~")
+		verifyItr(t, itr, 4, "abc_")
+
+		itr = store.Iterator("", "")
+		verifyItr(t, itr, 0, "")
+
+		itr = store.Iterator("abc_", "mno_~")
+		verifyItr(t, itr, 6, "")
+	})
+}
+
+func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string) {
+	var vals []string
+	for itr.Next() {
+		if prefix != "" {
+			require.True(t, strings.HasPrefix(string(itr.Key()), prefix))
+		}
+		vals = append(vals, string(itr.Value()))
+	}
+	require.Len(t, vals, count)
+
+	itr.Release()
+	require.False(t, itr.Next())
+	require.Empty(t, itr.Key())
+	require.Empty(t, itr.Value())
 }
 
 func cleanupFile(t *testing.T, file *os.File) {

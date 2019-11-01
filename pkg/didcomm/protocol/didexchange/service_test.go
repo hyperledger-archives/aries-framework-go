@@ -548,6 +548,11 @@ func (m *mockStore) Get(k string) ([]byte, error) {
 	return m.get(k)
 }
 
+// Search returns storage iterator
+func (m *mockStore) Iterator(start, limit string) storage.StoreIterator {
+	return nil
+}
+
 func getMockDID() *did.Doc {
 	return &did.Doc{
 		Context: []string{"https://w3id.org/did/v1"},

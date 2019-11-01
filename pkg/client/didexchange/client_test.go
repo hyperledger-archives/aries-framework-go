@@ -267,16 +267,26 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
-	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+	storageProvider := mockstore.NewMockStoreProvider()
+	c, err := New(&mockprovider.Provider{StorageProviderValue: storageProvider,
 		ServiceValue: svc})
 	require.NoError(t, err)
 
-	results, err := c.QueryConnections(&QueryConnectionsParams{InvitationKey: "sample-inv-key"})
+	const count = 5
+	const keyPrefix = "conn_"
+	for i := 0; i < count; i++ {
+		val, e := json.Marshal(&didexchange.ConnectionRecord{
+			ConnectionID: string(i),
+		})
+		require.NoError(t, e)
+		require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc%d", keyPrefix, i), val))
+	}
+
+	results, err := c.QueryConnections(&QueryConnectionsParams{})
 	require.NoError(t, err)
-	require.NotEmpty(t, results)
+	require.Len(t, results, count)
 	for _, result := range results {
-		require.NotNil(t, result)
-		require.NotNil(t, result.ConnectionID)
+		require.NotEmpty(t, result.ConnectionID)
 	}
 }
 
