@@ -8,6 +8,7 @@ package storage
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -52,6 +53,7 @@ type MockStore struct {
 	lock   sync.RWMutex
 	ErrPut error
 	ErrGet error
+	ErrItr error
 }
 
 // Put stores the key and the record
@@ -77,4 +79,87 @@ func (s *MockStore) Get(k string) ([]byte, error) {
 	}
 
 	return val, s.ErrGet
+}
+
+// Iterator returns an iterator for the underlying mockstore
+func (s *MockStore) Iterator(start, limit string) storage.StoreIterator {
+	if s.ErrItr != nil {
+		return NewMockIteratorWithError(s.ErrItr)
+	}
+
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	var batch [][]string
+	for k, v := range s.Store {
+		if strings.HasPrefix(k, start) {
+			batch = append(batch, []string{k, string(v)})
+		}
+	}
+	return NewMockIterator(batch)
+}
+
+// NewMockIterator returns new mock iterator for given batch
+func NewMockIterator(batch [][]string) *MockIterator {
+	if len(batch) == 0 {
+		return &MockIterator{}
+	}
+	return &MockIterator{items: batch}
+}
+
+// NewMockIteratorWithError returns new mock iterator with error
+func NewMockIteratorWithError(err error) *MockIterator {
+	return &MockIterator{err: err}
+}
+
+// MockIterator is the mock implementation of storage iterator
+type MockIterator struct {
+	currentIndex int
+	currentItem  []string
+	items        [][]string
+	err          error
+}
+
+func (s *MockIterator) isExhausted() bool {
+	return len(s.items) == 0 || len(s.items) == s.currentIndex
+}
+
+// Next moves pointer to next value of iterator.
+// It returns false if the iterator is exhausted.
+func (s *MockIterator) Next() bool {
+	if s.isExhausted() {
+		return false
+	}
+
+	s.currentItem = s.items[s.currentIndex]
+	s.currentIndex++
+	return true
+}
+
+// Release releases associated resources.
+func (s *MockIterator) Release() {
+	s.currentIndex = 0
+	s.items = make([][]string, 0)
+	s.currentItem = make([]string, 0)
+}
+
+// Error returns error in iterator.
+func (s *MockIterator) Error() error {
+	return s.err
+}
+
+// Key returns the key of the current key/value pair.
+func (s *MockIterator) Key() []byte {
+	if len(s.items) == 0 || len(s.currentItem) == 0 {
+		return nil
+	}
+	return []byte(s.currentItem[0])
+}
+
+// Value returns the value of the current key/value pair.
+func (s *MockIterator) Value() []byte {
+	if len(s.items) == 0 || len(s.currentItem) < 1 {
+		return nil
+	}
+	return []byte(s.currentItem[1])
 }

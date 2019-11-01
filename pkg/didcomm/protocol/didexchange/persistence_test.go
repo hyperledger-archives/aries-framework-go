@@ -316,3 +316,36 @@ func TestConnectionRecorder_SaveNSThreadID(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
+	t.Run("test query connection record", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		const count = 5
+		for i := 0; i < count; i++ {
+			val, err := json.Marshal(&ConnectionRecord{
+				ConnectionID: string(i),
+			})
+			require.NoError(t, err)
+			err = store.Put(fmt.Sprintf("%s_abc%d", connIDKeyPrefix, i), val)
+			require.NoError(t, err)
+		}
+
+		recorder := NewConnectionRecorder(store)
+		require.NotNil(t, recorder)
+		result, err := recorder.QueryConnectionRecords()
+		require.NoError(t, err)
+		require.Len(t, result, count)
+	})
+
+	t.Run("test query connection record failure", func(t *testing.T) {
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		err := store.Put(fmt.Sprintf("%s_abc123", connIDKeyPrefix), []byte("-----"))
+		require.NoError(t, err)
+
+		recorder := NewConnectionRecorder(store)
+		require.NotNil(t, recorder)
+		result, err := recorder.QueryConnectionRecords()
+		require.Error(t, err)
+		require.Empty(t, result)
+	})
+}

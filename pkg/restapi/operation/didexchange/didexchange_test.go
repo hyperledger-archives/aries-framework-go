@@ -139,23 +139,57 @@ func TestOperation_QueryConnectionByID(t *testing.T) {
 }
 
 func TestOperation_QueryConnectionByParams(t *testing.T) {
-	handler := getHandler(t, connections, nil)
-	buf, err := getResponseFromHandler(handler, nil,
-		operationID+"?invitation_key=3nPvih&alias=sample&state=completed&initiator=test")
+	// perform receive invitation to insert record into store
+	var jsonStr = []byte(`{
+		"serviceEndpoint":"http://alice.agent.example.com:8081",
+		"recipientKeys":["FDmegH8upiNquathbHZiGBZKwcudNfNWPeGQFBt8eNNi"],
+		"@id":"a35c0ac6-4fc3-46af-a072-c1036d036057",
+		"label":"agent",
+		"@type":"did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation"}`)
+
+	handler := getHandler(t, receiveInvitationPath, nil)
+	_, err := getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 
-	response := models.QueryConnectionsResponse{}
-	err = json.Unmarshal(buf.Bytes(), &response)
-	require.NoError(t, err)
+	t.Run("test query connections with state filter", func(t *testing.T) {
+		// perform test
+		handler = getHandler(t, connections, nil)
+		buf, err := getResponseFromHandler(handler, nil,
+			operationID+"?state=complete")
+		require.NoError(t, err)
 
-	// verify response
-	require.NotEmpty(t, response)
-	require.NotEmpty(t, response.Body)
-	require.NotEmpty(t, response.Body.Results)
-	for _, result := range response.Body.Results {
-		require.NotNil(t, result)
-		require.NotNil(t, result.ConnectionID)
-	}
+		response := models.QueryConnectionsResponse{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.Results)
+		for _, result := range response.Results {
+			require.NotNil(t, result)
+			require.NotNil(t, result.ConnectionID)
+		}
+	})
+
+	t.Run("test query connections without state filter", func(t *testing.T) {
+		// perform test
+		handler = getHandler(t, connections, nil)
+		buf, err := getResponseFromHandler(handler, nil,
+			operationID)
+		require.NoError(t, err)
+
+		response := models.QueryConnectionsResponse{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.Results)
+		for _, result := range response.Results {
+			require.NotNil(t, result)
+			require.NotNil(t, result.ConnectionID)
+		}
+	})
 }
 
 func TestOperation_ReceiveInvitationFailure(t *testing.T) {

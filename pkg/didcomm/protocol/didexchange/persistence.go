@@ -22,6 +22,8 @@ const (
 	myNSPrefix      = "my"
 	//Todo: Issue-556 It will not be constant, this namespace will need to be figured with verification key
 	theirNSPrefix = "their"
+	// limitPattern with `~` at the end for lte of given prefix (less than or equal)
+	limitPattern = "%s~"
 )
 
 // ConnectionRecord contain info about did exchange connection
@@ -115,6 +117,26 @@ func (c *ConnectionRecorder) GetInvitation(id string) (*Invitation, error) {
 // GetConnectionRecord return connection record based on the connection ID
 func (c *ConnectionRecorder) GetConnectionRecord(connectionID string) (*ConnectionRecord, error) {
 	return c.getAndUnmarshal(connectionKeyPrefix(connectionID))
+}
+
+// QueryConnectionRecords returns connection records found in underlying store
+// for given query criteria
+// TODO query criteria to be added as part of issue [#655]
+func (c *ConnectionRecorder) QueryConnectionRecords() ([]*ConnectionRecord, error) {
+	searchKey := connectionKeyPrefix("")
+	itr := c.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
+	defer itr.Release()
+
+	var records []*ConnectionRecord
+	for itr.Next() {
+		var record ConnectionRecord
+		err := json.Unmarshal(itr.Value(), &record)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query connection records, %w", err)
+		}
+		records = append(records, &record)
+	}
+	return records, nil
 }
 
 // GetConnectionRecordAtState return connection record based on the connection ID and state.
