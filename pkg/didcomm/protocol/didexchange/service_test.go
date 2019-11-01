@@ -29,6 +29,14 @@ import (
 
 const testMethod = "peer"
 
+type event interface {
+	// connection ID
+	ConnectionID() string
+
+	// invitation ID
+	InvitationID() string
+}
+
 func TestService_Name(t *testing.T) {
 	prov, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
 
@@ -108,13 +116,6 @@ func TestService_Handle_Inviter(t *testing.T) {
 }
 
 func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFlag, completedFlag chan struct{}) {
-	type event interface {
-		// connection ID
-		ConnectionID() string
-
-		// invitation ID
-		InvitationID() string
-	}
 	for e := range statusCh {
 		require.Equal(t, DIDExchange, e.ProtocolName)
 		prop, ok := e.Properties.(event)
@@ -825,7 +826,7 @@ func TestServiceErrors(t *testing.T) {
 
 	// invalid state name
 	message.NextStateName = stateNameInvited
-	message.connRecord = &ConnectionRecord{ConnectionID: "abc"}
+	message.ConnRecord = &ConnectionRecord{ConnectionID: "abc"}
 	err = svc.handle(message)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to execute state invited")
@@ -1018,4 +1019,95 @@ func TestRequestRecord(t *testing.T) {
 	_, err = svc.requestMsgRecord(msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "save connection record")
+}
+
+func TestEventsSuccessWithAsync(t *testing.T) {
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
+
+	prov := protocol.MockProvider{}
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	newDidDoc, err := ctx.didCreator.Create(testMethod)
+	require.NoError(t, err)
+
+	actionCh := make(chan service.DIDCommAction, 10)
+	err = svc.RegisterActionEvent(actionCh)
+	require.NoError(t, err)
+	go func() {
+		for e := range actionCh {
+			prop, ok := e.Properties.(event)
+			if !ok {
+				require.Fail(t, "Failed to cast the event properties to service.Event")
+			}
+
+			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID()))
+		}
+	}()
+
+	statusCh := make(chan service.StateMsg, 10)
+	err = svc.RegisterMsgEvent(statusCh)
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		for e := range statusCh {
+			if e.Type == service.PostState && e.StateID == stateNameRequested {
+				done <- struct{}{}
+			}
+		}
+	}()
+
+	id := randomString()
+	requestBytes, err := json.Marshal(&Request{
+		Type: RequestMsgType,
+		ID:   id,
+		Connection: &Connection{
+			DID:    "xyz",
+			DIDDoc: newDidDoc,
+		},
+	})
+	require.NoError(t, err)
+
+	// send invite
+	didMsg, err := service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	err = svc.HandleInbound(didMsg)
+	require.NoError(t, err)
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "tests are not validated")
+	}
+}
+
+func TestEventTransientData(t *testing.T) {
+	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	require.NoError(t, err)
+
+	// success case
+	connID := generateRandomID()
+	msg := &message{
+		ConnRecord: &ConnectionRecord{ConnectionID: connID},
+	}
+	err = svc.storeEventTransientData(msg)
+	require.NoError(t, err)
+
+	retrievedMsg, err := svc.getEventTransientData(connID)
+	require.NoError(t, err)
+	require.Equal(t, msg, retrievedMsg)
+
+	// data not found
+	err = svc.AcceptExchangeRequest(generateRandomID())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "accept exchange request : get transient data : data not found")
+
+	// db get invalid data
+	err = svc.store.Put(eventTransientDataKey(connID), []byte("invalid data"))
+	require.NoError(t, err)
+
+	_, err = svc.getEventTransientData(connID)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "get transient data : invalid character")
 }

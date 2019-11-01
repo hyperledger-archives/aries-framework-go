@@ -361,6 +361,79 @@ func TestServiceEvents(t *testing.T) {
 	}
 }
 
+func TestAcceptExchangeRequest(t *testing.T) {
+	store := mockstore.NewMockStoreProvider()
+	didExSvc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{StoreProvider: store})
+	require.NoError(t, err)
+
+	// create the client
+	c, err := New(&mockprovider.Provider{StorageProviderValue: store, ServiceValue: didExSvc})
+	require.NoError(t, err)
+	require.NotNil(t, c)
+
+	// register action event channel
+	aCh := make(chan service.DIDCommAction, 10)
+	err = c.RegisterActionEvent(aCh)
+	require.NoError(t, err)
+	go func() {
+		for e := range aCh {
+			prop, ok := e.Properties.(Event)
+			if !ok {
+				require.Fail(t, "Failed to cast the event properties to service.Event")
+			}
+
+			require.NoError(t, c.AcceptExchangeRequest(prop.ConnectionID()))
+		}
+	}()
+
+	// register message event channel
+	mCh := make(chan service.StateMsg, 10)
+	err = c.RegisterMsgEvent(mCh)
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		for e := range mCh {
+			if e.Type == service.PostState && e.StateID == "responded" {
+				close(done)
+			}
+		}
+	}()
+
+	// send connection request message
+	id := "valid-thread-id"
+	newDidDoc, err := (&mockcreator.MockDIDCreator{}).Create("test")
+	require.NoError(t, err)
+
+	request, err := json.Marshal(
+		&didexchange.Request{
+			Type:  didexchange.RequestMsgType,
+			ID:    id,
+			Label: "test",
+			Connection: &didexchange.Connection{
+				DID:    "B.did@B:A",
+				DIDDoc: newDidDoc,
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	msg, err := service.NewDIDCommMsg(request)
+	require.NoError(t, err)
+	err = didExSvc.HandleInbound(msg)
+	require.NoError(t, err)
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "tests are not validated due to timeout")
+	}
+
+	err = c.AcceptExchangeRequest("invalid-id")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "did exchange client - accept exchange request:")
+}
+
 func TestServiceEventError(t *testing.T) {
 	didExSvc := mockprotocol.MockDIDExchangeSvc{
 		ProtocolName:           didexchange.DIDExchange,

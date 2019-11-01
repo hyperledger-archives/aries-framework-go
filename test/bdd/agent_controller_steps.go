@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/godog"
-	didexchrsapi "github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	didexchrsapi "github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 )
 
@@ -46,11 +46,13 @@ type AgentWithControllerSteps struct {
 
 // NewAgentControllerSteps creates steps for agent with controller
 func NewAgentControllerSteps(context *Context) *AgentWithControllerSteps {
-	return &AgentWithControllerSteps{bddContext: context,
+	return &AgentWithControllerSteps{
+		bddContext:     context,
 		controllerURLs: make(map[string]string),
 		webhookURLs:    make(map[string]string),
 		invitations:    make(map[string]*didexchange.Invitation),
-		connectionIDs:  make(map[string]string)}
+		connectionIDs:  make(map[string]string),
+	}
 }
 
 // RegisterSteps registers agent steps
@@ -157,7 +159,12 @@ func (a *AgentWithControllerSteps) receiveInvitation(inviteeAgentID, inviterAgen
 func (a *AgentWithControllerSteps) waitForPostEvent(agentID, statesValue string) error {
 	webhookURL, ok := a.webhookURLs[agentID]
 	if !ok {
-		return fmt.Errorf(" unable to find webhook URL for agent [%s]", webhookURL)
+		return fmt.Errorf("unable to find webhook URL for agent [%s]", webhookURL)
+	}
+
+	controllerURL, ok := a.controllerURLs[agentID]
+	if !ok {
+		return fmt.Errorf("unable to find contoller URL for agent [%s]", controllerURL)
 	}
 
 	// try to pull recently pushed topics from webhook
@@ -167,6 +174,12 @@ func (a *AgentWithControllerSteps) waitForPostEvent(agentID, statesValue string)
 		if err != nil {
 			logger.Errorf("Failed pull topics from webhook, cause : %s", err)
 			return err
+		}
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/660 - Extract this to a BDD step
+		if result.State == "null" {
+			err = sendHTTP(http.MethodPost, controllerURL+"/connections/"+result.ConnectionID+"/accept-request",
+				nil, &result)
+			continue
 		}
 		if result.State == statesValue {
 			break

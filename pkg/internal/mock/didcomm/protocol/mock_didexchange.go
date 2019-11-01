@@ -87,6 +87,11 @@ func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- service.StateMsg) erro
 	return nil
 }
 
+// AcceptExchangeRequest accepts/approves exchange request.
+func (m *MockDIDExchangeSvc) AcceptExchangeRequest(connectionID string) error {
+	return nil
+}
+
 // MockProvider is provider for DIDExchange Service
 type MockProvider struct {
 	StoreProvider *mockstore.MockStoreProvider
