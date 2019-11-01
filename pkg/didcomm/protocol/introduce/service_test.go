@@ -72,6 +72,9 @@ func TestService_handle(t *testing.T) {
 	t.Run("Happy path", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+
+		defer stop(t, svc)
+
 		require.EqualError(t, svc.handle(&metaData{
 			Msg: &service.DIDCommMsg{},
 		}, nil), "state from name: invalid state name ")
@@ -80,6 +83,9 @@ func TestService_handle(t *testing.T) {
 	t.Run("Happy path", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+
+		defer stop(t, svc)
+
 		ch := make(chan service.StateMsg, 2)
 		require.NoError(t, svc.RegisterMsgEvent(ch))
 		done := make(chan struct{})
@@ -132,8 +138,10 @@ func TestService_abandon(t *testing.T) {
 	store.Store.ErrPut = errors.New(errMsg)
 
 	svc, err := New(&protocol.MockProvider{StoreProvider: store})
-	require.NotNil(t, svc)
 	require.NoError(t, err)
+	require.NotNil(t, svc)
+
+	defer stop(t, svc)
 
 	const errStr = "save abandoning sate: " + errMsg
 
@@ -168,6 +176,8 @@ func TestService_Action(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
 
+	defer stop(t, svc)
+
 	ch := make(chan<- service.DIDCommAction)
 
 	// by default
@@ -184,8 +194,9 @@ func TestService_Action(t *testing.T) {
 
 func TestService_Message(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
-
 	require.NoError(t, err)
+
+	defer stop(t, svc)
 
 	ch := make(chan<- service.StateMsg)
 
@@ -204,6 +215,9 @@ func TestService_Message(t *testing.T) {
 func TestService_Name(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
+
+	defer stop(t, svc)
+
 	require.Equal(t, Introduce, svc.Name())
 }
 
@@ -213,6 +227,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		require.NoError(t, store.Store.Put("ID", []byte(`[]`)))
 		svc, err := New(&protocol.MockProvider{StoreProvider: store})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ResponseMsgType)))
 		require.NoError(t, err)
 		const errMsg = "json: cannot unmarshal array into Go value of type introduce.record"
@@ -225,6 +240,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		require.NoError(t, store.Store.Put("ID", []byte(raw)))
 		svc, err := New(&protocol.MockProvider{StoreProvider: store})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
@@ -235,6 +251,7 @@ func TestService_HandleOutbound(t *testing.T) {
 	t.Run("Happy path", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
@@ -249,6 +266,7 @@ func TestService_HandleOutbound(t *testing.T) {
 	t.Run("Happy path (Request)", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, RequestMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
@@ -260,6 +278,8 @@ func TestService_HandleOutbound(t *testing.T) {
 func TestService_HandleInboundStop(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
+
+	defer stop(t, svc)
 
 	msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 	require.NoError(t, err)
@@ -296,7 +316,7 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("No clients", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
-
+		defer stop(t, svc)
 		_, err = svc.HandleInbound(&service.DIDCommMsg{})
 		require.EqualError(t, err, "no clients are registered to handle the message")
 	})
@@ -304,6 +324,7 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("ThreadID Error", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(`{}`))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
@@ -320,6 +341,7 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, store.Store.Put("ID", nil))
 		svc, err := New(&protocol.MockProvider{StoreProvider: store})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
@@ -332,6 +354,7 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Bad transition", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		require.NoError(t, svc.save("ID", record{
 			StateName: stateNameNoop,
 			WaitCount: 1,
@@ -350,6 +373,7 @@ func TestService_HandleInbound(t *testing.T) {
 		raw := fmt.Sprintf(`{"StateName":%q, "WaitCount":%d}`, "unknown", 1)
 		require.NoError(t, store.Store.Put("ID", []byte(raw)))
 		svc, err := New(&protocol.MockProvider{StoreProvider: store})
+		defer stop(t, svc)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
@@ -363,6 +387,7 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Unknown msg type error", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(`{"@id":"ID","@type":"unknown"}`))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
@@ -375,12 +400,13 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Happy path (send an action event)", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 		go func() {
-			_, err = svc.HandleInbound(msg)
+			_, err := svc.HandleInbound(msg)
 			require.NoError(t, err)
 		}()
 
@@ -396,6 +422,7 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Happy path (Request)", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, RequestMsgType)))
 		require.NoError(t, err)
 		aCh := make(chan service.DIDCommAction, 1)
@@ -414,6 +441,7 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("SkipProposal to Proposal", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, SkipProposalMsgType)))
 		require.NoError(t, err)
 		aCh := make(chan service.DIDCommAction)
@@ -421,7 +449,7 @@ func TestService_HandleInbound(t *testing.T) {
 		sCh := make(chan service.StateMsg)
 		require.NoError(t, svc.RegisterMsgEvent(sCh))
 		go func() {
-			_, err = svc.HandleInbound(msg)
+			_, err := svc.HandleInbound(msg)
 			require.NoError(t, err)
 		}()
 
@@ -436,6 +464,7 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Happy path (execute handle)", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ResponseMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction, 1)
@@ -449,6 +478,9 @@ func TestService_HandleInbound(t *testing.T) {
 func TestService_Accept(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
+
+	defer stop(t, svc)
+
 	require.False(t, svc.Accept(""))
 	require.True(t, svc.Accept(ProposalMsgType))
 	require.True(t, svc.Accept(RequestMsgType))
@@ -502,6 +534,7 @@ func TestService_save(t *testing.T) {
 	t.Run("Happy path", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 		data := &metaData{
 			record: record{
 				StateName: "StateName",
@@ -528,6 +561,7 @@ func TestService_save(t *testing.T) {
 
 	t.Run("JSON Error", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
+		defer stop(t, svc)
 		require.NoError(t, err)
 		const errMsg = "service save: json: unsupported type: chan int"
 		require.EqualError(t, svc.save("ID", struct{ A chan int }{}), errMsg)
@@ -539,6 +573,7 @@ func TestService_SkipProposal(t *testing.T) {
 	t.Run("Introducer", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 
 		// register action event channel
 		aCh := make(chan service.DIDCommAction)
@@ -572,7 +607,7 @@ func TestService_SkipProposal(t *testing.T) {
 
 		// handle Response msg
 		go func() {
-			_, err = svc.HandleInbound(respMsg)
+			_, err := svc.HandleInbound(respMsg)
 			require.NoError(t, err)
 		}()
 		continueAction(t, aCh, ResponseMsgType)
@@ -585,6 +620,7 @@ func TestService_SkipProposal(t *testing.T) {
 	t.Run("Introducee", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 
 		// register action event channel
 		aCh := make(chan service.DIDCommAction)
@@ -622,6 +658,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 	t.Run("Introducer", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 
 		// register action event channel
 		aCh := make(chan service.DIDCommAction)
@@ -642,7 +679,8 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		require.NoError(t, err)
 		// handle inbound Request msg
 		go func() {
-			_, err = svc.HandleInbound(reqMsg)
+			// nolint: govet
+			_, err := svc.HandleInbound(reqMsg)
 			require.NoError(t, err)
 		}()
 		// sends the first Proposal
@@ -661,7 +699,8 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		require.NoError(t, err)
 		// handle inbound Response msg
 		go func() {
-			_, err = svc.HandleInbound(firstRespMsg)
+			// nolint: govet
+			_, err := svc.HandleInbound(firstRespMsg)
 			require.NoError(t, err)
 		}()
 		// sends the second Proposal
@@ -691,6 +730,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 	t.Run("Introducee", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
+		defer stop(t, svc)
 
 		// register action event channel
 		aCh := make(chan service.DIDCommAction)
@@ -763,4 +803,12 @@ func toBytes(t *testing.T, data interface{}) []byte {
 	require.NoError(t, err)
 
 	return src
+}
+
+type stopper interface {
+	Stop() error
+}
+
+func stop(t *testing.T, s stopper) {
+	require.NoError(t, s.Stop())
 }
