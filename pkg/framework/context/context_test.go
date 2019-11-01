@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -69,23 +70,23 @@ func TestNewProvider(t *testing.T) {
 			AcceptFunc: func(msgType string) bool {
 				return msgType == "valid-message-type"
 			},
-			HandleFunc: func(msg *service.DIDCommMsg) error {
+			HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
 				payload := &struct {
 					Label string `json:"label,omitempty"`
 				}{}
 
 				err := json.Unmarshal(msg.Payload, payload)
 				if err != nil {
-					return fmt.Errorf("invalid payload data format: %w", err)
+					return "", fmt.Errorf("invalid payload data format: %w", err)
 				}
 
 				for _, label := range []string{"Carol"} {
 					if label == payload.Label {
-						return errors.New("error handling the message")
+						return "", errors.New("error handling the message")
 					}
 				}
 
-				return nil
+				return uuid.New().String(), nil
 			},
 		}))
 		require.NoError(t, err)

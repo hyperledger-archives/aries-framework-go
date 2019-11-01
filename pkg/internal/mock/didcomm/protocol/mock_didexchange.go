@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package protocol
 
 import (
+	"github.com/google/uuid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
@@ -23,7 +25,7 @@ import (
 // MockDIDExchangeSvc mock did exchange service
 type MockDIDExchangeSvc struct {
 	ProtocolName             string
-	HandleFunc               func(*service.DIDCommMsg) error
+	HandleFunc               func(*service.DIDCommMsg) (string, error)
 	AcceptFunc               func(string) bool
 	RegisterActionEventErr   error
 	UnregisterActionEventErr error
@@ -32,11 +34,11 @@ type MockDIDExchangeSvc struct {
 }
 
 // HandleInbound msg
-func (m *MockDIDExchangeSvc) HandleInbound(msg *service.DIDCommMsg) error {
+func (m *MockDIDExchangeSvc) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 	if m.HandleFunc != nil {
 		return m.HandleFunc(msg)
 	}
-	return nil
+	return uuid.New().String(), nil
 }
 
 // Accept msg checks the msg type

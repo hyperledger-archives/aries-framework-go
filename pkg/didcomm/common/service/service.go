@@ -16,7 +16,7 @@ import (
 // Handler provides protocol service handle api.
 type Handler interface {
 	// HandleInbound handles inbound didexchange messages.
-	HandleInbound(msg *DIDCommMsg) error
+	HandleInbound(msg *DIDCommMsg) (string, error)
 }
 
 // DIDComm defines service APIs.

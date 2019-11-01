@@ -199,6 +199,9 @@ func (a *AgentWithControllerSteps) receiveInvitation(inviteeAgentID, inviterAgen
 		return fmt.Errorf("failed to get valid payload from receive invitation call for agent [%s]", inviteeAgentID)
 	}
 
+	// invitee connectionID
+	a.connectionIDs[inviteeAgentID] = result.ConnectionID
+
 	return nil
 }
 
@@ -211,6 +214,9 @@ func (a *AgentWithControllerSteps) approveRequest(agentID string) error {
 
 	// wait to receive action event
 	connectionID := <-ch
+
+	// inviter connectionID
+	a.connectionIDs[agentID] = connectionID
 
 	controllerURL, ok := a.controllerURLs[agentID]
 	if !ok {
@@ -229,7 +235,7 @@ func (a *AgentWithControllerSteps) waitForPostEvent(agentID, statesValue string)
 	if err != nil {
 		return fmt.Errorf("wait for post event : %w", err)
 	}
-	a.connectionIDs[agentID] = <-ch
+	<-ch
 
 	return nil
 }

@@ -141,22 +141,23 @@ func (c *Client) CreateInvitationWithDID(label, did string) (*Invitation, error)
 	return &Invitation{invitation}, nil
 }
 
-// HandleInvitation handle incoming invitation
-func (c *Client) HandleInvitation(invitation *Invitation) error {
+// HandleInvitation handle incoming invitation and returns the connectionID.
+func (c *Client) HandleInvitation(invitation *Invitation) (string, error) {
 	payload, err := json.Marshal(invitation)
 	if err != nil {
-		return fmt.Errorf("failed marshal invitation: %w", err)
+		return "", fmt.Errorf("failed marshal invitation: %w", err)
 	}
 
 	msg, err := service.NewDIDCommMsg(payload)
 	if err != nil {
-		return fmt.Errorf("failed to create DIDCommMsg: %w", err)
+		return "", fmt.Errorf("failed to create DIDCommMsg: %w", err)
 	}
 
-	if err = c.didexchangeSvc.HandleInbound(msg); err != nil {
-		return fmt.Errorf("failed from didexchange service handle: %w", err)
+	connectionID, err := c.didexchangeSvc.HandleInbound(msg)
+	if err != nil {
+		return "", fmt.Errorf("failed from didexchange service handle: %w", err)
 	}
-	return nil
+	return connectionID, nil
 }
 
 // AcceptExchangeRequest accepts/approves exchange request.

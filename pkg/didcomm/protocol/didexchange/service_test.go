@@ -83,7 +83,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	require.NoError(t, err)
 	msg, err := service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
-	err = s.HandleInbound(msg)
+	_, err = s.HandleInbound(msg)
 	require.NoError(t, err)
 
 	select {
@@ -104,7 +104,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	require.NoError(t, err)
 	didMsg, err := service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
-	err = s.HandleInbound(didMsg)
+	_, err = s.HandleInbound(didMsg)
 	require.NoError(t, err)
 
 	select {
@@ -182,7 +182,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.NoError(t, err)
 	didMsg, err := service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
-	err = s.HandleInbound(didMsg)
+	_, err = s.HandleInbound(didMsg)
 	require.NoError(t, err)
 
 	select {
@@ -221,7 +221,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.NoError(t, err)
 	didMsg, err = service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
-	err = s.HandleInbound(didMsg)
+	_, err = s.HandleInbound(didMsg)
 	require.NoError(t, err)
 
 	// Alice automatically sends an ACK to Bob
@@ -261,7 +261,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.HandleInbound(&service.DIDCommMsg{Payload: response})
+		_, err = s.HandleInbound(&service.DIDCommMsg{Payload: response})
 		require.Error(t, err)
 	})
 	t.Run("must not start with ACK msg", func(t *testing.T) {
@@ -277,7 +277,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.HandleInbound(&service.DIDCommMsg{Payload: ack})
+		_, err = s.HandleInbound(&service.DIDCommMsg{Payload: ack})
 		require.Error(t, err)
 	})
 	t.Run("must not transition to same state", func(t *testing.T) {
@@ -324,7 +324,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		didMsg, err := service.NewDIDCommMsg(request)
 		require.NoError(t, err)
-		err = s.HandleInbound(didMsg)
+		_, err = s.HandleInbound(didMsg)
 		require.NoError(t, err)
 
 		select {
@@ -345,7 +345,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		didMsg, err = service.NewDIDCommMsg(response)
 		require.NoError(t, err)
-		err = s.HandleInbound(didMsg)
+		_, err = s.HandleInbound(didMsg)
 		require.Error(t, err)
 	})
 	t.Run("error when updating store on first state transition", func(t *testing.T) {
@@ -370,7 +370,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.HandleInbound(&service.DIDCommMsg{Payload: request})
+		_, err = s.HandleInbound(&service.DIDCommMsg{Payload: request})
 		require.Error(t, err)
 	})
 	t.Run("error when updating store on followup state transition", func(t *testing.T) {
@@ -400,7 +400,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.HandleInbound(&service.DIDCommMsg{Payload: request})
+		_, err = s.HandleInbound(&service.DIDCommMsg{Payload: request})
 		require.Error(t, err)
 	})
 
@@ -418,8 +418,57 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			},
 		)
 		require.NoError(t, err)
-		err = s.HandleInbound(&service.DIDCommMsg{Payload: request})
+		_, err = s.HandleInbound(&service.DIDCommMsg{Payload: request})
 		require.Error(t, err)
+	})
+
+	t.Run("threadID error", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
+		require.NoError(t, err)
+
+		requestBytes, err := json.Marshal(&Request{
+			Type: RequestMsgType,
+		})
+		require.NoError(t, err)
+
+		// send invite
+		didMsg, err := service.NewDIDCommMsg(requestBytes)
+		require.NoError(t, err)
+
+		_, err = svc.HandleInbound(didMsg)
+		require.Error(t, err)
+		require.Equal(t, err.Error(), "threadID not found")
+	})
+
+	t.Run("connection record error", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
+		require.NoError(t, err)
+
+		svc.store = &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
+		svc.connectionStore = NewConnectionRecorder(svc.store)
+
+		requestBytes, err := json.Marshal(&Request{
+			Type: RequestMsgType,
+			ID:   generateRandomID(),
+			Connection: &Connection{
+				DID: "xyz",
+			},
+		})
+		require.NoError(t, err)
+
+		// send invite
+		didMsg, err := service.NewDIDCommMsg(requestBytes)
+		require.NoError(t, err)
+
+		_, err = svc.HandleInbound(didMsg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "save connection record")
 	})
 }
 
@@ -634,7 +683,7 @@ func TestEventsSuccess(t *testing.T) {
 	didMsg, err := service.NewDIDCommMsg(invite)
 	require.NoError(t, err)
 
-	err = svc.HandleInbound(didMsg)
+	_, err = svc.HandleInbound(didMsg)
 	require.NoError(t, err)
 
 	select {
@@ -688,7 +737,7 @@ func TestEventsUserError(t *testing.T) {
 	didMsg, err := service.NewDIDCommMsg(requestBytes)
 	require.NoError(t, err)
 
-	err = svc.HandleInbound(didMsg)
+	_, err = svc.HandleInbound(didMsg)
 	require.NoError(t, err)
 
 	select {
@@ -732,7 +781,7 @@ func TestEventStoreError(t *testing.T) {
 	didMsg, err := service.NewDIDCommMsg(request)
 	require.NoError(t, err)
 
-	err = svc.HandleInbound(didMsg)
+	_, err = svc.HandleInbound(didMsg)
 	require.NoError(t, err)
 }
 
@@ -768,9 +817,11 @@ func TestUpdateState(t *testing.T) {
 func TestService_No_Execution(t *testing.T) {
 	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
 	require.NoError(t, err)
-	require.EqualError(t, svc.HandleInbound(&service.DIDCommMsg{
+
+	_, err = svc.HandleInbound(&service.DIDCommMsg{
 		Header: &service.Header{Type: ResponseMsgType},
-	}), "no clients are registered to handle the message")
+	})
+	require.EqualError(t, err, "no clients are registered to handle the message")
 }
 
 func validateState(t *testing.T, svc *Service, id, namespace, expected string) {
@@ -804,7 +855,7 @@ func TestServiceErrors(t *testing.T) {
 	}}
 	svc.store = mockStore
 	svc.connectionStore = NewConnectionRecorder(mockStore)
-	err = svc.HandleInbound(msg)
+	_, err = svc.HandleInbound(msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot fetch state from store")
 
@@ -813,7 +864,7 @@ func TestServiceErrors(t *testing.T) {
 	svc.store, err = mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
 	svc.connectionStore = NewConnectionRecorder(svc.store)
 	require.NoError(t, err)
-	err = svc.HandleInbound(msg)
+	_, err = svc.HandleInbound(msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unrecognized msgType: invalid")
 
@@ -878,7 +929,7 @@ func TestMsgEventProtocolFailure(t *testing.T) {
 	require.NoError(t, err)
 	msg, err := service.NewDIDCommMsg(requestBytes)
 	require.NoError(t, err)
-	err = svc.HandleInbound(msg)
+	_, err = svc.HandleInbound(msg)
 	require.NoError(t, err)
 
 	select {
@@ -1072,7 +1123,7 @@ func TestEventsSuccessWithAsync(t *testing.T) {
 	didMsg, err := service.NewDIDCommMsg(requestBytes)
 	require.NoError(t, err)
 
-	err = svc.HandleInbound(didMsg)
+	_, err = svc.HandleInbound(didMsg)
 	require.NoError(t, err)
 
 	select {
@@ -1110,4 +1161,23 @@ func TestEventTransientData(t *testing.T) {
 	_, err = svc.getEventTransientData(connID)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "get transient data : invalid character")
+}
+
+func TestNextState(t *testing.T) {
+	t.Run("empty thread ID", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		_, err = svc.nextState(RequestMsgType, "")
+		require.EqualError(t, err, "unable to compute hash, empty bytes")
+	})
+
+	t.Run("valid inputs", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		state, err := svc.nextState(RequestMsgType, generateRandomID())
+		require.NoError(t, err)
+		require.Equal(t, stateNameRequested, state.Name())
+	})
 }
