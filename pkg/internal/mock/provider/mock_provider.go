@@ -14,12 +14,13 @@ import (
 
 // Provider mocks provider needed for did exchange service initialization
 type Provider struct {
-	ServiceValue         interface{}
-	ServiceErr           error
-	KMSValue             kms.KeyManager
-	InboundEndpointValue string
-	StorageProviderValue storage.Provider
-	CrypterValue         crypto.Crypter
+	ServiceValue                  interface{}
+	ServiceErr                    error
+	KMSValue                      kms.KeyManager
+	InboundEndpointValue          string
+	StorageProviderValue          storage.Provider
+	TransientStorageProviderValue storage.Provider
+	CrypterValue                  crypto.Crypter
 }
 
 // Service return service
@@ -40,6 +41,11 @@ func (p *Provider) InboundTransportEndpoint() string {
 // StorageProvider returns the storage provider
 func (p *Provider) StorageProvider() storage.Provider {
 	return p.StorageProviderValue
+}
+
+// TransientStorageProvider returns the transient storage provider
+func (p *Provider) TransientStorageProvider() storage.Provider {
+	return p.TransientStorageProviderValue
 }
 
 // Crypter returns the crypter service

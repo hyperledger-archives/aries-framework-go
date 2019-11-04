@@ -35,6 +35,7 @@ type Provider interface {
 	Signer() kms.Signer
 	DIDResolver() didresolver.Resolver
 	DIDStore() didstore.Storage
+	TransientStorageProvider() storage.Provider
 }
 
 // ProtocolSvcCreator method to create new protocol service

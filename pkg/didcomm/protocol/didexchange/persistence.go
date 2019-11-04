@@ -49,13 +49,14 @@ func (r *ConnectionRecord) isValid() error {
 }
 
 // NewConnectionRecorder returns new connection record instance
-func NewConnectionRecorder(store storage.Store) *ConnectionRecorder {
-	return &ConnectionRecorder{store: store}
+func NewConnectionRecorder(transientStore, store storage.Store) *ConnectionRecorder {
+	return &ConnectionRecorder{transientStore: transientStore, store: store}
 }
 
 // ConnectionRecorder takes care of connection related persistence features
 type ConnectionRecorder struct {
-	store storage.Store
+	transientStore storage.Store
+	store          storage.Store
 }
 
 // SaveInvitation saves connection invitation to underlying store
@@ -116,7 +117,14 @@ func (c *ConnectionRecorder) GetInvitation(id string) (*Invitation, error) {
 
 // GetConnectionRecord return connection record based on the connection ID
 func (c *ConnectionRecorder) GetConnectionRecord(connectionID string) (*ConnectionRecord, error) {
-	return c.getAndUnmarshal(connectionKeyPrefix(connectionID))
+	rec, err := getAndUnmarshal(connectionKeyPrefix(connectionID), c.store)
+	if err != nil {
+		if errors.Is(err, storage.ErrDataNotFound) {
+			return getAndUnmarshal(connectionKeyPrefix(connectionID), c.transientStore)
+		}
+		return nil, err
+	}
+	return rec, nil
 }
 
 // QueryConnectionRecords returns connection records found in underlying store
@@ -145,27 +153,27 @@ func (c *ConnectionRecorder) GetConnectionRecordAtState(connectionID, stateID st
 		return nil, errors.New("stateID can't be empty")
 	}
 
-	return c.getAndUnmarshal(connectionKeyPrefix(connectionID + stateID))
+	return getAndUnmarshal(connectionKeyPrefix(connectionID+stateID), c.transientStore)
 }
 
-func (c *ConnectionRecorder) getAndUnmarshal(k string) (*ConnectionRecord, error) {
-	connRecordBytes, err := c.store.Get(k)
+func getAndUnmarshal(k string, store storage.Store) (*ConnectionRecord, error) {
+	connRecordBytes, err := store.Get(k)
 	if err != nil {
-		return nil, fmt.Errorf("get connection record: %w", err)
+		return nil, err
 	}
 	return prepareConnectionRecord(connRecordBytes)
 }
 
 // GetConnectionRecordByNSThreadID return connection record via namespaced threadID
 func (c *ConnectionRecorder) GetConnectionRecordByNSThreadID(nsThreadID string) (*ConnectionRecord, error) {
-	connectionIDBytes, err := c.store.Get(nsThreadID)
+	connectionIDBytes, err := c.transientStore.Get(nsThreadID)
 	if err != nil {
 		return nil, fmt.Errorf("get connectionID by namespaced threadID: %w", err)
 	}
 	// adding prefix for storing connection record
 	k := connectionKeyPrefix(string(connectionIDBytes))
 
-	connRecordBytes, err := c.store.Get(k)
+	connRecordBytes, err := c.transientStore.Get(k)
 	if err != nil {
 		return nil, fmt.Errorf("get connection record by connectionID: %w", err)
 	}
@@ -175,25 +183,34 @@ func (c *ConnectionRecorder) GetConnectionRecordByNSThreadID(nsThreadID string) 
 // saveConnectionRecord saves the connection record against the connection id  in the store
 // TODO - https://github.com/hyperledger/aries-framework-go/issues/622 Transient v Permanent Data store
 func (c *ConnectionRecorder) saveConnectionRecord(record *ConnectionRecord) error {
-	if err := c.marshalAndSave(connectionKeyPrefix(record.ConnectionID), record); err != nil {
-		return fmt.Errorf("save connection record: %w", err)
+	if err := marshalAndSave(connectionKeyPrefix(record.ConnectionID), record, c.transientStore); err != nil {
+		return fmt.Errorf("save connection record in transient store: %w", err)
 	}
 
 	if record.State != "" {
-		return c.marshalAndSave(connectionKeyPrefix(record.ConnectionID+record.State), record)
+		err := marshalAndSave(connectionKeyPrefix(record.ConnectionID+record.State), record, c.transientStore)
+		if err != nil {
+			return fmt.Errorf("save connection record with state in transient store: %w", err)
+		}
+	}
+
+	if record.State == stateNameCompleted {
+		if err := marshalAndSave(connectionKeyPrefix(record.ConnectionID), record, c.store); err != nil {
+			return fmt.Errorf("save connection record in permanent store: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func (c *ConnectionRecorder) marshalAndSave(k string, v *ConnectionRecord) error {
+func marshalAndSave(k string, v *ConnectionRecord, store storage.Store) error {
 	bytes, err := json.Marshal(v)
 
 	if err != nil {
 		return fmt.Errorf("save connection record: %w", err)
 	}
 
-	return c.store.Put(k, bytes)
+	return store.Put(k, bytes)
 }
 
 // saveNewConnectionRecord saves newly created connection record against the connection id in the store
@@ -225,7 +242,7 @@ func (c *ConnectionRecorder) saveNSThreadID(thid, namespace, connectionID string
 		return err
 	}
 
-	return c.store.Put(k, []byte(connectionID))
+	return c.transientStore.Put(k, []byte(connectionID))
 }
 
 func prepareConnectionRecord(connRecBytes []byte) (*ConnectionRecord, error) {

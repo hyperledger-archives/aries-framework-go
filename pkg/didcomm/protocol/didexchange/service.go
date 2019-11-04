@@ -61,6 +61,7 @@ type message struct {
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
+	TransientStorageProvider() storage.Provider
 	Signer() kms.Signer
 	DIDResolver() didresolver.Resolver
 	DIDStore() didstore.Storage
@@ -79,7 +80,7 @@ type Service struct {
 	service.Action
 	service.Message
 	ctx             *context
-	store           storage.Store
+	transientStore  storage.Store
 	callbackChannel chan *message
 	connectionStore *ConnectionRecorder
 }
@@ -100,19 +101,24 @@ func New(didMaker didcreator.Creator, prov provider) (*Service, error) {
 		return nil, err
 	}
 
+	transientStore, err := prov.TransientStorageProvider().OpenStore(DIDExchange)
+	if err != nil {
+		return nil, err
+	}
+	connRecorder := NewConnectionRecorder(transientStore, store)
 	svc := &Service{
 		ctx: &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			didCreator:         didMaker,
 			signer:             prov.Signer(),
 			didResolver:        prov.DIDResolver(),
-			connectionStore:    NewConnectionRecorder(store),
+			connectionStore:    connRecorder,
 			didStore:           prov.DIDStore(),
 		},
-		store: store,
+		transientStore: transientStore,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan *message, 10),
-		connectionStore: NewConnectionRecorder(store),
+		connectionStore: connRecorder,
 	}
 
 	// start the listener
@@ -362,11 +368,11 @@ func (s *Service) storeEventTransientData(msg *message) error {
 		return fmt.Errorf("store transient data : %w", err)
 	}
 
-	return s.store.Put(eventTransientDataKey(msg.ConnRecord.ConnectionID), bytes)
+	return s.transientStore.Put(eventTransientDataKey(msg.ConnRecord.ConnectionID), bytes)
 }
 
 func (s *Service) getEventTransientData(connectionID string) (*message, error) {
-	val, err := s.store.Get(eventTransientDataKey(connectionID))
+	val, err := s.transientStore.Get(eventTransientDataKey(connectionID))
 	if err != nil {
 		return nil, fmt.Errorf("get transient data : %w", err)
 	}
