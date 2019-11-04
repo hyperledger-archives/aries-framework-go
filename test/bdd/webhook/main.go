@@ -7,15 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
 )
+
+var logger = log.New("aries-framework/webhook")
 
 const (
 	addressPattern  = ":%s"
@@ -30,6 +34,19 @@ func connections(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 	}
+
+	connMsg := didexchange.ConnectionMsg{}
+	err = json.Unmarshal(msg, &connMsg)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+	if connMsg.State == "null" {
+		// check for action event and log the connectionID
+		logger.Infof("received action event :: connID=%s", connMsg.ConnectionID)
+	} else {
+		logger.Infof("received state transition event :: connID=%s state=%s", connMsg.ConnectionID, connMsg.State)
+	}
+
 	connectionTopics <- msg
 }
 
@@ -50,5 +67,5 @@ func main() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc(connectionsPath, connections).Methods(http.MethodPost)
 	router.HandleFunc(checkTopicsPath, checkTopics).Methods(http.MethodGet)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(addressPattern, port), router))
+	logger.Fatalf("webhook server start error %s", http.ListenAndServe(fmt.Sprintf(addressPattern, port), router))
 }
