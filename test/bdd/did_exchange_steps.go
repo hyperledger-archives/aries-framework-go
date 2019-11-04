@@ -43,10 +43,6 @@ func (d *DIDExchangeSteps) createInvitation(inviterAgentID string) error {
 	}
 	logger.Debugf("Agent %s create invitation %s", inviterAgentID, invitationBytes)
 
-	d.bddContext.RoleMu.Lock()
-	d.bddContext.Role[inviterAgentID] = roleInviter
-	d.bddContext.RoleMu.Unlock()
-
 	return nil
 }
 
@@ -60,10 +56,6 @@ func (d *DIDExchangeSteps) createInvitationWithDID(inviterAgentID string) error 
 	if err != nil {
 		return fmt.Errorf("failed to marshal invitation: %w", err)
 	}
-
-	d.bddContext.RoleMu.Lock()
-	d.bddContext.Role[inviterAgentID] = roleInviter
-	d.bddContext.RoleMu.Unlock()
 
 	logger.Debugf("Agent %s create invitation %s", inviterAgentID, invitationBytes)
 	return nil
@@ -83,10 +75,6 @@ func (d *DIDExchangeSteps) receiveInvitation(inviteeAgentID, inviterAgentID stri
 	d.bddContext.Lock()
 	d.bddContext.ConnectionID[inviteeAgentID] = connectionID
 	d.bddContext.Unlock()
-
-	d.bddContext.RoleMu.Lock()
-	d.bddContext.Role[inviteeAgentID] = roleInvitee
-	d.bddContext.RoleMu.Unlock()
 
 	return nil
 }

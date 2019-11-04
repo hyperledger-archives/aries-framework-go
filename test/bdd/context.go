@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 )
@@ -22,9 +23,8 @@ type Context struct {
 	Invitations        map[string]*didexchange.Invitation
 	PostStatesFlag     map[string]map[string]chan bool
 	ConnectionID       map[string]string
+	actionCh           map[string]chan service.DIDCommAction
 	Args               map[string]string
-	Role               map[string]string
-	RoleMu             sync.RWMutex
 	sync.RWMutex
 }
 
@@ -36,9 +36,9 @@ func NewContext() (*Context, error) {
 		PublicDIDs:         make(map[string]*did.Doc),
 		PostStatesFlag:     make(map[string]map[string]chan bool),
 		ConnectionID:       make(map[string]string),
+		actionCh:           make(map[string]chan service.DIDCommAction),
 		AgentCtx:           make(map[string]*context.Provider),
 		Args:               make(map[string]string),
-		Role:               make(map[string]string),
 	}
 	return &instance, nil
 }
