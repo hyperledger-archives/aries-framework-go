@@ -16,13 +16,13 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 )
 
-// Decrypt will JWE decode the envelope argument for the recipientPrivKey and validates
+// Unpack will JWE decode the envelope argument for the recipientPrivKey and validates
 // the envelope's recipients has a match for recipientKeyPair.Pub key.
 // Using (X)Chacha20 cipher and Poly1305 authenticator for the encrypted payload and
 // encrypted CEK.
 // The current recipient is the one with the sender's encrypted key that successfully
 // decrypts with recipientKeyPair.Priv Key.
-func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
+func (c *Packer) Unpack(envelope []byte) ([]byte, error) {
 	jwe := &Envelope{}
 
 	err := json.Unmarshal(envelope, jwe)
@@ -61,7 +61,7 @@ func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 	return nil, errors.New("failed to decrypt message - invalid sender key in envelope")
 }
 
-func (c *Crypter) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
+func (c *Packer) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
 	cipher, err := createCipher(c.nonceSize, cek)
 	if err != nil {
 		return nil, err
@@ -90,7 +90,7 @@ func (c *Crypter) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
 }
 
 // findRecipient will loop through jweRecipients and returns the first matching key from the kms
-func (c *Crypter) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byte, *Recipient, error) {
+func (c *Packer) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byte, *Recipient, error) {
 	var recipientsKeys []string
 	for _, recipient := range jweRecipients {
 		recipientsKeys = append(recipientsKeys, recipient.Header.KID)
@@ -108,7 +108,7 @@ func (c *Crypter) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byt
 }
 
 // decryptCEK will decrypt the CEK found in recipient using recipientKp's private key and senderPubKey
-func (c *Crypter) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte, recipient *Recipient) ([]byte, error) { //nolint:lll
+func (c *Packer) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte, recipient *Recipient) ([]byte, error) { //nolint:lll
 	apu, err := base64.RawURLEncoding.DecodeString(recipient.Header.APU)
 	if err != nil {
 		return nil, err

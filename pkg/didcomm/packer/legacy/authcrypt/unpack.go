@@ -18,9 +18,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-// Decrypt will decode the envelope using the legacy format
+// Unpack will decode the envelope using the legacy format
 // Using (X)Chacha20 encryption algorithm and Poly1035 authenticator
-func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
+func (p *Packer) Unpack(envelope []byte) ([]byte, error) {
 	var envelopeData legacyEnvelope
 
 	err := json.Unmarshal(envelope, &envelopeData)
@@ -49,12 +49,12 @@ func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 		return nil, fmt.Errorf("message format %s not supported", protectedData.Alg)
 	}
 
-	cek, err := getCEK(protectedData.Recipients, c.kms)
+	cek, err := getCEK(protectedData.Recipients, p.kms)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.decodeCipherText(cek, &envelopeData)
+	return p.decodeCipherText(cek, &envelopeData)
 }
 
 func getCEK(recipients []recipient, km kms.KeyManager) (*[chacha.KeySize]byte, error) {
@@ -131,7 +131,7 @@ func decodeSender(b64Sender string, pk []byte, km kms.KeyManager) ([]byte, error
 }
 
 // decodeCipherText decodes (from base64) and decrypts the ciphertext using chacha20poly1305
-func (c *Crypter) decodeCipherText(cek *[chacha.KeySize]byte, envelope *legacyEnvelope) ([]byte, error) {
+func (p *Packer) decodeCipherText(cek *[chacha.KeySize]byte, envelope *legacyEnvelope) ([]byte, error) {
 	var cipherText, nonce, tag, aad, message []byte
 	aad = []byte(envelope.Protected)
 

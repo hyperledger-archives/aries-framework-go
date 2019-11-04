@@ -19,7 +19,7 @@ import (
 // generateSPK will encrypt a msg (in the case of this package, it will be
 // the sender's public key) using the recipient's pubKey, the output will be
 // a compact JWE wrapping a JWK containing the (encrypted) sender's public key
-func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byte) (string, error) {
+func (c *Packer) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byte) (string, error) {
 	if recipientPubKey == nil {
 		return "", cryptoutil.ErrInvalidKey
 	}
@@ -69,7 +69,7 @@ func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byt
 	return c.encryptSenderJWK(kCipherEncoded, headersEncoded, senderJWKJSON, cek[:])
 }
 
-func (c *Crypter) buildJWKHeaders(epk *[32]byte, kNonceEncoded, kTagEncoded string) (string, error) {
+func (c *Packer) buildJWKHeaders(epk *[32]byte, kNonceEncoded, kTagEncoded string) (string, error) {
 	headers := recipientSPKJWEHeaders{
 		Typ: "jose",
 		CTY: "jwk+json",
@@ -92,7 +92,7 @@ func (c *Crypter) buildJWKHeaders(epk *[32]byte, kNonceEncoded, kTagEncoded stri
 	return base64.RawURLEncoding.EncodeToString(headersJSON), nil
 }
 
-func (c *Crypter) encryptSenderJWK(encKey, headers string, senderJWKJSON, cek []byte) (string, error) {
+func (c *Packer) encryptSenderJWK(encKey, headers string, senderJWKJSON, cek []byte) (string, error) {
 	// create a new nonce
 	nonce := make([]byte, c.nonceSize)
 

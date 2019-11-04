@@ -12,7 +12,7 @@ import (
 
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -36,8 +36,8 @@ var randReader = rand.Reader
 // errUnsupportedAlg is used when a bad encryption algorithm is used
 var errUnsupportedAlg = errors.New("algorithm not supported")
 
-// Crypter represents an Authcrypt Encrypter (Decrypter) that outputs/reads JWE envelopes
-type Crypter struct {
+// Packer represents an Authcrypt Encrypter (Decrypter) that outputs/reads JWE envelopes
+type Packer struct {
 	alg       ContentEncryption
 	nonceSize int
 	kms       kms.KeyManager
@@ -98,7 +98,7 @@ type jwk struct {
 // C20P (chacha20-poly1305 ietf)
 // XC20P (xchacha20-poly1305 ietf)
 // The returned crypter contains all the information required to encrypt payloads.
-func New(ctx crypto.Provider, alg ContentEncryption) (*Crypter, error) {
+func New(ctx envelope.KMSProvider, alg ContentEncryption) (*Packer, error) {
 	k := ctx.KMS()
 
 	var nonceSize int
@@ -112,7 +112,7 @@ func New(ctx crypto.Provider, alg ContentEncryption) (*Crypter, error) {
 		return nil, errUnsupportedAlg
 	}
 
-	return &Crypter{
+	return &Packer{
 		alg:       alg,
 		nonceSize: nonceSize,
 		kms:       k,

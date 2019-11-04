@@ -12,13 +12,13 @@ type MockAuthCrypt struct {
 	DecryptValue func(envelope []byte) ([]byte, error)
 }
 
-// Encrypt mock encrypt
-func (m *MockAuthCrypt) Encrypt(payload, senderPubKey []byte,
+// Pack mock encrypt
+func (m *MockAuthCrypt) Pack(payload, senderPubKey []byte,
 	recipients [][]byte) ([]byte, error) {
 	return m.EncryptValue(payload, senderPubKey, recipients)
 }
 
-// Decrypt mock decrypt
-func (m *MockAuthCrypt) Decrypt(envelope []byte) ([]byte, error) {
+// Unpack mock decrypt
+func (m *MockAuthCrypt) Unpack(envelope []byte) ([]byte, error) {
 	return m.DecryptValue(envelope)
 }

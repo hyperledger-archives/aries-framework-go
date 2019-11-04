@@ -9,7 +9,6 @@ package api
 import (
 	"errors"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
@@ -28,7 +27,7 @@ type Provider interface {
 	Service(id string) (interface{}, error)
 	StorageProvider() storage.Provider
 	KMS() kms.KeyManager
-	Crypter() crypto.Crypter
+	Packer() envelope.Packer
 	Packager() envelope.Packager
 	InboundTransportEndpoint() string
 	DIDCreator() didcreator.Creator

@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package envelope
+package envelope_test
 
 import (
 	"fmt"
@@ -12,9 +12,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/jwe/authcrypt"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/jwe/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
-	mprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -27,14 +27,12 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		}}))
 		require.NoError(t, err)
 
-		mockedProviders := &mprovider.Provider{
-			KMSValue: w,
-		}
-		crypter, err := authcrypt.New(mockedProviders, authcrypt.XC20P)
+		mockedProviders := &mockProvider{nil, w, nil}
+		testPacker, err := authcrypt.New(mockedProviders, authcrypt.XC20P)
 		require.NoError(t, err)
 
-		mockedProviders.CrypterValue = crypter
-		packager, err := New(mockedProviders)
+		mockedProviders.packer = testPacker
+		packager, err := envelope.New(mockedProviders)
 		require.NoError(t, err)
 		_, err = packager.UnpackMessage(nil)
 		require.Error(t, err)
@@ -48,15 +46,13 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		w, err := kms.New(wp)
 		require.NoError(t, err)
 
-		mockedProviders := &mprovider.Provider{
-			KMSValue: w,
-		}
-		crypter, err := authcrypt.New(mockedProviders, authcrypt.XC20P)
+		mockedProviders := &mockProvider{nil, w, nil}
+		testPacker, err := authcrypt.New(mockedProviders, authcrypt.XC20P)
 		require.NoError(t, err)
 
-		// use a real crypter with a mocked KMS to validate pack/unpack
-		mockedProviders.CrypterValue = crypter
-		packager, err := New(mockedProviders)
+		// use a real testPacker with a mocked KMS to validate pack/unpack
+		mockedProviders.packer = testPacker
+		packager, err := envelope.New(mockedProviders)
 		require.NoError(t, err)
 
 		// fromKey is stored in the KMS
@@ -68,7 +64,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// PackMessage should pass with both value from and to verification keys
-		packMsg, err := packager.PackMessage(&Envelope{Message: []byte("msg1"),
+		packMsg, err := packager.PackMessage(&envelope.Envelope{Message: []byte("msg1"),
 			FromVerKey: base58FromVerKey,
 			ToVerKeys:  []string{base58ToVerKey}})
 		require.NoError(t, err)
@@ -92,22 +88,20 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			return nil, fmt.Errorf("decrypt error")
 		}
 
-		mockedProviders := &mprovider.Provider{
-			KMSValue: w,
-		}
+		mockedProviders := &mockProvider{nil, w, nil}
 
-		// use a mocked crypter with a mocked KMS to validate pack/unpack
+		// use a mocked packer with a mocked KMS to validate pack/unpack
 		e := func(payload []byte, senderPubKey []byte, recipientsKeys [][]byte) (bytes []byte, e error) {
 			crypter, e := authcrypt.New(mockedProviders, authcrypt.XC20P)
 			require.NoError(t, e)
-			return crypter.Encrypt(payload, senderPubKey, recipientsKeys)
+			return crypter.Pack(payload, senderPubKey, recipientsKeys)
 		}
-		mockCrypter := &didcomm.MockAuthCrypt{DecryptValue: decryptValue,
+		mockPacker := &didcomm.MockAuthCrypt{DecryptValue: decryptValue,
 			EncryptValue: e}
 
-		mockedProviders.CrypterValue = mockCrypter
+		mockedProviders.packer = mockPacker
 
-		packager, err := New(mockedProviders)
+		packager, err := envelope.New(mockedProviders)
 		require.NoError(t, err)
 
 		_, base58FromVerKey, err := w.CreateKeySet()
@@ -122,13 +116,13 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.Empty(t, packMsg)
 
 		// now try to pack with non empty envelope - should pass
-		packMsg, err = packager.PackMessage(&Envelope{Message: []byte("msg1"),
+		packMsg, err = packager.PackMessage(&envelope.Envelope{Message: []byte("msg1"),
 			FromVerKey: base58FromVerKey,
 			ToVerKeys:  []string{base58ToVerKey}})
 		require.NoError(t, err)
 		require.NotEmpty(t, packMsg)
 
-		// now try unpack - should fail since we mocked the crypter's Decrypt value to return "decrypt error"
+		// now try unpack - should fail since we mocked the packer's Unpack value to return "decrypt error"
 		// see 'decryptValue' above
 		_, err = packager.UnpackMessage(packMsg)
 		require.Error(t, err)
@@ -138,11 +132,11 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		e = func(payload []byte, senderPubKey []byte, recipientsKeys [][]byte) (bytes []byte, e error) {
 			return nil, fmt.Errorf("encrypt error")
 		}
-		mockCrypter = &didcomm.MockAuthCrypt{EncryptValue: e}
-		mockedProviders.CrypterValue = mockCrypter
-		packager, err = New(mockedProviders)
+		mockPacker = &didcomm.MockAuthCrypt{EncryptValue: e}
+		mockedProviders.packer = mockPacker
+		packager, err = envelope.New(mockedProviders)
 		require.NoError(t, err)
-		packMsg, err = packager.PackMessage(&Envelope{Message: []byte("msg1"),
+		packMsg, err = packager.PackMessage(&envelope.Envelope{Message: []byte("msg1"),
 			FromVerKey: base58FromVerKey,
 			ToVerKeys:  []string{base58ToVerKey}})
 		require.Error(t, err)
@@ -155,16 +149,15 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		w, err := kms.New(newMockKMSProvider(&mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
 			Store: map[string][]byte{}}}))
 		require.NoError(t, err)
-		mockedProviders := &mprovider.Provider{
-			KMSValue: w,
-		}
-		// create a real crypter (no mocking here)
-		crypter, err := authcrypt.New(mockedProviders, authcrypt.XC20P)
+		mockedProviders := &mockProvider{nil, w, nil}
+
+		// create a real testPacker (no mocking here)
+		testPacker, err := authcrypt.New(mockedProviders, authcrypt.XC20P)
 		require.NoError(t, err)
-		mockedProviders.CrypterValue = crypter
+		mockedProviders.packer = testPacker
 
 		// now create a new packager with the above provider context
-		packager, err := New(mockedProviders)
+		packager, err := envelope.New(mockedProviders)
 		require.NoError(t, err)
 
 		_, base58FromVerKey, err := w.CreateKeySet()
@@ -174,7 +167,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// pack an non empty envelope - should pass
-		packMsg, err := packager.PackMessage(&Envelope{Message: []byte("msg1"),
+		packMsg, err := packager.PackMessage(&envelope.Envelope{Message: []byte("msg1"),
 			FromVerKey: base58FromVerKey,
 			ToVerKeys:  []string{base58ToVerKey}})
 		require.NoError(t, err)
@@ -187,12 +180,22 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 }
 
 func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvider {
-	return &mockProvider{storagePvdr}
+	return &mockProvider{storagePvdr, nil, nil}
 }
 
 // mockProvider mocks provider for KMS
 type mockProvider struct {
 	storage *mockstorage.MockStoreProvider
+	kms     kms.KeyManager
+	packer  envelope.Packer
+}
+
+func (m *mockProvider) Packer() envelope.Packer {
+	return m.packer
+}
+
+func (m *mockProvider) KMS() kms.KeyManager {
+	return m.kms
 }
 
 func (m *mockProvider) StorageProvider() storage.Provider {

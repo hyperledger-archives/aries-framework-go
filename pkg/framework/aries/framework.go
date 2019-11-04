@@ -9,7 +9,6 @@ package aries
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -34,8 +33,8 @@ type Aries struct {
 	outboundDispatcher        dispatcher.Outbound
 	packagerCreator           envelope.PackagerCreator
 	packager                  envelope.Packager
-	crypterCreator            crypto.CrypterCreator
-	crypter                   crypto.Crypter
+	packerCreator             envelope.Creator
+	packer                    envelope.Packer
 	didResolver               didresolver.Resolver
 	// TODO: the DID provider options should be part of a verifiable data registry (vdr) option.
 	didStore didstore.Storage
@@ -77,7 +76,7 @@ func New(opts ...Option) (*Aries, error) {
 		return nil, e
 	}
 
-	// create create crypter and packager (must be done after KMS)
+	// create create packer and packager (must be done after KMS)
 	err = createCrypterAndPackager(frameworkOpts)
 	if err != nil {
 		return nil, err
@@ -168,15 +167,15 @@ func WithKMS(k api.KMSCreator) Option {
 	}
 }
 
-// WithCrypter injects a crypter service to the Aries framework
-func WithCrypter(c crypto.CrypterCreator) Option {
+// WithPacker injects a packer service to the Aries framework
+func WithPacker(c envelope.Creator) Option {
 	return func(opts *Aries) error {
-		opts.crypterCreator = c
+		opts.packerCreator = c
 		return nil
 	}
 }
 
-// WithPackager injects a WithPackager service to the Aries framework
+// WithPackager injects a packager service to the Aries framework
 func WithPackager(p envelope.PackagerCreator) Option {
 	return func(opts *Aries) error {
 		opts.packagerCreator = p
@@ -208,7 +207,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 		context.WithStorageProvider(a.storeProvider),
 		context.WithTransientStorageProvider(a.transientStoreProvider),
-		context.WithCrypter(a.crypter),
+		context.WithPacker(a.packer),
 		context.WithPackager(a.packager),
 		context.WithDIDResolver(a.didResolver),
 		context.WithDIDStore(a.didStore),
@@ -323,15 +322,15 @@ func loadServices(frameworkOpts *Aries) error {
 func createCrypterAndPackager(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithKMS(frameworkOpts.kms))
 	if err != nil {
-		return fmt.Errorf("create crypter context failed: %w", err)
+		return fmt.Errorf("create packer context failed: %w", err)
 	}
 
-	frameworkOpts.crypter, err = frameworkOpts.crypterCreator(ctx)
+	frameworkOpts.packer, err = frameworkOpts.packerCreator(ctx)
 	if err != nil {
-		return fmt.Errorf("create crypter failed: %w", err)
+		return fmt.Errorf("create packer failed: %w", err)
 	}
 
-	ctx, err = context.New(context.WithCrypter(frameworkOpts.crypter))
+	ctx, err = context.New(context.WithPacker(frameworkOpts.packer))
 	if err != nil {
 		return fmt.Errorf("create packager context failed: %w", err)
 	}

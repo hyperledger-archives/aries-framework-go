@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -20,7 +20,7 @@ type Provider struct {
 	InboundEndpointValue          string
 	StorageProviderValue          storage.Provider
 	TransientStorageProviderValue storage.Provider
-	CrypterValue                  crypto.Crypter
+	PackerValue                   envelope.Packer
 }
 
 // Service return service
@@ -48,7 +48,7 @@ func (p *Provider) TransientStorageProvider() storage.Provider {
 	return p.TransientStorageProviderValue
 }
 
-// Crypter returns the crypter service
-func (p *Provider) Crypter() crypto.Crypter {
-	return p.CrypterValue
+// Packer returns the crypter service
+func (p *Provider) Packer() envelope.Packer {
+	return p.PackerValue
 }

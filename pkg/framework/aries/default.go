@@ -10,10 +10,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
@@ -125,14 +124,14 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) {
 		}
 	}
 
-	if frameworkOpts.crypterCreator == nil {
-		frameworkOpts.crypterCreator = func(provider crypto.Provider) (crypto.Crypter, error) {
+	if frameworkOpts.packerCreator == nil {
+		frameworkOpts.packerCreator = func(provider envelope.KMSProvider) (envelope.Packer, error) {
 			return authcrypt.New(provider), nil
 		}
 	}
 
 	if frameworkOpts.packagerCreator == nil {
-		frameworkOpts.packagerCreator = func(provider envelope.Provider) (envelope.Packager, error) {
+		frameworkOpts.packagerCreator = func(provider envelope.PackerProvider) (envelope.Packager, error) {
 			return envelope.New(provider)
 		}
 	}

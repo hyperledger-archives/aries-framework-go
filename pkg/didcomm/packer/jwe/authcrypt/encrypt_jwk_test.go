@@ -66,7 +66,7 @@ func TestNilEncryptSenderJwk(t *testing.T) {
 	require.Empty(t, l)
 	require.Empty(t, m)
 
-	pld, err := crypter.Encrypt([]byte(""), someKey[:], [][]byte{someKey[:]})
+	pld, err := crypter.Pack([]byte(""), someKey[:], [][]byte{someKey[:]})
 	require.Error(t, err)
 	require.Empty(t, pld)
 }

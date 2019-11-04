@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -92,10 +91,10 @@ func TestFramework(t *testing.T) {
 			WithKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
 				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
 			}),
-			WithCrypter(func(ctx crypto.Provider) (crypto.Crypter, error) {
+			WithPacker(func(ctx envelope.KMSProvider) (envelope.Packer, error) {
 				return &didcomm.MockAuthCrypt{EncryptValue: nil}, nil
 			}),
-			WithPackager(func(ctx envelope.Provider) (envelope.Packager, error) {
+			WithPackager(func(ctx envelope.PackerProvider) (envelope.Packager, error) {
 				return &mockenvelope.BasePackager{PackValue: []byte("mockPackValue")}, nil
 			}))
 		require.NoError(t, err)

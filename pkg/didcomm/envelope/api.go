@@ -11,7 +11,7 @@ package envelope
 // wire-level wrappers of 'payloads' used in DID Exchange flows.
 
 // PackagerCreator method to create new outbound dispatcher service
-type PackagerCreator func(prov Provider) (Packager, error)
+type PackagerCreator func(prov PackerProvider) (Packager, error)
 
 // Packager provide methods to pack and unpack msg
 type Packager interface {

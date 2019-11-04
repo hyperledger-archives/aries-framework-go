@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -30,7 +29,7 @@ type Provider struct {
 	transientStoreProvider   storage.Provider
 	kms                      kms.KMS
 	packager                 envelope.Packager
-	crypter                  crypto.Crypter
+	packer                   envelope.Packer
 	inboundTransportEndpoint string
 	outboundTransport        transport.OutboundTransport
 	didResolver              didresolver.Resolver
@@ -83,9 +82,9 @@ func (p *Provider) Packager() envelope.Packager {
 	return p.packager
 }
 
-// Crypter returns the crypter service to be used by the packager
-func (p *Provider) Crypter() crypto.Crypter {
-	return p.crypter
+// Packer returns the packer service to be used by the packager
+func (p *Provider) Packer() envelope.Packer {
+	return p.packer
 }
 
 // Signer returns the kms signing service
@@ -225,10 +224,10 @@ func WithPackager(p envelope.Packager) ProviderOption {
 	}
 }
 
-// WithCrypter injects a crypter into the context
-func WithCrypter(p crypto.Crypter) ProviderOption {
+// WithPacker injects a packer into the context
+func WithPacker(p envelope.Packer) ProviderOption {
 	return func(opts *Provider) error {
-		opts.crypter = p
+		opts.packer = p
 		return nil
 	}
 }

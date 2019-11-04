@@ -21,11 +21,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
-// Encrypt will JWE encode the payload argument for the sender and recipients
+// Pack will JWE encode the payload argument for the sender and recipients
 // Using (X)Chacha20 encryption algorithm and Poly1305 authenticator
 // It will encrypt by fetching the sender's encryption key corresponding to senderVerKey and converting the list
 // of recipientsVerKeys into a list of encryption keys
-func (c *Crypter) Encrypt(payload, senderVerKey []byte, recipientsVerKeys [][]byte) ([]byte, error) { //nolint:funlen
+func (c *Packer) Pack(payload, senderVerKey []byte, recipientsVerKeys [][]byte) ([]byte, error) { //nolint:funlen
 	senderPubKey, err := c.getSenderPubEncKey(senderVerKey)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func (c *Crypter) Encrypt(payload, senderVerKey []byte, recipientsVerKeys [][]by
 	return jwe, nil
 }
 
-func (c *Crypter) getSenderPubEncKey(senderVerKey []byte) (*[chacha.KeySize]byte, error) {
+func (c *Packer) getSenderPubEncKey(senderVerKey []byte) (*[chacha.KeySize]byte, error) {
 	if len(senderVerKey) == 0 {
 		return nil, fmt.Errorf("failed to encrypt message: empty sender key")
 	}
@@ -120,7 +120,7 @@ func (c *Crypter) getSenderPubEncKey(senderVerKey []byte) (*[chacha.KeySize]byte
 
 // convertRecipients is a utility function that converts keys from signature keys ([][]byte type)
 // into encryption keys ([]*[chacha.KeySize]byte type)
-func (c *Crypter) convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byte, error) {
+func (c *Packer) convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byte, error) {
 	var chachaRecipients []*[chacha.KeySize]byte
 
 	for i, rVer := range recipients {
@@ -163,7 +163,7 @@ func extractCipherText(symOutput []byte) string {
 
 // buildJWE builds the JSON object representing the JWE output of the encryption
 // and returns its marshaled []byte representation
-func (c *Crypter) buildJWE(headers string, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) { //nolint:lll
+func (c *Packer) buildJWE(headers string, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) { //nolint:lll
 	jwe := Envelope{
 		Protected:  headers,
 		Recipients: recipients,
@@ -204,7 +204,7 @@ func hashAAD(keys []string) []byte {
 
 // encodeRecipients is a utility function that will encrypt the cek (content encryption key) for each recipient
 // and return a list of encoded recipient keys in a JWE compliant format ([]Recipient)
-func (c *Crypter) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderPubKey *[chacha.KeySize]byte) ([]Recipient, error) { //nolint:lll
+func (c *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderPubKey *[chacha.KeySize]byte) ([]Recipient, error) { //nolint:lll
 	var encodedRecipients []Recipient
 
 	for _, e := range recipients {
@@ -222,7 +222,7 @@ func (c *Crypter) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[cha
 // encodeRecipient will encrypt the cek (content encryption key) with a recipientKey
 // by generating a new ephemeral key to be used by the recipient to later decrypt it
 // it returns a JWE compliant Recipient
-func (c *Crypter) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
+func (c *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
 	// generate a random APU value (Agreement PartyUInfo: https://tools.ietf.org/html/rfc7518#section-4.6.1.2)
 	apu := make([]byte, 64)
 
@@ -251,7 +251,7 @@ func (c *Crypter) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.Ke
 }
 
 // buildRecipient will build a proper JSON formatted and JWE compliant Recipient
-func (c *Crypter) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded, tagEncoded string, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
+func (c *Packer) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded, tagEncoded string, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
 	recipientHeaders := RecipientHeaders{
 		APU: base64.RawURLEncoding.EncodeToString(apu),
 		IV:  nonceEncoded,
@@ -274,7 +274,7 @@ func (c *Crypter) buildRecipient(key string, apu []byte, spkEncoded, nonceEncode
 //		resulting tag of the encryption
 //		generated nonce used by the encryption
 //		error in case of failure
-func (c *Crypter) encryptCEK(kek, cek []byte) (string, string, string, error) {
+func (c *Packer) encryptCEK(kek, cek []byte) (string, string, string, error) {
 	cipher, err := createCipher(c.nonceSize, kek)
 	if err != nil {
 		return "", "", "", err
