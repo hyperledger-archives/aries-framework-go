@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
 // TODO handle the test scenario better (make dbPath constant).
@@ -138,5 +139,8 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) {
 		frameworkOpts.outboundDispatcherCreator = func(prv dispatcher.Provider) (dispatcher.Outbound, error) {
 			return dispatcher.NewOutbound(prv), nil
 		}
+	}
+	if frameworkOpts.transientStoreProvider == nil {
+		frameworkOpts.transientStoreProvider = mem.NewProvider()
 	}
 }

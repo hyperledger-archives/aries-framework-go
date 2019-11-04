@@ -160,6 +160,13 @@ func TestNewProvider(t *testing.T) {
 		require.Equal(t, s, prov.StorageProvider())
 	})
 
+	t.Run("test new with transient storage provider", func(t *testing.T) {
+		s := storage.NewMockStoreProvider()
+		prov, err := New(WithTransientStorageProvider(s))
+		require.NoError(t, err)
+		require.Equal(t, s, prov.TransientStorageProvider())
+	})
+
 	t.Run("test new with did resolver", func(t *testing.T) {
 		r := didresolver.NewMockResolver()
 		prov, err := New(WithDIDResolver(r))

@@ -27,6 +27,7 @@ type Provider struct {
 	outboundDispatcher       dispatcher.Outbound
 	services                 []dispatcher.Service
 	storeProvider            storage.Provider
+	transientStoreProvider   storage.Provider
 	kms                      kms.KMS
 	packager                 envelope.Packager
 	crypter                  crypto.Crypter
@@ -118,6 +119,11 @@ func (p *Provider) StorageProvider() storage.Provider {
 	return p.storeProvider
 }
 
+// TransientStorageProvider return transient storage provider
+func (p *Provider) TransientStorageProvider() storage.Provider {
+	return p.transientStoreProvider
+}
+
 // DIDResolver returns did resolver
 func (p *Provider) DIDResolver() didresolver.Resolver {
 	return p.didResolver
@@ -188,6 +194,14 @@ func WithInboundTransportEndpoint(endpoint string) ProviderOption {
 func WithStorageProvider(s storage.Provider) ProviderOption {
 	return func(opts *Provider) error {
 		opts.storeProvider = s
+		return nil
+	}
+}
+
+// WithTransientStorageProvider injects a transient storage provider into the context
+func WithTransientStorageProvider(s storage.Provider) ProviderOption {
+	return func(opts *Provider) error {
+		opts.transientStoreProvider = s
 		return nil
 	}
 }

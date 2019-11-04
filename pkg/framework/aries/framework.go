@@ -24,6 +24,7 @@ import (
 type Aries struct {
 	transport                 api.TransportProviderFactory
 	storeProvider             storage.Provider
+	transientStoreProvider    storage.Provider
 	protocolSvcCreators       []api.ProtocolSvcCreator
 	services                  []dispatcher.Service
 	inboundTransport          transport.InboundTransport
@@ -135,6 +136,14 @@ func WithStoreProvider(prov storage.Provider) Option {
 	}
 }
 
+// WithTransientStoreProvider injects a transient storage provider to the Aries framework
+func WithTransientStoreProvider(prov storage.Provider) Option {
+	return func(opts *Aries) error {
+		opts.transientStoreProvider = prov
+		return nil
+	}
+}
+
 // WithProtocols injects a protocol service to the Aries framework
 func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
 	return func(opts *Aries) error {
@@ -200,6 +209,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		// TODO configure inbound external endpoints
 		context.WithKMS(a.kms), context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 		context.WithStorageProvider(a.storeProvider),
+		context.WithTransientStorageProvider(a.transientStoreProvider),
 		context.WithCrypter(a.crypter),
 		context.WithPackager(a.packager),
 		context.WithDIDResolver(a.didResolver),
@@ -217,6 +227,12 @@ func (a *Aries) Close() error {
 	}
 	if a.storeProvider != nil {
 		err := a.storeProvider.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close the store: %w", err)
+		}
+	}
+	if a.transientStoreProvider != nil {
+		err := a.transientStoreProvider.Close()
 		if err != nil {
 			return fmt.Errorf("failed to close the store: %w", err)
 		}
@@ -279,6 +295,7 @@ func startInboundTransport(frameworkOpts *Aries) error {
 func loadServices(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
+		context.WithTransientStorageProvider(frameworkOpts.transientStoreProvider),
 		context.WithKMS(frameworkOpts.kms),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithDIDResolver(frameworkOpts.didResolver),
