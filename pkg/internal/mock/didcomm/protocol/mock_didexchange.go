@@ -96,7 +96,8 @@ func (m *MockDIDExchangeSvc) AcceptExchangeRequest(connectionID string) error {
 
 // MockProvider is provider for DIDExchange Service
 type MockProvider struct {
-	StoreProvider *mockstore.MockStoreProvider
+	StoreProvider          *mockstore.MockStoreProvider
+	TransientStoreProvider *mockstore.MockStoreProvider
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service
@@ -108,6 +109,14 @@ func (p *MockProvider) OutboundDispatcher() dispatcher.Outbound {
 func (p *MockProvider) StorageProvider() storage.Provider {
 	if p.StoreProvider != nil {
 		return p.StoreProvider
+	}
+	return mockstore.NewMockStoreProvider()
+}
+
+// TransientStorageProvider is mock transient storage provider for DID exchange service
+func (p *MockProvider) TransientStorageProvider() storage.Provider {
+	if p.TransientStoreProvider != nil {
+		return p.TransientStoreProvider
 	}
 	return mockstore.NewMockStoreProvider()
 }

@@ -30,7 +30,10 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		_, err = New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc})
+		_, err = New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  svc})
 		require.NoError(t, err)
 	})
 
@@ -45,6 +48,36 @@ func TestNew(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "cast service to DIDExchange Service failed")
 	})
+
+	t.Run("test error from open store", func(t *testing.T) {
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		_, err = New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				ErrOpenStoreHandle: fmt.Errorf("failed to open store")},
+			ServiceValue:         svc,
+			InboundEndpointValue: "endpoint"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to open store")
+	})
+
+	t.Run("test error from open transient store", func(t *testing.T) {
+		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		_, err = New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: &mockstore.MockStoreProvider{
+				ErrOpenStoreHandle: fmt.Errorf("failed to open transient store")},
+			ServiceValue:         svc,
+			InboundEndpointValue: "endpoint"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to open transient store")
+	})
 }
 
 func TestClient_CreateInvitation(t *testing.T) {
@@ -53,8 +86,12 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc,
-			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  svc,
+			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue:          "endpoint"})
 
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
@@ -70,8 +107,11 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc,
-			KMSValue: &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("createKeyErr")}})
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  svc,
+			KMSValue:                      &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("createKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
@@ -85,8 +125,11 @@ func TestClient_CreateInvitation(t *testing.T) {
 
 		store := mockstore.NewMockStoreProvider()
 		store.Store.ErrPut = errors.New("store error")
-		c, err := New(&mockprovider.Provider{StorageProviderValue: store,
-			ServiceValue: svc, KMSValue: &mockkms.CloseableKMS{}})
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          store,
+			ServiceValue:                  svc,
+			KMSValue:                      &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
@@ -101,10 +144,11 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		require.NotNil(t, svc)
 
 		c, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
-			ServiceValue:         svc,
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  svc,
+			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue:          "endpoint"})
 		require.NoError(t, err)
 
 		const label = "agent"
@@ -124,9 +168,10 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		store := mockstore.NewMockStoreProvider()
 		store.Store.ErrPut = errors.New("store error")
 		c, err := New(&mockprovider.Provider{
-			StorageProviderValue: store,
-			ServiceValue:         svc,
-			KMSValue:             &mockkms.CloseableKMS{}})
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          store,
+			ServiceValue:                  svc,
+			KMSValue:                      &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
 
 		_, err = c.CreateInvitationWithDID("agent", "did:sidetree:123")
@@ -142,13 +187,15 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
-		s := &mockstore.MockStore{Store: make(map[string][]byte)}
+		transientStore := &mockstore.MockStore{Store: make(map[string][]byte)}
+		store := &mockstore.MockStore{Store: make(map[string][]byte)}
+
 		connRec := &didexchange.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		require.NoError(t, err)
-		require.NoError(t, s.Put("conn_id1", connBytes))
-		c := didexchange.NewConnectionRecorder(s)
+		require.NoError(t, transientStore.Put("conn_id1", connBytes))
+		c := didexchange.NewConnectionRecorder(transientStore, store)
 		result, err := c.GetConnectionRecord(connID)
 		require.NoError(t, err)
 		require.Equal(t, "complete", result.State)
@@ -159,13 +206,14 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
-		s := &mockstore.MockStore{Store: make(map[string][]byte),
+		transientStore := &mockstore.MockStore{Store: make(map[string][]byte),
 			ErrGet: fmt.Errorf("query connection error")}
+		store := &mockstore.MockStore{Store: make(map[string][]byte)}
 		connRec := &didexchange.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		c := didexchange.NewConnectionRecorder(s)
-		require.NoError(t, s.Put("conn_id1", connBytes))
+		c := didexchange.NewConnectionRecorder(transientStore, store)
+		require.NoError(t, transientStore.Put("conn_id1", connBytes))
 		_, err = c.GetConnectionRecord(connID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "query connection error")
@@ -176,9 +224,10 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, svc)
-		s := mockstore.MockStore{ErrGet: storage.ErrDataNotFound}
+		transientStore := mockstore.MockStore{ErrGet: storage.ErrDataNotFound}
+		store := mockstore.MockStore{}
 		require.NoError(t, err)
-		c := didexchange.NewConnectionRecorder(&s)
+		c := didexchange.NewConnectionRecorder(&transientStore, &store)
 		_, err = c.GetConnectionRecord(connID)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, storage.ErrDataNotFound))
@@ -193,8 +242,10 @@ func TestClient_GetConnection(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 		s := &mockstore.MockStore{Store: make(map[string][]byte), ErrGet: ErrConnectionNotFound}
-		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			ServiceValue: svc})
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  svc})
 		require.NoError(t, err)
 		connRec := &didexchange.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
 		connBytes, err := json.Marshal(connRec)
@@ -213,8 +264,10 @@ func TestClientGetConnectionAtState(t *testing.T) {
 	require.NotNil(t, svc)
 
 	// create client
-	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-		ServiceValue: svc})
+	c, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  svc})
 	require.NoError(t, err)
 
 	// not found
@@ -228,7 +281,10 @@ func TestClient_RemoveConnection(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
-	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(), ServiceValue: svc})
+	c, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  svc})
 	require.NoError(t, err)
 
 	err = c.RemoveConnection("sample-id")
@@ -237,9 +293,12 @@ func TestClient_RemoveConnection(t *testing.T) {
 
 func TestClient_HandleInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			ServiceValue: &mockprotocol.MockDIDExchangeSvc{},
-			KMSValue:     &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{},
+			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue:          "endpoint"})
 
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
@@ -251,7 +310,9 @@ func TestClient_HandleInvitation(t *testing.T) {
 	})
 
 	t.Run("test error from handle msg", func(t *testing.T) {
-		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
 				return "", fmt.Errorf("handle error")
 			}},
@@ -273,8 +334,10 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		require.NotNil(t, svc)
 
 		storageProvider := mockstore.NewMockStoreProvider()
-		c, err := New(&mockprovider.Provider{StorageProviderValue: storageProvider,
-			ServiceValue: svc})
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          storageProvider,
+			ServiceValue:                  svc})
 		require.NoError(t, err)
 
 		const count = 10
@@ -303,8 +366,10 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		require.NotNil(t, svc)
 
 		storageProvider := mockstore.NewMockStoreProvider()
-		c, err := New(&mockprovider.Provider{StorageProviderValue: storageProvider,
-			ServiceValue: svc})
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          storageProvider,
+			ServiceValue:                  svc})
 		require.NoError(t, err)
 
 		const count = 10
@@ -348,8 +413,10 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		const keyPrefix = "conn_"
 
 		storageProvider := mockstore.NewMockStoreProvider()
-		c, err := New(&mockprovider.Provider{StorageProviderValue: storageProvider,
-			ServiceValue: svc})
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          storageProvider,
+			ServiceValue:                  svc})
 		require.NoError(t, err)
 
 		require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc", keyPrefix), []byte("----")))
@@ -362,11 +429,15 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 
 func TestServiceEvents(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
-	didExSvc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{StoreProvider: store})
+	didExSvc, err := didexchange.New(&mockcreator.MockDIDCreator{},
+		&mockprotocol.MockProvider{TransientStoreProvider: store})
 	require.NoError(t, err)
 
 	// create the client
-	c, err := New(&mockprovider.Provider{StorageProviderValue: store, ServiceValue: didExSvc})
+	c, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: store,
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  didExSvc})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -437,7 +508,10 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the client
-	c, err := New(&mockprovider.Provider{StorageProviderValue: store, ServiceValue: didExSvc})
+	c, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          store,
+		ServiceValue:                  didExSvc})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -512,24 +586,30 @@ func TestServiceEventError(t *testing.T) {
 	}
 
 	// register action event on service throws error
-	_, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-		ServiceValue: &didExSvc})
+	_, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  &didExSvc})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "didexchange action event "+
 		"registration: action event registration failed")
 
 	// register msg event on service throws error
 	didExSvc.RegisterActionEventErr = nil
-	_, err = New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-		ServiceValue: &didExSvc})
+	_, err = New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  &didExSvc})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "didexchange message event "+
 		"registration: msg event registration failed")
 }
 
 func TestService_ActionEvent(t *testing.T) {
-	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-		ServiceValue: &mockprotocol.MockDIDExchangeSvc{}})
+	c, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 
 	// validate before register
@@ -562,8 +642,10 @@ func TestService_ActionEvent(t *testing.T) {
 }
 
 func TestService_MsgEvents(t *testing.T) {
-	c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-		ServiceValue: &mockprotocol.MockDIDExchangeSvc{}})
+	c, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{}})
 	require.NoError(t, err)
 
 	// validate before register

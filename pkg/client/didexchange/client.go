@@ -33,6 +33,7 @@ type provider interface {
 	KMS() kms.KeyManager
 	InboundTransportEndpoint() string
 	StorageProvider() storage.Provider
+	TransientStorageProvider() storage.Provider
 }
 
 // Client enable access to didexchange api
@@ -73,6 +74,11 @@ func New(ctx provider) (*Client, error) {
 		return nil, err
 	}
 
+	transientStore, err := ctx.TransientStorageProvider().OpenStore(didexchange.DIDExchange)
+	if err != nil {
+		return nil, err
+	}
+
 	c := &Client{
 		didexchangeSvc:           didexchangeSvc,
 		kms:                      ctx.KMS(),
@@ -80,7 +86,7 @@ func New(ctx provider) (*Client, error) {
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		actionCh:        make(chan service.DIDCommAction, 10),
 		msgCh:           make(chan service.StateMsg, 10),
-		connectionStore: didexchange.NewConnectionRecorder(store),
+		connectionStore: didexchange.NewConnectionRecorder(transientStore, store),
 	}
 
 	// register the action event channel

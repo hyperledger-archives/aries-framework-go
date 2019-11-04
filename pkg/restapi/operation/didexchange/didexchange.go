@@ -48,6 +48,7 @@ type provider interface {
 	KMS() kms.KeyManager
 	InboundTransportEndpoint() string
 	StorageProvider() storage.Provider
+	TransientStorageProvider() storage.Provider
 }
 
 // New returns new DID Exchange rest client protocol instance

@@ -46,7 +46,7 @@ func Test_ComputeHash(t *testing.T) {
 func TestConnectionRecord_SaveInvitation(t *testing.T) {
 	t.Run("test save invitation success", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		record := NewConnectionRecorder(nil, store)
 		require.NotNil(t, record)
 
 		value := &Invitation{
@@ -70,7 +70,7 @@ func TestConnectionRecord_SaveInvitation(t *testing.T) {
 
 	t.Run("test save invitation failure due to invalid key", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		record := NewConnectionRecorder(nil, store)
 		require.NotNil(t, record)
 
 		value := &Invitation{
@@ -79,14 +79,13 @@ func TestConnectionRecord_SaveInvitation(t *testing.T) {
 		err := record.SaveInvitation(value)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "empty bytes")
-		require.Empty(t, store.Store)
 	})
 }
 
 func TestConnectionRecorder_GetInvitation(t *testing.T) {
 	t.Run("test get invitation - success", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		record := NewConnectionRecorder(nil, store)
 		require.NotNil(t, record)
 
 		valueStored := &Invitation{
@@ -104,7 +103,7 @@ func TestConnectionRecorder_GetInvitation(t *testing.T) {
 
 	t.Run("test get invitation - not found scenario", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		record := NewConnectionRecorder(nil, store)
 		require.NotNil(t, record)
 
 		valueFound, err := record.GetInvitation("sample-key4")
@@ -115,19 +114,40 @@ func TestConnectionRecorder_GetInvitation(t *testing.T) {
 
 	t.Run("test get invitation - invalid key scenario", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		record := NewConnectionRecorder(nil, store)
 		require.NotNil(t, record)
 
 		valueFound, err := record.GetInvitation("")
+		require.Error(t, err)
 		require.Contains(t, err.Error(), "empty bytes")
 		require.Nil(t, valueFound)
 	})
 }
 
 func TestConnectionRecorder_GetConnectionRecord(t *testing.T) {
-	t.Run("test success", func(t *testing.T) {
+	t.Run("test success found data in transient store ", func(t *testing.T) {
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		record := NewConnectionRecorder(transientStore, store)
+		require.NotNil(t, record)
+		connRec := &ConnectionRecord{ConnectionID: connIDValue, ThreadID: threadIDValue,
+			Namespace: myNSPrefix}
+		connRecBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+		connKey := connectionKeyPrefix(connIDValue)
+		require.NoError(t, transientStore.Put(connKey, connRecBytes))
+		nsThreadID, err := createNSKey(myNSPrefix, threadIDValue)
+		require.NoError(t, err)
+		require.NoError(t, transientStore.Put(nsThreadID, []byte(connIDValue)))
+
+		storedConnRec, err := record.GetConnectionRecord(connIDValue)
+		require.NoError(t, err)
+		require.Equal(t, storedConnRec, connRec)
+	})
+	t.Run("test success found data in store ", func(t *testing.T) {
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(transientStore, store)
 		require.NotNil(t, record)
 		connRec := &ConnectionRecord{ConnectionID: connIDValue, ThreadID: threadIDValue,
 			Namespace: myNSPrefix}
@@ -143,9 +163,26 @@ func TestConnectionRecorder_GetConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, storedConnRec, connRec)
 	})
-	t.Run("test error", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte), ErrGet: fmt.Errorf("get error")}
-		record := NewConnectionRecorder(store)
+	t.Run("test error from transient store", func(t *testing.T) {
+		transientStore := &mockstorage.MockStore{
+			Store:  make(map[string][]byte),
+			ErrGet: fmt.Errorf("get error transientstore")}
+		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(transientStore, store)
+		require.NotNil(t, record)
+		connRecBytes, err := json.Marshal(&ConnectionRecord{ConnectionID: connIDValue, ThreadID: threadIDValue,
+			Namespace: myNSPrefix})
+		require.NoError(t, err)
+		connKey := connectionKeyPrefix(connIDValue)
+		require.NoError(t, transientStore.Put(connKey, connRecBytes))
+		_, err = record.GetConnectionRecord(connIDValue)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get error transientstore")
+	})
+	t.Run("test error from store", func(t *testing.T) {
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		store := &mockstorage.MockStore{Store: make(map[string][]byte), ErrGet: fmt.Errorf("get error store")}
+		record := NewConnectionRecorder(transientStore, store)
 		require.NotNil(t, record)
 		connRecBytes, err := json.Marshal(&ConnectionRecord{ConnectionID: connIDValue, ThreadID: threadIDValue,
 			Namespace: myNSPrefix})
@@ -154,13 +191,13 @@ func TestConnectionRecorder_GetConnectionRecord(t *testing.T) {
 		require.NoError(t, store.Put(connKey, connRecBytes))
 		_, err = record.GetConnectionRecord(connIDValue)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get error")
+		require.Contains(t, err.Error(), "get error store")
 	})
 }
 
 func TestConnectionRecordByState(t *testing.T) {
-	store := mockstorage.NewMockStoreProvider()
-	record := NewConnectionRecorder(store.Store)
+	transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrGet: nil}
+	record := NewConnectionRecorder(transientStore, nil)
 	require.NotNil(t, record)
 
 	connRec := &ConnectionRecord{ConnectionID: generateRandomID(), ThreadID: threadIDValue,
@@ -176,7 +213,7 @@ func TestConnectionRecordByState(t *testing.T) {
 	// data doesn't exists
 	_, err = record.GetConnectionRecordAtState(connRec.ConnectionID, "invalid")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "get connection record: data not found")
+	require.Contains(t, err.Error(), "data not found")
 
 	// data with no state details
 	connRec = &ConnectionRecord{ConnectionID: generateRandomID(), ThreadID: threadIDValue,
@@ -185,7 +222,7 @@ func TestConnectionRecordByState(t *testing.T) {
 	require.NoError(t, err)
 	_, err = record.GetConnectionRecordAtState(connRec.ConnectionID, "requested")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "get connection record: data not found")
+	require.Contains(t, err.Error(), "data not found")
 
 	// get with empty stateID
 	_, err = record.GetConnectionRecordAtState(connRec.ConnectionID, "")
@@ -195,8 +232,9 @@ func TestConnectionRecordByState(t *testing.T) {
 
 func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 	t.Run("save connection record and get connection Record success", func(t *testing.T) {
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		record := NewConnectionRecorder(transientStore, store)
 		require.NotNil(t, record)
 		connRec := &ConnectionRecord{ThreadID: threadIDValue,
 			ConnectionID: connIDValue, State: stateNameInvited, Namespace: theirNSPrefix}
@@ -208,8 +246,8 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.Equal(t, connRec, storedRecord)
 	})
 	t.Run("save connection record and fetch from no namespace error", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(transientStore, nil)
 		require.NotNil(t, record)
 		connRec := &ConnectionRecord{ThreadID: threadIDValue,
 			ConnectionID: connIDValue, State: stateNameInvited}
@@ -218,8 +256,8 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.Contains(t, err.Error(), "empty")
 	})
 	t.Run("save connection record error", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: fmt.Errorf("get error")}
-		record := NewConnectionRecorder(store)
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: fmt.Errorf("get error")}
+		record := NewConnectionRecorder(transientStore, nil)
 		require.NotNil(t, record)
 		connRec := &ConnectionRecord{ThreadID: "",
 			ConnectionID: "test", State: stateNameInvited, Namespace: theirNSPrefix}
@@ -227,11 +265,21 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.Contains(t, err.Error(), "get error")
 	})
 	t.Run("save connection record error", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: fmt.Errorf("get error")}
-		record := NewConnectionRecorder(store)
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: fmt.Errorf("get error")}
+		record := NewConnectionRecorder(transientStore, nil)
 		require.NotNil(t, record)
 		connRec := &ConnectionRecord{ThreadID: threadIDValue,
 			ConnectionID: connIDValue, State: stateNameInvited, Namespace: theirNSPrefix}
+		err := record.saveNewConnectionRecord(connRec)
+		require.Contains(t, err.Error(), "get error")
+	})
+	t.Run("save connection record in permanent store error", func(t *testing.T) {
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		store := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: fmt.Errorf("get error")}
+		record := NewConnectionRecorder(transientStore, store)
+		require.NotNil(t, record)
+		connRec := &ConnectionRecord{ThreadID: threadIDValue,
+			ConnectionID: connIDValue, State: stateNameCompleted, Namespace: theirNSPrefix}
 		err := record.saveNewConnectionRecord(connRec)
 		require.Contains(t, err.Error(), "get error")
 	})
@@ -239,8 +287,8 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 
 func TestConnectionRecorder_GetConnectionRecordByNSThreadID(t *testing.T) {
 	t.Run(" get connection record by namespace threadID in my namespace", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(transientStore, nil)
 		require.NotNil(t, record)
 		connRec := &ConnectionRecord{ThreadID: threadIDValue,
 			ConnectionID: connIDValue, State: stateNameInvited, Namespace: myNSPrefix}
@@ -255,8 +303,8 @@ func TestConnectionRecorder_GetConnectionRecordByNSThreadID(t *testing.T) {
 		require.Equal(t, connRec, storedRecord)
 	})
 	t.Run(" get connection record by namespace threadID their namespace", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(transientStore, nil)
 		require.NotNil(t, record)
 		connRec := &ConnectionRecord{ThreadID: threadIDValue,
 			ConnectionID: connIDValue, State: stateNameInvited, Namespace: theirNSPrefix}
@@ -271,8 +319,8 @@ func TestConnectionRecorder_GetConnectionRecordByNSThreadID(t *testing.T) {
 		require.Equal(t, connRec, storedRecord)
 	})
 	t.Run(" data not found error due to missing input parameter", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(transientStore, nil)
 		require.NotNil(t, record)
 		connRec, err := record.GetConnectionRecordByNSThreadID("")
 		require.Contains(t, err.Error(), "data not found")
@@ -282,8 +330,8 @@ func TestConnectionRecorder_GetConnectionRecordByNSThreadID(t *testing.T) {
 
 func TestConnectionRecorder_PrepareConnectionRecord(t *testing.T) {
 	t.Run(" prepare connection record  error", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(transientStore, nil)
 		require.NotNil(t, record)
 		connRec, err := prepareConnectionRecord(nil)
 		require.Contains(t, err.Error(), "prepare connection record")
@@ -305,8 +353,8 @@ func TestConnectionRecorder_CreateNSKeys(t *testing.T) {
 
 func TestConnectionRecorder_SaveNSThreadID(t *testing.T) {
 	t.Run("missing required parameters", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(store)
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		record := NewConnectionRecorder(transientStore, nil)
 		require.NotNil(t, record)
 		err := record.saveNSThreadID("", theirNSPrefix, connIDValue)
 		require.Error(t, err)
@@ -330,7 +378,7 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		recorder := NewConnectionRecorder(store)
+		recorder := NewConnectionRecorder(nil, store)
 		require.NotNil(t, recorder)
 		result, err := recorder.QueryConnectionRecords()
 		require.NoError(t, err)
@@ -342,7 +390,7 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 		err := store.Put(fmt.Sprintf("%s_abc123", connIDKeyPrefix), []byte("-----"))
 		require.NoError(t, err)
 
-		recorder := NewConnectionRecorder(store)
+		recorder := NewConnectionRecorder(nil, store)
 		require.NotNil(t, recorder)
 		result, err := recorder.QueryConnectionRecords()
 		require.Error(t, err)
