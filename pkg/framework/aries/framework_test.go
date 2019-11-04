@@ -34,6 +34,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockdidstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
 
@@ -396,6 +397,18 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 		err = aries.Close()
 		require.NoError(t, err)
+	})
+
+	t.Run("test transient store - with user provided transient store", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+		s := storage.NewMockStoreProvider()
+
+		aries, err := New(WithInboundTransport(&mockInboundTransport{}), WithTransientStoreProvider(s))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+		require.Equal(t, s, aries.transientStoreProvider)
 	})
 }
 
