@@ -158,7 +158,7 @@ type Presentation struct {
 	Credential     interface{}
 	Holder         string
 	Proof          Proof
-	RefreshService *RefreshService
+	RefreshService *TypedID
 }
 
 // MarshalJSON converts Verifiable Presentation to JSON bytes.
@@ -223,13 +223,13 @@ func (vp *Presentation) raw() *rawPresentation {
 
 // rawPresentation is a basic verifiable credential
 type rawPresentation struct {
-	Context        []interface{}   `json:"@context,omitempty"`
-	ID             string          `json:"id,omitempty"`
-	Type           interface{}     `json:"type,omitempty"`
-	Credential     interface{}     `json:"verifiableCredential,omitempty"`
-	Holder         string          `json:"holder,omitempty"`
-	Proof          Proof           `json:"proof,omitempty"`
-	RefreshService *RefreshService `json:"refreshService,omitempty"`
+	Context        []interface{} `json:"@context,omitempty"`
+	ID             string        `json:"id,omitempty"`
+	Type           interface{}   `json:"type,omitempty"`
+	Credential     interface{}   `json:"verifiableCredential,omitempty"`
+	Holder         string        `json:"holder,omitempty"`
+	Proof          Proof         `json:"proof,omitempty"`
+	RefreshService *TypedID      `json:"refreshService,omitempty"`
 }
 
 // presentationOpts holds options for the Verifiable Presentation decoding

@@ -8,7 +8,6 @@ package verifiable
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -110,7 +109,7 @@ func TestNewCredential(t *testing.T) {
 	t.Run("test a try to create a new Verifiable Credential from non-JSON doc", func(t *testing.T) {
 		_, err := NewCredential([]byte("non json"))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "new credential: raw verifiable credential")
+		require.Contains(t, err.Error(), "new credential")
 	})
 
 	t.Run("test a try to create a new Verifiable Credential with failing custom decoder", func(t *testing.T) {
@@ -133,7 +132,7 @@ func TestValidateVerCredContext(t *testing.T) {
 		raw.Context = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "@context is required")
 	})
@@ -146,7 +145,7 @@ func TestValidateVerCredContext(t *testing.T) {
 			"https://www.w3.org/2018/credentials/examples/v1"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Does not match pattern '^https://www.w3.org/2018/credentials/v1$'")
 	})
@@ -161,7 +160,7 @@ func TestValidateVerCredContext(t *testing.T) {
 		}}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Does not match pattern '^https://www.w3.org/2018/credentials/v1$'")
 	})
@@ -174,7 +173,7 @@ func TestValidateVerCredID(t *testing.T) {
 		raw.ID = "not valid credential ID URL"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "id: Does not match format 'uri'")
 	})
@@ -187,7 +186,7 @@ func TestValidateVerCredType(t *testing.T) {
 		raw.Type = []string{}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Array must have at least 2 items")
 	})
@@ -198,7 +197,7 @@ func TestValidateVerCredType(t *testing.T) {
 		raw.Type = []string{"NotVerifiableCredential"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Does not match pattern '^VerifiableCredential$")
 	})
@@ -209,7 +208,7 @@ func TestValidateVerCredType(t *testing.T) {
 		raw.Type = []string{"VerifiableCredential"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Array must have at least 2 items")
 	})
@@ -220,7 +219,7 @@ func TestValidateVerCredType(t *testing.T) {
 		raw.Type = "VerifiableCredential"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.NoError(t, err)
 	})
 }
@@ -232,7 +231,7 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 		raw.Subject = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSubject is required")
 	})
@@ -243,7 +242,7 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(singleCredentialSubject), &raw.Subject))
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.NoError(t, err)
 	})
 
@@ -253,7 +252,7 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(multipleCredentialSubjects), &raw.Subject))
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.NoError(t, err)
 	})
 
@@ -263,7 +262,7 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 		raw.Subject = 55
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSubject: Invalid type.")
 	})
@@ -276,7 +275,7 @@ func TestValidateVerCredIssuer(t *testing.T) {
 		raw.Issuer = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer is required")
 	})
@@ -287,7 +286,7 @@ func TestValidateVerCredIssuer(t *testing.T) {
 		raw.Issuer = "https://example.edu/issuers/14"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.NoError(t, err)
 	})
 
@@ -297,7 +296,7 @@ func TestValidateVerCredIssuer(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(issuerAsObject), &raw.Issuer))
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.NoError(t, err)
 	})
 
@@ -307,7 +306,7 @@ func TestValidateVerCredIssuer(t *testing.T) {
 		raw.Issuer = 55
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer: Invalid type")
 	})
@@ -320,7 +319,7 @@ func TestValidateVerCredIssuanceDate(t *testing.T) {
 		raw.Issued = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuanceDate is required")
 	})
@@ -332,7 +331,7 @@ func TestValidateVerCredIssuanceDate(t *testing.T) {
 		raw.Issued = &timeNow
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuanceDate: Does not match pattern")
 	})
@@ -345,7 +344,7 @@ func TestValidateVerCredProof(t *testing.T) {
 		raw.Proof = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.NoError(t, err)
 	})
 }
@@ -357,7 +356,7 @@ func TestValidateVerCredExpirationDate(t *testing.T) {
 		raw.Expired = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.NoError(t, err)
 	})
 
@@ -368,7 +367,7 @@ func TestValidateVerCredExpirationDate(t *testing.T) {
 		raw.Expired = &timeNow
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "expirationDate: Does not match pattern")
 	})
@@ -381,17 +380,17 @@ func TestValidateVerCredStatus(t *testing.T) {
 		raw.Status = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with undefined id of credential status", func(t *testing.T) {
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Status = &CredentialStatus{Type: "CredentialStatusList2017"}
+		raw.Status = &TypedID{Type: "CredentialStatusList2017"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialStatus: id is required")
 	})
@@ -399,10 +398,10 @@ func TestValidateVerCredStatus(t *testing.T) {
 	t.Run("test verifiable credential with undefined type of credential status", func(t *testing.T) {
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Status = &CredentialStatus{ID: "https://example.edu/status/24"}
+		raw.Status = &TypedID{ID: "https://example.edu/status/24"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialStatus: type is required")
 	})
@@ -410,10 +409,10 @@ func TestValidateVerCredStatus(t *testing.T) {
 	t.Run("test verifiable credential with invalid URL of id of credential status", func(t *testing.T) {
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Status = &CredentialStatus{ID: "invalid URL", Type: "CredentialStatusList2017"}
+		raw.Status = &TypedID{ID: "invalid URL", Type: "CredentialStatusList2017"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialStatus.id: Does not match format 'uri'")
 	})
@@ -426,17 +425,17 @@ func TestValidateVerCredSchema(t *testing.T) {
 		raw.Schema = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with undefined id of credential schema", func(t *testing.T) {
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Schema = &CredentialSchema{Type: "JsonSchemaValidator2018"}
+		raw.Schema = &TypedID{Type: "JsonSchemaValidator2018"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSchema: id is required")
 	})
@@ -444,10 +443,10 @@ func TestValidateVerCredSchema(t *testing.T) {
 	t.Run("test verifiable credential with undefined type of credential schema", func(t *testing.T) {
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Schema = &CredentialSchema{ID: "https://example.org/examples/degree.json"}
+		raw.Schema = &TypedID{ID: "https://example.org/examples/degree.json"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSchema: type is required")
 	})
@@ -455,10 +454,10 @@ func TestValidateVerCredSchema(t *testing.T) {
 	t.Run("test verifiable credential with invalid URL of id of credential schema", func(t *testing.T) {
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Schema = &CredentialSchema{ID: "invalid URL", Type: "JsonSchemaValidator2018"}
+		raw.Schema = &TypedID{ID: "invalid URL", Type: "JsonSchemaValidator2018"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credentialSchema.id: Does not match format 'uri'")
 	})
@@ -471,17 +470,17 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 		raw.RefreshService = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.NoError(t, err)
 	})
 
 	t.Run("test verifiable credential with undefined id of refresh service", func(t *testing.T) {
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.RefreshService = &RefreshService{Type: "ManualRefreshService2018"}
+		raw.RefreshService = &TypedID{Type: "ManualRefreshService2018"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService: id is required")
 	})
@@ -489,10 +488,10 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 	t.Run("test verifiable credential with undefined type of refresh service", func(t *testing.T) {
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.RefreshService = &RefreshService{ID: "https://example.edu/refresh/3732"}
+		raw.RefreshService = &TypedID{ID: "https://example.edu/refresh/3732"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService: type is required")
 	})
@@ -500,10 +499,10 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 	t.Run("test verifiable credential with invalid URL of id of credential schema", func(t *testing.T) {
 		raw := &rawCredential{}
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.RefreshService = &RefreshService{ID: "invalid URL", Type: "ManualRefreshService2018"}
+		raw.RefreshService = &TypedID{ID: "invalid URL", Type: "ManualRefreshService2018"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes, []CredentialSchema{}, &credentialOpts{disabledCustomSchema: true})
+		err = validate(bytes, nil, &credentialOpts{disabledCustomSchema: true})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService.id: Does not match format 'uri'")
 	})
@@ -592,11 +591,11 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	}))
 	defer func() { testServer.Close() }()
 
-	raw := &rawCredential{}
+	var raw rawCredential
 	require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 
 	// define credential schema
-	raw.Schema = &CredentialSchema{ID: testServer.URL, Type: "JsonSchemaValidator2018"}
+	raw.Schema = &TypedID{ID: testServer.URL, Type: "JsonSchemaValidator2018"}
 	// but new required field referenceNumber is not defined...
 
 	missingReqFieldSchema, mErr := json.Marshal(raw)
@@ -632,7 +631,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 
 		// define credential schema with invalid port
-		raw.Schema = &CredentialSchema{ID: "http://localhost:0001", Type: "JsonSchemaValidator2018"}
+		raw.Schema = &TypedID{ID: "http://localhost:0001", Type: "JsonSchemaValidator2018"}
 		// but new required field referenceNumber is not defined...
 
 		schemaWithInvalidURLToCredentialSchema, err := json.Marshal(raw)
@@ -648,7 +647,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
 
 		// define credential schema with not supported type
-		raw.Schema = &CredentialSchema{ID: testServer.URL, Type: "ZkpExampleSchema2018"}
+		raw.Schema = &TypedID{ID: testServer.URL, Type: "ZkpExampleSchema2018"}
 
 		unsupportedCredentialTypeOfSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
@@ -817,21 +816,21 @@ func TestCredentialSubjectId(t *testing.T) {
 func TestRawCredentialSerialization(t *testing.T) {
 	cBytes := []byte(validCredential)
 
-	rc, err := newRawCredential(cBytes)
+	rc := new(rawCredential)
+	err := json.Unmarshal(cBytes, rc)
 	require.NoError(t, err)
-	rcBytes, err := rc.marshalJSON()
+	rcBytes, err := json.Marshal(rc)
 	require.NoError(t, err)
 
 	var cMap map[string]interface{}
 	err = json.Unmarshal(cBytes, &cMap)
 	require.NoError(t, err)
-	mBytes, err := json.Marshal(cMap)
+
+	var rcMap map[string]interface{}
+	err = json.Unmarshal(rcBytes, &rcMap)
 	require.NoError(t, err)
 
-	fmt.Println(string(rcBytes))
-	fmt.Println(string(mBytes))
-
-	require.Equal(t, string(mBytes), string(rcBytes))
+	require.Equal(t, cMap, rcMap)
 }
 
 func TestDecodeType(t *testing.T) {

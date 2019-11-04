@@ -102,7 +102,9 @@ const validCredential = `
   "refreshService": {
     "id": "https://example.edu/refresh/3732",
     "type": "ManualRefreshService2018"
-  }
+  },
+
+  "referenceNumber": 83294847
 }
 `
 
@@ -150,7 +152,7 @@ func readPrivateKey(keyFilePath string) (*rsa.PrivateKey, error) {
 }
 
 func (rc *rawCredential) stringJSON(t *testing.T) string {
-	bytes, err := rc.marshalJSON()
+	bytes, err := json.Marshal(rc)
 	require.NoError(t, err)
 	return string(bytes)
 }
