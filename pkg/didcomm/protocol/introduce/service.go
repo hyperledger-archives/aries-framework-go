@@ -198,20 +198,20 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 }
 
 // HandleInbound handles inbound message (introduce protocol)
-func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
+func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 	aEvent := s.ActionEvent()
 
 	logger.Infof("entered into HandleInbound: %v", msg.Header)
 	// throw error if there is no action event registered for inbound messages
 	if aEvent == nil {
-		return errors.New("no clients are registered to handle the message")
+		return "", errors.New("no clients are registered to handle the message")
 	}
 
 	// request is not a part of any state machine, so we just need to trigger an actionEvent
 	if msg.Header.Type == RequestMsgType {
 		thID, err := msg.ThreadID()
 		if err != nil {
-			return err
+			return "", err
 		}
 		s.sendActionEvent(&metaData{
 			record: record{
@@ -221,22 +221,22 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 			Msg:      msg,
 			ThreadID: thID,
 		}, aEvent)
-		return nil
+		return "", nil
 	}
 
 	mData, err := s.doHandle(msg, false)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg) {
 		s.sendActionEvent(mData, aEvent)
-		return nil
+		return "", nil
 	}
 
 	// if no action event is triggered, continue the execution
-	return s.handle(mData, nil)
+	return "", s.handle(mData, nil)
 }
 
 func (s *Service) sendRequest(msg *service.DIDCommMsg, dest *service.Destination) error {

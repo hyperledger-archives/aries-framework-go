@@ -190,9 +190,19 @@ func (a *AgentSDKSteps) eventListener(statusCh chan service.StateMsg, agentID st
 		case error:
 			panic(fmt.Sprintf("Service processing failed: %s", v))
 		}
-		a.bddContext.Lock()
-		a.bddContext.ConnectionID[agentID] = props.ConnectionID()
-		a.bddContext.Unlock()
+
+		a.bddContext.RoleMu.RLock()
+		role := a.bddContext.Role[agentID]
+		a.bddContext.RoleMu.RUnlock()
+
+		// TODO - https://github.com/hyperledger/aries-framework-go/issues/673 add explicit approval step and fetch
+		//  connectionID from action event
+		if role == roleInviter {
+			a.bddContext.Lock()
+			a.bddContext.ConnectionID[agentID] = props.ConnectionID()
+			a.bddContext.Unlock()
+		}
+
 		if e.Type == service.PostState {
 			dst := &bytes.Buffer{}
 			if err := json.Indent(dst, e.Msg.Payload, "", "  "); err != nil {

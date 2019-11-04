@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
@@ -118,10 +119,6 @@ func TestOperation_ReceiveInvitation(t *testing.T) {
 	// verify response
 	require.NotEmpty(t, response)
 	require.NotEmpty(t, response.ConnectionID)
-	require.NotEmpty(t, response.CreateTime)
-	require.NotEmpty(t, response.UpdateTime)
-	require.NotEmpty(t, response.RequestID)
-	require.NotEmpty(t, response.DID)
 }
 
 func TestOperation_QueryConnectionByID(t *testing.T) {
@@ -349,8 +346,8 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 	svc, err := New(&mockprovider.Provider{
 		ServiceValue: &protocol.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
-			HandleFunc: func(msg *service.DIDCommMsg) error {
-				return handleErr
+			HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
+				return uuid.New().String(), handleErr
 			},
 		},
 		KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
@@ -435,7 +432,7 @@ func TestServiceEvents(t *testing.T) {
 	msg, err := service.NewDIDCommMsg(request)
 	require.NoError(t, err)
 
-	err = didExSvc.HandleInbound(msg)
+	_, err = didExSvc.HandleInbound(msg)
 	require.NoError(t, err)
 
 	cid := <-connID

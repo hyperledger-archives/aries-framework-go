@@ -23,6 +23,8 @@ type Context struct {
 	PostStatesFlag     map[string]map[string]chan bool
 	ConnectionID       map[string]string
 	Args               map[string]string
+	Role               map[string]string
+	RoleMu             sync.RWMutex
 	sync.RWMutex
 }
 
@@ -36,6 +38,7 @@ func NewContext() (*Context, error) {
 		ConnectionID:       make(map[string]string),
 		AgentCtx:           make(map[string]*context.Provider),
 		Args:               make(map[string]string),
+		Role:               make(map[string]string),
 	}
 	return &instance, nil
 }

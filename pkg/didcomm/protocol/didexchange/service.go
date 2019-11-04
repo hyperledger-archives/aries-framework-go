@@ -122,50 +122,42 @@ func New(didMaker didcreator.Creator, prov provider) (*Service, error) {
 }
 
 // HandleInbound handles inbound didexchange messages.
-func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
+func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 	// throw error if there is no action event registered for inbound messages
 	aEvent := s.ActionEvent()
 
 	logger.Debugf("receive inbound message : %s", msg.Payload)
 
 	if aEvent == nil {
-		return errors.New("no clients are registered to handle the message")
+		return "", errors.New("no clients are registered to handle the message")
 	}
+
+	// fetch the thread id
 	thID, err := threadID(msg)
 	if err != nil {
-		return err
+		return "", err
 	}
-	nsThID, err := createNSKey(findNameSpace(msg.Header.Type), thID)
+
+	// valid state transition and get the next state
+	next, err := s.nextState(msg.Header.Type, thID)
 	if err != nil {
-		return err
-	}
-	current, err := s.currentState(nsThID)
-	if err != nil {
-		return err
-	}
-	logger.Debugf("retrieved current state [%s] using nsThID [%s]", current.Name(), nsThID)
-
-	next, err := stateFromMsgType(msg.Header.Type)
-	if err != nil {
-		return err
+		return "", fmt.Errorf("handle inbound - next state : %w", err)
 	}
 
-	logger.Debugf("check if current state [%s] can transition to [%s]", current.Name(), next.Name())
-
-	if !current.CanTransitionTo(next) {
-		return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
-	}
-
+	// connection record
 	connRecord, err := s.connectionRecord(msg)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	internalMsg := &message{Msg: msg, ThreadID: thID, NextStateName: next.Name(), ConnRecord: connRecord}
 
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg.Header.Type) {
-		return s.sendActionEvent(internalMsg, aEvent)
+		if err = s.sendActionEvent(internalMsg, aEvent); err != nil {
+			return "", fmt.Errorf("handle inbound : %w", err)
+		}
+		return connRecord.ConnectionID, nil
 	}
 
 	// if no action event is triggered, continue the execution
@@ -175,7 +167,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) error {
 		}
 	}(internalMsg)
 
-	return nil
+	return connRecord.ConnectionID, nil
 }
 
 // Name return service name
@@ -203,6 +195,33 @@ func (s *Service) Accept(msgType string) bool {
 func (s *Service) HandleOutbound(msg *service.DIDCommMsg, destination *service.Destination) error {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/500 Support to initiate DIDExchange through exRequest
 	return errors.New("not implemented")
+}
+
+func (s *Service) nextState(msgType, thID string) (state, error) {
+	nsThID, err := createNSKey(findNameSpace(msgType), thID)
+	if err != nil {
+		return nil, err
+	}
+
+	current, err := s.currentState(nsThID)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debugf("retrieved current state [%s] using nsThID [%s]", current.Name(), nsThID)
+
+	next, err := stateFromMsgType(msgType)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debugf("check if current state [%s] can transition to [%s]", current.Name(), next.Name())
+
+	if !current.CanTransitionTo(next) {
+		return nil, fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
+	}
+
+	return next, nil
 }
 
 func (s *Service) handle(msg *message) error {

@@ -244,19 +244,23 @@ func TestClient_HandleInvitation(t *testing.T) {
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
-		require.NoError(t, c.HandleInvitation(inviteReq))
+
+		connectionID, err := c.HandleInvitation(inviteReq)
+		require.NoError(t, err)
+		require.NotEmpty(t, connectionID)
 	})
 
 	t.Run("test error from handle msg", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg *service.DIDCommMsg) error {
-				return fmt.Errorf("handle error")
+			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
+				return "", fmt.Errorf("handle error")
 			}},
 			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
-		err = c.HandleInvitation(inviteReq)
+
+		_, err = c.HandleInvitation(inviteReq)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "handle error")
 	})
@@ -408,7 +412,7 @@ func TestServiceEvents(t *testing.T) {
 
 	msg, err := service.NewDIDCommMsg(request)
 	require.NoError(t, err)
-	err = didExSvc.HandleInbound(msg)
+	_, err = didExSvc.HandleInbound(msg)
 	require.NoError(t, err)
 
 	select {
@@ -486,7 +490,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 	msg, err := service.NewDIDCommMsg(request)
 	require.NoError(t, err)
-	err = didExSvc.HandleInbound(msg)
+	_, err = didExSvc.HandleInbound(msg)
 	require.NoError(t, err)
 
 	select {

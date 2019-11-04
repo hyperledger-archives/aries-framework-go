@@ -256,7 +256,10 @@ func TestService_HandleInboundStop(t *testing.T) {
 	require.NoError(t, svc.RegisterActionEvent(aCh))
 	sCh := make(chan service.StateMsg)
 	require.NoError(t, svc.RegisterMsgEvent(sCh))
-	go func() { require.NoError(t, svc.HandleInbound(msg)) }()
+	go func() {
+		_, err := svc.HandleInbound(msg)
+		require.NoError(t, err)
+	}()
 
 	for {
 		select {
@@ -279,7 +282,9 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("No clients", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
-		require.EqualError(t, svc.HandleInbound(&service.DIDCommMsg{}), "no clients are registered to handle the message")
+
+		_, err = svc.HandleInbound(&service.DIDCommMsg{})
+		require.EqualError(t, err, "no clients are registered to handle the message")
 	})
 
 	t.Run("ThreadID Error", func(t *testing.T) {
@@ -289,7 +294,9 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
-		require.EqualError(t, svc.HandleInbound(msg), service.ErrThreadIDNotFound.Error())
+
+		_, err = svc.HandleInbound(msg)
+		require.EqualError(t, err, service.ErrThreadIDNotFound.Error())
 	})
 
 	t.Run("Storage error", func(t *testing.T) {
@@ -303,7 +310,9 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
-		require.EqualError(t, svc.HandleInbound(msg), "cannot fetch state from store: thid=ID err=test err")
+
+		_, err = svc.HandleInbound(msg)
+		require.EqualError(t, err, "cannot fetch state from store: thid=ID err=test err")
 	})
 
 	t.Run("Bad transition", func(t *testing.T) {
@@ -317,7 +326,9 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
-		require.EqualError(t, svc.HandleInbound(msg), "invalid state transition: noop -> deciding")
+
+		_, err = svc.HandleInbound(msg)
+		require.EqualError(t, err, "invalid state transition: noop -> deciding")
 	})
 
 	t.Run("Invalid state", func(t *testing.T) {
@@ -330,7 +341,9 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
-		require.EqualError(t, svc.HandleInbound(msg), "invalid state name unknown")
+
+		_, err = svc.HandleInbound(msg)
+		require.EqualError(t, err, "invalid state name unknown")
 	})
 
 	t.Run("Unknown msg type error", func(t *testing.T) {
@@ -340,7 +353,9 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
-		require.EqualError(t, svc.HandleInbound(msg), "unrecognized msgType: unknown")
+
+		_, err = svc.HandleInbound(msg)
+		require.EqualError(t, err, "unrecognized msgType: unknown")
 	})
 
 	t.Run("Happy path (send an action event)", func(t *testing.T) {
@@ -350,7 +365,10 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
-		go func() { require.NoError(t, svc.HandleInbound(msg)) }()
+		go func() {
+			_, err = svc.HandleInbound(msg)
+			require.NoError(t, err)
+		}()
 
 		select {
 		case res := <-ch:
@@ -368,7 +386,9 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		aCh := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(aCh))
-		require.NoError(t, svc.HandleInbound(msg))
+
+		_, err = svc.HandleInbound(msg)
+		require.NoError(t, err)
 
 		if len(aCh) != 1 {
 			t.Error("action was not received")
@@ -386,7 +406,10 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, svc.RegisterActionEvent(aCh))
 		sCh := make(chan service.StateMsg)
 		require.NoError(t, svc.RegisterMsgEvent(sCh))
-		go func() { require.NoError(t, svc.HandleInbound(msg)) }()
+		go func() {
+			_, err = svc.HandleInbound(msg)
+			require.NoError(t, err)
+		}()
 
 		select {
 		case res := <-sCh:
@@ -403,7 +426,9 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
-		require.Nil(t, errors.Unwrap(svc.HandleInbound(msg)))
+
+		_, err = svc.HandleInbound(msg)
+		require.Nil(t, errors.Unwrap(err))
 	})
 }
 
@@ -532,7 +557,10 @@ func TestService_SkipProposal(t *testing.T) {
 		require.NoError(t, err)
 
 		// handle Response msg
-		go func() { require.NoError(t, svc.HandleInbound(respMsg)) }()
+		go func() {
+			_, err = svc.HandleInbound(respMsg)
+			require.NoError(t, err)
+		}()
 		continueAction(t, aCh, ResponseMsgType)
 		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDelivering)
 		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDelivering)
@@ -563,7 +591,10 @@ func TestService_SkipProposal(t *testing.T) {
 		require.NoError(t, err)
 
 		// handle Proposal msg (sends Request)
-		go func() { require.NoError(t, svc.HandleInbound(reqMsg)) }()
+		go func() {
+			_, err := svc.HandleInbound(reqMsg)
+			require.NoError(t, err)
+		}()
 		continueAction(t, aCh, ProposalMsgType)
 		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
 		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
@@ -596,7 +627,10 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		}))
 		require.NoError(t, err)
 		// handle inbound Request msg
-		go func() { require.NoError(t, svc.HandleInbound(reqMsg)) }()
+		go func() {
+			_, err = svc.HandleInbound(reqMsg)
+			require.NoError(t, err)
+		}()
 		// sends the first Proposal
 		continueAction(t, aCh, RequestMsgType)
 		checkStateMsg(t, sCh, service.PreState, RequestMsgType, stateNameStart)
@@ -612,7 +646,10 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		}))
 		require.NoError(t, err)
 		// handle inbound Response msg
-		go func() { require.NoError(t, svc.HandleInbound(firstRespMsg)) }()
+		go func() {
+			_, err = svc.HandleInbound(firstRespMsg)
+			require.NoError(t, err)
+		}()
 		// sends the second Proposal
 		continueAction(t, aCh, ResponseMsgType)
 		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameArranging)
@@ -626,7 +663,10 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		}))
 		require.NoError(t, err)
 		// handle inbound second Response msg
-		go func() { require.NoError(t, svc.HandleInbound(secondRespMsg)) }()
+		go func() {
+			_, err := svc.HandleInbound(secondRespMsg)
+			require.NoError(t, err)
+		}()
 		continueAction(t, aCh, ResponseMsgType)
 		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDelivering)
 		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDelivering)
@@ -667,7 +707,10 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		// handle Proposal msg (sends Request)
-		go func() { require.NoError(t, svc.HandleInbound(propMsg)) }()
+		go func() {
+			_, err := svc.HandleInbound(propMsg)
+			require.NoError(t, err)
+		}()
 		continueAction(t, aCh, ProposalMsgType)
 		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
 		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)

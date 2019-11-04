@@ -138,29 +138,17 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	err = c.client.HandleInvitation(request.Invitation)
+	connectionID, err := c.client.HandleInvitation(request.Invitation)
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/537 Return Connection data
-	sampleResponse := models.ReceiveInvitationResponse{
-		ConnectionID:  "f52024c4-04e7-4aeb-8486-1040155c6764",
-		DID:           "TAaW9Dmxa93B8e5x6iLwFJ",
-		State:         "requested",
-		CreateTime:    time.Now(),
-		UpdateTime:    time.Now(),
-		Accept:        "auto",
-		Initiator:     "external",
-		InvitationKey: "none",
-		InviterLabel:  "other party",
-		Mode:          "none",
-		RequestID:     "678ad4b6-4e2b-40a1-804e-8ba504945e26",
-		RoutingState:  "none",
+	resp := models.ReceiveInvitationResponse{
+		ConnectionID: connectionID,
 	}
 
-	c.writeResponse(rw, sampleResponse)
+	c.writeResponse(rw, resp)
 }
 
 // AcceptInvitation swagger:route POST /connections/{id}/accept-invitation did-exchange acceptInvitation
