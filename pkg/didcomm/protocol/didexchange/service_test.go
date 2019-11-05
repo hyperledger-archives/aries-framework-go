@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mockdidresolver "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didresolver"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdr/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -194,6 +195,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 		Doc: createDIDDocWithKey(pubKey)},
 		&protocol.MockProvider{TransientStoreProvider: store})
 	require.NoError(t, err)
+	s.ctx.didResolver = &mockdidresolver.MockResolver{Doc: newDidDoc}
 
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)

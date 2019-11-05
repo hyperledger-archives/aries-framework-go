@@ -67,14 +67,11 @@ const peerDIDDoc = `{
 }`
 
 func TestPeerDIDResolver(t *testing.T) {
-	prov := storage.NewMockStoreProvider()
-	dbstore, err := prov.OpenStore(StoreNamespace)
-	require.NoError(t, err)
-
 	context := []string{"https://w3id.org/did/v1"}
 
 	// save did document
-	store := NewDIDStore(dbstore)
+	store, err := NewDIDStore(storage.NewMockStoreProvider())
+	require.NoError(t, err)
 	err = store.Put(&did.Doc{Context: context, ID: peerDID}, nil)
 	require.NoError(t, err)
 
@@ -100,12 +97,9 @@ func TestPeerDIDResolver(t *testing.T) {
 }
 
 func TestWithDIDResolveAPI(t *testing.T) {
-	prov := storage.NewMockStoreProvider()
-	dbstore, err := prov.OpenStore(StoreNamespace)
-	require.NoError(t, err)
-
 	// save did document
-	store := NewDIDStore(dbstore)
+	store, err := NewDIDStore(storage.NewMockStoreProvider())
+	require.NoError(t, err)
 	peerDoc, err := did.ParseDocument([]byte(peerDIDDoc))
 	require.NoError(t, err)
 	require.NotNil(t, peerDoc)

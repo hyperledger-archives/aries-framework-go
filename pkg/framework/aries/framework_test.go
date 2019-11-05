@@ -180,11 +180,9 @@ func TestFramework(t *testing.T) {
 		dbprov, err := leveldb.NewProvider(dbPath)
 		require.NoError(t, err)
 
-		dbstore, err := dbprov.OpenStore(peer.StoreNamespace)
-		require.NoError(t, err)
-
 		peerDID := "did:peer:21tDAKCERh95uGgKbJNHYp"
-		store := peer.NewDIDStore(dbstore)
+		store, err := peer.NewDIDStore(dbprov)
+		require.NoError(t, err)
 		originalDoc, err := did.ParseDocument([]byte(doc))
 		require.NoError(t, err)
 		err = store.Put(originalDoc, nil)

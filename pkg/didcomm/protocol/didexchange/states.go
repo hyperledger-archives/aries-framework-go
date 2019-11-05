@@ -528,8 +528,7 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction,
 	connRecord.TheirDID = conn.DID
 
 	destination := prepareDestination(conn.DIDDoc)
-	// todo issue-645 get the did doc from did resolver
-	myDidDoc, err := ctx.didStore.Get(connRecord.MyDID)
+	myDidDoc, err := ctx.didResolver.Resolve(connRecord.MyDID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetching did document: %w", err)
 	}
