@@ -78,6 +78,7 @@ linters:
   disable:
     - maligned
     - prealloc
+    - wsl # TODO enable wsl (#694)
 
 issues:
   exclude-use-default: false
