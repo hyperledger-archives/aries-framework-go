@@ -475,7 +475,7 @@ func TestCompletedState_Execute(t *testing.T) {
 			ConnectionID: "123", MyDID: "did:peer:123456789abcdefghi#inbox", Namespace: myNSPrefix}
 		err := ctx.connectionStore.saveNewConnectionRecord(connRec)
 		require.NoError(t, err)
-		err = ctx.didStore.Put(getMockDID())
+		ctx.didResolver = &mockdidresolver.MockResolver{Doc: getMockDID()}
 		require.NoError(t, err)
 		_, followup, _, e := (&completed{}).ExecuteInbound(&stateMachineMsg{
 			header:              &service.Header{Type: ResponseMsgType},

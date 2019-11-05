@@ -23,9 +23,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/httpbinding"
+	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
 
 const (
@@ -45,7 +48,13 @@ func NewAgentSDKSteps(context *Context) *AgentSDKSteps {
 }
 
 func (a *AgentSDKSteps) createAgent(agentID, inboundHost, inboundPort string) error {
-	return a.create(agentID, inboundHost, inboundPort)
+	var opts []aries.Option
+	storeProv, err := a.getStoreProvider(agentID)
+	if err != nil {
+		return err
+	}
+	opts = append(opts, aries.WithStoreProvider(storeProv))
+	return a.create(agentID, inboundHost, inboundPort, opts...)
 }
 
 func (a *AgentSDKSteps) createAgentWithHttpDIDResolver(agentID, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
@@ -55,8 +64,26 @@ func (a *AgentSDKSteps) createAgentWithHttpDIDResolver(agentID, inboundHost, inb
 	if err != nil {
 		return fmt.Errorf("failed from httpbinding new ")
 	}
-	opts = append(opts, aries.WithDIDResolver(didresolver.New(didresolver.WithDidMethod(httpResolver))))
+	storeProv, err := a.getStoreProvider(agentID)
+	if err != nil {
+		return err
+	}
+	peerDidStore, err := peer.NewDIDStore(storeProv)
+	if err != nil {
+		return fmt.Errorf("failed to create new did store : %w", err)
+	}
+	opts = append(opts, aries.WithStoreProvider(storeProv))
+	opts = append(opts, aries.WithDIDResolver(didresolver.New(didresolver.WithDidMethod(httpResolver),
+		didresolver.WithDidMethod(peer.NewDIDResolver(peerDidStore)))))
 	return a.create(agentID, inboundHost, inboundPort, opts...)
+}
+
+func (a *AgentSDKSteps) getStoreProvider(agentID string) (storage.Provider, error) {
+	storeProv, err := leveldb.NewProvider(dbPath + "/" + agentID)
+	if err != nil {
+		return nil, fmt.Errorf("leveldb provider initialization failed : %w", err)
+	}
+	return storeProv, nil
 }
 
 func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort string, opts ...aries.Option) error {
@@ -64,7 +91,6 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort string, opts ..
 		inboundPort = strconv.Itoa(mustGetRandomPort(5))
 	}
 	opts = append(opts, defaults.WithInboundHTTPAddr(fmt.Sprintf("%s:%s", inboundHost, inboundPort), ""))
-	opts = append(opts, defaults.WithStorePath(dbPath+"/"+agentID))
 	agent, err := aries.New(opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create new agent: %w", err)

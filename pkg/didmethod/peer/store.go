@@ -35,10 +35,14 @@ type DIDStore struct {
 }
 
 // NewDIDStore new Peer DID store (backing store is configurable)
-func NewDIDStore(s storage.Store) *DIDStore {
-	return &DIDStore{
-		store: s,
+func NewDIDStore(s storage.Provider) (*DIDStore, error) {
+	didDBStore, err := s.OpenStore(StoreNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("open store : %w", err)
 	}
+	return &DIDStore{
+		store: didDBStore,
+	}, nil
 }
 
 // Put saves Peer DID Document along with user key/signature.

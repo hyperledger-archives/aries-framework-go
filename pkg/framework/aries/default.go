@@ -41,11 +41,6 @@ func transportProviderFactory() api.TransportProviderFactory {
 	return transport.NewProviderFactory()
 }
 
-// didResolverProvider provides default DID resolver.
-func didResolverProvider(dbstore storage.Store) didresolver.Resolver {
-	return didresolver.New(didresolver.WithDidMethod(peer.NewDIDResolver(peer.NewDIDStore(dbstore))))
-}
-
 func storeProvider() (storage.Provider, error) {
 	storeProv, err := leveldb.NewProvider(dbPath)
 	if err != nil {
@@ -86,17 +81,17 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.inboundTransport = inbound
 	}
 
-	didDBStore, err := frameworkOpts.storeProvider.OpenStore(peer.StoreNamespace)
+	peerDidStore, err := peer.NewDIDStore(frameworkOpts.storeProvider)
 	if err != nil {
-		return fmt.Errorf("storage initialization failed : %w", err)
+		return fmt.Errorf("failed to create new did store : %w", err)
 	}
 
 	if frameworkOpts.didResolver == nil {
-		frameworkOpts.didResolver = didResolverProvider(didDBStore)
+		frameworkOpts.didResolver = didresolver.New(didresolver.WithDidMethod(peer.NewDIDResolver(peerDidStore)))
 	}
 
 	if frameworkOpts.didStore == nil {
-		frameworkOpts.didStore = didstore.New(didstore.WithDidMethod(peer.NewDIDStore(didDBStore)))
+		frameworkOpts.didStore = didstore.New(didstore.WithDidMethod(peerDidStore))
 	}
 
 	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) {

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package peer
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,6 +17,9 @@ import (
 )
 
 func TestPeerDIDStore(t *testing.T) {
+	_, err := NewDIDStore(&storage.MockStoreProvider{ErrOpenStoreHandle: fmt.Errorf("open store failed")})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "open store failed")
 	prov := storage.NewMockStoreProvider()
 	dbstore, err := prov.OpenStore(StoreNamespace)
 	require.NoError(t, err)
@@ -25,8 +29,8 @@ func TestPeerDIDStore(t *testing.T) {
 	did1 := "did:peer:1234"
 	did2 := "did:peer:4567"
 
-	store := NewDIDStore(dbstore)
-
+	store, err := NewDIDStore(prov)
+	require.NoError(t, err)
 	// put
 	err = store.Put(&did.Doc{Context: context, ID: did1}, nil)
 	require.NoError(t, err)
