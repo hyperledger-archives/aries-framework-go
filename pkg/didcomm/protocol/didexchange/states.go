@@ -278,74 +278,6 @@ func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	state, stateAction, error) {
 	return nil, nil, nil, errors.New("not implemented")
 }
-func (ctx *context) prepareAckConnectionRecord(payload []byte) (*ConnectionRecord, error) {
-	ack := &model.Ack{}
-
-	err := json.Unmarshal(payload, ack)
-	if err != nil {
-		return nil, fmt.Errorf("JSON unmarshalling of acknowledgement: %w", err)
-	}
-
-	key, err := createNSKey(theirNSPrefix, ack.Thread.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	return ctx.connectionStore.GetConnectionRecordByNSThreadID(key)
-}
-
-func prepareInvitationConnectionRecord(thid string, header *service.Header, payload []byte) (*ConnectionRecord, error) {
-	invitation := &Invitation{}
-
-	err := json.Unmarshal(payload, invitation)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ConnectionRecord{
-		ConnectionID:    generateRandomID(),
-		ThreadID:        thid,
-		State:           stateNameNull,
-		InvitationID:    invitation.ID,
-		ServiceEndPoint: invitation.ServiceEndpoint,
-		RecipientKeys:   invitation.RecipientKeys,
-		TheirLabel:      invitation.Label,
-		Namespace:       findNameSpace(header.Type),
-	}, nil
-}
-
-func prepareRequestConnectionRecord(payload []byte) (*ConnectionRecord, error) {
-	request := Request{}
-
-	err := json.Unmarshal(payload, &request)
-	if err != nil {
-		return nil, fmt.Errorf("JSON unmarshalling of request: %w", err)
-	}
-
-	return &ConnectionRecord{
-		ConnectionID: generateRandomID(),
-		ThreadID:     request.ID,
-		State:        stateNameNull,
-		TheirDID:     request.Connection.DID,
-		Namespace:    theirNSPrefix,
-	}, nil
-}
-
-func (ctx *context) prepareResponseConnectionRecord(payload []byte) (*ConnectionRecord, error) {
-	response := &Response{}
-
-	err := json.Unmarshal(payload, response)
-	if err != nil {
-		return nil, fmt.Errorf("JSON unmarshalling of response: %w", err)
-	}
-
-	thid, err := createNSKey(myNSPrefix, response.Thread.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	return ctx.connectionStore.GetConnectionRecordByNSThreadID(thid)
-}
 
 func (ctx *context) handleInboundInvitation(invitation *Invitation,
 	thid string, connRec *ConnectionRecord) (stateAction, *ConnectionRecord, error) {
@@ -536,6 +468,7 @@ func (ctx *context) prepareConnectionSignature(connection *Connection) (*Connect
 		Signature:  base64.URLEncoding.EncodeToString(signature),
 	}, nil
 }
+
 func (ctx *context) handleInboundResponse(response *Response) (stateAction, *ConnectionRecord, error) {
 	ack := &model.Ack{
 		Type:   AckMsgType,

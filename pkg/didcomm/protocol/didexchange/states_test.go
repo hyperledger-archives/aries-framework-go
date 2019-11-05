@@ -834,53 +834,6 @@ func TestGetDestinationFromDID(t *testing.T) {
 		require.Nil(t, destination)
 	})
 }
-func TestPrepareConnectionRecord(t *testing.T) {
-	t.Run("prepare ack connection record error", func(t *testing.T) {
-		ctx := context{didResolver: &mockdidresolver.MockResolver{Doc: createDIDDoc()}}
-		ackPayloadBytes, err := json.Marshal(&model.Ack{
-			Type:   AckMsgType,
-			ID:     randomString(),
-			Status: ackStatusOK,
-			Thread: &decorator.Thread{
-				ID: "",
-			}})
-		require.NoError(t, err)
-		connRec, err := ctx.prepareAckConnectionRecord(ackPayloadBytes)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "empty bytes")
-		require.Nil(t, connRec)
-
-		connRec, err = ctx.prepareAckConnectionRecord([]byte(""))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "JSON unmarshalling of acknowledgement")
-		require.Nil(t, connRec)
-	})
-	t.Run("prepare response connection record", func(t *testing.T) {
-		ctx := &context{didResolver: &mockdidresolver.MockResolver{Doc: createDIDDoc()}}
-		respPayloadBytes, err := json.Marshal(&Response{
-			Type: RequestMsgType,
-			ID:   randomString(),
-			Thread: &decorator.Thread{
-				ID: "",
-			},
-			ConnectionSignature: &ConnectionSignature{},
-		})
-		require.NoError(t, err)
-		connRec, err := ctx.prepareResponseConnectionRecord(respPayloadBytes)
-		require.Contains(t, err.Error(), "empty bytes")
-		require.Nil(t, connRec)
-		connRec, err = ctx.prepareResponseConnectionRecord([]byte(""))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "JSON unmarshalling of response")
-		require.Nil(t, connRec)
-	})
-	t.Run("prepare request connection record error", func(t *testing.T) {
-		connRec, err := prepareRequestConnectionRecord([]byte(""))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "JSON unmarshalling of request")
-		require.Nil(t, connRec)
-	})
-}
 
 type mockSigner struct {
 	privateKey []byte
