@@ -55,7 +55,7 @@ type DIDCommAction struct {
 	Message *DIDCommMsg
 
 	// Continue function to be called by the consumer for further processing the message.
-	Continue func()
+	Continue func(args interface{})
 
 	// Stop invocation notifies the service that the consumer action event processing has failed or the consumer wants
 	// to stop the processing.
@@ -102,8 +102,12 @@ type Event interface {
 //	go service.AutoExecuteActionEvent(actionCh)
 func AutoExecuteActionEvent(ch chan DIDCommAction) error {
 	for msg := range ch {
-		msg.Continue()
+		msg.Continue(&Empty{})
 	}
 
 	return nil
+}
+
+// Empty is used if there are no arguments to Continue
+type Empty struct {
 }

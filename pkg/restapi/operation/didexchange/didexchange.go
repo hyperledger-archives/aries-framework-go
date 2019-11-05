@@ -392,6 +392,15 @@ func (c *Operation) handleActionEvents(e service.DIDCommAction) error {
 	case didexchange.Event:
 		props := v
 
+		// TODO: Updated #692 to match the functionality added in this PR to RestAPI. Currently there is a mismatch
+		//  between SDK client and RestAPI client. In case of SDK client, the consumer would need to approve invitation
+		//  and exchange request. But at the moment (due to this internally calling continue for invitation action item),
+		//  RestAPI would need approval only for exchange request.
+		if e.Message.Header.Type == didexchange.InvitationMsgType {
+			e.Continue(&service.Empty{})
+			return nil
+		}
+
 		err := c.sendConnectionNotification(props.ConnectionID(), "null")
 		if err != nil {
 			return fmt.Errorf("send connection notification failed : %w", err)

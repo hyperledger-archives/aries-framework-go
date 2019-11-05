@@ -49,6 +49,7 @@ const (
 type message struct {
 	Msg           *service.DIDCommMsg
 	ThreadID      string
+	PublicDID     string
 	NextStateName string
 	ConnRecord    *ConnectionRecord
 	// err is used to determine whether callback was stopped
@@ -72,6 +73,7 @@ type stateMachineMsg struct {
 	header     *service.Header
 	payload    []byte
 	connRecord *ConnectionRecord
+	publicDID  string
 }
 
 // Service for DID exchange protocol
@@ -90,6 +92,12 @@ type context struct {
 	didResolver        didresolver.Resolver
 	connectionStore    *ConnectionRecorder
 	didStore           didstore.Storage
+}
+
+// opts are used to provide client properties to DID Exchange service
+type opts interface {
+	// PublicDID allows for setting public DID
+	PublicDID() string
 }
 
 // New return didexchange service
@@ -253,7 +261,10 @@ func (s *Service) handle(msg *message) error {
 		)
 
 		connectionRecord, followup, action, err = next.ExecuteInbound(&stateMachineMsg{
-			header: msg.Msg.Header, payload: msg.Msg.Payload, connRecord: msg.ConnRecord}, msg.ThreadID, s.ctx)
+			header: msg.Msg.Header, payload: msg.Msg.Payload,
+			connRecord: msg.ConnRecord, publicDID: msg.PublicDID},
+			msg.ThreadID, s.ctx)
+
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 		}
@@ -315,7 +326,14 @@ func (s *Service) sendActionEvent(internalMsg *message, aEvent chan<- service.DI
 	aEvent <- service.DIDCommAction{
 		ProtocolName: DIDExchange,
 		Message:      internalMsg.Msg.Clone(),
-		Continue: func() {
+		Continue: func(args interface{}) {
+			switch v := args.(type) {
+			case opts:
+				internalMsg.PublicDID = v.PublicDID()
+			default:
+				// nothing to do
+			}
+
 			s.processCallback(internalMsg)
 		},
 		Stop: func(err error) {
@@ -570,5 +588,5 @@ func generateRandomID() string {
 
 // canTriggerActionEvents checks if the incoming message type matches either RequestMsgType type.
 func canTriggerActionEvents(msgType string) bool {
-	return msgType == RequestMsgType
+	return msgType == RequestMsgType || msgType == InvitationMsgType
 }

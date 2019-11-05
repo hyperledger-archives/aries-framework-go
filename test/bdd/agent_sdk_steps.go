@@ -118,10 +118,30 @@ func (a *AgentSDKSteps) createDIDExchangeClient(agentID string) error {
 
 	actionCh := make(chan service.DIDCommAction)
 	err = didexchangeClient.RegisterActionEvent(actionCh)
-	a.bddContext.actionCh[agentID] = actionCh
 
+	a.bddContext.actionCh[agentID] = actionCh
 	a.bddContext.DIDExchangeClients[agentID] = didexchangeClient
+
 	return nil
+}
+
+func (a *AgentSDKSteps) getClientOptions(agentID string) interface{} {
+	var clientOpts interface{}
+	pubDID, ok := a.bddContext.PublicDIDs[agentID]
+	if ok {
+		clientOpts = &clientOptions{publicDID: pubDID.ID}
+		logger.Debugf("Agent %s will use public DID %s:", agentID, pubDID.ID)
+	}
+
+	return clientOpts
+}
+
+type clientOptions struct {
+	publicDID string
+}
+
+func (copts *clientOptions) PublicDID() string {
+	return copts.publicDID
 }
 
 func closeResponse(c io.Closer) {
@@ -156,7 +176,8 @@ func (a *AgentSDKSteps) approveRequest(agentID string) error {
 				panic(fmt.Sprintf("Service processing failed: %s", v))
 			}
 
-			e.Continue()
+			clientOpts := a.getClientOptions(agentID)
+			e.Continue(clientOpts)
 		}
 	}()
 
@@ -176,6 +197,7 @@ func (a *AgentSDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
 		a.createAgentWithHttpDIDResolver)
 	s.Step(`^"([^"]*)" creates did exchange client$`, a.createDIDExchangeClient)
+	s.Step(`^"([^"]*)" approves invitation request`, a.approveRequest)
 	s.Step(`^"([^"]*)" approves did exchange request`, a.approveRequest)
 	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, a.registerPostMsgEvent)
 }

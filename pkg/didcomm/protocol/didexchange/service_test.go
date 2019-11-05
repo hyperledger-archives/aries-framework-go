@@ -631,6 +631,49 @@ func TestEventsSuccess(t *testing.T) {
 	}
 }
 
+func TestContinueWithPublicDID(t *testing.T) {
+	didDoc := getMockDID()
+	svc, err := New(&mockdid.MockDIDCreator{Doc: didDoc}, &protocol.MockProvider{})
+	require.NoError(t, err)
+
+	actionCh := make(chan service.DIDCommAction, 10)
+	err = svc.RegisterActionEvent(actionCh)
+	require.NoError(t, err)
+
+	go func() { continueWithPublicDID(actionCh, didDoc.ID) }()
+
+	id := randomString()
+	invite, err := json.Marshal(
+		&Invitation{
+			Type:  InvitationMsgType,
+			ID:    id,
+			Label: "test",
+		},
+	)
+	require.NoError(t, err)
+
+	// send invite
+	didMsg, err := service.NewDIDCommMsg(invite)
+	require.NoError(t, err)
+
+	_, err = svc.HandleInbound(didMsg)
+	require.NoError(t, err)
+}
+
+func continueWithPublicDID(ch chan service.DIDCommAction, pubDID string) {
+	for msg := range ch {
+		msg.Continue(&clientOptions{publicDID: pubDID})
+	}
+}
+
+type clientOptions struct {
+	publicDID string
+}
+
+func (copts *clientOptions) PublicDID() string {
+	return copts.publicDID
+}
+
 func TestEventsUserError(t *testing.T) {
 	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
@@ -685,10 +728,10 @@ func TestEventStoreError(t *testing.T) {
 
 	go func() {
 		for e := range actionCh {
-			e.Continue = func() {
+			e.Continue = func(args interface{}) {
 				svc.processCallback(&message{Msg: &service.DIDCommMsg{Header: &service.Header{}}})
 			}
-			e.Continue()
+			e.Continue(&service.Empty{})
 		}
 	}()
 
