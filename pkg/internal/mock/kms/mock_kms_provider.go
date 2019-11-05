@@ -21,11 +21,13 @@ import (
 // NewMockProvider will create a new mock KMS Provider that builds a KMS with the keypairs list kp
 func NewMockProvider(kp ...*cryptoutil.MessagingKeys) (*mockprovider.Provider, error) {
 	store := make(map[string][]byte)
+
 	for _, k := range kp {
 		marshalledKP, err := json.Marshal(k)
 		if err != nil {
 			return nil, err
 		}
+
 		store[base58.Encode(k.EncKeyPair.Pub)] = marshalledKP
 		// mocking behaviour in BaseKMS.ConvertToEncryptionKey() where it stores
 		// MessagingKeys twice (1 for enc and 1 for sig)
@@ -37,6 +39,7 @@ func NewMockProvider(kp ...*cryptoutil.MessagingKeys) (*mockprovider.Provider, e
 		Store: &mockstorage.MockStore{
 			Store: store,
 		}}}
+
 	w, err := kms.New(mProvider)
 	if err != nil {
 		return nil, err
@@ -45,6 +48,7 @@ func NewMockProvider(kp ...*cryptoutil.MessagingKeys) (*mockprovider.Provider, e
 	mockKMSProvider := &mockprovider.Provider{
 		KMSValue: w,
 	}
+
 	return mockKMSProvider, nil
 }
 

@@ -34,7 +34,9 @@ func unmarshalWithExtraFields(data []byte, v interface{}, ef map[string]interfac
 	if err != nil {
 		return err
 	}
+
 	var vf map[string]interface{}
+
 	err = json.Unmarshal(vData, &vf)
 	if err != nil {
 		return err
@@ -42,6 +44,7 @@ func unmarshalWithExtraFields(data []byte, v interface{}, ef map[string]interfac
 
 	// Collect all fields map.
 	var af map[string]interface{}
+
 	err = json.Unmarshal(data, &af)
 	if err != nil {
 		return err
@@ -66,6 +69,7 @@ func mergeExtraFields(v interface{}, ef map[string]interface{}) (map[string]inte
 	}
 
 	var kf map[string]interface{}
+
 	err = json.Unmarshal(rcBytes, &kf)
 	if err != nil {
 		return nil, err

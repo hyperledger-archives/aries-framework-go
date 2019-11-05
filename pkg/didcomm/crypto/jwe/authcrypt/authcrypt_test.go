@@ -22,13 +22,14 @@ import (
 )
 
 func TestEncrypt(t *testing.T) {
-	var err error
 	// create temporary signing keys for tests
 	sigPubKey, sigPrivKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
+
 	// convert signing keys to encryption keys
 	encPubKey, err := cryptoutil.PublicEd25519toCurve25519(sigPubKey)
 	require.NoError(t, err)
+
 	encPrivKey, err := cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
 	require.NoError(t, err)
 
@@ -44,6 +45,7 @@ func TestEncrypt(t *testing.T) {
 			Alg:     cryptoutil.Curve25519,
 		},
 	}
+
 	t.Logf("sender Signature key pub: %v", base64.RawURLEncoding.EncodeToString(sender.SigKeyPair.Pub))
 	t.Logf("sender Signature key priv: %v", base64.RawURLEncoding.EncodeToString(sender.SigKeyPair.Priv))
 	t.Logf("sender Encryption key pub: %v", base64.RawURLEncoding.EncodeToString(sender.EncKeyPair.Pub))
@@ -51,11 +53,14 @@ func TestEncrypt(t *testing.T) {
 
 	sigPubKey, sigPrivKey, err = ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
+
 	// convert signing keys to encryption keys
 	encPubKey, err = cryptoutil.PublicEd25519toCurve25519(sigPubKey)
 	require.NoError(t, err)
+
 	encPrivKey, err = cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
 	require.NoError(t, err)
+
 	rec1 := &cryptoutil.MessagingKeys{
 		SigKeyPair: &cryptoutil.SigKeyPair{
 			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
@@ -66,6 +71,7 @@ func TestEncrypt(t *testing.T) {
 			Alg:     cryptoutil.Curve25519,
 		},
 	}
+
 	t.Logf("rec1 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(rec1.SigKeyPair.Pub))
 	t.Logf("rec1 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(rec1.SigKeyPair.Priv))
 	t.Logf("rec1 Enc pub: %v", base64.RawURLEncoding.EncodeToString(rec1.EncKeyPair.Pub))
@@ -74,10 +80,13 @@ func TestEncrypt(t *testing.T) {
 	sigPubKey, sigPrivKey, err = ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	// convert signing keys to encryption keys
+
 	encPubKey, err = cryptoutil.PublicEd25519toCurve25519(sigPubKey)
 	require.NoError(t, err)
+
 	encPrivKey, err = cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
 	require.NoError(t, err)
+
 	rec2 := &cryptoutil.MessagingKeys{
 		SigKeyPair: &cryptoutil.SigKeyPair{
 			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
@@ -88,6 +97,7 @@ func TestEncrypt(t *testing.T) {
 			Alg:     cryptoutil.Curve25519,
 		},
 	}
+
 	t.Logf("rec2 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(rec2.SigKeyPair.Pub))
 	t.Logf("rec2 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(rec2.SigKeyPair.Priv))
 	t.Logf("rec2 Enc pub: %v", base64.RawURLEncoding.EncodeToString(rec2.EncKeyPair.Pub))
@@ -95,11 +105,14 @@ func TestEncrypt(t *testing.T) {
 
 	sigPubKey, sigPrivKey, err = ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
+
 	// convert signing keys to encryption keys
 	encPubKey, err = cryptoutil.PublicEd25519toCurve25519(sigPubKey)
 	require.NoError(t, err)
+
 	encPrivKey, err = cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
 	require.NoError(t, err)
+
 	rec3 := &cryptoutil.MessagingKeys{
 		SigKeyPair: &cryptoutil.SigKeyPair{
 			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
@@ -110,20 +123,27 @@ func TestEncrypt(t *testing.T) {
 			Alg:     cryptoutil.Curve25519,
 		},
 	}
+
 	t.Logf("rec3 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(rec3.SigKeyPair.Pub))
 	t.Logf("rec3 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(rec3.SigKeyPair.Priv))
 	t.Logf("rec3 Enc pub: %v", base64.RawURLEncoding.EncodeToString(rec3.EncKeyPair.Pub))
 	t.Logf("rec3 Enc priv: %v", base64.RawURLEncoding.EncodeToString(rec3.EncKeyPair.Priv))
+
 	allKMSProvider, err := mockkms.NewMockProvider(sender, rec1, rec2, rec3)
 	require.NoError(t, err)
+
 	senderKMSProvider, err := mockkms.NewMockProvider(sender)
 	require.NoError(t, err)
+
 	recipient1KMSProvider, err := mockkms.NewMockProvider(rec1)
 	require.NoError(t, err)
+
 	recipient2KMSProvider, err := mockkms.NewMockProvider(rec2)
 	require.NoError(t, err)
+
 	recipient3KMSProvider, err := mockkms.NewMockProvider(rec3)
 	require.NoError(t, err)
+
 	badKey := cryptoutil.KeyPair{
 		Pub:  nil,
 		Priv: nil,
@@ -481,6 +501,7 @@ func deepCopy(envelope, envelope2 *Envelope) {
 		}
 		envelope.Recipients = append(envelope.Recipients, newRe)
 	}
+
 	envelope.CipherText = envelope2.CipherText
 	envelope.IV = envelope2.IV
 	envelope.Protected = envelope2.Protected
@@ -490,6 +511,7 @@ func deepCopy(envelope, envelope2 *Envelope) {
 
 func prettyPrint(msg []byte) (string, error) {
 	var prettyJSON bytes.Buffer
+
 	err := json.Indent(&prettyJSON, msg, "", "\t")
 	if err != nil {
 		return "", err
@@ -509,6 +531,7 @@ func TestRefEncrypt(t *testing.T) {
 	var recipientPrivStr = "c8CSJr_27PN9xWCpzXNmepRndD6neQcnO9DS0YWjhNs"
 	recipientPriv, err := base64.RawURLEncoding.DecodeString(recipientPrivStr)
 	require.NoError(t, err)
+
 	var recipientPubStr = "AAjrHjiFLw6kf6CZ5zqH1ooG3y2aQhuqxmUvqJnIvDI"
 	recipientPub, err := base64.RawURLEncoding.DecodeString(recipientPubStr)
 	require.NoError(t, err)

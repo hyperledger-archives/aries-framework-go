@@ -59,6 +59,7 @@ func New() *DocumentSigner {
 // Sign  will sign JSON LD document
 func (signer *DocumentSigner) Sign(context *Context, jsonLdDoc []byte) ([]byte, error) {
 	var jsonLdObject map[string]interface{}
+
 	err := json.Unmarshal(jsonLdDoc, &jsonLdObject)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal json ld document: %w", err)
@@ -124,6 +125,7 @@ func (signer *DocumentSigner) getSignatureSuite(signatureType string) (signature
 			return s, nil
 		}
 	}
+
 	return nil, fmt.Errorf("signature type %s not supported", signatureType)
 }
 

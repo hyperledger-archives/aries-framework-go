@@ -26,6 +26,7 @@ func NewMockDidStore() *MockDidStore {
 func (m *MockDidStore) Put(doc *didDoc.Doc) error {
 	k := doc.ID
 	m.Store[k] = doc
+
 	return m.PutErr
 }
 

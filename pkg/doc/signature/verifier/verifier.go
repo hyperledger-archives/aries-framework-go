@@ -53,6 +53,7 @@ func New(resolver keyResolver) *DocumentVerifier {
 // Verify will verify document proofs
 func (dv *DocumentVerifier) Verify(jsonLdDoc []byte) error {
 	var jsonLdObject map[string]interface{}
+
 	err := json.Unmarshal(jsonLdDoc, &jsonLdObject)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal json ld document: %w", err)
@@ -100,5 +101,6 @@ func (dv *DocumentVerifier) getSignatureSuite(signatureType string) (signatureSu
 			return s, nil
 		}
 	}
+
 	return nil, fmt.Errorf("signature type %s not supported", signatureType)
 }

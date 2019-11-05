@@ -39,6 +39,7 @@ func (p *BasePackager) PackMessage(envelope *Envelope) ([]byte, error) {
 	}
 
 	var recipients [][]byte
+
 	for _, verKey := range envelope.ToVerKeys {
 		// TODO It is possible to have different key schemes in an interop situation
 		// there is no guarantee that each recipient is using the same key types
@@ -54,6 +55,7 @@ func (p *BasePackager) PackMessage(envelope *Envelope) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed from encrypt: %w", err)
 	}
+
 	return bytes, nil
 }
 

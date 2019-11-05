@@ -421,6 +421,7 @@ func generateTempDir(t testing.TB) (string, func()) {
 	if err != nil {
 		t.Fatalf("Failed to create leveldb directory: %s", err)
 	}
+
 	return path, func() {
 		err := os.RemoveAll(path)
 		if err != nil {
@@ -433,12 +434,14 @@ func startMockServer(t *testing.T, handler http.Handler) net.Listener {
 	// ":0" will make the listener auto assign a free port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
+
 	go func() {
 		err := http.Serve(listener, handler)
 		if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
 			require.NoError(t, err)
 		}
 	}()
+
 	return listener
 }
 
@@ -451,6 +454,7 @@ func (m mockHTTPHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		if err != nil || string(body) == "bad" {
 			res.WriteHeader(http.StatusBadRequest)
 			res.Write([]byte(fmt.Sprintf("bad request: %s", body))) // nolint
+
 			return
 		}
 	}
@@ -473,6 +477,7 @@ func (m *mockInboundTransport) Start(prov transport.InboundProvider) error {
 	if m.startError != nil {
 		return m.startError
 	}
+
 	return nil
 }
 
@@ -480,6 +485,7 @@ func (m *mockInboundTransport) Stop() error {
 	if m.stopError != nil {
 		return m.stopError
 	}
+
 	return nil
 }
 

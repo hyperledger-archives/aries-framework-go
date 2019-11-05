@@ -60,6 +60,7 @@ func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]
 
 	// copy from the original proof options map without specific keys
 	proofOptionsCopy := make(map[string]interface{})
+
 	for key, value := range proofOptions {
 		if excludedKeyFromString(key) == 0 {
 			proofOptionsCopy[key] = value
@@ -97,5 +98,6 @@ func excludedKeyFromString(s string) excludedKey {
 			return ek
 		}
 	}
+
 	return 0
 }

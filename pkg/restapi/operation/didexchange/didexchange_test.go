@@ -225,9 +225,11 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
       		"6LE8yhZB8Xffc5vFgFntE3YLrxq5JVUsoAvUQgUyktGt"
     		]
   	}`)
+
 	handler := getHandler(t, receiveInvitationPath, errors.New("handler failed"))
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
+
 	verifyError(buf.Bytes())
 
 	// Failure due to invalid request body
@@ -235,6 +237,7 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
 	handler = getHandler(t, receiveInvitationPath, nil)
 	buf, err = getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
+
 	verifyError(buf.Bytes())
 }
 
@@ -341,13 +344,17 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 	transientStore := mockstore.MockStore{Store: make(map[string][]byte)}
 	store := mockstore.MockStore{Store: make(map[string][]byte)}
 	connRec := &didexsvc.ConnectionRecord{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
+
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 	require.NoError(t, store.Put("conn_1234", connBytes))
+
 	h := crypto.SHA256.New()
 	hash := h.Sum([]byte(connRec.ConnectionID))
 	key := fmt.Sprintf("%x", hash)
+
 	require.NoError(t, store.Put("my_"+key, []byte(connRec.ConnectionID)))
+
 	svc, err := New(&mockprovider.Provider{
 		ServiceValue: &protocol.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
@@ -377,7 +384,9 @@ func handlerLookup(t *testing.T, op *Operation, lookup string) operation.Handler
 			return h
 		}
 	}
+
 	require.Fail(t, "unable to find handler")
+
 	return nil
 }
 
@@ -498,6 +507,7 @@ func TestHandleMessageEvent(t *testing.T) {
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 	require.NoError(t, storeProv.Store.Put("conn_"+e.ConnectionID(), connBytes))
+
 	err = op.handleMessageEvents(service.StateMsg{Type: service.PostState, Properties: "invalid didex prop type"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "event is not of DIDExchange event type")
@@ -517,12 +527,14 @@ func TestSendConnectionNotification(t *testing.T) {
 		connID   = "id1"
 		threadID = "xyz"
 	)
+
 	storeProv := &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: make(map[string][]byte)}}
 	connRec := didexsvc.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "completed"}
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 	require.NoError(t, storeProv.Store.Put("conn_id1", connBytes))
 	require.NoError(t, storeProv.Store.Put("conn_id1"+"completed", connBytes))
+
 	t.Run("send notification success", func(t *testing.T) {
 		op, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: storeProv,

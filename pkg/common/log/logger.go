@@ -71,6 +71,7 @@ func (l *Log) logger() Logger {
 	l.once.Do(func() {
 		l.instance = loggerProvider().GetLogger(l.module)
 	})
+
 	return l.instance
 }
 

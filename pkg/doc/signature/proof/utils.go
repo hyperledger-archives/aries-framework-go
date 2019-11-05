@@ -26,6 +26,7 @@ func GetProofs(jsonLdObject map[string]interface{}) ([]*Proof, error) {
 	}
 
 	var result []*Proof
+
 	for _, e := range typedEntry {
 		emap, ok := e.(map[string]interface{})
 		if !ok {
@@ -46,9 +47,12 @@ func GetProofs(jsonLdObject map[string]interface{}) ([]*Proof, error) {
 // AddProof adds a proof to LD Object
 func AddProof(jsonLdObject map[string]interface{}, proof *Proof) error {
 	var proofs []interface{}
+
 	entry, exists := jsonLdObject[jsonldProof]
+
 	if exists {
 		var ok bool
+
 		proofs, ok = entry.([]interface{})
 		if !ok {
 			return errors.New("expecting []interface{}, got something else")
@@ -68,6 +72,7 @@ func GetCopyWithoutProof(jsonLdObject map[string]interface{}) map[string]interfa
 	}
 
 	dest := make(map[string]interface{})
+
 	for k, v := range jsonLdObject {
 		if k != jsonldProof {
 			dest[k] = v

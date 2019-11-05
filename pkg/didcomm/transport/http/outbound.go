@@ -78,6 +78,7 @@ func NewOutbound(opts ...OutboundHTTPOpt) (*OutboundHTTPClient, error) {
 	cs := &OutboundHTTPClient{
 		client: clOpts.client,
 	}
+
 	return cs, nil
 }
 
@@ -90,6 +91,7 @@ func (cs *OutboundHTTPClient) Send(data []byte, url string) (string, error) {
 	}
 
 	var respData string
+
 	if resp != nil {
 		isStatusSuccess := resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusOK
 		if !isStatusSuccess {
@@ -102,13 +104,17 @@ func (cs *OutboundHTTPClient) Send(data []byte, url string) (string, error) {
 				logger.Errorf("closing response body failed: %v", e)
 			}
 		}()
+
 		buf := new(bytes.Buffer)
+
 		_, e := buf.ReadFrom(resp.Body)
 		if e != nil {
 			return "", e
 		}
+
 		respData = buf.String()
 	}
+
 	return respData, nil
 }
 

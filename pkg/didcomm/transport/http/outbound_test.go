@@ -18,17 +18,20 @@ import (
 func TestWithOutboundOpts(t *testing.T) {
 	opt := WithOutboundHTTPClient(nil)
 	require.NotNil(t, opt)
+
 	clOpts := &outboundCommHTTPOpts{}
 	opt(clOpts)
 
 	opt = WithOutboundTimeout(clientTimeout)
 	require.NotNil(t, opt)
+
 	clOpts = &outboundCommHTTPOpts{}
 	// opt.client is nil, so setting timeout should panic
 	require.Panics(t, func() { opt(clOpts) })
 
 	opt = WithOutboundTLSConfig(nil)
 	require.NotNil(t, opt)
+
 	clOpts = &outboundCommHTTPOpts{}
 	opt(clOpts)
 }
@@ -39,6 +42,7 @@ func TestOutboundHTTPTransport(t *testing.T) {
 
 	port := getServerPort(server)
 	serverURL := fmt.Sprintf("https://localhost:%d", port)
+
 	defer func() {
 		err := server.Close()
 		if err != nil {

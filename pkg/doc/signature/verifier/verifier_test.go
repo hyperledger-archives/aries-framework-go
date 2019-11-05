@@ -46,6 +46,7 @@ func TestVerifyObject(t *testing.T) {
 	// test invalid signature suite
 	proofs, err := proof.GetProofs(jsonLdObject)
 	require.NoError(t, err)
+
 	proofs[0].Type = "non-existent"
 	err = proof.AddProof(jsonLdObject, proofs[0])
 	require.NoError(t, err)
@@ -64,6 +65,7 @@ func TestVerifyObject(t *testing.T) {
 	jsonLdObject, tkr = getDefaultSignedDocObject()
 	proofs, err = proof.GetProofs(jsonLdObject)
 	require.NoError(t, err)
+
 	proofs[0].ProofValue = []byte("invalid")
 	err = proof.AddProof(jsonLdObject, proofs[0])
 	require.NoError(t, err)
@@ -81,6 +83,7 @@ func getDefaultSignedDoc() ([]byte, keyResolver) {
 	}
 
 	const creator = "key-1"
+
 	keys := make(map[string][]byte)
 	keys[creator] = pubKey
 
@@ -89,12 +92,14 @@ func getDefaultSignedDoc() ([]byte, keyResolver) {
 		Signer:        getSigner(privKey)}
 
 	doc := getDefaultDoc()
+
 	docBytes, err := json.Marshal(doc)
 	if err != nil {
 		panic(err)
 	}
 
 	s := signer.New()
+
 	signedDocBytes, err := s.Sign(&context, docBytes)
 	if err != nil {
 		panic(err)
@@ -107,6 +112,7 @@ func getDefaultSignedDocObject() (map[string]interface{}, keyResolver) {
 	signedDocBytes, testKeyResolver := getDefaultSignedDoc()
 
 	var jsonLdObject map[string]interface{}
+
 	err := json.Unmarshal(signedDocBytes, &jsonLdObject)
 	if err != nil {
 		panic(err)
@@ -117,10 +123,12 @@ func getDefaultSignedDocObject() (map[string]interface{}, keyResolver) {
 
 func getDefaultDoc() map[string]interface{} {
 	var doc map[string]interface{}
+
 	err := json.Unmarshal([]byte(validDoc), &doc)
 	if err != nil {
 		panic(err)
 	}
+
 	return doc
 }
 
@@ -136,6 +144,7 @@ func (s *testSigner) Sign(doc []byte) ([]byte, error) {
 	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
 		return nil, errors.New("ed25519: bad private key length")
 	}
+
 	return ed25519.Sign(s.privateKey, doc), nil
 }
 
@@ -148,6 +157,7 @@ func (r *testKeyResolver) Resolve(id string) ([]byte, error) {
 	if !ok {
 		return nil, errors.New("key not found")
 	}
+
 	return key, nil
 }
 

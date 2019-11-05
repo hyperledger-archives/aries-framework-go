@@ -114,6 +114,7 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
 	}
+
 	invitation := &didexchange.Invitation{
 		ID:              uuid.New().String(),
 		Label:           label,
@@ -163,6 +164,7 @@ func (c *Client) HandleInvitation(invitation *Invitation) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed from didexchange service handle: %w", err)
 	}
+
 	return connectionID, nil
 }
 
@@ -183,13 +185,17 @@ func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connectio
 	if err != nil {
 		return nil, fmt.Errorf("failed query connections: %w", err)
 	}
+
 	var result []*Connection
+
 	for _, record := range records {
 		if request.State != "" && request.State != record.State {
 			continue
 		}
+
 		result = append(result, &Connection{ConnectionRecord: record})
 	}
+
 	return result, nil
 }
 
@@ -200,8 +206,10 @@ func (c *Client) GetConnection(connectionID string) (*Connection, error) {
 		if errors.Is(err, storage.ErrDataNotFound) {
 			return nil, ErrConnectionNotFound
 		}
+
 		return nil, fmt.Errorf("cannot fetch state from store: connectionid=%s err=%s", connectionID, err)
 	}
+
 	return &Connection{
 		conn,
 	}, nil
@@ -214,8 +222,10 @@ func (c *Client) GetConnectionAtState(connectionID, stateID string) (*Connection
 		if errors.Is(err, storage.ErrDataNotFound) {
 			return nil, ErrConnectionNotFound
 		}
+
 		return nil, fmt.Errorf("cannot fetch state from store: connectionid=%s err=%s", connectionID, err)
 	}
+
 	return &Connection{
 		conn,
 	}, nil

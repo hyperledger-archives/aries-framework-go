@@ -38,6 +38,7 @@ func (m *MockDIDExchangeSvc) HandleInbound(msg *service.DIDCommMsg) (string, err
 	if m.HandleFunc != nil {
 		return m.HandleFunc(msg)
 	}
+
 	return uuid.New().String(), nil
 }
 
@@ -46,6 +47,7 @@ func (m *MockDIDExchangeSvc) Accept(msgType string) bool {
 	if m.AcceptFunc != nil {
 		return m.AcceptFunc(msgType)
 	}
+
 	return true
 }
 
@@ -54,6 +56,7 @@ func (m *MockDIDExchangeSvc) Name() string {
 	if m.ProtocolName != "" {
 		return m.ProtocolName
 	}
+
 	return "didexchange"
 }
 
@@ -62,6 +65,7 @@ func (m *MockDIDExchangeSvc) RegisterActionEvent(ch chan<- service.DIDCommAction
 	if m.RegisterActionEventErr != nil {
 		return m.RegisterActionEventErr
 	}
+
 	return nil
 }
 
@@ -70,6 +74,7 @@ func (m *MockDIDExchangeSvc) UnregisterActionEvent(ch chan<- service.DIDCommActi
 	if m.UnregisterActionEventErr != nil {
 		return m.UnregisterActionEventErr
 	}
+
 	return nil
 }
 
@@ -78,6 +83,7 @@ func (m *MockDIDExchangeSvc) RegisterMsgEvent(ch chan<- service.StateMsg) error 
 	if m.RegisterMsgEventErr != nil {
 		return m.RegisterMsgEventErr
 	}
+
 	return nil
 }
 
@@ -86,6 +92,7 @@ func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- service.StateMsg) erro
 	if m.UnregisterMsgEventErr != nil {
 		return m.UnregisterMsgEventErr
 	}
+
 	return nil
 }
 
@@ -110,6 +117,7 @@ func (p *MockProvider) StorageProvider() storage.Provider {
 	if p.StoreProvider != nil {
 		return p.StoreProvider
 	}
+
 	return mockstore.NewMockStoreProvider()
 }
 
@@ -118,6 +126,7 @@ func (p *MockProvider) TransientStorageProvider() storage.Provider {
 	if p.TransientStoreProvider != nil {
 		return p.TransientStoreProvider
 	}
+
 	return mockstore.NewMockStoreProvider()
 }
 

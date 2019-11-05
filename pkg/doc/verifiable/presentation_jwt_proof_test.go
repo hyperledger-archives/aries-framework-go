@@ -111,7 +111,6 @@ func createPresJWS(t *testing.T, vpBytes []byte, minimize bool) []byte {
 	require.NoError(t, err)
 
 	jwtClaims := vp.JWTClaims([]string{}, minimize)
-	require.NoError(t, err)
 	vpJWT, err := jwtClaims.MarshalJWS(RS256, privateKey, vp.Holder+"#keys-"+keyID)
 	require.NoError(t, err)
 
@@ -136,7 +135,7 @@ func createPresUnsecuredJWT(t *testing.T, cred []byte, minimize bool) []byte {
 	require.NoError(t, err)
 
 	jwtClaims := vp.JWTClaims([]string{}, minimize)
-	require.NoError(t, err)
+
 	vpJWT, err := jwtClaims.MarshalUnsecuredJWT()
 	require.NoError(t, err)
 

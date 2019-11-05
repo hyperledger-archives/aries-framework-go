@@ -91,7 +91,9 @@ func TestService_Handle_Inviter(t *testing.T) {
 
 	completedFlag := make(chan struct{})
 	respondedFlag := make(chan struct{})
+
 	go msgEventListener(t, statusCh, respondedFlag, completedFlag)
+
 	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
 
 	thid := randomString()
@@ -148,6 +150,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFlag, completedFlag chan struct{}) {
 	for e := range statusCh {
 		require.Equal(t, DIDExchange, e.ProtocolName)
+
 		prop, ok := e.Properties.(event)
 		if !ok {
 			require.Fail(t, "Failed to cast the event properties to service.Event")
@@ -159,6 +162,7 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 				require.NotNil(t, prop.InvitationID())
 			}
 		}
+
 		if e.Type == service.PostState {
 			// receive the events
 			if e.StateID == "completed" {
@@ -167,6 +171,7 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 				require.NotNil(t, prop.InvitationID())
 				close(completedFlag)
 			}
+
 			if e.StateID == "responded" {
 				// validate connectionID received during state transition with original connectionID
 				require.NotNil(t, prop.ConnectionID())
@@ -195,8 +200,8 @@ func TestService_Handle_Invitee(t *testing.T) {
 		Doc: createDIDDocWithKey(pubKey)},
 		&protocol.MockProvider{TransientStoreProvider: store})
 	require.NoError(t, err)
-	s.ctx.didResolver = &mockdidresolver.MockResolver{Doc: newDidDoc}
 
+	s.ctx.didResolver = &mockdidresolver.MockResolver{Doc: newDidDoc}
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
@@ -207,7 +212,9 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 	requestedCh := make(chan struct{})
 	completedCh := make(chan struct{})
+
 	go handleMessagesInvitee(statusCh, requestedCh, completedCh)
+
 	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
 
 	// Alice receives an invitation from Bob
@@ -234,12 +241,14 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 	// Alice automatically sends a Request to Bob and is now in REQUESTED state.
 	connRecord := &ConnectionRecord{}
+
 	for _, v := range store.Store.Store {
 		err = json.Unmarshal(v, connRecord)
 		if err == nil && (&requested{}).Name() == connRecord.State {
 			break
 		}
 	}
+
 	require.Equal(t, (&requested{}).Name(), connRecord.State)
 
 	connection := &Connection{
@@ -581,6 +590,7 @@ func TestEventsSuccess(t *testing.T) {
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
+
 	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
 
 	statusCh := make(chan service.StateMsg, 10)
@@ -588,6 +598,7 @@ func TestEventsSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	done := make(chan struct{})
+
 	go func() {
 		for e := range statusCh {
 			if e.Type == service.PostState && e.StateID == stateNameRequested {
@@ -633,6 +644,7 @@ func TestEventsUserError(t *testing.T) {
 	require.NoError(t, err)
 
 	done := make(chan struct{})
+
 	go func() {
 		for {
 			select {
@@ -719,11 +731,13 @@ func TestServiceErrors(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-	msg, err := service.NewDIDCommMsg(requestBytes)
 
+	msg, err := service.NewDIDCommMsg(requestBytes)
 	require.NoError(t, err)
+
 	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
+
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
@@ -741,8 +755,9 @@ func TestServiceErrors(t *testing.T) {
 	msg.Header.Type = "invalid"
 	transientStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
 	require.NoError(t, err)
+
 	svc.connectionStore = NewConnectionRecorder(transientStore, nil)
-	require.NoError(t, err)
+
 	_, err = svc.HandleInbound(msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unrecognized msgType: invalid")
@@ -866,6 +881,7 @@ func TestEventsSuccessWithAsync(t *testing.T) {
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
+
 	go func() {
 		for e := range actionCh {
 			prop, ok := e.Properties.(event)
@@ -882,6 +898,7 @@ func TestEventsSuccessWithAsync(t *testing.T) {
 	require.NoError(t, err)
 
 	done := make(chan struct{})
+
 	go func() {
 		for e := range statusCh {
 			if e.Type == service.PostState && e.StateID == stateNameRequested {

@@ -16,10 +16,12 @@ func Nonce(pub1, pub2 []byte) (*[NonceSize]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	_, err = nonceWriter.Write(pub1)
 	if err != nil {
 		return nil, err
 	}
+
 	_, err = nonceWriter.Write(pub2)
 	if err != nil {
 		return nil, err

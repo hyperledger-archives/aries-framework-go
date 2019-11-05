@@ -50,6 +50,7 @@ func newJWTCredClaims(vc *Credential, minimizeVc bool) (*JWTCredClaims, error) {
 	}
 
 	var raw *rawCredential
+
 	if minimizeVc {
 		vcCopy := *vc
 		vcCopy.Expired = nil
@@ -70,6 +71,7 @@ func newJWTCredClaims(vc *Credential, minimizeVc bool) (*JWTCredClaims, error) {
 		Claims: jwtClaims,
 		VC:     vcMap,
 	}
+
 	return credClaims, nil
 }
 
@@ -87,8 +89,8 @@ func decodeCredJWT(rawJWT []byte, unmarshaller JWTCredClaimsUnmarshaller) ([]byt
 	// Apply VC-related claims from JWT.
 	credClaims.refineFromJWTClaims()
 
-	var vcData []byte
-	if vcData, err = json.Marshal(credClaims.VC); err != nil {
+	vcData, err := json.Marshal(credClaims.VC)
+	if err != nil {
 		return nil, errors.New("failed to marshal 'vc' claim of JWT")
 	}
 

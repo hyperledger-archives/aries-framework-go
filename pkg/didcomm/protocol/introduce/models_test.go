@@ -14,12 +14,14 @@ import (
 
 func TestDescriptionL10N_Locale(t *testing.T) {
 	const locale = "en"
-	var desc = DescriptionL10N{"locale": locale}
+
+	var (
+		desc      = DescriptionL10N{"locale": locale}
+		descEmpty = DescriptionL10N{}
+		descNil   DescriptionL10N
+	)
+
 	require.Equal(t, locale, desc.Locale())
-
-	var descEmpty = DescriptionL10N{}
 	require.Equal(t, "", descEmpty.Locale())
-
-	var descNil DescriptionL10N
 	require.Equal(t, "", descNil.Locale())
 }

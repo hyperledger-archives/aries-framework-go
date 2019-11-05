@@ -149,6 +149,7 @@ func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context
 	}
 
 	msg.connRecord.ThreadID = thid
+
 	return msg.connRecord, &requested{}, func() error { return nil }, nil
 }
 
@@ -169,14 +170,17 @@ func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	switch msg.header.Type {
 	case InvitationMsgType:
 		invitation := &Invitation{}
+
 		err := json.Unmarshal(msg.payload, invitation)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
+
 		action, connRecord, err := ctx.handleInboundInvitation(invitation, thid, msg.connRecord)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("handle inbound invitation failed: %s", err)
 		}
+
 		return connRecord, &noOp{}, action, nil
 	case RequestMsgType:
 		return msg.connRecord, &responded{}, func() error { return nil }, nil
@@ -202,14 +206,17 @@ func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	switch msg.header.Type {
 	case RequestMsgType:
 		request := &Request{}
+
 		err := json.Unmarshal(msg.payload, request)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
+
 		action, connRecord, err := ctx.handleInboundRequest(request, msg.connRecord)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("handle inbound request failed: %s", err)
 		}
+
 		return connRecord, &noOp{}, action, nil
 	case ResponseMsgType:
 		return msg.connRecord, &completed{}, func() error { return nil }, nil
@@ -235,14 +242,17 @@ func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	switch msg.header.Type {
 	case ResponseMsgType:
 		response := &Response{}
+
 		err := json.Unmarshal(msg.payload, response)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
 		}
+
 		action, connRecord, err := ctx.handleInboundResponse(response)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("handle inbound failed: %s", err)
 		}
+
 		return connRecord, &noOp{}, action, nil
 	case AckMsgType:
 		action := func() error { return nil }
@@ -270,19 +280,23 @@ func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 }
 func (ctx *context) prepareAckConnectionRecord(payload []byte) (*ConnectionRecord, error) {
 	ack := &model.Ack{}
+
 	err := json.Unmarshal(payload, ack)
 	if err != nil {
 		return nil, err
 	}
+
 	key, err := createNSKey(theirNSPrefix, ack.Thread.ID)
 	if err != nil {
 		return nil, err
 	}
+
 	return ctx.connectionStore.GetConnectionRecordByNSThreadID(key)
 }
 
 func prepareInvitationConnectionRecord(thid string, header *service.Header, payload []byte) (*ConnectionRecord, error) {
 	invitation := &Invitation{}
+
 	err := json.Unmarshal(payload, invitation)
 	if err != nil {
 		return nil, err
@@ -302,10 +316,12 @@ func prepareInvitationConnectionRecord(thid string, header *service.Header, payl
 
 func prepareRequestConnectionRecord(payload []byte) (*ConnectionRecord, error) {
 	request := Request{}
+
 	err := json.Unmarshal(payload, &request)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshalling failed: %s", err)
 	}
+
 	return &ConnectionRecord{
 		ConnectionID: generateRandomID(),
 		ThreadID:     request.ID,
@@ -317,14 +333,17 @@ func prepareRequestConnectionRecord(payload []byte) (*ConnectionRecord, error) {
 
 func (ctx *context) prepareResponseConnectionRecord(payload []byte) (*ConnectionRecord, error) {
 	response := &Response{}
+
 	err := json.Unmarshal(payload, response)
 	if err != nil {
 		return nil, err
 	}
+
 	thid, err := createNSKey(myNSPrefix, response.Thread.ID)
 	if err != nil {
 		return nil, err
 	}
+
 	return ctx.connectionStore.GetConnectionRecordByNSThreadID(thid)
 }
 
@@ -335,14 +354,17 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 	if err != nil {
 		return nil, nil, err
 	}
+
 	newDidDoc, err := ctx.didCreator.Create(didMethod)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	err = ctx.didStore.Put(newDidDoc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("storing doc in did store: %w", err)
 	}
+
 	// prepare the request :
 	// TODO Service.Handle() is using the ID from the Invitation as the threadID when instead it should be
 	//  using this request's ID. issue-280
@@ -356,10 +378,12 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 		},
 	}
 	connRec.MyDID = request.Connection.DID
+
 	pubKey, err := getPublicKeys(request.Connection.DIDDoc, supportedPublicKeyType)
 	if err != nil {
 		return nil, nil, fmt.Errorf("getting public key %s", err)
 	}
+
 	return func() error {
 		return ctx.outboundDispatcher.Send(request, string(pubKey[0].Value), destination)
 	}, connRec, nil
@@ -372,19 +396,23 @@ func (ctx *context) handleInboundRequest(request *Request, connRec *ConnectionRe
 	if err != nil {
 		return nil, nil, err
 	}
+
 	err = ctx.didStore.Put(newDidDoc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("storing doc in did store: %w", err)
 	}
+
 	connection := &Connection{
 		DID:    newDidDoc.ID,
 		DIDDoc: newDidDoc,
 	}
+
 	// prepare connection signature
 	encodedConnectionSignature, err := ctx.prepareConnectionSignature(connection)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	// prepare the response
 	response := &Response{
 		Type: ResponseMsgType,
@@ -394,13 +422,16 @@ func (ctx *context) handleInboundRequest(request *Request, connRec *ConnectionRe
 		},
 		ConnectionSignature: encodedConnectionSignature,
 	}
+
 	connRec.TheirDID = request.Connection.DID
 	connRec.MyDID = connection.DID
 	destination := prepareDestination(request.Connection.DIDDoc)
+
 	pubKey, err := getPublicKeys(connection.DIDDoc, supportedPublicKeyType)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	// send exchange response
 	return func() error {
 		return ctx.outboundDispatcher.Send(response, string(pubKey[0].Value), destination)
@@ -468,6 +499,7 @@ func prepareDestination(didDoc *did.Doc) *service.Destination {
 	for i, v := range pubKey {
 		recipientKeys[i] = string(v.Value)
 	}
+
 	return &service.Destination{
 		RecipientKeys:   recipientKeys,
 		ServiceEndpoint: srvEndPoint,
@@ -481,6 +513,7 @@ func (ctx *context) prepareConnectionSignature(connection *Connection) (*Connect
 	if err != nil {
 		return nil, err
 	}
+
 	now := getEpochTime()
 	timestamp := strconv.FormatInt(now, 10)
 	prefix := append([]byte(timestamp), signatureDataDelimiter)
@@ -503,8 +536,7 @@ func (ctx *context) prepareConnectionSignature(connection *Connection) (*Connect
 		Signature:  base64.URLEncoding.EncodeToString(signature),
 	}, nil
 }
-func (ctx *context) handleInboundResponse(response *Response) (stateAction,
-	*ConnectionRecord, error) {
+func (ctx *context) handleInboundResponse(response *Response) (stateAction, *ConnectionRecord, error) {
 	ack := &model.Ack{
 		Type:   AckMsgType,
 		ID:     uuid.New().String(),
@@ -513,29 +545,35 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction,
 			ID: response.Thread.ID,
 		},
 	}
+
 	conn, err := verifySignature(response.ConnectionSignature)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	nsThID, err := createNSKey(myNSPrefix, ack.Thread.ID)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	connRecord, err := ctx.connectionStore.GetConnectionRecordByNSThreadID(nsThID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get connection record: %w", err)
 	}
-	connRecord.TheirDID = conn.DID
 
+	connRecord.TheirDID = conn.DID
 	destination := prepareDestination(conn.DIDDoc)
+
 	myDidDoc, err := ctx.didResolver.Resolve(connRecord.MyDID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetching did document: %w", err)
 	}
+
 	pubKey, err := getPublicKeys(myDidDoc, supportedPublicKeyType)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get public keys: %w", err)
 	}
+
 	return func() error {
 		return ctx.outboundDispatcher.Send(ack, string(pubKey[0].Value), destination)
 	}, connRecord, nil
@@ -566,6 +604,7 @@ func verifySignature(connSignature *ConnectionSignature) (*Connection, error) {
 
 	// TODO: Replace with signed attachments issue-626
 	signatureSuite := ed25519signature2018.New()
+
 	err = signatureSuite.Verify(pubKey, sigData, signature)
 	if err != nil {
 		return nil, fmt.Errorf("verify signature: %w", err)
@@ -576,9 +615,10 @@ func verifySignature(connSignature *ConnectionSignature) (*Connection, error) {
 	if connectionIndex >= len(sigData) {
 		return nil, fmt.Errorf("missing connection attribute bytes")
 	}
-	connBytes := sigData[connectionIndex:]
 
+	connBytes := sigData[connectionIndex:]
 	conn := &Connection{}
+
 	err = json.Unmarshal(connBytes, conn)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal failed: %w", err)
@@ -593,13 +633,16 @@ func getEpochTime() int64 {
 
 func getPublicKeys(didDoc *did.Doc, pubKeyType string) ([]did.PublicKey, error) {
 	var publicKeys []did.PublicKey
+
 	for k, pubKey := range didDoc.PublicKey {
 		if pubKey.Type == pubKeyType {
 			publicKeys = append(publicKeys, didDoc.PublicKey[k])
 		}
 	}
+
 	if len(publicKeys) == 0 {
 		return nil, fmt.Errorf("public key not supported")
 	}
+
 	return publicKeys, nil
 }

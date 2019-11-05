@@ -45,15 +45,18 @@ func TestInboundHandler(t *testing.T) {
 	inHandler, err := NewInboundHandler(nil)
 	require.Error(t, err)
 	require.Nil(t, inHandler)
+
 	mockPackager := &mockpackager.BasePackager{UnpackValue: &envelope.Envelope{Message: []byte("data")}}
+
 	// now create a valid inboundHandler to continue testing..
 	inHandler, err = NewInboundHandler(&mockProvider{packagerValue: mockPackager})
-
 	require.NoError(t, err)
 	require.NotNil(t, inHandler)
+
 	server := startMockServer(inHandler)
 	port := getServerPort(server)
 	serverURL := fmt.Sprintf("https://localhost:%d", port)
+
 	defer func() {
 		e := server.Close()
 		if e != nil {
@@ -200,6 +203,7 @@ func TestInboundTransport(t *testing.T) {
 
 func listenFor(host string, d time.Duration) error {
 	timeout := time.After(d)
+
 	for {
 		select {
 		case <-timeout:
@@ -209,6 +213,7 @@ func listenFor(host string, d time.Duration) error {
 			if err != nil {
 				continue
 			}
+
 			return conn.Close()
 		}
 	}

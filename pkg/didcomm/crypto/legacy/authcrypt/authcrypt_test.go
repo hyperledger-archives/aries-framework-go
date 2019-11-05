@@ -47,7 +47,9 @@ func (fw *failReader) Read(out []byte) (int, error) {
 		// panic(fw)
 		return 0, errors.New("mock Reader has failed intentionally")
 	}
+
 	fw.count--
+
 	return fw.data.Read(out)
 }
 
@@ -67,10 +69,13 @@ func (p *provider) InboundTransportEndpoint() string {
 func newKMS(t *testing.T) (*kms.BaseKMS, storage.Store) {
 	msp := mockStorage.NewMockStoreProvider()
 	p := provider{storeProvider: msp}
+
 	store, err := p.StorageProvider().OpenStore("test-kms")
 	require.NoError(t, err)
+
 	ret, err := kms.New(&p)
 	require.NoError(t, err)
+
 	return ret, store
 }
 
@@ -84,6 +89,7 @@ func persistKey(pub, priv string, store storage.Store) error {
 	if err != nil {
 		return err
 	}
+
 	pk, err := cryptoutil.PublicEd25519toCurve25519(kp.Pub)
 	if err != nil {
 		return err
@@ -318,6 +324,7 @@ func TestEncryptComponents(t *testing.T) {
 			base58.Decode(senderPub), [][]byte{base58.Decode(rec1Pub)})
 		require.NoError(t, err)
 	})
+
 	crypter2 := newWithKMS(testKMS)
 
 	t.Run("Failure: generate recipient header with bad sender key", func(t *testing.T) {
@@ -452,6 +459,7 @@ func decryptComponentFailureTest(
 	fullMessage := `{"protected": "` + base64.URLEncoding.EncodeToString([]byte(protectedHeader)) + "\", " + msg
 
 	w, s := newKMS(t)
+
 	err := persistKey(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
 	if err != nil {
 		require.Contains(t, err.Error(), errString)
@@ -660,5 +668,6 @@ func getB58Key(pub, priv string) *cryptoutil.KeyPair {
 		Priv: base58.Decode(priv),
 		Pub:  base58.Decode(pub),
 	}
+
 	return &key
 }

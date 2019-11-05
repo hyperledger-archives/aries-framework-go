@@ -27,6 +27,7 @@ func ParseLevel(level string) (Level, error) {
 			return Level(i), nil
 		}
 	}
+
 	return ERROR, errors.New("logger: invalid log level")
 }
 

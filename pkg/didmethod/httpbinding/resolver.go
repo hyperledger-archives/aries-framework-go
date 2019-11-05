@@ -73,6 +73,7 @@ func (res *DIDResolver) resolveDID(uri string) ([]byte, error) {
 	// TODO support for service endpoint URL resolution
 	if containsDIDDocument(resp) {
 		var gotBody []byte
+
 		gotBody, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return nil, fmt.Errorf("reading response body failed: %w", err)
@@ -101,6 +102,7 @@ func containsDIDDocument(resp *http.Response) bool {
 func New(endpointURL string, opts ...ResolverOpt) (*DIDResolver, error) {
 	// Apply options
 	clOpts := &resolverOpts{client: &http.Client{}}
+
 	for _, opt := range opts {
 		opt(clOpts)
 	}

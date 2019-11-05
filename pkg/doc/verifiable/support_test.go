@@ -119,16 +119,16 @@ func readPublicKey(keyFilePath string) (*rsa.PublicKey, error) {
 		return nil, errors.New("failed to decode PEM file")
 	}
 
-	var parsedKey interface{}
-	if parsedKey, err = x509.ParsePKIXPublicKey(pubPem.Bytes); err != nil {
+	parsedKey, err := x509.ParsePKIXPublicKey(pubPem.Bytes)
+	if err != nil {
 		return nil, fmt.Errorf("parse public key: %w", err)
 	}
 
-	var pubKey *rsa.PublicKey
-	var ok bool
-	if pubKey, ok = parsedKey.(*rsa.PublicKey); !ok {
+	pubKey, ok := parsedKey.(*rsa.PublicKey)
+	if !ok {
 		return nil, errors.New("unexpected type of public key")
 	}
+
 	return pubKey, nil
 }
 
@@ -143,8 +143,8 @@ func readPrivateKey(keyFilePath string) (*rsa.PrivateKey, error) {
 		return nil, errors.New("failed to decode PEM file")
 	}
 
-	var privKey *rsa.PrivateKey
-	if privKey, err = x509.ParsePKCS1PrivateKey(privPem.Bytes); err != nil {
+	privKey, err := x509.ParsePKCS1PrivateKey(privPem.Bytes)
+	if err != nil {
 		return nil, fmt.Errorf("parse private key: %w", err)
 	}
 
@@ -154,11 +154,13 @@ func readPrivateKey(keyFilePath string) (*rsa.PrivateKey, error) {
 func (rc *rawCredential) stringJSON(t *testing.T) string {
 	bytes, err := json.Marshal(rc)
 	require.NoError(t, err)
+
 	return string(bytes)
 }
 
 func (raw *rawPresentation) stringJSON(t *testing.T) string {
 	bytes, err := json.Marshal(raw)
 	require.NoError(t, err)
+
 	return string(bytes)
 }

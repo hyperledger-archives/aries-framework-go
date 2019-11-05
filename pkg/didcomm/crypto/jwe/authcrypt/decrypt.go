@@ -24,6 +24,7 @@ import (
 // decrypts with recipientKeyPair.Priv Key.
 func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 	jwe := &Envelope{}
+
 	err := json.Unmarshal(envelope, jwe)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt message: %w", err)
@@ -61,25 +62,30 @@ func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 }
 
 func (c *Crypter) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
-	cipher, er := createCipher(c.nonceSize, cek)
-	if er != nil {
-		return nil, er
+	cipher, err := createCipher(c.nonceSize, cek)
+	if err != nil {
+		return nil, err
 	}
 
 	pldAAD := jwe.Protected + "." + jwe.AAD
-	payload, er := base64.RawURLEncoding.DecodeString(jwe.CipherText)
-	if er != nil {
-		return nil, er
+
+	payload, err := base64.RawURLEncoding.DecodeString(jwe.CipherText)
+	if err != nil {
+		return nil, err
 	}
-	tag, er := base64.RawURLEncoding.DecodeString(jwe.Tag)
-	if er != nil {
-		return nil, er
+
+	tag, err := base64.RawURLEncoding.DecodeString(jwe.Tag)
+	if err != nil {
+		return nil, err
 	}
-	nonce, er := base64.RawURLEncoding.DecodeString(jwe.IV)
-	if er != nil {
-		return nil, er
+
+	nonce, err := base64.RawURLEncoding.DecodeString(jwe.IV)
+	if err != nil {
+		return nil, err
 	}
+
 	payload = append(payload, tag...)
+
 	return cipher.Open(nil, nonce, payload, []byte(pldAAD))
 }
 
@@ -97,6 +103,7 @@ func (c *Crypter) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byt
 
 	pubK := new([chacha.KeySize]byte)
 	copy(pubK[:], base58.Decode(recipientsKeys[i]))
+
 	return pubK, &jweRecipients[i], nil
 }
 
@@ -111,6 +118,7 @@ func (c *Crypter) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte
 	if err != nil {
 		return nil, err
 	}
+
 	if len(nonce) != c.nonceSize {
 		return nil, errors.New("bad nonce size")
 	}
@@ -119,6 +127,7 @@ func (c *Crypter) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte
 	if err != nil {
 		return nil, err
 	}
+
 	encryptedCEK, err := base64.RawURLEncoding.DecodeString(recipient.EncryptedKey)
 	if err != nil {
 		return nil, err

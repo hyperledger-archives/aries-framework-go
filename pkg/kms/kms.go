@@ -56,10 +56,12 @@ func (w *BaseKMS) CreateKeySet() (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
+
 	encKp, err := createEncKeyPair(sigKp)
 	if err != nil {
 		return "", "", err
 	}
+
 	encBase58Pub := base58.Encode(encKp.Pub)
 	kpCombo := &cryptoutil.MessagingKeys{
 		EncKeyPair: encKp,
@@ -91,10 +93,12 @@ func createEncKeyPair(sigKp *cryptoutil.SigKeyPair) (*cryptoutil.EncKeyPair, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to create encPub: %w", err)
 	}
+
 	encPriv, err := cryptoutil.SecretEd25519toCurve25519(sigKp.Priv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create encPriv: %w", err)
 	}
+
 	return &cryptoutil.EncKeyPair{
 		KeyPair: cryptoutil.KeyPair{Pub: encPub, Priv: encPriv},
 		Alg:     cryptoutil.Curve25519,
@@ -122,21 +126,25 @@ func (w *BaseKMS) ConvertToEncryptionKey(verKey []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	encPubB58 := base58.Encode(encPub)
 
+	encPubB58 := base58.Encode(encPub)
 	sigPubB58 := base58.Encode(verKey)
+
 	kpc, err := w.getKeyPairSet(sigPubB58)
 	if err != nil {
 		return nil, err
 	}
+
 	encPriv, err := cryptoutil.SecretEd25519toCurve25519(kpc.SigKeyPair.Priv)
 	if err != nil {
 		return nil, err
 	}
+
 	kpNew := &cryptoutil.MessagingKeys{
 		EncKeyPair: &cryptoutil.EncKeyPair{KeyPair: cryptoutil.KeyPair{Priv: encPriv, Pub: encPub}},
 		SigKeyPair: kpc.SigKeyPair,
 	}
+
 	err = persist(w.keystore, encPubB58, kpNew)
 	if err != nil {
 		return nil, err
@@ -147,6 +155,7 @@ func (w *BaseKMS) ConvertToEncryptionKey(verKey []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return encPub, nil
 }
 
@@ -156,6 +165,7 @@ func (w *BaseKMS) SignMessage(message []byte, fromVerKey string) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get key: %w", err)
 	}
+
 	return ed25519signature2018.New().Sign(kpc.SigKeyPair.Priv, message)
 }
 
@@ -171,12 +181,17 @@ func (w *BaseKMS) getKeyPairSet(verKey string) (*cryptoutil.MessagingKeys, error
 		if errors.Is(storage.ErrDataNotFound, err) {
 			return nil, cryptoutil.ErrKeyNotFound
 		}
+
 		return nil, err
 	}
+
 	var key cryptoutil.MessagingKeys
-	if err := json.Unmarshal(bytes, &key); err != nil {
+
+	err = json.Unmarshal(bytes, &key)
+	if err != nil {
 		return nil, fmt.Errorf("failed unmarshal to key struct: %w", err)
 	}
+
 	return &key, nil
 }
 
@@ -187,6 +202,7 @@ func (w *BaseKMS) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, erro
 	if fromPubKey == nil || toPubKey == nil {
 		return nil, cryptoutil.ErrInvalidKey
 	}
+
 	fromPrivKey := new([chacha.KeySize]byte)
 	copy(fromPrivKey[:], fromPubKey)
 
@@ -195,10 +211,12 @@ func (w *BaseKMS) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed from getKeyPairSet: %w", err)
 	}
+
 	copy(fromPrivKey[:], kpc.EncKeyPair.Priv)
 
 	toKey := new([chacha.KeySize]byte)
 	copy(toKey[:], toPubKey)
+
 	return cryptoutil.Derive25519KEK(alg, apu, fromPrivKey, toKey)
 }
 
@@ -210,11 +228,14 @@ func (w *BaseKMS) FindVerKey(candidateKeys []string) (int, error) {
 			if errors.Is(err, cryptoutil.ErrKeyNotFound) {
 				continue
 			}
+
 			return -1, fmt.Errorf("failed from getKeyPairSet: %w", err)
 		}
+
 		// Currently chooses the first usable key, but could use different logic (eg, priorities)
 		return i, nil
 	}
+
 	return -1, cryptoutil.ErrKeyNotFound
 }
 
@@ -224,10 +245,12 @@ func persist(store storage.Store, key string, value interface{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal : %w", err)
 	}
+
 	err = store.Put(key, bytes)
 	if err != nil {
 		return fmt.Errorf("failed to save in store: %w", err)
 	}
+
 	return nil
 }
 
@@ -235,8 +258,10 @@ func persist(store storage.Store, key string, value interface{}) error {
 func (w *BaseKMS) GetEncryptionKey(verKey []byte) ([]byte, error) {
 	b58VerKey := base58.Encode(verKey)
 	kpCombo, err := w.getKeyPairSet(b58VerKey)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return kpCombo.EncKeyPair.Pub, nil
 }

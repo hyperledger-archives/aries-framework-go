@@ -15,6 +15,7 @@ func (jpc *JWTPresClaims) MarshalUnsecuredJWT() (string, error) { //nolint:lll
 	headers := map[string]string{
 		"alg": "none",
 	}
+
 	return marshalUnsecuredJWT(headers, jpc)
 }
 

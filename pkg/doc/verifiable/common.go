@@ -58,6 +58,7 @@ type TypedID struct {
 // TODO hide this exported method
 func (tid *TypedID) MarshalJSON() ([]byte, error) {
 	type Alias TypedID
+
 	alias := (*Alias)(tid)
 
 	data, err := marshalWithExtraFields(alias, tid.ExtraFields)
@@ -72,9 +73,11 @@ func (tid *TypedID) MarshalJSON() ([]byte, error) {
 // TODO hide this exported method
 func (tid *TypedID) UnmarshalJSON(data []byte) error {
 	type Alias TypedID
+
 	alias := (*Alias)(tid)
 
 	tid.ExtraFields = make(ExtraFields)
+
 	err := unmarshalWithExtraFields(data, alias, tid.ExtraFields)
 	if err != nil {
 		return fmt.Errorf("unmarshal TypedID: %w", err)
@@ -88,17 +91,21 @@ func describeSchemaValidationError(result *gojsonschema.Result, what string) str
 	for _, desc := range result.Errors() {
 		errMsg += fmt.Sprintf("- %s\n", desc)
 	}
+
 	return errMsg
 }
 
 func stringSlice(values []interface{}) ([]string, error) {
 	strings := make([]string, len(values))
+
 	for i := range values {
 		t, valid := values[i].(string)
 		if !valid {
 			return nil, errors.New("array element is not a string")
 		}
+
 		strings[i] = t
 	}
+
 	return strings, nil
 }

@@ -181,8 +181,11 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 }
 
 func TestClient_QueryConnectionByID(t *testing.T) {
-	const connID = "id1"
-	const threadID = "thid1"
+	const (
+		connID   = "id1"
+		threadID = "thid1"
+	)
+
 	t.Run("test success", func(t *testing.T) {
 		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
@@ -237,6 +240,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 func TestClient_GetConnection(t *testing.T) {
 	connID := "id1"
 	threadID := "thid1"
+
 	t.Run("test failure", func(t *testing.T) {
 		svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{})
 		require.NoError(t, err)
@@ -445,6 +449,7 @@ func TestServiceEvents(t *testing.T) {
 	aCh := make(chan service.DIDCommAction, 10)
 	err = c.RegisterActionEvent(aCh)
 	require.NoError(t, err)
+
 	go func() {
 		require.NoError(t, service.AutoExecuteActionEvent(aCh))
 	}()
@@ -455,6 +460,7 @@ func TestServiceEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	stateMsg := make(chan service.StateMsg)
+
 	go func() {
 		for e := range mCh {
 			if e.Type == service.PostState && e.StateID == "responded" {
@@ -519,6 +525,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	aCh := make(chan service.DIDCommAction, 10)
 	err = c.RegisterActionEvent(aCh)
 	require.NoError(t, err)
+
 	go func() {
 		for e := range aCh {
 			prop, ok := e.Properties.(Event)
@@ -536,6 +543,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	done := make(chan struct{})
+
 	go func() {
 		for e := range mCh {
 			if e.Type == service.PostState && e.StateID == "responded" {

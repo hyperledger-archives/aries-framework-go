@@ -45,6 +45,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf(err.Error())
 	}
+
 	rootCmd.AddCommand(startCmd)
 
 	if err := rootCmd.Execute(); err != nil {

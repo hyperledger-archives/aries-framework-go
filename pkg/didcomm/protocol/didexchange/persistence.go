@@ -45,6 +45,7 @@ func (r *ConnectionRecord) isValid() error {
 		return fmt.Errorf("input parameters thid : %s and connectionId : %s namespace : %s cannot be empty",
 			r.ThreadID, r.ConnectionID, r.Namespace)
 	}
+
 	return nil
 }
 
@@ -122,8 +123,10 @@ func (c *ConnectionRecorder) GetConnectionRecord(connectionID string) (*Connecti
 		if errors.Is(err, storage.ErrDataNotFound) {
 			return getAndUnmarshal(connectionKeyPrefix(connectionID), c.transientStore)
 		}
+
 		return nil, err
 	}
+
 	return rec, nil
 }
 
@@ -132,18 +135,23 @@ func (c *ConnectionRecorder) GetConnectionRecord(connectionID string) (*Connecti
 // TODO query criteria to be added as part of issue [#655]
 func (c *ConnectionRecorder) QueryConnectionRecords() ([]*ConnectionRecord, error) {
 	searchKey := connectionKeyPrefix("")
+
 	itr := c.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
 	defer itr.Release()
 
 	var records []*ConnectionRecord
+
 	for itr.Next() {
 		var record ConnectionRecord
+
 		err := json.Unmarshal(itr.Value(), &record)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query connection records, %w", err)
 		}
+
 		records = append(records, &record)
 	}
+
 	return records, nil
 }
 
@@ -161,6 +169,7 @@ func getAndUnmarshal(k string, store storage.Store) (*ConnectionRecord, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return prepareConnectionRecord(connRecordBytes)
 }
 
@@ -177,6 +186,7 @@ func (c *ConnectionRecorder) GetConnectionRecordByNSThreadID(nsThreadID string) 
 	if err != nil {
 		return nil, fmt.Errorf("get connection record by connectionID: %w", err)
 	}
+
 	return prepareConnectionRecord(connRecordBytes)
 }
 
@@ -220,10 +230,12 @@ func (c *ConnectionRecorder) saveNewConnectionRecord(record *ConnectionRecord) e
 	if err != nil {
 		return err
 	}
+
 	err = c.saveConnectionRecord(record)
 	if err != nil {
 		return fmt.Errorf("save new connection record: %w", err)
 	}
+
 	return c.saveNSThreadID(record.ThreadID, record.Namespace, record.ConnectionID)
 }
 
@@ -247,10 +259,12 @@ func (c *ConnectionRecorder) saveNSThreadID(thid, namespace, connectionID string
 
 func prepareConnectionRecord(connRecBytes []byte) (*ConnectionRecord, error) {
 	connRecord := &ConnectionRecord{}
+
 	err := json.Unmarshal(connRecBytes, connRecord)
 	if err != nil {
 		return nil, fmt.Errorf("prepare connection record: %w", err)
 	}
+
 	return connRecord, nil
 }
 
@@ -272,6 +286,7 @@ func computeHash(bytes []byte) (string, error) {
 
 	h := crypto.SHA256.New()
 	hash := h.Sum(bytes)
+
 	return fmt.Sprintf("%x", hash), nil
 }
 
@@ -286,5 +301,6 @@ func createNSKey(prefix, id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return fmt.Sprintf(keyPattern, prefix, storeKey), nil
 }

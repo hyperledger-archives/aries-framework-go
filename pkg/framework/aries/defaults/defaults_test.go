@@ -63,6 +63,7 @@ func generateTempDir(t testing.TB) (string, func()) {
 	if err != nil {
 		t.Fatalf("Failed to create leveldb directory: %s", err)
 	}
+
 	return path, func() {
 		err := os.RemoveAll(path)
 		if err != nil {

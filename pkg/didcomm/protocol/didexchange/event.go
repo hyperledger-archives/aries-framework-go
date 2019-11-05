@@ -33,5 +33,6 @@ func (ex *didExchangeEventError) Error() string {
 	if ex.err != nil {
 		return ex.err.Error()
 	}
+
 	return ""
 }

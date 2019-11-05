@@ -17,8 +17,10 @@ import (
 
 func TestIsKeyPairValid(t *testing.T) {
 	require.False(t, isKeyPairValid(KeyPair{}))
+
 	pubKey := []byte("testpublickey")
 	privKey := []byte("testprivatekey")
+
 	validChachaKey, err := base64.RawURLEncoding.DecodeString("c8CSJr_27PN9xWCpzXNmepRndD6neQcnO9DS0YWjhNs")
 	require.NoError(t, err)
 
@@ -74,15 +76,19 @@ func TestDeriveKEK_Util(t *testing.T) {
 	kek, err := Derive25519KEK(nil, nil, nil, nil)
 	require.EqualError(t, err, ErrInvalidKey.Error())
 	require.Empty(t, kek)
+
 	validChachaKey, err := base64.RawURLEncoding.DecodeString("c8CSJr_27PN9xWCpzXNmepRndD6neQcnO9DS0YWjhNs")
 	require.NoError(t, err)
+
 	chachaKey := new([chacha.KeySize]byte)
 	copy(chachaKey[:], validChachaKey)
 	kek, err = Derive25519KEK(nil, nil, chachaKey, nil)
 	require.EqualError(t, err, ErrInvalidKey.Error())
 	require.Empty(t, kek)
+
 	validChachaKey2, err := base64.RawURLEncoding.DecodeString("AAjrHjiFLw6kf6CZ5zqH1ooG3y2aQhuqxmUvqJnIvDI")
 	require.NoError(t, err)
+
 	chachaKey2 := new([chacha.KeySize]byte)
 	copy(chachaKey2[:], validChachaKey2)
 	kek, err = Derive25519KEK(nil, nil, chachaKey, chachaKey2)

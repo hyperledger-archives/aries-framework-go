@@ -137,17 +137,21 @@ func genesisDoc() *did.Doc {
 		Authentication: auth,
 		Created:        &time.Time{},
 	}
+
 	return &did.Doc{Context: doc.Context, PublicKey: doc.PublicKey, Authentication: doc.Authentication,
 		Created: doc.Created}
 }
 
 func peerDidDoc() (*did.Doc, error) {
 	doc := genesisDoc()
+
 	id, err := computeDid(doc)
 	if err != nil {
 		return nil, err
 	}
+
 	doc.ID = id
+
 	return doc, nil
 }
 

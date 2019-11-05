@@ -25,6 +25,7 @@ func (c *Crypter) decryptSPK(recipientPubKey *[chacha.KeySize]byte, spk string) 
 	}
 
 	headersEncoded := jwe[0]
+
 	headers, err := base64.RawURLEncoding.DecodeString(headersEncoded)
 	if err != nil {
 		return nil, err
@@ -33,6 +34,7 @@ func (c *Crypter) decryptSPK(recipientPubKey *[chacha.KeySize]byte, spk string) 
 	headersJSON := &recipientSPKJWEHeaders{
 		EPK: jwk{},
 	}
+
 	err = json.Unmarshal(headers, headersJSON)
 	if err != nil {
 		return nil, err
@@ -105,6 +107,7 @@ func (c *Crypter) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientSP
 	if err != nil {
 		return nil, err
 	}
+
 	return symKey, nil
 }
 
@@ -126,6 +129,7 @@ func (c *Crypter) decryptSenderJWK(nonce, symKey, headersEncoded, cipherJWK, tag
 	}
 
 	senderJWK := &jwk{}
+
 	err = json.Unmarshal(senderJWKJSONEncoded, senderJWK)
 	if err != nil {
 		return nil, err
@@ -135,5 +139,6 @@ func (c *Crypter) decryptSenderJWK(nonce, symKey, headersEncoded, cipherJWK, tag
 	if err != nil {
 		return nil, err
 	}
+
 	return senderKey, nil
 }

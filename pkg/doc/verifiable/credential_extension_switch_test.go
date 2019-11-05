@@ -156,20 +156,26 @@ func Cred2Producer() CustomCredentialProducer {
 }
 
 func decodeCredentials(dataJSON []byte, producers ...CustomCredentialProducer) (interface{}, error) {
-	var baseCred *Credential
-	var credErr error
+	var (
+		baseCred *Credential
+		credErr  error
+	)
+
 	if baseCred, credErr = NewCredential(dataJSON); credErr != nil {
 		return nil, fmt.Errorf("build base verifiable credential: %w", credErr)
 	}
 
 	for _, p := range producers {
 		if p.Accept(baseCred) {
-			var customCred interface{}
-			var jsonErr error
+			var (
+				customCred interface{}
+				jsonErr    error
+			)
 
 			if customCred, jsonErr = p.Apply(dataJSON); jsonErr == nil {
 				return customCred, nil
 			}
+
 			return nil, fmt.Errorf("error occurred when building custom verifiable credential: %w", jsonErr)
 		}
 	}
@@ -184,6 +190,7 @@ func hasContext(allContexts []string, targetContext string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -193,6 +200,7 @@ func hasType(allTypes []string, targetType string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 

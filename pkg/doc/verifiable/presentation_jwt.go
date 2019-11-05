@@ -43,6 +43,7 @@ func newJWTPresClaims(vp *Presentation, audience []string, minimizeVp bool) *JWT
 	}
 
 	var rawVP *rawPresentation
+
 	if minimizeVp {
 		vpCopy := *vp
 		vpCopy.ID = ""
@@ -75,6 +76,7 @@ func decodePresJWT(vpJWTBytes []byte, unmarshaller JWTPresClaimsUnmarshaller) ([
 	presClaims.refineFromJWTClaims()
 
 	vpRaw := presClaims.Presentation
+
 	rawBytes, err := json.Marshal(vpRaw)
 	if err != nil {
 		return nil, nil, fmt.Errorf("marshal \"vp\" claim of JWT: %w", err)

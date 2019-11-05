@@ -22,9 +22,11 @@ func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, privateKey int
 	if err != nil {
 		return "", err
 	}
+
 	key := jose.SigningKey{Algorithm: joseAlg, Key: privateKey}
 
 	var signerOpts = &jose.SignerOptions{}
+
 	signerOpts.WithType("JWT")
 	signerOpts.WithHeader("kid", keyID)
 
@@ -47,19 +49,23 @@ func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, privateKey int
 
 func verifyJWTSignature(token *jwt.JSONWebToken, fetcher PublicKeyFetcher, issuer string, jwtClaims interface{}) error {
 	var keyID string
+
 	for _, h := range token.Headers {
 		if h.KeyID != "" {
 			keyID = h.KeyID
 			break
 		}
 	}
+
 	publicKey, err := fetcher(issuer, keyID)
 	if err != nil {
 		return fmt.Errorf("get public key for JWT signature verification: %w", err)
 	}
+
 	if err = token.Claims(publicKey, jwtClaims); err != nil {
 		return fmt.Errorf("verify JWT signature: %w", err)
 	}
+
 	return nil
 }
 
@@ -71,8 +77,10 @@ func isJWS(data []byte) bool {
 		if err != nil {
 			return false
 		}
+
 		var j map[string]interface{}
 		err = json.Unmarshal(b, &j)
+
 		return err == nil
 	}
 

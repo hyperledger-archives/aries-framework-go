@@ -18,11 +18,13 @@ func Test_isJWS(t *testing.T) {
 	b64 := base64.RawURLEncoding.EncodeToString([]byte("not json"))
 	j, err := json.Marshal(map[string]string{"alg": "none"})
 	require.NoError(t, err)
+
 	jb64 := base64.RawURLEncoding.EncodeToString(j)
 
 	type args struct {
 		data []byte
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -64,6 +66,7 @@ func Test_isJWS(t *testing.T) {
 			want: true,
 		},
 	}
+
 	for i := range tests {
 		tt := tests[i]
 		t.Run(tt.name, func(t *testing.T) {

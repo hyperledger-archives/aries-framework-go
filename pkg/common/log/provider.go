@@ -37,6 +37,7 @@ func loggerProvider() LoggerProvider {
 		logger := loggerProviderInstance.GetLogger(loggerModule)
 		logger.Debugf(loggerNotInitializedMsg)
 	})
+
 	return loggerProviderInstance
 }
 
@@ -54,5 +55,6 @@ func (p *modlogProvider) GetLogger(module string) Logger {
 	} else {
 		logger = modlog.NewDefLog(module)
 	}
+
 	return modlog.NewModLog(logger, module)
 }

@@ -40,6 +40,7 @@ func NewDIDStore(s storage.Provider) (*DIDStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open store : %w", err)
 	}
+
 	return &DIDStore{
 		store: didDBStore,
 	}, nil
@@ -118,6 +119,7 @@ func (s *DIDStore) getDeltas(id string) ([]docDelta, error) {
 	}
 
 	var deltas []docDelta
+
 	err = json.Unmarshal(val, &deltas)
 	if err != nil {
 		return nil, fmt.Errorf("JSON unmarshalling of document deltas failed: %w", err)

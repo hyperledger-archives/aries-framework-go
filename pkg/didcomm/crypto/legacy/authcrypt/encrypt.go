@@ -29,6 +29,7 @@ func (c *Crypter) Encrypt(payload, sender []byte, recipientPubKeys [][]byte) ([]
 	}
 
 	nonce := make([]byte, chacha.NonceSize)
+
 	_, err = c.randSource.Read(nonce)
 	if err != nil {
 		return nil, err
@@ -36,6 +37,7 @@ func (c *Crypter) Encrypt(payload, sender []byte, recipientPubKeys [][]byte) ([]
 
 	// cek (content encryption key) is a symmetric key, for chacha20, a symmetric cipher
 	cek := &[chacha.KeySize]byte{}
+
 	_, err = c.randSource.Read(cek[:])
 	if err != nil {
 		return nil, err
@@ -91,6 +93,7 @@ func (c *Crypter) buildEnvelope(nonce, payload, cek []byte, protected *protected
 		CipherText: base64.URLEncoding.EncodeToString(cipherText),
 		Tag:        base64.URLEncoding.EncodeToString(tag),
 	}
+
 	out, err := json.Marshal(env)
 	if err != nil {
 		return nil, err

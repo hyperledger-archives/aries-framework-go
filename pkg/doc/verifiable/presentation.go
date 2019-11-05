@@ -184,6 +184,7 @@ func (vp *Presentation) Credentials() ([]PresentationCredential, error) {
 		if err != nil {
 			return nil, fmt.Errorf("marshal credentials from presentation: %w", err)
 		}
+
 		return credBytes, nil
 	}
 
@@ -191,13 +192,16 @@ func (vp *Presentation) Credentials() ([]PresentationCredential, error) {
 	case []interface{}:
 		// 1 or more credentials
 		creds := make([]PresentationCredential, len(cred))
+
 		for i := range cred {
 			c, err := marshalSingleCredFn(cred[i])
 			if err != nil {
 				return nil, err
 			}
+
 			creds[i] = c
 		}
+
 		return creds, nil
 	default:
 		// single credential
@@ -205,6 +209,7 @@ func (vp *Presentation) Credentials() ([]PresentationCredential, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		return []PresentationCredential{c}, nil
 	}
 }
@@ -261,6 +266,7 @@ func WithPresSkippedEmbeddedProofCheck() PresentationOpt {
 func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, error) {
 	// Apply options
 	vpOpts := defaultPresentationOpts()
+
 	for _, opt := range opts {
 		opt(vpOpts)
 	}
@@ -295,6 +301,7 @@ func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, err
 
 func validatePresentation(data []byte) error {
 	loader := gojsonschema.NewStringLoader(string(data))
+
 	result, err := gojsonschema.Validate(basePresentationSchemaLoader, loader)
 	if err != nil {
 		return fmt.Errorf("validation of verifiable credential: %w", err)
@@ -314,10 +321,12 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 		if vpOpts.holderPublicKeyFetcher == nil {
 			return nil, nil, errors.New("public key fetcher is not defined")
 		}
+
 		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpData, vpOpts.holderPublicKeyFetcher)
 		if err != nil {
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from JWS: %w", err)
 		}
+
 		return vcDataFromJwt, rawCred, nil
 	}
 
@@ -326,6 +335,7 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 		if err != nil {
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT: %w", err)
 		}
+
 		return rawBytes, rawCred, nil
 	}
 
@@ -335,6 +345,7 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 func decodeVPFromJSON(vpData []byte) ([]byte, *rawPresentation, error) {
 	// unmarshal VP from JSON
 	raw := new(rawPresentation)
+
 	err := json.Unmarshal(vpData, raw)
 	if err != nil {
 		return nil, nil, fmt.Errorf("JSON unmarshalling of verifiable presentation: %w", err)

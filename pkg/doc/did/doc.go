@@ -234,6 +234,7 @@ func ParseDocument(data []byte) (*Doc, error) {
 	}
 
 	raw := &rawDoc{}
+
 	err := json.Unmarshal(data, &raw)
 	if err != nil {
 		return nil, fmt.Errorf("JSON marshalling of did doc bytes bytes failed: %w", err)
@@ -243,6 +244,7 @@ func ParseDocument(data []byte) (*Doc, error) {
 	if err != nil {
 		return nil, fmt.Errorf("populate public keys failed: %w", err)
 	}
+
 	authPKs, err := populateAuthentications(raw.Authentication, publicKeys)
 	if err != nil {
 		return nil, fmt.Errorf("populate authentications failed: %w", err)
@@ -266,12 +268,15 @@ func ParseDocument(data []byte) (*Doc, error) {
 
 func populateProofs(rawProofs []interface{}) ([]Proof, error) {
 	proofs := make([]Proof, 0, len(rawProofs))
+
 	for _, rawProof := range rawProofs {
 		emap, ok := rawProof.(map[string]interface{})
 		if !ok {
 			return nil, errors.New("rawProofs is not map[string]interface{}")
 		}
+
 		created := stringEntry(emap[jsonldCreated])
+
 		timeValue, err := time.Parse(time.RFC3339, created)
 		if err != nil {
 			return nil, err
@@ -304,34 +309,43 @@ func populateProofs(rawProofs []interface{}) ([]Proof, error) {
 
 func populateServices(rawServices []map[string]interface{}) []Service {
 	services := make([]Service, 0, len(rawServices))
+
 	for _, rawService := range rawServices {
 		service := Service{ID: stringEntry(rawService[jsonldID]), Type: stringEntry(rawService[jsonldType]),
 			ServiceEndpoint: stringEntry(rawService[jsonldServicePoint])}
+
 		delete(rawService, jsonldID)
 		delete(rawService, jsonldType)
 		delete(rawService, jsonldServicePoint)
+
 		service.Properties = rawService
 		services = append(services, service)
 	}
+
 	return services
 }
 
 func populateAuthentications(rawAuthentications []interface{}, pks []PublicKey) ([]VerificationMethod, error) {
 	var vms []VerificationMethod
+
 	for _, rawAuthentication := range rawAuthentications {
 		valueString, ok := rawAuthentication.(string)
 		if ok {
 			keyExist := false
+
 			for _, pk := range pks {
 				if pk.ID == valueString {
 					vms = append(vms, VerificationMethod{pk})
 					keyExist = true
+
 					break
 				}
 			}
+
 			if !keyExist {
 				return nil, fmt.Errorf("authentication key %s not exist in did doc public key", valueString)
 			}
+
 			continue
 		}
 
@@ -339,25 +353,31 @@ func populateAuthentications(rawAuthentications []interface{}, pks []PublicKey) 
 		if !ok {
 			return nil, errors.New("rawAuthentication is not map[string]interface{}")
 		}
+
 		pk, err := populatePublicKeys([]map[string]interface{}{valuePK})
 		if err != nil {
 			return nil, err
 		}
+
 		vms = append(vms, VerificationMethod{pk[0]})
 	}
+
 	return vms, nil
 }
 
 func populatePublicKeys(rawPKs []map[string]interface{}) ([]PublicKey, error) {
 	var publicKeys []PublicKey
+
 	for _, rawPK := range rawPKs {
 		decodeValue, err := decodePK(rawPK)
 		if err != nil {
 			return nil, err
 		}
+
 		publicKeys = append(publicKeys, PublicKey{ID: stringEntry(rawPK[jsonldID]), Type: stringEntry(rawPK[jsonldType]),
 			Controller: stringEntry(rawPK[jsonldController]), Value: decodeValue})
 	}
+
 	return publicKeys, nil
 }
 
@@ -365,18 +385,22 @@ func decodePK(rawPK map[string]interface{}) ([]byte, error) {
 	if stringEntry(rawPK[jsonldPublicKeyBase58]) != "" {
 		return base58.Decode(stringEntry(rawPK[jsonldPublicKeyBase58])), nil
 	}
+
 	if stringEntry(rawPK[jsonldPublicKeyHex]) != "" {
 		value, err := hex.DecodeString(stringEntry(rawPK[jsonldPublicKeyHex]))
 		if err != nil {
 			return nil, fmt.Errorf("decode public key hex failed: %w", err)
 		}
+
 		return value, nil
 	}
+
 	if stringEntry(rawPK[jsonldPublicKeyPem]) != "" {
 		block, _ := pem.Decode([]byte(stringEntry(rawPK[jsonldPublicKeyPem])))
 		if block == nil {
 			return nil, errors.New("failed to decode PEM block containing public key")
 		}
+
 		return block.Bytes, nil
 	}
 
@@ -387,6 +411,7 @@ func validate(data []byte) error {
 	// Validate that the DID Document conforms to the serialization of the DID Document data model.
 	// Reference: https://w3c-ccg.github.io/did-spec/#did-documents)
 	documentLoader := gojsonschema.NewStringLoader(string(data))
+
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
 	if err != nil {
 		return fmt.Errorf("validation of DID doc failed: %w", err)
@@ -397,8 +422,10 @@ func validate(data []byte) error {
 		for _, desc := range result.Errors() {
 			errMsg += fmt.Sprintf("- %s\n", desc)
 		}
+
 		return errors.New(errMsg)
 	}
+
 	return nil
 }
 
@@ -407,6 +434,7 @@ func stringEntry(entry interface{}) string {
 	if entry == nil {
 		return ""
 	}
+
 	return entry.(string)
 }
 
@@ -443,6 +471,7 @@ func (doc *Doc) VerifyProof() error {
 	}
 
 	v := verifier.New(&didKeyResolver{doc.PublicKey})
+
 	return v.Verify(docBytes)
 }
 
@@ -460,6 +489,7 @@ func (r *didKeyResolver) Resolve(id string) ([]byte, error) {
 			return key.Value, nil
 		}
 	}
+
 	return nil, ErrKeyNotFound
 }
 
@@ -468,6 +498,7 @@ var ErrKeyNotFound = errors.New("key not found")
 
 func populateRawServices(services []Service) []map[string]interface{} {
 	var rawServices []map[string]interface{}
+
 	for _, service := range services {
 		rawService := make(map[string]interface{})
 
@@ -481,6 +512,7 @@ func populateRawServices(services []Service) []map[string]interface{} {
 
 		rawServices = append(rawServices, rawService)
 	}
+
 	return rawServices
 }
 
@@ -489,6 +521,7 @@ func populateRawPublicKeys(pks []PublicKey) []map[string]interface{} {
 	for _, pk := range pks {
 		rawPKs = append(rawPKs, populateRawPublicKey(pk))
 	}
+
 	return rawPKs
 }
 
@@ -527,6 +560,7 @@ func populateRawProofs(proofs []Proof) []interface{} {
 			jsonldNonce:      base64.RawURLEncoding.EncodeToString(p.Nonce),
 		})
 	}
+
 	return rawProofs
 }
 
@@ -572,6 +606,7 @@ func WithUpdatedTime(t time.Time) DocOption {
 func BuildDoc(opts ...DocOption) *Doc {
 	doc := &Doc{}
 	doc.Context = []string{Context}
+
 	for _, opt := range opts {
 		opt(doc)
 	}

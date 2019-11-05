@@ -28,6 +28,7 @@ func SetLevel(module string, level Level) {
 func GetLevel(module string) Level {
 	rwmutex.RLock()
 	defer rwmutex.RUnlock()
+
 	return levels.GetLevel(module)
 }
 
@@ -35,6 +36,7 @@ func GetLevel(module string) Level {
 func IsEnabledFor(module string, level Level) bool {
 	rwmutex.RLock()
 	defer rwmutex.RUnlock()
+
 	return levels.IsEnabledFor(module, level)
 }
 
@@ -56,5 +58,6 @@ func HideCallerInfo(module string, level Level) {
 func IsCallerInfoEnabled(module string, level Level) bool {
 	rwmutex.RLock()
 	defer rwmutex.RUnlock()
+
 	return callerInfos.IsCallerInfoEnabled(module, level)
 }

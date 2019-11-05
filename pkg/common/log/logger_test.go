@@ -19,6 +19,7 @@ import (
 // TestDefaultLogger tests default logging feature when no custom logging provider is supplied via 'Initialize()' call
 func TestDefaultLogger(t *testing.T) {
 	defer func() { loggerProviderOnce = sync.Once{} }()
+
 	const module = "sample-module"
 
 	// get new logger since Initialize is not called, default logger implementation will be used
@@ -115,6 +116,7 @@ func verifyLevels(t *testing.T, module string, enabled, disabled []Level) {
 		require.True(t, IsEnabledFor(module, level),
 			"expected level [%s] to be enabled for module [%s]", levelStr, module)
 	}
+
 	for _, level := range disabled {
 		levelStr := metadata.ParseString(metadata.Level(level))
 		require.False(t, IsEnabledFor(module, level),

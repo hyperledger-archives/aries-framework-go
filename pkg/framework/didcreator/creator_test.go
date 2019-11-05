@@ -41,12 +41,14 @@ func TestDIDCreator(t *testing.T) {
 
 		for _, pubK := range didDoc.PublicKey {
 			require.NotEmpty(t, pubK.ID)
+
 			switch method {
 			case peerDIDMethod:
 				require.Equal(t, pubK.ID, string(pubK.Value)[0:7])
 			default:
 				require.Fail(t, "Invalid DID Method")
 			}
+
 			require.NotEmpty(t, pubK.Value)
 			require.NotEmpty(t, pubK.Type)
 			require.NotEmpty(t, pubK.Controller)
@@ -156,6 +158,7 @@ func TestDIDCreator(t *testing.T) {
 func newMockProvider() *mockProvider {
 	crypto := &mockkms.CloseableKMS{}
 	crypto.CreateSigningKeyValue = getSigningKey()
+
 	return &mockProvider{storage: mockstorage.NewMockStoreProvider(), crypto: crypto}
 }
 
@@ -164,6 +167,7 @@ func getSigningKey() string {
 	if err != nil {
 		panic(err)
 	}
+
 	return base58.Encode(pub[:])
 }
 

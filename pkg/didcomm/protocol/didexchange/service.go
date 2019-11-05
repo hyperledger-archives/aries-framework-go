@@ -103,6 +103,7 @@ func New(didMaker didcreator.Creator, prov provider) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	connRecorder := NewConnectionRecorder(transientStore, store)
 	svc := &Service{
 		ctx: &context{
@@ -160,6 +161,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 		if err = s.sendActionEvent(internalMsg, aEvent); err != nil {
 			return "", fmt.Errorf("handle inbound : %w", err)
 		}
+
 		return connRecord.ConnectionID, nil
 	}
 
@@ -183,6 +185,7 @@ func findNameSpace(msgType string) string {
 	if msgType == InvitationMsgType || msgType == ResponseMsgType {
 		namespace = myNSPrefix
 	}
+
 	return namespace
 }
 
@@ -232,6 +235,7 @@ func (s *Service) handle(msg *message) error {
 	if err != nil {
 		return fmt.Errorf("invalid state name: %w", err)
 	}
+
 	for !isNoOp(next) {
 		s.sendMsgEvents(&service.StateMsg{
 			ProtocolName: DIDExchange,
@@ -242,15 +246,18 @@ func (s *Service) handle(msg *message) error {
 		})
 		logger.Debugf("sent pre event for state %s", next.Name())
 
-		var action stateAction
-		var followup state
-		var connectionRecord *ConnectionRecord
+		var (
+			action           stateAction
+			followup         state
+			connectionRecord *ConnectionRecord
+		)
 
 		connectionRecord, followup, action, err = next.ExecuteInbound(&stateMachineMsg{
 			header: msg.Msg.Header, payload: msg.Msg.Payload, connRecord: msg.ConnRecord}, msg.ThreadID, s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
 		}
+
 		connectionRecord.State = next.Name()
 		logger.Debugf("finished execute state: %s", next.Name())
 
@@ -263,6 +270,7 @@ func (s *Service) handle(msg *message) error {
 		if err := action(); err != nil {
 			return fmt.Errorf("failed to execute state action %s %w", next.Name(), err)
 		}
+
 		logger.Debugf("finish execute state action: %s", next.Name())
 		s.sendMsgEvents(&service.StateMsg{
 			ProtocolName: DIDExchange,
@@ -275,6 +283,7 @@ func (s *Service) handle(msg *message) error {
 
 		next = followup
 	}
+
 	return nil
 }
 
@@ -374,6 +383,7 @@ func (s *Service) getEventTransientData(connectionID string) (*message, error) {
 	}
 
 	msg := &message{}
+
 	err = json.Unmarshal(val, msg)
 	if err != nil {
 		return nil, fmt.Errorf("get transient data : %w", err)
@@ -393,11 +403,14 @@ func (s *Service) abandon(thID string, msg *service.DIDCommMsg, processErr error
 	if err != nil {
 		return err
 	}
+
 	connRec, err := s.connectionStore.GetConnectionRecordByNSThreadID(nsThID)
 	if err != nil {
 		return fmt.Errorf("unable to update the state to abandoned: %w", err)
 	}
+
 	connRec.State = (&abandoned{}).Name()
+
 	err = s.update(msg.Header.Type, connRec)
 	if err != nil {
 		return fmt.Errorf("unable to update the state to abandoned: %w", err)
@@ -440,8 +453,10 @@ func (s *Service) currentState(nsThID string) (state, error) {
 		if errors.Is(err, storage.ErrDataNotFound) {
 			return &null{}, nil
 		}
+
 		return nil, fmt.Errorf("cannot fetch state from store: thID=%s err=%s", nsThID, err)
 	}
+
 	return stateFromName(connRec.State)
 }
 
@@ -450,6 +465,7 @@ func (s *Service) update(msgType string, connectionRecord *ConnectionRecord) err
 		(msgType == InvitationMsgType && connectionRecord.State == stateNameInvited) {
 		return s.connectionStore.saveNewConnectionRecord(connectionRecord)
 	}
+
 	return s.connectionStore.saveConnectionRecord(connectionRecord)
 }
 

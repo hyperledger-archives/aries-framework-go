@@ -69,11 +69,12 @@ func matchDefLogOutput(t *testing.T, module string, currentLevel, levelEnabled m
 		require.Empty(t, buf.String())
 		return
 	}
+
 	defer buf.Reset()
 
-	var regex string
-
 	levelStr := metadata.ParseString(currentLevel)
+
+	var regex string
 	if infoEnabled {
 		regex = fmt.Sprintf(defLoggerOutputRegex, module, levelStr, fmt.Sprintf(msgFormat, msgArg1, msgArg2))
 	} else {
@@ -123,7 +124,9 @@ func matchCustomLogOutput(t *testing.T, regex string, level, levelEnabled metada
 		require.Empty(t, buf.String())
 		return
 	}
+
 	defer buf.Reset()
+
 	match, err := regexp.MatchString(regex, buf.String())
 	require.Empty(t, err, "error while matching regex with logoutput wasnt expected")
 	require.True(t, match, "logger output incorrect,\n\tLevel Enabled:[%s]\n\tlogoutput:%s\n\tregex:%s",

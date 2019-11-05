@@ -35,7 +35,9 @@ func TestNewDIDCommMsg(t *testing.T) {
 		payload: []byte(`[]`),
 		err:     `invalid payload data format: json: cannot unmarshal array into Go value of type service.Header`,
 	}}
+
 	t.Parallel()
+
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.name, func(t *testing.T) {
@@ -81,7 +83,9 @@ func TestDIDCommMsg_ThreadID(t *testing.T) {
 		val:  "",
 		err:  ErrThreadIDNotFound.Error(),
 	}}
+
 	t.Parallel()
+
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.name, func(t *testing.T) {
@@ -96,6 +100,7 @@ func TestDIDCommMsg_ThreadID(t *testing.T) {
 
 func TestDIDCommMsg_Clone(t *testing.T) {
 	var didMsg *DIDCommMsg
+
 	require.Nil(t, didMsg)
 	// clone nil DIDCommMsg
 	require.Equal(t, didMsg, didMsg.Clone())

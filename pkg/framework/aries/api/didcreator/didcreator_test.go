@@ -32,8 +32,10 @@ func TestDIDCreator(t *testing.T) {
 
 func testOptions(opts ...DocOpts) *CreateDIDOpts {
 	creator := &CreateDIDOpts{}
+
 	for _, option := range opts {
 		option(creator)
 	}
+
 	return creator
 }

@@ -72,13 +72,18 @@ linters-settings:
   funlen:
     lines: 60
     statements: 40
+  wsl:
+    strict-append: true
+    allow-assign-and-call: true
+    allow-multiline-assign: true
+    allow-case-traling-whitespace: true
+    allow-cuddle-declarations: false
 
 linters:
   enable-all: true
   disable:
     - maligned
     - prealloc
-    - wsl # TODO enable wsl (#694)
 
 issues:
   exclude-use-default: false
