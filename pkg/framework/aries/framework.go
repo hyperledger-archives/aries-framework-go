@@ -22,11 +22,11 @@ import (
 
 // Aries provides access to clients being managed by the framework.
 type Aries struct {
-	transport                 api.TransportProviderFactory
 	storeProvider             storage.Provider
 	transientStoreProvider    storage.Provider
 	protocolSvcCreators       []api.ProtocolSvcCreator
 	services                  []dispatcher.Service
+	outboundTransport         transport.OutboundTransport
 	inboundTransport          transport.InboundTransport
 	kmsCreator                api.KMSCreator
 	kms                       api.CloseableKMS
@@ -104,10 +104,10 @@ func New(opts ...Option) (*Aries, error) {
 	return frameworkOpts, nil
 }
 
-// WithTransportProviderFactory injects a protocol provider factory interface to Aries
-func WithTransportProviderFactory(transportProv api.TransportProviderFactory) Option {
+// WithOutboundTransport injects a outbound transport to the Aries framework
+func WithOutboundTransport(outboundTransport transport.OutboundTransport) Option {
 	return func(opts *Aries) error {
-		opts.transport = transportProv
+		opts.outboundTransport = outboundTransport
 		return nil
 	}
 }
@@ -199,15 +199,13 @@ func (a *Aries) DIDResolver() didresolver.Resolver {
 
 // Context provides handle to framework context
 func (a *Aries) Context() (*context.Provider, error) {
-	ot, err := a.transport.CreateOutboundTransport()
-	if err != nil {
-		return nil, fmt.Errorf("outbound transport initialization failed: %w", err)
-	}
 	return context.New(
 		context.WithOutboundDispatcher(a.outboundDispatcher),
-		context.WithOutboundTransport(ot), context.WithProtocolServices(a.services...),
+		context.WithOutboundTransport(a.outboundTransport),
+		context.WithProtocolServices(a.services...),
 		// TODO configure inbound external endpoints
-		context.WithKMS(a.kms), context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
+		context.WithKMS(a.kms),
+		context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 		context.WithStorageProvider(a.storeProvider),
 		context.WithTransientStorageProvider(a.transientStoreProvider),
 		context.WithCrypter(a.crypter),
@@ -260,12 +258,8 @@ func createKMS(frameworkOpts *Aries) error {
 }
 
 func createOutboundDispatcher(frameworkOpts *Aries) error {
-	ot, err := frameworkOpts.transport.CreateOutboundTransport()
-	if err != nil {
-		return fmt.Errorf("outbound transport initialization failed: %w", err)
-	}
 	ctx, err := context.New(context.WithKMS(frameworkOpts.kms),
-		context.WithOutboundTransport(ot),
+		context.WithOutboundTransport(frameworkOpts.outboundTransport),
 		context.WithPackager(frameworkOpts.packager))
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)

@@ -233,7 +233,6 @@ func (s *Service) handle(msg *message) error {
 		return fmt.Errorf("invalid state name: %w", err)
 	}
 	for !isNoOp(next) {
-		//TODO: Issue-578 is created to consider if we need to create connection ID at pre state level or no
 		s.sendMsgEvents(&service.StateMsg{
 			ProtocolName: DIDExchange,
 			Type:         service.PreState,
