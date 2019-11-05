@@ -15,4 +15,4 @@ if [ ! $(command -v ${DOCKER_CMD}) ]; then
     exit 0
 fi
 
-${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace golangci/golangci-lint:v1.19 golangci-lint run
+${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace golangci/golangci-lint:v1.21 golangci-lint run
