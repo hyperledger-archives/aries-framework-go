@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,7 +20,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
@@ -44,6 +44,9 @@ func TestService_Name(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, DIDExchange, prov.Name())
 	})
+}
+
+func TestServiceNew(t *testing.T) {
 	t.Run("test error from open store", func(t *testing.T) {
 		_, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()},
 			&protocol.MockProvider{StoreProvider: &mockstorage.MockStoreProvider{
@@ -51,6 +54,7 @@ func TestService_Name(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open store")
 	})
+
 	t.Run("test error from open transient store", func(t *testing.T) {
 		_, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()},
 			&protocol.MockProvider{TransientStoreProvider: &mockstorage.MockStoreProvider{
@@ -64,24 +68,31 @@ func TestService_Name(t *testing.T) {
 func TestService_Handle_Inviter(t *testing.T) {
 	prov := protocol.MockProvider{}
 	pubKey, privKey := generateKeyPair()
-	ctx := &context{outboundDispatcher: prov.OutboundDispatcher(),
-		didCreator: &mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)},
-		signer:     &mockSigner{privateKey: privKey}}
+	ctx := &context{
+		outboundDispatcher: prov.OutboundDispatcher(),
+		didCreator:         &mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)},
+		signer:             &mockSigner{privateKey: privKey},
+	}
+
 	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 
 	s, err := New(&mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)}, &protocol.MockProvider{})
 	require.NoError(t, err)
+
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
+
 	statusCh := make(chan service.StateMsg, 10)
 	err = s.RegisterMsgEvent(statusCh)
 	require.NoError(t, err)
+
 	completedFlag := make(chan struct{})
 	respondedFlag := make(chan struct{})
 	go msgEventListener(t, statusCh, respondedFlag, completedFlag)
 	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
+
 	thid := randomString()
 
 	// Invitation was previously sent by Alice to Bob.
@@ -109,7 +120,6 @@ func TestService_Handle_Inviter(t *testing.T) {
 	}
 	// Alice automatically sends exchange Response to Bob
 	// Bob replies with an ACK
-	// validateState(t, s, thid, (&responded{}).Name())
 	payloadBytes, err = json.Marshal(
 		&model.Ack{
 			Type:   AckMsgType,
@@ -118,8 +128,10 @@ func TestService_Handle_Inviter(t *testing.T) {
 			Thread: &decorator.Thread{ID: thid},
 		})
 	require.NoError(t, err)
+
 	didMsg, err := service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
+
 	_, err = s.HandleInbound(didMsg)
 	require.NoError(t, err)
 
@@ -128,6 +140,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		require.Fail(t, "didn't receive post event complete")
 	}
+
 	validateState(t, s, thid, findNameSpace(AckMsgType), (&completed{}).Name())
 }
 
@@ -168,9 +181,12 @@ func TestService_Handle_Invitee(t *testing.T) {
 	store := mockstorage.NewMockStoreProvider()
 	prov := protocol.MockProvider{}
 	pubKey, privKey := generateKeyPair()
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
-		didCreator: &mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)},
-		signer:     &mockSigner{privateKey: privKey}}
+	ctx := context{
+		outboundDispatcher: prov.OutboundDispatcher(),
+		didCreator:         &mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)},
+		signer:             &mockSigner{privateKey: privKey},
+	}
+
 	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 
@@ -178,12 +194,15 @@ func TestService_Handle_Invitee(t *testing.T) {
 		Doc: createDIDDocWithKey(pubKey)},
 		&protocol.MockProvider{TransientStoreProvider: store})
 	require.NoError(t, err)
+
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = s.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
+
 	statusCh := make(chan service.StateMsg, 10)
 	err = s.RegisterMsgEvent(statusCh)
 	require.NoError(t, err)
+
 	requestedCh := make(chan struct{})
 	completedCh := make(chan struct{})
 	go handleMessagesInvitee(statusCh, requestedCh, completedCh)
@@ -198,8 +217,10 @@ func TestService_Handle_Invitee(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+
 	didMsg, err := service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
+
 	_, err = s.HandleInbound(didMsg)
 	require.NoError(t, err)
 
@@ -237,8 +258,10 @@ func TestService_Handle_Invitee(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
+
 	didMsg, err = service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
+
 	_, err = s.HandleInbound(didMsg)
 	require.NoError(t, err)
 
@@ -249,6 +272,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		require.Fail(t, "didn't receive post event complete")
 	}
+
 	validateState(t, s, connRecord.ThreadID, findNameSpace(ResponseMsgType), (&completed{}).Name())
 }
 
@@ -266,151 +290,43 @@ func handleMessagesInvitee(statusCh chan service.StateMsg, requestedCh, complete
 }
 
 func TestService_Handle_EdgeCases(t *testing.T) {
-	t.Run("must not start with Response msg", func(t *testing.T) {
-		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		s := &Service{ctx: ctx}
-		response, err := json.Marshal(
-			&Response{
-				Type: ResponseMsgType,
-				ID:   randomString(),
-			},
-		)
+	t.Run("handleInbound - no action events registered", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
 		require.NoError(t, err)
-		_, err = s.HandleInbound(&service.DIDCommMsg{Payload: response})
-		require.Error(t, err)
+
+		_, err = svc.HandleInbound(&service.DIDCommMsg{
+			Header: &service.Header{Type: ResponseMsgType},
+		})
+		require.EqualError(t, err, "no clients are registered to handle the message")
 	})
-	t.Run("must not start with ACK msg", func(t *testing.T) {
-		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		s := &Service{ctx: ctx}
-		ack, err := json.Marshal(
-			&model.Ack{
-				Type: AckMsgType,
-				ID:   randomString(),
-			},
-		)
-		require.NoError(t, err)
-		_, err = s.HandleInbound(&service.DIDCommMsg{Payload: ack})
-		require.Error(t, err)
-	})
-	t.Run("must not transition to same state", func(t *testing.T) {
-		prov := protocol.MockProvider{}
-		pubKey, _ := generateKeyPair()
-		ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
-			didCreator: &mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)}}
-		newDidDoc, err := ctx.didCreator.Create(testMethod)
+
+	t.Run("handleInbound - must not transition to same state", func(t *testing.T) {
+		s, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 		require.NoError(t, err)
 
-		s, err := New(&mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)}, &protocol.MockProvider{})
-		require.NoError(t, err)
-		actionCh := make(chan service.DIDCommAction, 10)
-		err = s.RegisterActionEvent(actionCh)
-		require.NoError(t, err)
-		statusCh := make(chan service.StateMsg, 10)
-		err = s.RegisterMsgEvent(statusCh)
-		require.NoError(t, err)
-		respondedFlag := make(chan bool)
-		go func() {
-			for e := range statusCh {
-				if e.Type == service.PostState {
-					// receive the events
-					if e.StateID == "responded" {
-						respondedFlag <- true
-					}
-				}
-			}
-		}()
-		go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
-
-		thid := randomString()
-		request, err := json.Marshal(
-			&Request{
-				Type:  RequestMsgType,
-				ID:    thid,
-				Label: "test",
-				Connection: &Connection{
-					DID:    newDidDoc.ID,
-					DIDDoc: newDidDoc,
-				},
-			},
-		)
-		require.NoError(t, err)
-		didMsg, err := service.NewDIDCommMsg(request)
-		require.NoError(t, err)
-		_, err = s.HandleInbound(didMsg)
+		err = s.RegisterActionEvent(make(chan service.DIDCommAction))
 		require.NoError(t, err)
 
-		select {
-		case <-respondedFlag:
-		case <-time.After(2 * time.Second):
-			require.Fail(t, "didn't receive post event responded")
-		}
-		// state machine has automatically transitioned to responded state
-		validateState(t, s, thid, findNameSpace(RequestMsgType), (&responded{}).Name())
-		// therefore cannot transition Responded state
 		response, err := json.Marshal(
 			&Response{
 				Type:   ResponseMsgType,
 				ID:     randomString(),
-				Thread: &decorator.Thread{ID: thid},
+				Thread: &decorator.Thread{ID: randomString()},
 			},
 		)
 		require.NoError(t, err)
-		didMsg, err = service.NewDIDCommMsg(response)
+
+		didMsg, err := service.NewDIDCommMsg(response)
 		require.NoError(t, err)
+
 		_, err = s.HandleInbound(didMsg)
 		require.Error(t, err)
-	})
-	t.Run("error when updating store on first state transition", func(t *testing.T) {
-		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		s := &Service{ctx: ctx}
-		request, err := json.Marshal(
-			&Request{
-				Type:  RequestMsgType,
-				ID:    randomString(),
-				Label: "test",
-			},
-		)
-		require.NoError(t, err)
-		_, err = s.HandleInbound(&service.DIDCommMsg{Payload: request})
-		require.Error(t, err)
-	})
-	t.Run("error when updating store on followup state transition", func(t *testing.T) {
-		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		s := &Service{ctx: ctx}
-		request, err := json.Marshal(
-			&Request{
-				Type:  RequestMsgType,
-				ID:    randomString(),
-				Label: "test",
-			},
-		)
-		require.NoError(t, err)
-		_, err = s.HandleInbound(&service.DIDCommMsg{Payload: request})
-		require.Error(t, err)
+		require.Contains(t, err.Error(), "handle inbound - next state : invalid state transition: "+
+			"null -> responded")
 	})
 
-	t.Run("error on invalid msg type", func(t *testing.T) {
-		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
-			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		s := &Service{ctx: ctx}
-		request, err := json.Marshal(
-			&Request{
-				Type:  "INVALID",
-				ID:    randomString(),
-				Label: "test",
-			},
-		)
-		require.NoError(t, err)
-		_, err = s.HandleInbound(&service.DIDCommMsg{Payload: request})
-		require.Error(t, err)
-	})
-
-	t.Run("threadID error", func(t *testing.T) {
-		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	t.Run("handleInbound - threadID error", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 		require.NoError(t, err)
 
 		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
@@ -421,7 +337,6 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// send invite
 		didMsg, err := service.NewDIDCommMsg(requestBytes)
 		require.NoError(t, err)
 
@@ -430,8 +345,8 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Equal(t, err.Error(), "threadID not found")
 	})
 
-	t.Run("connection record error", func(t *testing.T) {
-		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	t.Run("handleInbound - connection record error", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 		require.NoError(t, err)
 
 		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
@@ -439,6 +354,31 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 
 		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
 		svc.connectionStore = NewConnectionRecorder(transientStore, nil)
+
+		_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "save connection record")
+	})
+
+	t.Run("handleInbound - send action event error", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
+		require.NoError(t, err)
+
+		svc.connectionStore.transientStore = &mockStore{
+			get: func(s string) (bytes []byte, e error) {
+				return nil, storage.ErrDataNotFound
+			},
+			put: func(s string, bytes []byte) error {
+				if strings.Contains(s, "didex-event-") {
+					return errors.New("db error")
+				}
+
+				return nil
+			},
+		}
 
 		requestBytes, err := json.Marshal(&Request{
 			Type: RequestMsgType,
@@ -455,30 +395,18 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 
 		_, err = svc.HandleInbound(didMsg)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "save connection record")
+		require.Contains(t, err.Error(), "handle inbound : send action event")
 	})
 }
 
 func TestService_Accept(t *testing.T) {
-	ctx := context{
-		outboundDispatcher: newMockOutboundDispatcher(),
-		didCreator:         &mockdid.MockDIDCreator{Doc: getMockDID()}}
-	s := &Service{ctx: &ctx}
+	s := &Service{}
 
-	resp := s.Accept("https://didcomm.org/didexchange/1.0/invitation")
-	require.Equal(t, true, resp)
-
-	resp = s.Accept("https://didcomm.org/didexchange/1.0/request")
-	require.Equal(t, true, resp)
-
-	resp = s.Accept("https://didcomm.org/didexchange/1.0/response")
-	require.Equal(t, true, resp)
-
-	resp = s.Accept("https://didcomm.org/didexchange/1.0/ack")
-	require.Equal(t, true, resp)
-
-	resp = s.Accept("unsupported msg type")
-	require.Equal(t, false, resp)
+	require.Equal(t, true, s.Accept("https://didcomm.org/didexchange/1.0/invitation"))
+	require.Equal(t, true, s.Accept("https://didcomm.org/didexchange/1.0/request"))
+	require.Equal(t, true, s.Accept("https://didcomm.org/didexchange/1.0/response"))
+	require.Equal(t, true, s.Accept("https://didcomm.org/didexchange/1.0/ack"))
+	require.Equal(t, false, s.Accept("unsupported msg type"))
 }
 
 func TestService_threadID(t *testing.T) {
@@ -487,14 +415,15 @@ func TestService_threadID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, thid)
 	})
+
 	t.Run("returns unmarshall error", func(t *testing.T) {
-		thid, err := threadID(&service.DIDCommMsg{Header: &service.Header{Type: RequestMsgType}})
+		_, err := threadID(&service.DIDCommMsg{Header: &service.Header{Type: RequestMsgType}})
 		require.Error(t, err)
-		require.Equal(t, "", thid)
+		require.Contains(t, err.Error(), "threadID not found")
 	})
 }
 
-func TestService_currentState(t *testing.T) {
+func TestService_CurrentState(t *testing.T) {
 	t.Run("null state if not found in store", func(t *testing.T) {
 		svc := &Service{
 			connectionStore: NewConnectionRecorder(&mockStore{
@@ -507,6 +436,7 @@ func TestService_currentState(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, (&null{}).Name(), s.Name())
 	})
+
 	t.Run("returns state from store", func(t *testing.T) {
 		expected := &requested{}
 		connRec, err := json.Marshal(&ConnectionRecord{State: expected.Name()})
@@ -522,6 +452,7 @@ func TestService_currentState(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expected.Name(), actual.Name())
 	})
+
 	t.Run("forwards generic error from store", func(t *testing.T) {
 		svc := &Service{
 			connectionStore: NewConnectionRecorder(&mockStore{
@@ -534,18 +465,18 @@ func TestService_currentState(t *testing.T) {
 		require.NoError(t, err)
 		_, err = svc.currentState(thid)
 		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot fetch state from store")
 	})
 }
 
-func TestService_update(t *testing.T) {
-	const thid = "123"
-	const ConnID = "123456"
+func TestService_Update(t *testing.T) {
 	s := &requested{}
 	data := make(map[string][]byte)
-	connRec := &ConnectionRecord{ThreadID: thid, ConnectionID: ConnID, State: s.Name(),
+	connRec := &ConnectionRecord{ThreadID: "123", ConnectionID: "123456", State: s.Name(),
 		Namespace: findNameSpace(RequestMsgType)}
 	bytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
+
 	svc := &Service{
 		connectionStore: NewConnectionRecorder(&mockStore{
 			put: func(k string, v []byte) error {
@@ -559,14 +490,11 @@ func TestService_update(t *testing.T) {
 	}
 
 	require.NoError(t, svc.update(RequestMsgType, connRec))
+
 	cr := &ConnectionRecord{}
 	err = json.Unmarshal(bytes, cr)
 	require.NoError(t, err)
 	require.Equal(t, cr, connRec)
-}
-
-func newMockOutboundDispatcher() dispatcher.Outbound {
-	return (&protocol.MockProvider{}).OutboundDispatcher()
 }
 
 type mockStore struct {
@@ -593,37 +521,48 @@ func getMockDID() *did.Doc {
 	return &did.Doc{
 		Context: []string{"https://w3id.org/did/v1"},
 		ID:      "did:peer:123456789abcdefghi#inbox",
-		Service: []did.Service{{
-			ServiceEndpoint: "https://localhost:8090",
-		}},
+		Service: []did.Service{
+			{
+				ServiceEndpoint: "https://localhost:8090",
+			},
+		},
 		PublicKey: []did.PublicKey{{
 			ID:         "did:example:123456789abcdefghi#keys-1",
 			Controller: "did:example:123456789abcdefghi",
 			Type:       "Secp256k1VerificationKey2018",
 			Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")},
-			{ID: "did:example:123456789abcdefghi#keys-1",
+			{
+				ID:         "did:example:123456789abcdefghi#keys-1",
 				Controller: "did:example:123456789abcdefghi",
 				Type:       "Ed25519VerificationKey2018",
-				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")},
-			{ID: "did:example:123456789abcdefghw#key2",
+				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
+			},
+			{
+				ID:         "did:example:123456789abcdefghw#key2",
 				Controller: "did:example:123456789abcdefghw",
 				Type:       "RsaVerificationKey2018",
-				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")},
+				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
+			},
 		},
 	}
 }
+
 func getMockDIDPublicKey() *did.Doc {
 	return &did.Doc{
 		Context: []string{"https://w3id.org/did/v1"},
 		ID:      "did:peer:123456789abcdefghi#inbox",
-		Service: []did.Service{{
-			ServiceEndpoint: "https://localhost:8090",
-		}},
-		PublicKey: []did.PublicKey{{
-			ID:         "did:example:123456789abcdefghi#keys-1",
-			Controller: "did:example:123456789abcdefghi",
-			Type:       "Secp256k1VerificationKey2018",
-			Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")},
+		Service: []did.Service{
+			{
+				ServiceEndpoint: "https://localhost:8090",
+			},
+		},
+		PublicKey: []did.PublicKey{
+			{
+				ID:         "did:example:123456789abcdefghi#keys-1",
+				Controller: "did:example:123456789abcdefghi",
+				Type:       "Secp256k1VerificationKey2018",
+				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
+			},
 		},
 	}
 }
@@ -634,7 +573,7 @@ func randomString() string {
 }
 
 func TestEventsSuccess(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
 	actionCh := make(chan service.DIDCommAction, 10)
@@ -680,7 +619,7 @@ func TestEventsSuccess(t *testing.T) {
 }
 
 func TestEventsUserError(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
 	actionCh := make(chan service.DIDCommAction, 10)
@@ -711,19 +650,8 @@ func TestEventsUserError(t *testing.T) {
 
 	err = svc.connectionStore.saveNewConnectionRecord(connRec)
 	require.NoError(t, err)
-	requestBytes, err := json.Marshal(&Request{
-		Type: RequestMsgType,
-		ID:   id,
-		Connection: &Connection{
-			DID: "xyz",
-		},
-	})
-	require.NoError(t, err)
 
-	didMsg, err := service.NewDIDCommMsg(requestBytes)
-	require.NoError(t, err)
-
-	_, err = svc.HandleInbound(didMsg)
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, id))
 	require.NoError(t, err)
 
 	select {
@@ -734,7 +662,7 @@ func TestEventsUserError(t *testing.T) {
 }
 
 func TestEventStoreError(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
 	actionCh := make(chan service.DIDCommAction, 10)
@@ -750,29 +678,12 @@ func TestEventStoreError(t *testing.T) {
 		}
 	}()
 
-	id := randomString()
-
-	request, err := json.Marshal(
-		&Request{
-			Type:  RequestMsgType,
-			ID:    id,
-			Label: "test",
-			Connection: &Connection{
-				DID: "xyz",
-			},
-		},
-	)
-	require.NoError(t, err)
-
-	didMsg, err := service.NewDIDCommMsg(request)
-	require.NoError(t, err)
-
-	_, err = svc.HandleInbound(didMsg)
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
 	require.NoError(t, err)
 }
 
 func TestEventProcessCallback(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
 	msg := &message{
@@ -787,27 +698,6 @@ func TestEventProcessCallback(t *testing.T) {
 	err = svc.abandon(msg.ThreadID, msg.Msg, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unable to update the state to abandoned")
-}
-
-func TestUpdateState(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
-	require.NoError(t, err)
-	svc.connectionStore = NewConnectionRecorder(
-		&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}, nil)
-	connRec := &ConnectionRecord{State: (&abandoned{}).Name()}
-	err = svc.update(RequestMsgType, connRec)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "db error")
-}
-
-func TestService_No_Execution(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
-	require.NoError(t, err)
-
-	_, err = svc.HandleInbound(&service.DIDCommMsg{
-		Header: &service.Header{Type: ResponseMsgType},
-	})
-	require.EqualError(t, err, "no clients are registered to handle the message")
 }
 
 func validateState(t *testing.T, svc *Service, id, namespace, expected string) {
@@ -828,8 +718,9 @@ func TestServiceErrors(t *testing.T) {
 	)
 	require.NoError(t, err)
 	msg, err := service.NewDIDCommMsg(requestBytes)
+
 	require.NoError(t, err)
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = svc.RegisterActionEvent(actionCh)
@@ -840,7 +731,7 @@ func TestServiceErrors(t *testing.T) {
 		return nil, errors.New("error")
 	}}
 	svc.connectionStore = NewConnectionRecorder(mockStore, nil)
-	_, err = svc.HandleInbound(msg)
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot fetch state from store")
 
@@ -869,64 +760,8 @@ func TestServiceErrors(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to execute state invited")
 }
 
-func TestMsgEventProtocolFailure(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
-	require.NoError(t, err)
-
-	actionCh := make(chan service.DIDCommAction, 10)
-	err = svc.RegisterActionEvent(actionCh)
-	require.NoError(t, err)
-
-	go func() {
-		for e := range actionCh {
-			e.Stop(errors.New("user error"))
-		}
-	}()
-
-	statusCh := make(chan service.StateMsg, 10)
-	err = svc.RegisterMsgEvent(statusCh)
-	require.NoError(t, err)
-
-	done := make(chan struct{})
-	go func() {
-		for e := range statusCh {
-			if e.Type == service.PostState && e.StateID == (&abandoned{}).Name() {
-				svcErr, ok := e.Properties.(error)
-				require.Equal(t, true, ok)
-				require.Equal(t, "user error", svcErr.Error())
-
-				done <- struct{}{}
-			}
-		}
-	}()
-	id := randomString()
-	connRec := &ConnectionRecord{ConnectionID: randomString(), ThreadID: id,
-		Namespace: findNameSpace(RequestMsgType), State: (&null{}).Name()}
-
-	err = svc.connectionStore.saveNewConnectionRecord(connRec)
-	require.NoError(t, err)
-	requestBytes, err := json.Marshal(&Request{
-		Type: RequestMsgType,
-		ID:   id,
-		Connection: &Connection{
-			DID: "xyz",
-		},
-	})
-	require.NoError(t, err)
-	msg, err := service.NewDIDCommMsg(requestBytes)
-	require.NoError(t, err)
-	_, err = svc.HandleInbound(msg)
-	require.NoError(t, err)
-
-	select {
-	case <-done:
-	case <-time.After(1 * time.Second):
-		require.Fail(t, "tests are not validated")
-	}
-}
-
 func TestHandleOutbound(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
 	err = svc.HandleOutbound(&service.DIDCommMsg{}, &service.Destination{})
@@ -935,31 +770,19 @@ func TestHandleOutbound(t *testing.T) {
 }
 
 func TestConnectionRecord(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
-	requestBytes, err := json.Marshal(&Request{
-		Type: RequestMsgType,
-		ID:   "id",
-		Connection: &Connection{
-			DID: "xyz",
-		},
-	})
-	require.NoError(t, err)
-
-	msg, err := service.NewDIDCommMsg(requestBytes)
-	require.NoError(t, err)
-
-	conn, err := svc.connectionRecord(msg)
+	conn, err := svc.connectionRecord(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 
 	// invalid type
-	requestBytes, err = json.Marshal(&Request{
+	requestBytes, err := json.Marshal(&Request{
 		Type: "invalid-type",
 	})
 	require.NoError(t, err)
-	msg, err = service.NewDIDCommMsg(requestBytes)
+	msg, err := service.NewDIDCommMsg(requestBytes)
 	require.NoError(t, err)
 
 	_, err = svc.connectionRecord(msg)
@@ -968,7 +791,7 @@ func TestConnectionRecord(t *testing.T) {
 }
 
 func TestInvitationRecord(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
 	requestBytes, err := json.Marshal(&Request{
@@ -1018,22 +841,10 @@ func TestInvitationRecord(t *testing.T) {
 }
 
 func TestRequestRecord(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
-	requestBytes, err := json.Marshal(&Request{
-		Type: RequestMsgType,
-		ID:   "id",
-		Connection: &Connection{
-			DID: "xyz",
-		},
-	})
-	require.NoError(t, err)
-
-	msg, err := service.NewDIDCommMsg(requestBytes)
-	require.NoError(t, err)
-
-	conn, err := svc.requestMsgRecord(msg)
+	conn, err := svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 
@@ -1041,30 +852,13 @@ func TestRequestRecord(t *testing.T) {
 	svc.connectionStore = NewConnectionRecorder(
 		&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}, nil)
 
-	requestBytes, err = json.Marshal(&Request{
-		Type: RequestMsgType,
-		ID:   "id",
-		Connection: &Connection{
-			DID: "xyz",
-		},
-	})
-	require.NoError(t, err)
-
-	msg, err = service.NewDIDCommMsg(requestBytes)
-	require.NoError(t, err)
-
-	_, err = svc.requestMsgRecord(msg)
+	_, err = svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "save connection record")
 }
 
 func TestEventsSuccessWithAsync(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
-	require.NoError(t, err)
-
-	prov := protocol.MockProvider{}
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-	newDidDoc, err := ctx.didCreator.Create(testMethod)
+	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
 	actionCh := make(chan service.DIDCommAction, 10)
@@ -1094,22 +888,7 @@ func TestEventsSuccessWithAsync(t *testing.T) {
 		}
 	}()
 
-	id := randomString()
-	requestBytes, err := json.Marshal(&Request{
-		Type: RequestMsgType,
-		ID:   id,
-		Connection: &Connection{
-			DID:    "xyz",
-			DIDDoc: newDidDoc,
-		},
-	})
-	require.NoError(t, err)
-
-	// send invite
-	didMsg, err := service.NewDIDCommMsg(requestBytes)
-	require.NoError(t, err)
-
-	_, err = svc.HandleInbound(didMsg)
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
 	require.NoError(t, err)
 
 	select {
@@ -1120,33 +899,45 @@ func TestEventsSuccessWithAsync(t *testing.T) {
 }
 
 func TestEventTransientData(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
-	require.NoError(t, err)
+	t.Run("event transient data - success", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		require.NoError(t, err)
 
-	// success case
-	connID := generateRandomID()
-	msg := &message{
-		ConnRecord: &ConnectionRecord{ConnectionID: connID},
-	}
-	err = svc.storeEventTransientData(msg)
-	require.NoError(t, err)
+		connID := generateRandomID()
 
-	retrievedMsg, err := svc.getEventTransientData(connID)
-	require.NoError(t, err)
-	require.Equal(t, msg, retrievedMsg)
+		msg := &message{
+			ConnRecord: &ConnectionRecord{ConnectionID: connID},
+		}
+		err = svc.storeEventTransientData(msg)
+		require.NoError(t, err)
 
-	// data not found
-	err = svc.AcceptExchangeRequest(generateRandomID())
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "accept exchange request : get transient data : data not found")
+		retrievedMsg, err := svc.getEventTransientData(connID)
+		require.NoError(t, err)
+		require.Equal(t, msg, retrievedMsg)
+	})
 
-	// db get invalid data
-	err = svc.connectionStore.transientStore.Put(eventTransientDataKey(connID), []byte("invalid data"))
-	require.NoError(t, err)
+	t.Run("event transient data - data not found", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		require.NoError(t, err)
 
-	_, err = svc.getEventTransientData(connID)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "get transient data : invalid character")
+		err = svc.AcceptExchangeRequest(generateRandomID())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "accept exchange request : get transient data : data not found")
+	})
+
+	t.Run("event transient data - invalid data", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		connID := generateRandomID()
+
+		err = svc.connectionStore.transientStore.Put(eventTransientDataKey(connID), []byte("invalid data"))
+		require.NoError(t, err)
+
+		_, err = svc.getEventTransientData(connID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get transient data : invalid character")
+	})
 }
 
 func TestNextState(t *testing.T) {
@@ -1166,4 +957,25 @@ func TestNextState(t *testing.T) {
 		require.NoError(t, errState)
 		require.Equal(t, stateNameRequested, s.Name())
 	})
+}
+
+func generateRequestMsgPayload(t *testing.T, prov provider, id string) *service.DIDCommMsg {
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	newDidDoc, err := ctx.didCreator.Create(testMethod)
+	require.NoError(t, err)
+
+	requestBytes, err := json.Marshal(&Request{
+		Type: RequestMsgType,
+		ID:   id,
+		Connection: &Connection{
+			DID:    "xyz",
+			DIDDoc: newDidDoc,
+		},
+	})
+	require.NoError(t, err)
+
+	didMsg, err := service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	return didMsg
 }
