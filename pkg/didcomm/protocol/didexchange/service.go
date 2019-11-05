@@ -79,7 +79,6 @@ type Service struct {
 	service.Action
 	service.Message
 	ctx             *context
-	transientStore  storage.Store
 	callbackChannel chan *message
 	connectionStore *ConnectionRecorder
 }
@@ -114,7 +113,6 @@ func New(didMaker didcreator.Creator, prov provider) (*Service, error) {
 			connectionStore:    connRecorder,
 			didStore:           prov.DIDStore(),
 		},
-		transientStore: transientStore,
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan *message, 10),
 		connectionStore: connRecorder,
@@ -367,11 +365,11 @@ func (s *Service) storeEventTransientData(msg *message) error {
 		return fmt.Errorf("store transient data : %w", err)
 	}
 
-	return s.transientStore.Put(eventTransientDataKey(msg.ConnRecord.ConnectionID), bytes)
+	return s.connectionStore.transientStore.Put(eventTransientDataKey(msg.ConnRecord.ConnectionID), bytes)
 }
 
 func (s *Service) getEventTransientData(connectionID string) (*message, error) {
-	val, err := s.transientStore.Get(eventTransientDataKey(connectionID))
+	val, err := s.connectionStore.transientStore.Get(eventTransientDataKey(connectionID))
 	if err != nil {
 		return nil, fmt.Errorf("get transient data : %w", err)
 	}

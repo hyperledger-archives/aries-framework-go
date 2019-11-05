@@ -269,9 +269,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("must not start with Response msg", func(t *testing.T) {
 		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		mockStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
-		require.NoError(t, err)
-		s := &Service{ctx: ctx, transientStore: mockStore}
+		s := &Service{ctx: ctx}
 		response, err := json.Marshal(
 			&Response{
 				Type: ResponseMsgType,
@@ -285,9 +283,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("must not start with ACK msg", func(t *testing.T) {
 		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		mockStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
-		require.NoError(t, err)
-		s := &Service{ctx: ctx, transientStore: mockStore}
+		s := &Service{ctx: ctx}
 		ack, err := json.Marshal(
 			&model.Ack{
 				Type: AckMsgType,
@@ -369,17 +365,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("error when updating store on first state transition", func(t *testing.T) {
 		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		s := &Service{
-			ctx: ctx,
-			transientStore: &mockStore{
-				get: func(string) ([]byte, error) {
-					return nil, storage.ErrDataNotFound
-				},
-				put: func(string, []byte) error {
-					return errors.New("test")
-				},
-			},
-		}
+		s := &Service{ctx: ctx}
 		request, err := json.Marshal(
 			&Request{
 				Type:  RequestMsgType,
@@ -392,24 +378,9 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("error when updating store on followup state transition", func(t *testing.T) {
-		counter := 0
 		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		s := &Service{
-			ctx: ctx,
-			transientStore: &mockStore{
-				get: func(string) ([]byte, error) {
-					return nil, storage.ErrDataNotFound
-				},
-				put: func(string, []byte) error {
-					counter++
-					if counter > 1 {
-						return errors.New("test")
-					}
-					return nil
-				},
-			},
-		}
+		s := &Service{ctx: ctx}
 		request, err := json.Marshal(
 			&Request{
 				Type:  RequestMsgType,
@@ -425,9 +396,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	t.Run("error on invalid msg type", func(t *testing.T) {
 		ctx := &context{outboundDispatcher: newMockOutboundDispatcher(),
 			didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-		mockStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
-		require.NoError(t, err)
-		s := &Service{ctx: ctx, transientStore: mockStore}
+		s := &Service{ctx: ctx}
 		request, err := json.Marshal(
 			&Request{
 				Type:  "INVALID",
@@ -468,8 +437,8 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
 		require.NoError(t, err)
 
-		svc.transientStore = &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
-		svc.connectionStore = NewConnectionRecorder(svc.transientStore, nil)
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
+		svc.connectionStore = NewConnectionRecorder(transientStore, nil)
 
 		requestBytes, err := json.Marshal(&Request{
 			Type: RequestMsgType,
@@ -491,11 +460,10 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 }
 
 func TestService_Accept(t *testing.T) {
-	dbstore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
-	require.NoError(t, err)
-
-	ctx := context{outboundDispatcher: newMockOutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
-	s := &Service{ctx: &ctx, transientStore: dbstore}
+	ctx := context{
+		outboundDispatcher: newMockOutboundDispatcher(),
+		didCreator:         &mockdid.MockDIDCreator{Doc: getMockDID()}}
+	s := &Service{ctx: &ctx}
 
 	resp := s.Accept("https://didcomm.org/didexchange/1.0/invitation")
 	require.Equal(t, true, resp)
@@ -878,8 +846,9 @@ func TestServiceErrors(t *testing.T) {
 
 	// invalid message type
 	msg.Header.Type = "invalid"
-	svc.transientStore, err = mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
-	svc.connectionStore = NewConnectionRecorder(svc.transientStore, nil)
+	transientStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
+	require.NoError(t, err)
+	svc.connectionStore = NewConnectionRecorder(transientStore, nil)
 	require.NoError(t, err)
 	_, err = svc.HandleInbound(msg)
 	require.Error(t, err)
@@ -1172,7 +1141,7 @@ func TestEventTransientData(t *testing.T) {
 	require.Contains(t, err.Error(), "accept exchange request : get transient data : data not found")
 
 	// db get invalid data
-	err = svc.transientStore.Put(eventTransientDataKey(connID), []byte("invalid data"))
+	err = svc.connectionStore.transientStore.Put(eventTransientDataKey(connID), []byte("invalid data"))
 	require.NoError(t, err)
 
 	_, err = svc.getEventTransientData(connID)
