@@ -294,7 +294,6 @@ type credentialOpts struct {
 	decoders               []CredentialDecoder
 	template               CredentialTemplate
 	issuerPublicKeyFetcher PublicKeyFetcher
-	jwtDecoding            jwtDecoding
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
@@ -330,19 +329,10 @@ func WithTemplate(template CredentialTemplate) CredentialOpt {
 	}
 }
 
-// WithJWSDecoding indicates that Verifiable Credential should be decoded from JWS using
-// the public key fetcher.
-func WithJWSDecoding(fetcher PublicKeyFetcher) CredentialOpt {
+// WithPublicKeyFetcher set public key fetcher used when decoding from JWS.
+func WithPublicKeyFetcher(fetcher PublicKeyFetcher) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.issuerPublicKeyFetcher = fetcher
-		opts.jwtDecoding = jwsDecoding
-	}
-}
-
-// WithUnsecuredJWTDecoding indicates that Verifiable Credential should be decoded from unsecured JWT.
-func WithUnsecuredJWTDecoding() CredentialOpt {
-	return func(opts *credentialOpts) {
-		opts.jwtDecoding = unsecuredJWTDecoding
 	}
 }
 
@@ -541,23 +531,26 @@ func (vc *Credential) fill(raw *rawCredential) error {
 	return nil
 }
 
-// TODO Auto-detection for decoding (https://github.com/hyperledger/aries-framework-go/issues/514)
 func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, error) {
-	switch crOpts.jwtDecoding {
-	case jwsDecoding:
+	if isJWS(vcData) {
+		if crOpts.issuerPublicKeyFetcher == nil {
+			return nil, errors.New("public key fetcher is not defined")
+		}
 		vcDecodedBytes, err := decodeCredJWS(vcData, crOpts.issuerPublicKeyFetcher)
 		if err != nil {
 			return nil, fmt.Errorf("JWS decoding: %w", err)
 		}
 		return vcDecodedBytes, nil
+	}
 
-	case unsecuredJWTDecoding:
+	if isJWTUnsecured(vcData) {
 		vcDecodedBytes, err := decodeCredJWTUnsecured(vcData)
 		if err != nil {
 			return nil, fmt.Errorf("unsecured JWT decoding: %w", err)
 		}
 		return vcDecodedBytes, nil
 	}
+
 	return vcData, nil
 }
 
@@ -578,7 +571,6 @@ func defaultCredentialOpts() *credentialOpts {
 		disabledCustomSchema: false,
 		decoders:             []CredentialDecoder{},
 		template:             func() *Credential { return &Credential{} },
-		jwtDecoding:          noJwtDecoding,
 	}
 }
 

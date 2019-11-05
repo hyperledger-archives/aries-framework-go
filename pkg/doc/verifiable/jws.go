@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/square/go-jose/v3"
 	"github.com/square/go-jose/v3/jwt"
@@ -58,4 +61,23 @@ func verifyJWTSignature(token *jwt.JSONWebToken, fetcher PublicKeyFetcher, issue
 		return fmt.Errorf("verify JWT signature: %w", err)
 	}
 	return nil
+}
+
+func isJWS(data []byte) bool {
+	parts := strings.Split(string(data), ".")
+
+	isValidJSON := func(s string) bool {
+		b, err := base64.RawURLEncoding.DecodeString(s)
+		if err != nil {
+			return false
+		}
+		var j map[string]interface{}
+		err = json.Unmarshal(b, &j)
+		return err == nil
+	}
+
+	return len(parts) == 3 &&
+		isValidJSON(parts[0]) &&
+		isValidJSON(parts[1]) &&
+		parts[2] != ""
 }

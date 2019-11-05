@@ -13,20 +13,6 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 )
 
-// jwtDecoding defines if to decode VC from JWT
-type jwtDecoding int
-
-const (
-	// noJwtDecoding not a JWT
-	noJwtDecoding jwtDecoding = iota
-
-	// jwsDecoding indicated to unmarshal from Signed Token
-	jwsDecoding
-
-	// unsecuredJWTDecoding indicates to unmarshal from Unsecured Token
-	unsecuredJWTDecoding
-)
-
 // JWSAlgorithm defines JWT signature algorithms of Verifiable Credential
 type JWSAlgorithm int
 

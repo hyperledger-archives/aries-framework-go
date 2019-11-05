@@ -235,26 +235,17 @@ type rawPresentation struct {
 // presentationOpts holds options for the Verifiable Presentation decoding
 type presentationOpts struct {
 	holderPublicKeyFetcher PublicKeyFetcher
-	jwtDecoding            jwtDecoding
 	skipEmbeddedProofCheck bool
 }
 
 // PresentationOpt is the Verifiable Presentation decoding option
 type PresentationOpt func(opts *presentationOpts)
 
-// WithPresJWSDecoding indicates that Verifiable Presentation should be decoded from JWS using
+// WithPresPublicKeyFetcher indicates that Verifiable Presentation should be decoded from JWS using
 // the public key fetcher.
-func WithPresJWSDecoding(fetcher PublicKeyFetcher) PresentationOpt {
+func WithPresPublicKeyFetcher(fetcher PublicKeyFetcher) PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.holderPublicKeyFetcher = fetcher
-		opts.jwtDecoding = jwsDecoding
-	}
-}
-
-// WithPresUnsecuredJWTDecoding indicates that Verifiable Presentation should be decoded from unsecured JWT.
-func WithPresUnsecuredJWTDecoding() PresentationOpt {
-	return func(opts *presentationOpts) {
-		opts.jwtDecoding = unsecuredJWTDecoding
 	}
 }
 
@@ -319,15 +310,18 @@ func validatePresentation(data []byte) error {
 
 // TODO Auto-detection for decoding (https://github.com/hyperledger/aries-framework-go/issues/514)
 func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *rawPresentation, error) {
-	switch vpOpts.jwtDecoding {
-	case jwsDecoding:
+	if isJWS(vpData) {
+		if vpOpts.holderPublicKeyFetcher == nil {
+			return nil, nil, errors.New("public key fetcher is not defined")
+		}
 		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpData, vpOpts.holderPublicKeyFetcher)
 		if err != nil {
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from JWS: %w", err)
 		}
 		return vcDataFromJwt, rawCred, nil
+	}
 
-	case unsecuredJWTDecoding:
+	if isJWTUnsecured(vpData) {
 		rawBytes, rawCred, err := decodeVPFromUnsecuredJWT(vpData)
 		if err != nil {
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT: %w", err)
@@ -350,7 +344,5 @@ func decodeVPFromJSON(vpData []byte) ([]byte, *rawPresentation, error) {
 }
 
 func defaultPresentationOpts() *presentationOpts {
-	return &presentationOpts{
-		jwtDecoding: noJwtDecoding,
-	}
+	return &presentationOpts{}
 }
