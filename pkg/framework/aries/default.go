@@ -8,6 +8,7 @@ package aries
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/legacy/authcrypt"
@@ -15,10 +16,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
+	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/factory/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didstore"
@@ -36,11 +36,6 @@ var (
 	defaultInboundPort = ":8090"
 )
 
-// transportProviderFactory provides default Outbound Transport provider factory
-func transportProviderFactory() api.TransportProviderFactory {
-	return transport.NewProviderFactory()
-}
-
 func storeProvider() (storage.Provider, error) {
 	storeProv, err := leveldb.NewProvider(dbPath)
 	if err != nil {
@@ -50,7 +45,7 @@ func storeProvider() (storage.Provider, error) {
 }
 
 func inboundTransport() (didcommtrans.InboundTransport, error) {
-	inbound, err := http.NewInbound(defaultInboundPort, "")
+	inbound, err := arieshttp.NewInbound(defaultInboundPort, "")
 	if err != nil {
 		return nil, fmt.Errorf("http inbound transport initialization failed: %w", err)
 	}
@@ -60,9 +55,12 @@ func inboundTransport() (didcommtrans.InboundTransport, error) {
 // defFrameworkOpts provides default framework options
 func defFrameworkOpts(frameworkOpts *Aries) error {
 	// TODO Move default providers to the sub-package #209
-	// protocol provider factory
-	if frameworkOpts.transport == nil {
-		frameworkOpts.transport = transportProviderFactory()
+	if frameworkOpts.outboundTransport == nil {
+		outbound, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
+		if err != nil {
+			return fmt.Errorf("http outbound transport initialization failed: %w", err)
+		}
+		frameworkOpts.outboundTransport = outbound
 	}
 
 	if frameworkOpts.storeProvider == nil {
@@ -94,7 +92,15 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.didStore = didstore.New(didstore.WithDidMethod(peerDidStore))
 	}
 
-	newExchangeSvc := func(prv api.Provider) (dispatcher.Service, error) {
+	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc())
+
+	setAdditionalDefaultOpts(frameworkOpts)
+
+	return nil
+}
+
+func newExchangeSvc() api.ProtocolSvcCreator {
+	return func(prv api.Provider) (dispatcher.Service, error) {
 		dc, err := didcreator.New(prv,
 			didcreator.WithDidMethod(peer.NewDIDCreator()),
 			didcreator.WithCreatorServiceType("did-communication"),
@@ -104,11 +110,6 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		}
 		return didexchange.New(dc, prv)
 	}
-	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc)
-
-	setAdditionalDefaultOpts(frameworkOpts)
-
-	return nil
 }
 
 func setAdditionalDefaultOpts(frameworkOpts *Aries) {

@@ -140,14 +140,6 @@ func TestFramework(t *testing.T) {
 		require.Contains(t, err.Error(), "create outbound dispatcher error")
 	})
 
-	t.Run("test framework new - failed to create the context : error with user provided transport ", func(t *testing.T) { //nolint:lll
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-		dbPath = path
-		_, err := New(WithTransportProviderFactory(&mockTransportProviderFactory{err: errors.New("outbound transport init failed")})) //nolint:lll
-		require.Error(t, err)
-	})
-
 	// framework new - success
 	t.Run("test DID resolver - with user provided resolver", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
@@ -408,17 +400,6 @@ func TestFramework(t *testing.T) {
 		require.NotEmpty(t, aries)
 		require.Equal(t, s, aries.transientStoreProvider)
 	})
-}
-
-type mockTransportProviderFactory struct {
-	err error
-}
-
-func (f *mockTransportProviderFactory) CreateOutboundTransport() (transport.OutboundTransport, error) {
-	if f.err != nil {
-		return nil, f.err
-	}
-	return didcomm.NewMockOutboundTransport("success"), nil
 }
 
 type mockDidMethod struct {
