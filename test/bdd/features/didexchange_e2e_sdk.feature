@@ -18,6 +18,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using SDK
     And   "Bob" registers to receive notification for post state event "completed"
     And   "Alice" creates invitation
     And   "Bob" receives invitation from "Alice"
+    And   "Alice" approves did exchange request
     And   "Alice" waits for post state event "completed"
     And   "Bob" waits for post state event "completed"
     And   "Alice" retrieves connection record and validates that connection state is "completed"

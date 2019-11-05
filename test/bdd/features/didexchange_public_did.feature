@@ -21,6 +21,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     And   "Lisa" registers to receive notification for post state event "completed"
     And   "Maria" creates invitation with public DID
     And   "Lisa" receives invitation from "Maria"
+    And   "Maria" approves did exchange request
     And   "Maria" waits for post state event "completed"
     And   "Lisa" waits for post state event "completed"
     And   "Maria" retrieves connection record and validates that connection state is "completed"
