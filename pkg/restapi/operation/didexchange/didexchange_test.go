@@ -243,17 +243,12 @@ func TestOperation_AcceptInvitation(t *testing.T) {
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")), operationID+"/1111/accept-invitation")
 	require.NoError(t, err)
 
-	response := models.AcceptInvitationResponse{}
+	response := models.GenericError{}
 	err = json.Unmarshal(buf.Bytes(), &response)
 	require.NoError(t, err)
 
-	// verify response
 	require.NotEmpty(t, response)
-	require.NotEmpty(t, response.ConnectionID)
-	require.NotEmpty(t, response.CreateTime)
-	require.NotEmpty(t, response.UpdateTime)
-	require.NotEmpty(t, response.RequestID)
-	require.NotEmpty(t, response.DID)
+	require.Equal(t, "please use receive invitation API to save and approve invitation", response.Body.Message)
 }
 
 func TestOperation_AcceptExchangeRequest(t *testing.T) {

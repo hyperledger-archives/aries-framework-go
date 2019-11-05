@@ -13,7 +13,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/gorilla/mux"
 
@@ -163,23 +162,7 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 	params := mux.Vars(req)
 	logger.Debugf("Accepting connection invitation for id[%s]", params["id"])
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/550 Support for AcceptInvitation API
-	response := models.AcceptInvitationResponse{
-		ConnectionID:  params["id"],
-		DID:           "TAaW9Dmxa93B8e5x6iLwFJ",
-		State:         "requested",
-		CreateTime:    time.Now(),
-		UpdateTime:    time.Now(),
-		Accept:        "auto",
-		Initiator:     "external",
-		InvitationKey: "none",
-		InviterLabel:  "other party",
-		Mode:          "none",
-		RequestID:     "678ad4b6-4e2b-40a1-804e-8ba504945e26",
-		RoutingState:  "none",
-	}
-
-	c.writeResponse(rw, response)
+	c.writeGenericError(rw, errors.New("please use receive invitation API to save and approve invitation"))
 }
 
 // AcceptExchangeRequest swagger:route POST /connections/{id}/accept-request did-exchange acceptRequest
