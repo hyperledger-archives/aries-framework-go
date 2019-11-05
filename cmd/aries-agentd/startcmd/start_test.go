@@ -165,7 +165,7 @@ func validateRequests(t *testing.T, testHostURL, testInboundHostURL string) {
 				strings.NewReader(`
 							{
 								"@id": "5678876542345",
-								"@type": "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation"
+								"@type": "https://didcomm.org/didexchange/1.0/invitation"
 							}`),
 				"application/didcomm-envelope-enc"),
 			expectedStatus:     http.StatusInternalServerError,

@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/common/metadata"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -24,7 +23,7 @@ const (
 	// Introduce protocol name
 	Introduce = "introduce"
 	// IntroduceSpec defines the introduce spec
-	IntroduceSpec = metadata.AriesCommunityDID + ";spec/introduce/1.0/"
+	IntroduceSpec = "https://didcomm.org/introduce/1.0/"
 	// SkipProposalMsgType defines the skip proposal (the introducer has a public invitation)
 	// skip proposal is not part of protocol specification (internal usage)
 	SkipProposalMsgType = "skip/proposal"

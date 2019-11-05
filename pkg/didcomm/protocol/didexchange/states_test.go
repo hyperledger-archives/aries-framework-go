@@ -658,7 +658,7 @@ func TestVerifySignature(t *testing.T) {
 		require.NoError(t, err)
 
 		cs := &ConnectionSignature{
-			Type:       "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single",
+			Type:       "https://didcomm.org/signature/1.0/ed25519Sha512_single",
 			SignedData: base64.URLEncoding.EncodeToString(concatenateSignData),
 			SignVerKey: base64.URLEncoding.EncodeToString(base58.Decode(pubKey)),
 			Signature:  base64.URLEncoding.EncodeToString(signature),
@@ -678,7 +678,7 @@ func TestVerifySignature(t *testing.T) {
 		require.NoError(t, err)
 
 		cs := &ConnectionSignature{
-			Type:       "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/signature/1.0/ed25519Sha512_single",
+			Type:       "https://didcomm.org/signature/1.0/ed25519Sha512_single",
 			SignedData: base64.URLEncoding.EncodeToString(prefix),
 			SignVerKey: base64.URLEncoding.EncodeToString(base58.Decode(pubKey)),
 			Signature:  base64.URLEncoding.EncodeToString(signature),

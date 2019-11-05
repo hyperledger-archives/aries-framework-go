@@ -109,7 +109,7 @@ func TestOperation_ReceiveInvitation(t *testing.T) {
 		"recipientKeys":["FDmegH8upiNquathbHZiGBZKwcudNfNWPeGQFBt8eNNi"],
 		"@id":"a35c0ac6-4fc3-46af-a072-c1036d036057",
 		"label":"agent",
-		"@type":"did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation"}`)
+		"@type":"https://didcomm.org/didexchange/1.0/invitation"}`)
 
 	handler := getHandler(t, receiveInvitationPath, nil)
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
@@ -145,7 +145,7 @@ func TestOperation_QueryConnectionByParams(t *testing.T) {
 		"recipientKeys":["FDmegH8upiNquathbHZiGBZKwcudNfNWPeGQFBt8eNNi"],
 		"@id":"a35c0ac6-4fc3-46af-a072-c1036d036057",
 		"label":"agent",
-		"@type":"did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/didexchange/1.0/invitation"}`)
+		"@type":"https://didcomm.org/didexchange/1.0/invitation"}`)
 
 	handler := getHandler(t, receiveInvitationPath, nil)
 	_, err := getResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
@@ -217,7 +217,7 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
 
 	// Failure in service
 	var jsonStr = []byte(`{
-    	"@type": "did:sov:BzCbsNYhMrjHiqZDTUASHg;spec/connections/1.0/invitation",
+    	"@type": "https://didcomm.org/connections/1.0/invitation",
     	"@id": "4e8650d9-6cc9-491e-b00e-7bf6cb5858fc",
     	"serviceEndpoint": "http://ip10-0-46-4-blikjbs9psqg8vrg4p10-8020.direct.play-with-von.vonx.io",
     	"label": "Faber Agent",
