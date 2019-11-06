@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -20,24 +22,24 @@ func TestNewPresentationFromJWS(t *testing.T) {
 
 	t.Run("Decoding presentation from JWS", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, false)
-		vcFromJWT, err := NewPresentation(jws, WithPresPublicKeyFetcher(keyFetcher))
+		vpFromJWT, err := NewPresentation(jws, WithPresPublicKeyFetcher(keyFetcher))
 		require.NoError(t, err)
 
-		vc, err := NewPresentation(vpBytes)
+		vp, err := NewPresentation(vpBytes)
 		require.NoError(t, err)
 
-		require.Equal(t, vc, vcFromJWT)
+		require.Equal(t, vp, vpFromJWT)
 	})
 
 	t.Run("Decoding presentation from JWS with minimized fields of \"vp\" claim", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, true)
-		vcFromJWT, err := NewPresentation(jws, WithPresPublicKeyFetcher(keyFetcher))
+		vpFromJWT, err := NewPresentation(jws, WithPresPublicKeyFetcher(keyFetcher))
 		require.NoError(t, err)
 
-		vc, err := NewPresentation(vpBytes)
+		vp, err := NewPresentation(vpBytes)
 		require.NoError(t, err)
 
-		require.Equal(t, vc, vcFromJWT)
+		require.Equal(t, vp, vpFromJWT)
 	})
 
 	t.Run("Failed JWT signature verification of presentation", func(t *testing.T) {
@@ -77,29 +79,53 @@ func TestNewPresentationFromJWS(t *testing.T) {
 	})
 }
 
+func TestNewPresentationFromJWS_EdDSA(t *testing.T) {
+	vpBytes := []byte(validPresentation)
+
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	vp, err := NewPresentation(vpBytes)
+	require.NoError(t, err)
+
+	// marshal presentation into JWS using EdDSA (Ed25519 signature algorithm).
+	jwtClaims := vp.JWTClaims([]string{}, false)
+	vpJWSStr, err := jwtClaims.MarshalJWS(EdDSA, privKey, vp.Holder+"#keys-"+keyID)
+	require.NoError(t, err)
+
+	// unmarshal presentation from JWS
+	vpFromJWS, err := NewPresentation(
+		[]byte(vpJWSStr),
+		WithPresPublicKeyFetcher(SingleKey(pubKey)))
+	require.NoError(t, err)
+
+	// unmarshalled presentation must be the same as original one
+	require.Equal(t, vp, vpFromJWS)
+}
+
 func TestNewPresentationFromUnsecuredJWT(t *testing.T) {
 	vpBytes := []byte(validPresentation)
 
 	t.Run("Decoding presentation from unsecured JWT", func(t *testing.T) {
-		vcFromJWT, err := NewPresentation(createPresUnsecuredJWT(t, vpBytes, false))
+		vpFromJWT, err := NewPresentation(createPresUnsecuredJWT(t, vpBytes, false))
 
 		require.NoError(t, err)
 
-		vc, err := NewPresentation(vpBytes)
+		vp, err := NewPresentation(vpBytes)
 		require.NoError(t, err)
 
-		require.Equal(t, vc, vcFromJWT)
+		require.Equal(t, vp, vpFromJWT)
 	})
 
 	t.Run("Decoding presentation from unsecured JWT with minimized fields of \"vp\" claim", func(t *testing.T) {
-		vcFromJWT, err := NewPresentation(createPresUnsecuredJWT(t, vpBytes, true))
+		vpFromJWT, err := NewPresentation(createPresUnsecuredJWT(t, vpBytes, true))
 
 		require.NoError(t, err)
 
-		vc, err := NewPresentation(vpBytes)
+		vp, err := NewPresentation(vpBytes)
 		require.NoError(t, err)
 
-		require.Equal(t, vc, vcFromJWT)
+		require.Equal(t, vp, vpFromJWT)
 	})
 }
 
