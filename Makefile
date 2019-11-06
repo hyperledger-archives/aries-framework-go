@@ -71,14 +71,14 @@ generate-openapi-spec: clean
 	scripts/generate-openapi-spec.sh
 
 .PHONY: generate-openapi-demo-specs
-generate-openapi-demo-specs: clean generate-openapi-spec agent-docker
+generate-openapi-demo-specs: clean generate-openapi-spec agent-docker sample-webhook-docker
 	@echo "Generate demo agent controller API specifications using Open API"
 	@SPEC_PATH=${OPENAPI_SPEC_PATH} OPENAPI_DEMO_PATH=test/bdd/fixtures/demo/openapi \
     	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
     	scripts/generate-openapi-demo-specs.sh
 
 .PHONY: run-openapi-demo
-run-openapi-demo: generate-openapi-demo-specs sample-webhook-docker
+run-openapi-demo: generate-openapi-demo-specs
 	@echo "Starting demo agent containers"
 	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi AGENT_COMPOSE_PATH=test/bdd/fixtures/agent  \
         scripts/run_openapi_demo.sh
