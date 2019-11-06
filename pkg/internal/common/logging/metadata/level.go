@@ -45,6 +45,7 @@ func (l *moduleLevels) GetLevel(module string) Level {
 			return defaultLogLevel
 		}
 	}
+
 	return level
 }
 

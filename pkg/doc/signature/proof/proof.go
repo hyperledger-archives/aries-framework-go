@@ -69,6 +69,7 @@ func stringEntry(entry interface{}) string {
 	if entry == nil {
 		return ""
 	}
+
 	return entry.(string)
 }
 
@@ -77,9 +78,11 @@ func (p *Proof) JSONLdObject() map[string]interface{} {
 	emap := make(map[string]interface{})
 	emap[jsonldType] = p.Type
 	emap[jsonldCreator] = p.Creator
+
 	if p.Created != nil {
 		emap[jsonldCreated] = p.Created.Format(time.RFC3339)
 	}
+
 	emap[jsonldProofValue] = base64.RawURLEncoding.EncodeToString(p.ProofValue)
 	emap[jsonldDomain] = p.Domain
 	emap[jsonldNonce] = base64.RawURLEncoding.EncodeToString(p.Nonce)

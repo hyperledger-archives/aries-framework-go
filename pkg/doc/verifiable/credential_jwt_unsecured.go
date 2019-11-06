@@ -15,6 +15,7 @@ func (jcc *JWTCredClaims) MarshalUnsecuredJWT() (string, error) {
 	headers := map[string]string{
 		"alg": "none",
 	}
+
 	return marshalUnsecuredJWT(headers, jcc)
 }
 
@@ -25,6 +26,7 @@ func unmarshalUnsecuredJWTClaims(rawJwt []byte) (*JWTCredClaims, error) {
 	}
 
 	credClaims := new(JWTCredClaims)
+
 	err = json.Unmarshal(bytesClaim, credClaims)
 	if err != nil {
 		return nil, fmt.Errorf("parse JWT claims: %w", err)

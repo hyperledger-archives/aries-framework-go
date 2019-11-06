@@ -50,19 +50,24 @@ func (n HTTPNotifier) Notify(topic string, message []byte) error {
 	if len(message) == 0 {
 		return fmt.Errorf(emptyMessageErrMsg)
 	}
+
 	var allErrs error
+
 	for _, webhookURL := range n.WebhookURLs {
 		err := notify(fmt.Sprintf("%s%s%s", webhookURL, "/", topic), message)
 		allErrs = appendError(allErrs, err)
 	}
+
 	return allErrs
 }
 
 func notify(destination string, message []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), notificationSendTimeout)
 	defer cancel()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, destination,
 		bytes.NewBuffer(message))
+
 	if err != nil {
 		return fmt.Errorf("failed to create new http post request for %s: %s", destination, err)
 	}
@@ -78,6 +83,7 @@ func notify(destination string, message []byte) error {
 		logger.Infof("Notification sent to %s successfully. \n", destination)
 		return nil
 	}
+
 	return fmt.Errorf("notification was sent to %s, but %s was received",
 		destination, resp.Status)
 }
@@ -93,5 +99,6 @@ func appendError(errToAppendTo, err error) error {
 	if errToAppendTo == nil {
 		return err
 	}
+
 	return fmt.Errorf("%v;%v", errToAppendTo, err)
 }

@@ -116,8 +116,10 @@ func TestService_handle(t *testing.T) {
 
 func TestService_New(t *testing.T) {
 	const errMsg = "test err"
+
 	store := mockstore.NewMockStoreProvider()
 	store.ErrOpenStoreHandle = errors.New(errMsg)
+
 	svc, err := New(&protocol.MockProvider{StoreProvider: store})
 	require.EqualError(t, err, "test err")
 	require.Nil(t, svc)
@@ -125,12 +127,16 @@ func TestService_New(t *testing.T) {
 
 func TestService_abandon(t *testing.T) {
 	const errMsg = "test err"
+
 	store := mockstore.NewMockStoreProvider()
 	store.Store.ErrPut = errors.New(errMsg)
+
 	svc, err := New(&protocol.MockProvider{StoreProvider: store})
 	require.NotNil(t, svc)
 	require.NoError(t, err)
+
 	const errStr = "save abandoning sate: " + errMsg
+
 	require.EqualError(t, svc.abandon("ID", &service.DIDCommMsg{}, nil), errStr)
 }
 
@@ -141,6 +147,7 @@ func TestService_startInternalListener(t *testing.T) {
 	}
 
 	done := make(chan struct{})
+
 	go func() {
 		svc.startInternalListener()
 		close(done)
@@ -160,6 +167,7 @@ func TestService_startInternalListener(t *testing.T) {
 func TestService_Action(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
+
 	ch := make(chan<- service.DIDCommAction)
 
 	// by default
@@ -176,7 +184,9 @@ func TestService_Action(t *testing.T) {
 
 func TestService_Message(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
+
 	require.NoError(t, err)
+
 	ch := make(chan<- service.StateMsg)
 
 	// by default
@@ -250,12 +260,16 @@ func TestService_HandleOutbound(t *testing.T) {
 func TestService_HandleInboundStop(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
+
 	msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 	require.NoError(t, err)
+
 	aCh := make(chan service.DIDCommAction)
 	require.NoError(t, svc.RegisterActionEvent(aCh))
+
 	sCh := make(chan service.StateMsg)
 	require.NoError(t, svc.RegisterMsgEvent(sCh))
+
 	go func() {
 		_, err := svc.HandleInbound(msg)
 		require.NoError(t, err)
@@ -725,6 +739,7 @@ func checkStateMsg(t *testing.T, ch chan service.StateMsg, sType service.StateMs
 		require.Equal(t, sType, res.Type)
 		require.Equal(t, dType, res.Msg.Header.Type)
 		require.Equal(t, stateID, res.StateID)
+
 		return
 	case <-time.After(time.Second):
 		t.Error("timeout")
@@ -736,6 +751,7 @@ func continueAction(t *testing.T, ch chan service.DIDCommAction, action string) 
 	case res := <-ch:
 		require.Equal(t, action, res.Message.Header.Type)
 		res.Continue()
+
 		return
 	case <-time.After(time.Second):
 		t.Error("timeout")
@@ -745,5 +761,6 @@ func continueAction(t *testing.T, ch chan service.DIDCommAction, action string) 
 func toBytes(t *testing.T, data interface{}) []byte {
 	src, err := json.Marshal(data)
 	require.NoError(t, err)
+
 	return src
 }

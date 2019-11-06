@@ -21,6 +21,7 @@ func (a *Action) ActionEvent() chan<- DIDCommAction {
 	a.mu.RLock()
 	e := a.event
 	a.mu.RUnlock()
+
 	return e
 }
 
@@ -41,6 +42,7 @@ func (a *Action) RegisterActionEvent(ch chan<- DIDCommAction) error {
 	}
 
 	a.event = ch
+
 	return nil
 }
 
@@ -58,5 +60,6 @@ func (a *Action) UnregisterActionEvent(ch chan<- DIDCommAction) error {
 	}
 
 	a.event = nil
+
 	return nil
 }

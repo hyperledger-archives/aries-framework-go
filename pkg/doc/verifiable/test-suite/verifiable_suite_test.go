@@ -28,6 +28,7 @@ var logger = log.New("aries-framework/doc/verifiable/test-suite")
 
 func main() {
 	inputFile := os.Args[len(os.Args)-1]
+
 	vcBytes, readErr := ioutil.ReadFile(inputFile) // nolint:gosec
 	if readErr != nil {
 		abort("cannot open input file %s: %v", inputFile, readErr)
@@ -47,6 +48,7 @@ func main() {
 		} else {
 			encodeVCToJSON(vcBytes)
 		}
+
 		return
 	}
 
@@ -132,10 +134,12 @@ func decodeVCJWTToJSON(vcBytes []byte, publicKey interface{}) {
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
+
 	jsonBytes, err := credential.MarshalJSON()
 	if err != nil {
 		abort("failed to marshall verifiable credential to JSON: %v", err)
 	}
+
 	fmt.Println(string(jsonBytes))
 }
 
@@ -148,6 +152,7 @@ func parseKeys(packedKeys string) (private, public interface{}) {
 
 	// found the target JWK
 	decodedJwtMap := make(map[string]interface{})
+
 	err = json.Unmarshal(decodedJwt, &decodedJwtMap)
 	if err != nil {
 		abort("failed to decode JSON containing JWT keys: %v", err)
@@ -165,6 +170,7 @@ func parseKeys(packedKeys string) (private, public interface{}) {
 	}
 
 	jwk := &jose.JSONWebKey{}
+
 	err = jwk.UnmarshalJSON(jwkBytes)
 	if err != nil {
 		abort("JWK unmarshalling error: %v", err)
@@ -185,10 +191,12 @@ func encodeVCToJSON(vcBytes []byte) {
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
+
 	encoded, err := credential.MarshalJSON()
 	if err != nil {
 		abort("failed to encode credential: %v", err)
 	}
+
 	fmt.Println(string(encoded))
 }
 
@@ -197,10 +205,12 @@ func encodeVPToJSON(vcBytes []byte) {
 	if err != nil {
 		abort("failed to decode presentation: %v", err)
 	}
+
 	encoded, err := vp.MarshalJSON()
 	if err != nil {
 		abort("failed to encode presentation: %v", err)
 	}
+
 	fmt.Println(string(encoded))
 }
 

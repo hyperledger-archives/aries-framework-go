@@ -47,6 +47,7 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.I
 	if valid := validateHTTPMethod(w, r); !valid {
 		return
 	}
+
 	if valid := validatePayload(r, w); !valid {
 		return
 	}
@@ -55,16 +56,20 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.I
 	if err != nil {
 		logger.Errorf("Error reading request body: %s - returning Code: %d", err, http.StatusInternalServerError)
 		http.Error(w, "Failed to read payload", http.StatusInternalServerError)
+
 		return
 	}
+
 	unpackMsg, err := prov.Packager().UnpackMessage(body)
 	if err != nil {
 		logger.Errorf("failed to unpack msg: %s - returning Code: %d", err, http.StatusInternalServerError)
 		http.Error(w, "failed to unpack msg", http.StatusInternalServerError)
+
 		return
 	}
 
 	messageHandler := prov.InboundMessageHandler()
+
 	err = messageHandler(unpackMsg.Message)
 	if err != nil {
 		// TODO HTTP Response Codes based on errors from service https://github.com/hyperledger/aries-framework-go/issues/271
@@ -81,6 +86,7 @@ func validatePayload(r *http.Request, w http.ResponseWriter) bool {
 		http.Error(w, "Empty payload", http.StatusBadRequest)
 		return false
 	}
+
 	return true
 }
 
@@ -115,6 +121,7 @@ func NewInbound(internalAddr, externalAddr string) (*Inbound, error) {
 	if externalAddr == "" {
 		return &Inbound{externalAddr: internalAddr, server: &http.Server{Addr: internalAddr}}, nil
 	}
+
 	return &Inbound{externalAddr: externalAddr, server: &http.Server{Addr: internalAddr}}, nil
 }
 

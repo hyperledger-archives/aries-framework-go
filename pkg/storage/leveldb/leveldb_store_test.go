@@ -23,6 +23,7 @@ func setupLevelDB(t testing.TB) (string, func()) {
 	if err != nil {
 		t.Fatalf("Failed to create leveldb directory: %s", err)
 	}
+
 	return dbPath, func() {
 		err := os.RemoveAll(dbPath)
 		if err != nil {
@@ -236,10 +237,12 @@ func TestLevelDBStore(t *testing.T) {
 
 func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string) {
 	var vals []string
+
 	for itr.Next() {
 		if prefix != "" {
 			require.True(t, strings.HasPrefix(string(itr.Key()), prefix))
 		}
+
 		vals = append(vals, string(itr.Value()))
 	}
 	require.Len(t, vals, count)

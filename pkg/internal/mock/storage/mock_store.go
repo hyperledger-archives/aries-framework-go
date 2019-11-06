@@ -61,6 +61,7 @@ func (s *MockStore) Put(k string, v []byte) error {
 	if k == "" {
 		return errors.New("key is mandatory")
 	}
+
 	s.lock.Lock()
 	s.Store[k] = v
 	s.lock.Unlock()
@@ -91,11 +92,13 @@ func (s *MockStore) Iterator(start, limit string) storage.StoreIterator {
 	defer s.lock.RUnlock()
 
 	var batch [][]string
+
 	for k, v := range s.Store {
 		if strings.HasPrefix(k, start) {
 			batch = append(batch, []string{k, string(v)})
 		}
 	}
+
 	return NewMockIterator(batch)
 }
 
@@ -104,6 +107,7 @@ func NewMockIterator(batch [][]string) *MockIterator {
 	if len(batch) == 0 {
 		return &MockIterator{}
 	}
+
 	return &MockIterator{items: batch}
 }
 
@@ -133,6 +137,7 @@ func (s *MockIterator) Next() bool {
 
 	s.currentItem = s.items[s.currentIndex]
 	s.currentIndex++
+
 	return true
 }
 
@@ -153,6 +158,7 @@ func (s *MockIterator) Key() []byte {
 	if len(s.items) == 0 || len(s.currentItem) == 0 {
 		return nil
 	}
+
 	return []byte(s.currentItem[0])
 }
 
@@ -161,5 +167,6 @@ func (s *MockIterator) Value() []byte {
 	if len(s.items) == 0 || len(s.currentItem) < 1 {
 		return nil
 	}
+
 	return []byte(s.currentItem[1])
 }

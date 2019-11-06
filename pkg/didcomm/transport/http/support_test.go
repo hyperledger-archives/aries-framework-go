@@ -32,6 +32,7 @@ func addCertsToCertPool(pool *x509.CertPool) error {
 		if e != nil {
 			return fmt.Errorf("reading certificate failed: %w", e)
 		}
+
 		rawCerts = append(rawCerts, string(cert))
 	}
 
@@ -39,6 +40,7 @@ func addCertsToCertPool(pool *x509.CertPool) error {
 	for i := range certs {
 		pool.AddCert(certs[i])
 	}
+
 	return nil
 }
 
@@ -48,12 +50,14 @@ func startMockServer(handler http.Handler) net.Listener {
 	if err != nil {
 		logger.Fatalf("HTTP listener failed to start: %s", err)
 	}
+
 	go func() {
 		err := http.ServeTLS(listener, handler, certPrefix+"ec-pubCert1.pem", certPrefix+"ec-key1.pem")
 		if err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
 			logger.Fatalf("HTTP server failed to start: %s", err)
 		}
 	}()
+
 	return listener
 }
 
@@ -65,10 +69,12 @@ func (m mockHTTPHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		body, err := ioutil.ReadAll(req.Body)
 		if err != nil || string(body) == "bad" {
 			res.WriteHeader(http.StatusBadRequest)
+
 			_, err = res.Write([]byte(fmt.Sprintf("bad request: %s", body)))
 			if err != nil {
 				panic(err)
 			}
+
 			return
 		}
 	}
@@ -81,14 +87,17 @@ func (m mockHTTPHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 // decodeCerts will decode a list of pemCertsList (string) into a list of x509 certificates
 func decodeCerts(pemCertsList []string) []*x509.Certificate {
 	var certs []*x509.Certificate
+
 	for _, pemCertsString := range pemCertsList {
 		pemCerts := []byte(pemCertsString)
 		for len(pemCerts) > 0 {
 			var block *pem.Block
+
 			block, pemCerts = pem.Decode(pemCerts)
 			if block == nil {
 				break
 			}
+
 			if block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
 				continue
 			}
@@ -101,6 +110,7 @@ func decodeCerts(pemCertsList []string) []*x509.Certificate {
 			certs = append(certs, cert)
 		}
 	}
+
 	return certs
 }
 

@@ -16,12 +16,14 @@ import (
 func TestWithOutboundOpts(t *testing.T) {
 	opt := WithTimeout(1 * time.Second)
 	require.NotNil(t, opt)
+
 	clOpts := &resolverOpts{}
 	// opt.client is nil, so setting timeout should panic
 	require.Panics(t, func() { opt(clOpts) })
 
 	opt = WithTLSConfig(nil)
 	require.NotNil(t, opt)
+
 	clOpts = &resolverOpts{}
 	// opt.client is nil, so setting TLS config should panic
 	require.Panics(t, func() { opt(clOpts) })
@@ -61,6 +63,7 @@ func TestRead_DIDDoc(t *testing.T) {
 		_, err := res.Write([]byte("did doc body"))
 		require.NoError(t, err)
 	}))
+
 	defer func() { testServer.Close() }()
 
 	resolver, err := New(testServer.URL)
@@ -78,6 +81,7 @@ func TestRead_DIDDocWithBasePath(t *testing.T) {
 		_, err := res.Write([]byte("did doc body"))
 		require.NoError(t, err)
 	}))
+
 	defer func() { testServer.Close() }()
 
 	resolver, err := New(testServer.URL + "/document")
@@ -95,6 +99,7 @@ func TestRead_DIDDocWithBasePathWithSlashes(t *testing.T) {
 		_, err := res.Write([]byte("did doc body"))
 		require.NoError(t, err)
 	}))
+
 	defer func() { testServer.Close() }()
 
 	resolver, err := New(testServer.URL + "/document/")
@@ -111,6 +116,7 @@ func TestRead_DIDDocNotFound(t *testing.T) {
 		_, err := res.Write([]byte("did doc body"))
 		require.NoError(t, err)
 	}))
+
 	defer func() { testServer.Close() }()
 
 	resolver, err := New(testServer.URL)
@@ -124,6 +130,7 @@ func TestRead_UnsupportedStatus(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusForbidden)
 	}))
+
 	defer func() { testServer.Close() }()
 
 	resolver, err := New(testServer.URL)
@@ -138,6 +145,7 @@ func TestRead_HTTPGetFailed(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusSeeOther)
 	}))
+
 	defer func() { testServer.Close() }()
 
 	resolver, err := New(testServer.URL)

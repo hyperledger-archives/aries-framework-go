@@ -20,6 +20,7 @@ func TestPeerDIDStore(t *testing.T) {
 	_, err := NewDIDStore(&storage.MockStoreProvider{ErrOpenStoreHandle: fmt.Errorf("open store failed")})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "open store failed")
+
 	prov := storage.NewMockStoreProvider()
 	dbstore, err := prov.OpenStore(StoreNamespace)
 	require.NoError(t, err)

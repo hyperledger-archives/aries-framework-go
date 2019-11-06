@@ -229,7 +229,9 @@ func runClient(testClientData clientData) error {
 	if err != nil {
 		return err
 	}
+
 	close(testClientData.subscriberReceivedNotification)
+
 	return nil
 }
 
@@ -237,6 +239,7 @@ func listenAndStopAfterReceivingNotification(addr string) error {
 	m := http.NewServeMux()
 	srv := &http.Server{Addr: addr, Handler: m}
 	ctx, cancel := context.WithCancel(context.Background())
+
 	m.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {
 		response, err := ioutil.ReadAll(req.Body)
 		if err == nil {
@@ -275,6 +278,7 @@ func listenAndStopAfterReceivingNotification(addr string) error {
 		if err := srv.Shutdown(ctx); err != nil && err != context.Canceled {
 			return fmt.Errorf("failed to shutdown sample webhook client server: %s", err)
 		}
+
 		return nil
 	case err := <-errorChannel:
 		return fmt.Errorf("webhook sample client failed: %s", err)
@@ -291,6 +295,7 @@ func mustGetRandomPort(n int) int {
 		if err != nil {
 			continue
 		}
+
 		return port
 	}
 	panic("cannot acquire the random port")
@@ -299,21 +304,26 @@ func mustGetRandomPort(n int) int {
 func getRandomPort() (int, error) {
 	const network = "tcp"
 	addr, err := net.ResolveTCPAddr(network, "localhost:0")
+
 	if err != nil {
 		return 0, err
 	}
+
 	listener, err := net.ListenTCP(network, addr)
 	if err != nil {
 		return 0, err
 	}
+
 	if err := listener.Close(); err != nil {
 		return 0, err
 	}
+
 	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
 func listenFor(host string) error {
 	timeout := time.After(2 * time.Second)
+
 	for {
 		select {
 		case <-timeout:
@@ -323,9 +333,11 @@ func listenFor(host string) error {
 			if err != nil {
 				continue
 			}
+
 			if err := conn.Close(); err != nil {
 				return err
 			}
+
 			return nil
 		}
 	}

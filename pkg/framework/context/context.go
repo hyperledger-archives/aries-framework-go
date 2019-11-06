@@ -41,6 +41,7 @@ type Provider struct {
 // New instantiated new context provider
 func New(opts ...ProviderOption) (*Provider, error) {
 	ctxProvider := Provider{}
+
 	for _, opt := range opts {
 		err := opt(&ctxProvider)
 		if err != nil {
@@ -68,6 +69,7 @@ func (p *Provider) Service(id string) (interface{}, error) {
 			return v, nil
 		}
 	}
+
 	return nil, api.ErrSvcNotFound
 }
 

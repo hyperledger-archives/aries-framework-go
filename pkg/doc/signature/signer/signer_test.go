@@ -119,6 +119,7 @@ func (s *TestSigner) Sign(doc []byte) ([]byte, error) {
 	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
 		return nil, errors.New("ed25519: bad private key length")
 	}
+
 	return ed25519.Sign(s.privateKey, doc), nil
 }
 

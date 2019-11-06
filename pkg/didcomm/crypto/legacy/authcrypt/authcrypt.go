@@ -24,6 +24,7 @@ type Crypter struct {
 // Note: legacy crypter does not support XChacha20Poly1035 (XC20P), only Chacha20Poly1035 (C20P)
 func New(ctx crypto.Provider) *Crypter {
 	k := ctx.KMS()
+
 	return &Crypter{
 		randSource: rand.Reader,
 		kms:        k,

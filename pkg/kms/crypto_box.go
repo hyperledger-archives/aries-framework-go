@@ -47,6 +47,7 @@ func NewCryptoBox(w KeyManager) (*CryptoBox, error) {
 // theirPub is used as a public key, while myPub is used to identify the private key that should be used
 func (b *CryptoBox) Easy(payload, nonce, theirPub, myPub []byte) ([]byte, error) {
 	var recPubBytes [cryptoutil.Curve25519KeySize]byte
+
 	copy(recPubBytes[:], theirPub)
 
 	//	 myPub is used to get the sender private key for encryption
@@ -55,13 +56,16 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub, myPub []byte) ([]byte, error)
 		return nil, err
 	}
 
-	var priv [cryptoutil.Curve25519KeySize]byte
-	copy(priv[:], kp.EncKeyPair.Priv)
+	var (
+		priv       [cryptoutil.Curve25519KeySize]byte
+		nonceBytes [cryptoutil.NonceSize]byte
+	)
 
-	var nonceBytes [cryptoutil.NonceSize]byte
+	copy(priv[:], kp.EncKeyPair.Priv)
 	copy(nonceBytes[:], nonce)
 
 	ret := box.Seal(nil, payload, &nonceBytes, &recPubBytes, &priv)
+
 	return ret, nil
 }
 
@@ -70,6 +74,7 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub, myPub []byte) ([]byte, error)
 func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte, error) {
 	//	 myPub is used to get the recipient private key for decryption
 	var sendPubBytes [cryptoutil.Curve25519KeySize]byte
+
 	copy(sendPubBytes[:], theirPub)
 
 	kp, err := b.km.getKeyPairSet(base58.Encode(myPub))
@@ -77,10 +82,12 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 		return nil, err
 	}
 
-	var priv [cryptoutil.Curve25519KeySize]byte
-	copy(priv[:], kp.EncKeyPair.Priv)
+	var (
+		priv       [cryptoutil.Curve25519KeySize]byte
+		nonceBytes [cryptoutil.NonceSize]byte
+	)
 
-	var nonceBytes [cryptoutil.NonceSize]byte
+	copy(priv[:], kp.EncKeyPair.Priv)
 	copy(nonceBytes[:], nonce)
 
 	out, success := box.Open(nil, cipherText, &nonceBytes, &sendPubBytes, &priv)
@@ -103,6 +110,7 @@ func (b *CryptoBox) Seal(payload, theirPub []byte, randSource io.Reader) ([]byte
 	}
 
 	var recPubBytes [cryptoutil.Curve25519KeySize]byte
+
 	copy(recPubBytes[:], theirPub)
 
 	nonce, err := cryptoutil.Nonce(epk[:], theirPub)
@@ -124,15 +132,18 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 	if len(cipherText) < cryptoutil.Curve25519KeySize {
 		return nil, errors.New("message too short")
 	}
-	var epk [cryptoutil.Curve25519KeySize]byte
-	copy(epk[:], cipherText[:cryptoutil.Curve25519KeySize])
 
 	kp, err := b.km.getKeyPairSet(base58.Encode(myPub))
 	if err != nil {
 		return nil, err
 	}
 
-	var priv [cryptoutil.Curve25519KeySize]byte
+	var (
+		epk  [cryptoutil.Curve25519KeySize]byte
+		priv [cryptoutil.Curve25519KeySize]byte
+	)
+
+	copy(epk[:], cipherText[:cryptoutil.Curve25519KeySize])
 	copy(priv[:], kp.EncKeyPair.Priv)
 
 	nonce, err := cryptoutil.Nonce(epk[:], myPub)

@@ -37,6 +37,7 @@ func (m *ModLog) Debugf(format string, args ...interface{}) {
 	if !metadata.IsEnabledFor(m.module, metadata.DEBUG) {
 		return
 	}
+
 	m.logger.Debugf(format, args...)
 }
 
@@ -45,6 +46,7 @@ func (m *ModLog) Infof(format string, args ...interface{}) {
 	if !metadata.IsEnabledFor(m.module, metadata.INFO) {
 		return
 	}
+
 	m.logger.Infof(format, args...)
 }
 
@@ -53,6 +55,7 @@ func (m *ModLog) Warnf(format string, args ...interface{}) {
 	if !metadata.IsEnabledFor(m.module, metadata.WARNING) {
 		return
 	}
+
 	m.logger.Warnf(format, args...)
 }
 
@@ -61,5 +64,6 @@ func (m *ModLog) Errorf(format string, args ...interface{}) {
 	if !metadata.IsEnabledFor(m.module, metadata.ERROR) {
 		return
 	}
+
 	m.logger.Errorf(format, args...)
 }

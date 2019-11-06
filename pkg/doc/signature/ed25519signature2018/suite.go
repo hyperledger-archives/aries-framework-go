@@ -67,6 +67,7 @@ func (s *SignatureSuite) Verify(pubKey, doc, signature []byte) error {
 	if !verified {
 		return errors.New("signature doesn't match")
 	}
+
 	return nil
 }
 
@@ -76,7 +77,9 @@ func (s *SignatureSuite) Sign(privKey, doc []byte) ([]byte, error) {
 	if l := len(privKey); l != ed25519.PrivateKeySize {
 		return nil, errors.New("ed25519: bad private key length")
 	}
+
 	signature := ed25519.Sign(privKey, doc)
+
 	return signature, nil
 }
 

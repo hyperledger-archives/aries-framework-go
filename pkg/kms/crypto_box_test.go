@@ -37,8 +37,10 @@ func newKMS(t *testing.T) (*BaseKMS, storage.Store) {
 	p := testProvider{storeProvider: msp}
 	store, err := p.StorageProvider().OpenStore("test-kms")
 	require.NoError(t, err)
+
 	ret, err := New(&p)
 	require.NoError(t, err)
+
 	return ret, store
 }
 
@@ -201,7 +203,9 @@ func randCurveKeyPair(randReader io.Reader) (*cryptoutil.MessagingKeys, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	keyPair := cryptoutil.KeyPair{Priv: sk[:], Pub: pk[:]}
+
 	return &cryptoutil.MessagingKeys{
 		EncKeyPair: &cryptoutil.EncKeyPair{
 			KeyPair: keyPair,

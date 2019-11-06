@@ -36,10 +36,12 @@ func (m *MockDIDCreator) Create(method string, opts ...didcreator.DocOpts) (*did
 }
 
 func createDefaultDID() *did.Doc {
-	const didContext = "https://w3id.org/did/v1"
-	const didID = "did:local:abc"
-	const creator = didID + "#key-1"
-	const keyType = "Ed25519VerificationKey2018"
+	const (
+		didContext = "https://w3id.org/did/v1"
+		didID      = "did:local:abc"
+		creator    = didID + "#key-1"
+		keyType    = "Ed25519VerificationKey2018"
+	)
 
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -54,6 +56,7 @@ func createDefaultDID() *did.Doc {
 	}
 
 	createdTime := time.Now()
+
 	return &did.Doc{
 		Context:   []string{didContext},
 		ID:        didID,

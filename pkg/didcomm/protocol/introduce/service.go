@@ -103,11 +103,14 @@ func New(p provider) (*Service, error) {
 func (s *Service) Stop() error {
 	s.closedMutex.Lock()
 	defer s.closedMutex.Unlock()
+
 	if s.closed {
 		return errors.New("server was already stopped")
 	}
+
 	close(s.stop)
 	s.closed = true
+
 	return nil
 }
 
@@ -160,6 +163,7 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 	if err != nil {
 		return nil, err
 	}
+
 	logger.Infof("thread id value for the message: %s", thID)
 
 	rec, err := s.currentStateRecord(thID)
@@ -171,6 +175,7 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 	if err != nil {
 		return nil, err
 	}
+
 	logger.Infof("current state: %s", current.Name())
 
 	next, err := nextState(msg, rec, outbound)
@@ -212,6 +217,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 		if err != nil {
 			return "", err
 		}
+
 		s.sendActionEvent(&metaData{
 			record: record{
 				StateName: stateNameStart,
@@ -220,6 +226,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 			Msg:      msg,
 			ThreadID: thID,
 		}, aEvent)
+
 		return "", nil
 	}
 
@@ -298,20 +305,25 @@ func nextState(msg *service.DIDCommMsg, rec *record, outbound bool) (state, erro
 	case SkipProposalMsgType:
 		msg.Payload = []byte(strings.Replace(string(msg.Payload), SkipProposalMsgType, ProposalMsgType, 1))
 		rec.WaitCount--
+
 		return &arranging{}, nil
 	case ProposalMsgType:
 		if outbound {
 			return &arranging{}, nil
 		}
+
 		return &deciding{}, nil
 	case ResponseMsgType:
 		if outbound {
 			return &waiting{}, nil
 		}
+
 		rec.WaitCount--
+
 		if rec.WaitCount == 0 {
 			return &delivering{}, nil
 		}
+
 		return &arranging{}, nil
 	case AckMsgType:
 		return &done{}, nil
@@ -337,6 +349,7 @@ func (s *Service) currentStateRecord(thID string) (*record, error) {
 	if err := json.Unmarshal(src, &r); err != nil {
 		return nil, err
 	}
+
 	return r, nil
 }
 
@@ -389,10 +402,12 @@ func isNoOp(s state) bool {
 
 func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 	logger.Infof("entered into private handle message: %v ", msg.Msg.Header)
+
 	next, err := stateFromName(msg.StateName)
 	if err != nil {
 		return fmt.Errorf("state from name: %w", err)
 	}
+
 	logger.Infof("next valid state to transition -> %s ", next.Name())
 
 	for !isNoOp(next) {
@@ -440,6 +455,7 @@ func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 
 		next = followup
 	}
+
 	return nil
 }
 
@@ -454,5 +470,6 @@ func (s *Service) Accept(msgType string) bool {
 	case ProposalMsgType, RequestMsgType, ResponseMsgType, AckMsgType:
 		return true
 	}
+
 	return false
 }

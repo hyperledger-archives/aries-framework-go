@@ -25,6 +25,7 @@ func New(opts ...Opt) *DIDResolver {
 	for _, opt := range opts {
 		opt(resolverOpts)
 	}
+
 	return &DIDResolver{didMethods: resolverOpts.didMethods}
 }
 
@@ -57,6 +58,7 @@ func (r *DIDResolver) Resolve(did string, opts ...ResolveOpt) (*diddoc.Doc, erro
 		if err == ErrNotFound {
 			return nil, err
 		}
+
 		return nil, fmt.Errorf("did method read failed failed: %w", err)
 	}
 
@@ -85,5 +87,6 @@ func (r *DIDResolver) resolveDidMethod(method string) (DidMethod, error) {
 			return v, nil
 		}
 	}
+
 	return nil, fmt.Errorf("did method %s not supported", method)
 }

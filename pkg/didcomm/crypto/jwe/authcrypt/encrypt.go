@@ -40,6 +40,7 @@ func (c *Crypter) Encrypt(payload, senderVerKey []byte, recipientsVerKeys [][]by
 	if len(recipientsVerKeys) == 0 {
 		return nil, fmt.Errorf("failed to encrypt message: empty recipients")
 	}
+
 	chachaRecipients, err := c.convertRecipients(recipientsVerKeys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt message: %w", err)
@@ -52,18 +53,20 @@ func (c *Crypter) Encrypt(payload, senderVerKey []byte, recipientsVerKeys [][]by
 	if err != nil {
 		return nil, err
 	}
+
 	encHeaders := base64.RawURLEncoding.EncodeToString(h)
 	// build the Payload's AAD string
 	pldAAD := encHeaders + "." + aadEncoded
 
 	// generate a new nonce for this encryption
 	nonce := make([]byte, c.nonceSize)
+
 	_, err = randReader.Read(nonce)
 	if err != nil {
 		return nil, err
 	}
-	nonceEncoded := base64.RawURLEncoding.EncodeToString(nonce)
 
+	nonceEncoded := base64.RawURLEncoding.EncodeToString(nonce)
 	cek := &[chacha.KeySize]byte{}
 
 	// generate a cek for encryption (it will be treated as a symmetric key)
@@ -108,8 +111,10 @@ func (c *Crypter) getSenderPubEncKey(senderVerKey []byte) (*[chacha.KeySize]byte
 	if err != nil {
 		return nil, err
 	}
+
 	senderPubKey := &[chacha.KeySize]byte{}
 	copy(senderPubKey[:], senderKey)
+
 	return senderPubKey, nil
 }
 
@@ -122,6 +127,7 @@ func (c *Crypter) convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byt
 		if !cryptoutil.IsChachaKeyValid(rVer) {
 			return nil, fmt.Errorf("%w - for recipient %d", cryptoutil.ErrInvalidKey, i+1)
 		}
+
 		rEnc, err := cryptoutil.PublicEd25519toCurve25519(rVer)
 		if err != nil {
 			return nil, err
@@ -131,6 +137,7 @@ func (c *Crypter) convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byt
 		copy(chachaRec[:], rEnc)
 		chachaRecipients = append(chachaRecipients, chachaRec)
 	}
+
 	return chachaRecipients, nil
 }
 
@@ -182,6 +189,7 @@ func buildAAD(recipients []*[chacha.KeySize]byte) []byte {
 	for _, r := range recipients {
 		keys = append(keys, base58.Encode(r[:]))
 	}
+
 	return hashAAD(keys)
 }
 
@@ -190,6 +198,7 @@ func buildAAD(recipients []*[chacha.KeySize]byte) []byte {
 func hashAAD(keys []string) []byte {
 	sort.Strings(keys)
 	sha := sha256.Sum256([]byte(strings.Join(keys, ".")))
+
 	return sha[:]
 }
 
@@ -197,13 +206,16 @@ func hashAAD(keys []string) []byte {
 // and return a list of encoded recipient keys in a JWE compliant format ([]Recipient)
 func (c *Crypter) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderPubKey *[chacha.KeySize]byte) ([]Recipient, error) { //nolint:lll
 	var encodedRecipients []Recipient
+
 	for _, e := range recipients {
 		rec, err := c.encodeRecipient(cek, e, senderPubKey)
 		if err != nil {
 			return nil, err
 		}
+
 		encodedRecipients = append(encodedRecipients, *rec)
 	}
+
 	return encodedRecipients, nil
 }
 
@@ -213,6 +225,7 @@ func (c *Crypter) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[cha
 func (c *Crypter) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
 	// generate a random APU value (Agreement PartyUInfo: https://tools.ietf.org/html/rfc7518#section-4.6.1.2)
 	apu := make([]byte, 64)
+
 	_, err := randReader.Read(apu)
 	if err != nil {
 		return nil, err
@@ -269,6 +282,7 @@ func (c *Crypter) encryptCEK(kek, cek []byte) (string, string, string, error) {
 
 	// create a new nonce
 	nonce := make([]byte, c.nonceSize)
+
 	_, err = randReader.Read(nonce)
 	if err != nil {
 		return "", "", "", err
@@ -280,5 +294,6 @@ func (c *Crypter) encryptCEK(kek, cek []byte) (string, string, string, error) {
 	symKeyCipherEncoded := extractCipherText(kekOutput)
 	tagEncoded := extractTag(kekOutput)
 	nonceEncoded := base64.RawURLEncoding.EncodeToString(nonce)
+
 	return symKeyCipherEncoded, tagEncoded, nonceEncoded, nil
 }

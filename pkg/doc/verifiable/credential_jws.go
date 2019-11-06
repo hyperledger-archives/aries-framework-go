@@ -24,6 +24,7 @@ func unmarshalJWSClaims(rawJwt []byte, fetcher PublicKeyFetcher) (*JWTCredClaims
 	}
 
 	credClaims := new(JWTCredClaims)
+
 	err = parsedJwt.UnsafeClaimsWithoutVerification(credClaims)
 	if err != nil {
 		return nil, fmt.Errorf("parse VC JWT claims: %w", err)

@@ -250,12 +250,14 @@ func TestRequestedState_Execute(t *testing.T) {
 	expected := &requested{}
 	connRec, err := json.Marshal(&ConnectionRecord{State: expected.Name()})
 	require.NoError(t, err)
+
 	ctx := &context{outboundDispatcher: prov.OutboundDispatcher(),
 		didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()},
 		signer:     &mockSigner{},
 		connectionStore: NewConnectionRecorder(&mockStore{
 			get: func(string) ([]byte, error) { return connRec, nil },
 		}, nil), didStore: prov.DIDStore()}
+
 	t.Run("rejects msgs other than invitations or requests", func(t *testing.T) {
 		others := []string{ResponseMsgType, AckMsgType}
 		for _, o := range others {
@@ -437,7 +439,9 @@ func TestCompletedState_Execute(t *testing.T) {
 		didStore: prov.DIDStore()}
 	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
+
 	outboundDestination := &service.Destination{RecipientKeys: []string{"test", "test2"}, ServiceEndpoint: "xyz"}
+
 	t.Run("rejects msgs other than responses and acks", func(t *testing.T) {
 		others := []string{InvitationMsgType, RequestMsgType}
 		for _, o := range others {
@@ -445,6 +449,7 @@ func TestCompletedState_Execute(t *testing.T) {
 			require.Error(t, err)
 		}
 	})
+
 	ackPayloadBytes, err := json.Marshal(&model.Ack{
 		Type:   AckMsgType,
 		ID:     randomString(),
@@ -455,12 +460,14 @@ func TestCompletedState_Execute(t *testing.T) {
 	},
 	)
 	require.NoError(t, err)
+
 	connection := &Connection{
 		DID:    newDidDoc.ID,
 		DIDDoc: newDidDoc,
 	}
 	connectionSignature, err := ctx.prepareConnectionSignature(connection)
 	require.NoError(t, err)
+
 	response := &Response{
 		Type: RequestMsgType,
 		ID:   randomString(),
@@ -470,6 +477,7 @@ func TestCompletedState_Execute(t *testing.T) {
 		ConnectionSignature: connectionSignature,
 	}
 	responsePayloadBytes, err := json.Marshal(response)
+
 	t.Run("no followup for inbound responses", func(t *testing.T) {
 		connRec := &ConnectionRecord{State: (&responded{}).Name(), ThreadID: response.Thread.ID,
 			ConnectionID: "123", MyDID: "did:peer:123456789abcdefghi#inbox", Namespace: myNSPrefix}
@@ -730,6 +738,7 @@ func TestPrepareDestination(t *testing.T) {
 	ctx := &context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
 	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
+
 	dest := prepareDestination(newDidDoc)
 	require.NotNil(t, dest)
 	require.Equal(t, dest.ServiceEndpoint, "https://localhost:8090")
@@ -788,6 +797,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 
 func TestNewResponseFromRequest(t *testing.T) {
 	prov := protocol.MockProvider{}
+
 	t.Run("successful new response from request", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
 		pubKey, privKey := generateKeyPair()
@@ -951,6 +961,7 @@ func (s *mockSigner) SignMessage(message []byte, fromVerKey string) ([]byte, err
 	if s.privateKey != nil {
 		return ed25519.Sign(s.privateKey, message), nil
 	}
+
 	return nil, s.err
 }
 
@@ -960,10 +971,12 @@ func createDIDDoc() *diddoc.Doc {
 }
 
 func createDIDDocWithKey(pub string) *diddoc.Doc {
-	const didFormat = "did:%s:%s"
-	const didPKID = "%s#keys-%d"
-	const didServiceID = "%s#endpoint-%d"
-	const method = "test"
+	const (
+		didFormat    = "did:%s:%s"
+		didPKID      = "%s#keys-%d"
+		didServiceID = "%s#endpoint-%d"
+		method       = "test"
+	)
 
 	id := fmt.Sprintf(didFormat, method, pub[:16])
 	pubKey := diddoc.PublicKey{
@@ -991,6 +1004,7 @@ func createDIDDocWithKey(pub string) *diddoc.Doc {
 		Created:   &createdTime,
 		Updated:   &createdTime,
 	}
+
 	return didDoc
 }
 
@@ -999,5 +1013,6 @@ func generateKeyPair() (string, []byte) {
 	if err != nil {
 		panic(err)
 	}
+
 	return base58.Encode(pubKey[:]), privKey
 }

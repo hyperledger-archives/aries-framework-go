@@ -136,9 +136,11 @@ func TestValidWithProof(t *testing.T) {
 	// test proof
 	created, err := time.Parse(time.RFC3339, "2019-09-23T14:16:59.484733-04:00")
 	require.NoError(t, err)
+
 	const encProofValue = "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA"
 	proofValue, err := base64.RawURLEncoding.DecodeString(encProofValue)
 	require.NoError(t, err)
+
 	nonce, err := base64.RawURLEncoding.DecodeString("")
 	require.NoError(t, err)
 
@@ -691,6 +693,7 @@ func createSignedDidDocument() []byte {
 		Signer:        getSigner(privKey)}
 
 	s := signer.New()
+
 	signedDoc, err := s.Sign(context, jsonDoc)
 	if err != nil {
 		panic(err)
@@ -711,6 +714,7 @@ func (s *testSigner) Sign(doc []byte) ([]byte, error) {
 	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
 		return nil, errors.New("ed25519: bad private key length")
 	}
+
 	return ed25519.Sign(s.privateKey, doc), nil
 }
 

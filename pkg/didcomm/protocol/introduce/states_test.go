@@ -22,6 +22,7 @@ func notTransition(t *testing.T, st state) {
 		&confirming{}, &abandoning{},
 		&deciding{}, &waiting{},
 	}
+
 	for _, s := range allState {
 		require.False(t, st.CanTransitionTo(s))
 	}

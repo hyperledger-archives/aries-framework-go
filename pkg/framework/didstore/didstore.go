@@ -42,6 +42,7 @@ func New(opts ...Opt) *DIDStore {
 	for _, opt := range opts {
 		opt(storeOpts)
 	}
+
 	return &DIDStore{didMethods: storeOpts.didMethods}
 }
 
@@ -51,12 +52,14 @@ func (d *DIDStore) Put(doc *did.Doc) error {
 	if err != nil {
 		return err
 	}
+
 	for _, v := range d.didMethods {
 		if v.Accept(didMethod) {
 			// TODO figure out how to get ModifiedBy values
 			return v.Put(doc, nil)
 		}
 	}
+
 	return didstore.ErrDidMethodNotSupported
 }
 
@@ -66,15 +69,18 @@ func (d *DIDStore) Get(id string) (*did.Doc, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	for _, v := range d.didMethods {
 		if v.Accept(didMethod) {
 			doc, err := v.Get(id)
 			if err != nil {
 				return nil, fmt.Errorf("get did doc : %w", err)
 			}
+
 			return doc, nil
 		}
 	}
+
 	return nil, didstore.ErrDidMethodNotSupported
 }
 
@@ -83,5 +89,6 @@ func getDidMethod(didID string) (string, error) {
 	if len(didParts) != 3 {
 		return "", errors.New("wrong format did input")
 	}
+
 	return didParts[1], nil
 }

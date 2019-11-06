@@ -49,7 +49,9 @@ func NewDoc(publicKey []did.PublicKey, authentication []did.VerificationMethod,
 	if err != nil {
 		return nil, err
 	}
+
 	doc.ID = id
+
 	return doc, nil
 }
 
@@ -59,6 +61,7 @@ func computeDid(doc *did.Doc) (string, error) {
 	if doc.PublicKey == nil || doc.Authentication == nil {
 		return "", errors.New("the genesis version must include public keys and authentication")
 	}
+
 	encNumBasis, err := calculateEncNumBasis(doc)
 	if err != nil {
 		return "", err
@@ -107,6 +110,7 @@ func validateDID(doc *did.Doc) error {
 	if !(numBas == encnumbasis) {
 		return fmt.Errorf("validate did : %w", errors.New("multiHash of the doc doesnt match the computed multiHash"))
 	}
+
 	return nil
 }
 
@@ -117,10 +121,13 @@ func calculateEncNumBasis(doc *did.Doc) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	hash, err := multihash.Sum(docBytes, multihash.SHA2_256, -1)
 	if err != nil {
 		return "", err
 	}
+
 	messageIdentifier := []string{numAlgo, string(transform), hash.B58String()}
+
 	return strings.Join(messageIdentifier, ""), nil
 }

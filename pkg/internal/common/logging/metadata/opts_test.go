@@ -74,6 +74,7 @@ func verifyLevels(t *testing.T, module string, enabled, disabled []Level) {
 		actual := IsEnabledFor(module, level)
 		require.True(t, actual, "expected level [%s] to be enabled for module [%s]", ParseString(level), module)
 	}
+
 	for _, level := range disabled {
 		actual := IsEnabledFor(module, level)
 		require.False(t, actual, "expected level [%s] to be disabled for module [%s]", ParseString(level), module)

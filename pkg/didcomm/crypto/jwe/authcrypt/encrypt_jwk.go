@@ -38,6 +38,7 @@ func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byt
 
 	// generate a cek for encryption
 	cek := &[chacha.KeySize]byte{}
+
 	_, err = randReader.Read(cek[:])
 	if err != nil {
 		return "", err
@@ -94,6 +95,7 @@ func (c *Crypter) buildJWKHeaders(epk *[32]byte, kNonceEncoded, kTagEncoded stri
 func (c *Crypter) encryptSenderJWK(encKey, headers string, senderJWKJSON, cek []byte) (string, error) {
 	// create a new nonce
 	nonce := make([]byte, c.nonceSize)
+
 	_, err := randReader.Read(nonce)
 	if err != nil {
 		return "", err

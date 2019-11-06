@@ -31,6 +31,7 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	if store == nil {
 		return p.newMemStore(name), nil
 	}
+
 	return store, nil
 }
 
@@ -39,6 +40,7 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 func (p *Provider) getMemStore(name string) *memStore {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
+
 	return p.dbs[strings.ToLower(name)]
 }
 
@@ -47,8 +49,10 @@ func (p *Provider) getMemStore(name string) *memStore {
 func (p *Provider) newMemStore(name string) *memStore {
 	p.lock.Lock()
 	defer p.lock.Unlock()
+
 	store := &memStore{db: make(map[string][]byte)}
 	p.dbs[strings.ToLower(name)] = store
+
 	return store
 }
 
@@ -56,10 +60,13 @@ func (p *Provider) newMemStore(name string) *memStore {
 func (p *Provider) Close() error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
+
 	for _, memStore := range p.dbs {
 		memStore.db = make(map[string][]byte)
 	}
+
 	p.dbs = make(map[string]*memStore)
+
 	return nil
 }
 
@@ -69,11 +76,14 @@ func (p *Provider) CloseStore(name string) error {
 	defer p.lock.Unlock()
 
 	k := strings.ToLower(name)
+
 	memStore, ok := p.dbs[k]
 	if ok {
 		delete(p.dbs, k)
+
 		memStore.db = make(map[string][]byte)
 	}
+
 	return nil
 }
 
@@ -88,9 +98,11 @@ func (s *memStore) Put(k string, v []byte) error {
 	if k == "" || v == nil {
 		return errors.New("key and value are mandatory")
 	}
+
 	s.Lock()
 	s.db[k] = v
 	s.Unlock()
+
 	return nil
 }
 
@@ -99,12 +111,15 @@ func (s *memStore) Get(k string) ([]byte, error) {
 	if k == "" {
 		return nil, errors.New("key is mandatory")
 	}
+
 	s.RLock()
 	data, ok := s.db[k]
 	s.RUnlock()
+
 	if !ok {
 		return nil, storage.ErrDataNotFound
 	}
+
 	return data, nil
 }
 

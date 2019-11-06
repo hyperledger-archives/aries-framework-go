@@ -88,5 +88,6 @@ func getSigningKey() *api.PubKey {
 	if err != nil {
 		panic(err)
 	}
+
 	return &api.PubKey{Value: base58.Encode(pub[:]), Type: keyType}
 }

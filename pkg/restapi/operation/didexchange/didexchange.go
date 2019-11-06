@@ -98,6 +98,7 @@ func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) 
 	logger.Debugf("Creating connection invitation ")
 
 	var request models.CreateInvitationRequest
+
 	err := getQueryParams(&request, req.URL.Query())
 	if err != nil {
 		c.writeGenericError(rw, err)
@@ -132,6 +133,7 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 	logger.Debugf("Receiving connection invitation ")
 
 	var request models.ReceiveInvitationRequest
+
 	err := json.NewDecoder(req.Body).Decode(&request.Invitation)
 	if err != nil {
 		c.writeGenericError(rw, err)
@@ -180,6 +182,7 @@ func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Requ
 	if err != nil {
 		logger.Errorf("accepting connection request failed for id %s with error %s", params["id"], err)
 		c.writeGenericError(rw, err)
+
 		return
 	}
 
@@ -203,6 +206,7 @@ func (c *Operation) QueryConnections(rw http.ResponseWriter, req *http.Request) 
 	logger.Debugf("Querying connection invitations ")
 
 	var request didexchange.QueryConnectionsParams
+
 	err := getQueryParams(&request, req.URL.Query())
 	if err != nil {
 		c.writeGenericError(rw, err)
@@ -313,6 +317,7 @@ func (c *Operation) registerHandler() {
 func getQueryParams(v interface{}, vals url.Values) error {
 	// normalize all query string key/values
 	args := make(map[string]string)
+
 	for k, v := range vals {
 		if len(v) > 0 {
 			args[k] = v[0]
@@ -367,6 +372,7 @@ func (c *Operation) handleMessageEvents(e service.StateMsg) error {
 		switch v := e.Properties.(type) {
 		case didexchange.Event:
 			props := v
+
 			err := c.sendConnectionNotification(props.ConnectionID(), e.StateID)
 			if err != nil {
 				return fmt.Errorf("send connection notification failed : %w", err)
@@ -377,6 +383,7 @@ func (c *Operation) handleMessageEvents(e service.StateMsg) error {
 			return errors.New("event is not of DIDExchange event type")
 		}
 	}
+
 	return nil
 }
 
@@ -384,6 +391,7 @@ func (c *Operation) handleActionEvents(e service.DIDCommAction) error {
 	switch v := e.Properties.(type) {
 	case didexchange.Event:
 		props := v
+
 		err := c.sendConnectionNotification(props.ConnectionID(), "null")
 		if err != nil {
 			return fmt.Errorf("send connection notification failed : %w", err)
@@ -419,6 +427,7 @@ func (c *Operation) sendConnectionNotification(connectionID, stateID string) err
 	}
 
 	logger.Debugf("Sending notification on topic '%s', message body : %s", connectionsWebhookTopic, jsonMessage)
+
 	err = c.notifier.Notify(connectionsWebhookTopic, jsonMessage)
 	if err != nil {
 		return fmt.Errorf("connection notification webhook : %w", err)

@@ -16,6 +16,7 @@ import (
 // TestDefaultLogger tests custom logging feature when custom logging provider is supplied through 'Initialize()' call
 func TestCustomLogger(t *testing.T) {
 	defer func() { loggerProviderOnce = sync.Once{} }()
+
 	const module = "sample-module"
 
 	// initialize logger provider with custom logger provider

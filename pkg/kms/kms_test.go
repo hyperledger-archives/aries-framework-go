@@ -200,6 +200,7 @@ func TestBaseKMS_ConvertToEncryptionKey(t *testing.T) {
 func TestBaseKMS_DeriveKEK(t *testing.T) {
 	pk32, sk32, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
+
 	kp := cryptoutil.KeyPair{Pub: pk32[:], Priv: sk32[:]}
 
 	kpCombo := &cryptoutil.MessagingKeys{
@@ -267,18 +268,21 @@ func TestBaseKMS_DeriveKEK(t *testing.T) {
 func TestBaseKMS_FindVerKey(t *testing.T) {
 	pk1, sk1, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
+
 	kp := cryptoutil.KeyPair{Pub: pk1[:], Priv: sk1[:]}
 	kpm1, err := json.Marshal(kp)
 	require.NoError(t, err)
 
 	pk2, sk2, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
+
 	kp = cryptoutil.KeyPair{Pub: pk2[:], Priv: sk2[:]}
 	kpm2, err := json.Marshal(kp)
 	require.NoError(t, err)
 
 	pk3, sk3, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
+
 	kp = cryptoutil.KeyPair{Pub: pk3[:], Priv: sk3[:]}
 	kpm3, err := json.Marshal(kp)
 	require.NoError(t, err)
@@ -346,7 +350,9 @@ func Test_Persist(t *testing.T) {
 	store := &mockstorage.MockStore{
 		Store: make(map[string][]byte),
 	}
+
 	const key = "sample-key"
+
 	value := struct {
 		Code    int32
 		Message string

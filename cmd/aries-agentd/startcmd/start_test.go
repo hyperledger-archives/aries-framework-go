@@ -40,6 +40,7 @@ func mustGetRandomPort(n int) int {
 		if err != nil {
 			continue
 		}
+
 		return port
 	}
 	panic("cannot acquire the random port")
@@ -47,17 +48,22 @@ func mustGetRandomPort(n int) int {
 
 func getRandomPort() (int, error) {
 	const network = "tcp"
+
 	addr, err := net.ResolveTCPAddr(network, "localhost:0")
 	if err != nil {
 		return 0, err
 	}
+
 	listener, err := net.ListenTCP(network, addr)
 	if err != nil {
 		return 0, err
 	}
-	if err := listener.Close(); err != nil {
+
+	err = listener.Close()
+	if err != nil {
 		return 0, err
 	}
+
 	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
@@ -86,8 +92,10 @@ func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flag
 
 	flagAnnotations := flag.Annotations
 	require.Len(t, flagAnnotations, 1)
+
 	requiredFlagKeyName := "cobra_annotation_bash_completion_one_required_flag"
 	require.Contains(t, flagAnnotations, requiredFlagKeyName)
+
 	requiredFlagAnnotation := flagAnnotations[requiredFlagKeyName]
 	require.Len(t, requiredFlagAnnotation, 1)
 	require.Equal(t, requiredFlagAnnotation[0], "true")
@@ -115,6 +123,7 @@ func TestStartAriesDRequests(t *testing.T) {
 
 func listenFor(host string) error {
 	timeout := time.After(10 * time.Second)
+
 	for {
 		select {
 		case <-timeout:
@@ -124,6 +133,7 @@ func listenFor(host string) error {
 			if err != nil {
 				continue
 			}
+
 			return conn.Close()
 		}
 	}
@@ -134,12 +144,15 @@ func listenFor(host string) error {
 func validateRequests(t *testing.T, testHostURL, testInboundHostURL string) {
 	newreq := func(method, url string, body io.Reader, contentType string) *http.Request {
 		r, err := http.NewRequest(method, url, body)
+
 		if contentType != "" {
 			r.Header.Add("Content-Type", contentType)
 		}
+
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		return r
 	}
 
@@ -186,12 +199,15 @@ func validateRequests(t *testing.T, testHostURL, testInboundHostURL string) {
 		}()
 
 		require.Equal(t, tt.expectedStatus, resp.StatusCode)
+
 		if tt.expectResponseData {
 			require.NotEmpty(t, resp.Body)
+
 			response, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			require.NotEmpty(t, response)
 			require.True(t, isJSON(response))
 		}
@@ -207,6 +223,7 @@ func isJSON(res []byte) bool {
 func TestStartCmdWithMissingHostArg(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
+
 	args := []string{"--" + AgentInboundHostFlagName, randomURL(), "--" + AgentDBPathFlagName, "",
 		"--" + AgentWebhookFlagName, ""}
 	startCmd.SetArgs(args)
@@ -219,8 +236,8 @@ func TestStartCmdWithMissingHostArg(t *testing.T) {
 
 func TestStartAgentWithBlankHost(t *testing.T) {
 	parameters := &agentParameters{&mockServer{}, "", randomURL(), "", "", "", []string{}}
-	err := startAgent(parameters)
 
+	err := startAgent(parameters)
 	require.NotNil(t, err)
 	require.Equal(t, ErrMissingHost, err)
 }
@@ -228,12 +245,13 @@ func TestStartAgentWithBlankHost(t *testing.T) {
 func TestStartCmdWithoutInboundHostArg(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
+
 	args := []string{"--" + AgentHostFlagName, randomURL(), "--" + AgentDBPathFlagName, "",
 		"--" + AgentWebhookFlagName, ""}
+
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
-
 	require.NotNil(t, err)
 	require.Equal(t, `required flag(s) "inbound-host" not set`, err.Error())
 }
@@ -245,6 +263,7 @@ func TestStartAgentWithBlankInboundHost(t *testing.T) {
 
 	require.NotNil(t, err)
 	require.Equal(t, ErrMissingInboundHost, err)
+
 	if err == nil {
 		t.Fatal()
 	}
@@ -253,12 +272,12 @@ func TestStartAgentWithBlankInboundHost(t *testing.T) {
 func TestStartCmdWithoutDBPath(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
+
 	args := []string{"--" + AgentHostFlagName, randomURL(), "--" + AgentInboundHostFlagName, randomURL(),
 		"--" + AgentWebhookFlagName, ""}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
-
 	require.NotNil(t, err)
 	require.Equal(t, `required flag(s) "db-path" not set`, err.Error())
 }
@@ -276,10 +295,11 @@ func TestStartCmdMissingAllArgs(t *testing.T) {
 func TestStartCmdValidArgs(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
+
 	args := []string{"--" + AgentHostFlagName, randomURL(), "--" + AgentInboundHostFlagName,
 		randomURL(), "--" + AgentDBPathFlagName, "", "--" + AgentWebhookFlagName, ""}
-	startCmd.SetArgs(args)
 
+	startCmd.SetArgs(args)
 	err = startCmd.Execute()
 
 	require.Nil(t, err)
@@ -292,6 +312,7 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 
 	path1, cleanup1 := generateTempDir(t)
 	defer cleanup1()
+
 	go func() {
 		parameters := &agentParameters{&HTTPServer{}, host, inboundHost,
 			"", path1, "", []string{}}
@@ -303,12 +324,13 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 
 	path2, cleanup2 := generateTempDir(t)
 	defer cleanup2()
-	parameters := &agentParameters{&HTTPServer{}, host, inboundHost2, "", path2, "", []string{}}
-	err := startAgent(parameters)
 
-	require.NotNil(t, err)
+	parameters := &agentParameters{&HTTPServer{}, host, inboundHost2, "", path2, "", []string{}}
 	addressAlreadyInUseErrorMessage := "failed to start aries agentd on port [" + host +
 		"], cause:  listen tcp 127.0.0.1:8095: bind: address already in use"
+
+	err := startAgent(parameters)
+	require.NotNil(t, err)
 	require.Equal(t, addressAlreadyInUseErrorMessage, err.Error())
 }
 
@@ -317,6 +339,7 @@ func TestStartMultipleAgentsWithSameDBPath(t *testing.T) {
 	host2 := "localhost:8090"
 	inboundHost1 := "localhost:8089"
 	inboundHost2 := "localhost:8091"
+
 	path, cleanup := generateTempDir(t)
 	defer cleanup()
 
@@ -339,6 +362,7 @@ func waitForServerToStart(t *testing.T, host, inboundHost string) {
 	if err := listenFor(host); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := listenFor(inboundHost); err != nil {
 		t.Fatal(err)
 	}
@@ -349,6 +373,7 @@ func generateTempDir(t testing.TB) (string, func()) {
 	if err != nil {
 		t.Fatalf("Failed to create leveldb directory: %s", err)
 	}
+
 	return path, func() {
 		err := os.RemoveAll(path)
 		if err != nil {

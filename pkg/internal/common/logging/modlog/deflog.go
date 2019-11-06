@@ -84,6 +84,7 @@ func (l *DefLog) SetOutput(output io.Writer) {
 func (l *DefLog) logf(level metadata.Level, format string, args ...interface{}) {
 	// Format prefix to show function name and log level and to indicate that timezone used is UTC
 	customPrefix := fmt.Sprintf(logLevelFormatter, l.getCallerInfo(level), metadata.ParseString(level))
+
 	err := l.logger.Output(2, customPrefix+fmt.Sprintf(format, args...))
 	if err != nil {
 		fmt.Printf("error from logger.Output %v\n", err)
@@ -97,16 +98,17 @@ func (l *DefLog) getCallerInfo(level metadata.Level) string {
 		return ""
 	}
 
-	// search MAXCALLERS caller frames for the real caller,
-	// MAXCALLERS defines maximum number of caller frames needed to be recorded to find the actual caller frame
-	const MAXCALLERS = 6
-	// skip SKIPCALLERS frames when determining the real caller
-	// SKIPCALLERS is the number of stack frames to skip before recording caller frames,
-	// this is mainly used to filter logger library functions in caller frames
-	const SKIPCALLERS = 5
-
-	const NOTFOUND = "n/a"
-	const DEFAULTLOGPREFIX = "log.(*Log)"
+	const (
+		// search MAXCALLERS caller frames for the real caller,
+		// MAXCALLERS defines maximum number of caller frames needed to be recorded to find the actual caller frame
+		MAXCALLERS = 6
+		// skip SKIPCALLERS frames when determining the real caller
+		// SKIPCALLERS is the number of stack frames to skip before recording caller frames,
+		// this is mainly used to filter logger library functions in caller frames
+		SKIPCALLERS      = 5
+		NOTFOUND         = "n/a"
+		DEFAULTLOGPREFIX = "log.(*Log)"
+	)
 
 	fpcs := make([]uintptr, MAXCALLERS)
 

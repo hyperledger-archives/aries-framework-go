@@ -62,6 +62,7 @@ func (m *DIDCommMsg) Clone() *DIDCommMsg {
 	if m == nil {
 		return nil
 	}
+
 	return &DIDCommMsg{
 		Header:  m.Header.clone(),
 		Payload: append(m.Payload[:0:0], m.Payload...),
@@ -71,9 +72,12 @@ func (m *DIDCommMsg) Clone() *DIDCommMsg {
 // NewDIDCommMsg returns DIDCommMsg with Header
 func NewDIDCommMsg(payload []byte) (*DIDCommMsg, error) {
 	msg := &DIDCommMsg{Payload: payload}
-	if err := json.Unmarshal(msg.Payload, &msg.Header); err != nil {
+
+	err := json.Unmarshal(msg.Payload, &msg.Header)
+	if err != nil {
 		return nil, fmt.Errorf("invalid payload data format: %w", err)
 	}
+
 	return msg, nil
 }
 

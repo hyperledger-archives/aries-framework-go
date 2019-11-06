@@ -39,6 +39,7 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	if store == nil {
 		return p.newLeveldbStore(name)
 	}
+
 	return store, nil
 }
 
@@ -47,6 +48,7 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 func (p *Provider) getLeveldbStore(name string) *leveldbStore {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
+
 	return p.dbs[strings.ToLower(name)]
 }
 
@@ -63,6 +65,7 @@ func (p *Provider) newLeveldbStore(name string) (*leveldbStore, error) {
 
 	store := &leveldbStore{db}
 	p.dbs[strings.ToLower(name)] = store
+
 	return store, nil
 }
 
@@ -72,6 +75,7 @@ func (p *Provider) Close() error {
 	defer p.lock.Unlock()
 
 	var errs []error
+
 	for _, v := range p.dbs {
 		e := v.db.Close()
 		if e != nil && e != leveldb.ErrClosed {
@@ -82,7 +86,9 @@ func (p *Provider) Close() error {
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to close stores, %v", errs)
 	}
+
 	p.dbs = make(map[string]*leveldbStore)
+
 	return nil
 }
 
@@ -92,11 +98,13 @@ func (p *Provider) CloseStore(name string) error {
 	defer p.lock.Unlock()
 
 	k := strings.ToLower(name)
+
 	store, ok := p.dbs[k]
 	if ok {
 		delete(p.dbs, k)
 		return store.db.Close()
 	}
+
 	return nil
 }
 
@@ -124,8 +132,10 @@ func (s *leveldbStore) Get(k string) ([]byte, error) {
 		if strings.Contains(err.Error(), "not found") {
 			return nil, storage.ErrDataNotFound
 		}
+
 		return nil, err
 	}
+
 	return data, nil
 }
 
@@ -134,5 +144,6 @@ func (s *leveldbStore) Iterator(start, limit string) storage.StoreIterator {
 	if start == "" || limit == "" {
 		iterator.NewEmptyIterator(errors.New("start or limit key is mandatory"))
 	}
+
 	return s.db.NewIterator(&util.Range{Start: []byte(start), Limit: []byte(limit)}, nil)
 }

@@ -100,7 +100,9 @@ type jwk struct {
 // The returned crypter contains all the information required to encrypt payloads.
 func New(ctx crypto.Provider, alg ContentEncryption) (*Crypter, error) {
 	k := ctx.KMS()
+
 	var nonceSize int
+
 	switch alg {
 	case C20P:
 		nonceSize = chacha.NonceSize

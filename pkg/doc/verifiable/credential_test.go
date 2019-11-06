@@ -589,10 +589,12 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		_, err = res.Write(bytes)
 		require.NoError(t, err)
 	}))
+
 	defer func() { testServer.Close() }()
 
 	var raw rawCredential
-	require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+	err := json.Unmarshal([]byte(validCredential), &raw)
+	require.NoError(t, err)
 
 	// define credential schema
 	raw.Schema = &TypedID{ID: testServer.URL, Type: "JsonSchemaValidator2018"}

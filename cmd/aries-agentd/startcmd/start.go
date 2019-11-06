@@ -100,6 +100,7 @@ func (s *HTTPServer) ListenAndServe(host string, router http.Handler) error {
 // Cmd returns the Cobra start command.
 func Cmd(server server) (*cobra.Command, error) {
 	var webhookURLs []string
+
 	startCmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start an agent",
@@ -152,18 +153,21 @@ func Cmd(server server) (*cobra.Command, error) {
 
 func createFlags(startCmd *cobra.Command, webhookURLs *[]string) error {
 	startCmd.Flags().StringP(AgentHostFlagName, AgentHostFlagShorthand, "", AgentHostFlagUsage)
+
 	err := startCmd.MarkFlagRequired(AgentHostFlagName)
 	if err != nil {
 		return fmt.Errorf("tried to mark host flag as required but it was not found: %s", err)
 	}
 
 	startCmd.Flags().StringP(AgentInboundHostFlagName, AgentInboundHostFlagShorthand, "", AgentInboundHostFlagUsage)
+
 	err = startCmd.MarkFlagRequired(AgentInboundHostFlagName)
 	if err != nil {
 		return fmt.Errorf("tried to mark inbound host flag as required but it was not found: %s", err)
 	}
 
 	startCmd.Flags().StringP(AgentDBPathFlagName, AgentDBPathFlagShorthand, "", AgentDBPathFlagUsage)
+
 	err = startCmd.MarkFlagRequired(AgentDBPathFlagName)
 	if err != nil {
 		return fmt.Errorf("tried to mark DB path flag as required but it was not found: %s", err)
@@ -171,6 +175,7 @@ func createFlags(startCmd *cobra.Command, webhookURLs *[]string) error {
 
 	startCmd.Flags().StringSliceVarP(webhookURLs, AgentWebhookFlagName, agentWebhookFlagShorthand, []string{},
 		agentWebhookFlagUsage)
+
 	err = startCmd.MarkFlagRequired(AgentWebhookFlagName)
 	if err != nil {
 		return fmt.Errorf("tried to mark agent webhook host flag as required but it was not found: %s", err)
@@ -193,8 +198,8 @@ func startAgent(parameters *agentParameters) error {
 	if parameters.inboundHostInternal == "" {
 		return ErrMissingInboundHost
 	}
-	var opts []aries.Option
 
+	var opts []aries.Option
 	opts = append(opts, defaults.WithInboundHTTPAddr(parameters.inboundHostInternal, parameters.inboundHostExternal))
 
 	if parameters.dbPath != "" {
@@ -220,10 +225,10 @@ func startAgent(parameters *agentParameters) error {
 		return fmt.Errorf("failed to start aries agentd on port [%s], failed to get rest service api :  %w",
 			parameters.host, err)
 	}
-	handlers := restService.GetOperations()
 
-	// register handlers
+	handlers := restService.GetOperations()
 	router := mux.NewRouter()
+
 	for _, handler := range handlers {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
@@ -231,6 +236,7 @@ func startAgent(parameters *agentParameters) error {
 	logger.Infof("Starting aries agentd on host [%s]", parameters.host)
 	// start server on given port and serve using given handlers
 	handler := cors.Default().Handler(router)
+
 	err = parameters.server.ListenAndServe(parameters.host, handler)
 	if err != nil {
 		return fmt.Errorf("failed to start aries agentd on port [%s], cause:  %w", parameters.host, err)

@@ -39,9 +39,11 @@ type DIDCreator struct {
 // New return new instance of did creator
 func New(provider provider, opts ...Option) (*DIDCreator, error) {
 	creator := &DIDCreator{crypto: provider.KMS()}
+
 	for _, option := range opts {
 		option(creator)
 	}
+
 	setDefaultOpts(creator)
 
 	return creator, nil
@@ -50,6 +52,7 @@ func New(provider provider, opts ...Option) (*DIDCreator, error) {
 // Create returns new DID Document
 func (dc *DIDCreator) Create(didMethod string, opts ...api.DocOpts) (*did.Doc, error) {
 	docOpts := &api.CreateDIDOpts{}
+
 	for _, opt := range opts {
 		opt(docOpts)
 	}
@@ -96,6 +99,7 @@ func (dc *DIDCreator) resolveDidMethod(method string) (api.DidMethod, error) {
 			return v, nil
 		}
 	}
+
 	return nil, fmt.Errorf("did method %s not supported for did creator", method)
 }
 

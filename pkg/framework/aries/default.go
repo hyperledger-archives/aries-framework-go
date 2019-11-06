@@ -41,6 +41,7 @@ func storeProvider() (storage.Provider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("leveldb provider initialization failed : %w", err)
 	}
+
 	return storeProv, nil
 }
 
@@ -49,6 +50,7 @@ func inboundTransport() (didcommtrans.InboundTransport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("http inbound transport initialization failed: %w", err)
 	}
+
 	return inbound, nil
 }
 
@@ -60,6 +62,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		if err != nil {
 			return fmt.Errorf("http outbound transport initialization failed: %w", err)
 		}
+
 		frameworkOpts.outboundTransport = outbound
 	}
 
@@ -68,6 +71,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		if err != nil {
 			return fmt.Errorf("resolver initialization failed : %w", err)
 		}
+
 		frameworkOpts.storeProvider = storeProv
 	}
 
@@ -76,6 +80,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		if err != nil {
 			return fmt.Errorf("http inbound transport initialization failed: %w", err)
 		}
+
 		frameworkOpts.inboundTransport = inbound
 	}
 
@@ -108,6 +113,7 @@ func newExchangeSvc() api.ProtocolSvcCreator {
 		if err != nil {
 			return nil, err
 		}
+
 		return didexchange.New(dc, prv)
 	}
 }
@@ -136,6 +142,7 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) {
 			return dispatcher.NewOutbound(prv), nil
 		}
 	}
+
 	if frameworkOpts.transientStoreProvider == nil {
 		frameworkOpts.transientStoreProvider = mem.NewProvider()
 	}

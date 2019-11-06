@@ -26,6 +26,7 @@ type DIDCreator struct {
 // NewDIDCreator return new instance of did creator
 func NewDIDCreator(opts ...Option) *DIDCreator {
 	creator := &DIDCreator{}
+
 	for _, option := range opts {
 		option(creator)
 	}

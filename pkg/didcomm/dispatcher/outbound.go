@@ -32,21 +32,26 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		if !v.Accept(des.ServiceEndpoint) {
 			continue
 		}
+
 		bytes, err := json.Marshal(msg)
 		if err != nil {
 			return fmt.Errorf("failed marshal to bytes: %w", err)
 		}
+
 		packedMsg, err := o.packager.PackMessage(
 			&envelope.Envelope{Message: bytes, FromVerKey: senderVerKey, ToVerKeys: des.RecipientKeys})
 		if err != nil {
 			return fmt.Errorf("failed to pack msg: %w", err)
 		}
+
 		// TODO should we return respData from send
 		_, err = v.Send(packedMsg, des.ServiceEndpoint)
 		if err != nil {
 			return fmt.Errorf("failed to send msg using http outbound transport: %w", err)
 		}
+
 		return nil
 	}
+
 	return fmt.Errorf("no outbound transport found for serviceEndpoint: %s", des.ServiceEndpoint)
 }

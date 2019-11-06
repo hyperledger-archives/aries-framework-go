@@ -45,5 +45,6 @@ func (l *callerInfo) IsCallerInfoEnabled(module string, level Level) bool {
 		// If no callerinfo setting exists for given module, then look for default
 		return l.info[callerInfoKey{"", level}]
 	}
+
 	return show
 }

@@ -195,6 +195,7 @@ func lengthPrefix(array []byte) []byte {
 	arrInfo := make([]byte, 4+len(array))
 	binary.BigEndian.PutUint32(arrInfo, uint32(len(array)))
 	copy(arrInfo[4:], array)
+
 	return arrInfo
 }
 
@@ -210,16 +211,20 @@ func PublicEd25519toCurve25519(pub []byte) ([]byte, error) {
 	if len(pub) == 0 {
 		return nil, errors.New("key is nil")
 	}
+
 	if len(pub) != ed25519.PublicKeySize {
 		return nil, fmt.Errorf("%d-byte key size is invalid", len(pub))
 	}
+
 	pkOut := new([Curve25519KeySize]byte)
 	pKIn := new([Curve25519KeySize]byte)
 	copy(pKIn[:], pub)
+
 	success := extra25519.PublicKeyToCurve25519(pkOut, pKIn)
 	if !success {
 		return nil, errors.New("error converting public key")
 	}
+
 	return pkOut[:], nil
 }
 
@@ -229,10 +234,13 @@ func SecretEd25519toCurve25519(priv []byte) ([]byte, error) {
 	if len(priv) == 0 {
 		return nil, errors.New("key is nil")
 	}
+
 	sKIn := new([ed25519.PrivateKeySize]byte)
 	copy(sKIn[:], priv)
+
 	sKOut := new([Curve25519KeySize]byte)
 	extra25519.PrivateKeyToCurve25519(sKOut, sKIn)
+
 	return sKOut[:], nil
 }
 

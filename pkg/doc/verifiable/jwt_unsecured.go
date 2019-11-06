@@ -49,6 +49,7 @@ func unmarshalUnsecuredJWT(rawJWT []byte) (joseHeaders map[string]string, bytesC
 	}
 
 	headers := make(map[string]string)
+
 	err = json.Unmarshal(bytesHeader, &headers)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unmarshal JSON-based JOSE headers: %w", err)
@@ -60,6 +61,7 @@ func unmarshalUnsecuredJWT(rawJWT []byte) (joseHeaders map[string]string, bytesC
 	}
 
 	claims := make(map[string]interface{})
+
 	err = json.Unmarshal(bytesPayload, &claims)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unmarshal JSON-based JWT claims: %w", err)
@@ -76,8 +78,10 @@ func isJWTUnsecured(data []byte) bool {
 		if err != nil {
 			return false
 		}
+
 		var j map[string]interface{}
 		err = json.Unmarshal(b, &j)
+
 		return err == nil
 	}
 

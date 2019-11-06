@@ -40,7 +40,9 @@ func TestNilEncryptSenderJwk(t *testing.T) {
 
 	// set broken reader
 	randReader = &badReader{}
+
 	defer resetRandReader()
+
 	s, err = crypter.encryptSenderJWK("", "", nil, nil)
 	require.Error(t, err)
 	require.Empty(t, s)

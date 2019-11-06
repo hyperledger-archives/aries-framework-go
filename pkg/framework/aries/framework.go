@@ -223,12 +223,14 @@ func (a *Aries) Close() error {
 			return fmt.Errorf("failed to close the kms: %w", err)
 		}
 	}
+
 	if a.storeProvider != nil {
 		err := a.storeProvider.Close()
 		if err != nil {
 			return fmt.Errorf("failed to close the store: %w", err)
 		}
 	}
+
 	if a.transientStoreProvider != nil {
 		err := a.transientStoreProvider.Close()
 		if err != nil {
@@ -241,6 +243,7 @@ func (a *Aries) Close() error {
 			return fmt.Errorf("inbound transport close failed: %w", err)
 		}
 	}
+
 	return nil
 }
 
@@ -250,10 +253,12 @@ func createKMS(frameworkOpts *Aries) error {
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
 	}
+
 	frameworkOpts.kms, err = frameworkOpts.kmsCreator(ctx)
 	if err != nil {
 		return fmt.Errorf("create kms failed: %w", err)
 	}
+
 	return nil
 }
 
@@ -264,10 +269,12 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
 	}
+
 	frameworkOpts.outboundDispatcher, err = frameworkOpts.outboundDispatcherCreator(ctx)
 	if err != nil {
 		return fmt.Errorf("create outbound dispatcher failed: %w", err)
 	}
+
 	return nil
 }
 
@@ -283,6 +290,7 @@ func startInboundTransport(frameworkOpts *Aries) error {
 	if err = frameworkOpts.inboundTransport.Start(ctx); err != nil {
 		return fmt.Errorf("inbound transport start failed: %w", err)
 	}
+
 	return nil
 }
 
@@ -299,13 +307,16 @@ func loadServices(frameworkOpts *Aries) error {
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
 	}
+
 	for _, v := range frameworkOpts.protocolSvcCreators {
 		svc, svcErr := v(ctx)
 		if svcErr != nil {
 			return fmt.Errorf("new protocol service failed: %w", svcErr)
 		}
+
 		frameworkOpts.services = append(frameworkOpts.services, svc)
 	}
+
 	return nil
 }
 
@@ -329,5 +340,6 @@ func createCrypterAndPackager(frameworkOpts *Aries) error {
 	if err != nil {
 		return fmt.Errorf("create packager failed: %w", err)
 	}
+
 	return nil
 }

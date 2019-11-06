@@ -22,6 +22,7 @@ import (
 // Using (X)Chacha20 encryption algorithm and Poly1035 authenticator
 func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 	var envelopeData legacyEnvelope
+
 	err := json.Unmarshal(envelope, &envelopeData)
 	if err != nil {
 		return nil, err
@@ -33,6 +34,7 @@ func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 	}
 
 	var protectedData protected
+
 	err = json.Unmarshal(protectedBytes, &protectedData)
 	if err != nil {
 		return nil, err
@@ -101,6 +103,7 @@ func getCEK(recipients []recipient, km kms.KeyManager) (*[chacha.KeySize]byte, e
 	}
 
 	var cek [chacha.KeySize]byte
+
 	copy(cek[:], cekSlice)
 
 	return &cek, nil
@@ -131,14 +134,17 @@ func decodeSender(b64Sender string, pk []byte, km kms.KeyManager) ([]byte, error
 func (c *Crypter) decodeCipherText(cek *[chacha.KeySize]byte, envelope *legacyEnvelope) ([]byte, error) {
 	var cipherText, nonce, tag, aad, message []byte
 	aad = []byte(envelope.Protected)
+
 	cipherText, err := base64.URLEncoding.DecodeString(envelope.CipherText)
 	if err != nil {
 		return nil, err
 	}
+
 	nonce, err = base64.URLEncoding.DecodeString(envelope.IV)
 	if err != nil {
 		return nil, err
 	}
+
 	tag, err = base64.URLEncoding.DecodeString(envelope.Tag)
 	if err != nil {
 		return nil, err

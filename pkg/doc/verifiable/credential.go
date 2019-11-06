@@ -243,6 +243,7 @@ type rawCredential struct {
 // MarshalJSON defines custom marshalling of rawCredential to JSON.
 func (rc *rawCredential) MarshalJSON() ([]byte, error) {
 	type Alias rawCredential
+
 	alias := (*Alias)(rc)
 
 	return marshalWithExtraFields(alias, rc.ExtraFields)
@@ -251,9 +252,10 @@ func (rc *rawCredential) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON defines custom unmarshalling of rawCredential from JSON.
 func (rc *rawCredential) UnmarshalJSON(data []byte) error {
 	type Alias rawCredential
-	alias := (*Alias)(rc)
 
+	alias := (*Alias)(rc)
 	rc.ExtraFields = make(ExtraFields)
+
 	err := unmarshalWithExtraFields(data, alias, rc.ExtraFields)
 	if err != nil {
 		return err
@@ -366,6 +368,7 @@ func decodeIssuer(rc *rawCredential) (Issuer, error) {
 		if err != nil {
 			return Issuer{}, err
 		}
+
 		if id == "" {
 			return Issuer{}, errors.New("issuer ID is not defined")
 		}
@@ -396,6 +399,7 @@ func decodeType(rc *rawCredential) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("vc types: %w", err)
 		}
+
 		return types, nil
 	default:
 		return nil, errors.New("credential type of unknown type")
@@ -414,12 +418,14 @@ func decodeContext(rc *rawCredential) ([]string, []interface{}, error) {
 		return []string{rContext}, nil, nil
 	case []interface{}:
 		strings := make([]string, 0)
+
 		for i := range rContext {
 			c, valid := rContext[i].(string)
 			if !valid {
 				// the remaining contexts are of custom type
 				return strings, rContext[i:], nil
 			}
+
 			strings = append(strings, c)
 		}
 		// no contexts of custom type, just string contexts found
@@ -435,12 +441,14 @@ func decodeContext(rc *rawCredential) ([]string, []interface{}, error) {
 func decodeCredentialSchema(data []byte) ([]TypedID, error) {
 	// Credential schema is defined by
 	single := credentialSchemaSingle{}
+
 	err := json.Unmarshal(data, &single)
 	if err == nil {
 		return []TypedID{single.Schema}, nil
 	}
 
 	multiple := credentialSchemaMultiple{}
+
 	err = json.Unmarshal(data, &multiple)
 	if err == nil {
 		return multiple.Schemas, nil
@@ -454,6 +462,7 @@ func decodeCredentialSchema(data []byte) ([]TypedID, error) {
 func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	// Apply options
 	crOpts := defaultCredentialOpts()
+
 	for _, opt := range opts {
 		opt(crOpts)
 	}
@@ -465,6 +474,7 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 
 	// unmarshal VC from JSON
 	var raw rawCredential
+
 	err = json.Unmarshal(vcDataDecoded, &raw)
 	if err != nil {
 		return nil, fmt.Errorf("new credential: %w", err)
@@ -481,10 +491,12 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	}
 
 	cred := crOpts.template()
+
 	err = cred.fill(&raw)
 	if err != nil {
 		return nil, err
 	}
+
 	cred.Schemas = schemas
 
 	for _, decoder := range crOpts.decoders {
@@ -536,10 +548,12 @@ func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, error) {
 		if crOpts.issuerPublicKeyFetcher == nil {
 			return nil, errors.New("public key fetcher is not defined")
 		}
+
 		vcDecodedBytes, err := decodeCredJWS(vcData, crOpts.issuerPublicKeyFetcher)
 		if err != nil {
 			return nil, fmt.Errorf("JWS decoding: %w", err)
 		}
+
 		return vcDecodedBytes, nil
 	}
 
@@ -548,6 +562,7 @@ func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unsecured JWT decoding: %w", err)
 		}
+
 		return vcDecodedBytes, nil
 	}
 
@@ -560,8 +575,10 @@ func loadCredentialSchemas(raw *rawCredential, vcDataDecoded []byte) ([]TypedID,
 		if err != nil {
 			return nil, fmt.Errorf("load credential schema: %w", err)
 		}
+
 		return schemas, nil
 	}
+
 	return []TypedID{}, nil
 }
 
@@ -578,6 +595,7 @@ func issuerToSerialize(issuer Issuer) interface{} {
 	if issuer.Name != "" {
 		return &compositeIssuer{ID: issuer.ID, Name: issuer.Name}
 	}
+
 	return issuer.ID
 }
 
@@ -590,6 +608,7 @@ func validate(data []byte, schemas []TypedID, opts *credentialOpts) error {
 	}
 
 	loader := gojsonschema.NewStringLoader(string(data))
+
 	result, err := gojsonschema.Validate(schemaLoader, loader)
 	if err != nil {
 		return fmt.Errorf("validation of verifiable credential: %w", err)
@@ -615,6 +634,7 @@ func getSchemaLoader(schemas []TypedID, opts *credentialOpts) (gojsonschema.JSON
 			if err != nil {
 				return nil, fmt.Errorf("load of custom credential schema from %s: %w", schema.ID, err)
 			}
+
 			return gojsonschema.NewBytesLoader(customSchemaData), nil
 		default:
 			logger.Warnf("unsupported credential schema: %s. Using default schema for validation", schema.Type)
@@ -644,6 +664,7 @@ func loadCredentialSchema(url string, client *http.Client) ([]byte, error) {
 	}
 
 	var gotBody []byte
+
 	gotBody, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("credential schema: read response body: %w", err)
@@ -671,6 +692,7 @@ func (vc *Credential) SubjectID() (string, error) {
 		if !isString {
 			return "", errors.New("subject id is not string")
 		}
+
 		return subjectID, nil
 	}
 
@@ -682,9 +704,11 @@ func (vc *Credential) SubjectID() (string, error) {
 		if len(subject) == 0 {
 			return "", errors.New("no subject is defined")
 		}
+
 		if len(subject) > 1 {
 			return "", errors.New("more than one subject is defined")
 		}
+
 		return subjectIDFn(subject[0])
 
 	default:
@@ -727,12 +751,16 @@ func contextToSerialize(context []string, cContext []interface{}) interface{} {
 		for i := range context {
 			sContext[i] = context[i]
 		}
+
 		sContext = append(sContext, cContext...)
+
 		return sContext
 	}
+
 	if len(context) == 1 {
 		return context[0] // return single context
 	}
+
 	return context
 }
 
