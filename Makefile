@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 GO_CMD ?= go
-ARIES_AGENTD_MAIN=cmd/aries-agentd/main.go
+ARIES_AGENTD_PATH=cmd/aries-agentd
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
 OPENAPI_SPEC_PATH=build/rest/openapi/spec
 # TODO: Switched to dev since release version doesn't support go 1.13
@@ -66,7 +66,7 @@ generate-test-keys: clean
 generate-openapi-spec: clean
 	@echo "Generating and validating controller API specifications using Open API"
 	@mkdir -p build/rest/openapi/spec
-	@SPEC_META=$(ARIES_AGENTD_MAIN) SPEC_LOC=${OPENAPI_SPEC_PATH}  \
+	@SPEC_META=$(ARIES_AGENTD_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}  \
 	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
 	scripts/generate-openapi-spec.sh
 
@@ -87,7 +87,7 @@ run-openapi-demo: generate-openapi-demo-specs sample-webhook-docker
 agent:
 	@echo "Building aries-agentd"
 	@mkdir -p ./build/bin
-	@go build -o ./build/bin/aries-agentd ${ARIES_AGENTD_MAIN}
+	@cd ${ARIES_AGENTD_PATH} && go build -o ../../build/bin/aries-agentd main.go
 
 .PHONY: agent-docker
 agent-docker:
