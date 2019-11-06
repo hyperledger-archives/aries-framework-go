@@ -68,10 +68,9 @@ type provider interface {
 
 // stateMachineMsg is an internal struct used to pass data to state machine.
 type stateMachineMsg struct {
-	outboundDestination *service.Destination
-	header              *service.Header
-	payload             []byte
-	connRecord          *ConnectionRecord
+	header     *service.Header
+	payload    []byte
+	connRecord *ConnectionRecord
 }
 
 // Service for DID exchange protocol

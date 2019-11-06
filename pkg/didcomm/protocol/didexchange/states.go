@@ -173,12 +173,12 @@ func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 
 		err := json.Unmarshal(msg.payload, invitation)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
+			return nil, nil, nil, fmt.Errorf("JSON unmarshalling of invitation: %w", err)
 		}
 
 		action, connRecord, err := ctx.handleInboundInvitation(invitation, thid, msg.connRecord)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("handle inbound invitation failed: %s", err)
+			return nil, nil, nil, fmt.Errorf("handle inbound invitation: %w", err)
 		}
 
 		return connRecord, &noOp{}, action, nil
@@ -209,12 +209,12 @@ func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 
 		err := json.Unmarshal(msg.payload, request)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
+			return nil, nil, nil, fmt.Errorf("JSON unmarshalling of request: %w", err)
 		}
 
 		action, connRecord, err := ctx.handleInboundRequest(request, msg.connRecord)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("handle inbound request failed: %s", err)
+			return nil, nil, nil, fmt.Errorf("handle inbound request: %w", err)
 		}
 
 		return connRecord, &noOp{}, action, nil
@@ -245,12 +245,12 @@ func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 
 		err := json.Unmarshal(msg.payload, response)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("unmarshalling failed: %s", err)
+			return nil, nil, nil, fmt.Errorf("JSON unmarshalling of response: %w", err)
 		}
 
 		action, connRecord, err := ctx.handleInboundResponse(response)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("handle inbound failed: %s", err)
+			return nil, nil, nil, fmt.Errorf("handle inbound response: %w", err)
 		}
 
 		return connRecord, &noOp{}, action, nil
@@ -283,7 +283,7 @@ func (ctx *context) prepareAckConnectionRecord(payload []byte) (*ConnectionRecor
 
 	err := json.Unmarshal(payload, ack)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("JSON unmarshalling of acknowledgement: %w", err)
 	}
 
 	key, err := createNSKey(theirNSPrefix, ack.Thread.ID)
@@ -319,7 +319,7 @@ func prepareRequestConnectionRecord(payload []byte) (*ConnectionRecord, error) {
 
 	err := json.Unmarshal(payload, &request)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshalling failed: %s", err)
+		return nil, fmt.Errorf("JSON unmarshalling of request: %w", err)
 	}
 
 	return &ConnectionRecord{
@@ -336,7 +336,7 @@ func (ctx *context) prepareResponseConnectionRecord(payload []byte) (*Connection
 
 	err := json.Unmarshal(payload, response)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("JSON unmarshalling of response: %w", err)
 	}
 
 	thid, err := createNSKey(myNSPrefix, response.Thread.ID)
@@ -381,7 +381,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 
 	pubKey, err := getPublicKeys(request.Connection.DIDDoc, supportedPublicKeyType)
 	if err != nil {
-		return nil, nil, fmt.Errorf("getting public key %s", err)
+		return nil, nil, fmt.Errorf("getting public key %w", err)
 	}
 
 	return func() error {
@@ -621,7 +621,7 @@ func verifySignature(connSignature *ConnectionSignature) (*Connection, error) {
 
 	err = json.Unmarshal(connBytes, conn)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshal failed: %w", err)
+		return nil, fmt.Errorf("JSON unmarshalling of connection: %w", err)
 	}
 
 	return conn, nil
