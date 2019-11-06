@@ -20,7 +20,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 
 	t.Run("Decoding presentation from JWS", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, false)
-		vcFromJWT, err := NewPresentation(jws, WithPresJWSDecoding(keyFetcher))
+		vcFromJWT, err := NewPresentation(jws, WithPresPublicKeyFetcher(keyFetcher))
 		require.NoError(t, err)
 
 		vc, err := NewPresentation(vpBytes)
@@ -31,7 +31,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 
 	t.Run("Decoding presentation from JWS with minimized fields of \"vp\" claim", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, true)
-		vcFromJWT, err := NewPresentation(jws, WithPresJWSDecoding(keyFetcher))
+		vcFromJWT, err := NewPresentation(jws, WithPresPublicKeyFetcher(keyFetcher))
 		require.NoError(t, err)
 
 		vc, err := NewPresentation(vpBytes)
@@ -45,7 +45,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 		_, err := NewPresentation(
 			jws,
 			// passing issuers's key, while expecting issuer one
-			WithPresJWSDecoding(func(issuerID, keyID string) (interface{}, error) {
+			WithPresPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
 				publicKey, err := readPublicKey(filepath.Join(certPrefix, "issuer_public.pem"))
 				require.NoError(t, err)
 				require.NotNil(t, publicKey)
@@ -61,12 +61,19 @@ func TestNewPresentationFromJWS(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, true)
 		_, err := NewPresentation(
 			jws,
-			WithPresJWSDecoding(func(issuerID, keyID string) (interface{}, error) {
+			WithPresPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
 				return nil, errors.New("test: public key is not found")
 			}))
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get public key for JWT signature verification")
+	})
+
+	t.Run("Not defined public key fetcher", func(t *testing.T) {
+		_, err := NewPresentation(createPresJWS(t, vpBytes, true))
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "public key fetcher is not defined")
 	})
 }
 
@@ -74,9 +81,7 @@ func TestNewPresentationFromUnsecuredJWT(t *testing.T) {
 	vpBytes := []byte(validPresentation)
 
 	t.Run("Decoding presentation from unsecured JWT", func(t *testing.T) {
-		vcFromJWT, err := NewPresentation(
-			createPresUnsecuredJWT(t, vpBytes, false),
-			WithPresUnsecuredJWTDecoding())
+		vcFromJWT, err := NewPresentation(createPresUnsecuredJWT(t, vpBytes, false))
 
 		require.NoError(t, err)
 
@@ -87,9 +92,7 @@ func TestNewPresentationFromUnsecuredJWT(t *testing.T) {
 	})
 
 	t.Run("Decoding presentation from unsecured JWT with minimized fields of \"vp\" claim", func(t *testing.T) {
-		vcFromJWT, err := NewPresentation(
-			createPresUnsecuredJWT(t, vpBytes, true),
-			WithPresUnsecuredJWTDecoding())
+		vcFromJWT, err := NewPresentation(createPresUnsecuredJWT(t, vpBytes, true))
 
 		require.NoError(t, err)
 
@@ -97,15 +100,6 @@ func TestNewPresentationFromUnsecuredJWT(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, vc, vcFromJWT)
-	})
-
-	t.Run("Failed to decode presentation from unsecured JWT of invalid format", func(t *testing.T) {
-		_, err := NewPresentation(
-			[]byte("invalid unsecured JWT"),
-			WithPresUnsecuredJWTDecoding())
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "decoding of Verifiable Presentation from unsecured JWT")
 	})
 }
 

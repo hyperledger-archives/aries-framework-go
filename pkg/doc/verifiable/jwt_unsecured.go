@@ -67,3 +67,22 @@ func unmarshalUnsecuredJWT(rawJWT []byte) (joseHeaders map[string]string, bytesC
 
 	return headers, bytesPayload, nil
 }
+
+func isJWTUnsecured(data []byte) bool {
+	parts := strings.Split(string(data), ".")
+
+	isValidJSON := func(s string) bool {
+		b, err := base64.RawURLEncoding.DecodeString(s)
+		if err != nil {
+			return false
+		}
+		var j map[string]interface{}
+		err = json.Unmarshal(b, &j)
+		return err == nil
+	}
+
+	return len(parts) == 3 &&
+		isValidJSON(parts[0]) &&
+		isValidJSON(parts[1]) &&
+		parts[2] == ""
+}
