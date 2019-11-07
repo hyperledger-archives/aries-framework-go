@@ -15,6 +15,7 @@ import (
 
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
 const (
@@ -368,21 +369,40 @@ func TestConnectionRecorder_SaveNSThreadID(t *testing.T) {
 func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 	t.Run("test query connection record", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		const count = 5
-		for i := 0; i < count; i++ {
-			val, err := json.Marshal(&ConnectionRecord{
+
+		transientStore, err := mem.NewProvider().OpenStore(DIDExchange)
+		require.NoError(t, err)
+
+		const (
+			storeCount          = 5
+			overlap             = 3
+			transientStoreCount = 4
+		)
+
+		for i := 0; i < storeCount+overlap; i++ {
+			val, jsonErr := json.Marshal(&ConnectionRecord{
 				ConnectionID: string(i),
 			})
-			require.NoError(t, err)
+			require.NoError(t, jsonErr)
+
 			err = store.Put(fmt.Sprintf("%s_abc%d", connIDKeyPrefix, i), val)
 			require.NoError(t, err)
 		}
+		for i := overlap; i < transientStoreCount+storeCount; i++ {
+			val, jsonErr := json.Marshal(&ConnectionRecord{
+				ConnectionID: string(i),
+			})
+			require.NoError(t, jsonErr)
 
-		recorder := NewConnectionRecorder(nil, store)
+			err = transientStore.Put(fmt.Sprintf("%s_abc%d", connIDKeyPrefix, i), val)
+			require.NoError(t, err)
+		}
+
+		recorder := NewConnectionRecorder(transientStore, store)
 		require.NotNil(t, recorder)
 		result, err := recorder.QueryConnectionRecords()
 		require.NoError(t, err)
-		require.Len(t, result, count)
+		require.Len(t, result, storeCount+transientStoreCount)
 	})
 
 	t.Run("test query connection record failure", func(t *testing.T) {

@@ -533,7 +533,7 @@ func TestSendConnectionNotification(t *testing.T) {
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 	require.NoError(t, storeProv.Store.Put("conn_id1", connBytes))
-	require.NoError(t, storeProv.Store.Put("conn_id1"+"completed", connBytes))
+	require.NoError(t, storeProv.Store.Put("connstate_id1"+"completed", connBytes))
 
 	t.Run("send notification success", func(t *testing.T) {
 		op, err := New(&mockprovider.Provider{

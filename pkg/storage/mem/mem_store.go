@@ -125,5 +125,80 @@ func (s *memStore) Get(k string) ([]byte, error) {
 
 // Iterator returns iterator for the latest snapshot of the underlying db.
 func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
-	panic("iterator not supported in mem store")
+	s.RLock()
+	data := s.db
+	defer s.RUnlock()
+
+	var batch [][]string
+
+	for k, v := range data {
+		if strings.HasPrefix(k, start) {
+			batch = append(batch, []string{k, string(v)})
+		}
+	}
+
+	return newMemIterator(batch)
+}
+
+type memIterator struct {
+	currentIndex int
+	currentItem  []string
+	items        [][]string
+	err          error
+}
+
+// NewMemIterator returns new mem iterator for given batch
+func newMemIterator(batch [][]string) *memIterator {
+	if len(batch) == 0 {
+		return &memIterator{}
+	}
+
+	return &memIterator{items: batch}
+}
+
+func (s *memIterator) isExhausted() bool {
+	return len(s.items) == 0 || len(s.items) == s.currentIndex
+}
+
+// Next moves pointer to next value of iterator.
+// It returns false if the iterator is exhausted.
+func (s *memIterator) Next() bool {
+	if s.isExhausted() {
+		return false
+	}
+
+	s.currentItem = s.items[s.currentIndex]
+	s.currentIndex++
+
+	return true
+}
+
+// Release releases associated resources.
+func (s *memIterator) Release() {
+	s.currentIndex = 0
+	s.items = make([][]string, 0)
+	s.currentItem = make([]string, 0)
+}
+
+// Error returns error in iterator.
+func (s *memIterator) Error() error {
+	return s.err
+}
+
+// Key returns the key of the current key/value pair.
+func (s *memIterator) Key() []byte {
+	if len(s.items) == 0 || len(s.currentItem) == 0 {
+		return nil
+	}
+
+	return []byte(s.currentItem[0])
+}
+
+// Value returns the value of the current key/value pair.
+func (s *memIterator) Value() []byte {
+	if len(s.items) == 0 || len(s.currentItem) < 1 {
+		return nil
+	}
+
+	return []byte(s.currentItem[1])
 }
