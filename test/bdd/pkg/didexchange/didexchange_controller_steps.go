@@ -58,6 +58,7 @@ func NewDIDExchangeControllerSteps(context *context.BDDContext) *DIDExchangeCont
 func (a *DIDExchangeControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
+	s.Step(`^"([^"]*)" approves exchange invitation`, a.approveInvitation)
 	s.Step(`^"([^"]*)" approves exchange request`, a.approveRequest)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)" to webhook`, a.waitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`, a.validateConnection)
@@ -153,9 +154,29 @@ func (a *DIDExchangeControllerSteps) receiveInvitation(inviteeAgentID, inviterAg
 	return nil
 }
 
+func (a *DIDExchangeControllerSteps) approveInvitation(agentID string) error {
+	connectionID, err := a.pullWebhookEvents(agentID, "invited")
+	if err != nil {
+		return fmt.Errorf("aprove exchange invitation : %w", err)
+	}
+
+	// invitee connectionID
+	a.connectionIDs[agentID] = connectionID
+
+	controllerURL, ok := a.bddContext.GetControllerURL(agentID)
+	if !ok {
+		return fmt.Errorf("unable to find contoller URL for agent [%s]", controllerURL)
+	}
+
+	var connMsg didexchrsapi.ConnectionMsg
+
+	return sendHTTP(http.MethodPost, controllerURL+"/connections/"+connectionID+"/accept-invitation",
+		nil, &connMsg)
+}
+
 func (a *DIDExchangeControllerSteps) approveRequest(agentID string) error {
 
-	connectionID, err := a.pullWebhookEvents(agentID, "null")
+	connectionID, err := a.pullWebhookEvents(agentID, "requested")
 	if err != nil {
 		return fmt.Errorf("failed to get connection ID from webhook, %w", err)
 	}

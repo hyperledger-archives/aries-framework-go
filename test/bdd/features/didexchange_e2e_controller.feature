@@ -14,6 +14,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using control
     And "Bob" agent is running on "localhost" port "9081" with controller "http://localhost:9082" and webhook "http://localhost:9083"
     And   "Alice" creates invitation through controller with label "alice-agent"
     And   "Bob" receives invitation from "Alice" through controller
+    And   "Bob" approves exchange invitation
     And   "Alice" approves exchange request
     And   "Alice" waits for post state event "completed" to webhook
     And   "Bob" waits for post state event "completed" to webhook

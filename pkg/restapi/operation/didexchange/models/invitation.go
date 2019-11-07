@@ -143,10 +143,10 @@ type AcceptInvitationRequest struct {
 type AcceptInvitationResponse struct {
 
 	// State of the connection invitation
-	State string `json:"state"`
+	State string `json:"state,omitempty"`
 
 	// Other party's DID
-	InviterDID string `json:"their_did"`
+	InviterDID string `json:"their_did,omitempty"`
 
 	// Created time
 	CreateTime time.Time `json:"created_at,omitempty"`
@@ -155,19 +155,19 @@ type AcceptInvitationResponse struct {
 	Accept string `json:"accept,omitempty"`
 
 	// My DID
-	DID string `json:"my_did"`
+	DID string `json:"my_did,omitempty"`
 
 	// Request ID of invitation response
-	RequestID string `json:"request_id"`
+	RequestID string `json:"request_id,omitempty"`
 
 	// Other party's label
 	InviterLabel string `json:"their_label,omitempty"`
 
 	// Alias
-	Alias string `json:"alias"`
+	Alias string `json:"alias,omitempty"`
 
 	// Other party's role
-	InviterRole string `json:"their_role"`
+	InviterRole string `json:"their_role,omitempty"`
 
 	// Connection invitation initiator
 	Initiator string `json:"initiator,omitempty"`
@@ -185,7 +185,7 @@ type AcceptInvitationResponse struct {
 	InboundConnectionID string `json:"inbound_connection_id,omitempty"`
 
 	// the connection ID of the connection invitation
-	ConnectionID string `json:"connection_id"`
+	ConnectionID string `json:"connection_id,omitempty"`
 
 	// Error message
 	Error string `json:"error_msg,omitempty"`

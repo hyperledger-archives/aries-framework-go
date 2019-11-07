@@ -246,12 +246,12 @@ func TestOperation_AcceptInvitation(t *testing.T) {
 	buf, err := getResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")), operationID+"/1111/accept-invitation")
 	require.NoError(t, err)
 
-	response := models.GenericError{}
+	response := models.AcceptInvitationResponse{}
 	err = json.Unmarshal(buf.Bytes(), &response)
 	require.NoError(t, err)
 
 	require.NotEmpty(t, response)
-	require.Equal(t, "please use receive invitation API to save and approve invitation", response.Body.Message)
+	require.NotEmpty(t, response.ConnectionID)
 }
 
 func TestOperation_AcceptExchangeRequest(t *testing.T) {
@@ -390,7 +390,7 @@ func handlerLookup(t *testing.T, op *Operation, lookup string) operation.Handler
 	return nil
 }
 
-func TestServiceEvents(t *testing.T) {
+func TestAcceptExchangeRequest(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
 	didExSvc, err := didexsvc.New(&didcreator.MockDIDCreator{}, &protocol.MockProvider{TransientStoreProvider: store})
 
@@ -412,7 +412,7 @@ func TestServiceEvents(t *testing.T) {
 				jsonErr := json.Unmarshal(message, &conn)
 				require.NoError(t, jsonErr)
 
-				if conn.State == "null" {
+				if conn.State == "requested" {
 					connID <- conn.ConnectionID
 				}
 
@@ -465,6 +465,83 @@ func TestServiceEvents(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
+		require.Fail(t, "tests are not validated")
+	}
+}
+
+func TestAcceptInvitation(t *testing.T) {
+	store := mockstore.NewMockStoreProvider()
+	didExSvc, err := didexsvc.New(&didcreator.MockDIDCreator{}, &protocol.MockProvider{TransientStoreProvider: store})
+
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	connID := make(chan string)
+
+	// create the client
+	op, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: store,
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  didExSvc},
+		&mockNotifier{
+			notifyFunc: func(topic string, message []byte) error {
+				require.Equal(t, connectionsWebhookTopic, topic)
+				conn := ConnectionMsg{}
+				jsonErr := json.Unmarshal(message, &conn)
+				require.NoError(t, jsonErr)
+
+				if conn.State == "invited" {
+					connID <- conn.ConnectionID
+				}
+
+				if conn.State == "requested" {
+					close(done)
+				}
+
+				return nil
+			},
+		},
+		"",
+	)
+	require.NoError(t, err)
+	require.NotNil(t, op)
+
+	// send connection request message
+	id := "valid-thread-id"
+
+	request, err := json.Marshal(
+		&didexsvc.Request{
+			Type:  didexsvc.InvitationMsgType,
+			ID:    id,
+			Label: "test",
+		},
+	)
+	require.NoError(t, err)
+
+	msg, err := service.NewDIDCommMsg(request)
+	require.NoError(t, err)
+
+	_, err = didExSvc.HandleInbound(msg)
+	require.NoError(t, err)
+
+	var cid string
+	select {
+	case cid = <-connID:
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "tests are not validated")
+	}
+
+	buf, err := getResponseFromHandler(handlerLookup(t, op, acceptInvitationPath), bytes.NewBuffer([]byte("")),
+		operationID+"/"+cid+"/accept-invitation")
+	require.NoError(t, err)
+
+	response := models.AcceptExchangeResult{}
+	err = json.Unmarshal(buf.Bytes(), &response)
+	require.NoError(t, err)
+
+	select {
+	case <-done:
+	case <-time.After(1 * time.Second):
 		require.Fail(t, "tests are not validated")
 	}
 }
