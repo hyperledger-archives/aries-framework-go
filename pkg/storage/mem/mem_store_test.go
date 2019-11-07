@@ -168,11 +168,48 @@ func TestMemStore(t *testing.T) {
 		err = prov.Close()
 		require.NoError(t, err)
 	})
+}
 
+func TestMemStoreIterator(t *testing.T) {
 	t.Run("Test mem store iterator", func(t *testing.T) {
 		prov := NewProvider()
-		store, err := prov.OpenStore("test-iterator")
+		store, err := prov.OpenStore("test")
 		require.NoError(t, err)
-		require.Panics(t, func() { store.Iterator("", "") })
+
+		rawData := make(map[string][]byte)
+		rawData["key1"] = []byte("value1")
+		rawData["key2"] = []byte("value2")
+		rawData["key3"] = []byte("value3")
+
+		for k, v := range rawData {
+			err = store.Put(k, v)
+			require.NoError(t, err)
+		}
+
+		itr := store.Iterator("", "")
+		defer itr.Release()
+
+		count := 0
+		for itr.Next() {
+			val := rawData[string(itr.Key())]
+			require.Equal(t, val, itr.Value())
+			count++
+		}
+		require.Equal(t, len(rawData), count)
+	})
+
+	t.Run("Test mem store iterator - no data in iterator", func(t *testing.T) {
+		// no data from iterator
+		prov := NewProvider()
+		store, err := prov.OpenStore("test2")
+		require.NoError(t, err)
+
+		itr := store.Iterator("", "")
+		defer itr.Release()
+
+		require.False(t, itr.Next())
+		require.Nil(t, itr.Key())
+		require.Nil(t, itr.Value())
+		require.NoError(t, itr.Error())
 	})
 }

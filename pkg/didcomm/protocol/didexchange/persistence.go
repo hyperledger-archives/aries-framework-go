@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	keyPattern      = "%s_%s"
-	invKeyPrefix    = "inv"
-	connIDKeyPrefix = "conn"
-	myNSPrefix      = "my"
+	keyPattern         = "%s_%s"
+	invKeyPrefix       = "inv"
+	connIDKeyPrefix    = "conn"
+	connStateKeyPrefix = "connstate"
+	myNSPrefix         = "my"
 	//Todo: Issue-556 It will not be constant, this namespace will need to be figured with verification key
 	theirNSPrefix = "their"
 	// limitPattern with `~` at the end for lte of given prefix (less than or equal)
@@ -141,6 +142,8 @@ func (c *ConnectionRecorder) QueryConnectionRecords() ([]*ConnectionRecord, erro
 
 	var records []*ConnectionRecord
 
+	keys := make(map[string]struct{})
+
 	for itr.Next() {
 		var record ConnectionRecord
 
@@ -149,7 +152,26 @@ func (c *ConnectionRecorder) QueryConnectionRecords() ([]*ConnectionRecord, erro
 			return nil, fmt.Errorf("failed to query connection records, %w", err)
 		}
 
+		keys[string(itr.Key())] = struct{}{}
+
 		records = append(records, &record)
+	}
+
+	transientItr := c.transientStore.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
+	defer transientItr.Release()
+
+	for transientItr.Next() {
+		// don't fetch data from transient store if same record is present in permanent store
+		if _, ok := keys[string(transientItr.Key())]; !ok {
+			var record ConnectionRecord
+
+			err := json.Unmarshal(transientItr.Value(), &record)
+			if err != nil {
+				return nil, fmt.Errorf("query connection records from transient store : %w", err)
+			}
+
+			records = append(records, &record)
+		}
 	}
 
 	return records, nil
@@ -161,7 +183,7 @@ func (c *ConnectionRecorder) GetConnectionRecordAtState(connectionID, stateID st
 		return nil, errors.New("stateID can't be empty")
 	}
 
-	return getAndUnmarshal(connectionKeyPrefix(connectionID+stateID), c.transientStore)
+	return getAndUnmarshal(connectionStateKeyPrefix(connectionID, stateID), c.transientStore)
 }
 
 func getAndUnmarshal(k string, store storage.Store) (*ConnectionRecord, error) {
@@ -198,7 +220,7 @@ func (c *ConnectionRecorder) saveConnectionRecord(record *ConnectionRecord) erro
 	}
 
 	if record.State != "" {
-		err := marshalAndSave(connectionKeyPrefix(record.ConnectionID+record.State), record, c.transientStore)
+		err := marshalAndSave(connectionStateKeyPrefix(record.ConnectionID, record.State), record, c.transientStore)
 		if err != nil {
 			return fmt.Errorf("save connection record with state in transient store: %w", err)
 		}
@@ -293,6 +315,11 @@ func computeHash(bytes []byte) (string, error) {
 // connectionKeyPrefix computes key for connection record object
 func connectionKeyPrefix(connectionID string) string {
 	return fmt.Sprintf(keyPattern, connIDKeyPrefix, connectionID)
+}
+
+// connectionStateKeyPrefix computes key for connection record data associated with state.
+func connectionStateKeyPrefix(connectionID, stateID string) string {
+	return fmt.Sprintf(keyPattern, connStateKeyPrefix, connectionID+stateID)
 }
 
 // createNSKey computes key for storing the mapping with the namespace
