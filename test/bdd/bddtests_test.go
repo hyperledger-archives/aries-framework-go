@@ -19,6 +19,14 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
+	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
+)
+
+const (
+	SideTreeURL = "${SIDETREE_URL}"
+	DIDDocPath  = "${DID_DOC_PATH}"
 )
 
 var composition []*dockerutil.Composition
@@ -111,21 +119,32 @@ func getCmdArg(argName string) string {
 	return ""
 }
 
+// generateUUID returns a UUID based on RFC 4122
+func generateUUID() string {
+	id := dockerutil.GenerateBytesUUID()
+	return fmt.Sprintf("%x-%x-%x-%x-%x", id[0:4], id[4:6], id[6:8], id[8:10], id[10:])
+}
+
 func FeatureContext(s *godog.Suite) {
-	context, err := NewContext()
+	bddContext, err := bddctx.NewBDDContext()
 	if err != nil {
 		panic(fmt.Sprintf("Error returned from NewBDDContext: %s", err))
 	}
 
 	// set dynamic args
-	context.Args[SideTreeURL] = "http://localhost:48326/document"
-	context.Args[DIDDocPath] = "fixtures/sidetree-mock/config/didDocument.json"
+	bddContext.Args[SideTreeURL] = "http://localhost:48326/document"
+	bddContext.Args[DIDDocPath] = "fixtures/sidetree-mock/config/didDocument.json"
 
 	// Context is shared between tests
-	NewAgentSDKSteps(context).RegisterSteps(s)
-	NewAgentControllerSteps().RegisterSteps(s)
-	NewDIDExchangeSteps(context).RegisterSteps(s)
-	NewDIDResolverSteps(context).RegisterSteps(s)
+	NewAgentSDKSteps(bddContext).RegisterSteps(s)
+	NewAgentControllerSteps(bddContext).RegisterSteps(s)
+
+	// Register did exchange tests
+	didexchange.NewDIDExchangeSDKSteps(bddContext).RegisterSteps(s)
+	didexchange.NewDIDExchangeControllerSteps(bddContext).RegisterSteps(s)
+
+	// Register did resolver tests
+	didresolver.NewDIDResolverSteps(bddContext).RegisterSteps(s)
 
 }
 

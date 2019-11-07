@@ -7,21 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package bdd
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/DATA-DOG/godog"
 
-	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/httpbinding"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
@@ -39,11 +36,11 @@ var logger = log.New("aries-framework/tests")
 
 // AgentSDKSteps
 type AgentSDKSteps struct {
-	bddContext *Context
+	bddContext *context.BDDContext
 }
 
 // NewAgentSDKSteps
-func NewAgentSDKSteps(context *Context) *AgentSDKSteps {
+func NewAgentSDKSteps(context *context.BDDContext) *AgentSDKSteps {
 	return &AgentSDKSteps{bddContext: context}
 }
 
@@ -108,86 +105,10 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort string, opts ..
 	return nil
 }
 
-func (a *AgentSDKSteps) createDIDExchangeClient(agentID string) error {
-
-	// create new did exchange client
-	didexchangeClient, err := didexchange.New(a.bddContext.AgentCtx[agentID])
-	if err != nil {
-		return fmt.Errorf("failed to create new didexchange client: %w", err)
-	}
-
-	actionCh := make(chan service.DIDCommAction)
-	err = didexchangeClient.RegisterActionEvent(actionCh)
-
-	a.bddContext.actionCh[agentID] = actionCh
-	a.bddContext.DIDExchangeClients[agentID] = didexchangeClient
-
-	return nil
-}
-
-func (a *AgentSDKSteps) getClientOptions(agentID string) interface{} {
-	var clientOpts interface{}
-	pubDID, ok := a.bddContext.PublicDIDs[agentID]
-	if ok {
-		clientOpts = &clientOptions{publicDID: pubDID.ID}
-		logger.Debugf("Agent %s will use public DID %s:", agentID, pubDID.ID)
-	}
-
-	return clientOpts
-}
-
-type clientOptions struct {
-	publicDID string
-}
-
-func (copts *clientOptions) PublicDID() string {
-	return copts.publicDID
-}
-
 func closeResponse(c io.Closer) {
 	err := c.Close()
 	if err != nil {
 		logger.Errorf("Failed to close response body : %s", err)
-	}
-}
-
-func (a *AgentSDKSteps) registerPostMsgEvent(agentID, statesValue string) error {
-	statusCh := make(chan service.StateMsg, 1)
-	if err := a.bddContext.DIDExchangeClients[agentID].RegisterMsgEvent(statusCh); err != nil {
-		return fmt.Errorf("failed to register msg event: %w", err)
-	}
-	states := strings.Split(statesValue, ",")
-	a.initializeStates(agentID, states)
-
-	go a.eventListener(statusCh, agentID, states)
-
-	return nil
-}
-
-func (a *AgentSDKSteps) approveRequest(agentID string) error {
-	go func() {
-		for e := range a.bddContext.actionCh[agentID] {
-			switch v := e.Properties.(type) {
-			case didexchange.Event:
-				a.bddContext.Lock()
-				a.bddContext.ConnectionID[agentID] = v.ConnectionID()
-				a.bddContext.Unlock()
-			case error:
-				panic(fmt.Sprintf("Service processing failed: %s", v))
-			}
-
-			clientOpts := a.getClientOptions(agentID)
-			e.Continue(clientOpts)
-		}
-	}()
-
-	return nil
-}
-
-func (a *AgentSDKSteps) initializeStates(agentID string, states []string) {
-	a.bddContext.PostStatesFlag[agentID] = make(map[string]chan bool)
-	for _, state := range states {
-		a.bddContext.PostStatesFlag[agentID][state] = make(chan bool)
 	}
 }
 
@@ -196,10 +117,7 @@ func (a *AgentSDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)"$`, a.createAgent)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
 		a.createAgentWithHttpDIDResolver)
-	s.Step(`^"([^"]*)" creates did exchange client$`, a.createDIDExchangeClient)
-	s.Step(`^"([^"]*)" approves invitation request`, a.approveRequest)
-	s.Step(`^"([^"]*)" approves did exchange request`, a.approveRequest)
-	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, a.registerPostMsgEvent)
+
 }
 
 func mustGetRandomPort(n int) int {
@@ -241,32 +159,6 @@ func listenFor(host string, d time.Duration) error {
 				continue
 			}
 			return conn.Close()
-		}
-	}
-}
-
-func (a *AgentSDKSteps) eventListener(statusCh chan service.StateMsg, agentID string, states []string) {
-	for e := range statusCh {
-		switch v := e.Properties.(type) {
-		case error:
-			panic(fmt.Sprintf("Service processing failed: %s", v))
-		}
-
-		if e.Type == service.PostState {
-			dst := &bytes.Buffer{}
-			if err := json.Indent(dst, e.Msg.Payload, "", "  "); err != nil {
-				panic(err)
-			}
-			if e.StateID != "invited" {
-				logger.Debugf("Agent %s done processing %s message \n%s\n*****", agentID, e.Msg.Header.Type, dst)
-			}
-			for _, state := range states {
-				// receive the events
-				if e.StateID == state {
-					a.bddContext.PostStatesFlag[agentID][state] <- true
-				}
-
-			}
 		}
 	}
 }
