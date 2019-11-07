@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package bdd
+package didresolver
 
 import (
 	"bytes"
@@ -19,33 +19,34 @@ import (
 
 	"github.com/DATA-DOG/godog"
 
-	"github.com/trustbloc/sidetree-core-go/pkg/document"
-	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
-	"github.com/trustbloc/sidetree-core-go/pkg/restapi/model"
-
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
+	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	"github.com/trustbloc/sidetree-core-go/pkg/document"
+	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
+	"github.com/trustbloc/sidetree-core-go/pkg/restapi/model"
 )
 
 const (
-	SideTreeURL     = "${SIDETREE_URL}"
-	DIDDocPath      = "${DID_DOC_PATH}"
 	sha2_256        = 18
 	didDocNamespace = "did:sidetree:"
 	maxRetry        = 10
 )
 
+var logger = log.New("aries-framework/didresolver-tests")
+
 // DIDResolverSteps
 type DIDResolverSteps struct {
-	bddContext       *Context
+	bddContext       *bddctx.BDDContext
 	reqEncodedDIDDoc string
 	resp             *httpRespone
 }
 
 // NewDIDResolverSteps
-func NewDIDResolverSteps(context *Context) *DIDResolverSteps {
+func NewDIDResolverSteps(context *bddctx.BDDContext) *DIDResolverSteps {
 	return &DIDResolverSteps{bddContext: context}
 }
 
@@ -56,9 +57,10 @@ func (d *DIDResolverSteps) createDIDDocument(agentID string, sideTreeURL string)
 	}
 	req := newCreateRequest(sideTreeDoc)
 	d.reqEncodedDIDDoc = req.Payload
+
 	resp, err := sendRequest(d.bddContext.Args[sideTreeURL], req)
 	if err != nil {
-		return fmt.Errorf("failed to create public DID document: %s", d.resp.errorMsg)
+		return fmt.Errorf("failed to create public DID document: %w", err)
 	}
 	doc, err := diddoc.ParseDocument(resp.payload)
 	if err != nil {
