@@ -5,13 +5,37 @@ SPDX-License-Identifier: Apache-2.0
 package httpbinding
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 )
+
+//nolint:lll
+const doc = `{
+  "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
+  "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
+  "publicKey": [
+    {
+      "id": "did:peer:123456789abcdefghi#keys-1",
+      "type": "Secp256k1VerificationKey2018",
+      "controller": "did:peer:123456789abcdefghi",
+      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+    },
+    {
+      "id": "did:peer:123456789abcdefghw#key2",
+      "type": "RsaVerificationKey2018",
+      "controller": "did:peer:123456789abcdefghw",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
+    }
+  ]
+}`
 
 func TestWithOutboundOpts(t *testing.T) {
 	opt := WithTimeout(1 * time.Second)
@@ -53,24 +77,51 @@ func TestNew(t *testing.T) {
 	_, err = New("invalid url")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "base URL invalid")
+
+	r, err := New("https://uniresolver.io/", WithAccept(func(method string) bool {
+		return false
+	}))
+	require.NoError(t, err)
+	require.False(t, r.Accept("w"))
 }
 
 func TestRead_DIDDoc(t *testing.T) {
-	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		require.Equal(t, "/did:example:334455", req.URL.String())
-		res.Header().Add("Content-type", "application/did+ld+json")
-		res.WriteHeader(http.StatusOK)
-		_, err := res.Write([]byte("did doc body"))
+	t.Run("test success", func(t *testing.T) {
+		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			require.Equal(t, "/did:example:334455", req.URL.String())
+			res.Header().Add("Content-type", "application/did+ld+json")
+			res.WriteHeader(http.StatusOK)
+			_, err := res.Write([]byte(doc))
+			require.NoError(t, err)
+		}))
+
+		defer func() { testServer.Close() }()
+
+		resolver, err := New(testServer.URL)
 		require.NoError(t, err)
-	}))
+		gotDocument, err := resolver.Read("did:example:334455")
+		require.NoError(t, err)
+		didDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+		require.Equal(t, didDoc.ID, gotDocument.ID)
+	})
+	t.Run("test empty doc", func(t *testing.T) {
+		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			require.Equal(t, "/did:example:334455", req.URL.String())
+			res.Header().Add("Content-type", "application/did+ld+json")
+			res.WriteHeader(http.StatusOK)
+			_, err := res.Write(nil)
+			require.NoError(t, err)
+		}))
 
-	defer func() { testServer.Close() }()
+		defer func() { testServer.Close() }()
 
-	resolver, err := New(testServer.URL)
-	require.NoError(t, err)
-	gotDocument, err := resolver.Read("did:example:334455")
-	require.NoError(t, err)
-	require.Equal(t, []byte("did doc body"), gotDocument)
+		resolver, err := New(testServer.URL)
+		require.NoError(t, err)
+		_, err = resolver.Read("did:example:334455")
+		require.Error(t, err)
+		require.True(t, errors.Is(err, didresolver.ErrNotFound))
+	})
 }
 
 func TestRead_DIDDocWithBasePath(t *testing.T) {
@@ -78,7 +129,7 @@ func TestRead_DIDDocWithBasePath(t *testing.T) {
 		require.Equal(t, "/document/did:example:334455", req.URL.String())
 		res.Header().Add("Content-type", "application/did+ld+json")
 		res.WriteHeader(http.StatusOK)
-		_, err := res.Write([]byte("did doc body"))
+		_, err := res.Write([]byte(doc))
 		require.NoError(t, err)
 	}))
 
@@ -88,7 +139,9 @@ func TestRead_DIDDocWithBasePath(t *testing.T) {
 	require.NoError(t, err)
 	gotDocument, err := resolver.Read("did:example:334455")
 	require.NoError(t, err)
-	require.Equal(t, []byte("did doc body"), gotDocument)
+	didDoc, err := did.ParseDocument([]byte(doc))
+	require.NoError(t, err)
+	require.Equal(t, didDoc.ID, gotDocument.ID)
 }
 
 func TestRead_DIDDocWithBasePathWithSlashes(t *testing.T) {
@@ -96,7 +149,7 @@ func TestRead_DIDDocWithBasePathWithSlashes(t *testing.T) {
 		require.Equal(t, "/document/did:example:334455", req.URL.String())
 		res.Header().Add("Content-type", "application/did+ld+json")
 		res.WriteHeader(http.StatusOK)
-		_, err := res.Write([]byte("did doc body"))
+		_, err := res.Write([]byte(doc))
 		require.NoError(t, err)
 	}))
 
@@ -106,7 +159,9 @@ func TestRead_DIDDocWithBasePathWithSlashes(t *testing.T) {
 	require.NoError(t, err)
 	gotDocument, err := resolver.Read("did:example:334455")
 	require.NoError(t, err)
-	require.Equal(t, []byte("did doc body"), gotDocument)
+	didDoc, err := did.ParseDocument([]byte(doc))
+	require.NoError(t, err)
+	require.Equal(t, didDoc.ID, gotDocument.ID)
 }
 
 func TestRead_DIDDocNotFound(t *testing.T) {

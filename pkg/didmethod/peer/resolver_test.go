@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package peer
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -67,33 +66,29 @@ const peerDIDDoc = `{
 }`
 
 func TestPeerDIDResolver(t *testing.T) {
-	context := []string{"https://w3id.org/did/v1"}
+	t.Run("test success", func(t *testing.T) {
+		context := []string{"https://w3id.org/did/v1"}
+		// save did document
+		store, err := NewDIDStore(storage.NewMockStoreProvider())
+		require.NoError(t, err)
+		err = store.Put(&did.Doc{Context: context, ID: peerDID}, nil)
+		require.NoError(t, err)
 
-	// save did document
-	store, err := NewDIDStore(storage.NewMockStoreProvider())
-	require.NoError(t, err)
-	err = store.Put(&did.Doc{Context: context, ID: peerDID}, nil)
-	require.NoError(t, err)
+		resl := NewDIDResolver(store)
+		doc, err := resl.Read(peerDID)
+		require.NoError(t, err)
 
-	resl := NewDIDResolver(store)
-	doc, err := resl.Read(peerDID)
-	require.NoError(t, err)
-
-	document := &did.Doc{Context: context}
-	err = json.Unmarshal(doc, document)
-	require.NoError(t, err)
-	require.Equal(t, peerDID, document.ID)
-
-	// empty DID
-	_, err = resl.Read("")
-	require.Error(t, err)
-
-	// missing DID
-	// TODO this test should assert that didresolver.ErrNotFound is returned.
-	//      that is currently impossible since the underlying store returns a
-	//      generic error when the object is not found.
-	_, err = resl.Read("did:peer:789")
-	require.Error(t, err)
+		require.NoError(t, err)
+		require.Equal(t, peerDID, doc.ID)
+	})
+	t.Run("test empty doc id", func(t *testing.T) {
+		store, err := NewDIDStore(storage.NewMockStoreProvider())
+		require.NoError(t, err)
+		resl := NewDIDResolver(store)
+		_, err = resl.Read("")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "ID is mandatory")
+	})
 }
 
 func TestWithDIDResolveAPI(t *testing.T) {

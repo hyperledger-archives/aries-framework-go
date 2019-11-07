@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 )
 
@@ -125,15 +126,24 @@ func New(endpointURL string, opts ...ResolverOpt) (*DIDResolver, error) {
 }
 
 // Read implements didresolver.DidMethod.Read interface (https://w3c-ccg.github.io/did-resolution/#resolving-input)
-func (res *DIDResolver) Read(did string, _ ...didresolver.ResolveOpt) ([]byte, error) {
+func (res *DIDResolver) Read(didID string, _ ...didresolver.ResolveOpt) (*did.Doc, error) {
 	reqURL, err := url.ParseRequestURI(res.endpointURL)
 	if err != nil {
 		return nil, fmt.Errorf("url parse request uri failed: %w", err)
 	}
 
-	reqURL.Path = path.Join(reqURL.Path, did)
+	reqURL.Path = path.Join(reqURL.Path, didID)
 
-	return res.resolveDID(reqURL.String())
+	data, err := res.resolveDID(reqURL.String())
+	if err != nil {
+		return nil, err
+	}
+
+	if len(data) == 0 {
+		return nil, didresolver.ErrNotFound
+	}
+
+	return did.ParseDocument(data)
 }
 
 // Accept did method - attempt to resolve any method

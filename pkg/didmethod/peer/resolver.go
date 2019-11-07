@@ -9,6 +9,7 @@ package peer
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 )
 
@@ -23,9 +24,9 @@ func NewDIDResolver(store *DIDStore) *DIDResolver {
 }
 
 // Read implements didresolver.DidMethod.Read interface (https://w3c-ccg.github.io/did-resolution/#resolving-input)
-func (resl *DIDResolver) Read(did string, _ ...didresolver.ResolveOpt) ([]byte, error) {
+func (resl *DIDResolver) Read(didID string, _ ...didresolver.ResolveOpt) (*did.Doc, error) {
 	// get the document from the store
-	doc, err := resl.store.Get(did)
+	doc, err := resl.store.Get(didID)
 	if err != nil {
 		return nil, fmt.Errorf("fetching data from store failed: %w", err)
 	}
@@ -34,13 +35,7 @@ func (resl *DIDResolver) Read(did string, _ ...didresolver.ResolveOpt) ([]byte, 
 		return nil, didresolver.ErrNotFound
 	}
 
-	// convert the doc to JSON as DID Resolver expects byte result.
-	jsonDoc, err := doc.JSONBytes()
-	if err != nil {
-		return nil, fmt.Errorf("JSON marshalling of document failed: %w", err)
-	}
-
-	return jsonDoc, nil
+	return doc, nil
 }
 
 // Accept did method
