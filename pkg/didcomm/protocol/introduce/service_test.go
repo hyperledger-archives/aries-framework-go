@@ -413,7 +413,7 @@ func TestService_HandleInbound(t *testing.T) {
 		select {
 		case res := <-ch:
 			// TODO: need to check `Continue` function after implantation `processCallback`
-			res.Continue()
+			res.Continue(&service.Empty{})
 		case <-time.After(time.Second):
 			t.Error("timeout")
 		}
@@ -790,7 +790,7 @@ func continueAction(t *testing.T, ch chan service.DIDCommAction, action string) 
 	select {
 	case res := <-ch:
 		require.Equal(t, action, res.Message.Header.Type)
-		res.Continue()
+		res.Continue(&service.Empty{})
 
 		return
 	case <-time.After(time.Second):

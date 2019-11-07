@@ -176,7 +176,7 @@ func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 			return nil, nil, nil, fmt.Errorf("JSON unmarshalling of invitation: %w", err)
 		}
 
-		action, connRecord, err := ctx.handleInboundInvitation(invitation, thid, msg.connRecord)
+		action, connRecord, err := ctx.handleInboundInvitation(invitation, thid, msg.publicDID, msg.connRecord)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("handle inbound invitation: %w", err)
 		}
@@ -212,7 +212,7 @@ func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 			return nil, nil, nil, fmt.Errorf("JSON unmarshalling of request: %w", err)
 		}
 
-		action, connRecord, err := ctx.handleInboundRequest(request, msg.connRecord)
+		action, connRecord, err := ctx.handleInboundRequest(request, msg.publicDID, msg.connRecord)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("handle inbound request: %w", err)
 		}
@@ -280,38 +280,31 @@ func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 }
 
 func (ctx *context) handleInboundInvitation(invitation *Invitation,
-	thid string, connRec *ConnectionRecord) (stateAction, *ConnectionRecord, error) {
+	thid, pubDID string, connRec *ConnectionRecord) (stateAction, *ConnectionRecord, error) {
 	// create a destination from invitation
 	destination, err := ctx.getDestination(invitation)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	newDidDoc, err := ctx.didCreator.Create(didMethod)
+	// get did document that will be used in exchange request
+	didDoc, conn, err := ctx.getDIDDocAndConnection(pubDID)
+
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = ctx.didStore.Put(newDidDoc)
-	if err != nil {
-		return nil, nil, fmt.Errorf("storing doc in did store: %w", err)
-	}
-
-	// prepare the request :
-	// TODO Service.Handle() is using the ID from the Invitation as the threadID when instead it should be
-	//  using this request's ID. issue-280
 	request := &Request{
-		Type:  RequestMsgType,
-		ID:    thid,
-		Label: "",
-		Connection: &Connection{
-			DID:    newDidDoc.ID,
-			DIDDoc: newDidDoc,
-		},
+		Type:       RequestMsgType,
+		ID:         thid,
+		Label:      "",
+		Connection: conn,
 	}
-	connRec.MyDID = request.Connection.DID
 
-	pubKey, err := getPublicKeys(request.Connection.DIDDoc, supportedPublicKeyType)
+	connRec.MyDID = request.Connection.DID
+	connRec.MyDID = didDoc.ID
+
+	pubKey, err := getPublicKeys(didDoc, supportedPublicKeyType)
 	if err != nil {
 		return nil, nil, fmt.Errorf("getting public key %w", err)
 	}
@@ -321,22 +314,17 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 	}, connRec, nil
 }
 
-func (ctx *context) handleInboundRequest(request *Request, connRec *ConnectionRecord) (stateAction,
+func (ctx *context) handleInboundRequest(request *Request, pubDID string, connRec *ConnectionRecord) (stateAction,
 	*ConnectionRecord, error) {
-	// create a response from Request
-	newDidDoc, err := ctx.didCreator.Create(didMethod)
+	requestDidDoc, err := ctx.resolveDidDocFromConnection(request.Connection)
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolve did doc from exchange request connection: %w", err)
+	}
+
+	// get did document that will be used in exchange response
+	responseDidDoc, connection, err := ctx.getDIDDocAndConnection(pubDID)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	err = ctx.didStore.Put(newDidDoc)
-	if err != nil {
-		return nil, nil, fmt.Errorf("storing doc in did store: %w", err)
-	}
-
-	connection := &Connection{
-		DID:    newDidDoc.ID,
-		DIDDoc: newDidDoc,
 	}
 
 	// prepare connection signature
@@ -357,9 +345,10 @@ func (ctx *context) handleInboundRequest(request *Request, connRec *ConnectionRe
 
 	connRec.TheirDID = request.Connection.DID
 	connRec.MyDID = connection.DID
-	destination := prepareDestination(request.Connection.DIDDoc)
 
-	pubKey, err := getPublicKeys(connection.DIDDoc, supportedPublicKeyType)
+	destination := prepareDestination(requestDidDoc)
+
+	pubKey, err := getPublicKeys(responseDidDoc, supportedPublicKeyType)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -380,6 +369,48 @@ func (ctx *context) getDestination(invitation *Invitation) (*service.Destination
 		ServiceEndpoint: invitation.ServiceEndpoint,
 		RoutingKeys:     invitation.RoutingKeys,
 	}, nil
+}
+
+func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection, error) {
+	if pubDID != "" {
+		logger.Debugf("using public did[%s] for connection", pubDID)
+
+		didDoc, err := ctx.didResolver.Resolve(pubDID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("resolve public did[%s]: %w", pubDID, err)
+		}
+
+		return didDoc, &Connection{DID: didDoc.ID}, nil
+	}
+
+	logger.Debugf("creating new '%s' did for connection", didMethod)
+
+	// by default use peer did
+	newDidDoc, err := ctx.didCreator.Create(didMethod)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
+	}
+
+	err = ctx.didStore.Put(newDidDoc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("storing doc in did store: %w", err)
+	}
+
+	connection := &Connection{
+		DID:    newDidDoc.ID,
+		DIDDoc: newDidDoc,
+	}
+
+	return newDidDoc, connection, nil
+}
+
+func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, error) {
+	didDoc := conn.DIDDoc
+	if didDoc == nil {
+		return ctx.didResolver.Resolve(conn.DID)
+	}
+
+	return didDoc, nil
 }
 
 func (ctx *context) getDestinationFromDID(id string) (*service.Destination, error) {
@@ -453,7 +484,12 @@ func (ctx *context) prepareConnectionSignature(connection *Connection) (*Connect
 
 	// TODO: As per spec we should sign using recipientKeys - this will be done upon completing issue-625
 	// that allows for correlation between exchange-request and invitation using pthid
-	pubKey := string(connection.DIDDoc.PublicKey[0].Value)
+	didDoc, err := ctx.resolveDidDocFromConnection(connection)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey := string(didDoc.PublicKey[0].Value)
 
 	// TODO: Replace with signed attachments issue-626
 	signature, err := ctx.signer.SignMessage(concatenateSignData, pubKey)
@@ -495,7 +531,13 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *Con
 	}
 
 	connRecord.TheirDID = conn.DID
-	destination := prepareDestination(conn.DIDDoc)
+
+	responseDidDoc, err := ctx.resolveDidDocFromConnection(conn)
+	if err != nil {
+		return nil, nil, fmt.Errorf("resolve did doc from exchange response connection: %w", err)
+	}
+
+	destination := prepareDestination(responseDidDoc)
 
 	myDidDoc, err := ctx.didResolver.Resolve(connRecord.MyDID)
 	if err != nil {

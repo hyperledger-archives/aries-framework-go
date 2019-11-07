@@ -282,7 +282,7 @@ func (s *Service) sendActionEvent(msg *metaData, aEvent chan<- service.DIDCommAc
 	aEvent <- service.DIDCommAction{
 		ProtocolName: Introduce,
 		Message:      msg.Msg.Clone(),
-		Continue: func() {
+		Continue: func(args interface{}) {
 			s.processCallback(msg)
 		},
 		Stop: func(err error) {

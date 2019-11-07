@@ -27,6 +27,7 @@ import (
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockdidresolver "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didresolver"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockdid "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdr/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -666,9 +667,28 @@ func TestNewRequestFromInvitation(t *testing.T) {
 			Payload: invitationBytes,
 		})
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, "", &ConnectionRecord{})
 		require.NoError(t, err)
 		require.NotNil(t, connRec.MyDID)
+	})
+	t.Run("successful response to invitation with public did", func(t *testing.T) {
+		doc := createDIDDoc()
+		store := didstore.NewMockDidStore()
+		err := store.Put(doc)
+		require.Nil(t, err)
+		ctx := context{didResolver: &mockdidresolver.MockResolver{Doc: doc}, didStore: store}
+
+		invitationBytes, err := json.Marshal(invitation)
+		require.NoError(t, err)
+		thid, err := threadID(&service.DIDCommMsg{
+			Header:  &service.Header{Type: InvitationMsgType},
+			Payload: invitationBytes,
+		})
+		require.NoError(t, err)
+		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, doc.ID, &ConnectionRecord{})
+		require.NoError(t, err)
+		require.NotNil(t, connRec.MyDID)
+		require.Equal(t, connRec.MyDID, doc.ID)
 	})
 	t.Run("unsuccessful new request from invitation ", func(t *testing.T) {
 		prov := protocol.MockProvider{}
@@ -681,7 +701,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 			Payload: invitationBytes,
 		})
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, "", &ConnectionRecord{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, connRec)
@@ -695,27 +715,37 @@ func TestNewResponseFromRequest(t *testing.T) {
 		ctx := getContext(prov, nil)
 		request, err := createRequest(ctx)
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundRequest(request, &ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundRequest(request, "", &ConnectionRecord{})
 		require.NoError(t, err)
 		require.NotNil(t, connRec.MyDID)
 		require.NotNil(t, connRec.TheirDID)
 	})
 	t.Run("unsuccessful new response from request due to create did error", func(t *testing.T) {
-		ctx := &context{didCreator: &mockdid.MockDIDCreator{Failure: fmt.Errorf("create DID error")}}
-		request := &Request{}
-		_, connRec, err := ctx.handleInboundRequest(request, &ConnectionRecord{})
+		didDoc := getMockDID()
+		ctx := &context{didCreator: &mockdid.MockDIDCreator{Failure: fmt.Errorf("create DID error")},
+			didResolver: &mockdidresolver.MockResolver{Doc: getMockDID()}}
+		request := &Request{Connection: &Connection{DID: didDoc.ID, DIDDoc: didDoc}}
+		_, connRec, err := ctx.handleInboundRequest(request, "", &ConnectionRecord{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, connRec)
 	})
 	t.Run("unsuccessful new response from request due to sign error", func(t *testing.T) {
+		didDoc := getMockDID()
 		ctx := &context{didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()},
 			signer: &mockSigner{err: errors.New("sign error")}, didStore: prov.DIDStore()}
-		request := &Request{}
-		_, connRec, err := ctx.handleInboundRequest(request, &ConnectionRecord{})
+		request := &Request{Connection: &Connection{DID: didDoc.ID, DIDDoc: didDoc}}
+		_, connRec, err := ctx.handleInboundRequest(request, "", &ConnectionRecord{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "sign error")
 		require.Nil(t, connRec)
+	})
+	t.Run("unsuccessful new response from request due to resolve public did from request error", func(t *testing.T) {
+		ctx := &context{didResolver: &mockdidresolver.MockResolver{Err: errors.New("resolver error")}}
+		request := &Request{Connection: &Connection{DID: "did:sidetree:abc"}}
+		_, _, err := ctx.handleInboundRequest(request, "", &ConnectionRecord{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "resolver error")
 	})
 }
 
@@ -790,6 +820,53 @@ func TestGetPublicKey(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "public key not supported")
 		require.Nil(t, pubkey)
+	})
+}
+
+func TestGetDIDDocAndConnection(t *testing.T) {
+	t.Run("successfully getting did doc and connection for public did", func(t *testing.T) {
+		doc := createDIDDoc()
+		ctx := context{didResolver: &mockdidresolver.MockResolver{Doc: doc}}
+		didDoc, conn, err := ctx.getDIDDocAndConnection(doc.ID)
+		require.NoError(t, err)
+		require.NotNil(t, didDoc)
+		require.NotNil(t, conn)
+		require.Equal(t, didDoc.ID, conn.DID)
+	})
+	t.Run("error getting public did doc from resolver", func(t *testing.T) {
+		ctx := context{didResolver: &mockdidresolver.MockResolver{Err: errors.New("resolver error")}}
+		didDoc, conn, err := ctx.getDIDDocAndConnection("did-id")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "resolver error")
+		require.Nil(t, didDoc)
+		require.Nil(t, conn)
+	})
+	t.Run("error creating peer did", func(t *testing.T) {
+		ctx := context{didCreator: &mockdid.MockDIDCreator{Failure: errors.New("creator error")}}
+		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "creator error")
+		require.Nil(t, didDoc)
+		require.Nil(t, conn)
+	})
+	t.Run("error storing peer did", func(t *testing.T) {
+		store := didstore.NewMockDidStore()
+		store.PutErr = errors.New("store error")
+		ctx := context{didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}, didStore: store}
+		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "store error")
+		require.Nil(t, didDoc)
+		require.Nil(t, conn)
+	})
+	t.Run("successfully created peer did", func(t *testing.T) {
+		prov := protocol.MockProvider{}
+		ctx := context{didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}, didStore: prov.DIDStore()}
+		didDoc, conn, err := ctx.getDIDDocAndConnection("")
+		require.NoError(t, err)
+		require.NotNil(t, didDoc)
+		require.NotNil(t, conn)
+		require.Equal(t, didDoc.ID, conn.DID)
 	})
 }
 

@@ -22,6 +22,14 @@ import (
 const (
 	// ConnectionID connection id is created to retriever connection record from db
 	ConnectionID = didexchange.ConnectionID
+	// InvitationMsgType defines the did-exchange invite message type.
+	InvitationMsgType = didexchange.InvitationMsgType
+	// RequestMsgType defines the did-exchange request message type.
+	RequestMsgType = didexchange.RequestMsgType
+	// ResponseMsgType defines the did-exchange response message type.
+	ResponseMsgType = didexchange.ResponseMsgType
+	// AckMsgType defines the did-exchange ack message type.
+	AckMsgType = didexchange.AckMsgType
 )
 
 // ErrConnectionNotFound is returned when connection not found
