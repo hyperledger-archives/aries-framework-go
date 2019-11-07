@@ -38,10 +38,13 @@ type provider interface {
 
 // Client enable access to didexchange api
 type Client struct {
-	service.Event
+	service.Action
+	service.Message
 	didexchangeSvc           protocolService
 	kms                      kms.KeyManager
 	inboundTransportEndpoint string
+	actionCh                 chan service.DIDCommAction
+	msgCh                    chan service.StateMsg
 	connectionStore          *didexchange.ConnectionRecorder
 }
 
@@ -76,13 +79,32 @@ func New(ctx provider) (*Client, error) {
 		return nil, err
 	}
 
-	return &Client{
-		Event:                    didexchangeSvc,
+	c := &Client{
 		didexchangeSvc:           didexchangeSvc,
 		kms:                      ctx.KMS(),
 		inboundTransportEndpoint: ctx.InboundTransportEndpoint(),
-		connectionStore:          didexchange.NewConnectionRecorder(transientStore, store),
-	}, nil
+		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
+		actionCh:        make(chan service.DIDCommAction, 10),
+		msgCh:           make(chan service.StateMsg, 10),
+		connectionStore: didexchange.NewConnectionRecorder(transientStore, store),
+	}
+
+	// register the action event channel
+	err = c.didexchangeSvc.RegisterActionEvent(c.actionCh)
+	if err != nil {
+		return nil, fmt.Errorf("didexchange action event registration: %w", err)
+	}
+
+	// register the message event channel
+	err = c.didexchangeSvc.RegisterMsgEvent(c.msgCh)
+	if err != nil {
+		return nil, fmt.Errorf("didexchange message event registration: %w", err)
+	}
+
+	// start listening for action/message events
+	go c.startServiceEventListener()
+
+	return c, nil
 }
 
 // CreateInvitation create invitation
@@ -213,4 +235,23 @@ func (c *Client) GetConnectionAtState(connectionID, stateID string) (*Connection
 func (c *Client) RemoveConnection(id string) error {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/553 RemoveConnection from did exchange service
 	return nil
+}
+
+// startServiceEventListener listens to action and message events from DID Exchange service.
+func (c *Client) startServiceEventListener() {
+	// listen for action event and message events
+	for {
+		select {
+		case e := <-c.actionCh:
+			c.ActionEvent() <- e
+		case e := <-c.msgCh:
+			c.handleMessageEvent(e)
+		}
+	}
+}
+
+func (c *Client) handleMessageEvent(msg service.StateMsg) {
+	for _, handler := range c.MsgEvents() {
+		handler <- msg
+	}
 }
