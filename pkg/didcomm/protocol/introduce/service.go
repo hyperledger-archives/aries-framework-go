@@ -304,6 +304,7 @@ func nextState(msg *service.DIDCommMsg, rec *record, outbound bool) (state, erro
 	// SkipProposal is an artificial message type, we need to replace it with a real one
 	case SkipProposalMsgType:
 		msg.Payload = []byte(strings.Replace(string(msg.Payload), SkipProposalMsgType, ProposalMsgType, 1))
+		msg.Header.Type = ProposalMsgType
 		rec.WaitCount--
 
 		return &arranging{}, nil

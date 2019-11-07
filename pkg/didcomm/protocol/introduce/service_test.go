@@ -426,8 +426,8 @@ func TestService_HandleInbound(t *testing.T) {
 		}()
 
 		select {
-		case res := <-sCh:
-			require.Equal(t, res.Msg.Payload, []byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
+		case res := <-aCh:
+			require.Equal(t, res.Message.Payload, []byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
 		case <-time.After(time.Second):
 			t.Error("timeout")
 		}
@@ -560,8 +560,8 @@ func TestService_SkipProposal(t *testing.T) {
 
 		// handle outbound SkipProposal msg (sends Proposal)
 		go func() { require.NoError(t, svc.HandleOutbound(reqMsg, &service.Destination{})) }()
-		checkStateMsg(t, sCh, service.PreState, SkipProposalMsgType, stateNameArranging)
-		checkStateMsg(t, sCh, service.PostState, SkipProposalMsgType, stateNameArranging)
+		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameArranging)
+		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameArranging)
 
 		respMsg, err := service.NewDIDCommMsg(toBytes(t, Response{
 			Type:   ResponseMsgType,
