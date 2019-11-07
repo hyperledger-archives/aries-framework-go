@@ -585,3 +585,102 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "did exchange client - accept exchange request:")
 }
+
+func TestServiceEventError(t *testing.T) {
+	didExSvc := mockprotocol.MockDIDExchangeSvc{
+		ProtocolName:           didexchange.DIDExchange,
+		RegisterActionEventErr: errors.New("action event registration failed"),
+		RegisterMsgEventErr:    errors.New("msg event registration failed"),
+	}
+
+	// register action event on service throws error
+	_, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  &didExSvc})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "didexchange action event "+
+		"registration: action event registration failed")
+
+	// register msg event on service throws error
+	didExSvc.RegisterActionEventErr = nil
+	_, err = New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  &didExSvc})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "didexchange message event "+
+		"registration: msg event registration failed")
+}
+
+func TestService_ActionEvent(t *testing.T) {
+	c, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{}})
+	require.NoError(t, err)
+
+	// validate before register
+	require.Nil(t, c.ActionEvent())
+
+	// register an action event
+	ch := make(chan service.DIDCommAction)
+	err = c.RegisterActionEvent(ch)
+	require.NoError(t, err)
+
+	// register another action event
+	err = c.RegisterActionEvent(make(chan service.DIDCommAction))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "channel is already registered for the action event")
+
+	// validate after register
+	require.NotNil(t, c.ActionEvent())
+
+	// unregister a action event
+	err = c.UnregisterActionEvent(ch)
+	require.NoError(t, err)
+
+	// validate after unregister
+	require.Nil(t, c.ActionEvent())
+
+	// unregister with different channel
+	err = c.UnregisterActionEvent(make(chan service.DIDCommAction))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid channel passed to unregister the action event")
+}
+
+func TestService_MsgEvents(t *testing.T) {
+	c, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{}})
+	require.NoError(t, err)
+
+	// validate before register
+	require.Nil(t, c.MsgEvents())
+	require.Equal(t, 0, len(c.MsgEvents()))
+
+	// register a status event
+	ch := make(chan service.StateMsg)
+	err = c.RegisterMsgEvent(ch)
+	require.NoError(t, err)
+
+	// validate after register
+	require.NotNil(t, c.MsgEvents())
+	require.Equal(t, 1, len(c.MsgEvents()))
+
+	// register a new status event
+	err = c.RegisterMsgEvent(make(chan service.StateMsg))
+	require.NoError(t, err)
+
+	// validate after new register
+	require.NotNil(t, c.MsgEvents())
+	require.Equal(t, 2, len(c.MsgEvents()))
+
+	// unregister a status event
+	err = c.UnregisterMsgEvent(ch)
+	require.NoError(t, err)
+
+	// validate after unregister
+	require.Equal(t, 1, len(c.MsgEvents()))
+}
