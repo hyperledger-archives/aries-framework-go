@@ -470,25 +470,37 @@ func TestServiceEvents(t *testing.T) {
 }
 
 func TestOperationEventError(t *testing.T) {
-	client, err := didexchange.New(&mockprovider.Provider{
-		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-		StorageProviderValue:          mockstore.NewMockStoreProvider(),
-		ServiceValue:                  &protocol.MockDIDExchangeSvc{}})
-	require.NoError(t, err)
+	const errMsg = "channel is already registered for the action event"
 
-	ops := &Operation{client: client, actionCh: make(chan service.DIDCommAction)}
+	t.Run("action event registration failed", func(t *testing.T) {
+		client, err := didexchange.New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue: &protocol.MockDIDExchangeSvc{
+				RegisterActionEventErr: errors.New(errMsg),
+			}})
 
-	aCh := make(chan service.DIDCommAction)
-	err = client.RegisterActionEvent(aCh)
-	require.NoError(t, err)
+		require.NoError(t, err)
+		ops := &Operation{client: client, actionCh: make(chan service.DIDCommAction)}
+		err = ops.startClientEventListener()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "didexchange action event registration failed: "+errMsg)
+	})
 
-	err = ops.startClientEventListener()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "didexchange action event registration failed: channel is already "+
-		"registered for the action event")
+	t.Run("message event registration failed", func(t *testing.T) {
+		client, err := didexchange.New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue: &protocol.MockDIDExchangeSvc{
+				RegisterMsgEventErr: errors.New(errMsg),
+			}})
 
-	err = client.UnregisterActionEvent(aCh)
-	require.NoError(t, err)
+		require.NoError(t, err)
+		ops := &Operation{client: client, actionCh: make(chan service.DIDCommAction)}
+		err = ops.startClientEventListener()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "didexchange message event registration failed: "+errMsg)
+	})
 }
 
 func TestHandleMessageEvent(t *testing.T) {
