@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -21,23 +23,23 @@ import (
 )
 
 const (
-	// AgentHostFlagName is the flag name for the agent host command line argument.
-	AgentHostFlagName = "api-host"
+	agentHostFlagName = "api-host"
 
-	// AgentHostFlagShorthand is the flag shorthand name for the agent host command line argument.
-	AgentHostFlagShorthand = "a"
+	agentHostFlagShorthand = "a"
 
-	// AgentHostFlagUsage is the usage text for the host command line argument.
-	AgentHostFlagUsage = "Host Name:Port"
+	agentHostFlagUsage = "Host Name:Port." +
+		" Alternatively, this can be set with the following environment variable: " + agentHostEnvKey
 
-	// AgentInboundHostFlagName is the flag name for the agent inbound host command line argument.
-	AgentInboundHostFlagName = "inbound-host"
+	agentHostEnvKey = "ARIESD_API_HOST"
 
-	// AgentInboundHostFlagShorthand is the flag shorthand for the agent inbound host command line argument.
-	AgentInboundHostFlagShorthand = "i"
+	agentInboundHostFlagName = "inbound-host"
 
-	// AgentInboundHostFlagUsage is the usage text for the agent inbound host command line argument.
-	AgentInboundHostFlagUsage = "Inbound Host Name:Port. This is used internally to start the inbound server."
+	agentInboundHostFlagShorthand = "i"
+
+	agentInboundHostFlagUsage = "Inbound Host Name:Port. This is used internally to start the inbound server." +
+		" Alternatively, this can be set with the following environment variable: " + agentInboundHostEnvKey
+
+	agentInboundHostEnvKey = "ARIESD_INBOUND_HOST"
 
 	agentInboundHostExternalFlagName = "inbound-host-external"
 
@@ -45,37 +47,45 @@ const (
 
 	agentInboundHostExternalFlagUsage = "Inbound Host External Name:Port." +
 		" This is the URL for the inbound server as seen externally." +
-		" If not provided, then the internal inbound host will be used here."
+		" If not provided, then the internal inbound host will be used here." +
+		" Alternatively, this can be set with the following environment variable: " + agentInboundHostExternalEnvKey
 
-	// AgentDBPathFlagName is the flag name for the database path command line argument.
-	AgentDBPathFlagName = "db-path"
+	agentInboundHostExternalEnvKey = "ARIESD_INBOUND_HOST_EXTERNAL"
 
-	// AgentDBPathFlagShorthand is the flag shorthand name for the database path command line argument.
-	AgentDBPathFlagShorthand = "d"
+	agentDBPathFlagName = "db-path"
 
-	// AgentDBPathFlagUsage is the flag usage text for the database path command line argument.
-	AgentDBPathFlagUsage = "Path to database"
+	agentDBPathFlagShorthand = "d"
 
-	// AgentWebhookFlagName is the flag name for the webhook command line argument.
-	AgentWebhookFlagName = "webhook-url"
+	agentDBPathFlagUsage = "Path to database." +
+		" Alternatively, this can be set with the following environment variable: " + agentDBPathEnvKey
+
+	agentDBPathEnvKey = "ARIESD_DB_PATH"
+
+	agentWebhookFlagName = "webhook-url"
 
 	agentWebhookFlagShorthand = "w"
 
 	agentWebhookFlagUsage = "URL to send notifications to." +
-		" This flag can be repeated, allowing for multiple listeners."
+		" This flag can be repeated, allowing for multiple listeners." +
+		" Alternatively, this can be set with the following environment variable (in CSV format): " + agentWebhookEnvKey
+
+	agentWebhookEnvKey = "ARIESD_WEBHOOK_URL"
 
 	agentDefaultLabelFlagName = "agent-default-label"
 
 	agentDefaultLabelFlagShorthand = "l"
 
-	agentDefaultLabelFlagUsage = "Default Label for this agent. Defaults to blank if not set."
+	agentDefaultLabelFlagUsage = "Default Label for this agent. Defaults to blank if not set." +
+		" Alternatively, this can be set with the following environment variable: " + agentDefaultLabelEnvKey
+
+	agentDefaultLabelEnvKey = "ARIESD_DEFAULT_LABEL"
+
+	unableToStartAgentErrMsg = "unable to start agent"
 )
 
-// ErrMissingHost is the error when the user provides a blank host argument.
-var ErrMissingHost = errors.New("unable to start aries agentd, host not provided")
+var errMissingHost = errors.New("host not provided")
 
-// ErrMissingInboundHost is the error when the user provides a blank inbound host argument.
-var ErrMissingInboundHost = errors.New("unable to start aries agentd, HTTP Inbound transport host not provided")
+var errMissingInboundHost = errors.New("HTTP Inbound transport host not provided")
 
 var logger = log.New("aries-framework/agentd")
 
@@ -99,7 +109,7 @@ func (s *HTTPServer) ListenAndServe(host string, router http.Handler) error {
 
 // Cmd returns the Cobra start command.
 func Cmd(server server) (*cobra.Command, error) {
-	var webhookURLs []string
+	var webhookURLsFromCmdLine []string
 
 	startCmd := &cobra.Command{
 		Use:   "start",
@@ -107,96 +117,108 @@ func Cmd(server server) (*cobra.Command, error) {
 		Long:  `Start an Aries agent controller`,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-			host, err := cmd.Flags().GetString(AgentHostFlagName)
+			host, err := getUserSetVar(cmd, agentHostFlagName, agentHostEnvKey, false)
 			if err != nil {
-				return fmt.Errorf("agent host flag not found: %s", err)
+				return err
 			}
 
-			inboundHost, err := cmd.Flags().GetString(AgentInboundHostFlagName)
+			inboundHost, err := getUserSetVar(cmd, agentInboundHostFlagName, agentInboundHostEnvKey, false)
 			if err != nil {
-				return fmt.Errorf("agent inbound host flag not found: %s", err)
+				return err
 			}
 
-			dbPath, err := cmd.Flags().GetString(AgentDBPathFlagName)
+			dbPath, err := getUserSetVar(cmd, agentDBPathFlagName, agentDBPathEnvKey, false)
 			if err != nil {
-				return fmt.Errorf("agent DB path flag not found: %s", err)
+				return err
 			}
 
-			inboundHostExternal, err := cmd.Flags().GetString(agentInboundHostExternalFlagName)
+			inboundHostExternal, err := getUserSetVar(cmd, agentInboundHostExternalFlagName,
+				agentInboundHostExternalEnvKey, true)
 			if err != nil {
-				return fmt.Errorf("agent DB path flag not found: %s", err)
+				return err
 			}
 
-			invitationLabel, err := cmd.Flags().GetString(agentDefaultLabelFlagName)
+			defaultLabel, err := getUserSetVar(cmd, agentDefaultLabelFlagName, agentDefaultLabelEnvKey, true)
 			if err != nil {
-				return fmt.Errorf("agent DB path flag not found: %s", err)
+				return err
+			}
+
+			webhookURLs, err := getWebhookURLs(cmd, webhookURLsFromCmdLine)
+			if err != nil {
+				return err
 			}
 
 			parameters := &agentParameters{server, host, inboundHost,
-				inboundHostExternal, dbPath, invitationLabel, webhookURLs}
+				inboundHostExternal, dbPath, defaultLabel, webhookURLs}
 			err = startAgent(parameters)
 			if err != nil {
-				return fmt.Errorf("unable to start agent: %s", err)
+				return errors.New(unableToStartAgentErrMsg + ": " + err.Error())
 			}
 
 			return nil
 		},
 	}
 
-	err := createFlags(startCmd, &webhookURLs)
-	if err != nil {
-		return nil, err
-	}
+	createFlags(startCmd, &webhookURLsFromCmdLine)
 
 	return startCmd, nil
 }
 
-func createFlags(startCmd *cobra.Command, webhookURLs *[]string) error {
-	startCmd.Flags().StringP(AgentHostFlagName, AgentHostFlagShorthand, "", AgentHostFlagUsage)
-
-	err := startCmd.MarkFlagRequired(AgentHostFlagName)
-	if err != nil {
-		return fmt.Errorf("tried to mark host flag as required but it was not found: %s", err)
-	}
-
-	startCmd.Flags().StringP(AgentInboundHostFlagName, AgentInboundHostFlagShorthand, "", AgentInboundHostFlagUsage)
-
-	err = startCmd.MarkFlagRequired(AgentInboundHostFlagName)
-	if err != nil {
-		return fmt.Errorf("tried to mark inbound host flag as required but it was not found: %s", err)
-	}
-
-	startCmd.Flags().StringP(AgentDBPathFlagName, AgentDBPathFlagShorthand, "", AgentDBPathFlagUsage)
-
-	err = startCmd.MarkFlagRequired(AgentDBPathFlagName)
-	if err != nil {
-		return fmt.Errorf("tried to mark DB path flag as required but it was not found: %s", err)
-	}
-
-	startCmd.Flags().StringSliceVarP(webhookURLs, AgentWebhookFlagName, agentWebhookFlagShorthand, []string{},
+func createFlags(startCmd *cobra.Command, webhookURLs *[]string) {
+	startCmd.Flags().StringP(agentHostFlagName, agentHostFlagShorthand, "", agentHostFlagUsage)
+	startCmd.Flags().StringP(agentInboundHostFlagName, agentInboundHostFlagShorthand, "", agentInboundHostFlagUsage)
+	startCmd.Flags().StringP(agentDBPathFlagName, agentDBPathFlagShorthand, "", agentDBPathFlagUsage)
+	startCmd.Flags().StringSliceVarP(webhookURLs, agentWebhookFlagName, agentWebhookFlagShorthand, []string{},
 		agentWebhookFlagUsage)
-
-	err = startCmd.MarkFlagRequired(AgentWebhookFlagName)
-	if err != nil {
-		return fmt.Errorf("tried to mark agent webhook host flag as required but it was not found: %s", err)
-	}
-
 	startCmd.Flags().StringP(agentInboundHostExternalFlagName, agentInboundHostExternalFlagShorthand,
 		"", agentInboundHostExternalFlagUsage)
-
 	startCmd.Flags().StringP(agentDefaultLabelFlagName, agentDefaultLabelFlagShorthand, "",
 		agentDefaultLabelFlagUsage)
+}
 
-	return nil
+func getUserSetVar(cmd *cobra.Command, hostFlagName, envKey string, isOptional bool) (string, error) {
+	if cmd.Flags().Changed(hostFlagName) {
+		value, err := cmd.Flags().GetString(hostFlagName)
+		if err != nil {
+			return "", fmt.Errorf(hostFlagName+" flag not found: %s", err)
+		}
+
+		return value, nil
+	}
+
+	value, isSet := os.LookupEnv(envKey)
+
+	if isOptional || isSet {
+		return value, nil
+	}
+
+	return "", errors.New("Neither " + hostFlagName + " (command line flag) nor " + envKey +
+		" (environment variable) have been set.")
+}
+
+func getWebhookURLs(cmd *cobra.Command, webhookURLsFromCmdLine []string) ([]string, error) {
+	if cmd.Flags().Changed(agentWebhookFlagName) {
+		return webhookURLsFromCmdLine, nil
+	}
+
+	webhookURLsCSV, isSet := os.LookupEnv(agentWebhookEnvKey)
+	webhookURLs := strings.Split(webhookURLsCSV, ",")
+
+	if isSet {
+		return webhookURLs, nil
+	}
+
+	return nil, fmt.Errorf("agent webhook URL not set. " +
+		"It must be set via either command line or environment variable")
 }
 
 func startAgent(parameters *agentParameters) error {
 	if parameters.host == "" {
-		return ErrMissingHost
+		return errMissingHost
 	}
 
 	if parameters.inboundHostInternal == "" {
-		return ErrMissingInboundHost
+		return errMissingInboundHost
 	}
 
 	var opts []aries.Option

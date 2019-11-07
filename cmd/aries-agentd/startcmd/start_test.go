@@ -75,10 +75,10 @@ func TestStartCmdContents(t *testing.T) {
 	require.Equal(t, "Start an agent", startCmd.Short)
 	require.Equal(t, "Start an Aries agent controller", startCmd.Long)
 
-	checkFlagPropertiesCorrect(t, startCmd, AgentHostFlagName, AgentHostFlagShorthand, AgentHostFlagUsage)
-	checkFlagPropertiesCorrect(t, startCmd, AgentInboundHostFlagName,
-		AgentInboundHostFlagShorthand, AgentInboundHostFlagUsage)
-	checkFlagPropertiesCorrect(t, startCmd, AgentDBPathFlagName, AgentDBPathFlagShorthand, AgentDBPathFlagUsage)
+	checkFlagPropertiesCorrect(t, startCmd, agentHostFlagName, agentHostFlagShorthand, agentHostFlagUsage)
+	checkFlagPropertiesCorrect(t, startCmd, agentInboundHostFlagName,
+		agentInboundHostFlagShorthand, agentInboundHostFlagUsage)
+	checkFlagPropertiesCorrect(t, startCmd, agentDBPathFlagName, agentDBPathFlagShorthand, agentDBPathFlagUsage)
 }
 
 func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flagShorthand, flagUsage string) {
@@ -91,14 +91,7 @@ func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flag
 	require.Equal(t, "", flag.Value.String())
 
 	flagAnnotations := flag.Annotations
-	require.Len(t, flagAnnotations, 1)
-
-	requiredFlagKeyName := "cobra_annotation_bash_completion_one_required_flag"
-	require.Contains(t, flagAnnotations, requiredFlagKeyName)
-
-	requiredFlagAnnotation := flagAnnotations[requiredFlagKeyName]
-	require.Len(t, requiredFlagAnnotation, 1)
-	require.Equal(t, requiredFlagAnnotation[0], "true")
+	require.Nil(t, flagAnnotations)
 }
 
 func TestStartAriesDRequests(t *testing.T) {
@@ -220,18 +213,32 @@ func isJSON(res []byte) bool {
 	return json.Unmarshal(res, &js) == nil
 }
 
-func TestStartCmdWithMissingHostArg(t *testing.T) {
+func TestStartCmdWithBlankHostArg(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	args := []string{"--" + AgentInboundHostFlagName, randomURL(), "--" + AgentDBPathFlagName, "",
-		"--" + AgentWebhookFlagName, ""}
+	args := []string{"--" + agentHostFlagName, "", "--" + agentInboundHostFlagName, randomURL(),
+		"--" + agentDBPathFlagName, "", "--" + agentWebhookFlagName, ""}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
 
-	require.NotNil(t, err)
-	require.Equal(t, `required flag(s) "api-host" not set`, err.Error())
+	require.Equal(t, unableToStartAgentErrMsg+": "+errMissingHost.Error(), err.Error())
+}
+
+func TestStartCmdWithMissingHostArg(t *testing.T) {
+	startCmd, err := Cmd(&mockServer{})
+	require.NoError(t, err)
+
+	args := []string{"--" + agentInboundHostFlagName, randomURL(), "--" + agentDBPathFlagName, "",
+		"--" + agentWebhookFlagName, ""}
+	startCmd.SetArgs(args)
+
+	err = startCmd.Execute()
+
+	require.Equal(t,
+		"Neither api-host (command line flag) nor ARIESD_API_HOST (environment variable) have been set.",
+		err.Error())
 }
 
 func TestStartAgentWithBlankHost(t *testing.T) {
@@ -239,21 +246,23 @@ func TestStartAgentWithBlankHost(t *testing.T) {
 
 	err := startAgent(parameters)
 	require.NotNil(t, err)
-	require.Equal(t, ErrMissingHost, err)
+	require.Equal(t, errMissingHost, err)
 }
 
 func TestStartCmdWithoutInboundHostArg(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	args := []string{"--" + AgentHostFlagName, randomURL(), "--" + AgentDBPathFlagName, "",
-		"--" + AgentWebhookFlagName, ""}
+	args := []string{"--" + agentHostFlagName, randomURL(), "--" + agentDBPathFlagName, "",
+		"--" + agentWebhookFlagName, ""}
 
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
 	require.NotNil(t, err)
-	require.Equal(t, `required flag(s) "inbound-host" not set`, err.Error())
+	require.Equal(t,
+		"Neither inbound-host (command line flag) nor ARIESD_INBOUND_HOST (environment variable) have been set.",
+		err.Error())
 }
 
 func TestStartAgentWithBlankInboundHost(t *testing.T) {
@@ -261,45 +270,74 @@ func TestStartAgentWithBlankInboundHost(t *testing.T) {
 		"", "", "", []string{}}
 	err := startAgent(parameters)
 
-	require.NotNil(t, err)
-	require.Equal(t, ErrMissingInboundHost, err)
-
-	if err == nil {
-		t.Fatal()
-	}
+	require.Equal(t, errMissingInboundHost, err)
 }
 
 func TestStartCmdWithoutDBPath(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	args := []string{"--" + AgentHostFlagName, randomURL(), "--" + AgentInboundHostFlagName, randomURL(),
-		"--" + AgentWebhookFlagName, ""}
+	args := []string{"--" + agentHostFlagName, randomURL(), "--" + agentInboundHostFlagName, randomURL(),
+		"--" + agentWebhookFlagName, ""}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
-	require.NotNil(t, err)
-	require.Equal(t, `required flag(s) "db-path" not set`, err.Error())
+	require.Equal(t,
+		"Neither db-path (command line flag) nor ARIESD_DB_PATH (environment variable) have been set.",
+		err.Error())
 }
 
-func TestStartCmdMissingAllArgs(t *testing.T) {
+func TestStartCmdWithoutWebhookURL(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
+	path, cleanup := generateTempDir(t)
+	defer cleanup()
+
+	args := []string{"--" + agentHostFlagName, randomURL(), "--" + agentInboundHostFlagName,
+		randomURL(), "--" + agentInboundHostExternalFlagName, randomURL(), "--" + agentDBPathFlagName, path}
+	startCmd.SetArgs(args)
+
 	err = startCmd.Execute()
-	require.NotNil(t, err)
-	require.Equal(t,
-		`required flag(s) "api-host", "db-path", "inbound-host", "webhook-url" not set`, err.Error())
+	require.Contains(t, err.Error(), "agent webhook URL not set")
 }
 
 func TestStartCmdValidArgs(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	args := []string{"--" + AgentHostFlagName, randomURL(), "--" + AgentInboundHostFlagName,
-		randomURL(), "--" + AgentDBPathFlagName, "", "--" + AgentWebhookFlagName, ""}
+	path, cleanup := generateTempDir(t)
+	defer cleanup()
 
+	args := []string{"--" + agentHostFlagName, randomURL(), "--" + agentInboundHostFlagName,
+		randomURL(), "--" + agentInboundHostExternalFlagName, randomURL(), "--" + agentDBPathFlagName, path,
+		"--" + agentDefaultLabelFlagName, "agent", "--" + agentWebhookFlagName, ""}
 	startCmd.SetArgs(args)
+
+	err = startCmd.Execute()
+
+	require.Nil(t, err)
+}
+
+func TestStartCmdValidArgsEnvVar(t *testing.T) {
+	startCmd, err := Cmd(&mockServer{})
+	require.NoError(t, err)
+
+	err = os.Setenv(agentHostEnvKey, randomURL())
+	require.Nil(t, err)
+	err = os.Setenv(agentInboundHostEnvKey, randomURL())
+	require.Nil(t, err)
+
+	path, cleanup := generateTempDir(t)
+	defer cleanup()
+
+	err = os.Setenv(agentDBPathEnvKey, path)
+	require.Nil(t, err)
+	err = os.Setenv(agentWebhookEnvKey, "")
+	require.Nil(t, err)
+	err = os.Setenv(agentDefaultLabelEnvKey, "")
+	require.Nil(t, err)
+
 	err = startCmd.Execute()
 
 	require.Nil(t, err)
