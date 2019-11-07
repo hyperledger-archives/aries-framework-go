@@ -173,8 +173,8 @@ func (vp *Presentation) MarshalJSON() ([]byte, error) {
 
 // JWTClaims converts Verifiable Presentation into JWT Presentation claims, which can be than serialized
 // e.g. into JWS.
-func (vp *Presentation) JWTClaims(audience []string, minimizeVc bool) *JWTPresClaims {
-	return newJWTPresClaims(vp, audience, minimizeVc)
+func (vp *Presentation) JWTClaims(audience []string, minimizeVP bool) *JWTPresClaims {
+	return newJWTPresClaims(vp, audience, minimizeVP)
 }
 
 // Credentials provides Verifiable Credentials enclosed into Presentation in raw byte array format.

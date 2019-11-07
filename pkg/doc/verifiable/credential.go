@@ -284,11 +284,6 @@ type CredentialDecoder func(dataJSON []byte, vc *Credential) error
 // CredentialTemplate defines a factory method to create new Credential template.
 type CredentialTemplate func() *Credential
 
-// PublicKeyFetcher fetches public key for JWT signing verification based on Issuer ID (possibly DID)
-// and Key ID.
-// If not defined, JWT encoding is not tested.
-type PublicKeyFetcher func(issuerID, keyID string) (interface{}, error)
-
 // credentialOpts holds options for the Verifiable Credential decoding
 type credentialOpts struct {
 	schemaDownloadClient   *http.Client
@@ -675,8 +670,8 @@ func loadCredentialSchema(url string, client *http.Client) ([]byte, error) {
 
 // JWTClaims converts Verifiable Credential into JWT Credential claims, which can be than serialized
 // e.g. into JWS.
-func (vc *Credential) JWTClaims(minimizeVc bool) (*JWTCredClaims, error) {
-	return newJWTCredClaims(vc, minimizeVc)
+func (vc *Credential) JWTClaims(minimizeVC bool) (*JWTCredClaims, error) {
+	return newJWTCredClaims(vc, minimizeVC)
 }
 
 // SubjectID gets ID of single subject if present or

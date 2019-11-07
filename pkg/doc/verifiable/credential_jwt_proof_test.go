@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -102,6 +104,31 @@ func TestNewCredentialFromJWS(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "public key fetcher is not defined")
 	})
+}
+
+func TestNewCredentialFromJWS_EdDSA(t *testing.T) {
+	vcBytes := []byte(jwtTestCredential)
+
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	vc, err := NewCredential(vcBytes)
+	require.NoError(t, err)
+
+	// marshal credential into JWS using EdDSA (Ed25519 signature algorithm).
+	jwtClaims, err := vc.JWTClaims(false)
+	require.NoError(t, err)
+	vcJWSStr, err := jwtClaims.MarshalJWS(EdDSA, privKey, vc.Issuer.ID+"#keys-"+keyID)
+	require.NoError(t, err)
+
+	// unmarshal credential from JWS
+	vcFromJWS, err := NewCredential(
+		[]byte(vcJWSStr),
+		WithPublicKeyFetcher(SingleKey(pubKey)))
+	require.NoError(t, err)
+
+	// unmarshalled credential must be the same as original one
+	require.Equal(t, vc, vcFromJWS)
 }
 
 func TestNewCredentialFromUnsecuredJWT(t *testing.T) {

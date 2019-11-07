@@ -38,6 +38,18 @@ func (ja JWSAlgorithm) jose() (jose.SignatureAlgorithm, error) {
 	}
 }
 
+// PublicKeyFetcher fetches public key for JWT signing verification based on Issuer ID (possibly DID)
+// and Key ID.
+// If not defined, JWT encoding is not tested.
+type PublicKeyFetcher func(issuerID, keyID string) (interface{}, error)
+
+// SingleKey defines the case when only one verification key is used and we don't need to pick the one.
+func SingleKey(pubKey interface{}) PublicKeyFetcher {
+	return func(issuerID, keyID string) (interface{}, error) {
+		return pubKey, nil
+	}
+}
+
 // Proof defines embedded proof of Verifiable Credential
 type Proof interface{}
 
