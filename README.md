@@ -31,6 +31,9 @@ make checks
 
 # run unit tests
 make unit-test
+
+# run bdd tests
+make bdd-test
 ```
 ##### Running demo locally
 The demo is to play around with APIs using the OpenAPI (Swagger) user interface and JSON.
