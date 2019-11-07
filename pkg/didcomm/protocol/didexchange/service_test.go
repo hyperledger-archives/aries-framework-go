@@ -919,7 +919,7 @@ func TestEventsSuccessWithAsync(t *testing.T) {
 
 func TestEventTransientData(t *testing.T) {
 	t.Run("event transient data - success", func(t *testing.T) {
-		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 		require.NoError(t, err)
 
 		connID := generateRandomID()
@@ -936,7 +936,7 @@ func TestEventTransientData(t *testing.T) {
 	})
 
 	t.Run("event transient data - data not found", func(t *testing.T) {
-		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 		require.NoError(t, err)
 
 		err = svc.AcceptExchangeRequest(generateRandomID())
@@ -945,7 +945,7 @@ func TestEventTransientData(t *testing.T) {
 	})
 
 	t.Run("event transient data - invalid data", func(t *testing.T) {
-		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 		require.NoError(t, err)
 
 		connID := generateRandomID()
@@ -961,7 +961,7 @@ func TestEventTransientData(t *testing.T) {
 
 func TestNextState(t *testing.T) {
 	t.Run("empty thread ID", func(t *testing.T) {
-		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 		require.NoError(t, err)
 
 		_, err = svc.nextState(RequestMsgType, "")
@@ -969,12 +969,53 @@ func TestNextState(t *testing.T) {
 	})
 
 	t.Run("valid inputs", func(t *testing.T) {
-		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 		require.NoError(t, err)
 
 		s, errState := svc.nextState(RequestMsgType, generateRandomID())
 		require.NoError(t, errState)
 		require.Equal(t, stateNameRequested, s.Name())
+	})
+}
+
+func TestFetchConnectionRecord(t *testing.T) {
+	t.Run("fetch connection record - invalid payload", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		_, err = svc.fetchConnectionRecord("", []byte(""))
+		require.Contains(t, err.Error(), "unexpected end of JSON input")
+	})
+
+	t.Run("fetch connection record - no thread id", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		requestBytes, err := json.Marshal(&Request{
+			Type: ResponseMsgType,
+			ID:   generateRandomID(),
+		})
+		require.NoError(t, err)
+
+		_, err = svc.fetchConnectionRecord(theirNSPrefix, requestBytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unable to compute hash, empty bytes")
+	})
+
+	t.Run("fetch connection record - valid input", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		requestBytes, err := json.Marshal(&Response{
+			Type:   ResponseMsgType,
+			ID:     generateRandomID(),
+			Thread: &decorator.Thread{ID: generateRandomID()},
+		})
+		require.NoError(t, err)
+
+		_, err = svc.fetchConnectionRecord(theirNSPrefix, requestBytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get connectionID by namespaced threadID: data not found")
 	})
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
@@ -475,9 +476,9 @@ func (s *Service) connectionRecord(msg *service.DIDCommMsg) (*ConnectionRecord, 
 	case RequestMsgType:
 		return s.requestMsgRecord(msg)
 	case ResponseMsgType:
-		return s.ctx.prepareResponseConnectionRecord(msg.Payload)
+		return s.responseMsgRecord(msg.Payload)
 	case AckMsgType:
-		return s.ctx.prepareAckConnectionRecord(msg.Payload)
+		return s.ackMsgRecord(msg.Payload)
 	}
 
 	return nil, errors.New("invalid message type")
@@ -489,9 +490,22 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecor
 		return nil, msgErr
 	}
 
-	connRecord, err := prepareInvitationConnectionRecord(thID, msg.Header, msg.Payload)
+	invitation := &Invitation{}
+
+	err := json.Unmarshal(msg.Payload, invitation)
 	if err != nil {
 		return nil, err
+	}
+
+	connRecord := &ConnectionRecord{
+		ConnectionID:    generateRandomID(),
+		ThreadID:        thID,
+		State:           stateNameNull,
+		InvitationID:    invitation.ID,
+		ServiceEndPoint: invitation.ServiceEndpoint,
+		RecipientKeys:   invitation.RecipientKeys,
+		TheirLabel:      invitation.Label,
+		Namespace:       findNameSpace(msg.Header.Type),
 	}
 
 	if err := s.connectionStore.saveConnectionRecord(connRecord); err != nil {
@@ -502,9 +516,19 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecor
 }
 
 func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecord, error) {
-	connRecord, err := prepareRequestConnectionRecord(msg.Payload)
+	request := Request{}
+
+	err := json.Unmarshal(msg.Payload, &request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unmarshalling failed: %s", err)
+	}
+
+	connRecord := &ConnectionRecord{
+		ConnectionID: generateRandomID(),
+		ThreadID:     request.ID,
+		State:        stateNameNull,
+		TheirDID:     request.Connection.DID,
+		Namespace:    theirNSPrefix,
 	}
 
 	if err := s.connectionStore.saveConnectionRecord(connRecord); err != nil {
@@ -512,6 +536,32 @@ func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecord, 
 	}
 
 	return connRecord, nil
+}
+
+func (s *Service) responseMsgRecord(payload []byte) (*ConnectionRecord, error) {
+	return s.fetchConnectionRecord(myNSPrefix, payload)
+}
+
+func (s *Service) ackMsgRecord(payload []byte) (*ConnectionRecord, error) {
+	return s.fetchConnectionRecord(theirNSPrefix, payload)
+}
+
+func (s *Service) fetchConnectionRecord(nsPrefix string, payload []byte) (*ConnectionRecord, error) {
+	msg := &struct {
+		Thread decorator.Thread `json:"~thread,omitempty"`
+	}{}
+
+	err := json.Unmarshal(payload, msg)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := createNSKey(nsPrefix, msg.Thread.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.connectionStore.GetConnectionRecordByNSThreadID(key)
 }
 
 func generateRandomID() string {
