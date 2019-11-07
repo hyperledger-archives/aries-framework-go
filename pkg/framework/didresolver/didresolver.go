@@ -53,23 +53,13 @@ func (r *DIDResolver) Resolve(did string, opts ...ResolveOpt) (*diddoc.Doc, erro
 	}
 
 	// Obtain the DID Document
-	didDocBytes, err := method.Read(did, opts...)
+	didDoc, err := method.Read(did, opts...)
 	if err != nil {
 		if err == ErrNotFound {
 			return nil, err
 		}
 
 		return nil, fmt.Errorf("did method read failed failed: %w", err)
-	}
-
-	if len(didDocBytes) == 0 {
-		return nil, ErrNotFound
-	}
-
-	// Validate that the output DID Document conforms to the serialization of the DID Document data model
-	didDoc, err := diddoc.ParseDocument(didDocBytes)
-	if err != nil {
-		return nil, err
 	}
 
 	if resolveOpts.resultType == ResolutionResult {

@@ -35,7 +35,7 @@ var ErrNotFound = errors.New("DID not found")
 type DidMethod interface {
 	// Read implements the 'DID Resolution' algorithm defined in
 	// https://w3c-ccg.github.io/did-resolution/#resolving.
-	Read(did string, opts ...ResolveOpt) ([]byte, error)
+	Read(did string, opts ...ResolveOpt) (*did.Doc, error)
 	// Accept registers this DID method resolver with the given method.
 	Accept(method string) bool
 }

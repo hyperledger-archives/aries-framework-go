@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
 //nolint:lll
@@ -100,26 +102,21 @@ func TestResolve(t *testing.T) {
 		require.Nil(t, didDoc)
 	})
 
-	t.Run("test did doc not valid", func(t *testing.T) {
-		r := New(WithDidMethod(mockDidMethod{readValue: []byte("wrongData"), acceptFunc: func(method string) bool {
-			return true
-		}}))
-		_, err := r.Resolve("did:example:1234")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "validation of DID doc failed")
-	})
-
 	t.Run("test result type resolution-result", func(t *testing.T) {
-		r := New(WithDidMethod(mockDidMethod{readValue: []byte(doc), acceptFunc: func(method string) bool {
+		mockDidDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+		r := New(WithDidMethod(mockDidMethod{readValue: mockDidDoc, acceptFunc: func(method string) bool {
 			return true
 		}}))
-		_, err := r.Resolve("did:example:1234", WithResultType(ResolutionResult))
+		_, err = r.Resolve("did:example:1234", WithResultType(ResolutionResult))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "result type 'resolution-result' not supported")
 	})
 
 	t.Run("test result type did-document", func(t *testing.T) {
-		r := New(WithDidMethod(mockDidMethod{readValue: []byte(doc), acceptFunc: func(method string) bool {
+		mockDidDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+		r := New(WithDidMethod(mockDidMethod{readValue: mockDidDoc, acceptFunc: func(method string) bool {
 			return true
 		}}))
 		didDoc, err := r.Resolve("did:example:1234", WithResultType(DidDocumentResult))
@@ -128,31 +125,31 @@ func TestResolve(t *testing.T) {
 	})
 
 	t.Run("test resolve did method in order", func(t *testing.T) {
-		r := New(WithDidMethod(mockDidMethod{readValue: []byte("did1"), acceptFunc: func(method string) bool {
+		r := New(WithDidMethod(mockDidMethod{readValue: &did.Doc{ID: "did1"}, acceptFunc: func(method string) bool {
 			return method == "did1"
-		}}), WithDidMethod(mockDidMethod{readValue: []byte("did2"), acceptFunc: func(method string) bool {
+		}}), WithDidMethod(mockDidMethod{readValue: &did.Doc{ID: "did2"}, acceptFunc: func(method string) bool {
 			return true
 		}}))
 		didMethod, err := r.resolveDidMethod("did1")
 		require.NoError(t, err)
 		v, err := didMethod.Read("")
 		require.NoError(t, err)
-		require.Equal(t, "did1", string(v))
+		require.Equal(t, "did1", v.ID)
 		didMethod, err = r.resolveDidMethod("did2")
 		require.NoError(t, err)
 		v, err = didMethod.Read("")
 		require.NoError(t, err)
-		require.Equal(t, "did2", string(v))
+		require.Equal(t, "did2", v.ID)
 	})
 }
 
 type mockDidMethod struct {
-	readValue  []byte
+	readValue  *did.Doc
 	readErr    error
 	acceptFunc func(method string) bool
 }
 
-func (m mockDidMethod) Read(did string, opts ...ResolveOpt) ([]byte, error) {
+func (m mockDidMethod) Read(didID string, opts ...ResolveOpt) (*did.Doc, error) {
 	return m.readValue, m.readErr
 }
 

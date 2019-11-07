@@ -147,9 +147,11 @@ func TestFramework(t *testing.T) {
 		dbPath = path
 
 		peerDID := "did:peer:123"
+		mockDidDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
 		// with consumer provider DID resolver
 		resolver := didresolver.New(
-			didresolver.WithDidMethod(mockDidMethod{readValue: []byte(doc), acceptFunc: func(method string) bool {
+			didresolver.WithDidMethod(mockDidMethod{readValue: mockDidDoc, acceptFunc: func(method string) bool {
 				return method == "peer"
 			}}))
 		aries, err := New(WithDIDResolver(resolver), WithInboundTransport(&mockInboundTransport{}))
@@ -403,12 +405,12 @@ func TestFramework(t *testing.T) {
 }
 
 type mockDidMethod struct {
-	readValue  []byte
+	readValue  *did.Doc
 	readErr    error
 	acceptFunc func(method string) bool
 }
 
-func (m mockDidMethod) Read(id string, opts ...didresolver.ResolveOpt) ([]byte, error) {
+func (m mockDidMethod) Read(id string, opts ...didresolver.ResolveOpt) (*did.Doc, error) {
 	return m.readValue, m.readErr
 }
 
