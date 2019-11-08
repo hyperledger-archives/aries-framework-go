@@ -38,3 +38,4 @@ test/bdd/db
 test/bdd/fixtures/keys/tls
 test/bdd/fixtures/demo/openapi/specs
 *.log
+profile.out
