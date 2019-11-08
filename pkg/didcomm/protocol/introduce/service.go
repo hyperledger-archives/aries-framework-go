@@ -36,6 +36,8 @@ const (
 	ResponseMsgType = IntroduceSpec + "response"
 	// AckMsgType defines the introduce ack message type.
 	AckMsgType = IntroduceSpec + "ack"
+	// ProblemReportMsgType defines the introduce problem-report message type.
+	ProblemReportMsgType = IntroduceSpec + "problem-report"
 )
 
 const (
@@ -181,8 +183,10 @@ func (s *Service) startInternalListener() {
 				continue
 			}
 
-			if err := s.abandon(msg.ThreadID, msg.Msg, msg.err); err != nil {
-				logger.Errorf("process callback : %s", err)
+			msg.StateName = stateNameAbandoning
+
+			if err := s.handle(msg, nil); err != nil {
+				logger.Errorf("listener handle: %s", err)
 			}
 		case <-s.stop:
 			logger.Infof("the callback listener was stopped")
@@ -191,25 +195,6 @@ func (s *Service) startInternalListener() {
 			return
 		}
 	}
-}
-
-// abandon updates the state to abandoned and trigger failure event.
-func (s *Service) abandon(thID string, msg *service.DIDCommMsg, _ error) error {
-	// update the state to abandoned
-	if err := s.save(thID, &abandoning{}); err != nil {
-		return fmt.Errorf("save abandoning sate: %w", err)
-	}
-
-	// TODO: add received error to Properties
-	// send the message event
-	s.sendMsgEvents(&service.StateMsg{
-		ProtocolName: Introduce,
-		Type:         service.PostState,
-		Msg:          msg.Clone(),
-		StateID:      stateNameAbandoning,
-	})
-
-	return nil
 }
 
 func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, error) {
@@ -225,10 +210,7 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 		return nil, err
 	}
 
-	current, err := stateFromName(rec.StateName)
-	if err != nil {
-		return nil, err
-	}
+	current := stateFromName(rec.StateName)
 
 	logger.Infof("current state: %s", current.Name())
 
@@ -245,13 +227,11 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 
 	logger.Infof("sent pre event for state %s", next.Name())
 
+	// sets the next state name
+	rec.StateName = next.Name()
+
 	return &metaData{
-		record: record{
-			StateName:       next.Name(),
-			WaitCount:       rec.WaitCount,
-			IntroduceeIndex: rec.IntroduceeIndex,
-			Invitation:      rec.Invitation,
-		},
+		record:   *rec,
 		Msg:      msg,
 		ThreadID: thID,
 	}, nil
@@ -324,11 +304,15 @@ func (s *Service) sendMsgEvents(msg *service.StateMsg) {
 	}
 }
 
-// sendActionEvent triggers the action event. This function stores the state of current processing and passes a callback
-// function in the event message.
+// newDIDCommActionMsg creates new DIDCommAction message
 func (s *Service) newDIDCommActionMsg(msg *metaData) service.DIDCommAction {
 	// create the message for the channel
 	// trigger the registered action event
+	actionStop := func(err error) {
+		msg.err = err
+		s.processCallback(msg)
+	}
+
 	return service.DIDCommAction{
 		ProtocolName: Introduce,
 		Message:      msg.Msg.Clone(),
@@ -341,14 +325,9 @@ func (s *Service) newDIDCommActionMsg(msg *metaData) service.DIDCommAction {
 			}
 
 			// sets an error to the message
-			msg.err = errors.New("action dependency is missing")
-			s.processCallback(msg)
+			actionStop(errors.New("action dependency is missing"))
 		},
-		Stop: func(err error) {
-			// sets an error to the message
-			msg.err = err
-			s.processCallback(msg)
-		},
+		Stop: actionStop,
 	}
 }
 
@@ -380,6 +359,8 @@ func nextState(msg *service.DIDCommMsg, rec *record, outbound bool) (state, erro
 		}
 
 		return &arranging{}, nil
+	case ProblemReportMsgType:
+		return &abandoning{}, nil
 	case AckMsgType:
 		return &done{}, nil
 	default:
@@ -420,36 +401,41 @@ func (s *Service) save(id string, data interface{}) error {
 
 // nolint: gocyclo
 // stateFromName returns the state by given name.
-func stateFromName(name string) (state, error) {
+func stateFromName(name string) state {
 	switch name {
 	case stateNameNoop:
-		return &noOp{}, nil
+		return &noOp{}
 	case stateNameStart:
-		return &start{}, nil
+		return &start{}
 	case stateNameDone:
-		return &done{}, nil
+		return &done{}
 	case stateNameArranging:
-		return &arranging{}, nil
+		return &arranging{}
 	case stateNameDelivering:
-		return &delivering{}, nil
+		return &delivering{}
 	case stateNameConfirming:
-		return &confirming{}, nil
+		return &confirming{}
 	case stateNameAbandoning:
-		return &abandoning{}, nil
+		return &abandoning{}
 	case stateNameRequesting:
-		return &requesting{}, nil
+		return &requesting{}
 	case stateNameDeciding:
-		return &deciding{}, nil
+		return &deciding{}
 	case stateNameWaiting:
-		return &waiting{}, nil
+		return &waiting{}
 	default:
-		return nil, fmt.Errorf("invalid state name %s", name)
+		return &noOp{}
 	}
 }
 
 // canTriggerActionEvents checks if the incoming message can trigger an action event
 func canTriggerActionEvents(msg *service.DIDCommMsg) bool {
-	return msg.Header.Type == ProposalMsgType || msg.Header.Type == ResponseMsgType || msg.Header.Type == RequestMsgType
+	switch msg.Header.Type {
+	case ProposalMsgType, ResponseMsgType, RequestMsgType:
+		return true
+	}
+
+	return false
 }
 
 func isNoOp(s state) bool {
@@ -457,24 +443,34 @@ func isNoOp(s state) bool {
 	return ok
 }
 
+// isSkipProposal is a helper function to determine whether this is skip proposal or no
+// the usage is correct when it is executed on the introducer side
 func isSkipProposal(msg *metaData) bool {
+	// the skip proposal can be determined only after receiving dependency
+	// dependency is injected by the Continue function
 	if msg.dependency == nil {
 		return false
 	}
 
-	switch msg.StateName {
-	case stateNameRequesting, stateNameDeciding, stateNameWaiting:
-		return false
-	}
-
+	// if introducer provides an invitation this is definitely the skip proposal
 	return msg.dependency.Invitation() != nil
 }
 
+// injectInvitation the function tries to set an invitation we got from introducee
 func injectInvitation(msg *metaData) error {
-	if msg.Msg.Header.Type != ResponseMsgType || msg.Invitation != nil || isSkipProposal(msg) {
+	// we can inject invitation only when we received the Response message
+	// the Response message comes always from introduce
+	if msg.Msg.Header.Type != ResponseMsgType {
 		return nil
 	}
 
+	// if we already have an invitation it has more priority
+	// the second invitation is not important for us and we are ignoring it
+	if msg.Invitation != nil {
+		return nil
+	}
+
+	// increases counter to determine from who we got an invitation
 	msg.IntroduceeIndex++
 
 	var resp *Response
@@ -482,6 +478,7 @@ func injectInvitation(msg *metaData) error {
 		return err
 	}
 
+	// sets an invitation to which will be forwarded later
 	msg.Invitation = resp.Invitation
 
 	return nil
@@ -490,19 +487,18 @@ func injectInvitation(msg *metaData) error {
 func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 	logger.Infof("entered into private handle message: %v ", msg.Msg.Header)
 
-	if isSkipProposal(msg) {
-		if msg.Msg.Header.Type == ResponseMsgType {
-			msg.StateName = stateNameDelivering
-		}
+	// after receiving a response we need to determine whether it is skip proposal or no
+	// if this is skip proposal we do not need to send a proposal to another introducee
+	// we just simply go to Delivering state
+	if msg.Msg.Header.Type == ResponseMsgType && isSkipProposal(msg) {
+		msg.StateName = stateNameDelivering
 	}
 
-	next, err := stateFromName(msg.StateName)
-	if err != nil {
-		return fmt.Errorf("state from name: %w", err)
-	}
+	next := stateFromName(msg.StateName)
 
 	logger.Infof("next valid state to transition -> %s ", next.Name())
 
+	var err error
 	for !isNoOp(next) {
 		next, err = s.execute(next, msg, dest)
 		if err != nil {
@@ -543,14 +539,10 @@ func (s *Service) execute(next state, msg *metaData, dest *service.Destination) 
 
 	logger.Infof("finish execute next state: %s", next.Name())
 
-	r := record{
-		StateName:       next.Name(),
-		WaitCount:       msg.WaitCount,
-		IntroduceeIndex: msg.IntroduceeIndex,
-		Invitation:      msg.Invitation,
-	}
+	// sets the next state name
+	msg.StateName = next.Name()
 
-	if err = s.save(msg.ThreadID, r); err != nil {
+	if err = s.save(msg.ThreadID, msg.record); err != nil {
 		return nil, fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 	}
 
