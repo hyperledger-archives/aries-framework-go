@@ -85,19 +85,20 @@ type Service struct {
 	store       storage.Store
 	callbacks   chan *metaData
 	ctx         internalContext
+	wg          sync.WaitGroup
 	stop        chan struct{}
 	closedMutex sync.Mutex
 	closed      bool
 }
 
-// provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
-type provider interface {
+// Provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
+type Provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 }
 
 // New returns introduce service
-func New(p provider) (*Service, error) {
+func New(p Provider) (*Service, error) {
 	store, err := p.StorageProvider().OpenStore(Introduce)
 	if err != nil {
 		return nil, err
@@ -113,6 +114,8 @@ func New(p provider) (*Service, error) {
 	}
 
 	// start the listener
+	svc.wg.Add(1)
+
 	go svc.startInternalListener()
 
 	return svc, nil
@@ -129,6 +132,7 @@ func (s *Service) Stop() error {
 
 	close(s.stop)
 	s.closed = true
+	s.wg.Wait()
 
 	return nil
 }
@@ -153,6 +157,8 @@ func (s *Service) startInternalListener() {
 			}
 		case <-s.stop:
 			logger.Infof("the callback listener was stopped")
+			s.wg.Done()
+
 			return
 		}
 	}

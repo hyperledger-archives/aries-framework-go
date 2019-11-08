@@ -19,10 +19,11 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/gomocks"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce/mocks"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
-	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce/gomocks"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	storageMocks "github.com/hyperledger/aries-framework-go/pkg/storage/gomocks"
 )
 
 // this line checks that Service satisfies service.Handler interface
@@ -73,7 +74,17 @@ func Test_nextState(t *testing.T) {
 func TestService_handle(t *testing.T) {
 	t.Parallel()
 	t.Run("Happy path", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 
 		defer stop(t, svc)
@@ -84,7 +95,24 @@ func TestService_handle(t *testing.T) {
 	})
 
 	t.Run("Happy path", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Put("ID", []byte(`{"StateName":"start","WaitCount":0}`)).Return(nil).Times(1)
+		store.EXPECT().Put("ID", []byte(`{"StateName":"arranging","WaitCount":0}`)).Return(nil).Times(1)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 
 		defer stop(t, svc)
@@ -126,10 +154,16 @@ func TestService_handle(t *testing.T) {
 func TestService_New(t *testing.T) {
 	const errMsg = "test err"
 
-	store := mockstore.NewMockStoreProvider()
-	store.ErrOpenStoreHandle = errors.New(errMsg)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	svc, err := New(&protocol.MockProvider{StoreProvider: store})
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(nil, errors.New(errMsg))
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+
+	svc, err := New(provider)
 	require.EqualError(t, err, "test err")
 	require.Nil(t, svc)
 }
@@ -137,10 +171,20 @@ func TestService_New(t *testing.T) {
 func TestService_abandon(t *testing.T) {
 	const errMsg = "test err"
 
-	store := mockstore.NewMockStoreProvider()
-	store.Store.ErrPut = errors.New(errMsg)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	svc, err := New(&protocol.MockProvider{StoreProvider: store})
+	store := storageMocks.NewMockStore(ctrl)
+	store.EXPECT().Put("ID", []byte(`{}`)).Return(errors.New(errMsg))
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := New(provider)
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -151,32 +195,36 @@ func TestService_abandon(t *testing.T) {
 	require.EqualError(t, svc.abandon("ID", &service.DIDCommMsg{}, nil), errStr)
 }
 
-func TestService_startInternalListener(t *testing.T) {
-	svc := &Service{
-		callbacks: make(chan *metaData),
-		stop:      make(chan struct{}),
-	}
+func TestService_Stop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	done := make(chan struct{})
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
 
-	go func() {
-		svc.startInternalListener()
-		close(done)
-	}()
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := New(provider)
+	require.NoError(t, err)
 
 	require.NoError(t, svc.Stop())
-
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Error("timeout")
-	}
-
 	require.EqualError(t, svc.Stop(), "server was already stopped")
 }
 
 func TestService_Action(t *testing.T) {
-	svc, err := New(&protocol.MockProvider{})
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := New(provider)
 	require.NoError(t, err)
 
 	defer stop(t, svc)
@@ -196,7 +244,17 @@ func TestService_Action(t *testing.T) {
 }
 
 func TestService_Message(t *testing.T) {
-	svc, err := New(&protocol.MockProvider{})
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := New(provider)
 	require.NoError(t, err)
 
 	defer stop(t, svc)
@@ -216,7 +274,17 @@ func TestService_Message(t *testing.T) {
 }
 
 func TestService_Name(t *testing.T) {
-	svc, err := New(&protocol.MockProvider{})
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := New(provider)
 	require.NoError(t, err)
 
 	defer stop(t, svc)
@@ -226,9 +294,20 @@ func TestService_Name(t *testing.T) {
 
 func TestService_HandleOutbound(t *testing.T) {
 	t.Run("Storage JSON Error", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
-		require.NoError(t, store.Store.Put("ID", []byte(`[]`)))
-		svc, err := New(&protocol.MockProvider{StoreProvider: store})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get("ID").Return([]byte(`[]`), nil)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ResponseMsgType)))
@@ -238,10 +317,22 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Invalid state", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
 		raw := fmt.Sprintf(`{"StateName":%q, "WaitCount":%d}`, "unknown", 1)
-		require.NoError(t, store.Store.Put("ID", []byte(raw)))
-		svc, err := New(&protocol.MockProvider{StoreProvider: store})
+		store.EXPECT().Get("ID").Return([]byte(raw), nil)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
+
 		require.NoError(t, err)
 		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
@@ -252,7 +343,25 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Happy path", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Put("ID", []byte(`{"StateName":"start","WaitCount":1}`)).Return(nil)
+		store.EXPECT().Get("ID").Return([]byte(`{"StateName":"start","WaitCount":1}`), nil)
+		store.EXPECT().Put("ID", []byte(`{"StateName":"arranging","WaitCount":1}`)).Return(nil)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
@@ -267,7 +376,17 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 
 	t.Run("Happy path (Request)", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, RequestMsgType)))
@@ -279,7 +398,21 @@ func TestService_HandleOutbound(t *testing.T) {
 }
 
 func TestService_HandleInboundStop(t *testing.T) {
-	svc, err := New(&protocol.MockProvider{})
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := storageMocks.NewMockStore(ctrl)
+	store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).Times(1)
+	store.EXPECT().Put("ID", []byte(`{}`)).Return(nil)
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := New(provider)
 	require.NoError(t, err)
 
 	defer stop(t, svc)
@@ -317,7 +450,17 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Parallel()
 
 	t.Run("No clients", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		_, err = svc.HandleInbound(&service.DIDCommMsg{})
@@ -325,7 +468,17 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("ThreadID Error", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(`{}`))
@@ -339,10 +492,21 @@ func TestService_HandleInbound(t *testing.T) {
 
 	t.Run("Storage error", func(t *testing.T) {
 		const errMsg = "test err"
-		store := mockstore.NewMockStoreProvider()
-		store.Store.ErrGet = errors.New(errMsg)
-		require.NoError(t, store.Store.Put("ID", nil))
-		svc, err := New(&protocol.MockProvider{StoreProvider: store})
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get("ID").Return(nil, errors.New(errMsg))
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
@@ -355,7 +519,21 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Bad transition", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"noop","WaitCount":1}`)).Return(nil)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"StateName":"noop","WaitCount":1}`), nil)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		require.NoError(t, svc.save("ID", record{
@@ -372,10 +550,21 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Invalid state", func(t *testing.T) {
-		store := mockstore.NewMockStoreProvider()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
 		raw := fmt.Sprintf(`{"StateName":%q, "WaitCount":%d}`, "unknown", 1)
-		require.NoError(t, store.Store.Put("ID", []byte(raw)))
-		svc, err := New(&protocol.MockProvider{StoreProvider: store})
+		store.EXPECT().Get("ID").Return([]byte(raw), nil)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		defer stop(t, svc)
 		require.NoError(t, err)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
@@ -388,7 +577,20 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Unknown msg type error", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get("ID").Return(nil, storage.ErrDataNotFound)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(`{"@id":"ID","@type":"unknown"}`))
@@ -401,7 +603,21 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Happy path (send an action event)", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get("ID").Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put("ID", []byte(`{}`)).Return(nil)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
@@ -423,7 +639,20 @@ func TestService_HandleInbound(t *testing.T) {
 	})
 
 	t.Run("Happy path (execute handle)", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get("ID").Return(nil, storage.ErrDataNotFound)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ResponseMsgType)))
@@ -437,7 +666,17 @@ func TestService_HandleInbound(t *testing.T) {
 }
 
 func TestService_Accept(t *testing.T) {
-	svc, err := New(&protocol.MockProvider{})
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := New(provider)
 	require.NoError(t, err)
 
 	defer stop(t, svc)
@@ -493,7 +732,19 @@ func Test_stateFromName(t *testing.T) {
 
 func TestService_save(t *testing.T) {
 	t.Run("Happy path", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		data := &metaData{
@@ -511,16 +762,22 @@ func TestService_save(t *testing.T) {
 			},
 			ThreadID: "ThreadID",
 		}
+		store.EXPECT().Put("ID", toBytes(t, data)).Return(nil)
 		require.NoError(t, svc.save("ID", data))
-		src, err := svc.store.Get("ID")
-		require.NoError(t, err)
-		var res *metaData
-		require.NoError(t, json.Unmarshal(src, &res))
-		require.Equal(t, data, res)
 	})
 
 	t.Run("JSON Error", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(nil)
+
+		svc, err := New(provider)
 		defer stop(t, svc)
 		require.NoError(t, err)
 		const errMsg = "service save: json: unsupported type: chan int"
@@ -534,7 +791,29 @@ func TestService_Proposal(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Introducer", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"arranging","WaitCount":2}`)).Return(nil).Times(1)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"StateName":"arranging","WaitCount":2}`), nil).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"arranging","WaitCount":1}`)).Return(nil).Times(1)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"StateName":"arranging","WaitCount":1}`), nil).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"delivering","WaitCount":0}`)).Return(nil).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"done","WaitCount":0}`)).Return(nil).Times(1)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 
@@ -607,7 +886,27 @@ func TestService_Proposal(t *testing.T) {
 	})
 
 	t.Run("Introducee", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"deciding","WaitCount":2}`)).Return(nil).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"waiting","WaitCount":2}`)).Return(nil).Times(1)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"StateName":"waiting","WaitCount":2}`), nil).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"done","WaitCount":2}`)).Return(nil).Times(1)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 
@@ -669,7 +968,27 @@ func TestService_SkipProposal(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Introducer", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"arranging","WaitCount":2}`)).Return(nil).Times(1)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"StateName":"arranging","WaitCount":2}`), nil).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"delivering","WaitCount":1}`)).Return(nil).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"done","WaitCount":1}`)).Return(nil).Times(1)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 
@@ -722,7 +1041,25 @@ func TestService_SkipProposal(t *testing.T) {
 	})
 
 	t.Run("Introducee", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"deciding","WaitCount":2}`)).Return(nil).Times(1)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"waiting","WaitCount":2}`)).Return(nil).Times(1)
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+
+		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+
+		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 
@@ -790,6 +1127,8 @@ func continueAction(t *testing.T, ch chan service.DIDCommAction, action string, 
 }
 
 func toBytes(t *testing.T, data interface{}) []byte {
+	t.Helper()
+
 	src, err := json.Marshal(data)
 	require.NoError(t, err)
 

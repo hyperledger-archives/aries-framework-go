@@ -14,13 +14,13 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/client/introduce/mocks"
+	mocks "github.com/hyperledger/aries-framework-go/pkg/client/introduce/gomocks"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service/mocks"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
-	storageMocks "github.com/hyperledger/aries-framework-go/pkg/storage/mocks"
+	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce/gomocks"
+	storageMocks "github.com/hyperledger/aries-framework-go/pkg/storage/gomocks"
 )
 
 func TestNew(t *testing.T) {
@@ -81,12 +81,21 @@ func TestClient_handleOutbound(t *testing.T) {
 func TestClient_SendProposal(t *testing.T) {
 	const UUID = "382a7cf8-2c57-4f2f-9359-8ac45b7b4b1f"
 
-	svc, err := introduce.New(&protocol.MockProvider{})
-	require.NoError(t, err)
-	require.NotNil(t, svc)
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	store := storageMocks.NewMockStore(ctrl)
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil).Times(2)
+
+	introduceProvider := introduceMocks.NewMockProvider(ctrl)
+	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
+	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := introduce.New(introduceProvider)
+	require.NoError(t, err)
+	require.NotNil(t, svc)
 
 	DIDComm := serviceMocks.NewMockDIDComm(ctrl)
 	DIDComm.EXPECT().HandleOutbound(gomock.Any(), gomock.Any()).Return(nil)
@@ -97,12 +106,7 @@ func TestClient_SendProposal(t *testing.T) {
 			{ServiceEndpoint: "service/endpoint2"},
 		},
 	}
-
-	store := storageMocks.NewMockStore(ctrl)
 	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(nil)
-
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(introduce.Introduce).Return(DIDComm, nil)
@@ -118,12 +122,21 @@ func TestClient_SendProposal(t *testing.T) {
 func TestClient_SendProposalWithInvitation(t *testing.T) {
 	const UUID = "382a7cf8-2c57-4f2f-9359-8ac45b7b4b1f"
 
-	svc, err := introduce.New(&protocol.MockProvider{})
-	require.NoError(t, err)
-	require.NotNil(t, svc)
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	store := storageMocks.NewMockStore(ctrl)
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil).Times(2)
+
+	introduceProvider := introduceMocks.NewMockProvider(ctrl)
+	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
+	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := introduce.New(introduceProvider)
+	require.NoError(t, err)
+	require.NotNil(t, svc)
 
 	DIDComm := serviceMocks.NewMockDIDComm(ctrl)
 	DIDComm.EXPECT().HandleOutbound(gomock.Any(), gomock.Any()).Return(nil)
@@ -136,12 +149,7 @@ func TestClient_SendProposalWithInvitation(t *testing.T) {
 			ServiceEndpoint: "service/endpoint",
 		}},
 	}
-
-	store := storageMocks.NewMockStore(ctrl)
 	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(nil)
-
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(introduce.Introduce).Return(DIDComm, nil)
@@ -157,12 +165,21 @@ func TestClient_SendProposalWithInvitation(t *testing.T) {
 func TestClient_HandleRequest(t *testing.T) {
 	const UUID = "382a7cf8-2c57-4f2f-9359-8ac45b7b4b1f"
 
-	svc, err := introduce.New(&protocol.MockProvider{})
-	require.NoError(t, err)
-	require.NotNil(t, svc)
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	store := storageMocks.NewMockStore(ctrl)
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil).Times(2)
+
+	introduceProvider := introduceMocks.NewMockProvider(ctrl)
+	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
+	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := introduce.New(introduceProvider)
+	require.NoError(t, err)
+	require.NotNil(t, svc)
 
 	opts := InvitationEnvelope{
 		Dests: []*service.Destination{
@@ -170,12 +187,7 @@ func TestClient_HandleRequest(t *testing.T) {
 			{ServiceEndpoint: "service/endpoint2"},
 		},
 	}
-
-	store := storageMocks.NewMockStore(ctrl)
 	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(nil)
-
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(introduce.Introduce).Return(serviceMocks.NewMockDIDComm(ctrl), nil)
@@ -200,10 +212,6 @@ func TestClient_HandleRequest(t *testing.T) {
 
 func TestClient_HandleRequestWithInvitation(t *testing.T) {
 	const UUID = "382a7cf8-2c57-4f2f-9359-8ac45b7b4b1f"
-
-	svc, err := introduce.New(&protocol.MockProvider{})
-	require.NoError(t, err)
-	require.NotNil(t, svc)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -248,12 +256,21 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 func TestClient_InvitationEnvelope(t *testing.T) {
 	const UUID = "382a7cf8-2c57-4f2f-9359-8ac45b7b4b1f"
 
-	svc, err := introduce.New(&protocol.MockProvider{})
-	require.NoError(t, err)
-	require.NotNil(t, svc)
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	store := storageMocks.NewMockStore(ctrl)
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil).Times(2)
+
+	introduceProvider := introduceMocks.NewMockProvider(ctrl)
+	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
+	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := introduce.New(introduceProvider)
+	require.NoError(t, err)
+	require.NotNil(t, svc)
 
 	opts := InvitationEnvelope{
 		Inv: &didexchange.Invitation{
@@ -263,14 +280,9 @@ func TestClient_InvitationEnvelope(t *testing.T) {
 			ServiceEndpoint: "service/endpoint",
 		}},
 	}
-
-	store := storageMocks.NewMockStore(ctrl)
 	store.EXPECT().Get(invitationEnvelopePrefix+UUID).Return(toBytes(t, opts), nil).Times(1)
 	store.EXPECT().Get(invitationEnvelopePrefix+UUID).Return(nil, errors.New("error")).Times(1)
 	store.EXPECT().Get(invitationEnvelopePrefix+UUID).Return([]byte(`[]`), nil).Times(1)
-
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(introduce.Introduce).Return(serviceMocks.NewMockDIDComm(ctrl), nil)
@@ -298,12 +310,21 @@ func TestClient_InvitationEnvelope(t *testing.T) {
 func TestClient_SendRequest(t *testing.T) {
 	const UUID = "382a7cf8-2c57-4f2f-9359-8ac45b7b4b1f"
 
-	svc, err := introduce.New(&protocol.MockProvider{})
-	require.NoError(t, err)
-	require.NotNil(t, svc)
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	store := storageMocks.NewMockStore(ctrl)
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil).Times(2)
+
+	introduceProvider := introduceMocks.NewMockProvider(ctrl)
+	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
+	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+
+	svc, err := introduce.New(introduceProvider)
+	require.NoError(t, err)
+	require.NotNil(t, svc)
 
 	DIDComm := serviceMocks.NewMockDIDComm(ctrl)
 	DIDComm.EXPECT().HandleOutbound(gomock.Any(), gomock.Any()).Return(nil)
@@ -313,13 +334,8 @@ func TestClient_SendRequest(t *testing.T) {
 			ServiceEndpoint: "service/endpoint",
 		}},
 	}
-
-	store := storageMocks.NewMockStore(ctrl)
 	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(nil).Times(1)
 	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(errors.New("test error")).Times(1)
-
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(introduce.Introduce).Return(DIDComm, nil)

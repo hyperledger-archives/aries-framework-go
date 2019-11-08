@@ -39,7 +39,8 @@ license:
 	@scripts/check_license.sh
 
 .PHONY: unit-test
-unit-test: mocks
+unit-test:
+	@make -s mocks
 	@scripts/check_unit.sh
 
 .PHONY: bdd-test
@@ -120,8 +121,8 @@ comma:= ,
 semicolon:= ;
 
 define create_mock
-  mkdir -p $(1)/mocks && rm -rf $(1)/mocks/*
-  $(MOCKGEN) -destination $(1)/mocks/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
+  mkdir -p $(1)/gomocks && rm -rf $(1)/gomocks/*
+  $(MOCKGEN) -destination $(1)/gomocks/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
 endef
 
 build-mockgen:
@@ -130,12 +131,17 @@ build-mockgen:
 .PHONY: mocks
 mocks: build-mockgen
 	$(call create_mock,pkg/client/introduce,Provider)
-	$(call create_mock,pkg/didcomm/protocol/introduce,InvitationEnvelope)
+	$(call create_mock,pkg/didcomm/protocol/introduce,Provider;InvitationEnvelope)
+	$(call create_mock,pkg/didcomm/dispatcher,Outbound)
 	$(call create_mock,pkg/storage,Provider;Store)
 	$(call create_mock,pkg/didcomm/common/service,DIDComm)
 
+.PHONY: clean-mocks
+clean-mocks:
+	@find . -name gomocks -type d -exec rm -r {} +
+
 .PHONY: clean
-clean: clean-fixtures clean-build clean-images
+clean: clean-fixtures clean-build clean-images clean-mocks
 
 .PHONY: clean-images
 clean-images: clean-fixtures

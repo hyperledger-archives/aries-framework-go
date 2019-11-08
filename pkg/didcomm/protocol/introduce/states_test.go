@@ -9,10 +9,11 @@ package introduce
 import (
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/gomocks"
 )
 
 func notTransition(t *testing.T, st state) {
@@ -35,14 +36,20 @@ func TestNoopState(t *testing.T) {
 }
 
 func TestNoOpState_ExecuteInbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&noOp{}).ExecuteInbound(ctx, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestNoOpState_ExecuteOutbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&noOp{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
@@ -66,14 +73,20 @@ func TestStartState(t *testing.T) {
 }
 
 func TestStartState_ExecuteInbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&start{}).ExecuteInbound(ctx, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &arranging{}, followup)
 }
 
 func TestStartState_ExecuteOutbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&start{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
@@ -87,14 +100,20 @@ func TestDoneState(t *testing.T) {
 }
 
 func TestDoneState_ExecuteInbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&done{}).ExecuteInbound(ctx, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 }
 
 func TestDoneState_ExecuteOutbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&done{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
@@ -118,14 +137,26 @@ func TestArrangingState(t *testing.T) {
 }
 
 func TestArrangingState_ExecuteInbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	ctx := internalContext{Outbound: dispatcher}
 	followup, err := (&arranging{}).ExecuteInbound(ctx, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 }
 
 func TestArrangingState_ExecuteOutbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	ctx := internalContext{Outbound: dispatcher}
 	followup, err := (&arranging{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
@@ -149,14 +180,20 @@ func TestDeliveringState(t *testing.T) {
 }
 
 func TestDeliveringState_ExecuteInbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &done{}, followup)
 }
 
 func TestDeliveringState_ExecuteOutbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&delivering{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
@@ -180,14 +217,20 @@ func TestConfirmingState(t *testing.T) {
 }
 
 func TestConfirmingState_ExecuteInbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&confirming{}).ExecuteInbound(ctx, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestConfirmingState_ExecuteOutbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&confirming{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
@@ -211,14 +254,20 @@ func TestAbandoningState(t *testing.T) {
 }
 
 func TestAbandoningState_ExecuteInbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&abandoning{}).ExecuteInbound(ctx, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestAbandoningState_ExecuteOutbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&abandoning{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
@@ -242,14 +291,23 @@ func TestDecidingState(t *testing.T) {
 }
 
 func TestDecidingState_ExecuteInbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	ctx := internalContext{Outbound: dispatcher}
 	followup, err := (&deciding{}).ExecuteInbound(ctx, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &waiting{}, followup)
 }
 
 func TestDecidingState_ExecuteOutbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&deciding{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
@@ -273,14 +331,20 @@ func TestWaitingState(t *testing.T) {
 }
 
 func TestWaitingState_ExecuteInbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&waiting{}).ExecuteInbound(ctx, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 }
 
 func TestWaitingState_ExecuteOutbound(t *testing.T) {
-	ctx := internalContext{Outbound: &mockdispatcher.MockOutbound{}}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
 	followup, err := (&waiting{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
 	require.Error(t, err)
 	require.Nil(t, followup)
