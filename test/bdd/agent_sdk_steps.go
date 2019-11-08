@@ -16,8 +16,6 @@ import (
 
 	"github.com/DATA-DOG/godog"
 
-	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
-
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/httpbinding"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
@@ -26,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
 const (

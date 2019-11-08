@@ -156,8 +156,10 @@ func (d *DIDExchangeSDKSteps) createDIDExchangeClient(agentID string) error {
 		return fmt.Errorf("failed to create new didexchange client: %w", err)
 	}
 
-	actionCh := make(chan service.DIDCommAction)
-	err = didexchangeClient.RegisterActionEvent(actionCh)
+	actionCh := make(chan service.DIDCommAction, 1)
+	if err = didexchangeClient.RegisterActionEvent(actionCh); err != nil {
+		return fmt.Errorf("failed to register action event: %w", err)
+	}
 	d.actionCh[agentID] = actionCh
 
 	d.bddContext.DIDExchangeClients[agentID] = didexchangeClient
