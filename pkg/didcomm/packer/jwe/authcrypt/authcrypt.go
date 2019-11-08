@@ -9,6 +9,7 @@ package authcrypt
 import (
 	"crypto/rand"
 	"errors"
+	"io"
 
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
@@ -31,11 +32,6 @@ const (
 	encodingType string = "prs.hyperledger.aries-auth-message"
 )
 
-// randReader is a cryptographically secure random number generator.
-// TODO https://github.com/hyperledger/aries-framework-go/issues/748 document usage for tests or find another mechanism.
-//nolint:gochecknoglobals
-var randReader = rand.Reader
-
 // errUnsupportedAlg is used when a bad encryption algorithm is used
 var errUnsupportedAlg = errors.New("algorithm not supported")
 
@@ -44,9 +40,10 @@ var errUnsupportedAlg = errors.New("algorithm not supported")
 
 // Packer represents an Authcrypt Packer/Unpacker that outputs/reads JWE envelopes
 type Packer struct {
-	alg       ContentEncryption
-	nonceSize int
-	kms       kms.KeyManager
+	alg        ContentEncryption
+	nonceSize  int
+	kms        kms.KeyManager
+	randReader io.Reader
 }
 
 // Envelope represents a JWE envelope as per the Aries Encryption envelope specs
@@ -119,9 +116,10 @@ func New(ctx packer.Provider, alg ContentEncryption) (*Packer, error) {
 	}
 
 	return &Packer{
-		alg:       alg,
-		nonceSize: nonceSize,
-		kms:       k,
+		alg:        alg,
+		nonceSize:  nonceSize,
+		kms:        k,
+		randReader: rand.Reader,
 	}, nil
 }
 

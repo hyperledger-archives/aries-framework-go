@@ -25,7 +25,7 @@ func (p *Packer) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byte
 	}
 
 	// generate ephemeral asymmetric keys
-	epk, esk, err := box.GenerateKey(randReader)
+	epk, esk, err := box.GenerateKey(p.randReader)
 	if err != nil {
 		return "", err
 	}
@@ -39,7 +39,7 @@ func (p *Packer) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byte
 	// generate a cek for encryption
 	cek := &[chacha.KeySize]byte{}
 
-	_, err = randReader.Read(cek[:])
+	_, err = p.randReader.Read(cek[:])
 	if err != nil {
 		return "", err
 	}
@@ -96,7 +96,7 @@ func (p *Packer) encryptSenderJWK(encKey, headers string, senderJWKJSON, cek []b
 	// create a new nonce
 	nonce := make([]byte, p.nonceSize)
 
-	_, err := randReader.Read(nonce)
+	_, err := p.randReader.Read(nonce)
 	if err != nil {
 		return "", err
 	}

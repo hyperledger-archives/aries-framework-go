@@ -39,9 +39,9 @@ func TestNilEncryptSenderJwk(t *testing.T) {
 	require.Empty(t, s)
 
 	// set broken reader
-	randReader = &badReader{}
+	packer.randReader = &badReader{}
 
-	defer resetRandReader()
+	defer resetRandReader(packer)
 
 	s, err = packer.encryptSenderJWK("", "", nil, nil)
 	require.Error(t, err)
@@ -72,8 +72,8 @@ func TestNilEncryptSenderJwk(t *testing.T) {
 }
 
 // Reset random reader to original value
-func resetRandReader() {
-	randReader = rand.Reader
+func resetRandReader(p *Packer) {
+	p.randReader = rand.Reader
 }
 
 type badReader struct{}
