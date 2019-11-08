@@ -393,7 +393,7 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
 		_, err = svc.HandleInbound(msg)
-		require.EqualError(t, err, "cannot fetch state from store: thid=ID err=test err")
+		require.EqualError(t, err, "cannot fetch state from store: thid=ID : test err")
 	})
 
 	t.Run("Bad transition", func(t *testing.T) {
@@ -731,7 +731,7 @@ func TestService_Proposal(t *testing.T) {
 		transportKey: Bob,
 	})
 
-	go handleIntroduceeUnfinished(&flow{
+	go handleIntroduceeRecipient(&flow{
 		t:            t,
 		wg:           &wg,
 		svc:          carol,
@@ -804,7 +804,7 @@ func TestService_SkipProposal(t *testing.T) {
 		SkipProposal: true,
 	})
 
-	go handleIntroduceeUnfinished(&flow{
+	go handleIntroduceeRecipient(&flow{
 		t:            t,
 		wg:           &wg,
 		svc:          bob,
@@ -890,7 +890,7 @@ func TestService_ProposalUnusual(t *testing.T) {
 		dests:        dests,
 	})
 
-	go handleIntroduceeUnfinished(&flow{
+	go handleIntroduceeRecipient(&flow{
 		t:            t,
 		wg:           &wg,
 		svc:          bob,
@@ -925,9 +925,9 @@ func setupIntroducer(f *flow) (*gomock.Controller, *Service, *mocks.MockInvitati
 	storageProvider.EXPECT().OpenStore(Introduce).Return(fakeStore(ctrl), nil)
 
 	forwarder := mocks.NewMockForwarder(ctrl)
-	forwarder.EXPECT().SendInvitation(f.expectedInv, gomock.Any()).
-		Do(func(inv *didexchange.Invitation, dest *service.Destination) error {
-			fmt.Println("Introducer sends a Invitation", "to the", dest.ServiceEndpoint)
+	forwarder.EXPECT().SendInvitation(gomock.Any(), f.expectedInv, gomock.Any()).
+		Do(func(pthID string, inv *didexchange.Invitation, dest *service.Destination) error {
+			f.transport[dest.ServiceEndpoint] <- pthID
 			return nil
 		}).Return(nil)
 
@@ -1103,7 +1103,7 @@ func handleIntroduceeDone(f *flow) {
 	checkStateMsg(f.t, sCh, service.PostState, AckMsgType, stateNameDone)
 }
 
-func handleIntroduceeUnfinished(f *flow) {
+func handleIntroduceeRecipient(f *flow) {
 	defer f.wg.Done()
 
 	// register action event channel
@@ -1142,12 +1142,22 @@ func handleIntroduceeUnfinished(f *flow) {
 		require.NoError(f.t, err)
 	}()
 
-	// TODO: state machine should be done!
 	continueAction(f.t, aCh, ProposalMsgType, f.dep)
 	checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
 	checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
 	checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameWaiting)
 	checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameWaiting)
+
+	var pthID interface{}
+	select {
+	case pthID = <-f.transport[f.transportKey]:
+	case <-time.After(time.Second):
+		f.t.Error("timeout")
+	}
+
+	go func() { require.NoError(f.t, f.svc.InvitationReceived(pthID.(string))) }()
+	checkStateMsg(f.t, sCh, service.PreState, AckMsgType, stateNameDone)
+	checkStateMsg(f.t, sCh, service.PostState, AckMsgType, stateNameDone)
 }
 
 // This test describes the following flow :
@@ -1217,7 +1227,7 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 		WithRequest:  true,
 	})
 
-	go handleIntroduceeUnfinished(&flow{
+	go handleIntroduceeRecipient(&flow{
 		t:         t,
 		wg:        &wg,
 		svc:       bob,
@@ -1329,7 +1339,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		WithRequest:  true,
 	})
 
-	go handleIntroduceeUnfinished(&flow{
+	go handleIntroduceeRecipient(&flow{
 		t:            t,
 		wg:           &wg,
 		svc:          carol,
@@ -1424,7 +1434,7 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 		WithRequest:  true,
 	})
 
-	go handleIntroduceeUnfinished(&flow{
+	go handleIntroduceeRecipient(&flow{
 		t:         t,
 		wg:        &wg,
 		svc:       bob,

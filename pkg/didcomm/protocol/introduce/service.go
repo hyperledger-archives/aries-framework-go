@@ -12,9 +12,13 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -108,7 +112,7 @@ type Provider interface {
 // Forwarder provides the possibility to forward an invitation
 type Forwarder interface {
 	// method should be implemented in didexchange service
-	SendInvitation(inv *didexchange.Invitation, dest *service.Destination) error
+	SendInvitation(pthID string, inv *didexchange.Invitation, dest *service.Destination) error
 }
 
 // New returns introduce service
@@ -130,8 +134,8 @@ func New(p Provider) (*Service, error) {
 
 	svc := &Service{
 		ctx: internalContext{
-			Outbound:       p.OutboundDispatcher(),
-			SendInvitation: forwarderSvc.SendInvitation,
+			Outbound:  p.OutboundDispatcher(),
+			Forwarder: forwarderSvc,
 		},
 		store:     store,
 		callbacks: make(chan *metaData),
@@ -253,6 +257,28 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 	}, nil
 }
 
+// InvitationReceived is used to finish the state machine
+// the function should be called by didexchange after receiving an invitation
+func (s *Service) InvitationReceived(thID string) error {
+	payload, err := json.Marshal(&model.Ack{
+		Type:   AckMsgType,
+		ID:     uuid.New().String(),
+		Thread: &decorator.Thread{ID: thID},
+	})
+	if err != nil {
+		return fmt.Errorf("invitation received marshal: %w", err)
+	}
+
+	msg, err := service.NewDIDCommMsg(payload)
+	if err != nil {
+		return fmt.Errorf("invitation received new DIDComm msg: %w", err)
+	}
+
+	_, err = s.HandleInbound(msg)
+
+	return err
+}
+
 // HandleInbound handles inbound message (introduce protocol)
 func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 	aEvent := s.ActionEvent()
@@ -372,7 +398,7 @@ func (s *Service) currentStateRecord(thID string) (*record, error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("cannot fetch state from store: thid=%s err=%s", thID, err)
+		return nil, fmt.Errorf("cannot fetch state from store: thid=%s : %w", thID, err)
 	}
 
 	var r *record

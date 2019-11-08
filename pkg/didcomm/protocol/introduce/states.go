@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 )
 
 const (
@@ -46,7 +45,7 @@ var getInboundDestination = func() *service.Destination {
 
 type internalContext struct {
 	dispatcher.Outbound
-	SendInvitation func(inv *didexchange.Invitation, dest *service.Destination) error
+	Forwarder
 }
 
 // The introduce protocol's state.
@@ -147,6 +146,7 @@ func (s *arranging) ExecuteInbound(ctx internalContext, m *metaData) (state, err
 	} else {
 		destination = getInboundDestination()
 	}
+
 	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
 	return &noOp{}, ctx.Send(&Proposal{
 		Type:   ProposalMsgType,
@@ -160,6 +160,7 @@ func (s *arranging) ExecuteOutbound(ctx internalContext, m *metaData, dest *serv
 	if err := json.Unmarshal(m.Msg.Payload, &proposal); err != nil {
 		return nil, fmt.Errorf("outbound unmarshal: %w", err)
 	}
+
 	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
 	return &noOp{}, ctx.Send(proposal, "", dest)
 }
@@ -192,7 +193,7 @@ func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, er
 	}
 
 	if isSkipProposal(m) {
-		err := ctx.SendInvitation(m.dependency.Invitation(), destinations[len(destinations)-1])
+		err := ctx.SendInvitation(m.ThreadID, m.dependency.Invitation(), destinations[len(destinations)-1])
 		if err != nil {
 			return nil, fmt.Errorf("send inbound invitation (skip): %w", err)
 		}
@@ -200,7 +201,7 @@ func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, er
 		return &done{}, nil
 	}
 
-	err := ctx.SendInvitation(m.Invitation, destinations[toDestIDx(m.IntroduceeIndex)])
+	err := ctx.SendInvitation(m.ThreadID, m.Invitation, destinations[toDestIDx(m.IntroduceeIndex)])
 	if err != nil {
 		return nil, fmt.Errorf("send inbound invitation: %w", err)
 	}
@@ -330,6 +331,7 @@ func (s *requesting) ExecuteOutbound(ctx internalContext, m *metaData, dest *ser
 	if err := json.Unmarshal(m.Msg.Payload, &req); err != nil {
 		return nil, fmt.Errorf("requesting outbound unmarshal: %w", err)
 	}
+
 	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
 	return &noOp{}, ctx.Send(req, "", dest)
 }

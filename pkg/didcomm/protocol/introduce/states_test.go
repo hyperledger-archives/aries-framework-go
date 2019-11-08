@@ -175,10 +175,13 @@ func TestDelivering_ExecuteInbound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	forwarder := mocks.NewMockForwarder(ctrl)
+	forwarder.EXPECT().SendInvitation(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
 	t.Run("Happy path", func(t *testing.T) {
-		ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
-		ctx.SendInvitation = func(inv *didexchange.Invitation, dest *service.Destination) error {
-			return nil
+		ctx := internalContext{
+			Outbound:  dispatcherMocks.NewMockOutbound(ctrl),
+			Forwarder: forwarder,
 		}
 
 		dep := mocks.NewMockInvitationEnvelope(ctrl)
@@ -193,9 +196,13 @@ func TestDelivering_ExecuteInbound(t *testing.T) {
 	t.Run("SendInvitation Error", func(t *testing.T) {
 		const errMsg = "test err"
 
-		ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
-		ctx.SendInvitation = func(inv *didexchange.Invitation, dest *service.Destination) error {
-			return errors.New(errMsg)
+		forwarder := mocks.NewMockForwarder(ctrl)
+		forwarder.EXPECT().SendInvitation(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(errors.New(errMsg)).Times(2)
+
+		ctx := internalContext{
+			Outbound:  dispatcherMocks.NewMockOutbound(ctrl),
+			Forwarder: forwarder,
 		}
 
 		dep := mocks.NewMockInvitationEnvelope(ctrl)
@@ -219,9 +226,12 @@ func TestDelivering_ExecuteInbound(t *testing.T) {
 		outbound := dispatcherMocks.NewMockOutbound(ctrl)
 		outbound.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
-		ctx := internalContext{Outbound: outbound}
-		ctx.SendInvitation = func(inv *didexchange.Invitation, dest *service.Destination) error {
-			return nil
+		forwarder := mocks.NewMockForwarder(ctrl)
+		forwarder.EXPECT().SendInvitation(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		ctx := internalContext{
+			Outbound:  outbound,
+			Forwarder: forwarder,
 		}
 
 		dep := mocks.NewMockInvitationEnvelope(ctrl)
