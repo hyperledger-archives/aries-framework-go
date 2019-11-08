@@ -14,7 +14,7 @@ import (
 	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
 
@@ -23,7 +23,7 @@ var logger = log.New("aries-framework/transport")
 // provider contains dependencies for the HTTP Handler creation and is typically created by using aries.Context()
 type provider interface {
 	InboundMessageHandler() transport.InboundMessageHandler
-	Packager() envelope.Packager
+	Packager() commontransport.Packager
 }
 
 // NewInboundHandler will create a new handler to enforce Did-Comm HTTP transport specs

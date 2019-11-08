@@ -40,7 +40,7 @@ func (p *Packer) Unpack(envelope []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	if protectedData.Typ != "JWM/1.0" {
+	if protectedData.Typ != encodingType {
 		return nil, fmt.Errorf("message type %s not supported", protectedData.Typ)
 	}
 

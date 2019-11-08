@@ -16,11 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
-	mockenvelope "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/envelope"
+	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didresolver"
 	mockdidstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
@@ -134,7 +134,19 @@ func TestNewProvider(t *testing.T) {
 	t.Run("test new with kms and packager service", func(t *testing.T) {
 		prov, err := New(
 			WithKMS(&mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}),
-			WithPackager(&mockenvelope.BasePackager{PackValue: []byte("data")}),
+			WithPackager(&mockpackager.Packager{PackValue: []byte("data")}),
+			WithInboundPackers(&mockdidcomm.MockAuthCrypt{
+				EncryptValue: nil,
+				DecryptValue: nil,
+				Type:         "TYPE",
+			}),
+			WithPacker(&mockdidcomm.MockAuthCrypt{
+				EncryptValue: func(p, spk []byte, rpks [][]byte) ([]byte, error) {
+					return []byte("data data"), nil
+				},
+				DecryptValue: nil,
+				Type:         "",
+			}),
 		)
 		require.NoError(t, err)
 		v, err := prov.Signer().SignMessage(nil, "")
@@ -143,9 +155,18 @@ func TestNewProvider(t *testing.T) {
 		index, err := prov.KMS().FindVerKey([]string{"non-existent"})
 		require.NoError(t, err)
 		require.Equal(t, 0, index)
-		v, err = prov.packager.PackMessage(&envelope.Envelope{})
+		v, err = prov.Packager().PackMessage(&transport.Envelope{})
 		require.NoError(t, err)
 		require.Equal(t, []byte("data"), v)
+
+		v, err = prov.Packer().Pack(nil, nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, []byte("data data"), v)
+
+		packers := prov.InboundPackers()
+		require.Len(t, packers, 1)
+		typ := packers[0].EncodingType()
+		require.Equal(t, "TYPE", typ)
 	})
 
 	t.Run("test new with inbound transport endpoint", func(t *testing.T) {

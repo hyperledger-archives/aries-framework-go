@@ -57,7 +57,7 @@ func (p *Packer) Pack(payload, sender []byte, recipientPubKeys [][]byte) ([]byte
 
 	header := protected{
 		Enc:        "chacha20poly1305_ietf",
-		Typ:        "JWM/1.0",
+		Typ:        encodingType,
 		Alg:        "Authcrypt",
 		Recipients: recipients,
 	}

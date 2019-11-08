@@ -4,21 +4,20 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package envelope
+package packer
 
 import "github.com/hyperledger/aries-framework-go/pkg/kms"
 
-// KMSProvider interface for Packer ctx
-type KMSProvider interface {
+// Provider interface for Packer ctx
+type Provider interface {
 	KMS() kms.KeyManager
 }
 
 // Creator method to create new Packer service
-type Creator func(prov KMSProvider) (Packer, error)
+type Creator func(prov Provider) (Packer, error)
 
 // Packer is an Aries envelope packer/unpacker to support
 // secure DIDComm exchange of envelopes between Aries agents
-// TODO create a higher-level packer that switches implementations based on the algorithm - Issue #273
 type Packer interface {
 	// Pack a payload in an Aries compliant format using the sender keypair
 	// and a list of recipients public keys
@@ -35,4 +34,7 @@ type Packer interface {
 	//		error if decryption failed
 	// TODO add key type of recipients keys to be validated by the implementation - Issue #272
 	Unpack(envelope []byte) ([]byte, error)
+
+	// Encoding returns the type of the encoding, as found in the header `Typ` field
+	EncodingType() string
 }

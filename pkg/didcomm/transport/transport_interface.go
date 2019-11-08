@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transport
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 )
 
 // OutboundTransport interface definition for transport layer
@@ -27,7 +27,7 @@ type InboundMessageHandler func(message []byte) error
 // It is typically created by using aries.Context().
 type InboundProvider interface {
 	InboundMessageHandler() InboundMessageHandler
-	Packager() envelope.Packager
+	Packager() transport.Packager
 }
 
 // InboundTransport interface definition for inbound transport layer

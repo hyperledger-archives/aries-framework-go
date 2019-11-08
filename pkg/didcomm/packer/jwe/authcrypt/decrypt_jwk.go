@@ -18,7 +18,7 @@ import (
 // decryptSPK will decrypt a recipient's encrypted SPK (in the case of this package, it is represented as
 // the sender's public key as a jwk). It uses the recipent's private/public keypair for decryption
 // the returned decrypted value is the sender's public key
-func (c *Packer) decryptSPK(recipientPubKey *[chacha.KeySize]byte, spk string) ([]byte, error) {
+func (p *Packer) decryptSPK(recipientPubKey *[chacha.KeySize]byte, spk string) ([]byte, error) {
 	jwe := strings.Split(spk, ".")
 	if len(jwe) != 5 {
 		return nil, fmt.Errorf("bad SPK format")
@@ -60,31 +60,31 @@ func (c *Packer) decryptSPK(recipientPubKey *[chacha.KeySize]byte, spk string) (
 		return nil, err
 	}
 
-	sharedKey, err := c.decryptJWKSharedKey(cipherKEK, headersJSON, recipientPubKey[:])
+	sharedKey, err := p.decryptJWKSharedKey(cipherKEK, headersJSON, recipientPubKey[:])
 	if err != nil {
 		return nil, err
 	}
 
 	// now that we have sharedKey, let's decrypt the sender JWK (cipherJWK)
-	return c.decryptSenderJWK(nonce, sharedKey, []byte(headersEncoded), cipherJWK, tag)
+	return p.decryptSenderJWK(nonce, sharedKey, []byte(headersEncoded), cipherJWK, tag)
 }
 
 // decryptJWKSharedKey will decrypt the cek using recPrivKey for decryption and rebuild the cipher text, nonce
 // kek from headersJSON, the result is the sharedKey to be used for decrypting the sender JWK
-func (c *Packer) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientSPKJWEHeaders, recPubKey []byte) ([]byte, error) { //nolint:lll
+func (p *Packer) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientSPKJWEHeaders, recPubKey []byte) ([]byte, error) { //nolint:lll
 	epk, err := base64.RawURLEncoding.DecodeString(headersJSON.EPK.X)
 	if err != nil {
 		return nil, err
 	}
 
-	kek, err := c.kms.DeriveKEK([]byte(c.alg+"KW"), nil, recPubKey, epk)
+	kek, err := p.kms.DeriveKEK([]byte(p.alg+"KW"), nil, recPubKey, epk)
 	if err != nil {
 		return nil, err
 	}
 
 	// create a cipher for the given nonceSize and generated kek above
 	// to decrypt the symmetric shared key (by decrypting cipherKEK)
-	crypter, err := createCipher(c.nonceSize, kek)
+	cipher, err := createCipher(p.nonceSize, kek)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (c *Packer) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientSPK
 	// assemble kek for decryption
 	cipherKEK = append(cipherKEK, kekTag...)
 
-	symKey, err := crypter.Open(nil, kekNonce, cipherKEK, nil)
+	symKey, err := cipher.Open(nil, kekNonce, cipherKEK, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -113,9 +113,9 @@ func (c *Packer) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientSPK
 
 // decryptSenderJWK will decrypt and extract the sender key from cipherJwk, tag and nonce using symKey for decryption
 // and headersEncoded as AAD for the aead (chacha20poly1305) cipher
-func (c *Packer) decryptSenderJWK(nonce, symKey, headersEncoded, cipherJWK, tag []byte) ([]byte, error) {
+func (p *Packer) decryptSenderJWK(nonce, symKey, headersEncoded, cipherJWK, tag []byte) ([]byte, error) {
 	// now that we have symKey, let's decrypt the sender JWK (cipherJWK)
-	jwkCrypter, err := createCipher(c.nonceSize, symKey)
+	jwkCipher, err := createCipher(p.nonceSize, symKey)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (c *Packer) decryptSenderJWK(nonce, symKey, headersEncoded, cipherJWK, tag 
 	// assemble cipher JWK for decryption
 	cipherTxt := append(cipherJWK, tag...)
 
-	senderJWKJSONEncoded, err := jwkCrypter.Open(nil, nonce, cipherTxt, headersEncoded)
+	senderJWKJSONEncoded, err := jwkCipher.Open(nil, nonce, cipherTxt, headersEncoded)
 	if err != nil {
 		return nil, err
 	}
