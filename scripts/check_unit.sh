@@ -8,10 +8,28 @@ set -e
 
 echo "Running $0"
 
-# Packages to exclude
+go generate ./...
+pwd=`pwd`
+echo "" > coverage.txt
+
+amend_coverage_file () {
+if [ -f profile.out ]; then
+     cat profile.out >> coverage.txt
+     rm profile.out
+fi
+}
+
+# Running aries-framework-go unit test
 PKGS=`go list github.com/hyperledger/aries-framework-go/... 2> /dev/null | \
                                                  grep -v /mocks`
+go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
 
-go generate ./...
+# Running aries-agentd unit test
+cd cmd/aries-agentd
+PKGS=`go list github.com/hyperledger/aries-framework-go/cmd/aries-agentd/... 2> /dev/null | \
+                                                 grep -v /mocks`
+go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
 
-go test $PKGS -count=1 -race -coverprofile=coverage.txt -covermode=atomic -timeout=10m
+cd $pwd || exit
