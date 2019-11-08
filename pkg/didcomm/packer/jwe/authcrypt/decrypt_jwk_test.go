@@ -73,9 +73,9 @@ func TestNilDecryptSenderJwk(t *testing.T) {
 	headersJSON.IV = "aigDJrko05dw-9Hk4LQbfOCCG9Dzskw6"
 
 	// set broken reader
-	randReader = &badReader{}
+	packer.randReader = &badReader{}
 
-	defer resetRandReader()
+	defer resetRandReader(packer)
 
 	nonce, err := base64.RawURLEncoding.DecodeString(headersJSON.IV)
 	require.NoError(t, err)

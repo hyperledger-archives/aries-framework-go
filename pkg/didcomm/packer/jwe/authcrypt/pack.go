@@ -61,7 +61,7 @@ func (p *Packer) Pack(payload, senderVerKey []byte, recipientsVerKeys [][]byte) 
 	// generate a new nonce for this encryption
 	nonce := make([]byte, p.nonceSize)
 
-	_, err = randReader.Read(nonce)
+	_, err = p.randReader.Read(nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (p *Packer) Pack(payload, senderVerKey []byte, recipientsVerKeys [][]byte) 
 	cek := &[chacha.KeySize]byte{}
 
 	// generate a cek for encryption (it will be treated as a symmetric key)
-	_, err = randReader.Read(cek[:])
+	_, err = p.randReader.Read(cek[:])
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.Key
 	// generate a random APU value (Agreement PartyUInfo: https://tools.ietf.org/html/rfc7518#section-4.6.1.2)
 	apu := make([]byte, 64)
 
-	_, err := randReader.Read(apu)
+	_, err := p.randReader.Read(apu)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +283,7 @@ func (p *Packer) encryptCEK(kek, cek []byte) (string, string, string, error) {
 	// create a new nonce
 	nonce := make([]byte, p.nonceSize)
 
-	_, err = randReader.Read(nonce)
+	_, err = p.randReader.Read(nonce)
 	if err != nil {
 		return "", "", "", err
 	}
