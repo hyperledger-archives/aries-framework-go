@@ -34,7 +34,10 @@ const (
 	AckMsgType = IntroduceSpec + "ack"
 )
 
-const initialWaitCount = 2
+const (
+	initialWaitCount    = 2
+	introduceeIndexNone = -1
+)
 
 var logger = log.New("aries-framework/introduce/service")
 
@@ -49,8 +52,9 @@ var logger = log.New("aries-framework/introduce/service")
 //
 // Correct usage is described below:
 // - Destinations length is 0 and Invitation is <nil> (introducee)
-// - Destinations length is 0 and Invitation is not <nil> (introducee with invitation)
-// - Destinations length is 1 and Invitation is not <nil> (introducer skip proposal)
+// - Destinations length is 0 and Invitation is not <nil> (introducee or introducer skip proposal)
+// - Destinations length is 1 and Invitation is <nil> (introducer)
+// - Destinations length is 1 and Invitation is not <nil> (introducer)
 // - Destinations length is 2 and Invitation is <nil> (introducer)
 // NOTE: The state machine logic depends on the combinations above.
 type InvitationEnvelope interface {
@@ -72,10 +76,13 @@ type metaData struct {
 }
 
 type record struct {
-	StateName string
+	StateName string `json:"state_name,omitempty"`
 	// WaitCount - how many introducees still need to approve the introduction proposal
 	// (initial value = introducee count, e.g. 2)
-	WaitCount int
+	WaitCount int `json:"wait_count,omitempty"`
+	// IntroduceeIndex keeps an introducee index of from whom we got an invitation
+	IntroduceeIndex int                     `json:"introducee_index,omitempty"`
+	Invitation      *didexchange.Invitation `json:"invitation,omitempty"`
 }
 
 // Service for introduce protocol
@@ -95,6 +102,13 @@ type Service struct {
 type Provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
+	Service(id string) (interface{}, error)
+}
+
+// Forwarder provides the possibility to forward an invitation
+type Forwarder interface {
+	// method should be implemented in didexchange service
+	SendInvitation(inv *didexchange.Invitation, dest *service.Destination) error
 }
 
 // New returns introduce service
@@ -104,9 +118,20 @@ func New(p Provider) (*Service, error) {
 		return nil, err
 	}
 
+	didSvc, err := p.Service(didexchange.DIDExchange)
+	if err != nil {
+		return nil, err
+	}
+
+	forwarderSvc, ok := didSvc.(Forwarder)
+	if !ok {
+		return nil, errors.New("cast service to forwarder service failed")
+	}
+
 	svc := &Service{
 		ctx: internalContext{
-			Outbound: p.OutboundDispatcher(),
+			Outbound:       p.OutboundDispatcher(),
+			SendInvitation: forwarderSvc.SendInvitation,
 		},
 		store:     store,
 		callbacks: make(chan *metaData),
@@ -218,8 +243,10 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 
 	return &metaData{
 		record: record{
-			StateName: next.Name(),
-			WaitCount: rec.WaitCount,
+			StateName:       next.Name(),
+			WaitCount:       rec.WaitCount,
+			IntroduceeIndex: rec.IntroduceeIndex,
+			Invitation:      rec.Invitation,
 		},
 		Msg:      msg,
 		ThreadID: thID,
@@ -251,18 +278,9 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 	return "", s.handle(mData, nil)
 }
 
-func (s *Service) sendRequest(msg *service.DIDCommMsg, dest *service.Destination) error {
-	return nil
-}
-
 // HandleOutbound handles outbound message (introduce protocol)
 func (s *Service) HandleOutbound(msg *service.DIDCommMsg, dest *service.Destination) error {
 	logger.Infof("entered into HandleOutbound: %v", msg.Header)
-
-	// request is not a part of any state machine, so we just need to send a request
-	if msg.Header.Type == RequestMsgType {
-		return s.sendRequest(msg, dest)
-	}
 
 	mData, err := s.doHandle(msg, true)
 	if err != nil {
@@ -316,6 +334,12 @@ func (s *Service) processCallback(msg *metaData) {
 
 func nextState(msg *service.DIDCommMsg, rec *record, outbound bool) (state, error) {
 	switch msg.Header.Type {
+	case RequestMsgType:
+		if outbound {
+			return &requesting{}, nil
+		}
+
+		return &arranging{}, nil
 	case ProposalMsgType:
 		if outbound {
 			return &arranging{}, nil
@@ -323,10 +347,6 @@ func nextState(msg *service.DIDCommMsg, rec *record, outbound bool) (state, erro
 
 		return &deciding{}, nil
 	case ResponseMsgType:
-		if outbound {
-			return &waiting{}, nil
-		}
-
 		rec.WaitCount--
 
 		if rec.WaitCount == 0 {
@@ -345,8 +365,9 @@ func (s *Service) currentStateRecord(thID string) (*record, error) {
 	src, err := s.store.Get(thID)
 	if errors.Is(err, storage.ErrDataNotFound) {
 		return &record{
-			StateName: stateNameStart,
-			WaitCount: initialWaitCount,
+			StateName:       stateNameStart,
+			WaitCount:       initialWaitCount,
+			IntroduceeIndex: introduceeIndexNone,
 		}, nil
 	}
 
@@ -389,6 +410,8 @@ func stateFromName(name string) (state, error) {
 		return &confirming{}, nil
 	case stateNameAbandoning:
 		return &abandoning{}, nil
+	case stateNameRequesting:
+		return &requesting{}, nil
 	case stateNameDeciding:
 		return &deciding{}, nil
 	case stateNameWaiting:
@@ -400,8 +423,7 @@ func stateFromName(name string) (state, error) {
 
 // canTriggerActionEvents checks if the incoming message can trigger an action event
 func canTriggerActionEvents(msg *service.DIDCommMsg) bool {
-	// TODO: need to check more msg.Header.Type
-	return msg.Header.Type == ProposalMsgType || msg.Header.Type == ResponseMsgType
+	return msg.Header.Type == ProposalMsgType || msg.Header.Type == ResponseMsgType || msg.Header.Type == RequestMsgType
 }
 
 func isNoOp(s state) bool {
@@ -409,11 +431,43 @@ func isNoOp(s state) bool {
 	return ok
 }
 
+func isSkipProposal(msg *metaData) bool {
+	if msg.dependency == nil {
+		return false
+	}
+
+	switch msg.StateName {
+	case stateNameRequesting, stateNameDeciding, stateNameWaiting:
+		return false
+	}
+
+	return msg.dependency.Invitation() != nil
+}
+
+func injectInvitation(msg *metaData) error {
+	if msg.Msg.Header.Type != ResponseMsgType || msg.Invitation != nil || isSkipProposal(msg) {
+		return nil
+	}
+
+	msg.IntroduceeIndex++
+
+	var resp *Response
+	if err := json.Unmarshal(msg.Msg.Payload, &resp); err != nil {
+		return err
+	}
+
+	msg.Invitation = resp.Invitation
+
+	return nil
+}
+
 func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 	logger.Infof("entered into private handle message: %v ", msg.Msg.Header)
-	// if we got one destination value, this is definitely skip proposal
-	if msg.dependency != nil && len(msg.dependency.Destinations()) == 1 {
-		msg.StateName = stateNameDelivering
+
+	if isSkipProposal(msg) {
+		if msg.Msg.Header.Type == ResponseMsgType {
+			msg.StateName = stateNameDelivering
+		}
 	}
 
 	next, err := stateFromName(msg.StateName)
@@ -424,52 +478,67 @@ func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 	logger.Infof("next valid state to transition -> %s ", next.Name())
 
 	for !isNoOp(next) {
-		s.sendMsgEvents(&service.StateMsg{
-			ProtocolName: Introduce,
-			Type:         service.PreState,
-			Msg:          msg.Msg.Clone(),
-			StateID:      next.Name(),
-		})
-		logger.Infof("sent pre event for state %s", next.Name())
-
-		var (
-			followup state
-			err      error
-		)
-
-		if dest != nil {
-			followup, err = next.ExecuteOutbound(s.ctx, msg, dest)
-		} else {
-			followup, err = next.ExecuteInbound(s.ctx, msg)
-		}
-
+		next, err = s.execute(next, msg, dest)
 		if err != nil {
-			return fmt.Errorf("execute state %s %w", next.Name(), err)
+			return fmt.Errorf("execute: %w", err)
 		}
-
-		logger.Infof("finish execute next state: %s", next.Name())
-
-		if err = s.save(msg.ThreadID, record{
-			StateName: next.Name(),
-			WaitCount: msg.WaitCount,
-		}); err != nil {
-			return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
-		}
-
-		logger.Infof("persisted the connection using %s and updated the state to %s", msg.ThreadID, next.Name())
-
-		s.sendMsgEvents(&service.StateMsg{
-			ProtocolName: Introduce,
-			Type:         service.PostState,
-			Msg:          msg.Msg.Clone(),
-			StateID:      next.Name(),
-		})
-		logger.Infof("sent post event for state %s", next.Name())
-
-		next = followup
 	}
 
 	return nil
+}
+
+func (s *Service) execute(next state, msg *metaData, dest *service.Destination) (state, error) {
+	s.sendMsgEvents(&service.StateMsg{
+		ProtocolName: Introduce,
+		Type:         service.PreState,
+		Msg:          msg.Msg.Clone(),
+		StateID:      next.Name(),
+	})
+	logger.Infof("sent pre event for state %s", next.Name())
+
+	var (
+		followup state
+		err      error
+	)
+
+	if err = injectInvitation(msg); err != nil {
+		return nil, fmt.Errorf("inject invitation: %w", err)
+	}
+
+	if dest != nil {
+		followup, err = next.ExecuteOutbound(s.ctx, msg, dest)
+	} else {
+		followup, err = next.ExecuteInbound(s.ctx, msg)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("execute state %s %w", next.Name(), err)
+	}
+
+	logger.Infof("finish execute next state: %s", next.Name())
+
+	r := record{
+		StateName:       next.Name(),
+		WaitCount:       msg.WaitCount,
+		IntroduceeIndex: msg.IntroduceeIndex,
+		Invitation:      msg.Invitation,
+	}
+
+	if err = s.save(msg.ThreadID, r); err != nil {
+		return nil, fmt.Errorf("failed to persist state %s %w", next.Name(), err)
+	}
+
+	logger.Infof("persisted the connection using %s and updated the state to %s", msg.ThreadID, next.Name())
+
+	s.sendMsgEvents(&service.StateMsg{
+		ProtocolName: Introduce,
+		Type:         service.PostState,
+		Msg:          msg.Msg.Clone(),
+		StateID:      next.Name(),
+	})
+	logger.Infof("sent post event for state %s", next.Name())
+
+	return followup, nil
 }
 
 // Name returns service name

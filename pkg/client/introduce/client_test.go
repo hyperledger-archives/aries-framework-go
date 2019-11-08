@@ -92,6 +92,7 @@ func TestClient_SendProposal(t *testing.T) {
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
 	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
 
 	svc, err := introduce.New(introduceProvider)
 	require.NoError(t, err)
@@ -133,6 +134,7 @@ func TestClient_SendProposalWithInvitation(t *testing.T) {
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
 	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
 
 	svc, err := introduce.New(introduceProvider)
 	require.NoError(t, err)
@@ -176,6 +178,7 @@ func TestClient_HandleRequest(t *testing.T) {
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
 	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
 
 	svc, err := introduce.New(introduceProvider)
 	require.NoError(t, err)
@@ -184,7 +187,6 @@ func TestClient_HandleRequest(t *testing.T) {
 	opts := InvitationEnvelope{
 		Dests: []*service.Destination{
 			{ServiceEndpoint: "service/endpoint1"},
-			{ServiceEndpoint: "service/endpoint2"},
 		},
 	}
 	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(nil)
@@ -203,10 +205,10 @@ func TestClient_HandleRequest(t *testing.T) {
 		ID:   UUID,
 	}))
 	require.NoError(t, err)
-	require.NoError(t, client.HandleRequest(*msg, opts.Dests[0], opts.Dests[1]))
+	require.NoError(t, client.HandleRequest(*msg, opts.Dests[0]))
 
 	// cover error case
-	err = client.HandleRequest(service.DIDCommMsg{}, opts.Dests[0], opts.Dests[1])
+	err = client.HandleRequest(service.DIDCommMsg{}, opts.Dests[0])
 	require.EqualError(t, errors.Unwrap(err), service.ErrNoHeader.Error())
 }
 
@@ -220,9 +222,6 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 		Inv: &didexchange.Invitation{
 			ID: UUID,
 		},
-		Dests: []*service.Destination{{
-			ServiceEndpoint: "service/endpoint",
-		}},
 	}
 
 	store := storageMocks.NewMockStore(ctrl)
@@ -246,10 +245,10 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 		ID:   UUID,
 	}))
 	require.NoError(t, err)
-	require.NoError(t, client.HandleRequestWithInvitation(*msg, opts.Inv, opts.Dests[0]))
+	require.NoError(t, client.HandleRequestWithInvitation(*msg, opts.Inv))
 
 	// cover error case
-	err = client.HandleRequestWithInvitation(service.DIDCommMsg{}, opts.Inv, opts.Dests[0])
+	err = client.HandleRequestWithInvitation(service.DIDCommMsg{}, opts.Inv)
 	require.EqualError(t, errors.Unwrap(err), service.ErrNoHeader.Error())
 }
 
@@ -267,6 +266,7 @@ func TestClient_InvitationEnvelope(t *testing.T) {
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
 	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
 
 	svc, err := introduce.New(introduceProvider)
 	require.NoError(t, err)
@@ -321,6 +321,7 @@ func TestClient_SendRequest(t *testing.T) {
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
 	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
 
 	svc, err := introduce.New(introduceProvider)
 	require.NoError(t, err)
