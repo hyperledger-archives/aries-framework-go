@@ -14,6 +14,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+// TODO https://github.com/hyperledger/aries-framework-go/issues/750 - we will need to consider
+//  automatic eviction based on TTL.
+
 // Provider leveldb implementation of storage.Provider interface
 type Provider struct {
 	dbs  map[string]*memStore
@@ -93,7 +96,6 @@ type memStore struct {
 }
 
 // Put stores the key and the record
-// TODO - we will need to consider automatic eviction based on TTL.
 func (s *memStore) Put(k string, v []byte) error {
 	if k == "" || v == nil {
 		return errors.New("key and value are mandatory")

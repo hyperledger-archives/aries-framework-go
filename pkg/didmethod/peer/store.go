@@ -54,9 +54,6 @@ func (s *DIDStore) Put(doc *did.Doc, by *[]didstore.ModifiedBy) error {
 
 	var deltas []docDelta
 
-	// TODO : Revisit comment bellow; usually delta's are not derived from two documents
-	// TODO - Need to derive the docDelta if its not a genesis document(DID already exists)
-	// (https://github.com/hyperledger/aries-framework-go/issues/54)
 	// For now, assume the doc is a genesis document
 	jsonDoc, err := doc.JSONBytes()
 	if err != nil {
@@ -90,7 +87,6 @@ func (s *DIDStore) Get(id string) (*did.Doc, error) {
 		return nil, fmt.Errorf("delta data fetch from store failed: %w", err)
 	}
 
-	// TODO construct document from all the deltas (https://github.com/hyperledger/aries-framework-go/issues/54)
 	// For now, assume storage contains only one delta(genesis document)
 	delta := deltas[0]
 

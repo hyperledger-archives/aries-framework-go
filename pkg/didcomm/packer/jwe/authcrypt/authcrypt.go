@@ -32,14 +32,15 @@ const (
 )
 
 // randReader is a cryptographically secure random number generator.
-// TODO: document usage for tests or find another mechanism.
+// TODO https://github.com/hyperledger/aries-framework-go/issues/748 document usage for tests or find another mechanism.
 //nolint:gochecknoglobals
 var randReader = rand.Reader
 
 // errUnsupportedAlg is used when a bad encryption algorithm is used
 var errUnsupportedAlg = errors.New("algorithm not supported")
 
-// TODO #475 pull alg and nonceSize into separate crypter, add crypter reference to Packer
+// TODO https://github.com/hyperledger/aries-framework-go/issues/475 pull alg and nonceSize into separate crypter,
+//  add crypter reference to Packer
 
 // Packer represents an Authcrypt Packer/Unpacker that outputs/reads JWE envelopes
 type Packer struct {

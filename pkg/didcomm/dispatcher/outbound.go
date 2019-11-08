@@ -44,7 +44,6 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 			return fmt.Errorf("failed to pack msg: %w", err)
 		}
 
-		// TODO should we return respData from send
 		_, err = v.Send(packedMsg, des.ServiceEndpoint)
 		if err != nil {
 			return fmt.Errorf("failed to send msg using http outbound transport: %w", err)

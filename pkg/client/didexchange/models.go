@@ -11,7 +11,6 @@ import "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchan
 // QueryConnectionsParams model
 //
 // Parameters for querying connections
-// TODO: this model is not final, to be updated as part of #226
 //
 type QueryConnectionsParams struct {
 
@@ -40,7 +39,6 @@ type QueryConnectionsParams struct {
 // Connection model
 //
 // This is used to represent query connection result
-// TODO: this model is not final, to be updated as part of #226
 //
 type Connection struct {
 	*didexchange.ConnectionRecord

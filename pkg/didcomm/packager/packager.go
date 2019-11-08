@@ -75,7 +75,8 @@ func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, er
 	var recipients [][]byte
 
 	for _, verKey := range messageEnvelope.ToVerKeys {
-		// TODO It is possible to have different key schemes in an interop situation
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/749 It is possible to have
+		//  different key schemes in an interop situation
 		// there is no guarantee that each recipient is using the same key types
 		// for now this package uses Ed25519 signing keys. Other key schemes should have their own
 		// envelope implementations.

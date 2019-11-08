@@ -94,8 +94,9 @@ func New(ctx provider) (*Client, error) {
 }
 
 // CreateInvitation create invitation
-// TODO 'alias' should be passed as arg and persisted with connection record [Issue #623]
 func (c *Client) CreateInvitation(label string) (*Invitation, error) {
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
+	//  with connection record
 	_, sigPubKey, err := c.kms.CreateKeySet()
 	if err != nil {
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
@@ -165,8 +166,8 @@ func (c *Client) AcceptExchangeRequest(connectionID string) error {
 
 // QueryConnections queries connections matching given parameters
 func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connection, error) {
-	// TODO query all connections from all criteria [Issue #655]
-	// TODO also results needs to be paged  [Issue #655]
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/655 - query all connections from all criteria and
+	//  also results needs to be paged.
 	records, err := c.connectionStore.QueryConnectionRecords()
 	if err != nil {
 		return nil, fmt.Errorf("failed query connections: %w", err)

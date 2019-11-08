@@ -26,15 +26,14 @@ import (
 )
 
 const (
-	stateNameNoop      = "noop"
-	stateNameNull      = "null"
-	stateNameInvited   = "invited"
-	stateNameRequested = "requested"
-	stateNameResponded = "responded"
-	stateNameCompleted = "completed"
-	stateNameAbandoned = "abandoned"
-	ackStatusOK        = "ok"
-	// Todo:How to find the key type -Issue-439
+	stateNameNoop          = "noop"
+	stateNameNull          = "null"
+	stateNameInvited       = "invited"
+	stateNameRequested     = "requested"
+	stateNameResponded     = "responded"
+	stateNameCompleted     = "completed"
+	stateNameAbandoned     = "abandoned"
+	ackStatusOK            = "ok"
 	supportedPublicKeyType = "Ed25519VerificationKey2018"
 	serviceType            = "did-communication"
 	didMethod              = "peer"
@@ -77,7 +76,6 @@ func stateFromMsgType(msgType string) (state, error) {
 // Returns the state representing the name.
 func stateFromName(name string) (state, error) {
 	switch name {
-	// TODO: need clarification: noOp state was missing, was it a bug or feature?
 	case stateNameNoop:
 		return &noOp{}, nil
 	case stateNameNull:
@@ -448,8 +446,6 @@ func getServiceEndpoint(didDoc *did.Doc) (string, error) {
 	return "", errors.New("service not found in DID document")
 }
 
-// TODO: Need to figure out how to find the destination for outbound request
-//  https://github.com/hyperledger/aries-framework-go/issues/282
 func prepareDestination(didDoc *did.Doc) *service.Destination {
 	var srvEndPoint string
 	for _, v := range didDoc.Service {

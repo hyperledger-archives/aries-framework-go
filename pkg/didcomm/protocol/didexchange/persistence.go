@@ -21,7 +21,8 @@ const (
 	connIDKeyPrefix    = "conn"
 	connStateKeyPrefix = "connstate"
 	myNSPrefix         = "my"
-	//Todo: Issue-556 It will not be constant, this namespace will need to be figured with verification key
+	// TODO: https://github.com/hyperledger/aries-framework-go/issues/556 It will not be constant, this namespace
+	//  will need to be figured with verification key
 	theirNSPrefix = "their"
 	// limitPattern with `~` at the end for lte of given prefix (less than or equal)
 	limitPattern = "%s~"
@@ -133,8 +134,8 @@ func (c *ConnectionRecorder) GetConnectionRecord(connectionID string) (*Connecti
 
 // QueryConnectionRecords returns connection records found in underlying store
 // for given query criteria
-// TODO query criteria to be added as part of issue [#655]
 func (c *ConnectionRecorder) QueryConnectionRecords() ([]*ConnectionRecord, error) {
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/655 query criteria to be added as part of issue
 	searchKey := connectionKeyPrefix("")
 
 	itr := c.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
@@ -213,7 +214,6 @@ func (c *ConnectionRecorder) GetConnectionRecordByNSThreadID(nsThreadID string) 
 }
 
 // saveConnectionRecord saves the connection record against the connection id  in the store
-// TODO - https://github.com/hyperledger/aries-framework-go/issues/622 Transient v Permanent Data store
 func (c *ConnectionRecorder) saveConnectionRecord(record *ConnectionRecord) error {
 	if err := marshalAndSave(connectionKeyPrefix(record.ConnectionID), record, c.transientStore); err != nil {
 		return fmt.Errorf("save connection record in transient store: %w", err)

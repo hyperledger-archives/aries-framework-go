@@ -36,8 +36,8 @@ func (r *DIDResolver) Resolve(did string, opts ...ResolveOpt) (*diddoc.Doc, erro
 	for _, opt := range opts {
 		opt(resolveOpts)
 	}
-	// TODO Validate that the input DID conforms to the did rule of the Generic DID Syntax
-	// TODO Reference: https://w3c-ccg.github.io/did-spec/#generic-did-syntax
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/20 Validate that the input DID conforms to
+	//  the did rule of the Generic DID Syntax. Reference: https://w3c-ccg.github.io/did-spec/#generic-did-syntax
 	// For now we do simple validation
 	didParts := strings.SplitN(did, ":", 3)
 	if len(didParts) != 3 {
@@ -63,7 +63,7 @@ func (r *DIDResolver) Resolve(did string, opts ...ResolveOpt) (*diddoc.Doc, erro
 	}
 
 	if resolveOpts.resultType == ResolutionResult {
-		// TODO Support resolution-result
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/745 Support resolution-result
 		return nil, errors.New("result type 'resolution-result' not supported")
 	}
 

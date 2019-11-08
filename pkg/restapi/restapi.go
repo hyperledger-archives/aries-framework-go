@@ -36,7 +36,6 @@ func WithDefaultLabel(defaultLabel string) Opt {
 }
 
 // New returns new controller REST API instance.
-// TODO: Allow customized operations.
 func New(ctx *context.Provider, opts ...Opt) (*Controller, error) {
 	restAPIOpts := &allOpts{}
 	// Apply options

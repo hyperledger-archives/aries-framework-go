@@ -55,7 +55,6 @@ func (d *DIDStore) Put(doc *did.Doc) error {
 
 	for _, v := range d.didMethods {
 		if v.Accept(didMethod) {
-			// TODO figure out how to get ModifiedBy values
 			return v.Put(doc, nil)
 		}
 	}

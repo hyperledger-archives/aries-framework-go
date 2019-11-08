@@ -37,7 +37,7 @@ type InboundTransport interface {
 
 	// stops the inbound transport
 	Stop() error
-	// TODO is the type a string or a URI
+
 	// returns the endpoint
 	Endpoint() string
 }
