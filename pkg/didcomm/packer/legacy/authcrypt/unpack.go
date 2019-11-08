@@ -45,7 +45,7 @@ func (p *Packer) Unpack(envelope []byte) ([]byte, error) {
 	}
 
 	if protectedData.Alg != "Authcrypt" {
-		// TODO: change this when anoncrypt is introduced
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/41 change this when anoncrypt is introduced
 		return nil, fmt.Errorf("message format %s not supported", protectedData.Alg)
 	}
 

@@ -198,7 +198,6 @@ func (s *Service) Accept(msgType string) bool {
 
 // HandleOutbound handles outbound didexchange messages.
 func (s *Service) HandleOutbound(msg *service.DIDCommMsg, destination *service.Destination) error {
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/500 Support to initiate DIDExchange through exRequest
 	return errors.New("not implemented")
 }
 
@@ -339,7 +338,7 @@ func (s *Service) sendActionEvent(internalMsg *message, aEvent chan<- service.DI
 	}
 
 	// trigger action event
-	// TODO pass invitation id #397
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/676 pass invitation id
 	aEvent <- service.DIDCommAction{
 		ProtocolName: DIDExchange,
 		Message:      internalMsg.Msg.Clone(),

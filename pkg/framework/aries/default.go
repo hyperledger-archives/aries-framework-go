@@ -30,7 +30,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
-// TODO handle the test scenario better (make dbPath constant).
 //nolint:gochecknoglobals
 var (
 	// DBPath Level DB Path.
@@ -58,7 +57,7 @@ func inboundTransport() (didcommtrans.InboundTransport, error) {
 
 // defFrameworkOpts provides default framework options
 func defFrameworkOpts(frameworkOpts *Aries) error {
-	// TODO Move default providers to the sub-package #209
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/209 Move default providers to the sub-package
 	if frameworkOpts.outboundTransport == nil {
 		outbound, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
 		if err != nil {

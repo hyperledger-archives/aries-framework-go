@@ -269,7 +269,6 @@ type AcceptExchangeResult struct {
 // ExchangeResponse model
 //
 // response of accept exchange request
-// TODO: this model is not final, to be updated as part of (issue #238)
 //
 // swagger:model ExchangeResponse
 type ExchangeResponse struct {

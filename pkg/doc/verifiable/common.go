@@ -13,6 +13,8 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 )
 
+// TODO https://github.com/square/go-jose/issues/263 support ES256K
+
 // JWSAlgorithm defines JWT signature algorithms of Verifiable Credential
 type JWSAlgorithm int
 
@@ -22,8 +24,6 @@ const (
 
 	// EdDSA JWT Algorithm
 	EdDSA
-
-	// TODO support ES256K (https://github.com/square/go-jose/issues/263)
 )
 
 // jose converts JWSAlgorithm to JOSE one.
@@ -67,8 +67,8 @@ type TypedID struct {
 }
 
 // MarshalJSON defines custom marshalling of TypedID to JSON.
-// TODO hide this exported method
 func (tid *TypedID) MarshalJSON() ([]byte, error) {
+	// TODO hide this exported method
 	type Alias TypedID
 
 	alias := (*Alias)(tid)
@@ -82,8 +82,8 @@ func (tid *TypedID) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON defines custom unmarshalling of TypedID from JSON.
-// TODO hide this exported method
 func (tid *TypedID) UnmarshalJSON(data []byte) error {
+	// TODO hide this exported method
 	type Alias TypedID
 
 	alias := (*Alias)(tid)

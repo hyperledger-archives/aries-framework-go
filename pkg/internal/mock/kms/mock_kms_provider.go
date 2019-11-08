@@ -31,7 +31,6 @@ func NewMockProvider(kp ...*cryptoutil.MessagingKeys) (*mockprovider.Provider, e
 		store[base58.Encode(k.EncKeyPair.Pub)] = marshalledKP
 		// mocking behaviour in BaseKMS.ConvertToEncryptionKey() where it stores
 		// MessagingKeys twice (1 for enc and 1 for sig)
-		// TODO change this logic if BaseKMS behaviour changes (ie adding a second store like metadatastore)
 		store[base58.Encode(k.SigKeyPair.Pub)] = marshalledKP
 	}
 

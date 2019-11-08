@@ -71,7 +71,6 @@ func (res *DIDResolver) resolveDID(uri string) ([]byte, error) {
 		}
 	}()
 
-	// TODO support for service endpoint URL resolution
 	if containsDIDDocument(resp) {
 		var gotBody []byte
 

@@ -28,6 +28,13 @@ type clientData struct {
 	subscriberReceivedNotification chan struct{}
 }
 
+type msg struct {
+	ConnectionID string `json:"connection_id"`
+	MessageID    string `json:"message_id"`
+	Content      string `json:"content"`
+	State        string `json:"state"`
+}
+
 func TestNotifyOneWebhook(t *testing.T) {
 	testClientData := clientData{
 		clientHost:                     randomURL(),
@@ -243,12 +250,12 @@ func listenAndStopAfterReceivingNotification(addr string) error {
 	m.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {
 		response, err := ioutil.ReadAll(req.Body)
 		if err == nil {
-			var receivedMessage BasicMsg
+			var receivedMessage msg
 			err = json.Unmarshal(response, &receivedMessage)
 			if err != nil {
 				resp.WriteHeader(http.StatusBadRequest)
 			}
-			expectedTestBasicMessage := BasicMsg{
+			expectedTestBasicMessage := msg{
 				ConnectionID: "SomeConnectionID",
 				MessageID:    "SomeMessageId",
 				Content:      "SomeContent",

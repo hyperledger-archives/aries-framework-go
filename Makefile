@@ -6,8 +6,7 @@ GO_CMD ?= go
 ARIES_AGENTD_PATH=cmd/aries-agentd
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
 OPENAPI_SPEC_PATH=build/rest/openapi/spec
-# TODO: Switched to dev since release version doesn't support go 1.13
-OPENAPI_DOCKER_IMG_VERSION=dev
+OPENAPI_DOCKER_IMG_VERSION=v0.21.0
 
 # Namespace for the agent images
 DOCKER_OUTPUT_NS  ?= aries-framework-go

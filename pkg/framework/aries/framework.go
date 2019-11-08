@@ -40,8 +40,7 @@ type Aries struct {
 	packer                    packer.Packer
 	inboundPackers            []packer.Packer
 	didResolver               didresolver.Resolver
-	// TODO: the DID provider options should be part of a verifiable data registry (vdr) option.
-	didStore didstore.Storage
+	didStore                  didstore.Storage
 }
 
 // Option configures the framework.
@@ -208,7 +207,6 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithOutboundDispatcher(a.outboundDispatcher),
 		context.WithOutboundTransport(a.outboundTransport),
 		context.WithProtocolServices(a.services...),
-		// TODO configure inbound external endpoints
 		context.WithKMS(a.kms),
 		context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 		context.WithStorageProvider(a.storeProvider),

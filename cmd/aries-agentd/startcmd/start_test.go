@@ -102,7 +102,6 @@ func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flag
 }
 
 func TestStartAriesDRequests(t *testing.T) {
-	// TODO - remove this path manipulation after implementing #175 and #148
 	path, cleanup := generateTempDir(t)
 	defer cleanup()
 
@@ -139,7 +138,6 @@ func listenFor(host string) error {
 	}
 }
 
-// TODO: this method should be refactored (e.g., too many lines).
 //nolint:funlen
 func validateRequests(t *testing.T, testHostURL, testInboundHostURL string) {
 	newreq := func(method, url string, body io.Reader, contentType string) *http.Request {

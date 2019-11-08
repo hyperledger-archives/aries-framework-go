@@ -72,7 +72,8 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.I
 
 	err = messageHandler(unpackMsg.Message)
 	if err != nil {
-		// TODO HTTP Response Codes based on errors from service https://github.com/hyperledger/aries-framework-go/issues/271
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/271 HTTP Response Codes based on errors
+		//  from service
 		logger.Errorf("incoming msg processing failed: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
@@ -136,7 +137,6 @@ func (i *Inbound) Start(prov transport.InboundProvider) error {
 
 	go func() {
 		if err := i.server.ListenAndServe(); err != http.ErrServerClosed {
-			// TODO add panic msg
 			logger.Fatalf("HTTP server start with address [%s] failed, cause:  %s", i.server.Addr, err)
 		}
 	}()
@@ -156,5 +156,6 @@ func (i *Inbound) Stop() error {
 // Endpoint provides the http connection details.
 func (i *Inbound) Endpoint() string {
 	// return http prefix as framework only supports http
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/747 configure scheme for external address
 	return "http://" + i.externalAddr
 }
