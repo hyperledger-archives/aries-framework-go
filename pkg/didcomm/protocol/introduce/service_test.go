@@ -50,6 +50,7 @@ type flow struct {
 	skipProposal bool
 	withProposal bool
 	withError    bool
+	withStop     bool
 }
 
 func TestService_handle(t *testing.T) {
@@ -1251,6 +1252,497 @@ func TestService_ProposalErrorWithRequest(t *testing.T) {
 	wg.Wait()
 }
 
+// This test describes the following flow :
+// 1. Alice sends a proposal to the Bob
+// 2. Bob sends a response to the Alice (approve=false)
+func TestService_ProposalStop(t *testing.T) {
+	var transport = transport()
+
+	inv := &didexchange.Invitation{Label: Bob}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	getInboundDestination = func() *service.Destination {
+		return &service.Destination{ServiceEndpoint: Alice}
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		expectedInv: inv,
+		transport:   transport,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Bob},
+			{ServiceEndpoint: Carol},
+		},
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       inv,
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
+	// introducer side Alice
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Bob},
+		},
+		withProposal: true,
+		withError:    true,
+		withStop:     true,
+	})
+
+	// introducee side Bob
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          bob,
+		transport:    transport,
+		dependency:   bobDep,
+		transportKey: Bob,
+		withStop:     true,
+		withError:    true,
+	})
+
+	wg.Wait()
+}
+
+// This test describes the following flow :
+// 1. Bob sends a request to the Alice
+// 2. Alice sends a proposal to the Bob
+// 3. Bob sends a response to the Alice (approve=false)
+func TestService_ProposalStopWithRequest(t *testing.T) {
+	var transport = transport()
+
+	inv := &didexchange.Invitation{Label: Bob}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	idx := -1
+	destinations := []*service.Destination{
+		{ServiceEndpoint: Bob},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Bob},
+	}
+	getInboundDestination = func() *service.Destination {
+		idx++
+		return destinations[idx]
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		expectedInv: inv,
+		transport:   transport,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Carol},
+		},
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       inv,
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
+	// introducer side Alice
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		withStop:     true,
+		withError:    true,
+	})
+
+	// introducee side Bob
+	go checkAndHandle(&flow{
+		t:          t,
+		wg:         &wg,
+		svc:        bob,
+		transport:  transport,
+		dependency: bobDep,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Alice},
+		},
+		transportKey: Bob,
+		withRequest:  true,
+		withStop:     true,
+		withError:    true,
+	})
+
+	wg.Wait()
+}
+
+// This test describes the following flow :
+// 1. Alice sends a proposal to the Bob
+// 2. Bob sends a response to the Alice (approve=false)
+func TestService_SkipProposalStop(t *testing.T) {
+	var transport = transport()
+
+	inv := &didexchange.Invitation{Label: "Public Invitation"}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	getInboundDestination = func() *service.Destination {
+		return &service.Destination{ServiceEndpoint: Alice}
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		inv:         inv,
+		expectedInv: inv,
+		transport:   transport,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Bob},
+		},
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       &didexchange.Invitation{Label: Bob},
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
+	// introducer side Alice
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Bob},
+		},
+		skipProposal: true,
+		withProposal: true,
+		withError:    true,
+	})
+
+	// introducee side Bob
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          bob,
+		transport:    transport,
+		dependency:   bobDep,
+		transportKey: Bob,
+		withStop:     true,
+		withError:    true,
+	})
+
+	wg.Wait()
+}
+
+// This test describes the following flow :
+// 1. Bob sends a request to the Alice
+// 2. Alice sends a proposal to the Bob
+// 3. Bob sends a response to the Alice (approve=false)
+func TestService_SkipProposalStopWithRequest(t *testing.T) {
+	var transport = transport()
+
+	inv := &didexchange.Invitation{Label: "Public Invitation"}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	idx := -1
+	destinations := []*service.Destination{
+		{ServiceEndpoint: Bob},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Bob},
+	}
+	getInboundDestination = func() *service.Destination {
+		idx++
+		return destinations[idx]
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		inv:         inv,
+		expectedInv: inv,
+		transport:   transport,
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       &didexchange.Invitation{Label: Bob},
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
+	// introducer side Alice
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		skipProposal: true,
+		withError:    true,
+	})
+
+	// introducee side Bob
+	go checkAndHandle(&flow{
+		t:          t,
+		wg:         &wg,
+		svc:        bob,
+		transport:  transport,
+		dependency: bobDep,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Alice},
+		},
+		transportKey: Bob,
+		withRequest:  true,
+		withStop:     true,
+		withError:    true,
+	})
+
+	wg.Wait()
+}
+
+// This test describes the following flow :
+// 1. Alice sends a proposal to the Bob
+// 2. Bob sends a response to the Alice (without an Invitation)
+// 3. Alice sends a proposal to the Carol
+// 4. Carol sends a response to the Alice (approve=false)
+// 5. Alice sends report problem to the Bob
+func TestService_ProposalStopUnusual(t *testing.T) {
+	var transport = transport()
+
+	inv := &didexchange.Invitation{Label: Carol}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	getInboundDestination = func() *service.Destination {
+		return &service.Destination{ServiceEndpoint: Alice}
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		expectedInv: inv,
+		transport:   transport,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Bob},
+			{ServiceEndpoint: Carol},
+		},
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       inv,
+		transport: transport,
+	})
+	defer carolCtrl.Finish()
+	defer stop(t, carol)
+
+	var wg sync.WaitGroup
+
+	wg.Add(3)
+
+	// introducer side Alice
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Bob},
+		},
+		withProposal: true,
+		withError:    true,
+	})
+
+	// introducee side Bob
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          bob,
+		transport:    transport,
+		dependency:   bobDep,
+		transportKey: Bob,
+	})
+
+	// introducee side Carol
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          carol,
+		transport:    transport,
+		dependency:   carolDep,
+		transportKey: Carol,
+		withStop:     true,
+		withError:    true,
+	})
+
+	wg.Wait()
+}
+
+// This test describes the following flow :
+// 1. Bob sends a request to the Alice
+// 2. Alice sends a proposal to the Bob
+// 3. Bob sends a response to the Alice
+// 4. Alice sends a proposal to the Carol
+// 5. Carol sends a response to the Alice (approve=false)
+// 6. Alice sends a report-problem the Bob
+func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
+	var transport = transport()
+
+	inv := &didexchange.Invitation{Label: Carol}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	idx := -1
+	destinations := []*service.Destination{
+		{ServiceEndpoint: Bob},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Bob},
+	}
+	getInboundDestination = func() *service.Destination {
+		idx++
+		return destinations[idx]
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		expectedInv: inv,
+		transport:   transport,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Carol},
+		},
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       inv,
+		transport: transport,
+	})
+	defer carolCtrl.Finish()
+	defer stop(t, carol)
+
+	var wg sync.WaitGroup
+
+	wg.Add(3)
+
+	// introducer side Alice
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		withError:    true,
+	})
+
+	// introducee side Bob
+	go checkAndHandle(&flow{
+		t:          t,
+		wg:         &wg,
+		svc:        bob,
+		transport:  transport,
+		dependency: bobDep,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Alice},
+		},
+		transportKey: Bob,
+		withRequest:  true,
+	})
+
+	// introducee side Carol
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          carol,
+		transport:    transport,
+		dependency:   carolDep,
+		transportKey: Carol,
+		withStop:     true,
+		withError:    true,
+	})
+
+	wg.Wait()
+}
+
 // nolint: gocyclo
 func checkAndHandle(f *flow) {
 	defer f.wg.Done()
@@ -1319,11 +1811,21 @@ func checkAndHandle(f *flow) {
 		case *Response:
 			go handleInbound(f.t, f.svc, incomingMsg)
 			continueAction(f.t, aCh, ResponseMsgType, f.dependency)
-			// this code will be ignored for skip proposal
+
 			if !f.skipProposal {
 				f.skipProposal = true
 				checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameArranging)
 				checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameArranging)
+
+				if f.withError && f.withStop {
+					checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameAbandoning)
+					checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameAbandoning)
+
+					checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameDone)
+					checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameDone)
+
+					return
+				}
 
 				break
 			}
@@ -1342,9 +1844,25 @@ func checkAndHandle(f *flow) {
 			return
 		case *Proposal:
 			go handleInbound(f.t, f.svc, incomingMsg)
-			continueAction(f.t, aCh, ProposalMsgType, f.dependency)
+
+			if f.withStop {
+				continueActionStop(f.t, aCh, ProposalMsgType)
+			} else {
+				continueAction(f.t, aCh, ProposalMsgType, f.dependency)
+			}
+
 			checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
 			checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
+
+			if f.withError {
+				checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameAbandoning)
+				checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameAbandoning)
+				checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameDone)
+				checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameDone)
+
+				return
+			}
+
 			checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameWaiting)
 			checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameWaiting)
 		case *model.ProblemReport:
@@ -1413,6 +1931,21 @@ func checkStateMsg(t *testing.T, ch chan service.StateMsg, sType service.StateMs
 		return
 	case <-time.After(time.Second):
 		t.Fatalf("timeout: waiting for %d %s - %s", sType, dType, stateID)
+	}
+}
+
+func continueActionStop(t *testing.T, ch chan service.DIDCommAction, action string) {
+	t.Helper()
+
+	select {
+	case res := <-ch:
+		require.Equal(t, action, res.Message.Header.Type)
+
+		res.Stop(errors.New("stop error"))
+
+		return
+	case <-time.After(time.Second):
+		t.Error("timeout")
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 )
 
 const (
@@ -137,14 +138,18 @@ func (s *arranging) CanTransitionTo(next state) bool {
 }
 
 func (s *arranging) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
+	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
+		return &abandoning{}, nil
+	}
+
 	destinations := m.dependency.Destinations()
 
 	var destination *service.Destination
 
-	if m.WaitCount != initialWaitCount {
-		destination = destinations[len(destinations)-1]
-	} else {
+	if m.WaitCount == initialWaitCount {
 		destination = getInboundDestination()
+	} else {
+		destination = destinations[len(destinations)-1]
 	}
 
 	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
@@ -186,6 +191,49 @@ func toDestIDx(idx int) int {
 	return 0
 }
 
+func getApproveFromMsg(msg *service.DIDCommMsg) (bool, bool) {
+	if msg.Header.Type != ResponseMsgType {
+		return false, false
+	}
+
+	r := Response{}
+	if err := json.Unmarshal(msg.Payload, &r); err != nil {
+		return false, false
+	}
+
+	return r.Approve, true
+}
+
+func sendProblemReport(ctx internalContext, m *metaData, destinations []*service.Destination) (state, error) {
+	problem := &model.ProblemReport{
+		Type: ProblemReportMsgType,
+		ID:   m.ThreadID,
+	}
+
+	for _, destination := range destinations {
+		// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
+		if err := ctx.Send(problem, "", destination); err != nil {
+			return nil, fmt.Errorf("send problem-report: %w", err)
+		}
+	}
+
+	// introducer goes to abandoning
+	return &abandoning{}, nil
+}
+
+func deliveringSkipInvitation(ctx internalContext, m *metaData, destinations []*service.Destination) (state, error) {
+	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
+		return &abandoning{}, nil
+	}
+
+	err := ctx.SendInvitation(m.ThreadID, m.dependency.Invitation(), destinations[len(destinations)-1])
+	if err != nil {
+		return nil, fmt.Errorf("send inbound invitation (skip): %w", err)
+	}
+
+	return &done{}, nil
+}
+
 func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
 	destinations := m.dependency.Destinations()
 	if len(destinations) <= 1 {
@@ -193,29 +241,16 @@ func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, er
 	}
 
 	if isSkipProposal(m) {
-		err := ctx.SendInvitation(m.ThreadID, m.dependency.Invitation(), destinations[len(destinations)-1])
-		if err != nil {
-			return nil, fmt.Errorf("send inbound invitation (skip): %w", err)
-		}
+		return deliveringSkipInvitation(ctx, m, destinations)
+	}
 
-		return &done{}, nil
+	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
+		return sendProblemReport(ctx, m, []*service.Destination{destinations[0]})
 	}
 
 	// edge case: no one shared the invitation
 	if m.Invitation == nil {
-		problem := &model.ProblemReport{
-			Type: ProblemReportMsgType,
-			ID:   m.ThreadID,
-		}
-
-		for _, destination := range destinations {
-			if err := ctx.Send(problem, "", destination); err != nil {
-				return nil, fmt.Errorf("send problem-report: %w", err)
-			}
-		}
-
-		// introducer goes to abandoning
-		return &abandoning{}, nil
+		return sendProblemReport(ctx, m, destinations)
 	}
 
 	err := ctx.SendInvitation(m.ThreadID, m.Invitation, destinations[toDestIDx(m.IntroduceeIndex)])
@@ -294,13 +329,23 @@ func (s *deciding) CanTransitionTo(next state) bool {
 }
 
 func (s *deciding) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
+	var inv *didexchange.Invitation
+
+	if m.dependency != nil {
+		inv = m.dependency.Invitation()
+	}
+
+	var st state = &waiting{}
+	if m.disapprove {
+		st = &abandoning{}
+	}
 	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
-	return &waiting{}, ctx.Send(&Response{
+	return st, ctx.Send(&Response{
 		Type:       ResponseMsgType,
 		ID:         uuid.New().String(),
 		Thread:     &decorator.Thread{ID: m.ThreadID},
-		Invitation: m.dependency.Invitation(),
-		Approve:    true,
+		Invitation: inv,
+		Approve:    !m.disapprove,
 	}, "", getInboundDestination())
 }
 

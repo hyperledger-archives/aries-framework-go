@@ -126,7 +126,10 @@ func TestArranging_ExecuteInbound(t *testing.T) {
 	dep := mocks.NewMockInvitationEnvelope(ctrl)
 	dep.EXPECT().Destinations().Return([]*service.Destination{{}})
 
-	followup, err := (&arranging{}).ExecuteInbound(internalContext{Outbound: dispatcher}, &metaData{dependency: dep})
+	followup, err := (&arranging{}).ExecuteInbound(internalContext{Outbound: dispatcher}, &metaData{
+		dependency: dep,
+		Msg:        &service.DIDCommMsg{Header: &service.Header{Type: RequestMsgType}},
+	})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 }
@@ -188,7 +191,13 @@ func TestDelivering_ExecuteInbound(t *testing.T) {
 		dep.EXPECT().Destinations().Return([]*service.Destination{{}}).Times(1)
 		dep.EXPECT().Invitation().Return(&didexchange.Invitation{}).Times(2)
 
-		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{dependency: dep})
+		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{
+			dependency: dep,
+			Msg: &service.DIDCommMsg{
+				Header:  &service.Header{Type: RequestMsgType},
+				Payload: []byte(`{"disapprove":true}`),
+			},
+		})
 		require.NoError(t, err)
 		require.Equal(t, &done{}, followup)
 	})
@@ -213,6 +222,10 @@ func TestDelivering_ExecuteInbound(t *testing.T) {
 			record: record{
 				Invitation: &didexchange.Invitation{},
 			},
+			Msg: &service.DIDCommMsg{
+				Header:  &service.Header{Type: RequestMsgType},
+				Payload: []byte(`{"disapprove":true}`),
+			},
 			dependency: dep,
 		})
 		require.Nil(t, followup)
@@ -220,7 +233,13 @@ func TestDelivering_ExecuteInbound(t *testing.T) {
 
 		// SkipProposal
 		dep.EXPECT().Invitation().Return(&didexchange.Invitation{}).Times(2)
-		followup, err = (&delivering{}).ExecuteInbound(ctx, &metaData{dependency: dep})
+		followup, err = (&delivering{}).ExecuteInbound(ctx, &metaData{
+			dependency: dep,
+			Msg: &service.DIDCommMsg{
+				Header:  &service.Header{Type: RequestMsgType},
+				Payload: []byte(`{"disapprove":true}`),
+			},
+		})
 		require.Nil(t, followup)
 		require.EqualError(t, err, "send inbound invitation (skip): "+errMsg)
 	})
@@ -247,6 +266,10 @@ func TestDelivering_ExecuteInbound(t *testing.T) {
 			record: record{
 				Invitation: &didexchange.Invitation{},
 			},
+			Msg: &service.DIDCommMsg{
+				Header:  &service.Header{Type: RequestMsgType},
+				Payload: []byte(`{"disapprove":true}`),
+			},
 			dependency: dep,
 		})
 		require.Nil(t, followup)
@@ -270,6 +293,10 @@ func TestDelivering_ExecuteInbound(t *testing.T) {
 
 		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{
 			dependency: dep,
+			Msg: &service.DIDCommMsg{
+				Header:  &service.Header{Type: RequestMsgType},
+				Payload: []byte(`{"disapprove":true}`),
+			},
 		})
 		require.Nil(t, followup)
 		require.EqualError(t, errors.Unwrap(err), errMsg)

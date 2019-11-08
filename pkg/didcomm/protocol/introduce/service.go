@@ -75,6 +75,7 @@ type metaData struct {
 	ThreadID string
 	// keeps a dependency for the protocol injected by Continue() function
 	dependency InvitationEnvelope
+	disapprove bool
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -173,8 +174,8 @@ func (s *Service) startInternalListener() {
 	for {
 		select {
 		case msg := <-s.callbacks:
-			// if no error - do handle
-			if msg.err == nil {
+			// if no error - do handle or it was disapproved
+			if msg.err == nil || msg.disapprove {
 				msg.err = s.handle(msg, nil)
 			}
 
@@ -309,6 +310,11 @@ func (s *Service) newDIDCommActionMsg(msg *metaData) service.DIDCommAction {
 	// create the message for the channel
 	// trigger the registered action event
 	actionStop := func(err error) {
+		// if introducee received Proposal disapprove must be true
+		if msg.Msg.Header.Type == ProposalMsgType {
+			msg.disapprove = true
+		}
+
 		msg.err = err
 		s.processCallback(msg)
 	}
@@ -323,7 +329,6 @@ func (s *Service) newDIDCommActionMsg(msg *metaData) service.DIDCommAction {
 				s.processCallback(msg)
 				return
 			}
-
 			// sets an error to the message
 			actionStop(errors.New("action dependency is missing"))
 		},
