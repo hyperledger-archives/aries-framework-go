@@ -60,6 +60,9 @@ type protocolService interface {
 
 	// Accepts/Approves exchange request
 	AcceptExchangeRequest(connectionID string) error
+
+	// Accepts/Approves exchange invitation
+	AcceptInvitation(connectionID string) error
 }
 
 // New return new instance of didexchange client
@@ -152,6 +155,17 @@ func (c *Client) HandleInvitation(invitation *Invitation) (string, error) {
 	}
 
 	return connectionID, nil
+}
+
+// TODO https://github.com/hyperledger/aries-framework-go/issues/754 - e.Continue v Explicit API call for action events
+
+// AcceptInvitation accepts/approves exchange invitation.
+func (c *Client) AcceptInvitation(connectionID string) error {
+	if err := c.didexchangeSvc.AcceptInvitation(connectionID); err != nil {
+		return fmt.Errorf("did exchange client - accept exchange invitation: %w", err)
+	}
+
+	return nil
 }
 
 // AcceptExchangeRequest accepts/approves exchange request.

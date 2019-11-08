@@ -210,7 +210,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	err = s.RegisterMsgEvent(statusCh)
 	require.NoError(t, err)
 
-	requestedCh := make(chan struct{})
+	requestedCh := make(chan string)
 	completedCh := make(chan struct{})
 
 	go handleMessagesInvitee(statusCh, requestedCh, completedCh)
@@ -233,21 +233,16 @@ func TestService_Handle_Invitee(t *testing.T) {
 	_, err = s.HandleInbound(didMsg)
 	require.NoError(t, err)
 
+	var connID string
 	select {
-	case <-requestedCh:
+	case connID = <-requestedCh:
 	case <-time.After(2 * time.Second):
 		require.Fail(t, "didn't receive post event requested")
 	}
 
 	// Alice automatically sends a Request to Bob and is now in REQUESTED state.
-	connRecord := &ConnectionRecord{}
-
-	for _, v := range store.Store.Store {
-		err = json.Unmarshal(v, connRecord)
-		if err == nil && (&requested{}).Name() == connRecord.State {
-			break
-		}
-	}
+	connRecord, err := s.connectionStore.GetConnectionRecord(connID)
+	require.NoError(t, err)
 
 	require.Equal(t, (&requested{}).Name(), connRecord.State)
 
@@ -287,14 +282,19 @@ func TestService_Handle_Invitee(t *testing.T) {
 	validateState(t, s, connRecord.ThreadID, findNameSpace(ResponseMsgType), (&completed{}).Name())
 }
 
-func handleMessagesInvitee(statusCh chan service.StateMsg, requestedCh, completedCh chan struct{}) {
+func handleMessagesInvitee(statusCh chan service.StateMsg, requestedCh chan string, completedCh chan struct{}) {
 	for e := range statusCh {
 		if e.Type == service.PostState {
 			// receive the events
 			if e.StateID == stateNameCompleted {
 				close(completedCh)
 			} else if e.StateID == stateNameRequested {
-				close(requestedCh)
+				prop, ok := e.Properties.(event)
+				if !ok {
+					panic("Failed to cast the event properties to service.Event")
+				}
+
+				requestedCh <- prop.ConnectionID()
 			}
 		}
 	}
@@ -371,7 +371,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.Contains(t, err.Error(), "save connection record")
 	})
 
-	t.Run("handleInbound - send action event error", func(t *testing.T) {
+	t.Run("handleInbound - no error", func(t *testing.T) {
 		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
 		require.NoError(t, err)
 
@@ -405,8 +405,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = svc.HandleInbound(didMsg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "handle inbound : send action event")
+		require.NoError(t, err)
 	})
 }
 
@@ -748,7 +747,7 @@ func TestEventProcessCallback(t *testing.T) {
 		Msg:      &service.DIDCommMsg{Header: &service.Header{Type: AckMsgType}},
 	}
 
-	err = svc.handle(msg)
+	err = svc.handleWithoutAction(msg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid state name: invalid state name ")
 
@@ -808,14 +807,14 @@ func TestServiceErrors(t *testing.T) {
 	// test handle - invalid state name
 	msg.Header.Type = ResponseMsgType
 	message := &message{Msg: msg, ThreadID: randomString()}
-	err = svc.handle(message)
+	err = svc.handleWithoutAction(message)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid state name:")
 
 	// invalid state name
 	message.NextStateName = stateNameInvited
 	message.ConnRecord = &ConnectionRecord{ConnectionID: "abc"}
-	err = svc.handle(message)
+	err = svc.handleWithoutAction(message)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to execute state invited")
 }
@@ -917,7 +916,7 @@ func TestRequestRecord(t *testing.T) {
 	require.Contains(t, err.Error(), "save connection record")
 }
 
-func TestEventsSuccessWithAsync(t *testing.T) {
+func TestAcceptExchangeRequest(t *testing.T) {
 	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
@@ -928,9 +927,7 @@ func TestEventsSuccessWithAsync(t *testing.T) {
 	go func() {
 		for e := range actionCh {
 			prop, ok := e.Properties.(event)
-			if !ok {
-				require.Fail(t, "Failed to cast the event properties to service.Event")
-			}
+			require.True(t, ok, "Failed to cast the event properties to service.Event")
 
 			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID()))
 		}
@@ -958,6 +955,76 @@ func TestEventsSuccessWithAsync(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		require.Fail(t, "tests are not validated")
 	}
+}
+
+func TestAcceptInvitation(t *testing.T) {
+	t.Run("accept invitation - success", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		actionCh := make(chan service.DIDCommAction, 10)
+		err = svc.RegisterActionEvent(actionCh)
+		require.NoError(t, err)
+
+		go func() {
+			for e := range actionCh {
+				_, ok := e.Properties.(event)
+				require.True(t, ok, "Failed to cast the event properties to service.Event")
+
+				// ignore action event
+			}
+		}()
+
+		statusCh := make(chan service.StateMsg, 10)
+		err = svc.RegisterMsgEvent(statusCh)
+		require.NoError(t, err)
+
+		done := make(chan struct{})
+
+		go func() {
+			for e := range statusCh {
+				prop, ok := e.Properties.(event)
+				if !ok {
+					require.Fail(t, "Failed to cast the event properties to service.Event")
+				}
+
+				if e.Type == service.PostState && e.StateID == stateNameInvited {
+					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID()))
+				}
+
+				if e.Type == service.PostState && e.StateID == stateNameRequested {
+					done <- struct{}{}
+				}
+			}
+		}()
+
+		invitationBytes, err := json.Marshal(&Request{
+			Type: InvitationMsgType,
+			ID:   generateRandomID(),
+		})
+		require.NoError(t, err)
+
+		didMsg, err := service.NewDIDCommMsg(invitationBytes)
+		require.NoError(t, err)
+
+		_, err = svc.HandleInbound(didMsg)
+		require.NoError(t, err)
+
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			require.Fail(t, "tests are not validated")
+		}
+	})
+
+	t.Run("accept invitation - error", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		err = svc.AcceptInvitation(generateRandomID())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "accept exchange invitation : get transient data : data not found")
+	})
 }
 
 func TestEventTransientData(t *testing.T) {

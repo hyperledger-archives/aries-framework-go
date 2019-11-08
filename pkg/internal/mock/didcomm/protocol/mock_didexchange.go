@@ -111,6 +111,11 @@ func (m *MockDIDExchangeSvc) AcceptExchangeRequest(connectionID string) error {
 	return nil
 }
 
+// AcceptInvitation accepts/approves exchange invitation.
+func (m *MockDIDExchangeSvc) AcceptInvitation(connectionID string) error {
+	return nil
+}
+
 // MockProvider is provider for DIDExchange Service
 type MockProvider struct {
 	StoreProvider          *mockstore.MockStoreProvider

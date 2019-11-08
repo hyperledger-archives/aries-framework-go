@@ -135,6 +135,7 @@ func New(didMaker didcreator.Creator, prov provider) (*Service, error) {
 
 // HandleInbound handles inbound didexchange messages.
 func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
+	// https://github.com/hyperledger/aries-framework-go/issues/753 -- DIDExchange Svc - Action Event refactor
 	// throw error if there is no action event registered for inbound messages
 	aEvent := s.ActionEvent()
 
@@ -164,21 +165,11 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 
 	internalMsg := &message{Msg: msg, ThreadID: thID, NextStateName: next.Name(), ConnRecord: connRecord}
 
-	// trigger action event based on message type for inbound messages
-	if canTriggerActionEvents(msg.Header.Type) {
-		if err = s.sendActionEvent(internalMsg, aEvent); err != nil {
-			return "", fmt.Errorf("handle inbound : %w", err)
-		}
-
-		return connRecord.ConnectionID, nil
-	}
-
-	// if no action event is triggered, continue the execution
-	go func(msg *message) {
-		if err = s.handle(msg); err != nil {
+	go func(msg *message, aEvent chan<- service.DIDCommAction) {
+		if err = s.handle(msg, aEvent); err != nil {
 			logger.Errorf("didexchange processing error : %s", err)
 		}
-	}(internalMsg)
+	}(internalMsg, aEvent)
 
 	return connRecord.ConnectionID, nil
 }
@@ -238,7 +229,7 @@ func (s *Service) nextState(msgType, thID string) (state, error) {
 	return next, nil
 }
 
-func (s *Service) handle(msg *message) error {
+func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) error { //nolint funlen
 	next, err := stateFromName(msg.NextStateName)
 	if err != nil {
 		return fmt.Errorf("invalid state name: %w", err)
@@ -260,10 +251,15 @@ func (s *Service) handle(msg *message) error {
 			connectionRecord *ConnectionRecord
 		)
 
-		connectionRecord, followup, action, err = next.ExecuteInbound(&stateMachineMsg{
-			header: msg.Msg.Header, payload: msg.Msg.Payload,
-			connRecord: msg.ConnRecord, publicDID: msg.PublicDID},
-			msg.ThreadID, s.ctx)
+		connectionRecord, followup, action, err = next.ExecuteInbound(
+			&stateMachineMsg{
+				header:     msg.Msg.Header,
+				payload:    msg.Msg.Payload,
+				connRecord: msg.ConnRecord,
+				publicDID:  msg.PublicDID,
+			},
+			msg.ThreadID,
+			s.ctx)
 
 		if err != nil {
 			return fmt.Errorf("failed to execute state %s %w", next.Name(), err)
@@ -278,34 +274,55 @@ func (s *Service) handle(msg *message) error {
 
 		logger.Debugf("persisted the connection record using connection id %s", connectionRecord.ConnectionID)
 
-		if err := action(); err != nil {
+		if err = action(); err != nil {
 			return fmt.Errorf("failed to execute state action %s %w", next.Name(), err)
 		}
 
 		logger.Debugf("finish execute state action: %s", next.Name())
+
+		prev := next
+		next = followup
+		triggeredActionEvent := false
+
+		// trigger action event based on message type for inbound messages
+		if aEvent != nil && canTriggerActionEvents(connectionRecord.State, connectionRecord.Namespace) {
+			msg.NextStateName = next.Name()
+			if err = s.sendActionEvent(msg, aEvent); err != nil {
+				return fmt.Errorf("handle inbound : %w", err)
+			}
+
+			triggeredActionEvent = true
+		}
+
 		s.sendMsgEvents(&service.StateMsg{
 			ProtocolName: DIDExchange,
 			Type:         service.PostState,
 			Msg:          msg.Msg.Clone(),
-			StateID:      next.Name(),
+			StateID:      prev.Name(),
 			Properties:   createEventProperties(connectionRecord.ConnectionID, connectionRecord.InvitationID),
 		})
-		logger.Debugf("sent post event for state %s", next.Name())
+		logger.Debugf("sent post event for state %s", prev.Name())
 
-		next = followup
+		if triggeredActionEvent {
+			break
+		}
 	}
 
 	return nil
 }
 
-func createEventProperties(connectionID, invitationID string) *didExchangeEvent { //nolint: unparam
+func (s *Service) handleWithoutAction(msg *message) error {
+	return s.handle(msg, nil)
+}
+
+func createEventProperties(connectionID, invitationID string) *didExchangeEvent {
 	return &didExchangeEvent{
 		connectionID: connectionID,
 		invitationID: invitationID,
 	}
 }
 
-func createErrorEventProperties(connectionID, invitationID string, err error) *didExchangeEventError { //nolint: unparam
+func createErrorEventProperties(connectionID, invitationID string, err error) *didExchangeEventError {
 	return &didExchangeEventError{
 		err:              err,
 		didExchangeEvent: createEventProperties(connectionID, invitationID),
@@ -361,7 +378,7 @@ func (s *Service) startInternalListener() {
 		// TODO https://github.com/hyperledger/aries-framework-go/issues/242 - retry logic
 		// if no error - do handle
 		if msg.err == nil {
-			msg.err = s.handle(msg)
+			msg.err = s.handleWithoutAction(msg)
 		}
 
 		// no error - continue
@@ -375,14 +392,24 @@ func (s *Service) startInternalListener() {
 	}
 }
 
-// AcceptExchangeRequest accepts/approves connection request
+// AcceptInvitation accepts/approves connection invitation.
+func (s *Service) AcceptInvitation(connectionID string) error {
+	msg, err := s.getEventTransientData(connectionID)
+	if err != nil {
+		return fmt.Errorf("accept exchange invitation : %w", err)
+	}
+
+	return s.handleWithoutAction(msg)
+}
+
+// AcceptExchangeRequest accepts/approves connection request.
 func (s *Service) AcceptExchangeRequest(connectionID string) error {
 	msg, err := s.getEventTransientData(connectionID)
 	if err != nil {
 		return fmt.Errorf("accept exchange request : %w", err)
 	}
 
-	return s.handle(msg)
+	return s.handleWithoutAction(msg)
 }
 
 func (s *Service) storeEventTransientData(msg *message) error {
@@ -586,7 +613,9 @@ func generateRandomID() string {
 	return uuid.New().String()
 }
 
-// canTriggerActionEvents checks if the incoming message type matches either RequestMsgType type.
-func canTriggerActionEvents(msgType string) bool {
-	return msgType == RequestMsgType || msgType == InvitationMsgType
+// canTriggerActionEvents true based on role and state.
+// 1. Role is invitee and state is invited
+// 2. Role is inviter and state is requested
+func canTriggerActionEvents(stateID, ns string) bool {
+	return (stateID == stateNameInvited && ns == myNSPrefix) || (stateID == stateNameRequested && ns == theirNSPrefix)
 }

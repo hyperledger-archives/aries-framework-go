@@ -164,7 +164,19 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 	params := mux.Vars(req)
 	logger.Debugf("Accepting connection invitation for id[%s]", params["id"])
 
-	c.writeGenericError(rw, errors.New("please use receive invitation API to save and approve invitation"))
+	err := c.client.AcceptInvitation(params["id"])
+	if err != nil {
+		logger.Errorf("accept invitation api failed for id %s with error %s", params["id"], err)
+		c.writeGenericError(rw, err)
+
+		return
+	}
+
+	response := &models.AcceptInvitationResponse{
+		ConnectionID: params["id"],
+	}
+
+	c.writeResponse(rw, response)
 }
 
 // AcceptExchangeRequest swagger:route POST /connections/{id}/accept-request did-exchange acceptRequest
@@ -350,11 +362,15 @@ func (c *Operation) startClientEventListener() error {
 	go func() {
 		for {
 			select {
-			case e := <-c.actionCh:
-				err = c.handleActionEvents(e)
-				if err != nil {
-					logger.Errorf("handle action events failed : %s", err)
-				}
+			case <-c.actionCh:
+				// We ignore action events in RestAPI as webhook callback's can't differentiate between post
+				// state message event and action events. Rest API Webhook notifications are triggered for
+				// Post State message changes. The accept-xyz APIs are used to trigger the action events.
+				//
+				// When Controller receives message with
+				// 		state="invited" -> trigger "accept-invitation" api to approve the exchange invitation.
+				// 		state="requested" -> trigger "accept-request" api to approve the exchange request.
+				logger.Debugf("ignoring action events in REST API client")
 			case e := <-c.msgCh:
 				err := c.handleMessageEvents(e)
 				if err != nil {
@@ -382,33 +398,6 @@ func (c *Operation) handleMessageEvents(e service.StateMsg) error {
 		default:
 			return errors.New("event is not of DIDExchange event type")
 		}
-	}
-
-	return nil
-}
-
-func (c *Operation) handleActionEvents(e service.DIDCommAction) error {
-	switch v := e.Properties.(type) {
-	case didexchange.Event:
-		props := v
-
-		// TODO: Updated #692 to match the functionality added in this PR to RestAPI. Currently there is a mismatch
-		//  between SDK client and RestAPI client. In case of SDK client, the consumer would need to approve invitation
-		//  and exchange request. But at the moment (due to this internally calling continue for invitation action item),
-		//  RestAPI would need approval only for exchange request.
-		if e.Message.Header.Type == didexchange.InvitationMsgType {
-			e.Continue(&service.Empty{})
-			return nil
-		}
-
-		err := c.sendConnectionNotification(props.ConnectionID(), "null")
-		if err != nil {
-			return fmt.Errorf("send connection notification failed : %w", err)
-		}
-	case error:
-		return fmt.Errorf("service processing failed : %w", v)
-	default:
-		return errors.New("event is not of DIDExchange event type")
 	}
 
 	return nil

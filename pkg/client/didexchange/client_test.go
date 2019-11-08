@@ -585,3 +585,85 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "did exchange client - accept exchange request:")
 }
+
+func TestAcceptInvitation(t *testing.T) {
+	store := mockstore.NewMockStoreProvider()
+	didExSvc, err := didexchange.New(&mockcreator.MockDIDCreator{}, &mockprotocol.MockProvider{StoreProvider: store})
+	require.NoError(t, err)
+
+	// create the client
+	c, err := New(&mockprovider.Provider{
+		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		StorageProviderValue:          store,
+		ServiceValue:                  didExSvc,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, c)
+
+	t.Run("accept invitation - success", func(t *testing.T) {
+		// register action event channel
+		aCh := make(chan service.DIDCommAction, 10)
+		err = c.RegisterActionEvent(aCh)
+		require.NoError(t, err)
+
+		go func() {
+			for e := range aCh {
+				_, ok := e.Properties.(Event)
+				require.True(t, ok, "Failed to cast the event properties to service.Event")
+
+				// ignore action event
+			}
+		}()
+
+		// register message event channel
+		mCh := make(chan service.StateMsg, 10)
+		err = c.RegisterMsgEvent(mCh)
+		require.NoError(t, err)
+
+		done := make(chan struct{})
+
+		go func() {
+			for e := range mCh {
+				prop, ok := e.Properties.(Event)
+				if !ok {
+					require.Fail(t, "Failed to cast the event properties to service.Event")
+				}
+
+				if e.Type == service.PostState && e.StateID == "invited" {
+					require.NoError(t, c.AcceptInvitation(prop.ConnectionID()))
+				}
+
+				if e.Type == service.PostState && e.StateID == "requested" {
+					close(done)
+				}
+			}
+		}()
+
+		// send connection invitation message
+		request, jsonErr := json.Marshal(
+			&didexchange.Request{
+				Type:  InvitationMsgType,
+				ID:    "abc",
+				Label: "test",
+			},
+		)
+		require.NoError(t, jsonErr)
+
+		msg, svcErr := service.NewDIDCommMsg(request)
+		require.NoError(t, svcErr)
+		_, err = didExSvc.HandleInbound(msg)
+		require.NoError(t, err)
+
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			require.Fail(t, "tests are not validated due to timeout")
+		}
+	})
+
+	t.Run("accept invitation - error", func(t *testing.T) {
+		err = c.AcceptInvitation("invalid-id")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "did exchange client - accept exchange invitation")
+	})
+}

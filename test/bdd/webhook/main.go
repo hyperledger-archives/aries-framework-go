@@ -40,12 +40,7 @@ func connections(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 	}
-	if connMsg.State == "null" {
-		// check for action event and log the connectionID
-		logger.Infof("received action event :: connID=%s", connMsg.ConnectionID)
-	} else {
-		logger.Infof("received state transition event :: connID=%s state=%s", connMsg.ConnectionID, connMsg.State)
-	}
+	logger.Infof("received state transition event :: connID=%s state=%s", connMsg.ConnectionID, connMsg.State)
 
 	connectionTopics <- msg
 }
