@@ -16,28 +16,28 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 )
 
-// Decrypt will JWE decode the envelope argument for the recipientPrivKey and validates
+// Unpack will JWE decode the envelope argument for the recipientPrivKey and validates
 // the envelope's recipients has a match for recipientKeyPair.Pub key.
 // Using (X)Chacha20 cipher and Poly1305 authenticator for the encrypted payload and
 // encrypted CEK.
 // The current recipient is the one with the sender's encrypted key that successfully
 // decrypts with recipientKeyPair.Priv Key.
-func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
+func (p *Packer) Unpack(envelope []byte) ([]byte, error) {
 	jwe := &Envelope{}
 
 	err := json.Unmarshal(envelope, jwe)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt message: %w", err)
+		return nil, fmt.Errorf("unpack: %w", err)
 	}
 
-	recipientPubKey, recipient, err := c.findRecipient(jwe.Recipients)
+	recipientPubKey, recipient, err := p.findRecipient(jwe.Recipients)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt message: %w", err)
+		return nil, fmt.Errorf("unpack: %w", err)
 	}
 
-	senderKey, err := c.decryptSPK(recipientPubKey, recipient.Header.SPK)
+	senderKey, err := p.decryptSPK(recipientPubKey, recipient.Header.SPK)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt sender key: %w", err)
+		return nil, fmt.Errorf("unpack: sender key: %w", err)
 	}
 
 	// senderKey must not be empty to proceed
@@ -45,24 +45,24 @@ func (c *Crypter) Decrypt(envelope []byte) ([]byte, error) {
 		senderPubKey := new([chacha.KeySize]byte)
 		copy(senderPubKey[:], senderKey)
 
-		sharedKey, er := c.decryptCEK(recipientPubKey, senderPubKey, recipient)
+		sharedKey, er := p.decryptCEK(recipientPubKey, senderPubKey, recipient)
 		if er != nil {
-			return nil, fmt.Errorf("failed to decrypt shared key: %w", er)
+			return nil, fmt.Errorf("unpack: decrypt shared key: %w", er)
 		}
 
-		symOutput, er := c.decryptPayload(sharedKey, jwe)
+		symOutput, er := p.decryptPayload(sharedKey, jwe)
 		if er != nil {
-			return nil, fmt.Errorf("failed to decrypt message: %w", er)
+			return nil, fmt.Errorf("unpack: %w", er)
 		}
 
 		return symOutput, nil
 	}
 
-	return nil, errors.New("failed to decrypt message - invalid sender key in envelope")
+	return nil, errors.New("unpack: invalid sender key in envelope")
 }
 
-func (c *Crypter) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
-	cipher, err := createCipher(c.nonceSize, cek)
+func (p *Packer) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
+	cipher, err := createCipher(p.nonceSize, cek)
 	if err != nil {
 		return nil, err
 	}
@@ -90,13 +90,13 @@ func (c *Crypter) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
 }
 
 // findRecipient will loop through jweRecipients and returns the first matching key from the kms
-func (c *Crypter) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byte, *Recipient, error) {
+func (p *Packer) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byte, *Recipient, error) {
 	var recipientsKeys []string
 	for _, recipient := range jweRecipients {
 		recipientsKeys = append(recipientsKeys, recipient.Header.KID)
 	}
 
-	i, err := c.kms.FindVerKey(recipientsKeys)
+	i, err := p.kms.FindVerKey(recipientsKeys)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -108,7 +108,7 @@ func (c *Crypter) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byt
 }
 
 // decryptCEK will decrypt the CEK found in recipient using recipientKp's private key and senderPubKey
-func (c *Crypter) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte, recipient *Recipient) ([]byte, error) { //nolint:lll
+func (p *Packer) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte, recipient *Recipient) ([]byte, error) { //nolint:lll
 	apu, err := base64.RawURLEncoding.DecodeString(recipient.Header.APU)
 	if err != nil {
 		return nil, err
@@ -119,7 +119,7 @@ func (c *Crypter) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte
 		return nil, err
 	}
 
-	if len(nonce) != c.nonceSize {
+	if len(nonce) != p.nonceSize {
 		return nil, errors.New("bad nonce size")
 	}
 
@@ -134,13 +134,13 @@ func (c *Crypter) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte
 	}
 
 	// derive an ephemeral key for the recipient
-	kek, err := c.kms.DeriveKEK([]byte(c.alg), apu, recipientPubKey[:], senderPubKey[:])
+	kek, err := p.kms.DeriveKEK([]byte(p.alg), apu, recipientPubKey[:], senderPubKey[:])
 	if err != nil {
 		return nil, err
 	}
 
 	// create a new (chacha20poly1305) cipher with this new key to decrypt the cek
-	cipher, err := createCipher(c.nonceSize, kek)
+	cipher, err := createCipher(p.nonceSize, kek)
 	if err != nil {
 		return nil, err
 	}

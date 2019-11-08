@@ -8,7 +8,7 @@ package dispatcher
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
 
@@ -26,7 +26,7 @@ type Outbound interface {
 
 // Provider interface for outbound ctx
 type Provider interface {
-	Packager() envelope.Packager
+	Packager() commontransport.Packager
 	OutboundTransports() []transport.OutboundTransport
 }
 

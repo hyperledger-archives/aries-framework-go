@@ -11,14 +11,14 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
 
 // OutboundDispatcher dispatch msgs to destination
 type OutboundDispatcher struct {
 	outboundTransports []transport.OutboundTransport
-	packager           envelope.Packager
+	packager           commontransport.Packager
 }
 
 // NewOutbound return new dispatcher outbound instance
@@ -39,7 +39,7 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		}
 
 		packedMsg, err := o.packager.PackMessage(
-			&envelope.Envelope{Message: bytes, FromVerKey: senderVerKey, ToVerKeys: des.RecipientKeys})
+			&commontransport.Envelope{Message: bytes, FromVerKey: senderVerKey, ToVerKeys: des.RecipientKeys})
 		if err != nil {
 			return fmt.Errorf("failed to pack msg: %w", err)
 		}

@@ -21,20 +21,20 @@ func TestNilEncryptSenderJwk(t *testing.T) {
 	mockKMSProvider, err := mockKMS.NewMockProvider()
 	require.NoError(t, err)
 
-	crypter, err := New(mockKMSProvider, XC20P)
+	packer, err := New(mockKMSProvider, XC20P)
 	require.NoError(t, err)
 
-	spk, err := crypter.generateSPK(nil, nil)
+	spk, err := packer.generateSPK(nil, nil)
 	require.Error(t, err)
 	require.Empty(t, spk)
 
-	s, l, m, err := crypter.encryptCEK(nil, nil)
+	s, l, m, err := packer.encryptCEK(nil, nil)
 	require.Error(t, err)
 	require.Empty(t, s)
 	require.Empty(t, l)
 	require.Empty(t, m)
 
-	s, err = crypter.encryptSenderJWK("", "", nil, nil)
+	s, err = packer.encryptSenderJWK("", "", nil, nil)
 	require.Error(t, err)
 	require.Empty(t, s)
 
@@ -43,30 +43,30 @@ func TestNilEncryptSenderJwk(t *testing.T) {
 
 	defer resetRandReader()
 
-	s, err = crypter.encryptSenderJWK("", "", nil, nil)
+	s, err = packer.encryptSenderJWK("", "", nil, nil)
 	require.Error(t, err)
 	require.Empty(t, s)
 
 	someKey := new([chacha.KeySize]byte)
-	spk, err = crypter.generateSPK(someKey, nil)
+	spk, err = packer.generateSPK(someKey, nil)
 	require.Error(t, err)
 	require.Empty(t, spk)
 
-	spk, err = crypter.generateSPK(someKey, someKey)
+	spk, err = packer.generateSPK(someKey, someKey)
 	require.Error(t, err)
 	require.Empty(t, spk)
 
-	r, err := crypter.encodeRecipient(someKey, someKey, someKey)
+	r, err := packer.encodeRecipient(someKey, someKey, someKey)
 	require.Error(t, err)
 	require.Empty(t, r)
 
-	s, l, m, err = crypter.encryptCEK(someKey[:], someKey[:])
+	s, l, m, err = packer.encryptCEK(someKey[:], someKey[:])
 	require.Error(t, err)
 	require.Empty(t, s)
 	require.Empty(t, l)
 	require.Empty(t, m)
 
-	pld, err := crypter.Encrypt([]byte(""), someKey[:], [][]byte{someKey[:]})
+	pld, err := packer.Pack([]byte(""), someKey[:], [][]byte{someKey[:]})
 	require.Error(t, err)
 	require.Empty(t, pld)
 }

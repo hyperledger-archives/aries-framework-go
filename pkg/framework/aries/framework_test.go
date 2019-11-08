@@ -19,9 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
@@ -30,7 +29,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
-	mockenvelope "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/envelope"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockdidstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
@@ -92,11 +90,20 @@ func TestFramework(t *testing.T) {
 			WithKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
 				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
 			}),
-			WithCrypter(func(ctx crypto.Provider) (crypto.Crypter, error) {
-				return &didcomm.MockAuthCrypt{EncryptValue: nil}, nil
+			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
+				return &didcomm.MockAuthCrypt{
+					EncryptValue: func(payload, senderPubKey []byte, recipients [][]byte) (bytes []byte, e error) {
+						return []byte("packed message"), nil
+					},
+					DecryptValue: nil,
+					Type:         "",
+				}, nil
 			}),
-			WithPackager(func(ctx envelope.Provider) (envelope.Packager, error) {
-				return &mockenvelope.BasePackager{PackValue: []byte("mockPackValue")}, nil
+			WithInboundPackers(func(ctx packer.Provider) (packer.Packer, error) {
+				return &didcomm.MockAuthCrypt{
+					EncryptValue: nil,
+					Type:         "dummy format",
+				}, nil
 			}))
 		require.NoError(t, err)
 
@@ -401,6 +408,30 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 		require.Equal(t, s, aries.transientStoreProvider)
+	})
+}
+
+func Test_Packager(t *testing.T) {
+	t.Run("test error from packager svc - outbound packer", func(t *testing.T) {
+		f, err := New(WithInboundTransport(&mockInboundTransport{}),
+			WithStoreProvider(storage.NewMockStoreProvider()),
+			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
+				return nil, fmt.Errorf("error from outbound packer")
+			}))
+		require.Error(t, err)
+		require.Nil(t, f)
+		require.Contains(t, err.Error(), "error from outbound packer")
+	})
+
+	t.Run("test error from packager svc - fallback packer", func(t *testing.T) {
+		f, err := New(WithInboundTransport(&mockInboundTransport{}),
+			WithStoreProvider(storage.NewMockStoreProvider()),
+			WithInboundPackers(func(ctx packer.Provider) (packer.Packer, error) {
+				return nil, fmt.Errorf("error from packer")
+			}))
+		require.Error(t, err)
+		require.Nil(t, f)
+		require.Contains(t, err.Error(), "error from packer")
 	})
 }
 

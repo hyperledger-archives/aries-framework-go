@@ -10,9 +10,9 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
@@ -29,8 +29,9 @@ type Provider struct {
 	storeProvider            storage.Provider
 	transientStoreProvider   storage.Provider
 	kms                      kms.KMS
-	packager                 envelope.Packager
-	crypter                  crypto.Crypter
+	packager                 commontransport.Packager
+	packer                   packer.Packer
+	inboundPackers           []packer.Packer
 	inboundTransportEndpoint string
 	outboundTransport        transport.OutboundTransport
 	didResolver              didresolver.Resolver
@@ -79,13 +80,18 @@ func (p *Provider) KMS() kms.KeyManager {
 }
 
 // Packager returns the packager service
-func (p *Provider) Packager() envelope.Packager {
+func (p *Provider) Packager() commontransport.Packager {
 	return p.packager
 }
 
-// Crypter returns the crypter service to be used by the packager
-func (p *Provider) Crypter() crypto.Crypter {
-	return p.crypter
+// InboundPackers returns a list of enabled packers
+func (p *Provider) InboundPackers() []packer.Packer {
+	return p.inboundPackers
+}
+
+// Packer returns the outbound Packer service
+func (p *Provider) Packer() packer.Packer {
+	return p.packer
 }
 
 // Signer returns the kms signing service
@@ -218,17 +224,25 @@ func WithDIDResolver(r didresolver.Resolver) ProviderOption {
 }
 
 // WithPackager injects a packager into the context
-func WithPackager(p envelope.Packager) ProviderOption {
+func WithPackager(p commontransport.Packager) ProviderOption {
 	return func(opts *Provider) error {
 		opts.packager = p
 		return nil
 	}
 }
 
-// WithCrypter injects a crypter into the context
-func WithCrypter(p crypto.Crypter) ProviderOption {
+// WithPacker injects a Packer into the context as the outbound Packer
+func WithPacker(p packer.Packer) ProviderOption {
 	return func(opts *Provider) error {
-		opts.crypter = p
+		opts.packer = p
+		return nil
+	}
+}
+
+// WithInboundPackers injects a variable number of Packer services into the Aries framework
+func WithInboundPackers(packers ...packer.Packer) ProviderOption {
+	return func(opts *Provider) error {
+		opts.inboundPackers = append(opts.inboundPackers, packers...)
 		return nil
 	}
 }

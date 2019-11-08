@@ -9,9 +9,10 @@ package aries
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
@@ -32,10 +33,12 @@ type Aries struct {
 	kms                       api.CloseableKMS
 	outboundDispatcherCreator dispatcher.OutboundCreator
 	outboundDispatcher        dispatcher.Outbound
-	packagerCreator           envelope.PackagerCreator
-	packager                  envelope.Packager
-	crypterCreator            crypto.CrypterCreator
-	crypter                   crypto.Crypter
+	packagerCreator           packager.Creator
+	packager                  commontransport.Packager
+	packerCreator             packer.Creator
+	inboundPackerCreators     []packer.Creator
+	packer                    packer.Packer
+	inboundPackers            []packer.Packer
 	didResolver               didresolver.Resolver
 	// TODO: the DID provider options should be part of a verifiable data registry (vdr) option.
 	didStore didstore.Storage
@@ -77,8 +80,8 @@ func New(opts ...Option) (*Aries, error) {
 		return nil, e
 	}
 
-	// create create crypter and packager (must be done after KMS)
-	err = createCrypterAndPackager(frameworkOpts)
+	// create packers and packager (must be done after KMS)
+	err = createPackersAndPackager(frameworkOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -168,18 +171,20 @@ func WithKMS(k api.KMSCreator) Option {
 	}
 }
 
-// WithCrypter injects a crypter service to the Aries framework
-func WithCrypter(c crypto.CrypterCreator) Option {
+// WithPacker injects a Packer service to the Aries framework
+// to pack outbound messages and be available for unpacking inbound messages.
+func WithPacker(c packer.Creator) Option {
 	return func(opts *Aries) error {
-		opts.crypterCreator = c
+		opts.packerCreator = c
 		return nil
 	}
 }
 
-// WithPackager injects a WithPackager service to the Aries framework
-func WithPackager(p envelope.PackagerCreator) Option {
+// WithInboundPackers injects a variable number of Packer services into the Aries framework
+// for unpacking inbound messages.
+func WithInboundPackers(packers ...packer.Creator) Option {
 	return func(opts *Aries) error {
-		opts.packagerCreator = p
+		opts.inboundPackerCreators = append(opts.inboundPackerCreators, packers...)
 		return nil
 	}
 }
@@ -208,7 +213,8 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 		context.WithStorageProvider(a.storeProvider),
 		context.WithTransientStorageProvider(a.transientStoreProvider),
-		context.WithCrypter(a.crypter),
+		context.WithPacker(a.packer),
+		context.WithInboundPackers(a.inboundPackers...),
 		context.WithPackager(a.packager),
 		context.WithDIDResolver(a.didResolver),
 		context.WithDIDStore(a.didStore),
@@ -320,18 +326,29 @@ func loadServices(frameworkOpts *Aries) error {
 	return nil
 }
 
-func createCrypterAndPackager(frameworkOpts *Aries) error {
+func createPackersAndPackager(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithKMS(frameworkOpts.kms))
 	if err != nil {
-		return fmt.Errorf("create crypter context failed: %w", err)
+		return fmt.Errorf("create envelope context failed: %w", err)
 	}
 
-	frameworkOpts.crypter, err = frameworkOpts.crypterCreator(ctx)
+	frameworkOpts.packer, err = frameworkOpts.packerCreator(ctx)
 	if err != nil {
-		return fmt.Errorf("create crypter failed: %w", err)
+		return fmt.Errorf("create packer failed: %w", err)
 	}
 
-	ctx, err = context.New(context.WithCrypter(frameworkOpts.crypter))
+	for _, pC := range frameworkOpts.inboundPackerCreators {
+		p, e := pC(ctx)
+		if e != nil {
+			return fmt.Errorf("create packer failed: %w", e)
+		}
+
+		frameworkOpts.inboundPackers = append(frameworkOpts.inboundPackers, p)
+	}
+
+	ctx, err = context.New(
+		context.WithPacker(frameworkOpts.packer),
+		context.WithInboundPackers(frameworkOpts.inboundPackers...))
 	if err != nil {
 		return fmt.Errorf("create packager context failed: %w", err)
 	}

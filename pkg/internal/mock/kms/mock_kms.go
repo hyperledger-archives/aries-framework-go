@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package kms
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
@@ -24,7 +24,7 @@ type CloseableKMS struct {
 	DecryptMessageErr        error
 	PackValue                []byte
 	PackErr                  error
-	UnpackValue              *envelope.Envelope
+	UnpackValue              *transport.Envelope
 	UnpackErr                error
 	MockDID                  *did.Doc
 	EncryptionKeyValue       []byte

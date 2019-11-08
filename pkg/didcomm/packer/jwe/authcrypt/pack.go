@@ -21,29 +21,29 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
-// Encrypt will JWE encode the payload argument for the sender and recipients
+// Pack will JWE encode the payload argument for the sender and recipients
 // Using (X)Chacha20 encryption algorithm and Poly1305 authenticator
 // It will encrypt by fetching the sender's encryption key corresponding to senderVerKey and converting the list
 // of recipientsVerKeys into a list of encryption keys
-func (c *Crypter) Encrypt(payload, senderVerKey []byte, recipientsVerKeys [][]byte) ([]byte, error) { //nolint:funlen
-	senderPubKey, err := c.getSenderPubEncKey(senderVerKey)
+func (p *Packer) Pack(payload, senderVerKey []byte, recipientsVerKeys [][]byte) ([]byte, error) { //nolint:funlen
+	senderPubKey, err := p.getSenderPubEncKey(senderVerKey)
 	if err != nil {
 		return nil, err
 	}
 
 	headers := jweHeaders{
-		Typ: "prs.hyperledger.aries-auth-message",
-		Alg: "ECDH-SS+" + string(c.alg) + "KW",
-		Enc: string(c.alg),
+		Typ: encodingType,
+		Alg: "ECDH-SS+" + string(p.alg) + "KW",
+		Enc: string(p.alg),
 	}
 
 	if len(recipientsVerKeys) == 0 {
-		return nil, fmt.Errorf("failed to encrypt message: empty recipients")
+		return nil, fmt.Errorf("failed to pack message: empty recipients")
 	}
 
-	chachaRecipients, err := c.convertRecipients(recipientsVerKeys)
+	chachaRecipients, err := p.convertRecipients(recipientsVerKeys)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encrypt message: %w", err)
+		return nil, fmt.Errorf("failed to pack message: %w", err)
 	}
 
 	aad := buildAAD(chachaRecipients)
@@ -59,7 +59,7 @@ func (c *Crypter) Encrypt(payload, senderVerKey []byte, recipientsVerKeys [][]by
 	pldAAD := encHeaders + "." + aadEncoded
 
 	// generate a new nonce for this encryption
-	nonce := make([]byte, c.nonceSize)
+	nonce := make([]byte, p.nonceSize)
 
 	_, err = randReader.Read(nonce)
 	if err != nil {
@@ -76,7 +76,7 @@ func (c *Crypter) Encrypt(payload, senderVerKey []byte, recipientsVerKeys [][]by
 	}
 
 	// create a cipher for the given nonceSize and generated cek above
-	cipher, err := createCipher(c.nonceSize, cek[:])
+	cipher, err := createCipher(p.nonceSize, cek[:])
 	if err != nil {
 		return nil, err
 	}
@@ -89,12 +89,12 @@ func (c *Crypter) Encrypt(payload, senderVerKey []byte, recipientsVerKeys [][]by
 	cipherTextEncoded := extractCipherText(symOutput)
 
 	// now build, encode recipients and include the encrypted cek (with a recipient's ephemeral key)
-	encRec, err := c.encodeRecipients(cek, chachaRecipients, senderPubKey)
+	encRec, err := p.encodeRecipients(cek, chachaRecipients, senderPubKey)
 	if err != nil {
 		return nil, err
 	}
 
-	jwe, err := c.buildJWE(encHeaders, encRec, aadEncoded, nonceEncoded, tagEncoded, cipherTextEncoded)
+	jwe, err := p.buildJWE(encHeaders, encRec, aadEncoded, nonceEncoded, tagEncoded, cipherTextEncoded)
 	if err != nil {
 		return nil, err
 	}
@@ -102,12 +102,12 @@ func (c *Crypter) Encrypt(payload, senderVerKey []byte, recipientsVerKeys [][]by
 	return jwe, nil
 }
 
-func (c *Crypter) getSenderPubEncKey(senderVerKey []byte) (*[chacha.KeySize]byte, error) {
+func (p *Packer) getSenderPubEncKey(senderVerKey []byte) (*[chacha.KeySize]byte, error) {
 	if len(senderVerKey) == 0 {
-		return nil, fmt.Errorf("failed to encrypt message: empty sender key")
+		return nil, fmt.Errorf("failed to pack message: empty sender key")
 	}
 
-	senderKey, err := c.kms.GetEncryptionKey(senderVerKey)
+	senderKey, err := p.kms.GetEncryptionKey(senderVerKey)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (c *Crypter) getSenderPubEncKey(senderVerKey []byte) (*[chacha.KeySize]byte
 
 // convertRecipients is a utility function that converts keys from signature keys ([][]byte type)
 // into encryption keys ([]*[chacha.KeySize]byte type)
-func (c *Crypter) convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byte, error) {
+func (p *Packer) convertRecipients(recipients [][]byte) ([]*[chacha.KeySize]byte, error) {
 	var chachaRecipients []*[chacha.KeySize]byte
 
 	for i, rVer := range recipients {
@@ -163,7 +163,7 @@ func extractCipherText(symOutput []byte) string {
 
 // buildJWE builds the JSON object representing the JWE output of the encryption
 // and returns its marshaled []byte representation
-func (c *Crypter) buildJWE(headers string, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) { //nolint:lll
+func (p *Packer) buildJWE(headers string, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) { //nolint:lll
 	jwe := Envelope{
 		Protected:  headers,
 		Recipients: recipients,
@@ -204,11 +204,11 @@ func hashAAD(keys []string) []byte {
 
 // encodeRecipients is a utility function that will encrypt the cek (content encryption key) for each recipient
 // and return a list of encoded recipient keys in a JWE compliant format ([]Recipient)
-func (c *Crypter) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderPubKey *[chacha.KeySize]byte) ([]Recipient, error) { //nolint:lll
+func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderPubKey *[chacha.KeySize]byte) ([]Recipient, error) { //nolint:lll
 	var encodedRecipients []Recipient
 
 	for _, e := range recipients {
-		rec, err := c.encodeRecipient(cek, e, senderPubKey)
+		rec, err := p.encodeRecipient(cek, e, senderPubKey)
 		if err != nil {
 			return nil, err
 		}
@@ -222,7 +222,7 @@ func (c *Crypter) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[cha
 // encodeRecipient will encrypt the cek (content encryption key) with a recipientKey
 // by generating a new ephemeral key to be used by the recipient to later decrypt it
 // it returns a JWE compliant Recipient
-func (c *Crypter) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
+func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
 	// generate a random APU value (Agreement PartyUInfo: https://tools.ietf.org/html/rfc7518#section-4.6.1.2)
 	apu := make([]byte, 64)
 
@@ -232,26 +232,26 @@ func (c *Crypter) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.Ke
 	}
 
 	// derive an ephemeral key for the sender and recipient
-	kek, err := c.kms.DeriveKEK([]byte(c.alg), apu, senderPubKey[:], recipientPubKey[:])
+	kek, err := p.kms.DeriveKEK([]byte(p.alg), apu, senderPubKey[:], recipientPubKey[:])
 	if err != nil {
 		return nil, err
 	}
 
-	sharedKeyCipher, tag, nonce, err := c.encryptCEK(kek, cek[:])
+	sharedKeyCipher, tag, nonce, err := p.encryptCEK(kek, cek[:])
 	if err != nil {
 		return nil, err
 	}
 
-	spk, err := c.generateSPK(recipientPubKey, senderPubKey)
+	spk, err := p.generateSPK(recipientPubKey, senderPubKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.buildRecipient(sharedKeyCipher, apu, spk, nonce, tag, recipientPubKey)
+	return p.buildRecipient(sharedKeyCipher, apu, spk, nonce, tag, recipientPubKey)
 }
 
 // buildRecipient will build a proper JSON formatted and JWE compliant Recipient
-func (c *Crypter) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded, tagEncoded string, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
+func (p *Packer) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded, tagEncoded string, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
 	recipientHeaders := RecipientHeaders{
 		APU: base64.RawURLEncoding.EncodeToString(apu),
 		IV:  nonceEncoded,
@@ -274,14 +274,14 @@ func (c *Crypter) buildRecipient(key string, apu []byte, spkEncoded, nonceEncode
 //		resulting tag of the encryption
 //		generated nonce used by the encryption
 //		error in case of failure
-func (c *Crypter) encryptCEK(kek, cek []byte) (string, string, string, error) {
-	cipher, err := createCipher(c.nonceSize, kek)
+func (p *Packer) encryptCEK(kek, cek []byte) (string, string, string, error) {
+	cipher, err := createCipher(p.nonceSize, kek)
 	if err != nil {
 		return "", "", "", err
 	}
 
 	// create a new nonce
-	nonce := make([]byte, c.nonceSize)
+	nonce := make([]byte, p.nonceSize)
 
 	_, err = randReader.Read(nonce)
 	if err != nil {

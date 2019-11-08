@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto/legacy/authcrypt"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/envelope"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
+	jwe "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/jwe/authcrypt"
+	legacy "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
@@ -125,15 +127,26 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) {
 		}
 	}
 
-	if frameworkOpts.crypterCreator == nil {
-		frameworkOpts.crypterCreator = func(provider crypto.Provider) (crypto.Crypter, error) {
-			return authcrypt.New(provider), nil
+	if frameworkOpts.packerCreator == nil {
+		frameworkOpts.packerCreator = func(provider packer.Provider) (packer.Packer, error) {
+			return legacy.New(provider), nil
+		}
+	}
+
+	if frameworkOpts.inboundPackerCreators == nil {
+		frameworkOpts.inboundPackerCreators = []packer.Creator{
+			func(provider packer.Provider) (packer.Packer, error) {
+				return legacy.New(provider), nil
+			},
+			func(provider packer.Provider) (packer.Packer, error) {
+				return jwe.New(provider, jwe.XC20P)
+			},
 		}
 	}
 
 	if frameworkOpts.packagerCreator == nil {
-		frameworkOpts.packagerCreator = func(provider envelope.Provider) (envelope.Packager, error) {
-			return envelope.New(provider)
+		frameworkOpts.packagerCreator = func(prov packager.Provider) (transport.Packager, error) {
+			return packager.New(prov)
 		}
 	}
 

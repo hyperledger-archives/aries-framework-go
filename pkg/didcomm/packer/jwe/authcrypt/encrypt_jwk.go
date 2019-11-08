@@ -19,7 +19,7 @@ import (
 // generateSPK will encrypt a msg (in the case of this package, it will be
 // the sender's public key) using the recipient's pubKey, the output will be
 // a compact JWE wrapping a JWK containing the (encrypted) sender's public key
-func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byte) (string, error) {
+func (p *Packer) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byte) (string, error) {
 	if recipientPubKey == nil {
 		return "", cryptoutil.ErrInvalidKey
 	}
@@ -31,7 +31,7 @@ func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byt
 	}
 
 	// derive an ephemeral key for the recipient and an ephemeral secret key (esk)
-	kek, err := cryptoutil.Derive25519KEK([]byte(c.alg+"KW"), nil, esk, recipientPubKey)
+	kek, err := cryptoutil.Derive25519KEK([]byte(p.alg+"KW"), nil, esk, recipientPubKey)
 	if err != nil {
 		return "", err
 	}
@@ -44,12 +44,12 @@ func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byt
 		return "", err
 	}
 
-	kCipherEncoded, kTagEncoded, kNonceEncoded, err := c.encryptCEK(kek, cek[:])
+	kCipherEncoded, kTagEncoded, kNonceEncoded, err := p.encryptCEK(kek, cek[:])
 	if err != nil {
 		return "", err
 	}
 
-	headersEncoded, err := c.buildJWKHeaders(epk, kNonceEncoded, kTagEncoded)
+	headersEncoded, err := p.buildJWKHeaders(epk, kNonceEncoded, kTagEncoded)
 	if err != nil {
 		return "", err
 	}
@@ -66,15 +66,15 @@ func (c *Crypter) generateSPK(recipientPubKey, senderPubKey *[chacha.KeySize]byt
 		return "", err
 	}
 
-	return c.encryptSenderJWK(kCipherEncoded, headersEncoded, senderJWKJSON, cek[:])
+	return p.encryptSenderJWK(kCipherEncoded, headersEncoded, senderJWKJSON, cek[:])
 }
 
-func (c *Crypter) buildJWKHeaders(epk *[32]byte, kNonceEncoded, kTagEncoded string) (string, error) {
+func (p *Packer) buildJWKHeaders(epk *[32]byte, kNonceEncoded, kTagEncoded string) (string, error) {
 	headers := recipientSPKJWEHeaders{
 		Typ: "jose",
 		CTY: "jwk+json",
-		Alg: "ECDH-ES+" + string(c.alg) + "KW",
-		Enc: string(c.alg),
+		Alg: "ECDH-ES+" + string(p.alg) + "KW",
+		Enc: string(p.alg),
 		EPK: jwk{
 			Kty: "OKP", // OPK not 0PK
 			Crv: "X25519",
@@ -92,9 +92,9 @@ func (c *Crypter) buildJWKHeaders(epk *[32]byte, kNonceEncoded, kTagEncoded stri
 	return base64.RawURLEncoding.EncodeToString(headersJSON), nil
 }
 
-func (c *Crypter) encryptSenderJWK(encKey, headers string, senderJWKJSON, cek []byte) (string, error) {
+func (p *Packer) encryptSenderJWK(encKey, headers string, senderJWKJSON, cek []byte) (string, error) {
 	// create a new nonce
-	nonce := make([]byte, c.nonceSize)
+	nonce := make([]byte, p.nonceSize)
 
 	_, err := randReader.Read(nonce)
 	if err != nil {
@@ -102,7 +102,7 @@ func (c *Crypter) encryptSenderJWK(encKey, headers string, senderJWKJSON, cek []
 	}
 
 	// create a cipher for the given nonceSize and cek
-	cipher, err := createCipher(c.nonceSize, cek)
+	cipher, err := createCipher(p.nonceSize, cek)
 	if err != nil {
 		return "", err
 	}

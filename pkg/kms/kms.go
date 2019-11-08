@@ -86,7 +86,7 @@ func (w *BaseKMS) CreateKeySet() (string, string, error) {
 
 // createEncKeyPair will convert sigKp into an encKeyPair - for now it's a key conversion operation.
 // it can be modified to be generated independently from sigKp - this has implications on
-// the KMS store and the Packager/Crypter as they use Signature keys as arguments and use the converted
+// the KMS store and the Packager/Packer as they use Signature keys as arguments and use the converted
 //  to Encryption keys for Pack/Unpack.
 func createEncKeyPair(sigKp *cryptoutil.SigKeyPair) (*cryptoutil.EncKeyPair, error) {
 	encPub, err := cryptoutil.PublicEd25519toCurve25519(sigKp.Pub)

@@ -12,7 +12,7 @@ import (
 
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -22,11 +22,14 @@ import (
 // ContentEncryption represents a content encryption algorithm.
 type ContentEncryption string
 
-// C20P Chacha20Poly1305 algorithm
-const C20P = ContentEncryption("C20P") // Chacha20 encryption + Poly1305 authenticator cipher (96 bits nonce)
-
-// XC20P XChacha20Poly1305 algorithm
-const XC20P = ContentEncryption("XC20P") // XChacha20 encryption + Poly1305 authenticator cipher (192 bits nonce)
+const (
+	// C20P Chacha20Poly1305 algorithm
+	C20P = ContentEncryption("C20P") // Chacha20 encryption + Poly1305 authenticator cipher (96 bits nonce)
+	// XC20P XChacha20Poly1305 algorithm
+	XC20P = ContentEncryption("XC20P") // XChacha20 encryption + Poly1305 authenticator cipher (192 bits nonce)
+	// encodingType is the `typ` string identifier in a message that identifies the format as being JWE
+	encodingType string = "prs.hyperledger.aries-auth-message"
+)
 
 // randReader is a cryptographically secure random number generator.
 // TODO: document usage for tests or find another mechanism.
@@ -36,8 +39,10 @@ var randReader = rand.Reader
 // errUnsupportedAlg is used when a bad encryption algorithm is used
 var errUnsupportedAlg = errors.New("algorithm not supported")
 
-// Crypter represents an Authcrypt Encrypter (Decrypter) that outputs/reads JWE envelopes
-type Crypter struct {
+// TODO #475 pull alg and nonceSize into separate crypter, add crypter reference to Packer
+
+// Packer represents an Authcrypt Packer/Unpacker that outputs/reads JWE envelopes
+type Packer struct {
 	alg       ContentEncryption
 	nonceSize int
 	kms       kms.KeyManager
@@ -93,12 +98,12 @@ type jwk struct {
 	X   string `json:"x,omitempty"`
 }
 
-// New will create an encrypter instance to 'AuthCrypt' payloads for the given sender and recipients arguments
+// New will create an Packer instance to 'AuthCrypt' payloads for the given sender and recipients arguments
 // and the encryption alg argument. Possible algorithms supported are:
 // C20P (chacha20-poly1305 ietf)
 // XC20P (xchacha20-poly1305 ietf)
-// The returned crypter contains all the information required to encrypt payloads.
-func New(ctx crypto.Provider, alg ContentEncryption) (*Crypter, error) {
+// The returned Packer contains all the information required to pack and unpack payloads.
+func New(ctx packer.Provider, alg ContentEncryption) (*Packer, error) {
 	k := ctx.KMS()
 
 	var nonceSize int
@@ -112,9 +117,14 @@ func New(ctx crypto.Provider, alg ContentEncryption) (*Crypter, error) {
 		return nil, errUnsupportedAlg
 	}
 
-	return &Crypter{
+	return &Packer{
 		alg:       alg,
 		nonceSize: nonceSize,
 		kms:       k,
 	}, nil
+}
+
+// EncodingType returns the type of the encoding, as in the `Typ` field of the envelope header
+func (p *Packer) EncodingType() string {
+	return encodingType
 }
