@@ -356,9 +356,32 @@ func TestAbandoning_CanTransitionTo(t *testing.T) {
 }
 
 func TestAbandoning_ExecuteInbound(t *testing.T) {
-	followup, err := (&abandoning{}).ExecuteInbound(internalContext{}, &metaData{})
-	require.NoError(t, err)
-	require.Equal(t, &done{}, followup)
+	t.Run("Go to done", func(t *testing.T) {
+		followup, err := (&abandoning{}).ExecuteInbound(internalContext{}, &metaData{
+			Msg: &service.DIDCommMsg{
+				Header:  &service.Header{Type: ResponseMsgType},
+				Payload: []byte(`{}`),
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, &done{}, followup)
+	})
+	t.Run("Error send problem-report", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test error"))
+
+		followup, err := (&abandoning{}).ExecuteInbound(internalContext{Outbound: dispatcher}, &metaData{
+			Msg: &service.DIDCommMsg{
+				Header:  &service.Header{Type: RequestMsgType},
+				Payload: []byte(`{}`),
+			},
+		})
+		require.Nil(t, followup)
+		require.EqualError(t, err, "abandoning: send problem-report: test error")
+	})
 }
 
 func TestAbandoning_ExecuteOutbound(t *testing.T) {
@@ -442,13 +465,13 @@ func TestRequesting_CanTransitionTo(t *testing.T) {
 
 	require.True(t, st.CanTransitionTo(&deciding{}))
 	require.True(t, st.CanTransitionTo(&done{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
 
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	require.False(t, st.CanTransitionTo(&start{}))
 	require.False(t, st.CanTransitionTo(&delivering{}))
 	require.False(t, st.CanTransitionTo(&arranging{}))
 	require.False(t, st.CanTransitionTo(&confirming{}))
-	require.False(t, st.CanTransitionTo(&abandoning{}))
 	require.False(t, st.CanTransitionTo(&waiting{}))
 	require.False(t, st.CanTransitionTo(&requesting{}))
 }
@@ -471,4 +494,15 @@ func TestRequesting_ExecuteOutbound(t *testing.T) {
 
 	require.EqualError(t, err, errMsg)
 	require.Nil(t, followup)
+}
+
+func Test_getApproveFromMsg(t *testing.T) {
+	t.Run("Unmarshal error", func(t *testing.T) {
+		approve, ok := getApproveFromMsg(&service.DIDCommMsg{
+			Header:  &service.Header{Type: ResponseMsgType},
+			Payload: []byte("[]"),
+		})
+		require.False(t, approve)
+		require.False(t, ok)
+	})
 }

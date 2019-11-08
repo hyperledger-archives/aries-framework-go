@@ -308,7 +308,17 @@ func (s *abandoning) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone
 }
 
-func (s *abandoning) ExecuteInbound(ctx internalContext, _ *metaData) (state, error) {
+func (s *abandoning) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
+	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
+		return &done{}, nil
+	}
+
+	if m.Msg.Header.Type == RequestMsgType || (m.Msg.Header.Type == ResponseMsgType && m.WaitCount == 1) {
+		if _, err := sendProblemReport(ctx, m, []*service.Destination{getInboundDestination()}); err != nil {
+			return nil, fmt.Errorf("abandoning: %w", err)
+		}
+	}
+
 	return &done{}, nil
 }
 
@@ -382,7 +392,7 @@ func (s *requesting) Name() string {
 }
 
 func (s *requesting) CanTransitionTo(next state) bool {
-	return next.Name() == stateNameDeciding || next.Name() == stateNameDone
+	return next.Name() == stateNameDeciding || next.Name() == stateNameAbandoning || next.Name() == stateNameDone
 }
 
 func (s *requesting) ExecuteInbound(ctx internalContext, _ *metaData) (state, error) {
