@@ -10,12 +10,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -24,9 +24,6 @@ const (
 	Introduce = "introduce"
 	// IntroduceSpec defines the introduce spec
 	IntroduceSpec = "https://didcomm.org/introduce/1.0/"
-	// SkipProposalMsgType defines the skip proposal (the introducer has a public invitation)
-	// skip proposal is not part of protocol specification (internal usage)
-	SkipProposalMsgType = "skip/proposal"
 	// ProposalMsgType defines the introduce proposal message type.
 	ProposalMsgType = IntroduceSpec + "proposal"
 	// RequestMsgType defines the introduce request message type.
@@ -41,11 +38,33 @@ const initialWaitCount = 2
 
 var logger = log.New("aries-framework/introduce/service")
 
+// InvitationEnvelope provides necessary information to the service through Continue(InvitationEnvelope) function.
+// Dependency is fully controlled by the end-user, the correct logic is
+// to provide the same interface during the state machine execution, interface depends on the participant.
+// e.g We have introducer and two introducees, this is the usual flow.
+// Dependency interfaces are different and depend on the participant.
+// - destinations length is 2 and Invitation is <nil> (introducer)
+// - destinations length is 0 and Invitation is not <nil> (introducee)
+// - destinations length is 0 and Invitation is <nil> (introducee)
+//
+// Correct usage is described below:
+// - Destinations length is 0 and Invitation is <nil> (introducee)
+// - Destinations length is 0 and Invitation is not <nil> (introducee with invitation)
+// - Destinations length is 1 and Invitation is not <nil> (introducer skip proposal)
+// - Destinations length is 2 and Invitation is <nil> (introducer)
+// NOTE: The state machine logic depends on the combinations above.
+type InvitationEnvelope interface {
+	Invitation() *didexchange.Invitation
+	Destinations() []*service.Destination
+}
+
 // metaData type to store data for internal usage
 type metaData struct {
 	record
 	Msg      *service.DIDCommMsg
 	ThreadID string
+	// keeps a dependency for the protocol injected by Continue() function
+	dependency InvitationEnvelope
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -211,25 +230,6 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 		return "", errors.New("no clients are registered to handle the message")
 	}
 
-	// request is not a part of any state machine, so we just need to trigger an actionEvent
-	if msg.Header.Type == RequestMsgType {
-		thID, err := msg.ThreadID()
-		if err != nil {
-			return "", err
-		}
-
-		s.sendActionEvent(&metaData{
-			record: record{
-				StateName: stateNameStart,
-				WaitCount: initialWaitCount,
-			},
-			Msg:      msg,
-			ThreadID: thID,
-		}, aEvent)
-
-		return "", nil
-	}
-
 	mData, err := s.doHandle(msg, false)
 	if err != nil {
 		return "", err
@@ -237,7 +237,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg) {
-		s.sendActionEvent(mData, aEvent)
+		aEvent <- s.newDIDCommActionMsg(mData)
 		return "", nil
 	}
 
@@ -276,13 +276,22 @@ func (s *Service) sendMsgEvents(msg *service.StateMsg) {
 
 // sendActionEvent triggers the action event. This function stores the state of current processing and passes a callback
 // function in the event message.
-func (s *Service) sendActionEvent(msg *metaData, aEvent chan<- service.DIDCommAction) {
+func (s *Service) newDIDCommActionMsg(msg *metaData) service.DIDCommAction {
 	// create the message for the channel
 	// trigger the registered action event
-	aEvent <- service.DIDCommAction{
+	return service.DIDCommAction{
 		ProtocolName: Introduce,
 		Message:      msg.Msg.Clone(),
 		Continue: func(args interface{}) {
+			// there is no way to receive another interface
+			if dep, ok := args.(InvitationEnvelope); ok {
+				msg.dependency = dep
+				s.processCallback(msg)
+				return
+			}
+
+			// sets an error to the message
+			msg.err = errors.New("action dependency is missing")
 			s.processCallback(msg)
 		},
 		Stop: func(err error) {
@@ -301,13 +310,6 @@ func (s *Service) processCallback(msg *metaData) {
 
 func nextState(msg *service.DIDCommMsg, rec *record, outbound bool) (state, error) {
 	switch msg.Header.Type {
-	// SkipProposal is an artificial message type, we need to replace it with a real one
-	case SkipProposalMsgType:
-		msg.Payload = []byte(strings.Replace(string(msg.Payload), SkipProposalMsgType, ProposalMsgType, 1))
-		msg.Header.Type = ProposalMsgType
-		rec.WaitCount--
-
-		return &arranging{}, nil
 	case ProposalMsgType:
 		if outbound {
 			return &arranging{}, nil
@@ -403,6 +405,10 @@ func isNoOp(s state) bool {
 
 func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 	logger.Infof("entered into private handle message: %v ", msg.Msg.Header)
+	// if we got one destination value, this is definitely skip proposal
+	if msg.dependency != nil && len(msg.dependency.Destinations()) == 1 {
+		msg.StateName = stateNameDelivering
+	}
 
 	next, err := stateFromName(msg.StateName)
 	if err != nil {

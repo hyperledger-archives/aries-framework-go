@@ -120,6 +120,7 @@ build-mockgen:
 .PHONY: mocks
 mocks: build-mockgen
 	$(call create_mock,pkg/client/introduce,Provider)
+	$(call create_mock,pkg/didcomm/protocol/introduce,InvitationEnvelope)
 	$(call create_mock,pkg/storage,Provider;Store)
 	$(call create_mock,pkg/didcomm/common/service,DIDComm)
 
