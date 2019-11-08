@@ -7,13 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 )
 
 const (
@@ -33,8 +37,15 @@ const (
 	stateNameWaiting  = "waiting"
 )
 
+// nolint: gochecknoglobals
+var getInboundDestination = func() *service.Destination {
+	// TODO: need to get real destination and key
+	return &service.Destination{}
+}
+
 type internalContext struct {
 	dispatcher.Outbound
+	SendInvitation func(inv *didexchange.Invitation, dest *service.Destination) error
 }
 
 // The introduce protocol's state.
@@ -126,19 +137,25 @@ func (s *arranging) CanTransitionTo(next state) bool {
 }
 
 func (s *arranging) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
-	// TODO: need to get destination and key
+	// this code sends second proposal
+	// first proposal was already sent by ExecuteOutbound
+	destinations := m.dependency.Destinations()
+	destination := destinations[len(destinations)-1]
+
 	return &noOp{}, ctx.Send(&Proposal{
-		Type: ProposalMsgType,
-		ID:   uuid.New().String(),
-	}, "", nil)
+		Type:   ProposalMsgType,
+		ID:     uuid.New().String(),
+		Thread: &decorator.Thread{ID: m.ThreadID},
+	}, "", destination)
 }
 
 func (s *arranging) ExecuteOutbound(ctx internalContext, m *metaData, dest *service.Destination) (state, error) {
+	var proposal *Proposal
+	if err := json.Unmarshal(m.Msg.Payload, &proposal); err != nil {
+		return nil, fmt.Errorf("outbound unmarshal: %w", err)
+	}
 	// TODO: need to get a key
-	return &noOp{}, ctx.Send(&Proposal{
-		Type: ProposalMsgType,
-		ID:   uuid.New().String(),
-	}, "", dest)
+	return &noOp{}, ctx.Send(proposal, "", dest)
 }
 
 // delivering state
@@ -153,8 +170,42 @@ func (s *delivering) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameConfirming || next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-func (s *delivering) ExecuteInbound(ctx internalContext, _ *metaData) (state, error) {
-	// TODO: sends an invitation
+// destIDx returns destination index based on introducee index
+func destIDx(idx int) int {
+	if idx == 0 {
+		return 1
+	}
+
+	return 0
+}
+
+func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
+	if isSkipProposal(m) {
+		err := ctx.SendInvitation(m.dependency.Invitation(), m.dependency.Destinations()[0])
+		if err != nil {
+			return nil, fmt.Errorf("send inbound invitation (skip): %w", err)
+		}
+
+		return &done{}, nil
+	}
+
+	dests := m.dependency.Destinations()
+
+	err := ctx.SendInvitation(m.Invitation, dests[destIDx(m.IntroduceeIndex)])
+	if err != nil {
+		return nil, fmt.Errorf("send inbound invitation: %w", err)
+	}
+
+	err = ctx.Send(&model.Ack{
+		Type:   AckMsgType,
+		ID:     uuid.New().String(),
+		Thread: &decorator.Thread{ID: m.ThreadID},
+	}, "", dests[m.IntroduceeIndex])
+
+	if err != nil {
+		return nil, fmt.Errorf("send ack: %w", err)
+	}
+
 	return &done{}, nil
 }
 
@@ -215,12 +266,12 @@ func (s *deciding) CanTransitionTo(next state) bool {
 }
 
 func (s *deciding) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
-	// TODO: need to get destination and key
 	return &waiting{}, ctx.Send(&Response{
-		Type:   ResponseMsgType,
-		ID:     uuid.New().String(),
-		Thread: &decorator.Thread{ID: m.ThreadID},
-	}, "", nil)
+		Type:       ResponseMsgType,
+		ID:         uuid.New().String(),
+		Thread:     &decorator.Thread{ID: m.ThreadID},
+		Invitation: m.dependency.Invitation(),
+	}, "", getInboundDestination())
 }
 
 func (s *deciding) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {

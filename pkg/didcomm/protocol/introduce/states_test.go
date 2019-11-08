@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -14,9 +15,13 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/gomocks"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	mocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce/gomocks"
 )
 
 func notTransition(t *testing.T, st state) {
+	t.Helper()
+
 	var allState = [...]state{
 		&noOp{}, &start{}, &done{},
 		&arranging{}, &delivering{},
@@ -143,8 +148,17 @@ func TestArrangingState_ExecuteInbound(t *testing.T) {
 	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
 	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
-	ctx := internalContext{Outbound: dispatcher}
-	followup, err := (&arranging{}).ExecuteInbound(ctx, &metaData{})
+	ctx := internalContext{
+		Outbound: dispatcher,
+		SendInvitation: func(_ *didexchange.Invitation, _ *service.Destination) error {
+			return nil
+		},
+	}
+
+	dep := mocks.NewMockInvitationEnvelope(ctrl)
+	dep.EXPECT().Destinations().Return([]*service.Destination{{}})
+
+	followup, err := (&arranging{}).ExecuteInbound(ctx, &metaData{dependency: dep})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 }
@@ -157,9 +171,19 @@ func TestArrangingState_ExecuteOutbound(t *testing.T) {
 	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	ctx := internalContext{Outbound: dispatcher}
-	followup, err := (&arranging{}).ExecuteOutbound(ctx, &metaData{}, &service.Destination{})
+	followup, err := (&arranging{}).ExecuteOutbound(ctx, &metaData{
+		Msg: &service.DIDCommMsg{Payload: []byte(`{}`)},
+	}, &service.Destination{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
+
+	// JSON error
+	errMsg := "json: cannot unmarshal array into Go value of type introduce.Proposal"
+	followup, err = (&arranging{}).ExecuteOutbound(ctx, &metaData{
+		Msg: &service.DIDCommMsg{Payload: []byte(`[]`)},
+	}, &service.Destination{})
+	require.EqualError(t, errors.Unwrap(err), errMsg)
+	require.Nil(t, followup)
 }
 
 // delivering state can transition to ...
@@ -183,10 +207,62 @@ func TestDeliveringState_ExecuteInbound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
-	followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{})
-	require.NoError(t, err)
-	require.Equal(t, &done{}, followup)
+	t.Run("Happy path", func(t *testing.T) {
+		ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
+		ctx.SendInvitation = func(inv *didexchange.Invitation, dest *service.Destination) error {
+			return nil
+		}
+
+		dep := mocks.NewMockInvitationEnvelope(ctrl)
+		dep.EXPECT().Destinations().Return([]*service.Destination{{}}).Times(2)
+		dep.EXPECT().Invitation().Return(nil)
+
+		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{dependency: dep})
+		require.NoError(t, err)
+		require.Equal(t, &done{}, followup)
+	})
+
+	t.Run("SendInvitation Error", func(t *testing.T) {
+		const errMsg = "test err"
+
+		ctx := internalContext{Outbound: dispatcherMocks.NewMockOutbound(ctrl)}
+		ctx.SendInvitation = func(inv *didexchange.Invitation, dest *service.Destination) error {
+			return errors.New(errMsg)
+		}
+
+		dep := mocks.NewMockInvitationEnvelope(ctrl)
+		dep.EXPECT().Destinations().Return([]*service.Destination{{}}).Times(2)
+		dep.EXPECT().Invitation().Return(nil)
+
+		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{dependency: dep})
+		require.Nil(t, followup)
+		require.EqualError(t, errors.Unwrap(err), errMsg)
+
+		// SkipProposal
+		dep.EXPECT().Destinations().Return([]*service.Destination{{}, {}}).Times(2)
+		followup, err = (&delivering{}).ExecuteInbound(ctx, &metaData{dependency: dep})
+		require.Nil(t, followup)
+		require.EqualError(t, errors.Unwrap(err), errMsg)
+	})
+
+	t.Run("Error Send", func(t *testing.T) {
+		const errMsg = "test err"
+
+		outbound := dispatcherMocks.NewMockOutbound(ctrl)
+		outbound.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
+
+		ctx := internalContext{Outbound: outbound}
+		ctx.SendInvitation = func(inv *didexchange.Invitation, dest *service.Destination) error {
+			return nil
+		}
+
+		dep := mocks.NewMockInvitationEnvelope(ctrl)
+		dep.EXPECT().Destinations().Return([]*service.Destination{{}, {}}).Times(2)
+
+		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{dependency: dep})
+		require.Nil(t, followup)
+		require.EqualError(t, errors.Unwrap(err), errMsg)
+	})
 }
 
 func TestDeliveringState_ExecuteOutbound(t *testing.T) {
@@ -298,7 +374,11 @@ func TestDecidingState_ExecuteInbound(t *testing.T) {
 	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	ctx := internalContext{Outbound: dispatcher}
-	followup, err := (&deciding{}).ExecuteInbound(ctx, &metaData{})
+
+	dep := mocks.NewMockInvitationEnvelope(ctrl)
+	dep.EXPECT().Invitation().Return(nil)
+
+	followup, err := (&deciding{}).ExecuteInbound(ctx, &metaData{dependency: dep})
 	require.NoError(t, err)
 	require.Equal(t, &waiting{}, followup)
 }
