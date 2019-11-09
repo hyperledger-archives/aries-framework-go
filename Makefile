@@ -9,8 +9,9 @@ OPENAPI_SPEC_PATH=build/rest/openapi/spec
 OPENAPI_DOCKER_IMG_VERSION=v0.21.0
 
 # Namespace for the agent images
-DOCKER_OUTPUT_NS  ?= aries-framework-go
-AGENT_IMAGE_NAME  ?= agent
+DOCKER_OUTPUT_NS   ?= aries-framework-go
+AGENT_IMAGE_NAME   ?= agent
+WEBHOOK_IMAGE_NAME ?= sample-webhook
 
 # Tool commands (overridable)
 DOCKER_CMD ?= docker
@@ -46,15 +47,6 @@ bdd-test: clean generate-test-keys agent-docker sample-webhook-docker
 .PHONY: vc-test-suite
 vc-test-suite: clean
 	@scripts/run_vc_test_suite.sh
-
-.PHONY: clean
-clean:
-	rm -f coverage.txt
-	rm -Rf ./build
-	rm -Rf ./test/bdd/db
-	rm -Rf ./test/bdd/fixtures/keys/tls
-	rm -Rf ./test/bdd/fixtures/demo/openapi/specs
-	rm -Rf ./test/bdd/*.log
 
 generate-test-keys: clean
 	@mkdir -p -p test/bdd/fixtures/keys/tls
@@ -108,7 +100,7 @@ sample-webhook:
 .PHONY: sample-webhook-docker
 sample-webhook-docker:
 	@echo "Building sample webhook server docker image"
-	@docker build -f ./images/mocks/webhook/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/sample-webhook:latest \
+	@docker build -f ./images/mocks/webhook/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(WEBHOOK_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) \
 	--build-arg GO_TAGS=$(GO_TAGS) \
@@ -130,3 +122,30 @@ mocks: build-mockgen
 	$(call create_mock,pkg/client/introduce,Provider)
 	$(call create_mock,pkg/storage,Provider;Store)
 	$(call create_mock,pkg/didcomm/common/service,DIDComm)
+
+.PHONY: clean
+clean: clean-fixtures clean-build clean-images
+
+.PHONY: clean-images
+clean-images: clean-fixtures
+clean-images: IMAGES=$(shell docker image ls | grep aries-framework-go | awk '{print $$3}')
+clean-images:
+	@if [ ! -z "$(IMAGES)" ]; then \
+		echo "Cleaning aries-framework-go docker images ..."; \
+		docker rmi -f $(IMAGES); \
+	fi;
+
+.PHONY: clean-build
+clean-build:
+	@rm -f coverage.txt
+	@rm -Rf ./build
+	@rm -Rf ./test/bdd/db
+	@rm -Rf ./test/bdd/*.log
+
+.PHONY: clean-fixtures
+clean-fixtures:
+	@rm -Rf ./test/bdd/fixtures/keys/tls
+	@rm -Rf ./test/bdd/fixtures/demo/openapi/specs
+	@cd test/bdd/fixtures/agent && docker-compose down 2> /dev/null
+	@cd test/bdd/fixtures/demo/openapi && docker-compose -f docker-compose-demo.yml down 2> /dev/null
+	@cd test/bdd/fixtures/sidetree-mock && docker-compose down 2> /dev/null
