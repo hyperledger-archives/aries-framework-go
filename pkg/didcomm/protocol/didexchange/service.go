@@ -39,10 +39,6 @@ const (
 	ResponseMsgType = DIDExchangeSpec + "response"
 	// AckMsgType defines the did-exchange ack message type.
 	AckMsgType = DIDExchangeSpec + "ack"
-	// ConnectionID connection id is created to retriever connection record from db
-	ConnectionID = "connectionID"
-	// InvitationID invitation id is created in invitation request
-	InvitationID = "invitationID"
 )
 
 // message type to store data for eventing. This is retrieved during callback.
@@ -393,19 +389,28 @@ func (s *Service) startInternalListener() {
 
 // AcceptInvitation accepts/approves connection invitation.
 func (s *Service) AcceptInvitation(connectionID string) error {
-	msg, err := s.getEventTransientData(connectionID)
-	if err != nil {
-		return fmt.Errorf("accept exchange invitation : %w", err)
-	}
-
-	return s.handleWithoutAction(msg)
+	return s.accept(connectionID, stateNameInvited, "accept exchange invitation")
 }
 
 // AcceptExchangeRequest accepts/approves connection request.
 func (s *Service) AcceptExchangeRequest(connectionID string) error {
+	return s.accept(connectionID, stateNameRequested, "accept exchange request")
+}
+
+func (s *Service) accept(connectionID, stateID, errMsg string) error {
 	msg, err := s.getEventTransientData(connectionID)
 	if err != nil {
-		return fmt.Errorf("accept exchange request : %w", err)
+		return fmt.Errorf("%s : %w", errMsg, err)
+	}
+
+	connRecord, err := s.connectionStore.GetConnectionRecord(connectionID)
+	if err != nil {
+		return fmt.Errorf("%s : %w", errMsg, err)
+	}
+
+	if connRecord.State != stateID {
+		return fmt.Errorf("current state (%s) is different from "+
+			"expected state (%s)", connRecord.State, stateID)
 	}
 
 	return s.handleWithoutAction(msg)

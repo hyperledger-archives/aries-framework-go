@@ -1025,6 +1025,44 @@ func TestAcceptInvitation(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange invitation : get transient data : data not found")
 	})
+
+	t.Run("accept invitation - state error", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		id := generateRandomID()
+		connRecord := &ConnectionRecord{
+			ConnectionID: id,
+			State:        stateNameRequested,
+		}
+		err = svc.connectionStore.saveConnectionRecord(connRecord)
+		require.NoError(t, err)
+
+		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
+		require.NoError(t, err)
+
+		err = svc.AcceptInvitation(id)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "current state (requested) is different from expected state (invited)")
+	})
+
+	t.Run("accept invitation - no connection record error", func(t *testing.T) {
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
+		require.NoError(t, err)
+
+		id := generateRandomID()
+		connRecord := &ConnectionRecord{
+			ConnectionID: id,
+			State:        stateNameRequested,
+		}
+
+		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
+		require.NoError(t, err)
+
+		err = svc.AcceptInvitation(id)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "accept exchange invitation : data not found")
+	})
 }
 
 func TestEventTransientData(t *testing.T) {
