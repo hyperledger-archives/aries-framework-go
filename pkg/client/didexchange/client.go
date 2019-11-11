@@ -96,7 +96,9 @@ func New(ctx provider) (*Client, error) {
 	}, nil
 }
 
-// CreateInvitation create invitation
+// CreateInvitation creates an invitation. New key pair will be generated and base58 encoded public key will be
+// used as basis for invitation. This invitation will be stored so client can cross reference this invitation during
+// did exchange protocol
 func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
 	//  with connection record
@@ -121,7 +123,8 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	return &Invitation{invitation}, nil
 }
 
-// CreateInvitationWithDID creates invitation with specified public DID
+// CreateInvitationWithDID creates an invitation with specified public DID. This invitation will be stored
+// so client can cross reference this invitation during did exchange protocol
 func (c *Client) CreateInvitationWithDID(label, did string) (*Invitation, error) {
 	invitation := &didexchange.Invitation{
 		ID:    uuid.New().String(),
@@ -138,7 +141,9 @@ func (c *Client) CreateInvitationWithDID(label, did string) (*Invitation, error)
 	return &Invitation{invitation}, nil
 }
 
-// HandleInvitation handle incoming invitation and returns the connectionID.
+// HandleInvitation handle incoming invitation and returns the connectionID that can be used to query the state
+// of did exchange protocol. Upon successful completion of did exchange protocol connection details will be used
+// for securing communication between agents.
 func (c *Client) HandleInvitation(invitation *Invitation) (string, error) {
 	payload, err := json.Marshal(invitation)
 	if err != nil {
@@ -160,7 +165,8 @@ func (c *Client) HandleInvitation(invitation *Invitation) (string, error) {
 
 // TODO https://github.com/hyperledger/aries-framework-go/issues/754 - e.Continue v Explicit API call for action events
 
-// AcceptInvitation accepts/approves exchange invitation.
+// AcceptInvitation accepts/approves exchange invitation. This call is not used if auto execute is setup
+// for this client (see package example for more details about how to setup auto execute)
 func (c *Client) AcceptInvitation(connectionID string) error {
 	if err := c.didexchangeSvc.AcceptInvitation(connectionID); err != nil {
 		return fmt.Errorf("did exchange client - accept exchange invitation: %w", err)
@@ -169,7 +175,8 @@ func (c *Client) AcceptInvitation(connectionID string) error {
 	return nil
 }
 
-// AcceptExchangeRequest accepts/approves exchange request.
+// AcceptExchangeRequest accepts/approves exchange request. This call is not used if auto execute is setup
+// for this client (see package example for more details about how to setup auto execute)
 func (c *Client) AcceptExchangeRequest(connectionID string) error {
 	if err := c.didexchangeSvc.AcceptExchangeRequest(connectionID); err != nil {
 		return fmt.Errorf("did exchange client - accept exchange request: %w", err)
@@ -178,7 +185,7 @@ func (c *Client) AcceptExchangeRequest(connectionID string) error {
 	return nil
 }
 
-// QueryConnections queries connections matching given parameters
+// QueryConnections queries connections matching given criteria(parameters)
 func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connection, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/655 - query all connections from all criteria and
 	//  also results needs to be paged.
