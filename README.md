@@ -6,10 +6,26 @@
 [![codecov](https://codecov.io/gh/hyperledger/aries-framework-go/branch/master/graph/badge.svg)](https://codecov.io/gh/hyperledger/aries-framework-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger/aries-framework-go)](https://goreportcard.com/report/github.com/hyperledger/aries-framework-go)
 
-# aries-framework-go
+# <p><img src="https://raw.githubusercontent.com/hyperledger/aries-rfcs/1371a4807ead74c36ea7d5af909064ec491b78c1/collateral/Hyperledger_Aries_Logo_Color.png" height="50px" alt="Hyperledger Aries">Framework Go</p>
 
-## Introduction
-A Go framework for Aries
+Hyperledger Aries Framework Go enables trusted communication and data exchange based on interoperable distributed ledger technologies (DLTs) and peer-to-peer (P2P) interactions.
+We provide a flexible toolkit to enable the usage of decentralized identifiers (DIDs), DID-to-DID communications, verifiable credential exchange, transaction authorizations, and data communication protocols. From these building blocks, implementors can build agents, mediators and other DIDComm features in a manner that is agnostic to a particular DID network or governance framework.
+
+We aim to provide Go implementations of:
+
+- Decentralized identity standards including [W3C decentralized identifiers](https://w3c.github.io/did-core/) (DIDs), [W3C DID resolution](https://w3c-ccg.github.io/did-resolution/), and [W3C verifiable credentials](https://w3c.github.io/vc-data-model/).
+- Decentralized data communication protocols anchored in DIDs: [DIDComm](https://github.com/hyperledger/aries-rfcs/blob/master/concepts/0005-didcomm).
+- A pluggable dependency framework, where implementors can customize primitives via Service Provider Interfaces (SPIs). We have a "batteries included" model where default primitives are included -- such as a key management system (KMS), crypto, data storage, digital hub integration, etc.
+
+We aim to enable usage of our protocol implementations in a wide variety of edge and cloud environments including servers, browsers, mobile, and devices.
+API bindings are supplied to enable these environments including:
+
+- Go
+- REST
+- C (future)
+- WebAssembly (future)
+
+We implement demonstrations and test cases, that require a ledger system, using [DIF Sidetree protocol](https://github.com/decentralized-identity/sidetree/blob/master/docs/protocol.md) as this protocol enables generic decentralized ledger systems to operate as a DID network.
 
 ## Build
 ### Prerequisites (General)
@@ -74,4 +90,6 @@ to get you started!
 
 ## License
 
-Hyperledger Aries Framework Go is licensed under the [Apache License Version 2.0](LICENSE).
+Hyperledger Aries Framework Go is licensed under the [Apache License Version 2.0 (Apache-2.0)](LICENSE).
+
+Hyperledger Aries Framework Go [documentation](docs) is licensed under the [Creative Commons Attribution 4.0 International License (CC-BY-4.0)](http://creativecommons.org/licenses/by/4.0/).
