@@ -297,10 +297,11 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 		ID:         thid,
 		Label:      "",
 		Connection: conn,
+		Thread: &decorator.Thread{
+			PID: invitation.ID,
+		},
 	}
-
 	connRec.MyDID = request.Connection.DID
-	connRec.MyDID = didDoc.ID
 
 	pubKey, err := getPublicKeys(didDoc, supportedPublicKeyType)
 	if err != nil {
@@ -326,7 +327,7 @@ func (ctx *context) handleInboundRequest(request *Request, pubDID string, connRe
 	}
 
 	// prepare connection signature
-	encodedConnectionSignature, err := ctx.prepareConnectionSignature(connection)
+	encodedConnectionSignature, err := ctx.prepareConnectionSignature(connection, request.Thread.PID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -467,7 +468,8 @@ func prepareDestination(didDoc *did.Doc) *service.Destination {
 
 // Encode the connection and convert to Connection Signature as per the spec:
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange
-func (ctx *context) prepareConnectionSignature(connection *Connection) (*ConnectionSignature, error) {
+func (ctx *context) prepareConnectionSignature(connection *Connection,
+	invitationID string) (*ConnectionSignature, error) {
 	connAttributeBytes, err := json.Marshal(connection)
 	if err != nil {
 		return nil, err
@@ -478,14 +480,16 @@ func (ctx *context) prepareConnectionSignature(connection *Connection) (*Connect
 	prefix := append([]byte(timestamp), signatureDataDelimiter)
 	concatenateSignData := append(prefix, connAttributeBytes...)
 
-	// TODO: As per spec we should sign using recipientKeys - this will be done upon completing issue-625
 	// that allows for correlation between exchange-request and invitation using pthid
-	didDoc, err := ctx.resolveDidDocFromConnection(connection)
+	invitation, err := ctx.connectionStore.GetInvitation(invitationID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get invitation: %w", err)
 	}
 
-	pubKey := string(didDoc.PublicKey[0].Value)
+	pubKey, err := ctx.getInvitationRecipientKey(invitation)
+	if err != nil {
+		return nil, fmt.Errorf("get invitation recipient key: %w", err)
+	}
 
 	// TODO: Replace with signed attachments issue-626
 	signature, err := ctx.signer.SignMessage(concatenateSignData, pubKey)
@@ -510,13 +514,8 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *Con
 			ID: response.Thread.ID,
 		},
 	}
-
-	conn, err := verifySignature(response.ConnectionSignature)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	nsThID, err := createNSKey(myNSPrefix, ack.Thread.ID)
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -524,6 +523,12 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *Con
 	connRecord, err := ctx.connectionStore.GetConnectionRecordByNSThreadID(nsThID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get connection record: %w", err)
+	}
+
+	conn, err := verifySignature(response.ConnectionSignature, connRecord.RecipientKeys[0])
+
+	if err != nil {
+		return nil, nil, err
 	}
 
 	connRecord.TheirDID = conn.DID
@@ -551,7 +556,7 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *Con
 }
 
 // verifySignature verifies connection signature and returns connection
-func verifySignature(connSignature *ConnectionSignature) (*Connection, error) {
+func verifySignature(connSignature *ConnectionSignature, recipientKeys string) (*Connection, error) {
 	sigData, err := base64.URLEncoding.DecodeString(connSignature.SignedData)
 	if err != nil {
 		return nil, fmt.Errorf("decode signature data: %w", err)
@@ -566,12 +571,8 @@ func verifySignature(connSignature *ConnectionSignature) (*Connection, error) {
 		return nil, fmt.Errorf("decode signature: %w", err)
 	}
 
-	// TODO: As per spec inviter should sign using recipientKeys - this will be done upon completing issue-625
 	// The signature data must be used to verify against the invitation's recipientKeys for continuity.
-	pubKey, err := base64.URLEncoding.DecodeString(connSignature.SignVerKey)
-	if err != nil {
-		return nil, fmt.Errorf("decode public key: %w", err)
-	}
+	pubKey := base58.Decode(recipientKeys)
 
 	// TODO: Replace with signed attachments issue-626
 	signatureSuite := ed25519signature2018.New()
@@ -616,4 +617,17 @@ func getPublicKeys(didDoc *did.Doc, pubKeyType string) ([]did.PublicKey, error) 
 	}
 
 	return publicKeys, nil
+}
+
+func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, error) {
+	if invitation.DID != "" {
+		didDoc, err := ctx.didResolver.Resolve(invitation.DID)
+		if err != nil {
+			return "", fmt.Errorf("get invitation recipient key: %w", err)
+		}
+
+		return string(didDoc.PublicKey[0].Value), nil
+	}
+
+	return invitation.RecipientKeys[0], nil
 }

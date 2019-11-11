@@ -9,6 +9,8 @@ package didexchange
 import (
 	"bytes"
 	"crypto"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,12 +20,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
@@ -391,8 +396,11 @@ func handlerLookup(t *testing.T, op *Operation, lookup string) operation.Handler
 }
 
 func TestAcceptExchangeRequest(t *testing.T) {
+	transientStore := mockstore.NewMockStoreProvider()
 	store := mockstore.NewMockStoreProvider()
-	didExSvc, err := didexsvc.New(&didcreator.MockDIDCreator{}, &protocol.MockProvider{TransientStoreProvider: store})
+	didExSvc, err := didexsvc.New(
+		&didcreator.MockDIDCreator{},
+		&protocol.MockProvider{TransientStoreProvider: transientStore, StoreProvider: store})
 
 	require.NoError(t, err)
 
@@ -401,9 +409,10 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 	// create the client
 	op, err := New(&mockprovider.Provider{
-		TransientStorageProviderValue: store,
-		StorageProviderValue:          mockstore.NewMockStoreProvider(),
-		ServiceValue:                  didExSvc},
+		TransientStorageProviderValue: transientStore,
+		StorageProviderValue:          store,
+		ServiceValue:                  didExSvc,
+		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}},
 		&mockNotifier{
 			notifyFunc: func(topic string, message []byte) error {
 				require.Equal(t, connectionsWebhookTopic, topic)
@@ -433,13 +442,19 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	newDidDoc, err := (&didcreator.MockDIDCreator{}).Create("peer")
 	require.NoError(t, err)
 
+	invitation, err := op.client.CreateInvitation("test")
+	require.NoError(t, err)
+
 	request, err := json.Marshal(
 		&didexsvc.Request{
 			Type:  didexsvc.RequestMsgType,
 			ID:    id,
 			Label: "test",
+			Thread: &decorator.Thread{
+				PID: invitation.ID,
+			},
 			Connection: &didexsvc.Connection{
-				DID:    "B.did@B:A",
+				DID:    newDidDoc.ID,
 				DIDDoc: newDidDoc,
 			},
 		},
@@ -506,19 +521,19 @@ func TestAcceptInvitation(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, op)
 
-	// send connection request message
-	id := "valid-thread-id"
-
-	request, err := json.Marshal(
-		&didexsvc.Request{
-			Type:  didexsvc.InvitationMsgType,
-			ID:    id,
-			Label: "test",
+	pubKey, _ := generateKeyPair()
+	// send connection invitation message
+	invitation, err := json.Marshal(
+		&didexsvc.Invitation{
+			Type:          didexsvc.InvitationMsgType,
+			ID:            "abc",
+			Label:         "test",
+			RecipientKeys: []string{pubKey},
 		},
 	)
 	require.NoError(t, err)
 
-	msg, err := service.NewDIDCommMsg(request)
+	msg, err := service.NewDIDCommMsg(invitation)
 	require.NoError(t, err)
 
 	_, err = didExSvc.HandleInbound(msg)
@@ -682,4 +697,12 @@ func (e *didExEvent) ConnectionID() string {
 
 func (e *didExEvent) InvitationID() string {
 	return "xyz"
+}
+func generateKeyPair() (string, []byte) {
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	return base58.Encode(pubKey[:]), privKey
 }
