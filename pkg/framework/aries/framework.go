@@ -196,11 +196,6 @@ func WithDIDStore(didStore didstore.Storage) Option {
 	}
 }
 
-// DIDResolver returns the framework configured DID Resolver.
-func (a *Aries) DIDResolver() didresolver.Resolver {
-	return a.didResolver
-}
-
 // Context provides handle to framework context
 func (a *Aries) Context() (*context.Provider, error) {
 	return context.New(
