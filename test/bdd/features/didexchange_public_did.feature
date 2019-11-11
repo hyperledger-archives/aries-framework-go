@@ -6,9 +6,10 @@
 # Reference : https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange
 
 @all
+@didexchange_public_dids
 Feature: Decentralized Identifier(DID) exchange between the agents using public did in invitation
 
-  @didexchange_public_dids
+  @didexchange_public_dids_invitation
   Scenario: did exchange e2e flow using public DID in invitation
     Given "Maria" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
     And   "Maria" creates public DID using sidetree "${SIDETREE_URL}"

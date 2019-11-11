@@ -6,9 +6,9 @@
 # Reference : https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange
 
 @all
+@didexchange_e2e_controller
 Feature: Decentralized Identifier(DID) exchange between the agents using controller API
 
-  @didexchange_e2e_controller
   Scenario: did exchange e2e flow using controller api
     Given "Alice" agent is running on "localhost" port "8081" with controller "http://localhost:8082" and webhook "http://localhost:8083"
     And "Bob" agent is running on "localhost" port "9081" with controller "http://localhost:9082" and webhook "http://localhost:9083"
