@@ -36,9 +36,9 @@ type Aries struct {
 	packagerCreator           packager.Creator
 	packager                  commontransport.Packager
 	packerCreator             packer.Creator
-	inboundPackerCreators     []packer.Creator
-	packer                    packer.Packer
-	inboundPackers            []packer.Packer
+	packerCreators            []packer.Creator
+	primaryPacker             packer.Packer
+	packers                   []packer.Packer
 	didResolver               didresolver.Resolver
 	didStore                  didstore.Storage
 }
@@ -170,20 +170,13 @@ func WithKMS(k api.KMSCreator) Option {
 	}
 }
 
-// WithPacker injects a Packer service to the Aries framework
-// to pack outbound messages and be available for unpacking inbound messages.
-func WithPacker(c packer.Creator) Option {
+// WithPacker injects at least one Packer service into the Aries framework,
+// with the primary Packer being used for inbound/outbound communication
+// and the additional packers being available for unpacking inbound messages.
+func WithPacker(primary packer.Creator, additionalPackers ...packer.Creator) Option {
 	return func(opts *Aries) error {
-		opts.packerCreator = c
-		return nil
-	}
-}
-
-// WithInboundPackers injects a variable number of Packer services into the Aries framework
-// for unpacking inbound messages.
-func WithInboundPackers(packers ...packer.Creator) Option {
-	return func(opts *Aries) error {
-		opts.inboundPackerCreators = append(opts.inboundPackerCreators, packers...)
+		opts.packerCreator = primary
+		opts.packerCreators = append(opts.packerCreators, additionalPackers...)
 		return nil
 	}
 }
@@ -206,8 +199,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
 		context.WithStorageProvider(a.storeProvider),
 		context.WithTransientStorageProvider(a.transientStoreProvider),
-		context.WithPacker(a.packer),
-		context.WithInboundPackers(a.inboundPackers...),
+		context.WithPacker(a.primaryPacker, a.packers...),
 		context.WithPackager(a.packager),
 		context.WithDIDResolver(a.didResolver),
 		context.WithDIDStore(a.didStore),
@@ -325,23 +317,26 @@ func createPackersAndPackager(frameworkOpts *Aries) error {
 		return fmt.Errorf("create envelope context failed: %w", err)
 	}
 
-	frameworkOpts.packer, err = frameworkOpts.packerCreator(ctx)
+	frameworkOpts.primaryPacker, err = frameworkOpts.packerCreator(ctx)
 	if err != nil {
 		return fmt.Errorf("create packer failed: %w", err)
 	}
 
-	for _, pC := range frameworkOpts.inboundPackerCreators {
+	for _, pC := range frameworkOpts.packerCreators {
+		if pC == nil {
+			continue
+		}
+
 		p, e := pC(ctx)
 		if e != nil {
 			return fmt.Errorf("create packer failed: %w", e)
 		}
 
-		frameworkOpts.inboundPackers = append(frameworkOpts.inboundPackers, p)
+		frameworkOpts.packers = append(frameworkOpts.packers, p)
 	}
 
 	ctx, err = context.New(
-		context.WithPacker(frameworkOpts.packer),
-		context.WithInboundPackers(frameworkOpts.inboundPackers...))
+		context.WithPacker(frameworkOpts.primaryPacker, frameworkOpts.packers...))
 	if err != nil {
 		return fmt.Errorf("create packager context failed: %w", err)
 	}

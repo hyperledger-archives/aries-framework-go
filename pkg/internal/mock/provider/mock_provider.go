@@ -49,12 +49,12 @@ func (p *Provider) TransientStorageProvider() storage.Provider {
 	return p.TransientStorageProviderValue
 }
 
-// InboundPackers returns the available Packer services
-func (p *Provider) InboundPackers() []packer.Packer {
+// Packers returns the available Packer services
+func (p *Provider) Packers() []packer.Packer {
 	return p.PackerList
 }
 
-// Packer returns the outbound Packer service
-func (p *Provider) Packer() packer.Packer {
+// PrimaryPacker returns the main Packer service
+func (p *Provider) PrimaryPacker() packer.Packer {
 	return p.PackerValue
 }

@@ -130,10 +130,8 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) {
 		frameworkOpts.packerCreator = func(provider packer.Provider) (packer.Packer, error) {
 			return legacy.New(provider), nil
 		}
-	}
 
-	if frameworkOpts.inboundPackerCreators == nil {
-		frameworkOpts.inboundPackerCreators = []packer.Creator{
+		frameworkOpts.packerCreators = []packer.Creator{
 			func(provider packer.Provider) (packer.Packer, error) {
 				return legacy.New(provider), nil
 			},
