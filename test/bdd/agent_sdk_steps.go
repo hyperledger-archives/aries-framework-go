@@ -9,7 +9,6 @@ package bdd
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"time"
@@ -33,44 +32,53 @@ const (
 
 var logger = log.New("aries-framework/tests")
 
-// AgentSDKSteps
+// AgentSDKSteps contains steps for agent from client SDK
 type AgentSDKSteps struct {
 	bddContext *context.BDDContext
 }
 
-// NewAgentSDKSteps
-func NewAgentSDKSteps(context *context.BDDContext) *AgentSDKSteps {
-	return &AgentSDKSteps{bddContext: context}
+// NewAgentSDKSteps returns new agent from client SDK
+func NewAgentSDKSteps(ctx *context.BDDContext) *AgentSDKSteps {
+	return &AgentSDKSteps{bddContext: ctx}
 }
 
 func (a *AgentSDKSteps) createAgent(agentID, inboundHost, inboundPort string) error {
 	var opts []aries.Option
+
 	storeProv, err := a.getStoreProvider(agentID)
 	if err != nil {
 		return err
 	}
+
 	opts = append(opts, aries.WithStoreProvider(storeProv))
+
 	return a.create(agentID, inboundHost, inboundPort, opts...)
 }
 
-func (a *AgentSDKSteps) createAgentWithHttpDIDResolver(agentID, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
+func (a *AgentSDKSteps) createAgentWithHTTPDIDResolver(
+	agentID, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
 	var opts []aries.Option
+
 	httpResolver, err := httpbinding.New(a.bddContext.Args[endpointURL],
 		httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
 	if err != nil {
 		return fmt.Errorf("failed from httpbinding new ")
 	}
+
 	storeProv, err := a.getStoreProvider(agentID)
 	if err != nil {
 		return err
 	}
+
 	peerDidStore, err := peer.NewDIDStore(storeProv)
 	if err != nil {
 		return fmt.Errorf("failed to create new did store : %w", err)
 	}
-	opts = append(opts, aries.WithStoreProvider(storeProv))
-	opts = append(opts, aries.WithDIDResolver(didresolver.New(didresolver.WithDidMethod(httpResolver),
-		didresolver.WithDidMethod(peer.NewDIDResolver(peerDidStore)))))
+
+	opts = append(opts, aries.WithStoreProvider(storeProv),
+		aries.WithDIDResolver(didresolver.New(didresolver.WithDidMethod(httpResolver),
+			didresolver.WithDidMethod(peer.NewDIDResolver(peerDidStore)))))
+
 	return a.create(agentID, inboundHost, inboundPort, opts...)
 }
 
@@ -79,6 +87,7 @@ func (a *AgentSDKSteps) getStoreProvider(agentID string) (storage.Provider, erro
 	if err != nil {
 		return nil, fmt.Errorf("leveldb provider initialization failed : %w", err)
 	}
+
 	return storeProv, nil
 }
 
@@ -86,37 +95,35 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort string, opts ..
 	if inboundPort == "random" {
 		inboundPort = strconv.Itoa(mustGetRandomPort(5))
 	}
+
 	opts = append(opts, defaults.WithInboundHTTPAddr(fmt.Sprintf("%s:%s", inboundHost, inboundPort), ""))
+
 	agent, err := aries.New(opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create new agent: %w", err)
 	}
+
 	ctx, err := agent.Context()
 	if err != nil {
 		return fmt.Errorf("failed to create context: %w", err)
 	}
+
 	a.bddContext.AgentCtx[agentID] = ctx
+
 	if err := listenFor(fmt.Sprintf("%s:%s", inboundHost, inboundPort), 2*time.Second); err != nil {
 		return err
 	}
 
 	logger.Debugf("Agent %s start listening on %s:%s", agentID, inboundHost, inboundPort)
-	return nil
-}
 
-func closeResponse(c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		logger.Errorf("Failed to close response body : %s", err)
-	}
+	return nil
 }
 
 // RegisterSteps registers agent steps
 func (a *AgentSDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)"$`, a.createAgent)
-	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
-		a.createAgentWithHttpDIDResolver)
-
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
+		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.createAgentWithHTTPDIDResolver)
 }
 
 func mustGetRandomPort(n int) int {
@@ -125,29 +132,36 @@ func mustGetRandomPort(n int) int {
 		if err != nil {
 			continue
 		}
+
 		return port
 	}
+
 	panic("cannot acquire the random port")
 }
 
 func getRandomPort() (int, error) {
 	const network = "tcp"
+
 	addr, err := net.ResolveTCPAddr(network, "localhost:0")
 	if err != nil {
 		return 0, err
 	}
+
 	listener, err := net.ListenTCP(network, addr)
 	if err != nil {
 		return 0, err
 	}
+
 	if err := listener.Close(); err != nil {
 		return 0, err
 	}
+
 	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
 func listenFor(host string, d time.Duration) error {
 	timeout := time.After(d)
+
 	for {
 		select {
 		case <-timeout:
@@ -157,6 +171,7 @@ func listenFor(host string, d time.Duration) error {
 			if err != nil {
 				continue
 			}
+
 			return conn.Close()
 		}
 	}

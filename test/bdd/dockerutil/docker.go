@@ -32,23 +32,30 @@ func splitDockerCommandResults(cmdOutput string) (linesToReturn []string) {
 			linesToReturn = append(linesToReturn, line)
 		}
 	}
+
 	return linesToReturn
 }
 
 func (d *dockerCmdlineHelper) issueDockerCommand(cmdArgs []string) (string, error) {
 	var cmdOut []byte
+
 	var err error
+
 	cmd := exec.Command("docker", cmdArgs...) //nolint: gosec
 	cmdOut, err = cmd.CombinedOutput()
+
 	return string(cmdOut), err
 }
 
 func (d *dockerCmdlineHelper) getContainerIDsWithNamePrefix(namePrefix string) ([]string, error) {
 	cmdOutput, err := d.issueDockerCommand([]string{"ps", "--filter", fmt.Sprintf("name=%s", namePrefix), "-qa"})
 	if err != nil {
-		return nil, fmt.Errorf("Error getting containers with name prefix '%s':  %s", namePrefix, err)
+		return nil, fmt.Errorf("error getting containers with name prefix '%s':  %s",
+			namePrefix, err)
 	}
+
 	containerIDs := splitDockerCommandResults(cmdOutput)
+
 	return containerIDs, err
 }
 
@@ -57,10 +64,13 @@ func (d *dockerCmdlineHelper) GetIPAddress(containerID string) (ipAddress string
 		cmdOutput string
 		lines     []string
 	)
+
 	errRetFunc := func() error {
-		return fmt.Errorf("Error getting IPAddress for container '%s':  %s", containerID, err)
+		return fmt.Errorf("error getting IPAddress for container '%s':  %s", containerID, err)
 	}
-	if cmdOutput, err = d.issueDockerCommand([]string{"inspect", "--format", "{{ .NetworkSettings.IPAddress }}", containerID}); err != nil {
+
+	if cmdOutput, err = d.issueDockerCommand([]string{"inspect", "--format", "{{ .NetworkSettings.IPAddress }}",
+		containerID}); err != nil {
 		return "", errRetFunc()
 	}
 
@@ -68,18 +78,26 @@ func (d *dockerCmdlineHelper) GetIPAddress(containerID string) (ipAddress string
 		err = fmt.Errorf("unexpected length on inspect output")
 		return "", errRetFunc()
 	}
+
 	ipAddress = lines[0]
+
 	return ipAddress, nil
 }
 
 func (d *dockerCmdlineHelper) RemoveContainersWithNamePrefix(namePrefix string) error {
 	containers, err := d.getContainerIDsWithNamePrefix(namePrefix)
 	if err != nil {
-		return fmt.Errorf("Error removing containers with name prefix (%s):  %s", namePrefix, err)
+		return fmt.Errorf("error removing containers with name prefix (%s):  %s", namePrefix, err)
 	}
+
 	for _, id := range containers {
 		fmt.Printf("container: %s", id)
-		_, _ = d.issueDockerCommand([]string{"rm", "-f", id})
+
+		_, err = d.issueDockerCommand([]string{"rm", "-f", id})
+		if err != nil {
+			return fmt.Errorf("failed to issue docker command:  %w", err)
+		}
 	}
+
 	return nil
 }

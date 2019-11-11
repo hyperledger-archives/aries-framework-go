@@ -17,3 +17,4 @@ fi
 
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace golangci/golangci-lint:v1.21 golangci-lint run
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/cmd/aries-agentd golangci/golangci-lint:v1.21 golangci-lint run -c ../../.golangci.yml
+${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/test/bdd golangci/golangci-lint:v1.21 golangci-lint run -c ../../.golangci.yml

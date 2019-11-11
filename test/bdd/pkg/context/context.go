@@ -35,6 +35,7 @@ func NewBDDContext() (*BDDContext, error) {
 		controllerURLs:     make(map[string]string),
 		webhookURLs:        make(map[string]string),
 	}
+
 	return &instance, nil
 }
 
@@ -60,6 +61,7 @@ func (b *BDDContext) GetWebhookURL(agentID string) (string, bool) {
 	defer b.lock.RUnlock()
 
 	url, ok := b.webhookURLs[agentID]
+
 	return url, ok
 }
 
@@ -77,5 +79,6 @@ func (b *BDDContext) GetControllerURL(agentID string) (string, bool) {
 	defer b.lock.RUnlock()
 
 	url, ok := b.controllerURLs[agentID]
+
 	return url, ok
 }

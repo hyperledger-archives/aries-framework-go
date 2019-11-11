@@ -96,6 +96,11 @@ issues:
   exclude:
     # Allow package logger variables (for now)
     - \`logger\` is a global variable
+    # Allow global variable in bdd test mock webhook
+    - \`connectionTopics\` is a global variable
+    # Allow global variable in bdd test setup
+    - \`composeFiles\` is a global variable
+    - \`composition\` is a global variable
     -  Line contains TODO/BUG/FIXME
     # Add comments for package
     -  at least one file in a package should have a package comment
