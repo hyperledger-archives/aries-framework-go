@@ -35,6 +35,7 @@ var composeFiles = []string{"./fixtures/sidetree-mock", "./fixtures/agent"}
 func TestMain(m *testing.M) {
 	// default is to run all tests with tag @all
 	tags := "all"
+
 	flag.Parse()
 
 	format := "progress"
@@ -53,18 +54,24 @@ func TestMain(m *testing.M) {
 		if err != nil {
 			panic(err)
 		}
+
 		log.SetLevel(os.Getenv("AGENT_LOG_MODULE"), logLevel)
 	}
 
-	initBDDConfig()
+	status := runBddTests(tags, format)
+	if st := m.Run(); st > status {
+		status = st
+	}
 
-	status := godog.RunWithOptions("godogs", func(s *godog.Suite) {
+	os.Exit(status)
+}
+
+func runBddTests(tags, format string) int {
+	return godog.RunWithOptions("godogs", func(s *godog.Suite) {
 		s.BeforeSuite(func() {
-
 			if os.Getenv("DISABLE_COMPOSITION") != "true" {
-
 				// Need a unique name, but docker does not allow '-' in names
-				composeProjectName := strings.Replace(generateUUID(), "-", "", -1)
+				composeProjectName := strings.ReplaceAll(generateUUID(), "-", "")
 
 				for _, v := range composeFiles {
 					newComposition, err := dockerutil.NewComposition(composeProjectName, "docker-compose.yml", v)
@@ -76,12 +83,16 @@ func TestMain(m *testing.M) {
 				fmt.Println("docker-compose up ... waiting for containers to start ...")
 				testSleep := 5
 				if os.Getenv("TEST_SLEEP") != "" {
-					testSleep, _ = strconv.Atoi(os.Getenv("TEST_SLEEP"))
+					var e error
+
+					testSleep, e = strconv.Atoi(os.Getenv("TEST_SLEEP"))
+					if e != nil {
+						panic(fmt.Sprintf("Invalid value found in 'TEST_SLEEP': %s", e))
+					}
 				}
 				fmt.Printf("*** testSleep=%d", testSleep)
 				time.Sleep(time.Second * time.Duration(testSleep))
 			}
-
 		})
 		s.AfterSuite(func() {
 			for _, c := range composition {
@@ -104,11 +115,6 @@ func TestMain(m *testing.M) {
 		Strict:        true,
 		StopOnFailure: true,
 	})
-
-	if st := m.Run(); st > status {
-		status = st
-	}
-	os.Exit(status)
 }
 
 func getCmdArg(argName string) string {
@@ -116,6 +122,7 @@ func getCmdArg(argName string) string {
 	if cmdTags != nil && cmdTags.Value != nil && cmdTags.Value.String() != "" {
 		return cmdTags.Value.String()
 	}
+
 	return ""
 }
 
@@ -145,8 +152,4 @@ func FeatureContext(s *godog.Suite) {
 
 	// Register did resolver tests
 	didresolver.NewDIDResolverSteps(bddContext).RegisterSteps(s)
-
-}
-
-func initBDDConfig() {
 }

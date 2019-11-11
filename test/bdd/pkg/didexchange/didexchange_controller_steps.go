@@ -38,33 +38,34 @@ const (
 
 var logger = log.New("aries-framework/didexchange-tests")
 
-// DIDExchangeControllerSteps
-type DIDExchangeControllerSteps struct {
+// ControllerSteps is steps for didexchange with controller
+type ControllerSteps struct {
 	bddContext    *context.BDDContext
 	invitations   map[string]*didexchange.Invitation
 	connectionIDs map[string]string
 }
 
 // NewDIDExchangeControllerSteps creates steps for didexchange with controller
-func NewDIDExchangeControllerSteps(context *context.BDDContext) *DIDExchangeControllerSteps {
-	return &DIDExchangeControllerSteps{
-		bddContext:    context,
+func NewDIDExchangeControllerSteps(ctx *context.BDDContext) *ControllerSteps {
+	return &ControllerSteps{
+		bddContext:    ctx,
 		invitations:   make(map[string]*didexchange.Invitation),
 		connectionIDs: make(map[string]string),
 	}
 }
 
 // RegisterSteps registers agent steps
-func (a *DIDExchangeControllerSteps) RegisterSteps(s *godog.Suite) {
+func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
 	s.Step(`^"([^"]*)" approves exchange invitation`, a.approveInvitation)
 	s.Step(`^"([^"]*)" approves exchange request`, a.approveRequest)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)" to webhook`, a.waitForPostEvent)
-	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`, a.validateConnection)
+	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`,
+		a.validateConnection)
 }
 
-func (a *DIDExchangeControllerSteps) pullWebhookEvents(agentID, state string) (string, error) {
+func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, error) {
 	webhookURL, ok := a.bddContext.GetWebhookURL(agentID)
 	if !ok {
 		return "", fmt.Errorf("unable to find webhook URL for agent [%s]", agentID)
@@ -73,9 +74,10 @@ func (a *DIDExchangeControllerSteps) pullWebhookEvents(agentID, state string) (s
 	// try to pull recently pushed topics from webhook
 	for {
 		var connectionMsg didexchrsapi.ConnectionMsg
+
 		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &connectionMsg)
 		if err != nil {
-			return "", fmt.Errorf("Failed pull topics from webhook, cause : %s", err)
+			return "", fmt.Errorf("failed pull topics from webhook, cause : %s", err)
 		}
 
 		if strings.EqualFold(state, connectionMsg.State) {
@@ -84,10 +86,9 @@ func (a *DIDExchangeControllerSteps) pullWebhookEvents(agentID, state string) (s
 
 		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)
 	}
-
 }
 
-func (a *DIDExchangeControllerSteps) createInvitation(inviterAgentID, label string) error {
+func (a *ControllerSteps) createInvitation(inviterAgentID, label string) error {
 	destination, ok := a.bddContext.GetControllerURL(inviterAgentID)
 	if !ok {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", inviterAgentID)
@@ -95,7 +96,9 @@ func (a *DIDExchangeControllerSteps) createInvitation(inviterAgentID, label stri
 
 	// call controller
 	path := fmt.Sprintf("%s%s?alias=%s", destination, createInvitationPath, label)
+
 	var result models.CreateInvitationResponse
+
 	err := sendHTTP(http.MethodPost, path, nil, &result)
 	if err != nil {
 		logger.Errorf("Failed to create invitation, cause : %s", err)
@@ -118,7 +121,7 @@ func (a *DIDExchangeControllerSteps) createInvitation(inviterAgentID, label stri
 	return nil
 }
 
-func (a *DIDExchangeControllerSteps) receiveInvitation(inviteeAgentID, inviterAgentID string) error {
+func (a *ControllerSteps) receiveInvitation(inviteeAgentID, inviterAgentID string) error {
 	destination, ok := a.bddContext.GetControllerURL(inviteeAgentID)
 	if !ok {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", inviterAgentID)
@@ -137,6 +140,7 @@ func (a *DIDExchangeControllerSteps) receiveInvitation(inviteeAgentID, inviterAg
 
 	// call controller
 	var result models.ReceiveInvitationResponse
+
 	err = sendHTTP(http.MethodPost, destination+receiveInvtiationPath, message, &result)
 	if err != nil {
 		logger.Errorf("Failed to perform receive invitation, cause : %s", err)
@@ -154,7 +158,7 @@ func (a *DIDExchangeControllerSteps) receiveInvitation(inviteeAgentID, inviterAg
 	return nil
 }
 
-func (a *DIDExchangeControllerSteps) approveInvitation(agentID string) error {
+func (a *ControllerSteps) approveInvitation(agentID string) error {
 	connectionID, err := a.pullWebhookEvents(agentID, "invited")
 	if err != nil {
 		return fmt.Errorf("aprove exchange invitation : %w", err)
@@ -174,8 +178,7 @@ func (a *DIDExchangeControllerSteps) approveInvitation(agentID string) error {
 		nil, &connMsg)
 }
 
-func (a *DIDExchangeControllerSteps) approveRequest(agentID string) error {
-
+func (a *ControllerSteps) approveRequest(agentID string) error {
 	connectionID, err := a.pullWebhookEvents(agentID, "requested")
 	if err != nil {
 		return fmt.Errorf("failed to get connection ID from webhook, %w", err)
@@ -195,15 +198,16 @@ func (a *DIDExchangeControllerSteps) approveRequest(agentID string) error {
 		nil, &connMsg)
 }
 
-func (a *DIDExchangeControllerSteps) waitForPostEvent(agentID, statesValue string) error {
+func (a *ControllerSteps) waitForPostEvent(agentID, statesValue string) error {
 	_, err := a.pullWebhookEvents(agentID, statesValue)
 	if err != nil {
 		return fmt.Errorf("failed to get notification from webhook, %w", err)
 	}
+
 	return nil
 }
 
-func (a *DIDExchangeControllerSteps) validateConnection(agentID, stateValue string) error {
+func (a *ControllerSteps) validateConnection(agentID, stateValue string) error {
 	connectionID, ok := a.connectionIDs[agentID]
 	if !ok {
 		return fmt.Errorf(" unable to find valid connection ID for agent [%s]", connectionID)
@@ -215,25 +219,28 @@ func (a *DIDExchangeControllerSteps) validateConnection(agentID, stateValue stri
 	}
 
 	logger.Debugf(" Getting connection by ID %s from %s", connectionID, destination)
+
 	// call controller
 	var response models.QueryConnectionResponse
+
 	err := sendHTTP(http.MethodGet, destination+strings.Replace(connectionsByID, "{id}", connectionID, 1), nil, &response)
 	if err != nil {
 		logger.Errorf("Failed to perform receive invitation, cause : %s", err)
 		return err
 	}
+
 	logger.Debugf("Got connection by ID, result %s", response)
 
 	// Verify state
 	if response.Result.State != stateValue {
-		return fmt.Errorf("Expected state[%s] for agent[%s], but got[%s]", stateValue, agentID, response.Result.State)
+		return fmt.Errorf("expected state[%s] for agent[%s], but got[%s]", stateValue, agentID, response.Result.State)
 	}
 
 	// Also make sure new connection is available in list of connections for given agent
 	return a.verifyConnectionList(agentID, stateValue, connectionID)
 }
 
-func (a *DIDExchangeControllerSteps) verifyConnectionList(agentID, queryState, verifyID string) error {
+func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID string) error {
 	destination, ok := a.bddContext.GetControllerURL(agentID)
 	if !ok {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
@@ -243,11 +250,13 @@ func (a *DIDExchangeControllerSteps) verifyConnectionList(agentID, queryState, v
 
 	// call controller
 	var response models.QueryConnectionsResponse
+
 	err := sendHTTP(http.MethodGet, destination+operationID+"?state="+queryState, nil, &response)
 	if err != nil {
 		logger.Errorf("Failed to perform receive invitation, cause : %s", err)
 		return err
 	}
+
 	logger.Debugf("Got %d connections for state `%s`", len(response.Results), queryState)
 
 	if len(response.Results) == 0 {
@@ -255,6 +264,7 @@ func (a *DIDExchangeControllerSteps) verifyConnectionList(agentID, queryState, v
 	}
 
 	var found bool
+
 	for _, connection := range response.Results {
 		if connection.State == queryState && connection.ConnectionID == verifyID {
 			found = true
@@ -263,7 +273,8 @@ func (a *DIDExchangeControllerSteps) verifyConnectionList(agentID, queryState, v
 	}
 
 	if !found {
-		return fmt.Errorf("no connections found with state '%s' and connection ID '%s' in connections list", queryState, verifyID)
+		return fmt.Errorf("no connections found with state '%s' and connection ID '%s' in connections list",
+			queryState, verifyID)
 	}
 
 	return nil

@@ -22,8 +22,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
-// DIDExchangeSDKSteps
-type DIDExchangeSDKSteps struct {
+// SDKSteps is steps for didexchange using client SDK
+type SDKSteps struct {
 	bddContext     *context.BDDContext
 	actionCh       map[string]chan service.DIDCommAction
 	connectionID   map[string]string
@@ -31,10 +31,10 @@ type DIDExchangeSDKSteps struct {
 	postStatesFlag map[string]map[string]chan bool
 }
 
-// NewDIDExchangeSDKSteps
-func NewDIDExchangeSDKSteps(context *context.BDDContext) *DIDExchangeSDKSteps {
-	return &DIDExchangeSDKSteps{
-		bddContext:     context,
+// NewDIDExchangeSDKSteps return new steps for didexchange using client SDK
+func NewDIDExchangeSDKSteps(ctx *context.BDDContext) *SDKSteps {
+	return &SDKSteps{
+		bddContext:     ctx,
 		actionCh:       make(map[string]chan service.DIDCommAction),
 		connectionID:   make(map[string]string),
 		invitations:    make(map[string]*didexchange.Invitation),
@@ -42,43 +42,49 @@ func NewDIDExchangeSDKSteps(context *context.BDDContext) *DIDExchangeSDKSteps {
 	}
 }
 
-func (d *DIDExchangeSDKSteps) createInvitation(inviterAgentID string) error {
+func (d *SDKSteps) createInvitation(inviterAgentID string) error {
 	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitation(inviterAgentID)
 	if err != nil {
 		return fmt.Errorf("create invitation: %w", err)
 	}
+
 	d.invitations[inviterAgentID] = invitation
 
 	invitationBytes, err := json.Marshal(invitation)
 	if err != nil {
 		return fmt.Errorf("marshal invitation: %w", err)
 	}
+
 	logger.Debugf("Agent %s create invitation %s", inviterAgentID, invitationBytes)
 
 	return nil
 }
 
-func (d *DIDExchangeSDKSteps) createInvitationWithDID(inviterAgentID string) error {
-	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitationWithDID(inviterAgentID, d.bddContext.PublicDIDs[inviterAgentID].ID)
+func (d *SDKSteps) createInvitationWithDID(inviterAgentID string) error {
+	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitationWithDID(inviterAgentID,
+		d.bddContext.PublicDIDs[inviterAgentID].ID)
 	if err != nil {
 		return fmt.Errorf("failed to create invitation: %w", err)
 	}
+
 	d.invitations[inviterAgentID] = invitation
+
 	invitationBytes, err := json.Marshal(invitation)
 	if err != nil {
 		return fmt.Errorf("failed to marshal invitation: %w", err)
 	}
 
 	logger.Debugf("Agent %s create invitation %s", inviterAgentID, invitationBytes)
+
 	return nil
 }
 
-func (d *DIDExchangeSDKSteps) waitForPublicDID(agentID string, maxSeconds int) error {
+func (d *SDKSteps) waitForPublicDID(agentID string, maxSeconds int) error {
 	_, err := resolveDID(d.bddContext.AgentCtx[agentID].DIDResolver(), d.bddContext.PublicDIDs[agentID].ID, maxSeconds)
 	return err
 }
 
-func (d *DIDExchangeSDKSteps) receiveInvitation(inviteeAgentID, inviterAgentID string) error {
+func (d *SDKSteps) receiveInvitation(inviteeAgentID, inviterAgentID string) error {
 	connectionID, err := d.bddContext.DIDExchangeClients[inviteeAgentID].HandleInvitation(d.invitations[inviterAgentID])
 	if err != nil {
 		return fmt.Errorf("failed to handle invitation: %w", err)
@@ -89,7 +95,7 @@ func (d *DIDExchangeSDKSteps) receiveInvitation(inviteeAgentID, inviterAgentID s
 	return nil
 }
 
-func (d *DIDExchangeSDKSteps) waitForPostEvent(agentID, statesValue string) error {
+func (d *SDKSteps) waitForPostEvent(agentID, statesValue string) error {
 	states := strings.Split(statesValue, ",")
 	for _, state := range states {
 		select {
@@ -98,21 +104,24 @@ func (d *DIDExchangeSDKSteps) waitForPostEvent(agentID, statesValue string) erro
 			return fmt.Errorf("timeout waiting for post state event %s", state)
 		}
 	}
+
 	return nil
 }
 
-func (d *DIDExchangeSDKSteps) validateConnection(agentID, stateValue string) error {
+func (d *SDKSteps) validateConnection(agentID, stateValue string) error {
 	conn, err := d.bddContext.DIDExchangeClients[agentID].GetConnection(d.connectionID[agentID])
 	if err != nil {
 		return fmt.Errorf("failed to query connection by id: %w", err)
 	}
+
 	if conn.State != stateValue {
 		return fmt.Errorf("state from connection %s not equal %s", conn.State, stateValue)
 	}
+
 	return nil
 }
 
-func (d *DIDExchangeSDKSteps) approveRequest(agentID string) error {
+func (d *SDKSteps) approveRequest(agentID string) error {
 	go func() {
 		for e := range d.actionCh[agentID] {
 			switch v := e.Properties.(type) {
@@ -130,11 +139,13 @@ func (d *DIDExchangeSDKSteps) approveRequest(agentID string) error {
 	return nil
 }
 
-func (d *DIDExchangeSDKSteps) getClientOptions(agentID string) interface{} {
+func (d *SDKSteps) getClientOptions(agentID string) interface{} {
 	var clientOpts interface{}
+
 	pubDID, ok := d.bddContext.PublicDIDs[agentID]
 	if ok {
 		clientOpts = &clientOptions{publicDID: pubDID.ID}
+
 		logger.Debugf("Agent %s will use public DID %s:", agentID, pubDID.ID)
 	}
 
@@ -149,7 +160,7 @@ func (copts *clientOptions) PublicDID() string {
 	return copts.publicDID
 }
 
-func (d *DIDExchangeSDKSteps) createDIDExchangeClient(agentID string) error {
+func (d *SDKSteps) createDIDExchangeClient(agentID string) error {
 	// create new did exchange client
 	didexchangeClient, err := didexchange.New(d.bddContext.AgentCtx[agentID])
 	if err != nil {
@@ -160,17 +171,19 @@ func (d *DIDExchangeSDKSteps) createDIDExchangeClient(agentID string) error {
 	if err = didexchangeClient.RegisterActionEvent(actionCh); err != nil {
 		return fmt.Errorf("failed to register action event: %w", err)
 	}
-	d.actionCh[agentID] = actionCh
 
+	d.actionCh[agentID] = actionCh
 	d.bddContext.DIDExchangeClients[agentID] = didexchangeClient
+
 	return nil
 }
 
-func (d *DIDExchangeSDKSteps) registerPostMsgEvent(agentID, statesValue string) error {
+func (d *SDKSteps) registerPostMsgEvent(agentID, statesValue string) error {
 	statusCh := make(chan service.StateMsg, 1)
 	if err := d.bddContext.DIDExchangeClients[agentID].RegisterMsgEvent(statusCh); err != nil {
 		return fmt.Errorf("failed to register msg event: %w", err)
 	}
+
 	states := strings.Split(statesValue, ",")
 	d.initializeStates(agentID, states)
 
@@ -179,18 +192,18 @@ func (d *DIDExchangeSDKSteps) registerPostMsgEvent(agentID, statesValue string) 
 	return nil
 }
 
-func (d *DIDExchangeSDKSteps) initializeStates(agentID string, states []string) {
+func (d *SDKSteps) initializeStates(agentID string, states []string) {
 	d.postStatesFlag[agentID] = make(map[string]chan bool)
 	for _, state := range states {
 		d.postStatesFlag[agentID][state] = make(chan bool)
 	}
 }
 
-func (d *DIDExchangeSDKSteps) eventListener(statusCh chan service.StateMsg, agentID string, states []string) {
+func (d *SDKSteps) eventListener(statusCh chan service.StateMsg, agentID string, states []string) {
 	for e := range statusCh {
-		switch v := e.Properties.(type) {
-		case error:
-			panic(fmt.Sprintf("Service processing failed: %s", v))
+		err, ok := e.Properties.(error)
+		if ok {
+			panic(fmt.Sprintf("Service processing failed: %s", err))
 		}
 
 		if e.Type == service.PostState {
@@ -198,23 +211,25 @@ func (d *DIDExchangeSDKSteps) eventListener(statusCh chan service.StateMsg, agen
 			if err := json.Indent(dst, e.Msg.Payload, "", "  "); err != nil {
 				panic(err)
 			}
+
 			if e.StateID != "invited" {
 				logger.Debugf("Agent %s done processing %s message \n%s\n*****", agentID, e.Msg.Header.Type, dst)
 			}
+
 			for _, state := range states {
 				// receive the events
 				if e.StateID == state {
 					d.postStatesFlag[agentID][state] <- true
 				}
-
 			}
 		}
 	}
 }
 
 func resolveDID(resolver didresolver.Resolver, did string, maxRetry int) (*diddoc.Doc, error) {
-	var err error
 	var doc *diddoc.Doc
+
+	var err error
 	for i := 1; i <= maxRetry; i++ {
 		doc, err = resolver.Resolve(did)
 		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
@@ -229,13 +244,15 @@ func resolveDID(resolver didresolver.Resolver, did string, maxRetry int) (*diddo
 }
 
 // RegisterSteps registers did exchange steps
-func (d *DIDExchangeSDKSteps) RegisterSteps(s *godog.Suite) {
+func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
 	s.Step(`^"([^"]*)" creates invitation with public DID$`, d.createInvitationWithDID)
-	s.Step(`^"([^"]*)" waits for public did to become available in sidetree for up to (\d+) seconds$`, d.waitForPublicDID)
+	s.Step(`^"([^"]*)" waits for public did to become available in sidetree for up to (\d+) seconds$`,
+		d.waitForPublicDID)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)"$`, d.receiveInvitation)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)"$`, d.waitForPostEvent)
-	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`, d.validateConnection)
+	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`,
+		d.validateConnection)
 	s.Step(`^"([^"]*)" creates did exchange client$`, d.createDIDExchangeClient)
 	s.Step(`^"([^"]*)" approves did exchange request`, d.approveRequest)
 	s.Step(`^"([^"]*)" approves invitation request`, d.approveRequest)
