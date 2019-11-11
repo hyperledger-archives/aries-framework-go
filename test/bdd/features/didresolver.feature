@@ -6,7 +6,7 @@
 #
 
 @all
-@didresolve
+@didresolver
 Feature: resolve did doc against sidetree using aries http binding did resolver
   @resolve_valid_did_doc
   Scenario: resolve did doc sidetree node

@@ -47,10 +47,10 @@ make checks
 
 # run unit tests
 make unit-test
-
-# run bdd tests
-make bdd-test
 ```
+
+### Running bdd tests
+Instructions for running the bdd tests can be [found here](docs/test/bdd_instructions.md).
 
 ### Running demo locally
 Instructions for running the OpenAPI demo can be [found here](docs/demo/openapi_demo_instructions.md).
