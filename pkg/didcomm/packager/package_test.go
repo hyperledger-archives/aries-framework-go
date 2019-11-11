@@ -32,15 +32,15 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
-			storage:        nil,
-			kms:            w,
-			outboundPacker: nil,
-			packers:        nil,
+			storage:       nil,
+			kms:           w,
+			primaryPacker: nil,
+			packers:       nil,
 		}
 		testPacker, err := jwe.New(mockedProviders, jwe.XC20P)
 		require.NoError(t, err)
 
-		mockedProviders.outboundPacker = testPacker
+		mockedProviders.primaryPacker = testPacker
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 		_, err = packager.UnpackMessage(nil)
@@ -55,15 +55,15 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
-			storage:        nil,
-			kms:            w,
-			outboundPacker: nil,
-			packers:        nil,
+			storage:       nil,
+			kms:           w,
+			primaryPacker: nil,
+			packers:       nil,
 		}
 		testPacker, err := jwe.New(mockedProviders, jwe.XC20P)
 		require.NoError(t, err)
 
-		mockedProviders.outboundPacker = testPacker
+		mockedProviders.primaryPacker = testPacker
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
@@ -94,16 +94,16 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
-			storage:        nil,
-			kms:            w,
-			outboundPacker: nil,
-			packers:        nil,
+			storage:       nil,
+			kms:           w,
+			primaryPacker: nil,
+			packers:       nil,
 		}
 		testPacker, err := jwe.New(mockedProviders, jwe.XC20P)
 		require.NoError(t, err)
 
 		// use a real testPacker with a mocked KMS to validate pack/unpack
-		mockedProviders.outboundPacker = testPacker
+		mockedProviders.primaryPacker = testPacker
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
@@ -141,10 +141,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		}
 
 		mockedProviders := &mockProvider{
-			storage:        nil,
-			kms:            w,
-			outboundPacker: nil,
-			packers:        nil,
+			storage:       nil,
+			kms:           w,
+			primaryPacker: nil,
+			packers:       nil,
 		}
 
 		// use a mocked packager with a mocked KMS to validate pack/unpack
@@ -156,7 +156,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		mockPacker := &didcomm.MockAuthCrypt{DecryptValue: decryptValue,
 			EncryptValue: e, Type: "prs.hyperledger.aries-auth-message"}
 
-		mockedProviders.outboundPacker = mockPacker
+		mockedProviders.primaryPacker = mockPacker
 
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
@@ -190,7 +190,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			return nil, fmt.Errorf("pack error")
 		}
 		mockPacker = &didcomm.MockAuthCrypt{EncryptValue: e}
-		mockedProviders.outboundPacker = mockPacker
+		mockedProviders.primaryPacker = mockPacker
 		packager, err = New(mockedProviders)
 		require.NoError(t, err)
 		packMsg, err = packager.PackMessage(&transport.Envelope{Message: []byte("msg1"),
@@ -207,16 +207,16 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			Store: map[string][]byte{}}}))
 		require.NoError(t, err)
 		mockedProviders := &mockProvider{
-			storage:        nil,
-			kms:            w,
-			outboundPacker: nil,
-			packers:        nil,
+			storage:       nil,
+			kms:           w,
+			primaryPacker: nil,
+			packers:       nil,
 		}
 
 		// create a real testPacker (no mocking here)
 		testPacker, err := jwe.New(mockedProviders, jwe.XC20P)
 		require.NoError(t, err)
-		mockedProviders.outboundPacker = testPacker
+		mockedProviders.primaryPacker = testPacker
 
 		legacyPacker := legacy.New(mockedProviders)
 		mockedProviders.packers = []packer.Packer{testPacker, legacyPacker}
@@ -244,7 +244,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 		// pack with legacy, unpack using a packager that has JWE as default but supports legacy
 
-		mockedProviders.outboundPacker = legacyPacker
+		mockedProviders.primaryPacker = legacyPacker
 
 		packager2, err := New(mockedProviders)
 		require.NoError(t, err)
@@ -267,13 +267,13 @@ func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvide
 
 // mockProvider mocks provider for KMS
 type mockProvider struct {
-	storage        *mockstorage.MockStoreProvider
-	kms            kms.KeyManager
-	packers        []packer.Packer
-	outboundPacker packer.Packer
+	storage       *mockstorage.MockStoreProvider
+	kms           kms.KeyManager
+	packers       []packer.Packer
+	primaryPacker packer.Packer
 }
 
-func (m *mockProvider) InboundPackers() []packer.Packer {
+func (m *mockProvider) Packers() []packer.Packer {
 	return m.packers
 }
 
@@ -289,6 +289,6 @@ func (m *mockProvider) InboundTransportEndpoint() string {
 	return "sample-endpoint.com"
 }
 
-func (m *mockProvider) Packer() packer.Packer {
-	return m.outboundPacker
+func (m *mockProvider) PrimaryPacker() packer.Packer {
+	return m.primaryPacker
 }

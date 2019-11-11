@@ -98,13 +98,13 @@ func TestFramework(t *testing.T) {
 					DecryptValue: nil,
 					Type:         "",
 				}, nil
-			}),
-			WithInboundPackers(func(ctx packer.Provider) (packer.Packer, error) {
-				return &didcomm.MockAuthCrypt{
-					EncryptValue: nil,
-					Type:         "dummy format",
-				}, nil
-			}))
+			},
+				func(ctx packer.Provider) (packer.Packer, error) {
+					return &didcomm.MockAuthCrypt{
+						EncryptValue: nil,
+						Type:         "dummy format",
+					}, nil
+				}))
 		require.NoError(t, err)
 
 		// context
@@ -412,26 +412,29 @@ func TestFramework(t *testing.T) {
 }
 
 func Test_Packager(t *testing.T) {
-	t.Run("test error from packager svc - outbound packer", func(t *testing.T) {
+	t.Run("test error from packager svc - primary packer", func(t *testing.T) {
 		f, err := New(WithInboundTransport(&mockInboundTransport{}),
 			WithStoreProvider(storage.NewMockStoreProvider()),
 			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
-				return nil, fmt.Errorf("error from outbound packer")
+				return nil, fmt.Errorf("error from primary packer")
 			}))
 		require.Error(t, err)
 		require.Nil(t, f)
-		require.Contains(t, err.Error(), "error from outbound packer")
+		require.Contains(t, err.Error(), "error from primary packer")
 	})
 
 	t.Run("test error from packager svc - fallback packer", func(t *testing.T) {
 		f, err := New(WithInboundTransport(&mockInboundTransport{}),
 			WithStoreProvider(storage.NewMockStoreProvider()),
-			WithInboundPackers(func(ctx packer.Provider) (packer.Packer, error) {
-				return nil, fmt.Errorf("error from packer")
-			}))
+			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
+				return nil, nil
+			},
+				func(ctx packer.Provider) (packer.Packer, error) {
+					return nil, fmt.Errorf("error from fallback packer")
+				}))
 		require.Error(t, err)
 		require.Nil(t, f)
-		require.Contains(t, err.Error(), "error from packer")
+		require.Contains(t, err.Error(), "error from fallback packer")
 	})
 }
 

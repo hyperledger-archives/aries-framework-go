@@ -30,8 +30,8 @@ type Provider struct {
 	transientStoreProvider   storage.Provider
 	kms                      kms.KMS
 	packager                 commontransport.Packager
-	packer                   packer.Packer
-	inboundPackers           []packer.Packer
+	primaryPacker            packer.Packer
+	packers                  []packer.Packer
 	inboundTransportEndpoint string
 	outboundTransport        transport.OutboundTransport
 	didResolver              didresolver.Resolver
@@ -84,14 +84,14 @@ func (p *Provider) Packager() commontransport.Packager {
 	return p.packager
 }
 
-// InboundPackers returns a list of enabled packers
-func (p *Provider) InboundPackers() []packer.Packer {
-	return p.inboundPackers
+// Packers returns a list of enabled packers
+func (p *Provider) Packers() []packer.Packer {
+	return p.packers
 }
 
-// Packer returns the outbound Packer service
-func (p *Provider) Packer() packer.Packer {
-	return p.packer
+// PrimaryPacker returns the main inbound/outbound Packer service
+func (p *Provider) PrimaryPacker() packer.Packer {
+	return p.primaryPacker
 }
 
 // Signer returns the kms signing service
@@ -231,18 +231,13 @@ func WithPackager(p commontransport.Packager) ProviderOption {
 	}
 }
 
-// WithPacker injects a Packer into the context as the outbound Packer
-func WithPacker(p packer.Packer) ProviderOption {
+// WithPacker injects at least one Packer into the context,
+// with the primary Packer being used for inbound/outbound communication
+// and the additional packers being available for unpacking inbound messages.
+func WithPacker(primary packer.Packer, additionalPackers ...packer.Packer) ProviderOption {
 	return func(opts *Provider) error {
-		opts.packer = p
-		return nil
-	}
-}
-
-// WithInboundPackers injects a variable number of Packer services into the Aries framework
-func WithInboundPackers(packers ...packer.Packer) ProviderOption {
-	return func(opts *Provider) error {
-		opts.inboundPackers = append(opts.inboundPackers, packers...)
+		opts.primaryPacker = primary
+		opts.packers = append(opts.packers, additionalPackers...)
 		return nil
 	}
 }

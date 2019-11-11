@@ -20,8 +20,8 @@ import (
 
 // Provider contains dependencies for the base packager and is typically created by using aries.Context()
 type Provider interface {
-	InboundPackers() []packer.Packer
-	Packer() packer.Packer
+	Packers() []packer.Packer
+	PrimaryPacker() packer.Packer
 }
 
 // Creator method to create new packager service
@@ -29,8 +29,8 @@ type Creator func(prov Provider) (transport.Packager, error)
 
 // Packager is the basic implementation of Packager
 type Packager struct {
-	packer         packer.Packer
-	inboundPackers map[string]packer.Packer
+	primaryPacker packer.Packer
+	packers       map[string]packer.Packer
 }
 
 // PackerCreator holds a creator function for a Packer and the name of the Packer's encoding method.
@@ -42,27 +42,27 @@ type PackerCreator struct {
 // New return new instance of KMS implementation
 func New(ctx Provider) (*Packager, error) {
 	basePackager := Packager{
-		packer:         nil,
-		inboundPackers: map[string]packer.Packer{},
+		primaryPacker: nil,
+		packers:       map[string]packer.Packer{},
 	}
 
-	for _, packerType := range ctx.InboundPackers() {
+	for _, packerType := range ctx.Packers() {
 		basePackager.addPacker(packerType)
 	}
 
-	basePackager.packer = ctx.Packer()
-	if basePackager.packer == nil {
-		return nil, fmt.Errorf("need outbound packer to initialize packager")
+	basePackager.primaryPacker = ctx.PrimaryPacker()
+	if basePackager.primaryPacker == nil {
+		return nil, fmt.Errorf("need primary primaryPacker to initialize packager")
 	}
 
-	basePackager.addPacker(basePackager.packer)
+	basePackager.addPacker(basePackager.primaryPacker)
 
 	return &basePackager, nil
 }
 
 func (bp *Packager) addPacker(pack packer.Packer) {
-	if bp.inboundPackers[pack.EncodingType()] == nil {
-		bp.inboundPackers[pack.EncodingType()] = pack
+	if bp.packers[pack.EncodingType()] == nil {
+		bp.packers[pack.EncodingType()] = pack
 	}
 }
 
@@ -86,7 +86,7 @@ func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, er
 		recipients = append(recipients, verKeyBytes)
 	}
 	// pack message
-	bytes, err := bp.packer.Pack(messageEnvelope.Message, base58.Decode(messageEnvelope.FromVerKey), recipients)
+	bytes, err := bp.primaryPacker.Pack(messageEnvelope.Message, base58.Decode(messageEnvelope.FromVerKey), recipients)
 	if err != nil {
 		return nil, fmt.Errorf("pack: %w", err)
 	}
@@ -141,7 +141,7 @@ func (bp *Packager) UnpackMessage(encMessage []byte) (*transport.Envelope, error
 		return nil, fmt.Errorf("getEncodingType: %w", err)
 	}
 
-	p, ok := bp.inboundPackers[encType]
+	p, ok := bp.packers[encType]
 	if !ok {
 		return nil, fmt.Errorf("message Type not recognized")
 	}

@@ -135,18 +135,19 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(
 			WithKMS(&mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}),
 			WithPackager(&mockpackager.Packager{PackValue: []byte("data")}),
-			WithInboundPackers(&mockdidcomm.MockAuthCrypt{
-				EncryptValue: nil,
-				DecryptValue: nil,
-				Type:         "TYPE",
-			}),
-			WithPacker(&mockdidcomm.MockAuthCrypt{
-				EncryptValue: func(p, spk []byte, rpks [][]byte) ([]byte, error) {
-					return []byte("data data"), nil
+			WithPacker(
+				&mockdidcomm.MockAuthCrypt{
+					EncryptValue: func(p, spk []byte, rpks [][]byte) ([]byte, error) {
+						return []byte("data data"), nil
+					},
+					DecryptValue: nil,
+					Type:         "",
 				},
-				DecryptValue: nil,
-				Type:         "",
-			}),
+				&mockdidcomm.MockAuthCrypt{
+					EncryptValue: nil,
+					DecryptValue: nil,
+					Type:         "TYPE",
+				}),
 		)
 		require.NoError(t, err)
 		v, err := prov.Signer().SignMessage(nil, "")
@@ -159,11 +160,11 @@ func TestNewProvider(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte("data"), v)
 
-		v, err = prov.Packer().Pack(nil, nil, nil)
+		v, err = prov.PrimaryPacker().Pack(nil, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, []byte("data data"), v)
 
-		packers := prov.InboundPackers()
+		packers := prov.Packers()
 		require.Len(t, packers, 1)
 		typ := packers[0].EncodingType()
 		require.Equal(t, "TYPE", typ)
