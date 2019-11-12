@@ -174,7 +174,7 @@ func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 			return nil, nil, nil, fmt.Errorf("JSON unmarshalling of invitation: %w", err)
 		}
 
-		action, connRecord, err := ctx.handleInboundInvitation(invitation, thid, msg.publicDID, msg.connRecord)
+		action, connRecord, err := ctx.handleInboundInvitation(invitation, thid, msg.options, msg.connRecord)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("handle inbound invitation: %w", err)
 		}
@@ -210,7 +210,7 @@ func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 			return nil, nil, nil, fmt.Errorf("JSON unmarshalling of request: %w", err)
 		}
 
-		action, connRecord, err := ctx.handleInboundRequest(request, msg.publicDID, msg.connRecord)
+		action, connRecord, err := ctx.handleInboundRequest(request, msg.options, msg.connRecord)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("handle inbound request: %w", err)
 		}
@@ -278,7 +278,7 @@ func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 }
 
 func (ctx *context) handleInboundInvitation(invitation *Invitation,
-	thid, pubDID string, connRec *ConnectionRecord) (stateAction, *ConnectionRecord, error) {
+	thid string, options *options, connRec *ConnectionRecord) (stateAction, *ConnectionRecord, error) {
 	// create a destination from invitation
 	destination, err := ctx.getDestination(invitation)
 	if err != nil {
@@ -286,8 +286,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 	}
 
 	// get did document that will be used in exchange request
-	didDoc, conn, err := ctx.getDIDDocAndConnection(pubDID)
-
+	didDoc, conn, err := ctx.getDIDDocAndConnection(getPublicDID(options))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -295,7 +294,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 	request := &Request{
 		Type:       RequestMsgType,
 		ID:         thid,
-		Label:      "",
+		Label:      getLabel(options),
 		Connection: conn,
 		Thread: &decorator.Thread{
 			PID: invitation.ID,
@@ -313,7 +312,7 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 	}, connRec, nil
 }
 
-func (ctx *context) handleInboundRequest(request *Request, pubDID string, connRec *ConnectionRecord) (stateAction,
+func (ctx *context) handleInboundRequest(request *Request, options *options, connRec *ConnectionRecord) (stateAction,
 	*ConnectionRecord, error) {
 	requestDidDoc, err := ctx.resolveDidDocFromConnection(request.Connection)
 	if err != nil {
@@ -321,7 +320,7 @@ func (ctx *context) handleInboundRequest(request *Request, pubDID string, connRe
 	}
 
 	// get did document that will be used in exchange response
-	responseDidDoc, connection, err := ctx.getDIDDocAndConnection(pubDID)
+	responseDidDoc, connection, err := ctx.getDIDDocAndConnection(getPublicDID(options))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -356,6 +355,22 @@ func (ctx *context) handleInboundRequest(request *Request, pubDID string, connRe
 	return func() error {
 		return ctx.outboundDispatcher.Send(response, string(pubKey[0].Value), destination)
 	}, connRec, nil
+}
+
+func getPublicDID(options *options) string {
+	if options == nil {
+		return ""
+	}
+
+	return options.publicDID
+}
+
+func getLabel(options *options) string {
+	if options == nil {
+		return ""
+	}
+
+	return options.label
 }
 
 func (ctx *context) getDestination(invitation *Invitation) (*service.Destination, error) {

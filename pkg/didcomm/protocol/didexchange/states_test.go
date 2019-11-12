@@ -709,7 +709,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 			Payload: invitationBytes,
 		})
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, "", &ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{}, &ConnectionRecord{})
 		require.NoError(t, err)
 		require.NotNil(t, connRec.MyDID)
 	})
@@ -727,7 +727,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 			Payload: invitationBytes,
 		})
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, doc.ID, &ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{publicDID: doc.ID}, &ConnectionRecord{})
 		require.NoError(t, err)
 		require.NotNil(t, connRec.MyDID)
 		require.Equal(t, connRec.MyDID, doc.ID)
@@ -743,7 +743,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 			Payload: invitationBytes,
 		})
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, "", &ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{}, &ConnectionRecord{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, connRec)
@@ -757,7 +757,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		ctx := getContext(prov, store)
 		request, err := createRequest(ctx)
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundRequest(request, "", &ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &ConnectionRecord{})
 		require.NoError(t, err)
 		require.NotNil(t, connRec.MyDID)
 		require.NotNil(t, connRec.TheirDID)
@@ -767,7 +767,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		ctx := &context{didCreator: &mockdid.MockDIDCreator{Failure: fmt.Errorf("create DID error")},
 			didResolver: &mockdidresolver.MockResolver{Doc: getMockDID()}}
 		request := &Request{Connection: &Connection{DID: didDoc.ID, DIDDoc: didDoc}}
-		_, connRec, err := ctx.handleInboundRequest(request, "", &ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &ConnectionRecord{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, connRec)
@@ -778,7 +778,8 @@ func TestNewResponseFromRequest(t *testing.T) {
 			connectionStore: NewConnectionRecorder(nil, store)}
 		request, err := createRequest(ctx)
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundRequest(request, "", &ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &ConnectionRecord{})
+
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "sign error")
 		require.Nil(t, connRec)
@@ -786,7 +787,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 	t.Run("unsuccessful new response from request due to resolve public did from request error", func(t *testing.T) {
 		ctx := &context{didResolver: &mockdidresolver.MockResolver{Err: errors.New("resolver error")}}
 		request := &Request{Connection: &Connection{DID: "did:sidetree:abc"}}
-		_, _, err := ctx.handleInboundRequest(request, "", &ConnectionRecord{})
+		_, _, err := ctx.handleInboundRequest(request, &options{}, &ConnectionRecord{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolver error")
 	})
