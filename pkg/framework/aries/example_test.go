@@ -8,21 +8,18 @@ package aries
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 func Example() {
-	// db path manipulation - ignore this for actual implementation
-	path, cleanup := tempDir()
-	defer cleanup()
-
-	dbPath = path
-
 	// create the framework with user options
-	framework, err := New(WithInboundTransport(newMockInTransport()))
+	framework, err := New(
+		WithInboundTransport(newMockInTransport()),
+		WithStoreProvider(newMockDBProvider()),
+		WithTransientStoreProvider(newMockDBProvider()),
+	)
 	if err != nil {
 		fmt.Println("failed to create framework")
 	}
@@ -33,29 +30,12 @@ func Example() {
 		fmt.Println("failed to create framework context")
 	}
 
-	// create the client by passing the context
-	client := newMockClient(ctx)
+	fmt.Println("context created successfully")
+	fmt.Println(ctx.InboundTransportEndpoint())
 
-	fmt.Println(client.endPoint())
-
-	// Output: http://server
-}
-
-// mock client implementation with custom provider (subset of context).
-type provider interface {
-	InboundTransportEndpoint() string
-}
-
-type mockClient struct {
-	inboundTransportEndpoint string
-}
-
-func newMockClient(prov provider) *mockClient {
-	return &mockClient{inboundTransportEndpoint: prov.InboundTransportEndpoint()}
-}
-
-func (c *mockClient) endPoint() string {
-	return c.inboundTransportEndpoint
+	// Output:
+	// context created successfully
+	// http://server
 }
 
 // mock inbound transport
@@ -77,16 +57,21 @@ func (c *mockInTransport) Endpoint() string {
 	return "http://server"
 }
 
-func tempDir() (string, func()) {
-	path, err := ioutil.TempDir("", "db")
-	if err != nil {
-		fmt.Println("Failed to create leveldb directory")
-	}
+// mock DB provider
+type mockDBProvider struct {
+}
 
-	return path, func() {
-		err := os.RemoveAll(path)
-		if err != nil {
-			fmt.Println("Failed to clear leveldb directory")
-		}
-	}
+func newMockDBProvider() *mockDBProvider {
+	return &mockDBProvider{}
+}
+
+func (c *mockDBProvider) OpenStore(name string) (storage.Store, error) {
+	return nil, nil
+}
+
+func (c *mockDBProvider) CloseStore(name string) error {
+	return nil
+}
+func (c *mockDBProvider) Close() error {
+	return nil
 }
