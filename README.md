@@ -27,70 +27,33 @@ API bindings are supplied to enable these environments including:
 
 We implement demonstrations and test cases, that require a ledger system, using [DIF Sidetree protocol](https://github.com/decentralized-identity/sidetree/blob/master/docs/protocol.md) as this protocol enables generic decentralized ledger systems to operate as a DID network.
 
-## Build
-### Prerequisites (General)
-- Go 1.13
-
-### Prerequisites (for running tests and demos)
-- Go 1.13
-- Docker
-- Docker-Compose
-- Make
-
-### Targets
-```
-# run all the project build targets
-make all
-
-# run linter checks
-make checks
-
-# run unit tests
-make unit-test
-```
-
 ## Table of Contents
+- [Documentation](#Documentation)
+- [Controller Bindings](#Documentation)
+- [Testing](#Testing)
+- [Contributing](#contributing)
+- [License](#license)
 
-- [Running bdd tests](docs/test/bdd_instructions.md)
-- [Running demo locally](docs/demo/openapi_demo_instructions.md)
-- [Running agent locally](docs/agentd/agent_CLI.md)
-- [Running agent using docker](docs/agentd/agent_docker_instructions.md)
-- [Agent webhook support](docs/agentd/agent_webhook.md)
-- [Generating Controller REST API specifications](docs/spec/openapi_spec_instructions.md)
+## Documentation
+Aries Framework Go documentation can be viewed at [GoDoc](https://godoc.org/github.com/hyperledger/aries-framework-go).
 
-### Crypto material generation for tests
-For unit-tests, crypto material is generated under:
+The packages intended for end developer usage are within the [pkg/client](pkg/client) folder along with the main agent package ([pkg/framework/aries](pkg/framework/aries)).
 
-`pkg/didcomm/transport/http/testdata`
+## Controller Bindings
+- [Go](docs/go/README.md)
+- [REST](docs/rest/README.md)
+  - [Run OpenAPI Demo](docs/rest/openapi_demo_instructions.md)
 
-using the `openssl` tool. 
-
-It is generated automatically when running unit tests. 
-
-If you wish to regenerate it, you can delete this folder and:
-1. run `make unit-test`
- or
-2. cd into `pkg/didcomm/transport/http/` and run `go generate`
-
-### Verifiable Credential Test Suite
-To test compatibility of the verifiable credential packages with 
-[W3C Verifiable Claims Working Group Test Suite](https://github.com/w3c/vc-test-suite), run `make vc-test-suite`.
-The result of the test suite is generated as `vc-test-suite/suite/implementations/aries-framework-go-report.json`.
-
-### Documentation
-
-Agent documentation can be viewed at [GoDoc](https://godoc.org/github.com/hyperledger/aries-framework-go).
-
-The packages intended for end developer usage are within the pkg/client folder along with the main agent package (pkg/framework/aries).
+## Testing
+- [Build](docs/test/build_instructions.md)
+- [BDD tests](docs/test/bdd_instructions.md)
 
 ## Contributing
-
 Found a bug? Ready to submit a PR? Want to submit a proposal for your grand
 idea? Follow our [guidelines](.github/CONTRIBUTING.md) for more information
 to get you started!
 
 ## License
-
 Hyperledger Aries Framework Go is licensed under the [Apache License Version 2.0 (Apache-2.0)](LICENSE).
 
 Hyperledger Aries Framework Go [documentation](docs) is licensed under the [Creative Commons Attribution 4.0 International License (CC-BY-4.0)](http://creativecommons.org/licenses/by/4.0/).
