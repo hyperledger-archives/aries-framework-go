@@ -68,17 +68,20 @@ func TestServiceNew(t *testing.T) {
 // did-exchange flow with role Inviter
 func TestService_Handle_Inviter(t *testing.T) {
 	prov := protocol.MockProvider{}
+	store := mockstorage.NewMockStoreProvider()
 	pubKey, privKey := generateKeyPair()
 	ctx := &context{
 		outboundDispatcher: prov.OutboundDispatcher(),
 		didCreator:         &mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)},
 		signer:             &mockSigner{privateKey: privKey},
+		connectionStore:    NewConnectionRecorder(nil, store.Store),
 	}
 
 	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 
-	s, err := New(&mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)}, &protocol.MockProvider{})
+	s, err := New(&mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)},
+		&protocol.MockProvider{StoreProvider: store})
 	require.NoError(t, err)
 
 	actionCh := make(chan service.DIDCommAction, 10)
@@ -96,6 +99,17 @@ func TestService_Handle_Inviter(t *testing.T) {
 
 	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
 
+	invitation := &Invitation{
+		Type:            InvitationMsgType,
+		ID:              randomString(),
+		Label:           "Bob",
+		RecipientKeys:   []string{pubKey},
+		ServiceEndpoint: "http://alice.agent.example.com:8081",
+	}
+
+	err = ctx.connectionStore.SaveInvitation(invitation)
+	require.NoError(t, err)
+
 	thid := randomString()
 
 	// Invitation was previously sent by Alice to Bob.
@@ -105,8 +119,11 @@ func TestService_Handle_Inviter(t *testing.T) {
 			Type:  RequestMsgType,
 			ID:    thid,
 			Label: "Bob",
+			Thread: &decorator.Thread{
+				PID: invitation.ID,
+			},
 			Connection: &Connection{
-				DID:    "did:peer:did@B:A",
+				DID:    newDidDoc.ID,
 				DIDDoc: newDidDoc,
 			},
 		})
@@ -184,6 +201,7 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 
 // did-exchange flow with role Invitee
 func TestService_Handle_Invitee(t *testing.T) {
+	transientStore := mockstorage.NewMockStoreProvider()
 	store := mockstorage.NewMockStoreProvider()
 	prov := protocol.MockProvider{}
 	pubKey, privKey := generateKeyPair()
@@ -191,6 +209,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 		outboundDispatcher: prov.OutboundDispatcher(),
 		didCreator:         &mockdid.MockDIDCreator{Doc: createDIDDocWithKey(pubKey)},
 		signer:             &mockSigner{privateKey: privKey},
+		connectionStore:    NewConnectionRecorder(transientStore.Store, store.Store),
 	}
 
 	newDidDoc, err := ctx.didCreator.Create(testMethod)
@@ -198,7 +217,8 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 	s, err := New(&mockdid.MockDIDCreator{
 		Doc: createDIDDocWithKey(pubKey)},
-		&protocol.MockProvider{TransientStoreProvider: store})
+		&protocol.MockProvider{StoreProvider: store,
+			TransientStoreProvider: transientStore})
 	require.NoError(t, err)
 
 	s.ctx.didResolver = &mockdidresolver.MockResolver{Doc: newDidDoc}
@@ -217,14 +237,18 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
 
+	invitation := &Invitation{
+		Type:            InvitationMsgType,
+		ID:              randomString(),
+		Label:           "Bob",
+		RecipientKeys:   []string{pubKey},
+		ServiceEndpoint: "http://alice.agent.example.com:8081",
+	}
+
+	err = ctx.connectionStore.SaveInvitation(invitation)
+	require.NoError(t, err)
 	// Alice receives an invitation from Bob
-	payloadBytes, err := json.Marshal(
-		&Invitation{
-			Type:  InvitationMsgType,
-			ID:    randomString(),
-			Label: "Bob",
-		},
-	)
+	payloadBytes, err := json.Marshal(invitation)
 	require.NoError(t, err)
 
 	didMsg, err := service.NewDIDCommMsg(payloadBytes)
@@ -245,13 +269,16 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, (&requested{}).Name(), connRecord.State)
+	require.Equal(t, invitation.ID, connRecord.InvitationID)
+	require.Equal(t, invitation.RecipientKeys, connRecord.RecipientKeys)
+	require.Equal(t, invitation.ServiceEndpoint, connRecord.ServiceEndPoint)
 
 	connection := &Connection{
 		DID:    newDidDoc.ID,
 		DIDDoc: newDidDoc,
 	}
 
-	connectionSignature, err := ctx.prepareConnectionSignature(connection)
+	connectionSignature, err := ctx.prepareConnectionSignature(connection, invitation.ID)
 	require.NoError(t, err)
 
 	// Bob replies with a Response
@@ -260,7 +287,9 @@ func TestService_Handle_Invitee(t *testing.T) {
 			Type:                ResponseMsgType,
 			ID:                  randomString(),
 			ConnectionSignature: connectionSignature,
-			Thread:              &decorator.Thread{ID: connRecord.ThreadID},
+			Thread: &decorator.Thread{
+				ID: connRecord.ThreadID,
+			},
 		},
 	)
 	require.NoError(t, err)
@@ -366,7 +395,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
 		svc.connectionStore = NewConnectionRecorder(transientStore, nil)
 
-		_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
+		_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "save connection record")
 	})
@@ -606,12 +635,14 @@ func TestEventsSuccess(t *testing.T) {
 		}
 	}()
 
+	pubKey, _ := generateKeyPair()
 	id := randomString()
 	invite, err := json.Marshal(
 		&Invitation{
-			Type:  InvitationMsgType,
-			ID:    id,
-			Label: "test",
+			Type:          InvitationMsgType,
+			ID:            id,
+			Label:         "test",
+			RecipientKeys: []string{pubKey},
 		},
 	)
 	require.NoError(t, err)
@@ -641,12 +672,14 @@ func TestContinueWithPublicDID(t *testing.T) {
 
 	go func() { continueWithPublicDID(actionCh, didDoc.ID) }()
 
+	pubKey, _ := generateKeyPair()
 	id := randomString()
 	invite, err := json.Marshal(
 		&Invitation{
-			Type:  InvitationMsgType,
-			ID:    id,
-			Label: "test",
+			Type:          InvitationMsgType,
+			ID:            id,
+			Label:         "test",
+			RecipientKeys: []string{pubKey},
 		},
 	)
 	require.NoError(t, err)
@@ -707,7 +740,7 @@ func TestEventsUserError(t *testing.T) {
 	err = svc.connectionStore.saveNewConnectionRecord(connRec)
 	require.NoError(t, err)
 
-	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, id))
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, id, ""))
 	require.NoError(t, err)
 
 	select {
@@ -734,7 +767,7 @@ func TestEventStoreError(t *testing.T) {
 		}
 	}()
 
-	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""))
 	require.NoError(t, err)
 }
 
@@ -789,7 +822,7 @@ func TestServiceErrors(t *testing.T) {
 		return nil, errors.New("error")
 	}}
 	svc.connectionStore = NewConnectionRecorder(mockStore, nil)
-	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot fetch state from store")
 
@@ -832,7 +865,8 @@ func TestConnectionRecord(t *testing.T) {
 	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
-	conn, err := svc.connectionRecord(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
+	conn, err := svc.connectionRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
+		randomString(), ""))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 
@@ -853,13 +887,15 @@ func TestInvitationRecord(t *testing.T) {
 	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
-	requestBytes, err := json.Marshal(&Request{
-		Type: InvitationMsgType,
-		ID:   "id",
+	pubKey, _ := generateKeyPair()
+	invitationBytes, err := json.Marshal(&Invitation{
+		Type:          InvitationMsgType,
+		ID:            "id",
+		RecipientKeys: []string{pubKey},
 	})
 	require.NoError(t, err)
 
-	msg, err := service.NewDIDCommMsg(requestBytes)
+	msg, err := service.NewDIDCommMsg(invitationBytes)
 	require.NoError(t, err)
 
 	conn, err := svc.invitationMsgRecord(msg)
@@ -867,11 +903,11 @@ func TestInvitationRecord(t *testing.T) {
 	require.NotNil(t, conn)
 
 	// invalid thread id
-	requestBytes, err = json.Marshal(&Request{
+	invitationBytes, err = json.Marshal(&Invitation{
 		Type: "invalid-type",
 	})
 	require.NoError(t, err)
-	msg, err = service.NewDIDCommMsg(requestBytes)
+	msg, err = service.NewDIDCommMsg(invitationBytes)
 	require.NoError(t, err)
 
 	_, err = svc.invitationMsgRecord(msg)
@@ -882,16 +918,14 @@ func TestInvitationRecord(t *testing.T) {
 	svc.connectionStore = NewConnectionRecorder(
 		&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}, nil)
 
-	requestBytes, err = json.Marshal(&Request{
-		Type: InvitationMsgType,
-		ID:   "id",
-		Connection: &Connection{
-			DID: "xyz",
-		},
+	invitationBytes, err = json.Marshal(&Invitation{
+		Type:          InvitationMsgType,
+		ID:            "id",
+		RecipientKeys: []string{pubKey},
 	})
 	require.NoError(t, err)
 
-	msg, err = service.NewDIDCommMsg(requestBytes)
+	msg, err = service.NewDIDCommMsg(invitationBytes)
 	require.NoError(t, err)
 
 	_, err = svc.invitationMsgRecord(msg)
@@ -903,7 +937,8 @@ func TestRequestRecord(t *testing.T) {
 	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 	require.NoError(t, err)
 
-	conn, err := svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
+	conn, err := svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
+		randomString(), ""))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 
@@ -911,24 +946,36 @@ func TestRequestRecord(t *testing.T) {
 	svc.connectionStore = NewConnectionRecorder(
 		&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}, nil)
 
-	_, err = svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
+	_, err = svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
+		randomString(), ""))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "save connection record")
 }
 
 func TestAcceptExchangeRequest(t *testing.T) {
-	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
+	svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{StoreProvider: mockstorage.NewMockStoreProvider()})
 	require.NoError(t, err)
 
 	actionCh := make(chan service.DIDCommAction, 10)
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
 
+	pubKey, _ := generateKeyPair()
+	invitation := &Invitation{
+		Type:            InvitationMsgType,
+		ID:              randomString(),
+		Label:           "Bob",
+		RecipientKeys:   []string{pubKey},
+		ServiceEndpoint: "http://alice.agent.example.com:8081",
+	}
+
+	err = svc.connectionStore.SaveInvitation(invitation)
+	require.NoError(t, err)
+
 	go func() {
 		for e := range actionCh {
 			prop, ok := e.Properties.(event)
 			require.True(t, ok, "Failed to cast the event properties to service.Event")
-
 			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID()))
 		}
 	}()
@@ -941,13 +988,14 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 	go func() {
 		for e := range statusCh {
-			if e.Type == service.PostState && e.StateID == stateNameRequested {
+			if e.Type == service.PostState && e.StateID == stateNameResponded {
 				done <- struct{}{}
 			}
 		}
 	}()
 
-	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString()))
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t,
+		&protocol.MockProvider{StoreProvider: mockstorage.NewMockStoreProvider()}, randomString(), invitation.ID))
 	require.NoError(t, err)
 
 	select {
@@ -959,7 +1007,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 func TestAcceptInvitation(t *testing.T) {
 	t.Run("accept invitation - success", func(t *testing.T) {
-		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
+		svc, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{StoreProvider: mockstorage.NewMockStoreProvider()})
 		require.NoError(t, err)
 
 		actionCh := make(chan service.DIDCommAction, 10)
@@ -997,10 +1045,11 @@ func TestAcceptInvitation(t *testing.T) {
 				}
 			}
 		}()
-
-		invitationBytes, err := json.Marshal(&Request{
-			Type: InvitationMsgType,
-			ID:   generateRandomID(),
+		pubKey, _ := generateKeyPair()
+		invitationBytes, err := json.Marshal(&Invitation{
+			Type:          InvitationMsgType,
+			ID:            generateRandomID(),
+			RecipientKeys: []string{pubKey},
 		})
 		require.NoError(t, err)
 
@@ -1167,16 +1216,21 @@ func TestFetchConnectionRecord(t *testing.T) {
 	})
 }
 
-func generateRequestMsgPayload(t *testing.T, prov provider, id string) *service.DIDCommMsg {
-	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()}}
+func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID string) *service.DIDCommMsg {
+	store := mockstorage.NewMockStoreProvider()
+	ctx := context{outboundDispatcher: prov.OutboundDispatcher(), didCreator: &mockdid.MockDIDCreator{Doc: getMockDID()},
+		connectionStore: NewConnectionRecorder(nil, store.Store)}
 	newDidDoc, err := ctx.didCreator.Create(testMethod)
 	require.NoError(t, err)
 
 	requestBytes, err := json.Marshal(&Request{
 		Type: RequestMsgType,
 		ID:   id,
+		Thread: &decorator.Thread{
+			PID: invitationID,
+		},
 		Connection: &Connection{
-			DID:    "xyz",
+			DID:    newDidDoc.ID,
 			DIDDoc: newDidDoc,
 		},
 	})

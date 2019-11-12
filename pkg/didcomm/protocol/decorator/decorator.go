@@ -10,7 +10,8 @@ import "time"
 
 // Thread thread data
 type Thread struct {
-	ID string `json:"thid,omitempty"`
+	ID  string `json:"thid,omitempty"`
+	PID string `json:"pthid"`
 }
 
 // Timing keeps expiration time

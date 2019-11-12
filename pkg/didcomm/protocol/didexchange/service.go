@@ -236,7 +236,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 			Type:         service.PreState,
 			Msg:          msg.Msg.Clone(),
 			StateID:      next.Name(),
-			Properties:   createEventProperties(msg.ConnRecord.ConnectionID, ""),
+			Properties:   createEventProperties(msg.ConnRecord.ConnectionID, msg.ConnRecord.InvitationID),
 		})
 		logger.Debugf("sent pre event for state %s", next.Name())
 
@@ -353,7 +353,7 @@ func (s *Service) sendActionEvent(internalMsg *message, aEvent chan<- service.DI
 			internalMsg.err = err
 			s.processCallback(internalMsg)
 		},
-		Properties: createEventProperties(internalMsg.ConnRecord.ConnectionID, ""),
+		Properties: createEventProperties(internalMsg.ConnRecord.ConnectionID, internalMsg.ConnRecord.InvitationID),
 	}
 
 	return nil
@@ -546,13 +546,18 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecor
 		return nil, err
 	}
 
+	recKey, err := s.ctx.getInvitationRecipientKey(invitation)
+	if err != nil {
+		return nil, err
+	}
+
 	connRecord := &ConnectionRecord{
 		ConnectionID:    generateRandomID(),
 		ThreadID:        thID,
 		State:           stateNameNull,
 		InvitationID:    invitation.ID,
 		ServiceEndPoint: invitation.ServiceEndpoint,
-		RecipientKeys:   invitation.RecipientKeys,
+		RecipientKeys:   []string{recKey},
 		TheirLabel:      invitation.Label,
 		Namespace:       findNameSpace(msg.Header.Type),
 	}

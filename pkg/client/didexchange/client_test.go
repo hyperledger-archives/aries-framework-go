@@ -6,15 +6,19 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
@@ -432,16 +436,20 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 }
 
 func TestServiceEvents(t *testing.T) {
+	transientStore := mockstore.NewMockStoreProvider()
 	store := mockstore.NewMockStoreProvider()
 	didExSvc, err := didexchange.New(&mockcreator.MockDIDCreator{},
-		&mockprotocol.MockProvider{TransientStoreProvider: store})
+		&mockprotocol.MockProvider{
+			TransientStoreProvider: transientStore,
+			StoreProvider:          store})
 	require.NoError(t, err)
 
 	// create the client
 	c, err := New(&mockprovider.Provider{
-		TransientStorageProviderValue: store,
-		StorageProviderValue:          mockstore.NewMockStoreProvider(),
-		ServiceValue:                  didExSvc})
+		TransientStorageProviderValue: transientStore,
+		StorageProviderValue:          store,
+		ServiceValue:                  didExSvc,
+		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -474,13 +482,19 @@ func TestServiceEvents(t *testing.T) {
 	newDidDoc, err := (&mockcreator.MockDIDCreator{}).Create("test")
 	require.NoError(t, err)
 
+	invitation, err := c.CreateInvitation("alice")
+	require.NoError(t, err)
+
 	request, err := json.Marshal(
 		&didexchange.Request{
 			Type:  didexchange.RequestMsgType,
 			ID:    id,
 			Label: "test",
+			Thread: &decorator.Thread{
+				PID: invitation.ID,
+			},
 			Connection: &didexchange.Connection{
-				DID:    "B.did@B:A",
+				DID:    newDidDoc.ID,
 				DIDDoc: newDidDoc,
 			},
 		},
@@ -517,7 +531,9 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	c, err := New(&mockprovider.Provider{
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          store,
-		ServiceValue:                  didExSvc})
+		ServiceValue:                  didExSvc,
+		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}},
+	)
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -552,6 +568,8 @@ func TestAcceptExchangeRequest(t *testing.T) {
 		}
 	}()
 
+	invitation, err := c.CreateInvitation("alice")
+	require.NoError(t, err)
 	// send connection request message
 	id := "valid-thread-id"
 	newDidDoc, err := (&mockcreator.MockDIDCreator{}).Create("test")
@@ -562,8 +580,11 @@ func TestAcceptExchangeRequest(t *testing.T) {
 			Type:  didexchange.RequestMsgType,
 			ID:    id,
 			Label: "test",
+			Thread: &decorator.Thread{
+				PID: invitation.ID,
+			},
 			Connection: &didexchange.Connection{
-				DID:    "B.did@B:A",
+				DID:    newDidDoc.ID,
 				DIDDoc: newDidDoc,
 			},
 		},
@@ -639,17 +660,19 @@ func TestAcceptInvitation(t *testing.T) {
 			}
 		}()
 
+		pubKey, _ := generateKeyPair()
 		// send connection invitation message
-		request, jsonErr := json.Marshal(
-			&didexchange.Request{
-				Type:  InvitationMsgType,
-				ID:    "abc",
-				Label: "test",
+		invitation, jsonErr := json.Marshal(
+			&didexchange.Invitation{
+				Type:          InvitationMsgType,
+				ID:            "abc",
+				Label:         "test",
+				RecipientKeys: []string{pubKey},
 			},
 		)
 		require.NoError(t, jsonErr)
 
-		msg, svcErr := service.NewDIDCommMsg(request)
+		msg, svcErr := service.NewDIDCommMsg(invitation)
 		require.NoError(t, svcErr)
 		_, err = didExSvc.HandleInbound(msg)
 		require.NoError(t, err)
@@ -666,4 +689,12 @@ func TestAcceptInvitation(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did exchange client - accept exchange invitation")
 	})
+}
+func generateKeyPair() (string, []byte) {
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	return base58.Encode(pubKey[:]), privKey
 }

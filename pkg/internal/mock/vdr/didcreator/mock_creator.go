@@ -48,6 +48,12 @@ func createDefaultDID() *did.Doc {
 		panic(err)
 	}
 
+	service := did.Service{
+		ID:              "did:example:123456789abcdefghi#did-communication",
+		Type:            "did-communication",
+		ServiceEndpoint: "https://agent.example.com/",
+	}
+
 	signingKey := did.PublicKey{
 		ID:         creator,
 		Type:       keyType,
@@ -61,6 +67,7 @@ func createDefaultDID() *did.Doc {
 		Context:   []string{didContext},
 		ID:        didID,
 		PublicKey: []did.PublicKey{signingKey},
+		Service:   []did.Service{service},
 		Created:   &createdTime,
 	}
 }
