@@ -1,4 +1,4 @@
-# Instruction to generate OpenAPI spec
+# Generate OpenAPI spec
 
 ## Setup
 Controller REST API specifications are generated according to Open API 2.0 standards.

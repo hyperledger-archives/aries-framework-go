@@ -1,4 +1,4 @@
-# Instruction to run OpenAPI demo
+# Run OpenAPI demo
 
 ## Setup
 Launch the demo by running the following make target from project root directory.
