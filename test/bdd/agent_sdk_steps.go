@@ -16,13 +16,11 @@ import (
 	"github.com/DATA-DOG/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didmethod/httpbinding"
-	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -59,7 +57,7 @@ func (a *AgentSDKSteps) createAgentWithHTTPDIDResolver(
 	agentID, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
 	var opts []aries.Option
 
-	httpResolver, err := httpbinding.New(a.bddContext.Args[endpointURL],
+	httpVDRI, err := httpbinding.New(a.bddContext.Args[endpointURL],
 		httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
 	if err != nil {
 		return fmt.Errorf("failed from httpbinding new ")
@@ -70,14 +68,7 @@ func (a *AgentSDKSteps) createAgentWithHTTPDIDResolver(
 		return err
 	}
 
-	peerDidStore, err := peer.NewDIDStore(storeProv)
-	if err != nil {
-		return fmt.Errorf("failed to create new did store : %w", err)
-	}
-
-	opts = append(opts, aries.WithStoreProvider(storeProv),
-		aries.WithDIDResolver(didresolver.New(didresolver.WithDidMethod(httpResolver),
-			didresolver.WithDidMethod(peer.NewDIDResolver(peerDidStore)))))
+	opts = append(opts, aries.WithVDRI(httpVDRI), aries.WithStoreProvider(storeProv))
 
 	return a.create(agentID, inboundHost, inboundPort, opts...)
 }

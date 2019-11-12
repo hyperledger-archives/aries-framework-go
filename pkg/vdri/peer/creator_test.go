@@ -14,7 +14,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
-	api "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
+	api "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 )
 
 const (
@@ -25,11 +26,11 @@ const (
 
 func TestDIDCreator(t *testing.T) {
 	t.Run("test default creator options", func(t *testing.T) {
-		c := NewDIDCreator(WithCreatorServiceEndpoint(serviceEndpoint),
+		c, err := New(&storage.MockStoreProvider{}, WithCreatorServiceEndpoint(serviceEndpoint),
 			WithCreatorServiceType(serviceTypeDIDComm))
+		require.NoError(t, err)
 		require.NotNil(t, c)
-
-		didDoc, err := c.Build(getSigningKey(), nil)
+		didDoc, err := c.Build(getSigningKey())
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 
@@ -44,10 +45,11 @@ func TestDIDCreator(t *testing.T) {
 	})
 
 	t.Run("test create without service type", func(t *testing.T) {
-		c := NewDIDCreator()
+		c, err := New(&storage.MockStoreProvider{})
+		require.NoError(t, err)
 		require.NotNil(t, c)
 
-		didDoc, err := c.Build(getSigningKey(), &api.CreateDIDOpts{})
+		didDoc, err := c.Build(getSigningKey())
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 
@@ -56,12 +58,13 @@ func TestDIDCreator(t *testing.T) {
 	})
 
 	t.Run("test request overrides", func(t *testing.T) {
-		c := NewDIDCreator(WithCreatorServiceEndpoint(serviceEndpoint),
+		c, err := New(&storage.MockStoreProvider{}, WithCreatorServiceEndpoint(serviceEndpoint),
 			WithCreatorServiceType(serviceEndpoint))
+		require.NoError(t, err)
 		require.NotNil(t, c)
 
-		rqOpts := &api.CreateDIDOpts{ServiceEndpoint: "request-endpoint", ServiceType: "request-type"}
-		didDoc, err := c.Build(getSigningKey(), rqOpts)
+		didDoc, err := c.Build(getSigningKey(), api.WithServiceEndpoint("request-endpoint"),
+			api.WithServiceType("request-type"))
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 
@@ -72,7 +75,8 @@ func TestDIDCreator(t *testing.T) {
 	})
 
 	t.Run("test accept", func(t *testing.T) {
-		c := NewDIDCreator()
+		c, err := New(&storage.MockStoreProvider{})
+		require.NoError(t, err)
 		require.NotNil(t, c)
 
 		accepted := c.Accept("invalid")

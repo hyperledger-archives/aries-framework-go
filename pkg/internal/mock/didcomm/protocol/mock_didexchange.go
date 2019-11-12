@@ -11,13 +11,11 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
-	mockdidresolver "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didresolver"
-	mockdidstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -150,12 +148,7 @@ func (p *MockProvider) Signer() kms.Signer {
 	return &mockkms.CloseableKMS{}
 }
 
-// DIDResolver is mock DID resolver
-func (p *MockProvider) DIDResolver() didresolver.Resolver {
-	return &mockdidresolver.MockResolver{}
-}
-
-// DIDStore is mock DID store
-func (p *MockProvider) DIDStore() didstore.Storage {
-	return mockdidstore.NewMockDidStore()
+// VDRIRegistry is mock vdri registry
+func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
+	return &mockvdri.MockVDRIRegistry{}
 }

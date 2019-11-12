@@ -19,11 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	didcommtrans "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
-	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didcreator"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didstore"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
@@ -85,19 +81,6 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.inboundTransport = inbound
 	}
 
-	peerDidStore, err := peer.NewDIDStore(frameworkOpts.storeProvider)
-	if err != nil {
-		return fmt.Errorf("failed to create new did store : %w", err)
-	}
-
-	if frameworkOpts.didResolver == nil {
-		frameworkOpts.didResolver = didresolver.New(didresolver.WithDidMethod(peer.NewDIDResolver(peerDidStore)))
-	}
-
-	if frameworkOpts.didStore == nil {
-		frameworkOpts.didStore = didstore.New(didstore.WithDidMethod(peerDidStore))
-	}
-
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc())
 
 	setAdditionalDefaultOpts(frameworkOpts)
@@ -107,15 +90,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 
 func newExchangeSvc() api.ProtocolSvcCreator {
 	return func(prv api.Provider) (dispatcher.Service, error) {
-		dc, err := didcreator.New(prv,
-			didcreator.WithDidMethod(peer.NewDIDCreator()),
-			didcreator.WithCreatorServiceType("did-communication"),
-			didcreator.WithCreatorServiceEndpoint(prv.InboundTransportEndpoint()))
-		if err != nil {
-			return nil, err
-		}
-
-		return didexchange.New(dc, prv)
+		return didexchange.New(prv)
 	}
 }
 

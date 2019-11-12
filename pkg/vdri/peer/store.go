@@ -14,40 +14,17 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-)
-
-const (
-	// StoreNamespace store name space for DID Store
-	StoreNamespace = "didresolver"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
 type docDelta struct {
-	Change     string                 `json:"change,omitempty"`
-	ModifiedBy *[]didstore.ModifiedBy `json:"by,omitempty"`
-	ModifiedAt time.Time              `json:"when,omitempty"`
+	Change     string                `json:"change,omitempty"`
+	ModifiedBy *[]vdriapi.ModifiedBy `json:"by,omitempty"`
+	ModifiedAt time.Time             `json:"when,omitempty"`
 }
 
-// DIDStore Peer DID Document store
-type DIDStore struct {
-	store storage.Store
-}
-
-// NewDIDStore new Peer DID store (backing store is configurable)
-func NewDIDStore(s storage.Provider) (*DIDStore, error) {
-	didDBStore, err := s.OpenStore(StoreNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("open store : %w", err)
-	}
-
-	return &DIDStore{
-		store: didDBStore,
-	}, nil
-}
-
-// Put saves Peer DID Document along with user key/signature.
-func (s *DIDStore) Put(doc *did.Doc, by *[]didstore.ModifiedBy) error {
+// Store saves Peer DID Document along with user key/signature.
+func (v *VDRI) Store(doc *did.Doc, by *[]vdriapi.ModifiedBy) error {
 	if doc == nil || doc.ID == "" {
 		return errors.New("DID and document are mandatory")
 	}
@@ -73,16 +50,16 @@ func (s *DIDStore) Put(doc *did.Doc, by *[]didstore.ModifiedBy) error {
 		return fmt.Errorf("JSON marshalling of document deltas failed: %w", err)
 	}
 
-	return s.store.Put(doc.ID, val)
+	return v.store.Put(doc.ID, val)
 }
 
 // Get returns Peer DID Document
-func (s *DIDStore) Get(id string) (*did.Doc, error) {
+func (v *VDRI) Get(id string) (*did.Doc, error) {
 	if id == "" {
 		return nil, errors.New("ID is mandatory")
 	}
 
-	deltas, err := s.getDeltas(id)
+	deltas, err := v.getDeltas(id)
 	if err != nil {
 		return nil, fmt.Errorf("delta data fetch from store failed: %w", err)
 	}
@@ -103,13 +80,8 @@ func (s *DIDStore) Get(id string) (*did.Doc, error) {
 	return document, nil
 }
 
-// Accept did method
-func (s *DIDStore) Accept(method string) bool {
-	return method == didMethod
-}
-
-func (s *DIDStore) getDeltas(id string) ([]docDelta, error) {
-	val, err := s.store.Get(id)
+func (v *VDRI) getDeltas(id string) ([]docDelta, error) {
+	val, err := v.store.Get(id)
 	if err != nil {
 		return nil, fmt.Errorf("fetching data from store failed: %w", err)
 	}

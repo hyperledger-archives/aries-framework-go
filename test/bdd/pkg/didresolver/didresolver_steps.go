@@ -19,16 +19,16 @@ import (
 
 	"github.com/DATA-DOG/godog"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
-	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
-	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
-
 	"github.com/trustbloc/sidetree-core-go/pkg/document"
 	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
 	"github.com/trustbloc/sidetree-core-go/pkg/restapi/model"
+
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
+	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
 const (
@@ -114,7 +114,7 @@ func (d *Steps) resolveDID(agentID string) error {
 		return err
 	}
 
-	doc, err := resolveDID(d.bddContext.AgentCtx[agentID].DIDResolver(), didID, maxRetry)
+	doc, err := resolveDID(d.bddContext.AgentCtx[agentID].VDRIRegistry(), didID, maxRetry)
 	if err != nil {
 		return err
 	}
@@ -260,12 +260,12 @@ func createSidetreeDoc(ctx *context.Provider) (*document.Document, error) {
 	return &doc, nil
 }
 
-func resolveDID(resolver didresolver.Resolver, did string, maxRetry int) (*diddoc.Doc, error) {
+func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
 	var doc *diddoc.Doc
 
 	var err error
 	for i := 1; i <= maxRetry; i++ {
-		doc, err = resolver.Resolve(did)
+		doc, err = vdriRegistry.Resolve(did)
 		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
 			return doc, err
 		}
