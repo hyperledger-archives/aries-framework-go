@@ -96,7 +96,9 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort string, opts ..
 		inboundPort = strconv.Itoa(mustGetRandomPort(5))
 	}
 
-	opts = append(opts, defaults.WithInboundHTTPAddr(fmt.Sprintf("%s:%s", inboundHost, inboundPort), ""))
+	inboundAddr := fmt.Sprintf("%s:%s", inboundHost, inboundPort)
+
+	opts = append(opts, defaults.WithInboundHTTPAddr(inboundAddr, "http://"+inboundAddr))
 
 	agent, err := aries.New(opts...)
 	if err != nil {

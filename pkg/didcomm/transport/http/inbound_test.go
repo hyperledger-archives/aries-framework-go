@@ -130,17 +130,17 @@ func TestInboundHandler(t *testing.T) {
 func TestInboundTransport(t *testing.T) {
 	t.Run("test inbound transport - with host/port", func(t *testing.T) {
 		port := "26601"
-		externalAddr := "example.com:" + port
+		externalAddr := "http://example.com:" + port
 		inbound, err := NewInbound("localhost:"+port, externalAddr)
 		require.NoError(t, err)
-		require.Equal(t, "http://"+externalAddr, inbound.Endpoint())
+		require.Equal(t, externalAddr, inbound.Endpoint())
 	})
 
 	t.Run("test inbound transport - with host/port, no external address", func(t *testing.T) {
 		internalAddr := "example.com:26602"
 		inbound, err := NewInbound(internalAddr, "")
 		require.NoError(t, err)
-		require.Equal(t, "http://"+internalAddr, inbound.Endpoint())
+		require.Equal(t, internalAddr, inbound.Endpoint())
 	})
 
 	t.Run("test inbound transport - without host/port", func(t *testing.T) {
