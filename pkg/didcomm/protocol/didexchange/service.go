@@ -131,15 +131,7 @@ func New(didMaker didcreator.Creator, prov provider) (*Service, error) {
 
 // HandleInbound handles inbound didexchange messages.
 func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
-	// https://github.com/hyperledger/aries-framework-go/issues/753 -- DIDExchange Svc - Action Event refactor
-	// throw error if there is no action event registered for inbound messages
-	aEvent := s.ActionEvent()
-
 	logger.Debugf("receive inbound message : %s", msg.Payload)
-
-	if aEvent == nil {
-		return "", errors.New("no clients are registered to handle the message")
-	}
 
 	// fetch the thread id
 	thID, err := threadID(msg)
@@ -165,7 +157,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 		if err = s.handle(msg, aEvent); err != nil {
 			logger.Errorf("didexchange processing error : %s", err)
 		}
-	}(internalMsg, aEvent)
+	}(internalMsg, s.ActionEvent())
 
 	return connRecord.ConnectionID, nil
 }
@@ -277,16 +269,16 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 
 		prev := next
 		next = followup
-		triggeredActionEvent := false
+		haltExecution := false
 
 		// trigger action event based on message type for inbound messages
-		if aEvent != nil && canTriggerActionEvents(connectionRecord.State, connectionRecord.Namespace) {
+		if canTriggerActionEvents(connectionRecord.State, connectionRecord.Namespace) {
 			msg.NextStateName = next.Name()
 			if err = s.sendActionEvent(msg, aEvent); err != nil {
 				return fmt.Errorf("handle inbound : %w", err)
 			}
 
-			triggeredActionEvent = true
+			haltExecution = true
 		}
 
 		s.sendMsgEvents(&service.StateMsg{
@@ -298,7 +290,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		})
 		logger.Debugf("sent post event for state %s", prev.Name())
 
-		if triggeredActionEvent {
+		if haltExecution {
 			break
 		}
 	}
@@ -333,27 +325,28 @@ func (s *Service) sendActionEvent(internalMsg *message, aEvent chan<- service.DI
 		return fmt.Errorf("send action event : %w", err)
 	}
 
-	// trigger action event
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/676 pass invitation id
-	aEvent <- service.DIDCommAction{
-		ProtocolName: DIDExchange,
-		Message:      internalMsg.Msg.Clone(),
-		Continue: func(args interface{}) {
-			switch v := args.(type) {
-			case opts:
-				internalMsg.PublicDID = v.PublicDID()
-			default:
-				// nothing to do
-			}
+	if aEvent != nil {
+		// trigger action event
+		aEvent <- service.DIDCommAction{
+			ProtocolName: DIDExchange,
+			Message:      internalMsg.Msg.Clone(),
+			Continue: func(args interface{}) {
+				switch v := args.(type) {
+				case opts:
+					internalMsg.PublicDID = v.PublicDID()
+				default:
+					// nothing to do
+				}
 
-			s.processCallback(internalMsg)
-		},
-		Stop: func(err error) {
-			// sets an error to the message
-			internalMsg.err = err
-			s.processCallback(internalMsg)
-		},
-		Properties: createEventProperties(internalMsg.ConnRecord.ConnectionID, internalMsg.ConnRecord.InvitationID),
+				s.processCallback(internalMsg)
+			},
+			Stop: func(err error) {
+				// sets an error to the message
+				internalMsg.err = err
+				s.processCallback(internalMsg)
+			},
+			Properties: createEventProperties(internalMsg.ConnRecord.ConnectionID, internalMsg.ConnRecord.InvitationID),
+		}
 	}
 
 	return nil

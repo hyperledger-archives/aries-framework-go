@@ -58,11 +58,9 @@ func New(ctx provider, notifier webhook.Notifier, defaultLabel string) (*Operati
 	}
 
 	svc := &Operation{
-		ctx:    ctx,
-		client: didExchange,
-		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
-		actionCh:     make(chan service.DIDCommAction, 10),
-		msgCh:        make(chan service.StateMsg, 10),
+		ctx:          ctx,
+		client:       didExchange,
+		msgCh:        make(chan service.StateMsg),
 		notifier:     notifier,
 		defaultLabel: defaultLabel,
 	}
@@ -81,7 +79,6 @@ type Operation struct {
 	ctx          provider
 	client       *didexchange.Client
 	handlers     []operation.Handler
-	actionCh     chan service.DIDCommAction
 	msgCh        chan service.StateMsg
 	notifier     webhook.Notifier
 	defaultLabel string
@@ -346,36 +343,18 @@ func getQueryParams(v interface{}, vals url.Values) error {
 
 // startClientEventListener listens to action and message events from DID Exchange service.
 func (c *Operation) startClientEventListener() error {
-	// register the action event channel
-	err := c.client.RegisterActionEvent(c.actionCh)
-	if err != nil {
-		return fmt.Errorf("didexchange action event registration failed: %w", err)
-	}
-
 	// register the message event channel
-	err = c.client.RegisterMsgEvent(c.msgCh)
+	err := c.client.RegisterMsgEvent(c.msgCh)
 	if err != nil {
 		return fmt.Errorf("didexchange message event registration failed: %w", err)
 	}
 
 	// event listeners
 	go func() {
-		for {
-			select {
-			case <-c.actionCh:
-				// We ignore action events in RestAPI as webhook callback's can't differentiate between post
-				// state message event and action events. Rest API Webhook notifications are triggered for
-				// Post State message changes. The accept-xyz APIs are used to trigger the action events.
-				//
-				// When Controller receives message with
-				// 		state="invited" -> trigger "accept-invitation" api to approve the exchange invitation.
-				// 		state="requested" -> trigger "accept-request" api to approve the exchange request.
-				logger.Debugf("ignoring action events in REST API client")
-			case e := <-c.msgCh:
-				err := c.handleMessageEvents(e)
-				if err != nil {
-					logger.Errorf("handle message events failed : %s", err)
-				}
+		for e := range c.msgCh {
+			err := c.handleMessageEvents(e)
+			if err != nil {
+				logger.Errorf("handle message events failed : %s", err)
 			}
 		}
 	}()

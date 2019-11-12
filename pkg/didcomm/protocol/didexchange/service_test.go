@@ -267,7 +267,6 @@ func TestService_Handle_Invitee(t *testing.T) {
 	// Alice automatically sends a Request to Bob and is now in REQUESTED state.
 	connRecord, err := s.connectionStore.GetConnectionRecord(connID)
 	require.NoError(t, err)
-
 	require.Equal(t, (&requested{}).Name(), connRecord.State)
 	require.Equal(t, invitation.ID, connRecord.InvitationID)
 	require.Equal(t, invitation.RecipientKeys, connRecord.RecipientKeys)
@@ -330,16 +329,6 @@ func handleMessagesInvitee(statusCh chan service.StateMsg, requestedCh chan stri
 }
 
 func TestService_Handle_EdgeCases(t *testing.T) {
-	t.Run("handleInbound - no action events registered", func(t *testing.T) {
-		svc, err := New(&mockdid.MockDIDCreator{Doc: getMockDID()}, &protocol.MockProvider{})
-		require.NoError(t, err)
-
-		_, err = svc.HandleInbound(&service.DIDCommMsg{
-			Header: &service.Header{Type: ResponseMsgType},
-		})
-		require.EqualError(t, err, "no clients are registered to handle the message")
-	})
-
 	t.Run("handleInbound - must not transition to same state", func(t *testing.T) {
 		s, err := New(&mockdid.MockDIDCreator{}, &protocol.MockProvider{})
 		require.NoError(t, err)
