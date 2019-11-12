@@ -60,9 +60,9 @@ func TestNew_Fail(t *testing.T) {
 }
 
 func TestOperation_CreateInvitation(t *testing.T) {
-	t.Run("Successful CreateInvitation with params", func(t *testing.T) {
+	t.Run("Successful CreateInvitation with label", func(t *testing.T) {
 		handler := getHandler(t, createInvitationPath, nil)
-		buf, err := getResponseFromHandler(handler, nil, handler.Path()+"?alias=mylabel&public=true")
+		buf, err := getResponseFromHandler(handler, nil, handler.Path()+"?alias=mylabel")
 		require.NoError(t, err)
 
 		response := models.CreateInvitationResponse{}
@@ -74,6 +74,25 @@ func TestOperation_CreateInvitation(t *testing.T) {
 		require.Equal(t, "endpoint", response.Invitation.ServiceEndpoint)
 		require.Empty(t, response.Invitation.Label)
 		require.NotEmpty(t, response.Alias)
+	})
+
+	t.Run("Successful CreateInvitation with label and public DID", func(t *testing.T) {
+		const publicDID = "sample-public-did"
+		handler := getHandler(t, createInvitationPath, nil)
+		buf, err := getResponseFromHandler(handler, nil, handler.Path()+"?alias=mylabel&public="+publicDID)
+		require.NoError(t, err)
+
+		response := models.CreateInvitationResponse{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response.Invitation)
+		require.Empty(t, response.Invitation.ServiceEndpoint)
+		require.Empty(t, response.Invitation.Label)
+		require.NotEmpty(t, response.Alias)
+		require.NotEmpty(t, response.Invitation.DID)
+		require.Equal(t, publicDID, response.Invitation.DID)
 	})
 
 	t.Run("Successful CreateInvitation with default params", func(t *testing.T) {
@@ -90,21 +109,6 @@ func TestOperation_CreateInvitation(t *testing.T) {
 		require.Equal(t, "endpoint", response.Invitation.ServiceEndpoint)
 		require.Empty(t, response.Invitation.Label)
 		require.Empty(t, response.Alias)
-	})
-
-	t.Run("Failed CreateInvitation with error", func(t *testing.T) {
-		handler := getHandler(t, createInvitationPath, nil)
-		buf, err := getResponseFromHandler(handler, nil, handler.Path()+"?alias=mylabel&public=345")
-		require.NoError(t, err)
-
-		errResponse := models.GenericError{}
-		err = json.Unmarshal(buf.Bytes(), &errResponse)
-		require.NoError(t, err)
-
-		// verify response
-		require.NotEmpty(t, errResponse.Body)
-		require.NotEmpty(t, errResponse.Body.Code)
-		require.NotEmpty(t, errResponse.Body.Message)
 	})
 }
 

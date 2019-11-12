@@ -102,13 +102,20 @@ func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	var alias string
+	var alias, did string
 	if request.CreateInvitationParams != nil {
 		alias = request.CreateInvitationParams.Alias
+		did = request.CreateInvitationParams.Public
 	}
 
+	var invitation *didexchange.Invitation
 	// call didexchange client
-	invitation, err := c.client.CreateInvitation(c.defaultLabel)
+	if did != "" {
+		invitation, err = c.client.CreateInvitationWithDID(c.defaultLabel, did)
+	} else {
+		invitation, err = c.client.CreateInvitation(c.defaultLabel)
+	}
+
 	if err != nil {
 		c.writeGenericError(rw, err)
 		return

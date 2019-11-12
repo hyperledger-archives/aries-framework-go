@@ -45,8 +45,8 @@ type CreateInvitationParams struct {
 	// The Alias to be used in invitation to be created
 	Alias string `json:"alias"`
 
-	// The Public flag to create an invitation from the public DID
-	Public bool `json:"public,string,omitempty"`
+	// The Public DID to be used for creating invitation
+	Public string `json:"public,omitempty"`
 }
 
 // CreateInvitationResponse model
