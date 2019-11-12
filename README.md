@@ -53,7 +53,9 @@ make unit-test
 
 - [Running bdd tests](docs/test/bdd_instructions.md)
 - [Running demo locally](docs/demo/openapi_demo_instructions.md)
+- [Running agent locally](docs/agentd/agent_CLI.md)
 - [Running agent using docker](docs/agentd/agent_docker_instructions.md)
+- [Agent webhook support](docs/agentd/agent_webhook.md)
 - [Generating Controller REST API specifications](docs/spec/openapi_spec_instructions.md)
 
 ### Crypto material generation for tests
