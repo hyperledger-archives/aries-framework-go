@@ -24,18 +24,36 @@ func Example() {
 		fmt.Println("failed to create client for Bob")
 	}
 
-	if err = setupAutoExecution(bob); err != nil {
-		fmt.Println("failed to setup auto execution for Bob")
+	bobActions := make(chan service.DIDCommAction, 1)
+
+	err = bob.RegisterActionEvent(bobActions)
+	if err != nil {
+		fmt.Println("failed to create Bob's action channel")
 	}
+
+	go func() {
+		if e := service.AutoExecuteActionEvent(bobActions); e != nil {
+			fmt.Println("failed to setup auto execute")
+		}
+	}()
 
 	alice, err := New(mockContext())
 	if err != nil {
 		fmt.Println("failed to create client for Alice")
 	}
 
-	if err = setupAutoExecution(alice); err != nil {
-		fmt.Println("failed to setup auto execution for Alice")
+	aliceActions := make(chan service.DIDCommAction, 1)
+
+	err = alice.RegisterActionEvent(aliceActions)
+	if err != nil {
+		fmt.Println("failed to create Alice's action channel")
 	}
+
+	go func() {
+		if e := service.AutoExecuteActionEvent(aliceActions); e != nil {
+			fmt.Println("failed to setup auto execute")
+		}
+	}()
 
 	invitation, err := bob.CreateInvitation("bob invites alice")
 	if err != nil {
@@ -104,21 +122,6 @@ func ExampleClient_CreateInvitationWithDID() {
 	fmt.Println(invitation.DID)
 
 	// Output: did:example:abc-123
-}
-
-func setupAutoExecution(client *Client) error {
-	clientActions := make(chan service.DIDCommAction, 1)
-	if err := client.RegisterActionEvent(clientActions); err != nil {
-		return fmt.Errorf("failed to create action channel: %w", err)
-	}
-
-	go func() {
-		if err := service.AutoExecuteActionEvent(clientActions); err != nil {
-			panic(err)
-		}
-	}()
-
-	return nil
 }
 
 func mockContext() provider {
