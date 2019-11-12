@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// Aries provides access to clients being managed by the framework.
+// Aries provides access to the context being managed by the framework. The context can be used to create aries clients.
 type Aries struct {
 	storeProvider             storage.Provider
 	transientStoreProvider    storage.Provider
@@ -46,7 +46,8 @@ type Aries struct {
 // Option configures the framework.
 type Option func(opts *Aries) error
 
-// New initializes the Aries framework based on the set of options provided.
+// New initializes the Aries framework based on the set of options provided. This function returns a framework
+// which can be used to manage Aries clients by getting the framework context.
 func New(opts ...Option) (*Aries, error) {
 	frameworkOpts := &Aries{}
 
@@ -106,7 +107,7 @@ func New(opts ...Option) (*Aries, error) {
 	return frameworkOpts, nil
 }
 
-// WithOutboundTransport injects a outbound transport to the Aries framework
+// WithOutboundTransport injects an outbound transport to the Aries framework.
 func WithOutboundTransport(outboundTransport transport.OutboundTransport) Option {
 	return func(opts *Aries) error {
 		opts.outboundTransport = outboundTransport
@@ -114,7 +115,7 @@ func WithOutboundTransport(outboundTransport transport.OutboundTransport) Option
 	}
 }
 
-// WithInboundTransport injects a inbound transport to the Aries framework
+// WithInboundTransport injects an inbound transport to the Aries framework.
 func WithInboundTransport(inboundTransport transport.InboundTransport) Option {
 	return func(opts *Aries) error {
 		opts.inboundTransport = inboundTransport
@@ -122,7 +123,7 @@ func WithInboundTransport(inboundTransport transport.InboundTransport) Option {
 	}
 }
 
-// WithDIDResolver injects a DID resolver to the Aries framework
+// WithDIDResolver injects a DID resolver to the Aries framework.
 func WithDIDResolver(didResolver didresolver.Resolver) Option {
 	return func(opts *Aries) error {
 		opts.didResolver = didResolver
@@ -130,7 +131,7 @@ func WithDIDResolver(didResolver didresolver.Resolver) Option {
 	}
 }
 
-// WithStoreProvider injects a storage provider to the Aries framework
+// WithStoreProvider injects a storage provider to the Aries framework.
 func WithStoreProvider(prov storage.Provider) Option {
 	return func(opts *Aries) error {
 		opts.storeProvider = prov
@@ -138,7 +139,7 @@ func WithStoreProvider(prov storage.Provider) Option {
 	}
 }
 
-// WithTransientStoreProvider injects a transient storage provider to the Aries framework
+// WithTransientStoreProvider injects a transient storage provider to the Aries framework.
 func WithTransientStoreProvider(prov storage.Provider) Option {
 	return func(opts *Aries) error {
 		opts.transientStoreProvider = prov
@@ -146,7 +147,7 @@ func WithTransientStoreProvider(prov storage.Provider) Option {
 	}
 }
 
-// WithProtocols injects a protocol service to the Aries framework
+// WithProtocols injects a protocol service to the Aries framework.
 func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
 	return func(opts *Aries) error {
 		opts.protocolSvcCreators = append(opts.protocolSvcCreators, protocolSvcCreator...)
@@ -154,7 +155,7 @@ func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
 	}
 }
 
-// WithOutboundDispatcher injects a outbound dispatcher service to the Aries framework
+// WithOutboundDispatcher injects an outbound dispatcher service to the Aries framework.
 func WithOutboundDispatcher(o dispatcher.OutboundCreator) Option {
 	return func(opts *Aries) error {
 		opts.outboundDispatcherCreator = o
@@ -162,7 +163,7 @@ func WithOutboundDispatcher(o dispatcher.OutboundCreator) Option {
 	}
 }
 
-// WithKMS injects a KMS service to the Aries framework
+// WithKMS injects a KMS service to the Aries framework.
 func WithKMS(k api.KMSCreator) Option {
 	return func(opts *Aries) error {
 		opts.kmsCreator = k
@@ -181,7 +182,7 @@ func WithPacker(primary packer.Creator, additionalPackers ...packer.Creator) Opt
 	}
 }
 
-// WithDIDStore injects a did store to the Aries framework
+// WithDIDStore injects a DID store to the Aries framework.
 func WithDIDStore(didStore didstore.Storage) Option {
 	return func(opts *Aries) error {
 		opts.didStore = didStore
@@ -189,7 +190,7 @@ func WithDIDStore(didStore didstore.Storage) Option {
 	}
 }
 
-// Context provides handle to framework context
+// Context provides a handle to the framework context.
 func (a *Aries) Context() (*context.Provider, error) {
 	return context.New(
 		context.WithOutboundDispatcher(a.outboundDispatcher),

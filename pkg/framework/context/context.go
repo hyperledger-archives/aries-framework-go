@@ -39,7 +39,7 @@ type Provider struct {
 	didStore                 didstore.Storage
 }
 
-// New instantiated new context provider
+// New instantiates a new context provider.
 func New(opts ...ProviderOption) (*Provider, error) {
 	ctxProvider := Provider{}
 
@@ -53,12 +53,12 @@ func New(opts ...ProviderOption) (*Provider, error) {
 	return &ctxProvider, nil
 }
 
-// OutboundDispatcher returns the outbound dispatcher
+// OutboundDispatcher returns an outbound dispatcher.
 func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
 	return p.outboundDispatcher
 }
 
-// OutboundTransports returns the outbound transports
+// OutboundTransports returns an outbound transports.
 func (p *Provider) OutboundTransports() []transport.OutboundTransport {
 	return []transport.OutboundTransport{p.outboundTransport}
 }
@@ -74,37 +74,37 @@ func (p *Provider) Service(id string) (interface{}, error) {
 	return nil, api.ErrSvcNotFound
 }
 
-// KMS returns the kms service
+// KMS returns a kms service.
 func (p *Provider) KMS() kms.KeyManager {
 	return p.kms
 }
 
-// Packager returns the packager service
+// Packager returns a packager service.
 func (p *Provider) Packager() commontransport.Packager {
 	return p.packager
 }
 
-// Packers returns a list of enabled packers
+// Packers returns a list of enabled packers.
 func (p *Provider) Packers() []packer.Packer {
 	return p.packers
 }
 
-// PrimaryPacker returns the main inbound/outbound Packer service
+// PrimaryPacker returns the main inbound/outbound Packer service.
 func (p *Provider) PrimaryPacker() packer.Packer {
 	return p.primaryPacker
 }
 
-// Signer returns the kms signing service
+// Signer returns a kms signing service.
 func (p *Provider) Signer() kms.Signer {
 	return p.kms
 }
 
-// InboundTransportEndpoint returns the inbound transport endpoint
+// InboundTransportEndpoint returns an inbound transport endpoint.
 func (p *Provider) InboundTransportEndpoint() string {
 	return p.inboundTransportEndpoint
 }
 
-// InboundMessageHandler return inbound message handler
+// InboundMessageHandler return an inbound message handler.
 func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	return func(message []byte) error {
 		msg, err := service.NewDIDCommMsg(message)
@@ -123,27 +123,27 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	}
 }
 
-// StorageProvider return storage provider
+// StorageProvider return a storage provider.
 func (p *Provider) StorageProvider() storage.Provider {
 	return p.storeProvider
 }
 
-// TransientStorageProvider return transient storage provider
+// TransientStorageProvider return a transient storage provider.
 func (p *Provider) TransientStorageProvider() storage.Provider {
 	return p.transientStoreProvider
 }
 
-// DIDResolver returns did resolver
+// DIDResolver returns a DID resolver.
 func (p *Provider) DIDResolver() didresolver.Resolver {
 	return p.didResolver
 }
 
-// DIDCreator returns did creator
+// DIDCreator returns a DID creator.
 func (p *Provider) DIDCreator() didcreator.Creator {
 	return p.didCreator
 }
 
-// DIDStore returns did store
+// DIDStore returns a DID store.
 func (p *Provider) DIDStore() didstore.Storage {
 	return p.didStore
 }
@@ -151,7 +151,7 @@ func (p *Provider) DIDStore() didstore.Storage {
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
-// WithOutboundDispatcher injects outbound dispatcher into the context
+// WithOutboundDispatcher injects an outbound dispatcher into the context.
 func WithOutboundDispatcher(ot dispatcher.Outbound) ProviderOption {
 	return func(opts *Provider) error {
 		opts.outboundDispatcher = ot
@@ -159,7 +159,7 @@ func WithOutboundDispatcher(ot dispatcher.Outbound) ProviderOption {
 	}
 }
 
-// WithOutboundTransport injects outbound transport into the context
+// WithOutboundTransport injects an outbound transport into the context.
 func WithOutboundTransport(ot transport.OutboundTransport) ProviderOption {
 	return func(opts *Provider) error {
 		opts.outboundTransport = ot
@@ -167,7 +167,7 @@ func WithOutboundTransport(ot transport.OutboundTransport) ProviderOption {
 	}
 }
 
-// WithProtocolServices injects protocol services into the context.
+// WithProtocolServices injects a protocol services into the context.
 func WithProtocolServices(services ...dispatcher.Service) ProviderOption {
 	return func(opts *Provider) error {
 		opts.services = services
@@ -175,7 +175,7 @@ func WithProtocolServices(services ...dispatcher.Service) ProviderOption {
 	}
 }
 
-// WithDIDStore injects did store into the context.
+// WithDIDStore injects a DID store into the context.
 func WithDIDStore(store didstore.Storage) ProviderOption {
 	return func(opts *Provider) error {
 		opts.didStore = store
@@ -183,7 +183,7 @@ func WithDIDStore(store didstore.Storage) ProviderOption {
 	}
 }
 
-// WithKMS injects a kms service into the context
+// WithKMS injects a kms service into the context.
 func WithKMS(w kms.KMS) ProviderOption {
 	return func(opts *Provider) error {
 		opts.kms = w
@@ -191,7 +191,7 @@ func WithKMS(w kms.KMS) ProviderOption {
 	}
 }
 
-// WithInboundTransportEndpoint injects a inbound transport endpoint into the context
+// WithInboundTransportEndpoint injects an inbound transport endpoint into the context.
 func WithInboundTransportEndpoint(endpoint string) ProviderOption {
 	return func(opts *Provider) error {
 		opts.inboundTransportEndpoint = endpoint
@@ -199,7 +199,7 @@ func WithInboundTransportEndpoint(endpoint string) ProviderOption {
 	}
 }
 
-// WithStorageProvider injects a storage provider into the context
+// WithStorageProvider injects a storage provider into the context.
 func WithStorageProvider(s storage.Provider) ProviderOption {
 	return func(opts *Provider) error {
 		opts.storeProvider = s
@@ -207,7 +207,7 @@ func WithStorageProvider(s storage.Provider) ProviderOption {
 	}
 }
 
-// WithTransientStorageProvider injects a transient storage provider into the context
+// WithTransientStorageProvider injects a transient storage provider into the context.
 func WithTransientStorageProvider(s storage.Provider) ProviderOption {
 	return func(opts *Provider) error {
 		opts.transientStoreProvider = s
@@ -215,7 +215,7 @@ func WithTransientStorageProvider(s storage.Provider) ProviderOption {
 	}
 }
 
-// WithDIDResolver injects did resolver into the context
+// WithDIDResolver injects DID resolver into the context.
 func WithDIDResolver(r didresolver.Resolver) ProviderOption {
 	return func(opts *Provider) error {
 		opts.didResolver = r
@@ -223,7 +223,7 @@ func WithDIDResolver(r didresolver.Resolver) ProviderOption {
 	}
 }
 
-// WithPackager injects a packager into the context
+// WithPackager injects a packager into the context.
 func WithPackager(p commontransport.Packager) ProviderOption {
 	return func(opts *Provider) error {
 		opts.packager = p
