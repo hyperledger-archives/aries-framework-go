@@ -683,16 +683,21 @@ func TestContinueWithPublicDID(t *testing.T) {
 
 func continueWithPublicDID(ch chan service.DIDCommAction, pubDID string) {
 	for msg := range ch {
-		msg.Continue(&clientOptions{publicDID: pubDID})
+		msg.Continue(&testOptions{publicDID: pubDID})
 	}
 }
 
-type clientOptions struct {
+type testOptions struct {
 	publicDID string
+	label     string
 }
 
-func (copts *clientOptions) PublicDID() string {
-	return copts.publicDID
+func (to *testOptions) PublicDID() string {
+	return to.publicDID
+}
+
+func (to *testOptions) Label() string {
+	return to.label
 }
 
 func TestEventsUserError(t *testing.T) {

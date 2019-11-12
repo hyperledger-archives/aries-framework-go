@@ -140,11 +140,11 @@ func (d *SDKSteps) approveRequest(agentID string) error {
 }
 
 func (d *SDKSteps) getClientOptions(agentID string) interface{} {
-	var clientOpts interface{}
+	clientOpts := &clientOptions{label: agentID}
 
 	pubDID, ok := d.bddContext.PublicDIDs[agentID]
 	if ok {
-		clientOpts = &clientOptions{publicDID: pubDID.ID}
+		clientOpts.publicDID = pubDID.ID
 
 		logger.Debugf("Agent %s will use public DID %s:", agentID, pubDID.ID)
 	}
@@ -154,10 +154,15 @@ func (d *SDKSteps) getClientOptions(agentID string) interface{} {
 
 type clientOptions struct {
 	publicDID string
+	label     string
 }
 
 func (copts *clientOptions) PublicDID() string {
 	return copts.publicDID
+}
+
+func (copts *clientOptions) Label() string {
+	return copts.label
 }
 
 func (d *SDKSteps) createDIDExchangeClient(agentID string) error {

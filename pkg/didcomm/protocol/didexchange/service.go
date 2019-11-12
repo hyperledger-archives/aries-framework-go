@@ -45,7 +45,7 @@ const (
 type message struct {
 	Msg           *service.DIDCommMsg
 	ThreadID      string
-	PublicDID     string
+	Options       *options
 	NextStateName string
 	ConnRecord    *ConnectionRecord
 	// err is used to determine whether callback was stopped
@@ -69,7 +69,7 @@ type stateMachineMsg struct {
 	header     *service.Header
 	payload    []byte
 	connRecord *ConnectionRecord
-	publicDID  string
+	options    *options
 }
 
 // Service for DID exchange protocol
@@ -94,6 +94,9 @@ type context struct {
 type opts interface {
 	// PublicDID allows for setting public DID
 	PublicDID() string
+
+	// Label allows for setting label
+	Label() string
 }
 
 // New return didexchange service
@@ -243,7 +246,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 				header:     msg.Msg.Header,
 				payload:    msg.Msg.Payload,
 				connRecord: msg.ConnRecord,
-				publicDID:  msg.PublicDID,
+				options:    msg.Options,
 			},
 			msg.ThreadID,
 			s.ctx)
@@ -333,7 +336,7 @@ func (s *Service) sendActionEvent(internalMsg *message, aEvent chan<- service.DI
 			Continue: func(args interface{}) {
 				switch v := args.(type) {
 				case opts:
-					internalMsg.PublicDID = v.PublicDID()
+					internalMsg.Options = &options{publicDID: v.PublicDID(), label: v.Label()}
 				default:
 					// nothing to do
 				}
@@ -620,4 +623,9 @@ func generateRandomID() string {
 // 2. Role is inviter and state is requested
 func canTriggerActionEvents(stateID, ns string) bool {
 	return (stateID == stateNameInvited && ns == myNSPrefix) || (stateID == stateNameRequested && ns == theirNSPrefix)
+}
+
+type options struct {
+	publicDID string
+	label     string
 }
