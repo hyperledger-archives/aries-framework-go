@@ -42,11 +42,11 @@ The packages intended for end developer usage are within the [pkg/client](pkg/cl
 ## Controller Bindings
 - [Go](docs/go/README.md)
 - [REST](docs/rest/README.md)
-  - [Run OpenAPI Demo](docs/rest/openapi_demo_instructions.md)
+  - [Run OpenAPI Demo](docs/rest/openapi_demo.md)
 
 ## Testing
-- [Build](docs/test/build_instructions.md)
-- [BDD tests](docs/test/bdd_instructions.md)
+- [Build](docs/test/build.md)
+- [BDD tests](docs/test/bdd_tests.md)
 
 ## Contributing
 Found a bug? Ready to submit a PR? Want to submit a proposal for your grand

@@ -1,12 +1,14 @@
-# Building the Agent
+# Run the agent as a binary
+
+## Build the Agent
 
 The agent can be built from within the `cmd/aries-agentd` directory with `go build`.
 
-# Running the Agent
+## Run the Agent
 
 Start the agent with `./aries-agentd start [flags]`.
 
-# Agent Parameters
+## Agent Parameters
 
 Parameters can be set by command line arguments or environment variables:
 

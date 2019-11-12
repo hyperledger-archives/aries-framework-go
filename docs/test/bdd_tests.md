@@ -1,4 +1,4 @@
-# Instruction to run bdd tests
+# Run bdd tests
 
 ## Demonstration
 - Two agents establish connection using did exchange protocol sdk (didexchange_e2e_sdk)
