@@ -82,6 +82,12 @@ To test compatibility of the verifiable credential packages with
 [W3C Verifiable Claims Working Group Test Suite](https://github.com/w3c/vc-test-suite), run `make vc-test-suite`.
 The result of the test suite is generated as `vc-test-suite/suite/implementations/aries-framework-go-report.json`.
 
+### Documentation
+
+Agent documentation can be viewed at [GoDoc](https://godoc.org/github.com/hyperledger/aries-framework-go).
+
+The packages intended for end developer usage are within the pkg/client folder along with the main agent package (pkg/framework/aries).
+
 ## Contributing
 
 Found a bug? Ready to submit a PR? Want to submit a proposal for your grand
