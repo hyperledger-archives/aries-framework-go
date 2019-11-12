@@ -23,8 +23,7 @@ Once both agents are up, click on the agent specific urls to launch the OpenAPI 
 
 ## Notes 
 Following features are not supported at the moment in RestAPI.
-1. DID Exchange using Public DIDs.
-2. Connection search using different criterion.
+1. Connection search using different criterion.
 
 ## References 
 ### Invitation
