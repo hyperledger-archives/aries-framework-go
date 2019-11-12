@@ -13,4 +13,4 @@ Above target will build docker image `aries-framework-go/agent` which can be use
  docker run aries-framework-go/agent start [flags] 
 ```
 
-Details about flags can be found [here](agent_CLI.md#Agent Parameters)
+Details about flags can be found [here](agent_CLI.md#Agent-Parameters)
