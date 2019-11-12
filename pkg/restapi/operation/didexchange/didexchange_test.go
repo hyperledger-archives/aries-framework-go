@@ -564,21 +564,6 @@ func TestAcceptInvitation(t *testing.T) {
 func TestOperationEventError(t *testing.T) {
 	const errMsg = "channel is already registered for the action event"
 
-	t.Run("action event registration failed", func(t *testing.T) {
-		client, err := didexchange.New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue: &protocol.MockDIDExchangeSvc{
-				RegisterActionEventErr: errors.New(errMsg),
-			}})
-
-		require.NoError(t, err)
-		ops := &Operation{client: client, actionCh: make(chan service.DIDCommAction)}
-		err = ops.startClientEventListener()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "didexchange action event registration failed: "+errMsg)
-	})
-
 	t.Run("message event registration failed", func(t *testing.T) {
 		client, err := didexchange.New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
@@ -588,7 +573,7 @@ func TestOperationEventError(t *testing.T) {
 			}})
 
 		require.NoError(t, err)
-		ops := &Operation{client: client, actionCh: make(chan service.DIDCommAction)}
+		ops := &Operation{client: client, msgCh: make(chan service.StateMsg)}
 		err = ops.startClientEventListener()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "didexchange message event registration failed: "+errMsg)
