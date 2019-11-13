@@ -11,31 +11,33 @@ services:
     container_name: alice.aries.example.com
     image: ${AGENTD_IMAGE}:${AGENTD_IMAGE_TAG}
     environment:
-      - API_HOST=${ALICE_HOST}:${ALICE_API_PORT}
-      - INBOUND_HOST=${ALICE_HOST}:${ALICE_INBOUND_PORT}
-      - INBOUND_HOST_EXTERNAL=alice.aries.example.com:${ALICE_INBOUND_PORT}
-      - WEBHOOK_URL=http://${ALICE_WEBHOOK_CONTAINER_NAME}:${ALICE_WEBHOOK_PORT}
-      - AGENT_DEFAULT_LABEL=alice-agent
-      - DB_LOC=${ALICE_DB_LOC}
-      - HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+      - ARIESD_API_HOST=${ALICE_HOST}:${ALICE_API_PORT}
+      - ARIESD_INBOUND_HOST=${ALICE_HOST}:${ALICE_INBOUND_PORT}
+      - ARIESD_INBOUND_HOST_EXTERNAL=alice.aries.example.com:${ALICE_INBOUND_PORT}
+      - ARIESD_WEBHOOK_URL=http://${ALICE_WEBHOOK_CONTAINER_NAME}:${ALICE_WEBHOOK_PORT}
+      - ARIESD_DEFAULT_LABEL=alice-agent
+      - ARIESD_DB_PATH=${ALICE_DB_PATH}
+      - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
     ports:
       - ${ALICE_INBOUND_PORT}:${ALICE_INBOUND_PORT}
       - ${ALICE_API_PORT}:${ALICE_API_PORT}
+    command: start
 
   bob.agent.example.com:
     container_name: bob.aries.example.com
     image: ${AGENTD_IMAGE}:${AGENTD_IMAGE_TAG}
     environment:
-      - API_HOST=${BOB_HOST}:${BOB_API_PORT}
-      - INBOUND_HOST=${BOB_HOST}:${BOB_INBOUND_PORT}
-      - INBOUND_HOST_EXTERNAL=bob.aries.example.com:${BOB_INBOUND_PORT}
-      - WEBHOOK_URL=http://${BOB_WEBHOOK_CONTAINER_NAME}:${BOB_WEBHOOK_PORT}
-      - DB_LOC=${BOB_DB_LOC}
-      - AGENT_DEFAULT_LABEL=bob-agent
-      - HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+      - ARIESD_API_HOST=${BOB_HOST}:${BOB_API_PORT}
+      - ARIESD_INBOUND_HOST=${BOB_HOST}:${BOB_INBOUND_PORT}
+      - ARIESD_INBOUND_HOST_EXTERNAL=bob.aries.example.com:${BOB_INBOUND_PORT}
+      - ARIESD_WEBHOOK_URL=http://${BOB_WEBHOOK_CONTAINER_NAME}:${BOB_WEBHOOK_PORT}
+      - ARIESD_DB_PATH=${BOB_DB_PATH}
+      - ARIESD_DEFAULT_LABEL=bob-agent
+      - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
     ports:
       - ${BOB_INBOUND_PORT}:${BOB_INBOUND_PORT}
       - ${BOB_API_PORT}:${BOB_API_PORT}
+    command: start
 
   alice.webhook.example.com:
     container_name: ${ALICE_WEBHOOK_CONTAINER_NAME}

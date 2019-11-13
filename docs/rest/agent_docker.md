@@ -1,9 +1,7 @@
 # Run the agent as docker container
 
 ## Build the Agent
-`aries-agentd` can also be launched as a docker container by following below steps.
-
-First, build docker image for `aries-agentd` by running following make target from project root directory. 
+Build the docker image for `aries-agentd` by running following make target from project root directory. 
 
 `make agent-docker`
 

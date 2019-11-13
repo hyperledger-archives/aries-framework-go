@@ -32,8 +32,9 @@ If you wish to regenerate it, you can delete test data folder and:
  or
 2. cd into `pkg/didcomm/transport/http/` and run `go generate`
 
-## Verifiable Credential Test Suite
-To test compatibility of the verifiable credential packages with 
-[W3C Verifiable Claims Working Group Test Suite](https://github.com/w3c/vc-test-suite), run `make vc-test-suite`.
-The result of the test suite is generated as `vc-test-suite/suite/implementations/aries-framework-go-report.json`.
+## Verifiable Credential Test Suite	
+Install Node.js and mocha prior to running the test suite.
 
+To test compatibility of the verifiable credential packages with 	
+[W3C Verifiable Claims Working Group Test Suite](https://github.com/w3c/vc-test-suite), run `make vc-test-suite`.	
+The result of the test suite is generated as `vc-test-suite/suite/implementations/aries-framework-go-report.json`.	
