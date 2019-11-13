@@ -17,9 +17,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didmethod/httpbinding"
+	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 )
 
 const (
@@ -80,6 +84,17 @@ const (
 
 	agentDefaultLabelEnvKey = "ARIESD_DEFAULT_LABEL"
 
+	agentHTTPResolverFlagName = "http-resolver-url"
+
+	agentHTTPResolverFlagShorthand = "r"
+
+	agentHTTPResolverFlagUsage = "HTTP binding DID resolver method and url. Values should be in `method@url` format." +
+		" This flag can be repeated, allowing multiple http resolvers. Defaults to peer DID resolver if not set." +
+		" Alternatively, this can be set with the following environment variable (in CSV format): " +
+		agentHTTPResolverEnvKey
+
+	agentHTTPResolverEnvKey = "ARIESD_HTTP_RESOLVER"
+
 	unableToStartAgentErrMsg = "unable to start agent"
 )
 
@@ -92,7 +107,7 @@ var logger = log.New("aries-framework/agentd")
 type agentParameters struct {
 	server                                                               server
 	host, inboundHostInternal, inboundHostExternal, dbPath, defaultLabel string
-	webhookURLs                                                          []string
+	webhookURLs, httpResolvers                                           []string
 }
 
 type server interface {
@@ -109,7 +124,7 @@ func (s *HTTPServer) ListenAndServe(host string, router http.Handler) error {
 
 // Cmd returns the Cobra start command.
 func Cmd(server server) (*cobra.Command, error) {
-	var webhookURLsFromCmdLine []string
+	var webhookURLsFromCmdLine, httpResolversFromCmdLine []string
 
 	startCmd := &cobra.Command{
 		Use:   "start",
@@ -148,8 +163,10 @@ func Cmd(server server) (*cobra.Command, error) {
 				return err
 			}
 
+			httpResolvers := getHTTPResolvers(cmd, httpResolversFromCmdLine)
+
 			parameters := &agentParameters{server, host, inboundHost,
-				inboundHostExternal, dbPath, defaultLabel, webhookURLs}
+				inboundHostExternal, dbPath, defaultLabel, webhookURLs, httpResolvers}
 			err = startAgent(parameters)
 			if err != nil {
 				return errors.New(unableToStartAgentErrMsg + ": " + err.Error())
@@ -159,17 +176,20 @@ func Cmd(server server) (*cobra.Command, error) {
 		},
 	}
 
-	createFlags(startCmd, &webhookURLsFromCmdLine)
+	createFlags(startCmd, &webhookURLsFromCmdLine, &httpResolversFromCmdLine)
 
 	return startCmd, nil
 }
 
-func createFlags(startCmd *cobra.Command, webhookURLs *[]string) {
+// TODO need to get rid of extra args webhookURLs & httpResolvers [Issue #799]
+func createFlags(startCmd *cobra.Command, webhookURLs, httpResolvers *[]string) {
 	startCmd.Flags().StringP(agentHostFlagName, agentHostFlagShorthand, "", agentHostFlagUsage)
 	startCmd.Flags().StringP(agentInboundHostFlagName, agentInboundHostFlagShorthand, "", agentInboundHostFlagUsage)
 	startCmd.Flags().StringP(agentDBPathFlagName, agentDBPathFlagShorthand, "", agentDBPathFlagUsage)
 	startCmd.Flags().StringSliceVarP(webhookURLs, agentWebhookFlagName, agentWebhookFlagShorthand, []string{},
 		agentWebhookFlagUsage)
+	startCmd.Flags().StringSliceVarP(httpResolvers, agentHTTPResolverFlagName, agentHTTPResolverFlagShorthand, []string{},
+		agentHTTPResolverFlagUsage)
 	startCmd.Flags().StringP(agentInboundHostExternalFlagName, agentInboundHostExternalFlagShorthand,
 		"", agentInboundHostExternalFlagUsage)
 	startCmd.Flags().StringP(agentDefaultLabelFlagName, agentDefaultLabelFlagShorthand, "",
@@ -212,6 +232,59 @@ func getWebhookURLs(cmd *cobra.Command, webhookURLsFromCmdLine []string) ([]stri
 		"It must be set via either command line or environment variable")
 }
 
+func getHTTPResolvers(cmd *cobra.Command, httpResolversCmdLine []string) []string {
+	if cmd.Flags().Changed(agentHTTPResolverFlagName) {
+		return httpResolversCmdLine
+	}
+
+	httpResolversCSV, isSet := os.LookupEnv(agentHTTPResolverEnvKey)
+	if isSet {
+		return strings.Split(httpResolversCSV, ",")
+	}
+
+	return []string{}
+}
+
+func getResolverOpts(id, dbPath string, httpResolvers []string) ([]aries.Option, error) {
+	var opts []aries.Option
+
+	if len(httpResolvers) > 0 {
+		var resolvers []didresolver.Opt
+
+		storeProv, err := leveldb.NewProvider(dbPath + "/" + id)
+		if err != nil {
+			return nil, fmt.Errorf("leveldb provider initialization failed : %w", err)
+		}
+
+		peerDidStore, err := peer.NewDIDStore(storeProv)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create new did store : %w", err)
+		}
+
+		resolvers = append(resolvers, didresolver.WithDidMethod(peer.NewDIDResolver(peerDidStore)))
+
+		for _, httpResolver := range httpResolvers {
+			r := strings.Split(httpResolver, "@")
+			if len(r) != 2 {
+				return nil, fmt.Errorf("invalid http resolver options found")
+			}
+
+			httpResolver, err := httpbinding.New(r[1],
+				httpbinding.WithAccept(func(method string) bool { return method == r[0] }))
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to setup http resolver :  %w", err)
+			}
+
+			resolvers = append(resolvers, didresolver.WithDidMethod(httpResolver))
+		}
+
+		opts = append(opts, aries.WithDIDResolver(didresolver.New(resolvers...)), aries.WithStoreProvider(storeProv))
+	}
+
+	return opts, nil
+}
+
 func startAgent(parameters *agentParameters) error {
 	if parameters.host == "" {
 		return errMissingHost
@@ -227,6 +300,14 @@ func startAgent(parameters *agentParameters) error {
 	if parameters.dbPath != "" {
 		opts = append(opts, defaults.WithStorePath(parameters.dbPath))
 	}
+
+	resolverOpts, err := getResolverOpts(parameters.dbPath, parameters.defaultLabel, parameters.httpResolvers)
+	if err != nil {
+		return fmt.Errorf("failed to start aries agentd on port [%s], failed to resolver opts : %w",
+			parameters.host, err)
+	}
+
+	opts = append(opts, resolverOpts...)
 
 	framework, err := aries.New(opts...)
 	if err != nil {
