@@ -1,14 +1,25 @@
-### Project Structure
+# Project Structure
+
 
 The project's components are organized, conceptually, into 3 layers:
-- Business Logic: provides APIs for framework users
-- Client Layer: handles protocol flows, dispatches to other layers
-- Service Layer: components (DIDs, crypto, etc)
+- Controller Bindings: provides APIs for framework users
+- Service: handles protocol flows, dispatches to other layers
+- Pluggable dependencies: components (DIDs, crypto, etc)
 
 As a user, what do you do:
-- Business Logic
+- Controller Bindings
   - initialize the framework (Aries framework object)
   - register for events using the Rest API or Native Go API
   - handle events
-- Service Layer
-  - Create custom plugins for components, inject them into the framework
+- Pluggable Components
+  - Create custom plugins for components, inject them into the framework 
+    
+## Important Go Packages
+- [Framework](../pkg/framework/aries): Initializes the framework with user provided or default options.
+- [Client](../pkg/client): Defines DIDComm Protocol APIs for framework consumers.
+- [Protocol Service](../pkg/didcomm/protocol/): Handles DIDComm Protocol messages including state transitions.
+- [Key Management Service](../pkg/kms): Handles agent key management including creation of keys and signing of messages.
+- [DID Method](../pkg/didmethod): Provides support for DID Methods. Currently, framework supports HTTP and Peer DID Methods.
+- [Storage](../pkg/storage): Provides agent data storage options. Currently, LevelDB is supported by default.
+- [DIDComm Envelope](../pkg/didcomm/packer): Supports packing and unpacking of DIDComm message envelopes. 
+
