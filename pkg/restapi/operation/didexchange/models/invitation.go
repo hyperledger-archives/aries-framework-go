@@ -45,7 +45,7 @@ type CreateInvitationParams struct {
 	// The Alias to be used in invitation to be created
 	Alias string `json:"alias"`
 
-	// The Public DID to be used for creating invitation
+	// Optional public DID to be used in invitation
 	Public string `json:"public,omitempty"`
 }
 
@@ -128,7 +128,7 @@ type ReceiveInvitationResponse struct {
 //
 // swagger:parameters acceptInvitation
 type AcceptInvitationRequest struct {
-	// The ID of Invitation Request to accept
+	// Connection ID
 	//
 	// in: path
 	// required: true
@@ -248,7 +248,7 @@ type QueryConnectionsResponse struct {
 //
 // swagger:parameters acceptRequest
 type AcceptExchangeRequestParams struct {
-	// The ID of the connection request to accept
+	// Connection ID
 	//
 	// in: path
 	// required: true

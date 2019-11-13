@@ -33,19 +33,19 @@ via the make target mentioned above, then do the following:
 
 1. Navigate to test/bdd/fixtures
 
-2. To start Alice and Bob agents and webhooks, go to agents folder and run:
+2. To start Alice and Bob agents and webhooks, go to `agent` folder and run:
 ```shell script
 (source .env && docker-compose down && NO_PROXY=* docker-compose up --force-recreate)
 ```
    
-3. To start the Demo API hosts for Alice and Bob, open up a new terminal and go demo/openapi folder and run the 
+3. To start the Demo API hosts for Alice and Bob, open up a new terminal and go to `demo/openapi` folder and run the 
 above command.
 
-4. To start Sidetree Mock service, open up a new terminal go to sidetree-mock folder and run the same above command.
+4. To start Sidetree Mock service, open up a new terminal go to `sidetree-mock` folder and run the same above command.
 
 5. Once all the containers above have started, you are ready to run BDD tests manually.
 
-6. To run the tests manually, in a new terminal, navigate to tests/bdd folder and run the same test command as mentioned in 
+6. To run the tests manually, in a new terminal, navigate to `tests/bdd` folder and run the same test command as mentioned in 
 [Run specific bdd test](#Run-specific-bdd-test) section above by pre-pending the following environment variable:
 ```shell script
 DISABLE_COMPOSITION=true

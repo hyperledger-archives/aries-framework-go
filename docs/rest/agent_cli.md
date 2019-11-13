@@ -31,6 +31,6 @@ Flags:
 
 ```shell
 $ cd cmd/aries-agentd
-$ go build -o $HOME/go/bin
-$ $HOME/go/bin/aries-agentd start --api-host localhost:8080 --db-path "" --inbound-host localhost:8081 --inbound-host-external example.com:8081 --webhook-url localhost:8082 --agent-default-label MyAgent
+$ go build
+$ ./aries-agentd start --api-host localhost:8080 --db-path "" --inbound-host localhost:8081 --inbound-host-external example.com:8081 --webhook-url localhost:8082 --agent-default-label MyAgent
 ```

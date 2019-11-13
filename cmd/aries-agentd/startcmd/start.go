@@ -301,7 +301,7 @@ func startAgent(parameters *agentParameters) error {
 		opts = append(opts, defaults.WithStorePath(parameters.dbPath))
 	}
 
-	resolverOpts, err := getResolverOpts(parameters.dbPath, parameters.defaultLabel, parameters.httpResolvers)
+	resolverOpts, err := getResolverOpts(parameters.defaultLabel, parameters.dbPath, parameters.httpResolvers)
 	if err != nil {
 		return fmt.Errorf("failed to start aries agentd on port [%s], failed to resolver opts : %w",
 			parameters.host, err)

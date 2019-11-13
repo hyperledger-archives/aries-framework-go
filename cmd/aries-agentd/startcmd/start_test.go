@@ -395,21 +395,33 @@ func TestStartMultipleAgentsWithSameDBPath(t *testing.T) {
 }
 
 func TestStartAriesErrorWithResolvers(t *testing.T) {
-	path, cleanup := generateTempDir(t)
-	defer cleanup()
+	t.Run("start aries with resolver - invalid resolver error", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
 
-	testHostURL := randomURL()
-	testInboundHostURL := randomURL()
+		testHostURL := randomURL()
+		testInboundHostURL := randomURL()
 
-	parameters := &agentParameters{&HTTPServer{}, testHostURL, testInboundHostURL,
-		"", path, "x", []string{}, []string{"http://sample.com"}}
-	err := startAgent(parameters)
-	require.Contains(t, err.Error(), "invalid http resolver options found")
+		parameters := &agentParameters{&HTTPServer{}, testHostURL, testInboundHostURL,
+			"", path, "x", []string{}, []string{"http://sample.com"}}
+		err := startAgent(parameters)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid http resolver options found")
+	})
 
-	parameters = &agentParameters{&HTTPServer{}, testHostURL, testInboundHostURL,
-		"", "--", "x", []string{}, []string{"@h"}}
-	err = startAgent(parameters)
-	require.Contains(t, err.Error(), " base URL invalid")
+	t.Run("start aries with resolver - url invalid error", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+
+		testHostURL := randomURL()
+		testInboundHostURL := randomURL()
+
+		parameters := &agentParameters{&HTTPServer{}, testHostURL, testInboundHostURL,
+			"", path, "x", []string{}, []string{"@h"}}
+		err := startAgent(parameters)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), " base URL invalid")
+	})
 }
 
 func waitForServerToStart(t *testing.T, host, inboundHost string) {
