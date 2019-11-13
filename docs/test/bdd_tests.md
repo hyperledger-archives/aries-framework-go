@@ -25,3 +25,31 @@ make clean generate-test-keys agent-docker sample-webhook-docker
 cd test/bdd
 AGENT_LOG_LEVEL=info go test -v -run didexchange_e2e_sdk
 ```
+
+## Run tests in detached mode
+
+If you're interested to start the docker containers manually and run parts of the bdd tests on your own as opposed
+via the make target mentioned above, then do the following:
+
+1. Navigate to test/bdd/fixtures
+
+2. To start Alice and Bob agents and webhooks, go to agents folder and run:
+```shell script
+(source .env && docker-compose down && NO_PROXY=* docker-compose up --force-recreate)
+```
+   
+3. To start the Demo API hosts for Alice and Bob, open up a new terminal and go demo/openapi folder and run the 
+above command.
+
+4. To start Sidetree Mock service, open up a new terminal go to sidetree-mock folder and run the same above command.
+
+5. Once all the containers above have started, you are ready to run BDD tests manually.
+
+6. To run the tests manually, in a new terminal, navigate to tests/bdd folder and run the same test command as mentioned in 
+[Run specific bdd test](#Run-specific-bdd-test) section above by pre-pending the following environment variable:
+```shell script
+DISABLE_COMPOSITION=true
+``` 
+The tests will start executing and you will notice logs written to the containers created above depicting 
+their activities and the test results shown in its own terminal created above.
+
