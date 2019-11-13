@@ -103,7 +103,7 @@ func TestStartAriesDRequests(t *testing.T) {
 
 	go func() {
 		parameters := &agentParameters{&HTTPServer{}, testHostURL, testInboundHostURL,
-			"", path, "", []string{}}
+			"", path, "x", []string{}, []string{"sample@http://sample.com"}}
 		err := startAgent(parameters)
 		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
 	}()
@@ -240,7 +240,7 @@ func TestStartCmdWithMissingHostArg(t *testing.T) {
 }
 
 func TestStartAgentWithBlankHost(t *testing.T) {
-	parameters := &agentParameters{&mockServer{}, "", randomURL(), "", "", "", []string{}}
+	parameters := &agentParameters{&mockServer{}, "", randomURL(), "", "", "", []string{}, []string{}}
 
 	err := startAgent(parameters)
 	require.NotNil(t, err)
@@ -265,7 +265,7 @@ func TestStartCmdWithoutInboundHostArg(t *testing.T) {
 
 func TestStartAgentWithBlankInboundHost(t *testing.T) {
 	parameters := &agentParameters{&mockServer{}, randomURL(), "",
-		"", "", "", []string{}}
+		"", "", "", []string{}, []string{}}
 	err := startAgent(parameters)
 
 	require.Equal(t, errMissingInboundHost, err)
@@ -351,7 +351,7 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 
 	go func() {
 		parameters := &agentParameters{&HTTPServer{}, host, inboundHost,
-			"", path1, "", []string{}}
+			"", path1, "", []string{}, []string{}}
 		err := startAgent(parameters)
 		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
 	}()
@@ -361,7 +361,7 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 	path2, cleanup2 := generateTempDir(t)
 	defer cleanup2()
 
-	parameters := &agentParameters{&HTTPServer{}, host, inboundHost2, "", path2, "", []string{}}
+	parameters := &agentParameters{&HTTPServer{}, host, inboundHost2, "", path2, "", []string{}, []string{}}
 	addressAlreadyInUseErrorMessage := "failed to start aries agentd on port [" + host +
 		"], cause:  listen tcp 127.0.0.1:8095: bind: address already in use"
 
@@ -380,18 +380,36 @@ func TestStartMultipleAgentsWithSameDBPath(t *testing.T) {
 	defer cleanup()
 
 	go func() {
-		parameters := &agentParameters{&HTTPServer{}, host1, inboundHost1, "", path, "", []string{}}
+		parameters := &agentParameters{&HTTPServer{}, host1, inboundHost1, "", path, "", []string{}, []string{}}
 		err := startAgent(parameters)
 		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
 	}()
 
 	waitForServerToStart(t, host1, inboundHost1)
 
-	parameters := &agentParameters{&HTTPServer{}, host2, inboundHost2, "", path, "", []string{}}
+	parameters := &agentParameters{&HTTPServer{}, host2, inboundHost2, "", path, "", []string{}, []string{}}
 	err := startAgent(parameters)
 
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "failed to create new did store")
+}
+
+func TestStartAriesErrorWithResolvers(t *testing.T) {
+	path, cleanup := generateTempDir(t)
+	defer cleanup()
+
+	testHostURL := randomURL()
+	testInboundHostURL := randomURL()
+
+	parameters := &agentParameters{&HTTPServer{}, testHostURL, testInboundHostURL,
+		"", path, "x", []string{}, []string{"http://sample.com"}}
+	err := startAgent(parameters)
+	require.Contains(t, err.Error(), "invalid http resolver options found")
+
+	parameters = &agentParameters{&HTTPServer{}, testHostURL, testInboundHostURL,
+		"", "--", "x", []string{}, []string{"@h"}}
+	err = startAgent(parameters)
+	require.Contains(t, err.Error(), " base URL invalid")
 }
 
 func waitForServerToStart(t *testing.T, host, inboundHost string) {

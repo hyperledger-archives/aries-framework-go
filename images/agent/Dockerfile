@@ -27,4 +27,4 @@ RUN GO_TAGS=${GO_TAGS} GOPROXY=${GOPROXY} make agent
 
 FROM alpine:${ALPINE_VER} as base
 COPY --from=aries-framework /go/src/github.com/hyperledger/aries-framework-go/build/bin/aries-agentd /usr/local/bin
-CMD aries-agentd start --api-host ${API_HOST} --inbound-host ${INBOUND_HOST} --inbound-host-external ${INBOUND_HOST_EXTERNAL} --webhook-url ${WEBHOOK_URL} -d ${DB_LOC} --agent-default-label ${AGENT_DEFAULT_LABEL}
+CMD aries-agentd start --api-host ${API_HOST} --inbound-host ${INBOUND_HOST} --inbound-host-external ${INBOUND_HOST_EXTERNAL} --webhook-url ${WEBHOOK_URL} -d ${DB_LOC} --agent-default-label ${AGENT_DEFAULT_LABEL} --http-resolver-url ${HTTP_RESOLVER}
