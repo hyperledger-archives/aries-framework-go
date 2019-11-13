@@ -25,7 +25,7 @@ import (
 // SDKSteps is steps for didexchange using client SDK
 type SDKSteps struct {
 	bddContext     *context.BDDContext
-	actionCh       map[string]chan service.DIDCommAction
+	nextAction     map[string]chan struct{}
 	connectionID   map[string]string
 	invitations    map[string]*didexchange.Invitation
 	postStatesFlag map[string]map[string]chan bool
@@ -35,7 +35,7 @@ type SDKSteps struct {
 func NewDIDExchangeSDKSteps(ctx *context.BDDContext) *SDKSteps {
 	return &SDKSteps{
 		bddContext:     ctx,
-		actionCh:       make(map[string]chan service.DIDCommAction),
+		nextAction:     make(map[string]chan struct{}),
 		connectionID:   make(map[string]string),
 		invitations:    make(map[string]*didexchange.Invitation),
 		postStatesFlag: make(map[string]map[string]chan bool),
@@ -122,20 +122,8 @@ func (d *SDKSteps) validateConnection(agentID, stateValue string) error {
 }
 
 func (d *SDKSteps) approveRequest(agentID string) error {
-	go func() {
-		for e := range d.actionCh[agentID] {
-			switch v := e.Properties.(type) {
-			case didexchange.Event:
-				d.connectionID[agentID] = v.ConnectionID()
-			case error:
-				panic(fmt.Sprintf("Service processing failed: %s", v))
-			}
-
-			clientOpts := d.getClientOptions(agentID)
-			e.Continue(clientOpts)
-		}
-	}()
-
+	// sends the signal which automatically handles events
+	d.nextAction[agentID] <- struct{}{}
 	return nil
 }
 
@@ -172,19 +160,39 @@ func (d *SDKSteps) createDIDExchangeClient(agentID string) error {
 		return fmt.Errorf("failed to create new didexchange client: %w", err)
 	}
 
-	actionCh := make(chan service.DIDCommAction, 1)
+	actionCh := make(chan service.DIDCommAction)
 	if err = didexchangeClient.RegisterActionEvent(actionCh); err != nil {
 		return fmt.Errorf("failed to register action event: %w", err)
 	}
 
-	d.actionCh[agentID] = actionCh
 	d.bddContext.DIDExchangeClients[agentID] = didexchangeClient
+	// initializes the channel for the agent
+	d.nextAction[agentID] = make(chan struct{})
+
+	go d.autoExecuteActionEvent(agentID, actionCh)
 
 	return nil
 }
 
+func (d *SDKSteps) autoExecuteActionEvent(agentID string, ch <-chan service.DIDCommAction) {
+	for e := range ch {
+		// waits for the signal to allows this code to be executed
+		<-d.nextAction[agentID]
+
+		switch v := e.Properties.(type) {
+		case didexchange.Event:
+			d.connectionID[agentID] = v.ConnectionID()
+		case error:
+			panic(fmt.Sprintf("Service processing failed: %s", v))
+		}
+
+		clientOpts := d.getClientOptions(agentID)
+		e.Continue(clientOpts)
+	}
+}
+
 func (d *SDKSteps) registerPostMsgEvent(agentID, statesValue string) error {
-	statusCh := make(chan service.StateMsg, 1)
+	statusCh := make(chan service.StateMsg)
 	if err := d.bddContext.DIDExchangeClients[agentID].RegisterMsgEvent(statusCh); err != nil {
 		return fmt.Errorf("failed to register msg event: %w", err)
 	}
