@@ -362,7 +362,7 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 	defer cleanup2()
 
 	parameters := &agentParameters{&HTTPServer{}, host, inboundHost2, "", path2, "", []string{}, []string{}}
-	addressAlreadyInUseErrorMessage := "failed to start aries agentd on port [" + host +
+	addressAlreadyInUseErrorMessage := "failed to start aries agent rest on port [" + host +
 		"], cause:  listen tcp 127.0.0.1:8095: bind: address already in use"
 
 	err := startAgent(parameters)

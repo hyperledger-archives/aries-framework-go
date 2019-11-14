@@ -22,7 +22,7 @@ const (
 	emptyMessageErrMsg      = "cannot notify with an empty message"
 )
 
-var logger = log.New("aries-framework/agentd")
+var logger = log.New("aries-framework/webhook")
 
 // Notifier represents a webhook dispatcher.
 type Notifier interface {

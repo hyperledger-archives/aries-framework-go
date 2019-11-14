@@ -3,14 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 GO_CMD ?= go
-ARIES_AGENTD_PATH=cmd/aries-agentd
+ARIES_AGENT_REST_PATH=cmd/aries-agent-rest
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
 OPENAPI_SPEC_PATH=build/rest/openapi/spec
 OPENAPI_DOCKER_IMG_VERSION=v0.21.0
 
 # Namespace for the agent images
 DOCKER_OUTPUT_NS   ?= aries-framework-go
-AGENT_IMAGE_NAME   ?= agent
+AGENT_REST_IMAGE_NAME   ?= agent-rest
 WEBHOOK_IMAGE_NAME ?= sample-webhook
 
 # Tool commands (overridable)
@@ -41,7 +41,7 @@ unit-test: mocks
 	@scripts/check_unit.sh
 
 .PHONY: bdd-test
-bdd-test: clean generate-test-keys agent-docker sample-webhook-docker
+bdd-test: clean generate-test-keys agent-rest-docker sample-webhook-docker
 	@scripts/check_integration.sh
 
 .PHONY: vc-test-suite
@@ -59,33 +59,33 @@ generate-test-keys: clean
 generate-openapi-spec: clean
 	@echo "Generating and validating controller API specifications using Open API"
 	@mkdir -p build/rest/openapi/spec
-	@SPEC_META=$(ARIES_AGENTD_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}  \
+	@SPEC_META=$(ARIES_AGENT_REST_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}  \
 	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
 	scripts/generate-openapi-spec.sh
 
 .PHONY: generate-openapi-demo-specs
-generate-openapi-demo-specs: clean generate-openapi-spec agent-docker sample-webhook-docker
-	@echo "Generate demo agent controller API specifications using Open API"
+generate-openapi-demo-specs: clean generate-openapi-spec agent-rest-docker sample-webhook-docker
+	@echo "Generate demo agent rest controller API specifications using Open API"
 	@SPEC_PATH=${OPENAPI_SPEC_PATH} OPENAPI_DEMO_PATH=test/bdd/fixtures/demo/openapi \
     	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
     	scripts/generate-openapi-demo-specs.sh
 
 .PHONY: run-openapi-demo
 run-openapi-demo: generate-openapi-demo-specs
-	@echo "Starting demo agent containers ..."
-	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi SIDETREE_COMPOSE_PATH=test/bdd/fixtures/sidetree-mock AGENT_COMPOSE_PATH=test/bdd/fixtures/agent  \
+	@echo "Starting demo agent rest containers ..."
+	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi SIDETREE_COMPOSE_PATH=test/bdd/fixtures/sidetree-mock AGENT_REST_COMPOSE_PATH=test/bdd/fixtures/agent-rest  \
         scripts/run-openapi-demo.sh
 
-.PHONY: agent
-agent:
-	@echo "Building aries-agentd"
+.PHONY: agent-rest
+agent-rest:
+	@echo "Building aries-agent-rest"
 	@mkdir -p ./build/bin
-	@cd ${ARIES_AGENTD_PATH} && go build -o ../../build/bin/aries-agentd main.go
+	@cd ${ARIES_AGENT_REST_PATH} && go build -o ../../build/bin/aries-agent-rest main.go
 
-.PHONY: agent-docker
-agent-docker:
-	@echo "Building aries agent docker image"
-	@docker build -f ./images/agent/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(AGENT_IMAGE_NAME):latest \
+.PHONY: agent-rest-docker
+agent-rest-docker:
+	@echo "Building aries agent rest docker image"
+	@docker build -f ./images/agent-rest/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(AGENT_REST_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) \
 	--build-arg GO_TAGS=$(GO_TAGS) \
@@ -146,7 +146,7 @@ clean-build:
 clean-fixtures:
 	@rm -Rf ./test/bdd/fixtures/keys/tls
 	@rm -Rf ./test/bdd/fixtures/demo/openapi/specs
-	@cd test/bdd/fixtures/agent && docker-compose down 2> /dev/null
-	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi AGENT_COMPOSE_PATH=test/bdd/fixtures/agent \
+	@cd test/bdd/fixtures/agent-rest && docker-compose down 2> /dev/null
+	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi AGENT_REST_COMPOSE_PATH=test/bdd/fixtures/agent-rest \
         SIDETREE_COMPOSE_PATH=test/bdd/fixtures/sidetree-mock DEMO_COMPOSE_OP=down scripts/run-openapi-demo.sh 2> /dev/null
 	@cd test/bdd/fixtures/sidetree-mock && docker-compose down 2> /dev/null

@@ -25,9 +25,9 @@ PKGS=`go list github.com/hyperledger/aries-framework-go/... 2> /dev/null | \
 go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
 
-# Running aries-agentd unit test
-cd cmd/aries-agentd
-PKGS=`go list github.com/hyperledger/aries-framework-go/cmd/aries-agentd/... 2> /dev/null | \
+# Running aries-agent-rest unit test
+cd cmd/aries-agent-rest
+PKGS=`go list github.com/hyperledger/aries-framework-go/cmd/aries-agent-rest/... 2> /dev/null | \
                                                  grep -v /mocks`
 go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file

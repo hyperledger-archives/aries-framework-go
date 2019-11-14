@@ -7,7 +7,7 @@
 set -e
 
 SPEC_LOC="${SPEC_LOC}"
-SPEC_META="${SPEC_META:-cmd/aries-agentd}"
+SPEC_META="${SPEC_META:-cmd/aries-agent-rest}"
 OUTPUT="$PWD/$SPEC_LOC/openAPI.yml"
 IMAGE="${DOCKER_IMAGE:-quay.io/goswagger/swagger}"
 IMAGE_VERSION="${DOCKER_IMAGE_VERSION:-latest}"

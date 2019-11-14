@@ -9,7 +9,7 @@ services:
 
   alice.agent.example.com:
     container_name: alice.aries.example.com
-    image: ${AGENTD_IMAGE}:${AGENTD_IMAGE_TAG}
+    image: ${AGENT_REST_IMAGE}:${AGENT_REST_IMAGE_TAG}
     environment:
       - ARIESD_API_HOST=${ALICE_HOST}:${ALICE_API_PORT}
       - ARIESD_INBOUND_HOST=${ALICE_HOST}:${ALICE_INBOUND_PORT}
@@ -25,7 +25,7 @@ services:
 
   bob.agent.example.com:
     container_name: bob.aries.example.com
-    image: ${AGENTD_IMAGE}:${AGENTD_IMAGE_TAG}
+    image: ${AGENT_REST_IMAGE}:${AGENT_REST_IMAGE_TAG}
     environment:
       - ARIESD_API_HOST=${BOB_HOST}:${BOB_API_PORT}
       - ARIESD_INBOUND_HOST=${BOB_HOST}:${BOB_INBOUND_PORT}
