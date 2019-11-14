@@ -33,7 +33,11 @@ const (
 	checkForTopics        = "/checktopics"
 
 	// retry options to pull topics from webhook
+	// pullTopicsWaitInMilliSec is time in milliseconds to wait before retry
 	pullTopicsWaitInMilliSec = 200
+	// pullTopicsAttemptsBeforeFail total number of retries where
+	// total time shouldn't exceed 5 seconds
+	pullTopicsAttemptsBeforeFail = 5000 / pullTopicsWaitInMilliSec
 )
 
 var logger = log.New("aries-framework/didexchange-tests")
@@ -72,7 +76,7 @@ func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, erro
 	}
 
 	// try to pull recently pushed topics from webhook
-	for {
+	for i := 0; i < pullTopicsAttemptsBeforeFail; i++ {
 		var connectionMsg didexchrsapi.ConnectionMsg
 
 		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &connectionMsg)
@@ -86,6 +90,8 @@ func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, erro
 
 		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)
 	}
+
+	return "", fmt.Errorf("exhausted all [%d] attempts to pull topics from webhook", pullTopicsAttemptsBeforeFail)
 }
 
 func (a *ControllerSteps) createInvitation(inviterAgentID, label string) error {
@@ -172,10 +178,21 @@ func (a *ControllerSteps) approveInvitation(agentID string) error {
 		return fmt.Errorf("unable to find contoller URL for agent [%s]", controllerURL)
 	}
 
-	var connMsg didexchrsapi.ConnectionMsg
+	var response models.AcceptInvitationResponse
 
-	return sendHTTP(http.MethodPost, controllerURL+"/connections/"+connectionID+"/accept-invitation",
-		nil, &connMsg)
+	err = sendHTTP(http.MethodPost, controllerURL+"/connections/"+connectionID+"/accept-invitation",
+		nil, &response)
+	if err != nil {
+		logger.Errorf("Failed to perform accept invitation, cause : %s", err)
+		return fmt.Errorf("failed to perform accept inviation : %w", err)
+	}
+
+	if response.ConnectionID == "" {
+		logger.Errorf("Failed to perform accept invitation, cause : %s", err)
+		return fmt.Errorf("failed to perform accept inviation, invalid response")
+	}
+
+	return nil
 }
 
 func (a *ControllerSteps) approveRequest(agentID string) error {
@@ -192,10 +209,21 @@ func (a *ControllerSteps) approveRequest(agentID string) error {
 		return fmt.Errorf("unable to find contoller URL for agent [%s]", controllerURL)
 	}
 
-	var connMsg didexchrsapi.ConnectionMsg
+	var response models.AcceptExchangeResult
 
-	return sendHTTP(http.MethodPost, controllerURL+"/connections/"+connectionID+"/accept-request",
-		nil, &connMsg)
+	err = sendHTTP(http.MethodPost, controllerURL+"/connections/"+connectionID+"/accept-request",
+		nil, &response)
+	if err != nil {
+		logger.Errorf("Failed to perform approve request, cause : %s", err)
+		return fmt.Errorf("failed to perform approve request : %w", err)
+	}
+
+	if response.Result == nil || response.Result.ConnectionID == "" {
+		logger.Errorf("Failed to perform approve request, cause : %s", err)
+		return fmt.Errorf("failed to perform approve request, invalid response")
+	}
+
+	return nil
 }
 
 func (a *ControllerSteps) waitForPostEvent(agentID, statesValue string) error {
