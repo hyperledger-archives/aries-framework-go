@@ -17,15 +17,13 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didresolver"
-	mockdidstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -190,11 +188,11 @@ func TestNewProvider(t *testing.T) {
 		require.Equal(t, s, prov.TransientStorageProvider())
 	})
 
-	t.Run("test new with did resolver", func(t *testing.T) {
-		r := didresolver.NewMockResolver()
-		prov, err := New(WithDIDResolver(r))
+	t.Run("test new with vdri", func(t *testing.T) {
+		r := &mockvdri.MockVDRIRegistry{}
+		prov, err := New(WithVDRIRegistry(r))
 		require.NoError(t, err)
-		require.Equal(t, r, prov.DIDResolver())
+		require.Equal(t, r, prov.VDRIRegistry())
 	})
 
 	t.Run("test new with outbound transport service", func(t *testing.T) {
@@ -203,12 +201,5 @@ func TestNewProvider(t *testing.T) {
 		r, err := prov.OutboundTransports()[0].Send([]byte("data"), "url")
 		require.NoError(t, err)
 		require.Equal(t, "data", r)
-	})
-
-	t.Run("test new with did store", func(t *testing.T) {
-		prov, err := New(WithDIDStore(mockdidstore.NewMockDidStore()))
-		require.NoError(t, err)
-		err = prov.DIDStore().Put(&did.Doc{})
-		require.NoError(t, err)
 	})
 }

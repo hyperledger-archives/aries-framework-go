@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -80,7 +80,7 @@ func (d *SDKSteps) createInvitationWithDID(inviterAgentID string) error {
 }
 
 func (d *SDKSteps) waitForPublicDID(agentID string, maxSeconds int) error {
-	_, err := resolveDID(d.bddContext.AgentCtx[agentID].DIDResolver(), d.bddContext.PublicDIDs[agentID].ID, maxSeconds)
+	_, err := resolveDID(d.bddContext.AgentCtx[agentID].VDRIRegistry(), d.bddContext.PublicDIDs[agentID].ID, maxSeconds)
 	return err
 }
 
@@ -239,12 +239,12 @@ func (d *SDKSteps) eventListener(statusCh chan service.StateMsg, agentID string,
 	}
 }
 
-func resolveDID(resolver didresolver.Resolver, did string, maxRetry int) (*diddoc.Doc, error) {
+func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
 	var doc *diddoc.Doc
 
 	var err error
 	for i := 1; i <= maxRetry; i++ {
-		doc, err = resolver.Resolve(did)
+		doc, err = vdriRegistry.Resolve(did)
 		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
 			return doc, err
 		}

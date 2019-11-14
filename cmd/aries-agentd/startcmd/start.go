@@ -17,13 +17,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didmethod/httpbinding"
-	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 )
 
 const (
@@ -245,41 +242,25 @@ func getHTTPResolvers(cmd *cobra.Command, httpResolversCmdLine []string) []strin
 	return []string{}
 }
 
-func getResolverOpts(id, dbPath string, httpResolvers []string) ([]aries.Option, error) {
+func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
 	var opts []aries.Option
 
 	if len(httpResolvers) > 0 {
-		var resolvers []didresolver.Opt
-
-		storeProv, err := leveldb.NewProvider(dbPath + "/" + id)
-		if err != nil {
-			return nil, fmt.Errorf("leveldb provider initialization failed : %w", err)
-		}
-
-		peerDidStore, err := peer.NewDIDStore(storeProv)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create new did store : %w", err)
-		}
-
-		resolvers = append(resolvers, didresolver.WithDidMethod(peer.NewDIDResolver(peerDidStore)))
-
 		for _, httpResolver := range httpResolvers {
 			r := strings.Split(httpResolver, "@")
 			if len(r) != 2 {
 				return nil, fmt.Errorf("invalid http resolver options found")
 			}
 
-			httpResolver, err := httpbinding.New(r[1],
+			httpVDRI, err := httpbinding.New(r[1],
 				httpbinding.WithAccept(func(method string) bool { return method == r[0] }))
 
 			if err != nil {
 				return nil, fmt.Errorf("failed to setup http resolver :  %w", err)
 			}
 
-			resolvers = append(resolvers, didresolver.WithDidMethod(httpResolver))
+			opts = append(opts, aries.WithVDRI(httpVDRI))
 		}
-
-		opts = append(opts, aries.WithDIDResolver(didresolver.New(resolvers...)), aries.WithStoreProvider(storeProv))
 	}
 
 	return opts, nil
@@ -301,7 +282,7 @@ func startAgent(parameters *agentParameters) error {
 		opts = append(opts, defaults.WithStorePath(parameters.dbPath))
 	}
 
-	resolverOpts, err := getResolverOpts(parameters.defaultLabel, parameters.dbPath, parameters.httpResolvers)
+	resolverOpts, err := getResolverOpts(parameters.httpResolvers)
 	if err != nil {
 		return fmt.Errorf("failed to start aries agentd on port [%s], failed to resolver opts : %w",
 			parameters.host, err)

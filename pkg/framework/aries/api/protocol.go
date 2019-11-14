@@ -11,9 +11,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -29,10 +27,8 @@ type Provider interface {
 	KMS() kms.KeyManager
 	Packager() transport.Packager
 	InboundTransportEndpoint() string
-	DIDCreator() didcreator.Creator
+	VDRIRegistry() vdriapi.Registry
 	Signer() kms.Signer
-	DIDResolver() didresolver.Resolver
-	DIDStore() didstore.Storage
 	TransientStorageProvider() storage.Provider
 }
 

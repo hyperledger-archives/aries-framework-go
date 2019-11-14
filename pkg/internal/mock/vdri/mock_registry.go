@@ -1,38 +1,70 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+
 SPDX-License-Identifier: Apache-2.0
 */
 
-package didcreator
+package vdri
 
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
-// MockDIDCreator mock implementation of DID creator
+// MockVDRIRegistry mock implementation of vdri
 // to be used only for unit tests
-type MockDIDCreator struct {
-	Failure error
-	Doc     *did.Doc
+type MockVDRIRegistry struct {
+	CreateErr    error
+	CreateValue  *did.Doc
+	MemStore     map[string]*did.Doc
+	PutErr       error
+	ResolveErr   error
+	ResolveValue *did.Doc
+}
+
+// Store stores the key and the record
+func (m *MockVDRIRegistry) Store(doc *did.Doc) error {
+	k := doc.ID
+
+	if len(m.MemStore) == 0 {
+		m.MemStore = make(map[string]*did.Doc)
+	}
+
+	m.MemStore[k] = doc
+
+	return m.PutErr
 }
 
 // Create mock implementation of create DID
-func (m *MockDIDCreator) Create(method string, opts ...didcreator.DocOpts) (*did.Doc, error) {
-	if m.Failure != nil {
-		return nil, m.Failure
+func (m *MockVDRIRegistry) Create(method string, opts ...vdriapi.DocOpts) (*did.Doc, error) {
+	if m.CreateErr != nil {
+		return nil, m.CreateErr
 	}
 
-	doc := m.Doc
+	doc := m.CreateValue
 	if doc == nil {
 		doc = createDefaultDID()
 	}
 
 	return doc, nil
+}
+
+// Resolve did document
+func (m *MockVDRIRegistry) Resolve(didID string, opts ...vdriapi.ResolveOpts) (*did.Doc, error) {
+	if m.ResolveErr != nil {
+		return nil, m.ResolveErr
+	}
+
+	if m.ResolveValue == nil {
+		return nil, errors.New("not found")
+	}
+
+	return m.ResolveValue, nil
 }
 
 func createDefaultDID() *did.Doc {

@@ -15,9 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -34,9 +32,7 @@ type Provider struct {
 	packers                  []packer.Packer
 	inboundTransportEndpoint string
 	outboundTransport        transport.OutboundTransport
-	didResolver              didresolver.Resolver
-	didCreator               didcreator.Creator
-	didStore                 didstore.Storage
+	vdriRegistry             vdriapi.Registry
 }
 
 // New instantiates a new context provider.
@@ -133,19 +129,9 @@ func (p *Provider) TransientStorageProvider() storage.Provider {
 	return p.transientStoreProvider
 }
 
-// DIDResolver returns a DID resolver.
-func (p *Provider) DIDResolver() didresolver.Resolver {
-	return p.didResolver
-}
-
-// DIDCreator returns a DID creator.
-func (p *Provider) DIDCreator() didcreator.Creator {
-	return p.didCreator
-}
-
-// DIDStore returns a DID store.
-func (p *Provider) DIDStore() didstore.Storage {
-	return p.didStore
+// VDRIRegistry returns a vdri registry
+func (p *Provider) VDRIRegistry() vdriapi.Registry {
+	return p.vdriRegistry
 }
 
 // ProviderOption configures the framework.
@@ -175,18 +161,18 @@ func WithProtocolServices(services ...dispatcher.Service) ProviderOption {
 	}
 }
 
-// WithDIDStore injects a DID store into the context.
-func WithDIDStore(store didstore.Storage) ProviderOption {
-	return func(opts *Provider) error {
-		opts.didStore = store
-		return nil
-	}
-}
-
 // WithKMS injects a kms service into the context.
 func WithKMS(w kms.KMS) ProviderOption {
 	return func(opts *Provider) error {
 		opts.kms = w
+		return nil
+	}
+}
+
+// WithVDRIRegistry injects a vdri service into the context.
+func WithVDRIRegistry(vdri vdriapi.Registry) ProviderOption {
+	return func(opts *Provider) error {
+		opts.vdriRegistry = vdri
 		return nil
 	}
 }
@@ -211,14 +197,6 @@ func WithStorageProvider(s storage.Provider) ProviderOption {
 func WithTransientStorageProvider(s storage.Provider) ProviderOption {
 	return func(opts *Provider) error {
 		opts.transientStoreProvider = s
-		return nil
-	}
-}
-
-// WithDIDResolver injects DID resolver into the context.
-func WithDIDResolver(r didresolver.Resolver) ProviderOption {
-	return func(opts *Provider) error {
-		opts.didResolver = r
 		return nil
 	}
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
 //nolint:lll
@@ -41,14 +41,14 @@ func TestWithOutboundOpts(t *testing.T) {
 	opt := WithTimeout(1 * time.Second)
 	require.NotNil(t, opt)
 
-	clOpts := &resolverOpts{}
+	clOpts := &VDRI{}
 	// opt.client is nil, so setting timeout should panic
 	require.Panics(t, func() { opt(clOpts) })
 
 	opt = WithTLSConfig(nil)
 	require.NotNil(t, opt)
 
-	clOpts = &resolverOpts{}
+	clOpts = &VDRI{}
 	// opt.client is nil, so setting TLS config should panic
 	require.Panics(t, func() { opt(clOpts) })
 }
@@ -63,10 +63,10 @@ func TestNew(t *testing.T) {
 	// All options are applied
 	i := 0
 	_, err = New("https://uniresolver.io/",
-		func(opts *resolverOpts) {
+		func(opts *VDRI) {
 			i += 1 // nolint
 		},
-		func(opts *resolverOpts) {
+		func(opts *VDRI) {
 			i += 2
 		},
 	)
@@ -120,7 +120,7 @@ func TestRead_DIDDoc(t *testing.T) {
 		require.NoError(t, err)
 		_, err = resolver.Read("did:example:334455")
 		require.Error(t, err)
-		require.True(t, errors.Is(err, didresolver.ErrNotFound))
+		require.True(t, errors.Is(err, vdriapi.ErrNotFound))
 	})
 }
 

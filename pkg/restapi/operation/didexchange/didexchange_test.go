@@ -34,7 +34,7 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdr/didcreator"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
@@ -403,7 +403,6 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	transientStore := mockstore.NewMockStoreProvider()
 	store := mockstore.NewMockStoreProvider()
 	didExSvc, err := didexsvc.New(
-		&didcreator.MockDIDCreator{},
 		&protocol.MockProvider{TransientStoreProvider: transientStore, StoreProvider: store})
 
 	require.NoError(t, err)
@@ -443,7 +442,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 	// send connection request message
 	id := "valid-thread-id"
-	newDidDoc, err := (&didcreator.MockDIDCreator{}).Create("peer")
+	newDidDoc, err := (&mockvdri.MockVDRIRegistry{}).Create("peer")
 	require.NoError(t, err)
 
 	invitation, err := op.client.CreateInvitation("test")
@@ -490,7 +489,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 func TestAcceptInvitation(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
-	didExSvc, err := didexsvc.New(&didcreator.MockDIDCreator{}, &protocol.MockProvider{TransientStoreProvider: store})
+	didExSvc, err := didexsvc.New(&protocol.MockProvider{TransientStoreProvider: store})
 
 	require.NoError(t, err)
 

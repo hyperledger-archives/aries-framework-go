@@ -389,7 +389,7 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 	if pubDID != "" {
 		logger.Debugf("using public did[%s] for connection", pubDID)
 
-		didDoc, err := ctx.didResolver.Resolve(pubDID)
+		didDoc, err := ctx.vdriRegistry.Resolve(pubDID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("resolve public did[%s]: %w", pubDID, err)
 		}
@@ -400,14 +400,9 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 	logger.Debugf("creating new '%s' did for connection", didMethod)
 
 	// by default use peer did
-	newDidDoc, err := ctx.didCreator.Create(didMethod)
+	newDidDoc, err := ctx.vdriRegistry.Create(didMethod)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
-	}
-
-	err = ctx.didStore.Put(newDidDoc)
-	if err != nil {
-		return nil, nil, fmt.Errorf("storing doc in did store: %w", err)
 	}
 
 	connection := &Connection{
@@ -421,14 +416,14 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, error) {
 	didDoc := conn.DIDDoc
 	if didDoc == nil {
-		return ctx.didResolver.Resolve(conn.DID)
+		return ctx.vdriRegistry.Resolve(conn.DID)
 	}
 
 	return didDoc, nil
 }
 
 func (ctx *context) getDestinationFromDID(id string) (*service.Destination, error) {
-	didDoc, err := ctx.didResolver.Resolve(id)
+	didDoc, err := ctx.vdriRegistry.Resolve(id)
 	if err != nil {
 		return nil, err
 	}
@@ -555,7 +550,7 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *Con
 
 	destination := prepareDestination(responseDidDoc)
 
-	myDidDoc, err := ctx.didResolver.Resolve(connRecord.MyDID)
+	myDidDoc, err := ctx.vdriRegistry.Resolve(connRecord.MyDID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetching did document: %w", err)
 	}
@@ -636,7 +631,7 @@ func getPublicKeys(didDoc *did.Doc, pubKeyType string) ([]did.PublicKey, error) 
 
 func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, error) {
 	if invitation.DID != "" {
-		didDoc, err := ctx.didResolver.Resolve(invitation.DID)
+		didDoc, err := ctx.vdriRegistry.Resolve(invitation.DID)
 		if err != nil {
 			return "", fmt.Errorf("get invitation recipient key: %w", err)
 		}

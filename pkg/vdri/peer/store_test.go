@@ -17,7 +17,7 @@ import (
 )
 
 func TestPeerDIDStore(t *testing.T) {
-	_, err := NewDIDStore(&storage.MockStoreProvider{ErrOpenStoreHandle: fmt.Errorf("open store failed")})
+	_, err := New(&storage.MockStoreProvider{ErrOpenStoreHandle: fmt.Errorf("open store failed")})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "open store failed")
 
@@ -30,14 +30,14 @@ func TestPeerDIDStore(t *testing.T) {
 	did1 := "did:peer:1234"
 	did2 := "did:peer:4567"
 
-	store, err := NewDIDStore(prov)
+	store, err := New(prov)
 	require.NoError(t, err)
 	// put
-	err = store.Put(&did.Doc{Context: context, ID: did1}, nil)
+	err = store.Store(&did.Doc{Context: context, ID: did1}, nil)
 	require.NoError(t, err)
 
 	// put
-	err = store.Put(&did.Doc{Context: context, ID: did2}, nil)
+	err = store.Store(&did.Doc{Context: context, ID: did2}, nil)
 	require.NoError(t, err)
 
 	// get
@@ -54,11 +54,11 @@ func TestPeerDIDStore(t *testing.T) {
 	require.Error(t, err)
 
 	// put - empty id
-	err = store.Put(&did.Doc{ID: ""}, nil)
+	err = store.Store(&did.Doc{ID: ""}, nil)
 	require.Error(t, err)
 
 	// put - missing doc
-	err = store.Put(nil, nil)
+	err = store.Store(nil, nil)
 	require.Error(t, err)
 
 	// get - not json document

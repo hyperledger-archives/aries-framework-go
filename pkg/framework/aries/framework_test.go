@@ -23,17 +23,16 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/didmethod/peer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
-	mockdidstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didstore"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
 
 //nolint:lll
@@ -148,45 +147,41 @@ func TestFramework(t *testing.T) {
 	})
 
 	// framework new - success
-	t.Run("test DID resolver - with user provided resolver", func(t *testing.T) {
+	t.Run("test vdri - with user provided", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
 
-		peerDID := "did:peer:123"
-		mockDidDoc, err := did.ParseDocument([]byte(doc))
-		require.NoError(t, err)
-		// with consumer provider DID resolver
-		resolver := didresolver.New(
-			didresolver.WithDidMethod(mockDidMethod{readValue: mockDidDoc, acceptFunc: func(method string) bool {
-				return method == "peer"
-			}}))
-		aries, err := New(WithDIDResolver(resolver), WithInboundTransport(&mockInboundTransport{}))
+		vdri := &mockvdri.MockVDRI{}
+		aries, err := New(WithVDRI(vdri), WithInboundTransport(&mockInboundTransport{}))
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
-		resolvedDoc, err := aries.didResolver.Resolve(peerDID)
-		require.NoError(t, err)
-		originalDoc, err := did.ParseDocument([]byte(doc))
-		require.NoError(t, err)
-
-		require.Equal(t, originalDoc, resolvedDoc)
+		require.Equal(t, len(aries.vdri), 1)
+		require.Equal(t, vdri, aries.vdri[0])
 		err = aries.Close()
 		require.NoError(t, err)
 	})
 
-	// framework new - success
-	t.Run("test DID resolver - with default resolver", func(t *testing.T) {
+	t.Run("test error create vdri", func(t *testing.T) {
+		_, err := New(
+			WithStoreProvider(&storage.MockStoreProvider{FailNameSpace: peer.StoreNamespace}),
+			WithInboundTransport(&mockInboundTransport{}))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create new vdri peer failed")
+	})
+
+	t.Run("test vdri - with default vdri", func(t *testing.T) {
 		// store peer DID in the store
 		dbprov, err := leveldb.NewProvider(dbPath)
 		require.NoError(t, err)
 
 		peerDID := "did:peer:21tDAKCERh95uGgKbJNHYp"
-		store, err := peer.NewDIDStore(dbprov)
+		store, err := peer.New(dbprov)
 		require.NoError(t, err)
 		originalDoc, err := did.ParseDocument([]byte(doc))
 		require.NoError(t, err)
-		err = store.Put(originalDoc, nil)
+		err = store.Store(originalDoc, nil)
 		require.NoError(t, err)
 
 		err = dbprov.Close()
@@ -197,7 +192,7 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 
-		resolvedDoc, err := aries.didResolver.Resolve(peerDID)
+		resolvedDoc, err := aries.vdriRegistry.Resolve(peerDID)
 		require.NoError(t, err)
 		require.Equal(t, originalDoc, resolvedDoc)
 		err = aries.Close()
@@ -360,44 +355,6 @@ func TestFramework(t *testing.T) {
 		require.Contains(t, err.Error(), "error from kms")
 	})
 
-	t.Run("test DID store - with default", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-		dbPath = path
-
-		originalDoc, err := did.ParseDocument([]byte(doc))
-		require.NoError(t, err)
-
-		// with default DID store
-		aries, err := New(WithInboundTransport(&mockInboundTransport{}))
-		require.NoError(t, err)
-		require.NotEmpty(t, aries)
-
-		err = aries.didStore.Put(originalDoc)
-		require.NoError(t, err)
-		err = aries.Close()
-		require.NoError(t, err)
-	})
-
-	t.Run("test DID store - with user provided did store", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-		dbPath = path
-
-		originalDoc, err := did.ParseDocument([]byte(doc))
-		require.NoError(t, err)
-
-		// with default DID store
-		aries, err := New(WithInboundTransport(&mockInboundTransport{}), WithDIDStore(mockdidstore.NewMockDidStore()))
-		require.NoError(t, err)
-		require.NotEmpty(t, aries)
-
-		err = aries.didStore.Put(originalDoc)
-		require.NoError(t, err)
-		err = aries.Close()
-		require.NoError(t, err)
-	})
-
 	t.Run("test transient store - with user provided transient store", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
@@ -436,20 +393,6 @@ func Test_Packager(t *testing.T) {
 		require.Nil(t, f)
 		require.Contains(t, err.Error(), "error from fallback packer")
 	})
-}
-
-type mockDidMethod struct {
-	readValue  *did.Doc
-	readErr    error
-	acceptFunc func(method string) bool
-}
-
-func (m mockDidMethod) Read(id string, opts ...didresolver.ResolveOpt) (*did.Doc, error) {
-	return m.readValue, m.readErr
-}
-
-func (m mockDidMethod) Accept(method string) bool {
-	return m.acceptFunc(method)
 }
 
 func generateTempDir(t testing.TB) (string, func()) {

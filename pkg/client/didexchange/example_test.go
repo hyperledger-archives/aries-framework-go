@@ -15,7 +15,6 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
-	mockcreator "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdr/didcreator"
 )
 
 func Example() {
@@ -131,7 +130,7 @@ func mockContext() provider {
 		TransientStoreProvider: transientStoreProvider,
 		StoreProvider:          storeProvider}
 
-	svc, err := didexchange.New(&mockcreator.MockDIDCreator{}, mockProvider)
+	svc, err := didexchange.New(mockProvider)
 	if err != nil {
 		panic(err)
 	}

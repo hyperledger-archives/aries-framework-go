@@ -17,9 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didcreator"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -60,8 +58,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
 	Signer() kms.Signer
-	DIDResolver() didresolver.Resolver
-	DIDStore() didstore.Storage
+	VDRIRegistry() vdriapi.Registry
 }
 
 // stateMachineMsg is an internal struct used to pass data to state machine.
@@ -83,11 +80,9 @@ type Service struct {
 
 type context struct {
 	outboundDispatcher dispatcher.Outbound
-	didCreator         didcreator.Creator
 	signer             kms.Signer
-	didResolver        didresolver.Resolver
 	connectionStore    *ConnectionRecorder
-	didStore           didstore.Storage
+	vdriRegistry       vdriapi.Registry
 }
 
 // opts are used to provide client properties to DID Exchange service
@@ -100,7 +95,7 @@ type opts interface {
 }
 
 // New return didexchange service
-func New(didMaker didcreator.Creator, prov provider) (*Service, error) {
+func New(prov provider) (*Service, error) {
 	store, err := prov.StorageProvider().OpenStore(DIDExchange)
 	if err != nil {
 		return nil, err
@@ -115,11 +110,9 @@ func New(didMaker didcreator.Creator, prov provider) (*Service, error) {
 	svc := &Service{
 		ctx: &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
-			didCreator:         didMaker,
 			signer:             prov.Signer(),
-			didResolver:        prov.DIDResolver(),
+			vdriRegistry:       prov.VDRIRegistry(),
 			connectionStore:    connRecorder,
-			didStore:           prov.DIDStore(),
 		},
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan *message, 10),

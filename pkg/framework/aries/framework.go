@@ -15,10 +15,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/didstore"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/didresolver"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
 
 // Aries provides access to the context being managed by the framework. The context can be used to create aries clients.
@@ -39,8 +40,8 @@ type Aries struct {
 	packerCreators            []packer.Creator
 	primaryPacker             packer.Packer
 	packers                   []packer.Packer
-	didResolver               didresolver.Resolver
-	didStore                  didstore.Storage
+	vdriRegistry              vdriapi.Registry
+	vdri                      []vdriapi.VDRI
 }
 
 // Option configures the framework.
@@ -71,12 +72,16 @@ func New(opts ...Option) (*Aries, error) {
 	//  Details - The code creates context without protocolServices. The protocolServicesCreators are dependent
 	//  on the context. The inbound transports require ctx.InboundMessageHandler(), which in-turn depends on
 	//  protocolServices. At the moment, there is a looping issue among these.
-	//  This needs to be resolved and should define a clear relationship between these.
 
 	// Order of initializing service is important
 
 	// Create kms
 	if e := createKMS(frameworkOpts); e != nil {
+		return nil, e
+	}
+
+	// Create vdri
+	if e := createVDRI(frameworkOpts); e != nil {
 		return nil, e
 	}
 
@@ -123,14 +128,6 @@ func WithInboundTransport(inboundTransport transport.InboundTransport) Option {
 	}
 }
 
-// WithDIDResolver injects a DID resolver to the Aries framework.
-func WithDIDResolver(didResolver didresolver.Resolver) Option {
-	return func(opts *Aries) error {
-		opts.didResolver = didResolver
-		return nil
-	}
-}
-
 // WithStoreProvider injects a storage provider to the Aries framework.
 func WithStoreProvider(prov storage.Provider) Option {
 	return func(opts *Aries) error {
@@ -171,6 +168,14 @@ func WithKMS(k api.KMSCreator) Option {
 	}
 }
 
+// WithVDRI injects a VDRI service to the Aries framework.
+func WithVDRI(v vdriapi.VDRI) Option {
+	return func(opts *Aries) error {
+		opts.vdri = append(opts.vdri, v)
+		return nil
+	}
+}
+
 // WithPacker injects at least one Packer service into the Aries framework,
 // with the primary Packer being used for inbound/outbound communication
 // and the additional packers being available for unpacking inbound messages.
@@ -178,14 +183,6 @@ func WithPacker(primary packer.Creator, additionalPackers ...packer.Creator) Opt
 	return func(opts *Aries) error {
 		opts.packerCreator = primary
 		opts.packerCreators = append(opts.packerCreators, additionalPackers...)
-		return nil
-	}
-}
-
-// WithDIDStore injects a DID store to the Aries framework.
-func WithDIDStore(didStore didstore.Storage) Option {
-	return func(opts *Aries) error {
-		opts.didStore = didStore
 		return nil
 	}
 }
@@ -202,8 +199,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithTransientStorageProvider(a.transientStoreProvider),
 		context.WithPacker(a.primaryPacker, a.packers...),
 		context.WithPackager(a.packager),
-		context.WithDIDResolver(a.didResolver),
-		context.WithDIDStore(a.didStore),
+		context.WithVDRIRegistry(a.vdriRegistry),
 	)
 }
 
@@ -254,6 +250,32 @@ func createKMS(frameworkOpts *Aries) error {
 	return nil
 }
 
+func createVDRI(frameworkOpts *Aries) error {
+	ctx, err := context.New(context.WithKMS(frameworkOpts.kms),
+		context.WithStorageProvider(frameworkOpts.storeProvider),
+		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()))
+	if err != nil {
+		return fmt.Errorf("create context failed: %w", err)
+	}
+
+	var opts []vdri.Option
+	for _, v := range frameworkOpts.vdri {
+		opts = append(opts, vdri.WithVDRI(v))
+	}
+
+	p, err := peer.New(ctx.StorageProvider(), peer.WithCreatorServiceType("did-communication"),
+		peer.WithCreatorServiceEndpoint(ctx.InboundTransportEndpoint()))
+	if err != nil {
+		return fmt.Errorf("create new vdri peer failed: %w", err)
+	}
+
+	opts = append(opts, vdri.WithVDRI(p))
+
+	frameworkOpts.vdriRegistry = vdri.New(ctx, opts...)
+
+	return nil
+}
+
 func createOutboundDispatcher(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithKMS(frameworkOpts.kms),
 		context.WithOutboundTransport(frameworkOpts.outboundTransport),
@@ -292,9 +314,8 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithTransientStorageProvider(frameworkOpts.transientStoreProvider),
 		context.WithKMS(frameworkOpts.kms),
 		context.WithPackager(frameworkOpts.packager),
-		context.WithDIDResolver(frameworkOpts.didResolver),
 		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()),
-		context.WithDIDStore(frameworkOpts.didStore))
+		context.WithVDRIRegistry(frameworkOpts.vdriRegistry))
 
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
