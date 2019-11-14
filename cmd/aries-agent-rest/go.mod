@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module github.com/hyperledger/aries-framework-go/cmd/aries-agentd
+module github.com/hyperledger/aries-framework-go/cmd/aries-agent-rest
 
 replace github.com/hyperledger/aries-framework-go => ../..
 

@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package aries-agentd (Aries Agent Server) of aries-framework-go.
+// Package aries-agent-rest (Aries Agent REST Server) of aries-framework-go.
 //
 //
 // Terms Of Service:
@@ -26,20 +26,20 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/hyperledger/aries-framework-go/cmd/aries-agentd/startcmd"
+	"github.com/hyperledger/aries-framework-go/cmd/aries-agent-rest/startcmd"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 )
 
 // This is an application which starts Aries agent controller API on given port
 func main() {
 	rootCmd := &cobra.Command{
-		Use: "aries-agentd",
+		Use: "aries-agent-rest",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.HelpFunc()(cmd, args)
 		},
 	}
 
-	logger := log.New("aries-framework/agentd")
+	logger := log.New("aries-framework/agent-rest")
 
 	startCmd, err := startcmd.Cmd(&startcmd.HTTPServer{})
 	if err != nil {
@@ -49,6 +49,6 @@ func main() {
 	rootCmd.AddCommand(startCmd)
 
 	if err := rootCmd.Execute(); err != nil {
-		logger.Fatalf("Failed to run aries-agentd: %s", err)
+		logger.Fatalf("Failed to run aries-agent-rest: %s", err)
 	}
 }

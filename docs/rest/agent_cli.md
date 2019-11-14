@@ -2,11 +2,11 @@
 
 ## Build the Agent
 
-The agent can be built from within the `cmd/aries-agentd` directory with `go build`.
+The agent can be built from within the `cmd/aries-agent-rest` directory with `go build`.
 
 ## Run the Agent
 
-Start the agent with `./aries-agentd start [flags]`.
+Start the agent with `./aries-agent-rest start [flags]`.
 
 ## Agent Parameters
 
@@ -30,7 +30,7 @@ Flags:
 ## Example
 
 ```shell
-$ cd cmd/aries-agentd
+$ cd cmd/aries-agent-rest
 $ go build
-$ ./aries-agentd start --api-host localhost:8080 --db-path "" --inbound-host localhost:8081 --inbound-host-external example.com:8081 --webhook-url localhost:8082 --agent-default-label MyAgent
+$ ./aries-agent-rest start --api-host localhost:8080 --db-path "" --inbound-host localhost:8081 --inbound-host-external example.com:8081 --webhook-url localhost:8082 --agent-default-label MyAgent
 ```

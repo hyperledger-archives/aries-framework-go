@@ -13,7 +13,7 @@ mocks/
 *.dll
 *.so
 *.dylib
-cmd/aries-agentd/aries-agentd
+cmd/aries-agent-rest/aries-agent-rest
 
 # Editor and go temporary files & folders
 .swp

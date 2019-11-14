@@ -99,7 +99,7 @@ var errMissingHost = errors.New("host not provided")
 
 var errMissingInboundHost = errors.New("HTTP Inbound transport host not provided")
 
-var logger = log.New("aries-framework/agentd")
+var logger = log.New("aries-framework/agent-rest")
 
 type agentParameters struct {
 	server                                                               server
@@ -284,7 +284,7 @@ func startAgent(parameters *agentParameters) error {
 
 	resolverOpts, err := getResolverOpts(parameters.httpResolvers)
 	if err != nil {
-		return fmt.Errorf("failed to start aries agentd on port [%s], failed to resolver opts : %w",
+		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to resolver opts : %w",
 			parameters.host, err)
 	}
 
@@ -292,13 +292,13 @@ func startAgent(parameters *agentParameters) error {
 
 	framework, err := aries.New(opts...)
 	if err != nil {
-		return fmt.Errorf("failed to start aries agentd on port [%s], failed to initialize framework :  %w",
+		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to initialize framework :  %w",
 			parameters.host, err)
 	}
 
 	ctx, err := framework.Context()
 	if err != nil {
-		return fmt.Errorf("failed to start aries agentd on port [%s], failed to get aries context : %w",
+		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to get aries context : %w",
 			parameters.host, err)
 	}
 
@@ -306,7 +306,7 @@ func startAgent(parameters *agentParameters) error {
 	restService, err := restapi.New(ctx, restapi.WithWebhookURLs(parameters.webhookURLs...),
 		restapi.WithDefaultLabel(parameters.defaultLabel))
 	if err != nil {
-		return fmt.Errorf("failed to start aries agentd on port [%s], failed to get rest service api :  %w",
+		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to get rest service api :  %w",
 			parameters.host, err)
 	}
 
@@ -317,13 +317,13 @@ func startAgent(parameters *agentParameters) error {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
-	logger.Infof("Starting aries agentd on host [%s]", parameters.host)
+	logger.Infof("Starting aries agent rest on host [%s]", parameters.host)
 	// start server on given port and serve using given handlers
 	handler := cors.Default().Handler(router)
 
 	err = parameters.server.ListenAndServe(parameters.host, handler)
 	if err != nil {
-		return fmt.Errorf("failed to start aries agentd on port [%s], cause:  %w", parameters.host, err)
+		return fmt.Errorf("failed to start aries agent rest on port [%s], cause:  %w", parameters.host, err)
 	}
 
 	return nil

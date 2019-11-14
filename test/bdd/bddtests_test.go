@@ -30,7 +30,7 @@ const (
 )
 
 var composition []*dockerutil.Composition
-var composeFiles = []string{"./fixtures/sidetree-mock", "./fixtures/agent"}
+var composeFiles = []string{"./fixtures/sidetree-mock", "./fixtures/agent-rest"}
 
 func TestMain(m *testing.M) {
 	// default is to run all tests with tag @all
