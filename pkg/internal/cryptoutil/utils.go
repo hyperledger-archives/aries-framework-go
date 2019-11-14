@@ -14,6 +14,7 @@ import (
 	"fmt"
 
 	"github.com/agl/ed25519/extra25519"
+	"github.com/btcsuite/btcutil/base58"
 	josecipher "github.com/square/go-jose/v3/cipher"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/curve25519"
@@ -22,39 +23,46 @@ import (
 // errEmptyRecipients is used when recipients list is empty
 var errEmptyRecipients = errors.New("empty recipients")
 
-// errInvalidKeypair is used when a keypair is invalid
-var errInvalidKeypair = errors.New("invalid keypair")
+// errInvalidKeySet is used when a keypair is invalid
+var errInvalidKeySet = errors.New("invalid keys set")
 
-// SignatureAlgorithm represents a signature algorithm.
-type SignatureAlgorithm string
+// KeyAlgorithm represents the algorithm associated with a key.
+type KeyAlgorithm string
 
-// EncryptionAlgorithm represents a content encryption algorithm.
-type EncryptionAlgorithm string
+// Capability represents the key capability (signing, encryption)
+type Capability int
 
 const (
 	// encryption key types
 
 	// Curve25519 encryption key type
-	Curve25519 = EncryptionAlgorithm("Curve25519")
+	Curve25519 = KeyAlgorithm("Curve25519")
 
 	// signing key types
 
 	// EdDSA signature key type
-	EdDSA = SignatureAlgorithm("EdDSA")
+	EdDSA = KeyAlgorithm("EdDSA")
+
+	// Encryption capability
+	Encryption Capability = iota + 1
+	// Signature capability
+	Signature
 )
 
 // VerifyKeys is a utility function that verifies if sender key pair and recipients keys are valid (not empty)
-func VerifyKeys(sender KeyPair, recipients [][]byte) error {
+func VerifyKeys(sender *KeySet, recipients []*Key) error {
 	if len(recipients) == 0 {
 		return errEmptyRecipients
 	}
 
-	if !isKeyPairValid(sender) {
-		return errInvalidKeypair
+	if !IsKeySetValid(sender) {
+		return errInvalidKeySet
 	}
 
-	if !IsChachaKeyValid(sender.Priv) || !IsChachaKeyValid(sender.Pub) {
-		return ErrInvalidKey
+	for _, k := range recipients {
+		if !IsKeyValid(k) {
+			return ErrInvalidKey
+		}
 	}
 
 	return nil
@@ -66,84 +74,71 @@ func IsChachaKeyValid(key []byte) bool {
 	return len(key) == chacha.KeySize
 }
 
-// KeyPair represents a private/public key pair
-type KeyPair struct {
-	// Priv is a private key
-	Priv []byte `json:"priv,omitempty"`
-	// Pub is a public key
-	Pub []byte `json:"pub,omitempty"`
+// KeySet contains a list of Key
+type KeySet struct {
+	ID         string `json:"id"`
+	Keys       []Key  `json:"keys"`
+	PrimaryKey Key    `json:"primarykey"`
 }
 
-// EncKeyPair represents a private/public encryption key pair
-type EncKeyPair struct {
-	KeyPair `json:"keypair,omitempty"`
-	// Alg is the encryption algorithm of keys enclosed in this key pair
-	Alg EncryptionAlgorithm `json:"alg,omitempty"`
+// Key represents a key with an ID and a value
+type Key struct {
+	ID         string       `json:"id"`
+	Value      string       `json:"value"`
+	Capability Capability   `json:"cap"`
+	Alg        KeyAlgorithm `json:"alg"`
 }
 
-// SigKeyPair represents a private/public signature (verification) key pair
-type SigKeyPair struct {
-	KeyPair `json:"keypair,omitempty"`
-	// Alg is the signature algorithm of keys enclosed in this key pair
-	Alg SignatureAlgorithm `json:"alg,omitempty"`
-}
-
-// MessagingKeys represents a pair of key pairs, one for encryption and one for signature
-// usually stored in a KMS, it helps prevent converting signing keys into encryption ones
-// TODO refactor this structure and all KeyPair handling as per issue #596
-type MessagingKeys struct {
-	*EncKeyPair `json:"enckeypair,omitempty"`
-	*SigKeyPair `json:"sigkeypair,omitempty"`
-}
-
-// isKeyPairValid is a utility function that validates a KeyPair
-func isKeyPairValid(kp KeyPair) bool {
-	if kp.Priv == nil || kp.Pub == nil {
+// IsKeyValid will return true if key is valid, false otherwise
+// Key can be of any supported Alg / Capability (signing/Encryption) values
+func IsKeyValid(key *Key) bool {
+	if hasEmptyValues(key) {
 		return false
 	}
 
-	return true
-}
-
-// IsEncKeyPairValid is a utility function that validates an EncKeyPair
-func IsEncKeyPairValid(kp *EncKeyPair) bool {
-	if !isKeyPairValid(kp.KeyPair) {
-		return false
-	}
-
-	switch kp.Alg {
-	case Curve25519:
-		return true
+	// verify all valid alg-capability combinations here
+	switch key.Capability {
+	case Signature:
+		if key.Alg == EdDSA { // supported signature algorithms here
+			return true
+		}
+	case Encryption:
+		if key.Alg == Curve25519 { // supported encryption algorithms here
+			return IsChachaKeyValid(base58.Decode(key.Value))
+		}
 	default:
 		return false
 	}
+
+	return false
 }
 
-// IsSigKeyPairValid is a utility function that validates an EncKeyPair
-func IsSigKeyPairValid(kp *SigKeyPair) bool {
-	if !isKeyPairValid(kp.KeyPair) {
-		return false
-	}
-
-	switch kp.Alg {
-	case EdDSA:
+func hasEmptyValues(key *Key) bool {
+	if key == nil || key.ID == "" || key.Value == "" || key.Alg == "" || key.Capability == 0 {
 		return true
-	default:
-		return false
 	}
+
+	return false
 }
 
-// IsMessagingKeysValid is a utility function that validates a KeyPair
-func IsMessagingKeysValid(kpb *MessagingKeys) bool {
-	if !IsSigKeyPairValid(kpb.SigKeyPair) || !IsEncKeyPairValid(kpb.EncKeyPair) {
+// IsKeySetValid will validate a key set and all its sub-keys
+func IsKeySetValid(ks *KeySet) bool {
+	if ks.ID == "" || !IsKeyValid(&ks.PrimaryKey) {
 		return false
+	}
+
+	for _, k := range ks.Keys {
+		tmpK := k
+		if !IsKeyValid(&tmpK) {
+			return false
+		}
 	}
 
 	return true
 }
 
 // Derive25519KEK is a utility function that will derive an ephemeral symmetric key (kek) using fromPrivKey and toPubKey
-func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte) ([]byte, error) { // nolint:lll
+func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte) ([]byte, error) {
 	if fromPrivKey == nil || toPubKey == nil {
 		return nil, ErrInvalidKey
 	}

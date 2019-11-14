@@ -8,13 +8,13 @@ package authcrypt
 
 import (
 	"bytes"
-	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
@@ -23,30 +23,12 @@ import (
 
 func TestEncodingType(t *testing.T) {
 	// create temporary signing keys for tests
-	sigPubKey, sigPrivKey, err := ed25519.GenerateKey(rand.Reader)
+	sigPubKey, sigPrivKey, encPubKey, encPrivKey, err := mockkms.GenerateRawKeys(rand.Reader)
 	require.NoError(t, err)
 
-	// convert signing keys to encryption keys
-	encPubKey, err := cryptoutil.PublicEd25519toCurve25519(sigPubKey)
-	require.NoError(t, err)
+	_, ks := mockkms.CreateKeys(sigPubKey, sigPrivKey, encPubKey, encPrivKey)
 
-	encPrivKey, err := cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
-	require.NoError(t, err)
-
-	require.NoError(t, err)
-
-	kp := &cryptoutil.MessagingKeys{
-		SigKeyPair: &cryptoutil.SigKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
-			Alg:     cryptoutil.EdDSA,
-		},
-		EncKeyPair: &cryptoutil.EncKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: encPubKey, Priv: encPrivKey},
-			Alg:     cryptoutil.Curve25519,
-		},
-	}
-
-	kmsProvider, err := mockkms.NewMockProvider(kp)
+	kmsProvider, err := mockkms.NewMockProvider(ks)
 	require.NoError(t, err)
 
 	packer, e := New(kmsProvider, XC20P)
@@ -57,131 +39,60 @@ func TestEncodingType(t *testing.T) {
 }
 
 func TestEncrypt(t *testing.T) {
-	// create temporary signing keys for tests
-	sigPubKey, sigPrivKey, err := ed25519.GenerateKey(rand.Reader)
+	var err error
+	// create temporary signing keys for tests - for sender
+	sigPubKey, sigPrivKey, encPubKey, encPrivKey, err := mockkms.GenerateRawKeys(rand.Reader)
 	require.NoError(t, err)
 
-	// convert signing keys to encryption keys
-	encPubKey, err := cryptoutil.PublicEd25519toCurve25519(sigPubKey)
+	senderSigPubKey, senderKeySet := mockkms.CreateKeys(sigPubKey, sigPrivKey, encPubKey, encPrivKey)
+
+	t.Logf("sender Signature key pub: %v", base64.RawURLEncoding.EncodeToString(sigPubKey))
+	t.Logf("sender Signature key priv: %v", base64.RawURLEncoding.EncodeToString(sigPrivKey))
+	t.Logf("sender Encryption key pub: %v", base64.RawURLEncoding.EncodeToString(encPubKey))
+	t.Logf("sender Encryption key priv: %v", base64.RawURLEncoding.EncodeToString(encPrivKey))
+
+	sigPubKey, sigPrivKey, encPubKey, encPrivKey, err = mockkms.GenerateRawKeys(rand.Reader)
+
+	rec1SigPubKey, rec1KeySet := mockkms.CreateKeys(sigPubKey, sigPrivKey, encPubKey, encPrivKey)
+
+	t.Logf("rec1 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(sigPubKey))
+	t.Logf("rec1 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(sigPrivKey))
+	t.Logf("rec1 Enc pub: %v", base64.RawURLEncoding.EncodeToString(encPubKey))
+	t.Logf("rec1 Enc priv: %v", base64.RawURLEncoding.EncodeToString(encPrivKey))
+
+	sigPubKey, sigPrivKey, encPubKey, encPrivKey, err = mockkms.GenerateRawKeys(rand.Reader)
 	require.NoError(t, err)
 
-	encPrivKey, err := cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
+	rec2SigPubKey, rec2KeySet := mockkms.CreateKeys(sigPubKey, sigPrivKey, encPubKey, encPrivKey)
+
+	t.Logf("rec2 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(sigPubKey))
+	t.Logf("rec2 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(sigPrivKey))
+	t.Logf("rec2 Enc pub: %v", base64.RawURLEncoding.EncodeToString(encPubKey))
+	t.Logf("rec2 Enc priv: %v", base64.RawURLEncoding.EncodeToString(encPrivKey))
+
+	sigPubKey, sigPrivKey, encPubKey, encPrivKey, err = mockkms.GenerateRawKeys(rand.Reader)
 	require.NoError(t, err)
 
+	rec3SigPubKey, rec3KeySet := mockkms.CreateKeys(sigPubKey, sigPrivKey, encPubKey, encPrivKey)
+
+	t.Logf("rec3 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(sigPubKey))
+	t.Logf("rec3 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(sigPrivKey))
+	t.Logf("rec3 Enc pub: %v", base64.RawURLEncoding.EncodeToString(encPubKey))
+	t.Logf("rec3 Enc priv: %v", base64.RawURLEncoding.EncodeToString(encPrivKey))
+
+	allKMSProvider, err := mockkms.NewMockProvider(senderKeySet, rec1KeySet, rec2KeySet, rec3KeySet)
+	require.NoError(t, err)
+	senderKMSProvider, err := mockkms.NewMockProvider(senderKeySet)
+	require.NoError(t, err)
+	recipient1KMSProvider, err := mockkms.NewMockProvider(rec1KeySet)
+	require.NoError(t, err)
+	recipient2KMSProvider, err := mockkms.NewMockProvider(rec2KeySet)
+	require.NoError(t, err)
+	recipient3KMSProvider, err := mockkms.NewMockProvider(rec3KeySet)
 	require.NoError(t, err)
 
-	sender := &cryptoutil.MessagingKeys{
-		SigKeyPair: &cryptoutil.SigKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
-			Alg:     cryptoutil.EdDSA,
-		},
-		EncKeyPair: &cryptoutil.EncKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: encPubKey, Priv: encPrivKey},
-			Alg:     cryptoutil.Curve25519,
-		},
-	}
-
-	t.Logf("sender Signature key pub: %v", base64.RawURLEncoding.EncodeToString(sender.SigKeyPair.Pub))
-	t.Logf("sender Signature key priv: %v", base64.RawURLEncoding.EncodeToString(sender.SigKeyPair.Priv))
-	t.Logf("sender Encryption key pub: %v", base64.RawURLEncoding.EncodeToString(sender.EncKeyPair.Pub))
-	t.Logf("sender Encryption key priv: %v", base64.RawURLEncoding.EncodeToString(sender.EncKeyPair.Priv))
-
-	sigPubKey, sigPrivKey, err = ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-
-	// convert signing keys to encryption keys
-	encPubKey, err = cryptoutil.PublicEd25519toCurve25519(sigPubKey)
-	require.NoError(t, err)
-
-	encPrivKey, err = cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
-	require.NoError(t, err)
-
-	rec1 := &cryptoutil.MessagingKeys{
-		SigKeyPair: &cryptoutil.SigKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
-			Alg:     cryptoutil.EdDSA,
-		},
-		EncKeyPair: &cryptoutil.EncKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: encPubKey, Priv: encPrivKey},
-			Alg:     cryptoutil.Curve25519,
-		},
-	}
-
-	t.Logf("rec1 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(rec1.SigKeyPair.Pub))
-	t.Logf("rec1 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(rec1.SigKeyPair.Priv))
-	t.Logf("rec1 Enc pub: %v", base64.RawURLEncoding.EncodeToString(rec1.EncKeyPair.Pub))
-	t.Logf("rec1 Enc priv: %v", base64.RawURLEncoding.EncodeToString(rec1.EncKeyPair.Priv))
-
-	sigPubKey, sigPrivKey, err = ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-	// convert signing keys to encryption keys
-
-	encPubKey, err = cryptoutil.PublicEd25519toCurve25519(sigPubKey)
-	require.NoError(t, err)
-
-	encPrivKey, err = cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
-	require.NoError(t, err)
-
-	rec2 := &cryptoutil.MessagingKeys{
-		SigKeyPair: &cryptoutil.SigKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
-			Alg:     cryptoutil.EdDSA,
-		},
-		EncKeyPair: &cryptoutil.EncKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: encPubKey, Priv: encPrivKey},
-			Alg:     cryptoutil.Curve25519,
-		},
-	}
-
-	t.Logf("rec2 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(rec2.SigKeyPair.Pub))
-	t.Logf("rec2 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(rec2.SigKeyPair.Priv))
-	t.Logf("rec2 Enc pub: %v", base64.RawURLEncoding.EncodeToString(rec2.EncKeyPair.Pub))
-	t.Logf("rec2 Enc priv: %v", base64.RawURLEncoding.EncodeToString(rec2.EncKeyPair.Priv))
-
-	sigPubKey, sigPrivKey, err = ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-
-	// convert signing keys to encryption keys
-	encPubKey, err = cryptoutil.PublicEd25519toCurve25519(sigPubKey)
-	require.NoError(t, err)
-
-	encPrivKey, err = cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
-	require.NoError(t, err)
-
-	rec3 := &cryptoutil.MessagingKeys{
-		SigKeyPair: &cryptoutil.SigKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
-			Alg:     cryptoutil.EdDSA,
-		},
-		EncKeyPair: &cryptoutil.EncKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: encPubKey, Priv: encPrivKey},
-			Alg:     cryptoutil.Curve25519,
-		},
-	}
-
-	t.Logf("rec3 Sig key pub: %v", base64.RawURLEncoding.EncodeToString(rec3.SigKeyPair.Pub))
-	t.Logf("rec3 Sig key priv: %v", base64.RawURLEncoding.EncodeToString(rec3.SigKeyPair.Priv))
-	t.Logf("rec3 Enc pub: %v", base64.RawURLEncoding.EncodeToString(rec3.EncKeyPair.Pub))
-	t.Logf("rec3 Enc priv: %v", base64.RawURLEncoding.EncodeToString(rec3.EncKeyPair.Priv))
-
-	allKMSProvider, err := mockkms.NewMockProvider(sender, rec1, rec2, rec3)
-	require.NoError(t, err)
-
-	senderKMSProvider, err := mockkms.NewMockProvider(sender)
-	require.NoError(t, err)
-
-	recipient1KMSProvider, err := mockkms.NewMockProvider(rec1)
-	require.NoError(t, err)
-
-	recipient2KMSProvider, err := mockkms.NewMockProvider(rec2)
-	require.NoError(t, err)
-
-	recipient3KMSProvider, err := mockkms.NewMockProvider(rec3)
-	require.NoError(t, err)
-
-	badKey := cryptoutil.KeyPair{
-		Pub:  nil,
-		Priv: nil,
+	badKey := cryptoutil.Key{
+		ID: "badID",
 	}
 
 	t.Run("Error test case: Create a new AuthCrypt PackerValue with bad encryption algorithm", func(t *testing.T) {
@@ -194,9 +105,17 @@ func TestEncrypt(t *testing.T) {
 		packer, e := New(senderKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, packer)
-		badKey.Pub = []byte{}
-		enc, e := packer.Pack([]byte("lorem ipsum dolor sit amet"),
-			badKey.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+		badKey.Value = ""
+		rec1Key := base58.Decode(rec1SigPubKey.Value)
+		require.NotEmpty(t, rec1Key)
+		rec2Key := base58.Decode(rec2SigPubKey.Value)
+		require.NotEmpty(t, rec2Key)
+		rec3Key := base58.Decode(rec3SigPubKey.Value)
+		require.NotEmpty(t, rec3Key)
+		enc, e := packer.Pack(
+			[]byte("lorem ipsum dolor sit amet"),
+			[]byte(badKey.Value),
+			[][]byte{rec1Key, rec2Key, rec3Key})
 		require.EqualError(t, e, "failed to pack message: empty sender key")
 		require.Empty(t, enc)
 	})
@@ -206,37 +125,45 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		require.NotEmpty(t, packer)
 		// test bad sender public key
-		badKey.Pub = []byte("badkey")
-
+		badKey.Value = "badkey"
+		rec1Key := base58.Decode(rec1SigPubKey.Value)
+		require.NotEmpty(t, rec1Key)
+		rec2Key := base58.Decode(rec2SigPubKey.Value)
+		require.NotEmpty(t, rec2Key)
+		rec3Key := base58.Decode(rec3SigPubKey.Value)
+		require.NotEmpty(t, rec3Key)
+		senderKey := base58.Decode(senderSigPubKey.Value)
+		require.NotEmpty(t, senderKey)
 		enc, e := packer.Pack([]byte("lorem ipsum dolor sit amet"),
-			badKey.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+			[]byte(badKey.Value), [][]byte{rec1Key, rec2Key, rec3Key})
 		require.EqualError(t, e, "key not found")
 		require.Empty(t, enc)
 
 		// reset badKey
-		badKey.Pub = nil
+		badKey.Value = ""
 
 		// test bad recipient 1 public key size
 		enc, e = packer.Pack([]byte("lorem ipsum dolor sit amet"),
-			sender.SigKeyPair.Pub, [][]byte{[]byte("badkeysize"), rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+			senderKey, [][]byte{[]byte("badkeysize"), rec2Key, rec3Key})
 		require.EqualError(t, e, "failed to pack message: invalid key - for recipient 1")
 		require.Empty(t, enc)
 		// test bad recipient 2 public key size
 		enc, e = packer.Pack([]byte("lorem ipsum dolor sit amet"),
-			sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, []byte("badkeysize"), rec3.SigKeyPair.Pub})
+			senderKey, [][]byte{rec1Key, []byte("badkeysize"), rec3Key})
 		require.EqualError(t, e, "failed to pack message: invalid key - for recipient 2")
 		require.Empty(t, enc)
 		// test bad recipient 3 publick key size
 		enc, e = packer.Pack([]byte("lorem ipsum dolor sit amet"),
-			sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, []byte("badkeysize")})
+			senderKey, [][]byte{rec1Key, rec2Key, []byte("badkeysize")})
 		require.EqualError(t, e, "failed to pack message: invalid key - for recipient 3")
 		require.Empty(t, enc)
 
 		// test invalid recipient 1 key
 		k, e := base64.RawURLEncoding.DecodeString("-----vh1JG9hO0123pO3gWyngGwLivn32PzUdUDwW4w")
 		require.NoError(t, e)
+
 		enc, e = packer.Pack([]byte("lorem ipsum dolor sit amet"),
-			sender.SigKeyPair.Pub, [][]byte{k, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+			senderKey, [][]byte{k, rec2Key, rec3Key})
 		require.EqualError(t, e, "failed to pack message: error converting public key")
 		require.Empty(t, enc)
 	})
@@ -244,8 +171,10 @@ func TestEncrypt(t *testing.T) {
 	t.Run("Error test case: Create a new AuthCrypt PackerValue and use an empty recipient keys list for encryption", func(t *testing.T) { //nolint:lll
 		packer, e := New(senderKMSProvider, "XC20P")
 		require.NoError(t, e)
+		senderKey := base58.Decode(senderSigPubKey.Value)
+		require.NotEmpty(t, senderKey)
 		require.NotEmpty(t, packer)
-		enc, e := packer.Pack([]byte("lorem ipsum dolor sit amet"), sender.SigKeyPair.Pub, [][]byte{})
+		enc, e := packer.Pack([]byte("lorem ipsum dolor sit amet"), senderKey, [][]byte{})
 		require.EqualError(t, e, "failed to pack message: empty recipients")
 		require.Empty(t, enc)
 	})
@@ -254,8 +183,16 @@ func TestEncrypt(t *testing.T) {
 		packer, e := New(allKMSProvider, C20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, packer)
+		rec1Key := base58.Decode(rec1SigPubKey.Value)
+		require.NotEmpty(t, rec1Key)
+		rec2Key := base58.Decode(rec2SigPubKey.Value)
+		require.NotEmpty(t, rec2Key)
+		rec3Key := base58.Decode(rec3SigPubKey.Value)
+		require.NotEmpty(t, rec3Key)
+		senderKey := base58.Decode(senderSigPubKey.Value)
+		require.NotEmpty(t, senderKey)
 		enc, e := packer.Pack([]byte("lorem ipsum dolor sit amet"),
-			sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+			senderKey, [][]byte{rec1Key, rec2Key, rec3Key})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -268,22 +205,90 @@ func TestEncrypt(t *testing.T) {
 		packer, e := New(allKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, packer)
+		// test invalid recipient 1 key
+		k, e := base64.RawURLEncoding.DecodeString("-----vh1JG9hO0123pO3gWyngGwLivn32PzUdUDwW4w")
+		require.NoError(t, e)
+
+		rec1Key := base58.Decode(rec1SigPubKey.Value)
+		require.NotEmpty(t, rec1Key)
+		rec2Key := base58.Decode(rec2SigPubKey.Value)
+		require.NotEmpty(t, rec2Key)
+		rec3Key := base58.Decode(rec3SigPubKey.Value)
+		require.NotEmpty(t, rec3Key)
+		senderKey := base58.Decode(senderSigPubKey.Value)
+		require.NotEmpty(t, senderKey)
 		enc, e := packer.Pack([]byte("lorem ipsum dolor sit amet"),
-			sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+			senderKey, [][]byte{rec1Key, rec2Key, rec3Key})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
-		m, e := prettyPrint(enc)
-		require.NoError(t, e)
-		t.Logf("Encryption with XC20P: %s", m)
-
-		t.Run("Error test Case: use a valid AuthCrypt PackerValue but scramble the nonce size", func(t *testing.T) {
-			packer.nonceSize = 0
-			_, err = packer.Pack([]byte("lorem ipsum dolor sit amet"),
-				sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
-			require.Error(t, err)
-		})
+		enc, e = packer.Pack([]byte("lorem ipsum dolor sit amet"), senderKey, [][]byte{k, rec2Key, rec3Key})
+		require.EqualError(t, e, "failed to pack message: error converting public key")
+		require.Empty(t, enc)
 	})
+
+	t.Run("Error test case: Create a new AuthCrypter and use an empty recipient keys list for encryption",
+		func(t *testing.T) {
+			packer, e := New(senderKMSProvider, "XC20P")
+			require.NoError(t, e)
+			require.NotEmpty(t, packer)
+			senderKey := base58.Decode(senderSigPubKey.Value)
+			require.NotEmpty(t, senderKey)
+			enc, e := packer.Pack([]byte("lorem ipsum dolor sit amet"), senderKey, [][]byte{})
+			require.EqualError(t, e, "failed to pack message: empty recipients")
+			require.Empty(t, enc)
+		})
+
+	t.Run("Success test case: Create a valid AuthCrypter for ChachaPoly1305 encryption (alg: C20P)",
+		func(t *testing.T) {
+			packer, e := New(allKMSProvider, C20P)
+			require.NoError(t, e)
+			require.NotEmpty(t, packer)
+			rec1Key := base58.Decode(rec1SigPubKey.Value)
+			require.NotEmpty(t, rec1Key)
+			rec2Key := base58.Decode(rec2SigPubKey.Value)
+			require.NotEmpty(t, rec2Key)
+			rec3Key := base58.Decode(rec3SigPubKey.Value)
+			require.NotEmpty(t, rec3Key)
+			senderKey := base58.Decode(senderSigPubKey.Value)
+			require.NotEmpty(t, senderKey)
+			enc, e := packer.Pack([]byte("lorem ipsum dolor sit amet"), senderKey, [][]byte{rec1Key, rec2Key, rec3Key})
+			require.NoError(t, e)
+			require.NotEmpty(t, enc)
+
+			m, e := prettyPrint(enc)
+			require.NoError(t, e)
+			t.Logf("Encryption with C20P: %s", m)
+		})
+
+	t.Run("Success test case: Create a valid AuthCrypter for XChachaPoly1305 encryption (alg: XC20P)",
+		func(t *testing.T) {
+			packer, e := New(allKMSProvider, XC20P)
+			require.NoError(t, e)
+			require.NotEmpty(t, packer)
+			rec1Key := base58.Decode(rec1SigPubKey.Value)
+			require.NotEmpty(t, rec1Key)
+			rec2Key := base58.Decode(rec2SigPubKey.Value)
+			require.NotEmpty(t, rec2Key)
+			rec3Key := base58.Decode(rec3SigPubKey.Value)
+			require.NotEmpty(t, rec3Key)
+			senderKey := base58.Decode(senderSigPubKey.Value)
+			require.NotEmpty(t, senderKey)
+			enc, e := packer.Pack([]byte("lorem ipsum dolor sit amet"), senderKey, [][]byte{rec1Key, rec2Key, rec3Key})
+			require.NoError(t, e)
+			require.NotEmpty(t, enc)
+
+			m, e := prettyPrint(enc)
+			require.NoError(t, e)
+			t.Logf("Encryption with XC20P: %s", m)
+
+			t.Run("Error test Case: use a valid AuthCrypter but scramble the nonce size", func(t *testing.T) {
+				packer.nonceSize = 0
+				_, err = packer.Pack([]byte("lorem ipsum dolor sit amet"),
+					senderKey, [][]byte{rec1Key, rec2Key, rec3Key})
+				require.Error(t, err)
+			})
+		})
 
 	t.Run("Success test case: Decrypting a message (with the same packer)", func(t *testing.T) {
 		// not a real life scenario, the kms is using both sender and rec1 key pairs
@@ -291,9 +296,16 @@ func TestEncrypt(t *testing.T) {
 		packer, e := New(allKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, packer)
+		rec1Key := base58.Decode(rec1SigPubKey.Value)
+		require.NotEmpty(t, rec1Key)
+		rec2Key := base58.Decode(rec2SigPubKey.Value)
+		require.NotEmpty(t, rec2Key)
+		rec3Key := base58.Decode(rec3SigPubKey.Value)
+		require.NotEmpty(t, rec3Key)
+		senderKey := base58.Decode(senderSigPubKey.Value)
+		require.NotEmpty(t, senderKey)
 		pld := []byte("lorem ipsum dolor sit amet")
-		enc, e := packer.Pack(pld, sender.SigKeyPair.Pub,
-			[][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+		enc, e := packer.Pack(pld, senderKey, [][]byte{rec1Key, rec2Key, rec3Key})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -314,9 +326,16 @@ func TestEncrypt(t *testing.T) {
 		packer, e := New(allKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, packer)
+		rec1Key := base58.Decode(rec1SigPubKey.Value)
+		require.NotEmpty(t, rec1Key)
+		rec2Key := base58.Decode(rec2SigPubKey.Value)
+		require.NotEmpty(t, rec2Key)
+		rec3Key := base58.Decode(rec3SigPubKey.Value)
+		require.NotEmpty(t, rec3Key)
+		senderKey := base58.Decode(senderSigPubKey.Value)
+		require.NotEmpty(t, senderKey)
 		pld := []byte("lorem ipsum dolor sit amet")
-		enc, e := packer.Pack(pld, sender.SigKeyPair.Pub,
-			[][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+		enc, e := packer.Pack(pld, senderKey, [][]byte{rec1Key, rec2Key, rec3Key})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -347,8 +366,14 @@ func TestEncrypt(t *testing.T) {
 		packer, e := New(allKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, packer)
+		rec1Key := base58.Decode(rec1SigPubKey.Value)
+		require.NotEmpty(t, rec1Key)
+		rec3Key := base58.Decode(rec3SigPubKey.Value)
+		require.NotEmpty(t, rec3Key)
+		senderKey := base58.Decode(senderSigPubKey.Value)
+		require.NotEmpty(t, senderKey)
 		pld := []byte("lorem ipsum dolor sit amet")
-		enc, e := packer.Pack(pld, sender.SigKeyPair.Pub, [][]byte{rec1.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+		enc, e := packer.Pack(pld, senderKey, [][]byte{rec1Key, rec3Key})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -369,9 +394,16 @@ func TestEncrypt(t *testing.T) {
 		packer, e := New(allKMSProvider, XC20P)
 		require.NoError(t, e)
 		require.NotEmpty(t, packer)
+		rec1Key := base58.Decode(rec1SigPubKey.Value)
+		require.NotEmpty(t, rec1Key)
+		rec2Key := base58.Decode(rec2SigPubKey.Value)
+		require.NotEmpty(t, rec2Key)
+		rec3Key := base58.Decode(rec3SigPubKey.Value)
+		require.NotEmpty(t, rec3Key)
+		senderKey := base58.Decode(senderSigPubKey.Value)
+		require.NotEmpty(t, senderKey)
 		pld := []byte("lorem ipsum dolor sit amet")
-		enc, e := packer.Pack(pld, sender.SigKeyPair.Pub,
-			[][]byte{rec1.SigKeyPair.Pub, rec2.SigKeyPair.Pub, rec3.SigKeyPair.Pub})
+		enc, e := packer.Pack(pld, senderKey, [][]byte{rec1Key, rec2Key, rec3Key})
 		require.NoError(t, e)
 		require.NotEmpty(t, enc)
 
@@ -571,18 +603,11 @@ func TestRefEncrypt(t *testing.T) {
 	recipientPub, err := base64.RawURLEncoding.DecodeString(recipientPubStr)
 	require.NoError(t, err)
 
-	recKpCombo := &cryptoutil.MessagingKeys{
-		SigKeyPair: &cryptoutil.SigKeyPair{
-			KeyPair: cryptoutil.KeyPair{Priv: recipientPub, Pub: recipientPub}, // mocking signature keys as enc keys
-			Alg:     cryptoutil.EdDSA,
-		},
-		EncKeyPair: &cryptoutil.EncKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: recipientPub, Priv: recipientPriv},
-			Alg:     cryptoutil.Curve25519,
-		},
-	}
+	// mocking signature keys as enc keys
+	_, refKS := mockkms.CreateKeys(recipientPub, recipientPriv, recipientPub, recipientPriv)
+
 	// create mockkms provider with the above keys
-	mockKMSProvider, err := mockkms.NewMockProvider(recKpCombo)
+	mockKMSProvider, err := mockkms.NewMockProvider(refKS)
 	require.NoError(t, err)
 
 	// refJWE created by executing PHP test code at:

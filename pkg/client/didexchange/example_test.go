@@ -136,7 +136,7 @@ func mockContext() provider {
 	}
 
 	context := &mockprovider.Provider{
-		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+		KMSValue:                      &mockkms.CloseableKMS{CreateKeySetValue: "sample-key"},
 		TransientStorageProviderValue: transientStoreProvider,
 		StorageProviderValue:          storeProvider,
 		ServiceValue:                  svc}

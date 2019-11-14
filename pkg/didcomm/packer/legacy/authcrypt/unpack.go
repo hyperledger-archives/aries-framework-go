@@ -58,10 +58,10 @@ func (p *Packer) Unpack(envelope []byte) ([]byte, error) {
 }
 
 func getCEK(recipients []recipient, km kms.KeyManager) (*[chacha.KeySize]byte, error) {
-	var candidateKeys []string
+	var candidateKeys [][]byte
 
 	for _, candidate := range recipients {
-		candidateKeys = append(candidateKeys, candidate.Header.KID)
+		candidateKeys = append(candidateKeys, base58.Decode(candidate.Header.KID))
 	}
 
 	recKeyIdx, err := km.FindVerKey(candidateKeys)
@@ -70,9 +70,9 @@ func getCEK(recipients []recipient, km kms.KeyManager) (*[chacha.KeySize]byte, e
 	}
 
 	recip := recipients[recKeyIdx]
-	recKey := recip.Header.KID
+	recKey := base58.Decode(recip.Header.KID)
 
-	recCurvePub, err := km.ConvertToEncryptionKey(base58.Decode(recKey))
+	recCurvePub, err := km.ConvertToEncryptionKey(recKey)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,8 @@ func getCEK(recipients []recipient, km kms.KeyManager) (*[chacha.KeySize]byte, e
 		return nil, err
 	}
 
-	cekSlice, err := b.EasyOpen(encCEK, nonceSlice, sender, recCurvePub)
+	// here pass pub sign key as it will be used to derive the recipient's encryption key from KMS
+	cekSlice, err := b.EasyOpen(encCEK, nonceSlice, sender, recKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt CEK: %s", err)
 	}

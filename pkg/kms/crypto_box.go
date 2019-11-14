@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package kms
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"golang.org/x/crypto/nacl/box"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 // TODO: move CryptoBox out of the KMS package.
@@ -50,8 +52,16 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub, myPub []byte) ([]byte, error)
 
 	copy(recPubBytes[:], theirPub)
 
-	//	 myPub is used to get the sender private key for encryption
-	kp, err := b.km.getKeyPairSet(base58.Encode(myPub))
+	// myPub is used to get the sender private key for encryption by fetching the corresponding KeySet first
+	// derive KeySetID from the public signature key
+	ksID := hashKeySetID(myPub)
+
+	ks, err := b.km.getKeySet(ksID)
+	if err != nil {
+		return nil, err
+	}
+
+	privKey, err := b.findEncPrivKey(ks)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +71,7 @@ func (b *CryptoBox) Easy(payload, nonce, theirPub, myPub []byte) ([]byte, error)
 		nonceBytes [cryptoutil.NonceSize]byte
 	)
 
-	copy(priv[:], kp.EncKeyPair.Priv)
+	copy(priv[:], privKey)
 	copy(nonceBytes[:], nonce)
 
 	ret := box.Seal(nil, payload, &nonceBytes, &recPubBytes, &priv)
@@ -77,7 +87,15 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 
 	copy(sendPubBytes[:], theirPub)
 
-	kp, err := b.km.getKeyPairSet(base58.Encode(myPub))
+	// myPub is used to get the sender private key for encryption
+	ksID := hashKeySetID(myPub)
+
+	ks, err := b.km.getKeySet(ksID)
+	if err != nil {
+		return nil, err
+	}
+
+	privKey, err := b.findEncPrivKey(ks)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +105,7 @@ func (b *CryptoBox) EasyOpen(cipherText, nonce, theirPub, myPub []byte) ([]byte,
 		nonceBytes [cryptoutil.NonceSize]byte
 	)
 
-	copy(priv[:], kp.EncKeyPair.Priv)
+	copy(priv[:], privKey)
 	copy(nonceBytes[:], nonce)
 
 	out, success := box.Open(nil, cipherText, &nonceBytes, &sendPubBytes, &priv)
@@ -133,7 +151,9 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 		return nil, errors.New("message too short")
 	}
 
-	kp, err := b.km.getKeyPairSet(base58.Encode(myPub))
+	keySetID := hashKeySetID(myPub)
+
+	ks, err := b.km.getKeySet(keySetID)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +164,13 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 	)
 
 	copy(epk[:], cipherText[:cryptoutil.Curve25519KeySize])
-	copy(priv[:], kp.EncKeyPair.Priv)
+
+	privKey, err := b.findEncPrivKey(ks)
+	if err != nil {
+		return nil, err
+	}
+
+	copy(priv[:], privKey)
 
 	nonce, err := cryptoutil.Nonce(epk[:], myPub)
 	if err != nil {
@@ -157,4 +183,55 @@ func (b *CryptoBox) SealOpen(cipherText, myPub []byte) ([]byte, error) {
 	}
 
 	return out, nil
+}
+
+// findEncPrivKey will loop through the list of keys in keySet and return the encryption private sub key
+func (b *CryptoBox) findEncPrivKey(keySet *cryptoutil.KeySet) ([]byte, error) {
+	ks := keySet
+	// KeySet with 2 keys has ID hashed from the public encryption key, this means fetch the KeySet with ID
+	// hashed from the publc signature key first.
+	if len(ks.Keys) == 2 {
+		sigPubKey, e := b.km.getKey(ks.PrimaryKey.ID)
+		if e != nil {
+			return nil, e
+		}
+
+		ksID := hashKeySetID(base58.Decode(sigPubKey.Value))
+
+		fullKs, e := b.km.getKeySet(ksID)
+		if e != nil {
+			return nil, e
+		}
+
+		ks = fullKs
+	}
+
+	return b.findEncPrivKeyFromList(ks.Keys)
+}
+
+func (b *CryptoBox) findEncPrivKeyFromList(keys []cryptoutil.Key) ([]byte, error) {
+	for _, key := range keys {
+		simpleKey, err := b.km.getKey(key.ID)
+		if err != nil {
+			if !errors.Is(storage.ErrDataNotFound, err) {
+				return nil, err
+			}
+
+			continue
+		}
+
+		if simpleKey.Alg == cryptoutil.Curve25519 && simpleKey.Capability == cryptoutil.Encryption {
+			id, err := base64.RawURLEncoding.DecodeString(simpleKey.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			// return private encryption key (id appended with 'es')
+			if len(id) == 34 && id[32] == 'e' && id[33] == 's' {
+				return base58.Decode(simpleKey.Value), nil
+			}
+		}
+	}
+
+	return nil, errors.New("no matching key found in KeySet")
 }

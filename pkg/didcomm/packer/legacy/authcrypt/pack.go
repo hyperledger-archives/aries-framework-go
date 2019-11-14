@@ -43,14 +43,7 @@ func (p *Packer) Pack(payload, sender []byte, recipientPubKeys [][]byte) ([]byte
 		return nil, err
 	}
 
-	var recipients []recipient
-
-	recKeys := make([]string, len(recipientPubKeys))
-	for i, key := range recipientPubKeys {
-		recKeys[i] = base58.Encode(key)
-	}
-
-	recipients, err = p.buildRecipients(cek, sender, recipientPubKeys)
+	recipients, err := p.buildRecipients(cek, sender, recipientPubKeys)
 	if err != nil {
 		return nil, err
 	}

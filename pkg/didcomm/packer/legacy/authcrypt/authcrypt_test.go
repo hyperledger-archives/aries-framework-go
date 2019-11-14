@@ -8,6 +8,7 @@ package authcrypt
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/ed25519"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
@@ -80,49 +80,123 @@ func newKMS(t *testing.T) (*kms.BaseKMS, storage.Store) {
 	return ret, store
 }
 
-func persistKey(pub, priv string, store storage.Store) error {
-	kp := cryptoutil.KeyPair{
-		Priv: base58.Decode(priv),
-		Pub:  base58.Decode(pub),
+func persistKeys(pub, priv string, store, metadataStore storage.Store) error {
+	sigPub := base58.Decode(pub)
+	keyHash := sha256.Sum256([]byte(pub))
+	sigPubKey := cryptoutil.Key{
+		ID:         base64.RawURLEncoding.EncodeToString(append(keyHash[:], []byte("sp")...)),
+		Value:      pub,
+		Capability: cryptoutil.Signature,
+		Alg:        cryptoutil.EdDSA,
 	}
 
-	sk, err := cryptoutil.SecretEd25519toCurve25519(kp.Priv)
+	sigPriv := base58.Decode(priv)
+	sigPrivKey := cryptoutil.Key{
+		ID:         base64.RawURLEncoding.EncodeToString(append(keyHash[:], []byte("ss")...)),
+		Value:      priv,
+		Capability: cryptoutil.Signature,
+		Alg:        cryptoutil.EdDSA,
+	}
+
+	sk, err := cryptoutil.SecretEd25519toCurve25519(sigPriv)
 	if err != nil {
 		return err
 	}
 
-	pk, err := cryptoutil.PublicEd25519toCurve25519(kp.Pub)
+	encPrivKey := cryptoutil.Key{
+		ID:         base64.RawURLEncoding.EncodeToString(append(keyHash[:], []byte("es")...)),
+		Value:      base58.Encode(sk),
+		Capability: cryptoutil.Encryption,
+		Alg:        cryptoutil.Curve25519,
+	}
+
+	pk, err := cryptoutil.PublicEd25519toCurve25519(sigPub)
 	if err != nil {
 		return err
 	}
 
-	enc := cryptoutil.KeyPair{
-		Priv: sk,
-		Pub:  pk,
+	encPubKey := cryptoutil.Key{
+		ID:         base64.RawURLEncoding.EncodeToString(append(keyHash[:], []byte("ep")...)),
+		Value:      base58.Encode(pk),
+		Capability: cryptoutil.Encryption,
+		Alg:        cryptoutil.Curve25519,
 	}
 
-	kpCombo := &cryptoutil.MessagingKeys{
-		EncKeyPair: &cryptoutil.EncKeyPair{
-			KeyPair: enc,
-			Alg:     cryptoutil.Curve25519,
-		},
-		SigKeyPair: &cryptoutil.SigKeyPair{
-			KeyPair: kp,
-			Alg:     cryptoutil.EdDSA,
+	err = storeKey(store, sigPubKey)
+	if err != nil {
+		return err
+	}
+
+	err = storeKey(store, sigPrivKey)
+	if err != nil {
+		return err
+	}
+
+	err = storeKey(store, encPubKey)
+	if err != nil {
+		return err
+	}
+
+	err = storeKey(store, encPrivKey)
+	if err != nil {
+		return err
+	}
+
+	keys := []cryptoutil.Key{
+		{ID: sigPubKey.ID},
+		{ID: sigPrivKey.ID},
+		{ID: encPubKey.ID},
+		{ID: encPrivKey.ID},
+	}
+	h := sha256.Sum256([]byte(pub)) // hashing the base58 public signature key
+	// keySet must be stored with ID references only
+	keySet := cryptoutil.KeySet{
+		ID:   base64.RawURLEncoding.EncodeToString(h[:]),
+		Keys: keys,
+		PrimaryKey: cryptoutil.Key{
+			ID: sigPubKey.ID,
 		},
 	}
 
-	data, err := json.Marshal(kpCombo)
+	data, err := json.Marshal(keySet)
+	if err != nil {
+		return fmt.Errorf("failed to marshal keySet: %w", err)
+	}
+
+	err = metadataStore.Put(keySet.ID, data)
+	if err != nil {
+		return fmt.Errorf("failed to persist main keySet: %w", err)
+	}
+
+	// insert a new KeySet referenced by public encryption key for cross reference by encryption key
+	keys = []cryptoutil.Key{
+		{ID: sigPubKey.ID},
+		{ID: encPubKey.ID},
+	}
+	h = sha256.Sum256([]byte(encPubKey.Value)) // hashing the base58 public encryption key
+	keySet.ID = base64.RawURLEncoding.EncodeToString(h[:])
+	keySet.Keys = keys
+
+	data, err = json.Marshal(keySet)
+	if err != nil {
+		return fmt.Errorf("failed to marshal encryption reference keySet: %w", err)
+	}
+
+	return metadataStore.Put(keySet.ID, data)
+}
+
+func storeKey(store storage.Store, key cryptoutil.Key) error {
+	data, err := json.Marshal(key)
 	if err != nil {
 		return fmt.Errorf("failed to marshal key: %w", err)
 	}
 
-	err = store.Put(base58.Encode(pk), data)
+	err = store.Put(key.ID, data)
 	if err != nil {
 		return err
 	}
 
-	return store.Put(pub, data)
+	return nil
 }
 
 func (p *provider) KMS() kms.KeyManager {
@@ -137,36 +211,37 @@ func newWithKMS(k kms.KeyManager) *Packer {
 
 func TestEncodingType(t *testing.T) {
 	// create temporary signing keys for tests
-	sigPubKey, sigPrivKey, err := ed25519.GenerateKey(rand.Reader)
+	sigPubKey, sigPrivKey, encPubKey, encPrivKey, err := mockkms.GenerateRawKeys(rand.Reader)
 	require.NoError(t, err)
 
-	// convert signing keys to encryption keys
-	encPubKey, err := cryptoutil.PublicEd25519toCurve25519(sigPubKey)
-	require.NoError(t, err)
+	_, ks := mockkms.CreateKeys(sigPubKey, sigPrivKey, encPubKey, encPrivKey)
 
-	encPrivKey, err := cryptoutil.SecretEd25519toCurve25519(sigPrivKey)
-	require.NoError(t, err)
-
-	require.NoError(t, err)
-
-	kp := &cryptoutil.MessagingKeys{
-		SigKeyPair: &cryptoutil.SigKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: sigPubKey, Priv: sigPrivKey},
-			Alg:     cryptoutil.EdDSA,
-		},
-		EncKeyPair: &cryptoutil.EncKeyPair{
-			KeyPair: cryptoutil.KeyPair{Pub: encPubKey, Priv: encPrivKey},
-			Alg:     cryptoutil.Curve25519,
-		},
-	}
-
-	kmsProvider, err := mockkms.NewMockProvider(kp)
+	kmsProvider, err := mockkms.NewMockProvider(ks)
 	require.NoError(t, err)
 
 	packer := New(kmsProvider)
 	require.NotEmpty(t, packer)
 
 	require.Equal(t, encodingType, packer.EncodingType())
+}
+
+func retrieveVerKeyByKeySetID(t *testing.T, store storage.Store, keySetID string) string {
+	keySetMarshaled, e := store.Get(keySetID)
+	require.NoError(t, e)
+
+	var keySet cryptoutil.KeySet
+	e = json.Unmarshal(keySetMarshaled, &keySet)
+	require.NoError(t, e)
+
+	verKeyID := keySet.PrimaryKey.ID // primaryKey being signature public key
+	keyMarshaled, e := store.Get(verKeyID)
+	require.NoError(t, e)
+
+	var verKey cryptoutil.Key
+	e = json.Unmarshal(keyMarshaled, &verKey)
+	require.NoError(t, e)
+
+	return verKey.Value
 }
 
 func TestEncrypt(t *testing.T) {
@@ -250,9 +325,9 @@ func TestEncrypt(t *testing.T) {
 		recipientPriv := "5aFcdEMws6ZUL7tWYrJ6DsZvY2GHZYui1jLcYquGr8uHfmyHCs96QU3nRUarH1gVYnMU2i4uUPV5STh2mX7EHpNu"
 
 		kms2, store := newKMS(t)
-		err := persistKey(senderPub, senderPriv, store)
+		err := persistKeys(senderPub, senderPriv, store, store) // using the same store for keystore and metadatastore
 		require.NoError(t, err)
-		err = persistKey(recipientPub, recipientPriv, store)
+		err = persistKeys(recipientPub, recipientPriv, store, store)
 		require.NoError(t, err)
 
 		source := insecurerand.NewSource(5937493) // constant fixed to ensure constant output
@@ -273,7 +348,7 @@ func TestEncrypt(t *testing.T) {
 		senderPub := "9NKZ9pHL9YVS7BzqJsz3e9uVvk44rJodKfLKbq4hmeUw"
 		senderPriv := "2VZLugb22G3iovUvGrecKj3VHFUNeCetkApeB4Fn4zkgBqYaMSFTW2nvF395voJ76vHkfnUXH2qvJoJnFydRoQBR"
 		senderKMS, senderStore := newKMS(t)
-		err := persistKey(senderPub, senderPriv, senderStore)
+		err := persistKeys(senderPub, senderPriv, senderStore, senderStore)
 		require.NoError(t, err)
 
 		rec1Pub := base58.Decode("DDk4ac2ZA19P8qXjk8XaCY9Fx7WwAmCtELkxeDNqS6Vs")
@@ -305,7 +380,7 @@ func TestEncryptComponents(t *testing.T) {
 	rec1Pub := "DDk4ac2ZA19P8qXjk8XaCY9Fx7WwAmCtELkxeDNqS6Vs"
 
 	testKMS, store := newKMS(t)
-	e := persistKey(senderPub, senderPriv, store)
+	e := persistKeys(senderPub, senderPriv, store, store)
 	require.NoError(t, e)
 
 	packer := newWithKMS(testKMS)
@@ -374,14 +449,22 @@ func TestEncryptComponents(t *testing.T) {
 }
 
 func TestDecrypt(t *testing.T) {
-	testingKMS, _ := newKMS(t)
-	_, senderKey, err := testingKMS.CreateKeySet()
-	require.NoError(t, err)
-	_, recKey, err := testingKMS.CreateKeySet()
+	senderKMS, mockStore := newKMS(t)
+	senderKeySetID, senderKeyB58, err := senderKMS.CreateKeySet()
 	require.NoError(t, err)
 
+	senderKey := retrieveVerKeyByKeySetID(t, mockStore, senderKeySetID)
+	require.Equal(t, senderKey, senderKeyB58)
+
+	recKeySetID, recKeyB58, err := senderKMS.CreateKeySet()
+	require.NoError(t, err)
+
+	recKey := retrieveVerKeyByKeySetID(t, mockStore, recKeySetID)
+	require.NoError(t, err)
+	require.Equal(t, recKey, recKeyB58)
+
 	t.Run("Success: pack then unpack, same packer", func(t *testing.T) {
-		packer := newWithKMS(testingKMS)
+		packer := newWithKMS(senderKMS)
 		require.NoError(t, err)
 
 		msgIn := []byte("Junky qoph-flags vext crwd zimb.")
@@ -395,20 +478,31 @@ func TestDecrypt(t *testing.T) {
 	})
 
 	t.Run("Success: pack and unpack, different packers, including fail recipient who wasn't sent the message", func(t *testing.T) { // nolint: lll
-		rec1KMS, _ := newKMS(t)
-		_, rec1Key, err := rec1KMS.CreateKeySet()
+		rec1KMS, newMockStore1 := newKMS(t)
+		rec1KeySetID, rec1KeyB58, err := rec1KMS.CreateKeySet()
 		require.NoError(t, err)
 
-		rec2KMS, _ := newKMS(t)
-		_, rec2Key, err := rec2KMS.CreateKeySet()
+		rec1Key := retrieveVerKeyByKeySetID(t, newMockStore1, rec1KeySetID)
+		require.NoError(t, err)
+		require.Equal(t, rec1Key, rec1KeyB58)
+
+		rec2KMS, newMockStore2 := newKMS(t)
+		rec2KeySetID, rec2KeyB58, err := rec2KMS.CreateKeySet()
 		require.NoError(t, err)
 
-		rec3KMS, _ := newKMS(t)
-		_, rec3Key, err := rec3KMS.CreateKeySet()
+		rec2Key := retrieveVerKeyByKeySetID(t, newMockStore2, rec2KeySetID)
+		require.NoError(t, err)
+		require.Equal(t, rec2Key, rec2KeyB58)
 
+		rec3KMS, newMockStore3 := newKMS(t)
+		rec3KeySetID, rec3KeyB58, err := rec3KMS.CreateKeySet()
 		require.NoError(t, err)
 
-		sendPacker := newWithKMS(testingKMS)
+		rec3Key := retrieveVerKeyByKeySetID(t, newMockStore3, rec3KeySetID)
+		require.NoError(t, err)
+		require.Equal(t, rec3Key, rec3KeyB58)
+
+		sendPacker := newWithKMS(senderKMS)
 		rec2Packer := newWithKMS(rec2KMS)
 
 		msgIn := []byte("Junky qoph-flags vext crwd zimb.")
@@ -437,7 +531,7 @@ func TestDecrypt(t *testing.T) {
 		recPriv := "2nYsWTQ1ZguQ7G2HYfMWjMNqWagBQfaKB9GLbsFk7Z7tKVBEr2arwpVKDwgLUbaxguUzQuf7o67aWKzgtHmKaypM"
 
 		recKMS, store := newKMS(t)
-		err := persistKey(recPub, recPriv, store)
+		err := persistKeys(recPub, recPriv, store, store)
 		require.NoError(t, err)
 
 		recPacker := newWithKMS(recKMS)
@@ -457,7 +551,7 @@ func TestDecrypt(t *testing.T) {
 		recPriv := "2YbSVZzSVaim41bWDdsBzamrhXrPFKKEpzXZRmgDuoFJco5VQELRSj1oWFR9aRdaufsdUyw8sozTtZuX8Mzsqboz"
 
 		recKMS, store := newKMS(t)
-		err := persistKey(recPub, recPriv, store)
+		err := persistKeys(recPub, recPriv, store, store)
 		require.NoError(t, err)
 
 		recPacker := newWithKMS(recKMS)
@@ -474,7 +568,7 @@ func TestDecrypt(t *testing.T) {
 		recPriv := "49Y63zwonNoj2jEhMYE22TDwQCn7RLKMqNeSkSoBBucbAWceJuXXNCACXfpbXD7PHKM13SWaySyDukEakPVn5sWs"
 
 		recKMS, store := newKMS(t)
-		err := persistKey(recPub, recPriv, store)
+		err := persistKeys(recPub, recPriv, store, store)
 		require.NoError(t, err)
 
 		recPacker := newWithKMS(recKMS)
@@ -485,17 +579,13 @@ func TestDecrypt(t *testing.T) {
 	})
 }
 
-func unpackComponentFailureTest(
-	t *testing.T,
-	protectedHeader,
-	msg string,
-	recKey *cryptoutil.KeyPair,
+func unpackComponentFailureTest(t *testing.T, protectedHeader, msg string, recKeyPub, recKeyPriv *cryptoutil.Key,
 	errString string) {
 	fullMessage := `{"protected": "` + base64.URLEncoding.EncodeToString([]byte(protectedHeader)) + "\", " + msg
 
 	w, s := newKMS(t)
 
-	err := persistKey(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
+	err := persistKeys(recKeyPub.Value, recKeyPriv.Value, s, s)
 	if err != nil {
 		require.Contains(t, err.Error(), errString)
 		return
@@ -508,14 +598,14 @@ func unpackComponentFailureTest(
 }
 
 func TestUnpackComponents(t *testing.T) {
-	recKey := getB58Key("Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v",
+	recKeyPub, recKeyPriv := getB58Key("Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v",
 		"5pG8rLcp9WqPXQLSyQetPiyTEnLuanjS2TGd7h4DqutY6gNbLD6pnvT3H8nC5K9vEjy1UJdTtwaejf1xqDyhCrzr")
 
 	t.Run("Fail: non-JSON envelope", func(t *testing.T) {
 		msg := `ed": "eyJlbmMiOiAieGNoYWNoYTIwcG9seTEzMDVfaWV0ZiIsICJ0eXAiOiAiSldNLzEu"}`
 
 		w, s := newKMS(t)
-		err := persistKey(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
+		err := persistKeys(recKeyPub.Value, recKeyPriv.Value, s, s)
 		require.NoError(t, err)
 
 		recPacker := newWithKMS(w)
@@ -528,7 +618,7 @@ func TestUnpackComponents(t *testing.T) {
 		msg := `{"protected": "&**^(&^%", "iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}` // nolint: lll
 
 		w, s := newKMS(t)
-		err := persistKey(base58.Encode(recKey.Pub), base58.Encode(recKey.Priv), s)
+		err := persistKeys(recKeyPub.Value, recKeyPriv.Value, s, s)
 		require.NoError(t, err)
 
 		recPacker := newWithKMS(w)
@@ -541,7 +631,8 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			`}eyJlbmMiOiAieGNoYWNoYTIwcG9seTEzMDVfaWV0ZiIsICJ0eXAiOiAiSldNLzEuMC`,
 			`"not important":[]}`,
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"invalid character '}' looking for beginning of value")
 	})
 
@@ -549,7 +640,8 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JSON", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                     // nolint: lll
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"message type JSON not supported")
 	})
 
@@ -557,7 +649,8 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Anoncrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                        //nolint: lll
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"message format Anoncrypt not supported")
 	})
 
@@ -565,29 +658,32 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": []}`,
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"no key accessible")
 	})
 
 	t.Run("Fail: invalid public key", func(t *testing.T) {
-		rec := getB58Key("6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7", // invalid key, won't convert
+		recPub, recPriv := getB58Key("6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7", // invalid key, won't convert
 			"5pG8rLcp9WqPXQLSyQetPiyTEnLuanjS2TGd7h4DqutY6gNbLD6pnvT3H8nC5K9vEjy1UJdTtwaejf1xqDyhCrzr")
 
 		unpackComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "6ZAQ7QpmR9EqhJdwx1jQsjq6nnpehwVqUbhVxiEiYEV7", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                        // nolint: lll
-			rec,
+			recPub,
+			recPriv,
 			"error converting public key")
 	})
 
 	t.Run("Fail: invalid public key", func(t *testing.T) {
-		rec := getB58Key("57N4aoQKaxUGNeEn3ETnTKgeD1L5Wm3U3Vb8qi3hupLn", // mismatched keypair, won't decrypt
+		recPub, recPriv := getB58Key("57N4aoQKaxUGNeEn3ETnTKgeD1L5Wm3U3Vb8qi3hupLn", // mismatched keypair, won't decrypt
 			"5pG8rLcp9WqPXQLSyQetPiyTEnLuanjS2TGd7h4DqutY6gNbLD6pnvT3H8nC5K9vEjy1UJdTtwaejf1xqDyhCrzr")
 
 		unpackComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "57N4aoQKaxUGNeEn3ETnTKgeD1L5Wm3U3Vb8qi3hupLn", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                        // nolint: lll
-			rec,
+			recPub,
+			recPriv,
 			"failed to unpack")
 	})
 
@@ -595,7 +691,8 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "*^&", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                               // nolint: lll
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"illegal base64 data at input byte 0")
 	})
 
@@ -603,7 +700,8 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "7ZA_k_bM4FRp6jY_LNzv9pjuOh1NbVlbBA-yTjzsc22HnPKPK8_MKUNU1Rlt0woNUNWLZI4ShBD_th14ULmTjggBI8K4A8efTI4efxv5xTYEemj9uVPvvLKs4Go=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                        // nolint: lll
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"error converting public key")
 	})
 
@@ -611,7 +709,8 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			` {"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                                                         // nolint: lll
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"chacha20poly1305: message authentication failed")
 	})
 
@@ -619,7 +718,8 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_WCyntSdziFgnQanpQlR_tVHzHznGbW-yhTYDVgGuc5nr6J5svu7dQbBg3", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "(^_^)"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                                             // nolint: lll
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"illegal base64 data at input byte 0")
 	})
 
@@ -627,7 +727,8 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "_-", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                          // nolint: lll
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"illegal base64 data at input byte 0")
 	})
 
@@ -635,7 +736,8 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			`{"enc": "xchacha20poly1305_ietf", "typ": "JWM/1.0", "alg": "Authcrypt", "recipients": [{"encrypted_key": "DaZGim_W", "header": {"kid": "Ak528pLhb6DNFrGWY6HjMUjpNV613h2qtAJ47j1FYe8v", "sender": "wZ4cC42eDMeLApmJvJC4INbuKINzdZZECGHpWDgsrmBURPJN_bWOkUV3E6oORN4ILAf_xEuWefS4b_goRycCogkZvTyS1HgvBtx2YO1A2q-a7tp__08Ky4qtSiY=", "iv": "A818WMvddPrZ8mmYqp2iuu8gqoZZC2Hx"}}]}`, // nolint: lll
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,                                                                                                                                // nolint: lll
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"failed to decrypt CEK")
 	})
 
@@ -646,14 +748,16 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			prot,
 			`"iv": "!!!!!", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"illegal base64 data at input byte 0")
 	})
 
 	t.Run("Ciphertext not valid b64 data", func(t *testing.T) {
 		unpackComponentFailureTest(t,
 			prot, `"iv": "oDZpVO648Po3UcoW", "ciphertext": "=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`,
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"illegal base64 data at input byte 0")
 	})
 
@@ -661,21 +765,25 @@ func TestUnpackComponents(t *testing.T) {
 		unpackComponentFailureTest(t,
 			prot,
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "123"}`, // nolint: lll
-			recKey,
+			recKeyPub,
+			recKeyPriv,
 			"illegal base64 data at input byte 0")
 	})
 
-	badKey := cryptoutil.KeyPair{
-		Priv: []byte("badkeyabcdefghijklmnopqrstuvwxyzbadkeyabcdefghijklmnopqrstuvwxyz"),
-		Pub:  []byte("badkeyabcdefghijklmnopqrstuvwxyz"),
+	badKeyPub := &cryptoutil.Key{
+		Value: "badkeyabcdefghijklmnopqrstuvwxyz",
+	}
+	badKeyPriv := &cryptoutil.Key{
+		Value: "badkeyabcdefghijklmnopqrstuvwxyzbadkeyabcdefghijklmnopqrstuvwxyz",
 	}
 
 	t.Run("Recipient Key not valid key", func(t *testing.T) {
 		unpackComponentFailureTest(t,
 			prot,
 			`"iv": "oDZpVO648Po3UcoW", "ciphertext": "pLrFQ6dND0aB4saHjSklcNTDAvpFPmIvebCis7S6UupzhhPOHwhp6o97_EphsWbwqqHl0HTiT7W9kUqrvd8jcWgx5EATtkx5o3PSyHfsfm9jl0tmKsqu6VG0RML_OokZiFv76ZUZuGMrHKxkCHGytILhlpSwajg=", "tag": "6GigdWnW59aC9Y8jhy76rA=="}`, // nolint: lll
-			&badKey,
-			"error converting public key")
+			badKeyPub,
+			badKeyPriv,
+			"key is nil")
 	})
 }
 
@@ -698,11 +806,17 @@ func Test_getCEK(t *testing.T) {
 	require.EqualError(t, err, "mock error")
 }
 
-func getB58Key(pub, priv string) *cryptoutil.KeyPair {
-	key := cryptoutil.KeyPair{
-		Priv: base58.Decode(priv),
-		Pub:  base58.Decode(pub),
+func getB58Key(pub, priv string) (*cryptoutil.Key, *cryptoutil.Key) {
+	keyHash := sha256.Sum256([]byte(pub))
+
+	keyPub := cryptoutil.Key{
+		ID:    base64.RawURLEncoding.EncodeToString(append(keyHash[:], []byte("sp")...)),
+		Value: pub,
+	}
+	keyPriv := cryptoutil.Key{
+		ID:    base64.RawURLEncoding.EncodeToString(append(keyHash[:], []byte("ss")...)),
+		Value: priv,
 	}
 
-	return &key
+	return &keyPub, &keyPriv
 }

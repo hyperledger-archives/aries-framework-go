@@ -94,7 +94,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceValue:                  svc,
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:                      &mockkms.CloseableKMS{CreateKeySetValue: "sample-key"},
 			InboundEndpointValue:          "endpoint"})
 
 		require.NoError(t, err)
@@ -151,8 +151,9 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceValue:                  svc,
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:                      &mockkms.CloseableKMS{CreateKeySetValue: "sample-key"},
 			InboundEndpointValue:          "endpoint"})
+
 		require.NoError(t, err)
 
 		const label = "agent"
@@ -305,7 +306,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{},
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			KMSValue:                      &mockkms.CloseableKMS{CreateKeySetValue: "sample-key"},
 			InboundEndpointValue:          "endpoint"})
 
 		require.NoError(t, err)
@@ -324,7 +325,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
 				return "", fmt.Errorf("handle error")
 			}},
-			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
+			KMSValue: &mockkms.CloseableKMS{CreateKeySetValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
@@ -448,7 +449,7 @@ func TestServiceEvents(t *testing.T) {
 		TransientStorageProviderValue: transientStore,
 		StorageProviderValue:          store,
 		ServiceValue:                  didExSvc,
-		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}})
+		KMSValue:                      &mockkms.CloseableKMS{CreateKeySetValue: "sample-key"}})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -531,7 +532,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          store,
 		ServiceValue:                  didExSvc,
-		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}},
+		KMSValue:                      &mockkms.CloseableKMS{CreateKeySetValue: "sample-key"}},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, c)

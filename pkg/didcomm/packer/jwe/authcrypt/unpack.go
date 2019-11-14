@@ -91,18 +91,18 @@ func (p *Packer) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
 
 // findRecipient will loop through jweRecipients and returns the first matching key from the kms
 func (p *Packer) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byte, *Recipient, error) {
-	var recipientsKeys []string
+	var recipientsKeys [][]byte
 	for _, recipient := range jweRecipients {
-		recipientsKeys = append(recipientsKeys, recipient.Header.KID)
+		recipientsKeys = append(recipientsKeys, base58.Decode(recipient.Header.KID))
 	}
 
-	i, err := p.kms.FindVerKey(recipientsKeys)
+	i, verKey, err := p.kms.FindVerKeyFromEncryptionKeys(recipientsKeys)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	pubK := new([chacha.KeySize]byte)
-	copy(pubK[:], base58.Decode(recipientsKeys[i]))
+	copy(pubK[:], base58.Decode(verKey))
 
 	return pubK, &jweRecipients[i], nil
 }

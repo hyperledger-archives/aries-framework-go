@@ -15,8 +15,8 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 )
 
-func TestIsKeyPairValid(t *testing.T) {
-	require.False(t, isKeyPairValid(KeyPair{}))
+func TestIsKeySetValid(t *testing.T) {
+	require.False(t, IsKeySetValid(&KeySet{}))
 
 	pubKey := []byte("testpublickey")
 	privKey := []byte("testprivatekey")
@@ -24,52 +24,107 @@ func TestIsKeyPairValid(t *testing.T) {
 	validChachaKey, err := base64.RawURLEncoding.DecodeString("c8CSJr_27PN9xWCpzXNmepRndD6neQcnO9DS0YWjhNs")
 	require.NoError(t, err)
 
-	require.False(t, isKeyPairValid(KeyPair{Priv: privKey, Pub: nil}))
-	require.False(t, isKeyPairValid(KeyPair{Priv: nil, Pub: pubKey}))
-	require.True(t, isKeyPairValid(KeyPair{Priv: privKey, Pub: pubKey}))
+	pubSimpleKey := Key{
+		ID:         "id1",
+		Value:      base58.Encode(pubKey),
+		Capability: Encryption,
+		Alg:        Curve25519,
+	}
+	require.False(t, IsKeyValid(&pubSimpleKey))
 
-	require.EqualError(t,
-		VerifyKeys(
-			KeyPair{Priv: privKey, Pub: pubKey},
-			[][]byte{[]byte("abc"), []byte("def")}),
+	privSimpleKey := Key{
+		ID:         "id2",
+		Value:      base58.Encode(privKey),
+		Capability: Encryption,
+		Alg:        Curve25519,
+	}
+	require.False(t, IsKeyValid(&privSimpleKey))
+
+	validSimpleChachaKey := Key{
+		ID:         "id3",
+		Value:      base58.Encode(validChachaKey),
+		Capability: Encryption,
+		Alg:        Curve25519,
+	}
+	require.True(t, IsKeyValid(&validSimpleChachaKey))
+
+	pubSigSimpleKey := Key{
+		ID:         "",
+		Value:      base58.Encode(pubKey),
+		Capability: Signature,
+		Alg:        EdDSA,
+	}
+	require.False(t, IsKeyValid(&pubSigSimpleKey))
+
+	pubSigSimpleKey.ID = "id4"
+	require.True(t, IsKeyValid(&pubSigSimpleKey))
+
+	privSigSimpleKey := Key{
+		ID:         "id5",
+		Value:      base58.Encode(privKey),
+		Capability: 100,
+		Alg:        EdDSA,
+	}
+	require.False(t, IsKeyValid(&privSigSimpleKey))
+
+	privSigSimpleKey.Capability = Signature
+	privSigSimpleKey.Alg = "invalidAlg"
+	require.False(t, IsKeyValid(&privSigSimpleKey))
+
+	require.False(t, IsKeySetValid(&KeySet{
+		ID:         "ksID1",
+		PrimaryKey: pubSimpleKey,
+		Keys:       []Key{pubSimpleKey, privSimpleKey},
+	}))
+
+	require.False(t, IsKeySetValid(&KeySet{
+		ID:   "ksID2",
+		Keys: []Key{pubSimpleKey},
+	}))
+
+	require.False(t, IsKeySetValid(&KeySet{
+		ID:         "ksID3",
+		PrimaryKey: validSimpleChachaKey,
+		Keys:       []Key{validSimpleChachaKey, pubSimpleKey},
+	}))
+
+	require.True(t, IsKeySetValid(&KeySet{
+		ID:         "ksID4",
+		PrimaryKey: validSimpleChachaKey,
+		Keys:       []Key{validSimpleChachaKey},
+	}))
+
+	require.EqualError(t, VerifyKeys(
+		&KeySet{
+			ID:         "ksID1",
+			Keys:       []Key{validSimpleChachaKey, validSimpleChachaKey},
+			PrimaryKey: validSimpleChachaKey,
+		},
+		[]*Key{{Value: "abc"}, {Value: "def"}}),
 		ErrInvalidKey.Error())
+
 	require.EqualError(t,
 		VerifyKeys(
-			KeyPair{Priv: privKey, Pub: pubKey},
-			[][]byte{}),
+			&KeySet{ID: "ksID1", Keys: []Key{privSimpleKey, pubSimpleKey}, PrimaryKey: pubSimpleKey},
+			[]*Key{{Value: "abc"}, {Value: "def"}}),
+		errInvalidKeySet.Error())
+
+	require.EqualError(t,
+		VerifyKeys(
+			&KeySet{ID: "ksID1", Keys: []Key{privSimpleKey, pubSimpleKey}, PrimaryKey: pubSimpleKey},
+			[]*Key{}),
 		errEmptyRecipients.Error())
-	require.EqualError(t, VerifyKeys(KeyPair{}, [][]byte{[]byte("abc"), []byte("def")}), errInvalidKeypair.Error())
-	require.NoError(t, VerifyKeys(KeyPair{Priv: validChachaKey, Pub: validChachaKey}, [][]byte{validChachaKey}))
 
-	require.False(t, IsMessagingKeysValid(&MessagingKeys{
-		&EncKeyPair{KeyPair{Priv: privKey, Pub: nil}, Curve25519},
-		&SigKeyPair{KeyPair{Priv: nil, Pub: pubKey}, EdDSA},
-	}))
+	require.EqualError(t, VerifyKeys(&KeySet{}, []*Key{{Value: "abc"}, {Value: "def"}}), errInvalidKeySet.Error())
 
-	require.False(t, IsMessagingKeysValid(&MessagingKeys{
-		&EncKeyPair{KeyPair{Priv: nil, Pub: pubKey}, Curve25519},
-		&SigKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, EdDSA},
-	}))
-
-	require.False(t, IsMessagingKeysValid(&MessagingKeys{
-		&EncKeyPair{KeyPair{Priv: nil, Pub: pubKey}, Curve25519},
-		&SigKeyPair{KeyPair{Priv: privKey, Pub: nil}, EdDSA},
-	}))
-
-	require.False(t, IsMessagingKeysValid(&MessagingKeys{
-		&EncKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, ""},
-		&SigKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, EdDSA},
-	}))
-
-	require.False(t, IsMessagingKeysValid(&MessagingKeys{
-		&EncKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, Curve25519},
-		&SigKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, ""},
-	}))
-
-	require.True(t, IsMessagingKeysValid(&MessagingKeys{
-		&EncKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, Curve25519},
-		&SigKeyPair{KeyPair{Priv: privKey, Pub: pubKey}, EdDSA},
-	}))
+	require.NoError(t, VerifyKeys(
+		&KeySet{
+			ID:         "ksID1",
+			Keys:       []Key{validSimpleChachaKey, validSimpleChachaKey},
+			PrimaryKey: validSimpleChachaKey,
+		},
+		[]*Key{&validSimpleChachaKey},
+	))
 }
 
 func TestDeriveKEK_Util(t *testing.T) {

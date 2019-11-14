@@ -151,7 +151,7 @@ func TestNewProvider(t *testing.T) {
 		v, err := prov.Signer().SignMessage(nil, "")
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
-		index, err := prov.KMS().FindVerKey([]string{"non-existent"})
+		index, err := prov.KMS().FindVerKey([][]byte{[]byte("non-existent")})
 		require.NoError(t, err)
 		require.Equal(t, 0, index)
 		v, err = prov.Packager().PackMessage(&transport.Envelope{})

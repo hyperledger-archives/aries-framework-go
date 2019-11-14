@@ -349,7 +349,7 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 				return uuid.New().String(), handleErr
 			},
 		},
-		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+		KMSValue:                      &mockkms.CloseableKMS{CreateKeySetValue: "sample-key"},
 		InboundEndpointValue:          "endpoint",
 		TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: &transientStore},
 		StorageProviderValue:          &mockstore.MockStoreProvider{Store: &store}},
@@ -393,7 +393,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 		TransientStorageProviderValue: transientStore,
 		StorageProviderValue:          store,
 		ServiceValue:                  didExSvc,
-		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}},
+		KMSValue:                      &mockkms.CloseableKMS{CreateKeySetValue: "sample-key"}},
 		&mockNotifier{
 			notifyFunc: func(topic string, message []byte) error {
 				require.Equal(t, connectionsWebhookTopic, topic)

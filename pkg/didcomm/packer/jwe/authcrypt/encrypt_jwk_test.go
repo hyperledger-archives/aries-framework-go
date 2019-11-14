@@ -56,7 +56,7 @@ func TestNilEncryptSenderJwk(t *testing.T) {
 	require.Error(t, err)
 	require.Empty(t, spk)
 
-	r, err := packer.encodeRecipient(someKey, someKey, someKey)
+	r, err := packer.encodeRecipient(someKey, someKey, someKey, someKey[:])
 	require.Error(t, err)
 	require.Empty(t, r)
 

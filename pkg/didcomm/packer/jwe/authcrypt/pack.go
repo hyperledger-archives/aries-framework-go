@@ -89,7 +89,7 @@ func (p *Packer) Pack(payload, senderVerKey []byte, recipientsVerKeys [][]byte) 
 	cipherTextEncoded := extractCipherText(symOutput)
 
 	// now build, encode recipients and include the encrypted cek (with a recipient's ephemeral key)
-	encRec, err := p.encodeRecipients(cek, chachaRecipients, senderPubKey)
+	encRec, err := p.encodeRecipients(cek, chachaRecipients, senderPubKey, senderVerKey)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func extractCipherText(symOutput []byte) string {
 
 // buildJWE builds the JSON object representing the JWE output of the encryption
 // and returns its marshaled []byte representation
-func (p *Packer) buildJWE(headers string, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) { //nolint:lll
+func (p *Packer) buildJWE(headers string, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) {
 	jwe := Envelope{
 		Protected:  headers,
 		Recipients: recipients,
@@ -204,11 +204,12 @@ func hashAAD(keys []string) []byte {
 
 // encodeRecipients is a utility function that will encrypt the cek (content encryption key) for each recipient
 // and return a list of encoded recipient keys in a JWE compliant format ([]Recipient)
-func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderPubKey *[chacha.KeySize]byte) ([]Recipient, error) { //nolint:lll
+func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte,
+	senderPubKey *[chacha.KeySize]byte, senderVerKey []byte) ([]Recipient, error) {
 	var encodedRecipients []Recipient
 
 	for _, e := range recipients {
-		rec, err := p.encodeRecipient(cek, e, senderPubKey)
+		rec, err := p.encodeRecipient(cek, e, senderPubKey, senderVerKey)
 		if err != nil {
 			return nil, err
 		}
@@ -222,7 +223,8 @@ func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chac
 // encodeRecipient will encrypt the cek (content encryption key) with a recipientKey
 // by generating a new ephemeral key to be used by the recipient to later decrypt it
 // it returns a JWE compliant Recipient
-func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
+func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte,
+	senderVerKey []byte) (*Recipient, error) {
 	// generate a random APU value (Agreement PartyUInfo: https://tools.ietf.org/html/rfc7518#section-4.6.1.2)
 	apu := make([]byte, 64)
 
@@ -231,8 +233,9 @@ func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.Key
 		return nil, err
 	}
 
-	// derive an ephemeral key for the sender and recipient
-	kek, err := p.kms.DeriveKEK([]byte(p.alg), apu, senderPubKey[:], recipientPubKey[:])
+	// derive an ephemeral key for the sender and recipient (here we pass in the sender's signature public key since
+	// kms.DeriveKEK() will fetch the corresponding private encryption key to be used for key derivation)
+	kek, err := p.kms.DeriveKEK([]byte(p.alg), apu, senderVerKey, recipientPubKey[:])
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +254,8 @@ func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.Key
 }
 
 // buildRecipient will build a proper JSON formatted and JWE compliant Recipient
-func (p *Packer) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded, tagEncoded string, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
+func (p *Packer) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded, tagEncoded string,
+	recipientKey *[chacha.KeySize]byte) (*Recipient, error) {
 	recipientHeaders := RecipientHeaders{
 		APU: base64.RawURLEncoding.EncodeToString(apu),
 		IV:  nonceEncoded,

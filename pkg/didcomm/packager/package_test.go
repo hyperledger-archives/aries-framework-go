@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
@@ -112,8 +113,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// toVerKey is stored in the KMS as well
-		base58ToEncKey, base58ToVerKey, err := w.CreateKeySet()
+		_, base58ToVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
+
+		toVerKey := base58.Decode(base58ToVerKey)
 
 		// PackMessage should pass with both value from and to verification keys
 		packMsg, err := packager.PackMessage(&transport.Envelope{Message: []byte("msg1"),
@@ -122,8 +125,8 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// mock KMS without ToVerKey and ToEncKey then try UnpackMessage
-		delete(wp.storage.Store.Store, base58ToVerKey)
-		delete(wp.storage.Store.Store, base58ToEncKey)
+		delete(wp.storage.Store.Store, kms.MockKeyID(toVerKey, true, true))
+		delete(wp.storage.Store.Store, kms.MockKeyID(toVerKey, true, false))
 		// It should fail since Recipient keys are not found in the KMS
 		_, err = packager.UnpackMessage(packMsg)
 		require.Error(t, err)

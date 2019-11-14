@@ -22,31 +22,46 @@ type KeyManager interface {
 	// CreateKeySet create a new public/private encryption and signature key pairs set.
 	//
 	// Returns:
-	// string: enc public key of the encryption keypair
-	// string: sig public key of the signature keypair
+	// string: key set ID
+	// string: public signature key base58 encoded
 	// error: error
 	CreateKeySet() (string, string, error)
 
-	// DeriveKEK will derive an ephemeral symmetric key (kek) using a private from key fetched from
-	// from the KMS corresponding to fromPubKey and derived with toPubKey.
+	// DeriveKEK will first fetch the corresponding private encryption key from the KMS for fromSigPubKey.
+	// It will then derive a new KEK (Key encryption Key) using the above fetched private key with toEncPubKey. This
+	// KEK can then be used as a shared key to encrypt content to be sent out to another agent.
 	//
-	// This function assumes both fromPubKey and toPubKey to be on curve25519.
+	// This function assumes both private encryption key matching fromPubKey and the public encryption key toPubKey
+	// to be on curve25519.
 	//
 	// returns:
 	// 		kek []byte the key encryption key used to decrypt a cek (a shared key)
 	//		error in case of errors
-	DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, error)
+	DeriveKEK(alg, apu, fromSigPubKey, toEncPubKey []byte) ([]byte, error)
 
 	// FindVerKey will search the KMS to find stored keys that match any of candidateKeys and
-	// 		return the index of the first match
+	// 		return the index of the first match.
+	//		candidateKeys are public verification (signature) keys
 	// returns:
 	// 		int index of candidateKeys that matches the first key found in the KMS
 	//		error in case of errors (including ErrKeyNotFound)
 	//
 	//		in case of error, the index will be -1
-	FindVerKey(candidateKeys []string) (int, error)
+	// Note: there is no need to return the found key as candidateKeys are signing keys.
+	FindVerKey(candidateKeys [][]byte) (int, error)
 
-	// GetEncryptionKey will return the public encryption key corresponding to the public verKey argument
+	// FindVerKeyFromEncryptionKeys will search the KMS to find stored keys that match any of candidateKeys and
+	// 		return the index of the first match.
+	//		candidateKeys are public encryption keys, the corresponding signature keys will be fetched
+	// returns:
+	// 		int index of candidateKeys that matches the first key found in the KMS
+	//		error in case of errors (including ErrKeyNotFound)
+	//
+	//		in case of error, the index will be -1
+	// Note: the found verification key is returned here as candidateKeys are encryption keys.
+	FindVerKeyFromEncryptionKeys(candidateKeys [][]byte) (int, string, error)
+
+	// GetEncryptionKey will return the public encryption key corresponding to the public (signing) verKey argument
 	GetEncryptionKey(verKey []byte) ([]byte, error)
 }
 
@@ -71,8 +86,8 @@ type Signer interface {
 
 // KeyConverter provides methods for converting signing to encryption keys
 type KeyConverter interface {
-	// ConvertToEncryptionKey creates and persists a Curve25519 keypair created from the given SigningPubKey's
-	// Ed25519 keypair, returning the EncryptionPubKey for this new keypair.
+	// ConvertToEncryptionKey creates and persists a Curve25519 keys created from the given raw Ed25519 signing pub key
+	// returning the encryption pub key for this new key set.
 	ConvertToEncryptionKey(key []byte) ([]byte, error)
 }
 
