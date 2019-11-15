@@ -19,6 +19,20 @@ import (
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 )
 
+func TestRegistry_Close(t *testing.T) {
+	t.Run("test success", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{})
+		require.NoError(t, registry.Close())
+	})
+	t.Run("test error", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{},
+			WithVDRI(&mockvdri.MockVDRI{CloseErr: fmt.Errorf("close error")}))
+		err := registry.Close()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "close error")
+	})
+}
+
 func TestRegistry_Resolve(t *testing.T) {
 	t.Run("test invalid did input", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{})
