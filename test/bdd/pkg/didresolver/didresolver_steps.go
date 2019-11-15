@@ -227,7 +227,7 @@ func createSidetreeDoc(ctx *context.Provider) (*document.Document, error) {
 	}
 
 	pubKey := diddoc.PublicKey{
-		ID:         "#keys-1",
+		ID:         "#key-1",
 		Type:       "Ed25519VerificationKey2018",
 		Controller: "controller",
 		Value:      []byte(pubVerKey),
@@ -238,6 +238,8 @@ func createSidetreeDoc(ctx *context.Provider) (*document.Document, error) {
 			ID:              "#endpoint-1",
 			Type:            "did-communication",
 			ServiceEndpoint: ctx.InboundTransportEndpoint(),
+			RecipientKeys:   []string{pubKey.ID},
+			Priority:        0,
 		},
 	}
 

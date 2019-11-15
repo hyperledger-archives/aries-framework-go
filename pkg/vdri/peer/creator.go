@@ -14,6 +14,8 @@ import (
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
+const didCommServiceType = "did-communication"
+
 // Build builds new DID Document
 func (v *VDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc, error) {
 	docOpts := &vdriapi.CreateDIDOpts{}
@@ -57,21 +59,26 @@ func build(pubKey *vdriapi.PubKey, docOpts *vdriapi.CreateDIDOpts) (*did.Doc, er
 
 	// Service model to be included only if service type is provided through opts
 	var service []did.Service
+
 	if docOpts.ServiceType != "" {
-		// Service endpoints
-		service = []did.Service{
-			{
-				ID:              "#agent",
-				Type:            docOpts.ServiceType,
-				ServiceEndpoint: docOpts.ServiceEndpoint,
-			},
+		s := did.Service{
+			ID:              "#agent",
+			Type:            docOpts.ServiceType,
+			ServiceEndpoint: docOpts.ServiceEndpoint,
 		}
+
+		if docOpts.ServiceType == didCommServiceType {
+			s.RecipientKeys = []string{publicKey.ID}
+			s.Priority = 0
+		}
+
+		service = append(service, s)
 	}
 
 	// Created/Updated time
 	t := time.Now()
 
-	didDoc, err := NewDoc(
+	return NewDoc(
 		[]did.PublicKey{publicKey},
 		[]did.VerificationMethod{
 			{PublicKey: publicKey},
@@ -80,9 +87,4 @@ func build(pubKey *vdriapi.PubKey, docOpts *vdriapi.CreateDIDOpts) (*did.Doc, er
 		did.WithCreatedTime(t),
 		did.WithUpdatedTime(t),
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return didDoc, nil
 }
