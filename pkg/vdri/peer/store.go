@@ -80,6 +80,11 @@ func (v *VDRI) Get(id string) (*did.Doc, error) {
 	return document, nil
 }
 
+// Close frees resources being maintained by vdri.
+func (v *VDRI) Close() error {
+	return nil
+}
+
 func (v *VDRI) getDeltas(id string) ([]docDelta, error) {
 	val, err := v.store.Get(id)
 	if err != nil {

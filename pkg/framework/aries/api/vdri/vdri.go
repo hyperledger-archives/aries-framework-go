@@ -21,6 +21,7 @@ type Registry interface {
 	Resolve(did string, opts ...ResolveOpts) (*did.Doc, error)
 	Store(doc *did.Doc) error
 	Create(method string, opts ...DocOpts) (*did.Doc, error)
+	Close() error
 }
 
 // VDRI verifiable data registry interface
@@ -29,6 +30,7 @@ type VDRI interface {
 	Store(doc *did.Doc, by *[]ModifiedBy) error
 	Build(pubKey *PubKey, opts ...DocOpts) (*did.Doc, error)
 	Accept(method string) bool
+	Close() error
 }
 
 // ResultType input option can be used to request a certain type of result.

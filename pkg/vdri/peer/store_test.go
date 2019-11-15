@@ -69,3 +69,11 @@ func TestPeerDIDStore(t *testing.T) {
 	require.Nil(t, v)
 	require.Contains(t, err.Error(), "delta data fetch from store failed")
 }
+
+func TestVDRI_Close(t *testing.T) {
+	t.Run("test success", func(t *testing.T) {
+		v, err := New(&storage.MockStoreProvider{})
+		require.NoError(t, err)
+		require.NoError(t, v.Close())
+	})
+}

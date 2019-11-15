@@ -65,6 +65,11 @@ func (v *VDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc,
 	return nil, errors.New("not supported")
 }
 
+// Close frees resources being maintained by vdri.
+func (v *VDRI) Close() error {
+	return nil
+}
+
 // Option configures the peer vdri
 type Option func(opts *VDRI)
 

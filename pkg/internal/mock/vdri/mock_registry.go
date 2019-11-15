@@ -67,6 +67,11 @@ func (m *MockVDRIRegistry) Resolve(didID string, opts ...vdriapi.ResolveOpts) (*
 	return m.ResolveValue, nil
 }
 
+// Close frees resources being maintained by vdri.
+func (m *MockVDRIRegistry) Close() error {
+	return nil
+}
+
 func createDefaultDID() *did.Doc {
 	const (
 		didContext = "https://w3id.org/did/v1"

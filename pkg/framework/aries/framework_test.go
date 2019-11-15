@@ -171,6 +171,21 @@ func TestFramework(t *testing.T) {
 		require.Contains(t, err.Error(), "create new vdri peer failed")
 	})
 
+	t.Run("test vdri - close error", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		vdri := &mockvdri.MockVDRI{CloseErr: fmt.Errorf("close vdri error")}
+		aries, err := New(WithVDRI(vdri), WithInboundTransport(&mockInboundTransport{}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		err = aries.Close()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "close vdri error")
+	})
+
 	t.Run("test vdri - with default vdri", func(t *testing.T) {
 		// store peer DID in the store
 		dbprov, err := leveldb.NewProvider(dbPath)

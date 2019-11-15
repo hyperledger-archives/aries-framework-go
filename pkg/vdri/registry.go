@@ -128,6 +128,17 @@ func (r *Registry) Store(doc *diddoc.Doc) error {
 	return method.Store(doc, nil)
 }
 
+// Close frees resources being maintained by vdri.
+func (r *Registry) Close() error {
+	for _, v := range r.vdri {
+		if err := v.Close(); err != nil {
+			return fmt.Errorf("close vdri: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (r *Registry) resolveVDRI(method string) (vdriapi.VDRI, error) {
 	for _, v := range r.vdri {
 		if v.Accept(method) {

@@ -232,6 +232,16 @@ func (a *Aries) Close() error {
 		}
 	}
 
+	return a.closeVDRI()
+}
+
+func (a *Aries) closeVDRI() error {
+	if a.vdriRegistry != nil {
+		if err := a.vdriRegistry.Close(); err != nil {
+			return fmt.Errorf("vdri registry close failed: %w", err)
+		}
+	}
+
 	return nil
 }
 

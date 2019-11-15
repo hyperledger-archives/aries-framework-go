@@ -18,6 +18,7 @@ type MockVDRI struct {
 	StoreErr    error
 	ReadFunc    func(didID string, opts ...vdriapi.ResolveOpts) (*did.Doc, error)
 	BuildFunc   func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc, error)
+	CloseErr    error
 }
 
 // Read did
@@ -46,4 +47,9 @@ func (m *MockVDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.
 // Accept did
 func (m *MockVDRI) Accept(method string) bool {
 	return m.AcceptValue
+}
+
+// Close frees resources being maintained by vdri.
+func (m *MockVDRI) Close() error {
+	return m.CloseErr
 }
