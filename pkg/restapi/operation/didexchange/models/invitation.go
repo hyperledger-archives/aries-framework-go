@@ -12,18 +12,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 )
 
-// A GenericError is the default error message that is generated.
-// For certain status codes there are more appropriate error structures.
-//
-// swagger:response genericError
-type GenericError struct {
-	// in: body
-	Body struct {
-		Code    int32  `json:"code"`
-		Message string `json:"message"`
-	} `json:"body"`
-}
-
 // CreateInvitationRequest model
 //
 // This is used for operation to create invitation

@@ -326,16 +326,17 @@ func sendHTTP(method, destination string, message []byte, result interface{}) er
 
 	defer closeResponse(resp.Body)
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to get response from '%s', unexpected status code [%d]", destination, resp.StatusCode)
-	}
-
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("unable to read response from '%s', cause :%s", destination, err)
 	}
 
 	logger.Debugf(" Got response from '%s' [method: %s], response payload: %s", destination, method, string(data))
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to get successful response from '%s', unexpected status code [%d], "+
+			"and message [%s]", destination, resp.StatusCode, string(data))
+	}
 
 	return json.Unmarshal(data, result)
 }
