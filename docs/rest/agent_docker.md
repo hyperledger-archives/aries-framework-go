@@ -3,7 +3,7 @@
 ## Build the Agent
 Build the docker image for `aries-agent-rest` by running following make target from project root directory. 
 
-`make agent-docker`
+`make agent-rest-docker`
 
 ## Run the Agent
 Above target will build docker image `aries-framework-go/agent-rest` which can be used to start agent by running command as simple as 
