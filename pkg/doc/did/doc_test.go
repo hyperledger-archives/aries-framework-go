@@ -69,6 +69,14 @@ const validDoc = `{
         "amount": "0.50",
         "currency": "USD"
       }
+    },
+    {
+      "id": "did:example:123456789abcdefghi#did-communication",
+      "type": "did-communication",
+      "serviceEndpoint": "https://agent.example.com/",
+      "priority" : 0,
+      "recipientKeys" : ["did:example:123456789abcdefghi#key2"],
+      "routingKeys" : ["did:example:123456789abcdefghi#key2"]
     }
   ],
   "created": "2002-10-10T17:00:00Z"
@@ -119,13 +127,23 @@ func TestValid(t *testing.T) {
 			Value:      block.Bytes}}
 	require.Equal(t, ePubKey, doc.PublicKey)
 
-	// test service
-	eService := []Service{
+	// test services
+	eServices := []Service{
 		{ID: "did:example:123456789abcdefghi#inbox",
 			Type:            "SocialWebInboxService",
 			ServiceEndpoint: "https://social.example.com/83hfh37dj",
-			Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}}}}
-	require.Equal(t, eService, doc.Service)
+			Properties:      map[string]interface{}{"spamCost": map[string]interface{}{"amount": "0.50", "currency": "USD"}},
+		},
+		{ID: "did:example:123456789abcdefghi#did-communication",
+			Type:            "did-communication",
+			Priority:        0,
+			RecipientKeys:   []string{"did:example:123456789abcdefghi#key2"},
+			RoutingKeys:     []string{"did:example:123456789abcdefghi#key2"},
+			ServiceEndpoint: "https://agent.example.com/",
+			Properties:      map[string]interface{}{},
+		},
+	}
+	require.EqualValues(t, eServices, doc.Service)
 }
 
 func TestValidWithProof(t *testing.T) {

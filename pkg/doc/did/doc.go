@@ -22,11 +22,14 @@ import (
 
 const (
 	// Context of the DID document
-	Context            = "https://w3id.org/did/v1"
-	jsonldType         = "type"
-	jsonldID           = "id"
-	jsonldServicePoint = "serviceEndpoint"
-	jsonldController   = "controller"
+	Context             = "https://w3id.org/did/v1"
+	jsonldType          = "type"
+	jsonldID            = "id"
+	jsonldServicePoint  = "serviceEndpoint"
+	jsonldRecipientKeys = "recipientKeys"
+	jsonldRoutingKeys   = "routingKeys"
+	jsonldPriority      = "priority"
+	jsonldController    = "controller"
 
 	jsonldCreator    = "creator"
 	jsonldCreated    = "created"
@@ -196,6 +199,9 @@ type PublicKey struct {
 type Service struct {
 	ID              string
 	Type            string
+	Priority        uint
+	RecipientKeys   []string
+	RoutingKeys     []string
 	ServiceEndpoint string
 	Properties      map[string]interface{}
 }
@@ -311,12 +317,19 @@ func populateServices(rawServices []map[string]interface{}) []Service {
 	services := make([]Service, 0, len(rawServices))
 
 	for _, rawService := range rawServices {
-		service := Service{ID: stringEntry(rawService[jsonldID]), Type: stringEntry(rawService[jsonldType]),
-			ServiceEndpoint: stringEntry(rawService[jsonldServicePoint])}
+		service := Service{ID: stringEntry(rawService[jsonldID]),
+			Type:            stringEntry(rawService[jsonldType]),
+			ServiceEndpoint: stringEntry(rawService[jsonldServicePoint]),
+			RecipientKeys:   stringArray(rawService[jsonldRecipientKeys]),
+			RoutingKeys:     stringArray(rawService[jsonldRoutingKeys]),
+			Priority:        uintEntry(rawService[jsonldPriority])}
 
 		delete(rawService, jsonldID)
 		delete(rawService, jsonldType)
 		delete(rawService, jsonldServicePoint)
+		delete(rawService, jsonldRecipientKeys)
+		delete(rawService, jsonldRoutingKeys)
+		delete(rawService, jsonldPriority)
 
 		service.Properties = rawService
 		services = append(services, service)
@@ -438,6 +451,37 @@ func stringEntry(entry interface{}) string {
 	return entry.(string)
 }
 
+// uintEntry
+func uintEntry(entry interface{}) uint {
+	if entry == nil {
+		return 0
+	}
+
+	return uint(entry.(float64))
+}
+
+// stringArray
+func stringArray(entry interface{}) []string {
+	if entry == nil {
+		return nil
+	}
+
+	entries, ok := entry.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	var result []string
+
+	for _, e := range entries {
+		if e != nil {
+			result = append(result, stringEntry(e))
+		}
+	}
+
+	return result
+}
+
 // JSONBytes converts document to json bytes
 func (doc *Doc) JSONBytes() ([]byte, error) {
 	raw := &rawDoc{
@@ -509,6 +553,9 @@ func populateRawServices(services []Service) []map[string]interface{} {
 		rawService[jsonldID] = service.ID
 		rawService[jsonldType] = service.Type
 		rawService[jsonldServicePoint] = service.ServiceEndpoint
+		rawService[jsonldRecipientKeys] = service.RecipientKeys
+		rawService[jsonldRoutingKeys] = service.RoutingKeys
+		rawService[jsonldPriority] = service.Priority
 
 		rawServices = append(rawServices, rawService)
 	}
