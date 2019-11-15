@@ -13,7 +13,7 @@ Run all bdd tests using the following make target from project root directory.
 `make bdd-test`
 
 ## Run specific bdd test
-`make clean generate-test-keys agent-docker sample-webhook-docker`
+`make clean generate-test-keys agent-rest-docker sample-webhook-docker`
 
 Execute the following command inside test/bdd
 
@@ -21,7 +21,7 @@ Execute the following command inside test/bdd
 
 Example
 ```bash
-make clean generate-test-keys agent-docker sample-webhook-docker
+make clean generate-test-keys agent-rest-docker sample-webhook-docker
 cd test/bdd
 AGENT_LOG_LEVEL=info go test -v -run didexchange_e2e_sdk
 ```
@@ -33,7 +33,7 @@ via the make target mentioned above, then do the following:
 
 1. Navigate to test/bdd/fixtures
 
-2. To start Alice and Bob agents and webhooks, go to `agent` folder and run:
+2. To start Alice and Bob agents and webhooks, go to `agent-rest` folder and run:
 ```shell script
 (source .env && docker-compose down && NO_PROXY=* docker-compose up --force-recreate)
 ```
