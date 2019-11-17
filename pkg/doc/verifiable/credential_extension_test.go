@@ -7,6 +7,7 @@ package verifiable
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,30 +32,39 @@ type UniversityDegreeSubject struct {
 
 // UniversityDegreeCredential University Degree credential, from examples of https://w3c.github.io/vc-data-model
 type UniversityDegreeCredential struct {
-	Base Credential
+	Base Credential `json:"-"`
 
 	Subject *UniversityDegreeSubject `json:"credentialSubject,omitempty"`
 }
 
-func (udc *UniversityDegreeCredential) credential() *Credential {
-	return &udc.Base
-}
+func NewUniversityDegreeCredential(vcData []byte, opts ...CredentialOpt) (*UniversityDegreeCredential, error) {
+	cred, credBytes, err := NewCredential(vcData, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("new university degree credential: %w", err)
+	}
 
-func (udc *UniversityDegreeCredential) decode(dataJSON []byte, credential *Credential) error {
-	return json.Unmarshal(dataJSON, udc)
+	udc := UniversityDegreeCredential{
+		Base: *cred,
+	}
+
+	err = json.Unmarshal(credBytes, &udc)
+	if err != nil {
+		return nil, fmt.Errorf("new university degree credential: %w", err)
+	}
+
+	return &udc, nil
 }
 
 func TestCredentialExtensibility(t *testing.T) {
-	udc := &UniversityDegreeCredential{}
-	cred, err := NewCredential(
-		[]byte(validCredential),
-		WithDecoders([]CredentialDecoder{udc.decode}),
-		WithTemplate(udc.credential),
-	)
-
+	cred, _, err := NewCredential([]byte(validCredential))
 	require.NoError(t, err)
 	require.NotNil(t, cred)
-	require.Equal(t, &udc.Base, cred)
+
+	udc, err := NewUniversityDegreeCredential([]byte(validCredential))
+	require.NoError(t, err)
+
+	// base Credential part is the same
+	require.Equal(t, *cred, udc.Base)
 
 	// default issuer credential decoder is applied (i.e. not re-written by new custom decoder)
 	require.NotNil(t, cred.Issuer)

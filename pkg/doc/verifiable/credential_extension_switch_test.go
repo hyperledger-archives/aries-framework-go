@@ -7,7 +7,7 @@ package verifiable
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -80,11 +80,7 @@ const (
 }`
 )
 
-type CustomCredentialProducer struct {
-	Accept func(cred *Credential) bool
-	Apply  func(dataJSON []byte) (interface{}, error)
-}
-
+// Cred1 can produce itself.
 type Cred1 struct {
 	Base    Credential
 	Subject struct {
@@ -94,6 +90,23 @@ type Cred1 struct {
 	CustomField string `json:"c1,omitempty"`
 }
 
+func (c1 *Cred1) Accept(vc *Credential) bool {
+	return hasContext(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type1") &&
+		hasType(vc.Types, "CredType1")
+}
+
+func (c1 *Cred1) Apply(vc *Credential, dataJSON []byte) (interface{}, error) {
+	err := json.Unmarshal(dataJSON, c1)
+	if err != nil {
+		return nil, err
+	}
+
+	c1.Base = *vc
+
+	return c1, nil
+}
+
+// There is a separate producer for Cred2.
 type Cred2 struct {
 	Base    Credential
 	Subject struct {
@@ -103,85 +116,44 @@ type Cred2 struct {
 	CustomField string `json:"c2,omitempty"`
 }
 
-func Cred1Producer() CustomCredentialProducer {
-	return CustomCredentialProducer{
-		Apply: func(dataJSON []byte) (interface{}, error) {
-			cred1 := &Cred1{}
-
-			_, err := NewCredential(
-				dataJSON,
-				WithDecoders([]CredentialDecoder{func(dataJSON []byte, c *Credential) error {
-					return json.Unmarshal(dataJSON, cred1)
-				}}),
-				WithTemplate(func() *Credential {
-					return &cred1.Base
-				}),
-			)
-			if err != nil {
-				return nil, err
-			}
-			return cred1, nil
-		},
-		Accept: func(vc *Credential) bool {
-			return hasContext(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type1") &&
-				hasType(vc.Types, "CredType1")
-		},
-	}
+type Cred2Producer struct {
 }
 
-func Cred2Producer() CustomCredentialProducer {
-	return CustomCredentialProducer{
-		Apply: func(dataJSON []byte) (interface{}, error) {
-			cred2 := &Cred2{}
-
-			_, err := NewCredential(
-				dataJSON,
-				WithDecoders([]CredentialDecoder{func(dataJSON []byte, c *Credential) error {
-					return json.Unmarshal(dataJSON, cred2)
-				}}),
-				WithTemplate(func() *Credential {
-					return &cred2.Base
-				}),
-			)
-			if err != nil {
-				return nil, err
-			}
-			return cred2, nil
-		},
-		Accept: func(vc *Credential) bool {
-			return hasContext(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type2") &&
-				hasType(vc.Types, "CredType2")
-		},
-	}
+func (c2p *Cred2Producer) Accept(vc *Credential) bool {
+	return hasContext(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type2") &&
+		hasType(vc.Types, "CredType2")
 }
 
-func decodeCredentials(dataJSON []byte, producers ...CustomCredentialProducer) (interface{}, error) {
-	var (
-		baseCred *Credential
-		credErr  error
-	)
+func (c2p *Cred2Producer) Apply(vc *Credential, dataJSON []byte) (interface{}, error) {
+	c2 := Cred2{}
 
-	if baseCred, credErr = NewCredential(dataJSON); credErr != nil {
-		return nil, fmt.Errorf("build base verifiable credential: %w", credErr)
+	err := json.Unmarshal(dataJSON, &c2)
+	if err != nil {
+		return nil, err
 	}
 
-	for _, p := range producers {
-		if p.Accept(baseCred) {
-			var (
-				customCred interface{}
-				jsonErr    error
-			)
+	c2.Base = *vc
 
-			if customCred, jsonErr = p.Apply(dataJSON); jsonErr == nil {
-				return customCred, nil
-			}
+	return &c2, nil
+}
 
-			return nil, fmt.Errorf("error occurred when building custom verifiable credential: %w", jsonErr)
-		}
-	}
+func NewCred1Producer() CustomCredentialProducer {
+	return &Cred1{}
+}
 
-	// return base credential no producers accepted the dataJSON
-	return baseCred, nil
+func NewCred2Producer() CustomCredentialProducer {
+	return &Cred2Producer{}
+}
+
+type FailingCredentialProducer struct {
+}
+
+func (fp *FailingCredentialProducer) Accept(vc *Credential) bool {
+	return true
+}
+
+func (fp *FailingCredentialProducer) Apply(vc *Credential, dataJSON []byte) (interface{}, error) {
+	return nil, errors.New("failed to apply credential extension")
 }
 
 func hasContext(allContexts []string, targetContext string) bool {
@@ -205,9 +177,10 @@ func hasType(allTypes []string, targetType string) bool {
 }
 
 func TestCredentialExtensibilitySwitch(t *testing.T) {
-	producers := []CustomCredentialProducer{Cred1Producer(), Cred2Producer()}
+	producers := []CustomCredentialProducer{NewCred1Producer(), NewCred2Producer()}
 
-	i1, err := decodeCredentials([]byte(validCred1), producers...)
+	// Producer1 applied.
+	i1, err := CreateCustomCredential([]byte(validCred1), producers)
 	require.NoError(t, err)
 	require.IsType(t, &Cred1{}, i1)
 	cred1, correct := i1.(*Cred1)
@@ -217,7 +190,8 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	require.Equal(t, "custom field 1", cred1.CustomField)
 	require.Equal(t, "custom subject 1", cred1.Subject.CustomSubjectField)
 
-	i2, err := decodeCredentials([]byte(validCred2), producers...)
+	// Producer2 applied.
+	i2, err := CreateCustomCredential([]byte(validCred2), producers)
 	require.NoError(t, err)
 	require.IsType(t, &Cred2{}, i2)
 	cred2, correct := i2.(*Cred2)
@@ -227,11 +201,18 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	require.Equal(t, "custom field 2", cred2.CustomField)
 	require.Equal(t, "custom subject 2", cred2.Subject.CustomSubjectField)
 
-	i3, err := decodeCredentials([]byte(validCredential), producers...)
+	// No producers are applied, returned base credential.
+	i3, err := CreateCustomCredential([]byte(validCredential), producers)
 	require.NoError(t, err)
 	require.IsType(t, &Credential{}, i3)
 
-	_, err = decodeCredentials([]byte(credMissingMandatoryFields), producers...)
+	// Invalid credential.
+	_, err = CreateCustomCredential([]byte(credMissingMandatoryFields), producers)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "build base verifiable credential")
+
+	// Failing ext producer.
+	_, err = CreateCustomCredential([]byte(validCredential), []CustomCredentialProducer{&FailingCredentialProducer{}})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to apply credential extension")
 }

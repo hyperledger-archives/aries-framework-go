@@ -72,7 +72,7 @@ func main() {
 }
 
 func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
-	credential, err := verifiable.NewCredential(vcBytes)
+	credential, _, err := verifiable.NewCredential(vcBytes)
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
@@ -107,7 +107,7 @@ func encodeVPToJWS(vpBytes []byte, audience string, privateKey interface{}) {
 }
 
 func encodeVCToJWTUnsecured(vcBytes []byte) {
-	credential, err := verifiable.NewCredential(vcBytes)
+	credential, _, err := verifiable.NewCredential(vcBytes)
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
@@ -127,7 +127,7 @@ func encodeVCToJWTUnsecured(vcBytes []byte) {
 
 func decodeVCJWTToJSON(vcBytes []byte, publicKey interface{}) {
 	// Asked to decode JWT
-	credential, err := verifiable.NewCredential(vcBytes,
+	credential, _, err := verifiable.NewCredential(vcBytes,
 		verifiable.WithPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
 			return publicKey, nil
 		}))
@@ -187,7 +187,7 @@ func parseKeys(packedKeys string) (private, public interface{}) {
 }
 
 func encodeVCToJSON(vcBytes []byte) {
-	credential, err := verifiable.NewCredential(vcBytes, verifiable.WithNoCustomSchemaCheck())
+	credential, _, err := verifiable.NewCredential(vcBytes, verifiable.WithNoCustomSchemaCheck())
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
