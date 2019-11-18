@@ -303,8 +303,10 @@ func TestRequestedState_Execute(t *testing.T) {
 			ThreadID:     "test",
 			ConnectionID: "123",
 		}
+		didDoc := getMockDID()
+		didDoc.Service[0].RecipientKeys = []string{"invalid"}
 		ctx2 := &context{outboundDispatcher: prov.OutboundDispatcher(),
-			vdriRegistry: &mockvdri.MockVDRIRegistry{CreateValue: getMockDIDPublicKey()},
+			vdriRegistry: &mockvdri.MockVDRIRegistry{CreateValue: didDoc},
 			signer:       &mockSigner{}}
 		_, followup, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
 			header:     &service.Header{Type: InvitationMsgType},
@@ -312,7 +314,7 @@ func TestRequestedState_Execute(t *testing.T) {
 			connRecord: connRec,
 		}, "", ctx2)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "public key not supported")
+		require.Contains(t, err.Error(), "key not found in DID document")
 		require.Nil(t, followup)
 	})
 }
@@ -367,8 +369,10 @@ func TestRespondedState_Execute(t *testing.T) {
 		require.Equal(t, (&completed{}).Name(), followup.Name())
 	})
 	t.Run("handle inbound request public key error", func(t *testing.T) {
+		didDoc := getMockDID()
+		didDoc.Service[0].RecipientKeys = []string{"invalid"}
 		ctx2 := &context{outboundDispatcher: prov.OutboundDispatcher(),
-			vdriRegistry: &mockvdri.MockVDRIRegistry{CreateValue: getMockDIDPublicKey()}, signer: &mockSigner{},
+			vdriRegistry: &mockvdri.MockVDRIRegistry{CreateValue: didDoc}, signer: &mockSigner{},
 			connectionStore: NewConnectionRecorder(store, store)}
 		_, followup, _, err := (&responded{}).ExecuteInbound(&stateMachineMsg{
 			header:     &service.Header{Type: RequestMsgType},
@@ -376,7 +380,7 @@ func TestRespondedState_Execute(t *testing.T) {
 			connRecord: &ConnectionRecord{},
 		}, "", ctx2)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "public key not supported")
+		require.Contains(t, err.Error(), "key not found in DID document")
 		require.Nil(t, followup)
 	})
 	t.Run("handle inbound request unmarshalling error", func(t *testing.T) {
@@ -675,17 +679,32 @@ func TestPrepareConnectionSignature(t *testing.T) {
 }
 
 func TestPrepareDestination(t *testing.T) {
-	prov := protocol.MockProvider{}
-	ctx := &context{outboundDispatcher: prov.OutboundDispatcher(),
-		vdriRegistry: &mockvdri.MockVDRIRegistry{CreateValue: getMockDID()}}
-	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
-	require.NoError(t, err)
+	t.Run("successfully prepared destination", func(t *testing.T) {
+		dest, err := prepareDestination(getMockDID())
+		require.NoError(t, err)
+		require.NotNil(t, dest)
+		require.Equal(t, dest.ServiceEndpoint, "https://localhost:8090")
+	})
 
-	dest := prepareDestination(newDidDoc)
-	require.NotNil(t, dest)
-	require.Equal(t, dest.ServiceEndpoint, "https://localhost:8090")
-	// 2 Public keys inside the didDoc
-	require.Len(t, dest.RecipientKeys, 3)
+	t.Run("error while getting service", func(t *testing.T) {
+		didDoc := getMockDID()
+		didDoc.Service = nil
+
+		dest, err := prepareDestination(didDoc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "service not found in DID document: did-communication")
+		require.Nil(t, dest)
+	})
+
+	t.Run("error while getting recipient keys from did doc", func(t *testing.T) {
+		didDoc := getMockDID()
+		didDoc.Service[0].RecipientKeys = []string{}
+
+		recipientKeys, err := getRecipientKeys(didDoc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing recipient keys in did-communication service")
+		require.Nil(t, recipientKeys)
+	})
 }
 
 func TestNewRequestFromInvitation(t *testing.T) {
@@ -863,25 +882,106 @@ func TestGetInvitationRecipientKey(t *testing.T) {
 }
 
 func TestGetPublicKey(t *testing.T) {
-	t.Run("successfully getting public key", func(t *testing.T) {
+	t.Run("successfully getting public key by id", func(t *testing.T) {
 		prov := protocol.MockProvider{}
 		ctx := getContext(prov, nil)
 		newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 		require.NoError(t, err)
-		pubkey, err := getPublicKeys(newDidDoc, supportedPublicKeyType)
+		pubkey, err := getPublicKey(newDidDoc.PublicKey[0].ID, newDidDoc)
 		require.NoError(t, err)
 		require.NotNil(t, pubkey)
-		require.Len(t, pubkey, 1)
 	})
 	t.Run("failed to get public key", func(t *testing.T) {
 		prov := protocol.MockProvider{}
 		ctx := getContext(prov, nil)
 		newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 		require.NoError(t, err)
-		pubkey, err := getPublicKeys(newDidDoc, "invalid key")
+		pubkey, err := getPublicKey("invalid-key", newDidDoc)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "public key not supported")
+		require.Contains(t, err.Error(), "key not found in DID document: invalid-key")
 		require.Nil(t, pubkey)
+	})
+}
+
+func TestGetDidCommService(t *testing.T) {
+	t.Run("successfully getting did-communication service", func(t *testing.T) {
+		didDoc := getMockDID()
+
+		s, err := getDidCommService(didDoc)
+		require.NoError(t, err)
+		require.Equal(t, "did-communication", s.Type)
+		require.Equal(t, uint(0), s.Priority)
+	})
+
+	t.Run("error due to missing service", func(t *testing.T) {
+		didDoc := getMockDID()
+		didDoc.Service = nil
+
+		s, err := getDidCommService(didDoc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "service not found in DID document: did-communication")
+		require.Nil(t, s)
+	})
+
+	t.Run("error due to missing did-communication service", func(t *testing.T) {
+		didDoc := getMockDID()
+		didDoc.Service[0].Type = "some-type"
+		didDoc.Service[1].Type = "other-type"
+
+		s, err := getDidCommService(didDoc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "service not found in DID document: did-communication")
+		require.Nil(t, s)
+	})
+}
+
+func TestGetRecipientKeys(t *testing.T) {
+	t.Run("successfully getting recipient keys", func(t *testing.T) {
+		didDoc := getMockDID()
+
+		recipientKeys, err := getRecipientKeys(didDoc)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(recipientKeys))
+	})
+
+	t.Run("error due to missing did-communication service", func(t *testing.T) {
+		didDoc := getMockDID()
+		didDoc.Service = nil
+
+		recipientKeys, err := getRecipientKeys(didDoc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "service not found in DID document: did-communication")
+		require.Nil(t, recipientKeys)
+	})
+
+	t.Run("error due to missing recipient keys in did-communication service", func(t *testing.T) {
+		didDoc := getMockDID()
+		didDoc.Service[0].RecipientKeys = []string{}
+
+		recipientKeys, err := getRecipientKeys(didDoc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing recipient keys in did-communication service")
+		require.Nil(t, recipientKeys)
+	})
+
+	t.Run("error due to missing public key in did doc", func(t *testing.T) {
+		didDoc := getMockDID()
+		didDoc.Service[0].RecipientKeys = []string{"invalid"}
+
+		recipientKeys, err := getRecipientKeys(didDoc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "key not found in DID document: invalid")
+		require.Nil(t, recipientKeys)
+	})
+
+	t.Run("error due to unsupported key types", func(t *testing.T) {
+		didDoc := getMockDID()
+		didDoc.Service[0].RecipientKeys = []string{didDoc.PublicKey[0].ID}
+
+		recipientKeys, err := getRecipientKeys(didDoc)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "recipient keys in did-communication service not supported")
+		require.Nil(t, recipientKeys)
 	})
 }
 
@@ -935,7 +1035,7 @@ func TestGetDestinationFromDID(t *testing.T) {
 		ctx := context{vdriRegistry: &mockvdri.MockVDRIRegistry{ResolveValue: doc}}
 		destination, err := ctx.getDestinationFromDID(doc.ID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "public key not supported")
+		require.Contains(t, err.Error(), "key not found in DID document")
 		require.Nil(t, destination)
 	})
 	t.Run("test service not found", func(t *testing.T) {
@@ -944,7 +1044,7 @@ func TestGetDestinationFromDID(t *testing.T) {
 		ctx := context{vdriRegistry: &mockvdri.MockVDRIRegistry{ResolveValue: doc2}}
 		destination, err := ctx.getDestinationFromDID(doc2.ID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "service not found in DID document")
+		require.Contains(t, err.Error(), "service not found in DID document: did-communication")
 		require.Nil(t, destination)
 	})
 	t.Run("get destination by invitation", func(t *testing.T) {
@@ -990,8 +1090,9 @@ func createDIDDocWithKey(pub string) *diddoc.Doc {
 	)
 
 	id := fmt.Sprintf(didFormat, method, pub[:16])
+	pubKeyID := fmt.Sprintf(didPKID, id, 1)
 	pubKey := diddoc.PublicKey{
-		ID:         fmt.Sprintf(didPKID, id, 1),
+		ID:         pubKeyID,
 		Type:       "Ed25519VerificationKey2018",
 		Controller: id,
 		Value:      []byte(pub),
@@ -1001,6 +1102,8 @@ func createDIDDocWithKey(pub string) *diddoc.Doc {
 			ID:              fmt.Sprintf(didServiceID, id, 1),
 			Type:            "did-communication",
 			ServiceEndpoint: "http://localhost:58416",
+			Priority:        0,
+			RecipientKeys:   []string{pubKeyID},
 		},
 	}
 	createdTime := time.Now()

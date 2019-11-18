@@ -89,6 +89,8 @@ func createDefaultDID() *did.Doc {
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            "did-communication",
 		ServiceEndpoint: "https://agent.example.com/",
+		RecipientKeys:   []string{creator},
+		Priority:        0,
 	}
 
 	signingKey := did.PublicKey{
