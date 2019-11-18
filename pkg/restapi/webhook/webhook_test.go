@@ -7,16 +7,16 @@ package webhook
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/square/go-jose/v3/json"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 )
 
 const topic = "basicmessages"
@@ -48,7 +48,7 @@ func TestNotifyOneWebhook(t *testing.T) {
 		}
 	}(testClientData)
 
-	if err := listenFor(testClientData.clientHost); err != nil {
+	if err := transportutil.VerifyListener(testClientData.clientHost, 2*time.Second); err != nil {
 		t.Fatal(err)
 	}
 
@@ -86,7 +86,7 @@ func TestNotifyMultipleWebhooks(t *testing.T) {
 			}
 		}(testClientData)
 
-		if err := listenFor(testClientData.clientHost); err != nil {
+		if err := transportutil.VerifyListener(testClientData.clientHost, 2*time.Second); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -129,7 +129,7 @@ func TestNotifyCorrectJSON(t *testing.T) {
 		}
 	}()
 
-	if err := listenFor(clientHost); err != nil {
+	if err := transportutil.VerifyListener(clientHost, 2*time.Second); err != nil {
 		t.Fatal(err)
 	}
 
@@ -147,7 +147,7 @@ func TestNotifyMalformedJSON(t *testing.T) {
 		}
 	}()
 
-	if err := listenFor(clientHost); err != nil {
+	if err := transportutil.VerifyListener(clientHost, 2*time.Second); err != nil {
 		t.Fatal(err)
 	}
 
@@ -212,7 +212,7 @@ func TestWebhookNotificationClient500Response(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	if err := listenFor(clientHost); err != nil {
+	if err := transportutil.VerifyListener(clientHost, 2*time.Second); err != nil {
 		t.Fatal(err)
 	}
 
@@ -293,59 +293,5 @@ func listenAndStopAfterReceivingNotification(addr string) error {
 }
 
 func randomURL() string {
-	return fmt.Sprintf("localhost:%d", mustGetRandomPort(3))
-}
-
-func mustGetRandomPort(n int) int {
-	for ; n > 0; n-- {
-		port, err := getRandomPort()
-		if err != nil {
-			continue
-		}
-
-		return port
-	}
-	panic("cannot acquire the random port")
-}
-
-func getRandomPort() (int, error) {
-	const network = "tcp"
-	addr, err := net.ResolveTCPAddr(network, "localhost:0")
-
-	if err != nil {
-		return 0, err
-	}
-
-	listener, err := net.ListenTCP(network, addr)
-	if err != nil {
-		return 0, err
-	}
-
-	if err := listener.Close(); err != nil {
-		return 0, err
-	}
-
-	return listener.Addr().(*net.TCPAddr).Port, nil
-}
-
-func listenFor(host string) error {
-	timeout := time.After(2 * time.Second)
-
-	for {
-		select {
-		case <-timeout:
-			return errors.New("timeout: server is not available")
-		default:
-			conn, err := net.Dial("tcp", host)
-			if err != nil {
-				continue
-			}
-
-			if err := conn.Close(); err != nil {
-				return err
-			}
-
-			return nil
-		}
-	}
+	return fmt.Sprintf("localhost:%d", transportutil.GetRandomPort(3))
 }

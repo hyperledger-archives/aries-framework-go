@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
 
-var logger = log.New("aries-framework/transport")
+var logger = log.New("aries-framework/http")
 
 // provider contains dependencies for the HTTP Handler creation and is typically created by using aries.Context()
 type provider interface {
