@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	resterrors "github.com/hyperledger/aries-framework-go/pkg/restapi/errors"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
@@ -39,6 +40,30 @@ const (
 	acceptExchangeRequest   = operationID + "/{id}/accept-request"
 	removeConnection        = operationID + "/{id}/remove"
 	connectionsWebhookTopic = "connections"
+)
+
+const (
+	// InvalidRequestErrorCode is typically a code for validation errors
+	// for invalid didexchange controller requests
+	InvalidRequestErrorCode = resterrors.Code(iota + resterrors.DIDExchange)
+
+	// CreateInvitationErrorCode is for failures in create invitation endpoint
+	CreateInvitationErrorCode
+
+	// ReceiveInvitationErrorCode is for failures in receive invitation endpoint
+	ReceiveInvitationErrorCode
+
+	// AcceptInvitationErrorCode is for failures in accept invitation endpoint
+	AcceptInvitationErrorCode
+
+	// AcceptExchangeRequestErrorCode is for failures in accept exchange request endpoint
+	AcceptExchangeRequestErrorCode
+
+	// QueryConnectionsErrorCode is for failures in query connection endpoints
+	QueryConnectionsErrorCode
+
+	// RemoveConnectionErrorCode is for failures in remove connection endpoint
+	RemoveConnectionErrorCode
 )
 
 // provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
@@ -98,7 +123,7 @@ func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) 
 
 	err := getQueryParams(&request, req.URL.Query())
 	if err != nil {
-		c.writeGenericError(rw, err)
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, err)
 		return
 	}
 
@@ -117,7 +142,7 @@ func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) 
 	}
 
 	if err != nil {
-		c.writeGenericError(rw, err)
+		resterrors.SendHTTPInternalServerError(rw, CreateInvitationErrorCode, err)
 		return
 	}
 
@@ -140,13 +165,13 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 
 	err := json.NewDecoder(req.Body).Decode(&request.Invitation)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, err)
 		return
 	}
 
 	connectionID, err := c.client.HandleInvitation(request.Invitation)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		resterrors.SendHTTPInternalServerError(rw, ReceiveInvitationErrorCode, err)
 		return
 	}
 
@@ -165,19 +190,23 @@ func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request)
 //    default: genericError
 //        200: acceptInvitationResponse
 func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) {
-	params := mux.Vars(req)
-	logger.Debugf("Accepting connection invitation for id[%s]", params["id"])
+	id := mux.Vars(req)["id"]
+	if id == "" {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf("empty connection ID"))
+	}
 
-	err := c.client.AcceptInvitation(params["id"])
+	logger.Debugf("Accepting connection invitation for id[%s]", id)
+
+	err := c.client.AcceptInvitation(id)
 	if err != nil {
-		logger.Errorf("accept invitation api failed for id %s with error %s", params["id"], err)
-		c.writeGenericError(rw, err)
+		logger.Errorf("accept invitation api failed for id %s with error %s", id, err)
+		resterrors.SendHTTPInternalServerError(rw, AcceptInvitationErrorCode, err)
 
 		return
 	}
 
 	response := &models.AcceptInvitationResponse{
-		ConnectionID: params["id"],
+		ConnectionID: id,
 	}
 
 	c.writeResponse(rw, response)
@@ -191,19 +220,23 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 //    default: genericError
 //        200: acceptExchangeResponse
 func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Request) {
-	params := mux.Vars(req)
-	logger.Infof("Accepting connection request for id [%s]", params["id"])
+	id := mux.Vars(req)["id"]
+	if id == "" {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf("empty connection ID"))
+	}
 
-	err := c.client.AcceptExchangeRequest(params["id"])
+	logger.Infof("Accepting connection request for id [%s]", id)
+
+	err := c.client.AcceptExchangeRequest(id)
 	if err != nil {
-		logger.Errorf("accepting connection request failed for id %s with error %s", params["id"], err)
-		c.writeGenericError(rw, err)
+		logger.Errorf("accepting connection request failed for id %s with error %s", id, err)
+		resterrors.SendHTTPInternalServerError(rw, AcceptExchangeRequestErrorCode, err)
 
 		return
 	}
 
 	result := &models.ExchangeResponse{
-		ConnectionID: params["id"],
+		ConnectionID: id,
 	}
 
 	response := models.AcceptExchangeResult{Result: result}
@@ -225,13 +258,13 @@ func (c *Operation) QueryConnections(rw http.ResponseWriter, req *http.Request) 
 
 	err := getQueryParams(&request, req.URL.Query())
 	if err != nil {
-		c.writeGenericError(rw, err)
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, err)
 		return
 	}
 
 	results, err := c.client.QueryConnections(&request)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		resterrors.SendHTTPInternalServerError(rw, QueryConnectionsErrorCode, err)
 		return
 	}
 
@@ -250,12 +283,16 @@ func (c *Operation) QueryConnections(rw http.ResponseWriter, req *http.Request) 
 //    default: genericError
 //        200: queryConnectionResponse
 func (c *Operation) QueryConnectionByID(rw http.ResponseWriter, req *http.Request) {
-	params := mux.Vars(req)
-	logger.Debugf("Querying connection invitation for id [%s]", params["id"])
+	id := mux.Vars(req)["id"]
+	if id == "" {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf("empty connection ID"))
+	}
 
-	result, err := c.client.GetConnection(params["id"])
+	logger.Debugf("Querying connection invitation for id [%s]", id)
+
+	result, err := c.client.GetConnection(id)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		resterrors.SendHTTPInternalServerError(rw, QueryConnectionsErrorCode, err)
 		return
 	}
 
@@ -274,29 +311,18 @@ func (c *Operation) QueryConnectionByID(rw http.ResponseWriter, req *http.Reques
 //    default: genericError
 //    200: removeConnectionResponse
 func (c *Operation) RemoveConnection(rw http.ResponseWriter, req *http.Request) {
-	params := mux.Vars(req)
-	logger.Debugf("Removing connection record for id [%s]", params["id"])
+	id := mux.Vars(req)["id"]
+	if id == "" {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf("empty connection ID"))
+	}
 
-	err := c.client.RemoveConnection(params["id"])
+	logger.Debugf("Removing connection record for id [%s]", id)
+
+	err := c.client.RemoveConnection(id)
 	if err != nil {
-		c.writeGenericError(rw, err)
+		resterrors.SendHTTPInternalServerError(rw, RemoveConnectionErrorCode, err)
 		return
 	}
-}
-
-// writeGenericError writes given error to writer as generic error response
-func (c *Operation) writeGenericError(rw io.Writer, err error) {
-	errResponse := models.GenericError{
-		Body: struct {
-			Code    int32  `json:"code"`
-			Message string `json:"message"`
-		}{
-			// TODO implement error codes, below is sample error code
-			Code:    1,
-			Message: err.Error(),
-		},
-	}
-	c.writeResponse(rw, errResponse)
 }
 
 // writeResponse writes interface value to response
