@@ -43,10 +43,7 @@ func NewAgentSDKSteps(ctx *context.BDDContext) *AgentSDKSteps {
 func (a *AgentSDKSteps) createAgent(agentID, inboundHost, inboundPort string) error {
 	var opts []aries.Option
 
-	storeProv, err := a.getStoreProvider(agentID)
-	if err != nil {
-		return err
-	}
+	storeProv := a.getStoreProvider(agentID)
 
 	opts = append(opts, aries.WithStoreProvider(storeProv))
 
@@ -63,23 +60,16 @@ func (a *AgentSDKSteps) createAgentWithHTTPDIDResolver(
 		return fmt.Errorf("failed from httpbinding new ")
 	}
 
-	storeProv, err := a.getStoreProvider(agentID)
-	if err != nil {
-		return err
-	}
+	storeProv := a.getStoreProvider(agentID)
 
 	opts = append(opts, aries.WithVDRI(httpVDRI), aries.WithStoreProvider(storeProv))
 
 	return a.create(agentID, inboundHost, inboundPort, opts...)
 }
 
-func (a *AgentSDKSteps) getStoreProvider(agentID string) (storage.Provider, error) {
-	storeProv, err := leveldb.NewProvider(dbPath + "/" + agentID)
-	if err != nil {
-		return nil, fmt.Errorf("leveldb provider initialization failed : %w", err)
-	}
-
-	return storeProv, nil
+func (a *AgentSDKSteps) getStoreProvider(agentID string) storage.Provider {
+	storeProv := leveldb.NewProvider(dbPath + "/" + agentID)
+	return storeProv
 }
 
 func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort string, opts ...aries.Option) error {

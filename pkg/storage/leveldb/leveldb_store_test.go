@@ -1,3 +1,5 @@
+// +build !js,!wasm
+
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
 
@@ -37,8 +39,7 @@ func TestLevelDBStore(t *testing.T) {
 	defer cleanup()
 
 	t.Run("Test Leveldb store put and get", func(t *testing.T) {
-		prov, err := NewProvider(path)
-		require.NoError(t, err)
+		prov := NewProvider(path)
 		store, err := prov.OpenStore("test")
 		require.NoError(t, err)
 
@@ -78,9 +79,7 @@ func TestLevelDBStore(t *testing.T) {
 	})
 
 	t.Run("Test Leveldb multi store put and get", func(t *testing.T) {
-		prov, err := NewProvider(path)
-		require.NoError(t, err)
-
+		prov := NewProvider(path)
 		const commonKey = "did:example:1"
 		data := []byte("value1")
 		// create store 1 & store 2
@@ -138,16 +137,14 @@ func TestLevelDBStore(t *testing.T) {
 		}
 		defer cleanupFile(t, file)
 
-		prov, err := NewProvider(strings.Split(file.Name(), "-")[0])
-		require.NoError(t, err)
+		prov := NewProvider(strings.Split(file.Name(), "-")[0])
 		store, err := prov.OpenStore("sample")
 		require.Error(t, err)
 		require.Nil(t, store)
 	})
 
 	t.Run("Test Leveldb multi store close by name", func(t *testing.T) {
-		prov, err := NewProvider(path)
-		require.NoError(t, err)
+		prov := NewProvider(path)
 
 		const commonKey = "did:example:1"
 		data := []byte("value1")
@@ -193,7 +190,7 @@ func TestLevelDBStore(t *testing.T) {
 		require.Len(t, prov.dbs, 2)
 
 		// try to close non existing db
-		err = prov.CloseStore("store_x")
+		err := prov.CloseStore("store_x")
 		require.NoError(t, err)
 
 		// verify store length
@@ -211,8 +208,7 @@ func TestLevelDBStore(t *testing.T) {
 	})
 
 	t.Run("Test Leveldb store iterator", func(t *testing.T) {
-		prov, err := NewProvider(path)
-		require.NoError(t, err)
+		prov := NewProvider(path)
 		store, err := prov.OpenStore("test-iterator")
 		require.NoError(t, err)
 
