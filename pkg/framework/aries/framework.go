@@ -24,7 +24,8 @@ import (
 
 // Aries provides access to the context being managed by the framework. The context can be used to create aries clients.
 type Aries struct {
-	storeProvider             storage.Provider
+	storeProvider storage.Provider
+	// TODO Rename transient store to protocol state store https://github.com/hyperledger/aries-framework-go/issues/835
 	transientStoreProvider    storage.Provider
 	protocolSvcCreators       []api.ProtocolSvcCreator
 	services                  []dispatcher.Service

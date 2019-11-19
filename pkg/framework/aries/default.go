@@ -21,9 +21,6 @@ import (
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
 //nolint:gochecknoglobals
@@ -32,15 +29,6 @@ var (
 	dbPath             = "/tmp/peerstore/"
 	defaultInboundPort = ":8090"
 )
-
-func storeProvider() (storage.Provider, error) {
-	storeProv, err := leveldb.NewProvider(dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("leveldb provider initialization failed : %w", err)
-	}
-
-	return storeProv, nil
-}
 
 func inboundTransport() (didcommtrans.InboundTransport, error) {
 	inbound, err := arieshttp.NewInbound(defaultInboundPort, "")
@@ -83,9 +71,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc())
 
-	setAdditionalDefaultOpts(frameworkOpts)
-
-	return nil
+	return setAdditionalDefaultOpts(frameworkOpts)
 }
 
 func newExchangeSvc() api.ProtocolSvcCreator {
@@ -94,7 +80,7 @@ func newExchangeSvc() api.ProtocolSvcCreator {
 	}
 }
 
-func setAdditionalDefaultOpts(frameworkOpts *Aries) {
+func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 	if frameworkOpts.kmsCreator == nil {
 		frameworkOpts.kmsCreator = func(provider api.Provider) (api.CloseableKMS, error) {
 			return kms.New(provider)
@@ -129,6 +115,13 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) {
 	}
 
 	if frameworkOpts.transientStoreProvider == nil {
-		frameworkOpts.transientStoreProvider = mem.NewProvider()
+		var err error
+		frameworkOpts.transientStoreProvider, err = transientStoreProvider()
+
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
 }

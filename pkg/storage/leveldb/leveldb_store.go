@@ -1,3 +1,5 @@
+// +build !js,!wasm
+
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
 
@@ -29,8 +31,8 @@ type Provider struct {
 }
 
 // NewProvider instantiates Provider
-func NewProvider(dbPath string) (*Provider, error) {
-	return &Provider{dbs: make(map[string]*leveldbStore), dbPath: dbPath}, nil
+func NewProvider(dbPath string) *Provider {
+	return &Provider{dbs: make(map[string]*leveldbStore), dbPath: dbPath}
 }
 
 // OpenStore opens and returns a store for given name space.

@@ -1,3 +1,5 @@
+// +build !js,!wasm
+
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
 
@@ -188,9 +190,7 @@ func TestFramework(t *testing.T) {
 
 	t.Run("test vdri - with default vdri", func(t *testing.T) {
 		// store peer DID in the store
-		dbprov, err := leveldb.NewProvider(dbPath)
-		require.NoError(t, err)
-
+		dbprov := leveldb.NewProvider(dbPath)
 		peerDID := "did:peer:21tDAKCERh95uGgKbJNHYp"
 		store, err := peer.New(dbprov)
 		require.NoError(t, err)
