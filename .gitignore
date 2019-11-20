@@ -5,7 +5,7 @@
 #
 
 # Exclude any mocks
-mocks/
+gomocks/
 
 # Binaries for programs and plugins
 *.exe
