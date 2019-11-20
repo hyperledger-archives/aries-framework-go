@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/godog"
+	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -26,6 +28,9 @@ import (
 
 const (
 	dbPath = "./db"
+
+	httpTransportProvider      = "http"
+	webSocketTransportProvider = "websocket"
 )
 
 var logger = log.New("aries-framework/tests")
@@ -40,14 +45,14 @@ func NewAgentSDKSteps(ctx *context.BDDContext) *AgentSDKSteps {
 	return &AgentSDKSteps{bddContext: ctx}
 }
 
-func (a *AgentSDKSteps) createAgent(agentID, inboundHost, inboundPort string) error {
+func (a *AgentSDKSteps) createAgent(agentID, inboundHost, inboundPort, scheme string) error {
 	var opts []aries.Option
 
 	storeProv := a.getStoreProvider(agentID)
 
 	opts = append(opts, aries.WithStoreProvider(storeProv))
 
-	return a.create(agentID, inboundHost, inboundPort, opts...)
+	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
 }
 
 func (a *AgentSDKSteps) createAgentWithHTTPDIDResolver(
@@ -64,22 +69,34 @@ func (a *AgentSDKSteps) createAgentWithHTTPDIDResolver(
 
 	opts = append(opts, aries.WithVDRI(httpVDRI), aries.WithStoreProvider(storeProv))
 
-	return a.create(agentID, inboundHost, inboundPort, opts...)
+	return a.create(agentID, inboundHost, inboundPort, "http", opts...)
 }
 
 func (a *AgentSDKSteps) getStoreProvider(agentID string) storage.Provider {
-	storeProv := leveldb.NewProvider(dbPath + "/" + agentID)
+	storeProv := leveldb.NewProvider(dbPath + "/" + agentID + uuid.New().String())
 	return storeProv
 }
 
-func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort string, opts ...aries.Option) error {
+func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort, scheme string, opts ...aries.Option) error {
 	if inboundPort == "random" {
 		inboundPort = strconv.Itoa(mustGetRandomPort(5))
 	}
 
 	inboundAddr := fmt.Sprintf("%s:%s", inboundHost, inboundPort)
 
-	opts = append(opts, defaults.WithInboundHTTPAddr(inboundAddr, "http://"+inboundAddr))
+	switch scheme {
+	case webSocketTransportProvider:
+		inbound, err := ws.NewInbound(inboundAddr, "ws://"+inboundAddr)
+		if err != nil {
+			return fmt.Errorf("failed to create websocket: %w", err)
+		}
+
+		opts = append(opts, aries.WithInboundTransport(inbound), aries.WithOutboundTransport(ws.NewOutbound()))
+	case httpTransportProvider:
+		opts = append(opts, defaults.WithInboundHTTPAddr(inboundAddr, "http://"+inboundAddr))
+	default:
+		return fmt.Errorf("invalid transport provider type : %s", scheme)
+	}
 
 	agent, err := aries.New(opts...)
 	if err != nil {
@@ -104,7 +121,8 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort string, opts ..
 
 // RegisterSteps registers agent steps
 func (a *AgentSDKSteps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)"$`, a.createAgent)
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider$`,
+		a.createAgent)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
 		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.createAgentWithHTTPDIDResolver)
 }
