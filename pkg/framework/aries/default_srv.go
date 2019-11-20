@@ -14,6 +14,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
+//nolint:gochecknoglobals
+var (
+	// DBPath Level DB Path.
+	dbPath = "/tmp/peerstore/"
+)
+
 func storeProvider() (storage.Provider, error) {
 	return leveldb.NewProvider(dbPath), nil
 }

@@ -20,6 +20,10 @@ make checks
 # run unit tests
 make unit-test
 
+# run unit tests for wasm
+# requires chrome to be installed
+make unit-test-wasm
+
 # run bdd tests
 make bdd-test
 ```

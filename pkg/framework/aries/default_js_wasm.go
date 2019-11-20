@@ -14,7 +14,7 @@ import (
 )
 
 func storeProvider() (storage.Provider, error) {
-	storeProv, err := jsindexeddb.NewProvider(dbPath)
+	storeProv, err := jsindexeddb.NewProvider()
 	if err != nil {
 		return nil, fmt.Errorf("js indexeddb provider initialization failed : %w", err)
 	}
@@ -23,7 +23,7 @@ func storeProvider() (storage.Provider, error) {
 }
 
 func transientStoreProvider() (storage.Provider, error) {
-	storeProv, err := jsindexeddb.NewProvider(dbPath)
+	storeProv, err := jsindexeddb.NewProvider()
 	if err != nil {
 		return nil, fmt.Errorf("js indexeddb  provider initialization failed : %w", err)
 	}
