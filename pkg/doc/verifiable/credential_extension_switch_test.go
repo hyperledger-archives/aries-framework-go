@@ -157,8 +157,8 @@ func (fp *FailingCredentialProducer) Apply(vc *Credential, dataJSON []byte) (int
 }
 
 func hasContext(allContexts []string, targetContext string) bool {
-	for _, thatType := range allContexts {
-		if thatType == targetContext {
+	for _, thatContext := range allContexts {
+		if thatContext == targetContext {
 			return true
 		}
 	}

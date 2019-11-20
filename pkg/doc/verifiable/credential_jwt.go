@@ -32,7 +32,7 @@ type JWTCredClaims struct {
 // newJWTCredClaims creates JWT Claims of VC with an option to minimize certain fields of VC
 // which is put into "vc" claim.
 func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
-	subjectID, err := vc.SubjectID()
+	subjectID, err := subjectID(vc.Subject)
 	if err != nil {
 		return nil, fmt.Errorf("get VC subject id: %w", err)
 	}
@@ -62,7 +62,7 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 		raw = vc.raw()
 	}
 
-	vcMap, err := mergeExtraFields(raw, raw.ExtraFields)
+	vcMap, err := mergeCustomFields(raw, raw.CustomFields)
 	if err != nil {
 		return nil, err
 	}
