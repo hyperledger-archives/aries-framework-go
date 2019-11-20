@@ -36,6 +36,24 @@ jobs:
         token: ${{secrets.CODECOV_TOKEN}}
         file: ./coverage.txt
 
+  unitTestWasm:
+    name: Unit test wasm
+    runs-on: ubuntu-18.04
+    timeout-minutes: 10
+    steps:
+
+      - name: Setup Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - uses: actions/checkout@v1
+
+      - name: Run unit test wasm
+        timeout-minutes: 10
+        run: make unit-test-wasm
+
   bddTest:
     name: BDD test
     runs-on: ubuntu-18.04

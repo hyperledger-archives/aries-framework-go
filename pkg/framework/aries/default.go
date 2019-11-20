@@ -25,8 +25,6 @@ import (
 
 //nolint:gochecknoglobals
 var (
-	// DBPath Level DB Path.
-	dbPath             = "/tmp/peerstore/"
 	defaultInboundPort = ":8090"
 )
 

@@ -21,8 +21,9 @@ ALPINE_VER ?= 3.10
 GO_TAGS    ?=
 GO_VER ?= 1.13.1
 PROJECT_ROOT = github.com/hyperledger/aries-framework-go
-MOCKGEN = $(shell go env GOPATH)/bin/mockgen
 WASM_EXEC = $(shell go env GOROOT)/misc/wasm/wasm_exec.js
+GOBIN_PATH=$(abspath .)/build/bin
+MOCKGEN = $(GOBIN_PATH)/mockgen
 
 .PHONY: all
 all: checks generate-openapi-spec unit-test bdd-test
@@ -39,9 +40,13 @@ license:
 	@scripts/check_license.sh
 
 .PHONY: unit-test
-unit-test:
-	@make -s mocks
+unit-test: mocks
 	@scripts/check_unit.sh
+
+.PHONY: unit-test-wasm
+unit-test-wasm: export GOBIN=$(GOBIN_PATH)
+unit-test-wasm: depend
+	@scripts/check_unit_wasm.sh
 
 .PHONY: bdd-test
 bdd-test: clean generate-test-keys agent-rest-docker sample-webhook-docker
@@ -125,11 +130,13 @@ define create_mock
   $(MOCKGEN) -destination $(1)/gomocks/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
 endef
 
-build-mockgen:
-	go get github.com/golang/mock/mockgen
+depend:
+	@mkdir -p ./build/bin
+	GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/golang/mock/mockgen
+	GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/agnivade/wasmbrowsertest
 
 .PHONY: mocks
-mocks: build-mockgen
+mocks: depend
 	$(call create_mock,pkg/client/introduce,Provider)
 	$(call create_mock,pkg/didcomm/protocol/introduce,Provider;InvitationEnvelope)
 	$(call create_mock,pkg/didcomm/dispatcher,Outbound)

@@ -31,5 +31,4 @@ PKGS=`go list github.com/hyperledger/aries-framework-go/cmd/aries-agent-rest/...
                                                  grep -v /mocks`
 go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
-
 cd "$pwd" || exit

@@ -17,12 +17,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+var dbVersion = 1 //nolint:gochecknoglobals
+
 // Provider jsindexeddb implementation of storage.Provider interface
 type Provider struct {
 }
 
 // NewProvider instantiates Provider
-func NewProvider(dbPath string) (*Provider, error) {
+func NewProvider() (*Provider, error) {
 	// TODO Add unit test for IndexedDB https://github.com/hyperledger/aries-framework-go/issues/834
 	return &Provider{}, nil
 }
@@ -43,19 +45,8 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 }
 
 func openDB(name string) (*js.Value, error) {
-	onsuccess := make(chan js.Value)
-	onerror := make(chan js.Value)
 	dbName := "aries-" + name
-	req := js.Global().Get("indexedDB").Call("open", dbName, 1)
-	req.Set("onsuccess", js.FuncOf(func(this js.Value, inputs []js.Value) interface{} {
-		fmt.Printf("indexedDB is opened successfully %s\n", dbName)
-		onsuccess <- this.Get("result")
-		return nil
-	}))
-	req.Set("onerror", js.FuncOf(func(this js.Value, inputs []js.Value) interface{} {
-		onerror <- this.Get("error")
-		return nil
-	}))
+	req := js.Global().Get("indexedDB").Call("open", dbName, dbVersion)
 	req.Set("onupgradeneeded", js.FuncOf(func(this js.Value, inputs []js.Value) interface{} {
 		fmt.Printf("indexedDB create object store %s\n", name)
 		m := make(map[string]interface{})
@@ -63,15 +54,13 @@ func openDB(name string) (*js.Value, error) {
 		this.Get("result").Call("createObjectStore", name, m)
 		return nil
 	}))
-	select {
-	case value := <-onsuccess:
-		return &value, nil
-	case value := <-onerror:
-		return nil, fmt.Errorf("failed to open indexedDB %s %s", value.Get("name").String(),
-			value.Get("message").String())
-	case <-time.After(3 * time.Second):
-		return nil, errors.New("timeout waiting for indexedDB to be opened")
+
+	v, err := getResult(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open indexedDB: %w", err)
 	}
+
+	return v, nil
 }
 
 // CloseStore closes level db store of given name
@@ -96,7 +85,7 @@ func (s *store) Put(k string, v []byte) error {
 
 	req := s.db.Call("transaction", s.name, "readwrite").Call("objectStore", s.name).Call("add", m)
 
-	_, err := s.getResult(req)
+	_, err := getResult(req)
 	if err != nil {
 		return fmt.Errorf("failed to store data: %w", err)
 	}
@@ -112,12 +101,16 @@ func (s *store) Get(k string) ([]byte, error) {
 
 	req := s.db.Call("transaction", s.name).Call("objectStore", s.name).Call("get", k)
 
-	value, err := s.getResult(req)
+	data, err := getResult(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get data: %w", err)
 	}
 
-	return []byte(value.Get("data").String()), nil
+	if !data.Truthy() {
+		return nil, storage.ErrDataNotFound
+	}
+
+	return []byte(data.Get("value").String()), nil
 }
 
 // Iterator returns iterator for the latest snapshot of the underlying db.
@@ -126,7 +119,7 @@ func (s *store) Iterator(start, limit string) storage.StoreIterator {
 	return nil
 }
 
-func (s *store) getResult(req js.Value) (*js.Value, error) {
+func getResult(req js.Value) (*js.Value, error) {
 	onsuccess := make(chan js.Value)
 	onerror := make(chan js.Value)
 
@@ -142,7 +135,7 @@ func (s *store) getResult(req js.Value) (*js.Value, error) {
 	case value := <-onsuccess:
 		return &value, nil
 	case value := <-onerror:
-		return nil, fmt.Errorf("failed to open indexedDB %s %s", value.Get("name").String(),
+		return nil, fmt.Errorf("%s %s", value.Get("name").String(),
 			value.Get("message").String())
 	case <-time.After(3 * time.Second):
 		return nil, errors.New("timeout waiting for eve")
