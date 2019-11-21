@@ -115,7 +115,65 @@ func (s *store) Get(k string) ([]byte, error) {
 
 // Iterator returns iterator for the latest snapshot of the underlying db.
 func (s *store) Iterator(start, limit string) storage.StoreIterator {
-	// TODO Add Iterator for IndexedDB https://github.com/hyperledger/aries-framework-go/issues/833
+	// TODO Change Store Iterator https://github.com/hyperledger/aries-framework-go/issues/852
+	if start == "" {
+		return newIterator(nil, fmt.Errorf("start key is mandatory"))
+	}
+
+	keyRange := js.Global().Get("IDBKeyRange").Call("bound", start, start+"\uffff")
+	openCursor := s.db.Call("transaction", s.name).Call("objectStore", s.name).Call("getAll", keyRange)
+	batch, err := getResult(openCursor)
+
+	return newIterator(batch, err)
+}
+
+type iterator struct {
+	batch *js.Value
+	err   error
+	index int
+}
+
+// newIterator returns new iterator for given batch
+func newIterator(batch *js.Value, err error) *iterator {
+	return &iterator{batch: batch, err: err, index: -1}
+}
+
+// Next moves pointer to next value of iterator.
+// It returns false if the iterator is exhausted.
+func (s *iterator) Next() bool {
+	s.index++
+
+	if s.batch != nil && s.batch.Index(s.index).Truthy() {
+		return true
+	}
+
+	return false
+}
+
+// Release releases associated resources.
+func (s *iterator) Release() {
+}
+
+// Error returns error in iterator.
+func (s *iterator) Error() error {
+	return s.err
+}
+
+// Key returns the key of the current key/value pair.
+func (s *iterator) Key() []byte {
+	if s.batch != nil && s.batch.Index(s.index).Truthy() {
+		return []byte(s.batch.Index(s.index).Get("key").String())
+	}
+
+	return nil
+}
+
+// Value returns the value of the current key/value pair.
+func (s *iterator) Value() []byte {
+	if s.batch != nil && s.batch.Index(s.index).Truthy() {
+		return []byte(s.batch.Index(s.index).Get("value").String())
+	}
+
 	return nil
 }
 

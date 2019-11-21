@@ -9,6 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 package jsindexeddb
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -74,8 +76,48 @@ func TestStore(t *testing.T) {
 	t.Run("Test store iterator", func(t *testing.T) {
 		prov, err := NewProvider()
 		require.NoError(t, err)
-		store, err := prov.OpenStore("test3")
+		store, err := prov.OpenStore("test-iterator")
 		require.NoError(t, err)
-		require.Nil(t, store.Iterator("", ""))
+
+		const valPrefix = "val-for-%s"
+		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123"}
+
+		for _, key := range keys {
+			err = store.Put(key, []byte(fmt.Sprintf(valPrefix, key)))
+			require.NoError(t, err)
+		}
+		itr := store.Iterator("abc_", "")
+		require.NoError(t, itr.Error())
+		verifyItr(t, itr, 4, "abc_")
+
+		itr = store.Iterator("", "")
+		require.Error(t, itr.Error())
+		verifyItr(t, itr, 0, "")
+
+		itr = store.Iterator("jkl_123", "")
+		require.NoError(t, itr.Error())
+		verifyItr(t, itr, 1, "jkl_")
+
+		itr = store.Iterator("123", "")
+		require.NoError(t, itr.Error())
+		verifyItr(t, itr, 0, "")
 	})
+}
+
+func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string) {
+	var vals []string
+
+	for itr.Next() {
+		if prefix != "" {
+			require.True(t, strings.HasPrefix(string(itr.Key()), prefix))
+		}
+
+		vals = append(vals, string(itr.Value()))
+	}
+	require.Len(t, vals, count)
+
+	itr.Release()
+	require.False(t, itr.Next())
+	require.Empty(t, itr.Key())
+	require.Empty(t, itr.Value())
 }

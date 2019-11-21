@@ -127,6 +127,7 @@ func (s *memStore) Get(k string) ([]byte, error) {
 
 // Iterator returns iterator for the latest snapshot of the underlying db.
 func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
+	// TODO Change Store Iterator https://github.com/hyperledger/aries-framework-go/issues/852
 	s.RLock()
 	data := s.db
 	defer s.RUnlock()
