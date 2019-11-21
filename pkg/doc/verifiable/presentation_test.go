@@ -309,7 +309,7 @@ func TestPresentation_Credentials(t *testing.T) {
 		require.Len(t, credsData, 1)
 
 		// Decode the first verifiable credential
-		vc, err := NewCredential(credsData[0])
+		vc, _, err := NewCredential(credsData[0])
 		require.NoError(t, err)
 
 		// check some VC properties to double check that conversion is OK
@@ -346,7 +346,7 @@ func TestPresentation_Credentials(t *testing.T) {
 		require.Len(t, credsData, 1)
 
 		// Decode the first verifiable credential
-		vc, err := NewCredential(credsData[0])
+		vc, _, err := NewCredential(credsData[0])
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 	})

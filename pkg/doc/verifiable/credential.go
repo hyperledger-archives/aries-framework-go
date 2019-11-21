@@ -288,8 +288,6 @@ type CredentialTemplate func() *Credential
 type credentialOpts struct {
 	schemaDownloadClient   *http.Client
 	disabledCustomSchema   bool
-	decoders               []CredentialDecoder
-	template               CredentialTemplate
 	issuerPublicKeyFetcher PublicKeyFetcher
 }
 
@@ -309,20 +307,6 @@ func WithSchemaDownloadClient(client *http.Client) CredentialOpt {
 func WithNoCustomSchemaCheck() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.disabledCustomSchema = true
-	}
-}
-
-// WithDecoders option is for adding extra JSON decoders into Verifiable Credential data model.
-func WithDecoders(decoders []CredentialDecoder) CredentialOpt {
-	return func(opts *credentialOpts) {
-		opts.decoders = append(opts.decoders, decoders...)
-	}
-}
-
-// WithTemplate option is for setting a custom factory method to create new Credential instance.
-func WithTemplate(template CredentialTemplate) CredentialOpt {
-	return func(opts *credentialOpts) {
-		opts.template = template
 	}
 }
 
@@ -452,90 +436,127 @@ func decodeCredentialSchema(data []byte) ([]TypedID, error) {
 	return nil, errors.New("verifiable credential schema of unsupported format")
 }
 
-// NewCredential creates an instance of Verifiable Credential by reading a JSON document from bytes.
-// It also applies miscellaneous options like custom decoders or settings of schema validation.
-func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
-	// Apply options
-	crOpts := defaultCredentialOpts()
+// NewCredential decodes Verifiable Credential from bytes which could be marshalled JSON or serialized JWT.
+// It also applies miscellaneous options like settings of schema validation.
+// It returns decoded Credential and its marshalled JSON.
+// For JSON bytes input, the output marshalled JSON is the same value.
+// For serialized JWT input, the output is the result of decoding `vc` claim from JWT.
+// The output Credential and marshalled JSON can be used for extensions of the base data model
+// by checking ExtraFields of Credential and/or unmarshalling the JSON to custom date structure.
+func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, error) {
+	// Apply options.
+	crOpts := parseCredentialOpts(opts)
 
-	for _, opt := range opts {
-		opt(crOpts)
-	}
-
+	// Decode credential (e.g. from JWT).
 	vcDataDecoded, err := decodeRaw(vcData, crOpts)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("decode new credential: %w", err)
 	}
 
-	// unmarshal VC from JSON
+	// Unmarshal raw credential from JSON.
 	var raw rawCredential
-
 	err = json.Unmarshal(vcDataDecoded, &raw)
+
 	if err != nil {
-		return nil, fmt.Errorf("new credential: %w", err)
+		return nil, nil, fmt.Errorf("unmarshal new credential: %w", err)
 	}
 
-	schemas, err := loadCredentialSchemas(&raw, vcDataDecoded)
-	if err != nil {
-		return nil, err
+	// Load custom credential schemas if defined.
+	var schemas []TypedID
+	if raw.Schema != nil {
+		schemas, err = loadCredentialSchemas(vcDataDecoded)
+		if err != nil {
+			return nil, nil, fmt.Errorf("load schemas of new credential: %w", err)
+		}
+	} else {
+		schemas = make([]TypedID, 0)
 	}
 
+	// Validate raw credential.
 	err = validate(vcDataDecoded, schemas, crOpts)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("validate new credential: %w", err)
 	}
 
-	cred := crOpts.template()
-
-	err = cred.fill(&raw)
+	// Create credential from raw.
+	vc, err := newCredential(&raw, schemas)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("build new credential: %w", err)
 	}
 
-	cred.Schemas = schemas
+	return vc, vcDataDecoded, nil
+}
 
-	for _, decoder := range crOpts.decoders {
-		err = decoder(vcDataDecoded, cred)
-		if err != nil {
-			return nil, err
+// CustomCredentialProducer is a factory for Credentials with extended data model.
+type CustomCredentialProducer interface {
+	// Accept checks if producer is capable of building extended Credential data model.
+	Accept(vc *Credential) bool
+
+	// Apply creates custom credential using base credential and its JSON bytes.
+	Apply(vc *Credential, dataJSON []byte) (interface{}, error)
+}
+
+// CreateCustomCredential creates custom extended credentials from bytes which could be marshalled JSON
+// or serialized JWT. It decodes input bytes to the base Verifiable Credential using NewCredential().
+// It then checks all producers to find the appropriate which is capable of building extended Credential data model.
+// If none of producers accept the credential, the base credential is returned.
+func CreateCustomCredential(
+	vcData []byte,
+	producers []CustomCredentialProducer,
+	opts ...CredentialOpt) (interface{}, error) {
+	vcBase, vcBytes, credErr := NewCredential(vcData, opts...)
+	if credErr != nil {
+		return nil, fmt.Errorf("build base verifiable credential: %w", credErr)
+	}
+
+	for _, p := range producers {
+		if p.Accept(vcBase) {
+			customCred, err := p.Apply(vcBase, vcBytes)
+			if err != nil {
+				return nil, fmt.Errorf("build extended verifiable credential: %w", err)
+			}
+
+			return customCred, nil
 		}
 	}
 
-	return cred, nil
+	// Return base credential as no producers are capable of VC extension.
+	return vcBase, nil
 }
 
-func (vc *Credential) fill(raw *rawCredential) error {
+func newCredential(raw *rawCredential, schemas []TypedID) (*Credential, error) {
 	types, err := decodeType(raw)
 	if err != nil {
-		return fmt.Errorf("fill vc types from raw: %w", err)
+		return nil, fmt.Errorf("fill credential types from raw: %w", err)
 	}
 
 	issuer, err := decodeIssuer(raw)
 	if err != nil {
-		return fmt.Errorf("fill vc issuer from raw: %w", err)
+		return nil, fmt.Errorf("fill credential issuer from raw: %w", err)
 	}
 
 	context, customContext, err := decodeContext(raw)
 	if err != nil {
-		return fmt.Errorf("fill vc context from raw: %w", err)
+		return nil, fmt.Errorf("fill credential context from raw: %w", err)
 	}
 
-	vc.Context = context
-	vc.CustomContext = customContext
-	vc.ID = raw.ID
-	vc.Subject = raw.Subject
-	vc.Issued = raw.Issued
-	vc.Expired = raw.Expired
-	vc.Proof = raw.Proof
-	vc.Status = raw.Status
-	vc.Evidence = raw.Evidence
-	vc.RefreshService = raw.RefreshService
-	vc.ExtraFields = raw.ExtraFields
-	vc.Types = types
-	vc.Issuer = issuer
-	vc.TermsOfUse = raw.TermsOfUse
-
-	return nil
+	return &Credential{
+		Context:        context,
+		CustomContext:  customContext,
+		ID:             raw.ID,
+		Types:          types,
+		Subject:        raw.Subject,
+		Issuer:         issuer,
+		Issued:         raw.Issued,
+		Expired:        raw.Expired,
+		Proof:          raw.Proof,
+		Status:         raw.Status,
+		Schemas:        schemas,
+		Evidence:       raw.Evidence,
+		TermsOfUse:     raw.TermsOfUse,
+		RefreshService: raw.RefreshService,
+		ExtraFields:    raw.ExtraFields,
+	}, nil
 }
 
 func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, error) {
@@ -564,25 +585,29 @@ func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, error) {
 	return vcData, nil
 }
 
-func loadCredentialSchemas(raw *rawCredential, vcDataDecoded []byte) ([]TypedID, error) {
-	if raw.Schema != nil {
-		schemas, err := decodeCredentialSchema(vcDataDecoded)
-		if err != nil {
-			return nil, fmt.Errorf("load credential schema: %w", err)
-		}
-
-		return schemas, nil
+func loadCredentialSchemas(vcBytes []byte) ([]TypedID, error) {
+	schemas, err := decodeCredentialSchema(vcBytes)
+	if err != nil {
+		return nil, fmt.Errorf("load credential schema: %w", err)
 	}
 
-	return []TypedID{}, nil
+	return schemas, nil
+}
+
+func parseCredentialOpts(opts []CredentialOpt) *credentialOpts {
+	crOpts := defaultCredentialOpts()
+
+	for _, opt := range opts {
+		opt(crOpts)
+	}
+
+	return crOpts
 }
 
 func defaultCredentialOpts() *credentialOpts {
 	return &credentialOpts{
 		schemaDownloadClient: &http.Client{},
 		disabledCustomSchema: false,
-		decoders:             []CredentialDecoder{},
-		template:             func() *Credential { return &Credential{} },
 	}
 }
 

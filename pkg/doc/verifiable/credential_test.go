@@ -7,7 +7,6 @@ package verifiable
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -47,9 +46,10 @@ const issuerAsObject = `
 
 func TestNewCredential(t *testing.T) {
 	t.Run("test creation of new Verifiable Credential from JSON with valid structure", func(t *testing.T) {
-		vc, err := NewCredential([]byte(validCredential))
+		vc, vcData, err := NewCredential([]byte(validCredential))
 		require.NoError(t, err)
 		require.NotNil(t, vc)
+		require.NotEmpty(t, vcData)
 
 		// validate @context
 		require.Equal(t, []string{
@@ -101,27 +101,15 @@ func TestNewCredential(t *testing.T) {
 
 	t.Run("test a try to create a new Verifiable Credential from JSON with invalid structure", func(t *testing.T) {
 		emptyJSONDoc := "{}"
-		_, err := NewCredential([]byte(emptyJSONDoc))
+		_, _, err := NewCredential([]byte(emptyJSONDoc))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "verifiable credential is not valid")
 	})
 
 	t.Run("test a try to create a new Verifiable Credential from non-JSON doc", func(t *testing.T) {
-		_, err := NewCredential([]byte("non json"))
+		_, _, err := NewCredential([]byte("non json"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "new credential")
-	})
-
-	t.Run("test a try to create a new Verifiable Credential with failing custom decoder", func(t *testing.T) {
-		_, err := NewCredential(
-			[]byte(validCredential),
-			WithDecoders([]CredentialDecoder{
-				func(dataJSON []byte, credential *Credential) error {
-					return errors.New("test decoding error")
-				},
-			}))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "test decoding error")
 	})
 }
 
@@ -510,7 +498,7 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 
 func TestJSONConversionWithPlainIssuer(t *testing.T) {
 	// setup -> create verifiable credential from json byte data
-	vc, err := NewCredential([]byte(validCredential))
+	vc, _, err := NewCredential([]byte(validCredential))
 	require.NoError(t, err)
 	require.NotEmpty(t, vc)
 
@@ -520,7 +508,7 @@ func TestJSONConversionWithPlainIssuer(t *testing.T) {
 	require.NotEmpty(t, byteCred)
 
 	// convert json byte data to verifiable credential
-	cred2, err := NewCredential(byteCred)
+	cred2, _, err := NewCredential(byteCred)
 	require.NoError(t, err)
 	require.NotEmpty(t, cred2)
 
@@ -530,7 +518,7 @@ func TestJSONConversionWithPlainIssuer(t *testing.T) {
 
 func TestJSONConversionCompositeIssuer(t *testing.T) {
 	// setup -> create verifiable credential from json byte data
-	vc, err := NewCredential([]byte(validCredential))
+	vc, _, err := NewCredential([]byte(validCredential))
 	require.NoError(t, err)
 	require.NotEmpty(t, vc)
 
@@ -544,7 +532,7 @@ func TestJSONConversionCompositeIssuer(t *testing.T) {
 	require.NotEmpty(t, byteCred)
 
 	// convert json byte data to verifiable credential
-	cred2, err := NewCredential(byteCred)
+	cred2, _, err := NewCredential(byteCred)
 	require.NoError(t, err)
 	require.NotEmpty(t, cred2)
 
@@ -604,7 +592,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	require.NoError(t, mErr)
 
 	t.Run("Applies custom JSON Schema and detects data inconsistency due to missing new required field", func(t *testing.T) { //nolint:lll
-		_, err := NewCredential(missingReqFieldSchema, WithSchemaDownloadClient(&http.Client{}))
+		_, _, err := NewCredential(missingReqFieldSchema, WithSchemaDownloadClient(&http.Client{}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "referenceNumber is required")
 	})
@@ -619,7 +607,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		customValidSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		vc, err := NewCredential(customValidSchema, WithSchemaDownloadClient(&http.Client{}))
+		vc, _, err := NewCredential(customValidSchema, WithSchemaDownloadClient(&http.Client{}))
 		require.NoError(t, err)
 
 		// check credential schema
@@ -639,7 +627,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		schemaWithInvalidURLToCredentialSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		_, err = NewCredential(schemaWithInvalidURLToCredentialSchema, WithSchemaDownloadClient(&http.Client{}))
+		_, _, err = NewCredential(schemaWithInvalidURLToCredentialSchema, WithSchemaDownloadClient(&http.Client{}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "load of custom credential schema")
 	})
@@ -654,7 +642,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		unsupportedCredentialTypeOfSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		vc, err := NewCredential(unsupportedCredentialTypeOfSchema, WithSchemaDownloadClient(&http.Client{}))
+		vc, _, err := NewCredential(unsupportedCredentialTypeOfSchema, WithSchemaDownloadClient(&http.Client{}))
 		require.NoError(t, err)
 
 		// check credential schema
@@ -664,7 +652,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	})
 
 	t.Run("Fallback to default schema validation when custom schemas usage is disabled", func(t *testing.T) {
-		_, err := NewCredential(missingReqFieldSchema,
+		_, _, err := NewCredential(missingReqFieldSchema,
 			WithSchemaDownloadClient(&http.Client{}),
 			WithNoCustomSchemaCheck())
 
@@ -716,8 +704,6 @@ func TestDefaultCredentialOpts(t *testing.T) {
 	require.NotNil(t, opts)
 	require.NotNil(t, opts.schemaDownloadClient)
 	require.False(t, opts.disabledCustomSchema)
-	require.NotNil(t, opts.template)
-	require.NotNil(t, opts.decoders)
 }
 
 func TestCredentialSubjectId(t *testing.T) {
@@ -1043,4 +1029,30 @@ func TestContextToSerialize(t *testing.T) {
 			[]interface{}{
 				customContext,
 			}))
+}
+
+func TestNewCredentialFromRaw(t *testing.T) {
+	_, err := newCredential(&rawCredential{
+		Type:    5,
+		Issuer:  "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Context: "https://www.w3.org/2018/credentials/v1",
+	}, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "fill credential types from raw")
+
+	_, err = newCredential(&rawCredential{
+		Type:    "VerifiableCredential",
+		Issuer:  5,
+		Context: "https://www.w3.org/2018/credentials/v1",
+	}, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "fill credential issuer from raw")
+
+	_, err = newCredential(&rawCredential{
+		Type:    "VerifiableCredential",
+		Issuer:  "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Context: 5, // invalid context
+	}, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "fill credential context from raw")
 }
