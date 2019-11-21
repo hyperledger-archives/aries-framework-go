@@ -17,47 +17,22 @@ const (
 	StoreNamespace = "peer"
 )
 
-// Option configures the peer vdri
-type Option func(opts *VDRI)
-
 // VDRI implements building new peer dids
 type VDRI struct {
-	serviceEndpoint string
-	serviceType     string
-	store           storage.Store
+	store storage.Store
 }
 
 // New return new instance of peer vdri
-func New(s storage.Provider, opts ...Option) (*VDRI, error) {
+func New(s storage.Provider) (*VDRI, error) {
 	didDBStore, err := s.OpenStore(StoreNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("open store : %w", err)
 	}
 
-	vdri := &VDRI{store: didDBStore}
-
-	for _, option := range opts {
-		option(vdri)
-	}
-
-	return vdri, nil
+	return &VDRI{store: didDBStore}, nil
 }
 
 // Accept did method
 func (v *VDRI) Accept(method string) bool {
 	return method == didMethod
-}
-
-// WithCreatorServiceType is service type for this creator
-func WithCreatorServiceType(serviceType string) Option {
-	return func(opts *VDRI) {
-		opts.serviceType = serviceType
-	}
-}
-
-// WithCreatorServiceEndpoint allows for setting service endpoint
-func WithCreatorServiceEndpoint(serviceEndpoint string) Option {
-	return func(opts *VDRI) {
-		opts.serviceEndpoint = serviceEndpoint
-	}
 }

@@ -19,31 +19,10 @@ import (
 )
 
 const (
-	serviceEndpoint    = "sample-endpoint.com"
-	serviceTypeDIDComm = "did-communication"
-	keyType            = "key-type"
+	keyType = "key-type"
 )
 
 func TestDIDCreator(t *testing.T) {
-	t.Run("test default creator options", func(t *testing.T) {
-		c, err := New(&storage.MockStoreProvider{}, WithCreatorServiceEndpoint(serviceEndpoint),
-			WithCreatorServiceType(serviceTypeDIDComm))
-		require.NoError(t, err)
-		require.NotNil(t, c)
-		didDoc, err := c.Build(getSigningKey())
-		require.NoError(t, err)
-		require.NotNil(t, didDoc)
-
-		// verify not empty services
-		require.NotEmpty(t, didDoc.Service)
-		require.Equal(t, serviceTypeDIDComm, didDoc.Service[0].Type)
-		require.Equal(t, serviceEndpoint, didDoc.Service[0].ServiceEndpoint)
-
-		// verify public key
-		require.NotEmpty(t, didDoc.PublicKey)
-		require.Equal(t, keyType, didDoc.PublicKey[0].Type)
-	})
-
 	t.Run("test create without service type", func(t *testing.T) {
 		c, err := New(&storage.MockStoreProvider{})
 		require.NoError(t, err)
@@ -58,8 +37,7 @@ func TestDIDCreator(t *testing.T) {
 	})
 
 	t.Run("test request overrides", func(t *testing.T) {
-		c, err := New(&storage.MockStoreProvider{}, WithCreatorServiceEndpoint(serviceEndpoint),
-			WithCreatorServiceType(serviceEndpoint))
+		c, err := New(&storage.MockStoreProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, c)
 

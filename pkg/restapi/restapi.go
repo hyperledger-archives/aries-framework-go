@@ -9,6 +9,7 @@ package restapi
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/common"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
 )
@@ -51,7 +52,11 @@ func New(ctx *context.Provider, opts ...Opt) (*Controller, error) {
 		return nil, err
 	}
 
+	// Add common Rest Handlers
+	general := common.New(ctx)
+
 	allHandlers = append(allHandlers, exchange.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, general.GetRESTHandlers()...)
 
 	return &Controller{handlers: allHandlers}, nil
 }

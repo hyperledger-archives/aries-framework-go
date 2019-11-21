@@ -12,13 +12,13 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
   @didexchange_public_dids_invitation
   Scenario: did exchange e2e flow using public DID in invitation
     Given "Maria" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
-    And   "Maria" creates public DID using sidetree "${SIDETREE_URL}"
+    And   "Maria" creates public DID for did method "sidetree" using "${SIDETREE_URL}"
     # we wait until observer polls sidetree txn
     Then  "Maria" waits for public did to become available in sidetree for up to 10 seconds
     And   "Maria" creates did exchange client
     And   "Maria" registers to receive notification for post state event "completed"
     Given "Lisa" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
-    And   "Lisa" creates public DID using sidetree "${SIDETREE_URL}"
+    And   "Lisa" creates public DID for did method "sidetree" using "${SIDETREE_URL}"
     # we wait until observer polls sidetree txn
     Then  "Lisa" waits for public did to become available in sidetree for up to 10 seconds
     And   "Lisa" creates did exchange client
@@ -35,7 +35,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
   @didexchange_mixed_public_and_peer_dids
   Scenario: did exchange e2e flow using public DID in invitation
     Given "Julia" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
-    And   "Julia" creates public DID using sidetree "${SIDETREE_URL}"
+    And   "Julia" creates public DID for did method "sidetree" using "${SIDETREE_URL}"
     # we wait until observer polls sidetree txn
     Then  "Julia" waits for public did to become available in sidetree for up to 10 seconds
     And   "Julia" creates did exchange client

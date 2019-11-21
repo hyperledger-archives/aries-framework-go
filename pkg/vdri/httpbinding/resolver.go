@@ -23,12 +23,7 @@ func (v *VDRI) resolveDID(uri string) ([]byte, error) {
 		return nil, fmt.Errorf("HTTP Get request failed: %w", err)
 	}
 
-	defer func() {
-		e := resp.Body.Close()
-		if e != nil {
-			logger.Errorf("Failed to close response body: %v", e)
-		}
-	}()
+	defer closeResponseBody(resp.Body)
 
 	if containsDIDDocument(resp) {
 		var gotBody []byte

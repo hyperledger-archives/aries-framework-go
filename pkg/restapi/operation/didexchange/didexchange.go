@@ -28,7 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-var logger = log.New("aries-framework/did-exchange")
+var logger = log.New("aries-framework/controller/did-exchange")
 
 const (
 	operationID             = "/connections"

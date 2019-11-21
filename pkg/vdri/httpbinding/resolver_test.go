@@ -54,35 +54,40 @@ func TestWithOutboundOpts(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	var err error
+	t.Run("test new with no options", func(t *testing.T) {
+		var err error
+		// OK with no options
+		_, err = New("https://uniresolver.io/")
+		require.NoError(t, err)
+	})
 
-	// OK with no options
-	_, err = New("https://uniresolver.io/")
-	require.NoError(t, err)
+	t.Run("test new with all options are applied", func(t *testing.T) {
+		// All options are applied
+		i := 0
+		_, err := New("https://uniresolver.io/",
+			func(opts *VDRI) {
+				i += 1 // nolint
+			},
+			func(opts *VDRI) {
+				i += 2
+			},
+		)
+		require.NoError(t, err)
+		require.Equal(t, 1+2, i)
+	})
 
-	// All options are applied
-	i := 0
-	_, err = New("https://uniresolver.io/",
-		func(opts *VDRI) {
-			i += 1 // nolint
-		},
-		func(opts *VDRI) {
-			i += 2
-		},
-	)
-	require.NoError(t, err)
-	require.Equal(t, 1+2, i)
+	t.Run("test new with invalid url", func(t *testing.T) {
+		// Invalid URL
+		_, err := New("invalid url")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "base URL invalid")
 
-	// Invalid URL
-	_, err = New("invalid url")
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "base URL invalid")
-
-	r, err := New("https://uniresolver.io/", WithAccept(func(method string) bool {
-		return false
-	}))
-	require.NoError(t, err)
-	require.False(t, r.Accept("w"))
+		r, err := New("https://uniresolver.io/", WithAccept(func(method string) bool {
+			return false
+		}))
+		require.NoError(t, err)
+		require.False(t, r.Accept("w"))
+	})
 }
 
 func TestRead_DIDDoc(t *testing.T) {

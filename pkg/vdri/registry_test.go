@@ -19,6 +19,22 @@ import (
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 )
 
+func TestRegistry_New(t *testing.T) {
+	t.Run("test new success", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{})
+		require.NotNil(t, registry)
+	})
+	t.Run("test new with opts success", func(t *testing.T) {
+		const sampleSvcType = "sample-svc-type"
+		const sampleSvcEndpoint = "sample-svc-endpoint"
+		registry := New(&mockprovider.Provider{},
+			WithDefaultServiceEndpoint(sampleSvcEndpoint), WithDefaultServiceType(sampleSvcType))
+		require.NotNil(t, registry)
+		require.Equal(t, sampleSvcEndpoint, registry.defServiceEndpoint)
+		require.Equal(t, sampleSvcType, registry.defServiceType)
+	})
+}
+
 func TestRegistry_Close(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{})

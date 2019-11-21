@@ -274,13 +274,13 @@ func createVDRI(frameworkOpts *Aries) error {
 		opts = append(opts, vdri.WithVDRI(v))
 	}
 
-	p, err := peer.New(ctx.StorageProvider(), peer.WithCreatorServiceType("did-communication"),
-		peer.WithCreatorServiceEndpoint(ctx.InboundTransportEndpoint()))
+	p, err := peer.New(ctx.StorageProvider())
 	if err != nil {
 		return fmt.Errorf("create new vdri peer failed: %w", err)
 	}
 
-	opts = append(opts, vdri.WithVDRI(p))
+	opts = append(opts, vdri.WithVDRI(p), vdri.WithDefaultServiceType(vdriapi.DIDCommServiceType),
+		vdri.WithDefaultServiceEndpoint(ctx.InboundTransportEndpoint()))
 
 	frameworkOpts.vdriRegistry = vdri.New(ctx, opts...)
 

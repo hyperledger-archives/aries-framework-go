@@ -118,6 +118,7 @@ func (m *MockDIDExchangeSvc) AcceptInvitation(connectionID string) error {
 type MockProvider struct {
 	StoreProvider          *mockstore.MockStoreProvider
 	TransientStoreProvider *mockstore.MockStoreProvider
+	CustomVDRI             vdriapi.Registry
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service
@@ -150,5 +151,9 @@ func (p *MockProvider) Signer() kms.Signer {
 
 // VDRIRegistry is mock vdri registry
 func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
+	if p.CustomVDRI != nil {
+		return p.CustomVDRI
+	}
+
 	return &mockvdri.MockVDRIRegistry{}
 }
