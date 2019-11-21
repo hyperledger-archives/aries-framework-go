@@ -26,7 +26,7 @@ GOBIN_PATH=$(abspath .)/build/bin
 MOCKGEN = $(GOBIN_PATH)/mockgen
 
 .PHONY: all
-all: checks generate-openapi-spec unit-test bdd-test
+all: clean checks unit-test bdd-test
 
 .PHONY: checks
 checks: license lint generate-openapi-spec
