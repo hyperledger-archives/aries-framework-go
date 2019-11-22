@@ -22,7 +22,6 @@ import (
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
-	outboundDispatcher       dispatcher.Outbound
 	services                 []dispatcher.Service
 	storeProvider            storage.Provider
 	transientStoreProvider   storage.Provider
@@ -31,7 +30,8 @@ type Provider struct {
 	primaryPacker            packer.Packer
 	packers                  []packer.Packer
 	inboundTransportEndpoint string
-	outboundTransport        transport.OutboundTransport
+	outboundDispatcher       dispatcher.Outbound
+	outboundTransports       []transport.OutboundTransport
 	vdriRegistry             vdriapi.Registry
 }
 
@@ -56,7 +56,7 @@ func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
 
 // OutboundTransports returns an outbound transports.
 func (p *Provider) OutboundTransports() []transport.OutboundTransport {
-	return []transport.OutboundTransport{p.outboundTransport}
+	return p.outboundTransports
 }
 
 // Service return protocol service
@@ -137,18 +137,18 @@ func (p *Provider) VDRIRegistry() vdriapi.Registry {
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
-// WithOutboundDispatcher injects an outbound dispatcher into the context.
-func WithOutboundDispatcher(ot dispatcher.Outbound) ProviderOption {
+// WithOutboundTransports injects an outbound transports into the context.
+func WithOutboundTransports(transports ...transport.OutboundTransport) ProviderOption {
 	return func(opts *Provider) error {
-		opts.outboundDispatcher = ot
+		opts.outboundTransports = transports
 		return nil
 	}
 }
 
-// WithOutboundTransport injects an outbound transport into the context.
-func WithOutboundTransport(ot transport.OutboundTransport) ProviderOption {
+// WithOutboundDispatcher injects an outbound dispatcher into the context.
+func WithOutboundDispatcher(outboundDispatcher dispatcher.Outbound) ProviderOption {
 	return func(opts *Provider) error {
-		opts.outboundTransport = ot
+		opts.outboundDispatcher = outboundDispatcher
 		return nil
 	}
 }

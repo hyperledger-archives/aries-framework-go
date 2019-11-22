@@ -15,6 +15,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
 
+// provider interface for outbound ctx
+type provider interface {
+	Packager() commontransport.Packager
+	OutboundTransports() []transport.OutboundTransport
+}
+
 // OutboundDispatcher dispatch msgs to destination
 type OutboundDispatcher struct {
 	outboundTransports []transport.OutboundTransport
@@ -22,7 +28,7 @@ type OutboundDispatcher struct {
 }
 
 // NewOutbound return new dispatcher outbound instance
-func NewOutbound(prov Provider) *OutboundDispatcher {
+func NewOutbound(prov provider) *OutboundDispatcher {
 	return &OutboundDispatcher{outboundTransports: prov.OutboundTransports(), packager: prov.Packager()}
 }
 

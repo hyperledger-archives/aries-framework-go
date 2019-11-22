@@ -21,13 +21,13 @@ import (
 
 func TestOutboundDispatcher_Send(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		o := NewOutbound(&provider{packagerValue: &mockpackager.Packager{},
+		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}}})
 		require.NoError(t, o.Send("data", "", &service.Destination{ServiceEndpoint: "url"}))
 	})
 
 	t.Run("test no outbound transport found", func(t *testing.T) {
-		o := NewOutbound(&provider{packagerValue: &mockpackager.Packager{},
+		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}}})
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
@@ -35,7 +35,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 	})
 
 	t.Run("test pack msg failure", func(t *testing.T) {
-		o := NewOutbound(&provider{packagerValue: &mockpackager.Packager{PackErr: fmt.Errorf("pack error")},
+		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{PackErr: fmt.Errorf("pack error")},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}}})
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
@@ -43,7 +43,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 	})
 
 	t.Run("test outbound send failure", func(t *testing.T) {
-		o := NewOutbound(&provider{packagerValue: &mockpackager.Packager{},
+		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")}}})
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
@@ -52,15 +52,15 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 	})
 }
 
-type provider struct {
+type mockProvider struct {
 	packagerValue           commontransport.Packager
 	outboundTransportsValue []transport.OutboundTransport
 }
 
-func (p *provider) Packager() commontransport.Packager {
+func (p *mockProvider) Packager() commontransport.Packager {
 	return p.packagerValue
 }
 
-func (p *provider) OutboundTransports() []transport.OutboundTransport {
+func (p *mockProvider) OutboundTransports() []transport.OutboundTransport {
 	return p.outboundTransportsValue
 }
