@@ -26,23 +26,22 @@ import (
 type Aries struct {
 	storeProvider storage.Provider
 	// TODO Rename transient store to protocol state store https://github.com/hyperledger/aries-framework-go/issues/835
-	transientStoreProvider    storage.Provider
-	protocolSvcCreators       []api.ProtocolSvcCreator
-	services                  []dispatcher.Service
-	outboundTransport         transport.OutboundTransport
-	inboundTransport          transport.InboundTransport
-	kmsCreator                api.KMSCreator
-	kms                       api.CloseableKMS
-	outboundDispatcherCreator dispatcher.OutboundCreator
-	outboundDispatcher        dispatcher.Outbound
-	packagerCreator           packager.Creator
-	packager                  commontransport.Packager
-	packerCreator             packer.Creator
-	packerCreators            []packer.Creator
-	primaryPacker             packer.Packer
-	packers                   []packer.Packer
-	vdriRegistry              vdriapi.Registry
-	vdri                      []vdriapi.VDRI
+	transientStoreProvider storage.Provider
+	protocolSvcCreators    []api.ProtocolSvcCreator
+	services               []dispatcher.Service
+	outboundDispatcher     dispatcher.Outbound
+	outboundTransports     []transport.OutboundTransport
+	inboundTransport       transport.InboundTransport
+	kmsCreator             api.KMSCreator
+	kms                    api.CloseableKMS
+	packagerCreator        packager.Creator
+	packager               commontransport.Packager
+	packerCreator          packer.Creator
+	packerCreators         []packer.Creator
+	primaryPacker          packer.Packer
+	packers                []packer.Packer
+	vdriRegistry           vdriapi.Registry
+	vdri                   []vdriapi.VDRI
 }
 
 // Option configures the framework.
@@ -113,10 +112,10 @@ func New(opts ...Option) (*Aries, error) {
 	return frameworkOpts, nil
 }
 
-// WithOutboundTransport injects an outbound transport to the Aries framework.
-func WithOutboundTransport(outboundTransport transport.OutboundTransport) Option {
+// WithOutboundTransports injects an outbound transports to the Aries framework.
+func WithOutboundTransports(outboundTransports ...transport.OutboundTransport) Option {
 	return func(opts *Aries) error {
-		opts.outboundTransport = outboundTransport
+		opts.outboundTransports = append(opts.outboundTransports, outboundTransports...)
 		return nil
 	}
 }
@@ -153,14 +152,6 @@ func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
 	}
 }
 
-// WithOutboundDispatcher injects an outbound dispatcher service to the Aries framework.
-func WithOutboundDispatcher(o dispatcher.OutboundCreator) Option {
-	return func(opts *Aries) error {
-		opts.outboundDispatcherCreator = o
-		return nil
-	}
-}
-
 // WithKMS injects a KMS service to the Aries framework.
 func WithKMS(k api.KMSCreator) Option {
 	return func(opts *Aries) error {
@@ -192,7 +183,7 @@ func WithPacker(primary packer.Creator, additionalPackers ...packer.Creator) Opt
 func (a *Aries) Context() (*context.Provider, error) {
 	return context.New(
 		context.WithOutboundDispatcher(a.outboundDispatcher),
-		context.WithOutboundTransport(a.outboundTransport),
+		context.WithOutboundTransports(a.outboundTransports...),
 		context.WithProtocolServices(a.services...),
 		context.WithKMS(a.kms),
 		context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
@@ -289,16 +280,13 @@ func createVDRI(frameworkOpts *Aries) error {
 
 func createOutboundDispatcher(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithKMS(frameworkOpts.kms),
-		context.WithOutboundTransport(frameworkOpts.outboundTransport),
+		context.WithOutboundTransports(frameworkOpts.outboundTransports...),
 		context.WithPackager(frameworkOpts.packager))
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
 	}
 
-	frameworkOpts.outboundDispatcher, err = frameworkOpts.outboundDispatcherCreator(ctx)
-	if err != nil {
-		return fmt.Errorf("create outbound dispatcher failed: %w", err)
-	}
+	frameworkOpts.outboundDispatcher = dispatcher.NewOutbound(ctx)
 
 	return nil
 }

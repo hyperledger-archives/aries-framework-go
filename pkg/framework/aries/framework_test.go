@@ -28,7 +28,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
-	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -114,38 +113,6 @@ func TestFramework(t *testing.T) {
 
 		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), "", &service.Destination{ServiceEndpoint: serverURL})
 		require.NoError(t, e)
-	})
-
-	t.Run("test framework new - with inject outbound dispatcher", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-		dbPath = path
-
-		aries, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithOutboundDispatcher(func(prv dispatcher.Provider) (outbound dispatcher.Outbound, e error) {
-				return &mockdispatcher.MockOutbound{}, nil
-			}))
-		require.NoError(t, err)
-
-		// context
-		ctx, err := aries.Context()
-		require.NoError(t, err)
-
-		e := ctx.OutboundDispatcher().Send([]byte("Hello World"), "", &service.Destination{})
-		require.NoError(t, e)
-	})
-
-	t.Run("test framework new - error from create outbound dispatcher", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-		dbPath = path
-
-		_, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithOutboundDispatcher(func(prv dispatcher.Provider) (outbound dispatcher.Outbound, e error) {
-				return nil, fmt.Errorf("create outbound dispatcher error")
-			}))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "create outbound dispatcher error")
 	})
 
 	// framework new - success
@@ -380,6 +347,24 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, aries)
 		require.Equal(t, s, aries.transientStoreProvider)
+	})
+
+	t.Run("test new with outbound transport service", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		aries, err := New(WithOutboundTransports(&didcomm.MockOutboundTransport{ExpectedResponse: "data"},
+			&didcomm.MockOutboundTransport{ExpectedResponse: "data1"}))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(aries.outboundTransports))
+		r, err := aries.outboundTransports[0].Send([]byte("data"), "url")
+		require.NoError(t, err)
+		require.Equal(t, "data", r)
+		r, err = aries.outboundTransports[1].Send([]byte("data1"), "url")
+		require.NoError(t, err)
+		require.Equal(t, "data1", r)
+		require.NoError(t, aries.Close())
 	})
 }
 

@@ -196,10 +196,15 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with outbound transport service", func(t *testing.T) {
-		prov, err := New(WithOutboundTransport(&mockdidcomm.MockOutboundTransport{ExpectedResponse: "data"}))
+		prov, err := New(WithOutboundTransports(&mockdidcomm.MockOutboundTransport{ExpectedResponse: "data"},
+			&mockdidcomm.MockOutboundTransport{ExpectedResponse: "data1"}))
 		require.NoError(t, err)
-		r, err := prov.OutboundTransports()[0].Send([]byte("data"), "url")
+		require.Equal(t, 2, len(prov.outboundTransports))
+		r, err := prov.outboundTransports[0].Send([]byte("data"), "url")
 		require.NoError(t, err)
 		require.Equal(t, "data", r)
+		r, err = prov.outboundTransports[1].Send([]byte("data1"), "url")
+		require.NoError(t, err)
+		require.Equal(t, "data1", r)
 	})
 }

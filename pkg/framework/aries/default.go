@@ -40,13 +40,13 @@ func inboundTransport() (didcommtrans.InboundTransport, error) {
 // defFrameworkOpts provides default framework options
 func defFrameworkOpts(frameworkOpts *Aries) error {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/209 Move default providers to the sub-package
-	if frameworkOpts.outboundTransport == nil {
+	if len(frameworkOpts.outboundTransports) == 0 {
 		outbound, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
 		if err != nil {
 			return fmt.Errorf("http outbound transport initialization failed: %w", err)
 		}
 
-		frameworkOpts.outboundTransport = outbound
+		frameworkOpts.outboundTransports = append(frameworkOpts.outboundTransports, outbound)
 	}
 
 	if frameworkOpts.storeProvider == nil {
@@ -103,12 +103,6 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 	if frameworkOpts.packagerCreator == nil {
 		frameworkOpts.packagerCreator = func(prov packager.Provider) (transport.Packager, error) {
 			return packager.New(prov)
-		}
-	}
-
-	if frameworkOpts.outboundDispatcherCreator == nil {
-		frameworkOpts.outboundDispatcherCreator = func(prv dispatcher.Provider) (dispatcher.Outbound, error) {
-			return dispatcher.NewOutbound(prv), nil
 		}
 	}
 

@@ -91,7 +91,7 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort, scheme string,
 			return fmt.Errorf("failed to create websocket: %w", err)
 		}
 
-		opts = append(opts, aries.WithInboundTransport(inbound), aries.WithOutboundTransport(ws.NewOutbound()))
+		opts = append(opts, aries.WithInboundTransport(inbound), aries.WithOutboundTransports(ws.NewOutbound()))
 	case httpTransportProvider:
 		opts = append(opts, defaults.WithInboundHTTPAddr(inboundAddr, "http://"+inboundAddr))
 	default:
