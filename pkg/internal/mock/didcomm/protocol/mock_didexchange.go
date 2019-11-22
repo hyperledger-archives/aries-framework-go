@@ -30,6 +30,7 @@ type MockDIDExchangeSvc struct {
 	UnregisterActionEventErr error
 	RegisterMsgEventErr      error
 	UnregisterMsgEventErr    error
+	AcceptError              error
 }
 
 // HandleInbound msg
@@ -105,12 +106,20 @@ func (m *MockDIDExchangeSvc) UnregisterMsgEvent(ch chan<- service.StateMsg) erro
 }
 
 // AcceptExchangeRequest accepts/approves exchange request.
-func (m *MockDIDExchangeSvc) AcceptExchangeRequest(connectionID string) error {
+func (m *MockDIDExchangeSvc) AcceptExchangeRequest(connectionID, publicDID, label string) error {
+	if m.AcceptError != nil {
+		return m.AcceptError
+	}
+
 	return nil
 }
 
 // AcceptInvitation accepts/approves exchange invitation.
-func (m *MockDIDExchangeSvc) AcceptInvitation(connectionID string) error {
+func (m *MockDIDExchangeSvc) AcceptInvitation(connectionID, publicDID, label string) error {
+	if m.AcceptError != nil {
+		return m.AcceptError
+	}
+
 	return nil
 }
 
