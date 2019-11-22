@@ -715,7 +715,7 @@ func TestCredentialSubjectId(t *testing.T) {
 				"name": "Bachelor of Science and Arts",
 			},
 		}}
-		subjectID, err := vcWithSingleSubject.SubjectID()
+		subjectID, err := subjectID(vcWithSingleSubject.Subject)
 		require.NoError(t, err)
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ecaa", subjectID)
 	})
@@ -728,7 +728,7 @@ func TestCredentialSubjectId(t *testing.T) {
 				"name": "Bachelor of Science and Arts",
 			},
 		}}}
-		subjectID, err := vcWithSingleSubject.SubjectID()
+		subjectID, err := subjectID(vcWithSingleSubject.Subject)
 		require.NoError(t, err)
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ecaa", subjectID)
 	})
@@ -747,7 +747,7 @@ func TestCredentialSubjectId(t *testing.T) {
 					"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				},
 			}}
-		_, err := vcWithMultipleSubjects.SubjectID()
+		_, err := subjectID(vcWithMultipleSubjects.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "more than one subject is defined")
 	})
@@ -756,16 +756,16 @@ func TestCredentialSubjectId(t *testing.T) {
 		vcWithNoSubject := &Credential{
 			Subject: nil,
 		}
-		_, err := vcWithNoSubject.SubjectID()
+		_, err := subjectID(vcWithNoSubject.Subject)
 		require.Error(t, err)
-		require.EqualError(t, err, "subject of unknown structure")
+		require.EqualError(t, err, "subject id is not defined")
 	})
 
 	t.Run("With empty Subject", func(t *testing.T) {
 		vcWithNoSubject := &Credential{
 			Subject: []map[string]interface{}{},
 		}
-		_, err := vcWithNoSubject.SubjectID()
+		_, err := subjectID(vcWithNoSubject.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "no subject is defined")
 	})
@@ -778,7 +778,7 @@ func TestCredentialSubjectId(t *testing.T) {
 				"name": "Bachelor of Science and Arts",
 			},
 		}}
-		_, err := vcWithNotStringID.SubjectID()
+		_, err := subjectID(vcWithNotStringID.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "subject id is not string")
 	})
@@ -795,9 +795,44 @@ func TestCredentialSubjectId(t *testing.T) {
 				},
 			},
 		}
-		_, err := vcWithSubjectWithoutID.SubjectID()
+		_, err := subjectID(vcWithSubjectWithoutID.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "subject id is not defined")
+	})
+
+	t.Run("Get subject id from custom structure", func(t *testing.T) {
+		type UniversityDegree struct {
+			Type       string `json:"type,omitempty"`
+			University string `json:"university,omitempty"`
+		}
+
+		type UniversityDegreeSubject struct {
+			ID     string           `json:"id,omitempty"`
+			Name   string           `json:"name,omitempty"`
+			Spouse string           `json:"spouse,omitempty"`
+			Degree UniversityDegree `json:"degree,omitempty"`
+		}
+
+		vcWithSubjectWithoutID := &Credential{
+			Subject: UniversityDegreeSubject{
+				ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+				Name:   "Jayden Doe",
+				Spouse: "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				Degree: UniversityDegree{
+					Type:       "BachelorDegree",
+					University: "MIT",
+				},
+			},
+		}
+		subjectID, err := subjectID(vcWithSubjectWithoutID.Subject)
+		require.NoError(t, err)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjectID)
+	})
+
+	t.Run("Get subject id from unmarshalable structure", func(t *testing.T) {
+		_, err := subjectID(make(chan int))
+		require.Error(t, err)
+		require.EqualError(t, err, "subject of unknown structure")
 	})
 }
 

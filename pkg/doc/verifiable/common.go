@@ -53,17 +53,17 @@ func SingleKey(pubKey interface{}) PublicKeyFetcher {
 // Proof defines embedded proof of Verifiable Credential
 type Proof interface{}
 
-// ExtraFields is a map of extra fields of struct build when unmarshalling JSON which are not
+// CustomFields is a map of extra fields of struct build when unmarshalling JSON which are not
 // mapped to the struct fields.
-type ExtraFields map[string]interface{}
+type CustomFields map[string]interface{}
 
 // TypedID defines a flexible structure with id and name fields and arbitrary extra fields
-// kept in ExtraFields.
+// kept in CustomFields.
 type TypedID struct {
 	ID   string `json:"id,omitempty"`
 	Type string `json:"type,omitempty"`
 
-	ExtraFields `json:"-"`
+	CustomFields `json:"-"`
 }
 
 // MarshalJSON defines custom marshalling of TypedID to JSON.
@@ -73,7 +73,7 @@ func (tid *TypedID) MarshalJSON() ([]byte, error) {
 
 	alias := (*Alias)(tid)
 
-	data, err := marshalWithExtraFields(alias, tid.ExtraFields)
+	data, err := marshalWithCustomFields(alias, tid.CustomFields)
 	if err != nil {
 		return nil, fmt.Errorf("marshal TypedID: %w", err)
 	}
@@ -88,9 +88,9 @@ func (tid *TypedID) UnmarshalJSON(data []byte) error {
 
 	alias := (*Alias)(tid)
 
-	tid.ExtraFields = make(ExtraFields)
+	tid.CustomFields = make(CustomFields)
 
-	err := unmarshalWithExtraFields(data, alias, tid.ExtraFields)
+	err := unmarshalWithCustomFields(data, alias, tid.CustomFields)
 	if err != nil {
 		return fmt.Errorf("unmarshal TypedID: %w", err)
 	}

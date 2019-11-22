@@ -217,7 +217,7 @@ type Credential struct {
 	TermsOfUse     []TypedID
 	RefreshService *TypedID
 
-	ExtraFields ExtraFields
+	CustomFields CustomFields
 }
 
 // rawCredential is a basic verifiable credential
@@ -237,7 +237,7 @@ type rawCredential struct {
 	RefreshService *TypedID    `json:"refreshService,omitempty"`
 
 	// All unmapped fields are put here.
-	ExtraFields `json:"-"`
+	CustomFields `json:"-"`
 }
 
 // MarshalJSON defines custom marshalling of rawCredential to JSON.
@@ -246,7 +246,7 @@ func (rc *rawCredential) MarshalJSON() ([]byte, error) {
 
 	alias := (*Alias)(rc)
 
-	return marshalWithExtraFields(alias, rc.ExtraFields)
+	return marshalWithCustomFields(alias, rc.CustomFields)
 }
 
 // UnmarshalJSON defines custom unmarshalling of rawCredential from JSON.
@@ -254,9 +254,9 @@ func (rc *rawCredential) UnmarshalJSON(data []byte) error {
 	type Alias rawCredential
 
 	alias := (*Alias)(rc)
-	rc.ExtraFields = make(ExtraFields)
+	rc.CustomFields = make(CustomFields)
 
-	err := unmarshalWithExtraFields(data, alias, rc.ExtraFields)
+	err := unmarshalWithCustomFields(data, alias, rc.CustomFields)
 	if err != nil {
 		return err
 	}
@@ -442,7 +442,7 @@ func decodeCredentialSchema(data []byte) ([]TypedID, error) {
 // For JSON bytes input, the output marshalled JSON is the same value.
 // For serialized JWT input, the output is the result of decoding `vc` claim from JWT.
 // The output Credential and marshalled JSON can be used for extensions of the base data model
-// by checking ExtraFields of Credential and/or unmarshalling the JSON to custom date structure.
+// by checking CustomFields of Credential and/or unmarshalling the JSON to custom date structure.
 func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, error) {
 	// Apply options.
 	crOpts := parseCredentialOpts(opts)
@@ -555,7 +555,7 @@ func newCredential(raw *rawCredential, schemas []TypedID) (*Credential, error) {
 		Evidence:       raw.Evidence,
 		TermsOfUse:     raw.TermsOfUse,
 		RefreshService: raw.RefreshService,
-		ExtraFields:    raw.ExtraFields,
+		CustomFields:   raw.CustomFields,
 	}, nil
 }
 
@@ -699,9 +699,10 @@ func (vc *Credential) JWTClaims(minimizeVC bool) (*JWTCredClaims, error) {
 	return newJWTCredClaims(vc, minimizeVC)
 }
 
-// SubjectID gets ID of single subject if present or
-// returns error if there are several subjects or one without ID defined
-func (vc *Credential) SubjectID() (string, error) {
+// subjectID gets ID of single subject if present or
+// returns error if there are several subjects or one without ID defined.
+// It can also try to get ID from subject of struct type.
+func subjectID(subject interface{}) (string, error) {
 	subjectIDFn := func(subject map[string]interface{}) (string, error) {
 		subjectWithID, defined := subject["id"]
 		if !defined {
@@ -716,7 +717,7 @@ func (vc *Credential) SubjectID() (string, error) {
 		return subjectID, nil
 	}
 
-	switch subject := vc.Subject.(type) {
+	switch subject := subject.(type) {
 	case map[string]interface{}:
 		return subjectIDFn(subject)
 
@@ -732,7 +733,13 @@ func (vc *Credential) SubjectID() (string, error) {
 		return subjectIDFn(subject[0])
 
 	default:
-		return "", errors.New("subject of unknown structure")
+		// convert to map and try once again
+		sMap, err := toMap(subject)
+		if err != nil {
+			return "", errors.New("subject of unknown structure")
+		}
+
+		return subjectID(sMap)
 	}
 }
 
@@ -751,7 +758,7 @@ func (vc *Credential) raw() *rawCredential {
 		Evidence:       vc.Evidence,
 		RefreshService: vc.RefreshService,
 		TermsOfUse:     vc.TermsOfUse,
-		ExtraFields:    vc.ExtraFields,
+		CustomFields:   vc.CustomFields,
 	}
 }
 

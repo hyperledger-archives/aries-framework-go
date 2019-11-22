@@ -42,7 +42,7 @@ func TestTypedID_MarshalJSON(t *testing.T) {
 		tid := TypedID{
 			ID:   "http://example.com/policies/credential/4",
 			Type: "IssuerPolicy",
-			ExtraFields: map[string]interface{}{
+			CustomFields: map[string]interface{}{
 				"profile": "http://example.com/profiles/credential",
 			},
 		}
@@ -59,7 +59,7 @@ func TestTypedID_MarshalJSON(t *testing.T) {
 
 	t.Run("Invalid marshalling", func(t *testing.T) {
 		tid := TypedID{
-			ExtraFields: map[string]interface{}{
+			CustomFields: map[string]interface{}{
 				"invalid": make(chan int),
 			},
 		}
@@ -89,7 +89,7 @@ func TestTypedID_UnmarshalJSON(t *testing.T) {
 
 		require.Equal(t, "http://example.com/policies/credential/4", tid.ID)
 		require.Equal(t, "IssuerPolicy", tid.Type)
-		require.Equal(t, ExtraFields{
+		require.Equal(t, CustomFields{
 			"profile": "http://example.com/profiles/credential",
 			"prohibition": []interface{}{
 				map[string]interface{}{
@@ -98,7 +98,7 @@ func TestTypedID_UnmarshalJSON(t *testing.T) {
 					"target":   "http://example.edu/credentials/3732",
 				},
 			},
-		}, tid.ExtraFields)
+		}, tid.CustomFields)
 	})
 
 	t.Run("Invalid unmarshalling", func(t *testing.T) {
