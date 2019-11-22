@@ -136,8 +136,8 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		}}))
 		require.NoError(t, err)
 
-		decryptValue := func(envelope []byte) ([]byte, error) {
-			return nil, fmt.Errorf("unpack error")
+		decryptValue := func(envelope []byte) ([]byte, []byte, error) {
+			return nil, nil, fmt.Errorf("unpack error")
 		}
 
 		mockedProviders := &mockProvider{
