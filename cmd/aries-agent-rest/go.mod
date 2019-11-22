@@ -11,7 +11,7 @@ require (
 	github.com/hyperledger/aries-framework-go v0.0.0
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v0.0.5
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/testify v1.4.0
 )
 
 go 1.13

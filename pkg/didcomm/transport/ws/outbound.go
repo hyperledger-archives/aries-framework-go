@@ -7,11 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package ws
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/gorilla/websocket"
+	"nhooyr.io/websocket"
 )
 
 const webSocketScheme = "ws"
@@ -31,29 +32,31 @@ func (cs *OutboundClient) Send(data []byte, url string) (string, error) {
 		return "", errors.New("url is mandatory")
 	}
 
-	client, _, err := websocket.DefaultDialer.Dial(url, nil)
+	client, _, err := websocket.Dial(context.Background(), url, nil)
 	if err != nil {
 		return "", fmt.Errorf("websocket client : %w", err)
 	}
 
 	defer func() {
-		err = client.Close()
-		if err != nil {
+		err = client.Close(websocket.StatusNormalClosure, "closing the connection")
+		if err != nil && websocket.CloseStatus(err) != websocket.StatusNormalClosure {
 			logger.Errorf("failed to close connection: %v", err)
 		}
 	}()
 
-	err = client.WriteMessage(websocket.TextMessage, data)
+	ctx := context.Background()
+
+	err = client.Write(ctx, websocket.MessageText, data)
 	if err != nil {
 		return "", fmt.Errorf("websocket write message : %w", err)
 	}
 
-	messageType, message, err := client.ReadMessage()
+	messageType, message, err := client.Read(ctx)
 	if err != nil {
 		return "", fmt.Errorf("websocket read message : %w", err)
 	}
 
-	if messageType != websocket.TextMessage {
+	if messageType != websocket.MessageText {
 		return "", errors.New("message type is not text message")
 	}
 
