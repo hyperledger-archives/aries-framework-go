@@ -8,6 +8,7 @@ package vdri
 
 import (
 	"errors"
+	"io"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -15,6 +16,9 @@ import (
 
 // ErrNotFound is returned when a DID resolver does not find the DID.
 var ErrNotFound = errors.New("DID not found")
+
+// DIDCommServiceType default DID Communication service endpoint type
+const DIDCommServiceType = "did-communication"
 
 // Registry vdri registry
 type Registry interface {
@@ -87,6 +91,7 @@ type CreateDIDOpts struct {
 	ServiceType     string
 	KeyType         string
 	ServiceEndpoint string
+	RequestBuilder  func([]byte) (io.Reader, error)
 }
 
 // DocOpts is a create DID option
@@ -110,6 +115,14 @@ func WithKeyType(keyType string) DocOpts {
 func WithServiceEndpoint(serviceEndpoint string) DocOpts {
 	return func(opts *CreateDIDOpts) {
 		opts.ServiceEndpoint = serviceEndpoint
+	}
+}
+
+// WithRequestBuilder allows to supply request builder
+// which can be used to add headers to request stream to be sent to HTTP binding URL
+func WithRequestBuilder(builder func(payload []byte) (io.Reader, error)) DocOpts {
+	return func(opts *CreateDIDOpts) {
+		opts.RequestBuilder = builder
 	}
 }
 

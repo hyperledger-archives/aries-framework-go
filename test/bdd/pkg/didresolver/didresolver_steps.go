@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -26,7 +27,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
 	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
@@ -51,23 +51,11 @@ func NewDIDResolverSteps(ctx *bddctx.BDDContext) *Steps {
 	return &Steps{bddContext: ctx}
 }
 
-func (d *Steps) createDIDDocument(agentID, sideTreeURL string) error {
-	sideTreeDoc, err := createSidetreeDoc(d.bddContext.AgentCtx[agentID])
+func (d *Steps) createDIDDocument(agentID, method, url string) error {
+	doc, err := d.bddContext.AgentCtx[agentID].VDRIRegistry().Create(method,
+		vdriapi.WithRequestBuilder(buildSideTreeRequest))
 	if err != nil {
 		return err
-	}
-
-	req := newCreateRequest(sideTreeDoc)
-	d.reqEncodedDIDDoc = req.Payload
-
-	resp, err := sendRequest(d.bddContext.Args[sideTreeURL], req)
-	if err != nil {
-		return fmt.Errorf("failed to create public DID document: %w", err)
-	}
-
-	doc, err := diddoc.ParseDocument(resp.payload)
-	if err != nil {
-		return fmt.Errorf("failed to parse public DID document: %s", err)
 	}
 
 	d.bddContext.PublicDIDs[agentID] = doc
@@ -220,48 +208,6 @@ func sendHTTPRequest(url string, req *model.Request) (*http.Response, error) {
 	return client.Do(httpReq)
 }
 
-func createSidetreeDoc(ctx *context.Provider) (*document.Document, error) {
-	_, pubVerKey, err := ctx.KMS().CreateKeySet()
-	if err != nil {
-		return nil, err
-	}
-
-	pubKey := diddoc.PublicKey{
-		ID:         "#key-1",
-		Type:       "Ed25519VerificationKey2018",
-		Controller: "controller",
-		Value:      []byte(pubVerKey),
-	}
-
-	services := []diddoc.Service{
-		{
-			ID:              "#endpoint-1",
-			Type:            "did-communication",
-			ServiceEndpoint: ctx.InboundTransportEndpoint(),
-			RecipientKeys:   []string{pubKey.ID},
-			Priority:        0,
-		},
-	}
-
-	didDoc := &diddoc.Doc{
-		Context:   []string{diddoc.Context},
-		PublicKey: []diddoc.PublicKey{pubKey},
-		Service:   services,
-	}
-
-	b, err := didDoc.JSONBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	doc, err := document.FromBytes(b)
-	if err != nil {
-		return nil, err
-	}
-
-	return &doc, nil
-}
-
 func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
 	var doc *diddoc.Doc
 
@@ -279,10 +225,26 @@ func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddo
 	return doc, err
 }
 
+// buildSideTreeRequest request builder for sidetree public DID creation
+func buildSideTreeRequest(docBytes []byte) (io.Reader, error) {
+	request := &model.Request{
+		Header: &model.Header{
+			Operation: model.OperationTypeCreate, Alg: "", Kid: ""},
+		Payload:   base64.URLEncoding.EncodeToString(docBytes),
+		Signature: ""}
+
+	b, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.NewReader(b), nil
+}
+
 // RegisterSteps registers did exchange steps
 func (d *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^client sends request to sidetree "([^"]*)" for create DID document "([^"]*)"`, d.createDIDDocumentFromFile)
 	s.Step(`^check success response contains "([^"]*)"$`, d.checkSuccessResp)
-	s.Step(`^"([^"]*)" creates public DID using sidetree "([^"]*)"`, d.createDIDDocument)
+	s.Step(`^"([^"]*)" creates public DID for did method "([^"]*)" using "([^"]*)"`, d.createDIDDocument)
 	s.Step(`^"([^"]*)" agent successfully resolves DID document$`, d.resolveDID)
 }

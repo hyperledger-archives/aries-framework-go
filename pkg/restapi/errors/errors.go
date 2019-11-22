@@ -30,6 +30,9 @@ type genericError struct {
 type Group int32
 
 const (
+	// Common error group for general rest api errors
+	Common Group = 1000
+
 	// DIDExchange error group for DID exchange protocol rest api errors
 	DIDExchange Group = 2000
 

@@ -30,13 +30,15 @@ type provider interface {
 
 // Registry vdri registry
 type Registry struct {
-	vdri   []vdriapi.VDRI
-	crypto kms.KeyManager
+	vdri               []vdriapi.VDRI
+	crypto             kms.KeyManager
+	defServiceEndpoint string
+	defServiceType     string
 }
 
 // New return new instance of vdri
-func New(provider provider, opts ...Option) *Registry {
-	baseVDRI := &Registry{crypto: provider.KMS()}
+func New(ctx provider, opts ...Option) *Registry {
+	baseVDRI := &Registry{crypto: ctx.KMS()}
 
 	// Apply options
 	for _, opt := range opts {
@@ -101,7 +103,8 @@ func (r *Registry) Create(didMethod string, opts ...vdriapi.DocOpts) (*diddoc.Do
 		return nil, err
 	}
 
-	doc, err := method.Build(&vdriapi.PubKey{Value: base58PubKey, Type: docOpts.KeyType}, opts...)
+	doc, err := method.Build(&vdriapi.PubKey{Value: base58PubKey, Type: docOpts.KeyType},
+		r.applyDefaultDocOpts(docOpts, opts...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +114,19 @@ func (r *Registry) Create(didMethod string, opts ...vdriapi.DocOpts) (*diddoc.Do
 	}
 
 	return doc, nil
+}
+
+// applyDefaultDocOpts applies default creator options to doc options
+func (r *Registry) applyDefaultDocOpts(docOpts *vdriapi.CreateDIDOpts, opts ...vdriapi.DocOpts) []vdriapi.DocOpts {
+	if docOpts.ServiceType == "" {
+		opts = append(opts, vdriapi.WithServiceType(r.defServiceType))
+	}
+
+	if docOpts.ServiceEndpoint == "" {
+		opts = append(opts, vdriapi.WithServiceEndpoint(r.defServiceEndpoint))
+	}
+
+	return opts
 }
 
 // Store did store
@@ -153,6 +169,20 @@ func (r *Registry) resolveVDRI(method string) (vdriapi.VDRI, error) {
 func WithVDRI(method vdriapi.VDRI) Option {
 	return func(opts *Registry) {
 		opts.vdri = append(opts.vdri, method)
+	}
+}
+
+// WithDefaultServiceType is default service type for this creator
+func WithDefaultServiceType(serviceType string) Option {
+	return func(opts *Registry) {
+		opts.defServiceType = serviceType
+	}
+}
+
+// WithDefaultServiceEndpoint allows for setting default service endpoint
+func WithDefaultServiceEndpoint(serviceEndpoint string) Option {
+	return func(opts *Registry) {
+		opts.defServiceEndpoint = serviceEndpoint
 	}
 }
 
