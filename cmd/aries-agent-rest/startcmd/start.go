@@ -17,8 +17,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 )
@@ -92,7 +96,16 @@ const (
 
 	agentHTTPResolverEnvKey = "ARIESD_HTTP_RESOLVER"
 
-	unableToStartAgentErrMsg = "unable to start agent"
+	agentOutboundTransportFlagName = "outbound-transport"
+
+	agentOutboundTransportFlagShorthand = "o"
+
+	agentOutboundTransportFlagUsage = "Outbound transport type." +
+		" This flag can be repeated, allowing for multiple transports." +
+		" possible values [http] [ws]. Defaults to http if not set." +
+		" Alternatively, this can be set with the following environment variable: " + agentOutboundTransportEnvKey
+
+	agentOutboundTransportEnvKey = "ARIESD_OUTBOUND_TRANSPORT"
 )
 
 var errMissingHost = errors.New("host not provided")
@@ -104,7 +117,7 @@ var logger = log.New("aries-framework/agent-rest")
 type agentParameters struct {
 	server                                                               server
 	host, inboundHostInternal, inboundHostExternal, dbPath, defaultLabel string
-	webhookURLs, httpResolvers                                           []string
+	webhookURLs, httpResolvers, outboundTransports                       []string
 }
 
 type server interface {
@@ -121,14 +134,23 @@ func (s *HTTPServer) ListenAndServe(host string, router http.Handler) error {
 
 // Cmd returns the Cobra start command.
 func Cmd(server server) (*cobra.Command, error) {
-	var webhookURLsFromCmdLine, httpResolversFromCmdLine []string
+	startCmd := createStartCMD(server)
 
-	startCmd := &cobra.Command{
+	createFlags(startCmd)
+
+	return startCmd, nil
+}
+
+func createStartCMD(server server) *cobra.Command {
+	return &cobra.Command{
 		Use:   "start",
 		Short: "Start an agent",
 		Long:  `Start an Aries agent controller`,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
+			flags := make(map[string][]string)
+			flags[agentHostFlagName] = []string{agentHostEnvKey, "false"}
+
 			host, err := getUserSetVar(cmd, agentHostFlagName, agentHostEnvKey, false)
 			if err != nil {
 				return err
@@ -155,42 +177,47 @@ func Cmd(server server) (*cobra.Command, error) {
 				return err
 			}
 
-			webhookURLs, err := getWebhookURLs(cmd, webhookURLsFromCmdLine)
+			webhookURLs, err := getUserSetVars(cmd, agentWebhookFlagName,
+				agentWebhookEnvKey, false)
 			if err != nil {
 				return err
 			}
 
-			httpResolvers := getHTTPResolvers(cmd, httpResolversFromCmdLine)
-
-			parameters := &agentParameters{server, host, inboundHost,
-				inboundHostExternal, dbPath, defaultLabel, webhookURLs, httpResolvers}
-			err = startAgent(parameters)
+			httpResolvers, err := getUserSetVars(cmd, agentHTTPResolverFlagName,
+				agentHTTPResolverEnvKey, true)
 			if err != nil {
-				return errors.New(unableToStartAgentErrMsg + ": " + err.Error())
+				return err
 			}
 
-			return nil
+			outboundTransports, err := getUserSetVars(cmd, agentOutboundTransportFlagName,
+				agentOutboundTransportEnvKey, true)
+			if err != nil {
+				return err
+			}
+
+			parameters := &agentParameters{server, host, inboundHost,
+				inboundHostExternal, dbPath, defaultLabel, webhookURLs,
+				httpResolvers, outboundTransports}
+			return startAgent(parameters)
 		},
 	}
-
-	createFlags(startCmd, &webhookURLsFromCmdLine, &httpResolversFromCmdLine)
-
-	return startCmd, nil
 }
 
-// TODO need to get rid of extra args webhookURLs & httpResolvers [Issue #799]
-func createFlags(startCmd *cobra.Command, webhookURLs, httpResolvers *[]string) {
+func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(agentHostFlagName, agentHostFlagShorthand, "", agentHostFlagUsage)
 	startCmd.Flags().StringP(agentInboundHostFlagName, agentInboundHostFlagShorthand, "", agentInboundHostFlagUsage)
 	startCmd.Flags().StringP(agentDBPathFlagName, agentDBPathFlagShorthand, "", agentDBPathFlagUsage)
-	startCmd.Flags().StringSliceVarP(webhookURLs, agentWebhookFlagName, agentWebhookFlagShorthand, []string{},
+	startCmd.Flags().StringSliceP(agentWebhookFlagName, agentWebhookFlagShorthand, []string{},
 		agentWebhookFlagUsage)
-	startCmd.Flags().StringSliceVarP(httpResolvers, agentHTTPResolverFlagName, agentHTTPResolverFlagShorthand, []string{},
+	startCmd.Flags().StringSliceP(agentHTTPResolverFlagName, agentHTTPResolverFlagShorthand, []string{},
 		agentHTTPResolverFlagUsage)
 	startCmd.Flags().StringP(agentInboundHostExternalFlagName, agentInboundHostExternalFlagShorthand,
 		"", agentInboundHostExternalFlagUsage)
 	startCmd.Flags().StringP(agentDefaultLabelFlagName, agentDefaultLabelFlagShorthand, "",
 		agentDefaultLabelFlagUsage)
+	startCmd.Flags().StringSliceP(
+		agentOutboundTransportFlagName, agentOutboundTransportFlagShorthand, []string{},
+		agentOutboundTransportFlagUsage)
 }
 
 func getUserSetVar(cmd *cobra.Command, hostFlagName, envKey string, isOptional bool) (string, error) {
@@ -213,33 +240,31 @@ func getUserSetVar(cmd *cobra.Command, hostFlagName, envKey string, isOptional b
 		" (environment variable) have been set.")
 }
 
-func getWebhookURLs(cmd *cobra.Command, webhookURLsFromCmdLine []string) ([]string, error) {
-	if cmd.Flags().Changed(agentWebhookFlagName) {
-		return webhookURLsFromCmdLine, nil
+func getUserSetVars(cmd *cobra.Command, hostFlagName,
+	envKey string, isOptional bool) ([]string, error) {
+	if cmd.Flags().Changed(hostFlagName) {
+		value, err := cmd.Flags().GetStringSlice(hostFlagName)
+		if err != nil {
+			return nil, fmt.Errorf(hostFlagName+" flag not found: %s", err)
+		}
+
+		return value, nil
 	}
 
-	webhookURLsCSV, isSet := os.LookupEnv(agentWebhookEnvKey)
-	webhookURLs := strings.Split(webhookURLsCSV, ",")
+	value, isSet := os.LookupEnv(envKey)
+
+	var values []string
 
 	if isSet {
-		return webhookURLs, nil
+		values = strings.Split(value, ",")
 	}
 
-	return nil, fmt.Errorf("agent webhook URL not set. " +
-		"It must be set via either command line or environment variable")
-}
-
-func getHTTPResolvers(cmd *cobra.Command, httpResolversCmdLine []string) []string {
-	if cmd.Flags().Changed(agentHTTPResolverFlagName) {
-		return httpResolversCmdLine
+	if isOptional || isSet {
+		return values, nil
 	}
 
-	httpResolversCSV, isSet := os.LookupEnv(agentHTTPResolverEnvKey)
-	if isSet {
-		return strings.Split(httpResolversCSV, ",")
-	}
-
-	return []string{}
+	return nil, fmt.Errorf(" %s not set. "+
+		"It must be set via either command line or environment variable", hostFlagName)
 }
 
 func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
@@ -266,6 +291,34 @@ func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
 	return opts, nil
 }
 
+func getOutboundTransportOpts(outboundTransports []string) ([]aries.Option, error) {
+	var opts []aries.Option
+
+	var transports []transport.OutboundTransport
+
+	for _, outboundTransport := range outboundTransports {
+		switch outboundTransport {
+		case "http":
+			outbound, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
+			if err != nil {
+				return nil, fmt.Errorf("http outbound transport initialization failed: %w", err)
+			}
+
+			transports = append(transports, outbound)
+		case "ws":
+			transports = append(transports, ws.NewOutbound())
+		default:
+			return nil, fmt.Errorf("outbound transport [%s] not supported", outboundTransport)
+		}
+	}
+
+	if len(transports) > 0 {
+		opts = append(opts, aries.WithOutboundTransports(transports...))
+	}
+
+	return opts, nil
+}
+
 func startAgent(parameters *agentParameters) error {
 	if parameters.host == "" {
 		return errMissingHost
@@ -275,31 +328,9 @@ func startAgent(parameters *agentParameters) error {
 		return errMissingInboundHost
 	}
 
-	var opts []aries.Option
-	opts = append(opts, defaults.WithInboundHTTPAddr(parameters.inboundHostInternal, parameters.inboundHostExternal))
-
-	if parameters.dbPath != "" {
-		opts = append(opts, defaults.WithStorePath(parameters.dbPath))
-	}
-
-	resolverOpts, err := getResolverOpts(parameters.httpResolvers)
+	ctx, err := createAriesAgent(parameters)
 	if err != nil {
-		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to resolver opts : %w",
-			parameters.host, err)
-	}
-
-	opts = append(opts, resolverOpts...)
-
-	framework, err := aries.New(opts...)
-	if err != nil {
-		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to initialize framework :  %w",
-			parameters.host, err)
-	}
-
-	ctx, err := framework.Context()
-	if err != nil {
-		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to get aries context : %w",
-			parameters.host, err)
+		return err
 	}
 
 	// get all HTTP REST API handlers available for controller API
@@ -327,4 +358,43 @@ func startAgent(parameters *agentParameters) error {
 	}
 
 	return nil
+}
+
+func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
+	var opts []aries.Option
+	opts = append(opts, defaults.WithInboundHTTPAddr(parameters.inboundHostInternal, parameters.inboundHostExternal))
+
+	if parameters.dbPath != "" {
+		opts = append(opts, defaults.WithStorePath(parameters.dbPath))
+	}
+
+	resolverOpts, err := getResolverOpts(parameters.httpResolvers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start aries agent rest on port [%s], failed to resolver opts : %w",
+			parameters.host, err)
+	}
+
+	opts = append(opts, resolverOpts...)
+
+	outboundTransportOpts, err := getOutboundTransportOpts(parameters.outboundTransports)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start aries agent rest on port [%s], failed to outbound transport opts : %w",
+			parameters.host, err)
+	}
+
+	opts = append(opts, outboundTransportOpts...)
+
+	framework, err := aries.New(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start aries agent rest on port [%s], failed to initialize framework :  %w",
+			parameters.host, err)
+	}
+
+	ctx, err := framework.Context()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start aries agent rest on port [%s], failed to get aries context : %w",
+			parameters.host, err)
+	}
+
+	return ctx, nil
 }
