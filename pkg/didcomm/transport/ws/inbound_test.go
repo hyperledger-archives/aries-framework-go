@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package ws
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -14,14 +15,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
-
-	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
+	"nhooyr.io/websocket"
 
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 )
 
 type mockProvider struct {
@@ -104,13 +104,15 @@ func TestInboundDataProcessing(t *testing.T) {
 		client, cleanup := websocketClient(t, port)
 		defer cleanup()
 
+		ctx := context.Background()
+
 		for i := 1; i <= 5; i++ {
-			err = client.WriteMessage(websocket.TextMessage, []byte("random"))
+			err = client.Write(ctx, websocket.MessageText, []byte("random"))
 			require.NoError(t, err)
 
-			messageType, val, err := client.ReadMessage()
+			messageType, val, err := client.Read(ctx)
 			require.NoError(t, err)
-			require.Equal(t, messageType, websocket.TextMessage)
+			require.Equal(t, messageType, websocket.MessageText)
 			require.Equal(t, "", string(val))
 		}
 	})
@@ -132,12 +134,14 @@ func TestInboundDataProcessing(t *testing.T) {
 		client, cleanup := websocketClient(t, port)
 		defer cleanup()
 
-		err = client.WriteMessage(websocket.TextMessage, []byte(""))
+		ctx := context.Background()
+
+		err = client.Write(ctx, websocket.MessageText, []byte(""))
 		require.NoError(t, err)
 
-		messageType, val, err := client.ReadMessage()
+		messageType, val, err := client.Read(ctx)
 		require.NoError(t, err)
-		require.Equal(t, messageType, websocket.TextMessage)
+		require.Equal(t, messageType, websocket.MessageText)
 		require.Equal(t, processFailureErrMsg, string(val))
 	})
 
@@ -158,13 +162,35 @@ func TestInboundDataProcessing(t *testing.T) {
 		client, cleanup := websocketClient(t, port)
 		defer cleanup()
 
-		err = client.WriteMessage(websocket.TextMessage, []byte(""))
+		ctx := context.Background()
+
+		err = client.Write(ctx, websocket.MessageText, []byte(""))
 		require.NoError(t, err)
 
-		messageType, val, err := client.ReadMessage()
+		messageType, val, err := client.Read(ctx)
 		require.NoError(t, err)
-		require.Equal(t, messageType, websocket.TextMessage)
+		require.Equal(t, messageType, websocket.MessageText)
 		require.Equal(t, processFailureErrMsg, string(val))
+	})
+
+	t.Run("test inbound transport - client close error", func(t *testing.T) {
+		port := ":" + strconv.Itoa(transportutil.GetRandomPort(5))
+
+		// initiate inbound with port
+		inbound, err := NewInbound(port, "")
+		require.NoError(t, err)
+		require.NotEmpty(t, inbound)
+
+		// start server
+		mockPackager := &mockpackager.Packager{}
+		err = inbound.Start(&mockProvider{packagerValue: mockPackager})
+		require.NoError(t, err)
+
+		// create ws client
+		client, _ := websocketClient(t, port)
+
+		err = client.Close(websocket.StatusAbnormalClosure, "abnormal closure")
+		require.NoError(t, err)
 	})
 }
 
@@ -172,12 +198,11 @@ func websocketClient(t *testing.T, port string) (*websocket.Conn, func()) {
 	require.NoError(t, transportutil.VerifyListener("localhost"+port, time.Second))
 
 	u := url.URL{Scheme: "ws", Host: "localhost" + port, Path: ""}
-	c, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	c, resp, err := websocket.Dial(context.Background(), u.String(), nil) // nolint - bodyclose (library closes the body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
-	require.NoError(t, resp.Body.Close())
 
 	return c, func() {
-		require.NoError(t, c.Close())
+		require.NoError(t, c.Close(websocket.StatusNormalClosure, "closing the connection"))
 	}
 }

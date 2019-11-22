@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package ws
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"testing"
@@ -14,8 +15,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 
-	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
+	"nhooyr.io/websocket"
 )
 
 func TestClient(t *testing.T) {
@@ -72,23 +73,25 @@ func TestClient(t *testing.T) {
 		outbound := NewOutbound()
 		require.NotNil(t, outbound)
 		addr := startWebSocketServer(t, func(_ *testing.T, w http.ResponseWriter, r *http.Request) {
-			upgrader := websocket.Upgrader{}
-
-			c, err := upgrader.Upgrade(w, r, nil)
+			c, err := websocket.Accept(w, r, nil)
 			require.NoError(t, err)
 
 			defer func() {
-				require.NoError(t, c.Close())
+				require.Contains(t, c.Close(websocket.StatusNormalClosure, "closing the connection").Error(),
+					"status = StatusNormalClosure")
 			}()
+
+			ctx := context.Background()
+
 			for {
-				_, message, err := c.ReadMessage()
+				_, message, err := c.Read(ctx)
 				if err != nil {
 					break
 				}
 
 				logger.Infof("r: %s", message)
 
-				err = c.WriteMessage(websocket.BinaryMessage, message)
+				err = c.Write(ctx, websocket.MessageBinary, message)
 				require.NoError(t, err)
 			}
 		})
@@ -98,18 +101,32 @@ func TestClient(t *testing.T) {
 		require.Contains(t, err.Error(), "message type is not text message")
 	})
 
+	t.Run("test outbound transport - server closes connection", func(t *testing.T) {
+		outbound := NewOutbound()
+		require.NotNil(t, outbound)
+		addr := startWebSocketServer(t, func(_ *testing.T, w http.ResponseWriter, r *http.Request) {
+			c, err := websocket.Accept(w, r, nil)
+			require.NoError(t, err)
+
+			require.NoError(t, c.Close(websocket.StatusAbnormalClosure, "error"))
+		})
+
+		_, err := outbound.Send([]byte("ws-request"), "ws://"+addr)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "websocket read message")
+	})
+
 	t.Run("test outbound transport - not a websocket server", func(t *testing.T) {
 		outbound := NewOutbound()
 		require.NotNil(t, outbound)
 		addr := startWebSocketServer(t, func(_ *testing.T, w http.ResponseWriter, r *http.Request) {
-			upgrader := websocket.Upgrader{}
-
-			c, err := upgrader.Upgrade(w, r, nil)
-			require.NoError(t, err)
-			_, _, err = c.ReadMessage()
+			c, err := websocket.Accept(w, r, nil)
 			require.NoError(t, err)
 
-			require.NoError(t, c.Close())
+			_, _, err = c.Read(context.Background())
+			require.NoError(t, err)
+
+			require.NoError(t, c.Close(websocket.StatusNormalClosure, "closing the connection"))
 		})
 
 		_, err := outbound.Send([]byte("ws-request"), "ws://"+addr)
@@ -136,24 +153,25 @@ func startWebSocketServer(t *testing.T, handlerFunc func(*testing.T, http.Respon
 }
 
 func echo(t *testing.T, w http.ResponseWriter, r *http.Request) {
-	upgrader := websocket.Upgrader{}
-
-	c, err := upgrader.Upgrade(w, r, nil)
+	c, err := websocket.Accept(w, r, nil)
 	require.NoError(t, err)
 
 	defer func() {
-		require.NoError(t, c.Close())
+		require.Contains(t, c.Close(websocket.StatusNormalClosure, "closing the connection").Error(),
+			"status = StatusNormalClosure")
 	}()
 
+	ctx := context.Background()
+
 	for {
-		mt, message, err := c.ReadMessage()
+		mt, message, err := c.Read(ctx)
 		if err != nil {
 			break
 		}
 
 		logger.Infof("r: %s", message)
 
-		err = c.WriteMessage(mt, message)
+		err = c.Write(ctx, mt, message)
 		require.NoError(t, err)
 	}
 }

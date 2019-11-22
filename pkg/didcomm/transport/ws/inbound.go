@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gorilla/websocket"
+	"nhooyr.io/websocket"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
@@ -85,25 +85,20 @@ func newInboundHandler(prov transport.InboundProvider) (http.Handler, error) {
 }
 
 func processRequest(w http.ResponseWriter, r *http.Request, prov transport.InboundProvider) {
-	upgrader := websocket.Upgrader{}
-
-	c, err := upgrader.Upgrade(w, r, nil)
+	c, cleanup, err := upgradeConnection(w, r)
 	if err != nil {
 		logger.Errorf("failed to upgrade the connection : %v", err)
 		return
 	}
 
-	defer func() {
-		err := c.Close()
-		if err != nil {
-			logger.Errorf("failed to close connection: %v", err)
-		}
-	}()
+	defer cleanup()
 
 	for {
-		_, message, err := c.ReadMessage()
+		_, message, err := c.Read(context.Background())
 		if err != nil {
-			logger.Errorf("Error reading request message: %v", err)
+			if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+				logger.Errorf("Error reading request message: %v", err)
+			}
 
 			break
 		}
@@ -112,7 +107,7 @@ func processRequest(w http.ResponseWriter, r *http.Request, prov transport.Inbou
 		if err != nil {
 			logger.Errorf("failed to unpack msg: %v", err)
 
-			err = c.WriteMessage(websocket.TextMessage, []byte(processFailureErrMsg))
+			err = c.Write(context.Background(), websocket.MessageText, []byte(processFailureErrMsg))
 			if err != nil {
 				logger.Errorf("error writing the message: %v", err)
 			}
@@ -131,9 +126,24 @@ func processRequest(w http.ResponseWriter, r *http.Request, prov transport.Inbou
 			resp = processFailureErrMsg
 		}
 
-		err = c.WriteMessage(websocket.TextMessage, []byte(resp))
+		err = c.Write(context.Background(), websocket.MessageText, []byte(resp))
 		if err != nil {
 			logger.Errorf("error writing the message: %v", err)
 		}
 	}
+}
+
+func upgradeConnection(w http.ResponseWriter, r *http.Request) (*websocket.Conn, func(), error) {
+	c, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		logger.Errorf("failed to upgrade the connection : %v", err)
+		return nil, nil, err
+	}
+
+	return c, func() {
+		err := c.Close(websocket.StatusNormalClosure, "closing the connection")
+		if err != nil && websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+			logger.Errorf("failed to close connection: %v", err)
+		}
+	}, nil
 }
