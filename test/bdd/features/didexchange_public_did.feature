@@ -51,3 +51,22 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     And   "Kate" waits for post state event "completed"
     And   "Julia" retrieves connection record and validates that connection state is "completed"
     And   "Kate" retrieves connection record and validates that connection state is "completed"
+
+  @didexchange_implicit_invitation
+  Scenario: did exchange e2e flow using implicit invitation with public DID
+    Given "Maja" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    And   "Maja" creates public DID for did method "sidetree" using "${SIDETREE_URL}"
+    # we wait until observer polls sidetree txn
+    Then  "Maja" waits for public did to become available in sidetree for up to 10 seconds
+    And   "Maja" creates did exchange client
+    And   "Maja" registers to receive notification for post state event "completed"
+    Given "Filip" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    # we wait until observer polls sidetree txn
+    And   "Filip" creates did exchange client
+    And   "Filip" registers to receive notification for post state event "completed"
+    And   "Filip" initiates connection with "Maja"
+    And   "Maja" approves did exchange request
+    And   "Maja" waits for post state event "completed"
+    And   "Filip" waits for post state event "completed"
+    And   "Maja" retrieves connection record and validates that connection state is "completed"
+    And   "Filip" retrieves connection record and validates that connection state is "completed"

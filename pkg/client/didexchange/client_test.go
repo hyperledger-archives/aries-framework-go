@@ -335,6 +335,38 @@ func TestClient_HandleInvitation(t *testing.T) {
 	})
 }
 
+func TestClient_CreateImplicitInvitation(t *testing.T) {
+	t.Run("test success", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{},
+			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue:          "endpoint"})
+		require.NoError(t, err)
+
+		connectionID, err := c.CreateImplicitInvitation("alice", "did:example:123")
+		require.NoError(t, err)
+		require.NotEmpty(t, connectionID)
+	})
+
+	t.Run("test error from service", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue: &mockprotocol.MockDIDExchangeSvc{
+				ImplicitInvitationErr: errors.New("implicit error")},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
+		require.NoError(t, err)
+
+		connectionID, err := c.CreateImplicitInvitation("Alice", "did:example:123")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "implicit error")
+		require.Empty(t, connectionID)
+	})
+}
+
 func TestClient_QueryConnectionsByParams(t *testing.T) {
 	t.Run("test get all connections", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{})

@@ -1403,3 +1403,69 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 
 	return didMsg
 }
+
+func TestService_CreateImplicitInvitation(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		prov := protocol.MockProvider{}
+		store := mockstorage.NewMockStoreProvider()
+		pubKey, _ := generateKeyPair()
+		newDIDDoc := createDIDDocWithKey(pubKey)
+		ctx := &context{
+			outboundDispatcher: prov.OutboundDispatcher(),
+			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
+			connectionStore:    NewConnectionRecorder(nil, store.Store),
+		}
+
+		s, err := New(&protocol.MockProvider{StoreProvider: store})
+		require.NoError(t, err)
+
+		s.ctx = ctx
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, connID)
+	})
+
+	t.Run("error during did resolution", func(t *testing.T) {
+		prov := protocol.MockProvider{}
+		store := mockstorage.NewMockStoreProvider()
+		pubKey, _ := generateKeyPair()
+		newDIDDoc := createDIDDocWithKey(pubKey)
+		ctx := &context{
+			outboundDispatcher: prov.OutboundDispatcher(),
+			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
+			connectionStore:    NewConnectionRecorder(nil, store.Store),
+		}
+
+		s, err := New(&protocol.MockProvider{StoreProvider: store})
+		require.NoError(t, err)
+		s.ctx = ctx
+
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "resolve error")
+		require.Empty(t, connID)
+	})
+
+	t.Run("error during saving connection", func(t *testing.T) {
+		prov := protocol.MockProvider{}
+		transientStore := mockstorage.NewMockStoreProvider()
+		transientStore.Store.ErrPut = errors.New("store put error")
+		store := mockstorage.NewMockStoreProvider()
+		pubKey, _ := generateKeyPair()
+		newDIDDoc := createDIDDocWithKey(pubKey)
+		ctx := &context{
+			outboundDispatcher: prov.OutboundDispatcher(),
+			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
+			connectionStore:    NewConnectionRecorder(transientStore.Store, store.Store),
+		}
+
+		s, err := New(&protocol.MockProvider{StoreProvider: store, TransientStoreProvider: transientStore})
+		require.NoError(t, err)
+		s.ctx = ctx
+
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "store put error")
+		require.Empty(t, connID)
+	})
+}

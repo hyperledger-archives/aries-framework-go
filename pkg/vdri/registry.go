@@ -192,7 +192,7 @@ func getDidMethod(didID string) (string, error) {
 	// For now we do simple validation
 	didParts := strings.SplitN(didID, ":", 3)
 	if len(didParts) != 3 {
-		return "", errors.New("wrong format did input")
+		return "", fmt.Errorf("wrong format did input: %s", didID)
 	}
 
 	return didParts[1], nil

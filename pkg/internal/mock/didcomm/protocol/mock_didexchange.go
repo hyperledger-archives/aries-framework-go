@@ -31,6 +31,7 @@ type MockDIDExchangeSvc struct {
 	RegisterMsgEventErr      error
 	UnregisterMsgEventErr    error
 	AcceptError              error
+	ImplicitInvitationErr    error
 }
 
 // HandleInbound msg
@@ -121,6 +122,15 @@ func (m *MockDIDExchangeSvc) AcceptInvitation(connectionID, publicDID, label str
 	}
 
 	return nil
+}
+
+// CreateImplicitInvitation creates implicit invitation using public did
+func (m *MockDIDExchangeSvc) CreateImplicitInvitation(label, toDID string) (string, error) {
+	if m.ImplicitInvitationErr != nil {
+		return "", m.ImplicitInvitationErr
+	}
+
+	return "connection-id", nil
 }
 
 // MockProvider is provider for DIDExchange Service
