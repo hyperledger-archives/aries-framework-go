@@ -61,7 +61,7 @@ func TestNew_Fail(t *testing.T) {
 
 func TestOperation_CreateInvitation(t *testing.T) {
 	t.Run("Successful CreateInvitation with label", func(t *testing.T) {
-		handler := getHandler(t, createInvitationPath, nil)
+		handler := getHandler(t, createInvitationPath, nil, nil)
 		buf, err := getSuccessResponseFromHandler(handler, nil, handler.Path()+"?alias=mylabel")
 		require.NoError(t, err)
 
@@ -78,7 +78,7 @@ func TestOperation_CreateInvitation(t *testing.T) {
 
 	t.Run("Successful CreateInvitation with label and public DID", func(t *testing.T) {
 		const publicDID = "sample-public-did"
-		handler := getHandler(t, createInvitationPath, nil)
+		handler := getHandler(t, createInvitationPath, nil, nil)
 		buf, err := getSuccessResponseFromHandler(handler, nil, handler.Path()+"?alias=mylabel&public="+publicDID)
 		require.NoError(t, err)
 
@@ -96,7 +96,7 @@ func TestOperation_CreateInvitation(t *testing.T) {
 	})
 
 	t.Run("Successful CreateInvitation with default params", func(t *testing.T) {
-		handler := getHandler(t, createInvitationPath, nil)
+		handler := getHandler(t, createInvitationPath, nil, nil)
 		buf, err := getSuccessResponseFromHandler(handler, nil, handler.Path())
 		require.NoError(t, err)
 
@@ -120,7 +120,7 @@ func TestOperation_ReceiveInvitation(t *testing.T) {
 		"label":"agent",
 		"@type":"https://didcomm.org/didexchange/1.0/invitation"}`)
 
-	handler := getHandler(t, receiveInvitationPath, nil)
+	handler := getHandler(t, receiveInvitationPath, nil, nil)
 	buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 
@@ -134,7 +134,7 @@ func TestOperation_ReceiveInvitation(t *testing.T) {
 }
 
 func TestOperation_QueryConnectionByID(t *testing.T) {
-	handler := getHandler(t, connectionsByID, nil)
+	handler := getHandler(t, connectionsByID, nil, nil)
 	buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("sample-connection-id")),
 		operationID+"/1234")
 	require.NoError(t, err)
@@ -157,13 +157,13 @@ func TestOperation_QueryConnectionByParams(t *testing.T) {
 		"label":"agent",
 		"@type":"https://didcomm.org/didexchange/1.0/invitation"}`)
 
-	handler := getHandler(t, receiveInvitationPath, nil)
+	handler := getHandler(t, receiveInvitationPath, nil, nil)
 	_, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 
 	t.Run("test query connections with state filter", func(t *testing.T) {
 		// perform test
-		handler = getHandler(t, connections, nil)
+		handler = getHandler(t, connections, nil, nil)
 		buf, err := getSuccessResponseFromHandler(handler, nil,
 			operationID+"?state=complete")
 		require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestOperation_QueryConnectionByParams(t *testing.T) {
 
 	t.Run("test query connections without state filter", func(t *testing.T) {
 		// perform test
-		handler = getHandler(t, connections, nil)
+		handler = getHandler(t, connections, nil, nil)
 		buf, err := getSuccessResponseFromHandler(handler, nil,
 			operationID)
 		require.NoError(t, err)
@@ -203,20 +203,6 @@ func TestOperation_QueryConnectionByParams(t *testing.T) {
 }
 
 func TestOperation_ReceiveInvitationFailure(t *testing.T) {
-	verifyError := func(code resterr.Code, data []byte) {
-		// Parser generic error response
-		errResponse := struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		}{}
-		err := json.Unmarshal(data, &errResponse)
-		require.NoError(t, err)
-
-		// verify response
-		require.NotEmpty(t, code, errResponse.Code)
-		require.NotEmpty(t, errResponse.Message)
-	}
-
 	// Failure in service
 	var jsonStr = []byte(`{
     	"@type": "https://didcomm.org/connections/1.0/invitation",
@@ -228,53 +214,79 @@ func TestOperation_ReceiveInvitationFailure(t *testing.T) {
     		]
   	}`)
 
-	handler := getHandler(t, receiveInvitationPath, errors.New("handler failed"))
+	handler := getHandler(t, receiveInvitationPath, errors.New("handler failed"), nil)
 	buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 	require.Equal(t, http.StatusInternalServerError, code)
-	verifyError(ReceiveInvitationErrorCode, buf.Bytes())
+	verifyRESTError(t, ReceiveInvitationErrorCode, buf.Bytes())
 
 	// Failure due to invalid request body
 	jsonStr = []byte("")
-	handler = getHandler(t, receiveInvitationPath, nil)
+	handler = getHandler(t, receiveInvitationPath, nil, nil)
 	buf, code, err = sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, code)
 
-	verifyError(InvalidRequestErrorCode, buf.Bytes())
+	verifyRESTError(t, InvalidRequestErrorCode, buf.Bytes())
 }
 
 func TestOperation_AcceptInvitation(t *testing.T) {
-	handler := getHandler(t, acceptInvitationPath, nil)
-	buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")),
-		operationID+"/1111/accept-invitation")
-	require.NoError(t, err)
+	t.Run("test accept invitation success", func(t *testing.T) {
+		handler := getHandler(t, acceptInvitationPath, nil, nil)
+		buf, err := getSuccessResponseFromHandler(handler, nil,
+			operationID+"/1111/accept-invitation?public=sample-public-did")
+		require.NoError(t, err)
 
-	response := models.AcceptInvitationResponse{}
-	err = json.Unmarshal(buf.Bytes(), &response)
-	require.NoError(t, err)
+		response := models.AcceptInvitationResponse{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
 
-	require.NotEmpty(t, response)
-	require.NotEmpty(t, response.ConnectionID)
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.ConnectionID)
+	})
+
+	t.Run("test accept invitation failures", func(t *testing.T) {
+		handler := getHandler(t, acceptInvitationPath, nil, fmt.Errorf("fail it"))
+		buf, code, err := sendRequestToHandler(handler, nil,
+			operationID+"/1111/accept-invitation?publicDID=xyz")
+		require.NoError(t, err)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, code)
+		verifyRESTError(t, AcceptInvitationErrorCode, buf.Bytes())
+	})
 }
 
 func TestOperation_AcceptExchangeRequest(t *testing.T) {
-	handler := getHandler(t, acceptExchangeRequest, nil)
-	buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")),
-		operationID+"/4444/accept-request")
-	require.NoError(t, err)
+	t.Run("test accept exchange request failures", func(t *testing.T) {
+		handler := getHandler(t, acceptExchangeRequest, nil, nil)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")),
+			operationID+"/4444/accept-request?public=sample-public-did")
+		require.NoError(t, err)
 
-	response := models.AcceptExchangeResult{}
-	err = json.Unmarshal(buf.Bytes(), &response)
-	require.NoError(t, err)
+		response := models.AcceptExchangeResult{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
 
-	// verify response
-	require.NotEmpty(t, response)
-	require.NotEmpty(t, response.Result.ConnectionID)
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.Result.ConnectionID)
+	})
+
+	t.Run("test accept exchange request failures", func(t *testing.T) {
+		handler := getHandler(t, acceptExchangeRequest, nil, fmt.Errorf("fail it"))
+		buf, code, err := sendRequestToHandler(handler, nil,
+			operationID+"/4444/accept-request?public=sample-public-did")
+		require.NoError(t, err)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, code)
+		verifyRESTError(t, AcceptExchangeRequestErrorCode, buf.Bytes())
+	})
 }
 
 func TestOperation_RemoveConnection(t *testing.T) {
-	handler := getHandler(t, removeConnection, nil)
+	handler := getHandler(t, removeConnection, nil, nil)
 	buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")),
 		operationID+"/5555/remove")
 	require.NoError(t, err)
@@ -327,7 +339,7 @@ func getSuccessResponseFromHandler(handler operation.Handler, requestBody io.Rea
 	return response, err
 }
 
-func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler {
+func getHandler(t *testing.T, lookup string, handleErr, acceptErr error) operation.Handler {
 	transientStore := mockstore.MockStore{Store: make(map[string][]byte)}
 	store := mockstore.MockStore{Store: make(map[string][]byte)}
 	connRec := &didexsvc.ConnectionRecord{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
@@ -348,6 +360,7 @@ func getHandler(t *testing.T, lookup string, handleErr error) operation.Handler 
 			HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
 				return uuid.New().String(), handleErr
 			},
+			AcceptError: acceptErr,
 		},
 		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 		InboundEndpointValue:          "endpoint",
@@ -646,14 +659,18 @@ func TestSendConnectionNotification(t *testing.T) {
 	})
 }
 
-func TestOperation(t *testing.T) {
-	fmt.Println(">>==>>", InvalidRequestErrorCode)
-	fmt.Println(">>==>>", CreateInvitationErrorCode)
-	fmt.Println(">>==>>", ReceiveInvitationErrorCode)
-	fmt.Println(">>==>>", AcceptInvitationErrorCode)
-	fmt.Println(">>==>>", AcceptExchangeRequestErrorCode)
-	fmt.Println(">>==>>", QueryConnectionsErrorCode)
-	fmt.Println(">>==>>", RemoveConnectionErrorCode)
+func verifyRESTError(t *testing.T, code resterr.Code, data []byte) {
+	// Parser generic error response
+	errResponse := struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}{}
+	err := json.Unmarshal(data, &errResponse)
+	require.NoError(t, err)
+
+	// verify response
+	require.EqualValues(t, code, errResponse.Code)
+	require.NotEmpty(t, errResponse.Message)
 }
 
 type mockNotifier struct {

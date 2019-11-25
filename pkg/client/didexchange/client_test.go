@@ -548,7 +548,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 				require.Fail(t, "Failed to cast the event properties to service.Event")
 			}
 
-			require.NoError(t, c.AcceptExchangeRequest(prop.ConnectionID()))
+			require.NoError(t, c.AcceptExchangeRequest(prop.ConnectionID(), "", ""))
 		}
 	}()
 
@@ -601,7 +601,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 		require.Fail(t, "tests are not validated due to timeout")
 	}
 
-	err = c.AcceptExchangeRequest("invalid-id")
+	err = c.AcceptExchangeRequest("invalid-id", "", "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "did exchange client - accept exchange request:")
 }
@@ -650,7 +650,7 @@ func TestAcceptInvitation(t *testing.T) {
 				}
 
 				if e.Type == service.PostState && e.StateID == "invited" {
-					require.NoError(t, c.AcceptInvitation(prop.ConnectionID()))
+					require.NoError(t, c.AcceptInvitation(prop.ConnectionID(), "", ""))
 				}
 
 				if e.Type == service.PostState && e.StateID == "requested" {
@@ -684,7 +684,7 @@ func TestAcceptInvitation(t *testing.T) {
 	})
 
 	t.Run("accept invitation - error", func(t *testing.T) {
-		err = c.AcceptInvitation("invalid-id")
+		err = c.AcceptInvitation("invalid-id", "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "did exchange client - accept exchange invitation")
 	})

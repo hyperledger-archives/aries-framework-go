@@ -958,7 +958,67 @@ func TestAcceptExchangeRequest(t *testing.T) {
 		for e := range actionCh {
 			prop, ok := e.Properties.(event)
 			require.True(t, ok, "Failed to cast the event properties to service.Event")
-			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID()))
+			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID(), "", ""))
+		}
+	}()
+
+	statusCh := make(chan service.StateMsg, 10)
+	err = svc.RegisterMsgEvent(statusCh)
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+
+	go func() {
+		for e := range statusCh {
+			if e.Type == service.PostState && e.StateID == stateNameResponded {
+				done <- struct{}{}
+			}
+		}
+	}()
+
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t,
+		&protocol.MockProvider{StoreProvider: mockstorage.NewMockStoreProvider()}, randomString(), invitation.ID))
+	require.NoError(t, err)
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		require.Fail(t, "tests are not validated")
+	}
+}
+
+func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
+	svc, err := New(&protocol.MockProvider{StoreProvider: mockstorage.NewMockStoreProvider()})
+	require.NoError(t, err)
+
+	const publicDIDMethod = "sidetree"
+	publicDID := fmt.Sprintf("did:%s:123456", publicDIDMethod)
+	newDidDoc, err := svc.ctx.vdriRegistry.Create(publicDIDMethod)
+	require.NoError(t, err)
+
+	svc.ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc}
+
+	actionCh := make(chan service.DIDCommAction, 10)
+	err = svc.RegisterActionEvent(actionCh)
+	require.NoError(t, err)
+
+	pubKey, _ := generateKeyPair()
+	invitation := &Invitation{
+		Type:            InvitationMsgType,
+		ID:              randomString(),
+		Label:           "Bob",
+		RecipientKeys:   []string{pubKey},
+		ServiceEndpoint: "http://alice.agent.example.com:8081",
+	}
+
+	err = svc.connectionStore.SaveInvitation(invitation)
+	require.NoError(t, err)
+
+	go func() {
+		for e := range actionCh {
+			prop, ok := e.Properties.(event)
+			require.True(t, ok, "Failed to cast the event properties to service.Event")
+			require.NoError(t, svc.AcceptExchangeRequest(prop.ConnectionID(), publicDID, "sample-label"))
 		}
 	}()
 
@@ -1019,7 +1079,7 @@ func TestAcceptInvitation(t *testing.T) {
 				}
 
 				if e.Type == service.PostState && e.StateID == stateNameInvited {
-					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID()))
+					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), "", ""))
 				}
 
 				if e.Type == service.PostState && e.StateID == stateNameRequested {
@@ -1052,7 +1112,7 @@ func TestAcceptInvitation(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(generateRandomID())
+		err = svc.AcceptInvitation(generateRandomID(), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange invitation : get transient data : data not found")
 	})
@@ -1072,7 +1132,7 @@ func TestAcceptInvitation(t *testing.T) {
 		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(id)
+		err = svc.AcceptInvitation(id, "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "current state (requested) is different from expected state (invited)")
 	})
@@ -1090,7 +1150,122 @@ func TestAcceptInvitation(t *testing.T) {
 		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
 		require.NoError(t, err)
 
-		err = svc.AcceptInvitation(id)
+		err = svc.AcceptInvitation(id, "", "")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "accept exchange invitation : data not found")
+	})
+}
+
+func TestAcceptInvitationWithPublicDID(t *testing.T) {
+	t.Run("accept invitation with public DID - success", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{StoreProvider: mockstorage.NewMockStoreProvider()})
+		require.NoError(t, err)
+
+		const publicDIDMethod = "sidetree"
+		publicDID := fmt.Sprintf("did:%s:123456", publicDIDMethod)
+		newDidDoc, err := svc.ctx.vdriRegistry.Create(publicDIDMethod)
+		require.NoError(t, err)
+		svc.ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc}
+
+		actionCh := make(chan service.DIDCommAction, 10)
+		err = svc.RegisterActionEvent(actionCh)
+		require.NoError(t, err)
+
+		go func() {
+			for e := range actionCh {
+				_, ok := e.Properties.(event)
+				require.True(t, ok, "Failed to cast the event properties to service.Event")
+
+				// ignore action event
+			}
+		}()
+
+		statusCh := make(chan service.StateMsg, 10)
+		err = svc.RegisterMsgEvent(statusCh)
+		require.NoError(t, err)
+
+		done := make(chan struct{})
+
+		go func() {
+			for e := range statusCh {
+				prop, ok := e.Properties.(event)
+				if !ok {
+					require.Fail(t, "Failed to cast the event properties to service.Event")
+				}
+
+				if e.Type == service.PostState && e.StateID == stateNameInvited {
+					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), publicDID, "sample-label"))
+				}
+
+				if e.Type == service.PostState && e.StateID == stateNameRequested {
+					done <- struct{}{}
+				}
+			}
+		}()
+		pubKey, _ := generateKeyPair()
+		invitationBytes, err := json.Marshal(&Invitation{
+			Type:          InvitationMsgType,
+			ID:            generateRandomID(),
+			RecipientKeys: []string{pubKey},
+		})
+		require.NoError(t, err)
+
+		didMsg, err := service.NewDIDCommMsg(invitationBytes)
+		require.NoError(t, err)
+
+		_, err = svc.HandleInbound(didMsg)
+		require.NoError(t, err)
+
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			require.Fail(t, "tests are not validated")
+		}
+	})
+
+	t.Run("accept invitation - error", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		err = svc.AcceptInvitation(generateRandomID(), "sample-public-did", "sample-label")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "accept exchange invitation : get transient data : data not found")
+	})
+
+	t.Run("accept invitation - state error", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		id := generateRandomID()
+		connRecord := &ConnectionRecord{
+			ConnectionID: id,
+			State:        stateNameRequested,
+		}
+		err = svc.connectionStore.saveConnectionRecord(connRecord)
+		require.NoError(t, err)
+
+		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
+		require.NoError(t, err)
+
+		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "current state (requested) is different from expected state (invited)")
+	})
+
+	t.Run("accept invitation - no connection record error", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		id := generateRandomID()
+		connRecord := &ConnectionRecord{
+			ConnectionID: id,
+			State:        stateNameRequested,
+		}
+
+		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
+		require.NoError(t, err)
+
+		err = svc.AcceptInvitation(id, "sample-public-did", "sample-label")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange invitation : data not found")
 	})
@@ -1118,7 +1293,11 @@ func TestEventTransientData(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		err = svc.AcceptExchangeRequest(generateRandomID())
+		err = svc.AcceptExchangeRequest(generateRandomID(), "", "")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "accept exchange request : get transient data : data not found")
+
+		err = svc.AcceptExchangeRequest(generateRandomID(), "sample-public-did", "sample-label")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "accept exchange request : get transient data : data not found")
 	})

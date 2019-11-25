@@ -57,10 +57,10 @@ type protocolService interface {
 	service.DIDComm
 
 	// Accepts/Approves exchange request
-	AcceptExchangeRequest(connectionID string) error
+	AcceptExchangeRequest(connectionID, publicDID, label string) error
 
 	// Accepts/Approves exchange invitation
-	AcceptInvitation(connectionID string) error
+	AcceptInvitation(connectionID, publicDID, label string) error
 }
 
 // New return new instance of didexchange client
@@ -165,8 +165,8 @@ func (c *Client) HandleInvitation(invitation *Invitation) (string, error) {
 
 // AcceptInvitation accepts/approves exchange invitation. This call is not used if auto execute is setup
 // for this client (see package example for more details about how to setup auto execute)
-func (c *Client) AcceptInvitation(connectionID string) error {
-	if err := c.didexchangeSvc.AcceptInvitation(connectionID); err != nil {
+func (c *Client) AcceptInvitation(connectionID, publicDID, label string) error {
+	if err := c.didexchangeSvc.AcceptInvitation(connectionID, publicDID, label); err != nil {
 		return fmt.Errorf("did exchange client - accept exchange invitation: %w", err)
 	}
 
@@ -175,8 +175,8 @@ func (c *Client) AcceptInvitation(connectionID string) error {
 
 // AcceptExchangeRequest accepts/approves exchange request. This call is not used if auto execute is setup
 // for this client (see package example for more details about how to setup auto execute)
-func (c *Client) AcceptExchangeRequest(connectionID string) error {
-	if err := c.didexchangeSvc.AcceptExchangeRequest(connectionID); err != nil {
+func (c *Client) AcceptExchangeRequest(connectionID, publicDID, label string) error {
+	if err := c.didexchangeSvc.AcceptExchangeRequest(connectionID, publicDID, label); err != nil {
 		return fmt.Errorf("did exchange client - accept exchange request: %w", err)
 	}
 

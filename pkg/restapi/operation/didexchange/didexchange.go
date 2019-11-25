@@ -197,7 +197,15 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 
 	logger.Debugf("Accepting connection invitation for id[%s]", id)
 
-	err := c.client.AcceptInvitation(id)
+	var request models.AcceptInvitationRequest
+
+	err := getQueryParams(&request, req.URL.Query())
+	if err != nil {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, err)
+		return
+	}
+
+	err = c.client.AcceptInvitation(id, request.Public, c.defaultLabel)
 	if err != nil {
 		logger.Errorf("accept invitation api failed for id %s with error %s", id, err)
 		resterrors.SendHTTPInternalServerError(rw, AcceptInvitationErrorCode, err)
@@ -227,7 +235,15 @@ func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Requ
 
 	logger.Infof("Accepting connection request for id [%s]", id)
 
-	err := c.client.AcceptExchangeRequest(id)
+	var request models.AcceptInvitationRequest
+
+	err := getQueryParams(&request, req.URL.Query())
+	if err != nil {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, err)
+		return
+	}
+
+	err = c.client.AcceptExchangeRequest(id, request.Public, c.defaultLabel)
 	if err != nil {
 		logger.Errorf("accepting connection request failed for id %s with error %s", id, err)
 		resterrors.SendHTTPInternalServerError(rw, AcceptExchangeRequestErrorCode, err)

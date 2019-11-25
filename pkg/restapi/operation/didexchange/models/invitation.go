@@ -121,6 +121,9 @@ type AcceptInvitationRequest struct {
 	// in: path
 	// required: true
 	ID string `json:"id"`
+
+	// Optional Public DID to be used for this request
+	Public string `json:"public"`
 }
 
 // AcceptInvitationResponse model
@@ -241,6 +244,10 @@ type AcceptExchangeRequestParams struct {
 	// in: path
 	// required: true
 	ID string `json:"id"`
+
+	// Optional Public DID to be used for this invitation
+	// request
+	Public string `json:"public"`
 }
 
 // AcceptExchangeResult model

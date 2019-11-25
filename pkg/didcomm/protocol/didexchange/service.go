@@ -377,16 +377,16 @@ func (s *Service) startInternalListener() {
 }
 
 // AcceptInvitation accepts/approves connection invitation.
-func (s *Service) AcceptInvitation(connectionID string) error {
-	return s.accept(connectionID, stateNameInvited, "accept exchange invitation")
+func (s *Service) AcceptInvitation(connectionID, publicDID, label string) error {
+	return s.accept(connectionID, publicDID, label, stateNameInvited, "accept exchange invitation")
 }
 
 // AcceptExchangeRequest accepts/approves connection request.
-func (s *Service) AcceptExchangeRequest(connectionID string) error {
-	return s.accept(connectionID, stateNameRequested, "accept exchange request")
+func (s *Service) AcceptExchangeRequest(connectionID, publicDID, label string) error {
+	return s.accept(connectionID, publicDID, label, stateNameRequested, "accept exchange request")
 }
 
-func (s *Service) accept(connectionID, stateID, errMsg string) error {
+func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string) error {
 	msg, err := s.getEventTransientData(connectionID)
 	if err != nil {
 		return fmt.Errorf("%s : %w", errMsg, err)
@@ -401,6 +401,8 @@ func (s *Service) accept(connectionID, stateID, errMsg string) error {
 		return fmt.Errorf("current state (%s) is different from "+
 			"expected state (%s)", connRecord.State, stateID)
 	}
+
+	msg.Options = &options{publicDID: publicDID, label: label}
 
 	return s.handleWithoutAction(msg)
 }
