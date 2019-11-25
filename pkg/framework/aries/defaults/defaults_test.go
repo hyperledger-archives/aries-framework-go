@@ -60,6 +60,23 @@ func TestWithInboundHTTPPort(t *testing.T) {
 	})
 }
 
+func TestWithInboundWSPort(t *testing.T) {
+	t.Run("test inbound with ws port - success", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+
+		a, err := aries.New(WithStorePath(path), WithInboundWSAddr(":26503", ""))
+		require.NoError(t, err)
+		require.NoError(t, a.Close())
+	})
+
+	t.Run("test inbound with ws port - empty address", func(t *testing.T) {
+		_, err := aries.New(WithInboundWSAddr("", ""))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "ws inbound transport initialization failed")
+	})
+}
+
 func generateTempDir(t testing.TB) (string, func()) {
 	path, err := ioutil.TempDir("", "db")
 	if err != nil {
