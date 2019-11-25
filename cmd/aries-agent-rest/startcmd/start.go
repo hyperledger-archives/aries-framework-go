@@ -102,10 +102,23 @@ const (
 
 	agentOutboundTransportFlagUsage = "Outbound transport type." +
 		" This flag can be repeated, allowing for multiple transports." +
-		" possible values [http] [ws]. Defaults to http if not set." +
+		" Possible values [http] [ws]. Defaults to http if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentOutboundTransportEnvKey
 
 	agentOutboundTransportEnvKey = "ARIESD_OUTBOUND_TRANSPORT"
+
+	agentInboundTransportEnvKey = "ARIESD_INBOUND_TRANSPORT"
+
+	agentInboundTransportFlagName = "inbound-transport"
+
+	agentInboundTransportFlagShorthand = "b"
+
+	agentInboundTransportFlagUsage = "Inbound transport type." +
+		" Possible values [http] [ws]. Defaults to http if not set." +
+		" Alternatively, this can be set with the following environment variable: " + agentInboundTransportEnvKey
+
+	httpProtocol      = "http"
+	websocketProtocol = "ws"
 )
 
 var errMissingHost = errors.New("host not provided")
@@ -115,9 +128,9 @@ var errMissingInboundHost = errors.New("HTTP Inbound transport host not provided
 var logger = log.New("aries-framework/agent-rest")
 
 type agentParameters struct {
-	server                                                               server
-	host, inboundHostInternal, inboundHostExternal, dbPath, defaultLabel string
-	webhookURLs, httpResolvers, outboundTransports                       []string
+	server                                                                                 server
+	host, inboundHostInternal, inboundHostExternal, dbPath, defaultLabel, inboundTransport string
+	webhookURLs, httpResolvers, outboundTransports                                         []string
 }
 
 type server interface {
@@ -146,11 +159,7 @@ func createStartCMD(server server) *cobra.Command {
 		Use:   "start",
 		Short: "Start an agent",
 		Long:  `Start an Aries agent controller`,
-
 		RunE: func(cmd *cobra.Command, args []string) error {
-			flags := make(map[string][]string)
-			flags[agentHostFlagName] = []string{agentHostEnvKey, "false"}
-
 			host, err := getUserSetVar(cmd, agentHostFlagName, agentHostEnvKey, false)
 			if err != nil {
 				return err
@@ -195,9 +204,14 @@ func createStartCMD(server server) *cobra.Command {
 				return err
 			}
 
-			parameters := &agentParameters{server, host, inboundHost,
-				inboundHostExternal, dbPath, defaultLabel, webhookURLs,
-				httpResolvers, outboundTransports}
+			inboundTransport, err := getUserSetVar(cmd, agentInboundTransportFlagName, agentInboundTransportEnvKey, true)
+			if err != nil {
+				return err
+			}
+
+			parameters := &agentParameters{server: server, host: host, inboundHostInternal: inboundHost,
+				inboundHostExternal: inboundHostExternal, dbPath: dbPath, defaultLabel: defaultLabel, webhookURLs: webhookURLs,
+				httpResolvers: httpResolvers, outboundTransports: outboundTransports, inboundTransport: inboundTransport}
 			return startAgent(parameters)
 		},
 	}
@@ -218,6 +232,8 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringSliceP(
 		agentOutboundTransportFlagName, agentOutboundTransportFlagShorthand, []string{},
 		agentOutboundTransportFlagUsage)
+	startCmd.Flags().StringP(agentInboundTransportFlagName, agentInboundTransportFlagShorthand, "",
+		agentInboundTransportFlagUsage)
 }
 
 func getUserSetVar(cmd *cobra.Command, hostFlagName, envKey string, isOptional bool) (string, error) {
@@ -298,14 +314,14 @@ func getOutboundTransportOpts(outboundTransports []string) ([]aries.Option, erro
 
 	for _, outboundTransport := range outboundTransports {
 		switch outboundTransport {
-		case "http":
+		case httpProtocol:
 			outbound, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
 			if err != nil {
 				return nil, fmt.Errorf("http outbound transport initialization failed: %w", err)
 			}
 
 			transports = append(transports, outbound)
-		case "ws":
+		case websocketProtocol:
 			transports = append(transports, ws.NewOutbound())
 		default:
 			return nil, fmt.Errorf("outbound transport [%s] not supported", outboundTransport)
@@ -317,6 +333,21 @@ func getOutboundTransportOpts(outboundTransports []string) ([]aries.Option, erro
 	}
 
 	return opts, nil
+}
+
+func getInboundTransportOpts(inboundTransport, inboundHostInternal, inboundHostExternal string) (aries.Option, error) {
+	if inboundTransport == "" {
+		inboundTransport = httpProtocol
+	}
+
+	switch inboundTransport {
+	case httpProtocol:
+		return defaults.WithInboundHTTPAddr(inboundHostInternal, inboundHostExternal), nil
+	case websocketProtocol:
+		return defaults.WithInboundWSAddr(inboundHostInternal, inboundHostExternal), nil
+	default:
+		return nil, fmt.Errorf("inbound transport [%s] not supported", inboundTransport)
+	}
 }
 
 func startAgent(parameters *agentParameters) error {
@@ -362,11 +393,19 @@ func startAgent(parameters *agentParameters) error {
 
 func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 	var opts []aries.Option
-	opts = append(opts, defaults.WithInboundHTTPAddr(parameters.inboundHostInternal, parameters.inboundHostExternal))
 
 	if parameters.dbPath != "" {
 		opts = append(opts, defaults.WithStorePath(parameters.dbPath))
 	}
+
+	inboundTransportOpt, err := getInboundTransportOpts(parameters.inboundTransport,
+		parameters.inboundHostInternal, parameters.inboundHostExternal)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start aries agent rest on port [%s], failed to inbound tranpsort opt : %w",
+			parameters.host, err)
+	}
+
+	opts = append(opts, inboundTransportOpt)
 
 	resolverOpts, err := getResolverOpts(parameters.httpResolvers)
 	if err != nil {
