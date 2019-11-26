@@ -9,7 +9,7 @@ package didcomm
 // MockAuthCrypt mock auth crypt
 type MockAuthCrypt struct {
 	EncryptValue func(payload, senderPubKey []byte, recipients [][]byte) ([]byte, error)
-	DecryptValue func(envelope []byte) ([]byte, error)
+	DecryptValue func(envelope []byte) ([]byte, []byte, error)
 	Type         string
 }
 
@@ -20,7 +20,7 @@ func (m *MockAuthCrypt) Pack(payload, senderPubKey []byte,
 }
 
 // Unpack mock message unpacking
-func (m *MockAuthCrypt) Unpack(envelope []byte) ([]byte, error) {
+func (m *MockAuthCrypt) Unpack(envelope []byte) ([]byte, []byte, error) {
 	return m.DecryptValue(envelope)
 }
 

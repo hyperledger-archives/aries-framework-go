@@ -146,10 +146,10 @@ func (bp *Packager) UnpackMessage(encMessage []byte) (*transport.Envelope, error
 		return nil, fmt.Errorf("message Type not recognized")
 	}
 
-	bytes, err := p.Unpack(encMessage)
+	data, senderVerKey, err := p.Unpack(encMessage)
 	if err != nil {
 		return nil, fmt.Errorf("unpack: %w", err)
 	}
-	// TODO extract fromVerKey and toVerKey from packer.Unpack() call above and set them here
-	return &transport.Envelope{Message: bytes}, nil
+
+	return &transport.Envelope{Message: data, FromVerKey: base58.Encode(senderVerKey)}, nil
 }

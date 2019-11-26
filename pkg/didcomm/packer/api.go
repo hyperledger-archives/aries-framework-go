@@ -31,9 +31,10 @@ type Packer interface {
 	//
 	// returns:
 	// 		[]byte containing the decrypted payload
+	// 		[]byte contains the sender verification key
 	//		error if decryption failed
 	// TODO add key type of recipients keys to be validated by the implementation - Issue #272
-	Unpack(envelope []byte) ([]byte, error)
+	Unpack(envelope []byte) ([]byte, []byte, error)
 
 	// Encoding returns the type of the encoding, as found in the header `Typ` field
 	EncodingType() string
