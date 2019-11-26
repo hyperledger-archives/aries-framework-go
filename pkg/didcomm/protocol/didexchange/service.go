@@ -547,6 +547,7 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecor
 		ThreadID:        thID,
 		State:           stateNameNull,
 		InvitationID:    invitation.ID,
+		InvitationDID:   invitation.DID,
 		ServiceEndPoint: invitation.ServiceEndpoint,
 		RecipientKeys:   []string{recKey},
 		TheirLabel:      invitation.Label,
@@ -623,4 +624,64 @@ func canTriggerActionEvents(stateID, ns string) bool {
 type options struct {
 	publicDID string
 	label     string
+}
+
+// CreateImplicitInvitation creates and sends an exchange request to create connection
+// to specified public DID.
+func (s *Service) CreateImplicitInvitation(label, toDID string) (string, error) {
+	logger.Debugf("implicit invitation requested for: %s", toDID)
+
+	didDoc, err := s.ctx.vdriRegistry.Resolve(toDID)
+	if err != nil {
+		return "", fmt.Errorf("resolve public did[%s]: %w", toDID, err)
+	}
+
+	dest, err := prepareDestination(didDoc)
+	thID := generateRandomID()
+	connRecord := &ConnectionRecord{
+		ConnectionID:    generateRandomID(),
+		ThreadID:        thID,
+		State:           stateNameNull,
+		InvitationDID:   toDID,
+		Implicit:        true,
+		ServiceEndPoint: dest.ServiceEndpoint,
+		RecipientKeys:   dest.RecipientKeys,
+		TheirLabel:      label,
+		Namespace:       findNameSpace(InvitationMsgType),
+	}
+
+	if e := s.connectionStore.saveNewConnectionRecord(connRecord); e != nil {
+		return "", fmt.Errorf("failed to save new connection record for implicit invitation: %w", e)
+	}
+
+	invitation := &Invitation{
+		ID:    uuid.New().String(),
+		Label: label,
+		DID:   toDID,
+		Type:  InvitationMsgType}
+
+	msg, err := createDIDCommMsg(invitation)
+	if err != nil {
+		return "", fmt.Errorf("failed to create DIDCommMsg for implicit invitation: %w", err)
+	}
+
+	next := &requested{}
+	internalMsg := &message{Msg: msg, ThreadID: thID, NextStateName: next.Name(), ConnRecord: connRecord}
+
+	go func(msg *message, aEvent chan<- service.DIDCommAction) {
+		if err = s.handle(msg, aEvent); err != nil {
+			logger.Errorf("error from handle for implicit invitation: %s", err)
+		}
+	}(internalMsg, s.ActionEvent())
+
+	return connRecord.ConnectionID, nil
+}
+
+func createDIDCommMsg(invitation *Invitation) (*service.DIDCommMsg, error) {
+	payload, err := json.Marshal(invitation)
+	if err != nil {
+		return nil, fmt.Errorf("marshal invitation: %w", err)
+	}
+
+	return service.NewDIDCommMsg(payload)
 }

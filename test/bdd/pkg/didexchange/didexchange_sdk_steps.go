@@ -79,6 +79,18 @@ func (d *SDKSteps) createInvitationWithDID(inviterAgentID string) error {
 	return nil
 }
 
+func (d *SDKSteps) createImplicitInvitation(inviteeAgentID, inviterAgentID string) error {
+	connectionID, err := d.bddContext.DIDExchangeClients[inviteeAgentID].CreateImplicitInvitation(inviterAgentID,
+		d.bddContext.PublicDIDs[inviterAgentID].ID)
+	if err != nil {
+		return fmt.Errorf("failed to create invitation: %w", err)
+	}
+
+	d.connectionID[inviteeAgentID] = connectionID
+
+	return nil
+}
+
 func (d *SDKSteps) waitForPublicDID(agentID string, maxSeconds int) error {
 	_, err := resolveDID(d.bddContext.AgentCtx[agentID].VDRIRegistry(), d.bddContext.PublicDIDs[agentID].ID, maxSeconds)
 	return err
@@ -113,6 +125,13 @@ func (d *SDKSteps) validateConnection(agentID, stateValue string) error {
 	if err != nil {
 		return fmt.Errorf("failed to query connection by id: %w", err)
 	}
+
+	prettyConn, err := json.MarshalIndent(conn, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal connection: %w", err)
+	}
+
+	logger.Debugf("Agent[%s] state[%s] connection: \n %s", agentID, stateValue, string(prettyConn))
 
 	if conn.State != stateValue {
 		return fmt.Errorf("state from connection %s not equal %s", conn.State, stateValue)
@@ -263,6 +282,7 @@ func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" waits for public did to become available in sidetree for up to (\d+) seconds$`,
 		d.waitForPublicDID)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)"$`, d.receiveInvitation)
+	s.Step(`^"([^"]*)" initiates connection with "([^"]*)"$`, d.createImplicitInvitation)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)"$`, d.waitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`,
 		d.validateConnection)

@@ -39,6 +39,8 @@ type ConnectionRecord struct {
 	ServiceEndPoint string
 	RecipientKeys   []string
 	InvitationID    string
+	InvitationDID   string
+	Implicit        bool
 	Namespace       string
 }
 
@@ -66,7 +68,6 @@ type ConnectionRecorder struct {
 //
 // Args:
 //
-// verKey: recipient key of the invitation object to be saved in store
 // invitation: invitation to be stored
 //
 // Returns:

@@ -623,7 +623,7 @@ func TestVerifySignature(t *testing.T) {
 func TestPrepareConnectionSignature(t *testing.T) {
 	prov, store := getProvider()
 	ctx := getContext(prov, store)
-	pubKey, _ := generateKeyPair()
+	pubKey, privKey := generateKeyPair()
 	invitation, err := createMockInvitation(pubKey, ctx)
 	require.NoError(t, err)
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
@@ -646,10 +646,39 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, connection.DID, sigDataConnection.DID)
 	})
+	t.Run("implicit invitation with DID - success", func(t *testing.T) {
+		ctx2 := &context{outboundDispatcher: prov.OutboundDispatcher(),
+			vdriRegistry:    &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc},
+			signer:          &mockSigner{privateKey: privKey},
+			connectionStore: NewConnectionRecorder(store, store),
+		}
+		connectionSignature, err := ctx2.prepareConnectionSignature(connection, newDidDoc.ID)
+		require.NoError(t, err)
+		require.NotNil(t, connectionSignature)
+		sigData, err := base64.URLEncoding.DecodeString(connectionSignature.SignedData)
+		require.NoError(t, err)
+		connBytes := bytes.SplitAfter(sigData, []byte(string(signatureDataDelimiter)))
+		sigDataConnection := &Connection{}
+		err = json.Unmarshal(connBytes[1], sigDataConnection)
+		require.NoError(t, err)
+		require.Equal(t, connection.DID, sigDataConnection.DID)
+	})
+	t.Run("implicit invitation with DID - recipient key error", func(t *testing.T) {
+		newDidDoc.PublicKey = nil
+		ctx2 := &context{outboundDispatcher: prov.OutboundDispatcher(),
+			vdriRegistry:    &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc},
+			signer:          &mockSigner{privateKey: privKey},
+			connectionStore: NewConnectionRecorder(store, store),
+		}
+		connectionSignature, err := ctx2.prepareConnectionSignature(connection, newDidDoc.ID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "key not found in DID document")
+		require.Nil(t, connectionSignature)
+	})
 	t.Run("prepare connection signature get invitation", func(t *testing.T) {
 		connectionSignature, err := ctx.prepareConnectionSignature(connection, "test")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get invitation: data not found")
+		require.Contains(t, err.Error(), "get invitation for signature: data not found")
 		require.Nil(t, connectionSignature)
 	})
 	t.Run("prepare connection signature get invitation", func(t *testing.T) {
@@ -662,7 +691,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		require.NoError(t, err)
 		connectionSignature, err := ctx.prepareConnectionSignature(connection, inv.ID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get invitation: data not found")
+		require.Contains(t, err.Error(), "get invitation for signature: data not found")
 		require.Nil(t, connectionSignature)
 	})
 	t.Run("prepare connection signature error", func(t *testing.T) {

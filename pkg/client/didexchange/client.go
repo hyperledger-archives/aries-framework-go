@@ -61,6 +61,9 @@ type protocolService interface {
 
 	// Accepts/Approves exchange invitation
 	AcceptInvitation(connectionID, publicDID, label string) error
+
+	// CreateImplicitInvitation creates implicit invitation
+	CreateImplicitInvitation(label, toDID string) (string, error)
 }
 
 // New return new instance of didexchange client
@@ -181,6 +184,12 @@ func (c *Client) AcceptExchangeRequest(connectionID, publicDID, label string) er
 	}
 
 	return nil
+}
+
+// CreateImplicitInvitation creates and sends an exchange request to create connection
+// to specified public DID.
+func (c *Client) CreateImplicitInvitation(label, toDID string) (string, error) {
+	return c.didexchangeSvc.CreateImplicitInvitation(label, toDID)
 }
 
 // QueryConnections queries connections matching given criteria(parameters)

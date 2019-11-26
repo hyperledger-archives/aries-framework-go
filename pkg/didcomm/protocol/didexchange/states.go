@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -291,13 +292,18 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 		return nil, nil, err
 	}
 
+	pid := invitation.ID
+	if connRec.Implicit {
+		pid = invitation.DID
+	}
+
 	request := &Request{
 		Type:       RequestMsgType,
 		ID:         thid,
 		Label:      getLabel(options),
 		Connection: conn,
 		Thread: &decorator.Thread{
-			PID: invitation.ID,
+			PID: pid,
 		},
 	}
 	connRec.MyDID = request.Connection.DID
@@ -343,6 +349,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options, con
 
 	connRec.TheirDID = request.Connection.DID
 	connRec.MyDID = connection.DID
+	connRec.TheirLabel = request.Label
 
 	destination, err := prepareDestination(requestDidDoc)
 	if err != nil {
@@ -528,10 +535,14 @@ func (ctx *context) prepareConnectionSignature(connection *Connection,
 	prefix := append([]byte(timestamp), signatureDataDelimiter)
 	concatenateSignData := append(prefix, connAttributeBytes...)
 
-	// that allows for correlation between exchange-request and invitation using pthid
-	invitation, err := ctx.connectionStore.GetInvitation(invitationID)
-	if err != nil {
-		return nil, fmt.Errorf("get invitation: %w", err)
+	var invitation *Invitation
+	if isDID(invitationID) {
+		invitation = &Invitation{ID: invitationID, DID: invitationID}
+	} else {
+		invitation, err = ctx.connectionStore.GetInvitation(invitationID)
+		if err != nil {
+			return nil, fmt.Errorf("get invitation for signature: %w", err)
+		}
 	}
 
 	pubKey, err := ctx.getInvitationRecipientKey(invitation)
@@ -661,8 +672,18 @@ func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, e
 			return "", fmt.Errorf("get invitation recipient key: %w", err)
 		}
 
-		return string(didDoc.PublicKey[0].Value), nil
+		recipientKeys, err := getRecipientKeys(didDoc)
+		if err != nil {
+			return "", fmt.Errorf("get recipient keys from did: %w", err)
+		}
+
+		return recipientKeys[0], nil
 	}
 
 	return invitation.RecipientKeys[0], nil
+}
+
+func isDID(str string) bool {
+	const didPrefix = "did:"
+	return strings.HasPrefix(str, didPrefix)
 }
