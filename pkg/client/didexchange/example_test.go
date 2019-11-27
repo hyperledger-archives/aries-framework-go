@@ -31,9 +31,7 @@ func Example() {
 	}
 
 	go func() {
-		if e := service.AutoExecuteActionEvent(bobActions); e != nil {
-			fmt.Println("failed to setup auto execute")
-		}
+		service.AutoExecuteActionEvent(bobActions)
 	}()
 
 	alice, err := New(mockContext())
@@ -49,9 +47,7 @@ func Example() {
 	}
 
 	go func() {
-		if e := service.AutoExecuteActionEvent(aliceActions); e != nil {
-			fmt.Println("failed to setup auto execute")
-		}
+		service.AutoExecuteActionEvent(aliceActions)
 	}()
 
 	invitation, err := bob.CreateInvitation("bob invites alice")

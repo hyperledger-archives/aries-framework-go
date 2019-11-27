@@ -76,10 +76,21 @@ type provider interface {
 }
 
 // New returns new DID Exchange rest client protocol instance
-func New(ctx provider, notifier webhook.Notifier, defaultLabel string) (*Operation, error) {
+func New(ctx provider, notifier webhook.Notifier, defaultLabel string, autoAccept bool) (*Operation, error) {
 	didExchange, err := didexchange.New(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if autoAccept {
+		actionCh := make(chan service.DIDCommAction)
+
+		err = didExchange.RegisterActionEvent(actionCh)
+		if err != nil {
+			return nil, fmt.Errorf("register action event failed: %w", err)
+		}
+
+		go service.AutoExecuteActionEvent(actionCh)
 	}
 
 	svc := &Operation{

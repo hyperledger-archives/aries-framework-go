@@ -490,7 +490,7 @@ func TestServiceEvents(t *testing.T) {
 	require.NoError(t, err)
 
 	go func() {
-		require.NoError(t, service.AutoExecuteActionEvent(aCh))
+		service.AutoExecuteActionEvent(aCh)
 	}()
 
 	// register message event channel

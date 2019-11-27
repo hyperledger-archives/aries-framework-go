@@ -100,12 +100,10 @@ type Event interface {
 //	actionCh := make(chan dispatcher.DIDCommAction)
 //	err = s.RegisterActionEvent(actionCh)
 //	go service.AutoExecuteActionEvent(actionCh)
-func AutoExecuteActionEvent(ch chan DIDCommAction) error {
+func AutoExecuteActionEvent(ch chan DIDCommAction) {
 	for msg := range ch {
 		msg.Continue(&Empty{})
 	}
-
-	return nil
 }
 
 // Empty is used if there are no arguments to Continue

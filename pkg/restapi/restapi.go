@@ -17,6 +17,7 @@ import (
 type allOpts struct {
 	webhookURLs  []string
 	defaultLabel string
+	autoAccept   bool
 }
 
 // Opt represents a REST Api option.
@@ -36,6 +37,13 @@ func WithDefaultLabel(defaultLabel string) Opt {
 	}
 }
 
+// WithAutoAccept is an option allowing for the auto accept to be set.
+func WithAutoAccept(autoAccept bool) Opt {
+	return func(opts *allOpts) {
+		opts.autoAccept = autoAccept
+	}
+}
+
 // New returns new controller REST API instance.
 func New(ctx *context.Provider, opts ...Opt) (*Controller, error) {
 	restAPIOpts := &allOpts{}
@@ -47,7 +55,8 @@ func New(ctx *context.Provider, opts ...Opt) (*Controller, error) {
 	var allHandlers []operation.Handler
 
 	// Add DID Exchange Rest Handlers
-	exchange, err := didexchange.New(ctx, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs), restAPIOpts.defaultLabel)
+	exchange, err := didexchange.New(ctx, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs), restAPIOpts.defaultLabel,
+		restAPIOpts.autoAccept)
 	if err != nil {
 		return nil, err
 	}
