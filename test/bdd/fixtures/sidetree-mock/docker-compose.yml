@@ -19,3 +19,9 @@ services:
       - 48326:48326
     volumes:
       - ../keys/tls:/etc/sidetree/tls
+    networks:
+      - agent-rest_bdd_net
+
+networks:
+  agent-rest_bdd_net:
+    external: true

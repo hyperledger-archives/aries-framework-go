@@ -9,7 +9,7 @@
 @didexchange_public_dids
 Feature: Decentralized Identifier(DID) exchange between the agents using public did in invitation
 
-  @didexchange_public_dids_invitation
+  @didexchange_sdk_public_dids_invitation
   Scenario: did exchange e2e flow using public DID in invitation
     Given "Maria" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
     And   "Maria" creates public DID for did method "sidetree" using "${SIDETREE_URL}"
@@ -32,7 +32,7 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     And   "Maria" retrieves connection record and validates that connection state is "completed"
     And   "Lisa" retrieves connection record and validates that connection state is "completed"
 
-  @didexchange_mixed_public_and_peer_dids
+  @didexchange_sdk_mixed_public_and_peer_dids
   Scenario: did exchange e2e flow using public DID in invitation
     Given "Julia" agent is running on "localhost" port "random" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
     And   "Julia" creates public DID for did method "sidetree" using "${SIDETREE_URL}"
@@ -51,6 +51,37 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     And   "Kate" waits for post state event "completed"
     And   "Julia" retrieves connection record and validates that connection state is "completed"
     And   "Kate" retrieves connection record and validates that connection state is "completed"
+
+  @didexchange_controller_public_dids_invitation
+  Scenario: did exchange e2e flow using public DID in invitation
+    Given "Filip" agent is running on "localhost" port "8081" with controller "http://localhost:8082" and webhook "http://localhost:8083" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    And  "Derek" agent is running on "localhost" port "9081" with controller "http://localhost:9082" and webhook "http://localhost:9083" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    Then "Filip" creates "sidetree" public DID through controller
+    And  "Derek" creates "sidetree" public DID through controller
+    And  "Filip" creates invitation through controller using public DID and label "filip-agent"
+    And  "Derek" receives invitation from "Filip" through controller
+    And  "Derek" approves exchange invitation with public DID through controller
+    Then "Filip" creates "sidetree" public DID through controller
+    And  "Filip" approves exchange request with public DID through controller
+    And  "Filip" waits for post state event "completed" to webhook
+    And  "Derek" waits for post state event "completed" to webhook
+    And  "Filip" retrieves connection record through controller and validates that connection state is "completed"
+    And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
+
+  @didexchange_controller_mixed_public_and_peer_dids
+  Scenario: did exchange e2e flow using public DID in invitation
+    Given "Filip" agent is running on "localhost" port "8081" with controller "http://localhost:8082" and webhook "http://localhost:8083" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    And  "Derek" agent is running on "localhost" port "9081" with controller "http://localhost:9082" and webhook "http://localhost:9083" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    Then "Filip" creates "sidetree" public DID through controller
+    And  "Derek" creates "sidetree" public DID through controller
+    And  "Filip" creates invitation through controller using public DID and label "filip-agent"
+    And  "Derek" receives invitation from "Filip" through controller
+    And  "Derek" approves exchange invitation with public DID through controller
+    And  "Filip" approves exchange request through controller
+    And  "Filip" waits for post state event "completed" to webhook
+    And  "Derek" waits for post state event "completed" to webhook
+    And  "Filip" retrieves connection record through controller and validates that connection state is "completed"
+    And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
 
   @didexchange_implicit_invitation
   Scenario: did exchange e2e flow using implicit invitation with public DID

@@ -31,6 +31,24 @@ func NewAgentControllerSteps(ctx *context.BDDContext) *AgentWithControllerSteps 
 func (a *AgentWithControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with controller "([^"]*)" and webhook "([^"]*)"$`,
 		a.checkAgentIsRunning)
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with controller "([^"]*)" and webhook "([^"]*)" `+
+		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
+		a.checkAgentWithHTTPResolverIsRunning)
+}
+
+func (a *AgentWithControllerSteps) checkAgentWithHTTPResolverIsRunning(
+	agentID, inboundHost, inboundPort, controllerURL, webhookURL, resolverURL, didMethod string) error {
+	httpBindingURL := a.bddContext.Args[resolverURL]
+
+	err := a.healthCheck(httpBindingURL)
+	if err != nil {
+		logger.Debugf("Unable to reach http-binding '%s' for agent '%s', cause : %s", httpBindingURL, agentID, err)
+		return err
+	}
+
+	logger.Debugf("HTTP-Binding for DID method '%s' running on '%s' for agent '%s'", didMethod, httpBindingURL, agentID)
+
+	return a.checkAgentIsRunning(agentID, inboundHost, inboundPort, controllerURL, webhookURL)
 }
 
 func (a *AgentWithControllerSteps) checkAgentIsRunning(

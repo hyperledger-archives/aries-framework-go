@@ -22,6 +22,8 @@ services:
       - ${ALICE_INBOUND_PORT}:${ALICE_INBOUND_PORT}
       - ${ALICE_API_PORT}:${ALICE_API_PORT}
     command: start
+    networks:
+      - bdd_net
 
   bob.agent.example.com:
     container_name: bob.aries.example.com
@@ -38,6 +40,8 @@ services:
       - ${BOB_INBOUND_PORT}:${BOB_INBOUND_PORT}
       - ${BOB_API_PORT}:${BOB_API_PORT}
     command: start
+    networks:
+      - bdd_net
 
   alice.webhook.example.com:
     container_name: ${ALICE_WEBHOOK_CONTAINER_NAME}
@@ -46,6 +50,8 @@ services:
       - WEBHOOK_PORT=${ALICE_WEBHOOK_PORT}
     ports:
       - ${ALICE_WEBHOOK_PORT}:${ALICE_WEBHOOK_PORT}
+    networks:
+      - bdd_net
 
   bob.webhook.example.com:
     container_name: ${BOB_WEBHOOK_CONTAINER_NAME}
@@ -54,3 +60,10 @@ services:
       - WEBHOOK_PORT=${BOB_WEBHOOK_PORT}
     ports:
       - ${BOB_WEBHOOK_PORT}:${BOB_WEBHOOK_PORT}
+    networks:
+      - bdd_net
+
+
+networks:
+  bdd_net:
+    driver: bridge

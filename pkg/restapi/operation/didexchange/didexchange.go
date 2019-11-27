@@ -195,8 +195,6 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf("empty connection ID"))
 	}
 
-	logger.Debugf("Accepting connection invitation for id[%s]", id)
-
 	var request models.AcceptInvitationRequest
 
 	err := getQueryParams(&request, req.URL.Query())
@@ -204,6 +202,9 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, err)
 		return
 	}
+
+	logger.Debugf("Accepting connection invitation for id[%s], label[%s], publicDID[%s]",
+		id, c.defaultLabel, request.Public)
 
 	err = c.client.AcceptInvitation(id, request.Public, c.defaultLabel)
 	if err != nil {
