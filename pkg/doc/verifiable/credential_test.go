@@ -856,174 +856,60 @@ func TestRawCredentialSerialization(t *testing.T) {
 	require.Equal(t, cMap, rcMap)
 }
 
-func TestDecodeType(t *testing.T) {
-	t.Run("Decode single Verifiable Credential types", func(t *testing.T) {
-		rc := &rawCredential{
-			Type: "VerifiableCredential",
-		}
-		types, err := decodeType(rc)
-		require.NoError(t, err)
-		require.Equal(t, []string{"VerifiableCredential"}, types)
-	})
-
-	t.Run("Decode several Verifiable Credential types", func(t *testing.T) {
-		rc := &rawCredential{
-			Type: []interface{}{"VerifiableCredential", "UniversityDegreeCredential"},
-		}
-
-		types, err := decodeType(rc)
-		require.NoError(t, err)
-		require.Equal(t, []string{"VerifiableCredential", "UniversityDegreeCredential"}, types)
-	})
-
-	t.Run("Error on decoding of invalid Verifiable Credential type", func(t *testing.T) {
-		rc := &rawCredential{
-			Type: 77,
-		}
-		_, err := decodeType(rc)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "credential type of unknown type")
-	})
-
-	t.Run("Error on decoding of invalid Verifiable Credential types", func(t *testing.T) {
-		rc := &rawCredential{
-			Type: []interface{}{"VerifiableCredential", 777},
-		}
-		_, err := decodeType(rc)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "vc types: array element is not a string")
-	})
-}
-
-func TestDecodeContext(t *testing.T) {
-	t.Run("Decode single context", func(t *testing.T) {
-		rc := &rawCredential{
-			Context: "https://www.w3.org/2018/credentials/v1",
-		}
-		contexts, extraContexts, err := decodeContext(rc)
-		require.NoError(t, err)
-		require.Equal(t, []string{"https://www.w3.org/2018/credentials/v1"}, contexts)
-		require.Empty(t, extraContexts)
-	})
-
-	t.Run("Decode several contexts", func(t *testing.T) {
-		rc := &rawCredential{
-			Context: []interface{}{
-				"https://www.w3.org/2018/credentials/v1",
-				"https://www.w3.org/2018/credentials/examples/v1",
-			},
-		}
-		contexts, extraContexts, err := decodeContext(rc)
-		require.NoError(t, err)
-		require.Equal(t,
-			[]string{"https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"},
-			contexts)
-		require.Empty(t, extraContexts)
-	})
-
-	t.Run("Decode several contexts with custom objects", func(t *testing.T) {
-		customContext := map[string]interface{}{
-			"image": map[string]interface{}{"@id": "schema:image", "@type": "@id"},
-		}
-		rc := &rawCredential{
-			Context: []interface{}{
-				"https://www.w3.org/2018/credentials/v1",
-				"https://www.w3.org/2018/credentials/examples/v1",
-				customContext,
-			},
-		}
-		contexts, extraContexts, err := decodeContext(rc)
-		require.NoError(t, err)
-		require.Equal(t,
-			[]string{"https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"},
-			contexts)
-		require.Equal(t, []interface{}{customContext}, extraContexts)
-	})
-
-	t.Run("Decode context of invalid type", func(t *testing.T) {
-		rc := &rawCredential{
-			Context: 55,
-		}
-		_, _, err := decodeContext(rc)
-		require.Error(t, err)
-	})
-}
-
 func TestDecodeIssuer(t *testing.T) {
 	t.Run("Decode Issuer defined by ID only", func(t *testing.T) {
-		rc := &rawCredential{
-			Issuer: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-		}
-		issuer, err := decodeIssuer(rc)
+		issuer, err := decodeIssuer("did:example:76e12ec712ebc6f1c221ebfeb1f")
 		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
 		require.Empty(t, issuer.Name)
 	})
 
 	t.Run("Decode Issuer identified by ID and name", func(t *testing.T) {
-		rc := &rawCredential{
-			Issuer: map[string]interface{}{
-				"id":   "did:example:76e12ec712ebc6f1c221ebfeb1f",
-				"name": "Example University",
-			},
-		}
-		issuer, err := decodeIssuer(rc)
+		issuer, err := decodeIssuer(map[string]interface{}{
+			"id":   "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			"name": "Example University",
+		})
 		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
 		require.Equal(t, "Example University", issuer.Name)
 	})
 
 	t.Run("Decode Issuer identified by ID and empty name", func(t *testing.T) {
-		rc := &rawCredential{
-			Issuer: map[string]interface{}{
-				"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			},
-		}
-		issuer, err := decodeIssuer(rc)
+		issuer, err := decodeIssuer(map[string]interface{}{
+			"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		})
 		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
 		require.Empty(t, issuer.Name)
 	})
 
 	t.Run("Decode Issuer identified by empty ID and name", func(t *testing.T) {
-		rc := &rawCredential{
-			Issuer: map[string]interface{}{
-				"name": "Example University",
-			},
-		}
-		_, err := decodeIssuer(rc)
+		_, err := decodeIssuer(map[string]interface{}{
+			"name": "Example University",
+		})
 		require.Error(t, err)
 		require.EqualError(t, err, "issuer ID is not defined")
 	})
 
 	t.Run("Decode Issuer with invalid type of ID", func(t *testing.T) {
-		rc := &rawCredential{
-			Issuer: map[string]interface{}{
-				"id": 55,
-			},
-		}
-		_, err := decodeIssuer(rc)
+		_, err := decodeIssuer(map[string]interface{}{
+			"id": 55,
+		})
 		require.Error(t, err)
 		require.EqualError(t, err, "value of key 'id' is not a string")
 	})
 
 	t.Run("Decode Issuer with invalid type of name", func(t *testing.T) {
-		rc := &rawCredential{
-			Issuer: map[string]interface{}{
-				"id":   "did:example:76e12ec712ebc6f1c221ebfeb1f",
-				"name": 55,
-			},
-		}
-		_, err := decodeIssuer(rc)
+		_, err := decodeIssuer(map[string]interface{}{
+			"id":   "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			"name": 55,
+		})
 		require.Error(t, err)
 		require.EqualError(t, err, "value of key 'name' is not a string")
 	})
 
 	t.Run("Decode Issuer of invalid type", func(t *testing.T) {
-		rc := &rawCredential{
-			Issuer: 77,
-		}
-		_, err := decodeIssuer(rc)
+		_, err := decodeIssuer(77)
 		require.Error(t, err)
 		require.EqualError(t, err, "unsupported format of issuer")
 	})
@@ -1090,4 +976,15 @@ func TestNewCredentialFromRaw(t *testing.T) {
 	}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential context from raw")
+}
+
+func TestCredential_CreatePresentation(t *testing.T) {
+	vc, _, err := NewCredential([]byte(validCredential))
+	require.NoError(t, err)
+
+	vp := vc.Presentation()
+
+	require.Equal(t, []Credential{*vc}, vp.Credential)
+	require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
+	require.Equal(t, vc.Context, vp.Context)
 }

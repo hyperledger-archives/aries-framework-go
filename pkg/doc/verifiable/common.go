@@ -3,6 +3,14 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package verifiable provides implementation of Verifiable Credential and Presentation
+// (https://www.w3.org/TR/vc-data-model).
+// It provides the data structures and functions which allow to process the Verifiable documents on different
+// sides and levels. For example, an Issuer can create verifiable.Credential structure and issue it to a
+// Holder in JWS. The Holder can decode received Credential and make sure the signature is valid.
+// The Holder can present the Credential to the Verifier or combine one or more Credentials into Verifiable
+// Presentation. The Verifier can decode received Credentials and Presentations.
+//
 package verifiable
 
 import (
@@ -120,4 +128,52 @@ func stringSlice(values []interface{}) ([]string, error) {
 	}
 
 	return strings, nil
+}
+
+// decodeType decodes raw type(s).
+//
+// type can be defined as a single string value or array of strings.
+func decodeType(t interface{}) ([]string, error) {
+	switch rType := t.(type) {
+	case string:
+		return []string{rType}, nil
+	case []interface{}:
+		types, err := stringSlice(rType)
+		if err != nil {
+			return nil, fmt.Errorf("vc types: %w", err)
+		}
+
+		return types, nil
+	default:
+		return nil, errors.New("credential type of unknown type")
+	}
+}
+
+// decodeContext decodes raw context(s).
+//
+// context can be defined as a single string value or array;
+// at the second case, the array can be a mix of string and object types
+// (objects can express context information); object context are
+// defined at the tail of the array.
+func decodeContext(c interface{}) ([]string, []interface{}, error) {
+	switch rContext := c.(type) {
+	case string:
+		return []string{rContext}, nil, nil
+	case []interface{}:
+		strings := make([]string, 0)
+
+		for i := range rContext {
+			c, valid := rContext[i].(string)
+			if !valid {
+				// the remaining contexts are of custom type
+				return strings, rContext[i:], nil
+			}
+
+			strings = append(strings, c)
+		}
+		// no contexts of custom type, just string contexts found
+		return strings, nil, nil
+	default:
+		return nil, nil, errors.New("credential context of unknown type")
+	}
 }

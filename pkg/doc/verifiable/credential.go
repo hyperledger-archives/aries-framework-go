@@ -185,6 +185,8 @@ const defaultSchema = `{
 
 const jsonSchema2018Type = "JsonSchemaValidator2018"
 
+const vpType = "VerifiablePresentation"
+
 //nolint:gochecknoglobals
 var defaultSchemaLoader = gojsonschema.NewStringLoader(defaultSchema)
 
@@ -324,7 +326,7 @@ func WithPublicKeyFetcher(fetcher PublicKeyFetcher) CredentialOpt {
 // - a string which is ID of the issuer;
 //
 // - object with mandatory "id" field and optional "name" field.
-func decodeIssuer(rc *rawCredential) (Issuer, error) {
+func decodeIssuer(issuer interface{}) (Issuer, error) {
 	getStringEntry := func(m map[string]interface{}, k string) (string, error) {
 		v, exists := m[k]
 		if !exists {
@@ -339,7 +341,7 @@ func decodeIssuer(rc *rawCredential) (Issuer, error) {
 		return s, nil
 	}
 
-	switch iss := rc.Issuer.(type) {
+	switch iss := issuer.(type) {
 	case string:
 		return Issuer{ID: iss}, nil
 	case map[string]interface{}:
@@ -363,54 +365,6 @@ func decodeIssuer(rc *rawCredential) (Issuer, error) {
 		}, nil
 	default:
 		return Issuer{}, errors.New("unsupported format of issuer")
-	}
-}
-
-// decodeType decodes raw type(s).
-//
-// type can be defined as a single string value or array of strings.
-func decodeType(rc *rawCredential) ([]string, error) {
-	switch rType := rc.Type.(type) {
-	case string:
-		return []string{rType}, nil
-	case []interface{}:
-		types, err := stringSlice(rType)
-		if err != nil {
-			return nil, fmt.Errorf("vc types: %w", err)
-		}
-
-		return types, nil
-	default:
-		return nil, errors.New("credential type of unknown type")
-	}
-}
-
-// decodeContext decodes raw context(s).
-//
-// context can be defined as a single string value or array;
-// at the second case, the array can be a mix of string and object types
-// (objects can express context information); object context are
-// defined at the tail of the array.
-func decodeContext(rc *rawCredential) ([]string, []interface{}, error) {
-	switch rContext := rc.Context.(type) {
-	case string:
-		return []string{rContext}, nil, nil
-	case []interface{}:
-		strings := make([]string, 0)
-
-		for i := range rContext {
-			c, valid := rContext[i].(string)
-			if !valid {
-				// the remaining contexts are of custom type
-				return strings, rContext[i:], nil
-			}
-
-			strings = append(strings, c)
-		}
-		// no contexts of custom type, just string contexts found
-		return strings, nil, nil
-	default:
-		return nil, nil, errors.New("credential context of unknown type")
 	}
 }
 
@@ -525,17 +479,17 @@ func CreateCustomCredential(
 }
 
 func newCredential(raw *rawCredential, schemas []TypedID) (*Credential, error) {
-	types, err := decodeType(raw)
+	types, err := decodeType(raw.Type)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential types from raw: %w", err)
 	}
 
-	issuer, err := decodeIssuer(raw)
+	issuer, err := decodeIssuer(raw.Issuer)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential issuer from raw: %w", err)
 	}
 
-	context, customContext, err := decodeContext(raw)
+	context, customContext, err := decodeContext(raw.Context)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential context from raw: %w", err)
 	}
@@ -799,4 +753,15 @@ func (vc *Credential) MarshalJSON() ([]byte, error) {
 	}
 
 	return byteCred, nil
+}
+
+// Presentation encloses credential into presentation.
+func (vc *Credential) Presentation() *Presentation {
+	vp := Presentation{
+		Context:    vc.Context,
+		Type:       []string{vpType},
+		Credential: []Credential{*vc},
+	}
+
+	return &vp
 }

@@ -111,3 +111,71 @@ func TestTypedID_UnmarshalJSON(t *testing.T) {
 		require.Contains(t, err.Error(), "unmarshal TypedID")
 	})
 }
+
+func TestDecodeType(t *testing.T) {
+	t.Run("Decode single type", func(t *testing.T) {
+		types, err := decodeType("VerifiableCredential")
+		require.NoError(t, err)
+		require.Equal(t, []string{"VerifiableCredential"}, types)
+	})
+
+	t.Run("Decode several types", func(t *testing.T) {
+		types, err := decodeType([]interface{}{"VerifiableCredential", "UniversityDegreeCredential"})
+		require.NoError(t, err)
+		require.Equal(t, []string{"VerifiableCredential", "UniversityDegreeCredential"}, types)
+	})
+
+	t.Run("Error on decoding of invalid Verifiable Credential type", func(t *testing.T) {
+		_, err := decodeType(77)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "credential type of unknown type")
+	})
+
+	t.Run("Error on decoding of invalid Verifiable Credential types", func(t *testing.T) {
+		_, err := decodeType([]interface{}{"VerifiableCredential", 777})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "vc types: array element is not a string")
+	})
+}
+
+func TestDecodeContext(t *testing.T) {
+	t.Run("Decode single context", func(t *testing.T) {
+		contexts, extraContexts, err := decodeContext("https://www.w3.org/2018/credentials/v1")
+		require.NoError(t, err)
+		require.Equal(t, []string{"https://www.w3.org/2018/credentials/v1"}, contexts)
+		require.Empty(t, extraContexts)
+	})
+
+	t.Run("Decode several contexts", func(t *testing.T) {
+		contexts, extraContexts, err := decodeContext([]interface{}{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1",
+		})
+		require.NoError(t, err)
+		require.Equal(t,
+			[]string{"https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"},
+			contexts)
+		require.Empty(t, extraContexts)
+	})
+
+	t.Run("Decode several contexts with custom objects", func(t *testing.T) {
+		customContext := map[string]interface{}{
+			"image": map[string]interface{}{"@id": "schema:image", "@type": "@id"},
+		}
+		contexts, extraContexts, err := decodeContext([]interface{}{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1",
+			customContext,
+		})
+		require.NoError(t, err)
+		require.Equal(t,
+			[]string{"https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"},
+			contexts)
+		require.Equal(t, []interface{}{customContext}, extraContexts)
+	})
+
+	t.Run("Decode context of invalid type", func(t *testing.T) {
+		_, _, err := decodeContext(55)
+		require.Error(t, err)
+	})
+}

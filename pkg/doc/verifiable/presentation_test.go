@@ -79,30 +79,30 @@ func TestNewPresentation(t *testing.T) {
 		require.NotNil(t, vp)
 
 		// validate @context
-		require.Equal(t, vp.Context, []interface{}{
+		require.Equal(t, []string{
 			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"})
+			"https://www.w3.org/2018/credentials/examples/v1"}, vp.Context)
 
 		// check id
-		require.Equal(t, vp.ID, "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5")
+		require.Equal(t, "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5", vp.ID)
 
 		// check type
-		require.Equal(t, vp.Type, "VerifiablePresentation")
+		require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
 
 		// check verifiableCredentials
 		require.NotNil(t, vp.Credential)
 		require.Len(t, vp.Credential, 1)
 
 		// check holder
-		require.Equal(t, vp.Holder, "did:example:ebfeb1f712ebc6f1c276e12ec21")
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", vp.Holder)
 
 		// check proof
 		require.NotNil(t, vp.Proof)
 
 		// check refreshService
 		require.NotNil(t, vp.RefreshService)
-		require.Equal(t, vp.RefreshService.ID, "https://example.edu/refresh/3732")
-		require.Equal(t, vp.RefreshService.Type, "ManualRefreshService2018")
+		require.Equal(t, "https://example.edu/refresh/3732", vp.RefreshService.ID)
+		require.Equal(t, "ManualRefreshService2018", vp.RefreshService.Type)
 	})
 
 	t.Run("creates a new Verifiable Presentation from JSON with invalid structure", func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestValidateVP_Context(t *testing.T) {
 	t.Run("rejects verifiable presentation with invalid context", func(t *testing.T) {
 		raw := &rawPresentation{}
 		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Context = []interface{}{
+		raw.Context = []string{
 			"https://www.w3.org/2018/credentials/v2",
 			"https://www.w3.org/2018/credentials/examples/v1"}
 		bytes, err := json.Marshal(raw)
