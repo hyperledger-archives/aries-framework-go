@@ -626,14 +626,14 @@ type options struct {
 	label     string
 }
 
-// CreateImplicitInvitation creates and sends an exchange request to create connection
-// to specified public DID.
-func (s *Service) CreateImplicitInvitation(label, toDID string) (string, error) {
-	logger.Debugf("implicit invitation requested for: %s", toDID)
+// CreateImplicitInvitation creates implicit invitation. Inviter DID is required, invitee DID is optional.
+// If invitee DID is not provided new peer DID will be created for implicit invitation exchange request.
+func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error) {
+	logger.Debugf("implicit invitation requested for: %s", inviterDID)
 
-	didDoc, err := s.ctx.vdriRegistry.Resolve(toDID)
+	didDoc, err := s.ctx.vdriRegistry.Resolve(inviterDID)
 	if err != nil {
-		return "", fmt.Errorf("resolve public did[%s]: %w", toDID, err)
+		return "", fmt.Errorf("resolve public did[%s]: %w", inviterDID, err)
 	}
 
 	dest, err := prepareDestination(didDoc)
@@ -642,11 +642,11 @@ func (s *Service) CreateImplicitInvitation(label, toDID string) (string, error) 
 		ConnectionID:    generateRandomID(),
 		ThreadID:        thID,
 		State:           stateNameNull,
-		InvitationDID:   toDID,
+		InvitationDID:   inviterDID,
 		Implicit:        true,
 		ServiceEndPoint: dest.ServiceEndpoint,
 		RecipientKeys:   dest.RecipientKeys,
-		TheirLabel:      label,
+		TheirLabel:      inviterLabel,
 		Namespace:       findNameSpace(InvitationMsgType),
 	}
 
@@ -656,8 +656,8 @@ func (s *Service) CreateImplicitInvitation(label, toDID string) (string, error) 
 
 	invitation := &Invitation{
 		ID:    uuid.New().String(),
-		Label: label,
-		DID:   toDID,
+		Label: inviterLabel,
+		DID:   inviterDID,
 		Type:  InvitationMsgType}
 
 	msg, err := createDIDCommMsg(invitation)
@@ -667,6 +667,7 @@ func (s *Service) CreateImplicitInvitation(label, toDID string) (string, error) 
 
 	next := &requested{}
 	internalMsg := &message{Msg: msg, ThreadID: thID, NextStateName: next.Name(), ConnRecord: connRecord}
+	internalMsg.Options = &options{publicDID: inviteeDID, label: inviteeLabel}
 
 	go func(msg *message, aEvent chan<- service.DIDCommAction) {
 		if err = s.handle(msg, aEvent); err != nil {

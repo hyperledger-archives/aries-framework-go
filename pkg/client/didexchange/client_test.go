@@ -367,6 +367,61 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 	})
 }
 
+func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
+	inviter := &DIDInfo{Label: "alice", DID: "did:example:alice"}
+	invitee := &DIDInfo{Label: "bob", DID: "did:example:bob"}
+
+	t.Run("test success", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{},
+			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue:          "endpoint"})
+		require.NoError(t, err)
+
+		connectionID, err := c.CreateImplicitInvitationWithDID(inviter, invitee)
+		require.NoError(t, err)
+		require.NotEmpty(t, connectionID)
+	})
+
+	t.Run("test error from service", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue: &mockprotocol.MockDIDExchangeSvc{
+				ImplicitInvitationErr: errors.New("implicit with DID error")},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
+		require.NoError(t, err)
+
+		connectionID, err := c.CreateImplicitInvitationWithDID(inviter, invitee)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "implicit with DID error")
+		require.Empty(t, connectionID)
+	})
+
+	t.Run("test missing required DID info", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{},
+			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue:          "endpoint"})
+		require.NoError(t, err)
+
+		connectionID, err := c.CreateImplicitInvitationWithDID(inviter, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing inviter and/or invitee public DID(s)")
+		require.Empty(t, connectionID)
+
+		connectionID, err = c.CreateImplicitInvitationWithDID(nil, invitee)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing inviter and/or invitee public DID(s)")
+		require.Empty(t, connectionID)
+	})
+}
+
 func TestClient_QueryConnectionsByParams(t *testing.T) {
 	t.Run("test get all connections", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{})

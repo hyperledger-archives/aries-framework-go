@@ -1420,7 +1420,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.NoError(t, err)
 
 		s.ctx = ctx
-		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID)
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "")
 		require.NoError(t, err)
 		require.NotEmpty(t, connID)
 	})
@@ -1440,7 +1440,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.NoError(t, err)
 		s.ctx = ctx
 
-		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID)
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
 		require.Empty(t, connID)
@@ -1463,7 +1463,7 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.NoError(t, err)
 		s.ctx = ctx
 
-		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID)
+		connID, err := s.CreateImplicitInvitation("label", newDIDDoc.ID, "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "store put error")
 		require.Empty(t, connID)

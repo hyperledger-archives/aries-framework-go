@@ -51,7 +51,7 @@ func NewDIDResolverSteps(ctx *bddctx.BDDContext) *Steps {
 	return &Steps{bddContext: ctx}
 }
 
-func (d *Steps) createDIDDocument(agentID, method, url string) error {
+func (d *Steps) createDIDDocument(agentID, method string) error {
 	doc, err := d.bddContext.AgentCtx[agentID].VDRIRegistry().Create(method,
 		vdriapi.WithRequestBuilder(buildSideTreeRequest))
 	if err != nil {
@@ -245,6 +245,6 @@ func buildSideTreeRequest(docBytes []byte) (io.Reader, error) {
 func (d *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^client sends request to sidetree "([^"]*)" for create DID document "([^"]*)"`, d.createDIDDocumentFromFile)
 	s.Step(`^check success response contains "([^"]*)"$`, d.checkSuccessResp)
-	s.Step(`^"([^"]*)" creates public DID for did method "([^"]*)" using "([^"]*)"`, d.createDIDDocument)
+	s.Step(`^"([^"]*)" creates public DID for did method "([^"]*)"`, d.createDIDDocument)
 	s.Step(`^"([^"]*)" agent successfully resolves DID document$`, d.resolveDID)
 }
