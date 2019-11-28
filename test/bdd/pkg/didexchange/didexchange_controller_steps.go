@@ -18,6 +18,8 @@ import (
 
 	"github.com/DATA-DOG/godog"
 
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/common"
+
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didexchrsapi "github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
@@ -26,11 +28,18 @@ import (
 )
 
 const (
-	operationID           = "/connections"
-	createInvitationPath  = operationID + "/create-invitation"
-	receiveInvtiationPath = operationID + "/receive-invitation"
-	connectionsByID       = operationID + "/{id}"
+	connOperationID       = "/connections"
+	vdriOperationID       = "/vdri"
+	createInvitationPath  = connOperationID + "/create-invitation"
+	receiveInvtiationPath = connOperationID + "/receive-invitation"
+	acceptInvitationPath  = connOperationID + "/%s/accept-invitation?public=%s"
+	acceptRequestPath     = connOperationID + "/%s/accept-request?public=%s"
+	connectionsByID       = connOperationID + "/{id}"
+	createPublicDIDPath   = vdriOperationID + "/create-public-did"
 	checkForTopics        = "/checktopics"
+	publicDIDCreateHeader = `{"alg":"","kid":"","operation":"create"}`
+	sideTreeURL           = "${SIDETREE_URL}"
+	timeoutWaitForDID     = 10 * time.Second
 
 	// retry options to pull topics from webhook
 	// pullTopicsWaitInMilliSec is time in milliseconds to wait before retry
@@ -47,6 +56,7 @@ type ControllerSteps struct {
 	bddContext    *context.BDDContext
 	invitations   map[string]*didexchange.Invitation
 	connectionIDs map[string]string
+	publicDIDs    map[string]string
 }
 
 // NewDIDExchangeControllerSteps creates steps for didexchange with controller
@@ -55,6 +65,7 @@ func NewDIDExchangeControllerSteps(ctx *context.BDDContext) *ControllerSteps {
 		bddContext:    ctx,
 		invitations:   make(map[string]*didexchange.Invitation),
 		connectionIDs: make(map[string]string),
+		publicDIDs:    make(map[string]string),
 	}
 }
 
@@ -62,11 +73,17 @@ func NewDIDExchangeControllerSteps(ctx *context.BDDContext) *ControllerSteps {
 func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
-	s.Step(`^"([^"]*)" approves exchange invitation`, a.approveInvitation)
-	s.Step(`^"([^"]*)" approves exchange request`, a.approveRequest)
+	s.Step(`^"([^"]*)" approves exchange invitation through controller`, a.approveInvitation)
+	s.Step(`^"([^"]*)" approves exchange request through controller`, a.approveRequest)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)" to webhook`, a.waitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`,
 		a.validateConnection)
+	// public DID steps
+	s.Step(`^"([^"]*)" creates "([^"]*)" public DID through controller`, a.createPublicDID)
+	s.Step(`^"([^"]*)" creates invitation through controller using public DID and label "([^"]*)"$`,
+		a.createInvitationWithDID)
+	s.Step(`^"([^"]*)" approves exchange invitation with public DID through controller`, a.approveInvitationWithPublicDID)
+	s.Step(`^"([^"]*)" approves exchange request with public DID through controller`, a.approveRequestWithPublicDID)
 }
 
 func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, error) {
@@ -85,6 +102,8 @@ func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, erro
 		}
 
 		if strings.EqualFold(state, connectionMsg.State) {
+			logger.Debugf("Able to find webhook topic with expected state[%s] for agent[%s] and connection[%s]",
+				connectionMsg.State, agentID, connectionMsg.ConnectionID)
 			return connectionMsg.ConnectionID, nil
 		}
 
@@ -95,13 +114,33 @@ func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, erro
 }
 
 func (a *ControllerSteps) createInvitation(inviterAgentID, label string) error {
+	return a.performCreateInvitation(inviterAgentID, label, false)
+}
+
+func (a *ControllerSteps) createInvitationWithDID(inviterAgentID, label string) error {
+	return a.performCreateInvitation(inviterAgentID, label, true)
+}
+
+func (a *ControllerSteps) performCreateInvitation(inviterAgentID, label string, useDID bool) error {
 	destination, ok := a.bddContext.GetControllerURL(inviterAgentID)
 	if !ok {
-		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", inviterAgentID)
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]",
+			inviterAgentID)
 	}
 
+	var publicDID string
+	if useDID {
+		publicDID, ok = a.publicDIDs[inviterAgentID]
+		if !ok {
+			return fmt.Errorf("unable to find public DID for agent [%s]", inviterAgentID)
+		}
+	}
+
+	logger.Debugf("Creating invitation from controller for agent[%s], label[%s], did[%s]",
+		inviterAgentID, publicDID, label)
+
 	// call controller
-	path := fmt.Sprintf("%s%s?alias=%s", destination, createInvitationPath, label)
+	path := fmt.Sprintf("%s%s?alias=%s&public=%s", destination, createInvitationPath, label, publicDID)
 
 	var result models.CreateInvitationResponse
 
@@ -111,18 +150,37 @@ func (a *ControllerSteps) createInvitation(inviterAgentID, label string) error {
 		return err
 	}
 
-	// validate payload
-	if result.Invitation == nil {
-		return fmt.Errorf("failed to get valid payload from create invitation for agent [%s]", inviterAgentID)
-	}
-
-	// verify result
-	if result.Invitation.Label != label {
-		return fmt.Errorf("invitation label mismatch, expected[%s] but got [%s]", label, result.Invitation.Label)
+	err = a.verifyCreateInvitationResult(&result, label, useDID)
+	if err != nil {
+		return fmt.Errorf("failed to get valid payload from create invitation for agent [%s], reason: %w",
+			inviterAgentID, err)
 	}
 
 	// save invitation for later use
 	a.invitations[inviterAgentID] = result.Invitation
+
+	return nil
+}
+
+func (a *ControllerSteps) verifyCreateInvitationResult(result *models.CreateInvitationResponse,
+	label string, useDID bool) error {
+	// validate payload
+	if result.Invitation == nil {
+		return fmt.Errorf("empty invitation")
+	}
+
+	// verify result
+	if result.Alias != label {
+		return fmt.Errorf("invitation label mismatch, expected[%s] but got [%s]", label, result.Alias)
+	}
+
+	if useDID && result.Invitation.DID == "" {
+		return fmt.Errorf("did ID not found in created invitation")
+	}
+
+	if !useDID && len(result.Invitation.RecipientKeys) == 0 {
+		return fmt.Errorf("recipient keys not found in invitation")
+	}
 
 	return nil
 }
@@ -165,6 +223,14 @@ func (a *ControllerSteps) receiveInvitation(inviteeAgentID, inviterAgentID strin
 }
 
 func (a *ControllerSteps) approveInvitation(agentID string) error {
+	return a.performApproveInvitation(agentID, false)
+}
+
+func (a *ControllerSteps) approveInvitationWithPublicDID(agentID string) error {
+	return a.performApproveInvitation(agentID, true)
+}
+
+func (a *ControllerSteps) performApproveInvitation(agentID string, useDID bool) error {
 	connectionID, err := a.pullWebhookEvents(agentID, "invited")
 	if err != nil {
 		return fmt.Errorf("aprove exchange invitation : %w", err)
@@ -173,15 +239,27 @@ func (a *ControllerSteps) approveInvitation(agentID string) error {
 	// invitee connectionID
 	a.connectionIDs[agentID] = connectionID
 
-	controllerURL, ok := a.bddContext.GetControllerURL(agentID)
+	destination, ok := a.bddContext.GetControllerURL(agentID)
 	if !ok {
-		return fmt.Errorf("unable to find contoller URL for agent [%s]", controllerURL)
+		return fmt.Errorf("unable to find contoller URL for agent [%s]", destination)
 	}
+
+	var publicDID string
+	if useDID {
+		publicDID, ok = a.publicDIDs[agentID]
+		if !ok {
+			return fmt.Errorf("unable to find public DID for agent [%s]", agentID)
+		}
+	}
+
+	logger.Debugf("Accepting invitation from controller for agent[%s], did[%s]",
+		agentID, publicDID)
 
 	var response models.AcceptInvitationResponse
 
-	err = sendHTTP(http.MethodPost, controllerURL+"/connections/"+connectionID+"/accept-invitation",
-		nil, &response)
+	path := destination + fmt.Sprintf(acceptInvitationPath, connectionID, publicDID)
+
+	err = sendHTTP(http.MethodPost, path, nil, &response)
 	if err != nil {
 		logger.Errorf("Failed to perform accept invitation, cause : %s", err)
 		return fmt.Errorf("failed to perform accept inviation : %w", err)
@@ -196,6 +274,14 @@ func (a *ControllerSteps) approveInvitation(agentID string) error {
 }
 
 func (a *ControllerSteps) approveRequest(agentID string) error {
+	return a.performApproveRequest(agentID, false)
+}
+
+func (a *ControllerSteps) approveRequestWithPublicDID(agentID string) error {
+	return a.performApproveRequest(agentID, true)
+}
+
+func (a *ControllerSteps) performApproveRequest(agentID string, useDID bool) error {
 	connectionID, err := a.pullWebhookEvents(agentID, "requested")
 	if err != nil {
 		return fmt.Errorf("failed to get connection ID from webhook, %w", err)
@@ -209,10 +295,22 @@ func (a *ControllerSteps) approveRequest(agentID string) error {
 		return fmt.Errorf("unable to find contoller URL for agent [%s]", controllerURL)
 	}
 
+	var publicDID string
+	if useDID {
+		publicDID, ok = a.publicDIDs[agentID]
+		if !ok {
+			return fmt.Errorf("unable to find public DID for agent [%s]", agentID)
+		}
+	}
+
+	logger.Debugf("Accepting invitation from controller for agent[%s], did[%s]",
+		agentID, publicDID)
+
 	var response models.AcceptExchangeResult
 
-	err = sendHTTP(http.MethodPost, controllerURL+"/connections/"+connectionID+"/accept-request",
-		nil, &response)
+	path := controllerURL + fmt.Sprintf(acceptRequestPath, connectionID, publicDID)
+
+	err = sendHTTP(http.MethodPost, path, nil, &response)
 	if err != nil {
 		logger.Errorf("Failed to perform approve request, cause : %s", err)
 		return fmt.Errorf("failed to perform approve request : %w", err)
@@ -274,12 +372,12 @@ func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID str
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	logger.Debugf(" Getting connections by state %s from %s", queryState, destination)
+	logger.Debugf("Getting connections by state %s from %s", queryState, destination)
 
 	// call controller
 	var response models.QueryConnectionsResponse
 
-	err := sendHTTP(http.MethodGet, destination+operationID+"?state="+queryState, nil, &response)
+	err := sendHTTP(http.MethodGet, destination+connOperationID+"?state="+queryState, nil, &response)
 	if err != nil {
 		logger.Errorf("Failed to perform receive invitation, cause : %s", err)
 		return err
@@ -294,6 +392,8 @@ func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID str
 	var found bool
 
 	for _, connection := range response.Results {
+		logger.Debugf("Connection[%s] found for agent[%s] with state[%s]", connection.ConnectionID, agentID, connection.State)
+
 		if connection.State == queryState && connection.ConnectionID == verifyID {
 			found = true
 			break
@@ -306,6 +406,70 @@ func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID str
 	}
 
 	return nil
+}
+
+func (a *ControllerSteps) createPublicDID(agentID, didMethod string) error {
+	destination, ok := a.bddContext.GetControllerURL(agentID)
+	if !ok {
+		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
+	}
+
+	// call controller
+	path := fmt.Sprintf("%s%s?method=%s&header=%s", destination, createPublicDIDPath, didMethod, publicDIDCreateHeader)
+
+	var result common.CreatePublicDIDResponse
+
+	err := sendHTTP(http.MethodPost, path, nil, &result)
+	if err != nil {
+		logger.Errorf("Failed to create public DID, cause : %s", err)
+		return err
+	}
+
+	// validate response
+	if result.DID == nil || result.DID.ID == "" {
+		return fmt.Errorf("failed to get valid public DID for agent [%s]", agentID)
+	}
+
+	logger.Debugf("Created public DID '%s' for agent '%s'", result.DID.ID, agentID)
+
+	err = a.waitForPublicDID(result.DID.ID)
+	if err != nil {
+		logger.Errorf("Failed to resolve public DID created, cause : %s", err)
+		return fmt.Errorf("failed to resolve public DID created, %w", err)
+	}
+
+	// save public DID for later use
+	a.publicDIDs[agentID] = result.DID.ID
+
+	return nil
+}
+
+// waitForPublicDID wait for public DID to be available before throw error after timeout
+func (a *ControllerSteps) waitForPublicDID(id string) error {
+	endpointURL, ok := a.bddContext.Args[sideTreeURL]
+	if !ok {
+		return fmt.Errorf("failed to find sidetree URL to resolve sidetree public DID")
+	}
+
+	start := time.Now()
+
+	for {
+		if time.Since(start) > timeoutWaitForDID {
+			break
+		}
+
+		err := sendHTTP(http.MethodGet, endpointURL+"/"+id, nil, nil)
+		if err != nil {
+			logger.Warnf("Failed to resolve public DID, due to error [%s] will retry", err)
+			time.Sleep(500 * time.Millisecond)
+
+			continue
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("unable to resolve public DID [%s]", id)
 }
 
 func sendHTTP(method, destination string, message []byte, result interface{}) error {
@@ -336,6 +500,10 @@ func sendHTTP(method, destination string, message []byte, result interface{}) er
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to get successful response from '%s', unexpected status code [%d], "+
 			"and message [%s]", destination, resp.StatusCode, string(data))
+	}
+
+	if result == nil {
+		return nil
 	}
 
 	return json.Unmarshal(data, result)
