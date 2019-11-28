@@ -74,6 +74,16 @@ func TestWithDefaultLabelOption(t *testing.T) {
 	require.Equal(t, label, restAPIOpts.defaultLabel)
 }
 
+func TestWithAutoAcceptOption(t *testing.T) {
+	restAPIOpts := &allOpts{}
+
+	opt := WithAutoAccept(true)
+
+	opt(restAPIOpts)
+
+	require.Equal(t, true, restAPIOpts.autoAccept)
+}
+
 func generateTempDir(t testing.TB) (string, func()) {
 	path, err := ioutil.TempDir("", "db")
 	if err != nil {

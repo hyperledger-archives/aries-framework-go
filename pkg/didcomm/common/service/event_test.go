@@ -8,8 +8,6 @@ package service
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestAutoExecuteActionEvent(t *testing.T) {
@@ -17,7 +15,7 @@ func TestAutoExecuteActionEvent(t *testing.T) {
 	done := make(chan struct{})
 
 	go func() {
-		require.NoError(t, AutoExecuteActionEvent(ch))
+		AutoExecuteActionEvent(ch)
 		close(done)
 	}()
 

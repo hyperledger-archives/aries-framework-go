@@ -305,6 +305,22 @@ func TestStartCmdWithoutWebhookURL(t *testing.T) {
 	require.Contains(t, err.Error(), "webhook-url not set")
 }
 
+func TestStartCmdWithoutWebhookURLAndAutoAccept(t *testing.T) {
+	startCmd, err := Cmd(&mockServer{})
+	require.NoError(t, err)
+
+	path, cleanup := generateTempDir(t)
+	defer cleanup()
+
+	args := []string{"--" + agentHostFlagName, randomURL(), "--" + agentInboundHostFlagName,
+		randomURL(), "--" + agentInboundHostExternalFlagName, randomURL(), "--" + agentDBPathFlagName, path,
+		"--" + agentAutoAcceptFlagName, "true"}
+	startCmd.SetArgs(args)
+
+	err = startCmd.Execute()
+	require.NoError(t, err)
+}
+
 func TestStartCmdValidArgs(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
@@ -518,6 +534,29 @@ func TestStartAriesWithInboundTransport(t *testing.T) {
 		err := startAgent(parameters)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "inbound transport [wss] not supported")
+	})
+}
+
+func TestStartAriesWithAutoAccept(t *testing.T) {
+	t.Run("start aries with auto accept success", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+
+		testHostURL := randomURL()
+		testInboundHostURL := randomURL()
+
+		go func() {
+			parameters := &agentParameters{server: &HTTPServer{}, host: testHostURL, inboundHostInternal: testInboundHostURL,
+				inboundHostExternal: "", dbPath: path, defaultLabel: "x",
+				webhookURLs: []string{}, httpResolvers: []string{},
+				outboundTransports: []string{}, inboundTransport: "", autoAccept: true}
+
+			err := startAgent(parameters)
+			require.NoError(t, err)
+			require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
+		}()
+
+		waitForServerToStart(t, testHostURL, testInboundHostURL)
 	})
 }
 

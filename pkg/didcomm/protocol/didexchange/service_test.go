@@ -95,7 +95,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 
 	go msgEventListener(t, statusCh, respondedFlag, completedFlag)
 
-	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
+	go func() { service.AutoExecuteActionEvent(actionCh) }()
 
 	invitation := &Invitation{
 		Type:            InvitationMsgType,
@@ -232,7 +232,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 
 	go handleMessagesInvitee(statusCh, requestedCh, completedCh)
 
-	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
+	go func() { service.AutoExecuteActionEvent(actionCh) }()
 
 	invitation := &Invitation{
 		Type:            InvitationMsgType,
@@ -596,7 +596,7 @@ func TestEventsSuccess(t *testing.T) {
 	err = svc.RegisterActionEvent(actionCh)
 	require.NoError(t, err)
 
-	go func() { require.NoError(t, service.AutoExecuteActionEvent(actionCh)) }()
+	go func() { service.AutoExecuteActionEvent(actionCh) }()
 
 	statusCh := make(chan service.StateMsg, 10)
 	err = svc.RegisterMsgEvent(statusCh)

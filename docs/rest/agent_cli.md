@@ -16,6 +16,7 @@ Parameters can be set by command line arguments or environment variables:
 Flags:
   -l, --agent-default-label string     Default Label for this agent. Defaults to blank if not set. Alternatively, this can be set with the following environment variable: ARIESD_DEFAULT_LABEL
   -a, --api-host string                Host Name:Port. Alternatively, this can be set with the following environment variable: ARIESD_API_HOST *
+      --auto-accept string             Auto accept requests. Possible values [true] [false]. Defaults to false if not set. Alternatively, this can be set with the following environment variable: ARIESD_AUTO_ACCEPT  
   -d, --db-path string                 Path to database. Alternatively, this can be set with the following environment variable: ARIESD_DB_PATH *
   -h, --help                           help for start
   -r, --http-resolver-url string       HTTP binding DID resolver method and url. Values should be in method@url format. This flag can be repeated, allowing multiple http resolvers. Defaults to peer DID resolver if not set. Alternatively, this can be set with the following environment variable (in CSV format): ARIESD_HTTP_RESOLVER

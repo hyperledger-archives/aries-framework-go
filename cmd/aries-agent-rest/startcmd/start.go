@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -117,6 +118,14 @@ const (
 		" Possible values [http] [ws]. Defaults to http if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentInboundTransportEnvKey
 
+	agentAutoAcceptEnvKey = "ARIESD_AUTO_ACCEPT"
+
+	agentAutoAcceptFlagName = "auto-accept"
+
+	agentAutoAcceptFlagUsage = "Auto accept requests." +
+		" Possible values [true] [false]. Defaults to false if not set." +
+		" Alternatively, this can be set with the following environment variable: " + agentAutoAcceptEnvKey
+
 	httpProtocol      = "http"
 	websocketProtocol = "ws"
 )
@@ -131,6 +140,7 @@ type agentParameters struct {
 	server                                                                                 server
 	host, inboundHostInternal, inboundHostExternal, dbPath, defaultLabel, inboundTransport string
 	webhookURLs, httpResolvers, outboundTransports                                         []string
+	autoAccept                                                                             bool
 }
 
 type server interface {
@@ -154,7 +164,7 @@ func Cmd(server server) (*cobra.Command, error) {
 	return startCmd, nil
 }
 
-func createStartCMD(server server) *cobra.Command {
+func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start an agent",
@@ -186,8 +196,13 @@ func createStartCMD(server server) *cobra.Command {
 				return err
 			}
 
+			autoAccept, err := getAutoAcceptValue(cmd)
+			if err != nil {
+				return err
+			}
+
 			webhookURLs, err := getUserSetVars(cmd, agentWebhookFlagName,
-				agentWebhookEnvKey, false)
+				agentWebhookEnvKey, autoAccept)
 			if err != nil {
 				return err
 			}
@@ -211,10 +226,24 @@ func createStartCMD(server server) *cobra.Command {
 
 			parameters := &agentParameters{server: server, host: host, inboundHostInternal: inboundHost,
 				inboundHostExternal: inboundHostExternal, dbPath: dbPath, defaultLabel: defaultLabel, webhookURLs: webhookURLs,
-				httpResolvers: httpResolvers, outboundTransports: outboundTransports, inboundTransport: inboundTransport}
+				httpResolvers: httpResolvers, outboundTransports: outboundTransports, inboundTransport: inboundTransport,
+				autoAccept: autoAccept}
 			return startAgent(parameters)
 		},
 	}
+}
+
+func getAutoAcceptValue(cmd *cobra.Command) (bool, error) {
+	v, err := getUserSetVar(cmd, agentAutoAcceptFlagName, agentAutoAcceptEnvKey, true)
+	if err != nil {
+		return false, err
+	}
+
+	if v == "" {
+		return false, nil
+	}
+
+	return strconv.ParseBool(v)
 }
 
 func createFlags(startCmd *cobra.Command) {
@@ -234,6 +263,8 @@ func createFlags(startCmd *cobra.Command) {
 		agentOutboundTransportFlagUsage)
 	startCmd.Flags().StringP(agentInboundTransportFlagName, agentInboundTransportFlagShorthand, "",
 		agentInboundTransportFlagUsage)
+	startCmd.Flags().StringP(agentAutoAcceptFlagName, "", "",
+		agentAutoAcceptFlagUsage)
 }
 
 func getUserSetVar(cmd *cobra.Command, hostFlagName, envKey string, isOptional bool) (string, error) {
@@ -366,7 +397,7 @@ func startAgent(parameters *agentParameters) error {
 
 	// get all HTTP REST API handlers available for controller API
 	restService, err := restapi.New(ctx, restapi.WithWebhookURLs(parameters.webhookURLs...),
-		restapi.WithDefaultLabel(parameters.defaultLabel))
+		restapi.WithDefaultLabel(parameters.defaultLabel), restapi.WithAutoAccept(parameters.autoAccept))
 	if err != nil {
 		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to get rest service api :  %w",
 			parameters.host, err)
