@@ -152,9 +152,10 @@ type PresentationCredential []byte
 
 // Presentation Verifiable Presentation base data model definition
 type Presentation struct {
-	Context        []interface{}
+	Context        []string
+	CustomContext  []interface{}
 	ID             string
-	Type           interface{}
+	Type           []string
 	Credential     interface{}
 	Holder         string
 	Proof          Proof
@@ -228,13 +229,15 @@ func (vp *Presentation) raw() *rawPresentation {
 
 // rawPresentation is a basic verifiable credential
 type rawPresentation struct {
-	Context        []interface{} `json:"@context,omitempty"`
-	ID             string        `json:"id,omitempty"`
-	Type           interface{}   `json:"type,omitempty"`
-	Credential     interface{}   `json:"verifiableCredential,omitempty"`
-	Holder         string        `json:"holder,omitempty"`
-	Proof          Proof         `json:"proof,omitempty"`
-	RefreshService *TypedID      `json:"refreshService,omitempty"`
+	Context        interface{} `json:"@context,omitempty"`
+	ID             string      `json:"id,omitempty"`
+	Type           interface{} `json:"type,omitempty"`
+	Credential     interface{} `json:"verifiableCredential,omitempty"`
+	Holder         string      `json:"holder,omitempty"`
+	Proof          Proof       `json:"proof,omitempty"`
+	RefreshService *TypedID    `json:"refreshService,omitempty"`
+
+	proved bool
 }
 
 // presentationOpts holds options for the Verifiable Presentation decoding
@@ -282,14 +285,25 @@ func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, err
 	}
 
 	// check that embedded proof is present, if not, it's not a verifiable presentation
-	if !vpOpts.skipEmbeddedProofCheck && vpRaw.Proof == nil {
+	if !vpOpts.skipEmbeddedProofCheck && !vpRaw.proved && vpRaw.Proof == nil {
 		return nil, errors.New("embedded proof is missing")
 	}
 
+	types, err := decodeType(vpRaw.Type)
+	if err != nil {
+		return nil, fmt.Errorf("fill presentation types from raw: %w", err)
+	}
+
+	context, customContext, err := decodeContext(vpRaw.Context)
+	if err != nil {
+		return nil, fmt.Errorf("fill presentation contexts from raw: %w", err)
+	}
+
 	vp := &Presentation{
-		Context:        vpRaw.Context,
+		Context:        context,
+		CustomContext:  customContext,
 		ID:             vpRaw.ID,
-		Type:           vpRaw.Type,
+		Type:           types,
 		Credential:     vpRaw.Credential,
 		Holder:         vpRaw.Holder,
 		Proof:          vpRaw.Proof,
@@ -315,7 +329,6 @@ func validatePresentation(data []byte) error {
 	return nil
 }
 
-// TODO Auto-detection for decoding (https://github.com/hyperledger/aries-framework-go/issues/514)
 func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *rawPresentation, error) {
 	if isJWS(vpData) {
 		if vpOpts.holderPublicKeyFetcher == nil {
@@ -327,6 +340,8 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from JWS: %w", err)
 		}
 
+		rawCred.proved = true
+
 		return vcDataFromJwt, rawCred, nil
 	}
 
@@ -335,6 +350,8 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 		if err != nil {
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT: %w", err)
 		}
+
+		rawCred.proved = true
 
 		return rawBytes, rawCred, nil
 	}
