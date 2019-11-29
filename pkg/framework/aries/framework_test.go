@@ -482,7 +482,7 @@ type mockInboundTransport struct {
 	stopError  error
 }
 
-func (m *mockInboundTransport) Start(prov transport.InboundProvider) error {
+func (m *mockInboundTransport) Start(prov transport.Provider) error {
 	if m.startError != nil {
 		return m.startError
 	}

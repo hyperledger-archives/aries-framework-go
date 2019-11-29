@@ -14,17 +14,10 @@ import (
 	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
 
 var logger = log.New("aries-framework/http")
-
-// provider contains dependencies for the HTTP Handler creation and is typically created by using aries.Context()
-type provider interface {
-	InboundMessageHandler() transport.InboundMessageHandler
-	Packager() commontransport.Packager
-}
 
 // NewInboundHandler will create a new handler to enforce Did-Comm HTTP transport specs
 // then routes processing to the mandatory 'msgHandler' argument.
@@ -32,7 +25,7 @@ type provider interface {
 // Arguments:
 // * 'msgHandler' is the handler function that will be executed with the inbound request payload.
 //    Users of this library must manage the handling of all inbound payloads in this function.
-func NewInboundHandler(prov provider) (http.Handler, error) {
+func NewInboundHandler(prov transport.Provider) (http.Handler, error) {
 	if prov == nil || prov.InboundMessageHandler() == nil {
 		logger.Errorf("Error creating a new inbound handler: message handler function is nil")
 		return nil, errors.New("creation of inbound handler failed")
@@ -43,7 +36,7 @@ func NewInboundHandler(prov provider) (http.Handler, error) {
 	}), nil
 }
 
-func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.InboundProvider) {
+func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.Provider) {
 	if valid := validateHTTPMethod(w, r); !valid {
 		return
 	}
@@ -127,7 +120,7 @@ func NewInbound(internalAddr, externalAddr string) (*Inbound, error) {
 }
 
 // Start the http server.
-func (i *Inbound) Start(prov transport.InboundProvider) error {
+func (i *Inbound) Start(prov transport.Provider) error {
 	handler, err := NewInboundHandler(prov)
 	if err != nil {
 		return fmt.Errorf("HTTP server start failed: %w", err)

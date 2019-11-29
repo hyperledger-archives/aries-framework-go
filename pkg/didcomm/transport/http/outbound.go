@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
 
 //go:generate testdata/scripts/openssl_env.sh testdata/scripts/generate_test_keys.sh
@@ -82,6 +83,11 @@ func NewOutbound(opts ...OutboundHTTPOpt) (*OutboundHTTPClient, error) {
 	}
 
 	return cs, nil
+}
+
+// Start starts outbound transport
+func (cs *OutboundHTTPClient) Start(prov transport.Provider) error {
+	return nil
 }
 
 // Send sends a2a exchange data via HTTP (client side)

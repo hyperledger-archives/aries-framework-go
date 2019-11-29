@@ -9,6 +9,8 @@ package aries
 import (
 	"fmt"
 
+	"github.com/google/uuid"
+
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
@@ -44,6 +46,7 @@ type Aries struct {
 	vdriRegistry           vdriapi.Registry
 	vdri                   []vdriapi.VDRI
 	transportReturnRoute   string
+	id                     string
 }
 
 // Option configures the framework.
@@ -62,6 +65,9 @@ func New(opts ...Option) (*Aries, error) {
 			return nil, fmt.Errorf("close err: %v Error in option passed to New: %w", closeErr, err)
 		}
 	}
+
+	// generate a random framework ID
+	frameworkOpts.id = uuid.New().String()
 
 	// get the default framework options
 	err := defFrameworkOpts(frameworkOpts)
@@ -88,26 +94,22 @@ func New(opts ...Option) (*Aries, error) {
 	}
 
 	// create packers and packager (must be done after KMS)
-	err = createPackersAndPackager(frameworkOpts)
-	if err != nil {
+	if err := createPackersAndPackager(frameworkOpts); err != nil {
 		return nil, err
 	}
 
 	// Create outbound dispatcher
-	err = createOutboundDispatcher(frameworkOpts)
-	if err != nil {
+	if err := createOutboundDispatcher(frameworkOpts); err != nil {
 		return nil, err
 	}
 
 	// Load services
-	err = loadServices(frameworkOpts)
-	if err != nil {
+	if err := loadServices(frameworkOpts); err != nil {
 		return nil, err
 	}
 
-	// Start inbound transport
-	err = startInboundTransport(frameworkOpts)
-	if err != nil {
+	// Start inbound/outbound transports
+	if err := startTransports(frameworkOpts); err != nil {
 		return nil, err
 	}
 
@@ -210,6 +212,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithPackager(a.packager),
 		context.WithVDRIRegistry(a.vdriRegistry),
 		context.WithTransportReturnRoute(a.transportReturnRoute),
+		context.WithAriesFrameworkID(a.id),
 	)
 }
 
@@ -312,17 +315,28 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 	return nil
 }
 
-func startInboundTransport(frameworkOpts *Aries) error {
-	ctx, err := context.New(context.WithKMS(frameworkOpts.kms),
+func startTransports(frameworkOpts *Aries) error {
+	ctx, err := context.New(
+		context.WithKMS(frameworkOpts.kms),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()),
-		context.WithProtocolServices(frameworkOpts.services...))
+		context.WithProtocolServices(frameworkOpts.services...),
+		context.WithAriesFrameworkID(frameworkOpts.id),
+	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
 	}
+
 	// Start the inbound transport
 	if err = frameworkOpts.inboundTransport.Start(ctx); err != nil {
 		return fmt.Errorf("inbound transport start failed: %w", err)
+	}
+
+	// Start the outbound transport
+	for _, outbound := range frameworkOpts.outboundTransports {
+		if err = outbound.Start(ctx); err != nil {
+			return fmt.Errorf("outbound transport start failed: %w", err)
+		}
 	}
 
 	return nil

@@ -34,6 +34,7 @@ type Provider struct {
 	outboundTransports       []transport.OutboundTransport
 	vdriRegistry             vdriapi.Registry
 	transportReturnRoute     string
+	frameworkID              string
 }
 
 // New instantiates a new context provider.
@@ -140,6 +141,11 @@ func (p *Provider) TransportReturnRoute() string {
 	return p.transportReturnRoute
 }
 
+// AriesFrameworkID returns an inbound transport endpoint.
+func (p *Provider) AriesFrameworkID() string {
+	return p.frameworkID
+}
+
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
@@ -230,6 +236,16 @@ func WithPacker(primary packer.Packer, additionalPackers ...packer.Packer) Provi
 	return func(opts *Provider) error {
 		opts.primaryPacker = primary
 		opts.packers = append(opts.packers, additionalPackers...)
+		return nil
+	}
+}
+
+// WithAriesFrameworkID injects the framework ID into the context. This is used to tie different framework components.
+// The client can have multiple framework and with same instance of transport shared across it and this id is used
+// by the framework to tie the inbound transport and outbound transports (in case of duplex communication).
+func WithAriesFrameworkID(id string) ProviderOption {
+	return func(opts *Provider) error {
+		opts.frameworkID = id
 		return nil
 	}
 }

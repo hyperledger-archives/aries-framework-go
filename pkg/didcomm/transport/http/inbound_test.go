@@ -40,6 +40,10 @@ func (p *mockProvider) Packager() commontransport.Packager {
 	return p.packagerValue
 }
 
+func (p *mockProvider) AriesFrameworkID() string {
+	return "aries-framework-instance-1"
+}
+
 func TestInboundHandler(t *testing.T) {
 	// test inboundHandler with empty args should fail
 	inHandler, err := NewInboundHandler(nil)

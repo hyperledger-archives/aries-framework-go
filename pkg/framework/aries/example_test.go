@@ -46,7 +46,7 @@ func newMockInTransport() *mockInTransport {
 	return &mockInTransport{}
 }
 
-func (c *mockInTransport) Start(prov transport.InboundProvider) error {
+func (c *mockInTransport) Start(prov transport.Provider) error {
 	return nil
 }
 
