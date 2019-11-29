@@ -297,7 +297,7 @@ func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddo
 }
 
 // RegisterSteps registers did exchange steps
-func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
+func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
 	s.Step(`^"([^"]*)" creates invitation with public DID$`, d.createInvitationWithDID)
 	s.Step(`^"([^"]*)" waits for public did to become available in sidetree for up to (\d+) seconds$`,

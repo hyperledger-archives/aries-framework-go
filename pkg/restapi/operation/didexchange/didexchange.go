@@ -31,15 +31,16 @@ import (
 var logger = log.New("aries-framework/controller/did-exchange")
 
 const (
-	operationID             = "/connections"
-	createInvitationPath    = operationID + "/create-invitation"
-	receiveInvitationPath   = operationID + "/receive-invitation"
-	acceptInvitationPath    = operationID + "/{id}/accept-invitation"
-	connections             = operationID
-	connectionsByID         = operationID + "/{id}"
-	acceptExchangeRequest   = operationID + "/{id}/accept-request"
-	removeConnection        = operationID + "/{id}/remove"
-	connectionsWebhookTopic = "connections"
+	operationID                  = "/connections"
+	createInvitationPath         = operationID + "/create-invitation"
+	createImplicitInvitationPath = operationID + "/create-implicit-invitation"
+	receiveInvitationPath        = operationID + "/receive-invitation"
+	acceptInvitationPath         = operationID + "/{id}/accept-invitation"
+	connections                  = operationID
+	connectionsByID              = operationID + "/{id}"
+	acceptExchangeRequest        = operationID + "/{id}/accept-request"
+	removeConnection             = operationID + "/{id}/remove"
+	connectionsWebhookTopic      = "connections"
 )
 
 const (
@@ -49,6 +50,9 @@ const (
 
 	// CreateInvitationErrorCode is for failures in create invitation endpoint
 	CreateInvitationErrorCode
+
+	// CreateImplicitInvitationErrorCode is for failures in create implicit invitation endpoint
+	CreateImplicitInvitationErrorCode
 
 	// ReceiveInvitationErrorCode is for failures in receive invitation endpoint
 	ReceiveInvitationErrorCode
@@ -232,6 +236,57 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 	c.writeResponse(rw, response)
 }
 
+// CreateImplicitInvitation swagger:route POST /connections/create-implicit-invitation did-exchange implicitInvitation
+//
+//  Create implicit invitation using inviter DID.
+//
+// Responses:
+//    default: genericError
+//        200: implicitInvitationResponse
+func (c *Operation) CreateImplicitInvitation(rw http.ResponseWriter, req *http.Request) {
+	var err error
+
+	var request models.ImplicitInvitationRequest
+
+	err = getQueryParams(&request, req.URL.Query())
+	if err != nil {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, err)
+		return
+	}
+
+	if request.InviterDID == "" {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf("empty inviter DID"))
+		return
+	}
+
+	logger.Debugf("create implicit invitation: inviterDID[%s], inviterLabel[%s], inviteeDID[%s], inviteeLabel[%s]",
+		request.InviterDID, request.InviterLabel, request.InviteeDID, request.InviterLabel)
+
+	inviter := &didexchange.DIDInfo{DID: request.InviterDID, Label: request.InviterLabel}
+
+	var id string
+
+	if request.InviteeDID != "" {
+		invitee := &didexchange.DIDInfo{DID: request.InviteeDID, Label: request.InviteeLabel}
+		id, err = c.client.CreateImplicitInvitationWithDID(inviter, invitee)
+	} else {
+		id, err = c.client.CreateImplicitInvitation(inviter.Label, inviter.DID)
+	}
+
+	if err != nil {
+		logger.Errorf("create implicit invitation api failed for id %s with error %s", id, err)
+		resterrors.SendHTTPInternalServerError(rw, CreateImplicitInvitationErrorCode, err)
+
+		return
+	}
+
+	response := &models.ImplicitInvitationResponse{
+		ConnectionID: id,
+	}
+
+	c.writeResponse(rw, response)
+}
+
 // AcceptExchangeRequest swagger:route POST /connections/{id}/accept-request did-exchange acceptRequest
 //
 // Accepts a stored connection request.
@@ -374,6 +429,7 @@ func (c *Operation) registerHandler() {
 		support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
 		support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
 		support.NewHTTPHandler(createInvitationPath, http.MethodPost, c.CreateInvitation),
+		support.NewHTTPHandler(createImplicitInvitationPath, http.MethodPost, c.CreateImplicitInvitation),
 		support.NewHTTPHandler(receiveInvitationPath, http.MethodPost, c.ReceiveInvitation),
 		support.NewHTTPHandler(acceptInvitationPath, http.MethodPost, c.AcceptInvitation),
 		support.NewHTTPHandler(acceptExchangeRequest, http.MethodPost, c.AcceptExchangeRequest),

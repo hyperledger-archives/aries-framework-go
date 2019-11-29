@@ -122,4 +122,30 @@ Feature: Decentralized Identifier(DID) exchange between the agents using public 
     And  "Filip" retrieves connection record through controller and validates that connection state is "completed"
     And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
 
+  @didexchange_controller_implicit_invitation_peer_did
+  Scenario: did exchange e2e flow using public DID in invitation
+    Given "Filip" agent is running on "localhost" port "8081" with controller "http://localhost:8082" and webhook "http://localhost:8083" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    And  "Derek" agent is running on "localhost" port "9081" with controller "http://localhost:9082" and webhook "http://localhost:9083" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    Then "Filip" creates "sidetree" public DID through controller
+    And  "Derek" creates "sidetree" public DID through controller
+    And  "Derek" initiates connection through controller with "Filip" using peer DID
+    And  "Filip" approves exchange request with public DID through controller
+    And  "Filip" waits for post state event "completed" to webhook
+    And  "Derek" waits for post state event "completed" to webhook
+    And  "Filip" retrieves connection record through controller and validates that connection state is "completed"
+    And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
+
+  @didexchange_controller_implicit_invitation_public_did
+  Scenario: did exchange e2e flow using public DID in invitation
+    Given "Filip" agent is running on "localhost" port "8081" with controller "http://localhost:8082" and webhook "http://localhost:8083" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    And  "Derek" agent is running on "localhost" port "9081" with controller "http://localhost:9082" and webhook "http://localhost:9083" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    Then "Filip" creates "sidetree" public DID through controller
+    And  "Derek" creates "sidetree" public DID through controller
+    And  "Derek" initiates connection through controller with "Filip" using public DID
+    And  "Filip" approves exchange request with public DID through controller
+    And  "Filip" waits for post state event "completed" to webhook
+    And  "Derek" waits for post state event "completed" to webhook
+    And  "Filip" retrieves connection record through controller and validates that connection state is "completed"
+    And  "Derek" retrieves connection record through controller and validates that connection state is "completed"
+
 
