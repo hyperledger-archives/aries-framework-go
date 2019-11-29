@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package transport
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 )
 
@@ -14,7 +15,7 @@ import (
 // This is the client side of the agent
 type OutboundTransport interface {
 	// Send send a2a exchange data
-	Send(data []byte, destination string) (string, error)
+	Send(data []byte, destination *service.Destination) (string, error)
 	// Accept url
 	Accept(string) bool
 }

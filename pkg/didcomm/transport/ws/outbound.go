@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"nhooyr.io/websocket"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 
 const webSocketScheme = "ws"
@@ -27,12 +29,12 @@ func NewOutbound() *OutboundClient {
 }
 
 // Send sends a2a data via WS.
-func (cs *OutboundClient) Send(data []byte, url string) (string, error) {
-	if url == "" {
+func (cs *OutboundClient) Send(data []byte, destination *service.Destination) (string, error) {
+	if destination.ServiceEndpoint == "" {
 		return "", errors.New("url is mandatory")
 	}
 
-	client, _, err := websocket.Dial(context.Background(), url, nil)
+	client, _, err := websocket.Dial(context.Background(), destination.ServiceEndpoint, nil)
 	if err != nil {
 		return "", fmt.Errorf("websocket client : %w", err)
 	}

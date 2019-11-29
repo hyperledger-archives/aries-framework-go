@@ -33,6 +33,7 @@ type Provider struct {
 	outboundDispatcher       dispatcher.Outbound
 	outboundTransports       []transport.OutboundTransport
 	vdriRegistry             vdriapi.Registry
+	transportReturnRoute     string
 }
 
 // New instantiates a new context provider.
@@ -134,6 +135,11 @@ func (p *Provider) VDRIRegistry() vdriapi.Registry {
 	return p.vdriRegistry
 }
 
+// TransportReturnRoute returns transport return route
+func (p *Provider) TransportReturnRoute() string {
+	return p.transportReturnRoute
+}
+
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
@@ -149,6 +155,14 @@ func WithOutboundTransports(transports ...transport.OutboundTransport) ProviderO
 func WithOutboundDispatcher(outboundDispatcher dispatcher.Outbound) ProviderOption {
 	return func(opts *Provider) error {
 		opts.outboundDispatcher = outboundDispatcher
+		return nil
+	}
+}
+
+// WithTransportReturnRoute injects transport return route option to the Aries framework.
+func WithTransportReturnRoute(transportReturnRoute string) ProviderOption {
+	return func(opts *Provider) error {
+		opts.transportReturnRoute = transportReturnRoute
 		return nil
 	}
 }

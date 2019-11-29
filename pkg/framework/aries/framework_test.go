@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -358,13 +359,42 @@ func TestFramework(t *testing.T) {
 			&didcomm.MockOutboundTransport{ExpectedResponse: "data1"}))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(aries.outboundTransports))
-		r, err := aries.outboundTransports[0].Send([]byte("data"), "url")
+		r, err := aries.outboundTransports[0].Send([]byte("data"), &service.Destination{ServiceEndpoint: "url"})
 		require.NoError(t, err)
 		require.Equal(t, "data", r)
-		r, err = aries.outboundTransports[1].Send([]byte("data1"), "url")
+		r, err = aries.outboundTransports[1].Send([]byte("data1"), &service.Destination{ServiceEndpoint: "url"})
 		require.NoError(t, err)
 		require.Equal(t, "data1", r)
 		require.NoError(t, aries.Close())
+	})
+
+	t.Run("test new with transport return route", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		transportReturnRoute := decorator.TransportReturnRouteAll
+		aries, err := New(WithTransportReturnRoute(transportReturnRoute))
+		require.NoError(t, err)
+		require.Equal(t, transportReturnRoute, aries.transportReturnRoute)
+		require.NoError(t, aries.Close())
+
+		transportReturnRoute = decorator.TransportReturnRouteThread
+		aries, err = New(WithTransportReturnRoute(transportReturnRoute))
+		require.NoError(t, err)
+		require.Equal(t, transportReturnRoute, aries.transportReturnRoute)
+		require.NoError(t, aries.Close())
+
+		transportReturnRoute = decorator.TransportReturnRouteNone
+		aries, err = New(WithTransportReturnRoute(transportReturnRoute))
+		require.NoError(t, err)
+		require.Equal(t, transportReturnRoute, aries.transportReturnRoute)
+		require.NoError(t, aries.Close())
+
+		transportReturnRoute = "invalid-transport-route"
+		_, err = New(WithTransportReturnRoute(transportReturnRoute))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid transport return route option : "+transportReturnRoute)
 	})
 }
 
