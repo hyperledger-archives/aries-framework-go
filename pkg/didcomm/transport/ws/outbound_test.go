@@ -13,10 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
-
 	"github.com/stretchr/testify/require"
 	"nhooyr.io/websocket"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 )
 
 func TestClient(t *testing.T) {
@@ -32,7 +33,7 @@ func TestClient(t *testing.T) {
 		outbound := NewOutbound()
 		require.NotNil(t, outbound)
 
-		_, err := outbound.Send([]byte(""), "")
+		_, err := outbound.Send([]byte(""), prepareDestination(""))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "url is mandatory")
 	})
@@ -41,7 +42,7 @@ func TestClient(t *testing.T) {
 		outbound := NewOutbound()
 		require.NotNil(t, outbound)
 
-		_, err := outbound.Send([]byte(""), "ws://invalid")
+		_, err := outbound.Send([]byte(""), prepareDestination("ws://invalid"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "websocket client")
 	})
@@ -52,7 +53,7 @@ func TestClient(t *testing.T) {
 		addr := startWebSocketServer(t, echo)
 
 		data := "hello"
-		resp, err := outbound.Send([]byte(data), "ws://"+addr)
+		resp, err := outbound.Send([]byte(data), prepareDestination("ws://"+addr))
 		require.NoError(t, err)
 		require.Equal(t, data, resp)
 	})
@@ -64,7 +65,7 @@ func TestClient(t *testing.T) {
 			logger.Infof("inside http path")
 		})
 
-		_, err := outbound.Send([]byte("ws-request"), "ws://"+addr)
+		_, err := outbound.Send([]byte("ws-request"), prepareDestination("ws://"+addr))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "websocket client")
 	})
@@ -96,7 +97,7 @@ func TestClient(t *testing.T) {
 			}
 		})
 
-		_, err := outbound.Send([]byte("ws-request"), "ws://"+addr)
+		_, err := outbound.Send([]byte("ws-request"), prepareDestination("ws://"+addr))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "message type is not text message")
 	})
@@ -111,7 +112,7 @@ func TestClient(t *testing.T) {
 			require.NoError(t, c.Close(websocket.StatusAbnormalClosure, "error"))
 		})
 
-		_, err := outbound.Send([]byte("ws-request"), "ws://"+addr)
+		_, err := outbound.Send([]byte("ws-request"), prepareDestination("ws://"+addr))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "websocket read message")
 	})
@@ -129,7 +130,7 @@ func TestClient(t *testing.T) {
 			require.NoError(t, c.Close(websocket.StatusNormalClosure, "closing the connection"))
 		})
 
-		_, err := outbound.Send([]byte("ws-request"), "ws://"+addr)
+		_, err := outbound.Send([]byte("ws-request"), prepareDestination("ws://"+addr))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "websocket read message")
 	})
@@ -173,5 +174,11 @@ func echo(t *testing.T, w http.ResponseWriter, r *http.Request) {
 
 		err = c.Write(ctx, mt, message)
 		require.NoError(t, err)
+	}
+}
+
+func prepareDestination(endPoint string) *service.Destination {
+	return &service.Destination{
+		ServiceEndpoint: endPoint,
 	}
 }

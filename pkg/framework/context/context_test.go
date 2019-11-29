@@ -200,11 +200,18 @@ func TestNewProvider(t *testing.T) {
 			&mockdidcomm.MockOutboundTransport{ExpectedResponse: "data1"}))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(prov.outboundTransports))
-		r, err := prov.outboundTransports[0].Send([]byte("data"), "url")
+		r, err := prov.outboundTransports[0].Send([]byte("data"), &service.Destination{ServiceEndpoint: "url"})
 		require.NoError(t, err)
 		require.Equal(t, "data", r)
-		r, err = prov.outboundTransports[1].Send([]byte("data1"), "url")
+		r, err = prov.outboundTransports[1].Send([]byte("data1"), &service.Destination{ServiceEndpoint: "url"})
 		require.NoError(t, err)
 		require.Equal(t, "data1", r)
+	})
+
+	t.Run("test new with transport return route", func(t *testing.T) {
+		transportReturnRoute := "none"
+		prov, err := New(WithTransportReturnRoute(transportReturnRoute))
+		require.NoError(t, err)
+		require.Equal(t, transportReturnRoute, prov.TransportReturnRoute())
 	})
 }

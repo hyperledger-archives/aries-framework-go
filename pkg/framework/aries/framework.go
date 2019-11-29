@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -42,6 +43,7 @@ type Aries struct {
 	packers                []packer.Packer
 	vdriRegistry           vdriapi.Registry
 	vdri                   []vdriapi.VDRI
+	transportReturnRoute   string
 }
 
 // Option configures the framework.
@@ -128,6 +130,21 @@ func WithInboundTransport(inboundTransport transport.InboundTransport) Option {
 	}
 }
 
+// WithTransportReturnRoute injects transport return route option to the Aries framework. Acceptable values - "none",
+// "all" or "thread". RFC - https://github.com/hyperledger/aries-rfcs/tree/master/features/0092-transport-return-route
+func WithTransportReturnRoute(transportReturnRoute string) Option {
+	return func(opts *Aries) error {
+		if transportReturnRoute != decorator.TransportReturnRouteNone &&
+			transportReturnRoute != decorator.TransportReturnRouteAll &&
+			transportReturnRoute != decorator.TransportReturnRouteThread {
+			return fmt.Errorf("invalid transport return route option : %s", transportReturnRoute)
+		}
+
+		opts.transportReturnRoute = transportReturnRoute
+		return nil
+	}
+}
+
 // WithStoreProvider injects a storage provider to the Aries framework.
 func WithStoreProvider(prov storage.Provider) Option {
 	return func(opts *Aries) error {
@@ -192,6 +209,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithPacker(a.primaryPacker, a.packers...),
 		context.WithPackager(a.packager),
 		context.WithVDRIRegistry(a.vdriRegistry),
+		context.WithTransportReturnRoute(a.transportReturnRoute),
 	)
 }
 
@@ -279,9 +297,12 @@ func createVDRI(frameworkOpts *Aries) error {
 }
 
 func createOutboundDispatcher(frameworkOpts *Aries) error {
-	ctx, err := context.New(context.WithKMS(frameworkOpts.kms),
+	ctx, err := context.New(
+		context.WithKMS(frameworkOpts.kms),
 		context.WithOutboundTransports(frameworkOpts.outboundTransports...),
-		context.WithPackager(frameworkOpts.packager))
+		context.WithPackager(frameworkOpts.packager),
+		context.WithTransportReturnRoute(frameworkOpts.transportReturnRoute),
+	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
 	}

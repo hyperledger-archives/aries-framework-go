@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 
 //go:generate testdata/scripts/openssl_env.sh testdata/scripts/generate_test_keys.sh
@@ -83,10 +85,10 @@ func NewOutbound(opts ...OutboundHTTPOpt) (*OutboundHTTPClient, error) {
 }
 
 // Send sends a2a exchange data via HTTP (client side)
-func (cs *OutboundHTTPClient) Send(data []byte, url string) (string, error) {
-	resp, err := cs.client.Post(url, commContentType, bytes.NewBuffer(data))
+func (cs *OutboundHTTPClient) Send(data []byte, destination *service.Destination) (string, error) {
+	resp, err := cs.client.Post(destination.ServiceEndpoint, commContentType, bytes.NewBuffer(data))
 	if err != nil {
-		logger.Errorf("posting DID envelope to agent failed [%s, %v]", url, err)
+		logger.Errorf("posting DID envelope to agent failed [%s, %v]", destination.ServiceEndpoint, err)
 		return "", err
 	}
 
@@ -95,7 +97,8 @@ func (cs *OutboundHTTPClient) Send(data []byte, url string) (string, error) {
 	if resp != nil {
 		isStatusSuccess := resp.StatusCode == http.StatusAccepted || resp.StatusCode == http.StatusOK
 		if !isStatusSuccess {
-			return "", fmt.Errorf("received unsuccessful POST HTTP status from agent [%s, %v]", url, resp.Status)
+			return "", fmt.Errorf("received unsuccessful POST HTTP status from agent "+
+				"[%s, %v]", destination.ServiceEndpoint, resp.Status)
 		}
 		// handle response
 		defer func() {

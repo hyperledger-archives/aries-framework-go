@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 
 func TestWithOutboundOpts(t *testing.T) {
@@ -72,25 +74,31 @@ func TestOutboundHTTPTransport(t *testing.T) {
 
 	// test Outbound transport's api
 	// first with an empty url
-	r, e := ot.Send([]byte("Hello World"), "")
+	r, e := ot.Send([]byte("Hello World"), prepareDestination("serverURL"))
 	require.Error(t, e)
 	require.Empty(t, r)
 
 	// now try a bad url
-	r, e = ot.Send([]byte("Hello World"), "https://badurl")
+	r, e = ot.Send([]byte("Hello World"), prepareDestination("https://badurl"))
 	require.Error(t, e)
 	require.Empty(t, r)
 
 	// and try with a 'bad' payload with a valid url..
-	r, e = ot.Send([]byte("bad"), serverURL)
+	r, e = ot.Send([]byte("bad"), prepareDestination(serverURL))
 	require.Error(t, e)
 	require.Empty(t, r)
 
 	// finally using a valid url
-	r, e = ot.Send([]byte("Hello World"), serverURL)
+	r, e = ot.Send([]byte("Hello World"), prepareDestination(serverURL))
 	require.NoError(t, e)
 	require.NotEmpty(t, r)
 
 	require.True(t, ot.Accept("http://example.com"))
 	require.False(t, ot.Accept("123:22"))
+}
+
+func prepareDestination(endPoint string) *service.Destination {
+	return &service.Destination{
+		ServiceEndpoint: endPoint,
+	}
 }
