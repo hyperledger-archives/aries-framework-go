@@ -124,8 +124,8 @@ func (m *MockDIDExchangeSvc) AcceptInvitation(connectionID, publicDID, label str
 	return nil
 }
 
-// CreateImplicitInvitation creates implicit invitation using public did
-func (m *MockDIDExchangeSvc) CreateImplicitInvitation(label, toDID string) (string, error) {
+// CreateImplicitInvitation creates implicit invitation using public DID(s)
+func (m *MockDIDExchangeSvc) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error) { //nolint: lll
 	if m.ImplicitInvitationErr != nil {
 		return "", m.ImplicitInvitationErr
 	}

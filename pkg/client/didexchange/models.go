@@ -48,3 +48,13 @@ type Connection struct {
 type Invitation struct {
 	*didexchange.Invitation
 }
+
+// DIDInfo model for specifying public DID and associated label
+type DIDInfo struct {
+
+	// the DID
+	DID string
+
+	// the label associated with DID
+	Label string
+}

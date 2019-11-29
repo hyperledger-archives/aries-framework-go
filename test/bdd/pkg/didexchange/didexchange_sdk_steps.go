@@ -91,6 +91,27 @@ func (d *SDKSteps) createImplicitInvitation(inviteeAgentID, inviterAgentID strin
 	return nil
 }
 
+func (d *SDKSteps) createImplicitInvitationWithDID(inviteeAgentID, inviterAgentID string) error {
+	inviter := &didexchange.DIDInfo{
+		DID:   d.bddContext.PublicDIDs[inviterAgentID].ID,
+		Label: inviterAgentID,
+	}
+
+	invitee := &didexchange.DIDInfo{
+		DID:   d.bddContext.PublicDIDs[inviteeAgentID].ID,
+		Label: inviteeAgentID,
+	}
+
+	connID, err := d.bddContext.DIDExchangeClients[inviteeAgentID].CreateImplicitInvitationWithDID(inviter, invitee)
+	if err != nil {
+		return fmt.Errorf("failed to create invitation: %w", err)
+	}
+
+	d.connectionID[inviteeAgentID] = connID
+
+	return nil
+}
+
 func (d *SDKSteps) waitForPublicDID(agentID string, maxSeconds int) error {
 	_, err := resolveDID(d.bddContext.AgentCtx[agentID].VDRIRegistry(), d.bddContext.PublicDIDs[agentID].ID, maxSeconds)
 	return err
@@ -282,7 +303,8 @@ func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" waits for public did to become available in sidetree for up to (\d+) seconds$`,
 		d.waitForPublicDID)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)"$`, d.receiveInvitation)
-	s.Step(`^"([^"]*)" initiates connection with "([^"]*)"$`, d.createImplicitInvitation)
+	s.Step(`^"([^"]*)" initiates connection with "([^"]*)" using peer DID$`, d.createImplicitInvitation)
+	s.Step(`^"([^"]*)" initiates connection with "([^"]*)" using public DID$`, d.createImplicitInvitationWithDID)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)"$`, d.waitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`,
 		d.validateConnection)

@@ -62,8 +62,9 @@ type protocolService interface {
 	// Accepts/Approves exchange invitation
 	AcceptInvitation(connectionID, publicDID, label string) error
 
-	// CreateImplicitInvitation creates implicit invitation
-	CreateImplicitInvitation(label, toDID string) (string, error)
+	// CreateImplicitInvitation creates implicit invitation. Inviter DID is required, invitee DID is optional.
+	// If invitee DID is not provided new peer DID will be created for implicit invitation exchange request.
+	CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error)
 }
 
 // New return new instance of didexchange client
@@ -186,10 +187,18 @@ func (c *Client) AcceptExchangeRequest(connectionID, publicDID, label string) er
 	return nil
 }
 
-// CreateImplicitInvitation creates and sends an exchange request to create connection
-// to specified public DID.
-func (c *Client) CreateImplicitInvitation(label, toDID string) (string, error) {
-	return c.didexchangeSvc.CreateImplicitInvitation(label, toDID)
+// CreateImplicitInvitation enables invitee to create and send an exchange request using inviter public DID.
+func (c *Client) CreateImplicitInvitation(inviterLabel, inviterDID string) (string, error) {
+	return c.didexchangeSvc.CreateImplicitInvitation(inviterLabel, inviterDID, "", "")
+}
+
+// CreateImplicitInvitationWithDID enables invitee to create implicit invitation using inviter and invitee public DID.
+func (c *Client) CreateImplicitInvitationWithDID(inviter, invitee *DIDInfo) (string, error) {
+	if inviter == nil || invitee == nil {
+		return "", errors.New("missing inviter and/or invitee public DID(s)")
+	}
+
+	return c.didexchangeSvc.CreateImplicitInvitation(inviter.Label, inviter.DID, invitee.Label, invitee.DID)
 }
 
 // QueryConnections queries connections matching given criteria(parameters)
