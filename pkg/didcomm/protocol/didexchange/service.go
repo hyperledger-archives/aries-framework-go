@@ -629,7 +629,7 @@ type options struct {
 // CreateImplicitInvitation creates implicit invitation. Inviter DID is required, invitee DID is optional.
 // If invitee DID is not provided new peer DID will be created for implicit invitation exchange request.
 func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error) {
-	logger.Debugf("implicit invitation requested for: %s", inviterDID)
+	logger.Debugf("implicit invitation requested inviterDID[%s] inviteeDID[%s]", inviterDID, inviteeDID)
 
 	didDoc, err := s.ctx.vdriRegistry.Resolve(inviterDID)
 	if err != nil {

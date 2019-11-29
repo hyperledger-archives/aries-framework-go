@@ -185,6 +185,37 @@ type AcceptInvitationResponse struct {
 	Mode string `json:"invitation_mode,omitempty"`
 }
 
+// ImplicitInvitationRequest model
+//
+// This is used by invitee to create implicit invitation
+//
+// swagger:parameters implicitInvitation
+type ImplicitInvitationRequest struct {
+	// InviterDID
+	// required: true
+	InviterDID string `json:"their_did"`
+
+	// Optional inviter label
+	InviterLabel string `json:"their_label"`
+
+	// Optional invitee did
+	InviteeDID string `json:"my_did"`
+
+	// Optional invitee label
+	InviteeLabel string `json:"my_label"`
+}
+
+// ImplicitInvitationResponse model
+//
+// This is used for returning create implicit invitation response
+//
+// swagger:response implicitInvitationResponse
+type ImplicitInvitationResponse struct {
+
+	// the connection ID of the connection for implicit invitation
+	ConnectionID string `json:"connection_id,omitempty"`
+}
+
 // GetConnectionRequest model
 //
 // This is used for getting specific connection record

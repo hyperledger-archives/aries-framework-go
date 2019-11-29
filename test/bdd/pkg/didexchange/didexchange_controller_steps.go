@@ -28,18 +28,19 @@ import (
 )
 
 const (
-	connOperationID       = "/connections"
-	vdriOperationID       = "/vdri"
-	createInvitationPath  = connOperationID + "/create-invitation"
-	receiveInvtiationPath = connOperationID + "/receive-invitation"
-	acceptInvitationPath  = connOperationID + "/%s/accept-invitation?public=%s"
-	acceptRequestPath     = connOperationID + "/%s/accept-request?public=%s"
-	connectionsByID       = connOperationID + "/{id}"
-	createPublicDIDPath   = vdriOperationID + "/create-public-did"
-	checkForTopics        = "/checktopics"
-	publicDIDCreateHeader = `{"alg":"","kid":"","operation":"create"}`
-	sideTreeURL           = "${SIDETREE_URL}"
-	timeoutWaitForDID     = 10 * time.Second
+	connOperationID              = "/connections"
+	vdriOperationID              = "/vdri"
+	createInvitationPath         = connOperationID + "/create-invitation"
+	createImplicitInvitationPath = connOperationID + "/create-implicit-invitation"
+	receiveInvtiationPath        = connOperationID + "/receive-invitation"
+	acceptInvitationPath         = connOperationID + "/%s/accept-invitation?public=%s"
+	acceptRequestPath            = connOperationID + "/%s/accept-request?public=%s"
+	connectionsByID              = connOperationID + "/{id}"
+	createPublicDIDPath          = vdriOperationID + "/create-public-did"
+	checkForTopics               = "/checktopics"
+	publicDIDCreateHeader        = `{"alg":"","kid":"","operation":"create"}`
+	sideTreeURL                  = "${SIDETREE_URL}"
+	timeoutWaitForDID            = 10 * time.Second
 
 	// retry options to pull topics from webhook
 	// pullTopicsWaitInMilliSec is time in milliseconds to wait before retry
@@ -70,7 +71,7 @@ func NewDIDExchangeControllerSteps(ctx *context.BDDContext) *ControllerSteps {
 }
 
 // RegisterSteps registers agent steps
-func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
+func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
 	s.Step(`^"([^"]*)" approves exchange invitation through controller`, a.approveInvitation)
@@ -82,8 +83,14 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates "([^"]*)" public DID through controller`, a.createPublicDID)
 	s.Step(`^"([^"]*)" creates invitation through controller using public DID and label "([^"]*)"$`,
 		a.createInvitationWithDID)
-	s.Step(`^"([^"]*)" approves exchange invitation with public DID through controller`, a.approveInvitationWithPublicDID)
-	s.Step(`^"([^"]*)" approves exchange request with public DID through controller`, a.approveRequestWithPublicDID)
+	s.Step(`^"([^"]*)" approves exchange invitation with public DID through controller`,
+		a.approveInvitationWithPublicDID)
+	s.Step(`^"([^"]*)" approves exchange request with public DID through controller`,
+		a.approveRequestWithPublicDID)
+	s.Step(`^"([^"]*)" initiates connection through controller with "([^"]*)" using peer DID$`,
+		a.createImplicitInvitation)
+	s.Step(`^"([^"]*)" initiates connection through controller with "([^"]*)" using public DID$`,
+		a.createImplicitInvitationWithDID)
 }
 
 func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, error) {
@@ -119,6 +126,14 @@ func (a *ControllerSteps) createInvitation(inviterAgentID, label string) error {
 
 func (a *ControllerSteps) createInvitationWithDID(inviterAgentID, label string) error {
 	return a.performCreateInvitation(inviterAgentID, label, true)
+}
+
+func (a *ControllerSteps) createImplicitInvitation(inviteeAgentID, inviterAgentID string) error {
+	return a.performCreateImplicitInvitation(inviteeAgentID, inviterAgentID, false)
+}
+
+func (a *ControllerSteps) createImplicitInvitationWithDID(inviteeAgentID, inviterAgentID string) error {
+	return a.performCreateImplicitInvitation(inviteeAgentID, inviterAgentID, true)
 }
 
 func (a *ControllerSteps) performCreateInvitation(inviterAgentID, label string, useDID bool) error {
@@ -158,6 +173,52 @@ func (a *ControllerSteps) performCreateInvitation(inviterAgentID, label string, 
 
 	// save invitation for later use
 	a.invitations[inviterAgentID] = result.Invitation
+
+	return nil
+}
+
+func (a *ControllerSteps) performCreateImplicitInvitation(inviteeAgentID, inviterAgentID string, usePublic bool) error {
+	destination, ok := a.bddContext.GetControllerURL(inviteeAgentID)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]",
+			inviterAgentID)
+	}
+
+	inviterDID, ok := a.publicDIDs[inviterAgentID]
+	if !ok {
+		return fmt.Errorf("unable to find public DID for agent [%s]", inviterAgentID)
+	}
+
+	var inviteeDID string
+	if usePublic {
+		inviteeDID, ok = a.publicDIDs[inviteeAgentID]
+		if !ok {
+			return fmt.Errorf("unable to find public DID for agent [%s]", inviteeAgentID)
+		}
+	}
+
+	logger.Debugf("Creating implicit invitation from controller for agent[%s]: inviterDID[%s], inviteeDID[%s]",
+		inviteeAgentID, inviterDID, inviteeDID)
+
+	// call controller
+	path := fmt.Sprintf("%s%s?their_did=%s&their_label=%s&my_did=%s&my_label=%s",
+		destination, createImplicitInvitationPath, inviterDID, inviterAgentID, inviteeDID, inviteeAgentID)
+
+	var result models.ImplicitInvitationResponse
+
+	err := sendHTTP(http.MethodPost, path, nil, &result)
+	if err != nil {
+		logger.Errorf("Failed to create implicit invitation, cause : %s", err)
+		return err
+	}
+
+	// validate payload
+	if result.ConnectionID == "" {
+		return fmt.Errorf("connection id is empty for create implicit invitation for agent [%s]", inviteeAgentID)
+	}
+
+	// invitee connectionID
+	a.connectionIDs[inviteeAgentID] = result.ConnectionID
 
 	return nil
 }
