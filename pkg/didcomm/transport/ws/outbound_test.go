@@ -74,7 +74,7 @@ func TestClient(t *testing.T) {
 		outbound := NewOutbound()
 		require.NotNil(t, outbound)
 		addr := startWebSocketServer(t, func(_ *testing.T, w http.ResponseWriter, r *http.Request) {
-			c, err := websocket.Accept(w, r, nil)
+			c, err := Accept(w, r)
 			require.NoError(t, err)
 
 			defer func() {
@@ -106,7 +106,7 @@ func TestClient(t *testing.T) {
 		outbound := NewOutbound()
 		require.NotNil(t, outbound)
 		addr := startWebSocketServer(t, func(_ *testing.T, w http.ResponseWriter, r *http.Request) {
-			c, err := websocket.Accept(w, r, nil)
+			c, err := Accept(w, r)
 			require.NoError(t, err)
 
 			require.NoError(t, c.Close(websocket.StatusAbnormalClosure, "error"))
@@ -121,7 +121,7 @@ func TestClient(t *testing.T) {
 		outbound := NewOutbound()
 		require.NotNil(t, outbound)
 		addr := startWebSocketServer(t, func(_ *testing.T, w http.ResponseWriter, r *http.Request) {
-			c, err := websocket.Accept(w, r, nil)
+			c, err := Accept(w, r)
 			require.NoError(t, err)
 
 			_, _, err = c.Read(context.Background())
@@ -154,7 +154,7 @@ func startWebSocketServer(t *testing.T, handlerFunc func(*testing.T, http.Respon
 }
 
 func echo(t *testing.T, w http.ResponseWriter, r *http.Request) {
-	c, err := websocket.Accept(w, r, nil)
+	c, err := Accept(w, r)
 	require.NoError(t, err)
 
 	defer func() {
