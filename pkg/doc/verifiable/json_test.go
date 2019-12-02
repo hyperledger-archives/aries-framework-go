@@ -49,8 +49,9 @@ func Test_marshalJSON(t *testing.T) {
 
 	t.Run("Failed JSON marshall", func(t *testing.T) {
 		// artificial example - pass smth which cannot be marshalled
-		_, err := marshalWithCustomFields(make(chan int), map[string]interface{}{})
+		jsonBytes, err := marshalWithCustomFields(make(chan int), map[string]interface{}{})
 		require.Error(t, err)
+		require.Nil(t, jsonBytes)
 	})
 }
 

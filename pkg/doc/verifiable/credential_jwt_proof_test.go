@@ -72,7 +72,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 	})
 
 	t.Run("Failed JWT signature verification of credential", func(t *testing.T) {
-		_, _, err := NewCredential(
+		vc, vcBytes, err := NewCredential(
 			createJWS(t, testCred, true),
 			// passing holder's key, while expecting issuer one
 			WithPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
@@ -85,10 +85,12 @@ func TestNewCredentialFromJWS(t *testing.T) {
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "JWS decoding: unmarshal VC JWT claims")
+		require.Nil(t, vc)
+		require.Nil(t, vcBytes)
 	})
 
 	t.Run("Failed public key fetching", func(t *testing.T) {
-		_, _, err := NewCredential(
+		vc, vcBytes, err := NewCredential(
 			createJWS(t, testCred, true),
 
 			WithPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
@@ -96,13 +98,17 @@ func TestNewCredentialFromJWS(t *testing.T) {
 			}))
 
 		require.Error(t, err)
+		require.Nil(t, vc)
+		require.Nil(t, vcBytes)
 	})
 
 	t.Run("Not defined public key fetcher", func(t *testing.T) {
-		_, _, err := NewCredential(createJWS(t, testCred, true))
+		vc, vcBytes, err := NewCredential(createJWS(t, testCred, true))
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "public key fetcher is not defined")
+		require.Nil(t, vc)
+		require.Nil(t, vcBytes)
 	})
 }
 

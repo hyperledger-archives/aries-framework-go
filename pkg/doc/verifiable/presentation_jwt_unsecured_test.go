@@ -38,9 +38,11 @@ func TestDecodeVPFromUnsecuredJWT(t *testing.T) {
 	})
 
 	t.Run("Invalid serialized unsecured JWT", func(t *testing.T) {
-		_, _, err := decodeVPFromUnsecuredJWT([]byte("invalid JWS"))
+		vpBytes, vpRaw, err := decodeVPFromUnsecuredJWT([]byte("invalid JWS"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "decode Verifiable Presentation JWT claims")
+		require.Nil(t, vpBytes)
+		require.Nil(t, vpRaw)
 	})
 
 	t.Run("Invalid format of \"vp\" claim", func(t *testing.T) {
@@ -52,9 +54,11 @@ func TestDecodeVPFromUnsecuredJWT(t *testing.T) {
 		rawJWT, err := marshalUnsecuredJWT(map[string]string{}, claims)
 		require.NoError(t, err)
 
-		_, _, err = decodeVPFromUnsecuredJWT([]byte(rawJWT))
+		vpBytes, vpRaw, err := decodeVPFromUnsecuredJWT([]byte(rawJWT))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "decode Verifiable Presentation JWT claims: parse JWT claims")
+		require.Nil(t, vpBytes)
+		require.Nil(t, vpRaw)
 	})
 }
 

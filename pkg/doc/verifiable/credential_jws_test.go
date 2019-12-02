@@ -48,9 +48,10 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 	})
 
 	t.Run("Marshal signed JWT failed with invalid private key", func(t *testing.T) {
-		_, err := jwtClaims.MarshalJWS(RS256, "invalid private key", "any")
+		jws, err := jwtClaims.MarshalJWS(RS256, "invalid private key", "any")
 		require.Error(t, err)
 		require.EqualError(t, err, "create signer: square/go-jose: unsupported key type/format")
+		require.Empty(t, jws)
 	})
 }
 
@@ -88,9 +89,10 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {
-		_, err := decodeCredJWS([]byte("invalid JWS"), pkFetcher)
+		jws, err := decodeCredJWS([]byte("invalid JWS"), pkFetcher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims: parse VC from signed JWS")
+		require.Nil(t, jws)
 	})
 
 	t.Run("Invalid format of \"vc\" claim", func(t *testing.T) {
@@ -107,9 +109,10 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		rawJWT, err := jwt.Signed(signer).Claims(claims).CompactSerialize()
 		require.NoError(t, err)
 
-		_, err = decodeCredJWS([]byte(rawJWT), pkFetcher)
+		jws, err := decodeCredJWS([]byte(rawJWT), pkFetcher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims: parse VC JWT claims")
+		require.Nil(t, jws)
 	})
 
 	t.Run("Invalid signature of JWS", func(t *testing.T) {
@@ -122,8 +125,9 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 			return publicKey, nil
 		}
 
-		_, err := decodeCredJWS(validJWS, pkFetcherOther)
+		jws, err := decodeCredJWS(validJWS, pkFetcherOther)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims: VC JWT signature verification")
+		require.Nil(t, jws)
 	})
 }

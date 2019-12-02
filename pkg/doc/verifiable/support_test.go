@@ -158,6 +158,13 @@ func (rc *rawCredential) stringJSON(t *testing.T) string {
 	return string(bytes)
 }
 
+func (vc *Credential) stringJSON(t *testing.T) string {
+	bytes, err := json.Marshal(vc)
+	require.NoError(t, err)
+
+	return string(bytes)
+}
+
 func (raw *rawPresentation) stringJSON(t *testing.T) string {
 	bytes, err := json.Marshal(raw)
 	require.NoError(t, err)

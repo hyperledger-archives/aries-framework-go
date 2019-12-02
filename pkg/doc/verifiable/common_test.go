@@ -23,9 +23,10 @@ func TestJwtAlgorithm_Jose(t *testing.T) {
 	require.Equal(t, jose.EdDSA, joseAlg)
 
 	// not supported alg
-	_, err = JWSAlgorithm(-1).jose()
+	sa, err := JWSAlgorithm(-1).jose()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported algorithm")
+	require.Empty(t, sa)
 }
 
 func TestStringSlice(t *testing.T) {
@@ -33,8 +34,9 @@ func TestStringSlice(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []string{"str1", "str2"}, strings)
 
-	_, err = stringSlice([]interface{}{"str1", 15})
+	strings, err = stringSlice([]interface{}{"str1", 15})
 	require.Error(t, err)
+	require.Nil(t, strings)
 }
 
 func TestTypedID_MarshalJSON(t *testing.T) {
@@ -64,9 +66,10 @@ func TestTypedID_MarshalJSON(t *testing.T) {
 			},
 		}
 
-		_, err := json.Marshal(&tid)
+		b, err := json.Marshal(&tid)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "marshal TypedID")
+		require.Nil(t, b)
 	})
 }
 
@@ -126,15 +129,17 @@ func TestDecodeType(t *testing.T) {
 	})
 
 	t.Run("Error on decoding of invalid Verifiable Credential type", func(t *testing.T) {
-		_, err := decodeType(77)
+		types, err := decodeType(77)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credential type of unknown type")
+		require.Nil(t, types)
 	})
 
 	t.Run("Error on decoding of invalid Verifiable Credential types", func(t *testing.T) {
-		_, err := decodeType([]interface{}{"VerifiableCredential", 777})
+		types, err := decodeType([]interface{}{"VerifiableCredential", 777})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "vc types: array element is not a string")
+		require.Nil(t, types)
 	})
 }
 
@@ -175,7 +180,9 @@ func TestDecodeContext(t *testing.T) {
 	})
 
 	t.Run("Decode context of invalid type", func(t *testing.T) {
-		_, _, err := decodeContext(55)
+		contexts, extraContexts, err := decodeContext(55)
 		require.Error(t, err)
+		require.Nil(t, contexts)
+		require.Nil(t, extraContexts)
 	})
 }

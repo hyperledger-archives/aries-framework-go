@@ -101,15 +101,19 @@ func TestNewCredential(t *testing.T) {
 
 	t.Run("test a try to create a new Verifiable Credential from JSON with invalid structure", func(t *testing.T) {
 		emptyJSONDoc := "{}"
-		_, _, err := NewCredential([]byte(emptyJSONDoc))
+		vc, vcBytes, err := NewCredential([]byte(emptyJSONDoc))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "verifiable credential is not valid")
+		require.Nil(t, vc)
+		require.Nil(t, vcBytes)
 	})
 
 	t.Run("test a try to create a new Verifiable Credential from non-JSON doc", func(t *testing.T) {
-		_, _, err := NewCredential([]byte("non json"))
+		vc, vcBytes, err := NewCredential([]byte("non json"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "new credential")
+		require.Nil(t, vc)
+		require.Nil(t, vcBytes)
 	})
 }
 
@@ -592,9 +596,11 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	require.NoError(t, mErr)
 
 	t.Run("Applies custom JSON Schema and detects data inconsistency due to missing new required field", func(t *testing.T) { //nolint:lll
-		_, _, err := NewCredential(missingReqFieldSchema, WithSchemaDownloadClient(&http.Client{}))
+		vc, vcBytes, err := NewCredential(missingReqFieldSchema, WithSchemaDownloadClient(&http.Client{}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "referenceNumber is required")
+		require.Nil(t, vc)
+		require.Nil(t, vcBytes)
 	})
 
 	t.Run("Applies custom credentialSchema and passes new data inconsistency check", func(t *testing.T) {
@@ -627,9 +633,11 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		schemaWithInvalidURLToCredentialSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		_, _, err = NewCredential(schemaWithInvalidURLToCredentialSchema, WithSchemaDownloadClient(&http.Client{}))
+		vc, vcBytes, err := NewCredential(schemaWithInvalidURLToCredentialSchema, WithSchemaDownloadClient(&http.Client{}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "load of custom credential schema")
+		require.Nil(t, vc)
+		require.Nil(t, vcBytes)
 	})
 
 	t.Run("Uses default schema if custom credentialSchema is not of 'JsonSchemaValidator2018' type", func(t *testing.T) { //nolint:lll
@@ -681,9 +689,10 @@ func TestDownloadCustomSchema(t *testing.T) {
 		}))
 		defer func() { testServer.Close() }()
 
-		_, err := loadCredentialSchema(testServer.URL, &http.Client{})
+		customSchema, err := loadCredentialSchema(testServer.URL, &http.Client{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "load credential schema")
+		require.Nil(t, customSchema)
 	})
 
 	t.Run("HTTP GET request to download custom credentialSchema returns not OK", func(t *testing.T) {
@@ -693,9 +702,10 @@ func TestDownloadCustomSchema(t *testing.T) {
 		}))
 		defer func() { testServer.Close() }()
 
-		_, err := loadCredentialSchema(testServer.URL, &http.Client{})
+		customSchema, err := loadCredentialSchema(testServer.URL, &http.Client{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credential schema endpoint HTTP failure")
+		require.Nil(t, customSchema)
 	})
 }
 
@@ -747,27 +757,30 @@ func TestCredentialSubjectId(t *testing.T) {
 					"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				},
 			}}
-		_, err := subjectID(vcWithMultipleSubjects.Subject)
+		subjectID, err := subjectID(vcWithMultipleSubjects.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "more than one subject is defined")
+		require.Empty(t, subjectID)
 	})
 
 	t.Run("With no Subject", func(t *testing.T) {
 		vcWithNoSubject := &Credential{
 			Subject: nil,
 		}
-		_, err := subjectID(vcWithNoSubject.Subject)
+		subjectID, err := subjectID(vcWithNoSubject.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "subject id is not defined")
+		require.Empty(t, subjectID)
 	})
 
 	t.Run("With empty Subject", func(t *testing.T) {
 		vcWithNoSubject := &Credential{
 			Subject: []map[string]interface{}{},
 		}
-		_, err := subjectID(vcWithNoSubject.Subject)
+		subjectID, err := subjectID(vcWithNoSubject.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "no subject is defined")
+		require.Empty(t, subjectID)
 	})
 
 	t.Run("With non-string Subject ID", func(t *testing.T) {
@@ -778,9 +791,10 @@ func TestCredentialSubjectId(t *testing.T) {
 				"name": "Bachelor of Science and Arts",
 			},
 		}}
-		_, err := subjectID(vcWithNotStringID.Subject)
+		subjectID, err := subjectID(vcWithNotStringID.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "subject id is not string")
+		require.Empty(t, subjectID)
 	})
 
 	t.Run("Subject without ID defined", func(t *testing.T) {
@@ -795,9 +809,10 @@ func TestCredentialSubjectId(t *testing.T) {
 				},
 			},
 		}
-		_, err := subjectID(vcWithSubjectWithoutID.Subject)
+		subjectID, err := subjectID(vcWithSubjectWithoutID.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "subject id is not defined")
+		require.Empty(t, subjectID)
 	})
 
 	t.Run("Get subject id from custom structure", func(t *testing.T) {
@@ -830,9 +845,10 @@ func TestCredentialSubjectId(t *testing.T) {
 	})
 
 	t.Run("Get subject id from unmarshalable structure", func(t *testing.T) {
-		_, err := subjectID(make(chan int))
+		subjectID, err := subjectID(make(chan int))
 		require.Error(t, err)
 		require.EqualError(t, err, "subject of unknown structure")
+		require.Empty(t, subjectID)
 	})
 }
 
@@ -884,34 +900,38 @@ func TestDecodeIssuer(t *testing.T) {
 	})
 
 	t.Run("Decode Issuer identified by empty ID and name", func(t *testing.T) {
-		_, err := decodeIssuer(map[string]interface{}{
+		issuerID, err := decodeIssuer(map[string]interface{}{
 			"name": "Example University",
 		})
 		require.Error(t, err)
 		require.EqualError(t, err, "issuer ID is not defined")
+		require.Empty(t, issuerID)
 	})
 
 	t.Run("Decode Issuer with invalid type of ID", func(t *testing.T) {
-		_, err := decodeIssuer(map[string]interface{}{
+		issuerID, err := decodeIssuer(map[string]interface{}{
 			"id": 55,
 		})
 		require.Error(t, err)
 		require.EqualError(t, err, "value of key 'id' is not a string")
+		require.Empty(t, issuerID)
 	})
 
 	t.Run("Decode Issuer with invalid type of name", func(t *testing.T) {
-		_, err := decodeIssuer(map[string]interface{}{
+		issuerID, err := decodeIssuer(map[string]interface{}{
 			"id":   "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			"name": 55,
 		})
 		require.Error(t, err)
 		require.EqualError(t, err, "value of key 'name' is not a string")
+		require.Empty(t, issuerID)
 	})
 
 	t.Run("Decode Issuer of invalid type", func(t *testing.T) {
-		_, err := decodeIssuer(77)
+		issuerID, err := decodeIssuer(77)
 		require.Error(t, err)
 		require.EqualError(t, err, "unsupported format of issuer")
+		require.Empty(t, issuerID)
 	})
 }
 
@@ -953,38 +973,42 @@ func TestContextToSerialize(t *testing.T) {
 }
 
 func TestNewCredentialFromRaw(t *testing.T) {
-	_, err := newCredential(&rawCredential{
+	vc, err := newCredential(&rawCredential{
 		Type:    5,
 		Issuer:  "did:example:76e12ec712ebc6f1c221ebfeb1f",
 		Context: "https://www.w3.org/2018/credentials/v1",
 	}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential types from raw")
+	require.Nil(t, vc)
 
-	_, err = newCredential(&rawCredential{
+	vc, err = newCredential(&rawCredential{
 		Type:    "VerifiableCredential",
 		Issuer:  5,
 		Context: "https://www.w3.org/2018/credentials/v1",
 	}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential issuer from raw")
+	require.Nil(t, vc)
 
-	_, err = newCredential(&rawCredential{
+	vc, err = newCredential(&rawCredential{
 		Type:    "VerifiableCredential",
 		Issuer:  "did:example:76e12ec712ebc6f1c221ebfeb1f",
 		Context: 5, // invalid context
 	}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential context from raw")
+	require.Nil(t, vc)
 }
 
 func TestCredential_CreatePresentation(t *testing.T) {
 	vc, _, err := NewCredential([]byte(validCredential))
 	require.NoError(t, err)
 
-	vp := vc.Presentation()
+	vp, err := vc.Presentation()
+	require.NoError(t, err)
 
-	require.Equal(t, []Credential{*vc}, vp.Credential)
+	require.Equal(t, []interface{}{vc}, vp.Credentials())
 	require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
 	require.Equal(t, vc.Context, vp.Context)
 }

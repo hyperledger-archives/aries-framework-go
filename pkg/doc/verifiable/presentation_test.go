@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"testing"
 
@@ -90,8 +92,8 @@ func TestNewPresentation(t *testing.T) {
 		require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
 
 		// check verifiableCredentials
-		require.NotNil(t, vp.Credential)
-		require.Len(t, vp.Credential, 1)
+		require.NotNil(t, vp.Credentials())
+		require.Len(t, vp.Credentials(), 1)
 
 		// check holder
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", vp.Holder)
@@ -107,14 +109,16 @@ func TestNewPresentation(t *testing.T) {
 
 	t.Run("creates a new Verifiable Presentation from JSON with invalid structure", func(t *testing.T) {
 		emptyJSONDoc := "{}"
-		_, err := NewPresentation([]byte(emptyJSONDoc))
+		vp, err := NewPresentation([]byte(emptyJSONDoc))
 		require.Error(t, err)
+		require.Nil(t, vp)
 	})
 
 	t.Run("fails to create a new Verifiable Presentation from non-JSON doc", func(t *testing.T) {
-		_, err := NewPresentation([]byte("non json"))
+		vp, err := NewPresentation([]byte("non json"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "JSON unmarshalling of verifiable presentation")
+		require.Nil(t, vp)
 	})
 }
 
@@ -125,9 +129,10 @@ func TestValidateVP_Context(t *testing.T) {
 		raw.Context = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "@context is required")
+		require.Nil(t, vp)
 	})
 
 	t.Run("rejects verifiable presentation with invalid context", func(t *testing.T) {
@@ -138,9 +143,10 @@ func TestValidateVP_Context(t *testing.T) {
 			"https://www.w3.org/2018/credentials/examples/v1"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Does not match pattern '^https://www.w3.org/2018/credentials/v1$'")
+		require.Nil(t, vp)
 	})
 }
 
@@ -151,9 +157,10 @@ func TestValidateVP_ID(t *testing.T) {
 		raw.ID = "not valid presentation ID URL"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "id: Does not match format 'uri'")
+		require.Nil(t, vp)
 	})
 }
 
@@ -185,9 +192,10 @@ func TestValidateVP_Type(t *testing.T) {
 		raw.Type = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "type is required")
+		require.Nil(t, vp)
 	})
 
 	t.Run("rejects verifiable presentation where single type is not VerifiablePresentation", func(t *testing.T) {
@@ -196,9 +204,10 @@ func TestValidateVP_Type(t *testing.T) {
 		raw.Type = "CredentialManagerPresentation"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Does not match pattern '^VerifiablePresentation$'")
+		require.Nil(t, vp)
 	})
 
 	t.Run("rejects verifiable presentation where several types are defined and first one is not VerifiablePresentation", //nolint:lll
@@ -208,9 +217,10 @@ func TestValidateVP_Type(t *testing.T) {
 			raw.Type = []string{"CredentialManagerPresentation", "VerifiablePresentation"}
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			_, err = NewPresentation(bytes)
+			vp, err := NewPresentation(bytes)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "Does not match pattern '^VerifiablePresentation$'")
+			require.Nil(t, vp)
 		})
 }
 
@@ -221,9 +231,10 @@ func TestValidateVP_VerifiableCredential(t *testing.T) {
 		raw.Credential = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "verifiableCredential is required")
+		require.Nil(t, vp)
 	})
 }
 
@@ -234,9 +245,10 @@ func TestValidateVP_Holder(t *testing.T) {
 		raw.Holder = "not valid presentation Holder URL"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "holder: Does not match format 'uri'")
+		require.Nil(t, vp)
 	})
 }
 
@@ -247,9 +259,10 @@ func TestValidateVP_Proof(t *testing.T) {
 		raw.Proof = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "embedded proof is missing")
+		require.Nil(t, vp)
 	})
 }
 
@@ -270,9 +283,10 @@ func TestValidateVP_RefreshService(t *testing.T) {
 		raw.RefreshService = &TypedID{Type: "ManualRefreshService2018"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService: id is required")
+		require.Nil(t, vp)
 	})
 
 	t.Run("test verifiable presentation with undefined type of refresh service", func(t *testing.T) {
@@ -281,9 +295,10 @@ func TestValidateVP_RefreshService(t *testing.T) {
 		raw.RefreshService = &TypedID{ID: "https://example.edu/refresh/3732"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService: type is required")
+		require.Nil(t, vp)
 	})
 
 	t.Run("test verifiable presentation with invalid URL of id of credential schema", func(t *testing.T) {
@@ -292,76 +307,11 @@ func TestValidateVP_RefreshService(t *testing.T) {
 		raw.RefreshService = &TypedID{ID: "invalid URL", Type: "ManualRefreshService2018"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		vp, err := NewPresentation(bytes)
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "refreshService.id: Does not match format 'uri'")
-	})
-}
-
-func TestPresentation_Credentials(t *testing.T) {
-	t.Run("extracts verifiable credentials from list", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation))
-		require.NoError(t, err)
-
-		credsData, err := vp.Credentials()
-		require.NoError(t, err)
-		require.Len(t, credsData, 1)
-
-		// Decode the first verifiable credential
-		vc, _, err := NewCredential(credsData[0])
-		require.NoError(t, err)
-
-		// check some VC properties to double check that conversion is OK
-		require.Equal(t, "http://example.edu/credentials/1872", vc.ID)
-		require.Equal(t, []string{"VerifiableCredential", "AlumniCredential"}, vc.Types)
-	})
-
-	t.Run("failure handling on extraction of verifiable credentials from list", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation))
-		require.NoError(t, err)
-
-		// really artificial case...
-		invalidCredArray := make([]interface{}, 1)
-		invalidCredArray[0] = make(chan int)
-		vp.Credential = invalidCredArray
-
-		_, err = vp.Credentials()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "marshal credentials from presentation")
-	})
-
-	t.Run("extracts verifiable credentials from single credential", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation))
-		require.NoError(t, err)
-
-		// switch from array to single object
-		creds, ok := vp.Credential.([]interface{})
-		require.True(t, ok)
-		require.Len(t, creds, 1)
-		vp.Credential = creds[0]
-
-		credsData, err := vp.Credentials()
-		require.NoError(t, err)
-		require.Len(t, credsData, 1)
-
-		// Decode the first verifiable credential
-		vc, _, err := NewCredential(credsData[0])
-		require.NoError(t, err)
-		require.NotNil(t, vc)
-	})
-
-	t.Run("failure handling on extraction of verifiable credentials from object", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation))
-		require.NoError(t, err)
-
-		// really artificial case...
-		invalidCred := make(chan int)
-		vp.Credential = invalidCred
-
-		_, err = vp.Credentials()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "marshal credentials from presentation")
+		require.Nil(t, vp)
 	})
 }
 
@@ -391,4 +341,63 @@ func TestWithPresSkippedEmbeddedProofCheck(t *testing.T) {
 	opts := &presentationOpts{}
 	vpOpt(opts)
 	require.True(t, opts.skipEmbeddedProofCheck)
+}
+
+func TestPresentation_SetCredentials(t *testing.T) {
+	r := require.New(t)
+	vp := Presentation{}
+
+	// Pass Credential struct
+	vc := Credential{}
+	err := vp.SetCredentials(vc)
+	r.NoError(err)
+
+	// Pass Credential struct pointer
+	vcp := &Credential{}
+	err = vp.SetCredentials(vcp)
+	r.NoError(err)
+
+	// Pass bytes (e.g. marshalled JSON)
+	b := make([]byte, 3)
+	err = vp.SetCredentials(b)
+	r.NoError(err)
+
+	// Pass string (e.g. JWS)
+	s := "supposed to be JWS"
+	err = vp.SetCredentials(s)
+	r.NoError(err)
+
+	// Invalid - pass another presentation.
+	vpOther := &Presentation{}
+	err = vp.SetCredentials(vpOther)
+	r.Error(err)
+	r.EqualError(err, "unsupported credential format")
+}
+
+func TestPresentation_decodeCredentials(t *testing.T) {
+	r := require.New(t)
+
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	r.NoError(err)
+
+	vc, _, err := NewCredential([]byte(validCredential))
+	r.NoError(err)
+
+	jwtClaims, err := vc.JWTClaims(false)
+	r.NoError(err)
+
+	jws, err := jwtClaims.MarshalJWS(EdDSA, privKey, "k1")
+	r.NoError(err)
+
+	// single credential - JWS
+	opts := defaultPresentationOpts()
+	opts.publicKeyFetcher = SingleKey(pubKey)
+	dCreds, err := decodeCredentials(jws, opts)
+	r.NoError(err)
+	r.Len(dCreds, 1)
+
+	// single credential - JWS decoding failed (e.g. to no public key fetcher available)
+	opts.publicKeyFetcher = nil
+	_, err = decodeCredentials(jws, opts)
+	r.Error(err)
 }

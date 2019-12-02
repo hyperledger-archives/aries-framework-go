@@ -47,9 +47,10 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {
-		_, err := unmarshalPresJWSClaims([]byte("invalid JWS"), testFetcher)
+		claims, err := unmarshalPresJWSClaims([]byte("invalid JWS"), testFetcher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "VP is not valid serialized JWS")
+		require.Nil(t, claims)
 	})
 
 	t.Run("Invalid format of \"vp\" claim", func(t *testing.T) {
@@ -69,9 +70,10 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 		token, err := jwt.Signed(signer).Claims(claims).CompactSerialize()
 		require.NoError(t, err)
 
-		_, err = unmarshalPresJWSClaims([]byte(token), testFetcher)
+		uc, err := unmarshalPresJWSClaims([]byte(token), testFetcher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "parse JWT claims")
+		require.Nil(t, uc)
 	})
 
 	t.Run("Invalid signature of JWS", func(t *testing.T) {
@@ -80,7 +82,7 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 
 		jws := createCredJWS(t, vp)
 
-		_, err = unmarshalPresJWSClaims([]byte(jws), func(issuerID, keyID string) (interface{}, error) {
+		uc, err := unmarshalPresJWSClaims([]byte(jws), func(issuerID, keyID string) (interface{}, error) {
 			// use public key of VC Issuer (while expecting to use the ones of VP Holder)
 			publicKey, pkErr := readPublicKey(filepath.Join(certPrefix, "issuer_public.pem"))
 			require.NoError(t, pkErr)
@@ -90,6 +92,7 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "JWT signature verification: verify JWT signature")
+		require.Nil(t, uc)
 	})
 }
 

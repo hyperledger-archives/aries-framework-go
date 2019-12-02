@@ -15,11 +15,12 @@ import (
 )
 
 func TestDecodeJWT(t *testing.T) {
-	_, err := decodeCredJWT([]byte{}, func(vcJWTBytes []byte) (*JWTCredClaims, error) {
+	vcBytes, err := decodeCredJWT([]byte{}, func(vcJWTBytes []byte) (*JWTCredClaims, error) {
 		return nil, errors.New("cannot parse JWT claims")
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot parse JWT claims")
+	require.Nil(t, vcBytes)
 }
 
 func TestRefineVcFromJwtClaims(t *testing.T) {

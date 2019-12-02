@@ -402,7 +402,7 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, e
 	crOpts := parseCredentialOpts(opts)
 
 	// Decode credential (e.g. from JWT).
-	vcDataDecoded, err := decodeRaw(vcData, crOpts)
+	vcDataDecoded, err := decodeRaw(vcData, crOpts.issuerPublicKeyFetcher)
 	if err != nil {
 		return nil, nil, fmt.Errorf("decode new credential: %w", err)
 	}
@@ -513,13 +513,13 @@ func newCredential(raw *rawCredential, schemas []TypedID) (*Credential, error) {
 	}, nil
 }
 
-func decodeRaw(vcData []byte, crOpts *credentialOpts) ([]byte, error) {
+func decodeRaw(vcData []byte, pubKeyFetcher PublicKeyFetcher) ([]byte, error) {
 	if isJWS(vcData) {
-		if crOpts.issuerPublicKeyFetcher == nil {
+		if pubKeyFetcher == nil {
 			return nil, errors.New("public key fetcher is not defined")
 		}
 
-		vcDecodedBytes, err := decodeCredJWS(vcData, crOpts.issuerPublicKeyFetcher)
+		vcDecodedBytes, err := decodeCredJWS(vcData, pubKeyFetcher)
 		if err != nil {
 			return nil, fmt.Errorf("JWS decoding: %w", err)
 		}
@@ -756,12 +756,16 @@ func (vc *Credential) MarshalJSON() ([]byte, error) {
 }
 
 // Presentation encloses credential into presentation.
-func (vc *Credential) Presentation() *Presentation {
+func (vc *Credential) Presentation() (*Presentation, error) {
 	vp := Presentation{
-		Context:    vc.Context,
-		Type:       []string{vpType},
-		Credential: []Credential{*vc},
+		Context: vc.Context,
+		Type:    []string{vpType},
 	}
 
-	return &vp
+	err := vp.SetCredentials(vc)
+	if err != nil {
+		return nil, fmt.Errorf("build presentation from credential: %w", err)
+	}
+
+	return &vp, nil
 }
