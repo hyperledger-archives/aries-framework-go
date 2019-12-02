@@ -134,7 +134,7 @@ func processRequest(w http.ResponseWriter, r *http.Request, prov transport.Inbou
 }
 
 func upgradeConnection(w http.ResponseWriter, r *http.Request) (*websocket.Conn, func(), error) {
-	c, err := websocket.Accept(w, r, nil)
+	c, err := Accept(w, r)
 	if err != nil {
 		logger.Errorf("failed to upgrade the connection : %v", err)
 		return nil, nil, err
