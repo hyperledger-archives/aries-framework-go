@@ -5,7 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package didcomm
 
-import "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+)
 
 // MockOutboundTransport mock outbound transport structure
 type MockOutboundTransport struct {
@@ -19,12 +22,17 @@ func NewMockOutboundTransport(expectedResponse string) *MockOutboundTransport {
 	return &MockOutboundTransport{ExpectedResponse: expectedResponse}
 }
 
+// Start starts the transport.
+func (o *MockOutboundTransport) Start(prov transport.Provider) error {
+	return nil
+}
+
 // Send implementation of MockOutboundTransport.Send api
-func (transport *MockOutboundTransport) Send(data []byte, destination *service.Destination) (string, error) {
-	return transport.ExpectedResponse, transport.SendErr
+func (o *MockOutboundTransport) Send(data []byte, destination *service.Destination) (string, error) {
+	return o.ExpectedResponse, o.SendErr
 }
 
 // Accept url
-func (transport *MockOutboundTransport) Accept(url string) bool {
-	return transport.AcceptValue
+func (o *MockOutboundTransport) Accept(url string) bool {
+	return o.AcceptValue
 }

@@ -7,17 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package ws
 
 import (
-	"context"
 	"net/http"
-	"strconv"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
-	"nhooyr.io/websocket"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
+	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 )
 
 func TestClient(t *testing.T) {
@@ -55,7 +52,7 @@ func TestClient(t *testing.T) {
 		data := "hello"
 		resp, err := outbound.Send([]byte(data), prepareDestination("ws://"+addr))
 		require.NoError(t, err)
-		require.Equal(t, data, resp)
+		require.Equal(t, "", resp)
 	})
 
 	t.Run("test outbound transport - not a websocket server", func(t *testing.T) {
@@ -70,115 +67,33 @@ func TestClient(t *testing.T) {
 		require.Contains(t, err.Error(), "websocket client")
 	})
 
-	t.Run("test outbound transport - not a websocket server", func(t *testing.T) {
+	t.Run("test outbound transport pool success - no existing connections", func(t *testing.T) {
 		outbound := NewOutbound()
 		require.NotNil(t, outbound)
-		addr := startWebSocketServer(t, func(_ *testing.T, w http.ResponseWriter, r *http.Request) {
-			c, err := Accept(w, r)
-			require.NoError(t, err)
 
-			defer func() {
-				require.Contains(t, c.Close(websocket.StatusNormalClosure, "closing the connection").Error(),
-					"status = StatusNormalClosure")
-			}()
+		require.NoError(t, outbound.Start(&mockProvider{}))
 
-			ctx := context.Background()
+		addr := startWebSocketServer(t, echo)
 
-			for {
-				_, message, err := c.Read(ctx)
-				if err != nil {
-					break
-				}
-
-				logger.Infof("r: %s", message)
-
-				err = c.Write(ctx, websocket.MessageBinary, message)
-				require.NoError(t, err)
-			}
-		})
-
-		_, err := outbound.Send([]byte("ws-request"), prepareDestination("ws://"+addr))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "message type is not text message")
-	})
-
-	t.Run("test outbound transport - server closes connection", func(t *testing.T) {
-		outbound := NewOutbound()
-		require.NotNil(t, outbound)
-		addr := startWebSocketServer(t, func(_ *testing.T, w http.ResponseWriter, r *http.Request) {
-			c, err := Accept(w, r)
-			require.NoError(t, err)
-
-			require.NoError(t, c.Close(websocket.StatusAbnormalClosure, "error"))
-		})
-
-		_, err := outbound.Send([]byte("ws-request"), prepareDestination("ws://"+addr))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "websocket read message")
-	})
-
-	t.Run("test outbound transport - not a websocket server", func(t *testing.T) {
-		outbound := NewOutbound()
-		require.NotNil(t, outbound)
-		addr := startWebSocketServer(t, func(_ *testing.T, w http.ResponseWriter, r *http.Request) {
-			c, err := Accept(w, r)
-			require.NoError(t, err)
-
-			_, _, err = c.Read(context.Background())
-			require.NoError(t, err)
-
-			require.NoError(t, c.Close(websocket.StatusNormalClosure, "closing the connection"))
-		})
-
-		_, err := outbound.Send([]byte("ws-request"), prepareDestination("ws://"+addr))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "websocket read message")
-	})
-}
-
-func startWebSocketServer(t *testing.T, handlerFunc func(*testing.T, http.ResponseWriter, *http.Request)) string {
-	addr := "localhost:" + strconv.Itoa(transportutil.GetRandomPort(5))
-
-	server := &http.Server{Addr: addr}
-	server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handlerFunc(t, w, r)
-	})
-
-	go func() {
-		require.NoError(t, server.ListenAndServe())
-	}()
-
-	require.NoError(t, transportutil.VerifyListener(addr, time.Second))
-
-	return addr
-}
-
-func echo(t *testing.T, w http.ResponseWriter, r *http.Request) {
-	c, err := Accept(w, r)
-	require.NoError(t, err)
-
-	defer func() {
-		require.Contains(t, c.Close(websocket.StatusNormalClosure, "closing the connection").Error(),
-			"status = StatusNormalClosure")
-	}()
-
-	ctx := context.Background()
-
-	for {
-		mt, message, err := c.Read(ctx)
-		if err != nil {
-			break
-		}
-
-		logger.Infof("r: %s", message)
-
-		err = c.Write(ctx, mt, message)
+		data := "hello"
+		resp, err := outbound.Send([]byte(data), prepareDestination("ws://"+addr))
 		require.NoError(t, err)
-	}
-}
+		require.Equal(t, "", resp)
+	})
 
-func prepareDestination(endPoint string) *service.Destination {
-	return &service.Destination{
-		ServiceEndpoint: endPoint,
-	}
+	t.Run("test outbound transport pool success - transport decorator", func(t *testing.T) {
+		outbound := NewOutbound()
+		require.NotNil(t, outbound)
+
+		require.NoError(t, outbound.Start(&mockProvider{
+			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}}},
+		))
+
+		addr := startWebSocketServer(t, echo)
+
+		resp, err := outbound.Send(createTransportDecRequest(t, decorator.TransportReturnRouteAll),
+			prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, nil))
+		require.NoError(t, err)
+		require.Equal(t, "", resp)
+	})
 }

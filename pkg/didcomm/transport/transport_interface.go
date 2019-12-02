@@ -14,8 +14,12 @@ import (
 // OutboundTransport interface definition for transport layer
 // This is the client side of the agent
 type OutboundTransport interface {
+	// starts the outbound transport
+	Start(prov Provider) error
+
 	// Send send a2a exchange data
 	Send(data []byte, destination *service.Destination) (string, error)
+
 	// Accept url
 	Accept(string) bool
 }
@@ -24,17 +28,18 @@ type OutboundTransport interface {
 // message handle invocation.
 type InboundMessageHandler func(message []byte) error
 
-// InboundProvider contains dependencies for starting the inbound transport.
+// Provider contains dependencies for starting the inbound/outbound transports.
 // It is typically created by using aries.Context().
-type InboundProvider interface {
+type Provider interface {
 	InboundMessageHandler() InboundMessageHandler
 	Packager() transport.Packager
+	AriesFrameworkID() string
 }
 
 // InboundTransport interface definition for inbound transport layer
 type InboundTransport interface {
 	// starts the inbound transport
-	Start(prov InboundProvider) error
+	Start(prov Provider) error
 
 	// stops the inbound transport
 	Stop() error

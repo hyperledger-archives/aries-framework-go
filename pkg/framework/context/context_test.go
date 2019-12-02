@@ -95,7 +95,7 @@ func TestNewProvider(t *testing.T) {
 		// valid json and message type
 		err = inboundHandler([]byte(`
 		{
-			"@id": "5678876542345",
+			"@frameworkID": "5678876542345",
 			"@type": "valid-message-type"
 		}`))
 		require.NoError(t, err)
@@ -213,5 +213,12 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithTransportReturnRoute(transportReturnRoute))
 		require.NoError(t, err)
 		require.Equal(t, transportReturnRoute, prov.TransportReturnRoute())
+	})
+
+	t.Run("test new with framework id", func(t *testing.T) {
+		frameworkID := "aries-framework-1"
+		prov, err := New(WithAriesFrameworkID(frameworkID))
+		require.NoError(t, err)
+		require.Equal(t, frameworkID, prov.AriesFrameworkID())
 	})
 }

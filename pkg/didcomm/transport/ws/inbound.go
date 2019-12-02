@@ -20,12 +20,11 @@ import (
 
 var logger = log.New("aries-framework/ws")
 
-const processFailureErrMsg = "failed to process the message"
-
 // Inbound http(ws) type.
 type Inbound struct {
 	externalAddr string
 	server       *http.Server
+	pool         *connPool
 }
 
 // NewInbound creates a new WebSocket inbound transport instance.
@@ -42,13 +41,16 @@ func NewInbound(internalAddr, externalAddr string) (*Inbound, error) {
 }
 
 // Start the http(ws) server.
-func (i *Inbound) Start(prov transport.InboundProvider) error {
-	handler, err := newInboundHandler(prov)
-	if err != nil {
-		return fmt.Errorf("websocket server start failed: %w", err)
+func (i *Inbound) Start(prov transport.Provider) error {
+	if prov == nil || prov.InboundMessageHandler() == nil {
+		return errors.New("creation of inbound handler failed")
 	}
 
-	i.server.Handler = handler
+	i.server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		i.processRequest(w, r)
+	})
+
+	i.pool = getConnPool(prov)
 
 	go func() {
 		if err := i.server.ListenAndServe(); err != http.ErrServerClosed {
@@ -73,77 +75,22 @@ func (i *Inbound) Endpoint() string {
 	return i.externalAddr
 }
 
-func newInboundHandler(prov transport.InboundProvider) (http.Handler, error) {
-	if prov == nil || prov.InboundMessageHandler() == nil {
-		logger.Errorf("Error creating a new inbound handler: message handler function is nil")
-		return nil, errors.New("creation of inbound handler failed")
-	}
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		processRequest(w, r, prov)
-	}), nil
-}
-
-func processRequest(w http.ResponseWriter, r *http.Request, prov transport.InboundProvider) {
-	c, cleanup, err := upgradeConnection(w, r)
+func (i *Inbound) processRequest(w http.ResponseWriter, r *http.Request) {
+	c, err := upgradeConnection(w, r)
 	if err != nil {
 		logger.Errorf("failed to upgrade the connection : %v", err)
 		return
 	}
 
-	defer cleanup()
-
-	for {
-		_, message, err := c.Read(context.Background())
-		if err != nil {
-			if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
-				logger.Errorf("Error reading request message: %v", err)
-			}
-
-			break
-		}
-
-		unpackMsg, err := prov.Packager().UnpackMessage(message)
-		if err != nil {
-			logger.Errorf("failed to unpack msg: %v", err)
-
-			err = c.Write(context.Background(), websocket.MessageText, []byte(processFailureErrMsg))
-			if err != nil {
-				logger.Errorf("error writing the message: %v", err)
-			}
-
-			continue
-		}
-
-		messageHandler := prov.InboundMessageHandler()
-
-		resp := ""
-
-		err = messageHandler(unpackMsg.Message)
-		if err != nil {
-			logger.Errorf("incoming msg processing failed: %v", err)
-
-			resp = processFailureErrMsg
-		}
-
-		err = c.Write(context.Background(), websocket.MessageText, []byte(resp))
-		if err != nil {
-			logger.Errorf("error writing the message: %v", err)
-		}
-	}
+	i.pool.listener(c)
 }
 
-func upgradeConnection(w http.ResponseWriter, r *http.Request) (*websocket.Conn, func(), error) {
+func upgradeConnection(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
 	c, err := Accept(w, r)
 	if err != nil {
 		logger.Errorf("failed to upgrade the connection : %v", err)
-		return nil, nil, err
+		return nil, err
 	}
 
-	return c, func() {
-		err := c.Close(websocket.StatusNormalClosure, "closing the connection")
-		if err != nil && websocket.CloseStatus(err) != websocket.StatusNormalClosure {
-			logger.Errorf("failed to close connection: %v", err)
-		}
-	}, nil
+	return c, nil
 }

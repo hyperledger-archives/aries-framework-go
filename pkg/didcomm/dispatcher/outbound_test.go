@@ -160,6 +160,10 @@ type mockOutboundTransport struct {
 	expectedRequest string
 }
 
+func (o *mockOutboundTransport) Start(prov transport.Provider) error {
+	return nil
+}
+
 func (o *mockOutboundTransport) Send(data []byte, destination *service.Destination) (string, error) {
 	if string(data) != o.expectedRequest {
 		return "", errors.New("invalid request")
