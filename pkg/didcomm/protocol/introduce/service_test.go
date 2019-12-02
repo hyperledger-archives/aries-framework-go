@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,10 +18,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/gomocks"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce/gomocks"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/storage/gomocks"
@@ -29,126 +30,59 @@ import (
 // this line checks that Service satisfies service.Handler interface
 var _ service.Handler = &Service{}
 
-func Test_nextState(t *testing.T) {
-	t.Run("Happy path (ProposalMsgType arranging)", func(t *testing.T) {
-		next, err := nextState(&service.DIDCommMsg{
-			Header: &service.Header{Type: ProposalMsgType},
-		}, nil, true)
-		require.NoError(t, err)
-		require.Equal(t, &arranging{}, next)
-	})
-
-	t.Run("Happy path (ProposalMsgType deciding)", func(t *testing.T) {
-		next, err := nextState(&service.DIDCommMsg{
-			Header: &service.Header{Type: ProposalMsgType},
-		}, nil, false)
-		require.NoError(t, err)
-		require.Equal(t, &deciding{}, next)
-	})
-
-	t.Run("Happy path (ResponseMsgType waiting)", func(t *testing.T) {
-		next, err := nextState(&service.DIDCommMsg{
-			Header: &service.Header{Type: ResponseMsgType},
-		}, nil, true)
-		require.NoError(t, err)
-		require.Equal(t, &waiting{}, next)
-	})
-
-	t.Run("Happy path (ResponseMsgType delivering)", func(t *testing.T) {
-		next, err := nextState(&service.DIDCommMsg{
-			Header: &service.Header{Type: ResponseMsgType},
-		}, &record{WaitCount: 1}, false)
-		require.NoError(t, err)
-		require.Equal(t, &delivering{}, next)
-	})
-
-	t.Run("Happy path (AckMsgType)", func(t *testing.T) {
-		next, err := nextState(&service.DIDCommMsg{
-			Header: &service.Header{Type: AckMsgType},
-		}, nil, false)
-		require.NoError(t, err)
-		require.Equal(t, &done{}, next)
-	})
+type flow struct {
+	t            *testing.T
+	wg           *sync.WaitGroup
+	svc          *Service
+	expectedInv  *didexchange.Invitation
+	inv          *didexchange.Invitation
+	transport    map[string]chan interface{}
+	dep          *mocks.MockInvitationEnvelope
+	dests        []*service.Destination
+	WithRequest  bool
+	transportKey string
+	SkipProposal bool
 }
 
 func TestService_handle(t *testing.T) {
-	t.Parallel()
-	t.Run("Happy path", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
 
-		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(nil)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
-		svc, err := New(provider)
-		require.NoError(t, err)
+	svc, err := New(provider)
+	require.NoError(t, err)
 
-		defer stop(t, svc)
+	defer stop(t, svc)
 
-		require.EqualError(t, svc.handle(&metaData{
-			Msg: &service.DIDCommMsg{},
-		}, nil), "state from name: invalid state name ")
-	})
+	dep := mocks.NewMockInvitationEnvelope(ctrl)
+	dep.EXPECT().Invitation().Return(nil)
 
-	t.Run("Happy path", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+	require.EqualError(t, svc.handle(&metaData{
+		dependency: dep,
+		Msg:        &service.DIDCommMsg{},
+	}, nil), "state from name: invalid state name ")
 
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Put("ID", []byte(`{"StateName":"start","WaitCount":0}`)).Return(nil).Times(1)
-		store.EXPECT().Put("ID", []byte(`{"StateName":"arranging","WaitCount":0}`)).Return(nil).Times(1)
+	// inject invitation error
+	err = svc.handle(&metaData{
+		record: record{
+			StateName: stateNameStart,
+		},
+		Msg: &service.DIDCommMsg{
+			Header:  &service.Header{Type: ResponseMsgType},
+			Payload: []byte(`[]`),
+		},
+	}, nil)
 
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+	const errMsg = "inject invitation: json: cannot unmarshal array into Go value of type introduce.Response"
 
-		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
-		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
-
-		svc, err := New(provider)
-		require.NoError(t, err)
-
-		defer stop(t, svc)
-
-		ch := make(chan service.StateMsg, 2)
-		require.NoError(t, svc.RegisterMsgEvent(ch))
-		done := make(chan struct{})
-
-		go func() {
-			timeout := time.After(time.Millisecond * 100)
-			expected := []service.StateMsgType{
-				service.PreState,
-				service.PostState,
-			}
-			for {
-				select {
-				case res := <-ch:
-					require.Equal(t, res.Type, expected[0])
-					expected = expected[1:]
-					if len(expected) == 0 {
-						done <- struct{}{}
-						return
-					}
-				case <-timeout:
-					t.Error("timeout")
-				}
-			}
-		}()
-
-		require.NoError(t, svc.handle(&metaData{
-			record:   record{StateName: stateNameStart},
-			Msg:      &service.DIDCommMsg{},
-			ThreadID: "ID",
-		}, nil))
-		<-done
-	})
+	require.EqualError(t, errors.Unwrap(err), errMsg)
 }
 
 func TestService_New(t *testing.T) {
@@ -157,15 +91,64 @@ func TestService_New(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().OpenStore(Introduce).Return(nil, errors.New(errMsg))
+	t.Run("OpenStore Error", func(t *testing.T) {
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(nil, errors.New(errMsg))
 
-	provider := mocks.NewMockProvider(ctrl)
-	provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
 
-	svc, err := New(provider)
-	require.EqualError(t, err, "test err")
-	require.Nil(t, svc)
+		svc, err := New(provider)
+		require.EqualError(t, err, "test err")
+		require.Nil(t, svc)
+	})
+
+	t.Run("Service Error", func(t *testing.T) {
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(nil, errors.New(errMsg))
+
+		svc, err := New(provider)
+		require.EqualError(t, err, "test err")
+		require.Nil(t, svc)
+	})
+
+	t.Run("Cast Service Error", func(t *testing.T) {
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(nil, nil)
+
+		svc, err := New(provider)
+		require.EqualError(t, err, "cast service to forwarder service failed")
+		require.Nil(t, svc)
+	})
+}
+
+func fakeStore(ctrl *gomock.Controller) storage.Store {
+	store := storageMocks.NewMockStore(ctrl)
+	data := make(map[string][]byte)
+
+	store.EXPECT().Put(gomock.Any(), gomock.Any()).DoAndReturn(func(k string, v []byte) error {
+		data[k] = v
+
+		return nil
+	}).AnyTimes()
+	store.EXPECT().Get(gomock.Any()).DoAndReturn(func(k string) ([]byte, error) {
+		v, ok := data[k]
+		if !ok {
+			return nil, storage.ErrDataNotFound
+		}
+
+		return v, nil
+	}).AnyTimes()
+
+	return store
 }
 
 func TestService_abandon(t *testing.T) {
@@ -183,6 +166,7 @@ func TestService_abandon(t *testing.T) {
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
 	provider.EXPECT().OutboundDispatcher().Return(nil)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 	svc, err := New(provider)
 	require.NoError(t, err)
@@ -205,72 +189,13 @@ func TestService_Stop(t *testing.T) {
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
 	provider.EXPECT().OutboundDispatcher().Return(nil)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 	svc, err := New(provider)
 	require.NoError(t, err)
 
 	require.NoError(t, svc.Stop())
 	require.EqualError(t, svc.Stop(), "server was already stopped")
-}
-
-func TestService_Action(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
-
-	provider := mocks.NewMockProvider(ctrl)
-	provider.EXPECT().StorageProvider().Return(storageProvider)
-	provider.EXPECT().OutboundDispatcher().Return(nil)
-
-	svc, err := New(provider)
-	require.NoError(t, err)
-
-	defer stop(t, svc)
-
-	ch := make(chan<- service.DIDCommAction)
-
-	// by default
-	require.Nil(t, svc.ActionEvent())
-
-	// register action event
-	require.Nil(t, svc.RegisterActionEvent(ch))
-	require.Equal(t, ch, svc.ActionEvent())
-
-	// unregister action event
-	require.Nil(t, svc.UnregisterActionEvent(ch))
-	require.Nil(t, svc.ActionEvent())
-}
-
-func TestService_Message(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
-
-	provider := mocks.NewMockProvider(ctrl)
-	provider.EXPECT().StorageProvider().Return(storageProvider)
-	provider.EXPECT().OutboundDispatcher().Return(nil)
-
-	svc, err := New(provider)
-	require.NoError(t, err)
-
-	defer stop(t, svc)
-
-	ch := make(chan<- service.StateMsg)
-
-	// by default
-	require.Nil(t, svc.MsgEvents())
-
-	// register message event
-	require.Nil(t, svc.RegisterMsgEvent(ch))
-	require.Equal(t, ch, svc.MsgEvents()[0])
-
-	// unregister message event
-	require.Nil(t, svc.UnregisterMsgEvent(ch))
-	require.Equal(t, 0, len(svc.MsgEvents()))
 }
 
 func TestService_Name(t *testing.T) {
@@ -283,6 +208,7 @@ func TestService_Name(t *testing.T) {
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
 	provider.EXPECT().OutboundDispatcher().Return(nil)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 	svc, err := New(provider)
 	require.NoError(t, err)
@@ -306,6 +232,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -321,7 +248,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		defer ctrl.Finish()
 
 		store := storageMocks.NewMockStore(ctrl)
-		raw := fmt.Sprintf(`{"StateName":%q, "WaitCount":%d}`, "unknown", 1)
+		raw := fmt.Sprintf(`{"state_name":%q, "wait_count":%d}`, "unknown", 1)
 		store.EXPECT().Get("ID").Return([]byte(raw), nil)
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
@@ -330,6 +257,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 		svc, err := New(provider)
 
@@ -341,60 +269,6 @@ func TestService_HandleOutbound(t *testing.T) {
 		require.NoError(t, svc.RegisterActionEvent(ch))
 		require.EqualError(t, svc.HandleOutbound(msg, &service.Destination{}), "invalid state name unknown")
 	})
-
-	t.Run("Happy path", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Put("ID", []byte(`{"StateName":"start","WaitCount":1}`)).Return(nil)
-		store.EXPECT().Get("ID").Return([]byte(`{"StateName":"start","WaitCount":1}`), nil)
-		store.EXPECT().Put("ID", []byte(`{"StateName":"arranging","WaitCount":1}`)).Return(nil)
-
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
-
-		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
-
-		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
-
-		svc, err := New(provider)
-		require.NoError(t, err)
-		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ProposalMsgType)))
-		require.NoError(t, err)
-		ch := make(chan service.DIDCommAction)
-		require.NoError(t, svc.RegisterActionEvent(ch))
-		require.NoError(t, svc.save("ID", record{
-			StateName: stateNameStart,
-			WaitCount: 1,
-		}))
-		require.NoError(t, svc.HandleOutbound(msg, &service.Destination{}))
-	})
-
-	t.Run("Happy path (Request)", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(Introduce).Return(nil, nil)
-
-		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
-
-		svc, err := New(provider)
-		require.NoError(t, err)
-		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, RequestMsgType)))
-		require.NoError(t, err)
-		ch := make(chan service.DIDCommAction)
-		require.NoError(t, svc.RegisterActionEvent(ch))
-		require.NoError(t, svc.HandleOutbound(msg, &service.Destination{}))
-	})
 }
 
 func TestService_HandleInboundStop(t *testing.T) {
@@ -402,7 +276,7 @@ func TestService_HandleInboundStop(t *testing.T) {
 	defer ctrl.Finish()
 
 	store := storageMocks.NewMockStore(ctrl)
-	store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).Times(1)
+	store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 	store.EXPECT().Put("ID", []byte(`{}`)).Return(nil)
 
 	storageProvider := storageMocks.NewMockProvider(ctrl)
@@ -411,6 +285,7 @@ func TestService_HandleInboundStop(t *testing.T) {
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
 	provider.EXPECT().OutboundDispatcher().Return(nil)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 	svc, err := New(provider)
 	require.NoError(t, err)
@@ -459,6 +334,7 @@ func TestService_HandleInbound(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -477,6 +353,7 @@ func TestService_HandleInbound(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -505,6 +382,7 @@ func TestService_HandleInbound(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -523,8 +401,8 @@ func TestService_HandleInbound(t *testing.T) {
 		defer ctrl.Finish()
 
 		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"noop","WaitCount":1}`)).Return(nil)
-		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"StateName":"noop","WaitCount":1}`), nil)
+		store.EXPECT().Put(gomock.Any(), []byte(`{"state_name":"noop","wait_count":1}`)).Return(nil)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"state_name":"noop","wait_count":1}`), nil)
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
@@ -532,6 +410,7 @@ func TestService_HandleInbound(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -554,7 +433,7 @@ func TestService_HandleInbound(t *testing.T) {
 		defer ctrl.Finish()
 
 		store := storageMocks.NewMockStore(ctrl)
-		raw := fmt.Sprintf(`{"StateName":%q, "WaitCount":%d}`, "unknown", 1)
+		raw := fmt.Sprintf(`{"state_name":%q, "wait_count":%d}`, "unknown", 1)
 		store.EXPECT().Get("ID").Return([]byte(raw), nil)
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
@@ -563,6 +442,7 @@ func TestService_HandleInbound(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 		svc, err := New(provider)
 		defer stop(t, svc)
@@ -589,6 +469,7 @@ func TestService_HandleInbound(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -616,6 +497,7 @@ func TestService_HandleInbound(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -637,32 +519,6 @@ func TestService_HandleInbound(t *testing.T) {
 			t.Error("timeout")
 		}
 	})
-
-	t.Run("Happy path (execute handle)", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get("ID").Return(nil, storage.ErrDataNotFound)
-
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
-
-		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
-
-		svc, err := New(provider)
-		require.NoError(t, err)
-		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, ResponseMsgType)))
-		require.NoError(t, err)
-		ch := make(chan service.DIDCommAction, 1)
-		require.NoError(t, svc.RegisterActionEvent(ch))
-
-		_, err = svc.HandleInbound(msg)
-		require.Nil(t, errors.Unwrap(err))
-	})
 }
 
 func TestService_Accept(t *testing.T) {
@@ -675,6 +531,7 @@ func TestService_Accept(t *testing.T) {
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
 	provider.EXPECT().OutboundDispatcher().Return(nil)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 	svc, err := New(provider)
 	require.NoError(t, err)
@@ -725,6 +582,10 @@ func Test_stateFromName(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &waiting{}, st)
 
+	st, err = stateFromName(stateNameRequesting)
+	require.NoError(t, err)
+	require.Equal(t, &requesting{}, st)
+
 	st, err = stateFromName("unknown")
 	require.EqualError(t, err, "invalid state name unknown")
 	require.Nil(t, st)
@@ -743,13 +604,14 @@ func TestService_save(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 		data := &metaData{
 			record: record{
-				StateName: "StateName",
+				StateName: "state_name",
 				WaitCount: 2,
 			},
 			Msg: &service.DIDCommMsg{
@@ -776,6 +638,7 @@ func TestService_save(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
 
 		svc, err := New(provider)
 		defer stop(t, svc)
@@ -785,320 +648,810 @@ func TestService_save(t *testing.T) {
 	})
 }
 
-// Proposal
+// This test describes the following flow :
+// 1. Alice sends a proposal to the Bob
+// 2. Bob sends a response to the Alice (with an Invitation)
+// 3. Alice sends a proposal to the Carol
+// 4. Carol sends a response to the Alice
+// 5. Alice forwards an invitation Carol
+// 6. Alice sends a ack to the Bob
 func TestService_Proposal(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	const (
+		Alice = "Alice"
+		Bob   = "Bob"
+		Carol = "Carol"
+	)
 
-	t.Run("Introducer", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+	// the map of channels which is responsible for the communication
+	transport := map[string]chan interface{}{
+		Alice: make(chan interface{}),
+		Bob:   make(chan interface{}),
+		Carol: make(chan interface{}),
+	}
 
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"arranging","WaitCount":2}`)).Return(nil).Times(1)
-		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"StateName":"arranging","WaitCount":2}`), nil).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"arranging","WaitCount":1}`)).Return(nil).Times(1)
-		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"StateName":"arranging","WaitCount":1}`), nil).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"delivering","WaitCount":0}`)).Return(nil).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"done","WaitCount":0}`)).Return(nil).Times(1)
+	inv := &didexchange.Invitation{Label: Bob}
+	dests := []*service.Destination{
+		{ServiceEndpoint: Bob},
+		{ServiceEndpoint: Carol},
+	}
 
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+	getInboundDestinationOriginal := getInboundDestination
 
-		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
 
-		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+	// injection
+	getInboundDestination = func() *service.Destination {
+		return &service.Destination{ServiceEndpoint: Alice}
+	}
 
-		svc, err := New(provider)
-		require.NoError(t, err)
-		defer stop(t, svc)
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		expectedInv: inv,
+		transport:   transport,
+		dests:       dests,
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
 
-		// register action event channel
-		aCh := make(chan service.DIDCommAction)
-		require.NoError(t, svc.RegisterActionEvent(aCh))
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       inv,
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
 
-		// register action event channel
-		sCh := make(chan service.StateMsg)
-		require.NoError(t, svc.RegisterMsgEvent(sCh))
+	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+		t:         t,
+		transport: transport,
+	})
+	defer carolCtrl.Finish()
+	defer stop(t, carol)
 
-		// creates threadID
-		thID := uuid.New().String()
+	var wg sync.WaitGroup
 
-		// creates proposal msg
-		propMsg, err := service.NewDIDCommMsg(toBytes(t, Proposal{
-			Type: ProposalMsgType,
-			ID:   thID,
-		}))
-		require.NoError(t, err)
+	wg.Add(3)
 
-		// handle outbound Proposal msg (sends Proposal)
-		go func() { require.NoError(t, svc.HandleOutbound(propMsg, &service.Destination{})) }()
-		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameArranging)
-		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameArranging)
-
-		respMsg1, err := service.NewDIDCommMsg(toBytes(t, Response{
-			Type:   ResponseMsgType,
-			ID:     uuid.New().String(),
-			Thread: &decorator.Thread{ID: thID},
-		}))
-		require.NoError(t, err)
-
-		// handle Response msg (receives Response)
-		go func() {
-			// nolint: govet
-			_, err := svc.HandleInbound(respMsg1)
-			require.NoError(t, err)
-		}()
-
-		dep := mocks.NewMockInvitationEnvelope(ctrl)
-		dep.EXPECT().Destinations().Return([]*service.Destination{
-			{ServiceEndpoint: "service/endpoint1"},
-			{ServiceEndpoint: "service/endpoint2"},
-		}).Times(2)
-
-		continueAction(t, aCh, ResponseMsgType, dep)
-		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameArranging)
-		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameArranging)
-
-		respMsg2, err := service.NewDIDCommMsg(toBytes(t, Response{
-			Type:   ResponseMsgType,
-			ID:     uuid.New().String(),
-			Thread: &decorator.Thread{ID: thID},
-		}))
-		require.NoError(t, err)
-
-		// handle Response msg (receives Response)
-		go func() {
-			// nolint: govet
-			_, err := svc.HandleInbound(respMsg2)
-			require.NoError(t, err)
-		}()
-
-		continueAction(t, aCh, ResponseMsgType, dep)
-		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDelivering)
-		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDelivering)
-		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDone)
-		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDone)
+	go handleIntroducer(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dep:          aliceDep,
+		transportKey: Alice,
+		dests:        dests,
 	})
 
-	t.Run("Introducee", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"deciding","WaitCount":2}`)).Return(nil).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"waiting","WaitCount":2}`)).Return(nil).Times(1)
-		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"StateName":"waiting","WaitCount":2}`), nil).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"done","WaitCount":2}`)).Return(nil).Times(1)
-
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
-
-		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
-		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
-
-		svc, err := New(provider)
-		require.NoError(t, err)
-		defer stop(t, svc)
-
-		// register action event channel
-		aCh := make(chan service.DIDCommAction)
-		require.NoError(t, svc.RegisterActionEvent(aCh))
-
-		// register action event channel
-		sCh := make(chan service.StateMsg)
-		require.NoError(t, svc.RegisterMsgEvent(sCh))
-
-		// creates threadID
-		thID := uuid.New().String()
-
-		// creates proposal msg
-		reqMsg, err := service.NewDIDCommMsg(toBytes(t, Proposal{
-			Type: ProposalMsgType,
-			ID:   thID,
-		}))
-		require.NoError(t, err)
-
-		// handle Proposal msg (sends Request)
-		go func() {
-			// nolint: govet
-			_, err := svc.HandleInbound(reqMsg)
-			require.NoError(t, err)
-		}()
-
-		dep := mocks.NewMockInvitationEnvelope(ctrl)
-		dep.EXPECT().Destinations().Return(nil)
-
-		continueAction(t, aCh, ProposalMsgType, dep)
-		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
-		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
-		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameWaiting)
-		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameWaiting)
-
-		// creates Ack msg
-		ackMsg, err := service.NewDIDCommMsg(toBytes(t, model.Ack{
-			Type: AckMsgType,
-			ID:   thID,
-		}))
-		require.NoError(t, err)
-
-		// handle Proposal msg (sends Request)
-		go func() {
-			_, err := svc.HandleInbound(ackMsg)
-			require.NoError(t, err)
-		}()
-
-		checkStateMsg(t, sCh, service.PreState, AckMsgType, stateNameDone)
-		checkStateMsg(t, sCh, service.PostState, AckMsgType, stateNameDone)
+	go handleIntroduceeDone(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          bob,
+		transport:    transport,
+		dep:          bobDep,
+		transportKey: Bob,
 	})
+
+	go handleIntroduceeUnfinished(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          carol,
+		transport:    transport,
+		dep:          carolDep,
+		transportKey: Carol,
+	})
+
+	wg.Wait()
 }
 
-// Skip proposal (The introducer has a public invitation)
+// This test describes the following flow :
+// 1. Alice sends a proposal to the Bob
+// 2. Bob sends a response to the Alice
+// 3. Alice forwards an invitation to the Bob
 func TestService_SkipProposal(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	const (
+		Alice = "Alice"
+		Bob   = "Bob"
+	)
 
-	t.Run("Introducer", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+	// the channel which is responsible for the communication
+	transport := map[string]chan interface{}{
+		Alice: make(chan interface{}),
+		Bob:   make(chan interface{}),
+	}
 
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"arranging","WaitCount":2}`)).Return(nil).Times(1)
-		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"StateName":"arranging","WaitCount":2}`), nil).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"delivering","WaitCount":1}`)).Return(nil).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"done","WaitCount":1}`)).Return(nil).Times(1)
+	inv := &didexchange.Invitation{Label: "Public Invitation"}
+	dests := []*service.Destination{{ServiceEndpoint: Bob}}
 
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+	getInboundDestinationOriginal := getInboundDestination
 
-		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
 
-		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+	// injection
+	getInboundDestination = func() *service.Destination {
+		return &service.Destination{ServiceEndpoint: Alice}
+	}
 
-		svc, err := New(provider)
-		require.NoError(t, err)
-		defer stop(t, svc)
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		inv:         inv,
+		expectedInv: inv,
+		transport:   transport,
+		dests:       dests,
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
 
-		// register action event channel
-		aCh := make(chan service.DIDCommAction)
-		require.NoError(t, svc.RegisterActionEvent(aCh))
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       &didexchange.Invitation{Label: Bob},
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
 
-		// register action event channel
-		sCh := make(chan service.StateMsg)
-		require.NoError(t, svc.RegisterMsgEvent(sCh))
+	var wg sync.WaitGroup
 
-		// creates threadID
-		thID := uuid.New().String()
+	wg.Add(2)
 
-		// creates skip proposal msg
-		reqMsg, err := service.NewDIDCommMsg(toBytes(t, Proposal{
-			Type: ProposalMsgType,
-			ID:   thID,
-		}))
-		require.NoError(t, err)
-
-		// handle outbound Proposal msg (sends Proposal)
-		go func() { require.NoError(t, svc.HandleOutbound(reqMsg, &service.Destination{})) }()
-		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameArranging)
-		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameArranging)
-
-		respMsg, err := service.NewDIDCommMsg(toBytes(t, Response{
-			Type:   ResponseMsgType,
-			ID:     uuid.New().String(),
-			Thread: &decorator.Thread{ID: thID},
-		}))
-		require.NoError(t, err)
-
-		// handle Response msg (receives Response)
-		go func() {
-			_, err := svc.HandleInbound(respMsg)
-			require.NoError(t, err)
-		}()
-
-		dep := mocks.NewMockInvitationEnvelope(ctrl)
-		dep.EXPECT().Destinations().Return([]*service.Destination{
-			{ServiceEndpoint: "service/endpoint"},
-		})
-
-		continueAction(t, aCh, ResponseMsgType, dep)
-		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDelivering)
-		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDelivering)
-		checkStateMsg(t, sCh, service.PreState, ResponseMsgType, stateNameDone)
-		checkStateMsg(t, sCh, service.PostState, ResponseMsgType, stateNameDone)
+	go handleIntroducer(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dep:          aliceDep,
+		transportKey: Alice,
+		dests:        dests,
+		SkipProposal: true,
 	})
 
-	t.Run("Introducee", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
+	go handleIntroduceeUnfinished(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          bob,
+		transport:    transport,
+		dep:          bobDep,
+		transportKey: Bob,
+	})
 
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"deciding","WaitCount":2}`)).Return(nil).Times(1)
-		store.EXPECT().Put(gomock.Any(), []byte(`{"StateName":"waiting","WaitCount":2}`)).Return(nil).Times(1)
+	wg.Wait()
+}
 
-		storageProvider := storageMocks.NewMockProvider(ctrl)
-		storageProvider.EXPECT().OpenStore(Introduce).Return(store, nil)
+// This test describes the following flow :
+// 1. Alice sends a proposal to the Bob
+// 2. Bob sends a response to the Alice (without an Invitation)
+// 3. Alice sends a proposal to the Carol
+// 4. Carol sends a response to the Alice (with an Invitation)
+// 5. Alice forwards an invitation to the Bob
+// 6. Alice sends a ack to the Carol
+func TestService_ProposalUnusual(t *testing.T) {
+	const (
+		Alice = "Alice"
+		Bob   = "Bob"
+		Carol = "Carol"
+	)
 
-		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	// the map of channels which is responsible for the communication
+	transport := map[string]chan interface{}{
+		Alice: make(chan interface{}),
+		Bob:   make(chan interface{}),
+		Carol: make(chan interface{}),
+	}
 
-		provider := mocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+	inv := &didexchange.Invitation{Label: Carol}
+	dests := []*service.Destination{
+		{ServiceEndpoint: Bob},
+		{ServiceEndpoint: Carol},
+	}
 
-		svc, err := New(provider)
-		require.NoError(t, err)
-		defer stop(t, svc)
+	getInboundDestinationOriginal := getInboundDestination
 
-		// register action event channel
-		aCh := make(chan service.DIDCommAction)
-		require.NoError(t, svc.RegisterActionEvent(aCh))
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
 
-		// register action event channel
-		sCh := make(chan service.StateMsg)
-		require.NoError(t, svc.RegisterMsgEvent(sCh))
+	// injection
+	getInboundDestination = func() *service.Destination {
+		return &service.Destination{ServiceEndpoint: Alice}
+	}
 
-		// creates threadID
-		thID := uuid.New().String()
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		expectedInv: inv,
+		transport:   transport,
+		dests:       dests,
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
 
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       inv,
+		transport: transport,
+	})
+	defer carolCtrl.Finish()
+	defer stop(t, carol)
+
+	var wg sync.WaitGroup
+
+	wg.Add(3)
+
+	go handleIntroducer(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dep:          aliceDep,
+		transportKey: Alice,
+		dests:        dests,
+	})
+
+	go handleIntroduceeUnfinished(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          bob,
+		transport:    transport,
+		dep:          bobDep,
+		transportKey: Bob,
+	})
+
+	go handleIntroduceeDone(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          carol,
+		transport:    transport,
+		dep:          carolDep,
+		transportKey: Carol,
+	})
+
+	wg.Wait()
+}
+
+func setupIntroducer(f *flow) (*gomock.Controller, *Service, *mocks.MockInvitationEnvelope) {
+	ctrl := gomock.NewController(f.t)
+
+	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
+		Do(func(msg interface{}, _ string, dest *service.Destination) error {
+			f.transport[dest.ServiceEndpoint] <- msg
+			return nil
+		}).MaxTimes(3)
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(fakeStore(ctrl), nil)
+
+	forwarder := mocks.NewMockForwarder(ctrl)
+	forwarder.EXPECT().SendInvitation(f.expectedInv, gomock.Any()).
+		Do(func(inv *didexchange.Invitation, dest *service.Destination) error {
+			fmt.Println("Introducer sends a Invitation", "to the", dest.ServiceEndpoint)
+			return nil
+		}).Return(nil)
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(forwarder, nil)
+
+	svc, err := New(provider)
+	require.NoError(f.t, err)
+
+	dep := mocks.NewMockInvitationEnvelope(ctrl)
+
+	dep.EXPECT().Invitation().Return(f.inv).AnyTimes()
+	dep.EXPECT().Destinations().Return(f.dests).AnyTimes()
+
+	return ctrl, svc, dep
+}
+
+func handleIntroducer(f *flow) {
+	defer f.wg.Done()
+
+	// register action event channel
+	aCh := make(chan service.DIDCommAction)
+	require.NoError(f.t, f.svc.RegisterActionEvent(aCh))
+
+	// register action event channel
+	sCh := make(chan service.StateMsg)
+	require.NoError(f.t, f.svc.RegisterMsgEvent(sCh))
+
+	if f.WithRequest {
+		go func() {
+			// handle Request msg
+			// nolint: govet
+			resp, err := service.NewDIDCommMsg(toBytes(f.t, <-f.transport[f.transportKey]))
+			require.NoError(f.t, err)
+			_, err = f.svc.HandleInbound(resp)
+			require.NoError(f.t, err)
+		}()
+		continueAction(f.t, aCh, RequestMsgType, f.dep)
+		checkStateMsg(f.t, sCh, service.PreState, RequestMsgType, stateNameArranging)
+		checkStateMsg(f.t, sCh, service.PostState, RequestMsgType, stateNameArranging)
+	} else {
 		// creates proposal msg
-		reqMsg, err := service.NewDIDCommMsg(toBytes(t, Proposal{
+		proposal, err := service.NewDIDCommMsg(toBytes(f.t, Proposal{
 			Type: ProposalMsgType,
-			ID:   thID,
+			// creates threadID
+			ID: uuid.New().String(),
 		}))
-		require.NoError(t, err)
+		require.NoError(f.t, err)
 
-		// handle Proposal msg (sends Request)
 		go func() {
-			_, err := svc.HandleInbound(reqMsg)
-			require.NoError(t, err)
+			// handle outbound Proposal msg (sends Proposal)
+			require.NoError(f.t, f.svc.HandleOutbound(proposal, &service.Destination{
+				ServiceEndpoint: f.dests[0].ServiceEndpoint,
+			}))
 		}()
+		checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameArranging)
+		checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameArranging)
+	}
 
-		dep := mocks.NewMockInvitationEnvelope(ctrl)
-		dep.EXPECT().Destinations().Return(nil)
+	// this code will be ignored for skip proposal
+	if !f.SkipProposal {
+		go func() {
+			// handle Response msg (receives Response)
+			// nolint: govet
+			resp, err := service.NewDIDCommMsg(toBytes(f.t, <-f.transport[f.transportKey]))
+			require.NoError(f.t, err)
+			_, err = f.svc.HandleInbound(resp)
+			require.NoError(f.t, err)
+		}()
+		continueAction(f.t, aCh, ResponseMsgType, f.dep)
+		checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameArranging)
+		checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameArranging)
+	}
 
-		continueAction(t, aCh, ProposalMsgType, dep)
-		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
-		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
-		checkStateMsg(t, sCh, service.PreState, ProposalMsgType, stateNameWaiting)
-		checkStateMsg(t, sCh, service.PostState, ProposalMsgType, stateNameWaiting)
+	go func() {
+		// handle Response msg (receives Response)
+		// nolint: govet
+		resp, err := service.NewDIDCommMsg(toBytes(f.t, <-f.transport[f.transportKey]))
+		require.NoError(f.t, err)
+		_, err = f.svc.HandleInbound(resp)
+		require.NoError(f.t, err)
+	}()
+	continueAction(f.t, aCh, ResponseMsgType, f.dep)
+	checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameDelivering)
+	checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameDelivering)
+	checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameDone)
+	checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameDone)
+}
+
+func setupIntroducee(f *flow) (*gomock.Controller, *Service, *mocks.MockInvitationEnvelope) {
+	ctrl := gomock.NewController(f.t)
+
+	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
+		Do(func(msg interface{}, _ string, dest *service.Destination) error {
+			f.transport[dest.ServiceEndpoint] <- msg
+			return nil
+		}).AnyTimes()
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(fakeStore(ctrl), nil)
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
+
+	svc, err := New(provider)
+	require.NoError(f.t, err)
+
+	dep := mocks.NewMockInvitationEnvelope(ctrl)
+	dep.EXPECT().Invitation().Return(f.inv).AnyTimes()
+
+	return ctrl, svc, dep
+}
+
+func handleIntroduceeDone(f *flow) {
+	defer f.wg.Done()
+
+	// register action event channel
+	aCh := make(chan service.DIDCommAction)
+	require.NoError(f.t, f.svc.RegisterActionEvent(aCh))
+
+	// register action event channel
+	sCh := make(chan service.StateMsg)
+	require.NoError(f.t, f.svc.RegisterMsgEvent(sCh))
+
+	if f.WithRequest {
+		// creates request msg
+		request, err := service.NewDIDCommMsg(toBytes(f.t, Request{
+			Type: RequestMsgType,
+			// creates threadID
+			ID: uuid.New().String(),
+		}))
+		require.NoError(f.t, err)
+
+		go func() {
+			// handle outbound Request msg
+			require.NoError(f.t, f.svc.HandleOutbound(request, &service.Destination{
+				ServiceEndpoint: f.dests[0].ServiceEndpoint,
+			}))
+		}()
+		checkStateMsg(f.t, sCh, service.PreState, RequestMsgType, stateNameRequesting)
+		checkStateMsg(f.t, sCh, service.PostState, RequestMsgType, stateNameRequesting)
+	}
+
+	go func() {
+		// handle Proposal msg (sends Request)
+		// nolint: govet
+		reqMsg, err := service.NewDIDCommMsg(toBytes(f.t, <-f.transport[f.transportKey]))
+		require.NoError(f.t, err)
+		_, err = f.svc.HandleInbound(reqMsg)
+		require.NoError(f.t, err)
+	}()
+
+	continueAction(f.t, aCh, ProposalMsgType, f.dep)
+	checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
+	checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
+	checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameWaiting)
+	checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameWaiting)
+
+	go func() {
+		// handle Ack msg
+		// nolint: govet
+		ackMsg, err := service.NewDIDCommMsg(toBytes(f.t, <-f.transport[f.transportKey]))
+		require.NoError(f.t, err)
+		_, err = f.svc.HandleInbound(ackMsg)
+		require.NoError(f.t, err)
+	}()
+	checkStateMsg(f.t, sCh, service.PreState, AckMsgType, stateNameDone)
+	checkStateMsg(f.t, sCh, service.PostState, AckMsgType, stateNameDone)
+}
+
+func handleIntroduceeUnfinished(f *flow) {
+	defer f.wg.Done()
+
+	// register action event channel
+	aCh := make(chan service.DIDCommAction)
+	require.NoError(f.t, f.svc.RegisterActionEvent(aCh))
+
+	// register action event channel
+	sCh := make(chan service.StateMsg)
+	require.NoError(f.t, f.svc.RegisterMsgEvent(sCh))
+
+	if f.WithRequest {
+		// creates request msg
+		request, err := service.NewDIDCommMsg(toBytes(f.t, Request{
+			Type: RequestMsgType,
+			// creates threadID
+			ID: uuid.New().String(),
+		}))
+		require.NoError(f.t, err)
+
+		go func() {
+			// handle outbound Request msg
+			require.NoError(f.t, f.svc.HandleOutbound(request, &service.Destination{
+				ServiceEndpoint: f.dests[0].ServiceEndpoint,
+			}))
+		}()
+		checkStateMsg(f.t, sCh, service.PreState, RequestMsgType, stateNameRequesting)
+		checkStateMsg(f.t, sCh, service.PostState, RequestMsgType, stateNameRequesting)
+	}
+
+	// handle Proposal msg (sends Request)
+	go func() {
+		// creates proposal msg
+		reqMsg, err := service.NewDIDCommMsg(toBytes(f.t, <-f.transport[f.transportKey]))
+		require.NoError(f.t, err)
+		_, err = f.svc.HandleInbound(reqMsg)
+		require.NoError(f.t, err)
+	}()
+
+	// TODO: state machine should be done!
+	continueAction(f.t, aCh, ProposalMsgType, f.dep)
+	checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
+	checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
+	checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameWaiting)
+	checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameWaiting)
+}
+
+// This test describes the following flow :
+// 1. Bob sends a request to the Alice
+// 2. Alice sends a proposal to the Bob
+// 3. Bob sends a response to the Alice
+// 4. Alice forwards an invitation to the Bob
+func TestService_SkipProposalWithRequest(t *testing.T) {
+	const (
+		Alice = "Alice"
+		Bob   = "Bob"
+	)
+
+	// the channel which is responsible for the communication
+	transport := map[string]chan interface{}{
+		Alice: make(chan interface{}),
+		Bob:   make(chan interface{}),
+	}
+
+	inv := &didexchange.Invitation{Label: "Public Invitation"}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	idx := -1
+	destinations := []*service.Destination{
+		{ServiceEndpoint: Bob},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Bob},
+	}
+	getInboundDestination = func() *service.Destination {
+		idx++
+		return destinations[idx]
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		inv:         inv,
+		expectedInv: inv,
+		transport:   transport,
 	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       &didexchange.Invitation{Label: Bob},
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
+	go handleIntroducer(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dep:          aliceDep,
+		transportKey: Alice,
+		SkipProposal: true,
+		WithRequest:  true,
+	})
+
+	go handleIntroduceeUnfinished(&flow{
+		t:         t,
+		wg:        &wg,
+		svc:       bob,
+		transport: transport,
+		dep:       bobDep,
+		dests: []*service.Destination{
+			{ServiceEndpoint: Alice},
+		},
+		transportKey: Bob,
+		WithRequest:  true,
+	})
+
+	wg.Wait()
+}
+
+// This test describes the following flow :
+// 1. Bob sends a request to the Alice
+// 2. Alice sends a proposal to the Bob
+// 3. Bob sends a response to the Alice (with an Invitation)
+// 4. Alice sends a proposal to the Carol
+// 5. Carol sends a response to the Alice
+// 6. Alice forwards an invitation Carol
+// 7. Alice sends a ack to the Bob
+func TestService_ProposalWithRequest(t *testing.T) {
+	const (
+		Alice = "Alice"
+		Bob   = "Bob"
+		Carol = "Carol"
+	)
+
+	// the map of channels which is responsible for the communication
+	transport := map[string]chan interface{}{
+		Alice: make(chan interface{}),
+		Bob:   make(chan interface{}),
+		Carol: make(chan interface{}),
+	}
+
+	inv := &didexchange.Invitation{Label: Bob}
+	dests := []*service.Destination{
+		{ServiceEndpoint: Carol},
+	}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	idx := -1
+	destinations := []*service.Destination{
+		{ServiceEndpoint: Bob},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Bob},
+	}
+	getInboundDestination = func() *service.Destination {
+		idx++
+		return destinations[idx]
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		expectedInv: inv,
+		transport:   transport,
+		dests:       dests,
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       inv,
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+		t:         t,
+		transport: transport,
+	})
+	defer carolCtrl.Finish()
+	defer stop(t, carol)
+
+	var wg sync.WaitGroup
+
+	wg.Add(3)
+
+	go handleIntroducer(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dep:          aliceDep,
+		transportKey: Alice,
+		dests:        dests,
+		WithRequest:  true,
+	})
+
+	go handleIntroduceeDone(&flow{
+		t:         t,
+		wg:        &wg,
+		svc:       bob,
+		transport: transport,
+		dep:       bobDep,
+		dests: []*service.Destination{
+			{ServiceEndpoint: Alice},
+		},
+		transportKey: Bob,
+		WithRequest:  true,
+	})
+
+	go handleIntroduceeUnfinished(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          carol,
+		transport:    transport,
+		dep:          carolDep,
+		transportKey: Carol,
+	})
+
+	wg.Wait()
+}
+
+// This test describes the following flow :
+// 1. Bob sends a request to the Alice
+// 2. Alice sends a proposal to the Bob
+// 3. Bob sends a response to the Alice
+// 4. Alice sends a proposal to the Carol
+// 5. Carol sends a response to the Alice (with an Invitation)
+// 6. Alice forwards an invitation to the Bob
+// 7. Alice sends a ack to the Carol
+func TestService_ProposalUnusualWithRequest(t *testing.T) {
+	const (
+		Alice = "Alice"
+		Bob   = "Bob"
+		Carol = "Carol"
+	)
+
+	// the map of channels which is responsible for the communication
+	transport := map[string]chan interface{}{
+		Alice: make(chan interface{}),
+		Bob:   make(chan interface{}),
+		Carol: make(chan interface{}),
+	}
+
+	inv := &didexchange.Invitation{Label: Carol}
+	dests := []*service.Destination{
+		{ServiceEndpoint: Carol},
+	}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	idx := -1
+	destinations := []*service.Destination{
+		{ServiceEndpoint: Bob},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Bob},
+	}
+	getInboundDestination = func() *service.Destination {
+		idx++
+		return destinations[idx]
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:           t,
+		expectedInv: inv,
+		transport:   transport,
+		dests:       dests,
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:         t,
+		transport: transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+		t:         t,
+		inv:       inv,
+		transport: transport,
+	})
+	defer carolCtrl.Finish()
+	defer stop(t, carol)
+
+	var wg sync.WaitGroup
+
+	wg.Add(3)
+
+	go handleIntroducer(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dep:          aliceDep,
+		transportKey: Alice,
+		dests:        dests,
+		WithRequest:  true,
+	})
+
+	go handleIntroduceeUnfinished(&flow{
+		t:         t,
+		wg:        &wg,
+		svc:       bob,
+		transport: transport,
+		dep:       bobDep,
+		dests: []*service.Destination{
+			{ServiceEndpoint: Alice},
+		},
+		transportKey: Bob,
+		WithRequest:  true,
+	})
+
+	go handleIntroduceeDone(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          carol,
+		transport:    transport,
+		dep:          carolDep,
+		transportKey: Carol,
+	})
+
+	wg.Wait()
 }
 
 func checkStateMsg(t *testing.T, ch chan service.StateMsg, sType service.StateMsgType, dType, stateID string) {
+	t.Helper()
+
 	select {
 	case res := <-ch:
 		require.Equal(t, sType, res.Type)
@@ -1107,18 +1460,18 @@ func checkStateMsg(t *testing.T, ch chan service.StateMsg, sType service.StateMs
 
 		return
 	case <-time.After(time.Second):
-		t.Error("timeout")
+		t.Fatalf("timeout: waiting for %d %s - %s", sType, dType, stateID)
 	}
 }
 
 func continueAction(t *testing.T, ch chan service.DIDCommAction, action string, dep InvitationEnvelope) {
+	t.Helper()
+
 	select {
 	case res := <-ch:
 		require.Equal(t, action, res.Message.Header.Type)
 
-		if res.Message.Header.Type != RequestMsgType {
-			res.Continue(dep)
-		}
+		res.Continue(dep)
 
 		return
 	case <-time.After(time.Second):
@@ -1140,5 +1493,16 @@ type stopper interface {
 }
 
 func stop(t *testing.T, s stopper) {
-	require.NoError(t, s.Stop())
+	t.Helper()
+
+	done := make(chan struct{})
+
+	go func() { require.NoError(t, s.Stop()); close(done) }()
+
+	select {
+	case <-done:
+		return
+	case <-time.After(time.Second):
+		t.Error("timeout waiting for Stop()")
+	}
 }

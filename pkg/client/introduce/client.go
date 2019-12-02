@@ -118,29 +118,27 @@ func (c *Client) SendRequest(dest *service.Destination) error {
 
 // HandleRequest is a helper function to prepare the right protocol dependency interface
 // It can be executed after receiving a Request action message (the client does not have a public Invitation)
-func (c *Client) HandleRequest(msg service.DIDCommMsg, dest1, dest2 *service.Destination) error {
+func (c *Client) HandleRequest(msg service.DIDCommMsg, dest *service.Destination) error {
 	thID, err := msg.ThreadID()
 	if err != nil {
 		return fmt.Errorf("handle request threadID: %w", err)
 	}
 
 	return c.saveInvitationEnvelope(thID, InvitationEnvelope{
-		Dests: []*service.Destination{dest1, dest2},
+		Dests: []*service.Destination{dest},
 	})
 }
 
 // HandleRequestWithInvitation is a helper function to prepare the right protocol dependency interface
 // It can be executed after receiving a Request action message (the client has a public Invitation)
-// nolint: lll
-func (c *Client) HandleRequestWithInvitation(msg service.DIDCommMsg, inv *didexchange.Invitation, dest *service.Destination) error {
+func (c *Client) HandleRequestWithInvitation(msg service.DIDCommMsg, inv *didexchange.Invitation) error {
 	thID, err := msg.ThreadID()
 	if err != nil {
 		return fmt.Errorf("handle request with invitation threadID: %w", err)
 	}
 
 	return c.saveInvitationEnvelope(thID, InvitationEnvelope{
-		Inv:   inv,
-		Dests: []*service.Destination{dest},
+		Inv: inv,
 	})
 }
 
