@@ -19,6 +19,8 @@ import (
 
 var logger = log.New("aries-framework/http")
 
+// TODO https://github.com/hyperledger/aries-framework-go/issues/891 Support for Transport Return Route (Duplex)
+
 // NewInboundHandler will create a new handler to enforce Did-Comm HTTP transport specs
 // then routes processing to the mandatory 'msgHandler' argument.
 //

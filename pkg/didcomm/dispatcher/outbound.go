@@ -77,9 +77,12 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 			return fmt.Errorf("failed to pack msg: %w", err)
 		}
 
+		// set the return route option
+		des.TransportReturnRoute = o.transportReturnRoute
+
 		_, err = v.Send(packedMsg, des)
 		if err != nil {
-			return fmt.Errorf("failed to send msg using http outbound transport: %w", err)
+			return fmt.Errorf("failed to send msg using outbound transport: %w", err)
 		}
 
 		return nil
