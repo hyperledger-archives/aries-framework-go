@@ -77,6 +77,21 @@ func (a *AgentSDKSteps) getStoreProvider(agentID string) storage.Provider {
 	return storeProv
 }
 
+func (a *AgentSDKSteps) createEdgeAgent(agentID, inboundHost, inboundPort, scheme, routeOpt string) error {
+	// TODO - https://github.com/hyperledger/aries-framework-go/issues/915 - Framework shouldn't create
+	//  default Inbound Transport
+	var opts []aries.Option
+
+	storeProv := a.getStoreProvider(agentID)
+
+	opts = append(opts,
+		aries.WithStoreProvider(storeProv),
+		aries.WithTransportReturnRoute(routeOpt),
+	)
+
+	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
+}
+
 func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort, scheme string, opts ...aries.Option) error {
 	if inboundPort == "random" {
 		inboundPort = strconv.Itoa(mustGetRandomPort(5))
@@ -98,6 +113,21 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort, scheme string,
 		return fmt.Errorf("invalid transport provider type : %s", scheme)
 	}
 
+	err := a.createFramework(agentID, opts...)
+	if err != nil {
+		return fmt.Errorf("failed to create new agent: %w", err)
+	}
+
+	if err := listenFor(fmt.Sprintf("%s:%s", inboundHost, inboundPort), 2*time.Second); err != nil {
+		return err
+	}
+
+	logger.Debugf("Agent %s start listening on %s:%s", agentID, inboundHost, inboundPort)
+
+	return nil
+}
+
+func (a *AgentSDKSteps) createFramework(agentID string, opts ...aries.Option) error {
 	agent, err := aries.New(opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create new agent: %w", err)
@@ -110,12 +140,6 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort, scheme string,
 
 	a.bddContext.AgentCtx[agentID] = ctx
 
-	if err := listenFor(fmt.Sprintf("%s:%s", inboundHost, inboundPort), 2*time.Second); err != nil {
-		return err
-	}
-
-	logger.Debugf("Agent %s start listening on %s:%s", agentID, inboundHost, inboundPort)
-
 	return nil
 }
 
@@ -123,6 +147,8 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort, scheme string,
 func (a *AgentSDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider$`,
 		a.createAgent)
+	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider `+
+		`and "([^"]*)" as the transport return route option`, a.createEdgeAgent)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
 		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.createAgentWithHTTPDIDResolver)
 }

@@ -56,16 +56,14 @@ func (d *connPool) fetch(verKey string) *websocket.Conn {
 }
 
 func (d *connPool) listener(conn *websocket.Conn) {
-	defer func() {
-		if err := conn.Close(websocket.StatusNormalClosure, "closing the connection"); err != nil {
-			logger.Errorf("connection close error")
-		}
-	}()
+	defer close(conn)
 
 	for {
 		_, message, err := conn.Read(context.Background())
 		if err != nil {
-			logger.Errorf("Error reading request message: %v", err)
+			if websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+				logger.Errorf("Error reading request message: %v", err)
+			}
 
 			break
 		}
@@ -95,5 +93,12 @@ func (d *connPool) listener(conn *websocket.Conn) {
 		if err != nil {
 			logger.Errorf("incoming msg processing failed: %v", err)
 		}
+	}
+}
+
+func close(conn *websocket.Conn) {
+	if err := conn.Close(websocket.StatusNormalClosure,
+		"closing the connection"); websocket.CloseStatus(err) != websocket.StatusNormalClosure {
+		logger.Errorf("connection close error")
 	}
 }

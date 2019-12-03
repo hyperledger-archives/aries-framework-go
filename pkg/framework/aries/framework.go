@@ -133,7 +133,8 @@ func WithInboundTransport(inboundTransport transport.InboundTransport) Option {
 }
 
 // WithTransportReturnRoute injects transport return route option to the Aries framework. Acceptable values - "none",
-// "all" or "thread". RFC - https://github.com/hyperledger/aries-rfcs/tree/master/features/0092-transport-return-route
+// "all" or "thread". RFC - https://github.com/hyperledger/aries-rfcs/tree/master/features/0092-transport-return-route.
+// Currently, framework supports "all" option with WebSocket transport.
 func WithTransportReturnRoute(transportReturnRoute string) Option {
 	return func(opts *Aries) error {
 		if transportReturnRoute != decorator.TransportReturnRouteNone &&
