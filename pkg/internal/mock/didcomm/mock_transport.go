@@ -32,6 +32,11 @@ func (o *MockOutboundTransport) Send(data []byte, destination *service.Destinati
 	return o.ExpectedResponse, o.SendErr
 }
 
+// AcceptRecipient checks if there is a connection for the list of recipient keys
+func (o *MockOutboundTransport) AcceptRecipient([]string) bool {
+	return false
+}
+
 // Accept url
 func (o *MockOutboundTransport) Accept(url string) bool {
 	return o.AcceptValue

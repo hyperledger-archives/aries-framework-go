@@ -25,6 +25,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
 
+const (
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/837 - If inbound not present, the endpoint
+	//  should be of routing agent
+	defaultEndpoint = "routing:endpoint"
+)
+
 // Aries provides access to the context being managed by the framework. The context can be used to create aries clients.
 type Aries struct {
 	storeProvider storage.Provider
@@ -134,12 +140,12 @@ func WithInboundTransport(inboundTransport transport.InboundTransport) Option {
 
 // WithTransportReturnRoute injects transport return route option to the Aries framework. Acceptable values - "none",
 // "all" or "thread". RFC - https://github.com/hyperledger/aries-rfcs/tree/master/features/0092-transport-return-route.
-// Currently, framework supports "all" option with WebSocket transport.
+// Currently, framework supports "all" and "none" option with WebSocket transport ("thread" is not supported).
 func WithTransportReturnRoute(transportReturnRoute string) Option {
 	return func(opts *Aries) error {
+		//  "thread" option is not supported at the moment.
 		if transportReturnRoute != decorator.TransportReturnRouteNone &&
-			transportReturnRoute != decorator.TransportReturnRouteAll &&
-			transportReturnRoute != decorator.TransportReturnRouteThread {
+			transportReturnRoute != decorator.TransportReturnRouteAll {
 			return fmt.Errorf("invalid transport return route option : %s", transportReturnRoute)
 		}
 
@@ -201,12 +207,17 @@ func WithPacker(primary packer.Creator, additionalPackers ...packer.Creator) Opt
 
 // Context provides a handle to the framework context.
 func (a *Aries) Context() (*context.Provider, error) {
+	endPoint := defaultEndpoint
+	if a.inboundTransport != nil {
+		endPoint = a.inboundTransport.Endpoint()
+	}
+
 	return context.New(
 		context.WithOutboundDispatcher(a.outboundDispatcher),
 		context.WithOutboundTransports(a.outboundTransports...),
 		context.WithProtocolServices(a.services...),
 		context.WithKMS(a.kms),
-		context.WithInboundTransportEndpoint(a.inboundTransport.Endpoint()),
+		context.WithInboundTransportEndpoint(endPoint),
 		context.WithStorageProvider(a.storeProvider),
 		context.WithTransientStorageProvider(a.transientStoreProvider),
 		context.WithPacker(a.primaryPacker, a.packers...),
@@ -260,8 +271,9 @@ func (a *Aries) closeVDRI() error {
 }
 
 func createKMS(frameworkOpts *Aries) error {
-	ctx, err := context.New(context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()),
-		context.WithStorageProvider(frameworkOpts.storeProvider))
+	ctx, err := context.New(
+		context.WithStorageProvider(frameworkOpts.storeProvider),
+	)
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
 	}
@@ -275,9 +287,16 @@ func createKMS(frameworkOpts *Aries) error {
 }
 
 func createVDRI(frameworkOpts *Aries) error {
-	ctx, err := context.New(context.WithKMS(frameworkOpts.kms),
+	endPoint := defaultEndpoint
+	if frameworkOpts.inboundTransport != nil {
+		endPoint = frameworkOpts.inboundTransport.Endpoint()
+	}
+
+	ctx, err := context.New(
+		context.WithKMS(frameworkOpts.kms),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
-		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()))
+		context.WithInboundTransportEndpoint(endPoint),
+	)
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
 	}
@@ -292,8 +311,11 @@ func createVDRI(frameworkOpts *Aries) error {
 		return fmt.Errorf("create new vdri peer failed: %w", err)
 	}
 
-	opts = append(opts, vdri.WithVDRI(p), vdri.WithDefaultServiceType(vdriapi.DIDCommServiceType),
-		vdri.WithDefaultServiceEndpoint(ctx.InboundTransportEndpoint()))
+	opts = append(opts,
+		vdri.WithVDRI(p),
+		vdri.WithDefaultServiceType(vdriapi.DIDCommServiceType),
+		vdri.WithDefaultServiceEndpoint(ctx.InboundTransportEndpoint()),
+	)
 
 	frameworkOpts.vdriRegistry = vdri.New(ctx, opts...)
 
@@ -320,7 +342,6 @@ func startTransports(frameworkOpts *Aries) error {
 	ctx, err := context.New(
 		context.WithKMS(frameworkOpts.kms),
 		context.WithPackager(frameworkOpts.packager),
-		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()),
 		context.WithProtocolServices(frameworkOpts.services...),
 		context.WithAriesFrameworkID(frameworkOpts.id),
 	)
@@ -328,9 +349,11 @@ func startTransports(frameworkOpts *Aries) error {
 		return fmt.Errorf("context creation failed: %w", err)
 	}
 
-	// Start the inbound transport
-	if err = frameworkOpts.inboundTransport.Start(ctx); err != nil {
-		return fmt.Errorf("inbound transport start failed: %w", err)
+	if frameworkOpts.inboundTransport != nil {
+		// Start the inbound transport
+		if err = frameworkOpts.inboundTransport.Start(ctx); err != nil {
+			return fmt.Errorf("inbound transport start failed: %w", err)
+		}
 	}
 
 	// Start the outbound transport
@@ -344,13 +367,20 @@ func startTransports(frameworkOpts *Aries) error {
 }
 
 func loadServices(frameworkOpts *Aries) error {
-	ctx, err := context.New(context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
+	endPoint := defaultEndpoint
+	if frameworkOpts.inboundTransport != nil {
+		endPoint = frameworkOpts.inboundTransport.Endpoint()
+	}
+
+	ctx, err := context.New(
+		context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithTransientStorageProvider(frameworkOpts.transientStoreProvider),
 		context.WithKMS(frameworkOpts.kms),
 		context.WithPackager(frameworkOpts.packager),
-		context.WithInboundTransportEndpoint(frameworkOpts.inboundTransport.Endpoint()),
-		context.WithVDRIRegistry(frameworkOpts.vdriRegistry))
+		context.WithInboundTransportEndpoint(endPoint),
+		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
+	)
 
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)

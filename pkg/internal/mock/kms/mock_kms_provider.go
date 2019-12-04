@@ -60,8 +60,3 @@ type mockProvider struct {
 func (m *mockProvider) StorageProvider() storage.Provider {
 	return m.storage
 }
-
-// InboundTransportEndpoint returns a mock inbound endpoint
-func (m *mockProvider) InboundTransportEndpoint() string {
-	return "sample-endpoint.com"
-}

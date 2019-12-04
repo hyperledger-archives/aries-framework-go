@@ -43,8 +43,10 @@ func NewOutbound(prov provider) *OutboundDispatcher {
 // Send msg
 func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
 	for _, v := range o.outboundTransports {
-		if !v.Accept(des.ServiceEndpoint) {
-			continue
+		if !v.AcceptRecipient(des.RecipientKeys) {
+			if !v.Accept(des.ServiceEndpoint) {
+				continue
+			}
 		}
 
 		req, err := json.Marshal(msg)

@@ -262,25 +262,6 @@ func TestFramework(t *testing.T) {
 		require.NotEmpty(t, aries)
 	})
 
-	t.Run("test Inbound transport - default", func(t *testing.T) {
-		path, cleanup := generateTempDir(t)
-		defer cleanup()
-		dbPath = path
-
-		currentInboundPort := defaultInboundPort
-		defaultInboundPort = ":26501"
-		defer func() {
-			defaultInboundPort = currentInboundPort
-		}()
-
-		aries, err := New()
-		require.NoError(t, err)
-		require.NotEmpty(t, aries)
-
-		err = aries.Close()
-		require.NoError(t, err)
-	})
-
 	t.Run("test Inbound transport - start/stop error", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
@@ -380,10 +361,9 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, aries.Close())
 
 		transportReturnRoute = decorator.TransportReturnRouteThread
-		aries, err = New(WithTransportReturnRoute(transportReturnRoute))
-		require.NoError(t, err)
-		require.Equal(t, transportReturnRoute, aries.transportReturnRoute)
-		require.NoError(t, aries.Close())
+		_, err = New(WithTransportReturnRoute(transportReturnRoute))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid transport return route option : "+transportReturnRoute)
 
 		transportReturnRoute = decorator.TransportReturnRouteNone
 		aries, err = New(WithTransportReturnRoute(transportReturnRoute))

@@ -285,10 +285,6 @@ func (m *mockProvider) StorageProvider() storage.Provider {
 	return m.storage
 }
 
-func (m *mockProvider) InboundTransportEndpoint() string {
-	return "sample-endpoint.com"
-}
-
 func (m *mockProvider) PrimaryPacker() packer.Packer {
 	return m.primaryPacker
 }

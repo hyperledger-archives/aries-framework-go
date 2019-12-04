@@ -28,10 +28,6 @@ func (p *testProvider) StorageProvider() storage.Provider {
 	return p.storeProvider
 }
 
-func (p *testProvider) InboundTransportEndpoint() string {
-	return ""
-}
-
 func newKMS(t *testing.T) (*BaseKMS, storage.Store) {
 	msp := mockStorage.NewMockStoreProvider()
 	p := testProvider{storeProvider: msp}

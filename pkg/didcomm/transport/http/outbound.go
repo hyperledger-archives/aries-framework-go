@@ -127,6 +127,11 @@ func (cs *OutboundHTTPClient) Send(data []byte, destination *service.Destination
 	return respData, nil
 }
 
+// AcceptRecipient checks if there is a connection for the list of recipient keys
+func (cs *OutboundHTTPClient) AcceptRecipient([]string) bool {
+	return false
+}
+
 // Accept url
 func (cs *OutboundHTTPClient) Accept(url string) bool {
 	return strings.HasPrefix(url, httpScheme)

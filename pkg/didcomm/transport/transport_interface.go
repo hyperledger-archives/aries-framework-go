@@ -20,6 +20,10 @@ type OutboundTransport interface {
 	// Send send a2a exchange data
 	Send(data []byte, destination *service.Destination) (string, error)
 
+	// AcceptRecipient checks if there is a connection for the list of recipient keys. The framework executes this
+	// function before Accept() in outbound message dispatcher.
+	AcceptRecipient([]string) bool
+
 	// Accept url
 	Accept(string) bool
 }

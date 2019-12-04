@@ -55,8 +55,17 @@ func (d *connPool) fetch(verKey string) *websocket.Conn {
 	return d.connMap[verKey]
 }
 
+func (d *connPool) remove(verKey string) {
+	d.Lock()
+	defer d.Unlock()
+
+	delete(d.connMap, verKey)
+}
+
 func (d *connPool) listener(conn *websocket.Conn) {
-	defer close(conn)
+	verKeys := []string{}
+
+	defer d.close(conn, verKeys)
 
 	for {
 		_, message, err := conn.Read(context.Background())
@@ -83,7 +92,7 @@ func (d *connPool) listener(conn *websocket.Conn) {
 			logger.Errorf("unmarshal transport decorator : %v", err)
 		}
 
-		if trans != nil && trans.ReturnRoute != nil && trans.ReturnRoute.Value == "all" {
+		if trans != nil && trans.ReturnRoute != nil && trans.ReturnRoute.Value == decorator.TransportReturnRouteAll {
 			d.add(unpackMsg.FromVerKey, conn)
 		}
 
@@ -96,9 +105,13 @@ func (d *connPool) listener(conn *websocket.Conn) {
 	}
 }
 
-func close(conn *websocket.Conn) {
+func (d *connPool) close(conn *websocket.Conn, verKeys []string) {
 	if err := conn.Close(websocket.StatusNormalClosure,
 		"closing the connection"); websocket.CloseStatus(err) != websocket.StatusNormalClosure {
 		logger.Errorf("connection close error")
+	}
+
+	for _, v := range verKeys {
+		d.remove(v)
 	}
 }
