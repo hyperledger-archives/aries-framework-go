@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
@@ -77,19 +78,28 @@ func (a *AgentSDKSteps) getStoreProvider(agentID string) storage.Provider {
 	return storeProv
 }
 
-func (a *AgentSDKSteps) createEdgeAgent(agentID, inboundHost, inboundPort, scheme, routeOpt string) error {
-	// TODO - https://github.com/hyperledger/aries-framework-go/issues/915 - Framework shouldn't create
-	//  default Inbound Transport
+func (a *AgentSDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
 	var opts []aries.Option
 
 	storeProv := a.getStoreProvider(agentID)
+
+	if routeOpt != decorator.TransportReturnRouteAll {
+		return errors.New("only 'all' transport route return option is supported")
+	}
 
 	opts = append(opts,
 		aries.WithStoreProvider(storeProv),
 		aries.WithTransportReturnRoute(routeOpt),
 	)
 
-	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
+	switch scheme {
+	case webSocketTransportProvider:
+		opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound()))
+	default:
+		return fmt.Errorf("invalid transport provider type : %s (only websocket is supported)", scheme)
+	}
+
+	return a.createFramework(agentID, opts...)
 }
 
 func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort, scheme string, opts ...aries.Option) error {
@@ -147,7 +157,7 @@ func (a *AgentSDKSteps) createFramework(agentID string, opts ...aries.Option) er
 func (a *AgentSDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider$`,
 		a.createAgent)
-	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider `+
+	s.Step(`^"([^"]*)" edge agent is running with "([^"]*)" as the outbound transport provider `+
 		`and "([^"]*)" as the transport return route option`, a.createEdgeAgent)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
 		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.createAgentWithHTTPDIDResolver)

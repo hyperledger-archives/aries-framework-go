@@ -18,3 +18,15 @@ import (
 func Accept(_ http.ResponseWriter, _ *http.Request) (*websocket.Conn, error) {
 	return nil, errors.New("invalid operation with JS/WASM target")
 }
+
+func acceptRecipient(pool *connPool, keys []string) bool {
+	for _, v := range keys {
+		// check if the connection exists for the key
+		if c := pool.fetch(v); c != nil {
+			// TODO make sure connection is alive (conn.Ping() doesn't work with JS/WASM build)
+			return true
+		}
+	}
+
+	return false
+}

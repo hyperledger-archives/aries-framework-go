@@ -8,7 +8,6 @@ package ws
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -42,10 +41,6 @@ func (cs *OutboundClient) Start(prov transport.Provider) error {
 
 // Send sends a2a data via WS.
 func (cs *OutboundClient) Send(data []byte, destination *service.Destination) (string, error) {
-	if destination.ServiceEndpoint == "" {
-		return "", errors.New("url is mandatory")
-	}
-
 	conn, cleanup, err := cs.getConnection(destination)
 	defer cleanup()
 
@@ -64,6 +59,11 @@ func (cs *OutboundClient) Send(data []byte, destination *service.Destination) (s
 // Accept checks for the url scheme.
 func (cs *OutboundClient) Accept(url string) bool {
 	return strings.HasPrefix(url, webSocketScheme)
+}
+
+// AcceptRecipient checks if there is a connection for the list of recipient keys
+func (cs *OutboundClient) AcceptRecipient(keys []string) bool {
+	return acceptRecipient(cs.pool, keys)
 }
 
 func (cs *OutboundClient) getConnection(destination *service.Destination) (*websocket.Conn, func(), error) {
@@ -90,6 +90,10 @@ func (cs *OutboundClient) getConnection(destination *service.Destination) (*webs
 
 		// keep the connection open to listen to the response in case of return route option set
 		if destination.TransportReturnRoute == decorator.TransportReturnRouteAll {
+			for _, v := range destination.RecipientKeys {
+				cs.pool.add(v, conn)
+			}
+
 			go cs.pool.listener(conn)
 		} else {
 			cleanup = func() {

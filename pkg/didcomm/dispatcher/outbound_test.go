@@ -158,6 +158,7 @@ func (p *mockProvider) TransportReturnRoute() string {
 // mockOutboundTransport mock outbound transport
 type mockOutboundTransport struct {
 	expectedRequest string
+	acceptRecipient bool
 }
 
 func (o *mockOutboundTransport) Start(prov transport.Provider) error {
@@ -170,6 +171,10 @@ func (o *mockOutboundTransport) Send(data []byte, destination *service.Destinati
 	}
 
 	return "", nil
+}
+
+func (o *mockOutboundTransport) AcceptRecipient([]string) bool {
+	return o.acceptRecipient
 }
 
 func (o *mockOutboundTransport) Accept(url string) bool {

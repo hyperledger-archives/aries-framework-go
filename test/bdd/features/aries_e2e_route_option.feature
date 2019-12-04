@@ -12,8 +12,7 @@ Feature: DIDComm between Edge Agent(without Inbound) and Router/Mediator
     Given "Alice" agent is running on "localhost" port "random" with "websocket" as the transport provider
     And   "Alice" creates did exchange client
     And   "Alice" registers to receive notification for post state event "completed"
-    # TODO - https://github.com/hyperledger/aries-framework-go/issues/915 - remove inbound host/port from this step
-    Given "Bob" agent is running on "localhost" port "random" with "websocket" as the transport provider and "all" as the transport return route option
+    Given "Bob" edge agent is running with "websocket" as the outbound transport provider and "all" as the transport return route option
     And   "Bob" creates did exchange client
     And   "Bob" registers to receive notification for post state event "completed"
     And   "Alice" creates invitation
