@@ -8,11 +8,11 @@ set -e
 
 DEMO_COMPOSE_OP="${DEMO_COMPOSE_OP:-up --force-recreate}"
 COMPOSE_FILES="${DEMO_COMPOSE_FILES}"
-DEMO_PATH="${DEMO_COMPOSE_PATH}"
+DEMO_PATH="$PWD/${DEMO_COMPOSE_PATH}"
 AGENT_PATH="${AGENT_REST_COMPOSE_PATH}"
-AGENT_COMPOSE_FILE="$PWD/$AGENT_PATH/docker-compose.yml"
+AGENT_COMPOSE_FILE="$PWD/$AGENT_PATH"
 SIDETREE_PATH="${SIDETREE_COMPOSE_PATH}"
-SIDETREE_COMPOSE_FILE="$PWD/$SIDETREE_PATH/docker-compose.yml"
+SIDETREE_COMPOSE_FILE="$PWD/$SIDETREE_PATH"
 
 set -o allexport
 [[ -f $DEMO_PATH/.env ]] && source $DEMO_PATH/.env
@@ -26,7 +26,9 @@ set -o allexport
 [[ -f $SIDETREE_PATH/.env ]] && source $SIDETREE_PATH/.env
 set +o allexport
 
+cd $AGENT_COMPOSE_FILE
+docker-compose -f docker-compose.yml  ${DEMO_COMPOSE_OP} -d
+cd $SIDETREE_COMPOSE_FILE
+docker-compose -f docker-compose.yml ${DEMO_COMPOSE_OP} -d
 cd $DEMO_PATH
-echo docker-compose -f docker-compose-demo.yml -f ${AGENT_COMPOSE_FILE} -f ${SIDETREE_COMPOSE_FILE} ${DEMO_COMPOSE_OP}
-docker-compose -f docker-compose-demo.yml -f ${AGENT_COMPOSE_FILE} -f ${SIDETREE_COMPOSE_FILE} ${DEMO_COMPOSE_OP}
-
+docker-compose -f docker-compose.yml ${DEMO_COMPOSE_OP} -d

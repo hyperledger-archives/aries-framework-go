@@ -79,7 +79,7 @@ generate-openapi-demo-specs: clean generate-openapi-spec agent-rest-docker sampl
     	scripts/generate-openapi-demo-specs.sh
 
 .PHONY: run-openapi-demo
-run-openapi-demo: generate-openapi-demo-specs
+run-openapi-demo: generate-test-keys generate-openapi-demo-specs
 	@echo "Starting demo agent rest containers ..."
 	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi SIDETREE_COMPOSE_PATH=test/bdd/fixtures/sidetree-mock AGENT_REST_COMPOSE_PATH=test/bdd/fixtures/agent-rest  \
         scripts/run-openapi-demo.sh
@@ -170,7 +170,7 @@ clean-build:
 clean-fixtures:
 	@rm -Rf ./test/bdd/fixtures/keys/tls
 	@rm -Rf ./test/bdd/fixtures/demo/openapi/specs
-	@cd test/bdd/fixtures/agent-rest && docker-compose down 2> /dev/null
-	@DEMO_COMPOSE_PATH=test/bdd/fixtures/demo/openapi AGENT_REST_COMPOSE_PATH=test/bdd/fixtures/agent-rest \
-        SIDETREE_COMPOSE_PATH=test/bdd/fixtures/sidetree-mock DEMO_COMPOSE_OP=down scripts/run-openapi-demo.sh 2> /dev/null
+	@cd test/bdd/fixtures/demo/openapi && docker-compose down 2> /dev/null
 	@cd test/bdd/fixtures/sidetree-mock && docker-compose down 2> /dev/null
+	@cd test/bdd/fixtures/agent-rest && docker-compose down 2> /dev/null
+

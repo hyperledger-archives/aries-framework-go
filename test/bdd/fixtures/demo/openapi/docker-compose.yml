@@ -17,6 +17,8 @@ services:
       - 8089:8080
     volumes:
       - ./specs:/specs
+    networks:
+      - agent-rest_bdd_net
 
   bob.openapi.demo.com:
     container_name: bob.openpi.demo.com
@@ -28,3 +30,9 @@ services:
       - 9089:8080
     volumes:
       - ./specs:/specs
+    networks:
+      - agent-rest_bdd_net
+
+networks:
+  agent-rest_bdd_net:
+    external: true
