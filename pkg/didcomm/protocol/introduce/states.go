@@ -21,15 +21,15 @@ import (
 
 const (
 	// common states
-	stateNameNoop  = "noop"
-	stateNameStart = "start"
-	stateNameDone  = "done"
+	stateNameNoop       = "noop"
+	stateNameStart      = "start"
+	stateNameAbandoning = "abandoning"
+	stateNameDone       = "done"
 
 	// introducer states
 	stateNameArranging  = "arranging"
 	stateNameDelivering = "delivering"
 	stateNameConfirming = "confirming"
-	stateNameAbandoning = "abandoning"
 
 	// introducee states
 	stateNameRequesting = "requesting"
@@ -201,6 +201,23 @@ func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, er
 		return &done{}, nil
 	}
 
+	// edge case: no one shared the invitation
+	if m.Invitation == nil {
+		problem := &model.ProblemReport{
+			Type: ProblemReportMsgType,
+			ID:   m.ThreadID,
+		}
+
+		for _, destination := range destinations {
+			if err := ctx.Send(problem, "", destination); err != nil {
+				return nil, fmt.Errorf("send problem-report: %w", err)
+			}
+		}
+
+		// introducer goes to abandoning
+		return &abandoning{}, nil
+	}
+
 	err := ctx.SendInvitation(m.ThreadID, m.Invitation, destinations[toDestIDx(m.IntroduceeIndex)])
 	if err != nil {
 		return nil, fmt.Errorf("send inbound invitation: %w", err)
@@ -257,7 +274,7 @@ func (s *abandoning) CanTransitionTo(next state) bool {
 }
 
 func (s *abandoning) ExecuteInbound(ctx internalContext, _ *metaData) (state, error) {
-	return nil, errors.New("abandoning ExecuteInbound: not implemented yet")
+	return &done{}, nil
 }
 
 func (s *abandoning) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
@@ -283,6 +300,7 @@ func (s *deciding) ExecuteInbound(ctx internalContext, m *metaData) (state, erro
 		ID:         uuid.New().String(),
 		Thread:     &decorator.Thread{ID: m.ThreadID},
 		Invitation: m.dependency.Invitation(),
+		Approve:    true,
 	}, "", getInboundDestination())
 }
 
@@ -299,7 +317,7 @@ func (s *waiting) Name() string {
 }
 
 func (s *waiting) CanTransitionTo(next state) bool {
-	return next.Name() == stateNameDone
+	return next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
 func (s *waiting) ExecuteInbound(ctx internalContext, _ *metaData) (state, error) {

@@ -175,10 +175,10 @@ func TestDelivering_ExecuteInbound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	forwarder := mocks.NewMockForwarder(ctrl)
-	forwarder.EXPECT().SendInvitation(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
 	t.Run("Happy path", func(t *testing.T) {
+		forwarder := mocks.NewMockForwarder(ctrl)
+		forwarder.EXPECT().SendInvitation(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
 		ctx := internalContext{
 			Outbound:  dispatcherMocks.NewMockOutbound(ctrl),
 			Forwarder: forwarder,
@@ -209,7 +209,12 @@ func TestDelivering_ExecuteInbound(t *testing.T) {
 		dep.EXPECT().Destinations().Return([]*service.Destination{{}}).Times(2)
 		dep.EXPECT().Invitation().Return(nil).Times(1)
 
-		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{dependency: dep})
+		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{
+			record: record{
+				Invitation: &didexchange.Invitation{},
+			},
+			dependency: dep,
+		})
 		require.Nil(t, followup)
 		require.EqualError(t, err, "send inbound invitation: "+errMsg)
 
@@ -238,7 +243,34 @@ func TestDelivering_ExecuteInbound(t *testing.T) {
 		dep.EXPECT().Destinations().Return([]*service.Destination{{}, {}}).Times(1)
 		dep.EXPECT().Invitation().Return(nil).Times(1)
 
-		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{dependency: dep})
+		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{
+			record: record{
+				Invitation: &didexchange.Invitation{},
+			},
+			dependency: dep,
+		})
+		require.Nil(t, followup)
+		require.EqualError(t, errors.Unwrap(err), errMsg)
+	})
+
+	t.Run("ProblemReport Send error", func(t *testing.T) {
+		const errMsg = "test err"
+
+		outbound := dispatcherMocks.NewMockOutbound(ctrl)
+		outbound.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
+
+		ctx := internalContext{
+			Outbound:  outbound,
+			Forwarder: mocks.NewMockForwarder(ctrl),
+		}
+
+		dep := mocks.NewMockInvitationEnvelope(ctrl)
+		dep.EXPECT().Destinations().Return([]*service.Destination{{}}).Times(1)
+		dep.EXPECT().Invitation().Return(nil).Times(1)
+
+		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{
+			dependency: dep,
+		})
 		require.Nil(t, followup)
 		require.EqualError(t, errors.Unwrap(err), errMsg)
 	})
@@ -298,8 +330,8 @@ func TestAbandoning_CanTransitionTo(t *testing.T) {
 
 func TestAbandoning_ExecuteInbound(t *testing.T) {
 	followup, err := (&abandoning{}).ExecuteInbound(internalContext{}, &metaData{})
-	require.Error(t, err)
-	require.Nil(t, followup)
+	require.NoError(t, err)
+	require.Equal(t, &done{}, followup)
 }
 
 func TestAbandoning_ExecuteOutbound(t *testing.T) {
@@ -353,6 +385,7 @@ func TestWaiting_CanTransitionTo(t *testing.T) {
 	require.Equal(t, stateNameWaiting, st.Name())
 
 	require.True(t, st.CanTransitionTo(&done{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
 
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	require.False(t, st.CanTransitionTo(&start{}))
@@ -360,7 +393,6 @@ func TestWaiting_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&arranging{}))
 	require.False(t, st.CanTransitionTo(&confirming{}))
 	require.False(t, st.CanTransitionTo(&deciding{}))
-	require.False(t, st.CanTransitionTo(&abandoning{}))
 	require.False(t, st.CanTransitionTo(&waiting{}))
 	require.False(t, st.CanTransitionTo(&requesting{}))
 }
