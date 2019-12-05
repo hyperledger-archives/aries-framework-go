@@ -87,3 +87,30 @@ jobs:
       - name: Run checks
         timeout-minutes: 10
         run: make checks
+
+  publish:
+    name: Publish images
+    if: github.event_name == 'push'
+    needs: [checks, unitTest, unitTestWasm, bddTest]
+    runs-on: ubuntu-18.04
+    timeout-minutes: 10
+    steps:
+      - name: Setup Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+
+      - uses: actions/checkout@v1
+
+      - name: Run script
+        run: |
+              function logout {
+                docker logout docker.pkg.github.com
+              }
+              trap logout EXIT
+              source ci/version_var.sh
+              echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username $GITHUB_ACTOR --password-stdin
+              make agent-rest-docker
+              docker tag aries-framework-go/agent-rest:latest  docker.pkg.github.com/hyperledger/aries-framework-go/agent-rest:$AGENT_IMAGE_TAG
+              docker push docker.pkg.github.com/hyperledger/aries-framework-go/agent-rest:$AGENT_IMAGE_TAG
