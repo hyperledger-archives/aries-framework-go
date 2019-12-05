@@ -83,7 +83,7 @@ func (s *store) Put(k string, v []byte) error {
 	m["key"] = k
 	m["value"] = string(v)
 
-	req := s.db.Call("transaction", s.name, "readwrite").Call("objectStore", s.name).Call("add", m)
+	req := s.db.Call("transaction", s.name, "readwrite").Call("objectStore", s.name).Call("put", m)
 
 	_, err := getResult(req)
 	if err != nil {
