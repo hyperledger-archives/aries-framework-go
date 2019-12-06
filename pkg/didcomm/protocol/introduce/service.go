@@ -90,6 +90,7 @@ type record struct {
 	// IntroduceeIndex keeps an introducee index of from whom we got an invitation
 	IntroduceeIndex int                     `json:"introducee_index,omitempty"`
 	Invitation      *didexchange.Invitation `json:"invitation,omitempty"`
+	Destinations    []*service.Destination  `json:"destinations,omitempty"`
 }
 
 // Service for introduce protocol
@@ -546,6 +547,11 @@ func (s *Service) execute(next state, msg *metaData, dest *service.Destination) 
 
 	// sets the next state name
 	msg.StateName = next.Name()
+	if msg.Msg.Header.Type == ResponseMsgType && msg.dependency != nil {
+		if len(msg.dependency.Destinations()) > 0 {
+			msg.Destinations = msg.dependency.Destinations()
+		}
+	}
 
 	if err = s.save(msg.ThreadID, msg.record); err != nil {
 		return nil, fmt.Errorf("failed to persist state %s %w", next.Name(), err)
