@@ -572,7 +572,7 @@ func (s *Service) Name() string {
 // Accept msg checks the msg type
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
-	case ProposalMsgType, RequestMsgType, ResponseMsgType, AckMsgType:
+	case ProposalMsgType, RequestMsgType, ResponseMsgType, AckMsgType, ProblemReportMsgType:
 		return true
 	}
 

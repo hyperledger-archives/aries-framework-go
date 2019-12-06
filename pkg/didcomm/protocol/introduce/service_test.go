@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -37,20 +38,23 @@ const (
 var _ service.Handler = &Service{}
 
 type flow struct {
-	t            *testing.T
-	wg           *sync.WaitGroup
-	svc          *Service
-	expectedInv  *didexchange.Invitation
-	inv          *didexchange.Invitation
-	transportKey string
-	transport    map[string]chan interface{}
-	dependency   InvitationEnvelope
-	destinations []*service.Destination
-	withRequest  bool
-	skipProposal bool
-	withProposal bool
-	withError    bool
-	withStop     bool
+	t                       *testing.T
+	wg                      *sync.WaitGroup
+	svc                     *Service
+	expectedInv             *didexchange.Invitation
+	inv                     *didexchange.Invitation
+	transportKey            string
+	transport               map[string]chan interface{}
+	dependency              InvitationEnvelope
+	destinations            []*service.Destination
+	startWithRequest        bool
+	startWithProposal       bool
+	skipProposal            bool
+	withResponseError       bool
+	withSecondResponseError bool
+	withProposalStop        bool
+	withRequestStop         bool
+	withResponseStop        bool
 }
 
 func TestService_handle(t *testing.T) {
@@ -145,48 +149,6 @@ func TestService_Stop(t *testing.T) {
 
 	svc, err := New(provider)
 	require.NoError(t, err)
-
-	require.NoError(t, svc.Stop())
-	require.EqualError(t, svc.Stop(), "server was already stopped")
-}
-
-func TestService_Abandoning(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().OpenStore(Introduce).Return(fakeStore(ctrl), nil)
-
-	provider := mocks.NewMockProvider(ctrl)
-	provider.EXPECT().StorageProvider().Return(storageProvider)
-	provider.EXPECT().OutboundDispatcher().Return(nil)
-	provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
-
-	svc, err := New(provider)
-	require.NoError(t, err)
-
-	msg, err := service.NewDIDCommMsg(toBytes(t, &model.Ack{
-		Type: AckMsgType,
-		ID:   uuid.New().String(),
-	}))
-	require.NoError(t, err)
-
-	_, err = msg.ThreadID()
-	require.NoError(t, err)
-
-	// register action event channel
-	sCh := make(chan service.StateMsg)
-	require.NoError(t, svc.RegisterMsgEvent(sCh))
-
-	go func() {
-		aMsg := svc.newDIDCommActionMsg(&metaData{Msg: msg})
-		aMsg.Stop(errors.New("test error"))
-	}()
-
-	checkStateMsg(t, sCh, service.PreState, AckMsgType, stateNameAbandoning)
-	checkStateMsg(t, sCh, service.PostState, AckMsgType, stateNameAbandoning)
-	checkStateMsg(t, sCh, service.PreState, AckMsgType, stateNameDone)
-	checkStateMsg(t, sCh, service.PostState, AckMsgType, stateNameDone)
 
 	require.NoError(t, svc.Stop())
 	require.EqualError(t, svc.Stop(), "server was already stopped")
@@ -422,6 +384,7 @@ func TestService_Accept(t *testing.T) {
 	require.True(t, svc.Accept(RequestMsgType))
 	require.True(t, svc.Accept(ResponseMsgType))
 	require.True(t, svc.Accept(AckMsgType))
+	require.True(t, svc.Accept(ProblemReportMsgType))
 }
 
 func Test_stateFromName(t *testing.T) {
@@ -482,12 +445,12 @@ func TestService_save(t *testing.T) {
 }
 
 // This test describes the following flow :
-// 1. Alice sends a proposal to the Bob
-// 2. Bob sends a response to the Alice (with an Invitation)
-// 3. Alice sends a proposal to the Carol
-// 4. Carol sends a response to the Alice
-// 5. Alice forwards an invitation Carol
-// 6. Alice sends a ack to the Bob
+// 1. Alice sends introduce.Proposal to the Bob
+// 2. Bob sends introduce.Response to the Alice
+// 3. Alice sends introduce.Proposal to the Carol
+// 4. Carol sends introduce.Response to the Alice
+// 5. Alice sends didexchange.Invitation to the Carol
+// 6. Alice sends model.Ack to the Bob
 func TestService_Proposal(t *testing.T) {
 	var transport = transport()
 
@@ -503,9 +466,10 @@ func TestService_Proposal(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 			{ServiceEndpoint: Carol},
@@ -515,16 +479,18 @@ func TestService_Proposal(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       inv,
-		transport: transport,
+		t:            t,
+		inv:          inv,
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	carolCtrl, carol, carolDep := setupIntroducee(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Carol,
+		transport:    transport,
 	})
 	defer carolCtrl.Finish()
 	defer stop(t, carol)
@@ -544,7 +510,7 @@ func TestService_Proposal(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 		},
-		withProposal: true,
+		startWithProposal: true,
 	})
 
 	// introducee side Bob
@@ -571,9 +537,9 @@ func TestService_Proposal(t *testing.T) {
 }
 
 // This test describes the following flow :
-// 1. Alice sends a proposal to the Bob
-// 2. Bob sends a response to the Alice
-// 3. Alice forwards an invitation to the Bob
+// 1. Alice sends introduce.Proposal to the Bob
+// 2. Bob sends introduce.Response to the Alice
+// 3. Alice sends didexchange.Invitation to the Bob
 func TestService_SkipProposal(t *testing.T) {
 	var transport = transport()
 
@@ -589,10 +555,11 @@ func TestService_SkipProposal(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		inv:         inv,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		inv:          inv,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 		},
@@ -601,9 +568,10 @@ func TestService_SkipProposal(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       &didexchange.Invitation{Label: Bob},
-		transport: transport,
+		t:            t,
+		inv:          &didexchange.Invitation{Label: Bob},
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
@@ -623,8 +591,8 @@ func TestService_SkipProposal(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 		},
-		skipProposal: true,
-		withProposal: true,
+		skipProposal:      true,
+		startWithProposal: true,
 	})
 
 	// introducee side Bob
@@ -641,12 +609,12 @@ func TestService_SkipProposal(t *testing.T) {
 }
 
 // This test describes the following flow :
-// 1. Alice sends a proposal to the Bob
-// 2. Bob sends a response to the Alice (without an Invitation)
-// 3. Alice sends a proposal to the Carol
-// 4. Carol sends a response to the Alice (with an Invitation)
-// 5. Alice forwards an invitation to the Bob
-// 6. Alice sends a ack to the Carol
+// 1. Alice sends introduce.Proposal to the Bob
+// 2. Bob sends introduce.Response to the Alice
+// 3. Alice sends introduce.Proposal to the Carol
+// 4. Carol sends introduce.Response to the Alice
+// 5. Alice sends didexchange.Invitation to the Bob
+// 6. Alice sends model.Ack to the Carol
 func TestService_ProposalUnusual(t *testing.T) {
 	var transport = transport()
 
@@ -662,9 +630,10 @@ func TestService_ProposalUnusual(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 			{ServiceEndpoint: Carol},
@@ -674,16 +643,18 @@ func TestService_ProposalUnusual(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	carolCtrl, carol, carolDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       inv,
-		transport: transport,
+		t:            t,
+		inv:          inv,
+		transportKey: Carol,
+		transport:    transport,
 	})
 	defer carolCtrl.Finish()
 	defer stop(t, carol)
@@ -703,7 +674,7 @@ func TestService_ProposalUnusual(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 		},
-		withProposal: true,
+		startWithProposal: true,
 	})
 
 	// introducee side Bob
@@ -729,84 +700,11 @@ func TestService_ProposalUnusual(t *testing.T) {
 	wg.Wait()
 }
 
-func setupIntroducer(f *flow) (*gomock.Controller, *Service, *mocks.MockInvitationEnvelope) {
-	ctrl := gomock.NewController(f.t)
-
-	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
-		Do(func(msg interface{}, _ string, dest *service.Destination) error {
-			f.transport[dest.ServiceEndpoint] <- msg
-			return nil
-		}).AnyTimes()
-
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().OpenStore(Introduce).Return(fakeStore(ctrl), nil)
-
-	forwarder := mocks.NewMockForwarder(ctrl)
-	forwarder.EXPECT().SendInvitation(gomock.Any(), f.expectedInv, gomock.Any()).
-		Do(func(pthID string, inv *didexchange.Invitation, dest *service.Destination) error {
-			inv.ID = pthID
-			f.transport[dest.ServiceEndpoint] <- inv
-			return nil
-		}).Return(nil).MaxTimes(1)
-
-	provider := mocks.NewMockProvider(ctrl)
-	provider.EXPECT().StorageProvider().Return(storageProvider)
-	provider.EXPECT().OutboundDispatcher().Return(dispatcher)
-	provider.EXPECT().Service(didexchange.DIDExchange).Return(forwarder, nil)
-
-	svc, err := New(provider)
-	require.NoError(f.t, err)
-
-	dep := mocks.NewMockInvitationEnvelope(ctrl)
-
-	dep.EXPECT().Invitation().Return(f.inv).AnyTimes()
-	dep.EXPECT().Destinations().Return(f.destinations).AnyTimes()
-
-	return ctrl, svc, dep
-}
-
-func handleInbound(t *testing.T, svc *Service, msg interface{}) {
-	t.Helper()
-
-	resp, err := service.NewDIDCommMsg(toBytes(t, msg))
-	require.NoError(t, err)
-	_, err = svc.HandleInbound(resp)
-	require.NoError(t, err)
-}
-
-func setupIntroducee(f *flow) (*gomock.Controller, *Service, *mocks.MockInvitationEnvelope) {
-	ctrl := gomock.NewController(f.t)
-
-	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
-		Do(func(msg interface{}, _ string, dest *service.Destination) error {
-			f.transport[dest.ServiceEndpoint] <- msg
-			return nil
-		}).AnyTimes()
-
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().OpenStore(Introduce).Return(fakeStore(ctrl), nil)
-
-	provider := mocks.NewMockProvider(ctrl)
-	provider.EXPECT().StorageProvider().Return(storageProvider)
-	provider.EXPECT().OutboundDispatcher().Return(dispatcher)
-	provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
-
-	svc, err := New(provider)
-	require.NoError(f.t, err)
-
-	dep := mocks.NewMockInvitationEnvelope(ctrl)
-	dep.EXPECT().Invitation().Return(f.inv).AnyTimes()
-
-	return ctrl, svc, dep
-}
-
 // This test describes the following flow :
-// 1. Bob sends a request to the Alice
-// 2. Alice sends a proposal to the Bob
-// 3. Bob sends a response to the Alice
-// 4. Alice forwards an invitation to the Bob
+// 1. Bob sends introduce.Request to the Alice
+// 2. Alice sends introduce.Proposal to the Bob
+// 3. Bob sends introduce.Response to the Alice
+// 4. Alice sends didexchange.Invitation to the Bob
 func TestService_SkipProposalWithRequest(t *testing.T) {
 	var transport = transport()
 
@@ -829,18 +727,20 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		inv:         inv,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		inv:          inv,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
 	})
 	defer aliceCtrl.Finish()
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       &didexchange.Invitation{Label: Bob},
-		transport: transport,
+		t:            t,
+		transportKey: Bob,
+		inv:          &didexchange.Invitation{Label: Bob},
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
@@ -870,21 +770,21 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Alice},
 		},
-		transportKey: Bob,
-		withRequest:  true,
+		transportKey:     Bob,
+		startWithRequest: true,
 	})
 
 	wg.Wait()
 }
 
 // This test describes the following flow :
-// 1. Bob sends a request to the Alice
-// 2. Alice sends a proposal to the Bob
-// 3. Bob sends a response to the Alice (with an Invitation)
-// 4. Alice sends a proposal to the Carol
-// 5. Carol sends a response to the Alice
-// 6. Alice forwards an invitation Carol
-// 7. Alice sends a ack to the Bob
+// 1. Bob sends introduce.Request to the Alice
+// 2. Alice sends introduce.Proposal to the Bob
+// 3. Bob sends introduce.Response to the Alice
+// 4. Alice sends introduce.Proposal to the Carol
+// 5. Carol sends introduce.Response to the Alice
+// 6. Alice sends didexchange.Invitation to the Carol
+// 7. Alice sends model.Ack to the Bob
 func TestService_ProposalWithRequest(t *testing.T) {
 	var transport = transport()
 
@@ -908,9 +808,10 @@ func TestService_ProposalWithRequest(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Carol},
 		},
@@ -919,16 +820,18 @@ func TestService_ProposalWithRequest(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       inv,
-		transport: transport,
+		t:            t,
+		inv:          inv,
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	carolCtrl, carol, carolDep := setupIntroducee(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Carol,
+		transport:    transport,
 	})
 	defer carolCtrl.Finish()
 	defer stop(t, carol)
@@ -957,8 +860,8 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Alice},
 		},
-		transportKey: Bob,
-		withRequest:  true,
+		transportKey:     Bob,
+		startWithRequest: true,
 	})
 
 	// introducee side Carol
@@ -975,13 +878,13 @@ func TestService_ProposalWithRequest(t *testing.T) {
 }
 
 // This test describes the following flow :
-// 1. Bob sends a request to the Alice
-// 2. Alice sends a proposal to the Bob
-// 3. Bob sends a response to the Alice
-// 4. Alice sends a proposal to the Carol
-// 5. Carol sends a response to the Alice (with an Invitation)
-// 6. Alice forwards an invitation to the Bob
-// 7. Alice sends a ack to the Carol
+// 1. Bob sends introduce.Request to the Alice
+// 2. Alice sends introduce.Proposal to the Bob
+// 3. Bob sends introduce.Response to the Alice
+// 4. Alice sends introduce.Proposal to the Carol
+// 5. Carol sends introduce.Response to the Alice
+// 6. Alice sends didexchange.Invitation to the Bob
+// 7. Alice sends model.Ack to the Carol
 func TestService_ProposalUnusualWithRequest(t *testing.T) {
 	var transport = transport()
 
@@ -1005,9 +908,10 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Carol},
 		},
@@ -1016,16 +920,18 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	carolCtrl, carol, carolDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       inv,
-		transport: transport,
+		t:            t,
+		inv:          inv,
+		transportKey: Carol,
+		transport:    transport,
 	})
 	defer carolCtrl.Finish()
 	defer stop(t, carol)
@@ -1054,8 +960,8 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Alice},
 		},
-		transportKey: Bob,
-		withRequest:  true,
+		transportKey:     Bob,
+		startWithRequest: true,
 	})
 
 	// introducee side Carol
@@ -1072,13 +978,13 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 }
 
 // This test describes the following flow :
-// 1. Alice sends a proposal to the Bob
-// 2. Bob sends a response to the Alice
-// 3. Alice sends a proposal to the Carol
-// 4. Carol sends a response to the Alice
-// 5. Alice sends problem-report Bob
-// 6. Alice sends problem-report Carol
-func TestService_ProposalError(t *testing.T) {
+// 1. Alice sends introduce.Proposal to the Bob
+// 2. Bob sends introduce.Response to the Alice
+// 3. Alice sends introduce.Proposal to the Carol
+// 4. Carol sends introduce.Response to the Alice
+// 5. Alice sends model.ProblemReport to the Bob
+// 6. Alice sends model.ProblemReport to the Carol
+func TestService_ProposalNoInvitation(t *testing.T) {
 	var transport = transport()
 
 	getInboundDestinationOriginal := getInboundDestination
@@ -1091,8 +997,9 @@ func TestService_ProposalError(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Alice,
+		transport:    transport,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 			{ServiceEndpoint: Carol},
@@ -1102,15 +1009,17 @@ func TestService_ProposalError(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	carolCtrl, carol, carolDep := setupIntroducee(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Carol,
+		transport:    transport,
 	})
 	defer carolCtrl.Finish()
 	defer stop(t, carol)
@@ -1130,8 +1039,8 @@ func TestService_ProposalError(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 		},
-		withError:    true,
-		withProposal: true,
+		withSecondResponseError: true,
+		startWithProposal:       true,
 	})
 
 	// introducee side Bob
@@ -1158,15 +1067,15 @@ func TestService_ProposalError(t *testing.T) {
 }
 
 // This test describes the following flow :
-// 1. Bob sends a request to the Alice
-// 2. Alice sends a proposal to the Bob
-// 3. Bob sends a response to the Alice (with an Invitation)
-// 4. Alice sends a proposal to the Carol
-// 5. Carol sends a response to the Alice
-// 6. Alice sends problem-report to Bob
-// 7. Alice sends problem-report to Carol
+// 1. Bob sends introduce.Request to the Alice
+// 2. Alice sends introduce.Proposal to the Bob
+// 3. Bob sends introduce.Response to the Alice
+// 4. Alice sends introduce.Proposal to the Carol
+// 5. Carol sends introduce.Response to the Alice
+// 6. Alice sends model.ProblemReport to the Bob
+// 7. Alice sends model.ProblemReport to the Carol
 // nolint: gocyclo
-func TestService_ProposalErrorWithRequest(t *testing.T) {
+func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 	var transport = transport()
 
 	getInboundDestinationOriginal := getInboundDestination
@@ -1187,8 +1096,9 @@ func TestService_ProposalErrorWithRequest(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Alice,
+		transport:    transport,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Carol},
 		},
@@ -1197,15 +1107,17 @@ func TestService_ProposalErrorWithRequest(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	carolCtrl, carol, carolDep := setupIntroducee(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Carol,
+		transport:    transport,
 	})
 	defer carolCtrl.Finish()
 	defer stop(t, carol)
@@ -1216,13 +1128,13 @@ func TestService_ProposalErrorWithRequest(t *testing.T) {
 
 	// introducer side Alice
 	go checkAndHandle(&flow{
-		t:            t,
-		wg:           &wg,
-		svc:          alice,
-		transport:    transport,
-		dependency:   aliceDep,
-		transportKey: Alice,
-		withError:    true,
+		t:                       t,
+		wg:                      &wg,
+		svc:                     alice,
+		transport:               transport,
+		dependency:              aliceDep,
+		transportKey:            Alice,
+		withSecondResponseError: true,
 	})
 
 	// introducee side Bob
@@ -1235,8 +1147,8 @@ func TestService_ProposalErrorWithRequest(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Alice},
 		},
-		transportKey: Bob,
-		withRequest:  true,
+		transportKey:     Bob,
+		startWithRequest: true,
 	})
 
 	// introducee side Carol
@@ -1253,8 +1165,8 @@ func TestService_ProposalErrorWithRequest(t *testing.T) {
 }
 
 // This test describes the following flow :
-// 1. Alice sends a proposal to the Bob
-// 2. Bob sends a response to the Alice (approve=false)
+// 1. Alice sends introduce.Proposal to the Bob
+// 2. Bob sends introduce.Response to the Alice
 func TestService_ProposalStop(t *testing.T) {
 	var transport = transport()
 
@@ -1270,9 +1182,10 @@ func TestService_ProposalStop(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 			{ServiceEndpoint: Carol},
@@ -1282,9 +1195,10 @@ func TestService_ProposalStop(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       inv,
-		transport: transport,
+		t:            t,
+		inv:          inv,
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
@@ -1304,30 +1218,28 @@ func TestService_ProposalStop(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 		},
-		withProposal: true,
-		withError:    true,
-		withStop:     true,
+		startWithProposal: true,
+		withResponseError: true,
 	})
 
 	// introducee side Bob
 	go checkAndHandle(&flow{
-		t:            t,
-		wg:           &wg,
-		svc:          bob,
-		transport:    transport,
-		dependency:   bobDep,
-		transportKey: Bob,
-		withStop:     true,
-		withError:    true,
+		t:                t,
+		wg:               &wg,
+		svc:              bob,
+		transport:        transport,
+		dependency:       bobDep,
+		transportKey:     Bob,
+		withProposalStop: true,
 	})
 
 	wg.Wait()
 }
 
 // This test describes the following flow :
-// 1. Bob sends a request to the Alice
-// 2. Alice sends a proposal to the Bob
-// 3. Bob sends a response to the Alice (approve=false)
+// 1. Bob sends introduce.Request to the Alice
+// 2. Alice sends introduce.Proposal to the Bob
+// 3. Bob sends introduce.Response to the Alice
 func TestService_ProposalStopWithRequest(t *testing.T) {
 	var transport = transport()
 
@@ -1351,9 +1263,10 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Carol},
 		},
@@ -1362,9 +1275,10 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       inv,
-		transport: transport,
+		t:            t,
+		inv:          inv,
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
@@ -1375,14 +1289,13 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 
 	// introducer side Alice
 	go checkAndHandle(&flow{
-		t:            t,
-		wg:           &wg,
-		svc:          alice,
-		transport:    transport,
-		dependency:   aliceDep,
-		transportKey: Alice,
-		withStop:     true,
-		withError:    true,
+		t:                 t,
+		wg:                &wg,
+		svc:               alice,
+		transport:         transport,
+		dependency:        aliceDep,
+		transportKey:      Alice,
+		withResponseError: true,
 	})
 
 	// introducee side Bob
@@ -1395,18 +1308,17 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Alice},
 		},
-		transportKey: Bob,
-		withRequest:  true,
-		withStop:     true,
-		withError:    true,
+		transportKey:     Bob,
+		startWithRequest: true,
+		withProposalStop: true,
 	})
 
 	wg.Wait()
 }
 
 // This test describes the following flow :
-// 1. Alice sends a proposal to the Bob
-// 2. Bob sends a response to the Alice (approve=false)
+// 1. Alice sends introduce.Proposal to the Bob
+// 2. Bob sends introduce.Response to the Alice
 func TestService_SkipProposalStop(t *testing.T) {
 	var transport = transport()
 
@@ -1422,10 +1334,11 @@ func TestService_SkipProposalStop(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		inv:         inv,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		inv:          inv,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 		},
@@ -1434,9 +1347,10 @@ func TestService_SkipProposalStop(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       &didexchange.Invitation{Label: Bob},
-		transport: transport,
+		t:            t,
+		transportKey: Bob,
+		inv:          &didexchange.Invitation{Label: Bob},
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
@@ -1456,30 +1370,29 @@ func TestService_SkipProposalStop(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 		},
-		skipProposal: true,
-		withProposal: true,
-		withError:    true,
+		skipProposal:      true,
+		startWithProposal: true,
+		withResponseError: true,
 	})
 
 	// introducee side Bob
 	go checkAndHandle(&flow{
-		t:            t,
-		wg:           &wg,
-		svc:          bob,
-		transport:    transport,
-		dependency:   bobDep,
-		transportKey: Bob,
-		withStop:     true,
-		withError:    true,
+		t:                t,
+		wg:               &wg,
+		svc:              bob,
+		transport:        transport,
+		dependency:       bobDep,
+		transportKey:     Bob,
+		withProposalStop: true,
 	})
 
 	wg.Wait()
 }
 
 // This test describes the following flow :
-// 1. Bob sends a request to the Alice
-// 2. Alice sends a proposal to the Bob
-// 3. Bob sends a response to the Alice (approve=false)
+// 1. Bob sends introduce.Request to the Alice
+// 2. Alice sends introduce.Proposal to the Bob
+// 3. Bob sends introduce.Response to the Alice
 func TestService_SkipProposalStopWithRequest(t *testing.T) {
 	var transport = transport()
 
@@ -1502,18 +1415,20 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		inv:         inv,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		inv:          inv,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
 	})
 	defer aliceCtrl.Finish()
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       &didexchange.Invitation{Label: Bob},
-		transport: transport,
+		t:            t,
+		inv:          &didexchange.Invitation{Label: Bob},
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
@@ -1524,14 +1439,14 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 
 	// introducer side Alice
 	go checkAndHandle(&flow{
-		t:            t,
-		wg:           &wg,
-		svc:          alice,
-		transport:    transport,
-		dependency:   aliceDep,
-		transportKey: Alice,
-		skipProposal: true,
-		withError:    true,
+		t:                 t,
+		wg:                &wg,
+		svc:               alice,
+		transport:         transport,
+		dependency:        aliceDep,
+		transportKey:      Alice,
+		skipProposal:      true,
+		withResponseError: true,
 	})
 
 	// introducee side Bob
@@ -1544,21 +1459,20 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Alice},
 		},
-		transportKey: Bob,
-		withRequest:  true,
-		withStop:     true,
-		withError:    true,
+		transportKey:     Bob,
+		startWithRequest: true,
+		withProposalStop: true,
 	})
 
 	wg.Wait()
 }
 
 // This test describes the following flow :
-// 1. Alice sends a proposal to the Bob
-// 2. Bob sends a response to the Alice (without an Invitation)
-// 3. Alice sends a proposal to the Carol
-// 4. Carol sends a response to the Alice (approve=false)
-// 5. Alice sends report problem to the Bob
+// 1. Alice sends introduce.Proposal to the Bob
+// 2. Bob sends introduce.Response to the Alice
+// 3. Alice sends introduce.Proposal to the Carol
+// 4. Carol sends introduce.Response to the Alice
+// 5. Alice sends model.ProblemReport to the Bob
 func TestService_ProposalStopUnusual(t *testing.T) {
 	var transport = transport()
 
@@ -1574,9 +1488,10 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 			{ServiceEndpoint: Carol},
@@ -1586,16 +1501,18 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	carolCtrl, carol, carolDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       inv,
-		transport: transport,
+		t:            t,
+		inv:          inv,
+		transportKey: Carol,
+		transport:    transport,
 	})
 	defer carolCtrl.Finish()
 	defer stop(t, carol)
@@ -1615,8 +1532,8 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Bob},
 		},
-		withProposal: true,
-		withError:    true,
+		startWithProposal:       true,
+		withSecondResponseError: true,
 	})
 
 	// introducee side Bob
@@ -1631,26 +1548,25 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 
 	// introducee side Carol
 	go checkAndHandle(&flow{
-		t:            t,
-		wg:           &wg,
-		svc:          carol,
-		transport:    transport,
-		dependency:   carolDep,
-		transportKey: Carol,
-		withStop:     true,
-		withError:    true,
+		t:                t,
+		wg:               &wg,
+		svc:              carol,
+		transport:        transport,
+		dependency:       carolDep,
+		transportKey:     Carol,
+		withProposalStop: true,
 	})
 
 	wg.Wait()
 }
 
 // This test describes the following flow :
-// 1. Bob sends a request to the Alice
-// 2. Alice sends a proposal to the Bob
-// 3. Bob sends a response to the Alice
-// 4. Alice sends a proposal to the Carol
-// 5. Carol sends a response to the Alice (approve=false)
-// 6. Alice sends a report-problem the Bob
+// 1. Bob sends introduce.Request to the Alice
+// 2. Alice sends introduce.Proposal to the Bob
+// 3. Bob sends introduce.Response to the Alice
+// 4. Alice sends introduce.Proposal to the Carol
+// 5. Carol sends introduce.Response to the Alice
+// 6. Alice sends model.ProblemReport to the Bob
 func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 	var transport = transport()
 
@@ -1674,9 +1590,10 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 	}
 
 	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
-		t:           t,
-		expectedInv: inv,
-		transport:   transport,
+		t:            t,
+		expectedInv:  inv,
+		transport:    transport,
+		transportKey: Alice,
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Carol},
 		},
@@ -1685,16 +1602,18 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 	defer stop(t, alice)
 
 	bobCtrl, bob, bobDep := setupIntroducee(&flow{
-		t:         t,
-		transport: transport,
+		t:            t,
+		transportKey: Bob,
+		transport:    transport,
 	})
 	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	carolCtrl, carol, carolDep := setupIntroducee(&flow{
-		t:         t,
-		inv:       inv,
-		transport: transport,
+		t:            t,
+		inv:          inv,
+		transportKey: Carol,
+		transport:    transport,
 	})
 	defer carolCtrl.Finish()
 	defer stop(t, carol)
@@ -1705,13 +1624,13 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 
 	// introducer side Alice
 	go checkAndHandle(&flow{
-		t:            t,
-		wg:           &wg,
-		svc:          alice,
-		transport:    transport,
-		dependency:   aliceDep,
-		transportKey: Alice,
-		withError:    true,
+		t:                       t,
+		wg:                      &wg,
+		svc:                     alice,
+		transport:               transport,
+		dependency:              aliceDep,
+		transportKey:            Alice,
+		withSecondResponseError: true,
 	})
 
 	// introducee side Bob
@@ -1724,23 +1643,329 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 		destinations: []*service.Destination{
 			{ServiceEndpoint: Alice},
 		},
-		transportKey: Bob,
-		withRequest:  true,
+		transportKey:     Bob,
+		startWithRequest: true,
 	})
 
 	// introducee side Carol
 	go checkAndHandle(&flow{
-		t:            t,
-		wg:           &wg,
-		svc:          carol,
-		transport:    transport,
-		dependency:   carolDep,
-		transportKey: Carol,
-		withStop:     true,
-		withError:    true,
+		t:                t,
+		wg:               &wg,
+		svc:              carol,
+		transport:        transport,
+		dependency:       carolDep,
+		transportKey:     Carol,
+		withProposalStop: true,
 	})
 
 	wg.Wait()
+}
+
+// This test describes the following flow :
+// 1. Bob sends introduce.Request to the Alice
+// 2. Alice sends model.ProblemReport to the Bob
+func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
+	var transport = transport()
+
+	inv := &didexchange.Invitation{Label: Bob}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	idx := -1
+	destinations := []*service.Destination{
+		{ServiceEndpoint: Bob},
+	}
+	getInboundDestination = func() *service.Destination {
+		idx++
+		return destinations[idx]
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:            t,
+		expectedInv:  inv,
+		transport:    transport,
+		transportKey: Alice,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Carol},
+		},
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:            t,
+		inv:          inv,
+		transportKey: Bob,
+		transport:    transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
+	// introducer side Alice
+	go checkAndHandle(&flow{
+		t:               t,
+		wg:              &wg,
+		svc:             alice,
+		transport:       transport,
+		dependency:      aliceDep,
+		transportKey:    Alice,
+		withRequestStop: true,
+	})
+
+	// introducee side Bob
+	go checkAndHandle(&flow{
+		t:          t,
+		wg:         &wg,
+		svc:        bob,
+		transport:  transport,
+		dependency: bobDep,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Alice},
+		},
+		transportKey:     Bob,
+		startWithRequest: true,
+	})
+
+	wg.Wait()
+}
+
+// This test describes the following flow :
+// 1. Alice sends introduce.Proposal to the Bob
+// 2. Bob sends introduce.Response to the Alice
+// 3. Alice sends model.ProblemReport to the Bob
+func TestService_ProposalIntroducerStop(t *testing.T) {
+	var transport = transport()
+
+	inv := &didexchange.Invitation{Label: Bob}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	idx := -1
+	destinations := []*service.Destination{
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Bob},
+	}
+	getInboundDestination = func() *service.Destination {
+		idx++
+		return destinations[idx]
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:            t,
+		expectedInv:  inv,
+		transport:    transport,
+		transportKey: Alice,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Bob},
+			{ServiceEndpoint: Carol},
+		},
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:            t,
+		inv:          inv,
+		transportKey: Bob,
+		transport:    transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
+	// introducer side Alice
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Bob},
+		},
+		startWithProposal: true,
+		withResponseStop:  true,
+	})
+
+	// introducee side Bob
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          bob,
+		transport:    transport,
+		dependency:   bobDep,
+		transportKey: Bob,
+	})
+
+	wg.Wait()
+}
+
+// This test describes the following flow :
+// 1. Bob sends introduce.Request to the Alice
+// 2. Alice sends introduce.Proposal to the Bob
+// 3. Bob sends introduce.Response to the Alice
+// 4. Alice sends model.ProblemReport to the Bob
+func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
+	var transport = transport()
+
+	inv := &didexchange.Invitation{Label: "Public Invitation"}
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	idx := -1
+	destinations := []*service.Destination{
+		{ServiceEndpoint: Bob},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Bob},
+	}
+	getInboundDestination = func() *service.Destination {
+		idx++
+		return destinations[idx]
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:            t,
+		inv:          inv,
+		expectedInv:  inv,
+		transportKey: Alice,
+		transport:    transport,
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:            t,
+		transportKey: Bob,
+		inv:          &didexchange.Invitation{Label: Bob},
+		transport:    transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+
+	// introducer side Alice
+	go checkAndHandle(&flow{
+		t:                t,
+		wg:               &wg,
+		svc:              alice,
+		transport:        transport,
+		dependency:       aliceDep,
+		transportKey:     Alice,
+		skipProposal:     true,
+		withResponseStop: true,
+	})
+
+	// introducee side Bob
+	go checkAndHandle(&flow{
+		t:          t,
+		wg:         &wg,
+		svc:        bob,
+		transport:  transport,
+		dependency: bobDep,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Alice},
+		},
+		transportKey:     Bob,
+		startWithRequest: true,
+	})
+
+	wg.Wait()
+}
+
+func setupIntroducer(f *flow) (*gomock.Controller, *Service, *mocks.MockInvitationEnvelope) {
+	ctrl := gomock.NewController(f.t)
+
+	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
+		Do(func(msg interface{}, _ string, dest *service.Destination) error {
+			fmt.Println(f.transportKey, "sends", reflect.TypeOf(msg).Elem(), "to the", dest.ServiceEndpoint)
+			f.transport[dest.ServiceEndpoint] <- msg
+			return nil
+		}).AnyTimes()
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(fakeStore(ctrl), nil)
+
+	forwarder := mocks.NewMockForwarder(ctrl)
+	forwarder.EXPECT().SendInvitation(gomock.Any(), f.expectedInv, gomock.Any()).
+		Do(func(pthID string, inv *didexchange.Invitation, dest *service.Destination) error {
+			fmt.Println(f.transportKey, "sends", reflect.TypeOf(inv).Elem(), "to the", dest.ServiceEndpoint)
+			inv.ID = pthID
+			f.transport[dest.ServiceEndpoint] <- inv
+			return nil
+		}).Return(nil).MaxTimes(1)
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(forwarder, nil)
+
+	svc, err := New(provider)
+	require.NoError(f.t, err)
+
+	dep := mocks.NewMockInvitationEnvelope(ctrl)
+
+	dep.EXPECT().Invitation().Return(f.inv).AnyTimes()
+	dep.EXPECT().Destinations().Return(f.destinations).AnyTimes()
+
+	return ctrl, svc, dep
+}
+
+func setupIntroducee(f *flow) (*gomock.Controller, *Service, *mocks.MockInvitationEnvelope) {
+	ctrl := gomock.NewController(f.t)
+
+	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
+	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
+		Do(func(msg interface{}, _ string, dest *service.Destination) error {
+			fmt.Println(f.transportKey, "sends", reflect.TypeOf(msg).Elem(), "to the", dest.ServiceEndpoint)
+			f.transport[dest.ServiceEndpoint] <- msg
+			return nil
+		}).AnyTimes()
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(Introduce).Return(fakeStore(ctrl), nil)
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().OutboundDispatcher().Return(dispatcher)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(mocks.NewMockForwarder(ctrl), nil)
+
+	svc, err := New(provider)
+	require.NoError(f.t, err)
+
+	dep := mocks.NewMockInvitationEnvelope(ctrl)
+	dep.EXPECT().Invitation().Return(f.inv).AnyTimes()
+
+	return ctrl, svc, dep
+}
+
+func handleInbound(t *testing.T, svc *Service, msg interface{}) {
+	t.Helper()
+
+	resp, err := service.NewDIDCommMsg(toBytes(t, msg))
+	require.NoError(t, err)
+	_, err = svc.HandleInbound(resp)
+	require.NoError(t, err)
 }
 
 // nolint: gocyclo
@@ -1755,7 +1980,7 @@ func checkAndHandle(f *flow) {
 	sCh := make(chan service.StateMsg)
 	require.NoError(f.t, f.svc.RegisterMsgEvent(sCh))
 
-	if f.withRequest {
+	if f.startWithRequest {
 		// creates request msg
 		request, err := service.NewDIDCommMsg(toBytes(f.t, Request{
 			Type: RequestMsgType,
@@ -1774,7 +1999,7 @@ func checkAndHandle(f *flow) {
 		checkStateMsg(f.t, sCh, service.PostState, RequestMsgType, stateNameRequesting)
 	}
 
-	if f.withProposal {
+	if f.startWithProposal {
 		// creates proposal msg
 		proposal, err := service.NewDIDCommMsg(toBytes(f.t, Proposal{
 			Type: ProposalMsgType,
@@ -1793,6 +2018,8 @@ func checkAndHandle(f *flow) {
 		checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameArranging)
 	}
 
+	var responseCounter int
+
 	for {
 		var incomingMsg interface{}
 		select {
@@ -1805,19 +2032,61 @@ func checkAndHandle(f *flow) {
 		switch iMsg := incomingMsg.(type) {
 		case *Request:
 			go handleInbound(f.t, f.svc, incomingMsg)
+
+			if f.withRequestStop {
+				continueActionStop(f.t, aCh, RequestMsgType)
+
+				checkStateMsg(f.t, sCh, service.PreState, RequestMsgType, stateNameAbandoning)
+				checkStateMsg(f.t, sCh, service.PostState, RequestMsgType, stateNameAbandoning)
+				checkStateMsg(f.t, sCh, service.PreState, RequestMsgType, stateNameDone)
+				checkStateMsg(f.t, sCh, service.PostState, RequestMsgType, stateNameDone)
+
+				return
+			}
+
 			continueAction(f.t, aCh, RequestMsgType, f.dependency)
+
 			checkStateMsg(f.t, sCh, service.PreState, RequestMsgType, stateNameArranging)
 			checkStateMsg(f.t, sCh, service.PostState, RequestMsgType, stateNameArranging)
 		case *Response:
+			responseCounter++
+
 			go handleInbound(f.t, f.svc, incomingMsg)
+
+			if f.withResponseStop {
+				continueActionStop(f.t, aCh, ResponseMsgType)
+				checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameAbandoning)
+				checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameAbandoning)
+
+				checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameDone)
+				checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameDone)
+
+				return
+			}
+
 			continueAction(f.t, aCh, ResponseMsgType, f.dependency)
 
-			if !f.skipProposal {
-				f.skipProposal = true
+			if f.skipProposal {
+				checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameDelivering)
+				checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameDelivering)
+
+				if f.withResponseError {
+					checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameAbandoning)
+					checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameAbandoning)
+				}
+
+				checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameDone)
+				checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameDone)
+
+				return
+			}
+
+			// represents the Response from the first introducee
+			if responseCounter == 1 {
 				checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameArranging)
 				checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameArranging)
 
-				if f.withError && f.withStop {
+				if f.withResponseError {
 					checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameAbandoning)
 					checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameAbandoning)
 
@@ -1833,7 +2102,7 @@ func checkAndHandle(f *flow) {
 			checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameDelivering)
 			checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameDelivering)
 
-			if f.withError {
+			if f.withSecondResponseError {
 				checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameAbandoning)
 				checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameAbandoning)
 			}
@@ -1845,16 +2114,11 @@ func checkAndHandle(f *flow) {
 		case *Proposal:
 			go handleInbound(f.t, f.svc, incomingMsg)
 
-			if f.withStop {
+			if f.withProposalStop {
 				continueActionStop(f.t, aCh, ProposalMsgType)
-			} else {
-				continueAction(f.t, aCh, ProposalMsgType, f.dependency)
-			}
 
-			checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
-			checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
-
-			if f.withError {
+				checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
+				checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
 				checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameAbandoning)
 				checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameAbandoning)
 				checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameDone)
@@ -1863,6 +2127,10 @@ func checkAndHandle(f *flow) {
 				return
 			}
 
+			continueAction(f.t, aCh, ProposalMsgType, f.dependency)
+
+			checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameDeciding)
+			checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameDeciding)
 			checkStateMsg(f.t, sCh, service.PreState, ProposalMsgType, stateNameWaiting)
 			checkStateMsg(f.t, sCh, service.PostState, ProposalMsgType, stateNameWaiting)
 		case *model.ProblemReport:
