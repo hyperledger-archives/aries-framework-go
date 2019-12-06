@@ -235,10 +235,7 @@ func deliveringSkipInvitation(ctx internalContext, m *metaData, destinations []*
 }
 
 func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
-	destinations := m.dependency.Destinations()
-	if len(destinations) <= 1 {
-		destinations = append([]*service.Destination{getInboundDestination()}, destinations...)
-	}
+	destinations := fillMissingDestination(m.dependency.Destinations())
 
 	if isSkipProposal(m) {
 		return deliveringSkipInvitation(ctx, m, destinations)
@@ -308,15 +305,31 @@ func (s *abandoning) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone
 }
 
+func fillMissingDestination(destinations []*service.Destination) []*service.Destination {
+	if len(destinations) <= 1 {
+		return append([]*service.Destination{getInboundDestination()}, destinations...)
+	}
+
+	return destinations
+}
+
 func (s *abandoning) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
 	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
 		return &done{}, nil
 	}
 
+	var destinations []*service.Destination
+
 	if m.Msg.Header.Type == RequestMsgType || (m.Msg.Header.Type == ResponseMsgType && m.WaitCount == 1) {
-		if _, err := sendProblemReport(ctx, m, []*service.Destination{getInboundDestination()}); err != nil {
-			return nil, fmt.Errorf("abandoning: %w", err)
-		}
+		destinations = fillMissingDestination(nil)
+	}
+
+	if m.Msg.Header.Type == ResponseMsgType && m.dependency == nil && m.WaitCount == 0 {
+		destinations = fillMissingDestination(m.Destinations)
+	}
+
+	if _, err := sendProblemReport(ctx, m, destinations); err != nil {
+		return nil, fmt.Errorf("abandoning: %w", err)
 	}
 
 	return &done{}, nil

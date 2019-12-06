@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -52,6 +51,7 @@ type flow struct {
 	skipProposal            bool
 	withResponseError       bool
 	withSecondResponseError bool
+	withSecondResponseStop  bool
 	withProposalStop        bool
 	withRequestStop         bool
 	withResponseStop        bool
@@ -1892,13 +1892,199 @@ func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
 	wg.Wait()
 }
 
+// This test describes the following flow :
+// 1. Alice sends introduce.Proposal to the Bob
+// 2. Bob sends introduce.Response to the Alice
+// 3. Alice sends introduce.Proposal to the Carol
+// 4. Carol sends introduce.Response to the Alice
+// 5. Alice sends model.ProblemReport to the Bob
+// 6. Alice sends model.ProblemReport to the Carol
+func TestService_ProposalIntroducerSecondStop(t *testing.T) {
+	var transport = transport()
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	getInboundDestination = func() *service.Destination {
+		return &service.Destination{ServiceEndpoint: Alice}
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:            t,
+		transportKey: Alice,
+		transport:    transport,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Bob},
+			{ServiceEndpoint: Carol},
+		},
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:            t,
+		transportKey: Bob,
+		transport:    transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+		t:            t,
+		transportKey: Carol,
+		transport:    transport,
+	})
+	defer carolCtrl.Finish()
+	defer stop(t, carol)
+
+	var wg sync.WaitGroup
+
+	wg.Add(3)
+
+	// introducer side Alice
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Bob},
+		},
+		startWithProposal:      true,
+		withSecondResponseStop: true,
+	})
+
+	// introducee side Bob
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          bob,
+		transport:    transport,
+		dependency:   bobDep,
+		transportKey: Bob,
+	})
+
+	// introducee side Carol
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          carol,
+		transport:    transport,
+		dependency:   carolDep,
+		transportKey: Carol,
+	})
+
+	wg.Wait()
+}
+
+// This test describes the following flow :
+// 1. Bob sends introduce.Request to the Alice
+// 2. Alice sends introduce.Proposal to the Bob
+// 3. Bob sends introduce.Response to the Alice
+// 4. Alice sends introduce.Proposal to the Carol
+// 5. Carol sends introduce.Response to the Alice
+// 6. Alice sends model.ProblemReport to the Bob
+// 7. Alice sends model.ProblemReport to the Carol
+// nolint: gocyclo
+func TestService_ProposalIntroducerSecondStopWithRequest(t *testing.T) {
+	var transport = transport()
+
+	getInboundDestinationOriginal := getInboundDestination
+
+	defer func() { getInboundDestination = getInboundDestinationOriginal }()
+
+	// injection
+	idx := -1
+	destinations := []*service.Destination{
+		{ServiceEndpoint: Bob},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Alice},
+		{ServiceEndpoint: Bob},
+	}
+	getInboundDestination = func() *service.Destination {
+		idx++
+		return destinations[idx]
+	}
+
+	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+		t:            t,
+		transportKey: Alice,
+		transport:    transport,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Carol},
+		},
+	})
+	defer aliceCtrl.Finish()
+	defer stop(t, alice)
+
+	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+		t:            t,
+		transportKey: Bob,
+		transport:    transport,
+	})
+	defer bobCtrl.Finish()
+	defer stop(t, bob)
+
+	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+		t:            t,
+		transportKey: Carol,
+		transport:    transport,
+	})
+	defer carolCtrl.Finish()
+	defer stop(t, carol)
+
+	var wg sync.WaitGroup
+
+	wg.Add(3)
+
+	// introducer side Alice
+	go checkAndHandle(&flow{
+		t:                      t,
+		wg:                     &wg,
+		svc:                    alice,
+		transport:              transport,
+		dependency:             aliceDep,
+		transportKey:           Alice,
+		withSecondResponseStop: true,
+	})
+
+	// introducee side Bob
+	go checkAndHandle(&flow{
+		t:          t,
+		wg:         &wg,
+		svc:        bob,
+		transport:  transport,
+		dependency: bobDep,
+		destinations: []*service.Destination{
+			{ServiceEndpoint: Alice},
+		},
+		transportKey:     Bob,
+		startWithRequest: true,
+	})
+
+	// introducee side Carol
+	go checkAndHandle(&flow{
+		t:            t,
+		wg:           &wg,
+		svc:          carol,
+		transport:    transport,
+		dependency:   carolDep,
+		transportKey: Carol,
+	})
+
+	wg.Wait()
+}
+
 func setupIntroducer(f *flow) (*gomock.Controller, *Service, *mocks.MockInvitationEnvelope) {
 	ctrl := gomock.NewController(f.t)
 
 	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
 	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
 		Do(func(msg interface{}, _ string, dest *service.Destination) error {
-			fmt.Println(f.transportKey, "sends", reflect.TypeOf(msg).Elem(), "to the", dest.ServiceEndpoint)
 			f.transport[dest.ServiceEndpoint] <- msg
 			return nil
 		}).AnyTimes()
@@ -1909,7 +2095,6 @@ func setupIntroducer(f *flow) (*gomock.Controller, *Service, *mocks.MockInvitati
 	forwarder := mocks.NewMockForwarder(ctrl)
 	forwarder.EXPECT().SendInvitation(gomock.Any(), f.expectedInv, gomock.Any()).
 		Do(func(pthID string, inv *didexchange.Invitation, dest *service.Destination) error {
-			fmt.Println(f.transportKey, "sends", reflect.TypeOf(inv).Elem(), "to the", dest.ServiceEndpoint)
 			inv.ID = pthID
 			f.transport[dest.ServiceEndpoint] <- inv
 			return nil
@@ -1937,7 +2122,6 @@ func setupIntroducee(f *flow) (*gomock.Controller, *Service, *mocks.MockInvitati
 	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
 	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
 		Do(func(msg interface{}, _ string, dest *service.Destination) error {
-			fmt.Println(f.transportKey, "sends", reflect.TypeOf(msg).Elem(), "to the", dest.ServiceEndpoint)
 			f.transport[dest.ServiceEndpoint] <- msg
 			return nil
 		}).AnyTimes()
@@ -2058,6 +2242,17 @@ func checkAndHandle(f *flow) {
 				checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameAbandoning)
 				checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameAbandoning)
 
+				checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameDone)
+				checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameDone)
+
+				return
+			}
+
+			if f.withSecondResponseStop && responseCounter == 2 {
+				continueActionStop(f.t, aCh, ResponseMsgType)
+
+				checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameAbandoning)
+				checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameAbandoning)
 				checkStateMsg(f.t, sCh, service.PreState, ResponseMsgType, stateNameDone)
 				checkStateMsg(f.t, sCh, service.PostState, ResponseMsgType, stateNameDone)
 
