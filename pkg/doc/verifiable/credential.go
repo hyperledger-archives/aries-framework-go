@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/VictoriaMetrics/fastcache"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -187,8 +189,114 @@ const jsonSchema2018Type = "JsonSchemaValidator2018"
 
 const vpType = "VerifiablePresentation"
 
-//nolint:gochecknoglobals
-var defaultSchemaLoader = gojsonschema.NewStringLoader(defaultSchema)
+// SchemaCache defines a cache of credential schemas.
+type SchemaCache interface {
+
+	// Put element to the cache.
+	Put(k string, v []byte)
+
+	// Get element from the cache, returns false at second return value if element is not present.
+	Get(k string) ([]byte, bool)
+}
+
+// ExpirableSchemaCache is an implementation of SchemaCache based fastcache.Cache with expirable elements.
+type ExpirableSchemaCache struct {
+	cache      *fastcache.Cache
+	expiration time.Duration
+}
+
+// NewExpirableSchemaCache creates new instance of ExpirableSchemaCache.
+func NewExpirableSchemaCache(size int, expiration time.Duration) *ExpirableSchemaCache {
+	return &ExpirableSchemaCache{
+		cache:      fastcache.New(size),
+		expiration: expiration,
+	}
+}
+
+// CredentialSchemaLoader defines expirable cache.
+type CredentialSchemaLoader struct {
+	schemaDownloadClient *http.Client
+	cache                SchemaCache
+	jsonLoader           gojsonschema.JSONLoader
+}
+
+// CredentialSchemaLoaderBuilder defines a builder of CredentialSchemaLoader.
+type CredentialSchemaLoaderBuilder struct {
+	loader *CredentialSchemaLoader
+}
+
+// NewCredentialSchemaLoaderBuilder creates a new instance of CredentialSchemaLoaderBuilder.
+func NewCredentialSchemaLoaderBuilder() *CredentialSchemaLoaderBuilder {
+	return &CredentialSchemaLoaderBuilder{
+		loader: &CredentialSchemaLoader{},
+	}
+}
+
+// SetSchemaDownloadClient sets HTTP client to be used to download the schema.
+func (b *CredentialSchemaLoaderBuilder) SetSchemaDownloadClient(client *http.Client) *CredentialSchemaLoaderBuilder {
+	b.loader.schemaDownloadClient = client
+	return b
+}
+
+// SetCache defines SchemaCache.
+func (b *CredentialSchemaLoaderBuilder) SetCache(cache SchemaCache) *CredentialSchemaLoaderBuilder {
+	b.loader.cache = cache
+	return b
+}
+
+// SetJSONLoader defines gojsonschema.JSONLoader
+func (b *CredentialSchemaLoaderBuilder) SetJSONLoader(loader gojsonschema.JSONLoader) *CredentialSchemaLoaderBuilder {
+	b.loader.jsonLoader = loader
+	return b
+}
+
+// Build constructed CredentialSchemaLoader.
+// It creates default HTTP client and JSON schema loader if not defined.
+func (b *CredentialSchemaLoaderBuilder) Build() *CredentialSchemaLoader {
+	l := b.loader
+
+	if l.schemaDownloadClient == nil {
+		l.schemaDownloadClient = &http.Client{}
+	}
+
+	if l.jsonLoader == nil {
+		l.jsonLoader = defaultSchemaLoader()
+	}
+
+	return l
+}
+
+// Put element to the cache. It also adds a mark of when the element will expire.
+func (sc *ExpirableSchemaCache) Put(k string, v []byte) {
+	expires := time.Now().Add(sc.expiration).Unix()
+
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(expires))
+
+	ve := make([]byte, 8+len(v))
+	copy(ve[:8], b)
+	copy(ve[8:], v)
+
+	sc.cache.Set([]byte(k), ve)
+}
+
+// Get element from the cache. If element is present, it checks if the element is expired.
+// If yes, it clears the element from the cache and indicates that the key is not found.
+func (sc *ExpirableSchemaCache) Get(k string) ([]byte, bool) {
+	b, ok := sc.cache.HasGet(nil, []byte(k))
+	if !ok {
+		return nil, false
+	}
+
+	expires := int64(binary.LittleEndian.Uint64(b[:8]))
+	if expires < time.Now().Unix() {
+		// cache expires
+		sc.cache.Del([]byte(k))
+		return nil, false
+	}
+
+	return b[8:], true
+}
 
 // Evidence defines evidence of Verifiable Credential
 type Evidence interface{}
@@ -288,21 +396,13 @@ type CredentialTemplate func() *Credential
 
 // credentialOpts holds options for the Verifiable Credential decoding
 type credentialOpts struct {
-	schemaDownloadClient   *http.Client
-	disabledCustomSchema   bool
 	issuerPublicKeyFetcher PublicKeyFetcher
+	disabledCustomSchema   bool
+	schemaLoader           *CredentialSchemaLoader
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
 type CredentialOpt func(opts *credentialOpts)
-
-// WithSchemaDownloadClient option is for definition of HTTP(s) client used during decoding of Verifiable Credential.
-// If custom credentialSchema is defined in Verifiable Credential, the client downloads from the specified URL.
-func WithSchemaDownloadClient(client *http.Client) CredentialOpt {
-	return func(opts *credentialOpts) {
-		opts.schemaDownloadClient = client
-	}
-}
 
 // WithNoCustomSchemaCheck option is for disabling of Credential Schemas download if defined
 // in Verifiable Credential. Instead, the Verifiable Credential is checked against default Schema.
@@ -316,6 +416,15 @@ func WithNoCustomSchemaCheck() CredentialOpt {
 func WithPublicKeyFetcher(fetcher PublicKeyFetcher) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.issuerPublicKeyFetcher = fetcher
+	}
+}
+
+// WithCredentialSchemaLoader option is used to define custom credentials schema loader.
+// If not defined, the default one is created with default HTTP client to download the schema
+// and no caching of the schemas.
+func WithCredentialSchemaLoader(loader *CredentialSchemaLoader) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.schemaLoader = loader
 	}
 }
 
@@ -549,19 +658,23 @@ func loadCredentialSchemas(vcBytes []byte) ([]TypedID, error) {
 }
 
 func parseCredentialOpts(opts []CredentialOpt) *credentialOpts {
-	crOpts := defaultCredentialOpts()
+	crOpts := &credentialOpts{}
 
 	for _, opt := range opts {
 		opt(crOpts)
 	}
 
+	if crOpts.schemaLoader == nil {
+		crOpts.schemaLoader = newDefaultSchemaLoader()
+	}
+
 	return crOpts
 }
 
-func defaultCredentialOpts() *credentialOpts {
-	return &credentialOpts{
+func newDefaultSchemaLoader() *CredentialSchemaLoader {
+	return &CredentialSchemaLoader{
 		schemaDownloadClient: &http.Client{},
-		disabledCustomSchema: false,
+		jsonLoader:           defaultSchemaLoader(),
 	}
 }
 
@@ -598,13 +711,13 @@ func validate(data []byte, schemas []TypedID, opts *credentialOpts) error {
 
 func getSchemaLoader(schemas []TypedID, opts *credentialOpts) (gojsonschema.JSONLoader, error) {
 	if opts.disabledCustomSchema {
-		return defaultSchemaLoader, nil
+		return defaultSchemaLoader(), nil
 	}
 
 	for _, schema := range schemas {
 		switch schema.Type {
 		case jsonSchema2018Type:
-			customSchemaData, err := loadCredentialSchema(schema.ID, opts.schemaDownloadClient)
+			customSchemaData, err := getJSONSchema(schema.ID, opts)
 			if err != nil {
 				return nil, fmt.Errorf("load of custom credential schema from %s: %w", schema.ID, err)
 			}
@@ -616,11 +729,38 @@ func getSchemaLoader(schemas []TypedID, opts *credentialOpts) (gojsonschema.JSON
 	}
 
 	// If no custom schema is chosen, use default one
-	return defaultSchemaLoader, nil
+	return defaultSchemaLoader(), nil
 }
 
-// todo cache credential schema (https://github.com/hyperledger/aries-framework-go/issues/185)
-func loadCredentialSchema(url string, client *http.Client) ([]byte, error) {
+func defaultSchemaLoader() gojsonschema.JSONLoader {
+	return gojsonschema.NewStringLoader(defaultSchema)
+}
+
+func getJSONSchema(url string, opts *credentialOpts) ([]byte, error) {
+	loader := opts.schemaLoader
+	cache := loader.cache
+
+	if cache == nil {
+		return loadJSONSchema(url, loader.schemaDownloadClient)
+	}
+
+	// Check the cache first.
+	if cachedBytes, ok := cache.Get(url); ok {
+		return cachedBytes, nil
+	}
+
+	schemaBytes, err := loadJSONSchema(url, loader.schemaDownloadClient)
+	if err != nil {
+		return nil, err
+	}
+
+	// Put the loaded schema into cache
+	cache.Put(url, schemaBytes)
+
+	return schemaBytes, nil
+}
+
+func loadJSONSchema(url string, client *http.Client) ([]byte, error) {
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("load credential schema: %w", err)
