@@ -147,8 +147,9 @@ const basePresentationSchema = `
 //nolint:gochecknoglobals
 var basePresentationSchemaLoader = gojsonschema.NewStringLoader(basePresentationSchema)
 
-// PresentationCredential defines raw Verifiable Credential enclosed into Presentation.
-type PresentationCredential []byte
+// MarshalledCredential defines marshalled Verifiable Credential enclosed into Presentation.
+// MarshalledCredential can be passed to verifiable.NewCredential().
+type MarshalledCredential []byte
 
 // Presentation Verifiable Presentation base data model definition
 type Presentation struct {
@@ -156,7 +157,7 @@ type Presentation struct {
 	CustomContext  []interface{}
 	ID             string
 	Type           []string
-	Credential     interface{}
+	credentials    []interface{}
 	Holder         string
 	Proof          Proof
 	RefreshService *TypedID
@@ -178,41 +179,51 @@ func (vp *Presentation) JWTClaims(audience []string, minimizeVP bool) *JWTPresCl
 	return newJWTPresClaims(vp, audience, minimizeVP)
 }
 
-// Credentials provides Verifiable Credentials enclosed into Presentation in raw byte array format.
-func (vp *Presentation) Credentials() ([]PresentationCredential, error) {
-	marshalSingleCredFn := func(cred interface{}) (PresentationCredential, error) {
-		credBytes, err := json.Marshal(cred)
-		if err != nil {
-			return nil, fmt.Errorf("marshal credentials from presentation: %w", err)
-		}
+// Credentials returns current credentials of presentation.
+func (vp *Presentation) Credentials() []interface{} {
+	return vp.credentials
+}
 
-		return credBytes, nil
+// SetCredentials defines credentials of presentation.
+// The credential could be string/byte (probably serialized JWT) or Credential structure.
+func (vp *Presentation) SetCredentials(creds ...interface{}) error {
+	for i := range creds {
+		switch creds[i].(type) {
+		case []byte, string, *Credential, Credential:
+			// Acceptable.
+		default:
+			return errors.New("unsupported credential format")
+		}
 	}
 
-	switch cred := vp.Credential.(type) {
-	case []interface{}:
-		// 1 or more credentials
-		creds := make([]PresentationCredential, len(cred))
+	vp.credentials = creds
 
-		for i := range cred {
-			c, err := marshalSingleCredFn(cred[i])
+	return nil
+}
+
+// MarshalledCredentials provides marshalled credentials enclosed into Presentation in raw byte array format.
+// They can be used to decode Credentials into struct.
+func (vp *Presentation) MarshalledCredentials() ([]MarshalledCredential, error) {
+	mCreds := make([]MarshalledCredential, len(vp.credentials))
+
+	for i := range vp.credentials {
+		cred := vp.credentials[i]
+		switch c := cred.(type) {
+		case string:
+			mCreds[i] = MarshalledCredential(c)
+		case []byte:
+			mCreds[i] = c
+		default:
+			credBytes, err := json.Marshal(cred)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("marshal credentials from presentation: %w", err)
 			}
 
-			creds[i] = c
+			mCreds[i] = credBytes
 		}
-
-		return creds, nil
-	default:
-		// single credential
-		c, err := marshalSingleCredFn(cred)
-		if err != nil {
-			return nil, err
-		}
-
-		return []PresentationCredential{c}, nil
 	}
+
+	return mCreds, nil
 }
 
 func (vp *Presentation) raw() *rawPresentation {
@@ -220,7 +231,7 @@ func (vp *Presentation) raw() *rawPresentation {
 		Context:        vp.Context,
 		ID:             vp.ID,
 		Type:           vp.Type,
-		Credential:     vp.Credential,
+		Credential:     vp.credentials,
 		Holder:         vp.Holder,
 		Proof:          vp.Proof,
 		RefreshService: vp.RefreshService,
@@ -242,7 +253,7 @@ type rawPresentation struct {
 
 // presentationOpts holds options for the Verifiable Presentation decoding
 type presentationOpts struct {
-	holderPublicKeyFetcher PublicKeyFetcher
+	publicKeyFetcher       PublicKeyFetcher
 	skipEmbeddedProofCheck bool
 }
 
@@ -253,7 +264,7 @@ type PresentationOpt func(opts *presentationOpts)
 // the public key fetcher.
 func WithPresPublicKeyFetcher(fetcher PublicKeyFetcher) PresentationOpt {
 	return func(opts *presentationOpts) {
-		opts.holderPublicKeyFetcher = fetcher
+		opts.publicKeyFetcher = fetcher
 	}
 }
 
@@ -299,18 +310,74 @@ func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, err
 		return nil, fmt.Errorf("fill presentation contexts from raw: %w", err)
 	}
 
+	creds, err := decodeCredentials(vpRaw.Credential, vpOpts)
+	if err != nil {
+		return nil, fmt.Errorf("decode credentials of presentation: %w", err)
+	}
+
 	vp := &Presentation{
 		Context:        context,
 		CustomContext:  customContext,
 		ID:             vpRaw.ID,
 		Type:           types,
-		Credential:     vpRaw.Credential,
+		credentials:    creds,
 		Holder:         vpRaw.Holder,
 		Proof:          vpRaw.Proof,
 		RefreshService: vpRaw.RefreshService,
 	}
 
 	return vp, nil
+}
+
+// decodeCredentials decodes credential(s) embedded into presentation.
+// It must be one of the following:
+// 1) string - it could be credential decoded into e.g. JWS.
+// 2) the same as 1) but as array - e.g. zero ore more JWS
+// 3) struct (should be map[string]interface{}) representing credential data model
+// 4) the same as 3) but as array - i.e. zero or more credentials structs.
+func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface{}, error) {
+	marshalSingleCredFn := func(cred interface{}) (interface{}, error) {
+		// Check the case when VC is defined in string format (e.g. JWT).
+		// Decode credential and keep result of decoding.
+		if sCred, ok := cred.(string); ok {
+			bCred := []byte(sCred)
+
+			credDecoded, err := decodeRaw(bCred, opts.publicKeyFetcher)
+			if err != nil {
+				return nil, fmt.Errorf("decode credential of presentation: %w", err)
+			}
+
+			return credDecoded, nil
+		}
+
+		// return credential in a structure format as is
+		return cred, nil
+	}
+
+	switch cred := rawCred.(type) {
+	case []interface{}:
+		// 1 or more credentials
+		creds := make([]interface{}, len(cred))
+
+		for i := range cred {
+			c, err := marshalSingleCredFn(cred[i])
+			if err != nil {
+				return nil, err
+			}
+
+			creds[i] = c
+		}
+
+		return creds, nil
+	default:
+		// single credential
+		c, err := marshalSingleCredFn(cred)
+		if err != nil {
+			return nil, err
+		}
+
+		return []interface{}{c}, nil
+	}
 }
 
 func validatePresentation(data []byte) error {
@@ -331,11 +398,11 @@ func validatePresentation(data []byte) error {
 
 func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *rawPresentation, error) {
 	if isJWS(vpData) {
-		if vpOpts.holderPublicKeyFetcher == nil {
+		if vpOpts.publicKeyFetcher == nil {
 			return nil, nil, errors.New("public key fetcher is not defined")
 		}
 
-		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpData, vpOpts.holderPublicKeyFetcher)
+		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpData, vpOpts.publicKeyFetcher)
 		if err != nil {
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from JWS: %w", err)
 		}

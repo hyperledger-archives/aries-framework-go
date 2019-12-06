@@ -148,11 +148,11 @@ func NewCred2Producer() CustomCredentialProducer {
 type FailingCredentialProducer struct {
 }
 
-func (fp *FailingCredentialProducer) Accept(vc *Credential) bool {
+func (fp *FailingCredentialProducer) Accept(*Credential) bool {
 	return true
 }
 
-func (fp *FailingCredentialProducer) Apply(vc *Credential, dataJSON []byte) (interface{}, error) {
+func (fp *FailingCredentialProducer) Apply(*Credential, []byte) (interface{}, error) {
 	return nil, errors.New("failed to apply credential extension")
 }
 
@@ -207,12 +207,14 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	require.IsType(t, &Credential{}, i3)
 
 	// Invalid credential.
-	_, err = CreateCustomCredential([]byte(credMissingMandatoryFields), producers)
+	i4, err := CreateCustomCredential([]byte(credMissingMandatoryFields), producers)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "build base verifiable credential")
+	require.Nil(t, i4)
 
 	// Failing ext producer.
-	_, err = CreateCustomCredential([]byte(validCredential), []CustomCredentialProducer{&FailingCredentialProducer{}})
+	i5, err := CreateCustomCredential([]byte(validCredential), []CustomCredentialProducer{&FailingCredentialProducer{}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to apply credential extension")
+	require.Nil(t, i5)
 }

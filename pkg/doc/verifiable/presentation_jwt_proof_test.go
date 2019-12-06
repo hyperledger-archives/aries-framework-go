@@ -11,6 +11,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +45,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 
 	t.Run("Failed JWT signature verification of presentation", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, true)
-		_, err := NewPresentation(
+		vp, err := NewPresentation(
 			jws,
 			// passing issuers's key, while expecting issuer one
 			WithPresPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
@@ -57,11 +58,12 @@ func TestNewPresentationFromJWS(t *testing.T) {
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "decoding of Verifiable Presentation from JWS")
+		require.Nil(t, vp)
 	})
 
 	t.Run("Failed public key fetching", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, true)
-		_, err := NewPresentation(
+		vp, err := NewPresentation(
 			jws,
 			WithPresPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
 				return nil, errors.New("test: public key is not found")
@@ -69,13 +71,15 @@ func TestNewPresentationFromJWS(t *testing.T) {
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get public key for JWT signature verification")
+		require.Nil(t, vp)
 	})
 
 	t.Run("Not defined public key fetcher", func(t *testing.T) {
-		_, err := NewPresentation(createPresJWS(t, vpBytes, true))
+		vp, err := NewPresentation(createPresJWS(t, vpBytes, true))
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "public key fetcher is not defined")
+		require.Nil(t, vp)
 	})
 }
 
@@ -126,6 +130,168 @@ func TestNewPresentationFromUnsecuredJWT(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, vp, vpFromJWT)
+	})
+}
+
+func TestNewPresentationWithVCJWT(t *testing.T) {
+	r := require.New(t)
+
+	// Create and encode VP.
+	issued := time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
+	expired := time.Date(2020, time.January, 1, 19, 23, 24, 0, time.UTC)
+
+	vc := &Credential{
+		Context: []string{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1"},
+		ID: "http://example.edu/credentials/1872",
+		Types: []string{
+			"VerifiableCredential",
+			"UniversityDegreeCredential"},
+		Subject: UniversityDegreeSubject{
+			ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			Name:   "Jayden Doe",
+			Spouse: "did:example:c276e12ec21ebfeb1f712ebc6f1",
+			Degree: UniversityDegree{
+				Type:       "BachelorDegree",
+				University: "MIT",
+			},
+		},
+		Issuer: Issuer{
+			ID:   "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			Name: "Example University",
+		},
+		Issued:  &issued,
+		Expired: &expired,
+		Schemas: []TypedID{},
+		CustomFields: map[string]interface{}{
+			"referenceNumber": 83294847,
+		},
+	}
+
+	vcJWTClaims, e := vc.JWTClaims(true)
+	r.NoError(e)
+
+	issuerPrivKey, e := readPrivateKey(filepath.Join(certPrefix, "issuer_private.pem"))
+	r.NoError(e)
+
+	vcJWS, e := vcJWTClaims.MarshalJWS(RS256, issuerPrivKey, "issuer-key")
+	r.NoError(e)
+	r.NotNil(vcJWS)
+
+	t.Run("Presentation with VC defined as JWS", func(t *testing.T) {
+		// Create and encode VP.
+		vp := &Presentation{
+			Context: []string{
+				"https://www.w3.org/2018/credentials/v1"},
+			ID:     "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c",
+			Type:   []string{"VerifiablePresentation"},
+			Holder: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+		}
+		err := vp.SetCredentials(vcJWS)
+		r.NoError(err)
+
+		holderPubKey, holderPrivKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		vpJWS, err := vp.JWTClaims([]string{}, true).MarshalJWS(
+			EdDSA, holderPrivKey, "holder-key")
+		r.NoError(err)
+
+		// Decode VP
+		vpDecoded, err := NewPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
+			func(issuerID, keyID string) (interface{}, error) {
+				switch keyID {
+				case "holder-key":
+					return holderPubKey, nil
+				case "issuer-key":
+					return issuerPrivKey.Public(), nil
+				default:
+					return nil, errors.New("unexpected key")
+				}
+			}))
+		r.NoError(err)
+		vpCreds, err := vpDecoded.MarshalledCredentials()
+		r.NoError(err)
+		r.Len(vpCreds, 1)
+
+		vcDecoded, _, err := NewCredential(vpCreds[0])
+		r.NoError(err)
+
+		r.Equal(vc.stringJSON(t), vcDecoded.stringJSON(t))
+	})
+
+	t.Run("Presentation with VC defined as VC struct", func(t *testing.T) {
+		// Create and encode VP.
+		vp := &Presentation{
+			Context: []string{
+				"https://www.w3.org/2018/credentials/v1"},
+			ID:     "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c",
+			Type:   []string{"VerifiablePresentation"},
+			Holder: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+		}
+		err := vp.SetCredentials(vc)
+		r.NoError(err)
+
+		holderPubKey, holderPrivKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		vpJWS, err := vp.JWTClaims([]string{}, true).MarshalJWS(
+			EdDSA, holderPrivKey, "holder-key")
+		r.NoError(err)
+
+		// Decode VP
+		vpDecoded, err := NewPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(SingleKey(holderPubKey)))
+		r.NoError(err)
+		vpCreds, err := vpDecoded.MarshalledCredentials()
+		r.NoError(err)
+		r.Len(vpCreds, 1)
+
+		vcDecoded, _, err := NewCredential(vpCreds[0])
+		r.NoError(err)
+
+		r.Equal(vc.stringJSON(t), vcDecoded.stringJSON(t))
+	})
+
+	t.Run("Failed check of VC due to invalid JWS", func(t *testing.T) {
+		// Create and encode VP.
+		vp := &Presentation{
+			Context: []string{
+				"https://www.w3.org/2018/credentials/v1"},
+			ID:     "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c",
+			Type:   []string{"VerifiablePresentation"},
+			Holder: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+		}
+		err := vp.SetCredentials(vcJWS)
+		r.NoError(err)
+
+		holderPubKey, holderPrivKey, err := ed25519.GenerateKey(rand.Reader)
+		r.NoError(err)
+
+		vpJWS, err := vp.JWTClaims([]string{}, true).MarshalJWS(
+			EdDSA, holderPrivKey, "holder-key")
+		r.NoError(err)
+
+		// Decode VP
+		vp, err = NewPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
+			func(issuerID, keyID string) (interface{}, error) {
+				switch keyID {
+				case "holder-key":
+					return holderPubKey, nil
+				case "issuer-key":
+					// here we return invalid public key
+					anotherPubKey, _, gerr := ed25519.GenerateKey(rand.Reader)
+					r.NoError(gerr)
+					return anotherPubKey, nil
+				default:
+					r.NoError(err)
+					return nil, errors.New("unexpected key")
+				}
+			}))
+		r.Error(err)
+		r.Contains(err.Error(), "decode credentials of presentation")
+		r.Contains(err.Error(), "JWS decoding")
+		r.Nil(vp)
 	})
 }
 
