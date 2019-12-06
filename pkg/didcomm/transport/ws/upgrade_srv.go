@@ -18,7 +18,8 @@ import (
 // Accept accepts a WebSocket handshake from a client and upgrades the
 // the connection to a WebSocket.
 func Accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
-	return websocket.Accept(w, r, nil)
+	// TODO Allow user to enable InsecureSkipVerify https://github.com/hyperledger/aries-framework-go/issues/928
+	return websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
 }
 
 func acceptRecipient(pool *connPool, keys []string) bool {
