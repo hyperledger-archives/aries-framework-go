@@ -52,20 +52,27 @@ var logger = log.New("aries-framework/introduce/service")
 // to provide the same interface during the state machine execution, interface depends on the participant.
 // e.g We have introducer and two introducees, this is the usual flow.
 // Dependency interfaces are different and depend on the participant.
-// - destinations length is 2 and Invitation is <nil> (introducer)
-// - destinations length is 0 and Invitation is not <nil> (introducee)
-// - destinations length is 0 and Invitation is <nil> (introducee)
+// - Recipients length is 2 and Invitation is <nil> (introducer)
+// - Recipients length is 0 and Invitation is not <nil> (introducee)
+// - Recipients length is 0 and Invitation is <nil> (introducee)
 //
 // Correct usage is described below:
-// - Destinations length is 0 and Invitation is <nil> (introducee)
-// - Destinations length is 0 and Invitation is not <nil> (introducee or introducer skip proposal)
-// - Destinations length is 1 and Invitation is <nil> (introducer)
-// - Destinations length is 1 and Invitation is not <nil> (introducer)
-// - Destinations length is 2 and Invitation is <nil> (introducer)
+// - Recipients length is 0 and Invitation is <nil> (introducee)
+// - Recipients length is 0 and Invitation is not <nil> (introducee)
+// - Recipients length is 2 and Invitation is <nil> (introducer)
+// - Recipients length is 1 and Invitation is not <nil> (introducer)
 // NOTE: The state machine logic depends on the combinations above.
 type InvitationEnvelope interface {
 	Invitation() *didexchange.Invitation
-	Destinations() []*service.Destination
+	Recipients() []*Recipient
+}
+
+// Recipient keeps information needed for the service
+// 'To' field is needed for the proposal message
+// 'Destination' field is needed for the entire protocol (e.g report-problem, proposal, ack)
+type Recipient struct {
+	To          *To
+	Destination *service.Destination
 }
 
 // metaData type to store data for internal usage
@@ -90,7 +97,7 @@ type record struct {
 	// IntroduceeIndex keeps an introducee index of from whom we got an invitation
 	IntroduceeIndex int                     `json:"introducee_index,omitempty"`
 	Invitation      *didexchange.Invitation `json:"invitation,omitempty"`
-	Destinations    []*service.Destination  `json:"destinations,omitempty"`
+	Recipients      []*Recipient            `json:"recipients,omitempty"`
 }
 
 // Service for introduce protocol
@@ -493,23 +500,21 @@ func injectInvitation(msg *metaData) error {
 func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 	logger.Infof("entered into private handle message: %v ", msg.Msg.Header)
 
-	// after receiving a response we need to determine whether it is skip proposal or no
-	// if this is skip proposal we do not need to send a proposal to another introducee
-	// we just simply go to Delivering state
-	if msg.Msg.Header.Type == ResponseMsgType && isSkipProposal(msg) {
-		msg.StateName = stateNameDelivering
-	}
+	current := stateFromName(msg.StateName)
 
-	next := stateFromName(msg.StateName)
+	logger.Infof("next valid state to transition -> %s ", current.Name())
 
-	logger.Infof("next valid state to transition -> %s ", next.Name())
-
-	var err error
-	for !isNoOp(next) {
-		next, err = s.execute(next, msg, dest)
+	for !isNoOp(current) {
+		next, err := s.execute(current, msg, dest)
 		if err != nil {
 			return fmt.Errorf("execute: %w", err)
 		}
+
+		if !isNoOp(next) && !current.CanTransitionTo(next) {
+			return fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
+		}
+
+		current = next
 	}
 
 	return nil
@@ -533,6 +538,10 @@ func (s *Service) execute(next state, msg *metaData, dest *service.Destination) 
 		return nil, fmt.Errorf("inject invitation: %w", err)
 	}
 
+	if msg.Msg.Header.Type == ResponseMsgType && msg.dependency != nil {
+		msg.Recipients = msg.dependency.Recipients()
+	}
+
 	if dest != nil {
 		followup, err = next.ExecuteOutbound(s.ctx, msg, dest)
 	} else {
@@ -547,14 +556,9 @@ func (s *Service) execute(next state, msg *metaData, dest *service.Destination) 
 
 	// sets the next state name
 	msg.StateName = next.Name()
-	if msg.Msg.Header.Type == ResponseMsgType && msg.dependency != nil {
-		if len(msg.dependency.Destinations()) > 0 {
-			msg.Destinations = msg.dependency.Destinations()
-		}
-	}
 
 	if err = s.save(msg.ThreadID, msg.record); err != nil {
-		return nil, fmt.Errorf("failed to persist state %s %w", next.Name(), err)
+		return nil, fmt.Errorf("failed to persist state %s: %w", next.Name(), err)
 	}
 
 	logger.Infof("persisted the connection using %s and updated the state to %s", msg.ThreadID, next.Name())

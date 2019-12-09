@@ -38,8 +38,9 @@ const (
 	stateNameWaiting    = "waiting"
 )
 
+// GetInboundDestination gets inbound destination
 // nolint: gochecknoglobals
-var getInboundDestination = func() *service.Destination {
+var GetInboundDestination = func() *service.Destination {
 	// TODO: need to get real destination and key
 	return &service.Destination{}
 }
@@ -96,11 +97,11 @@ func (s *start) CanTransitionTo(next state) bool {
 }
 
 func (s *start) ExecuteInbound(ctx internalContext, _ *metaData) (state, error) {
-	return &arranging{}, nil
+	return nil, errors.New("start ExecuteInbound: not implemented yet")
 }
 
 func (s *start) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
-	return &noOp{}, nil
+	return nil, errors.New("start ExecuteOutbound: not implemented yet")
 }
 
 // done state
@@ -138,26 +139,35 @@ func (s *arranging) CanTransitionTo(next state) bool {
 }
 
 func (s *arranging) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
+	// after receiving a response we need to determine whether it is skip proposal or no
+	// if this is skip proposal we do not need to send a proposal to another introducee
+	// we just simply go to Delivering state
+	if m.Msg.Header.Type == ResponseMsgType && isSkipProposal(m) {
+		return &delivering{}, nil
+	}
+
 	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
 		return &abandoning{}, nil
 	}
 
-	destinations := m.dependency.Destinations()
+	recipients := fillMissingDestination(m.dependency.Recipients())
 
-	var destination *service.Destination
+	var recipient *Recipient
 
+	// sends Proposal according to the WaitCount
 	if m.WaitCount == initialWaitCount {
-		destination = getInboundDestination()
+		recipient = recipients[0]
 	} else {
-		destination = destinations[len(destinations)-1]
+		recipient = recipients[1]
 	}
 
 	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
 	return &noOp{}, ctx.Send(&Proposal{
 		Type:   ProposalMsgType,
 		ID:     uuid.New().String(),
+		To:     recipient.To,
 		Thread: &decorator.Thread{ID: m.ThreadID},
-	}, "", destination)
+	}, "", recipient.Destination)
 }
 
 func (s *arranging) ExecuteOutbound(ctx internalContext, m *metaData, dest *service.Destination) (state, error) {
@@ -204,29 +214,25 @@ func getApproveFromMsg(msg *service.DIDCommMsg) (bool, bool) {
 	return r.Approve, true
 }
 
-func sendProblemReport(ctx internalContext, m *metaData, destinations []*service.Destination) (state, error) {
+func sendProblemReport(ctx internalContext, m *metaData, recipients []*Recipient) (state, error) {
 	problem := &model.ProblemReport{
 		Type: ProblemReportMsgType,
 		ID:   m.ThreadID,
 	}
 
-	for _, destination := range destinations {
+	for _, recipient := range recipients {
 		// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
-		if err := ctx.Send(problem, "", destination); err != nil {
+		if err := ctx.Send(problem, "", recipient.Destination); err != nil {
 			return nil, fmt.Errorf("send problem-report: %w", err)
 		}
 	}
 
-	// introducer goes to abandoning
-	return &abandoning{}, nil
+	return &done{}, nil
 }
 
-func deliveringSkipInvitation(ctx internalContext, m *metaData, destinations []*service.Destination) (state, error) {
-	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
-		return &abandoning{}, nil
-	}
-
-	err := ctx.SendInvitation(m.ThreadID, m.dependency.Invitation(), destinations[len(destinations)-1])
+func deliveringSkipInvitation(ctx internalContext, m *metaData, recipients []*Recipient) (state, error) {
+	// for skip proposal, we always have only one recipient e.g recipients[0]
+	err := ctx.SendInvitation(m.ThreadID, m.dependency.Invitation(), recipients[0].Destination)
 	if err != nil {
 		return nil, fmt.Errorf("send inbound invitation (skip): %w", err)
 	}
@@ -235,38 +241,27 @@ func deliveringSkipInvitation(ctx internalContext, m *metaData, destinations []*
 }
 
 func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
-	destinations := fillMissingDestination(m.dependency.Destinations())
-
-	if isSkipProposal(m) {
-		return deliveringSkipInvitation(ctx, m, destinations)
-	}
+	recipients := fillMissingDestination(m.dependency.Recipients())
 
 	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
-		return sendProblemReport(ctx, m, []*service.Destination{destinations[0]})
+		return &abandoning{}, nil
+	}
+
+	if isSkipProposal(m) {
+		return deliveringSkipInvitation(ctx, m, recipients)
 	}
 
 	// edge case: no one shared the invitation
 	if m.Invitation == nil {
-		return sendProblemReport(ctx, m, destinations)
+		return &abandoning{}, nil
 	}
 
-	err := ctx.SendInvitation(m.ThreadID, m.Invitation, destinations[toDestIDx(m.IntroduceeIndex)])
+	err := ctx.SendInvitation(m.ThreadID, m.Invitation, recipients[toDestIDx(m.IntroduceeIndex)].Destination)
 	if err != nil {
 		return nil, fmt.Errorf("send inbound invitation: %w", err)
 	}
 
-	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
-	err = ctx.Send(&model.Ack{
-		Type:   AckMsgType,
-		ID:     uuid.New().String(),
-		Thread: &decorator.Thread{ID: m.ThreadID},
-	}, "", destinations[m.IntroduceeIndex])
-
-	if err != nil {
-		return nil, fmt.Errorf("send ack: %w", err)
-	}
-
-	return &done{}, nil
+	return &confirming{}, nil
 }
 
 func (s *delivering) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
@@ -285,8 +280,21 @@ func (s *confirming) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-func (s *confirming) ExecuteInbound(ctx internalContext, _ *metaData) (state, error) {
-	return nil, errors.New("confirming ExecuteInbound: not implemented yet")
+func (s *confirming) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
+	recipients := fillMissingDestination(m.dependency.Recipients())
+
+	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
+	err := ctx.Send(&model.Ack{
+		Type:   AckMsgType,
+		ID:     uuid.New().String(),
+		Thread: &decorator.Thread{ID: m.ThreadID},
+	}, "", recipients[m.IntroduceeIndex].Destination)
+
+	if err != nil {
+		return nil, fmt.Errorf("send ack: %w", err)
+	}
+
+	return &done{}, nil
 }
 
 func (s *confirming) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
@@ -305,34 +313,42 @@ func (s *abandoning) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone
 }
 
-func fillMissingDestination(destinations []*service.Destination) []*service.Destination {
-	if len(destinations) <= 1 {
-		return append([]*service.Destination{getInboundDestination()}, destinations...)
+func fillMissingDestination(recipients []*Recipient) []*Recipient {
+	// for the first recipient, we may do not have a destination
+	// in that case, we need to get destination from the inbound message
+	// NOTE: it happens after receiving the Request message.
+	if len(recipients) == 0 {
+		return append(recipients, &Recipient{Destination: GetInboundDestination()})
 	}
 
-	return destinations
+	if recipients[0].Destination == nil {
+		recipients[0].Destination = GetInboundDestination()
+	}
+
+	return recipients
 }
 
 func (s *abandoning) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
+	var recipients []*Recipient
+
+	if m.Msg.Header.Type == RequestMsgType {
+		recipients = fillMissingDestination(nil)
+	}
+
+	if m.Msg.Header.Type == ResponseMsgType {
+		recipients = fillMissingDestination(m.Recipients)
+	}
+
 	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
-		return &done{}, nil
+		if m.WaitCount == 1 {
+			return &done{}, nil
+		}
+		// if we receive the second Response with Approve=false
+		// report-problem should be sent only to the first introducee
+		recipients = recipients[:1]
 	}
 
-	var destinations []*service.Destination
-
-	if m.Msg.Header.Type == RequestMsgType || (m.Msg.Header.Type == ResponseMsgType && m.WaitCount == 1) {
-		destinations = fillMissingDestination(nil)
-	}
-
-	if m.Msg.Header.Type == ResponseMsgType && m.dependency == nil && m.WaitCount == 0 {
-		destinations = fillMissingDestination(m.Destinations)
-	}
-
-	if _, err := sendProblemReport(ctx, m, destinations); err != nil {
-		return nil, fmt.Errorf("abandoning: %w", err)
-	}
-
-	return &done{}, nil
+	return sendProblemReport(ctx, m, recipients)
 }
 
 func (s *abandoning) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
@@ -369,7 +385,7 @@ func (s *deciding) ExecuteInbound(ctx internalContext, m *metaData) (state, erro
 		Thread:     &decorator.Thread{ID: m.ThreadID},
 		Invitation: inv,
 		Approve:    !m.disapprove,
-	}, "", getInboundDestination())
+	}, "", GetInboundDestination())
 }
 
 func (s *deciding) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {

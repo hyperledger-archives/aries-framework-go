@@ -77,31 +77,31 @@ func New(ctx Provider, inv *didexchange.Invitation) (*Client, error) {
 // usage: e.Continue(c.InvitationEnvelope(threadID))
 func (c *Client) InvitationEnvelope(thID string) *InvitationEnvelope {
 	opts, err := c.getInvitationEnvelope(thID)
-	if err != nil {
-		opts = &InvitationEnvelope{}
 
-		logger.Errorf("invitation envelope: %v", err)
+	if errors.Is(err, storage.ErrDataNotFound) {
+		return &InvitationEnvelope{Inv: c.defaultInv}
 	}
 
-	if opts.Invitation() == nil {
-		opts.Inv = c.defaultInv
+	if err != nil {
+		logger.Errorf("invitation envelope: %v", err)
+		return &InvitationEnvelope{}
 	}
 
 	return opts
 }
 
 // SendProposal sends proposal to introducees (the client does not have a public Invitation)
-func (c *Client) SendProposal(dest1, dest2 *service.Destination) error {
+func (c *Client) SendProposal(recipient1, recipient2 *introduce.Recipient) error {
 	return c.sendProposal(InvitationEnvelope{
-		Dests: []*service.Destination{dest1, dest2},
+		Recps: []*introduce.Recipient{recipient1, recipient2},
 	})
 }
 
 // SendProposalWithInvitation sends proposal to introducee (the client has a public Invitation)
-func (c *Client) SendProposalWithInvitation(inv *didexchange.Invitation, dest *service.Destination) error {
+func (c *Client) SendProposalWithInvitation(inv *didexchange.Invitation, recipient *introduce.Recipient) error {
 	return c.sendProposal(InvitationEnvelope{
 		Inv:   inv,
-		Dests: []*service.Destination{dest},
+		Recps: []*introduce.Recipient{recipient},
 	})
 }
 
@@ -112,33 +112,35 @@ func (c *Client) SendRequest(dest *service.Destination) error {
 		Type: introduce.RequestMsgType,
 		ID:   c.newUUID(),
 	}, InvitationEnvelope{
-		Dests: []*service.Destination{dest},
+		Recps: []*introduce.Recipient{{Destination: dest}},
 	})
 }
 
 // HandleRequest is a helper function to prepare the right protocol dependency interface
 // It can be executed after receiving a Request action message (the client does not have a public Invitation)
-func (c *Client) HandleRequest(msg service.DIDCommMsg, dest *service.Destination) error {
+func (c *Client) HandleRequest(msg service.DIDCommMsg, to *introduce.To, recipient *introduce.Recipient) error {
 	thID, err := msg.ThreadID()
 	if err != nil {
 		return fmt.Errorf("handle request threadID: %w", err)
 	}
 
 	return c.saveInvitationEnvelope(thID, InvitationEnvelope{
-		Dests: []*service.Destination{dest},
+		Recps: []*introduce.Recipient{{To: to}, recipient},
 	})
 }
 
 // HandleRequestWithInvitation is a helper function to prepare the right protocol dependency interface
 // It can be executed after receiving a Request action message (the client has a public Invitation)
-func (c *Client) HandleRequestWithInvitation(msg service.DIDCommMsg, inv *didexchange.Invitation) error {
+// nolint: lll
+func (c *Client) HandleRequestWithInvitation(msg service.DIDCommMsg, inv *didexchange.Invitation, to *introduce.To) error {
 	thID, err := msg.ThreadID()
 	if err != nil {
 		return fmt.Errorf("handle request with invitation threadID: %w", err)
 	}
 
 	return c.saveInvitationEnvelope(thID, InvitationEnvelope{
-		Inv: inv,
+		Inv:   inv,
+		Recps: []*introduce.Recipient{{To: to}},
 	})
 }
 
@@ -162,16 +164,16 @@ func (c *Client) handleOutbound(msg interface{}, o InvitationEnvelope) error {
 		return err
 	}
 
-	return c.service.HandleOutbound(didMsg, o.Dests[0])
+	return c.service.HandleOutbound(didMsg, o.Recps[0].Destination)
 }
 
 // InvitationEnvelope keeps the information needed for sending a proposal
 type InvitationEnvelope struct {
 	// Invitation must be set when we have a public Invitation
-	Inv *didexchange.Invitation `json:"inv,omitempty"`
-	// Destinations contain one or two elements
-	// one element - for a public Invitation, otherwise two elements
-	Dests []*service.Destination `json:"dests,omitempty"`
+	Inv *didexchange.Invitation `json:"invitation,omitempty"`
+	// Recipients contain one or two elements
+	// one element - for the public Invitation, otherwise two elements
+	Recps []*introduce.Recipient `json:"recipients,omitempty"`
 }
 
 // Invitation returns an Invitation needed for the service (state machine depends on it)
@@ -179,37 +181,17 @@ func (o *InvitationEnvelope) Invitation() *didexchange.Invitation {
 	return o.Inv
 }
 
-// Destinations returns destinations needed for the service (state machine depends on it)
-func (o *InvitationEnvelope) Destinations() []*service.Destination {
-	return o.Dests
+// Recipients returns data needed for the service (state machine depends on it)
+func (o *InvitationEnvelope) Recipients() []*introduce.Recipient {
+	return o.Recps
 }
 
 // sendProposal sends proposal
-// the function may receive an `Invitation` or <nil> (e.g InvitationEnvelope.Invitation)
-// if the invitation is not <nil> it means we have a public invitation.
-// Destinations (e.g InvitationEnvelope.Destinations) should have one or two values, if destinations
-// have only one value it means that it is public invitation
-// (an invitation `InvitationEnvelope.Invitation` is required), otherwise destinations have two
-// values, it means we do not have a public invitation (we will wait for it from one of introducees)
-// Usage:
-//  Sends public invitation to the destination
-// 	sendProposal(&options{
-// 		Invitation: invitation,
-// 		Destinations: []*service.Destination{
-// 			destination,
-// 		},
-// 	})
-// 	Forwards an invitation from one introducee to another
-// 	sendProposal(&options{
-// 		Destinations: []*service.Destination{
-// 			destination1,
-// 			destination2,
-// 		},
-// 	})
 func (c *Client) sendProposal(o InvitationEnvelope) error {
 	return c.handleOutbound(&introduce.Proposal{
 		Type: introduce.ProposalMsgType,
 		ID:   c.newUUID(),
+		To:   o.Recps[0].To,
 	}, o)
 }
 
