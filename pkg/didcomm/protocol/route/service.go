@@ -7,14 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package route
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
+
+var logger = log.New("aries-framework/did-exchange/service")
 
 // constants for route coordination spec types
 const (
@@ -31,10 +35,26 @@ const (
 	GrantMsgType = CoordinationSpec + "route-grant"
 
 	// KeyListUpdateMsgType defines the route coordination key list update message type.
-	KeyListUpdateMsgType = CoordinationSpec + "keylist_update"
+	KeylistUpdateMsgType = CoordinationSpec + "keylist_update"
 
 	// KeyListUpdateResponseMsgType defines the route coordination key list update message response type.
-	KeyListUpdateResponseMsgType = CoordinationSpec + "keylist_update_response"
+	KeylistUpdateResponseMsgType = CoordinationSpec + "keylist_update_response"
+)
+
+// constants for key list update processing
+// https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination#keylist-update
+const (
+	// add key to the store
+	add = "add"
+
+	// remove key from the store
+	remove = "remove"
+
+	// server error while storing the key
+	serverError = "server_error"
+
+	// key save success
+	success = "success"
 )
 
 // provider contains dependencies for the Routing protocol and is typically created by using aries.Context()
@@ -73,7 +93,21 @@ func New(prov provider) (*Service, error) {
 
 // HandleInbound handles inbound route coordination messages.
 func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
-	return "", errors.New("not implemented")
+	// perform action on inbound message asynchronously
+	go func() {
+		switch msg.Header.Type {
+		case RequestMsgType:
+			if err := s.handleRequest(msg); err != nil {
+				logger.Errorf("handle route request error : %s", err)
+			}
+		case KeylistUpdateMsgType:
+			if err := s.handleKeylistUpdate(msg); err != nil {
+				logger.Errorf("handle route request error : %s", err)
+			}
+		}
+	}()
+
+	return msg.Header.ID, nil
 }
 
 // HandleOutbound handles outbound route coordination messages.
@@ -84,7 +118,7 @@ func (s *Service) HandleOutbound(msg *service.DIDCommMsg, destination *service.D
 // Accept checks whether the service can handle the message type.
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
-	case RequestMsgType, GrantMsgType, KeyListUpdateMsgType, KeyListUpdateResponseMsgType:
+	case RequestMsgType, GrantMsgType, KeylistUpdateMsgType, KeylistUpdateResponseMsgType:
 		return true
 	}
 
@@ -94,4 +128,85 @@ func (s *Service) Accept(msgType string) bool {
 // Name of the service
 func (s *Service) Name() string {
 	return Coordination
+}
+
+func (s *Service) handleRequest(msg *service.DIDCommMsg) error {
+	// unmarshal the payload
+	request := &Request{}
+
+	err := json.Unmarshal(msg.Payload, request)
+	if err != nil {
+		return fmt.Errorf("route request message unmarshal : %w", err)
+	}
+
+	// create keys
+	_, sigPubKey, err := s.kms.CreateKeySet()
+	if err != nil {
+		return fmt.Errorf("failed to create keys : %w", err)
+	}
+
+	// send the grant response
+	grant := &Grant{
+		Type:        GrantMsgType,
+		ID:          msg.Header.ID,
+		Endpoint:    s.endpoint,
+		RoutingKeys: []string{sigPubKey},
+	}
+
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/725 get destination details from the connection
+	return s.outbound.Send(grant, "", nil)
+}
+
+func (s *Service) handleKeylistUpdate(msg *service.DIDCommMsg) error {
+	// unmarshal the payload
+	keyUpdate := &KeylistUpdate{}
+
+	err := json.Unmarshal(msg.Payload, keyUpdate)
+	if err != nil {
+		return fmt.Errorf("route key list update message unmarshal : %w", err)
+	}
+
+	var updates []UpdateResponse
+
+	// update the db
+	for _, v := range keyUpdate.Updates {
+		if v.Action == add {
+			// TODO https://github.com/hyperledger/aries-framework-go/issues/725 need to get the DID from the inbound transport
+			val := ""
+			result := success
+
+			err = s.routeStore.Put(v.RecipientKey, []byte(val))
+			if err != nil {
+				logger.Errorf("failed to add the route key to store : %s", err)
+
+				result = serverError
+			}
+
+			// construct the response doc
+			updates = append(updates, UpdateResponse{
+				RecipientKey: v.RecipientKey,
+				Action:       v.Action,
+				Result:       result,
+			})
+		} else if v.Action == remove {
+			// TODO remove from the store
+
+			// construct the response doc
+			updates = append(updates, UpdateResponse{
+				RecipientKey: v.RecipientKey,
+				Action:       v.Action,
+				Result:       serverError,
+			})
+		}
+	}
+
+	// send the key update response
+	updateResponse := &KeylistUpdateResponse{
+		Type:    KeylistUpdateResponseMsgType,
+		ID:      msg.Header.ID,
+		Updated: updates,
+	}
+
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/725 get destination details from the connection
+	return s.outbound.Send(updateResponse, "", nil)
 }

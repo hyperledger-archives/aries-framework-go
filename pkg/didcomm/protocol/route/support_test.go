@@ -7,6 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package route
 
 import (
+	"encoding/json"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
@@ -18,9 +25,15 @@ import (
 // mock route coordination provider
 type mockProvider struct {
 	openStoreErr error
+	outbound     dispatcher.Outbound
+	endpoint     string
 }
 
 func (p *mockProvider) OutboundDispatcher() dispatcher.Outbound {
+	if p.outbound != nil {
+		return p.outbound
+	}
+
 	return &mockdispatcher.MockOutbound{}
 }
 
@@ -33,9 +46,53 @@ func (p *mockProvider) StorageProvider() storage.Provider {
 }
 
 func (p *mockProvider) InboundTransportEndpoint() string {
+	if p.endpoint != "" {
+		return p.endpoint
+	}
+
 	return "ws://example.com"
 }
 
 func (p *mockProvider) KMS() kms.KeyManager {
 	return &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}
+}
+
+// mock outbound
+type mockOutbound struct {
+	validateSend func(msg interface{}) error
+}
+
+func (m *mockOutbound) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
+	return m.validateSend(msg)
+}
+
+func generateRequestMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
+	requestBytes, err := json.Marshal(&Request{
+		Type: RequestMsgType,
+		ID:   id,
+	})
+	require.NoError(t, err)
+
+	didMsg, err := service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	return didMsg
+}
+
+func generateKeyUpdateListMsgPayload(t *testing.T, id string, updates []Update) *service.DIDCommMsg {
+	requestBytes, err := json.Marshal(&KeylistUpdate{
+		Type:    KeylistUpdateMsgType,
+		ID:      id,
+		Updates: updates,
+	})
+	require.NoError(t, err)
+
+	didMsg, err := service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	return didMsg
+}
+
+func randomID() string {
+	return uuid.New().String()
 }

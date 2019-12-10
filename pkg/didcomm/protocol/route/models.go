@@ -22,9 +22,9 @@ type Grant struct {
 	RoutingKeys []string `json:"routing_keys,omitempty"`
 }
 
-// KeyUpdate route key update message.
+// KeylistUpdate route keylist update message.
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination#keylist-update
-type KeyUpdate struct {
+type KeylistUpdate struct {
 	Type    string   `json:"@type,omitempty"`
 	ID      string   `json:"@id,omitempty"`
 	Updates []Update `json:"updates,omitempty"`
@@ -36,9 +36,9 @@ type Update struct {
 	Action       string `json:"action,omitempty"`
 }
 
-// KeyUpdateResponse route key update response message.
+// KeylistUpdateResponse route keylist update response message.
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination#keylist-update-response
-type KeyUpdateResponse struct {
+type KeylistUpdateResponse struct {
 	Type    string           `json:"@type,omitempty"`
 	ID      string           `json:"@id,omitempty"`
 	Updated []UpdateResponse `json:"updated,omitempty"`
