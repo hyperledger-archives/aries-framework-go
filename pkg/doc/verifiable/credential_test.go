@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/xeipuuv/gojsonschema"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -544,16 +546,6 @@ func TestJSONConversionCompositeIssuer(t *testing.T) {
 	require.Equal(t, vc, cred2)
 }
 
-func TestWithHttpClient(t *testing.T) {
-	client := &http.Client{}
-	credentialOpt := WithSchemaDownloadClient(client)
-	require.NotNil(t, credentialOpt)
-
-	opts := &credentialOpts{}
-	credentialOpt(opts)
-	require.NotNil(t, opts.schemaDownloadClient)
-}
-
 func TestWithDisabledExternalSchemaCheck(t *testing.T) {
 	credentialOpt := WithNoCustomSchemaCheck()
 	require.NotNil(t, credentialOpt)
@@ -561,6 +553,40 @@ func TestWithDisabledExternalSchemaCheck(t *testing.T) {
 	opts := &credentialOpts{}
 	credentialOpt(opts)
 	require.True(t, opts.disabledCustomSchema)
+}
+
+func TestWithCredentialSchemaLoader(t *testing.T) {
+	httpClient := &http.Client{}
+	jsonSchemaLoader := gojsonschema.NewStringLoader(defaultSchema)
+	cache := NewExpirableSchemaCache(100, 10*time.Minute)
+
+	credentialOpt := WithCredentialSchemaLoader(
+		NewCredentialSchemaLoaderBuilder().
+			SetSchemaDownloadClient(httpClient).
+			SetCache(cache).
+			SetJSONLoader(jsonSchemaLoader).
+			Build())
+	require.NotNil(t, credentialOpt)
+
+	opts := &credentialOpts{}
+	credentialOpt(opts)
+	require.NotNil(t, opts.schemaLoader)
+	require.Equal(t, httpClient, opts.schemaLoader.schemaDownloadClient)
+	require.Equal(t, jsonSchemaLoader, opts.schemaLoader.jsonLoader)
+	require.Equal(t, cache, opts.schemaLoader.cache)
+
+	// check that defaults are applied
+
+	credentialOpt = WithCredentialSchemaLoader(
+		NewCredentialSchemaLoaderBuilder().Build())
+	require.NotNil(t, credentialOpt)
+
+	opts = &credentialOpts{}
+	credentialOpt(opts)
+	require.NotNil(t, opts.schemaLoader)
+	require.NotNil(t, opts.schemaLoader.schemaDownloadClient)
+	require.NotNil(t, opts.schemaLoader.jsonLoader)
+	require.Nil(t, opts.schemaLoader.cache)
 }
 
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
@@ -596,7 +622,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	require.NoError(t, mErr)
 
 	t.Run("Applies custom JSON Schema and detects data inconsistency due to missing new required field", func(t *testing.T) { //nolint:lll
-		vc, vcBytes, err := NewCredential(missingReqFieldSchema, WithSchemaDownloadClient(&http.Client{}))
+		vc, vcBytes, err := NewCredential(missingReqFieldSchema)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "referenceNumber is required")
 		require.Nil(t, vc)
@@ -613,7 +639,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		customValidSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		vc, _, err := NewCredential(customValidSchema, WithSchemaDownloadClient(&http.Client{}))
+		vc, _, err := NewCredential(customValidSchema)
 		require.NoError(t, err)
 
 		// check credential schema
@@ -633,7 +659,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		schemaWithInvalidURLToCredentialSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		vc, vcBytes, err := NewCredential(schemaWithInvalidURLToCredentialSchema, WithSchemaDownloadClient(&http.Client{}))
+		vc, vcBytes, err := NewCredential(schemaWithInvalidURLToCredentialSchema)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "load of custom credential schema")
 		require.Nil(t, vc)
@@ -650,7 +676,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		unsupportedCredentialTypeOfSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		vc, _, err := NewCredential(unsupportedCredentialTypeOfSchema, WithSchemaDownloadClient(&http.Client{}))
+		vc, _, err := NewCredential(unsupportedCredentialTypeOfSchema)
 		require.NoError(t, err)
 
 		// check credential schema
@@ -660,9 +686,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	})
 
 	t.Run("Fallback to default schema validation when custom schemas usage is disabled", func(t *testing.T) {
-		_, _, err := NewCredential(missingReqFieldSchema,
-			WithSchemaDownloadClient(&http.Client{}),
-			WithNoCustomSchemaCheck())
+		_, _, err := NewCredential(missingReqFieldSchema, WithNoCustomSchemaCheck())
 
 		// without disabling external schema check we would get an error here
 		require.NoError(t, err)
@@ -670,6 +694,15 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 }
 
 func TestDownloadCustomSchema(t *testing.T) {
+	httpClient := &http.Client{}
+
+	noCacheOpts := &credentialOpts{schemaLoader: newDefaultSchemaLoader()}
+	withCacheOpts := &credentialOpts{schemaLoader: &CredentialSchemaLoader{
+		schemaDownloadClient: httpClient,
+		jsonLoader:           gojsonschema.NewStringLoader(defaultSchema),
+		cache:                NewExpirableSchemaCache(32*1024*1024, time.Hour),
+	}}
+
 	t.Run("HTTP GET request to download custom credentialSchema successes", func(t *testing.T) {
 		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			res.WriteHeader(http.StatusOK)
@@ -678,9 +711,47 @@ func TestDownloadCustomSchema(t *testing.T) {
 		}))
 		defer func() { testServer.Close() }()
 
-		customSchema, err := loadCredentialSchema(testServer.URL, &http.Client{})
+		customSchema, err := getJSONSchema(testServer.URL, noCacheOpts)
 		require.NoError(t, err)
 		require.Equal(t, []byte("custom schema"), customSchema)
+	})
+
+	t.Run("Check custom schema caching", func(t *testing.T) {
+		loadsCount := 0
+		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			res.WriteHeader(http.StatusOK)
+			_, err := res.Write([]byte("custom schema"))
+			require.NoError(t, err)
+			loadsCount++
+		}))
+		defer func() { testServer.Close() }()
+
+		customSchema, err := getJSONSchema(testServer.URL, withCacheOpts)
+		require.NoError(t, err)
+		require.Equal(t, []byte("custom schema"), customSchema)
+
+		// Check that schema was downloaded only once - i.e. the cache was used second time
+		customSchema2, err := getJSONSchema(testServer.URL, withCacheOpts)
+		require.NoError(t, err)
+		require.Equal(t, []byte("custom schema"), customSchema2)
+		require.Equal(t, 1, loadsCount)
+
+		// Check for cache expiration.
+		withCacheOpts = &credentialOpts{schemaLoader: &CredentialSchemaLoader{
+			schemaDownloadClient: httpClient,
+			jsonLoader:           gojsonschema.NewStringLoader(defaultSchema),
+			cache:                NewExpirableSchemaCache(32*1024*1024, time.Second),
+		}}
+		loadsCount = 0
+		customSchema4, err := getJSONSchema(testServer.URL, withCacheOpts)
+		require.NoError(t, err)
+		require.Equal(t, []byte("custom schema"), customSchema4)
+
+		time.Sleep(2 * time.Second)
+		customSchema5, err := getJSONSchema(testServer.URL, withCacheOpts)
+		require.NoError(t, err)
+		require.Equal(t, []byte("custom schema"), customSchema5)
+		require.Equal(t, 2, loadsCount)
 	})
 
 	t.Run("HTTP GET request to download custom credentialSchema fails", func(t *testing.T) {
@@ -689,7 +760,7 @@ func TestDownloadCustomSchema(t *testing.T) {
 		}))
 		defer func() { testServer.Close() }()
 
-		customSchema, err := loadCredentialSchema(testServer.URL, &http.Client{})
+		customSchema, err := getJSONSchema(testServer.URL, noCacheOpts)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "load credential schema")
 		require.Nil(t, customSchema)
@@ -702,18 +773,11 @@ func TestDownloadCustomSchema(t *testing.T) {
 		}))
 		defer func() { testServer.Close() }()
 
-		customSchema, err := loadCredentialSchema(testServer.URL, &http.Client{})
+		customSchema, err := getJSONSchema(testServer.URL, withCacheOpts)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credential schema endpoint HTTP failure")
 		require.Nil(t, customSchema)
 	})
-}
-
-func TestDefaultCredentialOpts(t *testing.T) {
-	opts := defaultCredentialOpts()
-	require.NotNil(t, opts)
-	require.NotNil(t, opts.schemaDownloadClient)
-	require.False(t, opts.disabledCustomSchema)
 }
 
 func TestCredentialSubjectId(t *testing.T) {
