@@ -47,7 +47,6 @@ var GetInboundDestination = func() *service.Destination {
 
 type internalContext struct {
 	dispatcher.Outbound
-	Forwarder
 }
 
 // The introduce protocol's state.
@@ -232,7 +231,11 @@ func sendProblemReport(ctx internalContext, m *metaData, recipients []*Recipient
 
 func deliveringSkipInvitation(ctx internalContext, m *metaData, recipients []*Recipient) (state, error) {
 	// for skip proposal, we always have only one recipient e.g recipients[0]
-	err := ctx.SendInvitation(m.ThreadID, m.dependency.Invitation(), recipients[0].Destination)
+	inv := m.dependency.Invitation()
+	inv.Thread = &decorator.Thread{PID: m.ThreadID}
+
+	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
+	err := ctx.Send(inv, "", recipients[0].Destination)
 	if err != nil {
 		return nil, fmt.Errorf("send inbound invitation (skip): %w", err)
 	}
@@ -256,7 +259,10 @@ func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, er
 		return &abandoning{}, nil
 	}
 
-	err := ctx.SendInvitation(m.ThreadID, m.Invitation, recipients[toDestIDx(m.IntroduceeIndex)].Destination)
+	m.Invitation.Thread = &decorator.Thread{PID: m.ThreadID}
+
+	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
+	err := ctx.Send(m.Invitation, "", recipients[toDestIDx(m.IntroduceeIndex)].Destination)
 	if err != nil {
 		return nil, fmt.Errorf("send inbound invitation: %w", err)
 	}

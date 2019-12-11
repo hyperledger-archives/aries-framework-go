@@ -373,3 +373,9 @@ func Test_stateFromName(t *testing.T) {
 	st = stateFromName("unknown")
 	require.Equal(t, &noOp{}, st)
 }
+
+func Test_save(t *testing.T) {
+	const errMsg = "service save: json: unsupported type: chan struct {}"
+
+	require.EqualError(t, (&Service{}).save("ID", make(chan struct{})), errMsg)
+}

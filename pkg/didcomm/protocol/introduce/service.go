@@ -38,6 +38,8 @@ const (
 	AckMsgType = IntroduceSpec + "ack"
 	// ProblemReportMsgType defines the introduce problem-report message type.
 	ProblemReportMsgType = IntroduceSpec + "problem-report"
+	// stateInvited the didexchange protocol state name to determine specific event
+	stateInvited = "invited"
 )
 
 const (
@@ -104,13 +106,15 @@ type record struct {
 type Service struct {
 	service.Action
 	service.Message
-	store       storage.Store
-	callbacks   chan *metaData
-	ctx         internalContext
-	wg          sync.WaitGroup
-	stop        chan struct{}
-	closedMutex sync.Mutex
-	closed      bool
+	store           storage.Store
+	callbacks       chan *metaData
+	didEvent        chan service.StateMsg
+	didEventService service.Event
+	ctx             internalContext
+	wg              sync.WaitGroup
+	stop            chan struct{}
+	closedMutex     sync.Mutex
+	closed          bool
 }
 
 // Provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
@@ -118,12 +122,6 @@ type Provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	Service(id string) (interface{}, error)
-}
-
-// Forwarder provides the possibility to forward an invitation
-type Forwarder interface {
-	// method should be implemented in didexchange service
-	SendInvitation(pthID string, inv *didexchange.Invitation, dest *service.Destination) error
 }
 
 // New returns introduce service
@@ -135,22 +133,27 @@ func New(p Provider) (*Service, error) {
 
 	didSvc, err := p.Service(didexchange.DIDExchange)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("load the DIDExchange service: %w", err)
 	}
 
-	forwarderSvc, ok := didSvc.(Forwarder)
+	didService, ok := didSvc.(service.Event)
 	if !ok {
-		return nil, errors.New("cast service to forwarder service failed")
+		return nil, fmt.Errorf("cast service to service.Event")
 	}
 
 	svc := &Service{
 		ctx: internalContext{
-			Outbound:  p.OutboundDispatcher(),
-			Forwarder: forwarderSvc,
+			Outbound: p.OutboundDispatcher(),
 		},
-		store:     store,
-		callbacks: make(chan *metaData),
-		stop:      make(chan struct{}),
+		store:           store,
+		didEventService: didService,
+		callbacks:       make(chan *metaData),
+		didEvent:        make(chan service.StateMsg),
+		stop:            make(chan struct{}),
+	}
+
+	if err = svc.didEventService.RegisterMsgEvent(svc.didEvent); err != nil {
+		return nil, fmt.Errorf("did register msg event: %w", err)
 	}
 
 	// start the listener
@@ -168,6 +171,10 @@ func (s *Service) Stop() error {
 
 	if s.closed {
 		return errors.New("server was already stopped")
+	}
+
+	if err := s.didEventService.UnregisterMsgEvent(s.didEvent); err != nil {
+		return fmt.Errorf("stop unregister msg event: %w", err)
 	}
 
 	close(s.stop)
@@ -196,6 +203,10 @@ func (s *Service) startInternalListener() {
 
 			if err := s.handle(msg, nil); err != nil {
 				logger.Errorf("listener handle: %s", err)
+			}
+		case event := <-s.didEvent:
+			if err := s.InvitationReceived(event); err != nil {
+				logger.Errorf("listener invitation received: %s", err)
 			}
 		case <-s.stop:
 			logger.Infof("the callback listener was stopped")
@@ -248,22 +259,30 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 
 // InvitationReceived is used to finish the state machine
 // the function should be called by didexchange after receiving an invitation
-func (s *Service) InvitationReceived(thID string) error {
+func (s *Service) InvitationReceived(msg service.StateMsg) error {
+	if msg.StateID != stateInvited || msg.Type != service.PostState {
+		return nil
+	}
+
+	if msg.Msg.Header == nil || msg.Msg.Header.Thread.PID == "" {
+		return nil
+	}
+
 	payload, err := json.Marshal(&model.Ack{
 		Type:   AckMsgType,
 		ID:     uuid.New().String(),
-		Thread: &decorator.Thread{ID: thID},
+		Thread: &decorator.Thread{ID: msg.Msg.Header.Thread.PID},
 	})
 	if err != nil {
 		return fmt.Errorf("invitation received marshal: %w", err)
 	}
 
-	msg, err := service.NewDIDCommMsg(payload)
+	didMsg, err := service.NewDIDCommMsg(payload)
 	if err != nil {
 		return fmt.Errorf("invitation received new DIDComm msg: %w", err)
 	}
 
-	_, err = s.HandleInbound(msg)
+	_, err = s.HandleInbound(didMsg)
 
 	return err
 }

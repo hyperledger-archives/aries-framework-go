@@ -90,10 +90,13 @@ func TestClient_SendProposal(t *testing.T) {
 	storageProvider := storageMocks.NewMockProvider(ctrl)
 	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil).Times(2)
 
+	didService := serviceMocks.NewMockDIDComm(ctrl)
+	didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
 	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
-	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(introduceProvider)
 	require.NoError(t, err)
@@ -132,10 +135,13 @@ func TestClient_SendProposalWithInvitation(t *testing.T) {
 	storageProvider := storageMocks.NewMockProvider(ctrl)
 	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil).Times(2)
 
+	didService := serviceMocks.NewMockDIDComm(ctrl)
+	didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
 	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
-	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(introduceProvider)
 	require.NoError(t, err)
@@ -176,10 +182,13 @@ func TestClient_HandleRequest(t *testing.T) {
 	storageProvider := storageMocks.NewMockProvider(ctrl)
 	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil).Times(2)
 
+	didService := serviceMocks.NewMockDIDComm(ctrl)
+	didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
 	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
-	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(introduceProvider)
 	require.NoError(t, err)
@@ -268,10 +277,13 @@ func TestClient_InvitationEnvelope(t *testing.T) {
 	storageProvider := storageMocks.NewMockProvider(ctrl)
 	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil).Times(2)
 
+	didService := serviceMocks.NewMockDIDComm(ctrl)
+	didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
 	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
-	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(introduceProvider)
 	require.NoError(t, err)
@@ -330,10 +342,13 @@ func TestClient_SendRequest(t *testing.T) {
 	storageProvider := storageMocks.NewMockProvider(ctrl)
 	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil).Times(2)
 
+	didService := serviceMocks.NewMockDIDComm(ctrl)
+	didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
 	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
-	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(introduceProvider)
 	require.NoError(t, err)

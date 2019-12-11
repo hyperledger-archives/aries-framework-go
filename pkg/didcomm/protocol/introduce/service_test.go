@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service/gomocks"
 	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/gomocks"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -48,6 +49,8 @@ type flow struct {
 	transport               map[string]chan interface{}
 	dependency              introduce.InvitationEnvelope
 	recipients              []*introduce.Recipient
+	didEvent                chan<- service.StateMsg
+	controller              *gomock.Controller
 	startWithRequest        bool
 	startWithProposal       bool
 	skipProposal            bool
@@ -86,7 +89,7 @@ func TestService_New(t *testing.T) {
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(nil, errors.New(errMsg))
 
 		svc, err := introduce.New(provider)
-		require.EqualError(t, err, "test err")
+		require.EqualError(t, err, "load the DIDExchange service: test err")
 		require.Nil(t, svc)
 	})
 
@@ -99,7 +102,7 @@ func TestService_New(t *testing.T) {
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(nil, nil)
 
 		svc, err := introduce.New(provider)
-		require.EqualError(t, err, "cast service to forwarder service failed")
+		require.EqualError(t, err, "cast service to service.Event")
 		require.Nil(t, svc)
 	})
 }
@@ -111,10 +114,14 @@ func TestService_Stop(t *testing.T) {
 	storageProvider := storageMocks.NewMockProvider(ctrl)
 	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(nil, nil)
 
+	didService := serviceMocks.NewMockDIDComm(ctrl)
+	didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+	didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 	provider := introduceMocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
 	provider.EXPECT().OutboundDispatcher().Return(nil)
-	provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(provider)
 	require.NoError(t, err)
@@ -130,10 +137,14 @@ func TestService_Name(t *testing.T) {
 	storageProvider := storageMocks.NewMockProvider(ctrl)
 	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(nil, nil)
 
+	didService := serviceMocks.NewMockDIDComm(ctrl)
+	didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+	didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 	provider := introduceMocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
 	provider.EXPECT().OutboundDispatcher().Return(nil)
-	provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(provider)
 	require.NoError(t, err)
@@ -154,10 +165,14 @@ func TestService_HandleOutbound(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
+		didService := serviceMocks.NewMockDIDComm(ctrl)
+		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -179,10 +194,14 @@ func TestService_HandleOutbound(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
+		didService := serviceMocks.NewMockDIDComm(ctrl)
+		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 
@@ -205,10 +224,14 @@ func TestService_HandleOutbound(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
+		didService := serviceMocks.NewMockDIDComm(ctrl)
+		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -237,10 +260,14 @@ func TestService_HandleOutbound(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
+		didService := serviceMocks.NewMockDIDComm(ctrl)
+		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -267,10 +294,14 @@ func TestService_HandleOutbound(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
+		didService := serviceMocks.NewMockDIDComm(ctrl)
+		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -299,10 +330,14 @@ func TestService_HandleInbound(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(nil, nil)
 
+		didService := serviceMocks.NewMockDIDComm(ctrl)
+		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -318,10 +353,14 @@ func TestService_HandleInbound(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(nil, nil)
 
+		didService := serviceMocks.NewMockDIDComm(ctrl)
+		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -347,10 +386,14 @@ func TestService_HandleInbound(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
+		didService := serviceMocks.NewMockDIDComm(ctrl)
+		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -374,10 +417,14 @@ func TestService_HandleInbound(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
+		didService := serviceMocks.NewMockDIDComm(ctrl)
+		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -402,10 +449,14 @@ func TestService_HandleInbound(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
 
+		didService := serviceMocks.NewMockDIDComm(ctrl)
+		didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().OutboundDispatcher().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -427,10 +478,14 @@ func TestService_Accept(t *testing.T) {
 	storageProvider := storageMocks.NewMockProvider(ctrl)
 	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(nil, nil)
 
+	didService := serviceMocks.NewMockDIDComm(ctrl)
+	didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+	didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 	provider := introduceMocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
 	provider.EXPECT().OutboundDispatcher().Return(nil)
-	provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(provider)
 	require.NoError(t, err)
@@ -455,7 +510,7 @@ func TestService_Accept(t *testing.T) {
 func TestService_Proposal(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -466,8 +521,12 @@ func TestService_Proposal(t *testing.T) {
 		return &service.Destination{ServiceEndpoint: Alice}
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		expectedInv:  inv,
 		transportKey: Alice,
 		transport:    transport,
@@ -476,24 +535,24 @@ func TestService_Proposal(t *testing.T) {
 			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
-	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+	carol, carolDep, didEventCarol := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Carol,
 		transport:    transport,
 	})
-	defer carolCtrl.Finish()
 	defer stop(t, carol)
 
 	var wg sync.WaitGroup
@@ -503,6 +562,7 @@ func TestService_Proposal(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -517,20 +577,24 @@ func TestService_Proposal(t *testing.T) {
 	// introducee side Bob
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          bob,
 		transport:    transport,
 		dependency:   bobDep,
+		didEvent:     didEventBob,
 		transportKey: Bob,
 	})
 
 	// introducee side Carol
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          carol,
 		transport:    transport,
 		dependency:   carolDep,
+		didEvent:     didEventCarol,
 		transportKey: Carol,
 	})
 
@@ -544,7 +608,7 @@ func TestService_Proposal(t *testing.T) {
 func TestService_SkipProposal(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: "Public Invitation"}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -555,8 +619,12 @@ func TestService_SkipProposal(t *testing.T) {
 		return &service.Destination{ServiceEndpoint: Alice}
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		expectedInv:  inv,
 		transportKey: Alice,
@@ -565,16 +633,16 @@ func TestService_SkipProposal(t *testing.T) {
 			{Destination: &service.Destination{ServiceEndpoint: Bob}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          &didexchange.Invitation{Label: Bob},
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	var wg sync.WaitGroup
@@ -584,6 +652,7 @@ func TestService_SkipProposal(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -599,10 +668,12 @@ func TestService_SkipProposal(t *testing.T) {
 	// introducee side Bob
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          bob,
 		transport:    transport,
 		dependency:   bobDep,
+		didEvent:     didEventBob,
 		transportKey: Bob,
 	})
 
@@ -619,7 +690,7 @@ func TestService_SkipProposal(t *testing.T) {
 func TestService_ProposalUnusual(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -630,8 +701,12 @@ func TestService_ProposalUnusual(t *testing.T) {
 		return &service.Destination{ServiceEndpoint: Alice}
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		expectedInv:  inv,
 		transportKey: Alice,
 		transport:    transport,
@@ -640,24 +715,24 @@ func TestService_ProposalUnusual(t *testing.T) {
 			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
-	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+	carol, carolDep, didEventCarol := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		transportKey: Carol,
 		transport:    transport,
 	})
-	defer carolCtrl.Finish()
 	defer stop(t, carol)
 
 	var wg sync.WaitGroup
@@ -667,6 +742,7 @@ func TestService_ProposalUnusual(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -681,20 +757,24 @@ func TestService_ProposalUnusual(t *testing.T) {
 	// introducee side Bob
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          bob,
 		transport:    transport,
 		dependency:   bobDep,
+		didEvent:     didEventBob,
 		transportKey: Bob,
 	})
 
 	// introducee side Carol
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          carol,
 		transport:    transport,
 		dependency:   carolDep,
+		didEvent:     didEventCarol,
 		transportKey: Carol,
 	})
 
@@ -709,7 +789,7 @@ func TestService_ProposalUnusual(t *testing.T) {
 func TestService_SkipProposalWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: "Public Invitation"}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -727,8 +807,12 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 		return destinations[idx]
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		expectedInv:  inv,
 		transportKey: Alice,
@@ -737,16 +821,16 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 		},
 		transport: transport,
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Bob,
 		inv:          &didexchange.Invitation{Label: Bob},
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	var wg sync.WaitGroup
@@ -756,6 +840,7 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -771,6 +856,7 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 		svc:        bob,
 		transport:  transport,
 		dependency: bobDep,
+		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
 			{Destination: &service.Destination{ServiceEndpoint: Alice}},
 		},
@@ -792,7 +878,7 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 func TestService_ProposalWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -811,8 +897,12 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		return destinations[idx]
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		expectedInv:  inv,
 		transportKey: Alice,
 		transport:    transport,
@@ -821,24 +911,24 @@ func TestService_ProposalWithRequest(t *testing.T) {
 			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
-	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+	carol, carolDep, didEventCarol := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Carol,
 		transport:    transport,
 	})
-	defer carolCtrl.Finish()
 	defer stop(t, carol)
 
 	var wg sync.WaitGroup
@@ -848,6 +938,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -862,6 +953,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		svc:        bob,
 		transport:  transport,
 		dependency: bobDep,
+		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
 			{Destination: &service.Destination{ServiceEndpoint: Alice}},
 		},
@@ -872,10 +964,12 @@ func TestService_ProposalWithRequest(t *testing.T) {
 	// introducee side Carol
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          carol,
 		transport:    transport,
 		dependency:   carolDep,
+		didEvent:     didEventCarol,
 		transportKey: Carol,
 	})
 
@@ -893,7 +987,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 func TestService_ProposalUnusualWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -912,8 +1006,12 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 		return destinations[idx]
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		expectedInv:  inv,
 		transportKey: Alice,
 		transport:    transport,
@@ -922,24 +1020,24 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
-	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+	carol, carolDep, didEventCarol := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		transportKey: Carol,
 		transport:    transport,
 	})
-	defer carolCtrl.Finish()
 	defer stop(t, carol)
 
 	var wg sync.WaitGroup
@@ -949,6 +1047,7 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -963,6 +1062,7 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 		svc:        bob,
 		transport:  transport,
 		dependency: bobDep,
+		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
 			{Destination: &service.Destination{ServiceEndpoint: Alice}},
 		},
@@ -973,10 +1073,12 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 	// introducee side Carol
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          carol,
 		transport:    transport,
 		dependency:   carolDep,
+		didEvent:     didEventCarol,
 		transportKey: Carol,
 	})
 
@@ -1002,8 +1104,12 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 		return &service.Destination{ServiceEndpoint: Alice}
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Alice,
 		transport:    transport,
 		recipients: []*introduce.Recipient{
@@ -1011,23 +1117,23 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
-	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+	carol, carolDep, didEventCarol := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Carol,
 		transport:    transport,
 	})
-	defer carolCtrl.Finish()
 	defer stop(t, carol)
 
 	var wg sync.WaitGroup
@@ -1037,6 +1143,7 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -1052,20 +1159,24 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 	// introducee side Bob
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          bob,
 		transport:    transport,
 		dependency:   bobDep,
+		didEvent:     didEventBob,
 		transportKey: Bob,
 	})
 
 	// introducee side Carol
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          carol,
 		transport:    transport,
 		dependency:   carolDep,
+		didEvent:     didEventCarol,
 		transportKey: Carol,
 	})
 
@@ -1101,8 +1212,12 @@ func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 		return destinations[idx]
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Alice,
 		transport:    transport,
 		recipients: []*introduce.Recipient{
@@ -1110,23 +1225,23 @@ func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
-	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+	carol, carolDep, didEventCarol := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Carol,
 		transport:    transport,
 	})
-	defer carolCtrl.Finish()
 	defer stop(t, carol)
 
 	var wg sync.WaitGroup
@@ -1151,6 +1266,7 @@ func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 		svc:        bob,
 		transport:  transport,
 		dependency: bobDep,
+		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
 			{Destination: &service.Destination{ServiceEndpoint: Alice}},
 		},
@@ -1161,10 +1277,12 @@ func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 	// introducee side Carol
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          carol,
 		transport:    transport,
 		dependency:   carolDep,
+		didEvent:     didEventCarol,
 		transportKey: Carol,
 	})
 
@@ -1177,7 +1295,7 @@ func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 func TestService_ProposalStop(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -1188,22 +1306,26 @@ func TestService_ProposalStop(t *testing.T) {
 		return &service.Destination{ServiceEndpoint: Alice}
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		expectedInv:  inv,
 		transportKey: Alice,
 		transport:    transport,
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	var wg sync.WaitGroup
@@ -1213,6 +1335,7 @@ func TestService_ProposalStop(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -1232,6 +1355,7 @@ func TestService_ProposalStop(t *testing.T) {
 		svc:              bob,
 		transport:        transport,
 		dependency:       bobDep,
+		didEvent:         didEventBob,
 		transportKey:     Bob,
 		withProposalStop: true,
 	})
@@ -1246,7 +1370,7 @@ func TestService_ProposalStop(t *testing.T) {
 func TestService_ProposalStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -1265,8 +1389,12 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 		return destinations[idx]
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		expectedInv:  inv,
 		transportKey: Alice,
 		transport:    transport,
@@ -1274,16 +1402,16 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 			{To: &introduce.To{Name: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	var wg sync.WaitGroup
@@ -1308,6 +1436,7 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 		svc:        bob,
 		transport:  transport,
 		dependency: bobDep,
+		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
 			{Destination: &service.Destination{ServiceEndpoint: Alice}},
 		},
@@ -1325,7 +1454,7 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 func TestService_SkipProposalStop(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: "Public Invitation"}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -1336,23 +1465,27 @@ func TestService_SkipProposalStop(t *testing.T) {
 		return &service.Destination{ServiceEndpoint: Alice}
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		expectedInv:  inv,
 		transportKey: Alice,
 		transport:    transport,
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Bob,
 		inv:          &didexchange.Invitation{Label: Bob},
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	var wg sync.WaitGroup
@@ -1362,6 +1495,7 @@ func TestService_SkipProposalStop(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -1382,6 +1516,7 @@ func TestService_SkipProposalStop(t *testing.T) {
 		svc:              bob,
 		transport:        transport,
 		dependency:       bobDep,
+		didEvent:         didEventBob,
 		transportKey:     Bob,
 		withProposalStop: true,
 	})
@@ -1396,7 +1531,7 @@ func TestService_SkipProposalStop(t *testing.T) {
 func TestService_SkipProposalStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: "Public Invitation"}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -1414,8 +1549,12 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 		return destinations[idx]
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		expectedInv:  inv,
 		transportKey: Alice,
@@ -1424,16 +1563,16 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 			{To: &introduce.To{Name: Bob}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          &didexchange.Invitation{Label: Bob},
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	var wg sync.WaitGroup
@@ -1459,6 +1598,7 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 		svc:        bob,
 		transport:  transport,
 		dependency: bobDep,
+		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
 			{Destination: &service.Destination{ServiceEndpoint: Alice}},
 		},
@@ -1479,7 +1619,7 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 func TestService_ProposalStopUnusual(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -1490,8 +1630,12 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 		return &service.Destination{ServiceEndpoint: Alice}
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		expectedInv:  inv,
 		transportKey: Alice,
 		transport:    transport,
@@ -1500,24 +1644,24 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
-	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+	carol, carolDep, didEventCarol := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		transportKey: Carol,
 		transport:    transport,
 	})
-	defer carolCtrl.Finish()
 	defer stop(t, carol)
 
 	var wg sync.WaitGroup
@@ -1527,6 +1671,7 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -1542,10 +1687,12 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 	// introducee side Bob
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          bob,
 		transport:    transport,
 		dependency:   bobDep,
+		didEvent:     didEventBob,
 		transportKey: Bob,
 	})
 
@@ -1556,6 +1703,7 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 		svc:              carol,
 		transport:        transport,
 		dependency:       carolDep,
+		didEvent:         didEventCarol,
 		transportKey:     Carol,
 		withProposalStop: true,
 	})
@@ -1573,7 +1721,7 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -1592,8 +1740,12 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 		return destinations[idx]
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		expectedInv:  inv,
 		transport:    transport,
 		transportKey: Alice,
@@ -1602,24 +1754,24 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
-	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+	carol, carolDep, didEventCarol := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		transportKey: Carol,
 		transport:    transport,
 	})
-	defer carolCtrl.Finish()
 	defer stop(t, carol)
 
 	var wg sync.WaitGroup
@@ -1644,6 +1796,7 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 		svc:        bob,
 		transport:  transport,
 		dependency: bobDep,
+		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
 			{Destination: &service.Destination{ServiceEndpoint: Alice}},
 		},
@@ -1658,6 +1811,7 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 		svc:              carol,
 		transport:        transport,
 		dependency:       carolDep,
+		didEvent:         didEventCarol,
 		transportKey:     Carol,
 		withProposalStop: true,
 	})
@@ -1671,7 +1825,7 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -1687,22 +1841,26 @@ func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
 		return destinations[idx]
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		expectedInv:  inv,
 		transport:    transport,
 		transportKey: Alice,
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	var wg sync.WaitGroup
@@ -1727,6 +1885,7 @@ func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
 		svc:        bob,
 		transport:  transport,
 		dependency: bobDep,
+		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
 			{Destination: &service.Destination{ServiceEndpoint: Alice}},
 		},
@@ -1744,7 +1903,7 @@ func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
 func TestService_ProposalIntroducerStop(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -1761,22 +1920,26 @@ func TestService_ProposalIntroducerStop(t *testing.T) {
 		return destinations[idx]
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		expectedInv:  inv,
 		transport:    transport,
 		transportKey: Alice,
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	var wg sync.WaitGroup
@@ -1786,6 +1949,7 @@ func TestService_ProposalIntroducerStop(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -1801,10 +1965,12 @@ func TestService_ProposalIntroducerStop(t *testing.T) {
 	// introducee side Bob
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          bob,
 		transport:    transport,
 		dependency:   bobDep,
+		didEvent:     didEventBob,
 		transportKey: Bob,
 	})
 
@@ -1819,7 +1985,7 @@ func TestService_ProposalIntroducerStop(t *testing.T) {
 func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Label: "Public Invitation"}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
 
 	getInboundDestinationOriginal := introduce.GetInboundDestination
 
@@ -1837,8 +2003,12 @@ func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
 		return destinations[idx]
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		inv:          inv,
 		expectedInv:  inv,
 		transportKey: Alice,
@@ -1847,16 +2017,16 @@ func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
 			{To: &introduce.To{Name: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Bob,
 		inv:          &didexchange.Invitation{Label: Bob},
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
 	var wg sync.WaitGroup
@@ -1882,6 +2052,7 @@ func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
 		svc:        bob,
 		transport:  transport,
 		dependency: bobDep,
+		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
 			{Destination: &service.Destination{ServiceEndpoint: Alice}},
 		},
@@ -1911,8 +2082,12 @@ func TestService_ProposalIntroducerSecondStop(t *testing.T) {
 		return &service.Destination{ServiceEndpoint: Alice}
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Alice,
 		transport:    transport,
 		recipients: []*introduce.Recipient{
@@ -1920,23 +2095,23 @@ func TestService_ProposalIntroducerSecondStop(t *testing.T) {
 			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
-	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+	carol, carolDep, didEventCarol := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Carol,
 		transport:    transport,
 	})
-	defer carolCtrl.Finish()
 	defer stop(t, carol)
 
 	var wg sync.WaitGroup
@@ -1946,6 +2121,7 @@ func TestService_ProposalIntroducerSecondStop(t *testing.T) {
 	// introducer side Alice
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          alice,
 		transport:    transport,
@@ -1961,20 +2137,24 @@ func TestService_ProposalIntroducerSecondStop(t *testing.T) {
 	// introducee side Bob
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          bob,
 		transport:    transport,
 		dependency:   bobDep,
+		didEvent:     didEventBob,
 		transportKey: Bob,
 	})
 
 	// introducee side Carol
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          carol,
 		transport:    transport,
 		dependency:   carolDep,
+		didEvent:     didEventCarol,
 		transportKey: Carol,
 	})
 
@@ -2010,8 +2190,12 @@ func TestService_ProposalIntroducerSecondStopWithRequest(t *testing.T) {
 		return destinations[idx]
 	}
 
-	aliceCtrl, alice, aliceDep := setupIntroducer(&flow{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	alice, aliceDep := setupIntroducer(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Alice,
 		transport:    transport,
 		recipients: []*introduce.Recipient{
@@ -2019,23 +2203,23 @@ func TestService_ProposalIntroducerSecondStopWithRequest(t *testing.T) {
 			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
 		},
 	})
-	defer aliceCtrl.Finish()
+
 	defer stop(t, alice)
 
-	bobCtrl, bob, bobDep := setupIntroducee(&flow{
+	bob, bobDep, didEventBob := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Bob,
 		transport:    transport,
 	})
-	defer bobCtrl.Finish()
 	defer stop(t, bob)
 
-	carolCtrl, carol, carolDep := setupIntroducee(&flow{
+	carol, carolDep, didEventCarol := setupIntroducee(&flow{
 		t:            t,
+		controller:   ctrl,
 		transportKey: Carol,
 		transport:    transport,
 	})
-	defer carolCtrl.Finish()
 	defer stop(t, carol)
 
 	var wg sync.WaitGroup
@@ -2060,6 +2244,7 @@ func TestService_ProposalIntroducerSecondStopWithRequest(t *testing.T) {
 		svc:        bob,
 		transport:  transport,
 		dependency: bobDep,
+		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
 			{Destination: &service.Destination{ServiceEndpoint: Alice}},
 		},
@@ -2070,18 +2255,20 @@ func TestService_ProposalIntroducerSecondStopWithRequest(t *testing.T) {
 	// introducee side Carol
 	go checkAndHandle(&flow{
 		t:            t,
+		controller:   ctrl,
 		wg:           &wg,
 		svc:          carol,
 		transport:    transport,
 		dependency:   carolDep,
+		didEvent:     didEventCarol,
 		transportKey: Carol,
 	})
 
 	wg.Wait()
 }
 
-func setupIntroducer(f *flow) (*gomock.Controller, *introduce.Service, *introduceMocks.MockInvitationEnvelope) {
-	ctrl := gomock.NewController(f.t)
+func setupIntroducer(f *flow) (*introduce.Service, *introduceMocks.MockInvitationEnvelope) {
+	ctrl := f.controller
 
 	disp := dispatcherMocks.NewMockOutbound(ctrl)
 	disp.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -2093,18 +2280,14 @@ func setupIntroducer(f *flow) (*gomock.Controller, *introduce.Service, *introduc
 	storageProvider := storageMocks.NewMockProvider(ctrl)
 	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(fakeStore(ctrl), nil)
 
-	forwarder := introduceMocks.NewMockForwarder(ctrl)
-	forwarder.EXPECT().SendInvitation(gomock.Any(), f.expectedInv, gomock.Any()).
-		Do(func(pthID string, inv *didexchange.Invitation, dest *service.Destination) error {
-			inv.ID = pthID
-			f.transport[dest.ServiceEndpoint] <- inv
-			return nil
-		}).Return(nil).MaxTimes(1)
+	didService := serviceMocks.NewMockDIDComm(ctrl)
+	didService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+	didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
 
 	provider := introduceMocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
 	provider.EXPECT().OutboundDispatcher().Return(disp)
-	provider.EXPECT().Service(didexchange.DIDExchange).Return(forwarder, nil)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(provider)
 	require.NoError(f.t, err)
@@ -2114,11 +2297,11 @@ func setupIntroducer(f *flow) (*gomock.Controller, *introduce.Service, *introduc
 	dep.EXPECT().Invitation().Return(f.inv).AnyTimes()
 	dep.EXPECT().Recipients().Return(f.recipients).AnyTimes()
 
-	return ctrl, svc, dep
+	return svc, dep
 }
 
-func setupIntroducee(f *flow) (*gomock.Controller, *introduce.Service, *introduceMocks.MockInvitationEnvelope) {
-	ctrl := gomock.NewController(f.t)
+func setupIntroducee(f *flow) (*introduce.Service, *introduceMocks.MockInvitationEnvelope, chan<- service.StateMsg) {
+	ctrl := f.controller
 
 	disp := dispatcherMocks.NewMockOutbound(ctrl)
 	disp.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -2130,10 +2313,19 @@ func setupIntroducee(f *flow) (*gomock.Controller, *introduce.Service, *introduc
 	storageProvider := storageMocks.NewMockProvider(ctrl)
 	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(fakeStore(ctrl), nil)
 
+	var didChan chan<- service.StateMsg
+
+	didService := serviceMocks.NewMockDIDComm(ctrl)
+	didService.EXPECT().RegisterMsgEvent(gomock.Any()).Do(func(ch chan<- service.StateMsg) error {
+		didChan = ch
+		return nil
+	})
+	didService.EXPECT().UnregisterMsgEvent(gomock.Any()).Return(nil)
+
 	provider := introduceMocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
 	provider.EXPECT().OutboundDispatcher().Return(disp)
-	provider.EXPECT().Service(didexchange.DIDExchange).Return(introduceMocks.NewMockForwarder(ctrl), nil)
+	provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(provider)
 	require.NoError(f.t, err)
@@ -2141,7 +2333,7 @@ func setupIntroducee(f *flow) (*gomock.Controller, *introduce.Service, *introduc
 	dep := introduceMocks.NewMockInvitationEnvelope(ctrl)
 	dep.EXPECT().Invitation().Return(f.inv).AnyTimes()
 
-	return ctrl, svc, dep
+	return svc, dep, didChan
 }
 
 func handleInbound(t *testing.T, svc *introduce.Service, msg interface{}) {
@@ -2353,7 +2545,18 @@ func checkAndHandle(f *flow) {
 
 			return
 		case *didexchange.Invitation:
-			go func() { require.NoError(f.t, f.svc.InvitationReceived(iMsg.ID)) }()
+			go func() {
+				inv, err := service.NewDIDCommMsg(toBytes(f.t, iMsg))
+				require.NoError(f.t, err)
+				_, err = inv.ThreadID()
+				require.NoError(f.t, err)
+
+				f.didEvent <- service.StateMsg{
+					Type:    service.PostState,
+					StateID: "invited",
+					Msg:     inv,
+				}
+			}()
 			checkStateMsg(f.t, sCh, service.PreState, introduce.AckMsgType, "done")
 			checkStateMsg(f.t, sCh, service.PostState, introduce.AckMsgType, "done")
 
@@ -2463,4 +2666,51 @@ func stop(t *testing.T, s stopper) {
 	case <-time.After(time.Second):
 		t.Error("timeout waiting for Stop()")
 	}
+}
+
+func TestService_InvitationReceived(t *testing.T) {
+	t.Run("PreState is not correct", func(t *testing.T) {
+		svc := &introduce.Service{}
+		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
+		require.NoError(t, err)
+		require.NoError(t, svc.InvitationReceived(service.StateMsg{
+			Type:    service.PreState,
+			StateID: "invited",
+			Msg:     msg,
+		}))
+	})
+
+	t.Run("StateID is not correct", func(t *testing.T) {
+		// should not panic
+		svc := &introduce.Service{}
+		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{}))
+		require.NoError(t, err)
+		require.NoError(t, svc.InvitationReceived(service.StateMsg{
+			Type: service.PostState,
+			Msg:  msg,
+		}))
+	})
+
+	t.Run("Thread is nil", func(t *testing.T) {
+		// should not panic
+		svc := &introduce.Service{}
+		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{}))
+		require.NoError(t, err)
+		require.NoError(t, svc.InvitationReceived(service.StateMsg{
+			Type:    service.PostState,
+			StateID: "invited",
+			Msg:     msg,
+		}))
+	})
+
+	t.Run("No PID in Thread", func(t *testing.T) {
+		svc := &introduce.Service{}
+		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
+		require.NoError(t, err)
+		require.NoError(t, svc.InvitationReceived(service.StateMsg{
+			Type:    service.PostState,
+			StateID: "invited",
+			Msg:     msg,
+		}))
+	})
 }

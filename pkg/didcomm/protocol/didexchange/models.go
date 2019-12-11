@@ -39,7 +39,8 @@ type Invitation struct {
 	RoutingKeys []string `json:"routingKeys,omitempty"`
 
 	// the Type of the connection invitation
-	Type string `json:"@type,omitempty"`
+	Type   string            `json:"@type,omitempty"`
+	Thread *decorator.Thread `json:"~thread,omitempty"`
 }
 
 // Request defines a2a DID exchange request
