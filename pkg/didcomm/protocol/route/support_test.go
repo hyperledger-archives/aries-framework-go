@@ -79,6 +79,19 @@ func generateRequestMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
 	return didMsg
 }
 
+func generateGrantMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
+	grantBytes, err := json.Marshal(&Grant{
+		Type: GrantMsgType,
+		ID:   id,
+	})
+	require.NoError(t, err)
+
+	didMsg, err := service.NewDIDCommMsg(grantBytes)
+	require.NoError(t, err)
+
+	return didMsg
+}
+
 func generateKeyUpdateListMsgPayload(t *testing.T, id string, updates []Update) *service.DIDCommMsg {
 	requestBytes, err := json.Marshal(&KeylistUpdate{
 		Type:    KeylistUpdateMsgType,
@@ -88,6 +101,20 @@ func generateKeyUpdateListMsgPayload(t *testing.T, id string, updates []Update) 
 	require.NoError(t, err)
 
 	didMsg, err := service.NewDIDCommMsg(requestBytes)
+	require.NoError(t, err)
+
+	return didMsg
+}
+
+func generateKeylistUpdateResponseMsgPayload(t *testing.T, id string, updates []UpdateResponse) *service.DIDCommMsg {
+	respBytes, err := json.Marshal(&KeylistUpdateResponse{
+		Type:    KeylistUpdateResponseMsgType,
+		ID:      id,
+		Updated: updates,
+	})
+	require.NoError(t, err)
+
+	didMsg, err := service.NewDIDCommMsg(respBytes)
 	require.NoError(t, err)
 
 	return didMsg

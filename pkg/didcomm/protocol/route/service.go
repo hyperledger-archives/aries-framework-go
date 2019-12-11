@@ -100,9 +100,17 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 			if err := s.handleRequest(msg); err != nil {
 				logger.Errorf("handle route request error : %s", err)
 			}
+		case GrantMsgType:
+			if err := s.handleGrant(msg); err != nil {
+				logger.Errorf("handle route grant error : %s", err)
+			}
 		case KeylistUpdateMsgType:
 			if err := s.handleKeylistUpdate(msg); err != nil {
-				logger.Errorf("handle route request error : %s", err)
+				logger.Errorf("handle route keylist update error : %s", err)
+			}
+		case KeylistUpdateResponseMsgType:
+			if err := s.handleKeylistUpdateResponse(msg); err != nil {
+				logger.Errorf("handle route keylist update response error : %s", err)
 			}
 		}
 	}()
@@ -157,6 +165,20 @@ func (s *Service) handleRequest(msg *service.DIDCommMsg) error {
 	return s.outbound.Send(grant, "", nil)
 }
 
+func (s *Service) handleGrant(msg *service.DIDCommMsg) error {
+	// unmarshal the payload
+	grant := &Grant{}
+
+	err := json.Unmarshal(msg.Payload, grant)
+	if err != nil {
+		return fmt.Errorf("route grant message unmarshal : %w", err)
+	}
+
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/948 integrate with framework components
+
+	return nil
+}
+
 func (s *Service) handleKeylistUpdate(msg *service.DIDCommMsg) error {
 	// unmarshal the payload
 	keyUpdate := &KeylistUpdate{}
@@ -209,4 +231,18 @@ func (s *Service) handleKeylistUpdate(msg *service.DIDCommMsg) error {
 
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/725 get destination details from the connection
 	return s.outbound.Send(updateResponse, "", nil)
+}
+
+func (s *Service) handleKeylistUpdateResponse(msg *service.DIDCommMsg) error {
+	// unmarshal the payload
+	resp := &KeylistUpdateResponse{}
+
+	err := json.Unmarshal(msg.Payload, resp)
+	if err != nil {
+		return fmt.Errorf("route keylist update response message unmarshal : %w", err)
+	}
+
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/948 integrate with framework components
+
+	return nil
 }
