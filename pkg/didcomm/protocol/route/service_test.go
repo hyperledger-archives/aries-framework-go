@@ -123,6 +123,30 @@ func TestServiceRequestMsg(t *testing.T) {
 	})
 }
 
+func TestServiceGrantMsg(t *testing.T) {
+	t.Run("test service handle inbound grant msg - success", func(t *testing.T) {
+		svc, err := New(&mockProvider{})
+		require.NoError(t, err)
+
+		msgID := randomID()
+
+		id, err := svc.HandleInbound(generateGrantMsgPayload(t, msgID))
+		require.NoError(t, err)
+		require.Equal(t, msgID, id)
+	})
+
+	t.Run("test service handle grant msg - success", func(t *testing.T) {
+		svc, err := New(&mockProvider{})
+		require.NoError(t, err)
+
+		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
+
+		err = svc.handleGrant(msg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "route grant message unmarshal")
+	})
+}
+
 func TestServiceUpdateKeyListMsg(t *testing.T) {
 	t.Run("test service handle inbound key list update msg - success", func(t *testing.T) {
 		svc, err := New(&mockProvider{})
@@ -190,5 +214,33 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 
 		err = svc.handleKeylistUpdate(generateKeyUpdateListMsgPayload(t, msgID, updates))
 		require.NoError(t, err)
+	})
+}
+
+func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
+	t.Run("test service handle inbound key list update response msg - success", func(t *testing.T) {
+		svc, err := New(&mockProvider{})
+		require.NoError(t, err)
+
+		msgID := randomID()
+
+		id, err := svc.HandleInbound(generateKeylistUpdateResponseMsgPayload(t, msgID, []UpdateResponse{{
+			RecipientKey: "ABC",
+			Action:       "add",
+			Result:       success,
+		}}))
+		require.NoError(t, err)
+		require.Equal(t, msgID, id)
+	})
+
+	t.Run("test service handle key list update response msg - success", func(t *testing.T) {
+		svc, err := New(&mockProvider{})
+		require.NoError(t, err)
+
+		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
+
+		err = svc.handleKeylistUpdateResponse(msg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "route keylist update response message unmarshal")
 	})
 }
