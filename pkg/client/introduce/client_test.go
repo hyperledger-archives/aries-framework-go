@@ -16,10 +16,11 @@ import (
 
 	mocks "github.com/hyperledger/aries-framework-go/pkg/client/introduce/gomocks"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service/mocks"
+	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service/gomocks"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce/gomocks"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/storage/gomocks"
 )
 
@@ -102,9 +103,9 @@ func TestClient_SendProposal(t *testing.T) {
 	DIDComm.EXPECT().HandleOutbound(gomock.Any(), gomock.Any()).Return(nil)
 
 	opts := InvitationEnvelope{
-		Dests: []*service.Destination{
-			{ServiceEndpoint: "service/endpoint1"},
-			{ServiceEndpoint: "service/endpoint2"},
+		Recps: []*introduce.Recipient{
+			{Destination: &service.Destination{ServiceEndpoint: "service/endpoint1"}},
+			{Destination: &service.Destination{ServiceEndpoint: "service/endpoint2"}},
 		},
 	}
 	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(nil)
@@ -117,7 +118,7 @@ func TestClient_SendProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	client.newUUID = func() string { return UUID }
-	require.NoError(t, client.SendProposal(opts.Dests[0], opts.Dests[1]))
+	require.NoError(t, client.SendProposal(opts.Recps[0], opts.Recps[1]))
 }
 
 func TestClient_SendProposalWithInvitation(t *testing.T) {
@@ -147,9 +148,9 @@ func TestClient_SendProposalWithInvitation(t *testing.T) {
 		Inv: &didexchange.Invitation{
 			ID: UUID,
 		},
-		Dests: []*service.Destination{{
-			ServiceEndpoint: "service/endpoint",
-		}},
+		Recps: []*introduce.Recipient{
+			{Destination: &service.Destination{ServiceEndpoint: "service/endpoint"}},
+		},
 	}
 	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(nil)
 
@@ -161,7 +162,7 @@ func TestClient_SendProposalWithInvitation(t *testing.T) {
 	require.NoError(t, err)
 
 	client.newUUID = func() string { return UUID }
-	require.NoError(t, client.SendProposalWithInvitation(opts.Inv, opts.Dests[0]))
+	require.NoError(t, client.SendProposalWithInvitation(opts.Inv, opts.Recps[0]))
 }
 
 func TestClient_HandleRequest(t *testing.T) {
@@ -185,8 +186,9 @@ func TestClient_HandleRequest(t *testing.T) {
 	require.NotNil(t, svc)
 
 	opts := InvitationEnvelope{
-		Dests: []*service.Destination{
-			{ServiceEndpoint: "service/endpoint1"},
+		Recps: []*introduce.Recipient{
+			{To: &introduce.To{Name: "Carol"}},
+			{Destination: &service.Destination{ServiceEndpoint: "service/endpoint"}},
 		},
 	}
 	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(nil)
@@ -205,10 +207,10 @@ func TestClient_HandleRequest(t *testing.T) {
 		ID:   UUID,
 	}))
 	require.NoError(t, err)
-	require.NoError(t, client.HandleRequest(*msg, opts.Dests[0]))
+	require.NoError(t, client.HandleRequest(*msg, opts.Recps[0].To, opts.Recps[1]))
 
 	// cover error case
-	err = client.HandleRequest(service.DIDCommMsg{}, opts.Dests[0])
+	err = client.HandleRequest(service.DIDCommMsg{}, opts.Recps[0].To, opts.Recps[1])
 	require.EqualError(t, errors.Unwrap(err), service.ErrNoHeader.Error())
 }
 
@@ -221,6 +223,9 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 	opts := InvitationEnvelope{
 		Inv: &didexchange.Invitation{
 			ID: UUID,
+		},
+		Recps: []*introduce.Recipient{
+			{To: &introduce.To{Name: "Carol"}},
 		},
 	}
 
@@ -245,10 +250,10 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 		ID:   UUID,
 	}))
 	require.NoError(t, err)
-	require.NoError(t, client.HandleRequestWithInvitation(*msg, opts.Inv))
+	require.NoError(t, client.HandleRequestWithInvitation(*msg, opts.Inv, opts.Recps[0].To))
 
 	// cover error case
-	err = client.HandleRequestWithInvitation(service.DIDCommMsg{}, opts.Inv)
+	err = client.HandleRequestWithInvitation(service.DIDCommMsg{}, opts.Inv, opts.Recps[0].To)
 	require.EqualError(t, errors.Unwrap(err), service.ErrNoHeader.Error())
 }
 
@@ -276,13 +281,15 @@ func TestClient_InvitationEnvelope(t *testing.T) {
 		Inv: &didexchange.Invitation{
 			ID: UUID,
 		},
-		Dests: []*service.Destination{{
-			ServiceEndpoint: "service/endpoint",
-		}},
+		Recps: []*introduce.Recipient{
+			{To: &introduce.To{Name: "Carol"}, Destination: &service.Destination{ServiceEndpoint: "service/endpoint1"}},
+			{Destination: &service.Destination{ServiceEndpoint: "service/endpoint1"}},
+		},
 	}
-	store.EXPECT().Get(invitationEnvelopePrefix+UUID).Return(toBytes(t, opts), nil).Times(1)
-	store.EXPECT().Get(invitationEnvelopePrefix+UUID).Return(nil, errors.New("error")).Times(1)
-	store.EXPECT().Get(invitationEnvelopePrefix+UUID).Return([]byte(`[]`), nil).Times(1)
+	store.EXPECT().Get(invitationEnvelopePrefix+UUID).Return(toBytes(t, opts), nil)
+	store.EXPECT().Get(invitationEnvelopePrefix+UUID).Return(nil, errors.New("error"))
+	store.EXPECT().Get(invitationEnvelopePrefix+UUID).Return([]byte(`[]`), nil)
+	store.EXPECT().Get(invitationEnvelopePrefix+UUID).Return(nil, storage.ErrDataNotFound)
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(introduce.Introduce).Return(serviceMocks.NewMockDIDComm(ctrl), nil)
@@ -294,17 +301,22 @@ func TestClient_InvitationEnvelope(t *testing.T) {
 	client.newUUID = func() string { return UUID }
 	dependency := client.InvitationEnvelope(UUID)
 	require.Equal(t, opts.Inv, dependency.Invitation())
-	require.Equal(t, opts.Dests, dependency.Destinations())
+	require.Equal(t, opts.Recps, dependency.Recipients())
 
 	// with error
 	dependency = client.InvitationEnvelope(UUID)
 	require.Nil(t, dependency.Invitation())
-	require.Nil(t, dependency.Destinations())
+	require.Nil(t, dependency.Recipients())
 
 	// with error
 	dependency = client.InvitationEnvelope(UUID)
 	require.Nil(t, dependency.Invitation())
-	require.Nil(t, dependency.Destinations())
+	require.Nil(t, dependency.Recipients())
+
+	// with error (storageMocks.ErrDataNotFound)
+	dependency = client.InvitationEnvelope(UUID)
+	require.Nil(t, dependency.Invitation())
+	require.Nil(t, dependency.Recipients())
 }
 
 func TestClient_SendRequest(t *testing.T) {
@@ -331,12 +343,12 @@ func TestClient_SendRequest(t *testing.T) {
 	DIDComm.EXPECT().HandleOutbound(gomock.Any(), gomock.Any()).Return(nil)
 
 	opts := InvitationEnvelope{
-		Dests: []*service.Destination{{
-			ServiceEndpoint: "service/endpoint",
-		}},
+		Recps: []*introduce.Recipient{
+			{Destination: &service.Destination{ServiceEndpoint: "service/endpoint"}},
+		},
 	}
-	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(nil).Times(1)
-	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(errors.New("test error")).Times(1)
+	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(nil)
+	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(errors.New("test error"))
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(introduce.Introduce).Return(DIDComm, nil)
@@ -346,10 +358,10 @@ func TestClient_SendRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	client.newUUID = func() string { return UUID }
-	require.NoError(t, client.SendRequest(opts.Dests[0]))
+	require.NoError(t, client.SendRequest(opts.Recps[0].Destination))
 
 	// with error
-	require.EqualError(t, client.SendRequest(opts.Dests[0]), "test error")
+	require.EqualError(t, client.SendRequest(opts.Recps[0].Destination), "test error")
 }
 
 func toBytes(t *testing.T, v interface{}) []byte {

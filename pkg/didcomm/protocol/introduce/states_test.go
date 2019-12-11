@@ -15,8 +15,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/gomocks"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	mocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce/gomocks"
 )
 
 func notTransition(t *testing.T, st state) {
@@ -71,14 +69,14 @@ func TestStart_CanTransitionTo(t *testing.T) {
 
 func TestStart_ExecuteInbound(t *testing.T) {
 	followup, err := (&start{}).ExecuteInbound(internalContext{}, &metaData{})
-	require.NoError(t, err)
-	require.Equal(t, &arranging{}, followup)
+	require.EqualError(t, err, "start ExecuteInbound: not implemented yet")
+	require.Nil(t, followup)
 }
 
 func TestStart_ExecuteOutbound(t *testing.T) {
 	followup, err := (&start{}).ExecuteOutbound(internalContext{}, &metaData{}, &service.Destination{})
-	require.NoError(t, err)
-	require.Equal(t, &noOp{}, followup)
+	require.EqualError(t, err, "start ExecuteOutbound: not implemented yet")
+	require.Nil(t, followup)
 }
 
 func TestDone_CanTransitionTo(t *testing.T) {
@@ -114,24 +112,6 @@ func TestArranging_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&deciding{}))
 	require.False(t, st.CanTransitionTo(&waiting{}))
 	require.False(t, st.CanTransitionTo(&requesting{}))
-}
-
-func TestArranging_ExecuteInbound(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
-	dep := mocks.NewMockInvitationEnvelope(ctrl)
-	dep.EXPECT().Destinations().Return([]*service.Destination{{}})
-
-	followup, err := (&arranging{}).ExecuteInbound(internalContext{Outbound: dispatcher}, &metaData{
-		dependency: dep,
-		Msg:        &service.DIDCommMsg{Header: &service.Header{Type: RequestMsgType}},
-	})
-	require.NoError(t, err)
-	require.Equal(t, &noOp{}, followup)
 }
 
 func TestArranging_ExecuteOutbound(t *testing.T) {
@@ -174,135 +154,6 @@ func TestDelivering_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&requesting{}))
 }
 
-func TestDelivering_ExecuteInbound(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	t.Run("Happy path", func(t *testing.T) {
-		forwarder := mocks.NewMockForwarder(ctrl)
-		forwarder.EXPECT().SendInvitation(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
-		ctx := internalContext{
-			Outbound:  dispatcherMocks.NewMockOutbound(ctrl),
-			Forwarder: forwarder,
-		}
-
-		dep := mocks.NewMockInvitationEnvelope(ctrl)
-		dep.EXPECT().Destinations().Return([]*service.Destination{{}}).Times(1)
-		dep.EXPECT().Invitation().Return(&didexchange.Invitation{}).Times(2)
-
-		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{
-			dependency: dep,
-			Msg: &service.DIDCommMsg{
-				Header:  &service.Header{Type: RequestMsgType},
-				Payload: []byte(`{"disapprove":true}`),
-			},
-		})
-		require.NoError(t, err)
-		require.Equal(t, &done{}, followup)
-	})
-
-	t.Run("SendInvitation Error", func(t *testing.T) {
-		const errMsg = "test err"
-
-		forwarder := mocks.NewMockForwarder(ctrl)
-		forwarder.EXPECT().SendInvitation(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(errors.New(errMsg)).Times(2)
-
-		ctx := internalContext{
-			Outbound:  dispatcherMocks.NewMockOutbound(ctrl),
-			Forwarder: forwarder,
-		}
-
-		dep := mocks.NewMockInvitationEnvelope(ctrl)
-		dep.EXPECT().Destinations().Return([]*service.Destination{{}}).Times(2)
-		dep.EXPECT().Invitation().Return(nil).Times(1)
-
-		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{
-			record: record{
-				Invitation: &didexchange.Invitation{},
-			},
-			Msg: &service.DIDCommMsg{
-				Header:  &service.Header{Type: RequestMsgType},
-				Payload: []byte(`{"disapprove":true}`),
-			},
-			dependency: dep,
-		})
-		require.Nil(t, followup)
-		require.EqualError(t, err, "send inbound invitation: "+errMsg)
-
-		// SkipProposal
-		dep.EXPECT().Invitation().Return(&didexchange.Invitation{}).Times(2)
-		followup, err = (&delivering{}).ExecuteInbound(ctx, &metaData{
-			dependency: dep,
-			Msg: &service.DIDCommMsg{
-				Header:  &service.Header{Type: RequestMsgType},
-				Payload: []byte(`{"disapprove":true}`),
-			},
-		})
-		require.Nil(t, followup)
-		require.EqualError(t, err, "send inbound invitation (skip): "+errMsg)
-	})
-
-	t.Run("Error Send", func(t *testing.T) {
-		const errMsg = "test err"
-
-		outbound := dispatcherMocks.NewMockOutbound(ctrl)
-		outbound.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
-
-		forwarder := mocks.NewMockForwarder(ctrl)
-		forwarder.EXPECT().SendInvitation(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
-		ctx := internalContext{
-			Outbound:  outbound,
-			Forwarder: forwarder,
-		}
-
-		dep := mocks.NewMockInvitationEnvelope(ctrl)
-		dep.EXPECT().Destinations().Return([]*service.Destination{{}, {}}).Times(1)
-		dep.EXPECT().Invitation().Return(nil).Times(1)
-
-		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{
-			record: record{
-				Invitation: &didexchange.Invitation{},
-			},
-			Msg: &service.DIDCommMsg{
-				Header:  &service.Header{Type: RequestMsgType},
-				Payload: []byte(`{"disapprove":true}`),
-			},
-			dependency: dep,
-		})
-		require.Nil(t, followup)
-		require.EqualError(t, errors.Unwrap(err), errMsg)
-	})
-
-	t.Run("ProblemReport Send error", func(t *testing.T) {
-		const errMsg = "test err"
-
-		outbound := dispatcherMocks.NewMockOutbound(ctrl)
-		outbound.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
-
-		ctx := internalContext{
-			Outbound:  outbound,
-			Forwarder: mocks.NewMockForwarder(ctrl),
-		}
-
-		dep := mocks.NewMockInvitationEnvelope(ctrl)
-		dep.EXPECT().Destinations().Return([]*service.Destination{{}}).Times(1)
-		dep.EXPECT().Invitation().Return(nil).Times(1)
-
-		followup, err := (&delivering{}).ExecuteInbound(ctx, &metaData{
-			dependency: dep,
-			Msg: &service.DIDCommMsg{
-				Header:  &service.Header{Type: RequestMsgType},
-				Payload: []byte(`{"disapprove":true}`),
-			},
-		})
-		require.Nil(t, followup)
-		require.EqualError(t, errors.Unwrap(err), errMsg)
-	})
-}
-
 func TestDelivering_ExecuteOutbound(t *testing.T) {
 	followup, err := (&delivering{}).ExecuteOutbound(internalContext{}, &metaData{}, &service.Destination{})
 	require.Error(t, err)
@@ -324,12 +175,6 @@ func TestConfirming_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&deciding{}))
 	require.False(t, st.CanTransitionTo(&waiting{}))
 	require.False(t, st.CanTransitionTo(&requesting{}))
-}
-
-func TestConfirming_ExecuteInbound(t *testing.T) {
-	followup, err := (&confirming{}).ExecuteInbound(internalContext{}, &metaData{})
-	require.Error(t, err)
-	require.Nil(t, followup)
 }
 
 func TestConfirming_ExecuteOutbound(t *testing.T) {
@@ -356,16 +201,6 @@ func TestAbandoning_CanTransitionTo(t *testing.T) {
 }
 
 func TestAbandoning_ExecuteInbound(t *testing.T) {
-	t.Run("Go to done", func(t *testing.T) {
-		followup, err := (&abandoning{}).ExecuteInbound(internalContext{}, &metaData{
-			Msg: &service.DIDCommMsg{
-				Header:  &service.Header{Type: ResponseMsgType},
-				Payload: []byte(`{}`),
-			},
-		})
-		require.NoError(t, err)
-		require.Equal(t, &done{}, followup)
-	})
 	t.Run("Error send problem-report", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -380,7 +215,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 			},
 		})
 		require.Nil(t, followup)
-		require.EqualError(t, err, "abandoning: send problem-report: test error")
+		require.EqualError(t, err, "send problem-report: test error")
 	})
 }
 
@@ -416,10 +251,7 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 
 	ctx := internalContext{Outbound: dispatcher}
 
-	dep := mocks.NewMockInvitationEnvelope(ctrl)
-	dep.EXPECT().Invitation().Return(nil)
-
-	followup, err := (&deciding{}).ExecuteInbound(ctx, &metaData{dependency: dep})
+	followup, err := (&deciding{}).ExecuteInbound(ctx, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &waiting{}, followup)
 }
@@ -505,4 +337,39 @@ func Test_getApproveFromMsg(t *testing.T) {
 		require.False(t, approve)
 		require.False(t, ok)
 	})
+}
+
+func Test_stateFromName(t *testing.T) {
+	st := stateFromName(stateNameNoop)
+	require.Equal(t, &noOp{}, st)
+
+	st = stateFromName(stateNameStart)
+	require.Equal(t, &start{}, st)
+
+	st = stateFromName(stateNameDone)
+	require.Equal(t, &done{}, st)
+
+	st = stateFromName(stateNameArranging)
+	require.Equal(t, &arranging{}, st)
+
+	st = stateFromName(stateNameDelivering)
+	require.Equal(t, &delivering{}, st)
+
+	st = stateFromName(stateNameConfirming)
+	require.Equal(t, &confirming{}, st)
+
+	st = stateFromName(stateNameAbandoning)
+	require.Equal(t, &abandoning{}, st)
+
+	st = stateFromName(stateNameDeciding)
+	require.Equal(t, &deciding{}, st)
+
+	st = stateFromName(stateNameWaiting)
+	require.Equal(t, &waiting{}, st)
+
+	st = stateFromName(stateNameRequesting)
+	require.Equal(t, &requesting{}, st)
+
+	st = stateFromName("unknown")
+	require.Equal(t, &noOp{}, st)
 }

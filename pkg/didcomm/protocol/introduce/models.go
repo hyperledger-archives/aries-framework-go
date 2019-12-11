@@ -15,7 +15,7 @@ import (
 type Proposal struct {
 	Type   string            `json:"@type,omitempty"`
 	ID     string            `json:"@id,omitempty"`
-	To     To                `json:"to,omitempty"`
+	To     *To               `json:"to,omitempty"`
 	NWise  bool              `json:"nwise,omitempty"`
 	Thread *decorator.Thread `json:"~thread,omitempty"`
 	Timing *decorator.Timing `json:"~timing,omitempty"`
