@@ -180,7 +180,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ResponseMsgType)))
 		require.NoError(t, err)
 		const errMsg = "json: cannot unmarshal array into Go value of type introduce.record"
-		require.EqualError(t, svc.HandleOutbound(msg, nil), errMsg)
+		require.EqualError(t, svc.HandleOutbound(msg, "", ""), errMsg)
 	})
 
 	t.Run("Invalid state", func(t *testing.T) {
@@ -211,7 +211,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
-		require.EqualError(t, svc.HandleOutbound(msg, &service.Destination{}), "invalid state transition: noop -> arranging")
+		require.EqualError(t, svc.HandleOutbound(msg, "", ""), "invalid state transition: noop -> arranging")
 	})
 
 	t.Run("Inject invitation error", func(t *testing.T) {
@@ -242,7 +242,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		err = svc.HandleOutbound(&service.DIDCommMsg{
 			Header:  &service.Header{ID: "ID", Thread: decorator.Thread{ID: "thID"}, Type: introduce.ResponseMsgType},
 			Payload: []byte(`[]`),
-		}, nil)
+		}, "", "")
 
 		const errMsg = "inject invitation: json: cannot unmarshal array into Go value of type introduce.Response"
 
@@ -254,7 +254,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		defer ctrl.Finish()
 
 		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get("thID").Return([]byte(`{"state_name":"start","wait_count":2}`), nil)
+		store.EXPECT().Get("thID").Return([]byte(`{"state_name":"arranging","wait_count":2}`), nil)
 		store.EXPECT().Put("thID", gomock.Any()).Return(errors.New("DB error"))
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
@@ -274,13 +274,15 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		defer stop(t, svc)
 
-		// inject invitation error
-		err = svc.HandleOutbound(&service.DIDCommMsg{
-			Header:  &service.Header{ID: "ID", Thread: decorator.Thread{ID: "thID"}, Type: introduce.ResponseMsgType},
-			Payload: []byte(`{}`),
-		}, nil)
+		require.NoError(t, svc.RegisterActionEvent(make(chan service.DIDCommAction, 1)))
 
-		const errMsg = "failed to persist state arranging: DB error"
+		// inject invitation error
+		_, err = svc.HandleInbound(&service.DIDCommMsg{
+			Header:  &service.Header{ID: "ID", Thread: decorator.Thread{ID: "thID"}, Type: introduce.AckMsgType},
+			Payload: []byte(`{}`),
+		}, "", "")
+
+		const errMsg = "failed to persist state done: DB error"
 
 		require.EqualError(t, errors.Unwrap(err), errMsg)
 	})
@@ -312,7 +314,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		err = svc.HandleOutbound(&service.DIDCommMsg{
 			Header:  &service.Header{ID: "ID", Thread: decorator.Thread{ID: "thID"}, Type: introduce.ResponseMsgType},
 			Payload: []byte(`{}`),
-		}, nil)
+		}, "", "")
 
 		const errMsg = "invalid state transition: confirming -> arranging"
 
@@ -342,7 +344,7 @@ func TestService_HandleInbound(t *testing.T) {
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
-		_, err = svc.HandleInbound(&service.DIDCommMsg{})
+		_, err = svc.HandleInbound(&service.DIDCommMsg{}, "", "")
 		require.EqualError(t, err, "no clients are registered to handle the message")
 	})
 
@@ -370,7 +372,7 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(msg)
+		_, err = svc.HandleInbound(msg, "", "")
 		require.EqualError(t, err, service.ErrThreadIDNotFound.Error())
 	})
 
@@ -403,7 +405,7 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(msg)
+		_, err = svc.HandleInbound(msg, "", "")
 		require.EqualError(t, err, "cannot fetch state from store: thid=ID : test err")
 	})
 
@@ -435,7 +437,7 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(msg)
+		_, err = svc.HandleInbound(msg, "", "")
 		require.EqualError(t, err, "invalid state transition: noop -> deciding")
 	})
 
@@ -466,7 +468,7 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(msg)
+		_, err = svc.HandleInbound(msg, "", "")
 		require.EqualError(t, err, "unrecognized msgType: unknown")
 	})
 }
@@ -512,15 +514,6 @@ func TestService_Proposal(t *testing.T) {
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	introduce.GetInboundDestination = func() *service.Destination {
-		return &service.Destination{ServiceEndpoint: Alice}
-	}
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -531,8 +524,8 @@ func TestService_Proposal(t *testing.T) {
 		transportKey: Alice,
 		transport:    transport,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Bob}},
-			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
+			{MyDID: Alice, TheirDID: Bob},
+			{MyDID: Alice, TheirDID: Carol, To: &introduce.To{Name: Bob}},
 		},
 	})
 
@@ -569,7 +562,7 @@ func TestService_Proposal(t *testing.T) {
 		dependency:   aliceDep,
 		transportKey: Alice,
 		recipients: []*introduce.Recipient{
-			{To: &introduce.To{Name: Carol}, Destination: &service.Destination{ServiceEndpoint: Bob}},
+			{MyDID: Alice, TheirDID: Bob, To: &introduce.To{Name: Carol}},
 		},
 		startWithProposal: true,
 	})
@@ -584,6 +577,9 @@ func TestService_Proposal(t *testing.T) {
 		dependency:   bobDep,
 		didEvent:     didEventBob,
 		transportKey: Bob,
+		recipients: []*introduce.Recipient{
+			{MyDID: Bob, TheirDID: Alice},
+		},
 	})
 
 	// introducee side Carol
@@ -596,6 +592,9 @@ func TestService_Proposal(t *testing.T) {
 		dependency:   carolDep,
 		didEvent:     didEventCarol,
 		transportKey: Carol,
+		recipients: []*introduce.Recipient{
+			{MyDID: Carol, TheirDID: Alice},
+		},
 	})
 
 	wg.Wait()
@@ -610,15 +609,6 @@ func TestService_SkipProposal(t *testing.T) {
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
 
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	introduce.GetInboundDestination = func() *service.Destination {
-		return &service.Destination{ServiceEndpoint: Alice}
-	}
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -630,7 +620,7 @@ func TestService_SkipProposal(t *testing.T) {
 		transportKey: Alice,
 		transport:    transport,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Bob}},
+			{MyDID: Alice, TheirDID: Bob},
 		},
 	})
 
@@ -659,7 +649,7 @@ func TestService_SkipProposal(t *testing.T) {
 		dependency:   aliceDep,
 		transportKey: Alice,
 		recipients: []*introduce.Recipient{
-			{To: &introduce.To{Name: Carol}, Destination: &service.Destination{ServiceEndpoint: Bob}},
+			{MyDID: Alice, TheirDID: Bob, To: &introduce.To{Name: Carol}},
 		},
 		skipProposal:      true,
 		startWithProposal: true,
@@ -675,6 +665,9 @@ func TestService_SkipProposal(t *testing.T) {
 		dependency:   bobDep,
 		didEvent:     didEventBob,
 		transportKey: Bob,
+		recipients: []*introduce.Recipient{
+			{MyDID: Bob, TheirDID: Alice},
+		},
 	})
 
 	wg.Wait()
@@ -692,15 +685,6 @@ func TestService_ProposalUnusual(t *testing.T) {
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	introduce.GetInboundDestination = func() *service.Destination {
-		return &service.Destination{ServiceEndpoint: Alice}
-	}
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -711,8 +695,8 @@ func TestService_ProposalUnusual(t *testing.T) {
 		transportKey: Alice,
 		transport:    transport,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Bob}},
-			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
+			{MyDID: Alice, TheirDID: Bob},
+			{To: &introduce.To{Name: Bob}, MyDID: Alice, TheirDID: Carol},
 		},
 	})
 
@@ -749,7 +733,7 @@ func TestService_ProposalUnusual(t *testing.T) {
 		dependency:   aliceDep,
 		transportKey: Alice,
 		recipients: []*introduce.Recipient{
-			{To: &introduce.To{Name: Carol}, Destination: &service.Destination{ServiceEndpoint: Bob}},
+			{To: &introduce.To{Name: Carol}, MyDID: Alice, TheirDID: Bob},
 		},
 		startWithProposal: true,
 	})
@@ -764,6 +748,9 @@ func TestService_ProposalUnusual(t *testing.T) {
 		dependency:   bobDep,
 		didEvent:     didEventBob,
 		transportKey: Bob,
+		recipients: []*introduce.Recipient{
+			{MyDID: Bob, TheirDID: Alice},
+		},
 	})
 
 	// introducee side Carol
@@ -776,6 +763,9 @@ func TestService_ProposalUnusual(t *testing.T) {
 		dependency:   carolDep,
 		didEvent:     didEventCarol,
 		transportKey: Carol,
+		recipients: []*introduce.Recipient{
+			{MyDID: Carol, TheirDID: Alice},
+		},
 	})
 
 	wg.Wait()
@@ -790,22 +780,6 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 	var transport = transport()
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
-
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	idx := -1
-	destinations := []*service.Destination{
-		{ServiceEndpoint: Bob},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Bob},
-	}
-	introduce.GetInboundDestination = func() *service.Destination {
-		idx++
-		return destinations[idx]
-	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -846,6 +820,9 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 		transport:    transport,
 		dependency:   aliceDep,
 		transportKey: Alice,
+		recipients: []*introduce.Recipient{
+			{MyDID: Alice, TheirDID: Bob},
+		},
 		skipProposal: true,
 	})
 
@@ -858,7 +835,7 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 		dependency: bobDep,
 		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Alice}},
+			{MyDID: Bob, TheirDID: Alice},
 		},
 		transportKey:     Bob,
 		startWithRequest: true,
@@ -880,23 +857,6 @@ func TestService_ProposalWithRequest(t *testing.T) {
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	idx := -1
-	destinations := []*service.Destination{
-		{ServiceEndpoint: Bob},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Bob},
-	}
-	introduce.GetInboundDestination = func() *service.Destination {
-		idx++
-		return destinations[idx]
-	}
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -908,7 +868,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		transport:    transport,
 		recipients: []*introduce.Recipient{
 			{To: &introduce.To{Name: Carol}},
-			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
+			{To: &introduce.To{Name: Bob}, MyDID: Alice, TheirDID: Carol},
 		},
 	})
 
@@ -944,6 +904,9 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		transport:    transport,
 		dependency:   aliceDep,
 		transportKey: Alice,
+		recipients: []*introduce.Recipient{
+			{MyDID: Alice, TheirDID: Bob},
+		},
 	})
 
 	// introducee side Bob
@@ -955,7 +918,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		dependency: bobDep,
 		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Alice}},
+			{MyDID: Bob, TheirDID: Alice},
 		},
 		transportKey:     Bob,
 		startWithRequest: true,
@@ -971,6 +934,9 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		dependency:   carolDep,
 		didEvent:     didEventCarol,
 		transportKey: Carol,
+		recipients: []*introduce.Recipient{
+			{MyDID: Carol, TheirDID: Alice},
+		},
 	})
 
 	wg.Wait()
@@ -989,23 +955,6 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	idx := -1
-	destinations := []*service.Destination{
-		{ServiceEndpoint: Bob},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Bob},
-	}
-	introduce.GetInboundDestination = func() *service.Destination {
-		idx++
-		return destinations[idx]
-	}
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1017,7 +966,7 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 		transport:    transport,
 		recipients: []*introduce.Recipient{
 			{To: &introduce.To{Name: Carol}},
-			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
+			{To: &introduce.To{Name: Bob}, MyDID: Alice, TheirDID: Carol},
 		},
 	})
 
@@ -1053,6 +1002,9 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 		transport:    transport,
 		dependency:   aliceDep,
 		transportKey: Alice,
+		recipients: []*introduce.Recipient{
+			{MyDID: Alice, TheirDID: Bob},
+		},
 	})
 
 	// introducee side Bob
@@ -1064,7 +1016,7 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 		dependency: bobDep,
 		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Alice}},
+			{MyDID: Bob, TheirDID: Alice},
 		},
 		transportKey:     Bob,
 		startWithRequest: true,
@@ -1080,6 +1032,9 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 		dependency:   carolDep,
 		didEvent:     didEventCarol,
 		transportKey: Carol,
+		recipients: []*introduce.Recipient{
+			{MyDID: Carol, TheirDID: Alice},
+		},
 	})
 
 	wg.Wait()
@@ -1095,15 +1050,6 @@ func TestService_ProposalUnusualWithRequest(t *testing.T) {
 func TestService_ProposalNoInvitation(t *testing.T) {
 	var transport = transport()
 
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	introduce.GetInboundDestination = func() *service.Destination {
-		return &service.Destination{ServiceEndpoint: Alice}
-	}
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1113,8 +1059,8 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 		transportKey: Alice,
 		transport:    transport,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Bob}},
-			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
+			{MyDID: Alice, TheirDID: Bob},
+			{To: &introduce.To{Name: Bob}, MyDID: Alice, TheirDID: Carol},
 		},
 	})
 
@@ -1150,7 +1096,7 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 		dependency:   aliceDep,
 		transportKey: Alice,
 		recipients: []*introduce.Recipient{
-			{To: &introduce.To{Name: Carol}, Destination: &service.Destination{ServiceEndpoint: Bob}},
+			{To: &introduce.To{Name: Carol}, MyDID: Alice, TheirDID: Bob},
 		},
 		withSecondResponseError: true,
 		startWithProposal:       true,
@@ -1166,6 +1112,9 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 		dependency:   bobDep,
 		didEvent:     didEventBob,
 		transportKey: Bob,
+		recipients: []*introduce.Recipient{
+			{MyDID: Bob, TheirDID: Alice},
+		},
 	})
 
 	// introducee side Carol
@@ -1178,6 +1127,9 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 		dependency:   carolDep,
 		didEvent:     didEventCarol,
 		transportKey: Carol,
+		recipients: []*introduce.Recipient{
+			{MyDID: Carol, TheirDID: Alice},
+		},
 	})
 
 	wg.Wait()
@@ -1195,23 +1147,6 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 	var transport = transport()
 
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	idx := -1
-	destinations := []*service.Destination{
-		{ServiceEndpoint: Bob},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Bob},
-	}
-	introduce.GetInboundDestination = func() *service.Destination {
-		idx++
-		return destinations[idx]
-	}
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1222,7 +1157,7 @@ func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 		transport:    transport,
 		recipients: []*introduce.Recipient{
 			{To: &introduce.To{Name: Carol}},
-			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
+			{To: &introduce.To{Name: Bob}, MyDID: Alice, TheirDID: Carol},
 		},
 	})
 
@@ -1250,12 +1185,15 @@ func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 
 	// introducer side Alice
 	go checkAndHandle(&flow{
-		t:                       t,
-		wg:                      &wg,
-		svc:                     alice,
-		transport:               transport,
-		dependency:              aliceDep,
-		transportKey:            Alice,
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		recipients: []*introduce.Recipient{
+			{MyDID: Alice, TheirDID: Bob},
+		},
 		withSecondResponseError: true,
 	})
 
@@ -1268,7 +1206,7 @@ func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 		dependency: bobDep,
 		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Alice}},
+			{MyDID: Bob, TheirDID: Alice},
 		},
 		transportKey:     Bob,
 		startWithRequest: true,
@@ -1284,6 +1222,9 @@ func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 		dependency:   carolDep,
 		didEvent:     didEventCarol,
 		transportKey: Carol,
+		recipients: []*introduce.Recipient{
+			{MyDID: Carol, TheirDID: Alice},
+		},
 	})
 
 	wg.Wait()
@@ -1296,15 +1237,6 @@ func TestService_ProposalStop(t *testing.T) {
 	var transport = transport()
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
-
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	introduce.GetInboundDestination = func() *service.Destination {
-		return &service.Destination{ServiceEndpoint: Alice}
-	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1342,7 +1274,7 @@ func TestService_ProposalStop(t *testing.T) {
 		dependency:   aliceDep,
 		transportKey: Alice,
 		recipients: []*introduce.Recipient{
-			{To: &introduce.To{Name: Carol}, Destination: &service.Destination{ServiceEndpoint: Bob}},
+			{To: &introduce.To{Name: Carol}, MyDID: Alice, TheirDID: Bob},
 		},
 		startWithProposal: true,
 		withResponseError: true,
@@ -1350,13 +1282,16 @@ func TestService_ProposalStop(t *testing.T) {
 
 	// introducee side Bob
 	go checkAndHandle(&flow{
-		t:                t,
-		wg:               &wg,
-		svc:              bob,
-		transport:        transport,
-		dependency:       bobDep,
-		didEvent:         didEventBob,
-		transportKey:     Bob,
+		t:            t,
+		wg:           &wg,
+		svc:          bob,
+		transport:    transport,
+		dependency:   bobDep,
+		didEvent:     didEventBob,
+		transportKey: Bob,
+		recipients: []*introduce.Recipient{
+			{MyDID: Bob, TheirDID: Alice},
+		},
 		withProposalStop: true,
 	})
 
@@ -1371,23 +1306,6 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 	var transport = transport()
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
-
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	idx := -1
-	destinations := []*service.Destination{
-		{ServiceEndpoint: Bob},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Bob},
-	}
-	introduce.GetInboundDestination = func() *service.Destination {
-		idx++
-		return destinations[idx]
-	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1420,12 +1338,15 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 
 	// introducer side Alice
 	go checkAndHandle(&flow{
-		t:                 t,
-		wg:                &wg,
-		svc:               alice,
-		transport:         transport,
-		dependency:        aliceDep,
-		transportKey:      Alice,
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		recipients: []*introduce.Recipient{
+			{MyDID: Alice, TheirDID: Bob},
+		},
 		withResponseError: true,
 	})
 
@@ -1438,7 +1359,7 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 		dependency: bobDep,
 		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Alice}},
+			{MyDID: Bob, TheirDID: Alice},
 		},
 		transportKey:     Bob,
 		startWithRequest: true,
@@ -1455,15 +1376,6 @@ func TestService_SkipProposalStop(t *testing.T) {
 	var transport = transport()
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
-
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	introduce.GetInboundDestination = func() *service.Destination {
-		return &service.Destination{ServiceEndpoint: Alice}
-	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1502,7 +1414,7 @@ func TestService_SkipProposalStop(t *testing.T) {
 		dependency:   aliceDep,
 		transportKey: Alice,
 		recipients: []*introduce.Recipient{
-			{To: &introduce.To{Name: Carol}, Destination: &service.Destination{ServiceEndpoint: Bob}},
+			{To: &introduce.To{Name: Carol}, MyDID: Alice, TheirDID: Bob},
 		},
 		skipProposal:      true,
 		startWithProposal: true,
@@ -1511,13 +1423,16 @@ func TestService_SkipProposalStop(t *testing.T) {
 
 	// introducee side Bob
 	go checkAndHandle(&flow{
-		t:                t,
-		wg:               &wg,
-		svc:              bob,
-		transport:        transport,
-		dependency:       bobDep,
-		didEvent:         didEventBob,
-		transportKey:     Bob,
+		t:            t,
+		wg:           &wg,
+		svc:          bob,
+		transport:    transport,
+		dependency:   bobDep,
+		didEvent:     didEventBob,
+		transportKey: Bob,
+		recipients: []*introduce.Recipient{
+			{MyDID: Bob, TheirDID: Alice},
+		},
 		withProposalStop: true,
 	})
 
@@ -1532,22 +1447,6 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 	var transport = transport()
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
-
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	idx := -1
-	destinations := []*service.Destination{
-		{ServiceEndpoint: Bob},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Bob},
-	}
-	introduce.GetInboundDestination = func() *service.Destination {
-		idx++
-		return destinations[idx]
-	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1581,12 +1480,15 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 
 	// introducer side Alice
 	go checkAndHandle(&flow{
-		t:                 t,
-		wg:                &wg,
-		svc:               alice,
-		transport:         transport,
-		dependency:        aliceDep,
-		transportKey:      Alice,
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		recipients: []*introduce.Recipient{
+			{MyDID: Alice, TheirDID: Bob},
+		},
 		skipProposal:      true,
 		withResponseError: true,
 	})
@@ -1600,7 +1502,7 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 		dependency: bobDep,
 		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Alice}},
+			{MyDID: Bob, TheirDID: Alice},
 		},
 		transportKey:     Bob,
 		startWithRequest: true,
@@ -1621,15 +1523,6 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	introduce.GetInboundDestination = func() *service.Destination {
-		return &service.Destination{ServiceEndpoint: Alice}
-	}
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1640,8 +1533,8 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 		transportKey: Alice,
 		transport:    transport,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Bob}},
-			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
+			{MyDID: Alice, TheirDID: Bob},
+			{To: &introduce.To{Name: Bob}, MyDID: Alice, TheirDID: Carol},
 		},
 	})
 
@@ -1678,7 +1571,7 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 		dependency:   aliceDep,
 		transportKey: Alice,
 		recipients: []*introduce.Recipient{
-			{To: &introduce.To{Name: Carol}, Destination: &service.Destination{ServiceEndpoint: Bob}},
+			{To: &introduce.To{Name: Carol}, MyDID: Alice, TheirDID: Bob},
 		},
 		startWithProposal:       true,
 		withSecondResponseError: true,
@@ -1694,17 +1587,23 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 		dependency:   bobDep,
 		didEvent:     didEventBob,
 		transportKey: Bob,
+		recipients: []*introduce.Recipient{
+			{MyDID: Bob, TheirDID: Alice},
+		},
 	})
 
 	// introducee side Carol
 	go checkAndHandle(&flow{
-		t:                t,
-		wg:               &wg,
-		svc:              carol,
-		transport:        transport,
-		dependency:       carolDep,
-		didEvent:         didEventCarol,
-		transportKey:     Carol,
+		t:            t,
+		wg:           &wg,
+		svc:          carol,
+		transport:    transport,
+		dependency:   carolDep,
+		didEvent:     didEventCarol,
+		transportKey: Carol,
+		recipients: []*introduce.Recipient{
+			{MyDID: Carol, TheirDID: Alice},
+		},
 		withProposalStop: true,
 	})
 
@@ -1723,23 +1622,6 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	idx := -1
-	destinations := []*service.Destination{
-		{ServiceEndpoint: Bob},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Bob},
-	}
-	introduce.GetInboundDestination = func() *service.Destination {
-		idx++
-		return destinations[idx]
-	}
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1751,7 +1633,7 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 		transportKey: Alice,
 		recipients: []*introduce.Recipient{
 			{To: &introduce.To{Name: Carol}},
-			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
+			{To: &introduce.To{Name: Bob}, MyDID: Alice, TheirDID: Carol},
 		},
 	})
 
@@ -1780,12 +1662,15 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 
 	// introducer side Alice
 	go checkAndHandle(&flow{
-		t:                       t,
-		wg:                      &wg,
-		svc:                     alice,
-		transport:               transport,
-		dependency:              aliceDep,
-		transportKey:            Alice,
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		recipients: []*introduce.Recipient{
+			{MyDID: Alice, TheirDID: Bob},
+		},
 		withSecondResponseError: true,
 	})
 
@@ -1798,7 +1683,7 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 		dependency: bobDep,
 		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Alice}},
+			{MyDID: Bob, TheirDID: Alice},
 		},
 		transportKey:     Bob,
 		startWithRequest: true,
@@ -1806,13 +1691,16 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 
 	// introducee side Carol
 	go checkAndHandle(&flow{
-		t:                t,
-		wg:               &wg,
-		svc:              carol,
-		transport:        transport,
-		dependency:       carolDep,
-		didEvent:         didEventCarol,
-		transportKey:     Carol,
+		t:            t,
+		wg:           &wg,
+		svc:          carol,
+		transport:    transport,
+		dependency:   carolDep,
+		didEvent:     didEventCarol,
+		transportKey: Carol,
+		recipients: []*introduce.Recipient{
+			{MyDID: Carol, TheirDID: Alice},
+		},
 		withProposalStop: true,
 	})
 
@@ -1826,20 +1714,6 @@ func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
 	var transport = transport()
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
-
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	idx := -1
-	destinations := []*service.Destination{
-		{ServiceEndpoint: Bob},
-	}
-	introduce.GetInboundDestination = func() *service.Destination {
-		idx++
-		return destinations[idx]
-	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1869,12 +1743,15 @@ func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
 
 	// introducer side Alice
 	go checkAndHandle(&flow{
-		t:               t,
-		wg:              &wg,
-		svc:             alice,
-		transport:       transport,
-		dependency:      aliceDep,
-		transportKey:    Alice,
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		recipients: []*introduce.Recipient{
+			{MyDID: Alice, TheirDID: Bob},
+		},
 		withRequestStop: true,
 	})
 
@@ -1887,7 +1764,7 @@ func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
 		dependency: bobDep,
 		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Alice}},
+			{MyDID: Bob, TheirDID: Alice},
 		},
 		transportKey:     Bob,
 		startWithRequest: true,
@@ -1904,21 +1781,6 @@ func TestService_ProposalIntroducerStop(t *testing.T) {
 	var transport = transport()
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
-
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	idx := -1
-	destinations := []*service.Destination{
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Bob},
-	}
-	introduce.GetInboundDestination = func() *service.Destination {
-		idx++
-		return destinations[idx]
-	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1956,7 +1818,7 @@ func TestService_ProposalIntroducerStop(t *testing.T) {
 		dependency:   aliceDep,
 		transportKey: Alice,
 		recipients: []*introduce.Recipient{
-			{To: &introduce.To{Name: Carol}, Destination: &service.Destination{ServiceEndpoint: Bob}},
+			{To: &introduce.To{Name: Carol}, MyDID: Alice, TheirDID: Bob},
 		},
 		startWithProposal: true,
 		withResponseStop:  true,
@@ -1972,6 +1834,9 @@ func TestService_ProposalIntroducerStop(t *testing.T) {
 		dependency:   bobDep,
 		didEvent:     didEventBob,
 		transportKey: Bob,
+		recipients: []*introduce.Recipient{
+			{MyDID: Bob, TheirDID: Alice},
+		},
 	})
 
 	wg.Wait()
@@ -1986,22 +1851,6 @@ func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
 	var transport = transport()
 
 	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
-
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	idx := -1
-	destinations := []*service.Destination{
-		{ServiceEndpoint: Bob},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Bob},
-	}
-	introduce.GetInboundDestination = func() *service.Destination {
-		idx++
-		return destinations[idx]
-	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -2035,12 +1884,15 @@ func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
 
 	// introducer side Alice
 	go checkAndHandle(&flow{
-		t:                t,
-		wg:               &wg,
-		svc:              alice,
-		transport:        transport,
-		dependency:       aliceDep,
-		transportKey:     Alice,
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		recipients: []*introduce.Recipient{
+			{MyDID: Alice, TheirDID: Bob},
+		},
 		skipProposal:     true,
 		withResponseStop: true,
 	})
@@ -2054,7 +1906,7 @@ func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
 		dependency: bobDep,
 		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Alice}},
+			{MyDID: Bob, TheirDID: Alice},
 		},
 		transportKey:     Bob,
 		startWithRequest: true,
@@ -2073,15 +1925,6 @@ func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
 func TestService_ProposalIntroducerSecondStop(t *testing.T) {
 	var transport = transport()
 
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	introduce.GetInboundDestination = func() *service.Destination {
-		return &service.Destination{ServiceEndpoint: Alice}
-	}
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -2091,8 +1934,8 @@ func TestService_ProposalIntroducerSecondStop(t *testing.T) {
 		transportKey: Alice,
 		transport:    transport,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Bob}},
-			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
+			{MyDID: Alice, TheirDID: Bob},
+			{To: &introduce.To{Name: Bob}, MyDID: Alice, TheirDID: Carol},
 		},
 	})
 
@@ -2128,7 +1971,7 @@ func TestService_ProposalIntroducerSecondStop(t *testing.T) {
 		dependency:   aliceDep,
 		transportKey: Alice,
 		recipients: []*introduce.Recipient{
-			{To: &introduce.To{Name: Carol}, Destination: &service.Destination{ServiceEndpoint: Bob}},
+			{To: &introduce.To{Name: Carol}, MyDID: Alice, TheirDID: Bob},
 		},
 		startWithProposal:      true,
 		withSecondResponseStop: true,
@@ -2144,6 +1987,9 @@ func TestService_ProposalIntroducerSecondStop(t *testing.T) {
 		dependency:   bobDep,
 		didEvent:     didEventBob,
 		transportKey: Bob,
+		recipients: []*introduce.Recipient{
+			{MyDID: Bob, TheirDID: Alice},
+		},
 	})
 
 	// introducee side Carol
@@ -2156,6 +2002,9 @@ func TestService_ProposalIntroducerSecondStop(t *testing.T) {
 		dependency:   carolDep,
 		didEvent:     didEventCarol,
 		transportKey: Carol,
+		recipients: []*introduce.Recipient{
+			{MyDID: Carol, TheirDID: Alice},
+		},
 	})
 
 	wg.Wait()
@@ -2173,23 +2022,6 @@ func TestService_ProposalIntroducerSecondStop(t *testing.T) {
 func TestService_ProposalIntroducerSecondStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	getInboundDestinationOriginal := introduce.GetInboundDestination
-
-	defer func() { introduce.GetInboundDestination = getInboundDestinationOriginal }()
-
-	// injection
-	idx := -1
-	destinations := []*service.Destination{
-		{ServiceEndpoint: Bob},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Alice},
-		{ServiceEndpoint: Bob},
-	}
-	introduce.GetInboundDestination = func() *service.Destination {
-		idx++
-		return destinations[idx]
-	}
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -2200,7 +2032,7 @@ func TestService_ProposalIntroducerSecondStopWithRequest(t *testing.T) {
 		transport:    transport,
 		recipients: []*introduce.Recipient{
 			{To: &introduce.To{Name: Carol}},
-			{To: &introduce.To{Name: Bob}, Destination: &service.Destination{ServiceEndpoint: Carol}},
+			{To: &introduce.To{Name: Bob}, MyDID: Alice, TheirDID: Carol},
 		},
 	})
 
@@ -2228,12 +2060,15 @@ func TestService_ProposalIntroducerSecondStopWithRequest(t *testing.T) {
 
 	// introducer side Alice
 	go checkAndHandle(&flow{
-		t:                      t,
-		wg:                     &wg,
-		svc:                    alice,
-		transport:              transport,
-		dependency:             aliceDep,
-		transportKey:           Alice,
+		t:            t,
+		wg:           &wg,
+		svc:          alice,
+		transport:    transport,
+		dependency:   aliceDep,
+		transportKey: Alice,
+		recipients: []*introduce.Recipient{
+			{MyDID: Alice, TheirDID: Bob},
+		},
 		withSecondResponseStop: true,
 	})
 
@@ -2246,7 +2081,7 @@ func TestService_ProposalIntroducerSecondStopWithRequest(t *testing.T) {
 		dependency: bobDep,
 		didEvent:   didEventBob,
 		recipients: []*introduce.Recipient{
-			{Destination: &service.Destination{ServiceEndpoint: Alice}},
+			{MyDID: Bob, TheirDID: Alice},
 		},
 		transportKey:     Bob,
 		startWithRequest: true,
@@ -2262,6 +2097,9 @@ func TestService_ProposalIntroducerSecondStopWithRequest(t *testing.T) {
 		dependency:   carolDep,
 		didEvent:     didEventCarol,
 		transportKey: Carol,
+		recipients: []*introduce.Recipient{
+			{MyDID: Carol, TheirDID: Alice},
+		},
 	})
 
 	wg.Wait()
@@ -2271,9 +2109,9 @@ func setupIntroducer(f *flow) (*introduce.Service, *introduceMocks.MockInvitatio
 	ctrl := f.controller
 
 	disp := dispatcherMocks.NewMockOutbound(ctrl)
-	disp.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
-		Do(func(msg interface{}, _ string, dest *service.Destination) error {
-			f.transport[dest.ServiceEndpoint] <- msg
+	disp.EXPECT().SendToDID(gomock.Any(), f.transportKey, gomock.Any()).
+		Do(func(msg interface{}, _ string, dest string) error {
+			f.transport[dest] <- msg
 			return nil
 		}).AnyTimes()
 
@@ -2304,9 +2142,9 @@ func setupIntroducee(f *flow) (*introduce.Service, *introduceMocks.MockInvitatio
 	ctrl := f.controller
 
 	disp := dispatcherMocks.NewMockOutbound(ctrl)
-	disp.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
-		Do(func(msg interface{}, _ string, dest *service.Destination) error {
-			f.transport[dest.ServiceEndpoint] <- msg
+	disp.EXPECT().SendToDID(gomock.Any(), f.transportKey, Alice).
+		Do(func(msg interface{}, _ string, dest string) error {
+			f.transport[dest] <- msg
 			return nil
 		}).AnyTimes()
 
@@ -2336,12 +2174,12 @@ func setupIntroducee(f *flow) (*introduce.Service, *introduceMocks.MockInvitatio
 	return svc, dep, didChan
 }
 
-func handleInbound(t *testing.T, svc *introduce.Service, msg interface{}) {
+func handleInbound(t *testing.T, svc *introduce.Service, msg interface{}, myDID, theirDID string) {
 	t.Helper()
 
 	resp, err := service.NewDIDCommMsg(toBytes(t, msg))
 	require.NoError(t, err)
-	_, err = svc.HandleInbound(resp)
+	_, err = svc.HandleInbound(resp, myDID, theirDID)
 	require.NoError(t, err)
 }
 
@@ -2368,9 +2206,7 @@ func checkAndHandle(f *flow) {
 
 		go func() {
 			// handle outbound Request msg
-			require.NoError(f.t, f.svc.HandleOutbound(request, &service.Destination{
-				ServiceEndpoint: f.recipients[0].Destination.ServiceEndpoint,
-			}))
+			require.NoError(f.t, f.svc.HandleOutbound(request, f.recipients[0].MyDID, f.recipients[0].TheirDID))
 		}()
 		checkStateMsg(f.t, sCh, service.PreState, introduce.RequestMsgType, "requesting")
 		checkStateMsg(f.t, sCh, service.PostState, introduce.RequestMsgType, "requesting")
@@ -2388,9 +2224,7 @@ func checkAndHandle(f *flow) {
 
 		go func() {
 			// handle outbound Proposal msg
-			require.NoError(f.t, f.svc.HandleOutbound(proposal, &service.Destination{
-				ServiceEndpoint: f.recipients[0].Destination.ServiceEndpoint,
-			}))
+			require.NoError(f.t, f.svc.HandleOutbound(proposal, f.recipients[0].MyDID, f.recipients[0].TheirDID))
 		}()
 		checkStateMsg(f.t, sCh, service.PreState, introduce.ProposalMsgType, "arranging")
 		checkStateMsg(f.t, sCh, service.PostState, introduce.ProposalMsgType, "arranging")
@@ -2409,7 +2243,7 @@ func checkAndHandle(f *flow) {
 
 		switch iMsg := incomingMsg.(type) {
 		case *introduce.Request:
-			go handleInbound(f.t, f.svc, incomingMsg)
+			go handleInbound(f.t, f.svc, incomingMsg, f.recipients[0].MyDID, f.recipients[0].TheirDID)
 
 			if f.withRequestStop {
 				continueActionStop(f.t, aCh, introduce.RequestMsgType)
@@ -2429,7 +2263,7 @@ func checkAndHandle(f *flow) {
 		case *introduce.Response:
 			responseCounter++
 
-			go handleInbound(f.t, f.svc, incomingMsg)
+			go handleInbound(f.t, f.svc, incomingMsg, f.recipients[0].MyDID, f.recipients[0].TheirDID)
 
 			if f.withResponseStop {
 				continueActionStop(f.t, aCh, introduce.ResponseMsgType)
@@ -2507,7 +2341,7 @@ func checkAndHandle(f *flow) {
 
 			return
 		case *introduce.Proposal:
-			go handleInbound(f.t, f.svc, incomingMsg)
+			go handleInbound(f.t, f.svc, incomingMsg, f.recipients[0].MyDID, f.recipients[0].TheirDID)
 
 			require.NotEmpty(f.t, iMsg.To.Name)
 
@@ -2531,7 +2365,7 @@ func checkAndHandle(f *flow) {
 			checkStateMsg(f.t, sCh, service.PreState, introduce.ProposalMsgType, "waiting")
 			checkStateMsg(f.t, sCh, service.PostState, introduce.ProposalMsgType, "waiting")
 		case *model.ProblemReport:
-			go handleInbound(f.t, f.svc, incomingMsg)
+			go handleInbound(f.t, f.svc, incomingMsg, f.recipients[0].MyDID, f.recipients[0].TheirDID)
 			checkStateMsg(f.t, sCh, service.PreState, introduce.ProblemReportMsgType, "abandoning")
 			checkStateMsg(f.t, sCh, service.PostState, introduce.ProblemReportMsgType, "abandoning")
 			checkStateMsg(f.t, sCh, service.PreState, introduce.ProblemReportMsgType, "done")
@@ -2539,7 +2373,7 @@ func checkAndHandle(f *flow) {
 
 			return
 		case *model.Ack:
-			go handleInbound(f.t, f.svc, incomingMsg)
+			go handleInbound(f.t, f.svc, incomingMsg, f.recipients[0].MyDID, f.recipients[0].TheirDID)
 			checkStateMsg(f.t, sCh, service.PreState, introduce.AckMsgType, "done")
 			checkStateMsg(f.t, sCh, service.PostState, introduce.AckMsgType, "done")
 

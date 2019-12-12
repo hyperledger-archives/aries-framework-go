@@ -20,4 +20,5 @@ type Service interface {
 // Outbound interface
 type Outbound interface {
 	Send(interface{}, string, *service.Destination) error
+	SendToDID(msg interface{}, myDID, theirDID string) error
 }

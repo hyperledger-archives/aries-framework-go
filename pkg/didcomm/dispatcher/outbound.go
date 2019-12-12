@@ -40,6 +40,11 @@ func NewOutbound(prov provider) *OutboundDispatcher {
 	}
 }
 
+// SendToDID msg
+func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
+	return nil
+}
+
 // Send msg
 func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
 	for _, v := range o.outboundTransports {

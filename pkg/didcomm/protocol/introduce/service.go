@@ -71,10 +71,11 @@ type InvitationEnvelope interface {
 
 // Recipient keeps information needed for the service
 // 'To' field is needed for the proposal message
-// 'Destination' field is needed for the entire protocol (e.g report-problem, proposal, ack)
+// 'MyDID' and 'TheirDID' fields are needed for sending messages e.g report-problem, proposal, ack etc.
 type Recipient struct {
-	To          *To
-	Destination *service.Destination
+	To       *To
+	MyDID    string `json:"my_did,omitempty"`
+	TheirDID string `json:"their_did,omitempty"`
 }
 
 // metaData type to store data for internal usage
@@ -85,6 +86,9 @@ type metaData struct {
 	// keeps a dependency for the protocol injected by Continue() function
 	dependency InvitationEnvelope
 	disapprove bool
+	inbound    bool
+	myDID      string
+	theirDID   string
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -191,7 +195,7 @@ func (s *Service) startInternalListener() {
 		case msg := <-s.callbacks:
 			// if no error - do handle or it was disapproved
 			if msg.err == nil || msg.disapprove {
-				msg.err = s.handle(msg, nil)
+				msg.err = s.handle(msg)
 			}
 
 			// no error - continue
@@ -201,7 +205,7 @@ func (s *Service) startInternalListener() {
 
 			msg.StateName = stateNameAbandoning
 
-			if err := s.handle(msg, nil); err != nil {
+			if err := s.handle(msg); err != nil {
 				logger.Errorf("listener handle: %s", err)
 			}
 		case event := <-s.didEvent:
@@ -282,13 +286,13 @@ func (s *Service) InvitationReceived(msg service.StateMsg) error {
 		return fmt.Errorf("invitation received new DIDComm msg: %w", err)
 	}
 
-	_, err = s.HandleInbound(didMsg)
+	_, err = s.HandleInbound(didMsg, "", "")
 
 	return err
 }
 
 // HandleInbound handles inbound message (introduce protocol)
-func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
+func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	aEvent := s.ActionEvent()
 
 	logger.Infof("entered into HandleInbound: %v", msg.Header)
@@ -302,6 +306,11 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 		return "", err
 	}
 
+	// sets inbound payload
+	mData.inbound = true
+	mData.myDID = myDID
+	mData.theirDID = theirDID
+
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg) {
 		aEvent <- s.newDIDCommActionMsg(mData)
@@ -309,11 +318,11 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 	}
 
 	// if no action event is triggered, continue the execution
-	return "", s.handle(mData, nil)
+	return "", s.handle(mData)
 }
 
 // HandleOutbound handles outbound message (introduce protocol)
-func (s *Service) HandleOutbound(msg *service.DIDCommMsg, dest *service.Destination) error {
+func (s *Service) HandleOutbound(msg *service.DIDCommMsg, myDID, theirDID string) error {
 	logger.Infof("entered into HandleOutbound: %v", msg.Header)
 
 	mData, err := s.doHandle(msg, true)
@@ -321,7 +330,11 @@ func (s *Service) HandleOutbound(msg *service.DIDCommMsg, dest *service.Destinat
 		return err
 	}
 
-	return s.handle(mData, dest)
+	// sets outbound payload
+	mData.myDID = myDID
+	mData.theirDID = theirDID
+
+	return s.handle(mData)
 }
 
 // sendMsgEvents triggers the message events.
@@ -516,7 +529,7 @@ func injectInvitation(msg *metaData) error {
 	return nil
 }
 
-func (s *Service) handle(msg *metaData, dest *service.Destination) error {
+func (s *Service) handle(msg *metaData) error {
 	logger.Infof("entered into private handle message: %v ", msg.Msg.Header)
 
 	current := stateFromName(msg.StateName)
@@ -524,7 +537,7 @@ func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 	logger.Infof("next valid state to transition -> %s ", current.Name())
 
 	for !isNoOp(current) {
-		next, err := s.execute(current, msg, dest)
+		next, err := s.execute(current, msg)
 		if err != nil {
 			return fmt.Errorf("execute: %w", err)
 		}
@@ -539,7 +552,7 @@ func (s *Service) handle(msg *metaData, dest *service.Destination) error {
 	return nil
 }
 
-func (s *Service) execute(next state, msg *metaData, dest *service.Destination) (state, error) {
+func (s *Service) execute(next state, msg *metaData) (state, error) {
 	s.sendMsgEvents(&service.StateMsg{
 		ProtocolName: Introduce,
 		Type:         service.PreState,
@@ -561,10 +574,10 @@ func (s *Service) execute(next state, msg *metaData, dest *service.Destination) 
 		msg.Recipients = msg.dependency.Recipients()
 	}
 
-	if dest != nil {
-		followup, err = next.ExecuteOutbound(s.ctx, msg, dest)
-	} else {
+	if msg.inbound {
 		followup, err = next.ExecuteInbound(s.ctx, msg)
+	} else {
+		followup, err = next.ExecuteOutbound(s.ctx, msg)
 	}
 
 	if err != nil {

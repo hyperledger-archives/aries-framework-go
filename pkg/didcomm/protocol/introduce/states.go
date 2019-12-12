@@ -38,13 +38,6 @@ const (
 	stateNameWaiting    = "waiting"
 )
 
-// GetInboundDestination gets inbound destination
-// nolint: gochecknoglobals
-var GetInboundDestination = func() *service.Destination {
-	// TODO: need to get real destination and key
-	return &service.Destination{}
-}
-
 type internalContext struct {
 	dispatcher.Outbound
 }
@@ -58,7 +51,7 @@ type state interface {
 	// Executes this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
 	ExecuteInbound(ctx internalContext, msg *metaData) (followup state, err error)
-	ExecuteOutbound(ctx internalContext, msg *metaData, dest *service.Destination) (followup state, err error)
+	ExecuteOutbound(ctx internalContext, msg *metaData) (followup state, err error)
 }
 
 // noOp state
@@ -77,7 +70,7 @@ func (s *noOp) ExecuteInbound(ctx internalContext, _ *metaData) (state, error) {
 	return nil, errors.New("cannot execute no-op")
 }
 
-func (s *noOp) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
+func (s *noOp) ExecuteOutbound(ctx internalContext, _ *metaData) (state, error) {
 	return nil, errors.New("cannot execute no-op")
 }
 
@@ -99,7 +92,7 @@ func (s *start) ExecuteInbound(ctx internalContext, _ *metaData) (state, error) 
 	return nil, errors.New("start ExecuteInbound: not implemented yet")
 }
 
-func (s *start) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
+func (s *start) ExecuteOutbound(ctx internalContext, _ *metaData) (state, error) {
 	return nil, errors.New("start ExecuteOutbound: not implemented yet")
 }
 
@@ -120,7 +113,7 @@ func (s *done) ExecuteInbound(ctx internalContext, _ *metaData) (state, error) {
 	return &noOp{}, nil
 }
 
-func (s *done) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
+func (s *done) ExecuteOutbound(ctx internalContext, _ *metaData) (state, error) {
 	return nil, errors.New("done ExecuteOutbound: not implemented yet")
 }
 
@@ -149,7 +142,7 @@ func (s *arranging) ExecuteInbound(ctx internalContext, m *metaData) (state, err
 		return &abandoning{}, nil
 	}
 
-	recipients := fillMissingDestination(m.dependency.Recipients())
+	recipients := fillRecipient(m.dependency.Recipients(), m)
 
 	var recipient *Recipient
 
@@ -160,23 +153,25 @@ func (s *arranging) ExecuteInbound(ctx internalContext, m *metaData) (state, err
 		recipient = recipients[1]
 	}
 
-	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
-	return &noOp{}, ctx.Send(&Proposal{
+	return &noOp{}, ctx.SendToDID(&Proposal{
 		Type:   ProposalMsgType,
 		ID:     uuid.New().String(),
 		To:     recipient.To,
 		Thread: &decorator.Thread{ID: m.ThreadID},
-	}, "", recipient.Destination)
+	}, recipient.MyDID, recipient.TheirDID)
 }
 
-func (s *arranging) ExecuteOutbound(ctx internalContext, m *metaData, dest *service.Destination) (state, error) {
+func (s *arranging) ExecuteOutbound(ctx internalContext, m *metaData) (state, error) {
 	var proposal *Proposal
 	if err := json.Unmarshal(m.Msg.Payload, &proposal); err != nil {
 		return nil, fmt.Errorf("outbound unmarshal: %w", err)
 	}
 
-	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
-	return &noOp{}, ctx.Send(proposal, "", dest)
+	if err := ctx.SendToDID(proposal, m.myDID, m.theirDID); err != nil {
+		return nil, fmt.Errorf("arranging: SendToDID: %w", err)
+	}
+
+	return &noOp{}, nil
 }
 
 // delivering state
@@ -220,8 +215,7 @@ func sendProblemReport(ctx internalContext, m *metaData, recipients []*Recipient
 	}
 
 	for _, recipient := range recipients {
-		// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
-		if err := ctx.Send(problem, "", recipient.Destination); err != nil {
+		if err := ctx.SendToDID(problem, recipient.MyDID, recipient.TheirDID); err != nil {
 			return nil, fmt.Errorf("send problem-report: %w", err)
 		}
 	}
@@ -234,8 +228,7 @@ func deliveringSkipInvitation(ctx internalContext, m *metaData, recipients []*Re
 	inv := m.dependency.Invitation()
 	inv.Thread = &decorator.Thread{PID: m.ThreadID}
 
-	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
-	err := ctx.Send(inv, "", recipients[0].Destination)
+	err := ctx.SendToDID(inv, recipients[0].MyDID, recipients[0].TheirDID)
 	if err != nil {
 		return nil, fmt.Errorf("send inbound invitation (skip): %w", err)
 	}
@@ -244,7 +237,7 @@ func deliveringSkipInvitation(ctx internalContext, m *metaData, recipients []*Re
 }
 
 func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
-	recipients := fillMissingDestination(m.dependency.Recipients())
+	recipients := fillRecipient(m.dependency.Recipients(), m)
 
 	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
 		return &abandoning{}, nil
@@ -261,16 +254,16 @@ func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, er
 
 	m.Invitation.Thread = &decorator.Thread{PID: m.ThreadID}
 
-	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
-	err := ctx.Send(m.Invitation, "", recipients[toDestIDx(m.IntroduceeIndex)].Destination)
-	if err != nil {
+	recipient := recipients[toDestIDx(m.IntroduceeIndex)]
+
+	if err := ctx.SendToDID(m.Invitation, recipient.MyDID, recipient.TheirDID); err != nil {
 		return nil, fmt.Errorf("send inbound invitation: %w", err)
 	}
 
 	return &confirming{}, nil
 }
 
-func (s *delivering) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
+func (s *delivering) ExecuteOutbound(ctx internalContext, _ *metaData) (state, error) {
 	return nil, errors.New("delivering ExecuteOutbound: not implemented yet")
 }
 
@@ -287,14 +280,14 @@ func (s *confirming) CanTransitionTo(next state) bool {
 }
 
 func (s *confirming) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
-	recipients := fillMissingDestination(m.dependency.Recipients())
+	recipients := fillRecipient(m.dependency.Recipients(), m)
+	recipient := recipients[m.IntroduceeIndex]
 
-	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
-	err := ctx.Send(&model.Ack{
+	err := ctx.SendToDID(&model.Ack{
 		Type:   AckMsgType,
 		ID:     uuid.New().String(),
 		Thread: &decorator.Thread{ID: m.ThreadID},
-	}, "", recipients[m.IntroduceeIndex].Destination)
+	}, recipient.MyDID, recipient.TheirDID)
 
 	if err != nil {
 		return nil, fmt.Errorf("send ack: %w", err)
@@ -303,7 +296,7 @@ func (s *confirming) ExecuteInbound(ctx internalContext, m *metaData) (state, er
 	return &done{}, nil
 }
 
-func (s *confirming) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
+func (s *confirming) ExecuteOutbound(ctx internalContext, _ *metaData) (state, error) {
 	return nil, errors.New("confirming ExecuteOutbound: not implemented yet")
 }
 
@@ -319,16 +312,23 @@ func (s *abandoning) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone
 }
 
-func fillMissingDestination(recipients []*Recipient) []*Recipient {
+func fillRecipient(recipients []*Recipient, m *metaData) []*Recipient {
 	// for the first recipient, we may do not have a destination
 	// in that case, we need to get destination from the inbound message
 	// NOTE: it happens after receiving the Request message.
 	if len(recipients) == 0 {
-		return append(recipients, &Recipient{Destination: GetInboundDestination()})
+		return append(recipients, &Recipient{
+			MyDID:    m.myDID,
+			TheirDID: m.theirDID,
+		})
 	}
 
-	if recipients[0].Destination == nil {
-		recipients[0].Destination = GetInboundDestination()
+	if recipients[0].MyDID == "" {
+		recipients[0].MyDID = m.myDID
+	}
+
+	if recipients[0].TheirDID == "" {
+		recipients[0].TheirDID = m.theirDID
 	}
 
 	return recipients
@@ -338,11 +338,11 @@ func (s *abandoning) ExecuteInbound(ctx internalContext, m *metaData) (state, er
 	var recipients []*Recipient
 
 	if m.Msg.Header.Type == RequestMsgType {
-		recipients = fillMissingDestination(nil)
+		recipients = fillRecipient(nil, m)
 	}
 
 	if m.Msg.Header.Type == ResponseMsgType {
-		recipients = fillMissingDestination(m.Recipients)
+		recipients = fillRecipient(m.Recipients, m)
 	}
 
 	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
@@ -357,7 +357,7 @@ func (s *abandoning) ExecuteInbound(ctx internalContext, m *metaData) (state, er
 	return sendProblemReport(ctx, m, recipients)
 }
 
-func (s *abandoning) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
+func (s *abandoning) ExecuteOutbound(ctx internalContext, _ *metaData) (state, error) {
 	return nil, errors.New("abandoning ExecuteOutbound: not implemented yet")
 }
 
@@ -384,17 +384,17 @@ func (s *deciding) ExecuteInbound(ctx internalContext, m *metaData) (state, erro
 	if m.disapprove {
 		st = &abandoning{}
 	}
-	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
-	return st, ctx.Send(&Response{
+
+	return st, ctx.SendToDID(&Response{
 		Type:       ResponseMsgType,
 		ID:         uuid.New().String(),
 		Thread:     &decorator.Thread{ID: m.ThreadID},
 		Invitation: inv,
 		Approve:    !m.disapprove,
-	}, "", GetInboundDestination())
+	}, m.myDID, m.theirDID)
 }
 
-func (s *deciding) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
+func (s *deciding) ExecuteOutbound(ctx internalContext, _ *metaData) (state, error) {
 	return nil, errors.New("deciding ExecuteOutbound: not implemented yet")
 }
 
@@ -414,7 +414,7 @@ func (s *waiting) ExecuteInbound(ctx internalContext, _ *metaData) (state, error
 	return &noOp{}, nil
 }
 
-func (s *waiting) ExecuteOutbound(ctx internalContext, _ *metaData, _ *service.Destination) (state, error) {
+func (s *waiting) ExecuteOutbound(ctx internalContext, _ *metaData) (state, error) {
 	return nil, errors.New("waiting ExecuteOutbound: not implemented yet")
 }
 
@@ -434,12 +434,11 @@ func (s *requesting) ExecuteInbound(ctx internalContext, _ *metaData) (state, er
 	return nil, errors.New("requesting ExecuteInbound: not implemented yet")
 }
 
-func (s *requesting) ExecuteOutbound(ctx internalContext, m *metaData, dest *service.Destination) (state, error) {
+func (s *requesting) ExecuteOutbound(ctx internalContext, m *metaData) (state, error) {
 	var req *Request
 	if err := json.Unmarshal(m.Msg.Payload, &req); err != nil {
 		return nil, fmt.Errorf("requesting outbound unmarshal: %w", err)
 	}
 
-	// TODO: Add senderVerKey https://github.com/hyperledger/aries-framework-go/issues/903
-	return &noOp{}, ctx.Send(req, "", dest)
+	return &noOp{}, ctx.SendToDID(req, m.myDID, m.theirDID)
 }

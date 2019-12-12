@@ -16,9 +16,9 @@ import (
 // Handler provides protocol service handle api.
 type Handler interface {
 	// HandleInbound handles inbound messages.
-	HandleInbound(msg *DIDCommMsg) (string, error)
+	HandleInbound(msg *DIDCommMsg, myDID string, theirDID string) (string, error)
 	// HandleOutbound handles outbound messages.
-	HandleOutbound(msg *DIDCommMsg, dest *Destination) error
+	HandleOutbound(msg *DIDCommMsg, myDID, theirDID string) error
 }
 
 // DIDComm defines service APIs.

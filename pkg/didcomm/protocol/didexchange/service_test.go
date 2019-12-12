@@ -128,7 +128,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	require.NoError(t, err)
 	msg, err := service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
-	_, err = s.HandleInbound(msg)
+	_, err = s.HandleInbound(msg, "", "")
 	require.NoError(t, err)
 
 	select {
@@ -150,7 +150,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	didMsg, err := service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
 
-	_, err = s.HandleInbound(didMsg)
+	_, err = s.HandleInbound(didMsg, "", "")
 	require.NoError(t, err)
 
 	select {
@@ -251,7 +251,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	didMsg, err := service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
 
-	_, err = s.HandleInbound(didMsg)
+	_, err = s.HandleInbound(didMsg, "", "")
 	require.NoError(t, err)
 
 	var connID string
@@ -293,7 +293,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	didMsg, err = service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
 
-	_, err = s.HandleInbound(didMsg)
+	_, err = s.HandleInbound(didMsg, "", "")
 	require.NoError(t, err)
 
 	// Alice automatically sends an ACK to Bob
@@ -345,7 +345,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		didMsg, err := service.NewDIDCommMsg(response)
 		require.NoError(t, err)
 
-		_, err = s.HandleInbound(didMsg)
+		_, err = s.HandleInbound(didMsg, "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "handle inbound - next state : invalid state transition: "+
 			"null -> responded")
@@ -366,7 +366,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		didMsg, err := service.NewDIDCommMsg(requestBytes)
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(didMsg)
+		_, err = svc.HandleInbound(didMsg, "", "")
 		require.Error(t, err)
 		require.Equal(t, err.Error(), "threadID not found")
 	})
@@ -381,7 +381,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
 		svc.connectionStore = NewConnectionRecorder(transientStore, nil)
 
-		_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""))
+		_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "save connection record")
 	})
@@ -419,7 +419,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		didMsg, err := service.NewDIDCommMsg(requestBytes)
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(didMsg)
+		_, err = svc.HandleInbound(didMsg, "", "")
 		require.NoError(t, err)
 	})
 }
@@ -628,7 +628,7 @@ func TestEventsSuccess(t *testing.T) {
 	didMsg, err := service.NewDIDCommMsg(invite)
 	require.NoError(t, err)
 
-	_, err = svc.HandleInbound(didMsg)
+	_, err = svc.HandleInbound(didMsg, "", "")
 	require.NoError(t, err)
 
 	select {
@@ -665,7 +665,7 @@ func TestContinueWithPublicDID(t *testing.T) {
 	didMsg, err := service.NewDIDCommMsg(invite)
 	require.NoError(t, err)
 
-	_, err = svc.HandleInbound(didMsg)
+	_, err = svc.HandleInbound(didMsg, "", "")
 	require.NoError(t, err)
 }
 
@@ -722,7 +722,7 @@ func TestEventsUserError(t *testing.T) {
 	err = svc.connectionStore.saveNewConnectionRecord(connRec)
 	require.NoError(t, err)
 
-	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, id, ""))
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, id, ""), "", "")
 	require.NoError(t, err)
 
 	select {
@@ -749,7 +749,8 @@ func TestEventStoreError(t *testing.T) {
 		}
 	}()
 
-	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""))
+	_, err = svc.HandleInbound(
+		generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""), "", "")
 	require.NoError(t, err)
 }
 
@@ -804,7 +805,8 @@ func TestServiceErrors(t *testing.T) {
 		return nil, errors.New("error")
 	}}
 	svc.connectionStore = NewConnectionRecorder(mockStore, nil)
-	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""))
+	payload := generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), "")
+	_, err = svc.HandleInbound(payload, "", "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot fetch state from store")
 
@@ -815,7 +817,7 @@ func TestServiceErrors(t *testing.T) {
 
 	svc.connectionStore = NewConnectionRecorder(transientStore, nil)
 
-	_, err = svc.HandleInbound(msg)
+	_, err = svc.HandleInbound(msg, "", "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unrecognized msgType: invalid")
 
@@ -838,7 +840,7 @@ func TestHandleOutbound(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
 
-	err = svc.HandleOutbound(&service.DIDCommMsg{}, &service.Destination{})
+	err = svc.HandleOutbound(&service.DIDCommMsg{}, "", "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not implemented")
 }
@@ -976,8 +978,9 @@ func TestAcceptExchangeRequest(t *testing.T) {
 		}
 	}()
 
-	_, err = svc.HandleInbound(generateRequestMsgPayload(t,
-		&protocol.MockProvider{StoreProvider: mockstorage.NewMockStoreProvider()}, randomString(), invitation.ID))
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{
+		StoreProvider: mockstorage.NewMockStoreProvider(),
+	}, randomString(), invitation.ID), "", "")
 	require.NoError(t, err)
 
 	select {
@@ -1036,8 +1039,9 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 		}
 	}()
 
-	_, err = svc.HandleInbound(generateRequestMsgPayload(t,
-		&protocol.MockProvider{StoreProvider: mockstorage.NewMockStoreProvider()}, randomString(), invitation.ID))
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{
+		StoreProvider: mockstorage.NewMockStoreProvider(),
+	}, randomString(), invitation.ID), "", "")
 	require.NoError(t, err)
 
 	select {
@@ -1098,7 +1102,7 @@ func TestAcceptInvitation(t *testing.T) {
 		didMsg, err := service.NewDIDCommMsg(invitationBytes)
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(didMsg)
+		_, err = svc.HandleInbound(didMsg, "", "")
 		require.NoError(t, err)
 
 		select {
@@ -1213,7 +1217,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		didMsg, err := service.NewDIDCommMsg(invitationBytes)
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(didMsg)
+		_, err = svc.HandleInbound(didMsg, "", "")
 		require.NoError(t, err)
 
 		select {

@@ -66,6 +66,10 @@ func (m *mockOutbound) Send(msg interface{}, senderVerKey string, des *service.D
 	return m.validateSend(msg)
 }
 
+func (m *mockOutbound) SendToDID(msg interface{}, myDID, theirDID string) error {
+	return nil
+}
+
 func generateRequestMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
 	requestBytes, err := json.Marshal(&Request{
 		Type: RequestMsgType,
