@@ -9,6 +9,7 @@ package api
 import (
 	"errors"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/api/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -25,6 +26,7 @@ type Provider interface {
 	Service(id string) (interface{}, error)
 	StorageProvider() storage.Provider
 	KMS() kms.KeyManager
+	Crypto() crypto.Crypto
 	Packager() transport.Packager
 	InboundTransportEndpoint() string
 	VDRIRegistry() vdriapi.Registry

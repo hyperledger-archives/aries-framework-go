@@ -18,6 +18,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
+	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/internal/mock/crypto"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
@@ -202,6 +203,13 @@ func TestNewProvider(t *testing.T) {
 		require.Equal(t, "TYPE", typ)
 	})
 
+	t.Run("test new with crypto service", func(t *testing.T) {
+		mCrypto := &mockcrypto.Crypto{}
+		prov, err := New(WithCrypto(mCrypto))
+		require.NoError(t, err)
+		require.Equal(t, mCrypto, prov.Crypto())
+	})
+
 	t.Run("test new with inbound transport endpoint", func(t *testing.T) {
 		prov, err := New(WithInboundTransportEndpoint("endpoint"))
 		require.NoError(t, err)
@@ -233,7 +241,7 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithOutboundTransports(&mockdidcomm.MockOutboundTransport{ExpectedResponse: "data"},
 			&mockdidcomm.MockOutboundTransport{ExpectedResponse: "data1"}))
 		require.NoError(t, err)
-		require.Equal(t, 2, len(prov.outboundTransports))
+		require.Equal(t, 2, len(prov.OutboundTransports()))
 		r, err := prov.outboundTransports[0].Send([]byte("data"), &service.Destination{ServiceEndpoint: "url"})
 		require.NoError(t, err)
 		require.Equal(t, "data", r)

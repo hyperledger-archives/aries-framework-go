@@ -94,6 +94,16 @@ func TestDeriveKEK_Util(t *testing.T) {
 	kek, err = Derive25519KEK(nil, nil, chachaKey, chachaKey2)
 	require.NoError(t, err)
 	require.NotEmpty(t, kek)
+
+	// lowOrderPoint from golang.org/x/crypto/curve25519.
+	// https://github.com/golang/crypto/blob/f4817d981/curve25519/vectors_test.go#L10
+	lowOrderPoint := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+	chachaKey2 = new([chacha.KeySize]byte)
+	copy(chachaKey2[:], lowOrderPoint)
+	// test error from curve25519.X25519() call in Derive25519KEK()
+	_, err = Derive25519KEK(nil, nil, chachaKey, chachaKey2)
+	require.Error(t, err)
 }
 
 func TestNonceGeneration(t *testing.T) {
