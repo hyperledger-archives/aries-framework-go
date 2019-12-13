@@ -108,7 +108,8 @@ const defaultSchema = `{
       ]
     },
     "issuanceDate": {
-      "$ref": "#/definitions/timestamp"
+      "type": "string",
+      "format": "date-time"
     },
     "proof": {
       "type": "object",
@@ -122,7 +123,8 @@ const defaultSchema = `{
       }
     },
     "expirationDate": {
-      "$ref": "#/definitions/timestamp"
+      "type": "string",
+      "format": "date-time"
     },
     "credentialStatus": {
       "$ref": "#/definitions/typedID"
@@ -138,10 +140,6 @@ const defaultSchema = `{
     }
   },
   "definitions": {
-    "timestamp": {
-      "type": "string",
-      "pattern": "\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\dZ"
-    },
     "typedID": {
       "type": "object",
       "required": [
