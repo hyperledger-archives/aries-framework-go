@@ -18,3 +18,8 @@ type MockOutbound struct {
 func (m *MockOutbound) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
 	return m.SendErr
 }
+
+// SendToDID msg
+func (m *MockOutbound) SendToDID(msg interface{}, myDID, theirDID string) error {
+	return nil
+}

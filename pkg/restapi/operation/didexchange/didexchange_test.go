@@ -514,7 +514,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	msg, err := service.NewDIDCommMsg(request)
 	require.NoError(t, err)
 
-	_, err = didExSvc.HandleInbound(msg)
+	_, err = didExSvc.HandleInbound(msg, "", "")
 	require.NoError(t, err)
 
 	cid := <-connID
@@ -586,7 +586,7 @@ func TestAcceptInvitation(t *testing.T) {
 	msg, err := service.NewDIDCommMsg(invitation)
 	require.NoError(t, err)
 
-	_, err = didExSvc.HandleInbound(msg)
+	_, err = didExSvc.HandleInbound(msg, "", "")
 	require.NoError(t, err)
 
 	var cid string

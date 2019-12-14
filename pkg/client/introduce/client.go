@@ -107,12 +107,12 @@ func (c *Client) SendProposalWithInvitation(inv *didexchange.Invitation, recipie
 
 // SendRequest sends a request
 // sending a request means that introducee is willing to share its invitation
-func (c *Client) SendRequest(dest *service.Destination) error {
+func (c *Client) SendRequest(myDID, theirDID string) error {
 	return c.handleOutbound(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		ID:   c.newUUID(),
 	}, InvitationEnvelope{
-		Recps: []*introduce.Recipient{{Destination: dest}},
+		Recps: []*introduce.Recipient{{MyDID: myDID, TheirDID: theirDID}},
 	})
 }
 
@@ -164,7 +164,7 @@ func (c *Client) handleOutbound(msg interface{}, o InvitationEnvelope) error {
 		return err
 	}
 
-	return c.service.HandleOutbound(didMsg, o.Recps[0].Destination)
+	return c.service.HandleOutbound(didMsg, o.Recps[0].MyDID, o.Recps[0].MyDID)
 }
 
 // InvitationEnvelope keeps the information needed for sending a proposal

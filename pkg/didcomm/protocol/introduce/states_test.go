@@ -45,7 +45,7 @@ func TestNoOp_ExecuteInbound(t *testing.T) {
 }
 
 func TestNoOp_ExecuteOutbound(t *testing.T) {
-	followup, err := (&noOp{}).ExecuteOutbound(internalContext{}, &metaData{}, &service.Destination{})
+	followup, err := (&noOp{}).ExecuteOutbound(internalContext{}, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -74,7 +74,7 @@ func TestStart_ExecuteInbound(t *testing.T) {
 }
 
 func TestStart_ExecuteOutbound(t *testing.T) {
-	followup, err := (&start{}).ExecuteOutbound(internalContext{}, &metaData{}, &service.Destination{})
+	followup, err := (&start{}).ExecuteOutbound(internalContext{}, &metaData{})
 	require.EqualError(t, err, "start ExecuteOutbound: not implemented yet")
 	require.Nil(t, followup)
 }
@@ -92,7 +92,7 @@ func TestDone_ExecuteInbound(t *testing.T) {
 }
 
 func TestDone_ExecuteOutbound(t *testing.T) {
-	followup, err := (&done{}).ExecuteOutbound(internalContext{}, &metaData{}, &service.Destination{})
+	followup, err := (&done{}).ExecuteOutbound(internalContext{}, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -119,12 +119,12 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 	defer ctrl.Finish()
 
 	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	ctx := internalContext{Outbound: dispatcher}
 	followup, err := (&arranging{}).ExecuteOutbound(ctx, &metaData{
 		Msg: &service.DIDCommMsg{Payload: []byte(`{}`)},
-	}, &service.Destination{})
+	})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 
@@ -132,7 +132,7 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 	errMsg := "json: cannot unmarshal array into Go value of type introduce.Proposal"
 	followup, err = (&arranging{}).ExecuteOutbound(ctx, &metaData{
 		Msg: &service.DIDCommMsg{Payload: []byte(`[]`)},
-	}, &service.Destination{})
+	})
 	require.EqualError(t, errors.Unwrap(err), errMsg)
 	require.Nil(t, followup)
 }
@@ -155,7 +155,7 @@ func TestDelivering_CanTransitionTo(t *testing.T) {
 }
 
 func TestDelivering_ExecuteOutbound(t *testing.T) {
-	followup, err := (&delivering{}).ExecuteOutbound(internalContext{}, &metaData{}, &service.Destination{})
+	followup, err := (&delivering{}).ExecuteOutbound(internalContext{}, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -178,7 +178,7 @@ func TestConfirming_CanTransitionTo(t *testing.T) {
 }
 
 func TestConfirming_ExecuteOutbound(t *testing.T) {
-	followup, err := (&confirming{}).ExecuteOutbound(internalContext{}, &metaData{}, &service.Destination{})
+	followup, err := (&confirming{}).ExecuteOutbound(internalContext{}, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -206,7 +206,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 		defer ctrl.Finish()
 
 		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-		dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test error"))
+		dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test error"))
 
 		followup, err := (&abandoning{}).ExecuteInbound(internalContext{Outbound: dispatcher}, &metaData{
 			Msg: &service.DIDCommMsg{
@@ -220,7 +220,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 }
 
 func TestAbandoning_ExecuteOutbound(t *testing.T) {
-	followup, err := (&abandoning{}).ExecuteOutbound(internalContext{}, &metaData{}, &service.Destination{})
+	followup, err := (&abandoning{}).ExecuteOutbound(internalContext{}, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -247,7 +247,7 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 	defer ctrl.Finish()
 
 	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-	dispatcher.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	ctx := internalContext{Outbound: dispatcher}
 
@@ -257,7 +257,7 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 }
 
 func TestDeciding_ExecuteOutbound(t *testing.T) {
-	followup, err := (&deciding{}).ExecuteOutbound(internalContext{}, &metaData{}, &service.Destination{})
+	followup, err := (&deciding{}).ExecuteOutbound(internalContext{}, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -286,7 +286,7 @@ func TestWaiting_ExecuteInbound(t *testing.T) {
 }
 
 func TestWaiting_ExecuteOutbound(t *testing.T) {
-	followup, err := (&waiting{}).ExecuteOutbound(internalContext{}, &metaData{}, &service.Destination{})
+	followup, err := (&waiting{}).ExecuteOutbound(internalContext{}, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -320,7 +320,7 @@ func TestRequesting_ExecuteOutbound(t *testing.T) {
 
 	followup, err := (&requesting{}).ExecuteOutbound(internalContext{}, &metaData{
 		Msg: &service.DIDCommMsg{Payload: []byte(`[]`)},
-	}, nil)
+	})
 
 	const errMsg = "requesting outbound unmarshal: json: cannot unmarshal array into Go value of type introduce.Request"
 

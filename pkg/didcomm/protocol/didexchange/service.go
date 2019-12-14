@@ -126,7 +126,7 @@ func New(prov provider) (*Service, error) {
 }
 
 // HandleInbound handles inbound didexchange messages.
-func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
+func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	logger.Debugf("receive inbound message : %s", msg.Payload)
 
 	// fetch the thread id
@@ -181,7 +181,7 @@ func (s *Service) Accept(msgType string) bool {
 }
 
 // HandleOutbound handles outbound didexchange messages.
-func (s *Service) HandleOutbound(msg *service.DIDCommMsg, destination *service.Destination) error {
+func (s *Service) HandleOutbound(msg *service.DIDCommMsg, myDID, theirDID string) error {
 	return errors.New("not implemented")
 }
 
