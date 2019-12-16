@@ -18,10 +18,12 @@ import (
 	"github.com/DATA-DOG/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/dockerutil"
 	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/introduce"
 )
 
 const (
@@ -143,12 +145,15 @@ func FeatureContext(s *godog.Suite) {
 	bddContext.Args[DIDDocPath] = "fixtures/sidetree-mock/config/didDocument.json"
 
 	// Context is shared between tests
-	NewAgentSDKSteps(bddContext).RegisterSteps(s)
-	NewAgentControllerSteps(bddContext).RegisterSteps(s)
+	agent.NewSDKSteps(bddContext).RegisterSteps(s)
+	agent.NewControllerSteps(bddContext).RegisterSteps(s)
 
 	// Register did exchange tests
 	didexchange.NewDIDExchangeSDKSteps(bddContext).RegisterSteps(s)
 	didexchange.NewDIDExchangeControllerSteps(bddContext).RegisterSteps(s)
+
+	// Register introduce tests
+	introduce.NewIntroduceSDKSteps(bddContext).RegisterSteps(s)
 
 	// Register did resolver tests
 	didresolver.NewDIDResolverSteps(bddContext).RegisterSteps(s)

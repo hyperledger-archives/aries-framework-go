@@ -60,7 +60,8 @@ func (d *SDKSteps) createInvitation(inviterAgentID string) error {
 	return nil
 }
 
-func (d *SDKSteps) createInvitationWithDID(inviterAgentID string) error {
+// CreateInvitationWithDID creates invitation with DID
+func (d *SDKSteps) CreateInvitationWithDID(inviterAgentID string) error {
 	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitationWithDID(inviterAgentID,
 		d.bddContext.PublicDIDs[inviterAgentID].ID)
 	if err != nil {
@@ -112,12 +113,20 @@ func (d *SDKSteps) createImplicitInvitationWithDID(inviteeAgentID, inviterAgentI
 	return nil
 }
 
-func (d *SDKSteps) waitForPublicDID(agentID string, maxSeconds int) error {
-	_, err := resolveDID(d.bddContext.AgentCtx[agentID].VDRIRegistry(), d.bddContext.PublicDIDs[agentID].ID, maxSeconds)
-	return err
+// WaitForPublicDID waits for public DID
+func (d *SDKSteps) WaitForPublicDID(agents string, maxSeconds int) error {
+	for _, agentID := range strings.Split(agents, ",") {
+		vdri := d.bddContext.AgentCtx[agentID].VDRIRegistry()
+		if _, err := resolveDID(vdri, d.bddContext.PublicDIDs[agentID].ID, maxSeconds); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (d *SDKSteps) receiveInvitation(inviteeAgentID, inviterAgentID string) error {
+// ReceiveInvitation receives invitation
+func (d *SDKSteps) ReceiveInvitation(inviteeAgentID, inviterAgentID string) error {
 	connectionID, err := d.bddContext.DIDExchangeClients[inviteeAgentID].HandleInvitation(d.invitations[inviterAgentID])
 	if err != nil {
 		return fmt.Errorf("failed to handle invitation: %w", err)
@@ -128,13 +137,15 @@ func (d *SDKSteps) receiveInvitation(inviteeAgentID, inviterAgentID string) erro
 	return nil
 }
 
-func (d *SDKSteps) waitForPostEvent(agentID, statesValue string) error {
-	states := strings.Split(statesValue, ",")
-	for _, state := range states {
-		select {
-		case <-d.postStatesFlag[agentID][state]:
-		case <-time.After(5 * time.Second):
-			return fmt.Errorf("timeout waiting for post state event %s", state)
+// WaitForPostEvent waits for post event
+func (d *SDKSteps) WaitForPostEvent(agents, statesValue string) error {
+	for _, agentID := range strings.Split(agents, ",") {
+		for _, state := range strings.Split(statesValue, ",") {
+			select {
+			case <-d.postStatesFlag[agentID][state]:
+			case <-time.After(5 * time.Second):
+				return fmt.Errorf("timeout waiting for post state event %s", state)
+			}
 		}
 	}
 
@@ -179,7 +190,8 @@ func (d *SDKSteps) validateResolveDID(agentID, theirDID string) error {
 	return nil
 }
 
-func (d *SDKSteps) approveRequest(agentID string) error {
+// ApproveRequest approves request
+func (d *SDKSteps) ApproveRequest(agentID string) error {
 	// sends the signal which automatically handles events
 	d.nextAction[agentID] <- struct{}{}
 	return nil
@@ -211,23 +223,26 @@ func (copts *clientOptions) Label() string {
 	return copts.label
 }
 
-func (d *SDKSteps) createDIDExchangeClient(agentID string) error {
-	// create new did exchange client
-	didexchangeClient, err := didexchange.New(d.bddContext.AgentCtx[agentID])
-	if err != nil {
-		return fmt.Errorf("failed to create new didexchange client: %w", err)
+// CreateDIDExchangeClient creates DIDExchangeClient
+func (d *SDKSteps) CreateDIDExchangeClient(agents string) error {
+	for _, agentID := range strings.Split(agents, ",") {
+		// create new did exchange client
+		didexchangeClient, err := didexchange.New(d.bddContext.AgentCtx[agentID])
+		if err != nil {
+			return fmt.Errorf("failed to create new didexchange client: %w", err)
+		}
+
+		actionCh := make(chan service.DIDCommAction)
+		if err = didexchangeClient.RegisterActionEvent(actionCh); err != nil {
+			return fmt.Errorf("failed to register action event: %w", err)
+		}
+
+		d.bddContext.DIDExchangeClients[agentID] = didexchangeClient
+		// initializes the channel for the agent
+		d.nextAction[agentID] = make(chan struct{})
+
+		go d.autoExecuteActionEvent(agentID, actionCh)
 	}
-
-	actionCh := make(chan service.DIDCommAction)
-	if err = didexchangeClient.RegisterActionEvent(actionCh); err != nil {
-		return fmt.Errorf("failed to register action event: %w", err)
-	}
-
-	d.bddContext.DIDExchangeClients[agentID] = didexchangeClient
-	// initializes the channel for the agent
-	d.nextAction[agentID] = make(chan struct{})
-
-	go d.autoExecuteActionEvent(agentID, actionCh)
 
 	return nil
 }
@@ -249,16 +264,19 @@ func (d *SDKSteps) autoExecuteActionEvent(agentID string, ch <-chan service.DIDC
 	}
 }
 
-func (d *SDKSteps) registerPostMsgEvent(agentID, statesValue string) error {
-	statusCh := make(chan service.StateMsg)
-	if err := d.bddContext.DIDExchangeClients[agentID].RegisterMsgEvent(statusCh); err != nil {
-		return fmt.Errorf("failed to register msg event: %w", err)
+// RegisterPostMsgEvent registers PostMsgEvent
+func (d *SDKSteps) RegisterPostMsgEvent(agents, statesValue string) error {
+	for _, agentID := range strings.Split(agents, ",") {
+		statusCh := make(chan service.StateMsg)
+		if err := d.bddContext.DIDExchangeClients[agentID].RegisterMsgEvent(statusCh); err != nil {
+			return fmt.Errorf("failed to register msg event: %w", err)
+		}
+
+		states := strings.Split(statesValue, ",")
+		d.initializeStates(agentID, states)
+
+		go d.eventListener(statusCh, agentID, states)
 	}
-
-	states := strings.Split(statesValue, ",")
-	d.initializeStates(agentID, states)
-
-	go d.eventListener(statusCh, agentID, states)
 
 	return nil
 }
@@ -317,17 +335,17 @@ func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddo
 // RegisterSteps registers did exchange steps
 func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
-	s.Step(`^"([^"]*)" creates invitation with public DID$`, d.createInvitationWithDID)
+	s.Step(`^"([^"]*)" creates invitation with public DID$`, d.CreateInvitationWithDID)
 	s.Step(`^"([^"]*)" waits for public did to become available in sidetree for up to (\d+) seconds$`,
-		d.waitForPublicDID)
-	s.Step(`^"([^"]*)" receives invitation from "([^"]*)"$`, d.receiveInvitation)
+		d.WaitForPublicDID)
+	s.Step(`^"([^"]*)" receives invitation from "([^"]*)"$`, d.ReceiveInvitation)
 	s.Step(`^"([^"]*)" initiates connection with "([^"]*)" using peer DID$`, d.createImplicitInvitation)
 	s.Step(`^"([^"]*)" initiates connection with "([^"]*)" using public DID$`, d.createImplicitInvitationWithDID)
-	s.Step(`^"([^"]*)" waits for post state event "([^"]*)"$`, d.waitForPostEvent)
+	s.Step(`^"([^"]*)" waits for post state event "([^"]*)"$`, d.WaitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`,
 		d.validateConnection)
-	s.Step(`^"([^"]*)" creates did exchange client$`, d.createDIDExchangeClient)
-	s.Step(`^"([^"]*)" approves did exchange request`, d.approveRequest)
-	s.Step(`^"([^"]*)" approves invitation request`, d.approveRequest)
-	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, d.registerPostMsgEvent)
+	s.Step(`^"([^"]*)" creates did exchange client$`, d.CreateDIDExchangeClient)
+	s.Step(`^"([^"]*)" approves did exchange request`, d.ApproveRequest)
+	s.Step(`^"([^"]*)" approves invitation request`, d.ApproveRequest)
+	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, d.RegisterPostMsgEvent)
 }

@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package bdd
+package agent
 
 import (
 	"fmt"
@@ -15,20 +15,20 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
-// AgentWithControllerSteps contains steps for controller based agent
-type AgentWithControllerSteps struct {
+// ControllerSteps contains steps for controller based agent
+type ControllerSteps struct {
 	bddContext *context.BDDContext
 }
 
-// NewAgentControllerSteps creates steps for agent with controller
-func NewAgentControllerSteps(ctx *context.BDDContext) *AgentWithControllerSteps {
-	return &AgentWithControllerSteps{
+// NewControllerSteps creates steps for agent with controller
+func NewControllerSteps(ctx *context.BDDContext) *ControllerSteps {
+	return &ControllerSteps{
 		bddContext: ctx,
 	}
 }
 
 // RegisterSteps registers agent steps
-func (a *AgentWithControllerSteps) RegisterSteps(s *godog.Suite) {
+func (a *ControllerSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with controller "([^"]*)" and webhook "([^"]*)"$`,
 		a.checkAgentIsRunning)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with controller "([^"]*)" and webhook "([^"]*)" `+
@@ -36,7 +36,7 @@ func (a *AgentWithControllerSteps) RegisterSteps(s *godog.Suite) {
 		a.checkAgentWithHTTPResolverIsRunning)
 }
 
-func (a *AgentWithControllerSteps) checkAgentWithHTTPResolverIsRunning(
+func (a *ControllerSteps) checkAgentWithHTTPResolverIsRunning(
 	agentID, inboundHost, inboundPort, controllerURL, webhookURL, resolverURL, didMethod string) error {
 	httpBindingURL := a.bddContext.Args[resolverURL]
 
@@ -51,7 +51,7 @@ func (a *AgentWithControllerSteps) checkAgentWithHTTPResolverIsRunning(
 	return a.checkAgentIsRunning(agentID, inboundHost, inboundPort, controllerURL, webhookURL)
 }
 
-func (a *AgentWithControllerSteps) checkAgentIsRunning(
+func (a *ControllerSteps) checkAgentIsRunning(
 	agentID, inboundHost, inboundPort, controllerURL, webhookURL string) error {
 	// verify controller
 	err := a.healthCheck(controllerURL)
@@ -87,7 +87,7 @@ func (a *AgentWithControllerSteps) checkAgentIsRunning(
 	return nil
 }
 
-func (a *AgentWithControllerSteps) healthCheck(url string) error {
+func (a *ControllerSteps) healthCheck(url string) error {
 	resp, err := http.Get(url) //nolint: gosec
 	if err != nil {
 		return err
