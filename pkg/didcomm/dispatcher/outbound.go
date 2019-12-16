@@ -45,7 +45,7 @@ func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) 
 	return nil
 }
 
-// Send msg
+// Send sends the message after packing with the sender key and recipient keys.
 func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
 	for _, v := range o.outboundTransports {
 		if !v.AcceptRecipient(des.RecipientKeys) {
@@ -87,6 +87,8 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		// set the return route option
 		des.TransportReturnRoute = o.transportReturnRoute
 
+		packedMsg = createForwardMessage(packedMsg, des)
+
 		_, err = v.Send(packedMsg, des)
 		if err != nil {
 			return fmt.Errorf("failed to send msg using outbound transport: %w", err)
@@ -96,4 +98,49 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 	}
 
 	return fmt.Errorf("no outbound transport found for serviceEndpoint: %s", des.ServiceEndpoint)
+}
+
+// Forward forwards the message without packing to the destination.
+func (o *OutboundDispatcher) Forward(msg interface{}, des *service.Destination) error {
+	for _, v := range o.outboundTransports {
+		if !v.AcceptRecipient(des.RecipientKeys) {
+			if !v.Accept(des.ServiceEndpoint) {
+				continue
+			}
+		}
+
+		req, err := json.Marshal(msg)
+		if err != nil {
+			return fmt.Errorf("failed marshal to bytes: %w", err)
+		}
+
+		_, err = v.Send(req, des)
+		if err != nil {
+			return fmt.Errorf("failed to send msg using outbound transport: %w", err)
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("no outbound transport found for serviceEndpoint: %s", des.ServiceEndpoint)
+}
+
+func createForwardMessage(msg []byte, des *service.Destination) []byte {
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/807#issuecomment-566126744 message needs to
+	//  be packed with anon crypt if the request needs through routed ie. des.RoutingKeys != nil
+	//  psuedocode:
+	//		if des.RoutingKeys != nil {
+	//			// create forward message:
+	//			forward := &Forward{
+	//				Type: "https://didcomm.org/routing/1.0/forward",
+	//				ID:   uuid.New().String(),
+	//				To:   "destinationRecKey",
+	//				Msg:  packedMsg,
+	//			}
+	//
+	//			// pack above message using anon crypt
+	//
+	//			// return the message
+	//		}
+	return msg
 }

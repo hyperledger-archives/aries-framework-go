@@ -39,6 +39,9 @@ const (
 
 	// KeyListUpdateResponseMsgType defines the route coordination key list update message response type.
 	KeylistUpdateResponseMsgType = CoordinationSpec + "keylist_update_response"
+
+	// ForwardMsgType defines the route forward message type.
+	ForwardMsgType = "https://didcomm.org/routing/1.0/forward"
 )
 
 // constants for key list update processing
@@ -92,7 +95,7 @@ func New(prov provider) (*Service, error) {
 }
 
 // HandleInbound handles inbound route coordination messages.
-func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
+func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) { // nolint gocyclo (5 switch cases)
 	// perform action on inbound message asynchronously
 	go func() {
 		switch msg.Header.Type {
@@ -112,6 +115,10 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) {
 			if err := s.handleKeylistUpdateResponse(msg); err != nil {
 				logger.Errorf("handle route keylist update response error : %s", err)
 			}
+		case ForwardMsgType:
+			if err := s.handleForward(msg); err != nil {
+				logger.Errorf("handle forward error : %s", err)
+			}
 		}
 	}()
 
@@ -126,7 +133,7 @@ func (s *Service) HandleOutbound(msg *service.DIDCommMsg, destination *service.D
 // Accept checks whether the service can handle the message type.
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
-	case RequestMsgType, GrantMsgType, KeylistUpdateMsgType, KeylistUpdateResponseMsgType:
+	case RequestMsgType, GrantMsgType, KeylistUpdateMsgType, KeylistUpdateResponseMsgType, ForwardMsgType:
 		return true
 	}
 
@@ -197,7 +204,7 @@ func (s *Service) handleKeylistUpdate(msg *service.DIDCommMsg) error {
 			val := ""
 			result := success
 
-			err = s.routeStore.Put(v.RecipientKey, []byte(val))
+			err = s.routeStore.Put(dataKey(v.RecipientKey), []byte(val))
 			if err != nil {
 				logger.Errorf("failed to add the route key to store : %s", err)
 
@@ -245,4 +252,30 @@ func (s *Service) handleKeylistUpdateResponse(msg *service.DIDCommMsg) error {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/948 integrate with framework components
 
 	return nil
+}
+
+func (s *Service) handleForward(msg *service.DIDCommMsg) error {
+	// unmarshal the payload
+	forward := &Forward{}
+
+	err := json.Unmarshal(msg.Payload, forward)
+	if err != nil {
+		return fmt.Errorf("forward message unmarshal : %w", err)
+	}
+
+	// TODO Open question - https://github.com/hyperledger/aries-framework-go/issues/965 Mismatch between Route
+	//  Coordination and Forward RFC. For now assume, the TO field contains the recipient key.
+	_, err = s.routeStore.Get(dataKey(forward.To))
+	if err != nil {
+		return fmt.Errorf("route key fetch : %w", err)
+	}
+
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/725 get destination details from the
+	//  did retrieved from previous Get call.
+
+	return s.outbound.Forward(forward.Msg, nil)
+}
+
+func dataKey(id string) string {
+	return "route-" + id
 }
