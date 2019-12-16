@@ -43,6 +43,7 @@ func TestServiceAccept(t *testing.T) {
 	require.Equal(t, true, s.Accept(GrantMsgType))
 	require.Equal(t, true, s.Accept(KeylistUpdateMsgType))
 	require.Equal(t, true, s.Accept(KeylistUpdateResponseMsgType))
+	require.Equal(t, true, s.Accept(ForwardMsgType))
 	require.Equal(t, false, s.Accept("unsupported msg type"))
 }
 
@@ -177,7 +178,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 		update := make(map[string]updateResult)
 		update["ABC"] = updateResult{action: add, result: success}
 		update["XYZ"] = updateResult{action: remove, result: serverError}
-		update[""] = updateResult{action: add, result: serverError}
+		update[""] = updateResult{action: add, result: success}
 
 		svc, err := New(&mockProvider{
 
@@ -242,5 +243,69 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 		err = svc.handleKeylistUpdateResponse(msg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "route keylist update response message unmarshal")
+	})
+}
+
+func TestServiceForwardMsg(t *testing.T) {
+	t.Run("test service handle inbound forward msg - success", func(t *testing.T) {
+		to := randomID()
+		svc, err := New(&mockProvider{})
+		require.NoError(t, err)
+
+		err = svc.routeStore.Put(to, []byte("did:example:123"))
+		require.NoError(t, err)
+
+		msgID := randomID()
+
+		id, err := svc.HandleInbound(generateForwardMsgPayload(t, msgID, to, nil))
+		require.NoError(t, err)
+		require.Equal(t, msgID, id)
+	})
+
+	t.Run("test service handle forward msg - success", func(t *testing.T) {
+		svc, err := New(&mockProvider{})
+		require.NoError(t, err)
+
+		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
+
+		err = svc.handleForward(msg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "forward message unmarshal")
+	})
+
+	t.Run("test service handle forward msg - route key fetch fail", func(t *testing.T) {
+		to := randomID()
+		msgID := randomID()
+
+		svc, err := New(&mockProvider{})
+		require.NoError(t, err)
+
+		err = svc.handleForward(generateForwardMsgPayload(t, msgID, to, nil))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "route key fetch")
+	})
+
+	t.Run("test service handle forward msg - validate forward message content", func(t *testing.T) {
+		to := randomID()
+		msgID := randomID()
+
+		content := "packed message destined to the recipient through router"
+		msg := generateForwardMsgPayload(t, msgID, to, content)
+
+		svc, err := New(&mockProvider{
+			outbound: &mockOutbound{validateForward: func(msg interface{}) error {
+				require.Equal(t, content, msg)
+
+				return nil
+			},
+			},
+		})
+		require.NoError(t, err)
+
+		err = svc.routeStore.Put(dataKey(to), []byte("did:example:123"))
+		require.NoError(t, err)
+
+		err = svc.handleForward(msg)
+		require.NoError(t, err)
 	})
 }

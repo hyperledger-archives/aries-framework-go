@@ -59,7 +59,8 @@ func (p *mockProvider) KMS() kms.KeyManager {
 
 // mock outbound
 type mockOutbound struct {
-	validateSend func(msg interface{}) error
+	validateSend    func(msg interface{}) error
+	validateForward func(msg interface{}) error
 }
 
 func (m *mockOutbound) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
@@ -68,6 +69,10 @@ func (m *mockOutbound) Send(msg interface{}, senderVerKey string, des *service.D
 
 func (m *mockOutbound) SendToDID(msg interface{}, myDID, theirDID string) error {
 	return nil
+}
+
+func (m *mockOutbound) Forward(msg interface{}, des *service.Destination) error {
+	return m.validateForward(msg)
 }
 
 func generateRequestMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
@@ -119,6 +124,21 @@ func generateKeylistUpdateResponseMsgPayload(t *testing.T, id string, updates []
 	require.NoError(t, err)
 
 	didMsg, err := service.NewDIDCommMsg(respBytes)
+	require.NoError(t, err)
+
+	return didMsg
+}
+
+func generateForwardMsgPayload(t *testing.T, id, to string, msg interface{}) *service.DIDCommMsg {
+	requestBytes, err := json.Marshal(&Forward{
+		Type: ForwardMsgType,
+		ID:   id,
+		To:   to,
+		Msg:  msg,
+	})
+	require.NoError(t, err)
+
+	didMsg, err := service.NewDIDCommMsg(requestBytes)
 	require.NoError(t, err)
 
 	return didMsg

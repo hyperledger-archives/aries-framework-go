@@ -23,3 +23,8 @@ func (m *MockOutbound) Send(msg interface{}, senderVerKey string, des *service.D
 func (m *MockOutbound) SendToDID(msg interface{}, myDID, theirDID string) error {
 	return nil
 }
+
+// Forward msg
+func (m *MockOutbound) Forward(msg interface{}, des *service.Destination) error {
+	return nil
+}
