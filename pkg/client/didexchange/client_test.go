@@ -202,7 +202,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, err)
 		require.NoError(t, transientStore.Put("conn_id1", connBytes))
-		c := didexchange.NewConnectionRecorder(transientStore, store)
+		c := didexchange.NewConnectionRecorder(transientStore, store, nil)
 		result, err := c.GetConnectionRecord(connID)
 		require.NoError(t, err)
 		require.Equal(t, "complete", result.State)
@@ -219,7 +219,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		connRec := &didexchange.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		c := didexchange.NewConnectionRecorder(transientStore, store)
+		c := didexchange.NewConnectionRecorder(transientStore, store, nil)
 		require.NoError(t, transientStore.Put("conn_id1", connBytes))
 		_, err = c.GetConnectionRecord(connID)
 		require.Error(t, err)
@@ -234,7 +234,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		transientStore := mockstore.MockStore{ErrGet: storage.ErrDataNotFound}
 		store := mockstore.MockStore{}
 		require.NoError(t, err)
-		c := didexchange.NewConnectionRecorder(&transientStore, &store)
+		c := didexchange.NewConnectionRecorder(&transientStore, &store, nil)
 		_, err = c.GetConnectionRecord(connID)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, storage.ErrDataNotFound))

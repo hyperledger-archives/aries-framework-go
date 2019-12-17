@@ -326,6 +326,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options, con
 	}
 
 	// get did document that will be used in exchange response
+	// (my did doc)
 	responseDidDoc, connection, err := ctx.getDIDDocAndConnection(getPublicDID(options))
 	if err != nil {
 		return nil, nil, err
@@ -404,6 +405,12 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 			return nil, nil, fmt.Errorf("resolve public did[%s]: %w", pubDID, err)
 		}
 
+		// TODO: x.y.z.foo
+		err = ctx.connectionStore.didMap.SaveDIDFromDoc(didDoc, didCommServiceType, ed25519KeyType)
+		if err != nil {
+			return nil, nil, err
+		}
+
 		return didDoc, &Connection{DID: didDoc.ID}, nil
 	}
 
@@ -413,6 +420,16 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 	newDidDoc, err := ctx.vdriRegistry.Create(didMethod)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
+	}
+
+	// TODO: initialize did map (or mock) in all eleventy billion tests
+	if ctx.connectionStore.didMap == nil {
+		return nil, nil, fmt.Errorf("NIL CONN STORE")
+	}
+
+	err = ctx.connectionStore.didMap.SaveDIDFromDoc(newDidDoc, didCommServiceType, ed25519KeyType)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	connection := &Connection{

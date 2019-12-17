@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -54,14 +55,15 @@ func (r *ConnectionRecord) isValid() error {
 }
 
 // NewConnectionRecorder returns new connection record instance
-func NewConnectionRecorder(transientStore, store storage.Store) *ConnectionRecorder {
-	return &ConnectionRecorder{transientStore: transientStore, store: store}
+func NewConnectionRecorder(transientStore, store storage.Store, didMap didconnection.Store) *ConnectionRecorder {
+	return &ConnectionRecorder{transientStore: transientStore, store: store, didMap: didMap}
 }
 
 // ConnectionRecorder takes care of connection related persistence features
 type ConnectionRecorder struct {
 	transientStore storage.Store
 	store          storage.Store
+	didMap         didconnection.Store
 }
 
 // SaveInvitation saves connection invitation to underlying store
@@ -231,6 +233,10 @@ func (c *ConnectionRecorder) saveConnectionRecord(record *ConnectionRecord) erro
 		if err := marshalAndSave(connectionKeyPrefix(record.ConnectionID), record, c.store); err != nil {
 			return fmt.Errorf("save connection record in permanent store: %w", err)
 		}
+
+		if err := c.didMap.SaveDIDConnection(record.MyDID, record.TheirDID, record.RecipientKeys); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -257,6 +263,12 @@ func (c *ConnectionRecorder) saveNewConnectionRecord(record *ConnectionRecord) e
 	err = c.saveConnectionRecord(record)
 	if err != nil {
 		return fmt.Errorf("save new connection record: %w", err)
+	}
+
+	if record.MyDID != "" {
+		if err := c.didMap.SaveDIDByResolving(record.MyDID, didCommServiceType, ed25519KeyType); err != nil {
+			return err
+		}
 	}
 
 	return c.saveNSThreadID(record.ThreadID, record.Namespace, record.ConnectionID)
