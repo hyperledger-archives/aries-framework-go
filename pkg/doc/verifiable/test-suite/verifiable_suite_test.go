@@ -65,7 +65,7 @@ func main() {
 	}
 
 	if *jwtPresentation {
-		encodeVPToJWS(vcBytes, *jwtAud, privateKey)
+		encodeVPToJWS(vcBytes, *jwtAud, privateKey, publicKey)
 	} else {
 		encodeVCToJWS(vcBytes, privateKey)
 	}
@@ -90,8 +90,11 @@ func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
 	fmt.Println(jws)
 }
 
-func encodeVPToJWS(vpBytes []byte, audience string, privateKey interface{}) {
-	vp, err := verifiable.NewPresentation(vpBytes, verifiable.WithPresSkippedEmbeddedProofCheck())
+func encodeVPToJWS(vpBytes []byte, audience string, privateKey, publicKey interface{}) {
+	vp, err := verifiable.NewPresentation(vpBytes,
+		verifiable.WithPresSkippedEmbeddedProofCheck(),
+		// the public key is used to decode verifiable credentials passed as JWS to the presentation
+		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(publicKey)))
 	if err != nil {
 		abort("failed to decode presentation: %v", err)
 	}
@@ -128,9 +131,7 @@ func encodeVCToJWTUnsecured(vcBytes []byte) {
 func decodeVCJWTToJSON(vcBytes []byte, publicKey interface{}) {
 	// Asked to decode JWT
 	credential, _, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
-			return publicKey, nil
-		}))
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKey)))
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
