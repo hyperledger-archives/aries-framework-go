@@ -158,6 +158,24 @@ func (d *SDKSteps) validateConnection(agentID, stateValue string) error {
 		return fmt.Errorf("state from connection %s not equal %s", conn.State, stateValue)
 	}
 
+	if stateValue == "completed" {
+		return d.validateResolveDID(agentID, conn.TheirDID)
+	}
+
+	return nil
+}
+
+// validateResolveDID verifies if given agent is able to resolve their DID
+func (d *SDKSteps) validateResolveDID(agentID, theirDID string) error {
+	doc, err := d.bddContext.AgentCtx[agentID].VDRIRegistry().Resolve(theirDID)
+	if err != nil {
+		return fmt.Errorf("failed to resolve theirDID [%s] after successful DIDExchange : %w", theirDID, err)
+	}
+
+	if doc == nil || doc.ID != theirDID {
+		return fmt.Errorf("failed to resolve theirDID [%s] after successful DIDExchange", theirDID)
+	}
+
 	return nil
 }
 
