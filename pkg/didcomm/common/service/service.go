@@ -107,11 +107,3 @@ func (m *DIDCommMsg) ThreadID() (string, error) {
 
 	return "", ErrThreadIDNotFound
 }
-
-// Destination provides the recipientKeys, routingKeys, and serviceEndpoint populated from Invitation
-type Destination struct {
-	RecipientKeys        []string
-	ServiceEndpoint      string
-	RoutingKeys          []string
-	TransportReturnRoute string
-}

@@ -636,7 +636,12 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 		return "", fmt.Errorf("resolve public did[%s]: %w", inviterDID, err)
 	}
 
-	dest, err := prepareDestination(didDoc)
+	// TODO: hardcoded key type
+	dest, err := service.CreateDestination(didDoc)
+	if err != nil {
+		return "", err
+	}
+
 	thID := generateRandomID()
 	connRecord := &ConnectionRecord{
 		ConnectionID:    generateRandomID(),

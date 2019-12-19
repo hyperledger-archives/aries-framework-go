@@ -308,9 +308,9 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 	}
 	connRec.MyDID = request.Connection.DID
 
-	senderVerKeys, err := getRecipientKeys(didDoc)
-	if err != nil {
-		return nil, nil, fmt.Errorf("getting sender verification keys: %w", err)
+	senderVerKeys, ok := did.LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
+	if !ok {
+		return nil, nil, fmt.Errorf("getting sender verification keys")
 	}
 
 	return func() error {
@@ -351,14 +351,14 @@ func (ctx *context) handleInboundRequest(request *Request, options *options, con
 	connRec.MyDID = connection.DID
 	connRec.TheirLabel = request.Label
 
-	destination, err := prepareDestination(requestDidDoc)
+	destination, err := service.CreateDestination(requestDidDoc)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	senderVerKeys, err := getRecipientKeys(responseDidDoc)
-	if err != nil {
-		return nil, nil, err
+	senderVerKeys, ok := did.LookupRecipientKeys(responseDidDoc, didCommServiceType, ed25519KeyType)
+	if !ok {
+		return nil, nil, fmt.Errorf("getting sender verification keys")
 	}
 
 	// send exchange response
@@ -385,7 +385,7 @@ func getLabel(options *options) string {
 
 func (ctx *context) getDestination(invitation *Invitation) (*service.Destination, error) {
 	if invitation.DID != "" {
-		return ctx.getDestinationFromDID(invitation.DID)
+		return service.GetDestination(invitation.DID, ctx.vdriRegistry)
 	}
 
 	return &service.Destination{
@@ -437,95 +437,6 @@ func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, err
 	}
 
 	return didDoc, nil
-}
-
-func (ctx *context) getDestinationFromDID(id string) (*service.Destination, error) {
-	didDoc, err := ctx.vdriRegistry.Resolve(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return prepareDestination(didDoc)
-}
-
-func getRecipientKeys(didDoc *did.Doc) ([]string, error) {
-	didCommService, err := getDidCommService(didDoc)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(didCommService.RecipientKeys) == 0 {
-		return nil, fmt.Errorf("missing recipient keys in did-communication service")
-	}
-
-	var recipientKeys []string
-
-	for _, keyID := range didCommService.RecipientKeys {
-		key, err := getPublicKey(keyID, didDoc)
-		if err != nil {
-			return nil, err
-		}
-
-		if isSupportedKeyType(key.Type) {
-			recipientKeys = append(recipientKeys, string(key.Value))
-		}
-	}
-
-	if len(recipientKeys) == 0 {
-		return nil, fmt.Errorf("recipient keys in did-communication service not supported")
-	}
-
-	return recipientKeys, nil
-}
-
-func getPublicKey(id string, didDoc *did.Doc) (*did.PublicKey, error) {
-	for _, key := range didDoc.PublicKey {
-		if key.ID == id {
-			return &key, nil
-		}
-	}
-
-	return nil, fmt.Errorf("key not found in DID document: %s", id)
-}
-
-func isSupportedKeyType(keyType string) bool {
-	return keyType == ed25519KeyType
-}
-
-func getDidCommService(didDoc *did.Doc) (*did.Service, error) {
-	const notFound = -1
-	index := notFound
-
-	for i, s := range didDoc.Service {
-		if s.Type == didCommServiceType {
-			if index == notFound || didDoc.Service[index].Priority > s.Priority {
-				index = i
-			}
-		}
-	}
-
-	if index == notFound {
-		return nil, fmt.Errorf("service not found in DID document: %s", didCommServiceType)
-	}
-
-	return &didDoc.Service[index], nil
-}
-
-func prepareDestination(didDoc *did.Doc) (*service.Destination, error) {
-	didCommService, err := getDidCommService(didDoc)
-	if err != nil {
-		return nil, err
-	}
-
-	recipientKeys, err := getRecipientKeys(didDoc)
-	if err != nil {
-		return nil, err
-	}
-
-	return &service.Destination{
-		RecipientKeys:   recipientKeys,
-		ServiceEndpoint: didCommService.ServiceEndpoint,
-	}, nil
 }
 
 // Encode the connection and convert to Connection Signature as per the spec:
@@ -604,7 +515,7 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *Con
 		return nil, nil, fmt.Errorf("resolve did doc from exchange response connection: %w", err)
 	}
 
-	destination, err := prepareDestination(responseDidDoc)
+	destination, err := service.CreateDestination(responseDidDoc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepare destination from response did doc: %w", err)
 	}
@@ -614,9 +525,9 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *Con
 		return nil, nil, fmt.Errorf("fetching did document: %w", err)
 	}
 
-	senderVerKeys, err := getRecipientKeys(myDidDoc)
-	if err != nil {
-		return nil, nil, fmt.Errorf("get public keys: %w", err)
+	senderVerKeys, ok := did.LookupRecipientKeys(myDidDoc, didCommServiceType, ed25519KeyType)
+	if !ok {
+		return nil, nil, fmt.Errorf("getting sender verification keys")
 	}
 
 	return func() error {
@@ -679,9 +590,9 @@ func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, e
 			return "", fmt.Errorf("get invitation recipient key: %w", err)
 		}
 
-		recipientKeys, err := getRecipientKeys(didDoc)
-		if err != nil {
-			return "", fmt.Errorf("get recipient keys from did: %w", err)
+		recipientKeys, ok := did.LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
+		if !ok {
+			return "", fmt.Errorf("get recipient keys from did")
 		}
 
 		return recipientKeys[0], nil
