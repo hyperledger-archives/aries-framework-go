@@ -14,15 +14,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/diddoc"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -542,47 +541,6 @@ func (m *mockStore) Iterator(start, limit string) storage.StoreIterator {
 	return nil
 }
 
-func getMockDID() *did.Doc {
-	return &did.Doc{
-		Context: []string{"https://w3id.org/did/v1"},
-		ID:      "did:peer:123456789abcdefghi#inbox",
-		Service: []did.Service{
-			{
-				ServiceEndpoint: "https://localhost:8090",
-				Type:            "did-communication",
-				Priority:        0,
-				RecipientKeys:   []string{"did:example:123456789abcdefghi#keys-2"},
-			},
-			{
-				ServiceEndpoint: "https://localhost:8090",
-				Type:            "did-communication",
-				Priority:        1,
-				RecipientKeys:   []string{"did:example:123456789abcdefghi#keys-1"},
-			},
-		},
-		PublicKey: []did.PublicKey{
-			{
-				ID:         "did:example:123456789abcdefghi#keys-1",
-				Controller: "did:example:123456789abcdefghi",
-				Type:       "Secp256k1VerificationKey2018",
-				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
-			},
-			{
-				ID:         "did:example:123456789abcdefghi#keys-2",
-				Controller: "did:example:123456789abcdefghi",
-				Type:       "Ed25519VerificationKey2018",
-				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
-			},
-			{
-				ID:         "did:example:123456789abcdefghw#key2",
-				Controller: "did:example:123456789abcdefghw",
-				Type:       "RsaVerificationKey2018",
-				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"),
-			},
-		},
-	}
-}
-
 func randomString() string {
 	u := uuid.New()
 	return u.String()
@@ -639,7 +597,7 @@ func TestEventsSuccess(t *testing.T) {
 }
 
 func TestContinueWithPublicDID(t *testing.T) {
-	didDoc := getMockDID()
+	didDoc := mockdiddoc.GetMockDIDDoc()
 	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
 
@@ -1384,7 +1342,7 @@ func TestFetchConnectionRecord(t *testing.T) {
 func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID string) *service.DIDCommMsg {
 	store := mockstorage.NewMockStoreProvider()
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
-		vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: getMockDID()},
+		vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
 		connectionStore: NewConnectionRecorder(nil, store.Store)}
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 	require.NoError(t, err)
