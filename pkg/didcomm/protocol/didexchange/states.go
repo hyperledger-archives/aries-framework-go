@@ -426,7 +426,14 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, error) {
 	didDoc := conn.DIDDoc
 	if didDoc == nil {
+		// did content was not provided; resolve
 		return ctx.vdriRegistry.Resolve(conn.DID)
+	}
+
+	// store provided did document
+	err := ctx.vdriRegistry.Store(didDoc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to store provided did document: %w", err)
 	}
 
 	return didDoc, nil
