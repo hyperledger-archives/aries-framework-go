@@ -183,9 +183,35 @@ const defaultSchema = `{
 }
 `
 
+// https://www.w3.org/TR/vc-data-model/#data-schemas
 const jsonSchema2018Type = "JsonSchemaValidator2018"
 
-const vpType = "VerifiablePresentation"
+const (
+	// https://www.w3.org/TR/vc-data-model/#base-context
+	baseContext = "https://www.w3.org/2018/credentials/v1"
+
+	// https://www.w3.org/TR/vc-data-model/#types
+	vcType = "VerifiableCredential"
+
+	// https://www.w3.org/TR/vc-data-model/#presentations-0
+	vpType = "VerifiablePresentation"
+)
+
+// vcModelValidationMode defines constraint put on context and type of VC.
+type vcModelValidationMode int
+
+const (
+	// baseContextValidation when defined it's validated that only the fields and values (when applicable)
+	// are present in the document. No extra fields are allowed (outside of credentialSubject).
+	baseContextValidation vcModelValidationMode = iota
+
+	// baseContextExtendedValidation when set it's validated that fields that are specified in base context are
+	// as specified. Additional fields are allowed.
+	baseContextExtendedValidation
+
+	// jsonldValidation Use the JSON LD parser for validation.
+	jsonldValidation
+)
 
 // SchemaCache defines a cache of credential schemas.
 type SchemaCache interface {
@@ -397,6 +423,9 @@ type credentialOpts struct {
 	issuerPublicKeyFetcher PublicKeyFetcher
 	disabledCustomSchema   bool
 	schemaLoader           *CredentialSchemaLoader
+	modelValidationMode    vcModelValidationMode
+	allowedCustomContexts  map[string]bool
+	allowedCustomTypes     map[string]bool
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
@@ -423,6 +452,41 @@ func WithPublicKeyFetcher(fetcher PublicKeyFetcher) CredentialOpt {
 func WithCredentialSchemaLoader(loader *CredentialSchemaLoader) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.schemaLoader = loader
+	}
+}
+
+// WithJSONLDValidation uses the JSON LD parser for validation.
+func WithJSONLDValidation() CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.modelValidationMode = jsonldValidation
+	}
+}
+
+// WithBaseContextValidation validates that only the fields and values (when applicable) are present
+// in the document. No extra fields are allowed (outside of credentialSubject).
+func WithBaseContextValidation() CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.modelValidationMode = baseContextValidation
+	}
+}
+
+// WithBaseContextExtendedValidation validates that fields that are specified in base context are as specified.
+// Additional fields are allowed
+func WithBaseContextExtendedValidation(customContexts, customTypes []string) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.modelValidationMode = baseContextExtendedValidation
+
+		opts.allowedCustomContexts = make(map[string]bool)
+		for _, context := range customContexts {
+			opts.allowedCustomContexts[context] = true
+		}
+		opts.allowedCustomContexts[baseContext] = true
+
+		opts.allowedCustomTypes = make(map[string]bool)
+		for _, context := range customTypes {
+			opts.allowedCustomTypes[context] = true
+		}
+		opts.allowedCustomTypes[vcType] = true
 	}
 }
 
@@ -506,10 +570,10 @@ func decodeCredentialSchema(data []byte) ([]TypedID, error) {
 // by checking CustomFields of Credential and/or unmarshalling the JSON to custom date structure.
 func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, error) {
 	// Apply options.
-	crOpts := parseCredentialOpts(opts)
+	vcOpts := parseCredentialOpts(opts)
 
 	// Decode credential (e.g. from JWT).
-	vcDataDecoded, err := decodeRaw(vcData, crOpts.issuerPublicKeyFetcher)
+	vcDataDecoded, err := decodeRaw(vcData, vcOpts.issuerPublicKeyFetcher)
 	if err != nil {
 		return nil, nil, fmt.Errorf("decode new credential: %w", err)
 	}
@@ -534,7 +598,7 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, e
 	}
 
 	// Validate raw credential.
-	err = validate(vcDataDecoded, schemas, crOpts)
+	err = validate(vcDataDecoded, schemas, vcOpts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("validate new credential: %w", err)
 	}
@@ -545,7 +609,58 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, e
 		return nil, nil, fmt.Errorf("build new credential: %w", err)
 	}
 
+	err = postValidateCredential(vc, vcOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	return vc, vcDataDecoded, nil
+}
+
+func postValidateCredential(vc *Credential, vcOpts *credentialOpts) error {
+	// Credential and type constraint.
+	switch vcOpts.modelValidationMode {
+	case jsonldValidation:
+		// todo support JSON-LD validation (https://github.com/hyperledger/aries-framework-go/issues/952)
+		return nil
+
+	case baseContextValidation:
+		return validateBaseOnlyContextType(vc)
+
+	case baseContextExtendedValidation:
+		return validateCustomContextType(vc, vcOpts)
+
+	default:
+		return fmt.Errorf("unsupported vcModelValidationMode: %v", vcOpts.modelValidationMode)
+	}
+}
+
+func validateBaseOnlyContextType(vc *Credential) error {
+	if len(vc.Types) > 1 || vc.Types[0] != vcType {
+		return errors.New("violated type constraint: not base only type defined")
+	}
+
+	if len(vc.Context) > 1 || vc.Context[0] != baseContext {
+		return errors.New("violated @context constraint: not base only @context defined")
+	}
+
+	return nil
+}
+
+func validateCustomContextType(vc *Credential, vcOpts *credentialOpts) error {
+	for _, vcContext := range vc.Context {
+		if _, ok := vcOpts.allowedCustomContexts[vcContext]; !ok {
+			return fmt.Errorf("not allowed @context: %s", vcContext)
+		}
+	}
+
+	for _, vcType := range vc.Types {
+		if _, ok := vcOpts.allowedCustomTypes[vcType]; !ok {
+			return fmt.Errorf("not allowed type: %s", vcType)
+		}
+	}
+
+	return nil
 }
 
 // CustomCredentialProducer is a factory for Credentials with extended data model.
@@ -656,7 +771,9 @@ func loadCredentialSchemas(vcBytes []byte) ([]TypedID, error) {
 }
 
 func parseCredentialOpts(opts []CredentialOpt) *credentialOpts {
-	crOpts := &credentialOpts{}
+	crOpts := &credentialOpts{
+		modelValidationMode: jsonldValidation,
+	}
 
 	for _, opt := range opts {
 		opt(crOpts)

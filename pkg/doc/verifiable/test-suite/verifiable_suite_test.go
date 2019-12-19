@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/square/go-jose/v3"
 
@@ -46,7 +47,7 @@ func main() {
 		if *isPresentation {
 			encodeVPToJSON(vcBytes)
 		} else {
-			encodeVCToJSON(vcBytes)
+			encodeVCToJSON(vcBytes, filepath.Base(inputFile))
 		}
 
 		return
@@ -187,8 +188,16 @@ func parseKeys(packedKeys string) (private, public interface{}) {
 	return privateKey, publicKey
 }
 
-func encodeVCToJSON(vcBytes []byte) {
-	credential, _, err := verifiable.NewCredential(vcBytes, verifiable.WithNoCustomSchemaCheck())
+func encodeVCToJSON(vcBytes []byte, testFileName string) {
+	vcOpts := []verifiable.CredentialOpt{verifiable.WithNoCustomSchemaCheck()}
+
+	// This are special test cases which should be made more precise in VC Test Suite.
+	// See https://github.com/w3c/vc-test-suite/issues/96 for more information.
+	if testFileName == "example-1-bad-cardinality.jsonld" || testFileName == "example-3-bad-cardinality.jsonld" {
+		vcOpts = append(vcOpts, verifiable.WithBaseContextValidation())
+	}
+
+	credential, _, err := verifiable.NewCredential(vcBytes, vcOpts...)
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}

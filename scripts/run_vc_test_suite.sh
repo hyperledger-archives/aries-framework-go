@@ -54,3 +54,12 @@ cat ${BUILD_DIR}/${VC_TEST_SUITE}/summary.json
 echo "See full test suite results at ${SUITE_DIR}/implementations/${REPORT_NAME}-report.json"
 
 cd $DIR
+
+echo
+if grep -q "\"failures\": 0" ${BUILD_DIR}/${VC_TEST_SUITE}/summary.json; then
+  echo "Verifiable Credential test suite passed!"
+  exit 0
+else
+  echo "Verifiable Credential test suite did not pass"
+  exit 1
+fi
