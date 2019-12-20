@@ -3,6 +3,7 @@
 [![Godocs](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/hyperledger/aries-framework-go)
 
 [![Build Status](https://github.com/hyperledger/aries-framework-go/workflows/build/badge.svg)](https://github.com/hyperledger/aries-framework-go/actions)
+[![Azure CI Status](https://dev.azure.com/Hyperledger/Aries/_apis/build/status/hyperledger.aries-framework-go?branchName=master)](https://dev.azure.com/Hyperledger/Aries/_build/latest?definitionId=69&branchName=master)
 [![codecov](https://codecov.io/gh/hyperledger/aries-framework-go/branch/master/graph/badge.svg)](https://codecov.io/gh/hyperledger/aries-framework-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hyperledger/aries-framework-go)](https://goreportcard.com/report/github.com/hyperledger/aries-framework-go)
 
