@@ -339,6 +339,7 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 		context.WithOutboundTransports(frameworkOpts.outboundTransports...),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithTransportReturnRoute(frameworkOpts.transportReturnRoute),
+		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)

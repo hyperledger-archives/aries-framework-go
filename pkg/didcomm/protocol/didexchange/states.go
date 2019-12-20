@@ -405,8 +405,7 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 			return nil, nil, fmt.Errorf("resolve public did[%s]: %w", pubDID, err)
 		}
 
-		// TODO: x.y.z.foo
-		err = ctx.connectionStore.didMap.SaveDIDFromDoc(didDoc, didCommServiceType, ed25519KeyType)
+		err = ctx.connectionStore.didStore.SaveDIDFromDoc(didDoc)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -422,12 +421,7 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
 	}
 
-	// TODO: initialize did map (or mock) in all eleventy billion tests
-	if ctx.connectionStore.didMap == nil {
-		return nil, nil, fmt.Errorf("NIL CONN STORE")
-	}
-
-	err = ctx.connectionStore.didMap.SaveDIDFromDoc(newDidDoc, didCommServiceType, ed25519KeyType)
+	err = ctx.connectionStore.didStore.SaveDIDFromDoc(newDidDoc)
 	if err != nil {
 		return nil, nil, err
 	}

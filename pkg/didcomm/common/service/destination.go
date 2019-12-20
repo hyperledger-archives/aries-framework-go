@@ -24,7 +24,8 @@ type Destination struct {
 
 const (
 	didCommServiceType = "did-communication"
-	ed25519KeyType     = "Ed25519VerificationKey2018"
+	// TODO: hardcoded key type https://github.com/hyperledger/aries-framework-go/issues/1008
+	ed25519KeyType = "Ed25519VerificationKey2018"
 )
 
 // GetDestination constructs a Destination struct based on the given DID and parameters

@@ -384,11 +384,12 @@ func TestDecrypt(t *testing.T) {
 
 		enc, err := packer.Pack(msgIn, base58.Decode(senderKey), [][]byte{base58.Decode(recKey)})
 		require.NoError(t, err)
-		msgOut, senderVerKey, err := packer.Unpack(enc)
+		env, err := packer.Unpack(enc)
 		require.NoError(t, err)
 
-		require.ElementsMatch(t, msgIn, msgOut)
-		require.Equal(t, senderKey, base58.Encode(senderVerKey))
+		require.ElementsMatch(t, msgIn, env.Message)
+		require.Equal(t, senderKey, base58.Encode(env.FromVerKey))
+		require.Equal(t, recKey, base58.Encode(env.ToVerKey))
 	})
 
 	t.Run("Success: pack and unpack, different packers, including fail recipient who wasn't sent the message", func(t *testing.T) { // nolint: lll
@@ -413,15 +414,16 @@ func TestDecrypt(t *testing.T) {
 		enc, err := sendPacker.Pack(msgIn, base58.Decode(senderKey),
 			[][]byte{base58.Decode(rec1Key), base58.Decode(rec2Key), base58.Decode(rec3Key)})
 		require.NoError(t, err)
-		msgOut, senderVerKey, err := rec2Packer.Unpack(enc)
+		env, err := rec2Packer.Unpack(enc)
 		require.NoError(t, err)
-		require.ElementsMatch(t, msgIn, msgOut)
-		require.Equal(t, senderKey, base58.Encode(senderVerKey))
+		require.ElementsMatch(t, msgIn, env.Message)
+		require.Equal(t, senderKey, base58.Encode(env.FromVerKey))
+		require.Equal(t, rec2Key, base58.Encode(env.ToVerKey))
 
 		emptyKMS, _ := newKMS(t)
 		rec4Packer := newWithKMS(emptyKMS)
 
-		_, _, err = rec4Packer.Unpack(enc)
+		_, err = rec4Packer.Unpack(enc)
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "no key accessible")
 	})
@@ -440,10 +442,12 @@ func TestDecrypt(t *testing.T) {
 
 		recPacker := newWithKMS(recKMS)
 
-		msgOut, senderVerKey, err := recPacker.Unpack([]byte(env))
+		envOut, err := recPacker.Unpack([]byte(env))
 		require.NoError(t, err)
-		require.ElementsMatch(t, []byte(msg), msgOut)
-		require.NotEmpty(t, senderVerKey)
+		require.ElementsMatch(t, []byte(msg), envOut.Message)
+		require.NotEmpty(t, envOut.FromVerKey)
+		require.NotEmpty(t, envOut.ToVerKey)
+		require.Equal(t, recPub, base58.Encode(envOut.ToVerKey))
 	})
 
 	t.Run("Test unpacking python envelope with multiple recipients", func(t *testing.T) {
@@ -461,10 +465,12 @@ func TestDecrypt(t *testing.T) {
 
 		recPacker := newWithKMS(recKMS)
 
-		msgOut, senderVerKey, err := recPacker.Unpack([]byte(env))
+		envOut, err := recPacker.Unpack([]byte(env))
 		require.NoError(t, err)
-		require.ElementsMatch(t, []byte(msg), msgOut)
-		require.NotEmpty(t, senderVerKey)
+		require.ElementsMatch(t, []byte(msg), envOut.Message)
+		require.NotEmpty(t, envOut.FromVerKey)
+		require.NotEmpty(t, envOut.ToVerKey)
+		require.Equal(t, recPub, base58.Encode(envOut.ToVerKey))
 	})
 
 	t.Run("Test unpacking python envelope with invalid recipient", func(t *testing.T) {
@@ -479,7 +485,7 @@ func TestDecrypt(t *testing.T) {
 
 		recPacker := newWithKMS(recKMS)
 
-		_, _, err = recPacker.Unpack([]byte(env))
+		_, err = recPacker.Unpack([]byte(env))
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "no key accessible")
 	})
@@ -502,7 +508,7 @@ func unpackComponentFailureTest(
 	}
 
 	recPacker := newWithKMS(w)
-	_, _, err = recPacker.Unpack([]byte(fullMessage))
+	_, err = recPacker.Unpack([]byte(fullMessage))
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), errString)
 }
@@ -520,7 +526,7 @@ func TestUnpackComponents(t *testing.T) {
 
 		recPacker := newWithKMS(w)
 
-		_, _, err = recPacker.Unpack([]byte(msg))
+		_, err = recPacker.Unpack([]byte(msg))
 		require.EqualError(t, err, "invalid character 'e' looking for beginning of value")
 	})
 
@@ -533,7 +539,7 @@ func TestUnpackComponents(t *testing.T) {
 
 		recPacker := newWithKMS(w)
 
-		_, _, err = recPacker.Unpack([]byte(msg))
+		_, err = recPacker.Unpack([]byte(msg))
 		require.EqualError(t, err, "illegal base64 data at input byte 0")
 	})
 
@@ -694,7 +700,7 @@ func Test_getCEK(t *testing.T) {
 		},
 	}
 
-	_, _, err := getCEK(recs, &k)
+	_, err := getCEK(recs, &k)
 	require.EqualError(t, err, "mock error")
 }
 

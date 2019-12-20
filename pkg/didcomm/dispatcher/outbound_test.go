@@ -19,8 +19,11 @@ import (
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
+	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/diddoc"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 )
 
 func TestOutboundDispatcher_Send(t *testing.T) {
@@ -55,6 +58,40 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
+	})
+}
+
+func TestOutboundDispatcher_SendToDID(t *testing.T) {
+	mockDoc := mockdiddoc.GetMockDIDDoc()
+
+	t.Run("success", func(t *testing.T) {
+		o := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{},
+			vdriRegistry: &mockvdri.MockVDRIRegistry{
+				ResolveValue: mockDoc,
+			},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
+			},
+		})
+
+		require.NoError(t, o.SendToDID("data", "", ""))
+	})
+
+	t.Run("resolve err", func(t *testing.T) {
+		o := NewOutbound(&mockProvider{
+			packagerValue: &mockpackager.Packager{},
+			vdriRegistry: &mockvdri.MockVDRIRegistry{
+				ResolveErr: fmt.Errorf("resolve error"),
+			},
+			outboundTransportsValue: []transport.OutboundTransport{
+				&mockdidcomm.MockOutboundTransport{AcceptValue: true},
+			},
+		})
+
+		err := o.SendToDID("data", "", "")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "resolve error")
 	})
 }
 
@@ -168,6 +205,7 @@ type mockProvider struct {
 	packagerValue           commontransport.Packager
 	outboundTransportsValue []transport.OutboundTransport
 	transportReturnRoute    string
+	vdriRegistry            vdri.Registry
 }
 
 func (p *mockProvider) Packager() commontransport.Packager {
@@ -180,6 +218,10 @@ func (p *mockProvider) OutboundTransports() []transport.OutboundTransport {
 
 func (p *mockProvider) TransportReturnRoute() string {
 	return p.transportReturnRoute
+}
+
+func (p *mockProvider) VDRIRegistry() vdri.Registry {
+	return p.vdriRegistry
 }
 
 // mockOutboundTransport mock outbound transport

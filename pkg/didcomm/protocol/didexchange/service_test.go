@@ -1385,7 +1385,8 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
-			connectionStore:    NewConnectionRecorder(nil, store.Store, nil),
+			connectionStore: NewConnectionRecorder(nil, store.Store,
+				&didconnection.MockDIDConnection{}),
 		}
 
 		s, err := New(&protocol.MockProvider{StoreProvider: store})
@@ -1405,7 +1406,8 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
-			connectionStore:    NewConnectionRecorder(nil, store.Store, nil),
+			connectionStore: NewConnectionRecorder(nil, store.Store,
+				&didconnection.MockDIDConnection{}),
 		}
 
 		s, err := New(&protocol.MockProvider{StoreProvider: store})
@@ -1428,7 +1430,8 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
-			connectionStore:    NewConnectionRecorder(transientStore.Store, store.Store, nil),
+			connectionStore: NewConnectionRecorder(transientStore.Store, store.Store,
+				&didconnection.MockDIDConnection{}),
 		}
 
 		s, err := New(&protocol.MockProvider{StoreProvider: store, TransientStoreProvider: transientStore})

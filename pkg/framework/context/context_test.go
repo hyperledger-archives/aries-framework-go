@@ -98,16 +98,16 @@ func TestNewProvider(t *testing.T) {
 		{
 			"@frameworkID": "5678876542345",
 			"@type": "valid-message-type"
-		}`))
+		}`), "", "")
 		require.NoError(t, err)
 
 		// invalid json
-		err = inboundHandler([]byte("invalid json"))
+		err = inboundHandler([]byte("invalid json"), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid payload data format")
 
 		// invalid json
-		err = inboundHandler([]byte("invalid json"))
+		err = inboundHandler([]byte("invalid json"), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid payload data format")
 
@@ -116,7 +116,7 @@ func TestNewProvider(t *testing.T) {
 		{
 			"@type": "invalid-message-type",
 			"label": "Bob"
-		}`))
+		}`), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no message handlers found for the message type: invalid-message-type")
 
@@ -125,7 +125,7 @@ func TestNewProvider(t *testing.T) {
 		{
 			"label": "Carol",
 			"@type": "valid-message-type"
-		}`))
+		}`), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error handling the message")
 	})

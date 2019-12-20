@@ -5,7 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package didconnection
 
-import diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+import (
+	"errors"
+
+	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+)
 
 // Store stores DIDs indexed by public key, so agents can find the DID associated with a given key.
 type Store interface {
@@ -13,10 +17,11 @@ type Store interface {
 	SaveDID(did string, keys ...string) error
 	// GetDID gets the DID stored under the given key
 	GetDID(key string) (string, error)
-	// SaveDIDConnection saves a connection between this agent's DID and another agent's DID
-	SaveDIDConnection(myDID, theirDID string, theirKeys []string) error
 	// SaveDIDByResolving resolves a DID using the VDR then saves the map from keys -> did
-	SaveDIDByResolving(did, serviceType, keyType string) error
+	SaveDIDByResolving(did string, keys ...string) error
 	// SaveDIDFromDoc saves a map from keys -> did for a did doc
-	SaveDIDFromDoc(doc *diddoc.Doc, serviceType, keyType string) error
+	SaveDIDFromDoc(doc *diddoc.Doc) error
 }
+
+// ErrNotFound signals that the entry for the given DID and key is not present in the store.
+var ErrNotFound = errors.New("did not found under given key")

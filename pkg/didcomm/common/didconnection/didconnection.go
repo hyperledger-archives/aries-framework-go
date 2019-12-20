@@ -16,8 +16,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// BaseDIDConnectionStore stores DIDs indexed by key
-type BaseDIDConnectionStore struct {
+// ConnectionStore stores DIDs indexed by key
+type ConnectionStore struct {
 	store storage.Store
 	vdr   vdri.Registry
 }
@@ -32,17 +32,17 @@ type provider interface {
 }
 
 // New returns a new did lookup Store
-func New(ctx provider) (*BaseDIDConnectionStore, error) {
-	store, err := ctx.StorageProvider().OpenStore("con-store")
+func New(ctx provider) (*ConnectionStore, error) {
+	store, err := ctx.StorageProvider().OpenStore("didconnection")
 	if err != nil {
 		return nil, err
 	}
 
-	return &BaseDIDConnectionStore{store: store, vdr: ctx.VDRIRegistry()}, nil
+	return &ConnectionStore{store: store, vdr: ctx.VDRIRegistry()}, nil
 }
 
 // saveDID saves a DID, indexed using the given public key
-func (c *BaseDIDConnectionStore) saveDID(did, key string) error {
+func (c *ConnectionStore) saveDID(did, key string) error {
 	data := didRecord{
 		DID: did,
 	}
@@ -56,7 +56,7 @@ func (c *BaseDIDConnectionStore) saveDID(did, key string) error {
 }
 
 // SaveDID saves a DID, indexed using the given public keys
-func (c *BaseDIDConnectionStore) SaveDID(did string, keys ...string) error {
+func (c *ConnectionStore) SaveDID(did string, keys ...string) error {
 	for _, key := range keys {
 		err := c.saveDID(did, key)
 		if err != nil {
@@ -68,29 +68,34 @@ func (c *BaseDIDConnectionStore) SaveDID(did string, keys ...string) error {
 }
 
 // SaveDIDFromDoc saves a map from a did doc's keys to the did
-func (c *BaseDIDConnectionStore) SaveDIDFromDoc(doc *diddoc.Doc, serviceType, keyType string) error {
-	keys, ok := diddoc.LookupRecipientKeys(doc, serviceType, keyType)
-	if !ok {
-		return fmt.Errorf("getting DID doc keys")
+func (c *ConnectionStore) SaveDIDFromDoc(doc *diddoc.Doc) error {
+	var keys []string
+	for i := range doc.PublicKey {
+		keys = append(keys, string(doc.PublicKey[i].Value))
 	}
 
 	return c.SaveDID(doc.ID, keys...)
 }
 
 // SaveDIDByResolving resolves a DID using the VDR then saves the map from keys -> did
-func (c *BaseDIDConnectionStore) SaveDIDByResolving(did, serviceType, keyType string) error {
+//  keys: fallback keys in case the DID can't be resolved
+func (c *ConnectionStore) SaveDIDByResolving(did string, keys ...string) error {
 	doc, err := c.vdr.Resolve(did)
-	if err != nil {
+	if errors.Is(err, vdri.ErrNotFound) {
+		return c.SaveDID(did, keys...)
+	} else if err != nil {
 		return err
 	}
 
-	return c.SaveDIDFromDoc(doc, serviceType, keyType)
+	return c.SaveDIDFromDoc(doc)
 }
 
 // GetDID gets the DID stored under the given key
-func (c *BaseDIDConnectionStore) GetDID(key string) (string, error) {
+func (c *ConnectionStore) GetDID(key string) (string, error) {
 	bytes, err := c.store.Get(key)
-	if err != nil {
+	if errors.Is(err, storage.ErrDataNotFound) {
+		return "", ErrNotFound
+	} else if err != nil {
 		return "", err
 	}
 
@@ -102,45 +107,4 @@ func (c *BaseDIDConnectionStore) GetDID(key string) (string, error) {
 	}
 
 	return record.DID, nil
-}
-
-func (c *BaseDIDConnectionStore) resolvePublicKeys(id string) ([]string, error) {
-	doc, err := c.vdr.Resolve(id)
-	if err != nil {
-		return nil, err
-	}
-
-	var keys []string
-
-	for i := range doc.PublicKey {
-		keys = append(keys, string(doc.PublicKey[i].Value))
-	}
-
-	return keys, nil
-}
-
-// SaveDIDConnection saves a connection between this agent's did and another agent
-func (c *BaseDIDConnectionStore) SaveDIDConnection(myDID, theirDID string, theirKeys []string) error {
-	var keys []string
-
-	keys, err := c.resolvePublicKeys(theirDID)
-	if errors.Is(err, vdri.ErrNotFound) {
-		keys = theirKeys
-	} else if err != nil {
-		return err
-	}
-
-	// map their pub keys -> their DID
-	err = c.SaveDID(theirDID, keys...)
-	if err != nil {
-		return err
-	}
-
-	// map their DID -> my DID
-	err = c.SaveDID(myDID, theirDID)
-	if err != nil {
-		return fmt.Errorf("save DID in did map: %w", err)
-	}
-
-	return nil
 }

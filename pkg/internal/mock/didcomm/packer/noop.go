@@ -9,16 +9,19 @@ package packer
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 
 	"github.com/btcsuite/btcutil/base58"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 )
 
 type envelope struct {
-	Header  string `json:"protected,omitempty"`
-	Sender  string `json:"spk,omitempty"`
-	Message string `json:"msg,omitempty"`
+	Header    string `json:"protected,omitempty"`
+	Sender    string `json:"spk,omitempty"`
+	Recipient string `json:"kid,omitempty"`
+	Message   string `json:"msg,omitempty"`
 }
 
 type header struct {
@@ -50,10 +53,15 @@ func (p *Packer) Pack(payload, sender []byte, recipientPubKeys [][]byte) ([]byte
 
 	headerB64 := base64.URLEncoding.EncodeToString(headerBytes)
 
+	if len(recipientPubKeys) == 0 {
+		return nil, fmt.Errorf("no recipients")
+	}
+
 	message := envelope{
-		Header:  headerB64,
-		Sender:  base58.Encode(sender),
-		Message: string(payload),
+		Header:    headerB64,
+		Sender:    base58.Encode(sender),
+		Recipient: base58.Encode(recipientPubKeys[0]),
+		Message:   string(payload),
 	}
 
 	msgBytes, err := json.Marshal(&message)
@@ -62,27 +70,31 @@ func (p *Packer) Pack(payload, sender []byte, recipientPubKeys [][]byte) ([]byte
 }
 
 // Unpack will decode the envelope using the NOOP format.
-func (p *Packer) Unpack(message []byte) ([]byte, []byte, error) {
+func (p *Packer) Unpack(message []byte) (*transport.Envelope, error) {
 	var env envelope
 
 	err := json.Unmarshal(message, &env)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	headerBytes, err := base64.URLEncoding.DecodeString(env.Header)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var head header
 
 	err = json.Unmarshal(headerBytes, &head)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return []byte(env.Message), base58.Decode(env.Sender), nil
+	return &transport.Envelope{
+		Message:    []byte(env.Message),
+		FromVerKey: base58.Decode(env.Sender),
+		ToVerKey:   base58.Decode(env.Recipient),
+	}, nil
 }
 
 // EncodingType returns the type of the encoding, as found in the header `Typ` field

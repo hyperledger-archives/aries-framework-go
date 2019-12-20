@@ -640,7 +640,6 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 		return "", fmt.Errorf("resolve public did[%s]: %w", inviterDID, err)
 	}
 
-	// TODO: hardcoded key type
 	dest, err := service.CreateDestination(didDoc)
 	if err != nil {
 		return "", err

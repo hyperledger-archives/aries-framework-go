@@ -11,13 +11,12 @@ import (
 
 // MockDIDConnection mocks the did lookup store.
 type MockDIDConnection struct {
-	SaveRecordErr     error
-	SaveConnectionErr error
-	SaveKeysErr       error
-	GetDIDValue       string
-	GetDIDErr         error
-	SaveDIDErr        error
-	ResolveDIDErr     error
+	SaveRecordErr error
+	SaveKeysErr   error
+	GetDIDValue   string
+	GetDIDErr     error
+	SaveDIDErr    error
+	ResolveDIDErr error
 }
 
 // SaveDID saves a DID to the store
@@ -30,17 +29,12 @@ func (m *MockDIDConnection) GetDID(key string) (string, error) {
 	return m.GetDIDValue, m.GetDIDErr
 }
 
-// SaveDIDConnection saves a DID connection
-func (m *MockDIDConnection) SaveDIDConnection(myDID, theirDID string, theirKeys []string) error {
-	return m.SaveConnectionErr
-}
-
 // SaveDIDByResolving saves a DID by resolving it then using its doc
-func (m *MockDIDConnection) SaveDIDByResolving(did, serviceType, keyType string) error {
+func (m *MockDIDConnection) SaveDIDByResolving(did string, keys ...string) error {
 	return m.ResolveDIDErr
 }
 
 // SaveDIDFromDoc saves a DID using the given doc
-func (m *MockDIDConnection) SaveDIDFromDoc(doc *diddoc.Doc, serviceType, keyType string) error {
+func (m *MockDIDConnection) SaveDIDFromDoc(doc *diddoc.Doc) error {
 	return m.SaveDIDErr
 }

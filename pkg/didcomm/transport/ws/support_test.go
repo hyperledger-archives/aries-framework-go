@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"nhooyr.io/websocket"
@@ -32,7 +33,7 @@ type mockProvider struct {
 }
 
 func (p *mockProvider) InboundMessageHandler() transport.InboundMessageHandler {
-	return func(message []byte) error {
+	return func(message []byte, myDID, theirDID string) error {
 		logger.Infof("message received is %s", string(message))
 		if string(message) == "invalid-data" {
 			return errors.New("error")
@@ -146,12 +147,12 @@ func (m *mockPackager) PackMessage(e *commontransport.Envelope) ([]byte, error) 
 }
 
 func (m *mockPackager) UnpackMessage(encMessage []byte) (*commontransport.Envelope, error) {
-	return &commontransport.Envelope{Message: encMessage, FromVerKey: m.verKey}, nil
+	return &commontransport.Envelope{Message: encMessage, FromVerKey: base58.Decode(m.verKey)}, nil
 }
 
 type mockTransportProvider struct {
 	packagerValue  commontransport.Packager
-	executeInbound func(message []byte) error
+	executeInbound func(message []byte, myDID, theirDID string) error
 	frameworkID    string
 }
 

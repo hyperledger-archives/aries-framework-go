@@ -55,15 +55,15 @@ func (r *ConnectionRecord) isValid() error {
 }
 
 // NewConnectionRecorder returns new connection record instance
-func NewConnectionRecorder(transientStore, store storage.Store, didMap didconnection.Store) *ConnectionRecorder {
-	return &ConnectionRecorder{transientStore: transientStore, store: store, didMap: didMap}
+func NewConnectionRecorder(transientStore, store storage.Store, didStore didconnection.Store) *ConnectionRecorder {
+	return &ConnectionRecorder{transientStore: transientStore, store: store, didStore: didStore}
 }
 
 // ConnectionRecorder takes care of connection related persistence features
 type ConnectionRecorder struct {
 	transientStore storage.Store
 	store          storage.Store
-	didMap         didconnection.Store
+	didStore       didconnection.Store
 }
 
 // SaveInvitation saves connection invitation to underlying store
@@ -234,7 +234,7 @@ func (c *ConnectionRecorder) saveConnectionRecord(record *ConnectionRecord) erro
 			return fmt.Errorf("save connection record in permanent store: %w", err)
 		}
 
-		if err := c.didMap.SaveDIDConnection(record.MyDID, record.TheirDID, record.RecipientKeys); err != nil {
+		if err := c.didStore.SaveDIDByResolving(record.TheirDID, record.RecipientKeys...); err != nil {
 			return err
 		}
 	}
@@ -266,7 +266,7 @@ func (c *ConnectionRecorder) saveNewConnectionRecord(record *ConnectionRecord) e
 	}
 
 	if record.MyDID != "" {
-		if err := c.didMap.SaveDIDByResolving(record.MyDID, didCommServiceType, ed25519KeyType); err != nil {
+		if err := c.didStore.SaveDIDByResolving(record.MyDID); err != nil {
 			return err
 		}
 	}

@@ -111,7 +111,7 @@ func (p *Provider) InboundTransportEndpoint() string {
 
 // InboundMessageHandler return an inbound message handler.
 func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
-	return func(message []byte) error {
+	return func(message []byte, myDID, theirDID string) error {
 		msg, err := service.NewDIDCommMsg(message)
 		if err != nil {
 			return err
@@ -120,7 +120,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		// find the service which accepts the message type
 		for _, svc := range p.services {
 			if svc.Accept(msg.Header.Type) {
-				_, err = svc.HandleInbound(msg, "", "")
+				_, err = svc.HandleInbound(msg, myDID, theirDID)
 				return err
 			}
 		}

@@ -304,12 +304,14 @@ func TestEncrypt(t *testing.T) {
 		t.Logf("Encryption with XC20P: %s", m)
 
 		// decrypt for rec1 (as found in kms)
-		dec, senderVerKey, e := packer.Unpack(enc)
+		env, e := packer.Unpack(enc)
 		require.NoError(t, e)
-		require.NotEmpty(t, dec)
-		require.EqualValues(t, dec, pld)
+		require.NotEmpty(t, env)
+		require.NotEmpty(t, env.Message)
+		require.EqualValues(t, env.Message, pld)
+		require.NotEmpty(t, env.FromVerKey)
 		require.Equal(t, base64.RawURLEncoding.EncodeToString(sender.EncKeyPair.Pub),
-			base64.RawURLEncoding.EncodeToString(senderVerKey))
+			base64.RawURLEncoding.EncodeToString(env.FromVerKey))
 	})
 
 	t.Run("Success test case: : pack and unpack", func(t *testing.T) {
@@ -331,10 +333,17 @@ func TestEncrypt(t *testing.T) {
 			[][]byte{base58.Decode(recSign)})
 		require.NoError(t, err)
 
-		msgOut, sendKey, err := recPacker.Unpack(enc)
+		env, err := recPacker.Unpack(enc)
 		require.NoError(t, err)
-		require.Equal(t, msgIn, msgOut)
-		require.Equal(t, base58.Encode(sendKey), encSign)
+		require.NotEmpty(t, env)
+		require.NotEmpty(t, env.Message)
+		require.Equal(t, msgIn, env.Message)
+		require.NotEmpty(t, env.FromVerKey)
+		require.Equal(t, base58.Encode(env.FromVerKey), encSign)
+		// this won't work, since input keys and output keys to this Packer
+		// are different types.
+		// require.Equal(t, base58.Encode(recKey), recSign)
+		require.NotEmpty(t, env.ToVerKey)
 	})
 
 	t.Run("Success test case: Decrypting a message with two PackerValue instances to simulate two agents", func(t *testing.T) { //nolint:lll
@@ -356,22 +365,26 @@ func TestEncrypt(t *testing.T) {
 		// now decrypt with recipient3
 		packer1, e := New(recipient3KMSProvider, XC20P)
 		require.NoError(t, e)
-		dec, senderVerKey, e := packer1.Unpack(enc)
+		env, e := packer1.Unpack(enc)
 		require.NoError(t, e)
-		require.NotEmpty(t, dec)
-		require.EqualValues(t, dec, pld)
+		require.NotEmpty(t, env)
+		require.NotEmpty(t, env.Message)
+		require.EqualValues(t, env.Message, pld)
+		require.NotEmpty(t, env.FromVerKey)
 		require.Equal(t, base64.RawURLEncoding.EncodeToString(sender.EncKeyPair.Pub),
-			base64.RawURLEncoding.EncodeToString(senderVerKey))
+			base64.RawURLEncoding.EncodeToString(env.FromVerKey))
 
 		// now try decrypting with recipient2
 		packer2, e := New(recipient2KMSProvider, XC20P)
 		require.NoError(t, e)
-		dec, senderVerKey, e = packer2.Unpack(enc)
+		env, e = packer2.Unpack(enc)
 		require.NoError(t, e)
-		require.NotEmpty(t, dec)
-		require.EqualValues(t, dec, pld)
+		require.NotEmpty(t, env)
+		require.NotEmpty(t, env.Message)
+		require.EqualValues(t, env.Message, pld)
+		require.NotEmpty(t, env.FromVerKey)
 		require.Equal(t, base64.RawURLEncoding.EncodeToString(sender.EncKeyPair.Pub),
-			base64.RawURLEncoding.EncodeToString(senderVerKey))
+			base64.RawURLEncoding.EncodeToString(env.FromVerKey))
 		t.Logf("Decryption Payload with XC20P: %s", pld)
 	})
 
@@ -392,10 +405,9 @@ func TestEncrypt(t *testing.T) {
 		// decrypting for recipient 2 (unauthorized)
 		packer1, e := New(recipient2KMSProvider, XC20P)
 		require.NoError(t, e)
-		dec, senderVerKey, e := packer1.Unpack(enc)
+		env, e := packer1.Unpack(enc)
 		require.Error(t, e)
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 	})
 
 	t.Run("Failure test case: Decrypting a message but scramble JWE beforehand", func(t *testing.T) {
@@ -427,10 +439,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad nonce format
-		dec, senderVerKey, e := packer.Unpack(enc)
+		env, e := packer.Unpack(enc)
 		require.EqualError(t, e, "unpack: illegal base64 data at input byte 12")
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.CipherText = validJwe.CipherText
 
 		// update jwe with bad nonce format
@@ -438,10 +449,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad nonce format
-		dec, senderVerKey, e = packer.Unpack(enc)
+		env, e = packer.Unpack(enc)
 		require.EqualError(t, e, "unpack: illegal base64 data at input byte 5")
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.IV = validJwe.IV
 
 		// update jwe with bad tag format
@@ -449,10 +459,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag format
-		dec, senderVerKey, e = packer.Unpack(enc)
+		env, e = packer.Unpack(enc)
 		require.EqualError(t, e, "unpack: illegal base64 data at input byte 6")
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.Tag = validJwe.Tag
 
 		// update jwe with bad recipient spk (JWE format)
@@ -460,10 +469,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, senderVerKey, e = packer.Unpack(enc)
+		env, e = packer.Unpack(enc)
 		require.EqualError(t, e, "unpack: sender key: bad SPK format")
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.Recipients[0].Header.SPK = validJwe.Recipients[0].Header.SPK
 
 		// update jwe with bad recipient tag format
@@ -471,10 +479,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, senderVerKey, e = packer.Unpack(enc)
+		env, e = packer.Unpack(enc)
 		require.EqualError(t, e, "unpack: decrypt shared key: illegal base64 data at input byte 6")
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.Recipients[0].Header.Tag = validJwe.Recipients[0].Header.Tag
 
 		// update jwe with bad recipient nonce format
@@ -482,10 +489,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, senderVerKey, e = packer.Unpack(enc)
+		env, e = packer.Unpack(enc)
 		require.EqualError(t, e, "unpack: decrypt shared key: illegal base64 data at input byte 5")
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.Recipients[0].Header.IV = validJwe.Recipients[0].Header.IV
 
 		// update jwe with bad recipient nonce format
@@ -493,10 +499,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, senderVerKey, e = packer.Unpack(enc)
+		env, e = packer.Unpack(enc)
 		require.EqualError(t, e, "unpack: decrypt shared key: bad nonce size")
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.Recipients[0].Header.IV = validJwe.Recipients[0].Header.IV
 
 		// update jwe with bad recipient apu format
@@ -504,10 +509,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, senderVerKey, e = packer.Unpack(enc)
+		env, e = packer.Unpack(enc)
 		require.EqualError(t, e, "unpack: decrypt shared key: illegal base64 data at input byte 6")
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.Recipients[0].Header.APU = validJwe.Recipients[0].Header.APU
 
 		// update jwe with bad recipient kid (sender) format
@@ -515,10 +519,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, senderVerKey, e = packer.Unpack(enc)
+		env, e = packer.Unpack(enc)
 		require.EqualError(t, e, fmt.Sprintf("unpack: %s", cryptoutil.ErrKeyNotFound.Error()))
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.Recipients[0].Header.KID = validJwe.Recipients[0].Header.KID
 
 		// update jwe with bad recipient CEK (encrypted key) format
@@ -526,10 +529,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, senderVerKey, e = packer.Unpack(enc)
+		env, e = packer.Unpack(enc)
 		require.EqualError(t, e, "unpack: decrypt shared key: illegal base64 data at input byte 15")
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.Recipients[0].EncryptedKey = validJwe.Recipients[0].EncryptedKey
 
 		// update jwe with bad recipient CEK (encrypted key) value
@@ -537,10 +539,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, senderVerKey, e = packer.Unpack(enc)
+		env, e = packer.Unpack(enc)
 		require.EqualError(t, e, "unpack: decrypt shared key: chacha20poly1305: message authentication failed")
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.Recipients[0].EncryptedKey = validJwe.Recipients[0].EncryptedKey
 
 		// now try bad nonce size
@@ -549,10 +550,9 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, e)
 		// decrypt with bad nonce value
 		require.PanicsWithValue(t, "chacha20poly1305: bad nonce length passed to Open", func() {
-			dec, senderVerKey, e = packer.Unpack(enc)
+			env, e = packer.Unpack(enc)
 		})
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.IV = validJwe.IV
 
 		// now try bad nonce value
@@ -560,10 +560,9 @@ func TestEncrypt(t *testing.T) {
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
-		dec, senderVerKey, e = packer.Unpack(enc)
+		env, e = packer.Unpack(enc)
 		require.EqualError(t, e, "unpack: decrypt shared key: chacha20poly1305: message authentication failed")
-		require.Empty(t, dec)
-		require.Empty(t, senderVerKey)
+		require.Empty(t, env)
 		jwe.Recipients[0].Header.IV = validJwe.Recipients[0].Header.IV
 	})
 }
@@ -658,8 +657,9 @@ func TestRefEncrypt(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, packer)
 
-	dec, senderVerKey, err := packer.Unpack([]byte(refJWE))
+	env, err := packer.Unpack([]byte(refJWE))
 	require.NoError(t, err)
-	require.NotEmpty(t, dec)
-	require.NotEmpty(t, senderVerKey)
+	require.NotEmpty(t, env)
+	require.NotEmpty(t, env.Message)
+	require.NotEmpty(t, env.FromVerKey)
 }

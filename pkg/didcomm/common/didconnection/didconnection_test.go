@@ -86,7 +86,7 @@ func TestBaseConnectionStore(t *testing.T) {
 		require.Equal(t, "did:abcde", didVal)
 
 		wrong, err := connStore.GetDID("fhtagn")
-		require.EqualError(t, err, storage.ErrDataNotFound.Error())
+		require.EqualError(t, err, ErrNotFound.Error())
 		require.Equal(t, "", wrong)
 
 		err = connStore.store.Put("bad-data", []byte("aaooga"))
@@ -97,31 +97,11 @@ func TestBaseConnectionStore(t *testing.T) {
 		require.Contains(t, err.Error(), "invalid character")
 	})
 
-	ed25519KeyType := "Ed25519VerificationKey2018"
-	didCommServiceType := "did-communication"
-
 	t.Run("SaveDIDFromDoc", func(t *testing.T) {
 		connStore, err := New(&prov)
 		require.NoError(t, err)
 
-		err = connStore.SaveDIDFromDoc(
-			mockdiddoc.GetMockDIDDoc(),
-			didCommServiceType,
-			"bad")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "getting DID doc keys")
-
-		err = connStore.SaveDIDFromDoc(
-			mockdiddoc.GetMockDIDDoc(),
-			"bad",
-			ed25519KeyType)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "getting DID doc keys")
-
-		err = connStore.SaveDIDFromDoc(
-			mockdiddoc.GetMockDIDDoc(),
-			didCommServiceType,
-			ed25519KeyType)
+		err = connStore.SaveDIDFromDoc(mockdiddoc.GetMockDIDDoc())
 		require.NoError(t, err)
 	})
 
@@ -129,10 +109,7 @@ func TestBaseConnectionStore(t *testing.T) {
 		cs, err := New(&prov)
 		require.NoError(t, err)
 
-		err = cs.SaveDIDByResolving(
-			mockdiddoc.GetMockDIDDoc().ID,
-			didCommServiceType,
-			ed25519KeyType)
+		err = cs.SaveDIDByResolving(mockdiddoc.GetMockDIDDoc().ID)
 		require.NoError(t, err)
 	})
 
@@ -145,46 +122,8 @@ func TestBaseConnectionStore(t *testing.T) {
 		cs, err := New(&prov)
 		require.NoError(t, err)
 
-		err = cs.SaveDIDByResolving("did", "abc", "def")
+		err = cs.SaveDIDByResolving("did")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
-	})
-
-	t.Run("SaveDIDConnection success", func(t *testing.T) {
-		prov := ctx{
-			vdr: &mockvdri.MockVDRIRegistry{
-				ResolveValue: mockdiddoc.GetMockDIDDoc(),
-			},
-			store: mockstorage.NewMockStoreProvider(),
-		}
-
-		cs, err := New(&prov)
-		require.NoError(t, err)
-
-		err = cs.SaveDIDConnection("mine", mockdiddoc.GetMockDIDDoc().ID, []string{"abc", "def"})
-		require.NoError(t, err)
-	})
-
-	t.Run("SaveDIDConnection error", func(t *testing.T) {
-		prov := ctx{
-			vdr: &mockvdri.MockVDRIRegistry{
-				ResolveValue: mockdiddoc.GetMockDIDDoc(),
-			},
-			store: &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-				Store:  map[string][]byte{},
-				ErrPut: fmt.Errorf("store error"),
-			}},
-		}
-
-		cs, err := New(&prov)
-		require.NoError(t, err)
-
-		err = cs.SaveDIDConnection("mine", "theirs", []string{"abc", "def"})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "store error")
-
-		err = cs.SaveDIDConnection("mine", "theirs", nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "saving DID in did map")
 	})
 }

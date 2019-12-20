@@ -285,24 +285,6 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		err := record.saveNewConnectionRecord(connRec)
 		require.Contains(t, err.Error(), "get error")
 	})
-	t.Run("error saving DID", func(t *testing.T) {
-		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewConnectionRecorder(transientStore, store, &mockdidconnection.MockDIDConnection{
-			SaveConnectionErr: fmt.Errorf("save error"),
-		})
-		require.NotNil(t, record)
-		connRec := &ConnectionRecord{ThreadID: threadIDValue,
-			ConnectionID: connIDValue, State: stateNameCompleted, Namespace: theirNSPrefix}
-		err := record.saveNewConnectionRecord(connRec)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "save error")
-
-		// note: record is still stored, since error happens afterwards
-		storedRecord, err := record.GetConnectionRecord(connRec.ConnectionID)
-		require.NoError(t, err)
-		require.Equal(t, connRec, storedRecord)
-	})
 	t.Run("error saving DID by resolving", func(t *testing.T) {
 		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
