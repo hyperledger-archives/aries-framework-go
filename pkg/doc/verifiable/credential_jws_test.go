@@ -30,7 +30,7 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 		jws, err := jwtClaims.MarshalJWS(RS256, privateKey, "any")
 		require.NoError(t, err)
 
-		vcBytes, err := decodeCredJWS([]byte(jws), func(issuerID, keyID string) (i interface{}, e error) {
+		vcBytes, err := decodeCredJWS([]byte(jws), true, func(issuerID, keyID string) (i interface{}, e error) {
 			publicKey, pcErr := readPublicKey(filepath.Join(certPrefix, "issuer_public.pem"))
 			require.NoError(t, pcErr)
 			require.NotNil(t, publicKey)
@@ -76,7 +76,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	validJWS := createJWS(t, []byte(jwtTestCredential), false)
 
 	t.Run("Successful JWS decoding", func(t *testing.T) {
-		vcBytes, err := decodeCredJWS(validJWS, pkFetcher)
+		vcBytes, err := decodeCredJWS(validJWS, true, pkFetcher)
 		require.NoError(t, err)
 
 		vcRaw := new(rawCredential)
@@ -89,7 +89,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {
-		jws, err := decodeCredJWS([]byte("invalid JWS"), pkFetcher)
+		jws, err := decodeCredJWS([]byte("invalid JWS"), true, pkFetcher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims: parse VC from signed JWS")
 		require.Nil(t, jws)
@@ -109,7 +109,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		rawJWT, err := jwt.Signed(signer).Claims(claims).CompactSerialize()
 		require.NoError(t, err)
 
-		jws, err := decodeCredJWS([]byte(rawJWT), pkFetcher)
+		jws, err := decodeCredJWS([]byte(rawJWT), true, pkFetcher)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims: parse VC JWT claims")
 		require.Nil(t, jws)
@@ -125,7 +125,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 			return publicKey, nil
 		}
 
-		jws, err := decodeCredJWS(validJWS, pkFetcherOther)
+		jws, err := decodeCredJWS(validJWS, true, pkFetcherOther)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal VC JWT claims: VC JWT signature verification")
 		require.Nil(t, jws)

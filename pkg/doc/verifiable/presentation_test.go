@@ -334,15 +334,6 @@ func TestPresentation_MarshalJSON(t *testing.T) {
 	require.Equal(t, vp, vp2)
 }
 
-func TestWithPresSkippedEmbeddedProofCheck(t *testing.T) {
-	vpOpt := WithPresSkippedEmbeddedProofCheck()
-	require.NotNil(t, vpOpt)
-
-	opts := &presentationOpts{}
-	vpOpt(opts)
-	require.True(t, opts.skipEmbeddedProofCheck)
-}
-
 func TestPresentation_SetCredentials(t *testing.T) {
 	r := require.New(t)
 	vp := Presentation{}

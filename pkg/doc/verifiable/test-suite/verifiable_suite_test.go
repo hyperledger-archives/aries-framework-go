@@ -1,3 +1,5 @@
+// +build testsuite
+
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
@@ -93,7 +95,8 @@ func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
 
 func encodeVPToJWS(vpBytes []byte, audience string, privateKey, publicKey interface{}) {
 	vp, err := verifiable.NewPresentation(vpBytes,
-		verifiable.WithPresSkippedEmbeddedProofCheck(),
+		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
+		verifiable.WithPresNoProofCheck(),
 		// the public key is used to decode verifiable credentials passed as JWS to the presentation
 		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(publicKey)))
 	if err != nil {
@@ -132,7 +135,9 @@ func encodeVCToJWTUnsecured(vcBytes []byte) {
 func decodeVCJWTToJSON(vcBytes []byte, publicKey interface{}) {
 	// Asked to decode JWT
 	credential, _, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKey)))
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKey)),
+		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
+		verifiable.WithNoProofCheck())
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
