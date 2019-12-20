@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/VictoriaMetrics/fastcache"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -223,18 +222,19 @@ type SchemaCache interface {
 	Get(k string) ([]byte, bool)
 }
 
-// ExpirableSchemaCache is an implementation of SchemaCache based fastcache.Cache with expirable elements.
-type ExpirableSchemaCache struct {
-	cache      *fastcache.Cache
-	expiration time.Duration
+// cache defines a cache interface
+type cache interface {
+	Set(k, v []byte)
+
+	HasGet(dst, k []byte) ([]byte, bool)
+
+	Del(k []byte)
 }
 
-// NewExpirableSchemaCache creates new instance of ExpirableSchemaCache.
-func NewExpirableSchemaCache(size int, expiration time.Duration) *ExpirableSchemaCache {
-	return &ExpirableSchemaCache{
-		cache:      fastcache.New(size),
-		expiration: expiration,
-	}
+// ExpirableSchemaCache is an implementation of SchemaCache based fastcache.Cache with expirable elements.
+type ExpirableSchemaCache struct {
+	cache      cache
+	expiration time.Duration
 }
 
 // CredentialSchemaLoader defines expirable cache.
