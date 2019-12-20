@@ -646,6 +646,50 @@ func TestWithCredentialSchemaLoader(t *testing.T) {
 	require.Nil(t, opts.schemaLoader.cache)
 }
 
+func TestWithAnyContextAndType(t *testing.T) {
+	credentialOpt := WithJSONLDValidation()
+	require.NotNil(t, credentialOpt)
+
+	opts := &credentialOpts{}
+	credentialOpt(opts)
+	require.Equal(t, jsonldValidation, opts.modelValidationMode)
+	require.Empty(t, opts.allowedCustomContexts)
+	require.Empty(t, opts.allowedCustomTypes)
+}
+
+func TestWithBaseOnlyContextAndType(t *testing.T) {
+	credentialOpt := WithBaseContextValidation()
+	require.NotNil(t, credentialOpt)
+
+	opts := &credentialOpts{}
+	credentialOpt(opts)
+	require.Equal(t, baseContextValidation, opts.modelValidationMode)
+	require.Empty(t, opts.allowedCustomContexts)
+	require.Empty(t, opts.allowedCustomTypes)
+}
+
+func TestWithCustomContextAndType(t *testing.T) {
+	credentialOpt := WithBaseContextExtendedValidation(
+		[]string{"https://www.w3.org/2018/credentials/examples/v1"},
+		[]string{"UniversityDegreeCredential", "AlumniCredential"})
+	require.NotNil(t, credentialOpt)
+
+	opts := &credentialOpts{}
+	credentialOpt(opts)
+	require.Equal(t, baseContextExtendedValidation, opts.modelValidationMode)
+
+	require.Equal(t, map[string]bool{
+		"https://www.w3.org/2018/credentials/v1":          true,
+		"https://www.w3.org/2018/credentials/examples/v1": true},
+		opts.allowedCustomContexts)
+
+	require.Equal(t, map[string]bool{
+		"VerifiableCredential":       true,
+		"UniversityDegreeCredential": true,
+		"AlumniCredential":           true},
+		opts.allowedCustomTypes)
+}
+
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		rawMap := make(map[string]interface{})
@@ -1134,4 +1178,101 @@ func TestCredential_CreatePresentation(t *testing.T) {
 	require.Equal(t, []interface{}{vc}, vp.Credentials())
 	require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
 	require.Equal(t, vc.Context, vp.Context)
+}
+
+func TestCredential_postValidateCredential(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("test AnyContextAndType constraint", func(t *testing.T) {
+		r.NoError(postValidateCredential(&Credential{},
+			&credentialOpts{modelValidationMode: jsonldValidation}))
+	})
+
+	t.Run("test BaseOnlyContextAndType constraint", func(t *testing.T) {
+		r.NoError(postValidateCredential(
+			&Credential{
+				Types:   []string{"VerifiableCredential"},
+				Context: []string{"https://www.w3.org/2018/credentials/v1"}},
+			&credentialOpts{modelValidationMode: baseContextValidation}))
+
+		err := postValidateCredential(
+			&Credential{
+				Types:   []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				Context: []string{"https://www.w3.org/2018/credentials/v1"}},
+			&credentialOpts{modelValidationMode: baseContextValidation})
+		r.Error(err)
+		r.EqualError(err, "violated type constraint: not base only type defined")
+
+		err = postValidateCredential(
+			&Credential{
+				Types:   []string{"UniversityDegreeCredential"},
+				Context: []string{"https://www.w3.org/2018/credentials/v1"}},
+			&credentialOpts{modelValidationMode: baseContextValidation})
+		r.Error(err)
+		r.EqualError(err, "violated type constraint: not base only type defined")
+
+		err = postValidateCredential(
+			&Credential{
+				Types:   []string{"VerifiableCredential"},
+				Context: []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/udc/v1"}},
+			&credentialOpts{modelValidationMode: baseContextValidation})
+		r.Error(err)
+		r.EqualError(err, "violated @context constraint: not base only @context defined")
+
+		err = postValidateCredential(
+			&Credential{
+				Types:   []string{"VerifiableCredential"},
+				Context: []string{"https://www.exaple.org/udc/v1"}},
+			&credentialOpts{modelValidationMode: baseContextValidation})
+		r.Error(err)
+		r.EqualError(err, "violated @context constraint: not base only @context defined")
+	})
+
+	t.Run("test CustomContextAndType constraint", func(t *testing.T) {
+		r.NoError(postValidateCredential(
+			&Credential{
+				Types:   []string{"VerifiableCredential", "AlumniCredential"},
+				Context: []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"}},
+			&credentialOpts{
+				modelValidationMode: baseContextExtendedValidation,
+				allowedCustomTypes: map[string]bool{
+					"VerifiableCredential": true,
+					"AlumniCredential":     true},
+				allowedCustomContexts: map[string]bool{
+					"https://www.w3.org/2018/credentials/v1": true,
+					"https://www.exaple.org/alumni/v1":       true},
+			}))
+
+		err := postValidateCredential(
+			&Credential{
+				Types:   []string{"VerifiableCredential", "UniversityDegreeCredential"},
+				Context: []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/alumni/v1"}},
+			&credentialOpts{
+				modelValidationMode: baseContextExtendedValidation,
+				allowedCustomTypes: map[string]bool{
+					"VerifiableCredential": true,
+					"AlumniCredential":     true},
+				allowedCustomContexts: map[string]bool{
+					"https://www.w3.org/2018/credentials/v1": true,
+					"https://www.exaple.org/alumni/v1":       true},
+			})
+		r.Error(err)
+		r.EqualError(err, "not allowed type: UniversityDegreeCredential")
+
+		err = postValidateCredential(
+			&Credential{
+				Types:   []string{"VerifiableCredential", "AlumniCredential"},
+				Context: []string{"https://www.w3.org/2018/credentials/v1", "https://www.exaple.org/udc/v1"}},
+			&credentialOpts{
+				modelValidationMode: baseContextExtendedValidation,
+				allowedCustomTypes: map[string]bool{
+					"VerifiableCredential": true,
+					"AlumniCredential":     true},
+				allowedCustomContexts: map[string]bool{
+					"https://www.w3.org/2018/credentials/v1": true,
+					"https://www.exaple.org/alumni/v1":       true},
+			})
+		r.Error(err)
+		r.EqualError(err, "not allowed @context: https://www.exaple.org/udc/v1")
+	})
 }
