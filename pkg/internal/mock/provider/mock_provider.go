@@ -7,7 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -22,6 +24,8 @@ type Provider struct {
 	TransientStorageProviderValue storage.Provider
 	PackerList                    []packer.Packer
 	PackerValue                   packer.Packer
+	OutboundDispatcherValue       dispatcher.Outbound
+	VDRIRegistryValue             vdriapi.Registry
 }
 
 // Service return service
@@ -57,4 +61,14 @@ func (p *Provider) Packers() []packer.Packer {
 // PrimaryPacker returns the main Packer service
 func (p *Provider) PrimaryPacker() packer.Packer {
 	return p.PackerValue
+}
+
+// OutboundDispatcher return outbound dispatcher
+func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
+	return p.OutboundDispatcherValue
+}
+
+// VDRIRegistry return vdri registry
+func (p *Provider) VDRIRegistry() vdriapi.Registry {
+	return p.VDRIRegistryValue
 }

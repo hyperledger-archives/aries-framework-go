@@ -25,6 +25,7 @@ type MockVDRIRegistry struct {
 	PutErr       error
 	ResolveErr   error
 	ResolveValue *did.Doc
+	ResolveFunc  func(didID string, opts ...vdriapi.ResolveOpts) (*did.Doc, error)
 }
 
 // Store stores the key and the record
@@ -56,6 +57,10 @@ func (m *MockVDRIRegistry) Create(method string, opts ...vdriapi.DocOpts) (*did.
 
 // Resolve did document
 func (m *MockVDRIRegistry) Resolve(didID string, opts ...vdriapi.ResolveOpts) (*did.Doc, error) {
+	if m.ResolveFunc != nil {
+		return m.ResolveFunc(didID, opts...)
+	}
+
 	if m.ResolveErr != nil {
 		return nil, m.ResolveErr
 	}
