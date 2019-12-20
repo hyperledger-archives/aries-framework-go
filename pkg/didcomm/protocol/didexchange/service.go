@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -57,6 +58,7 @@ type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
+	DIDConnectionStore() didconnection.Store
 	Signer() kms.Signer
 	VDRIRegistry() vdriapi.Registry
 }
@@ -76,6 +78,7 @@ type Service struct {
 	ctx             *context
 	callbackChannel chan *message
 	connectionStore *ConnectionRecorder
+	didConnections  didconnection.Store
 }
 
 type context struct {
@@ -106,7 +109,7 @@ func New(prov provider) (*Service, error) {
 		return nil, err
 	}
 
-	connRecorder := NewConnectionRecorder(transientStore, store)
+	connRecorder := NewConnectionRecorder(transientStore, store, prov.DIDConnectionStore())
 	svc := &Service{
 		ctx: &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
@@ -117,6 +120,7 @@ func New(prov provider) (*Service, error) {
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan *message, 10),
 		connectionStore: connRecorder,
+		didConnections:  prov.DIDConnectionStore(),
 	}
 
 	// start the listener
@@ -271,7 +275,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		if canTriggerActionEvents(connectionRecord.State, connectionRecord.Namespace) {
 			msg.NextStateName = next.Name()
 			if err = s.sendActionEvent(msg, aEvent); err != nil {
-				return fmt.Errorf("handle inbound : %w", err)
+				return fmt.Errorf("handle inbound: %w", err)
 			}
 
 			haltExecution = true
@@ -636,7 +640,6 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 		return "", fmt.Errorf("resolve public did[%s]: %w", inviterDID, err)
 	}
 
-	// TODO: hardcoded key type
 	dest, err := service.CreateDestination(didDoc)
 	if err != nil {
 		return "", err

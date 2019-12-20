@@ -14,6 +14,8 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 )
 
 // Unpack will JWE decode the envelope argument for the recipientPrivKey and validates
@@ -22,22 +24,22 @@ import (
 // encrypted CEK.
 // The current recipient is the one with the sender's encrypted key that successfully
 // decrypts with recipientKeyPair.Priv Key.
-func (p *Packer) Unpack(envelope []byte) ([]byte, []byte, error) {
+func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 	jwe := &Envelope{}
 
 	err := json.Unmarshal(envelope, jwe)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unpack: %w", err)
+		return nil, fmt.Errorf("unpack json: %w", err)
 	}
 
 	recipientPubKey, recipient, err := p.findRecipient(jwe.Recipients)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unpack: %w", err)
+		return nil, fmt.Errorf("unpack: %w", err)
 	}
 
 	senderKey, err := p.decryptSPK(recipientPubKey, recipient.Header.SPK)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unpack: sender key: %w", err)
+		return nil, fmt.Errorf("unpack: sender key: %w", err)
 	}
 
 	// senderKey must not be empty to proceed
@@ -47,18 +49,22 @@ func (p *Packer) Unpack(envelope []byte) ([]byte, []byte, error) {
 
 		sharedKey, er := p.decryptCEK(recipientPubKey, senderPubKey, recipient)
 		if er != nil {
-			return nil, nil, fmt.Errorf("unpack: decrypt shared key: %w", er)
+			return nil, fmt.Errorf("unpack: decrypt shared key: %w", er)
 		}
 
 		symOutput, er := p.decryptPayload(sharedKey, jwe)
 		if er != nil {
-			return nil, nil, fmt.Errorf("unpack: %w", er)
+			return nil, fmt.Errorf("unpack: %w", er)
 		}
 
-		return symOutput, senderKey, nil
+		return &transport.Envelope{
+			Message:    symOutput,
+			FromVerKey: senderKey,
+			ToVerKey:   recipientPubKey[:],
+		}, nil
 	}
 
-	return nil, nil, errors.New("unpack: invalid sender key in envelope")
+	return nil, errors.New("unpack: invalid sender key in envelope")
 }
 
 func (p *Packer) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {

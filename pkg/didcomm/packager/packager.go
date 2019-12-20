@@ -14,6 +14,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 )
@@ -22,6 +23,7 @@ import (
 type Provider interface {
 	Packers() []packer.Packer
 	PrimaryPacker() packer.Packer
+	DIDConnectionStore() didconnection.Store
 }
 
 // Creator method to create new packager service
@@ -29,8 +31,9 @@ type Creator func(prov Provider) (transport.Packager, error)
 
 // Packager is the basic implementation of Packager
 type Packager struct {
-	primaryPacker packer.Packer
-	packers       map[string]packer.Packer
+	primaryPacker   packer.Packer
+	packers         map[string]packer.Packer
+	connectionStore didconnection.Store
 }
 
 // PackerCreator holds a creator function for a Packer and the name of the Packer's encoding method.
@@ -42,8 +45,9 @@ type PackerCreator struct {
 // New return new instance of KMS implementation
 func New(ctx Provider) (*Packager, error) {
 	basePackager := Packager{
-		primaryPacker: nil,
-		packers:       map[string]packer.Packer{},
+		primaryPacker:   nil,
+		packers:         map[string]packer.Packer{},
+		connectionStore: ctx.DIDConnectionStore(),
 	}
 
 	for _, packerType := range ctx.Packers() {
@@ -52,7 +56,7 @@ func New(ctx Provider) (*Packager, error) {
 
 	basePackager.primaryPacker = ctx.PrimaryPacker()
 	if basePackager.primaryPacker == nil {
-		return nil, fmt.Errorf("need primary primaryPacker to initialize packager")
+		return nil, fmt.Errorf("need primary packer to initialize packager")
 	}
 
 	basePackager.addPacker(basePackager.primaryPacker)
@@ -86,7 +90,7 @@ func (bp *Packager) PackMessage(messageEnvelope *transport.Envelope) ([]byte, er
 		recipients = append(recipients, verKeyBytes)
 	}
 	// pack message
-	bytes, err := bp.primaryPacker.Pack(messageEnvelope.Message, base58.Decode(messageEnvelope.FromVerKey), recipients)
+	bytes, err := bp.primaryPacker.Pack(messageEnvelope.Message, messageEnvelope.FromVerKey, recipients)
 	if err != nil {
 		return nil, fmt.Errorf("pack: %w", err)
 	}
@@ -146,10 +150,27 @@ func (bp *Packager) UnpackMessage(encMessage []byte) (*transport.Envelope, error
 		return nil, fmt.Errorf("message Type not recognized")
 	}
 
-	data, senderVerKey, err := p.Unpack(encMessage)
+	envelope, err := p.Unpack(encMessage)
 	if err != nil {
 		return nil, fmt.Errorf("unpack: %w", err)
 	}
 
-	return &transport.Envelope{Message: data, FromVerKey: base58.Encode(senderVerKey)}, nil
+	//	ignore error - agents can communicate without using DIDs - for example, in DIDExchange
+	theirDID, err := bp.connectionStore.GetDID(base58.Encode(envelope.FromVerKey))
+	if errors.Is(err, didconnection.ErrNotFound) {
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get their did: %w", err)
+	}
+
+	// ignore error - at beginning of DIDExchange, you might be about to generate a DID
+	myDID, err := bp.connectionStore.GetDID(base58.Encode(envelope.ToVerKey))
+	if errors.Is(err, didconnection.ErrNotFound) {
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get my did: %w", err)
+	}
+
+	envelope.ToDID = myDID
+	envelope.FromDID = theirDID
+
+	return envelope, nil
 }

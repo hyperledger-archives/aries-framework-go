@@ -30,7 +30,7 @@ type OutboundTransport interface {
 
 // InboundMessageHandler handles the inbound requests. The transport will unpack the payload prior to the
 // message handle invocation.
-type InboundMessageHandler func(message []byte) error
+type InboundMessageHandler func(message []byte, myDID, theirDID string) error
 
 // Provider contains dependencies for starting the inbound/outbound transports.
 // It is typically created by using aries.Context().

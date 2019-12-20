@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/btcsuite/btcutil/base58"
 	"nhooyr.io/websocket"
 
 	commtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
@@ -93,12 +94,12 @@ func (d *connPool) listener(conn *websocket.Conn) {
 		}
 
 		if trans != nil && trans.ReturnRoute != nil && trans.ReturnRoute.Value == decorator.TransportReturnRouteAll {
-			d.add(unpackMsg.FromVerKey, conn)
+			d.add(base58.Encode(unpackMsg.FromVerKey), conn)
 		}
 
 		messageHandler := d.msgHandler
 
-		err = messageHandler(unpackMsg.Message)
+		err = messageHandler(unpackMsg.Message, unpackMsg.ToDID, unpackMsg.FromDID)
 		if err != nil {
 			logger.Errorf("incoming msg processing failed: %v", err)
 		}

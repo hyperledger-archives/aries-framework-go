@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/diddoc"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -68,17 +69,21 @@ func TestService_Handle_Inviter(t *testing.T) {
 	prov := protocol.MockProvider{}
 	store := mockstorage.NewMockStoreProvider()
 	pubKey, privKey := generateKeyPair()
+	didConnectionStore := didconnection.MockDIDConnection{}
+
 	ctx := &context{
 		outboundDispatcher: prov.OutboundDispatcher(),
 		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: createDIDDocWithKey(pubKey)},
 		signer:             &mockSigner{privateKey: privKey},
-		connectionStore:    NewConnectionRecorder(nil, store.Store),
+		connectionStore:    NewConnectionRecorder(nil, store.Store, &didConnectionStore),
 	}
 
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 	require.NoError(t, err)
 
-	s, err := New(&protocol.MockProvider{StoreProvider: store})
+	s, err := New(&protocol.MockProvider{StoreProvider: store,
+		DIDConnectionStoreValue: &didConnectionStore,
+	})
 	require.NoError(t, err)
 
 	actionCh := make(chan service.DIDCommAction, 10)
@@ -127,7 +132,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	require.NoError(t, err)
 	msg, err := service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
-	_, err = s.HandleInbound(msg, "", "")
+	_, err = s.HandleInbound(msg, newDidDoc.ID, "")
 	require.NoError(t, err)
 
 	select {
@@ -149,7 +154,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 	didMsg, err := service.NewDIDCommMsg(payloadBytes)
 	require.NoError(t, err)
 
-	_, err = s.HandleInbound(didMsg, "", "")
+	_, err = s.HandleInbound(didMsg, newDidDoc.ID, "theirDID")
 	require.NoError(t, err)
 
 	select {
@@ -202,19 +207,24 @@ func TestService_Handle_Invitee(t *testing.T) {
 	store := mockstorage.NewMockStoreProvider()
 	prov := protocol.MockProvider{}
 	pubKey, privKey := generateKeyPair()
+	didConnectionStore := didconnection.MockDIDConnection{}
+
 	ctx := context{
 		outboundDispatcher: prov.OutboundDispatcher(),
 		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: createDIDDocWithKey(pubKey)},
 		signer:             &mockSigner{privateKey: privKey},
-		connectionStore:    NewConnectionRecorder(transientStore.Store, store.Store),
+		connectionStore:    NewConnectionRecorder(transientStore.Store, store.Store, &didConnectionStore),
 	}
 
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 	require.NoError(t, err)
 
 	s, err := New(
-		&protocol.MockProvider{StoreProvider: store,
-			TransientStoreProvider: transientStore})
+		&protocol.MockProvider{
+			StoreProvider:           store,
+			TransientStoreProvider:  transientStore,
+			DIDConnectionStoreValue: &didConnectionStore,
+		})
 	require.NoError(t, err)
 
 	s.ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc}
@@ -378,7 +388,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
-		svc.connectionStore = NewConnectionRecorder(transientStore, nil)
+		svc.connectionStore = NewConnectionRecorder(transientStore, nil, nil)
 
 		_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""), "", "")
 		require.Error(t, err)
@@ -452,7 +462,7 @@ func TestService_CurrentState(t *testing.T) {
 		svc := &Service{
 			connectionStore: NewConnectionRecorder(&mockStore{
 				get: func(string) ([]byte, error) { return nil, storage.ErrDataNotFound },
-			}, nil),
+			}, nil, nil),
 		}
 		thid, err := createNSKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
@@ -468,7 +478,7 @@ func TestService_CurrentState(t *testing.T) {
 		svc := &Service{
 			connectionStore: NewConnectionRecorder(&mockStore{
 				get: func(string) ([]byte, error) { return connRec, nil },
-			}, nil),
+			}, nil, nil),
 		}
 		thid, err := createNSKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
@@ -483,7 +493,7 @@ func TestService_CurrentState(t *testing.T) {
 				get: func(string) ([]byte, error) {
 					return nil, errors.New("test")
 				},
-			}, nil),
+			}, nil, nil),
 		}
 		thid, err := createNSKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
@@ -510,7 +520,7 @@ func TestService_Update(t *testing.T) {
 			get: func(k string) ([]byte, error) {
 				return bytes, nil
 			},
-		}, nil),
+		}, nil, nil),
 	}
 
 	require.NoError(t, svc.update(RequestMsgType, connRec))
@@ -762,7 +772,7 @@ func TestServiceErrors(t *testing.T) {
 	mockStore := &mockStore{get: func(s string) (bytes []byte, e error) {
 		return nil, errors.New("error")
 	}}
-	svc.connectionStore = NewConnectionRecorder(mockStore, nil)
+	svc.connectionStore = NewConnectionRecorder(mockStore, nil, nil)
 	payload := generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), "")
 	_, err = svc.HandleInbound(payload, "", "")
 	require.Error(t, err)
@@ -773,7 +783,7 @@ func TestServiceErrors(t *testing.T) {
 	transientStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
 	require.NoError(t, err)
 
-	svc.connectionStore = NewConnectionRecorder(transientStore, nil)
+	svc.connectionStore = NewConnectionRecorder(transientStore, nil, nil)
 
 	_, err = svc.HandleInbound(msg, "", "")
 	require.Error(t, err)
@@ -858,7 +868,7 @@ func TestInvitationRecord(t *testing.T) {
 
 	// db error
 	svc.connectionStore = NewConnectionRecorder(
-		&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}, nil)
+		&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}, nil, nil)
 
 	invitationBytes, err = json.Marshal(&Invitation{
 		Type:          InvitationMsgType,
@@ -886,7 +896,7 @@ func TestRequestRecord(t *testing.T) {
 
 	// db error
 	svc.connectionStore = NewConnectionRecorder(
-		&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}, nil)
+		&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}, nil, nil)
 
 	_, err = svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
 		randomString(), ""))
@@ -1343,7 +1353,7 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 	store := mockstorage.NewMockStoreProvider()
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
 		vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
-		connectionStore: NewConnectionRecorder(nil, store.Store)}
+		connectionStore: NewConnectionRecorder(nil, store.Store, nil)}
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 	require.NoError(t, err)
 
@@ -1375,7 +1385,8 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
-			connectionStore:    NewConnectionRecorder(nil, store.Store),
+			connectionStore: NewConnectionRecorder(nil, store.Store,
+				&didconnection.MockDIDConnection{}),
 		}
 
 		s, err := New(&protocol.MockProvider{StoreProvider: store})
@@ -1395,7 +1406,8 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
-			connectionStore:    NewConnectionRecorder(nil, store.Store),
+			connectionStore: NewConnectionRecorder(nil, store.Store,
+				&didconnection.MockDIDConnection{}),
 		}
 
 		s, err := New(&protocol.MockProvider{StoreProvider: store})
@@ -1418,7 +1430,8 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
-			connectionStore:    NewConnectionRecorder(transientStore.Store, store.Store),
+			connectionStore: NewConnectionRecorder(transientStore.Store, store.Store,
+				&didconnection.MockDIDConnection{}),
 		}
 
 		s, err := New(&protocol.MockProvider{StoreProvider: store, TransientStoreProvider: transientStore})

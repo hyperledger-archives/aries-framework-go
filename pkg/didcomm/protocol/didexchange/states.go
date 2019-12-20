@@ -326,6 +326,7 @@ func (ctx *context) handleInboundRequest(request *Request, options *options, con
 	}
 
 	// get did document that will be used in exchange response
+	// (my did doc)
 	responseDidDoc, connection, err := ctx.getDIDDocAndConnection(getPublicDID(options))
 	if err != nil {
 		return nil, nil, err
@@ -404,6 +405,11 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 			return nil, nil, fmt.Errorf("resolve public did[%s]: %w", pubDID, err)
 		}
 
+		err = ctx.connectionStore.didStore.SaveDIDFromDoc(didDoc)
+		if err != nil {
+			return nil, nil, err
+		}
+
 		return didDoc, &Connection{DID: didDoc.ID}, nil
 	}
 
@@ -413,6 +419,11 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 	newDidDoc, err := ctx.vdriRegistry.Create(didMethod)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
+	}
+
+	err = ctx.connectionStore.didStore.SaveDIDFromDoc(newDidDoc)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	connection := &Connection{

@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
+	mockdidconnection "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/didconnection"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
@@ -97,16 +98,16 @@ func TestNewProvider(t *testing.T) {
 		{
 			"@frameworkID": "5678876542345",
 			"@type": "valid-message-type"
-		}`))
+		}`), "", "")
 		require.NoError(t, err)
 
 		// invalid json
-		err = inboundHandler([]byte("invalid json"))
+		err = inboundHandler([]byte("invalid json"), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid payload data format")
 
 		// invalid json
-		err = inboundHandler([]byte("invalid json"))
+		err = inboundHandler([]byte("invalid json"), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid payload data format")
 
@@ -115,7 +116,7 @@ func TestNewProvider(t *testing.T) {
 		{
 			"@type": "invalid-message-type",
 			"label": "Bob"
-		}`))
+		}`), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no message handlers found for the message type: invalid-message-type")
 
@@ -124,7 +125,7 @@ func TestNewProvider(t *testing.T) {
 		{
 			"label": "Carol",
 			"@type": "valid-message-type"
-		}`))
+		}`), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error handling the message")
 	})
@@ -193,6 +194,13 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithVDRIRegistry(r))
 		require.NoError(t, err)
 		require.Equal(t, r, prov.VDRIRegistry())
+	})
+
+	t.Run("test new with did connection store", func(t *testing.T) {
+		cs := &mockdidconnection.MockDIDConnection{}
+		prov, err := New(WithDIDConnectionStore(cs))
+		require.NoError(t, err)
+		require.Equal(t, cs, prov.DIDConnectionStore())
 	})
 
 	t.Run("test new with outbound transport service", func(t *testing.T) {

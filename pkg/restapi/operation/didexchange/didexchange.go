@@ -18,6 +18,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -74,6 +75,7 @@ const (
 type provider interface {
 	Service(id string) (interface{}, error)
 	KMS() kms.KeyManager
+	DIDConnectionStore() didconnection.Store
 	InboundTransportEndpoint() string
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider

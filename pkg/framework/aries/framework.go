@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
@@ -43,6 +44,7 @@ type Aries struct {
 	inboundTransport       transport.InboundTransport
 	kmsCreator             api.KMSCreator
 	kms                    api.CloseableKMS
+	didConnectionStore     didconnection.Store
 	packagerCreator        packager.Creator
 	packager               commontransport.Packager
 	packerCreator          packer.Creator
@@ -87,8 +89,11 @@ func New(opts ...Option) (*Aries, error) {
 	//  on the context. The inbound transports require ctx.InboundMessageHandler(), which in-turn depends on
 	//  protocolServices. At the moment, there is a looping issue among these.
 
-	// Order of initializing service is important
+	return initializeServices(frameworkOpts)
+}
 
+func initializeServices(frameworkOpts *Aries) (*Aries, error) {
+	// Order of initializing service is important
 	// Create kms
 	if e := createKMS(frameworkOpts); e != nil {
 		return nil, e
@@ -99,7 +104,12 @@ func New(opts ...Option) (*Aries, error) {
 		return nil, e
 	}
 
-	// create packers and packager (must be done after KMS)
+	// Create connection store
+	if e := createDIDConnectionStore(frameworkOpts); e != nil {
+		return nil, e
+	}
+
+	// create packers and packager (must be done after KMS and connection store)
 	if err := createPackersAndPackager(frameworkOpts); err != nil {
 		return nil, err
 	}
@@ -217,6 +227,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithOutboundTransports(a.outboundTransports...),
 		context.WithProtocolServices(a.services...),
 		context.WithKMS(a.kms),
+		context.WithDIDConnectionStore(a.didConnectionStore),
 		context.WithInboundTransportEndpoint(endPoint),
 		context.WithStorageProvider(a.storeProvider),
 		context.WithTransientStorageProvider(a.transientStoreProvider),
@@ -328,6 +339,7 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 		context.WithOutboundTransports(frameworkOpts.outboundTransports...),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithTransportReturnRoute(frameworkOpts.transportReturnRoute),
+		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
@@ -380,6 +392,7 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithPackager(frameworkOpts.packager),
 		context.WithInboundTransportEndpoint(endPoint),
 		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
+		context.WithDIDConnectionStore(frameworkOpts.didConnectionStore),
 	)
 
 	if err != nil {
@@ -398,10 +411,27 @@ func loadServices(frameworkOpts *Aries) error {
 	return nil
 }
 
+func createDIDConnectionStore(frameworkOpts *Aries) error {
+	ctx, err := context.New(
+		context.WithStorageProvider(frameworkOpts.storeProvider),
+		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
+	)
+	if err != nil {
+		return fmt.Errorf("create did lookup store context failed: %w", err)
+	}
+
+	frameworkOpts.didConnectionStore, err = didconnection.New(ctx)
+	if err != nil {
+		return fmt.Errorf("create did lookup store failed: %w", err)
+	}
+
+	return nil
+}
+
 func createPackersAndPackager(frameworkOpts *Aries) error {
 	ctx, err := context.New(context.WithKMS(frameworkOpts.kms))
 	if err != nil {
-		return fmt.Errorf("create envelope context failed: %w", err)
+		return fmt.Errorf("create packer context failed: %w", err)
 	}
 
 	frameworkOpts.primaryPacker, err = frameworkOpts.packerCreator(ctx)
@@ -423,7 +453,8 @@ func createPackersAndPackager(frameworkOpts *Aries) error {
 	}
 
 	ctx, err = context.New(
-		context.WithPacker(frameworkOpts.primaryPacker, frameworkOpts.packers...))
+		context.WithPacker(frameworkOpts.primaryPacker, frameworkOpts.packers...),
+		context.WithDIDConnectionStore(frameworkOpts.didConnectionStore))
 	if err != nil {
 		return fmt.Errorf("create packager context failed: %w", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"nhooyr.io/websocket"
@@ -40,14 +41,14 @@ func TestConnectionStore(t *testing.T) {
 		// create a transport provider (framework context)
 		verKey := "ABCD"
 		mockPackager := &mockpackager.Packager{
-			UnpackValue: &commontransport.Envelope{Message: request, FromVerKey: verKey},
+			UnpackValue: &commontransport.Envelope{Message: request, FromVerKey: base58.Decode(verKey)},
 		}
 
 		response := "Hello"
 		transportProvider := &mockTransportProvider{
 			packagerValue: mockPackager,
 			frameworkID:   uuid.New().String(),
-			executeInbound: func(message []byte) error {
+			executeInbound: func(message []byte, myDID, theirDID string) error {
 				resp, outboundErr := outbound.Send([]byte(response),
 					prepareDestinationWithTransport("ws://doesnt-matter", "", []string{verKey}))
 				require.NoError(t, outboundErr)
@@ -100,7 +101,7 @@ func TestConnectionStore(t *testing.T) {
 		transportProvider := &mockTransportProvider{
 			packagerValue: &mockPackager{verKey: verKey},
 			frameworkID:   uuid.New().String(),
-			executeInbound: func(message []byte) error {
+			executeInbound: func(message []byte, myDID, theirDID string) error {
 				// validate the echo server response with the outbound sent message
 				require.Equal(t, request, message)
 				done <- struct{}{}

@@ -9,6 +9,7 @@ package context
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -26,6 +27,7 @@ type Provider struct {
 	storeProvider            storage.Provider
 	transientStoreProvider   storage.Provider
 	kms                      kms.KMS
+	didConnectionStore       didconnection.Store
 	packager                 commontransport.Packager
 	primaryPacker            packer.Packer
 	packers                  []packer.Packer
@@ -77,6 +79,11 @@ func (p *Provider) KMS() kms.KeyManager {
 	return p.kms
 }
 
+// DIDConnectionStore returns a didconnection.Store service.
+func (p *Provider) DIDConnectionStore() didconnection.Store {
+	return p.didConnectionStore
+}
+
 // Packager returns a packager service.
 func (p *Provider) Packager() commontransport.Packager {
 	return p.packager
@@ -104,7 +111,7 @@ func (p *Provider) InboundTransportEndpoint() string {
 
 // InboundMessageHandler return an inbound message handler.
 func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
-	return func(message []byte) error {
+	return func(message []byte, myDID, theirDID string) error {
 		msg, err := service.NewDIDCommMsg(message)
 		if err != nil {
 			return err
@@ -113,7 +120,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		// find the service which accepts the message type
 		for _, svc := range p.services {
 			if svc.Accept(msg.Header.Type) {
-				_, err = svc.HandleInbound(msg, "", "")
+				_, err = svc.HandleInbound(msg, myDID, theirDID)
 				return err
 			}
 		}
@@ -217,6 +224,14 @@ func WithStorageProvider(s storage.Provider) ProviderOption {
 func WithTransientStorageProvider(s storage.Provider) ProviderOption {
 	return func(opts *Provider) error {
 		opts.transientStoreProvider = s
+		return nil
+	}
+}
+
+// WithDIDConnectionStore injects a didconnection.Store into the context.
+func WithDIDConnectionStore(cs didconnection.Store) ProviderOption {
+	return func(opts *Provider) error {
+		opts.didConnectionStore = cs
 		return nil
 	}
 }

@@ -11,10 +11,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/btcsuite/btcutil/base58"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
 // provider interface for outbound ctx
@@ -22,6 +25,7 @@ type provider interface {
 	Packager() commontransport.Packager
 	OutboundTransports() []transport.OutboundTransport
 	TransportReturnRoute() string
+	VDRIRegistry() vdri.Registry
 }
 
 // OutboundDispatcher dispatch msgs to destination
@@ -29,6 +33,7 @@ type OutboundDispatcher struct {
 	outboundTransports   []transport.OutboundTransport
 	packager             commontransport.Packager
 	transportReturnRoute string
+	vdRegistry           vdri.Registry
 }
 
 // NewOutbound return new dispatcher outbound instance
@@ -37,12 +42,28 @@ func NewOutbound(prov provider) *OutboundDispatcher {
 		outboundTransports:   prov.OutboundTransports(),
 		packager:             prov.Packager(),
 		transportReturnRoute: prov.TransportReturnRoute(),
+		vdRegistry:           prov.VDRIRegistry(),
 	}
 }
 
-// SendToDID msg
+// SendToDID sends a message from myDID to the agent who owns theirDID
 func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) error {
-	return nil
+	dest, err := service.GetDestination(theirDID, o.vdRegistry)
+	if err != nil {
+		return err
+	}
+
+	src, err := service.GetDestination(myDID, o.vdRegistry)
+	if err != nil {
+		return err
+	}
+
+	// We get at least one recipient key, so we can use the first one
+	//  (right now, with only one key type used for sending)
+	// TODO: relies on hardcoded key type
+	key := src.RecipientKeys[0]
+
+	return o.Send(msg, key, dest)
 }
 
 // Send sends the message after packing with the sender key and recipient keys.
@@ -79,7 +100,7 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		}
 
 		packedMsg, err := o.packager.PackMessage(
-			&commontransport.Envelope{Message: req, FromVerKey: senderVerKey, ToVerKeys: des.RecipientKeys})
+			&commontransport.Envelope{Message: req, FromVerKey: base58.Decode(senderVerKey), ToVerKeys: des.RecipientKeys})
 		if err != nil {
 			return fmt.Errorf("failed to pack msg: %w", err)
 		}

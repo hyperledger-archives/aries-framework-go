@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package packer
 
-import "github.com/hyperledger/aries-framework-go/pkg/kms"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+)
 
 // Provider interface for Packer ctx
 type Provider interface {
@@ -30,11 +33,10 @@ type Packer interface {
 	// 		The recipient's key will be the one found in KMS that matches one of the list of recipients in the envelope
 	//
 	// returns:
-	// 		[]byte containing the decrypted payload
-	// 		[]byte contains the sender verification key
+	// 		Envelope containing the message, decryption key, and sender key
 	//		error if decryption failed
 	// TODO add key type of recipients keys to be validated by the implementation - Issue #272
-	Unpack(envelope []byte) ([]byte, []byte, error)
+	Unpack(envelope []byte) (*transport.Envelope, error)
 
 	// Encoding returns the type of the encoding, as found in the header `Typ` field
 	EncodingType() string

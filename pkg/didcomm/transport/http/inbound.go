@@ -65,7 +65,7 @@ func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.P
 
 	messageHandler := prov.InboundMessageHandler()
 
-	err = messageHandler(unpackMsg.Message)
+	err = messageHandler(unpackMsg.Message, unpackMsg.ToDID, unpackMsg.FromDID)
 	if err != nil {
 		// TODO https://github.com/hyperledger/aries-framework-go/issues/271 HTTP Response Codes based on errors
 		//  from service
