@@ -247,14 +247,12 @@ type rawPresentation struct {
 	Holder         string      `json:"holder,omitempty"`
 	Proof          Proof       `json:"proof,omitempty"`
 	RefreshService *TypedID    `json:"refreshService,omitempty"`
-
-	proved bool
 }
 
 // presentationOpts holds options for the Verifiable Presentation decoding
 type presentationOpts struct {
-	publicKeyFetcher       PublicKeyFetcher
-	skipEmbeddedProofCheck bool
+	publicKeyFetcher   PublicKeyFetcher
+	disabledProofCheck bool
 }
 
 // PresentationOpt is the Verifiable Presentation decoding option
@@ -265,13 +263,6 @@ type PresentationOpt func(opts *presentationOpts)
 func WithPresPublicKeyFetcher(fetcher PublicKeyFetcher) PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.publicKeyFetcher = fetcher
-	}
-}
-
-// WithPresSkippedEmbeddedProofCheck tells to skip a check of embedded proof presence.
-func WithPresSkippedEmbeddedProofCheck() PresentationOpt {
-	return func(opts *presentationOpts) {
-		opts.skipEmbeddedProofCheck = true
 	}
 }
 
@@ -293,11 +284,6 @@ func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, err
 	err = validatePresentation(vpDataDecoded)
 	if err != nil {
 		return nil, err
-	}
-
-	// check that embedded proof is present, if not, it's not a verifiable presentation
-	if !vpOpts.skipEmbeddedProofCheck && !vpRaw.proved && vpRaw.Proof == nil {
-		return nil, errors.New("embedded proof is missing")
 	}
 
 	types, err := decodeType(vpRaw.Type)
@@ -342,7 +328,7 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface
 		if sCred, ok := cred.(string); ok {
 			bCred := []byte(sCred)
 
-			credDecoded, err := decodeRaw(bCred, opts.publicKeyFetcher)
+			credDecoded, err := decodeRaw(bCred, !opts.disabledProofCheck, opts.publicKeyFetcher)
 			if err != nil {
 				return nil, fmt.Errorf("decode credential of presentation: %w", err)
 			}
@@ -402,12 +388,10 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 			return nil, nil, errors.New("public key fetcher is not defined")
 		}
 
-		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpData, vpOpts.publicKeyFetcher)
+		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpData, !vpOpts.disabledProofCheck, vpOpts.publicKeyFetcher)
 		if err != nil {
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from JWS: %w", err)
 		}
-
-		rawCred.proved = true
 
 		return vcDataFromJwt, rawCred, nil
 	}
@@ -418,12 +402,20 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT: %w", err)
 		}
 
-		rawCred.proved = true
-
 		return rawBytes, rawCred, nil
 	}
 
-	return decodeVPFromJSON(vpData)
+	vpBytes, vpRaw, err := decodeVPFromJSON(vpData)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// check that embedded proof is present, if not, it's not a verifiable presentation
+	if !vpOpts.disabledProofCheck && vpRaw.Proof == nil {
+		return nil, nil, errors.New("embedded proof is missing")
+	}
+
+	return vpBytes, vpRaw, err
 }
 
 func decodeVPFromJSON(vpData []byte) ([]byte, *rawPresentation, error) {

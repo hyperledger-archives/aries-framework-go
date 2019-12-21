@@ -23,7 +23,7 @@ cd $GENERATOR_DIR
 mkdir tmp
 cp verifiable_suite_test.go tmp/vc_test_suite_app.go
 cd tmp
-go build -o "${BUILD_DIR}/${VC_TEST_SUITE}/${GENERATOR_NAME}"
+go build -tags testsuite -o "${BUILD_DIR}/${VC_TEST_SUITE}/${GENERATOR_NAME}"
 cd ..
 rm -rf tmp
 cd "${BUILD_DIR}/${VC_TEST_SUITE}"
@@ -38,7 +38,7 @@ cd ${SUITE_DIR}
 npm install
 cp "${GENERATOR_DIR}/config.json" .
 
-# patch JWS test input data (as long as https://github.com/w3c/vc-test-suite/pull/102 is not merged)
+# patch JWS test input data (as long as https://github.com/w3c/vc-test-suite/issues/103 is opened)
 cp "${GENERATOR_DIR}/vc_jwt.patch" .
 git apply vc_jwt.patch
 

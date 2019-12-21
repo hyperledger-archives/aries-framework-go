@@ -426,6 +426,7 @@ type credentialOpts struct {
 	modelValidationMode    vcModelValidationMode
 	allowedCustomContexts  map[string]bool
 	allowedCustomTypes     map[string]bool
+	disabledProofCheck     bool
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
@@ -573,7 +574,7 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, e
 	vcOpts := parseCredentialOpts(opts)
 
 	// Decode credential (e.g. from JWT).
-	vcDataDecoded, err := decodeRaw(vcData, vcOpts.issuerPublicKeyFetcher)
+	vcDataDecoded, err := decodeRaw(vcData, !vcOpts.disabledProofCheck, vcOpts.issuerPublicKeyFetcher)
 	if err != nil {
 		return nil, nil, fmt.Errorf("decode new credential: %w", err)
 	}
@@ -735,13 +736,13 @@ func newCredential(raw *rawCredential, schemas []TypedID) (*Credential, error) {
 	}, nil
 }
 
-func decodeRaw(vcData []byte, pubKeyFetcher PublicKeyFetcher) ([]byte, error) {
+func decodeRaw(vcData []byte, checkProof bool, pubKeyFetcher PublicKeyFetcher) ([]byte, error) {
 	if isJWS(vcData) {
 		if pubKeyFetcher == nil {
 			return nil, errors.New("public key fetcher is not defined")
 		}
 
-		vcDecodedBytes, err := decodeCredJWS(vcData, pubKeyFetcher)
+		vcDecodedBytes, err := decodeCredJWS(vcData, checkProof, pubKeyFetcher)
 		if err != nil {
 			return nil, fmt.Errorf("JWS decoding: %w", err)
 		}

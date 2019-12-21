@@ -17,13 +17,13 @@ func (jpc *JWTPresClaims) MarshalJWS(signatureAlg JWSAlgorithm, privateKey inter
 	return marshalJWS(jpc, signatureAlg, privateKey, keyID)
 }
 
-func decodeVPFromJWS(vpJWTBytes []byte, fetcher PublicKeyFetcher) ([]byte, *rawPresentation, error) {
+func decodeVPFromJWS(vpJWTBytes []byte, checkProof bool, fetcher PublicKeyFetcher) ([]byte, *rawPresentation, error) {
 	return decodePresJWT(vpJWTBytes, func(vpJWTBytes []byte) (*JWTPresClaims, error) {
-		return unmarshalPresJWSClaims(vpJWTBytes, fetcher)
+		return unmarshalPresJWSClaims(vpJWTBytes, checkProof, fetcher)
 	})
 }
 
-func unmarshalPresJWSClaims(jwtBytes []byte, fetcher PublicKeyFetcher) (claims *JWTPresClaims, e error) {
+func unmarshalPresJWSClaims(jwtBytes []byte, checkProof bool, fetcher PublicKeyFetcher) (claims *JWTPresClaims, e error) { //nolint:lll
 	parsedJwt, err := jwt.ParseSigned(string(jwtBytes))
 	if err != nil {
 		return nil, fmt.Errorf("VP is not valid serialized JWS: %w", err)
@@ -36,9 +36,11 @@ func unmarshalPresJWSClaims(jwtBytes []byte, fetcher PublicKeyFetcher) (claims *
 		return nil, fmt.Errorf("parse JWT claims: %w", err)
 	}
 
-	err = verifyJWTSignature(parsedJwt, fetcher, credClaims.Issuer, credClaims)
-	if err != nil {
-		return nil, fmt.Errorf("JWT signature verification: %w", err)
+	if checkProof {
+		err = verifyJWTSignature(parsedJwt, fetcher, credClaims.Issuer, credClaims)
+		if err != nil {
+			return nil, fmt.Errorf("JWT signature verification: %w", err)
+		}
 	}
 
 	return credClaims, nil

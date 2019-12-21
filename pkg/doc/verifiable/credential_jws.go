@@ -17,7 +17,7 @@ func (jcc *JWTCredClaims) MarshalJWS(signatureAlg JWSAlgorithm, privateKey inter
 	return marshalJWS(jcc, signatureAlg, privateKey, keyID)
 }
 
-func unmarshalJWSClaims(rawJwt []byte, fetcher PublicKeyFetcher) (*JWTCredClaims, error) {
+func unmarshalJWSClaims(rawJwt []byte, checkProof bool, fetcher PublicKeyFetcher) (*JWTCredClaims, error) {
 	parsedJwt, err := jwt.ParseSigned(string(rawJwt))
 	if err != nil {
 		return nil, fmt.Errorf("parse VC from signed JWS: %w", err)
@@ -30,16 +30,18 @@ func unmarshalJWSClaims(rawJwt []byte, fetcher PublicKeyFetcher) (*JWTCredClaims
 		return nil, fmt.Errorf("parse VC JWT claims: %w", err)
 	}
 
-	err = verifyJWTSignature(parsedJwt, fetcher, credClaims.Issuer, credClaims)
-	if err != nil {
-		return nil, fmt.Errorf("VC JWT signature verification: %w", err)
+	if checkProof {
+		err = verifyJWTSignature(parsedJwt, fetcher, credClaims.Issuer, credClaims)
+		if err != nil {
+			return nil, fmt.Errorf("VC JWT signature verification: %w", err)
+		}
 	}
 
 	return credClaims, nil
 }
 
-func decodeCredJWS(rawJwt []byte, fetcher PublicKeyFetcher) ([]byte, error) {
+func decodeCredJWS(rawJwt []byte, checkProof bool, fetcher PublicKeyFetcher) ([]byte, error) {
 	return decodeCredJWT(rawJwt, func(vcJWTBytes []byte) (*JWTCredClaims, error) {
-		return unmarshalJWSClaims(rawJwt, fetcher)
+		return unmarshalJWSClaims(rawJwt, checkProof, fetcher)
 	})
 }

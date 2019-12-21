@@ -646,7 +646,7 @@ func TestWithCredentialSchemaLoader(t *testing.T) {
 	require.Nil(t, opts.schemaLoader.cache)
 }
 
-func TestWithAnyContextAndType(t *testing.T) {
+func TestWithJSONLDValidation(t *testing.T) {
 	credentialOpt := WithJSONLDValidation()
 	require.NotNil(t, credentialOpt)
 
@@ -657,7 +657,7 @@ func TestWithAnyContextAndType(t *testing.T) {
 	require.Empty(t, opts.allowedCustomTypes)
 }
 
-func TestWithBaseOnlyContextAndType(t *testing.T) {
+func TestWithBaseContextValidation(t *testing.T) {
 	credentialOpt := WithBaseContextValidation()
 	require.NotNil(t, credentialOpt)
 
@@ -668,7 +668,7 @@ func TestWithBaseOnlyContextAndType(t *testing.T) {
 	require.Empty(t, opts.allowedCustomTypes)
 }
 
-func TestWithCustomContextAndType(t *testing.T) {
+func TestWithBaseContextExtendedValidation(t *testing.T) {
 	credentialOpt := WithBaseContextExtendedValidation(
 		[]string{"https://www.w3.org/2018/credentials/examples/v1"},
 		[]string{"UniversityDegreeCredential", "AlumniCredential"})
