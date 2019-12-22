@@ -21,7 +21,7 @@ import (
 	mockdidconnection "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/didconnection"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
@@ -48,7 +48,7 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with protocol service", func(t *testing.T) {
-		prov, err := New(WithProtocolServices(&protocol.MockDIDExchangeSvc{
+		prov, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
 			AcceptFunc: func(msgType string) bool {
 				return msgType == "valid-message-type"
@@ -64,7 +64,7 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test inbound message handlers/dispatchers", func(t *testing.T) {
-		ctx, err := New(WithProtocolServices(&protocol.MockDIDExchangeSvc{
+		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
 			AcceptFunc: func(msgType string) bool {
 				return msgType == "valid-message-type"

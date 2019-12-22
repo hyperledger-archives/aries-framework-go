@@ -29,7 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
@@ -198,7 +198,7 @@ func TestFramework(t *testing.T) {
 
 	t.Run("test protocol svc - with user provided protocol", func(t *testing.T) {
 		newMockSvc := func(prv api.Provider) (dispatcher.Service, error) {
-			return &protocol.MockDIDExchangeSvc{
+			return &mockdidexchange.MockDIDExchangeSvc{
 				ProtocolName: "mockProtocolSvc",
 			}, nil
 		}
@@ -222,7 +222,7 @@ func TestFramework(t *testing.T) {
 
 	t.Run("test new with protocol service", func(t *testing.T) {
 		mockSvcCreator := func(prv api.Provider) (dispatcher.Service, error) {
-			return &protocol.MockDIDExchangeSvc{
+			return &mockdidexchange.MockDIDExchangeSvc{
 				ProtocolName: "mockProtocolSvc",
 			}, nil
 		}

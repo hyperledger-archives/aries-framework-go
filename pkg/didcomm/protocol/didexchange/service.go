@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -46,7 +47,7 @@ type message struct {
 	ThreadID      string
 	Options       *options
 	NextStateName string
-	ConnRecord    *ConnectionRecord
+	ConnRecord    *connectionstore.ConnectionRecord
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -67,7 +68,7 @@ type provider interface {
 type stateMachineMsg struct {
 	header     *service.Header
 	payload    []byte
-	connRecord *ConnectionRecord
+	connRecord *connectionstore.ConnectionRecord
 	options    *options
 }
 
@@ -77,14 +78,16 @@ type Service struct {
 	service.Message
 	ctx             *context
 	callbackChannel chan *message
-	connectionStore *ConnectionRecorder
+
+	// TODO merge connection and did store [Issue #1004]
 	didConnections  didconnection.Store
+	connectionStore *connectionStore
 }
 
 type context struct {
 	outboundDispatcher dispatcher.Outbound
 	signer             kms.Signer
-	connectionStore    *ConnectionRecorder
+	connectionStore    *connectionStore
 	vdriRegistry       vdriapi.Registry
 }
 
@@ -99,17 +102,11 @@ type opts interface {
 
 // New return didexchange service
 func New(prov provider) (*Service, error) {
-	store, err := prov.StorageProvider().OpenStore(DIDExchange)
+	connRecorder, err := newConnectionStore(prov)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize connection store : %w", err)
 	}
 
-	transientStore, err := prov.TransientStorageProvider().OpenStore(DIDExchange)
-	if err != nil {
-		return nil, err
-	}
-
-	connRecorder := NewConnectionRecorder(transientStore, store, prov.DIDConnectionStore())
 	svc := &Service{
 		ctx: &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
@@ -235,7 +232,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		var (
 			action           stateAction
 			followup         state
-			connectionRecord *ConnectionRecord
+			connectionRecord *connectionstore.ConnectionRecord
 		)
 
 		connectionRecord, followup, action, err = next.ExecuteInbound(
@@ -411,17 +408,22 @@ func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string)
 	return s.handleWithoutAction(msg)
 }
 
+// SaveInvitation saves given invitation instance in connection store
+func (s *Service) SaveInvitation(invitation *Invitation) error {
+	return s.connectionStore.SaveInvitation(invitation)
+}
+
 func (s *Service) storeEventTransientData(msg *message) error {
 	bytes, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("store transient data : %w", err)
 	}
 
-	return s.connectionStore.transientStore.Put(eventTransientDataKey(msg.ConnRecord.ConnectionID), bytes)
+	return s.connectionStore.TransientStore().Put(eventTransientDataKey(msg.ConnRecord.ConnectionID), bytes)
 }
 
 func (s *Service) getEventTransientData(connectionID string) (*message, error) {
-	val, err := s.connectionStore.transientStore.Get(eventTransientDataKey(connectionID))
+	val, err := s.connectionStore.TransientStore().Get(eventTransientDataKey(connectionID))
 	if err != nil {
 		return nil, fmt.Errorf("get transient data : %w", err)
 	}
@@ -504,7 +506,7 @@ func (s *Service) currentState(nsThID string) (state, error) {
 	return stateFromName(connRec.State)
 }
 
-func (s *Service) update(msgType string, connectionRecord *ConnectionRecord) error {
+func (s *Service) update(msgType string, connectionRecord *connectionstore.ConnectionRecord) error {
 	if (msgType == RequestMsgType && connectionRecord.State == stateNameRequested) ||
 		(msgType == InvitationMsgType && connectionRecord.State == stateNameInvited) {
 		return s.connectionStore.saveNewConnectionRecord(connectionRecord)
@@ -513,7 +515,7 @@ func (s *Service) update(msgType string, connectionRecord *ConnectionRecord) err
 	return s.connectionStore.saveConnectionRecord(connectionRecord)
 }
 
-func (s *Service) connectionRecord(msg *service.DIDCommMsg) (*ConnectionRecord, error) {
+func (s *Service) connectionRecord(msg *service.DIDCommMsg) (*connectionstore.ConnectionRecord, error) {
 	switch msg.Header.Type {
 	case InvitationMsgType:
 		return s.invitationMsgRecord(msg)
@@ -528,7 +530,7 @@ func (s *Service) connectionRecord(msg *service.DIDCommMsg) (*ConnectionRecord, 
 	return nil, errors.New("invalid message type")
 }
 
-func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecord, error) {
+func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*connectionstore.ConnectionRecord, error) {
 	thID, msgErr := msg.ThreadID()
 	if msgErr != nil {
 		return nil, msgErr
@@ -546,7 +548,7 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecor
 		return nil, err
 	}
 
-	connRecord := &ConnectionRecord{
+	connRecord := &connectionstore.ConnectionRecord{
 		ConnectionID:    generateRandomID(),
 		ThreadID:        thID,
 		State:           stateNameNull,
@@ -565,7 +567,7 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecor
 	return connRecord, nil
 }
 
-func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecord, error) {
+func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*connectionstore.ConnectionRecord, error) {
 	request := Request{}
 
 	err := json.Unmarshal(msg.Payload, &request)
@@ -573,7 +575,7 @@ func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecord, 
 		return nil, fmt.Errorf("unmarshalling failed: %s", err)
 	}
 
-	connRecord := &ConnectionRecord{
+	connRecord := &connectionstore.ConnectionRecord{
 		ConnectionID: generateRandomID(),
 		ThreadID:     request.ID,
 		State:        stateNameNull,
@@ -588,15 +590,15 @@ func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*ConnectionRecord, 
 	return connRecord, nil
 }
 
-func (s *Service) responseMsgRecord(payload []byte) (*ConnectionRecord, error) {
+func (s *Service) responseMsgRecord(payload []byte) (*connectionstore.ConnectionRecord, error) {
 	return s.fetchConnectionRecord(myNSPrefix, payload)
 }
 
-func (s *Service) ackMsgRecord(payload []byte) (*ConnectionRecord, error) {
+func (s *Service) ackMsgRecord(payload []byte) (*connectionstore.ConnectionRecord, error) {
 	return s.fetchConnectionRecord(theirNSPrefix, payload)
 }
 
-func (s *Service) fetchConnectionRecord(nsPrefix string, payload []byte) (*ConnectionRecord, error) {
+func (s *Service) fetchConnectionRecord(nsPrefix string, payload []byte) (*connectionstore.ConnectionRecord, error) {
 	msg := &struct {
 		Thread decorator.Thread `json:"~thread,omitempty"`
 	}{}
@@ -646,7 +648,7 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 	}
 
 	thID := generateRandomID()
-	connRecord := &ConnectionRecord{
+	connRecord := &connectionstore.ConnectionRecord{
 		ConnectionID:    generateRandomID(),
 		ThreadID:        thID,
 		State:           stateNameNull,

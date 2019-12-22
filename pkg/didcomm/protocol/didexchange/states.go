@@ -19,6 +19,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -54,7 +55,7 @@ type state interface {
 
 	// ExecuteInbound this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (connRecord *ConnectionRecord,
+	ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (connRecord *connectionstore.ConnectionRecord,
 		state state, action stateAction, err error)
 }
 
@@ -107,7 +108,7 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) ExecuteInbound(_ *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+func (s *noOp) ExecuteInbound(_ *stateMachineMsg, thid string, ctx *context) (*connectionstore.ConnectionRecord,
 	state, stateAction, error) {
 	return nil, nil, nil, errors.New("cannot execute no-op")
 }
@@ -124,9 +125,9 @@ func (s *null) CanTransitionTo(next state) bool {
 	return stateNameInvited == next.Name() || stateNameRequested == next.Name()
 }
 
-func (s *null) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+func (s *null) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.ConnectionRecord,
 	state, stateAction, error) {
-	return &ConnectionRecord{}, &noOp{}, nil, nil
+	return &connectionstore.ConnectionRecord{}, &noOp{}, nil, nil
 }
 
 // invited state
@@ -141,7 +142,7 @@ func (s *invited) CanTransitionTo(next state) bool {
 	return stateNameRequested == next.Name()
 }
 
-func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.ConnectionRecord,
 	state, stateAction, error) {
 	if msg.header.Type != InvitationMsgType {
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
@@ -164,7 +165,7 @@ func (s *requested) CanTransitionTo(next state) bool {
 	return stateNameResponded == next.Name()
 }
 
-func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.ConnectionRecord,
 	state, stateAction, error) {
 	switch msg.header.Type {
 	case InvitationMsgType:
@@ -200,7 +201,7 @@ func (s *responded) CanTransitionTo(next state) bool {
 	return stateNameCompleted == next.Name()
 }
 
-func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.ConnectionRecord,
 	state, stateAction, error) {
 	switch msg.header.Type {
 	case RequestMsgType:
@@ -236,7 +237,7 @@ func (s *completed) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.ConnectionRecord,
 	state, stateAction, error) {
 	switch msg.header.Type {
 	case ResponseMsgType:
@@ -273,13 +274,13 @@ func (s *abandoned) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*ConnectionRecord,
+func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.ConnectionRecord,
 	state, stateAction, error) {
 	return nil, nil, nil, errors.New("not implemented")
 }
 
-func (ctx *context) handleInboundInvitation(invitation *Invitation,
-	thid string, options *options, connRec *ConnectionRecord) (stateAction, *ConnectionRecord, error) {
+func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string, options *options,
+	connRec *connectionstore.ConnectionRecord) (stateAction, *connectionstore.ConnectionRecord, error) {
 	// create a destination from invitation
 	destination, err := ctx.getDestination(invitation)
 	if err != nil {
@@ -318,8 +319,8 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation,
 	}, connRec, nil
 }
 
-func (ctx *context) handleInboundRequest(request *Request, options *options, connRec *ConnectionRecord) (stateAction,
-	*ConnectionRecord, error) {
+func (ctx *context) handleInboundRequest(request *Request, options *options,
+	connRec *connectionstore.ConnectionRecord) (stateAction, *connectionstore.ConnectionRecord, error) {
 	requestDidDoc, err := ctx.resolveDidDocFromConnection(request.Connection)
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolve did doc from exchange request connection: %w", err)
@@ -493,7 +494,7 @@ func (ctx *context) prepareConnectionSignature(connection *Connection,
 	}, nil
 }
 
-func (ctx *context) handleInboundResponse(response *Response) (stateAction, *ConnectionRecord, error) {
+func (ctx *context) handleInboundResponse(response *Response) (stateAction, *connectionstore.ConnectionRecord, error) {
 	ack := &model.Ack{
 		Type:   AckMsgType,
 		ID:     uuid.New().String(),
