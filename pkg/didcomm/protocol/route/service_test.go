@@ -7,24 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package route
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 )
 
 const (
@@ -359,180 +353,35 @@ func TestServiceForwardMsg(t *testing.T) {
 }
 
 func TestSendRequest(t *testing.T) {
-	myDID := creatDID(MYDID, "")
-	theirDID := creatDID(THEIRDID, "theirdid.endpoint")
-
-	svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-		KMSValue: &mockkms.CloseableKMS{},
-		OutboundDispatcherValue: &mockdispatcher.MockOutbound{
-			ValidateSend: func(msg interface{}, senderVerKey string, des *service.Destination) error {
-				require.Equal(t, string(myDID.PublicKey[0].Value), senderVerKey)
-				require.Equal(t, theirDID.Service[0].ServiceEndpoint, des.ServiceEndpoint)
-				return nil
-			}},
-		VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *diddoc.Doc, err error) {
-				if didID == MYDID {
-					return myDID, nil
-				}
-				if didID == THEIRDID {
-					return theirDID, nil
-				}
-				return nil, nil
-			}}})
-	require.NoError(t, err)
-
-	reqID, err := svc.SendRequest(myDID.ID, theirDID.ID)
-	require.NoError(t, err)
-	require.NotEmpty(t, reqID)
-}
-
-func TestSendRequestNegative(t *testing.T) {
-	t.Run("test error from resolve my did", func(t *testing.T) {
-		myDID := creatDID(MYDID, "")
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{},
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *diddoc.Doc, err error) {
-					if didID == MYDID {
-						return nil, fmt.Errorf("error resolve myDID")
-					}
-					return nil, nil
-				}}})
-		require.NoError(t, err)
-
-		_, err = svc.SendRequest(myDID.ID, "")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "error resolve myDID")
-	})
-
-	t.Run("test error from lookup recipient keys for my did", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{},
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *diddoc.Doc, err error) {
-					if didID == MYDID {
-						return &diddoc.Doc{}, nil
-					}
-					return nil, nil
-				}}})
-		require.NoError(t, err)
-
-		_, err = svc.SendRequest(MYDID, "")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "sender verification keys not found")
-	})
-
-	t.Run("test error from resolve their did", func(t *testing.T) {
-		myDID := creatDID(MYDID, "")
-
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{},
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *diddoc.Doc, err error) {
-					if didID == MYDID {
-						return myDID, nil
-					}
-					if didID == THEIRDID {
-						return nil, fmt.Errorf("error resolve theirDID")
-					}
-					return nil, nil
-				}}})
-		require.NoError(t, err)
-
-		_, err = svc.SendRequest(myDID.ID, THEIRDID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "error resolve theirDID")
-	})
-
-	t.Run("test error from create destination from their did", func(t *testing.T) {
-		myDID := creatDID(MYDID, "")
-
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{},
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *diddoc.Doc, err error) {
-					if didID == MYDID {
-						return myDID, nil
-					}
-					if didID == THEIRDID {
-						return &diddoc.Doc{}, nil
-					}
-					return nil, nil
-				}}})
-		require.NoError(t, err)
-
-		_, err = svc.SendRequest(myDID.ID, THEIRDID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "prepare destination from their did")
-	})
-
-	t.Run("test error from outbound send", func(t *testing.T) {
-		myDID := creatDID(MYDID, "")
-		theirDID := creatDID(THEIRDID, "theirdid.endpoint")
-
+	t.Run("test success", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue: &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
-				ValidateSend: func(msg interface{}, senderVerKey string, des *service.Destination) error {
-					return fmt.Errorf("error send")
-				}},
-			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *diddoc.Doc, err error) {
-					if didID == MYDID {
-						return myDID, nil
-					}
-					if didID == THEIRDID {
-						return theirDID, nil
-					}
-					return nil, nil
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					require.Equal(t, myDID, MYDID)
+					require.Equal(t, theirDID, THEIRDID)
+					return nil
 				}}})
 		require.NoError(t, err)
 
-		_, err = svc.SendRequest(myDID.ID, theirDID.ID)
+		reqID, err := svc.SendRequest(MYDID, THEIRDID)
+		require.NoError(t, err)
+		require.NotEmpty(t, reqID)
+	})
+
+	t.Run("test error from send to did", func(t *testing.T) {
+		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue: &mockkms.CloseableKMS{},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					return fmt.Errorf("error send")
+				}}})
+		require.NoError(t, err)
+
+		_, err = svc.SendRequest(MYDID, THEIRDID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error send")
 	})
-}
-
-func creatDID(didID, serviceEndpoint string) *diddoc.Doc {
-	didContext := "https://w3id.org/did/v1"
-	creator := didID + "#key-1"
-	keyType := "Ed25519VerificationKey2018"
-
-	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		panic(err)
-	}
-
-	s := diddoc.Service{
-		ID:              "did:example:123456789abcdefghi#did-communication",
-		Type:            "did-communication",
-		ServiceEndpoint: serviceEndpoint,
-		RecipientKeys:   []string{creator},
-		Priority:        0,
-	}
-
-	signingKey := diddoc.PublicKey{
-		ID:         creator,
-		Type:       keyType,
-		Controller: didID,
-		Value:      pubKey,
-	}
-
-	createdTime := time.Now()
-
-	return &diddoc.Doc{
-		Context:   []string{didContext},
-		ID:        didID,
-		PublicKey: []diddoc.PublicKey{signingKey},
-		Service:   []diddoc.Service{s},
-		Created:   &createdTime,
-	}
 }
 
 func generateRequestMsgPayload(t *testing.T, id string) *service.DIDCommMsg {

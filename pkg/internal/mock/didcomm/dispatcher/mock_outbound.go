@@ -11,9 +11,10 @@ import (
 
 // MockOutbound mock outbound dispatcher
 type MockOutbound struct {
-	ValidateSend    func(msg interface{}, senderVerKey string, des *service.Destination) error
-	ValidateForward func(msg interface{}, des *service.Destination) error
-	SendErr         error
+	ValidateSend      func(msg interface{}, senderVerKey string, des *service.Destination) error
+	ValidateSendToDID func(msg interface{}, myDID, theirDID string) error
+	ValidateForward   func(msg interface{}, des *service.Destination) error
+	SendErr           error
 }
 
 // Send msg
@@ -27,6 +28,10 @@ func (m *MockOutbound) Send(msg interface{}, senderVerKey string, des *service.D
 
 // SendToDID msg
 func (m *MockOutbound) SendToDID(msg interface{}, myDID, theirDID string) error {
+	if m.ValidateSendToDID != nil {
+		return m.ValidateSendToDID(msg, myDID, theirDID)
+	}
+
 	return m.SendErr
 }
 
