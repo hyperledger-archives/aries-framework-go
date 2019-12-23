@@ -16,19 +16,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-var logger = log.New("aries-framework/did-exchange/service")
-
-// constants for did
-const (
-	ed25519KeyType     = "Ed25519VerificationKey2018"
-	didCommServiceType = "did-communication"
-)
+var logger = log.New("aries-framework/route/service")
 
 // constants for route coordination spec types
 const (
@@ -76,7 +68,6 @@ type provider interface {
 	StorageProvider() storage.Provider
 	InboundTransportEndpoint() string
 	KMS() kms.KeyManager
-	VDRIRegistry() vdriapi.Registry
 }
 
 // Service for Route Coordination protocol.
@@ -88,7 +79,6 @@ type Service struct {
 	outbound   dispatcher.Outbound
 	endpoint   string
 	kms        kms.KeyManager
-	vdr        vdriapi.Registry
 }
 
 // New return route coordination service.
@@ -103,7 +93,6 @@ func New(prov provider) (*Service, error) {
 		outbound:   prov.OutboundDispatcher(),
 		endpoint:   prov.InboundTransportEndpoint(),
 		kms:        prov.KMS(),
-		vdr:        prov.VDRIRegistry(),
 	}, nil
 }
 
@@ -145,36 +134,13 @@ func (s *Service) HandleOutbound(msg *service.DIDCommMsg, destination *service.D
 
 // SendRequest send route request
 func (s *Service) SendRequest(myDID, theirDID string) (string, error) {
-	// TODO refactor after https://github.com/hyperledger/aries-framework-go/issues/725 is merged
-	// Get sender ver keys from sender did
-	myDIDDoc, err := s.vdr.Resolve(myDID)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve did: %w", err)
-	}
-
-	senderVerKeys, ok := did.LookupRecipientKeys(myDIDDoc, didCommServiceType, ed25519KeyType)
-	if !ok {
-		return "", fmt.Errorf("sender verification keys not found")
-	}
-
-	// Get destination from receiver did
-	theirDIDDoc, err := s.vdr.Resolve(theirDID)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve did: %w", err)
-	}
-
-	destination, err := service.CreateDestination(theirDIDDoc)
-	if err != nil {
-		return "", fmt.Errorf("prepare destination from their did: %w", err)
-	}
-
 	// send the request
 	req := &Request{
 		ID:   uuid.New().String(),
 		Type: RequestMsgType,
 	}
 
-	if err := s.outbound.Send(req, senderVerKeys[0], destination); err != nil {
+	if err := s.outbound.SendToDID(req, myDID, theirDID); err != nil {
 		return "", fmt.Errorf("failed to send route request: %w", err)
 	}
 
