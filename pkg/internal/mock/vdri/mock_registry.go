@@ -9,7 +9,6 @@ package vdri
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"errors"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -66,7 +65,7 @@ func (m *MockVDRIRegistry) Resolve(didID string, opts ...vdriapi.ResolveOpts) (*
 	}
 
 	if m.ResolveValue == nil {
-		return nil, errors.New("not found")
+		return nil, vdriapi.ErrNotFound
 	}
 
 	return m.ResolveValue, nil

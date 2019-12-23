@@ -894,7 +894,7 @@ func TestGetInvitationRecipientKey(t *testing.T) {
 		}
 		_, err := ctx.getInvitationRecipientKey(invitation)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get invitation recipient key: not found")
+		require.Contains(t, err.Error(), "get invitation recipient key: DID not found")
 	})
 }
 

@@ -2170,6 +2170,7 @@ func setupIntroducee(f *flow) (*introduce.Service, *introduceMocks.MockInvitatio
 
 	dep := introduceMocks.NewMockInvitationEnvelope(ctrl)
 	dep.EXPECT().Invitation().Return(f.inv).AnyTimes()
+	dep.EXPECT().Recipients().Return(f.recipients).AnyTimes()
 
 	return svc, dep, didChan
 }

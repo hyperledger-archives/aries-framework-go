@@ -73,11 +73,11 @@ type PleaseIntroduceTo struct {
 // TODO: need to clarify about decorator ~please_ack and problem_report
 // 		 should Request contain those fields? What type it should be for each field?
 type Request struct {
-	Type              string            `json:"@type,omitempty"`
-	ID                string            `json:"@id,omitempty"`
-	PleaseIntroduceTo PleaseIntroduceTo `json:"please_introduce_to,omitempty"`
-	NWise             bool              `json:"nwise,omitempty"`
-	Timing            *decorator.Timing `json:"~timing,omitempty"`
+	Type              string             `json:"@type,omitempty"`
+	ID                string             `json:"@id,omitempty"`
+	PleaseIntroduceTo *PleaseIntroduceTo `json:"please_introduce_to,omitempty"`
+	NWise             bool               `json:"nwise,omitempty"`
+	Timing            *decorator.Timing  `json:"~timing,omitempty"`
 }
 
 // Response message that introducee usually sends in response to an introduction proposal

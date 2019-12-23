@@ -85,7 +85,12 @@ func (s *start) Name() string {
 func (s *start) CanTransitionTo(next state) bool {
 	// Introducer can go to arranging or delivering state
 	// Introducee can go to deciding
-	return next.Name() == stateNameArranging || next.Name() == stateNameDeciding || next.Name() == stateNameRequesting
+	switch next.Name() {
+	case stateNameArranging, stateNameDeciding, stateNameRequesting, stateNameAbandoning:
+		return true
+	}
+
+	return false
 }
 
 func (s *start) ExecuteInbound(ctx internalContext, _ *metaData) (state, error) {
@@ -142,15 +147,13 @@ func (s *arranging) ExecuteInbound(ctx internalContext, m *metaData) (state, err
 		return &abandoning{}, nil
 	}
 
-	recipients := fillRecipient(m.dependency.Recipients(), m)
-
 	var recipient *Recipient
 
 	// sends Proposal according to the WaitCount
 	if m.WaitCount == initialWaitCount {
-		recipient = recipients[0]
+		recipient = m.Recipients[0]
 	} else {
-		recipient = recipients[1]
+		recipient = m.Recipients[1]
 	}
 
 	return &noOp{}, ctx.SendToDID(&Proposal{
@@ -237,14 +240,12 @@ func deliveringSkipInvitation(ctx internalContext, m *metaData, recipients []*Re
 }
 
 func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
-	recipients := fillRecipient(m.dependency.Recipients(), m)
-
 	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
 		return &abandoning{}, nil
 	}
 
 	if isSkipProposal(m) {
-		return deliveringSkipInvitation(ctx, m, recipients)
+		return deliveringSkipInvitation(ctx, m, m.Recipients)
 	}
 
 	// edge case: no one shared the invitation
@@ -254,7 +255,7 @@ func (s *delivering) ExecuteInbound(ctx internalContext, m *metaData) (state, er
 
 	m.Invitation.Thread = &decorator.Thread{PID: m.ThreadID}
 
-	recipient := recipients[toDestIDx(m.IntroduceeIndex)]
+	recipient := m.Recipients[toDestIDx(m.IntroduceeIndex)]
 
 	if err := ctx.SendToDID(m.Invitation, recipient.MyDID, recipient.TheirDID); err != nil {
 		return nil, fmt.Errorf("send inbound invitation: %w", err)
@@ -280,8 +281,7 @@ func (s *confirming) CanTransitionTo(next state) bool {
 }
 
 func (s *confirming) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {
-	recipients := fillRecipient(m.dependency.Recipients(), m)
-	recipient := recipients[m.IntroduceeIndex]
+	recipient := m.Recipients[m.IntroduceeIndex]
 
 	err := ctx.SendToDID(&model.Ack{
 		Type:   AckMsgType,
@@ -370,7 +370,7 @@ func (s *deciding) Name() string {
 }
 
 func (s *deciding) CanTransitionTo(next state) bool {
-	return next.Name() == stateNameWaiting || next.Name() == stateNameDone
+	return next.Name() == stateNameWaiting || next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
 func (s *deciding) ExecuteInbound(ctx internalContext, m *metaData) (state, error) {

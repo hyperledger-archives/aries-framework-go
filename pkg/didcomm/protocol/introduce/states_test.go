@@ -57,13 +57,13 @@ func TestStart_CanTransitionTo(t *testing.T) {
 	require.True(t, st.CanTransitionTo(&arranging{}))
 	require.True(t, st.CanTransitionTo(&deciding{}))
 	require.True(t, st.CanTransitionTo(&requesting{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
 
 	require.False(t, st.CanTransitionTo(&delivering{}))
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	require.False(t, st.CanTransitionTo(&start{}))
 	require.False(t, st.CanTransitionTo(&done{}))
 	require.False(t, st.CanTransitionTo(&confirming{}))
-	require.False(t, st.CanTransitionTo(&abandoning{}))
 	require.False(t, st.CanTransitionTo(&waiting{}))
 }
 
@@ -231,6 +231,7 @@ func TestDeciding_CanTransitionTo(t *testing.T) {
 
 	require.True(t, st.CanTransitionTo(&waiting{}))
 	require.True(t, st.CanTransitionTo(&done{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
 
 	require.False(t, st.CanTransitionTo(&noOp{}))
 	require.False(t, st.CanTransitionTo(&start{}))
@@ -238,7 +239,6 @@ func TestDeciding_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&arranging{}))
 	require.False(t, st.CanTransitionTo(&confirming{}))
 	require.False(t, st.CanTransitionTo(&deciding{}))
-	require.False(t, st.CanTransitionTo(&abandoning{}))
 	require.False(t, st.CanTransitionTo(&requesting{}))
 }
 

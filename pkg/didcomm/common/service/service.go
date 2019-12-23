@@ -45,7 +45,8 @@ func (h *Header) clone() *Header {
 	return &Header{
 		ID: h.ID,
 		Thread: decorator.Thread{
-			ID: h.Thread.ID,
+			ID:  h.Thread.ID,
+			PID: h.Thread.PID,
 		},
 		Type: h.Type,
 	}
