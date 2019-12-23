@@ -49,6 +49,9 @@ const (
 
 var logger = log.New("aries-framework/introduce/service")
 
+// ErrServerWasStopped an error message to determine whether service was stopped or not
+var ErrServerWasStopped = errors.New("server was already stopped")
+
 // InvitationEnvelope provides necessary information to the service through Continue(InvitationEnvelope) function.
 // Dependency is fully controlled by the end-user, the correct logic is
 // to provide the same interface during the state machine execution, interface depends on the participant.
@@ -174,7 +177,7 @@ func (s *Service) Stop() error {
 	defer s.closedMutex.Unlock()
 
 	if s.closed {
-		return errors.New("server was already stopped")
+		return ErrServerWasStopped
 	}
 
 	if err := s.didEventService.UnregisterMsgEvent(s.didEvent); err != nil {
@@ -205,6 +208,8 @@ func (s *Service) startInternalListener() {
 
 			msg.StateName = stateNameAbandoning
 
+			logger.Errorf("go to abandoning: %v", msg.err)
+
 			if err := s.handle(msg); err != nil {
 				logger.Errorf("listener handle: %s", err)
 			}
@@ -213,7 +218,6 @@ func (s *Service) startInternalListener() {
 				logger.Errorf("listener invitation received: %s", err)
 			}
 		case <-s.stop:
-			logger.Infof("the callback listener was stopped")
 			s.wg.Done()
 
 			return
@@ -227,8 +231,6 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 		return nil, err
 	}
 
-	logger.Infof("thread id value for the message: %s", thID)
-
 	rec, err := s.currentStateRecord(thID)
 	if err != nil {
 		return nil, err
@@ -236,20 +238,14 @@ func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, e
 
 	current := stateFromName(rec.StateName)
 
-	logger.Infof("current state: %s", current.Name())
-
 	next, err := nextState(msg, rec, outbound)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Infof("state will transition from %q to %q if the msgType is processed", current.Name(), next.Name())
-
 	if !current.CanTransitionTo(next) {
 		return nil, fmt.Errorf("invalid state transition: %s -> %s", current.Name(), next.Name())
 	}
-
-	logger.Infof("sent pre event for state %s", next.Name())
 
 	// sets the next state name
 	rec.StateName = next.Name()
@@ -295,7 +291,6 @@ func (s *Service) InvitationReceived(msg service.StateMsg) error {
 func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	aEvent := s.ActionEvent()
 
-	logger.Infof("entered into HandleInbound: %v", msg.Header)
 	// throw error if there is no action event registered for inbound messages
 	if aEvent == nil {
 		return "", errors.New("no clients are registered to handle the message")
@@ -323,8 +318,6 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string)
 
 // HandleOutbound handles outbound message (introduce protocol)
 func (s *Service) HandleOutbound(msg *service.DIDCommMsg, myDID, theirDID string) error {
-	logger.Infof("entered into HandleOutbound: %v", msg.Header)
-
 	mData, err := s.doHandle(msg, true)
 	if err != nil {
 		return err
@@ -530,11 +523,7 @@ func injectInvitation(msg *metaData) error {
 }
 
 func (s *Service) handle(msg *metaData) error {
-	logger.Infof("entered into private handle message: %v ", msg.Msg.Header)
-
 	current := stateFromName(msg.StateName)
-
-	logger.Infof("next valid state to transition -> %s ", current.Name())
 
 	for !isNoOp(current) {
 		next, err := s.execute(current, msg)
@@ -559,7 +548,6 @@ func (s *Service) execute(next state, msg *metaData) (state, error) {
 		Msg:          msg.Msg.Clone(),
 		StateID:      next.Name(),
 	})
-	logger.Infof("sent pre event for state %s", next.Name())
 
 	var (
 		followup state
@@ -570,8 +558,8 @@ func (s *Service) execute(next state, msg *metaData) (state, error) {
 		return nil, fmt.Errorf("inject invitation: %w", err)
 	}
 
-	if msg.Msg.Header.Type == ResponseMsgType && msg.dependency != nil {
-		msg.Recipients = msg.dependency.Recipients()
+	if msg.dependency != nil && msg.Recipients == nil {
+		msg.Recipients = fillRecipient(msg.dependency.Recipients(), msg)
 	}
 
 	if msg.inbound {
@@ -584,8 +572,6 @@ func (s *Service) execute(next state, msg *metaData) (state, error) {
 		return nil, fmt.Errorf("execute state %s %w", next.Name(), err)
 	}
 
-	logger.Infof("finish execute next state: %s", next.Name())
-
 	// sets the next state name
 	msg.StateName = next.Name()
 
@@ -593,15 +579,12 @@ func (s *Service) execute(next state, msg *metaData) (state, error) {
 		return nil, fmt.Errorf("failed to persist state %s: %w", next.Name(), err)
 	}
 
-	logger.Infof("persisted the connection using %s and updated the state to %s", msg.ThreadID, next.Name())
-
 	s.sendMsgEvents(&service.StateMsg{
 		ProtocolName: Introduce,
 		Type:         service.PostState,
 		Msg:          msg.Msg.Clone(),
 		StateID:      next.Name(),
 	})
-	logger.Infof("sent post event for state %s", next.Name())
 
 	return followup, nil
 }

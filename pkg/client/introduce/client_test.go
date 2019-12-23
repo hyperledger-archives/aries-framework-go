@@ -354,16 +354,14 @@ func TestClient_SendRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
-	DIDComm := serviceMocks.NewMockDIDComm(ctrl)
-	DIDComm.EXPECT().HandleOutbound(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-
 	opts := InvitationEnvelope{
 		Recps: []*introduce.Recipient{
 			{MyDID: "My_DID", TheirDID: "THEIR_DID"},
 		},
 	}
-	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(nil)
-	store.EXPECT().Put(invitationEnvelopePrefix+UUID, toBytes(t, opts)).Return(errors.New("test error"))
+
+	DIDComm := serviceMocks.NewMockDIDComm(ctrl)
+	DIDComm.EXPECT().HandleOutbound(gomock.Any(), opts.Recps[0].MyDID, opts.Recps[0].TheirDID).Return(nil)
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(introduce.Introduce).Return(DIDComm, nil)
@@ -373,10 +371,7 @@ func TestClient_SendRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	client.newUUID = func() string { return UUID }
-	require.NoError(t, client.SendRequest(opts.Recps[0].MyDID, opts.Recps[0].TheirDID))
-
-	// with error
-	require.EqualError(t, client.SendRequest(opts.Recps[0].MyDID, opts.Recps[0].TheirDID), "test error")
+	require.NoError(t, client.SendRequest(nil, opts.Recps[0].MyDID, opts.Recps[0].TheirDID))
 }
 
 func toBytes(t *testing.T, v interface{}) []byte {

@@ -406,6 +406,11 @@ func loadServices(frameworkOpts *Aries) error {
 		}
 
 		frameworkOpts.services = append(frameworkOpts.services, svc)
+		// after service was successfully created we need to add it to the context
+		// since the introduce protocol depends on did-exchange
+		if err := context.WithProtocolServices(frameworkOpts.services...)(ctx); err != nil {
+			return err
+		}
 	}
 
 	return nil
