@@ -49,8 +49,15 @@ const (
 
 var logger = log.New("aries-framework/introduce/service")
 
-// ErrServerWasStopped an error message to determine whether service was stopped or not
-var ErrServerWasStopped = errors.New("server was already stopped")
+var (
+	// ErrServerWasStopped an error message to determine whether service was stopped or not
+	ErrServerWasStopped = errors.New("server was already stopped")
+
+	errMissingDependency = errors.New("action dependency is missing")
+)
+
+// customError is a wrapper to determine custom error against internal error
+type customError struct{ error }
 
 // InvitationEnvelope provides necessary information to the service through Continue(InvitationEnvelope) function.
 // Dependency is fully controlled by the end-user, the correct logic is
@@ -117,7 +124,7 @@ type Service struct {
 	callbacks       chan *metaData
 	didEvent        chan service.StateMsg
 	didEventService service.Event
-	ctx             internalContext
+	dispatcher      dispatcher.Outbound
 	wg              sync.WaitGroup
 	stop            chan struct{}
 	closedMutex     sync.Mutex
@@ -149,9 +156,7 @@ func New(p Provider) (*Service, error) {
 	}
 
 	svc := &Service{
-		ctx: internalContext{
-			Outbound: p.OutboundDispatcher(),
-		},
+		dispatcher:      p.OutboundDispatcher(),
 		store:           store,
 		didEventService: didService,
 		callbacks:       make(chan *metaData),
@@ -208,7 +213,7 @@ func (s *Service) startInternalListener() {
 
 			msg.StateName = stateNameAbandoning
 
-			logger.Errorf("go to abandoning: %v", msg.err)
+			logInternalError(msg.err)
 
 			if err := s.handle(msg); err != nil {
 				logger.Errorf("listener handle: %s", err)
@@ -222,6 +227,12 @@ func (s *Service) startInternalListener() {
 
 			return
 		}
+	}
+}
+
+func logInternalError(err error) {
+	if _, ok := err.(*customError); !ok {
+		logger.Errorf("go to abandoning: %v", err)
 	}
 }
 
@@ -363,9 +374,9 @@ func (s *Service) newDIDCommActionMsg(msg *metaData) service.DIDCommAction {
 				return
 			}
 			// sets an error to the message
-			actionStop(errors.New("action dependency is missing"))
+			actionStop(errMissingDependency)
 		},
-		Stop: actionStop,
+		Stop: func(err error) { actionStop(&customError{error: err}) },
 	}
 }
 
@@ -563,9 +574,9 @@ func (s *Service) execute(next state, msg *metaData) (state, error) {
 	}
 
 	if msg.inbound {
-		followup, err = next.ExecuteInbound(s.ctx, msg)
+		followup, err = next.ExecuteInbound(s.dispatcher, msg)
 	} else {
-		followup, err = next.ExecuteOutbound(s.ctx, msg)
+		followup, err = next.ExecuteOutbound(s.dispatcher, msg)
 	}
 
 	if err != nil {
