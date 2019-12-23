@@ -4,13 +4,14 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package bdd
+package agent
 
 import (
 	"errors"
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/DATA-DOG/godog"
@@ -36,17 +37,17 @@ const (
 
 var logger = log.New("aries-framework/tests")
 
-// AgentSDKSteps contains steps for agent from client SDK
-type AgentSDKSteps struct {
+// SDKSteps contains steps for agent from client SDK
+type SDKSteps struct {
 	bddContext *context.BDDContext
 }
 
-// NewAgentSDKSteps returns new agent from client SDK
-func NewAgentSDKSteps(ctx *context.BDDContext) *AgentSDKSteps {
-	return &AgentSDKSteps{bddContext: ctx}
+// NewSDKSteps returns new agent from client SDK
+func NewSDKSteps(ctx *context.BDDContext) *SDKSteps {
+	return &SDKSteps{bddContext: ctx}
 }
 
-func (a *AgentSDKSteps) createAgent(agentID, inboundHost, inboundPort, scheme string) error {
+func (a *SDKSteps) createAgent(agentID, inboundHost, inboundPort, scheme string) error {
 	var opts []aries.Option
 
 	storeProv := a.getStoreProvider(agentID)
@@ -56,29 +57,36 @@ func (a *AgentSDKSteps) createAgent(agentID, inboundHost, inboundPort, scheme st
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
 }
 
-func (a *AgentSDKSteps) createAgentWithHTTPDIDResolver(
-	agentID, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
+// CreateAgentWithHTTPDIDResolver creates agent with HTTP DID resolver
+func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
+	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
 	var opts []aries.Option
 
-	httpVDRI, err := httpbinding.New(a.bddContext.Args[endpointURL],
-		httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
-	if err != nil {
-		return fmt.Errorf("failed from httpbinding new ")
+	for _, agentID := range strings.Split(agents, ",") {
+		httpVDRI, err := httpbinding.New(a.bddContext.Args[endpointURL],
+			httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
+		if err != nil {
+			return fmt.Errorf("failed from httpbinding new ")
+		}
+
+		storeProv := a.getStoreProvider(agentID)
+
+		opts = append(opts, aries.WithVDRI(httpVDRI), aries.WithStoreProvider(storeProv))
+
+		if err := a.create(agentID, inboundHost, inboundPort, "http", opts...); err != nil {
+			return err
+		}
 	}
 
-	storeProv := a.getStoreProvider(agentID)
-
-	opts = append(opts, aries.WithVDRI(httpVDRI), aries.WithStoreProvider(storeProv))
-
-	return a.create(agentID, inboundHost, inboundPort, "http", opts...)
+	return nil
 }
 
-func (a *AgentSDKSteps) getStoreProvider(agentID string) storage.Provider {
+func (a *SDKSteps) getStoreProvider(agentID string) storage.Provider {
 	storeProv := leveldb.NewProvider(dbPath + "/" + agentID + uuid.New().String())
 	return storeProv
 }
 
-func (a *AgentSDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
+func (a *SDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
 	var opts []aries.Option
 
 	storeProv := a.getStoreProvider(agentID)
@@ -102,7 +110,7 @@ func (a *AgentSDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error 
 	return a.createFramework(agentID, opts...)
 }
 
-func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort, scheme string, opts ...aries.Option) error {
+func (a *SDKSteps) create(agentID, inboundHost, inboundPort, scheme string, opts ...aries.Option) error {
 	if inboundPort == "random" {
 		inboundPort = strconv.Itoa(mustGetRandomPort(5))
 	}
@@ -137,7 +145,7 @@ func (a *AgentSDKSteps) create(agentID, inboundHost, inboundPort, scheme string,
 	return nil
 }
 
-func (a *AgentSDKSteps) createFramework(agentID string, opts ...aries.Option) error {
+func (a *SDKSteps) createFramework(agentID string, opts ...aries.Option) error {
 	agent, err := aries.New(opts...)
 	if err != nil {
 		return fmt.Errorf("failed to create new agent: %w", err)
@@ -154,13 +162,13 @@ func (a *AgentSDKSteps) createFramework(agentID string, opts ...aries.Option) er
 }
 
 // RegisterSteps registers agent steps
-func (a *AgentSDKSteps) RegisterSteps(s *godog.Suite) {
+func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider$`,
 		a.createAgent)
 	s.Step(`^"([^"]*)" edge agent is running with "([^"]*)" as the outbound transport provider `+
 		`and "([^"]*)" as the transport return route option`, a.createEdgeAgent)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
-		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.createAgentWithHTTPDIDResolver)
+		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.CreateAgentWithHTTPDIDResolver)
 }
 
 func mustGetRandomPort(n int) int {

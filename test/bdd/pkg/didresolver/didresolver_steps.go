@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/godog"
-
 	"github.com/trustbloc/sidetree-core-go/pkg/document"
 	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
 	"github.com/trustbloc/sidetree-core-go/pkg/restapi/model"
@@ -51,16 +50,23 @@ func NewDIDResolverSteps(ctx *bddctx.BDDContext) *Steps {
 	return &Steps{bddContext: ctx}
 }
 
-func (d *Steps) createDIDDocument(agentID, method string) error {
-	doc, err := d.bddContext.AgentCtx[agentID].VDRIRegistry().Create(method,
-		vdriapi.WithRequestBuilder(buildSideTreeRequest))
-	if err != nil {
-		return err
+func (d *Steps) createDIDDocument(agents, method string) error {
+	for _, agentID := range strings.Split(agents, ",") {
+		doc, err := d.bddContext.AgentCtx[agentID].VDRIRegistry().Create(method,
+			vdriapi.WithRequestBuilder(buildSideTreeRequest))
+		if err != nil {
+			return fmt.Errorf("[%s] %v", agents, err)
+		}
+
+		d.bddContext.PublicDIDs[agentID] = doc
 	}
 
-	d.bddContext.PublicDIDs[agentID] = doc
-
 	return nil
+}
+
+// CreateDIDDocument creates DIDDocument
+func CreateDIDDocument(ctx *bddctx.BDDContext, agents, method string) error {
+	return (&Steps{bddContext: ctx}).createDIDDocument(agents, method)
 }
 
 func (d *Steps) createDIDDocumentFromFile(sideTreeURL, didDocumentPath string) error {
