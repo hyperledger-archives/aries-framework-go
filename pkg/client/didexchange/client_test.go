@@ -17,15 +17,16 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mocksvc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 func TestNew(t *testing.T) {
@@ -123,15 +124,20 @@ func TestClient_CreateInvitation(t *testing.T) {
 	})
 
 	t.Run("test error from save record", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		store := &mockstore.MockStore{
+			Store:  make(map[string][]byte),
+			ErrPut: fmt.Errorf("store error"),
+		}
+
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			StoreProvider: mockstore.NewCustomMockStoreProvider(store),
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		store := mockstore.NewMockStoreProvider()
-		store.Store.ErrPut = errors.New("store error")
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          store,
+			StorageProviderValue:          mockstore.NewCustomMockStoreProvider(store),
 			ServiceValue:                  svc,
 			KMSValue:                      &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
@@ -165,15 +171,20 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		require.Equal(t, id, inviteReq.DID)
 	})
 	t.Run("test error from save invitation", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		store := &mockstore.MockStore{
+			Store:  make(map[string][]byte),
+			ErrPut: fmt.Errorf("store error"),
+		}
+
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			StoreProvider: mockstore.NewCustomMockStoreProvider(store),
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		store := mockstore.NewMockStoreProvider()
-		store.Store.ErrPut = errors.New("store error")
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          store,
+			StorageProviderValue:          mockstore.NewCustomMockStoreProvider(store),
 			ServiceValue:                  svc,
 			KMSValue:                      &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
@@ -194,50 +205,72 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
-		transientStore := &mockstore.MockStore{Store: make(map[string][]byte)}
-		store := &mockstore.MockStore{Store: make(map[string][]byte)}
 
-		connRec := &didexchange.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  svc,
+			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue:          "endpoint"})
+		require.NoError(t, err)
+
+		connRec := &connectionstore.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
 		connBytes, err := json.Marshal(connRec)
+
 		require.NoError(t, err)
-		require.NoError(t, err)
-		require.NoError(t, transientStore.Put("conn_id1", connBytes))
-		c := didexchange.NewConnectionRecorder(transientStore, store, nil)
-		result, err := c.GetConnectionRecord(connID)
+		require.NoError(t, c.connectionStore.TransientStore().Put("conn_id1", connBytes))
+		result, err := c.GetConnection(connID)
 		require.NoError(t, err)
 		require.Equal(t, "complete", result.State)
 		require.Equal(t, "id1", result.ConnectionID)
 	})
 
 	t.Run("test error", func(t *testing.T) {
+		const errMsg = "query connection error"
 		svc, err := didexchange.New(&mockprotocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
-		transientStore := &mockstore.MockStore{Store: make(map[string][]byte),
-			ErrGet: fmt.Errorf("query connection error")}
-		store := &mockstore.MockStore{Store: make(map[string][]byte)}
-		connRec := &didexchange.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
-		connBytes, err := json.Marshal(connRec)
+
+		store := &mockstore.MockStore{
+			Store:  make(map[string][]byte),
+			ErrGet: fmt.Errorf(errMsg),
+		}
+
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewCustomMockStoreProvider(store),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  svc,
+			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue:          "endpoint"})
 		require.NoError(t, err)
-		c := didexchange.NewConnectionRecorder(transientStore, store, nil)
-		require.NoError(t, transientStore.Put("conn_id1", connBytes))
-		_, err = c.GetConnectionRecord(connID)
+
+		connRec := &connectionstore.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
+		connBytes, err := json.Marshal(connRec)
+
+		require.NoError(t, err)
+		require.NoError(t, c.connectionStore.TransientStore().Put("conn_id1", connBytes))
+		_, err = c.GetConnection(connID)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "query connection error")
+		require.Contains(t, err.Error(), errMsg)
 	})
 
 	t.Run("test data not found", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{})
-
 		require.NoError(t, err)
 		require.NotNil(t, svc)
-		transientStore := mockstore.MockStore{ErrGet: storage.ErrDataNotFound}
-		store := mockstore.MockStore{}
+
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceValue:                  svc,
+			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue:          "endpoint"})
 		require.NoError(t, err)
-		c := didexchange.NewConnectionRecorder(&transientStore, &store, nil)
-		_, err = c.GetConnectionRecord(connID)
+
+		result, err := c.GetConnection(connID)
 		require.Error(t, err)
-		require.True(t, errors.Is(err, storage.ErrDataNotFound))
+		require.True(t, errors.Is(err, ErrConnectionNotFound))
+		require.Nil(t, result)
 	})
 }
 
@@ -255,7 +288,7 @@ func TestClient_GetConnection(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceValue:                  svc})
 		require.NoError(t, err)
-		connRec := &didexchange.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
+		connRec := &connectionstore.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		require.NoError(t, s.Put("conn_id1", connBytes))
@@ -304,7 +337,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{},
+			ServiceValue:                  &mocksvc.MockDIDExchangeSvc{},
 			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			InboundEndpointValue:          "endpoint"})
 
@@ -321,7 +354,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue: &mockprotocol.MockDIDExchangeSvc{HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
+			ServiceValue: &mocksvc.MockDIDExchangeSvc{HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
 				return "", fmt.Errorf("handle error")
 			}},
 			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
@@ -340,7 +373,7 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{},
+			ServiceValue:                  &mocksvc.MockDIDExchangeSvc{},
 			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			InboundEndpointValue:          "endpoint"})
 		require.NoError(t, err)
@@ -354,7 +387,7 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue: &mockprotocol.MockDIDExchangeSvc{
+			ServiceValue: &mocksvc.MockDIDExchangeSvc{
 				ImplicitInvitationErr: errors.New("implicit error")},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			InboundEndpointValue: "endpoint"})
@@ -375,7 +408,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{},
+			ServiceValue:                  &mocksvc.MockDIDExchangeSvc{},
 			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			InboundEndpointValue:          "endpoint"})
 		require.NoError(t, err)
@@ -389,7 +422,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue: &mockprotocol.MockDIDExchangeSvc{
+			ServiceValue: &mocksvc.MockDIDExchangeSvc{
 				ImplicitInvitationErr: errors.New("implicit with DID error")},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			InboundEndpointValue: "endpoint"})
@@ -405,7 +438,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  &mockprotocol.MockDIDExchangeSvc{},
+			ServiceValue:                  &mocksvc.MockDIDExchangeSvc{},
 			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			InboundEndpointValue:          "endpoint"})
 		require.NoError(t, err)
@@ -439,7 +472,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		const keyPrefix = "conn_"
 		const state = "completed"
 		for i := 0; i < count; i++ {
-			val, e := json.Marshal(&didexchange.ConnectionRecord{
+			val, e := json.Marshal(&connectionstore.ConnectionRecord{
 				ConnectionID: string(i),
 				State:        state,
 			})
@@ -477,7 +510,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 				queryState = state
 			}
 
-			val, e := json.Marshal(&didexchange.ConnectionRecord{
+			val, e := json.Marshal(&connectionstore.ConnectionRecord{
 				ConnectionID: string(i),
 				State:        queryState,
 			})

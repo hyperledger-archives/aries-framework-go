@@ -1,10 +1,13 @@
 /*
-Copyright SecureKey Technologies Inc. All Rights Reserved.
+ *
+ * Copyright SecureKey Technologies Inc. All Rights Reserved.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * /
+ *
+ */
 
-SPDX-License-Identifier: Apache-2.0
-*/
-
-package protocol
+package didexchange
 
 import (
 	"github.com/google/uuid"
@@ -12,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockdidconnection "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/didconnection"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
@@ -133,6 +137,11 @@ func (m *MockDIDExchangeSvc) CreateImplicitInvitation(inviterLabel, inviterDID, 
 	}
 
 	return "connection-id", nil
+}
+
+// SaveInvitation mock implementation of save inviation feature from did-exchange service
+func (m *MockDIDExchangeSvc) SaveInvitation(invitation *didexchange.Invitation) error {
+	return nil
 }
 
 // MockProvider is provider for DIDExchange Service

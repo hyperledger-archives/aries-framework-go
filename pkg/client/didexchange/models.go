@@ -6,7 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package didexchange
 
-import "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+)
 
 // QueryConnectionsParams model
 //
@@ -41,7 +44,7 @@ type QueryConnectionsParams struct {
 // This is used to represent query connection result
 //
 type Connection struct {
-	*didexchange.ConnectionRecord
+	*connectionstore.ConnectionRecord
 }
 
 // Invitation model for DID Exchange invitation.

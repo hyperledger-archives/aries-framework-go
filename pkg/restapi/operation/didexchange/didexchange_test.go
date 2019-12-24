@@ -26,10 +26,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -44,7 +46,7 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 	svc, err := New(&mockprovider.Provider{
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          mockstore.NewMockStoreProvider(),
-		ServiceValue:                  &protocol.MockDIDExchangeSvc{}},
+		ServiceValue:                  &mockdidexchange.MockDIDExchangeSvc{}},
 		webhook.NewHTTPNotifier(nil), "", false)
 	require.NoError(t, err)
 	require.NotNil(t, svc)
@@ -348,7 +350,7 @@ func TestOperation_WriteResponse(t *testing.T) {
 	svc, err := New(&mockprovider.Provider{
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          mockstore.NewMockStoreProvider(),
-		ServiceValue:                  &protocol.MockDIDExchangeSvc{}},
+		ServiceValue:                  &mockdidexchange.MockDIDExchangeSvc{}},
 		webhook.NewHTTPNotifier(nil), "", false)
 	require.NoError(t, err)
 	require.NotNil(t, svc)
@@ -397,7 +399,7 @@ func getHandler(t *testing.T, lookup string) operation.Handler {
 func getHandlerWithError(t *testing.T, lookup string, handleErr, acceptErr, implicitErr error) operation.Handler {
 	transientStore := mockstore.MockStore{Store: make(map[string][]byte)}
 	store := mockstore.MockStore{Store: make(map[string][]byte)}
-	connRec := &didexsvc.ConnectionRecord{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
+	connRec := &connectionstore.ConnectionRecord{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
 
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
@@ -410,7 +412,7 @@ func getHandlerWithError(t *testing.T, lookup string, handleErr, acceptErr, impl
 	require.NoError(t, store.Put("my_"+key, []byte(connRec.ConnectionID)))
 
 	svc, err := New(&mockprovider.Provider{
-		ServiceValue: &protocol.MockDIDExchangeSvc{
+		ServiceValue: &mockdidexchange.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
 			HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
 				return uuid.New().String(), handleErr
@@ -618,7 +620,7 @@ func TestOperationEventError(t *testing.T) {
 		client, err := didexchange.New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue: &protocol.MockDIDExchangeSvc{
+			ServiceValue: &mockdidexchange.MockDIDExchangeSvc{
 				RegisterMsgEventErr: errors.New(errMsg),
 			}})
 
@@ -636,13 +638,13 @@ func TestHandleMessageEvent(t *testing.T) {
 		TransientStorageProviderValue: storeProv,
 		StorageProviderValue: &mockstore.MockStoreProvider{
 			Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
-		ServiceValue: &protocol.MockDIDExchangeSvc{}},
+		ServiceValue: &mockdidexchange.MockDIDExchangeSvc{}},
 		webhook.NewHTTPNotifier(nil), "", false)
 	require.NoError(t, err)
 	require.NotNil(t, op)
 
 	e := didExEvent{}
-	connRec := didexsvc.ConnectionRecord{ConnectionID: e.ConnectionID(), ThreadID: "xyz", State: "completed"}
+	connRec := connectionstore.ConnectionRecord{ConnectionID: e.ConnectionID(), ThreadID: "xyz", State: "completed"}
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 	require.NoError(t, storeProv.Store.Put("conn_"+e.ConnectionID(), connBytes))
@@ -668,18 +670,24 @@ func TestSendConnectionNotification(t *testing.T) {
 	)
 
 	storeProv := &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: make(map[string][]byte)}}
-	connRec := didexsvc.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "completed"}
+	connRec := connectionstore.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "completed"}
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 	require.NoError(t, storeProv.Store.Put("conn_id1", connBytes))
 	require.NoError(t, storeProv.Store.Put("connstate_id1"+"completed", connBytes))
 
 	t.Run("send notification success", func(t *testing.T) {
+		const testState = "completed"
+		store := &mockstore.MockStore{Store: make(map[string][]byte)}
+		connRec := &connectionstore.ConnectionRecord{State: testState, ConnectionID: connID, ThreadID: "th1234"}
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+		require.NoError(t, store.Put(connectionstore.GetConnectionStateKeyPrefix()(connID, testState), connBytes))
+
 		op, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: storeProv,
-			StorageProviderValue: &mockstore.MockStoreProvider{
-				Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
-			ServiceValue: &protocol.MockDIDExchangeSvc{}},
+			TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: store},
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: store},
+			ServiceValue:                  &mockdidexchange.MockDIDExchangeSvc{}},
 			webhook.NewHTTPNotifier(nil), "", false)
 		require.NoError(t, err)
 		err = op.sendConnectionNotification(connID, "completed")
@@ -690,7 +698,7 @@ func TestSendConnectionNotification(t *testing.T) {
 			TransientStorageProviderValue: storeProv,
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
-			ServiceValue: &protocol.MockDIDExchangeSvc{}},
+			ServiceValue: &mockdidexchange.MockDIDExchangeSvc{}},
 			webhook.NewHTTPNotifier(nil), "", false)
 		require.NoError(t, err)
 		err = op.sendConnectionNotification("id2", "")
@@ -698,18 +706,24 @@ func TestSendConnectionNotification(t *testing.T) {
 		require.Contains(t, err.Error(), "connection notification webhook : cannot fetch state from store:")
 	})
 	t.Run("send notification webhook error", func(t *testing.T) {
+		const testState = "completed"
+		store := &mockstore.MockStore{Store: make(map[string][]byte)}
+		connRec := &connectionstore.ConnectionRecord{State: testState, ConnectionID: connID, ThreadID: "th1234"}
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+		require.NoError(t, store.Put(connectionstore.GetConnectionStateKeyPrefix()(connID, testState), connBytes))
+
 		op, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: storeProv,
-			StorageProviderValue: &mockstore.MockStoreProvider{
-				Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
-			ServiceValue: &protocol.MockDIDExchangeSvc{}},
+			TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: store},
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: store},
+			ServiceValue:                  &mockdidexchange.MockDIDExchangeSvc{}},
 			&mockNotifier{notifyFunc: func(topic string, message []byte) error {
 				return errors.New("webhook error")
 			}},
 			"", false)
 		require.NoError(t, err)
 		require.NotNil(t, op)
-		err = op.sendConnectionNotification(connID, "completed")
+		err = op.sendConnectionNotification(connID, testState)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "connection notification webhook : webhook error")
 	})

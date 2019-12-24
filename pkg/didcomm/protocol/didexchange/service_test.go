@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -66,24 +67,28 @@ func TestServiceNew(t *testing.T) {
 
 // did-exchange flow with role Inviter
 func TestService_Handle_Inviter(t *testing.T) {
-	prov := protocol.MockProvider{}
-	store := mockstorage.NewMockStoreProvider()
-	pubKey, privKey := generateKeyPair()
+	mockStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
 	didConnectionStore := didconnection.MockDIDConnection{}
+	prov := &protocol.MockProvider{
+		StoreProvider:           mockstorage.NewCustomMockStoreProvider(mockStore),
+		DIDConnectionStoreValue: &didConnectionStore,
+	}
+	pubKey, privKey := generateKeyPair()
+	connectionStore, err := newConnectionStore(prov)
+	require.NoError(t, err)
+	require.NotNil(t, connectionStore)
 
 	ctx := &context{
 		outboundDispatcher: prov.OutboundDispatcher(),
 		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: createDIDDocWithKey(pubKey)},
 		signer:             &mockSigner{privateKey: privKey},
-		connectionStore:    NewConnectionRecorder(nil, store.Store, &didConnectionStore),
+		connectionStore:    connectionStore,
 	}
 
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 	require.NoError(t, err)
 
-	s, err := New(&protocol.MockProvider{StoreProvider: store,
-		DIDConnectionStoreValue: &didConnectionStore,
-	})
+	s, err := New(prov)
 	require.NoError(t, err)
 
 	actionCh := make(chan service.DIDCommAction, 10)
@@ -205,26 +210,25 @@ func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFla
 func TestService_Handle_Invitee(t *testing.T) {
 	transientStore := mockstorage.NewMockStoreProvider()
 	store := mockstorage.NewMockStoreProvider()
-	prov := protocol.MockProvider{}
+	prov := &protocol.MockProvider{StoreProvider: store,
+		TransientStoreProvider: transientStore}
 	pubKey, privKey := generateKeyPair()
-	didConnectionStore := didconnection.MockDIDConnection{}
+
+	connectionStore, err := newConnectionStore(prov)
+	require.NoError(t, err)
+	require.NotNil(t, connectionStore)
 
 	ctx := context{
 		outboundDispatcher: prov.OutboundDispatcher(),
 		vdriRegistry:       &mockvdri.MockVDRIRegistry{CreateValue: createDIDDocWithKey(pubKey)},
 		signer:             &mockSigner{privateKey: privKey},
-		connectionStore:    NewConnectionRecorder(transientStore.Store, store.Store, &didConnectionStore),
+		connectionStore:    connectionStore,
 	}
 
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 	require.NoError(t, err)
 
-	s, err := New(
-		&protocol.MockProvider{
-			StoreProvider:           store,
-			TransientStoreProvider:  transientStore,
-			DIDConnectionStoreValue: &didConnectionStore,
-		})
+	s, err := New(prov)
 	require.NoError(t, err)
 
 	s.ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: newDidDoc}
@@ -381,14 +385,17 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("handleInbound - connection record error", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
+		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
+		prov := &protocol.MockProvider{TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(transientStore)}
+		svc, err := New(prov)
 		require.NoError(t, err)
 
 		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
 		require.NoError(t, err)
 
-		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
-		svc.connectionStore = NewConnectionRecorder(transientStore, nil, nil)
+		svc.connectionStore, err = newConnectionStore(prov)
+		require.NotNil(t, svc.connectionStore)
+		require.NoError(t, err)
 
 		_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""), "", "")
 		require.Error(t, err)
@@ -402,7 +409,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
 		require.NoError(t, err)
 
-		svc.connectionStore.transientStore = &mockStore{
+		transientStore := &mockStore{
 			get: func(s string) (bytes []byte, e error) {
 				return nil, storage.ErrDataNotFound
 			},
@@ -414,6 +421,12 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 				return nil
 			},
 		}
+
+		svc.connectionStore, err = newConnectionStore(&protocol.MockProvider{
+			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(transientStore),
+		})
+		require.NotNil(t, svc.connectionStore)
+		require.NoError(t, err)
 
 		requestBytes, err := json.Marshal(&Request{
 			Type: RequestMsgType,
@@ -459,10 +472,16 @@ func TestService_threadID(t *testing.T) {
 
 func TestService_CurrentState(t *testing.T) {
 	t.Run("null state if not found in store", func(t *testing.T) {
-		svc := &Service{
-			connectionStore: NewConnectionRecorder(&mockStore{
+		connectionStore, err := newConnectionStore(&protocol.MockProvider{
+			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockStore{
 				get: func(string) ([]byte, error) { return nil, storage.ErrDataNotFound },
-			}, nil, nil),
+			}),
+		})
+		require.NotNil(t, connectionStore)
+		require.NoError(t, err)
+
+		svc := &Service{
+			connectionStore: connectionStore,
 		}
 		thid, err := createNSKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
@@ -473,12 +492,19 @@ func TestService_CurrentState(t *testing.T) {
 
 	t.Run("returns state from store", func(t *testing.T) {
 		expected := &requested{}
-		connRec, err := json.Marshal(&ConnectionRecord{State: expected.Name()})
+		connRec, err := json.Marshal(&connectionstore.ConnectionRecord{State: expected.Name()})
 		require.NoError(t, err)
-		svc := &Service{
-			connectionStore: NewConnectionRecorder(&mockStore{
+
+		connectionStore, err := newConnectionStore(&protocol.MockProvider{
+			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockStore{
 				get: func(string) ([]byte, error) { return connRec, nil },
-			}, nil, nil),
+			}),
+		})
+		require.NotNil(t, connectionStore)
+		require.NoError(t, err)
+
+		svc := &Service{
+			connectionStore: connectionStore,
 		}
 		thid, err := createNSKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
@@ -488,13 +514,17 @@ func TestService_CurrentState(t *testing.T) {
 	})
 
 	t.Run("forwards generic error from store", func(t *testing.T) {
-		svc := &Service{
-			connectionStore: NewConnectionRecorder(&mockStore{
+		connectionStore, err := newConnectionStore(&protocol.MockProvider{
+			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockStore{
 				get: func(string) ([]byte, error) {
 					return nil, errors.New("test")
 				},
-			}, nil, nil),
-		}
+			}),
+		})
+		require.NotNil(t, connectionStore)
+		require.NoError(t, err)
+
+		svc := &Service{connectionStore: connectionStore}
 		thid, err := createNSKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
 		_, err = svc.currentState(thid)
@@ -506,13 +536,13 @@ func TestService_CurrentState(t *testing.T) {
 func TestService_Update(t *testing.T) {
 	s := &requested{}
 	data := make(map[string][]byte)
-	connRec := &ConnectionRecord{ThreadID: "123", ConnectionID: "123456", State: s.Name(),
+	connRec := &connectionstore.ConnectionRecord{ThreadID: "123", ConnectionID: "123456", State: s.Name(),
 		Namespace: findNameSpace(RequestMsgType)}
 	bytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 
-	svc := &Service{
-		connectionStore: NewConnectionRecorder(&mockStore{
+	connectionStore, err := newConnectionStore(&protocol.MockProvider{
+		StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockStore{
 			put: func(k string, v []byte) error {
 				data[k] = bytes
 				return nil
@@ -520,12 +550,16 @@ func TestService_Update(t *testing.T) {
 			get: func(k string) ([]byte, error) {
 				return bytes, nil
 			},
-		}, nil, nil),
-	}
+		}),
+	})
+	require.NotNil(t, connectionStore)
+	require.NoError(t, err)
+
+	svc := &Service{connectionStore: connectionStore}
 
 	require.NoError(t, svc.update(RequestMsgType, connRec))
 
-	cr := &ConnectionRecord{}
+	cr := &connectionstore.ConnectionRecord{}
 	err = json.Unmarshal(bytes, cr)
 	require.NoError(t, err)
 	require.Equal(t, cr, connRec)
@@ -684,7 +718,7 @@ func TestEventsUserError(t *testing.T) {
 	}()
 
 	id := randomString()
-	connRec := &ConnectionRecord{ConnectionID: randomString(), ThreadID: id,
+	connRec := &connectionstore.ConnectionRecord{ConnectionID: randomString(), ThreadID: id,
 		Namespace: findNameSpace(RequestMsgType), State: (&null{}).Name()}
 
 	err = svc.connectionStore.saveNewConnectionRecord(connRec)
@@ -772,18 +806,27 @@ func TestServiceErrors(t *testing.T) {
 	mockStore := &mockStore{get: func(s string) (bytes []byte, e error) {
 		return nil, errors.New("error")
 	}}
-	svc.connectionStore = NewConnectionRecorder(mockStore, nil, nil)
-	payload := generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), "")
+
+	prov := &protocol.MockProvider{
+		TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(
+			mockStore,
+		),
+	}
+	svc, err = New(prov)
+	require.NoError(t, err)
+
+	payload := generateRequestMsgPayload(t, prov, randomString(), "")
 	_, err = svc.HandleInbound(payload, "", "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot fetch state from store")
 
-	// invalid message type
-	msg.Header.Type = "invalid"
-	transientStore, err := mockstorage.NewMockStoreProvider().OpenStore(DIDExchange)
+	svc, err = New(&protocol.MockProvider{})
 	require.NoError(t, err)
 
-	svc.connectionStore = NewConnectionRecorder(transientStore, nil, nil)
+	// invalid message type
+	msg.Header.Type = "invalid"
+	svc.connectionStore, err = newConnectionStore(&protocol.MockProvider{})
+	require.NoError(t, err)
 
 	_, err = svc.HandleInbound(msg, "", "")
 	require.Error(t, err)
@@ -798,7 +841,7 @@ func TestServiceErrors(t *testing.T) {
 
 	// invalid state name
 	message.NextStateName = stateNameInvited
-	message.ConnRecord = &ConnectionRecord{ConnectionID: "abc"}
+	message.ConnRecord = &connectionstore.ConnectionRecord{ConnectionID: "abc"}
 	err = svc.handleWithoutAction(message)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to execute state invited")
@@ -867,8 +910,13 @@ func TestInvitationRecord(t *testing.T) {
 	require.Contains(t, err.Error(), "threadID not found")
 
 	// db error
-	svc.connectionStore = NewConnectionRecorder(
-		&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}, nil, nil)
+	svc, err = New(&protocol.MockProvider{
+		TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+			Store: make(map[string][]byte), ErrPut: errors.New("db error"),
+		}),
+	})
+	require.NotNil(t, svc.connectionStore)
+	require.NoError(t, err)
 
 	invitationBytes, err = json.Marshal(&Invitation{
 		Type:          InvitationMsgType,
@@ -895,8 +943,13 @@ func TestRequestRecord(t *testing.T) {
 	require.NotNil(t, conn)
 
 	// db error
-	svc.connectionStore = NewConnectionRecorder(
-		&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}, nil, nil)
+	svc, err = New(&protocol.MockProvider{
+		TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(
+			&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")},
+		),
+	})
+	require.NotNil(t, svc.connectionStore)
+	require.NoError(t, err)
 
 	_, err = svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
 		randomString(), ""))
@@ -1094,7 +1147,7 @@ func TestAcceptInvitation(t *testing.T) {
 		require.NoError(t, err)
 
 		id := generateRandomID()
-		connRecord := &ConnectionRecord{
+		connRecord := &connectionstore.ConnectionRecord{
 			ConnectionID: id,
 			State:        stateNameRequested,
 		}
@@ -1114,7 +1167,7 @@ func TestAcceptInvitation(t *testing.T) {
 		require.NoError(t, err)
 
 		id := generateRandomID()
-		connRecord := &ConnectionRecord{
+		connRecord := &connectionstore.ConnectionRecord{
 			ConnectionID: id,
 			State:        stateNameRequested,
 		}
@@ -1209,7 +1262,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		require.NoError(t, err)
 
 		id := generateRandomID()
-		connRecord := &ConnectionRecord{
+		connRecord := &connectionstore.ConnectionRecord{
 			ConnectionID: id,
 			State:        stateNameRequested,
 		}
@@ -1229,7 +1282,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		require.NoError(t, err)
 
 		id := generateRandomID()
-		connRecord := &ConnectionRecord{
+		connRecord := &connectionstore.ConnectionRecord{
 			ConnectionID: id,
 			State:        stateNameRequested,
 		}
@@ -1251,7 +1304,7 @@ func TestEventTransientData(t *testing.T) {
 		connID := generateRandomID()
 
 		msg := &message{
-			ConnRecord: &ConnectionRecord{ConnectionID: connID},
+			ConnRecord: &connectionstore.ConnectionRecord{ConnectionID: connID},
 		}
 		err = svc.storeEventTransientData(msg)
 		require.NoError(t, err)
@@ -1280,7 +1333,7 @@ func TestEventTransientData(t *testing.T) {
 
 		connID := generateRandomID()
 
-		err = svc.connectionStore.transientStore.Put(eventTransientDataKey(connID), []byte("invalid data"))
+		err = svc.connectionStore.TransientStore().Put(eventTransientDataKey(connID), []byte("invalid data"))
 		require.NoError(t, err)
 
 		_, err = svc.getEventTransientData(connID)
@@ -1350,10 +1403,13 @@ func TestFetchConnectionRecord(t *testing.T) {
 }
 
 func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID string) *service.DIDCommMsg {
-	store := mockstorage.NewMockStoreProvider()
+	connStore, err := newConnectionStore(prov)
+	require.NoError(t, err)
+	require.NotNil(t, connStore)
+
 	ctx := context{outboundDispatcher: prov.OutboundDispatcher(),
 		vdriRegistry:    &mockvdri.MockVDRIRegistry{CreateValue: mockdiddoc.GetMockDIDDoc()},
-		connectionStore: NewConnectionRecorder(nil, store.Store, nil)}
+		connectionStore: connStore}
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 	require.NoError(t, err)
 
@@ -1378,18 +1434,21 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 
 func TestService_CreateImplicitInvitation(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		prov := protocol.MockProvider{}
-		store := mockstorage.NewMockStoreProvider()
+		prov := &protocol.MockProvider{}
 		pubKey, _ := generateKeyPair()
 		newDIDDoc := createDIDDocWithKey(pubKey)
+
+		connStore, err := newConnectionStore(prov)
+		require.NoError(t, err)
+		require.NotNil(t, connStore)
+
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
-			connectionStore: NewConnectionRecorder(nil, store.Store,
-				&didconnection.MockDIDConnection{}),
+			connectionStore:    connStore,
 		}
 
-		s, err := New(&protocol.MockProvider{StoreProvider: store})
+		s, err := New(prov)
 		require.NoError(t, err)
 
 		s.ctx = ctx
@@ -1399,18 +1458,21 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 	})
 
 	t.Run("error during did resolution", func(t *testing.T) {
-		prov := protocol.MockProvider{}
-		store := mockstorage.NewMockStoreProvider()
+		prov := &protocol.MockProvider{}
 		pubKey, _ := generateKeyPair()
 		newDIDDoc := createDIDDocWithKey(pubKey)
+
+		connStore, err := newConnectionStore(prov)
+		require.NoError(t, err)
+		require.NotNil(t, connStore)
+
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
-			connectionStore: NewConnectionRecorder(nil, store.Store,
-				&didconnection.MockDIDConnection{}),
+			connectionStore:    connStore,
 		}
 
-		s, err := New(&protocol.MockProvider{StoreProvider: store})
+		s, err := New(prov)
 		require.NoError(t, err)
 		s.ctx = ctx
 
@@ -1421,20 +1483,23 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 	})
 
 	t.Run("error during saving connection", func(t *testing.T) {
-		prov := protocol.MockProvider{}
 		transientStore := mockstorage.NewMockStoreProvider()
 		transientStore.Store.ErrPut = errors.New("store put error")
-		store := mockstorage.NewMockStoreProvider()
+		prov := &protocol.MockProvider{TransientStoreProvider: transientStore}
 		pubKey, _ := generateKeyPair()
 		newDIDDoc := createDIDDocWithKey(pubKey)
+
+		connStore, err := newConnectionStore(prov)
+		require.NoError(t, err)
+		require.NotNil(t, connStore)
+
 		ctx := &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry:       &mockvdri.MockVDRIRegistry{ResolveValue: newDIDDoc},
-			connectionStore: NewConnectionRecorder(transientStore.Store, store.Store,
-				&didconnection.MockDIDConnection{}),
+			connectionStore:    connStore,
 		}
 
-		s, err := New(&protocol.MockProvider{StoreProvider: store, TransientStoreProvider: transientStore})
+		s, err := New(prov)
 		require.NoError(t, err)
 		s.ctx = ctx
 
@@ -1443,4 +1508,32 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.Contains(t, err.Error(), "store put error")
 		require.Empty(t, connID)
 	})
+}
+
+func TestService_SaveInvitation(t *testing.T) {
+	svc, err := New(&protocol.MockProvider{})
+	require.NoError(t, err)
+	require.NotNil(t, svc)
+
+	const count = 8
+
+	const invIDFmt = "inv_%d"
+
+	invitations := make([]*Invitation, count)
+
+	// save invitations
+	for i := 0; i < count; i++ {
+		inv := &Invitation{ID: fmt.Sprintf(invIDFmt, i)}
+		invitations[i] = inv
+		err = svc.SaveInvitation(inv)
+		require.NoError(t, err)
+	}
+
+	// verify
+	for _, inv := range invitations {
+		invDB, err := svc.connectionStore.GetInvitation(inv.ID)
+		require.NoError(t, err)
+		require.NotNil(t, invDB)
+		require.Equal(t, invDB, inv)
+	}
 }

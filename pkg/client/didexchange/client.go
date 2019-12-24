@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -50,7 +51,7 @@ type Client struct {
 	didexchangeSvc           protocolService
 	kms                      kms.KeyManager
 	inboundTransportEndpoint string
-	connectionStore          *didexchange.ConnectionRecorder
+	connectionStore          *connectionstore.ConnectionLookup
 }
 
 // protocolService defines DID Exchange service.
@@ -67,6 +68,10 @@ type protocolService interface {
 	// CreateImplicitInvitation creates implicit invitation. Inviter DID is required, invitee DID is optional.
 	// If invitee DID is not provided new peer DID will be created for implicit invitation exchange request.
 	CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error)
+
+	// SaveInvitation saves given invitation in did-exchange service connection store
+	// TODO to be removed as part of [Issue #1021]
+	SaveInvitation(invitation *didexchange.Invitation) error
 }
 
 // New return new instance of didexchange client
@@ -81,12 +86,7 @@ func New(ctx provider) (*Client, error) {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
 
-	store, err := ctx.StorageProvider().OpenStore(didexchange.DIDExchange)
-	if err != nil {
-		return nil, err
-	}
-
-	transientStore, err := ctx.TransientStorageProvider().OpenStore(didexchange.DIDExchange)
+	connectionStore, err := connectionstore.NewConnectionLookup(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func New(ctx provider) (*Client, error) {
 		didexchangeSvc:           didexchangeSvc,
 		kms:                      ctx.KMS(),
 		inboundTransportEndpoint: ctx.InboundTransportEndpoint(),
-		connectionStore:          didexchange.NewConnectionRecorder(transientStore, store, ctx.DIDConnectionStore()),
+		connectionStore:          connectionStore,
 	}, nil
 }
 
@@ -119,7 +119,7 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 		Type:            didexchange.InvitationMsgType,
 	}
 
-	err = c.connectionStore.SaveInvitation(invitation)
+	err = c.didexchangeSvc.SaveInvitation(invitation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save invitation: %w", err)
 	}
@@ -137,7 +137,7 @@ func (c *Client) CreateInvitationWithDID(label, did string) (*Invitation, error)
 		Type:  didexchange.InvitationMsgType,
 	}
 
-	err := c.connectionStore.SaveInvitation(invitation)
+	err := c.didexchangeSvc.SaveInvitation(invitation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save invitation with DID: %w", err)
 	}
