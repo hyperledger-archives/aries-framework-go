@@ -39,13 +39,13 @@ func TestNoOp_CanTransitionTo(t *testing.T) {
 }
 
 func TestNoOp_ExecuteInbound(t *testing.T) {
-	followup, err := (&noOp{}).ExecuteInbound(internalContext{}, &metaData{})
+	followup, err := (&noOp{}).ExecuteInbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestNoOp_ExecuteOutbound(t *testing.T) {
-	followup, err := (&noOp{}).ExecuteOutbound(internalContext{}, &metaData{})
+	followup, err := (&noOp{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -68,13 +68,13 @@ func TestStart_CanTransitionTo(t *testing.T) {
 }
 
 func TestStart_ExecuteInbound(t *testing.T) {
-	followup, err := (&start{}).ExecuteInbound(internalContext{}, &metaData{})
+	followup, err := (&start{}).ExecuteInbound(nil, &metaData{})
 	require.EqualError(t, err, "start ExecuteInbound: not implemented yet")
 	require.Nil(t, followup)
 }
 
 func TestStart_ExecuteOutbound(t *testing.T) {
-	followup, err := (&start{}).ExecuteOutbound(internalContext{}, &metaData{})
+	followup, err := (&start{}).ExecuteOutbound(nil, &metaData{})
 	require.EqualError(t, err, "start ExecuteOutbound: not implemented yet")
 	require.Nil(t, followup)
 }
@@ -86,13 +86,13 @@ func TestDone_CanTransitionTo(t *testing.T) {
 }
 
 func TestDone_ExecuteInbound(t *testing.T) {
-	followup, err := (&done{}).ExecuteInbound(internalContext{}, &metaData{})
+	followup, err := (&done{}).ExecuteInbound(nil, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 }
 
 func TestDone_ExecuteOutbound(t *testing.T) {
-	followup, err := (&done{}).ExecuteOutbound(internalContext{}, &metaData{})
+	followup, err := (&done{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -121,8 +121,7 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
 	dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
-	ctx := internalContext{Outbound: dispatcher}
-	followup, err := (&arranging{}).ExecuteOutbound(ctx, &metaData{
+	followup, err := (&arranging{}).ExecuteOutbound(dispatcher, &metaData{
 		Msg: &service.DIDCommMsg{Payload: []byte(`{}`)},
 	})
 	require.NoError(t, err)
@@ -130,7 +129,7 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 
 	// JSON error
 	errMsg := "json: cannot unmarshal array into Go value of type introduce.Proposal"
-	followup, err = (&arranging{}).ExecuteOutbound(ctx, &metaData{
+	followup, err = (&arranging{}).ExecuteOutbound(dispatcher, &metaData{
 		Msg: &service.DIDCommMsg{Payload: []byte(`[]`)},
 	})
 	require.EqualError(t, errors.Unwrap(err), errMsg)
@@ -155,7 +154,7 @@ func TestDelivering_CanTransitionTo(t *testing.T) {
 }
 
 func TestDelivering_ExecuteOutbound(t *testing.T) {
-	followup, err := (&delivering{}).ExecuteOutbound(internalContext{}, &metaData{})
+	followup, err := (&delivering{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -178,7 +177,7 @@ func TestConfirming_CanTransitionTo(t *testing.T) {
 }
 
 func TestConfirming_ExecuteOutbound(t *testing.T) {
-	followup, err := (&confirming{}).ExecuteOutbound(internalContext{}, &metaData{})
+	followup, err := (&confirming{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -208,7 +207,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
 		dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test error"))
 
-		followup, err := (&abandoning{}).ExecuteInbound(internalContext{Outbound: dispatcher}, &metaData{
+		followup, err := (&abandoning{}).ExecuteInbound(dispatcher, &metaData{
 			Msg: &service.DIDCommMsg{
 				Header:  &service.Header{Type: RequestMsgType},
 				Payload: []byte(`{}`),
@@ -220,7 +219,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 }
 
 func TestAbandoning_ExecuteOutbound(t *testing.T) {
-	followup, err := (&abandoning{}).ExecuteOutbound(internalContext{}, &metaData{})
+	followup, err := (&abandoning{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -249,15 +248,13 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
 	dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
-	ctx := internalContext{Outbound: dispatcher}
-
-	followup, err := (&deciding{}).ExecuteInbound(ctx, &metaData{})
+	followup, err := (&deciding{}).ExecuteInbound(dispatcher, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &waiting{}, followup)
 }
 
 func TestDeciding_ExecuteOutbound(t *testing.T) {
-	followup, err := (&deciding{}).ExecuteOutbound(internalContext{}, &metaData{})
+	followup, err := (&deciding{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -280,13 +277,13 @@ func TestWaiting_CanTransitionTo(t *testing.T) {
 }
 
 func TestWaiting_ExecuteInbound(t *testing.T) {
-	followup, err := (&waiting{}).ExecuteInbound(internalContext{}, &metaData{})
+	followup, err := (&waiting{}).ExecuteInbound(nil, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 }
 
 func TestWaiting_ExecuteOutbound(t *testing.T) {
-	followup, err := (&waiting{}).ExecuteOutbound(internalContext{}, &metaData{})
+	followup, err := (&waiting{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -309,7 +306,7 @@ func TestRequesting_CanTransitionTo(t *testing.T) {
 }
 
 func TestRequesting_ExecuteInbound(t *testing.T) {
-	followup, err := (&requesting{}).ExecuteInbound(internalContext{}, &metaData{})
+	followup, err := (&requesting{}).ExecuteInbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -318,7 +315,7 @@ func TestRequesting_ExecuteOutbound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	followup, err := (&requesting{}).ExecuteOutbound(internalContext{}, &metaData{
+	followup, err := (&requesting{}).ExecuteOutbound(nil, &metaData{
 		Msg: &service.DIDCommMsg{Payload: []byte(`[]`)},
 	})
 
