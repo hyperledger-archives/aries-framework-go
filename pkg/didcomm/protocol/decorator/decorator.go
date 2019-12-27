@@ -21,8 +21,10 @@ const (
 
 // Thread thread data
 type Thread struct {
-	ID  string `json:"thid,omitempty"`
-	PID string `json:"pthid"`
+	ID             string         `json:"thid,omitempty"`
+	PID            string         `json:"pthid,omitempty"`
+	SenderOrder    int            `json:"sender_order,omitempty"`
+	ReceivedOrders map[string]int `json:"received_orders,omitempty"`
 }
 
 // Timing keeps expiration time

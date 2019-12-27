@@ -25,7 +25,6 @@ type Handler interface {
 type DIDComm interface {
 	// service handler
 	Handler
-
 	// event service
 	Event
 }
@@ -45,8 +44,23 @@ func (h *Header) clone() *Header {
 	return &Header{
 		ID: h.ID,
 		Thread: decorator.Thread{
-			ID:  h.Thread.ID,
-			PID: h.Thread.PID,
+			ID:          h.Thread.ID,
+			PID:         h.Thread.PID,
+			SenderOrder: h.Thread.SenderOrder,
+			// copies ReceivedOrders value
+			ReceivedOrders: func() map[string]int {
+				if h.Thread.ReceivedOrders == nil {
+					return nil
+				}
+
+				orders := make(map[string]int, len(h.Thread.ReceivedOrders))
+
+				for k, v := range h.Thread.ReceivedOrders {
+					orders[k] = v
+				}
+
+				return orders
+			}(),
 		},
 		Type: h.Type,
 	}
