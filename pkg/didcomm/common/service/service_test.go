@@ -124,4 +124,16 @@ func TestDIDCommMsg_Clone(t *testing.T) {
 	// modifies Header
 	didMsg.Header.ID = "newID"
 	require.NotEqual(t, didMsg, cloned)
+
+	// clone DIDCommMsg with ReceivedOrders in Thread
+	didMsg = &DIDCommMsg{Payload: []byte{0x1}, Header: &Header{
+		ID: "ID",
+		Thread: decorator.Thread{
+			ID:             "ID",
+			ReceivedOrders: map[string]int{"did:sov:qwerty": 0},
+		},
+		Type: "Type",
+	}}
+	cloned = didMsg.Clone()
+	require.Equal(t, didMsg, cloned)
 }
