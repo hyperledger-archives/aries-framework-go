@@ -226,8 +226,10 @@ func TestInvitedState_Execute(t *testing.T) {
 	})
 	t.Run("followup to 'requested' on inbound invitations", func(t *testing.T) {
 		invitationPayloadBytes, err := json.Marshal(&Invitation{
-			Type:            InvitationMsgType,
-			ID:              randomString(),
+			Header: service.Header{
+				ID:   generateRandomID(),
+				Type: InvitationMsgType,
+			},
 			Label:           "Bob",
 			RecipientKeys:   []string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
 			ServiceEndpoint: "https://localhost:8090",
@@ -251,8 +253,10 @@ func TestRequestedState_Execute(t *testing.T) {
 	prov := getProvider()
 	// Alice receives an invitation from Bob
 	invitationPayloadBytes, err := json.Marshal(&Invitation{
-		Type:            InvitationMsgType,
-		ID:              randomString(),
+		Header: service.Header{
+			ID:   generateRandomID(),
+			Type: InvitationMsgType,
+		},
 		Label:           "Bob",
 		RecipientKeys:   []string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
 		ServiceEndpoint: "https://localhost:8090",
@@ -432,12 +436,14 @@ func TestCompletedState_Execute(t *testing.T) {
 	require.NoError(t, err)
 
 	response := &Response{
-		Type:                ResponseMsgType,
-		ID:                  randomString(),
-		ConnectionSignature: connectionSignature,
-		Thread: &decorator.Thread{
-			ID: "test",
+		Header: service.Header{
+			ID: generateRandomID(),
+			Thread: &decorator.Thread{
+				ID: "test",
+			},
+			Type: ResponseMsgType,
 		},
+		ConnectionSignature: connectionSignature,
 	}
 	responsePayloadBytes, err := json.Marshal(response)
 	require.NoError(t, err)
@@ -476,12 +482,15 @@ func TestCompletedState_Execute(t *testing.T) {
 		err = ctx.connectionStore.saveNSThreadID(response.Thread.ID, findNameSpace(AckMsgType), connRec.ConnectionID)
 		require.NoError(t, err)
 		ack := &model.Ack{
-			Type:   AckMsgType,
-			ID:     randomString(),
+			Header: service.Header{
+				ID: generateRandomID(),
+				Thread: &decorator.Thread{
+					ID: response.Thread.ID,
+				},
+				Type: AckMsgType,
+			},
 			Status: ackStatusOK,
-			Thread: &decorator.Thread{
-				ID: response.Thread.ID,
-			}}
+		}
 		ackPayloadBytes, e := json.Marshal(ack)
 		require.NoError(t, e)
 		_, followup, _, e := (&completed{}).ExecuteInbound(&stateMachineMsg{
@@ -708,9 +717,11 @@ func TestPrepareConnectionSignature(t *testing.T) {
 	})
 	t.Run("prepare connection signature get invitation", func(t *testing.T) {
 		inv := &Invitation{
-			Type: InvitationMsgType,
-			ID:   randomString(),
-			DID:  "test",
+			Header: service.Header{
+				ID:   generateRandomID(),
+				Type: InvitationMsgType,
+			},
+			DID: "test",
 		}
 		err := ctx.connectionStore.SaveInvitation(invitation)
 		require.NoError(t, err)
@@ -738,8 +749,10 @@ func TestPrepareConnectionSignature(t *testing.T) {
 
 func TestNewRequestFromInvitation(t *testing.T) {
 	invitation := &Invitation{
-		Type:            InvitationMsgType,
-		ID:              randomString(),
+		Header: service.Header{
+			ID:   generateRandomID(),
+			Type: InvitationMsgType,
+		},
 		Label:           "Bob",
 		RecipientKeys:   []string{"8HH5gYEeNc3z7PYXmd54d4x6qAfCNrqQqEB3nS7Zfu7K"},
 		ServiceEndpoint: "https://localhost:8090",
@@ -860,14 +873,14 @@ func TestHandleInboundResponse(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("handle inbound responses get connection record error", func(t *testing.T) {
-		response := &Response{Thread: &decorator.Thread{ID: "test"}}
+		response := &Response{Header: service.Header{Thread: &decorator.Thread{ID: "test"}}}
 		_, connRec, err := ctx.handleInboundResponse(response)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get connection record")
 		require.Nil(t, connRec)
 	})
 	t.Run("handle inbound responses get connection record error", func(t *testing.T) {
-		response := &Response{Thread: &decorator.Thread{ID: ""}}
+		response := &Response{Header: service.Header{Thread: &decorator.Thread{ID: ""}}}
 		_, connRec, err := ctx.handleInboundResponse(response)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "empty bytes")
@@ -889,8 +902,10 @@ func TestGetInvitationRecipientKey(t *testing.T) {
 
 	t.Run("successfully getting invitation recipient key", func(t *testing.T) {
 		invitation := &Invitation{
-			Type:            InvitationMsgType,
-			ID:              randomString(),
+			Header: service.Header{
+				ID:   generateRandomID(),
+				Type: InvitationMsgType,
+			},
 			Label:           "Bob",
 			RecipientKeys:   []string{"test"},
 			ServiceEndpoint: "http://alice.agent.example.com:8081",
@@ -903,9 +918,11 @@ func TestGetInvitationRecipientKey(t *testing.T) {
 		doc := mockdiddoc.GetMockDIDDoc()
 		ctx := context{vdriRegistry: &mockvdri.MockVDRIRegistry{ResolveValue: doc}}
 		invitation := &Invitation{
-			Type: InvitationMsgType,
-			ID:   randomString(),
-			DID:  doc.ID,
+			Header: service.Header{
+				ID:   generateRandomID(),
+				Type: InvitationMsgType,
+			},
+			DID: doc.ID,
 		}
 		recKey, err := ctx.getInvitationRecipientKey(invitation)
 		require.NoError(t, err)
@@ -913,9 +930,11 @@ func TestGetInvitationRecipientKey(t *testing.T) {
 	})
 	t.Run("failed to get invitation recipient key", func(t *testing.T) {
 		invitation := &Invitation{
-			Type: InvitationMsgType,
-			ID:   randomString(),
-			DID:  "test",
+			Header: service.Header{
+				ID:   generateRandomID(),
+				Type: InvitationMsgType,
+			},
+			DID: "test",
 		}
 		_, err := ctx.getInvitationRecipientKey(invitation)
 		require.Error(t, err)
@@ -1110,13 +1129,14 @@ func createRequest(ctx *context) (*Request, error) {
 	newDidDoc := createDIDDocWithKey(pubKey)
 	// Prepare did-exchange inbound request
 	request := &Request{
-		Type:  RequestMsgType,
-		ID:    randomString(),
-		Label: "Bob",
-		Thread: &decorator.Thread{
-			PID: invitation.ID,
+		Header: service.Header{
+			ID:   generateRandomID(),
+			Type: RequestMsgType,
+			Thread: &decorator.Thread{
+				PID: invitation.ID,
+			},
 		},
-
+		Label: "Bob",
 		Connection: &Connection{
 			DID:    newDidDoc.ID,
 			DIDDoc: newDidDoc,
@@ -1143,10 +1163,12 @@ func createResponse(request *Request, ctx *context) (*Response, error) {
 	}
 
 	response := &Response{
-		Type: ResponseMsgType,
-		ID:   randomString(),
-		Thread: &decorator.Thread{
-			ID: request.ID,
+		Header: service.Header{
+			ID:   generateRandomID(),
+			Type: ResponseMsgType,
+			Thread: &decorator.Thread{
+				ID: request.ID,
+			},
 		},
 		ConnectionSignature: connectionSignature,
 	}
@@ -1195,8 +1217,10 @@ func generateKeyPair() (string, []byte) {
 
 func createMockInvitation(pubKey string, ctx *context) (*Invitation, error) {
 	invitation := &Invitation{
-		Type:            InvitationMsgType,
-		ID:              randomString(),
+		Header: service.Header{
+			ID:   generateRandomID(),
+			Type: InvitationMsgType,
+		},
 		Label:           "Bob",
 		RecipientKeys:   []string{pubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",

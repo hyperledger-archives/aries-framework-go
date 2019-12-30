@@ -59,27 +59,33 @@ func TestDIDCommMsg_ThreadID(t *testing.T) {
 		val  string
 		err  string
 	}{{
-		name: "No header",
-		msg:  DIDCommMsg{},
-		err:  ErrNoHeader.Error(),
-	}, {
 		name: "ID without Thread ID",
 		msg:  DIDCommMsg{Header: &Header{ID: "ID"}},
 		val:  "ID",
 		err:  "",
 	}, {
 		name: "Thread ID with ID",
-		msg:  DIDCommMsg{Header: &Header{ID: "ID", Thread: decorator.Thread{ID: "thID"}}},
+		msg:  DIDCommMsg{Header: &Header{ID: "ID", Thread: &decorator.Thread{ID: "thID"}}},
 		val:  "thID",
 		err:  "",
 	}, {
 		name: "Thread ID without ID",
-		msg:  DIDCommMsg{Header: &Header{Thread: decorator.Thread{ID: "thID"}}},
+		msg:  DIDCommMsg{Header: &Header{Thread: &decorator.Thread{ID: "thID"}}},
 		val:  "",
 		err:  ErrInvalidMessage.Error(),
 	}, {
 		name: "No Thread ID and ID",
 		msg:  DIDCommMsg{Header: &Header{}},
+		val:  "",
+		err:  ErrInvalidMessage.Error(),
+	}, {
+		name: "ID without Thread ID (empty Thread)",
+		msg:  DIDCommMsg{Header: &Header{ID: "ID", Thread: &decorator.Thread{}}},
+		val:  "ID",
+		err:  "",
+	}, {
+		name: "without ID and Thread ID (empty Thread)",
+		msg:  DIDCommMsg{Header: &Header{Thread: &decorator.Thread{}}},
 		val:  "",
 		err:  ErrThreadIDNotFound.Error(),
 	}}
@@ -116,7 +122,7 @@ func TestDIDCommMsg_Clone(t *testing.T) {
 	// clone DIDCommMsg with Payload and Header
 	didMsg = &DIDCommMsg{Payload: []byte{0x1}, Header: &Header{
 		ID:     "ID",
-		Thread: decorator.Thread{ID: "ID"},
+		Thread: &decorator.Thread{ID: "ID"},
 		Type:   "Type",
 	}}
 	cloned = didMsg.Clone()
@@ -128,7 +134,7 @@ func TestDIDCommMsg_Clone(t *testing.T) {
 	// clone DIDCommMsg with ReceivedOrders in Thread
 	didMsg = &DIDCommMsg{Payload: []byte{0x1}, Header: &Header{
 		ID: "ID",
-		Thread: decorator.Thread{
+		Thread: &decorator.Thread{
 			ID:             "ID",
 			ReceivedOrders: map[string]int{"did:sov:qwerty": 0},
 		},
@@ -136,4 +142,46 @@ func TestDIDCommMsg_Clone(t *testing.T) {
 	}}
 	cloned = didMsg.Clone()
 	require.Equal(t, didMsg, cloned)
+}
+
+func TestHeader_MsgID(t *testing.T) {
+	const ID = "id"
+
+	h := Header{ID: ID}
+	require.Equal(t, ID, h.MsgID())
+
+	hp := &Header{ID: ID}
+	require.Equal(t, ID, hp.MsgID())
+
+	var hNil *Header
+
+	require.Equal(t, "", hNil.MsgID())
+}
+
+func TestHeader_MsgThread(t *testing.T) {
+	var Thread = &decorator.Thread{}
+
+	h := Header{Thread: Thread}
+	require.Equal(t, Thread, h.MsgThread())
+
+	hp := &Header{Thread: Thread}
+	require.Equal(t, Thread, hp.MsgThread())
+
+	var hNil *Header
+
+	require.Nil(t, hNil.MsgThread())
+}
+
+func TestHeader_MsgType(t *testing.T) {
+	const Type = "type"
+
+	h := Header{Type: Type}
+	require.Equal(t, Type, h.MsgType())
+
+	hp := &Header{Type: Type}
+	require.Equal(t, Type, hp.MsgType())
+
+	var hNil *Header
+
+	require.Equal(t, "", hNil.MsgType())
 }

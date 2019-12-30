@@ -74,7 +74,7 @@ func TestClient_handleOutbound(t *testing.T) {
 	t.Run("outbound threadID", func(t *testing.T) {
 		c := &Client{}
 		err := c.handleOutbound(struct{}{}, InvitationEnvelope{})
-		const errMsg = "outbound threadID: threadID not found"
+		const errMsg = "outbound threadID: invalid message"
 		require.EqualError(t, err, errMsg)
 	})
 }
@@ -152,7 +152,7 @@ func TestClient_SendProposalWithInvitation(t *testing.T) {
 
 	opts := InvitationEnvelope{
 		Inv: &didexchange.Invitation{
-			ID: UUID,
+			Header: service.Header{ID: UUID},
 		},
 		Recps: []*introduce.Recipient{
 			{MyDID: "My_DID", TheirDID: "THEIR_DID"},
@@ -212,15 +212,14 @@ func TestClient_HandleRequest(t *testing.T) {
 	client.newUUID = func() string { return UUID }
 
 	msg, err := service.NewDIDCommMsg(toBytes(t, &introduce.Request{
-		Type: introduce.RequestMsgType,
-		ID:   UUID,
+		Header: service.Header{ID: UUID, Type: introduce.RequestMsgType},
 	}))
 	require.NoError(t, err)
 	require.NoError(t, client.HandleRequest(*msg, opts.Recps[0].To, opts.Recps[1]))
 
 	// cover error case
 	err = client.HandleRequest(service.DIDCommMsg{}, opts.Recps[0].To, opts.Recps[1])
-	require.EqualError(t, errors.Unwrap(err), service.ErrNoHeader.Error())
+	require.Equal(t, errors.Unwrap(err), service.ErrInvalidMessage)
 }
 
 func TestClient_HandleRequestWithInvitation(t *testing.T) {
@@ -231,7 +230,7 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 
 	opts := InvitationEnvelope{
 		Inv: &didexchange.Invitation{
-			ID: UUID,
+			Header: service.Header{ID: UUID},
 		},
 		Recps: []*introduce.Recipient{
 			{To: &introduce.To{Name: "Carol"}},
@@ -255,15 +254,14 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 
 	require.NoError(t, err)
 	msg, err := service.NewDIDCommMsg(toBytes(t, &introduce.Request{
-		Type: introduce.RequestMsgType,
-		ID:   UUID,
+		Header: service.Header{ID: UUID, Type: introduce.RequestMsgType},
 	}))
 	require.NoError(t, err)
 	require.NoError(t, client.HandleRequestWithInvitation(*msg, opts.Inv, opts.Recps[0].To))
 
 	// cover error case
 	err = client.HandleRequestWithInvitation(service.DIDCommMsg{}, opts.Inv, opts.Recps[0].To)
-	require.EqualError(t, errors.Unwrap(err), service.ErrNoHeader.Error())
+	require.Equal(t, errors.Unwrap(err), service.ErrInvalidMessage)
 }
 
 func TestClient_InvitationEnvelope(t *testing.T) {
@@ -291,7 +289,7 @@ func TestClient_InvitationEnvelope(t *testing.T) {
 
 	opts := InvitationEnvelope{
 		Inv: &didexchange.Invitation{
-			ID: UUID,
+			Header: service.Header{ID: UUID},
 		},
 		Recps: []*introduce.Recipient{
 			{To: &introduce.To{Name: "Carol"}, MyDID: "My_DID1", TheirDID: "THEIR_DID1"},

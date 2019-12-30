@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -32,13 +33,13 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 			packagerValue:           &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
 		})
-		require.NoError(t, o.Send("data", "", &service.Destination{ServiceEndpoint: "url"}))
+		require.NoError(t, o.Send(&model.Ack{}, "", &service.Destination{ServiceEndpoint: "url"}))
 	})
 
 	t.Run("test no outbound transport found", func(t *testing.T) {
 		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: false}}})
-		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
+		err := o.Send(&model.Ack{}, "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no outbound transport found for serviceEndpoint: url")
 	})
@@ -46,7 +47,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 	t.Run("test pack msg failure", func(t *testing.T) {
 		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{PackErr: fmt.Errorf("pack error")},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}}})
-		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
+		err := o.Send(&model.Ack{}, "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "pack error")
 	})
@@ -55,7 +56,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		o := NewOutbound(&mockProvider{packagerValue: &mockpackager.Packager{},
 			outboundTransportsValue: []transport.OutboundTransport{
 				&mockdidcomm.MockOutboundTransport{AcceptValue: true, SendErr: fmt.Errorf("send error")}}})
-		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
+		err := o.Send(&model.Ack{}, "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
 	})
@@ -75,7 +76,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			},
 		})
 
-		require.NoError(t, o.SendToDID("data", "", ""))
+		require.NoError(t, o.SendToDID(&model.Ack{}, "", ""))
 	})
 
 	t.Run("resolve err", func(t *testing.T) {
@@ -89,7 +90,7 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 			},
 		})
 
-		err := o.SendToDID("data", "", "")
+		err := o.SendToDID(&model.Ack{}, "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
 	})
@@ -98,13 +99,13 @@ func TestOutboundDispatcher_SendToDID(t *testing.T) {
 func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 	t.Run("transport route option - value set all", func(t *testing.T) {
 		transportReturnRoute := "all"
-		req := &decorator.Thread{
-			ID: uuid.New().String(),
+		req := &model.Ack{
+			Header: service.Header{ID: uuid.New().String()},
 		}
 
 		outboundReq := struct {
 			*decorator.Transport
-			*decorator.Thread
+			*model.Ack
 		}{
 			&decorator.Transport{ReturnRoute: &decorator.ReturnRoute{Value: transportReturnRoute}},
 			req,
@@ -126,13 +127,13 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 
 	t.Run("transport route option - value set thread", func(t *testing.T) {
 		transportReturnRoute := "thread"
-		req := &decorator.Thread{
-			ID: uuid.New().String(),
+		req := &model.Ack{
+			Header: service.Header{ID: uuid.New().String()},
 		}
 
 		outboundReq := struct {
 			*decorator.Transport
-			*decorator.Thread
+			*model.Ack
 		}{
 			&decorator.Transport{ReturnRoute: &decorator.ReturnRoute{Value: transportReturnRoute}},
 			req,
@@ -153,8 +154,8 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 	})
 
 	t.Run("transport route option - no value set", func(t *testing.T) {
-		req := &decorator.Thread{
-			ID: uuid.New().String(),
+		req := &model.Ack{
+			Header: service.Header{ID: uuid.New().String()},
 		}
 
 		expectedRequest, err := json.Marshal(req)

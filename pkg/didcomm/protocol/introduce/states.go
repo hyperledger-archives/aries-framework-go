@@ -153,10 +153,12 @@ func (s *arranging) ExecuteInbound(dis dispatcher.Outbound, m *metaData) (state,
 	}
 
 	return &noOp{}, dis.SendToDID(&Proposal{
-		Type:   ProposalMsgType,
-		ID:     uuid.New().String(),
-		To:     recipient.To,
-		Thread: &decorator.Thread{ID: m.ThreadID},
+		Header: service.Header{
+			ID:     uuid.New().String(),
+			Thread: &decorator.Thread{ID: m.ThreadID},
+			Type:   ProposalMsgType,
+		},
+		To: recipient.To,
 	}, recipient.MyDID, recipient.TheirDID)
 }
 
@@ -209,8 +211,11 @@ func getApproveFromMsg(msg *service.DIDCommMsg) (bool, bool) {
 
 func sendProblemReport(dis dispatcher.Outbound, m *metaData, recipients []*Recipient) (state, error) {
 	problem := &model.ProblemReport{
-		Type: ProblemReportMsgType,
-		ID:   m.ThreadID,
+		Header: service.Header{
+			ID:     uuid.New().String(),
+			Thread: &decorator.Thread{PID: m.ThreadID},
+			Type:   ProblemReportMsgType,
+		},
 	}
 
 	for _, recipient := range recipients {
@@ -280,9 +285,11 @@ func (s *confirming) ExecuteInbound(dis dispatcher.Outbound, m *metaData) (state
 	recipient := m.Recipients[m.IntroduceeIndex]
 
 	err := dis.SendToDID(&model.Ack{
-		Type:   AckMsgType,
-		ID:     uuid.New().String(),
-		Thread: &decorator.Thread{ID: m.ThreadID},
+		Header: service.Header{
+			ID:     uuid.New().String(),
+			Thread: &decorator.Thread{ID: m.ThreadID},
+			Type:   AckMsgType,
+		},
 	}, recipient.MyDID, recipient.TheirDID)
 
 	if err != nil {
@@ -382,9 +389,11 @@ func (s *deciding) ExecuteInbound(dis dispatcher.Outbound, m *metaData) (state, 
 	}
 
 	return st, dis.SendToDID(&Response{
-		Type:       ResponseMsgType,
-		ID:         uuid.New().String(),
-		Thread:     &decorator.Thread{ID: m.ThreadID},
+		Header: service.Header{
+			ID:     uuid.New().String(),
+			Thread: &decorator.Thread{ID: m.ThreadID},
+			Type:   ResponseMsgType,
+		},
 		Invitation: inv,
 		Approve:    !m.disapprove,
 	}, m.myDID, m.theirDID)

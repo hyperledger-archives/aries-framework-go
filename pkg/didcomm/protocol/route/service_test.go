@@ -386,8 +386,10 @@ func TestSendRequest(t *testing.T) {
 
 func generateRequestMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
 	requestBytes, err := json.Marshal(&Request{
-		Type: RequestMsgType,
-		ID:   id,
+		Header: service.Header{
+			Type: RequestMsgType,
+			ID:   id,
+		},
 	})
 	require.NoError(t, err)
 
@@ -399,8 +401,10 @@ func generateRequestMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
 
 func generateGrantMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
 	grantBytes, err := json.Marshal(&Grant{
-		Type: GrantMsgType,
-		ID:   id,
+		Header: service.Header{
+			Type: GrantMsgType,
+			ID:   id,
+		},
 	})
 	require.NoError(t, err)
 
@@ -426,8 +430,10 @@ func generateKeyUpdateListMsgPayload(t *testing.T, id string, updates []Update) 
 
 func generateKeylistUpdateResponseMsgPayload(t *testing.T, id string, updates []UpdateResponse) *service.DIDCommMsg {
 	respBytes, err := json.Marshal(&KeylistUpdateResponse{
-		Type:    KeylistUpdateResponseMsgType,
-		ID:      id,
+		Header: service.Header{
+			Type: KeylistUpdateResponseMsgType,
+			ID:   id,
+		},
 		Updated: updates,
 	})
 	require.NoError(t, err)

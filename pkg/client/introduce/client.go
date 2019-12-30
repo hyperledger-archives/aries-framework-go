@@ -109,8 +109,10 @@ func (c *Client) SendProposalWithInvitation(inv *didexchange.Invitation, recipie
 // sending a request means that introducee is willing to share its invitation
 func (c *Client) SendRequest(to *introduce.PleaseIntroduceTo, myDID, theirDID string) error {
 	return c.handleOutbound(&introduce.Request{
-		Type:              introduce.RequestMsgType,
-		ID:                c.newUUID(),
+		Header: service.Header{
+			ID:   c.newUUID(),
+			Type: introduce.RequestMsgType,
+		},
 		PleaseIntroduceTo: to,
 	}, InvitationEnvelope{
 		Recps: []*introduce.Recipient{{MyDID: myDID, TheirDID: theirDID}},
@@ -192,9 +194,11 @@ func (o *InvitationEnvelope) Recipients() []*introduce.Recipient {
 // sendProposal sends proposal
 func (c *Client) sendProposal(o InvitationEnvelope) error {
 	return c.handleOutbound(&introduce.Proposal{
-		Type: introduce.ProposalMsgType,
-		ID:   c.newUUID(),
-		To:   o.Recps[0].To,
+		Header: service.Header{
+			ID:   c.newUUID(),
+			Type: introduce.ProposalMsgType,
+		},
+		To: o.Recps[0].To,
 	}, o)
 }
 

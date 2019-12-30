@@ -31,9 +31,64 @@ type DIDComm interface {
 
 // Header helper structure which keeps reusable fields
 type Header struct {
-	ID     string           `json:"@id"`
-	Thread decorator.Thread `json:"~thread"`
-	Type   string           `json:"@type"`
+	ID     string            `json:"@id,omitempty"`
+	Thread *decorator.Thread `json:"~thread,omitempty"`
+	Type   string            `json:"@type,omitempty"`
+}
+
+// MsgID returns message ID
+func (h *Header) MsgID() string {
+	if h != nil {
+		return h.ID
+	}
+
+	return ""
+}
+
+// MsgThread returns message thread decorator
+func (h *Header) MsgThread() *decorator.Thread {
+	if h != nil {
+		return h.Thread
+	}
+
+	return nil
+}
+
+// MsgType returns message type
+func (h *Header) MsgType() string {
+	if h != nil {
+		return h.Type
+	}
+
+	return ""
+}
+
+// ThreadID returns msg ~thread.thid if there is no ~thread.thid returns msg @id
+// message is invalid if ~thread.thid exist and @id is absent
+func (h *Header) ThreadID() (string, error) {
+	// we need to return it only if there is no ~thread.thid
+	if h.MsgThread() == nil {
+		if len(h.MsgID()) > 0 {
+			return h.MsgID(), nil
+		}
+
+		return "", ErrInvalidMessage
+	}
+
+	// if message has ~thread.thid but @id is absent this is invalid message
+	if len(h.MsgThread().ID) > 0 && h.MsgID() == "" {
+		return "", ErrInvalidMessage
+	}
+
+	if len(h.MsgThread().ID) > 0 {
+		return h.MsgThread().ID, nil
+	}
+
+	if len(h.MsgID()) > 0 {
+		return h.MsgID(), nil
+	}
+
+	return "", ErrThreadIDNotFound
 }
 
 func (h *Header) clone() *Header {
@@ -41,9 +96,17 @@ func (h *Header) clone() *Header {
 		return nil
 	}
 
+	if h.MsgThread() == nil {
+		return &Header{
+			ID:     h.MsgID(),
+			Thread: h.MsgThread(),
+			Type:   h.MsgType(),
+		}
+	}
+
 	return &Header{
-		ID: h.ID,
-		Thread: decorator.Thread{
+		ID: h.MsgID(),
+		Thread: &decorator.Thread{
 			ID:          h.Thread.ID,
 			PID:         h.Thread.PID,
 			SenderOrder: h.Thread.SenderOrder,
@@ -62,28 +125,14 @@ func (h *Header) clone() *Header {
 				return orders
 			}(),
 		},
-		Type: h.Type,
+		Type: h.MsgType(),
 	}
 }
 
 // DIDCommMsg did comm msg
 type DIDCommMsg struct {
-	Header  *Header
+	*Header
 	Payload []byte
-}
-
-// Clone creates new DIDCommMsg with the same data
-// the cloned message is safe for delivering to the client
-// it prevents modifying by the client
-func (m *DIDCommMsg) Clone() *DIDCommMsg {
-	if m == nil {
-		return nil
-	}
-
-	return &DIDCommMsg{
-		Header:  m.Header.clone(),
-		Payload: append(m.Payload[:0:0], m.Payload...),
-	}
 }
 
 // NewDIDCommMsg returns DIDCommMsg with Header
@@ -98,27 +147,16 @@ func NewDIDCommMsg(payload []byte) (*DIDCommMsg, error) {
 	return msg, nil
 }
 
-// ThreadID returns msg ~thread.thid if there is no ~thread.thid returns msg @id
-// message is invalid if ~thread.thid exist and @id is absent
-// NOTE: Header field should be filled before calling ThreadID func
-// it can be done by using NewDIDCommMsg([]byte) func or directly set a Header value
-func (m *DIDCommMsg) ThreadID() (string, error) {
-	if m.Header == nil {
-		return "", ErrNoHeader
-	}
-	// if message has ~thread.thid but @id is absent this is invalid message
-	if len(m.Header.Thread.ID) > 0 && m.Header.ID == "" {
-		return "", ErrInvalidMessage
+// Clone creates new DIDCommMsg with the same data
+// the cloned message is safe for delivering to the client
+// it prevents modifying by the client
+func (m *DIDCommMsg) Clone() *DIDCommMsg {
+	if m == nil {
+		return nil
 	}
 
-	if len(m.Header.Thread.ID) > 0 {
-		return m.Header.Thread.ID, nil
+	return &DIDCommMsg{
+		Header:  m.Header.clone(),
+		Payload: append(m.Payload[:0:0], m.Payload...),
 	}
-
-	// we need to return it only if there is no ~thread.thid
-	if len(m.Header.ID) > 0 {
-		return m.Header.ID, nil
-	}
-
-	return "", ErrThreadIDNotFound
 }
