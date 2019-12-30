@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -84,6 +85,9 @@ const defaultSchema = `{
         },
         {
           "type": "object"
+        },
+        {
+          "type": "string"
         }
       ]
     },
@@ -200,16 +204,32 @@ const (
 type vcModelValidationMode int
 
 const (
+	// combinedValidation when set it makes JSON validation using JSON Schema and JSON-LD validation.
+	//
+	// JSON validation verifies the format of the fields and the presence of
+	// mandatory fields. It can also decline VC with field(s) not defined in the schema if
+	// additionalProperties=true is configured in that schema. To enable such check for base JSON schema, use
+	// WithStrictValidation() option.
+	//
+	// JSON-LD validation is applied when there is more than one (base) context defined. In this case,
+	// JSON-LD parser can load machine-readable vocabularies used to describe information in the data model.
+	// In JSON-LD schemas, it's not possible to define custom mandatory fields. A possibility to decline
+	// JSON document with field(s) not defined in any of JSON-LD schema is built on top of JSON-LD parser and is
+	// enabled using WithStrictValidation().
+	//
+	// This is a default validation mode.
+	combinedValidation vcModelValidationMode = iota
+
+	// jsonldValidation when set it uses JSON-LD parser for validation.
+	jsonldValidation
+
 	// baseContextValidation when defined it's validated that only the fields and values (when applicable)
 	// are present in the document. No extra fields are allowed (outside of credentialSubject).
-	baseContextValidation vcModelValidationMode = iota
+	baseContextValidation
 
 	// baseContextExtendedValidation when set it's validated that fields that are specified in base context are
 	// as specified. Additional fields are allowed.
 	baseContextExtendedValidation
-
-	// jsonldValidation Use the JSON LD parser for validation.
-	jsonldValidation
 )
 
 // SchemaCache defines a cache of credential schemas.
@@ -398,14 +418,6 @@ func (rc *rawCredential) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type credentialSchemaSingle struct {
-	Schema TypedID `json:"credentialSchema,omitempty"`
-}
-
-type credentialSchemaMultiple struct {
-	Schemas []TypedID `json:"credentialSchema,omitempty"`
-}
-
 type compositeIssuer struct {
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
@@ -427,6 +439,8 @@ type credentialOpts struct {
 	allowedCustomContexts  map[string]bool
 	allowedCustomTypes     map[string]bool
 	disabledProofCheck     bool
+	jsonldDocumentLoader   ld.DocumentLoader
+	strictValidation       bool
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
@@ -491,6 +505,27 @@ func WithBaseContextExtendedValidation(customContexts, customTypes []string) Cre
 	}
 }
 
+// WithJSONLDDocumentLoader defines custom JSON-LD document loader. If not defined, when decoding VC
+// a new document loader will be created using CachingJSONLDLoader() if JSON-LD validation is made.
+func WithJSONLDDocumentLoader(documentLoader ld.DocumentLoader) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.jsonldDocumentLoader = documentLoader
+	}
+}
+
+// WithStrictValidation enabled strict validation of VC.
+//
+// In case of JSON Schema validation, additionalProperties=true is set on the schema.
+//
+// In case of JSON-LD validation, the comparison of JSON-LD VC document after compaction with original VC one is made.
+// In case when any field (root one or inside credentialSubject) not defined in any JSON-LD schema is present
+// the validation exception is raised.
+func WithStrictValidation() CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.strictValidation = true
+	}
+}
+
 // decodeIssuer decodes raw issuer.
 //
 // Issuer can be defined by:
@@ -540,26 +575,36 @@ func decodeIssuer(issuer interface{}) (Issuer, error) {
 	}
 }
 
-// decodeCredentialSchema decodes credential schema(s).
+// decodeCredentialSchemas decodes credential schema(s).
 //
 // credential schema can be defined as a single object or array of objects.
-func decodeCredentialSchema(data []byte) ([]TypedID, error) {
-	// Credential schema is defined by
-	single := credentialSchemaSingle{}
+func decodeCredentialSchemas(data *rawCredential) ([]TypedID, error) {
+	switch schema := data.Schema.(type) {
+	case []interface{}:
+		tids := make([]TypedID, len(schema))
 
-	err := json.Unmarshal(data, &single)
-	if err == nil {
-		return []TypedID{single.Schema}, nil
+		for i := range schema {
+			tid, err := newTypedID(schema[i])
+			if err != nil {
+				return nil, err
+			}
+
+			tids[i] = tid
+		}
+
+		return tids, nil
+
+	case interface{}:
+		tid, err := newTypedID(schema)
+		if err != nil {
+			return nil, err
+		}
+
+		return []TypedID{tid}, nil
+
+	default:
+		return nil, errors.New("verifiable credential schema of unsupported format")
 	}
-
-	multiple := credentialSchemaMultiple{}
-
-	err = json.Unmarshal(data, &multiple)
-	if err == nil {
-		return multiple.Schemas, nil
-	}
-
-	return nil, errors.New("verifiable credential schema of unsupported format")
 }
 
 // NewCredential decodes Verifiable Credential from bytes which could be marshalled JSON or serialized JWT.
@@ -587,30 +632,13 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, e
 		return nil, nil, fmt.Errorf("unmarshal new credential: %w", err)
 	}
 
-	// Load custom credential schemas if defined.
-	var schemas []TypedID
-	if raw.Schema != nil {
-		schemas, err = loadCredentialSchemas(vcDataDecoded)
-		if err != nil {
-			return nil, nil, fmt.Errorf("load schemas of new credential: %w", err)
-		}
-	} else {
-		schemas = make([]TypedID, 0)
-	}
-
-	// Validate raw credential.
-	err = validate(vcDataDecoded, schemas, vcOpts)
-	if err != nil {
-		return nil, nil, fmt.Errorf("validate new credential: %w", err)
-	}
-
 	// Create credential from raw.
-	vc, err := newCredential(&raw, schemas)
+	vc, err := newCredential(&raw)
 	if err != nil {
 		return nil, nil, fmt.Errorf("build new credential: %w", err)
 	}
 
-	err = postValidateCredential(vc, vcOpts)
+	err = validateCredential(vc, vcDataDecoded, vcOpts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -618,25 +646,40 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, e
 	return vc, vcDataDecoded, nil
 }
 
-func postValidateCredential(vc *Credential, vcOpts *credentialOpts) error {
+func validateCredential(vc *Credential, vcBytes []byte, vcOpts *credentialOpts) error {
 	// Credential and type constraint.
 	switch vcOpts.modelValidationMode {
-	case jsonldValidation:
-		// todo support JSON-LD validation (https://github.com/hyperledger/aries-framework-go/issues/952)
+	case combinedValidation:
+		// TODO Validation mechanism will be changed after completing of #968 and #976
+		// Validate VC using JSON schema. Even in case of VC data model extension (i.e. more than one @context
+		// is defined and thus JSON-LD validation is made), it's reasonable to do JSON Schema validation
+		// prior to the JSON-LD one as the former does not check several aspects like mandatory fields or fields format.
+		err := vc.validateJSONSchema(vcBytes, vcOpts)
+		if err != nil {
+			return err
+		}
+
+		if len(vc.Context) > 1 {
+			return vc.validateJSONLD(vcOpts)
+		}
+
 		return nil
 
+	case jsonldValidation:
+		return vc.validateJSONLD(vcOpts)
+
 	case baseContextValidation:
-		return validateBaseOnlyContextType(vc)
+		return validateBaseContext(vc, vcBytes, vcOpts)
 
 	case baseContextExtendedValidation:
-		return validateCustomContextType(vc, vcOpts)
+		return validateBaseContextWithExtendedValidation(vc, vcOpts, vcBytes)
 
 	default:
 		return fmt.Errorf("unsupported vcModelValidationMode: %v", vcOpts.modelValidationMode)
 	}
 }
 
-func validateBaseOnlyContextType(vc *Credential) error {
+func validateBaseContext(vc *Credential, vcBytes []byte, vcOpts *credentialOpts) error {
 	if len(vc.Types) > 1 || vc.Types[0] != vcType {
 		return errors.New("violated type constraint: not base only type defined")
 	}
@@ -645,10 +688,10 @@ func validateBaseOnlyContextType(vc *Credential) error {
 		return errors.New("violated @context constraint: not base only @context defined")
 	}
 
-	return nil
+	return vc.validateJSONSchema(vcBytes, vcOpts)
 }
 
-func validateCustomContextType(vc *Credential, vcOpts *credentialOpts) error {
+func validateBaseContextWithExtendedValidation(vc *Credential, vcOpts *credentialOpts, vcBytes []byte) error {
 	for _, vcContext := range vc.Context {
 		if _, ok := vcOpts.allowedCustomContexts[vcContext]; !ok {
 			return fmt.Errorf("not allowed @context: %s", vcContext)
@@ -661,7 +704,16 @@ func validateCustomContextType(vc *Credential, vcOpts *credentialOpts) error {
 		}
 	}
 
-	return nil
+	return vc.validateJSONSchema(vcBytes, vcOpts)
+}
+
+func (vc *Credential) validateJSONLD(vcOpts *credentialOpts) error {
+	vcJSON, err := vc.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	return compactJSONLD(string(vcJSON), vcOpts.jsonldDocumentLoader, vcOpts.strictValidation)
 }
 
 // CustomCredentialProducer is a factory for Credentials with extended data model.
@@ -701,7 +753,21 @@ func CreateCustomCredential(
 	return vcBase, nil
 }
 
-func newCredential(raw *rawCredential, schemas []TypedID) (*Credential, error) {
+func newCredential(raw *rawCredential) (*Credential, error) {
+	var (
+		schemas []TypedID
+		err     error
+	)
+
+	if raw.Schema != nil {
+		schemas, err = decodeCredentialSchemas(raw)
+		if err != nil {
+			return nil, fmt.Errorf("fill credential schemas from raw: %w", err)
+		}
+	} else {
+		schemas = make([]TypedID, 0)
+	}
+
 	types, err := decodeType(raw.Type)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential types from raw: %w", err)
@@ -762,18 +828,9 @@ func decodeRaw(vcData []byte, checkProof bool, pubKeyFetcher PublicKeyFetcher) (
 	return vcData, nil
 }
 
-func loadCredentialSchemas(vcBytes []byte) ([]TypedID, error) {
-	schemas, err := decodeCredentialSchema(vcBytes)
-	if err != nil {
-		return nil, fmt.Errorf("load credential schema: %w", err)
-	}
-
-	return schemas, nil
-}
-
 func parseCredentialOpts(opts []CredentialOpt) *credentialOpts {
 	crOpts := &credentialOpts{
-		modelValidationMode: jsonldValidation,
+		modelValidationMode: combinedValidation,
 	}
 
 	for _, opt := range opts {
@@ -782,6 +839,10 @@ func parseCredentialOpts(opts []CredentialOpt) *credentialOpts {
 
 	if crOpts.schemaLoader == nil {
 		crOpts.schemaLoader = newDefaultSchemaLoader()
+	}
+
+	if crOpts.jsonldDocumentLoader == nil {
+		crOpts.jsonldDocumentLoader = CachingJSONLDLoader()
 	}
 
 	return crOpts
@@ -802,7 +863,11 @@ func issuerToSerialize(issuer Issuer) interface{} {
 	return issuer.ID
 }
 
-func validate(data []byte, schemas []TypedID, opts *credentialOpts) error {
+func (vc *Credential) validateJSONSchema(data []byte, opts *credentialOpts) error {
+	return validateCredentialUsingJSONSchema(data, vc.Schemas, opts)
+}
+
+func validateCredentialUsingJSONSchema(data []byte, schemas []TypedID, opts *credentialOpts) error {
 	// Validate that the Verifiable Credential conforms to the serialization of the Verifiable Credential data model
 	// (https://w3c.github.io/vc-data-model/#example-1-a-simple-example-of-a-verifiable-credential)
 	schemaLoader, err := getSchemaLoader(schemas, opts)
@@ -992,10 +1057,6 @@ func contextToSerialize(context []string, cContext []interface{}) interface{} {
 		sContext = append(sContext, cContext...)
 
 		return sContext
-	}
-
-	if len(context) == 1 {
-		return context[0] // return single context
 	}
 
 	return context

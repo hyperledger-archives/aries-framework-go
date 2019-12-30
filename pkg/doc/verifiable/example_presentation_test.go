@@ -361,9 +361,6 @@ func ExamplePresentation_MarshalledCredentials() {
 		Issued:  &issued,
 		Expired: &expired,
 		Schemas: []verifiable.TypedID{},
-		CustomFields: map[string]interface{}{
-			"referenceNumber": 83294847,
-		},
 	}
 
 	// Put JWS form of VC into VP.
@@ -453,7 +450,6 @@ func ExamplePresentation_MarshalledCredentials() {
 	//		"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
 	//		"name": "Example University"
 	//	},
-	//	"referenceNumber": 83294847,
 	//	"type": [
 	//		"VerifiableCredential",
 	//		"UniversityDegreeCredential"

@@ -131,7 +131,7 @@ func TestDecodeType(t *testing.T) {
 	t.Run("Error on decoding of invalid Verifiable Credential type", func(t *testing.T) {
 		types, err := decodeType(77)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "credential type of unknown type")
+		require.Contains(t, err.Error(), "credential type of unknown structure")
 		require.Nil(t, types)
 	})
 
