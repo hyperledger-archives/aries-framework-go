@@ -606,14 +606,12 @@ func TestServiceEvents(t *testing.T) {
 
 	request, err := json.Marshal(
 		&didexchange.Request{
-			Header: service.Header{
-				ID: id,
-				Thread: &decorator.Thread{
-					PID: invitation.ID,
-				},
-				Type: didexchange.RequestMsgType,
-			},
+			Type:  didexchange.RequestMsgType,
+			ID:    id,
 			Label: "test",
+			Thread: &decorator.Thread{
+				PID: invitation.ID,
+			},
 			Connection: &didexchange.Connection{
 				DID:    newDidDoc.ID,
 				DIDDoc: newDidDoc,
@@ -698,14 +696,12 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 	request, err := json.Marshal(
 		&didexchange.Request{
-			Header: service.Header{
-				ID: id,
-				Thread: &decorator.Thread{
-					PID: invitation.ID,
-				},
-				Type: didexchange.RequestMsgType,
-			},
+			Type:  didexchange.RequestMsgType,
+			ID:    id,
 			Label: "test",
+			Thread: &decorator.Thread{
+				PID: invitation.ID,
+			},
 			Connection: &didexchange.Connection{
 				DID:    newDidDoc.ID,
 				DIDDoc: newDidDoc,
@@ -787,10 +783,8 @@ func TestAcceptInvitation(t *testing.T) {
 		// send connection invitation message
 		invitation, jsonErr := json.Marshal(
 			&didexchange.Invitation{
-				Header: service.Header{
-					ID:   "abc",
-					Type: InvitationMsgType,
-				},
+				Type:          InvitationMsgType,
+				ID:            "abc",
 				Label:         "test",
 				RecipientKeys: []string{pubKey},
 			},

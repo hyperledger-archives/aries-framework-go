@@ -348,7 +348,7 @@ func TestService_HandleInbound(t *testing.T) {
 		require.EqualError(t, err, "no clients are registered to handle the message")
 	})
 
-	t.Run("Invalid Message Error", func(t *testing.T) {
+	t.Run("ThreadID Error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
@@ -373,7 +373,7 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
 		_, err = svc.HandleInbound(msg, "", "")
-		require.EqualError(t, err, service.ErrInvalidMessage.Error())
+		require.Equal(t, service.ErrInvalidMessage, err)
 	})
 
 	t.Run("Storage error", func(t *testing.T) {
@@ -512,7 +512,7 @@ func TestService_Accept(t *testing.T) {
 func TestService_Proposal(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -607,7 +607,7 @@ func TestService_Proposal(t *testing.T) {
 func TestService_SkipProposal(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: "Public Invitation"}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -683,7 +683,7 @@ func TestService_SkipProposal(t *testing.T) {
 func TestService_ProposalUnusual(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -779,7 +779,7 @@ func TestService_ProposalUnusual(t *testing.T) {
 func TestService_SkipProposalWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: "Public Invitation"}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -855,7 +855,7 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 func TestService_ProposalWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -953,7 +953,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 func TestService_ProposalUnusualWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1236,7 +1236,7 @@ func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 func TestService_ProposalStop(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1305,7 +1305,7 @@ func TestService_ProposalStop(t *testing.T) {
 func TestService_ProposalStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1375,7 +1375,7 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 func TestService_SkipProposalStop(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: "Public Invitation"}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1446,7 +1446,7 @@ func TestService_SkipProposalStop(t *testing.T) {
 func TestService_SkipProposalStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: "Public Invitation"}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1521,7 +1521,7 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 func TestService_ProposalStopUnusual(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1620,7 +1620,7 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1713,7 +1713,7 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1780,7 +1780,7 @@ func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
 func TestService_ProposalIntroducerStop(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1850,7 +1850,7 @@ func TestService_ProposalIntroducerStop(t *testing.T) {
 func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{Header: service.Header{ID: uuid.New().String()}, Label: "Public Invitation"}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -2199,10 +2199,9 @@ func checkAndHandle(f *flow) {
 	if f.startWithRequest {
 		// creates request msg
 		request, err := service.NewDIDCommMsg(toBytes(f.t, introduce.Request{
-			Header: service.Header{
-				ID:   uuid.New().String(),
-				Type: introduce.RequestMsgType,
-			},
+			Type: introduce.RequestMsgType,
+			// creates threadID
+			ID: uuid.New().String(),
 		}))
 		require.NoError(f.t, err)
 
@@ -2217,10 +2216,9 @@ func checkAndHandle(f *flow) {
 	if f.startWithProposal {
 		// creates proposal msg
 		proposal, err := service.NewDIDCommMsg(toBytes(f.t, introduce.Proposal{
-			Header: service.Header{
-				ID:   uuid.New().String(),
-				Type: introduce.ProposalMsgType,
-			},
+			Type: introduce.ProposalMsgType,
+			// creates threadID
+			ID: uuid.New().String(),
 			To: f.recipients[0].To,
 		}))
 		require.NoError(f.t, err)
@@ -2508,9 +2506,7 @@ func stop(t *testing.T, s stopper) {
 func TestService_InvitationReceived(t *testing.T) {
 	t.Run("PreState is not correct", func(t *testing.T) {
 		svc := &introduce.Service{}
-		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{Header: service.Header{
-			Thread: &decorator.Thread{ID: "ID"},
-		}}))
+		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
 		require.NoError(t, err)
 		require.NoError(t, svc.InvitationReceived(service.StateMsg{
 			Type:    service.PreState,
@@ -2544,9 +2540,7 @@ func TestService_InvitationReceived(t *testing.T) {
 
 	t.Run("No PID in Thread", func(t *testing.T) {
 		svc := &introduce.Service{}
-		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{Header: service.Header{
-			Thread: &decorator.Thread{ID: "ID"},
-		}}))
+		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
 		require.NoError(t, err)
 		require.NoError(t, svc.InvitationReceived(service.StateMsg{
 			Type:    service.PostState,

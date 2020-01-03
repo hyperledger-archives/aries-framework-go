@@ -136,10 +136,8 @@ func (s *Service) HandleOutbound(msg *service.DIDCommMsg, destination *service.D
 func (s *Service) SendRequest(myDID, theirDID string) (string, error) {
 	// send the request
 	req := &Request{
-		Header: service.Header{
-			ID:   uuid.New().String(),
-			Type: RequestMsgType,
-		},
+		ID:   uuid.New().String(),
+		Type: RequestMsgType,
 	}
 
 	if err := s.outbound.SendToDID(req, myDID, theirDID); err != nil {
@@ -181,10 +179,8 @@ func (s *Service) handleRequest(msg *service.DIDCommMsg) error {
 
 	// send the grant response
 	grant := &Grant{
-		Header: service.Header{
-			Type: GrantMsgType,
-			ID:   msg.Header.ID,
-		},
+		Type:        GrantMsgType,
+		ID:          msg.Header.ID,
 		Endpoint:    s.endpoint,
 		RoutingKeys: []string{sigPubKey},
 	}
@@ -252,10 +248,8 @@ func (s *Service) handleKeylistUpdate(msg *service.DIDCommMsg) error {
 
 	// send the key update response
 	updateResponse := &KeylistUpdateResponse{
-		Header: service.Header{
-			ID:   msg.Header.ID,
-			Type: KeylistUpdateResponseMsgType,
-		},
+		Type:    KeylistUpdateResponseMsgType,
+		ID:      msg.Header.ID,
 		Updated: updates,
 	}
 

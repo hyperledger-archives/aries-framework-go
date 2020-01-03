@@ -275,16 +275,14 @@ func (s *Service) InvitationReceived(msg service.StateMsg) error {
 		return nil
 	}
 
-	if msg.Msg.Header == nil || msg.Msg.Header.Thread == nil || msg.Msg.Header.Thread.PID == "" {
+	if msg.Msg.MsgThread() == nil || msg.Msg.MsgThread().PID == "" {
 		return nil
 	}
 
 	payload, err := json.Marshal(&model.Ack{
-		Header: service.Header{
-			ID:     uuid.New().String(),
-			Thread: &decorator.Thread{ID: msg.Msg.Header.Thread.PID},
-			Type:   AckMsgType,
-		},
+		Type:   AckMsgType,
+		ID:     uuid.New().String(),
+		Thread: &decorator.Thread{ID: msg.Msg.Header.Thread.PID},
 	})
 	if err != nil {
 		return fmt.Errorf("invitation received marshal: %w", err)

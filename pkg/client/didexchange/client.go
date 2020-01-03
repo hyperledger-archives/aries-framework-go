@@ -112,13 +112,11 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	}
 
 	invitation := &didexchange.Invitation{
-		Header: service.Header{
-			ID:   uuid.New().String(),
-			Type: didexchange.InvitationMsgType,
-		},
+		ID:              uuid.New().String(),
 		Label:           label,
 		RecipientKeys:   []string{sigPubKey},
 		ServiceEndpoint: c.inboundTransportEndpoint,
+		Type:            didexchange.InvitationMsgType,
 	}
 
 	err = c.didexchangeSvc.SaveInvitation(invitation)
@@ -133,12 +131,10 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 // so client can cross reference this invitation during did exchange protocol
 func (c *Client) CreateInvitationWithDID(label, did string) (*Invitation, error) {
 	invitation := &didexchange.Invitation{
-		Header: service.Header{
-			ID:   uuid.New().String(),
-			Type: didexchange.InvitationMsgType,
-		},
+		ID:    uuid.New().String(),
 		Label: label,
 		DID:   did,
+		Type:  didexchange.InvitationMsgType,
 	}
 
 	err := c.didexchangeSvc.SaveInvitation(invitation)

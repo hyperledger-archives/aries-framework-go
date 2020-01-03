@@ -6,10 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 
 package model
 
-import "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+import "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 
 // Ack acknowledgement struct
 type Ack struct {
-	service.Header
-	Status string `json:"status,omitempty"`
+	Type   string            `json:"@type,omitempty"`
+	ID     string            `json:"@id,omitempty"`
+	Status string            `json:"status,omitempty"`
+	Thread *decorator.Thread `json:"~thread,omitempty"`
 }

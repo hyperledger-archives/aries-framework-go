@@ -152,7 +152,7 @@ func TestClient_SendProposalWithInvitation(t *testing.T) {
 
 	opts := InvitationEnvelope{
 		Inv: &didexchange.Invitation{
-			Header: service.Header{ID: UUID},
+			ID: UUID,
 		},
 		Recps: []*introduce.Recipient{
 			{MyDID: "My_DID", TheirDID: "THEIR_DID"},
@@ -212,14 +212,15 @@ func TestClient_HandleRequest(t *testing.T) {
 	client.newUUID = func() string { return UUID }
 
 	msg, err := service.NewDIDCommMsg(toBytes(t, &introduce.Request{
-		Header: service.Header{ID: UUID, Type: introduce.RequestMsgType},
+		Type: introduce.RequestMsgType,
+		ID:   UUID,
 	}))
 	require.NoError(t, err)
 	require.NoError(t, client.HandleRequest(*msg, opts.Recps[0].To, opts.Recps[1]))
 
 	// cover error case
 	err = client.HandleRequest(service.DIDCommMsg{}, opts.Recps[0].To, opts.Recps[1])
-	require.Equal(t, errors.Unwrap(err), service.ErrInvalidMessage)
+	require.Equal(t, service.ErrInvalidMessage, errors.Unwrap(err))
 }
 
 func TestClient_HandleRequestWithInvitation(t *testing.T) {
@@ -230,7 +231,7 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 
 	opts := InvitationEnvelope{
 		Inv: &didexchange.Invitation{
-			Header: service.Header{ID: UUID},
+			ID: UUID,
 		},
 		Recps: []*introduce.Recipient{
 			{To: &introduce.To{Name: "Carol"}},
@@ -254,14 +255,15 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 
 	require.NoError(t, err)
 	msg, err := service.NewDIDCommMsg(toBytes(t, &introduce.Request{
-		Header: service.Header{ID: UUID, Type: introduce.RequestMsgType},
+		Type: introduce.RequestMsgType,
+		ID:   UUID,
 	}))
 	require.NoError(t, err)
 	require.NoError(t, client.HandleRequestWithInvitation(*msg, opts.Inv, opts.Recps[0].To))
 
 	// cover error case
 	err = client.HandleRequestWithInvitation(service.DIDCommMsg{}, opts.Inv, opts.Recps[0].To)
-	require.Equal(t, errors.Unwrap(err), service.ErrInvalidMessage)
+	require.Equal(t, service.ErrInvalidMessage, errors.Unwrap(err))
 }
 
 func TestClient_InvitationEnvelope(t *testing.T) {
@@ -289,7 +291,7 @@ func TestClient_InvitationEnvelope(t *testing.T) {
 
 	opts := InvitationEnvelope{
 		Inv: &didexchange.Invitation{
-			Header: service.Header{ID: UUID},
+			ID: UUID,
 		},
 		Recps: []*introduce.Recipient{
 			{To: &introduce.To{Name: "Carol"}, MyDID: "My_DID1", TheirDID: "THEIR_DID1"},

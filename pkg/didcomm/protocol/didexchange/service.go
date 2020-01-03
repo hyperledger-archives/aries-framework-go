@@ -665,13 +665,10 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 	}
 
 	invitation := &Invitation{
-		Header: service.Header{
-			ID:   uuid.New().String(),
-			Type: InvitationMsgType,
-		},
+		ID:    uuid.New().String(),
 		Label: inviterLabel,
 		DID:   inviterDID,
-	}
+		Type:  InvitationMsgType}
 
 	msg, err := createDIDCommMsg(invitation)
 	if err != nil {

@@ -6,18 +6,18 @@ SPDX-License-Identifier: Apache-2.0
 
 package route
 
-import "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-
 // Request route request message.
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination#route-request
 type Request struct {
-	service.Header
+	Type string `json:"@type,omitempty"`
+	ID   string `json:"@id,omitempty"`
 }
 
 // Grant route grant message.
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination#route-grant
 type Grant struct {
-	service.Header
+	Type        string   `json:"@type,omitempty"`
+	ID          string   `json:"@id,omitempty"`
 	Endpoint    string   `json:"endpoint,omitempty"`
 	RoutingKeys []string `json:"routing_keys,omitempty"`
 }
@@ -39,7 +39,8 @@ type Update struct {
 // KeylistUpdateResponse route keylist update response message.
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination#keylist-update-response
 type KeylistUpdateResponse struct {
-	service.Header
+	Type    string           `json:"@type,omitempty"`
+	ID      string           `json:"@id,omitempty"`
 	Updated []UpdateResponse `json:"updated,omitempty"`
 }
 

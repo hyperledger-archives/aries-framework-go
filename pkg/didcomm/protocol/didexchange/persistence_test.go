@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	mockdidconnection "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -74,9 +73,7 @@ func TestConnectionStore_SaveInvitation(t *testing.T) {
 		require.NotNil(t, record)
 
 		value := &Invitation{
-			Header: service.Header{
-				ID: "sample-id1",
-			},
+			ID:    "sample-id1",
 			Label: "sample-label1",
 		}
 
@@ -118,9 +115,7 @@ func TestConnectionStore_GetInvitation(t *testing.T) {
 		require.NotNil(t, record)
 
 		valueStored := &Invitation{
-			Header: service.Header{
-				ID: "sample-id-3",
-			},
+			ID:    "sample-id-3",
 			Label: "sample-label-3",
 		}
 

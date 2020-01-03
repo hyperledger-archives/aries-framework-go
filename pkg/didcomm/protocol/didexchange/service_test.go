@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
@@ -106,10 +107,8 @@ func TestService_Handle_Inviter(t *testing.T) {
 	go func() { service.AutoExecuteActionEvent(actionCh) }()
 
 	invitation := &Invitation{
-		Header: service.Header{
-			ID:   generateRandomID(),
-			Type: InvitationMsgType,
-		},
+		Type:            InvitationMsgType,
+		ID:              randomString(),
 		Label:           "Bob",
 		RecipientKeys:   []string{pubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
@@ -118,20 +117,18 @@ func TestService_Handle_Inviter(t *testing.T) {
 	err = ctx.connectionStore.SaveInvitation(invitation)
 	require.NoError(t, err)
 
-	thid := generateRandomID()
+	thid := randomString()
 
 	// Invitation was previously sent by Alice to Bob.
 	// Bob now sends a did-exchange Request
 	payloadBytes, err := json.Marshal(
 		&Request{
-			Header: service.Header{
-				ID: thid,
-				Thread: &decorator.Thread{
-					PID: invitation.ID,
-				},
-				Type: RequestMsgType,
-			},
+			Type:  RequestMsgType,
+			ID:    thid,
 			Label: "Bob",
+			Thread: &decorator.Thread{
+				PID: invitation.ID,
+			},
 			Connection: &Connection{
 				DID:    newDidDoc.ID,
 				DIDDoc: newDidDoc,
@@ -150,13 +147,13 @@ func TestService_Handle_Inviter(t *testing.T) {
 	}
 	// Alice automatically sends exchange Response to Bob
 	// Bob replies with an ACK
-	payloadBytes, err = json.Marshal(&model.Ack{
-		Header: service.Header{
-			ID:     generateRandomID(),
+	payloadBytes, err = json.Marshal(
+		&model.Ack{
+			Type:   AckMsgType,
+			ID:     randomString(),
+			Status: "OK",
 			Thread: &decorator.Thread{ID: thid},
-			Type:   AckMsgType},
-		Status: "OK",
-	})
+		})
 	require.NoError(t, err)
 
 	didMsg, err := service.NewDIDCommMsg(payloadBytes)
@@ -251,10 +248,8 @@ func TestService_Handle_Invitee(t *testing.T) {
 	go func() { service.AutoExecuteActionEvent(actionCh) }()
 
 	invitation := &Invitation{
-		Header: service.Header{
-			ID:   generateRandomID(),
-			Type: InvitationMsgType,
-		},
+		Type:            InvitationMsgType,
+		ID:              randomString(),
 		Label:           "Bob",
 		RecipientKeys:   []string{pubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
@@ -298,14 +293,12 @@ func TestService_Handle_Invitee(t *testing.T) {
 	// Bob replies with a Response
 	payloadBytes, err = json.Marshal(
 		&Response{
-			Header: service.Header{
-				ID: generateRandomID(),
-				Thread: &decorator.Thread{
-					ID: connRecord.ThreadID,
-				},
-				Type: ResponseMsgType,
-			},
+			Type:                ResponseMsgType,
+			ID:                  randomString(),
 			ConnectionSignature: connectionSignature,
+			Thread: &decorator.Thread{
+				ID: connRecord.ThreadID,
+			},
 		},
 	)
 	require.NoError(t, err)
@@ -354,11 +347,11 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		response, err := json.Marshal(
-			&Response{Header: service.Header{
-				ID:     generateRandomID(),
-				Thread: &decorator.Thread{ID: generateRandomID()},
+			&Response{
 				Type:   ResponseMsgType,
-			}},
+				ID:     randomString(),
+				Thread: &decorator.Thread{ID: randomString()},
+			},
 		)
 		require.NoError(t, err)
 
@@ -371,7 +364,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			"null -> responded")
 	})
 
-	t.Run("handleInbound - invalid message", func(t *testing.T) {
+	t.Run("handleInbound - threadID error", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 
@@ -379,9 +372,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		requestBytes, err := json.Marshal(&Request{
-			Header: service.Header{
-				Type: RequestMsgType,
-			},
+			Type: RequestMsgType,
 		})
 		require.NoError(t, err)
 
@@ -390,7 +381,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 
 		_, err = svc.HandleInbound(didMsg, "", "")
 		require.Error(t, err)
-		require.Equal(t, service.ErrInvalidMessage, err)
+		require.Equal(t, err.Error(), "invalid message")
 	})
 
 	t.Run("handleInbound - connection record error", func(t *testing.T) {
@@ -406,7 +397,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.NotNil(t, svc.connectionStore)
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, generateRandomID(), ""), "", "")
+		_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "save connection record")
 	})
@@ -438,10 +429,8 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		requestBytes, err := json.Marshal(&Request{
-			Header: service.Header{
-				ID:   generateRandomID(),
-				Type: RequestMsgType,
-			},
+			Type: RequestMsgType,
+			ID:   generateRandomID(),
 			Connection: &Connection{
 				DID: "xyz",
 			},
@@ -596,6 +585,11 @@ func (m *mockStore) Iterator(start, limit string) storage.StoreIterator {
 	return nil
 }
 
+func randomString() string {
+	u := uuid.New()
+	return u.String()
+}
+
 func TestEventsSuccess(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
@@ -621,13 +615,11 @@ func TestEventsSuccess(t *testing.T) {
 	}()
 
 	pubKey, _ := generateKeyPair()
-	id := generateRandomID()
+	id := randomString()
 	invite, err := json.Marshal(
 		&Invitation{
-			Header: service.Header{
-				ID:   id,
-				Type: InvitationMsgType,
-			},
+			Type:          InvitationMsgType,
+			ID:            id,
 			Label:         "test",
 			RecipientKeys: []string{pubKey},
 		},
@@ -660,13 +652,11 @@ func TestContinueWithPublicDID(t *testing.T) {
 	go func() { continueWithPublicDID(actionCh, didDoc.ID) }()
 
 	pubKey, _ := generateKeyPair()
-	id := generateRandomID()
+	id := randomString()
 	invite, err := json.Marshal(
 		&Invitation{
-			Header: service.Header{
-				ID:   id,
-				Type: InvitationMsgType,
-			},
+			Type:          InvitationMsgType,
+			ID:            id,
 			Label:         "test",
 			RecipientKeys: []string{pubKey},
 		},
@@ -727,8 +717,8 @@ func TestEventsUserError(t *testing.T) {
 		}
 	}()
 
-	id := generateRandomID()
-	connRec := &connectionstore.ConnectionRecord{ConnectionID: generateRandomID(), ThreadID: id,
+	id := randomString()
+	connRec := &connectionstore.ConnectionRecord{ConnectionID: randomString(), ThreadID: id,
 		Namespace: findNameSpace(RequestMsgType), State: (&null{}).Name()}
 
 	err = svc.connectionStore.saveNewConnectionRecord(connRec)
@@ -762,7 +752,7 @@ func TestEventStoreError(t *testing.T) {
 	}()
 
 	_, err = svc.HandleInbound(
-		generateRequestMsgPayload(t, &protocol.MockProvider{}, generateRandomID(), ""), "", "")
+		generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""), "", "")
 	require.NoError(t, err)
 }
 
@@ -795,10 +785,8 @@ func validateState(t *testing.T, svc *Service, id, namespace, expected string) {
 func TestServiceErrors(t *testing.T) {
 	requestBytes, err := json.Marshal(
 		&Request{
-			Header: service.Header{
-				ID:   generateRandomID(),
-				Type: ResponseMsgType,
-			},
+			Type:  ResponseMsgType,
+			ID:    randomString(),
 			Label: "test",
 		},
 	)
@@ -827,7 +815,7 @@ func TestServiceErrors(t *testing.T) {
 	svc, err = New(prov)
 	require.NoError(t, err)
 
-	payload := generateRequestMsgPayload(t, prov, generateRandomID(), "")
+	payload := generateRequestMsgPayload(t, prov, randomString(), "")
 	_, err = svc.HandleInbound(payload, "", "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cannot fetch state from store")
@@ -846,7 +834,7 @@ func TestServiceErrors(t *testing.T) {
 
 	// test handle - invalid state name
 	msg.Header.Type = ResponseMsgType
-	message := &message{Msg: msg, ThreadID: generateRandomID()}
+	message := &message{Msg: msg, ThreadID: randomString()}
 	err = svc.handleWithoutAction(message)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid state name:")
@@ -873,15 +861,13 @@ func TestConnectionRecord(t *testing.T) {
 	require.NoError(t, err)
 
 	conn, err := svc.connectionRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
-		generateRandomID(), ""))
+		randomString(), ""))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 
 	// invalid type
 	requestBytes, err := json.Marshal(&Request{
-		Header: service.Header{
-			Type: "invalid-type",
-		},
+		Type: "invalid-type",
 	})
 	require.NoError(t, err)
 	msg, err := service.NewDIDCommMsg(requestBytes)
@@ -898,10 +884,8 @@ func TestInvitationRecord(t *testing.T) {
 
 	pubKey, _ := generateKeyPair()
 	invitationBytes, err := json.Marshal(&Invitation{
-		Header: service.Header{
-			ID:   "id",
-			Type: InvitationMsgType,
-		},
+		Type:          InvitationMsgType,
+		ID:            "id",
 		RecipientKeys: []string{pubKey},
 	})
 	require.NoError(t, err)
@@ -915,9 +899,7 @@ func TestInvitationRecord(t *testing.T) {
 
 	// invalid thread id
 	invitationBytes, err = json.Marshal(&Invitation{
-		Header: service.Header{
-			Type: "invalid-type",
-		},
+		Type: "invalid-type",
 	})
 	require.NoError(t, err)
 	msg, err = service.NewDIDCommMsg(invitationBytes)
@@ -937,10 +919,8 @@ func TestInvitationRecord(t *testing.T) {
 	require.NoError(t, err)
 
 	invitationBytes, err = json.Marshal(&Invitation{
-		Header: service.Header{
-			Type: InvitationMsgType,
-			ID:   "id",
-		},
+		Type:          InvitationMsgType,
+		ID:            "id",
 		RecipientKeys: []string{pubKey},
 	})
 	require.NoError(t, err)
@@ -958,7 +938,7 @@ func TestRequestRecord(t *testing.T) {
 	require.NoError(t, err)
 
 	conn, err := svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
-		generateRandomID(), ""))
+		randomString(), ""))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 
@@ -972,7 +952,7 @@ func TestRequestRecord(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
-		generateRandomID(), ""))
+		randomString(), ""))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "save connection record")
 }
@@ -987,10 +967,8 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 	pubKey, _ := generateKeyPair()
 	invitation := &Invitation{
-		Header: service.Header{
-			Type: InvitationMsgType,
-			ID:   generateRandomID(),
-		},
+		Type:            InvitationMsgType,
+		ID:              randomString(),
 		Label:           "Bob",
 		RecipientKeys:   []string{pubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
@@ -1023,7 +1001,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{
 		StoreProvider: mockstorage.NewMockStoreProvider(),
-	}, generateRandomID(), invitation.ID), "", "")
+	}, randomString(), invitation.ID), "", "")
 	require.NoError(t, err)
 
 	select {
@@ -1050,10 +1028,8 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 
 	pubKey, _ := generateKeyPair()
 	invitation := &Invitation{
-		Header: service.Header{
-			Type: InvitationMsgType,
-			ID:   generateRandomID(),
-		},
+		Type:            InvitationMsgType,
+		ID:              randomString(),
 		Label:           "Bob",
 		RecipientKeys:   []string{pubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
@@ -1086,7 +1062,7 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 
 	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{
 		StoreProvider: mockstorage.NewMockStoreProvider(),
-	}, generateRandomID(), invitation.ID), "", "")
+	}, randomString(), invitation.ID), "", "")
 	require.NoError(t, err)
 
 	select {
@@ -1138,10 +1114,8 @@ func TestAcceptInvitation(t *testing.T) {
 		}()
 		pubKey, _ := generateKeyPair()
 		invitationBytes, err := json.Marshal(&Invitation{
-			Header: service.Header{
-				Type: InvitationMsgType,
-				ID:   generateRandomID(),
-			},
+			Type:          InvitationMsgType,
+			ID:            generateRandomID(),
 			RecipientKeys: []string{pubKey},
 		})
 		require.NoError(t, err)
@@ -1255,10 +1229,8 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		}()
 		pubKey, _ := generateKeyPair()
 		invitationBytes, err := json.Marshal(&Invitation{
-			Header: service.Header{
-				ID:   generateRandomID(),
-				Type: InvitationMsgType,
-			},
+			Type:          InvitationMsgType,
+			ID:            generateRandomID(),
 			RecipientKeys: []string{pubKey},
 		})
 		require.NoError(t, err)
@@ -1403,10 +1375,8 @@ func TestFetchConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 
 		requestBytes, err := json.Marshal(&Request{
-			Header: service.Header{
-				ID:   generateRandomID(),
-				Type: ResponseMsgType,
-			},
+			Type: ResponseMsgType,
+			ID:   generateRandomID(),
 		})
 		require.NoError(t, err)
 
@@ -1420,11 +1390,9 @@ func TestFetchConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 
 		requestBytes, err := json.Marshal(&Response{
-			Header: service.Header{
-				ID:     generateRandomID(),
-				Thread: &decorator.Thread{ID: generateRandomID()},
-				Type:   ResponseMsgType,
-			},
+			Type:   ResponseMsgType,
+			ID:     generateRandomID(),
+			Thread: &decorator.Thread{ID: generateRandomID()},
 		})
 		require.NoError(t, err)
 
@@ -1446,12 +1414,10 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 	require.NoError(t, err)
 
 	requestBytes, err := json.Marshal(&Request{
-		Header: service.Header{
-			ID: id,
-			Thread: &decorator.Thread{
-				PID: invitationID,
-			},
-			Type: RequestMsgType,
+		Type: RequestMsgType,
+		ID:   id,
+		Thread: &decorator.Thread{
+			PID: invitationID,
 		},
 		Connection: &Connection{
 			DID:    newDidDoc.ID,
@@ -1557,9 +1523,7 @@ func TestService_SaveInvitation(t *testing.T) {
 
 	// save invitations
 	for i := 0; i < count; i++ {
-		inv := &Invitation{Header: service.Header{
-			ID: fmt.Sprintf(invIDFmt, i),
-		}}
+		inv := &Invitation{ID: fmt.Sprintf(invIDFmt, i)}
 		invitations[i] = inv
 		err = svc.SaveInvitation(inv)
 		require.NoError(t, err)

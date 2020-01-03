@@ -299,15 +299,13 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string,
 	}
 
 	request := &Request{
-		Header: service.Header{
-			ID: thid,
-			Thread: &decorator.Thread{
-				PID: pid,
-			},
-			Type: RequestMsgType,
-		},
+		Type:       RequestMsgType,
+		ID:         thid,
 		Label:      getLabel(options),
 		Connection: conn,
+		Thread: &decorator.Thread{
+			PID: pid,
+		},
 	}
 	connRec.MyDID = request.Connection.DID
 
@@ -343,12 +341,10 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 
 	// prepare the response
 	response := &Response{
-		Header: service.Header{
-			ID: uuid.New().String(),
-			Thread: &decorator.Thread{
-				ID: request.ID,
-			},
-			Type: ResponseMsgType,
+		Type: ResponseMsgType,
+		ID:   uuid.New().String(),
+		Thread: &decorator.Thread{
+			ID: request.ID,
 		},
 		ConnectionSignature: encodedConnectionSignature,
 	}
@@ -471,12 +467,7 @@ func (ctx *context) prepareConnectionSignature(connection *Connection,
 
 	var invitation *Invitation
 	if isDID(invitationID) {
-		invitation = &Invitation{
-			Header: service.Header{
-				ID: invitationID,
-			},
-			DID: invitationID,
-		}
+		invitation = &Invitation{ID: invitationID, DID: invitationID}
 	} else {
 		invitation, err = ctx.connectionStore.GetInvitation(invitationID)
 		if err != nil {
@@ -505,14 +496,12 @@ func (ctx *context) prepareConnectionSignature(connection *Connection,
 
 func (ctx *context) handleInboundResponse(response *Response) (stateAction, *connectionstore.ConnectionRecord, error) {
 	ack := &model.Ack{
-		Header: service.Header{
-			ID: uuid.New().String(),
-			Thread: &decorator.Thread{
-				ID: response.Thread.ID,
-			},
-			Type: AckMsgType,
-		},
+		Type:   AckMsgType,
+		ID:     uuid.New().String(),
 		Status: ackStatusOK,
+		Thread: &decorator.Thread{
+			ID: response.Thread.ID,
+		},
 	}
 	nsThID, err := createNSKey(myNSPrefix, ack.Thread.ID)
 

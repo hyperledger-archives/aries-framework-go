@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
@@ -17,7 +17,6 @@ import (
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange#0-invitation-to-exchange
 //
 type Invitation struct {
-	service.Header
 	// the Image URL of the connection invitation
 	ImageURL string `json:"imageUrl,omitempty"`
 
@@ -27,6 +26,9 @@ type Invitation struct {
 	// the RecipientKeys for the connection invitation
 	RecipientKeys []string `json:"recipientKeys,omitempty"`
 
+	// the ID of the connection invitation
+	ID string `json:"@id,omitempty"`
+
 	// the Label of the connection invitation
 	Label string `json:"label,omitempty"`
 
@@ -35,21 +37,29 @@ type Invitation struct {
 
 	// the RoutingKeys of the connection invitation
 	RoutingKeys []string `json:"routingKeys,omitempty"`
+
+	// the Type of the connection invitation
+	Type   string            `json:"@type,omitempty"`
+	Thread *decorator.Thread `json:"~thread,omitempty"`
 }
 
 // Request defines a2a DID exchange request
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange#1-exchange-request
 type Request struct {
-	service.Header
-	Label      string      `json:"label,omitempty"`
-	Connection *Connection `json:"connection,omitempty"`
+	Type       string            `json:"@type,omitempty"`
+	ID         string            `json:"@id,omitempty"`
+	Label      string            `json:"label,omitempty"`
+	Connection *Connection       `json:"connection,omitempty"`
+	Thread     *decorator.Thread `json:"~thread,omitempty"`
 }
 
 // Response defines a2a DID exchange response
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange#2-exchange-response
 type Response struct {
-	service.Header
+	Type                string               `json:"@type,omitempty"`
+	ID                  string               `json:"@id,omitempty"`
 	ConnectionSignature *ConnectionSignature `json:"connection~sig,omitempty"`
+	Thread              *decorator.Thread    `json:"~thread,omitempty"`
 }
 
 // ConnectionSignature connection signature
