@@ -135,7 +135,7 @@ func TestFramework(t *testing.T) {
 
 	t.Run("test error create vdri", func(t *testing.T) {
 		_, err := New(
-			WithStoreProvider(&storage.MockStoreProvider{FailNameSpace: peer.StoreNamespace}),
+			WithStoreProvider(&storage.MockStoreProvider{FailNamespace: peer.StoreNamespace}),
 			WithInboundTransport(&mockInboundTransport{}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create new vdri peer failed")

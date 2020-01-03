@@ -361,7 +361,7 @@ func TestRespondedState_Execute(t *testing.T) {
 		}
 		err = ctx.connectionStore.saveConnectionRecord(connRec)
 		require.NoError(t, err)
-		err = ctx.connectionStore.saveNSThreadID(request.ID, findNameSpace(ResponseMsgType), connRec.ConnectionID)
+		err = ctx.connectionStore.SaveNamespaceThreadID(request.ID, findNamespace(ResponseMsgType), connRec.ConnectionID)
 		require.NoError(t, err)
 		connRec, followup, _, e := (&responded{}).ExecuteInbound(
 			&stateMachineMsg{
@@ -452,7 +452,7 @@ func TestCompletedState_Execute(t *testing.T) {
 			InvitationID:  invitation.ID,
 			RecipientKeys: []string{pubKey},
 		}
-		err = ctx.connectionStore.saveNewConnectionRecord(connRec)
+		err = ctx.connectionStore.saveConnectionRecordWithMapping(connRec)
 		require.NoError(t, err)
 		ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: mockdiddoc.GetMockDIDDoc()}
 		require.NoError(t, err)
@@ -473,7 +473,7 @@ func TestCompletedState_Execute(t *testing.T) {
 		}
 		err = ctx.connectionStore.saveConnectionRecord(connRec)
 		require.NoError(t, err)
-		err = ctx.connectionStore.saveNSThreadID(response.Thread.ID, findNameSpace(AckMsgType), connRec.ConnectionID)
+		err = ctx.connectionStore.SaveNamespaceThreadID(response.Thread.ID, findNamespace(AckMsgType), connRec.ConnectionID)
 		require.NoError(t, err)
 		ack := &model.Ack{
 			Type:   AckMsgType,
@@ -712,7 +712,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 			ID:   randomString(),
 			DID:  "test",
 		}
-		err := ctx.connectionStore.SaveInvitation(invitation)
+		err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
 		require.NoError(t, err)
 		connectionSignature, err := ctx.prepareConnectionSignature(connection, inv.ID)
 		require.Error(t, err)
@@ -1175,7 +1175,7 @@ func saveMockConnectionRecord(request *Request, ctx *context) (*Response, error)
 		return nil, err
 	}
 
-	err = ctx.connectionStore.saveNSThreadID(response.Thread.ID, findNameSpace(ResponseMsgType),
+	err = ctx.connectionStore.SaveNamespaceThreadID(response.Thread.ID, findNamespace(ResponseMsgType),
 		connRec.ConnectionID)
 	if err != nil {
 		return nil, err
@@ -1201,7 +1201,7 @@ func createMockInvitation(pubKey string, ctx *context) (*Invitation, error) {
 		RecipientKeys:   []string{pubKey},
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
-	err := ctx.connectionStore.SaveInvitation(invitation)
+	err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
 
 	if err != nil {
 		return nil, err

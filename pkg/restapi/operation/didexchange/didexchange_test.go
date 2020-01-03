@@ -682,7 +682,7 @@ func TestSendConnectionNotification(t *testing.T) {
 		connRec := &connectionstore.ConnectionRecord{State: testState, ConnectionID: connID, ThreadID: "th1234"}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		require.NoError(t, store.Put(connectionstore.GetConnectionStateKeyPrefix()(connID, testState), connBytes))
+		require.NoError(t, store.Put(stateKey(connID, testState), connBytes))
 
 		op, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: store},
@@ -711,7 +711,7 @@ func TestSendConnectionNotification(t *testing.T) {
 		connRec := &connectionstore.ConnectionRecord{State: testState, ConnectionID: connID, ThreadID: "th1234"}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
-		require.NoError(t, store.Put(connectionstore.GetConnectionStateKeyPrefix()(connID, testState), connBytes))
+		require.NoError(t, store.Put(stateKey(connID, testState), connBytes))
 
 		op, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: store},
@@ -741,6 +741,10 @@ func verifyRESTError(t *testing.T, code resterr.Code, data []byte) {
 	// verify response
 	require.EqualValues(t, code, errResponse.Code)
 	require.NotEmpty(t, errResponse.Message)
+}
+
+func stateKey(connID, state string) string {
+	return fmt.Sprintf("connstate_%s_%s", connID, state)
 }
 
 type mockNotifier struct {
