@@ -29,25 +29,25 @@ const (
 
 func TestNewConnectionReader(t *testing.T) {
 	t.Run("create new connection reader", func(t *testing.T) {
-		store, err := NewConnectionLookup(&mockProvider{})
+		lookup, err := NewConnectionLookup(&mockProvider{})
 		require.NoError(t, err)
-		require.NotNil(t, store)
-		require.NotNil(t, store.TransientStore())
-		require.NotNil(t, store.Store())
+		require.NotNil(t, lookup)
+		require.NotNil(t, lookup.transientStore)
+		require.NotNil(t, lookup.store)
 	})
 
 	t.Run("create new connection reader failure due to transient store error", func(t *testing.T) {
-		store, err := NewConnectionLookup(&mockProvider{transientStoreError: fmt.Errorf(sampleErrMsg)})
+		lookup, err := NewConnectionLookup(&mockProvider{transientStoreError: fmt.Errorf(sampleErrMsg)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleErrMsg)
-		require.Nil(t, store)
+		require.Nil(t, lookup)
 	})
 
 	t.Run("create new connection reader failure due to store error", func(t *testing.T) {
-		store, err := NewConnectionLookup(&mockProvider{storeError: fmt.Errorf(sampleErrMsg)})
+		lookup, err := NewConnectionLookup(&mockProvider{storeError: fmt.Errorf(sampleErrMsg)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleErrMsg)
-		require.Nil(t, store)
+		require.Nil(t, lookup)
 	})
 }
 
@@ -64,64 +64,64 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 			connRecBytes, err := json.Marshal(&ConnectionRecord{ConnectionID: id,
 				ThreadID: fmt.Sprintf(threadIDFmt, id)})
 			require.NoError(t, err)
-			err = store.Put(GetConnectionKeyPrefix()(id), connRecBytes)
+			err = store.Put(getConnectionKeyPrefix()(id), connRecBytes)
 			require.NoError(t, err)
 		}
 	}
 
 	t.Run("get connection record - from store", func(t *testing.T) {
-		store, e := NewConnectionLookup(&mockProvider{})
+		lookup, e := NewConnectionLookup(&mockProvider{})
 		require.NoError(t, e)
-		require.NotNil(t, store)
+		require.NotNil(t, lookup)
 
 		for _, connectionID := range connectionIDS {
-			connection, err := store.GetConnectionRecord(connectionID)
+			connection, err := lookup.GetConnectionRecord(connectionID)
 			require.Error(t, err)
 			require.Equal(t, err, storage.ErrDataNotFound)
 			require.Nil(t, connection)
 		}
 
 		// prepare data
-		saveInStore(store.Store(), connectionIDS)
+		saveInStore(lookup.store, connectionIDS)
 
 		for _, connectionID := range connectionIDS {
-			connection, err := store.GetConnectionRecord(connectionID)
+			connection, err := lookup.GetConnectionRecord(connectionID)
 			require.NoError(t, err)
 			require.NotNil(t, connection)
 			require.Equal(t, connectionID, connection.ConnectionID)
 			require.Equal(t, fmt.Sprintf(threadIDFmt, connectionID), connection.ThreadID)
 		}
 
-		records, e := store.QueryConnectionRecords()
+		records, e := lookup.QueryConnectionRecords()
 		require.NoError(t, e)
 		require.NotEmpty(t, records)
 		require.Len(t, records, noOfItems)
 	})
 
 	t.Run("get connection record - from transient store", func(t *testing.T) {
-		store, e := NewConnectionLookup(&mockProvider{})
+		lookup, e := NewConnectionLookup(&mockProvider{})
 		require.NoError(t, e)
-		require.NotNil(t, store)
+		require.NotNil(t, lookup)
 
 		for _, connectionID := range connectionIDS {
-			connection, err := store.GetConnectionRecord(connectionID)
+			connection, err := lookup.GetConnectionRecord(connectionID)
 			require.Error(t, err)
 			require.Equal(t, err, storage.ErrDataNotFound)
 			require.Nil(t, connection)
 		}
 
 		// prepare data
-		saveInStore(store.TransientStore(), connectionIDS)
+		saveInStore(lookup.transientStore, connectionIDS)
 
 		for _, connectionID := range connectionIDS {
-			connection, err := store.GetConnectionRecord(connectionID)
+			connection, err := lookup.GetConnectionRecord(connectionID)
 			require.NoError(t, err)
 			require.NotNil(t, connection)
 			require.Equal(t, connectionID, connection.ConnectionID)
 			require.Equal(t, fmt.Sprintf(threadIDFmt, connectionID), connection.ThreadID)
 		}
 
-		records, e := store.QueryConnectionRecords()
+		records, e := lookup.QueryConnectionRecords()
 		require.NoError(t, e)
 		require.NotEmpty(t, records)
 		require.Len(t, records, noOfItems)
@@ -131,15 +131,15 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 		provider := &mockProvider{}
 		provider.store = &mockstorage.MockStore{ErrGet: fmt.Errorf(sampleErrMsg),
 			Store: make(map[string][]byte)}
-		store, err := NewConnectionLookup(provider)
+		lookup, err := NewConnectionLookup(provider)
 		require.NoError(t, err)
-		require.NotNil(t, store)
+		require.NotNil(t, lookup)
 
 		// prepare data
-		saveInStore(store.Store(), connectionIDS)
+		saveInStore(lookup.transientStore, connectionIDS)
 
 		for _, connectionID := range connectionIDS {
-			connection, err := store.GetConnectionRecord(connectionID)
+			connection, err := lookup.GetConnectionRecord(connectionID)
 			require.Error(t, err)
 			require.Nil(t, connection)
 			require.EqualError(t, err, sampleErrMsg)
@@ -163,7 +163,7 @@ func TestConnectionReader_GetConnectionRecordAtState(t *testing.T) {
 			connRecBytes, err := json.Marshal(&ConnectionRecord{ConnectionID: id,
 				ThreadID: fmt.Sprintf(threadIDFmt, id)})
 			require.NoError(t, err)
-			err = store.Put(GetConnectionStateKeyPrefix()(id, state), connRecBytes)
+			err = store.Put(getConnectionStateKeyPrefix()(id, state), connRecBytes)
 			require.NoError(t, err)
 		}
 	}
@@ -177,23 +177,23 @@ func TestConnectionReader_GetConnectionRecordAtState(t *testing.T) {
 		for _, connectionID := range connectionIDS {
 			connection, err := store.GetConnectionRecordAtState(connectionID, state)
 			require.Error(t, err)
-			require.Equal(t, err, storage.ErrDataNotFound)
+			require.Contains(t, err.Error(), storage.ErrDataNotFound.Error())
 			require.Nil(t, connection)
 		}
 
 		// prepare data in store
-		saveInStore(store.Store(), connectionIDS)
+		saveInStore(store.store, connectionIDS)
 
 		// should fail since data doesn't exists in transient store
 		for _, connectionID := range connectionIDS {
 			connection, err := store.GetConnectionRecordAtState(connectionID, state)
 			require.Error(t, err)
-			require.Equal(t, err, storage.ErrDataNotFound)
+			require.Contains(t, err.Error(), storage.ErrDataNotFound.Error())
 			require.Nil(t, connection)
 		}
 
 		// prepare data in transient store
-		saveInStore(store.TransientStore(), connectionIDS)
+		saveInStore(store.transientStore, connectionIDS)
 
 		for _, connectionID := range connectionIDS {
 			connection, err := store.GetConnectionRecordAtState(connectionID, state)
@@ -234,7 +234,7 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 			require.NoError(t, err)
 
 			if !skipConnection {
-				err = store.Put(GetConnectionKeyPrefix()(connID), connRecBytes)
+				err = store.Put(getConnectionKeyPrefix()(connID), connRecBytes)
 				require.NoError(t, err)
 			}
 		}
@@ -254,7 +254,7 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 		}
 
 		// prepare data in store
-		saveInStore(store.Store(), nsThreadIDs, false)
+		saveInStore(store.store, nsThreadIDs, false)
 
 		// should fail since data doesn't exists in transient store
 		for _, nsThreadID := range nsThreadIDs {
@@ -266,7 +266,7 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 
 		// prepare only ns thread data in transient store
 		// skip connection
-		saveInStore(store.TransientStore(), nsThreadIDs, true)
+		saveInStore(store.transientStore, nsThreadIDs, true)
 
 		// should fail since data doesn't exists in transient store
 		for _, nsThreadID := range nsThreadIDs {
@@ -277,7 +277,7 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 		}
 
 		// prepare data in transient store
-		saveInStore(store.TransientStore(), nsThreadIDs, false)
+		saveInStore(store.transientStore, nsThreadIDs, false)
 
 		// should fail since data doesn't exists in transient store
 		for _, nsThreadID := range nsThreadIDs {
@@ -286,18 +286,6 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 			require.NotNil(t, connection)
 			require.Equal(t, nsThreadID, connection.ThreadID)
 		}
-	})
-}
-
-func TestConnectionRecorder_PrepareConnectionRecord(t *testing.T) {
-	t.Run(" prepare connection record  error", func(t *testing.T) {
-		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record, err := NewConnectionLookup(&mockProvider{store: nil, transientStore: transientStore})
-		require.NoError(t, err)
-		require.NotNil(t, record)
-		connRec, err := prepareConnectionRecord(nil)
-		require.Contains(t, err.Error(), "prepare connection record")
-		require.Nil(t, connRec)
 	})
 }
 

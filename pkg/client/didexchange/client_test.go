@@ -215,10 +215,9 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		require.NoError(t, err)
 
 		connRec := &connectionstore.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
-		connBytes, err := json.Marshal(connRec)
 
 		require.NoError(t, err)
-		require.NoError(t, c.connectionStore.TransientStore().Put("conn_id1", connBytes))
+		require.NoError(t, c.connectionStore.SaveConnectionRecord(connRec))
 		result, err := c.GetConnection(connID)
 		require.NoError(t, err)
 		require.Equal(t, "complete", result.State)
@@ -245,10 +244,9 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		require.NoError(t, err)
 
 		connRec := &connectionstore.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
-		connBytes, err := json.Marshal(connRec)
 
 		require.NoError(t, err)
-		require.NoError(t, c.connectionStore.TransientStore().Put("conn_id1", connBytes))
+		require.NoError(t, c.connectionStore.SaveConnectionRecord(connRec))
 		_, err = c.GetConnection(connID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), errMsg)

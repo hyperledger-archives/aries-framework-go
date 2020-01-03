@@ -164,7 +164,7 @@ func (s *Service) Name() string {
 	return DIDExchange
 }
 
-func findNameSpace(msgType string) string {
+func findNamespace(msgType string) string {
 	namespace := theirNSPrefix
 	if msgType == InvitationMsgType || msgType == ResponseMsgType {
 		namespace = myNSPrefix
@@ -187,7 +187,7 @@ func (s *Service) HandleOutbound(msg *service.DIDCommMsg, myDID, theirDID string
 }
 
 func (s *Service) nextState(msgType, thID string) (state, error) {
-	nsThID, err := createNSKey(findNameSpace(msgType), thID)
+	nsThID, err := connectionstore.CreateNamespaceKey(findNamespace(msgType), thID)
 	if err != nil {
 		return nil, err
 	}
@@ -408,22 +408,17 @@ func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string)
 	return s.handleWithoutAction(msg)
 }
 
-// SaveInvitation saves given invitation instance in connection store
-func (s *Service) SaveInvitation(invitation *Invitation) error {
-	return s.connectionStore.SaveInvitation(invitation)
-}
-
 func (s *Service) storeEventTransientData(msg *message) error {
 	bytes, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("store transient data : %w", err)
 	}
 
-	return s.connectionStore.TransientStore().Put(eventTransientDataKey(msg.ConnRecord.ConnectionID), bytes)
+	return s.connectionStore.SaveEvent(msg.ConnRecord.ConnectionID, bytes)
 }
 
 func (s *Service) getEventTransientData(connectionID string) (*message, error) {
-	val, err := s.connectionStore.TransientStore().Get(eventTransientDataKey(connectionID))
+	val, err := s.connectionStore.GetEvent(connectionID)
 	if err != nil {
 		return nil, fmt.Errorf("get transient data : %w", err)
 	}
@@ -438,14 +433,10 @@ func (s *Service) getEventTransientData(connectionID string) (*message, error) {
 	return msg, nil
 }
 
-func eventTransientDataKey(connectionID string) string {
-	return "didex-event-" + connectionID
-}
-
 // abandon updates the state to abandoned and trigger failure event.
 func (s *Service) abandon(thID string, msg *service.DIDCommMsg, processErr error) error {
 	// update the state to abandoned
-	nsThID, err := createNSKey(findNameSpace(msg.Header.Type), thID)
+	nsThID, err := connectionstore.CreateNamespaceKey(findNamespace(msg.Header.Type), thID)
 	if err != nil {
 		return err
 	}
@@ -509,7 +500,7 @@ func (s *Service) currentState(nsThID string) (state, error) {
 func (s *Service) update(msgType string, connectionRecord *connectionstore.ConnectionRecord) error {
 	if (msgType == RequestMsgType && connectionRecord.State == stateNameRequested) ||
 		(msgType == InvitationMsgType && connectionRecord.State == stateNameInvited) {
-		return s.connectionStore.saveNewConnectionRecord(connectionRecord)
+		return s.connectionStore.saveConnectionRecordWithMapping(connectionRecord)
 	}
 
 	return s.connectionStore.saveConnectionRecord(connectionRecord)
@@ -557,7 +548,7 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*connectionstore
 		ServiceEndPoint: invitation.ServiceEndpoint,
 		RecipientKeys:   []string{recKey},
 		TheirLabel:      invitation.Label,
-		Namespace:       findNameSpace(msg.Header.Type),
+		Namespace:       findNamespace(msg.Header.Type),
 	}
 
 	if err := s.connectionStore.saveConnectionRecord(connRecord); err != nil {
@@ -608,7 +599,7 @@ func (s *Service) fetchConnectionRecord(nsPrefix string, payload []byte) (*conne
 		return nil, err
 	}
 
-	key, err := createNSKey(nsPrefix, msg.Thread.ID)
+	key, err := connectionstore.CreateNamespaceKey(nsPrefix, msg.Thread.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -657,10 +648,10 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 		ServiceEndPoint: dest.ServiceEndpoint,
 		RecipientKeys:   dest.RecipientKeys,
 		TheirLabel:      inviterLabel,
-		Namespace:       findNameSpace(InvitationMsgType),
+		Namespace:       findNamespace(InvitationMsgType),
 	}
 
-	if e := s.connectionStore.saveNewConnectionRecord(connRecord); e != nil {
+	if e := s.connectionStore.saveConnectionRecordWithMapping(connRecord); e != nil {
 		return "", fmt.Errorf("failed to save new connection record for implicit invitation: %w", e)
 	}
 

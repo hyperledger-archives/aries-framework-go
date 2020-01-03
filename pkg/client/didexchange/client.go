@@ -51,7 +51,7 @@ type Client struct {
 	didexchangeSvc           protocolService
 	kms                      kms.KeyManager
 	inboundTransportEndpoint string
-	connectionStore          *connectionstore.ConnectionLookup
+	connectionStore          *connectionstore.ConnectionRecorder
 }
 
 // protocolService defines DID Exchange service.
@@ -68,10 +68,6 @@ type protocolService interface {
 	// CreateImplicitInvitation creates implicit invitation. Inviter DID is required, invitee DID is optional.
 	// If invitee DID is not provided new peer DID will be created for implicit invitation exchange request.
 	CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabel, inviteeDID string) (string, error)
-
-	// SaveInvitation saves given invitation in did-exchange service connection store
-	// TODO to be removed as part of [Issue #1021]
-	SaveInvitation(invitation *didexchange.Invitation) error
 }
 
 // New return new instance of didexchange client
@@ -86,7 +82,7 @@ func New(ctx provider) (*Client, error) {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
 
-	connectionStore, err := connectionstore.NewConnectionLookup(ctx)
+	connectionStore, err := connectionstore.NewConnectionRecorder(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +115,7 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 		Type:            didexchange.InvitationMsgType,
 	}
 
-	err = c.didexchangeSvc.SaveInvitation(invitation)
+	err = c.connectionStore.SaveInvitation(invitation.ID, invitation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save invitation: %w", err)
 	}
@@ -137,7 +133,7 @@ func (c *Client) CreateInvitationWithDID(label, did string) (*Invitation, error)
 		Type:  didexchange.InvitationMsgType,
 	}
 
-	err := c.didexchangeSvc.SaveInvitation(invitation)
+	err := c.connectionStore.SaveInvitation(invitation.ID, invitation)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save invitation with DID: %w", err)
 	}

@@ -114,7 +114,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
 
-	err = ctx.connectionStore.SaveInvitation(invitation)
+	err = ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
 	require.NoError(t, err)
 
 	thid := randomString()
@@ -168,7 +168,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 		require.Fail(t, "didn't receive post event complete")
 	}
 
-	validateState(t, s, thid, findNameSpace(AckMsgType), (&completed{}).Name())
+	validateState(t, s, thid, findNamespace(AckMsgType), (&completed{}).Name())
 }
 
 func msgEventListener(t *testing.T, statusCh chan service.StateMsg, respondedFlag, completedFlag chan struct{}) {
@@ -255,7 +255,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
 
-	err = ctx.connectionStore.SaveInvitation(invitation)
+	err = ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
 	require.NoError(t, err)
 	// Alice receives an invitation from Bob
 	payloadBytes, err := json.Marshal(invitation)
@@ -317,7 +317,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 		require.Fail(t, "didn't receive post event complete")
 	}
 
-	validateState(t, s, connRecord.ThreadID, findNameSpace(ResponseMsgType), (&completed{}).Name())
+	validateState(t, s, connRecord.ThreadID, findNamespace(ResponseMsgType), (&completed{}).Name())
 }
 
 func handleMessagesInvitee(statusCh chan service.StateMsg, requestedCh chan string, completedCh chan struct{}) {
@@ -483,7 +483,7 @@ func TestService_CurrentState(t *testing.T) {
 		svc := &Service{
 			connectionStore: connectionStore,
 		}
-		thid, err := createNSKey(theirNSPrefix, "ignored")
+		thid, err := connectionstore.CreateNamespaceKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
 		s, err := svc.currentState(thid)
 		require.NoError(t, err)
@@ -506,7 +506,7 @@ func TestService_CurrentState(t *testing.T) {
 		svc := &Service{
 			connectionStore: connectionStore,
 		}
-		thid, err := createNSKey(theirNSPrefix, "ignored")
+		thid, err := connectionstore.CreateNamespaceKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
 		actual, err := svc.currentState(thid)
 		require.NoError(t, err)
@@ -525,7 +525,7 @@ func TestService_CurrentState(t *testing.T) {
 		require.NoError(t, err)
 
 		svc := &Service{connectionStore: connectionStore}
-		thid, err := createNSKey(theirNSPrefix, "ignored")
+		thid, err := connectionstore.CreateNamespaceKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
 		_, err = svc.currentState(thid)
 		require.Error(t, err)
@@ -537,7 +537,7 @@ func TestService_Update(t *testing.T) {
 	s := &requested{}
 	data := make(map[string][]byte)
 	connRec := &connectionstore.ConnectionRecord{ThreadID: "123", ConnectionID: "123456", State: s.Name(),
-		Namespace: findNameSpace(RequestMsgType)}
+		Namespace: findNamespace(RequestMsgType)}
 	bytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 
@@ -719,9 +719,9 @@ func TestEventsUserError(t *testing.T) {
 
 	id := randomString()
 	connRec := &connectionstore.ConnectionRecord{ConnectionID: randomString(), ThreadID: id,
-		Namespace: findNameSpace(RequestMsgType), State: (&null{}).Name()}
+		Namespace: findNamespace(RequestMsgType), State: (&null{}).Name()}
 
-	err = svc.connectionStore.saveNewConnectionRecord(connRec)
+	err = svc.connectionStore.saveConnectionRecordWithMapping(connRec)
 	require.NoError(t, err)
 
 	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, id, ""), "", "")
@@ -775,7 +775,7 @@ func TestEventProcessCallback(t *testing.T) {
 }
 
 func validateState(t *testing.T, svc *Service, id, namespace, expected string) {
-	nsThid, err := createNSKey(namespace, id)
+	nsThid, err := connectionstore.CreateNamespaceKey(namespace, id)
 	require.NoError(t, err)
 	s, err := svc.currentState(nsThid)
 	require.NoError(t, err)
@@ -974,7 +974,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
 
-	err = svc.connectionStore.SaveInvitation(invitation)
+	err = svc.connectionStore.SaveInvitation(invitation.ID, invitation)
 	require.NoError(t, err)
 
 	go func() {
@@ -1035,7 +1035,7 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 		ServiceEndpoint: "http://alice.agent.example.com:8081",
 	}
 
-	err = svc.connectionStore.SaveInvitation(invitation)
+	err = svc.connectionStore.SaveInvitation(invitation.ID, invitation)
 	require.NoError(t, err)
 
 	go func() {
@@ -1333,7 +1333,7 @@ func TestEventTransientData(t *testing.T) {
 
 		connID := generateRandomID()
 
-		err = svc.connectionStore.TransientStore().Put(eventTransientDataKey(connID), []byte("invalid data"))
+		err = svc.connectionStore.SaveEvent(connID, []byte("invalid data"))
 		require.NoError(t, err)
 
 		_, err = svc.getEventTransientData(connID)
@@ -1508,32 +1508,4 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.Contains(t, err.Error(), "store put error")
 		require.Empty(t, connID)
 	})
-}
-
-func TestService_SaveInvitation(t *testing.T) {
-	svc, err := New(&protocol.MockProvider{})
-	require.NoError(t, err)
-	require.NotNil(t, svc)
-
-	const count = 8
-
-	const invIDFmt = "inv_%d"
-
-	invitations := make([]*Invitation, count)
-
-	// save invitations
-	for i := 0; i < count; i++ {
-		inv := &Invitation{ID: fmt.Sprintf(invIDFmt, i)}
-		invitations[i] = inv
-		err = svc.SaveInvitation(inv)
-		require.NoError(t, err)
-	}
-
-	// verify
-	for _, inv := range invitations {
-		invDB, err := svc.connectionStore.GetInvitation(inv.ID)
-		require.NoError(t, err)
-		require.NotNil(t, invDB)
-		require.Equal(t, invDB, inv)
-	}
 }

@@ -406,7 +406,7 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 			return nil, nil, fmt.Errorf("resolve public did[%s]: %w", pubDID, err)
 		}
 
-		err = ctx.connectionStore.didStore.SaveDIDFromDoc(didDoc)
+		err = ctx.connectionStore.SaveDIDFromDoc(didDoc)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -422,7 +422,7 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
 	}
 
-	err = ctx.connectionStore.didStore.SaveDIDFromDoc(newDidDoc)
+	err = ctx.connectionStore.SaveDIDFromDoc(newDidDoc)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -465,17 +465,17 @@ func (ctx *context) prepareConnectionSignature(connection *Connection,
 	prefix := append([]byte(timestamp), signatureDataDelimiter)
 	concatenateSignData := append(prefix, connAttributeBytes...)
 
-	var invitation *Invitation
+	var invitation Invitation
 	if isDID(invitationID) {
-		invitation = &Invitation{ID: invitationID, DID: invitationID}
+		invitation = Invitation{ID: invitationID, DID: invitationID}
 	} else {
-		invitation, err = ctx.connectionStore.GetInvitation(invitationID)
+		err = ctx.connectionStore.GetInvitation(invitationID, &invitation)
 		if err != nil {
 			return nil, fmt.Errorf("get invitation for signature: %w", err)
 		}
 	}
 
-	pubKey, err := ctx.getInvitationRecipientKey(invitation)
+	pubKey, err := ctx.getInvitationRecipientKey(&invitation)
 	if err != nil {
 		return nil, fmt.Errorf("get invitation recipient key: %w", err)
 	}
@@ -503,7 +503,7 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 			ID: response.Thread.ID,
 		},
 	}
-	nsThID, err := createNSKey(myNSPrefix, ack.Thread.ID)
+	nsThID, err := connectionstore.CreateNamespaceKey(myNSPrefix, ack.Thread.ID)
 
 	if err != nil {
 		return nil, nil, err
