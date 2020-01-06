@@ -319,16 +319,6 @@ func TestFramework(t *testing.T) {
 		require.Contains(t, err.Error(), "error from kms")
 	})
 
-	t.Run("test did connection store svc", func(t *testing.T) {
-		fw := Aries{storeProvider: &storage.MockStoreProvider{
-			ErrOpenStoreHandle: fmt.Errorf("store err"),
-		}}
-
-		err := createDIDConnectionStore(&fw)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "store err")
-	})
-
 	t.Run("test transient store - with user provided transient store", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()

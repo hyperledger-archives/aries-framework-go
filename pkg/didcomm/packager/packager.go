@@ -17,13 +17,16 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 // Provider contains dependencies for the base packager and is typically created by using aries.Context()
 type Provider interface {
 	Packers() []packer.Packer
 	PrimaryPacker() packer.Packer
-	DIDConnectionStore() didconnection.Store
+	StorageProvider() storage.Provider
+	VDRIRegistry() vdri.Registry
 }
 
 // Creator method to create new packager service
@@ -33,7 +36,7 @@ type Creator func(prov Provider) (transport.Packager, error)
 type Packager struct {
 	primaryPacker   packer.Packer
 	packers         map[string]packer.Packer
-	connectionStore didconnection.Store
+	connectionStore *didconnection.Store
 }
 
 // PackerCreator holds a creator function for a Packer and the name of the Packer's encoding method.
@@ -44,10 +47,15 @@ type PackerCreator struct {
 
 // New return new instance of KMS implementation
 func New(ctx Provider) (*Packager, error) {
+	didConnStore, err := didconnection.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new packager: %w", err)
+	}
+
 	basePackager := Packager{
 		primaryPacker:   nil,
 		packers:         map[string]packer.Packer{},
-		connectionStore: ctx.DIDConnectionStore(),
+		connectionStore: didConnStore,
 	}
 
 	for _, packerType := range ctx.Packers() {

@@ -22,11 +22,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/diddoc"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -969,12 +969,18 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 	})
 	t.Run("error saving pub did connection", func(t *testing.T) {
 		doc := createDIDDoc()
-		connectionStore, err := newConnectionStore(&protocol.MockProvider{
-			DIDConnectionStoreValue: &didconnection.MockDIDConnection{
-				SaveDIDErr: fmt.Errorf("did error"),
-			},
+
+		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		connectionStore.Store, err = didconnection.New(&protocol.MockProvider{
+			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+				Store:  make(map[string][]byte),
+				ErrPut: fmt.Errorf("did error"),
+			}),
 		})
 		require.NoError(t, err)
+
 		ctx := context{
 			vdriRegistry:    &mockvdri.MockVDRIRegistry{ResolveValue: doc},
 			connectionStore: connectionStore}
@@ -1005,10 +1011,14 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		require.Equal(t, didDoc.ID, conn.DID)
 	})
 	t.Run("error saving peer did connection", func(t *testing.T) {
-		connectionStore, err := newConnectionStore(&protocol.MockProvider{
-			DIDConnectionStoreValue: &didconnection.MockDIDConnection{
-				SaveDIDErr: fmt.Errorf("did error"),
-			},
+		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		connectionStore.Store, err = didconnection.New(&protocol.MockProvider{
+			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+				Store:  make(map[string][]byte),
+				ErrPut: fmt.Errorf("did error"),
+			}),
 		})
 		require.NoError(t, err)
 

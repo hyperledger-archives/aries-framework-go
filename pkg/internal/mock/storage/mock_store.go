@@ -73,6 +73,10 @@ func (s *MockStore) Put(k string, v []byte) error {
 		return errors.New("key is mandatory")
 	}
 
+	if s.ErrPut != nil {
+		return s.ErrPut
+	}
+
 	s.lock.Lock()
 	s.Store[k] = v
 	s.lock.Unlock()

@@ -9,7 +9,6 @@ package context
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -27,7 +26,6 @@ type Provider struct {
 	storeProvider            storage.Provider
 	transientStoreProvider   storage.Provider
 	kms                      kms.KMS
-	didConnectionStore       didconnection.Store
 	packager                 commontransport.Packager
 	primaryPacker            packer.Packer
 	packers                  []packer.Packer
@@ -77,11 +75,6 @@ func (p *Provider) Service(id string) (interface{}, error) {
 // KMS returns a kms service.
 func (p *Provider) KMS() kms.KeyManager {
 	return p.kms
-}
-
-// DIDConnectionStore returns a didconnection.Store service.
-func (p *Provider) DIDConnectionStore() didconnection.Store {
-	return p.didConnectionStore
 }
 
 // Packager returns a packager service.
@@ -224,14 +217,6 @@ func WithStorageProvider(s storage.Provider) ProviderOption {
 func WithTransientStorageProvider(s storage.Provider) ProviderOption {
 	return func(opts *Provider) error {
 		opts.transientStoreProvider = s
-		return nil
-	}
-}
-
-// WithDIDConnectionStore injects a didconnection.Store into the context.
-func WithDIDConnectionStore(cs didconnection.Store) ProviderOption {
-	return func(opts *Provider) error {
-		opts.didConnectionStore = cs
 		return nil
 	}
 }

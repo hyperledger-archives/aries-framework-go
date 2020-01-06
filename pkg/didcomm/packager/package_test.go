@@ -14,14 +14,13 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	. "github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	jwe "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/jwe/authcrypt"
 	legacy "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
-	mockdidconnection "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/didconnection"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -29,15 +28,14 @@ import (
 
 func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	t.Run("test failed to unmarshal encMessage", func(t *testing.T) {
-		w, err := kms.New(newMockKMSProvider(newMockStoreProvider()))
+		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
-			storage:       newMockStoreProvider(),
+			storage:       mockstorage.NewMockStoreProvider(),
 			kms:           w,
 			primaryPacker: nil,
 			packers:       nil,
-			lookupStore:   &mockdidconnection.MockDIDConnection{GetDIDValue: ""},
 		}
 		testPacker, err := jwe.New(mockedProviders, jwe.XC20P)
 		require.NoError(t, err)
@@ -51,15 +49,14 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test bad encoding type", func(t *testing.T) {
-		w, err := kms.New(newMockKMSProvider(newMockStoreProvider()))
+		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
-			storage:       newMockStoreProvider(),
+			storage:       mockstorage.NewMockStoreProvider(),
 			kms:           w,
 			primaryPacker: nil,
 			packers:       nil,
-			lookupStore:   &mockdidconnection.MockDIDConnection{GetDIDValue: ""},
 		}
 		testPacker, err := jwe.New(mockedProviders, jwe.XC20P)
 		require.NoError(t, err)
@@ -88,16 +85,15 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test key not found", func(t *testing.T) {
-		wp := newMockKMSProvider(newMockStoreProvider())
+		wp := newMockKMSProvider(mockstorage.NewMockStoreProvider())
 		w, err := kms.New(wp)
 		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
-			storage:       newMockStoreProvider(),
+			storage:       mockstorage.NewMockStoreProvider(),
 			kms:           w,
 			primaryPacker: nil,
 			packers:       nil,
-			lookupStore:   &mockdidconnection.MockDIDConnection{GetDIDValue: ""},
 		}
 		testPacker, err := jwe.New(mockedProviders, jwe.XC20P)
 		require.NoError(t, err)
@@ -131,7 +127,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test Pack/Unpack fails", func(t *testing.T) {
-		w, err := kms.New(newMockKMSProvider(newMockStoreProvider()))
+		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 
 		decryptValue := func(envelope []byte) (*transport.Envelope, error) {
@@ -139,11 +135,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		}
 
 		mockedProviders := &mockProvider{
-			storage:       newMockStoreProvider(),
+			storage:       mockstorage.NewMockStoreProvider(),
 			kms:           w,
 			primaryPacker: nil,
 			packers:       nil,
-			lookupStore:   &mockdidconnection.MockDIDConnection{GetDIDValue: ""},
 		}
 
 		// use a mocked packager with a mocked KMS to validate pack/unpack
@@ -202,14 +197,13 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 	t.Run("test Pack/Unpack success", func(t *testing.T) {
 		// create a mock KMS with storage as a map
-		w, err := kms.New(newMockKMSProvider(newMockStoreProvider()))
+		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 		mockedProviders := &mockProvider{
-			storage:       newMockStoreProvider(),
+			storage:       mockstorage.NewMockStoreProvider(),
 			kms:           w,
 			primaryPacker: nil,
 			packers:       nil,
-			lookupStore:   &mockdidconnection.MockDIDConnection{GetDIDValue: ""},
 		}
 
 		// create a real testPacker (no mocking here)
@@ -261,14 +255,13 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 	t.Run("test success - dids not found", func(t *testing.T) {
 		// create a mock KMS with storage as a map
-		w, err := kms.New(newMockKMSProvider(newMockStoreProvider()))
+		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 		mockedProviders := &mockProvider{
-			storage:       newMockStoreProvider(),
+			storage:       mockstorage.NewMockStoreProvider(),
 			kms:           w,
 			primaryPacker: nil,
 			packers:       nil,
-			lookupStore:   &mockdidconnection.MockDIDConnection{GetDIDErr: didconnection.ErrNotFound},
 		}
 
 		// create a real testPacker (no mocking here)
@@ -302,14 +295,18 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 	t.Run("test failure - did lookup broke", func(t *testing.T) {
 		// create a mock KMS with storage as a map
-		w, err := kms.New(newMockKMSProvider(newMockStoreProvider()))
+
+		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
+
 		mockedProviders := &mockProvider{
-			storage:       newMockStoreProvider(),
+			storage: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+				Store:  make(map[string][]byte),
+				ErrGet: fmt.Errorf("bad error"),
+			}),
 			kms:           w,
 			primaryPacker: nil,
 			packers:       nil,
-			lookupStore:   &mockdidconnection.MockDIDConnection{GetDIDErr: fmt.Errorf("bad error")},
 		}
 
 		// create a real testPacker (no mocking here)
@@ -347,19 +344,13 @@ func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvide
 	return &mockProvider{storagePvdr, nil, nil, nil, nil}
 }
 
-func newMockStoreProvider() *mockstorage.MockStoreProvider {
-	return &mockstorage.MockStoreProvider{Store: &mockstorage.MockStore{
-		Store: make(map[string][]byte),
-	}}
-}
-
 // mockProvider mocks provider for KMS
 type mockProvider struct {
 	storage       *mockstorage.MockStoreProvider
 	kms           kms.KeyManager
 	packers       []packer.Packer
 	primaryPacker packer.Packer
-	lookupStore   didconnection.Store
+	vdriRegistry  vdriapi.Registry
 }
 
 func (m *mockProvider) Packers() []packer.Packer {
@@ -378,7 +369,7 @@ func (m *mockProvider) PrimaryPacker() packer.Packer {
 	return m.primaryPacker
 }
 
-// DIDConnectionStore returns a didconnection.Store service.
-func (m *mockProvider) DIDConnectionStore() didconnection.Store {
-	return m.lookupStore
+// VDRIRegistry returns a vdri registry
+func (m *mockProvider) VDRIRegistry() vdriapi.Registry {
+	return m.vdriRegistry
 }

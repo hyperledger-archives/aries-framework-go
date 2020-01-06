@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
@@ -44,7 +43,6 @@ type Aries struct {
 	inboundTransport       transport.InboundTransport
 	kmsCreator             api.KMSCreator
 	kms                    api.CloseableKMS
-	didConnectionStore     didconnection.Store
 	packagerCreator        packager.Creator
 	packager               commontransport.Packager
 	packerCreator          packer.Creator
@@ -101,11 +99,6 @@ func initializeServices(frameworkOpts *Aries) (*Aries, error) {
 
 	// Create vdri
 	if e := createVDRI(frameworkOpts); e != nil {
-		return nil, e
-	}
-
-	// Create connection store
-	if e := createDIDConnectionStore(frameworkOpts); e != nil {
 		return nil, e
 	}
 
@@ -227,7 +220,6 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithOutboundTransports(a.outboundTransports...),
 		context.WithProtocolServices(a.services...),
 		context.WithKMS(a.kms),
-		context.WithDIDConnectionStore(a.didConnectionStore),
 		context.WithInboundTransportEndpoint(endPoint),
 		context.WithStorageProvider(a.storeProvider),
 		context.WithTransientStorageProvider(a.transientStoreProvider),
@@ -392,7 +384,6 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithPackager(frameworkOpts.packager),
 		context.WithInboundTransportEndpoint(endPoint),
 		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
-		context.WithDIDConnectionStore(frameworkOpts.didConnectionStore),
 	)
 
 	if err != nil {
@@ -411,23 +402,6 @@ func loadServices(frameworkOpts *Aries) error {
 		if err := context.WithProtocolServices(frameworkOpts.services...)(ctx); err != nil {
 			return err
 		}
-	}
-
-	return nil
-}
-
-func createDIDConnectionStore(frameworkOpts *Aries) error {
-	ctx, err := context.New(
-		context.WithStorageProvider(frameworkOpts.storeProvider),
-		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
-	)
-	if err != nil {
-		return fmt.Errorf("create did lookup store context failed: %w", err)
-	}
-
-	frameworkOpts.didConnectionStore, err = didconnection.New(ctx)
-	if err != nil {
-		return fmt.Errorf("create did lookup store failed: %w", err)
 	}
 
 	return nil
@@ -457,9 +431,8 @@ func createPackersAndPackager(frameworkOpts *Aries) error {
 		frameworkOpts.packers = append(frameworkOpts.packers, p)
 	}
 
-	ctx, err = context.New(
-		context.WithPacker(frameworkOpts.primaryPacker, frameworkOpts.packers...),
-		context.WithDIDConnectionStore(frameworkOpts.didConnectionStore))
+	ctx, err = context.New(context.WithPacker(frameworkOpts.primaryPacker, frameworkOpts.packers...),
+		context.WithStorageProvider(frameworkOpts.storeProvider), context.WithVDRIRegistry(frameworkOpts.vdriRegistry))
 	if err != nil {
 		return fmt.Errorf("create packager context failed: %w", err)
 	}
