@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -26,10 +25,6 @@ const (
 	InvitationMsgType = didexchange.InvitationMsgType
 	// RequestMsgType defines the did-exchange request message type.
 	RequestMsgType = didexchange.RequestMsgType
-	// ResponseMsgType defines the did-exchange response message type.
-	ResponseMsgType = didexchange.ResponseMsgType
-	// AckMsgType defines the did-exchange ack message type.
-	AckMsgType = didexchange.AckMsgType
 )
 
 // ErrConnectionNotFound is returned when connection not found
@@ -42,7 +37,6 @@ type provider interface {
 	InboundTransportEndpoint() string
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
-	DIDConnectionStore() didconnection.Store
 }
 
 // Client enable access to didexchange api

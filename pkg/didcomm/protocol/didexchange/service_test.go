@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/diddoc"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -68,10 +67,8 @@ func TestServiceNew(t *testing.T) {
 // did-exchange flow with role Inviter
 func TestService_Handle_Inviter(t *testing.T) {
 	mockStore := &mockstorage.MockStore{Store: make(map[string][]byte)}
-	didConnectionStore := didconnection.MockDIDConnection{}
 	prov := &protocol.MockProvider{
-		StoreProvider:           mockstorage.NewCustomMockStoreProvider(mockStore),
-		DIDConnectionStoreValue: &didConnectionStore,
+		StoreProvider: mockstorage.NewCustomMockStoreProvider(mockStore),
 	}
 	pubKey, privKey := generateKeyPair()
 	connectionStore, err := newConnectionStore(prov)

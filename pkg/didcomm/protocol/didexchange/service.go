@@ -15,7 +15,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -59,7 +58,6 @@ type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
-	DIDConnectionStore() didconnection.Store
 	Signer() kms.Signer
 	VDRIRegistry() vdriapi.Registry
 }
@@ -78,9 +76,6 @@ type Service struct {
 	service.Message
 	ctx             *context
 	callbackChannel chan *message
-
-	// TODO merge connection and did store [Issue #1004]
-	didConnections  didconnection.Store
 	connectionStore *connectionStore
 }
 
@@ -117,7 +112,6 @@ func New(prov provider) (*Service, error) {
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan *message, 10),
 		connectionStore: connRecorder,
-		didConnections:  prov.DIDConnectionStore(),
 	}
 
 	// start the listener

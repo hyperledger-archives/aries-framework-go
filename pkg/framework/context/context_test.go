@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
-	mockdidconnection "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/didconnection"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
@@ -194,13 +193,6 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithVDRIRegistry(r))
 		require.NoError(t, err)
 		require.Equal(t, r, prov.VDRIRegistry())
-	})
-
-	t.Run("test new with did connection store", func(t *testing.T) {
-		cs := &mockdidconnection.MockDIDConnection{}
-		prov, err := New(WithDIDConnectionStore(cs))
-		require.NoError(t, err)
-		require.Equal(t, cs, prov.DIDConnectionStore())
 	})
 
 	t.Run("test new with outbound transport service", func(t *testing.T) {

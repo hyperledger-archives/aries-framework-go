@@ -13,9 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
-	mockdidconnection "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/didconnection"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 )
 
 const (
@@ -109,11 +110,15 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.Contains(t, err.Error(), errMsg)
 	})
 	t.Run("save with mapping - error saving DID by resolving", func(t *testing.T) {
-		record, err := newConnectionStore(&protocol.MockProvider{
-			DIDConnectionStoreValue: &mockdidconnection.MockDIDConnection{
-				ResolveDIDErr: fmt.Errorf("save error"),
+		record, err := newConnectionStore(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		record.Store, err = didconnection.New(&protocol.MockProvider{
+			CustomVDRI: &vdri.MockVDRIRegistry{
+				ResolveErr: fmt.Errorf("resolve error"),
 			},
 		})
+
 		require.NotNil(t, record)
 		require.NoError(t, err)
 
@@ -121,7 +126,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 			ConnectionID: connIDValue, State: stateNameCompleted, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "save error")
+		require.Contains(t, err.Error(), "resolve error")
 
 		// note: record is still stored, since error happens afterwards
 		storedRecord, err := record.GetConnectionRecord(connRec.ConnectionID)
@@ -129,9 +134,12 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.Equal(t, connRec, storedRecord)
 	})
 	t.Run("error saving DID by resolving", func(t *testing.T) {
-		record, err := newConnectionStore(&protocol.MockProvider{
-			DIDConnectionStoreValue: &mockdidconnection.MockDIDConnection{
-				ResolveDIDErr: fmt.Errorf("save error"),
+		record, err := newConnectionStore(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		record.Store, err = didconnection.New(&protocol.MockProvider{
+			CustomVDRI: &vdri.MockVDRIRegistry{
+				ResolveErr: fmt.Errorf("resolve error"),
 			},
 		})
 		require.NotNil(t, record)
@@ -141,7 +149,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 			ConnectionID: connIDValue, State: stateNameCompleted, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecord(connRec)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "save error")
+		require.Contains(t, err.Error(), "resolve error")
 
 		// note: record is still stored, since error happens afterwards
 		storedRecord, err := record.GetConnectionRecord(connRec.ConnectionID)

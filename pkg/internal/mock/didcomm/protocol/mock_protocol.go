@@ -7,10 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package protocol
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	mockdidconnection "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/didconnection"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -21,10 +19,9 @@ import (
 
 // MockProvider is provider for DIDExchange Service
 type MockProvider struct {
-	StoreProvider           *mockstore.MockStoreProvider
-	TransientStoreProvider  *mockstore.MockStoreProvider
-	CustomVDRI              vdriapi.Registry
-	DIDConnectionStoreValue *mockdidconnection.MockDIDConnection
+	StoreProvider          *mockstore.MockStoreProvider
+	TransientStoreProvider *mockstore.MockStoreProvider
+	CustomVDRI             vdriapi.Registry
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service
@@ -62,13 +59,4 @@ func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
 	}
 
 	return &mockvdri.MockVDRIRegistry{}
-}
-
-// DIDConnectionStore returns the did lookup store
-func (p *MockProvider) DIDConnectionStore() didconnection.Store {
-	if p.DIDConnectionStoreValue == nil {
-		return &mockdidconnection.MockDIDConnection{}
-	}
-
-	return p.DIDConnectionStoreValue
 }

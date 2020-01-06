@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -27,7 +26,6 @@ type Provider struct {
 	PackerValue                   packer.Packer
 	OutboundDispatcherValue       dispatcher.Outbound
 	VDRIRegistryValue             vdriapi.Registry
-	ConnectionStoreValue          didconnection.Store
 }
 
 // Service return service
@@ -73,9 +71,4 @@ func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
 // VDRIRegistry return vdri registry
 func (p *Provider) VDRIRegistry() vdriapi.Registry {
 	return p.VDRIRegistryValue
-}
-
-// DIDConnectionStore returns a didconnection.Store service.
-func (p *Provider) DIDConnectionStore() didconnection.Store {
-	return p.ConnectionStoreValue
 }
