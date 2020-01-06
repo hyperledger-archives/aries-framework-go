@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -21,6 +22,7 @@ import (
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/generic"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
@@ -127,6 +129,38 @@ func TestNewProvider(t *testing.T) {
 		}`), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error handling the message")
+	})
+
+	t.Run("test new with generic inbound service", func(t *testing.T) {
+		const sampleMsgType = "generic-msg-type-2.0"
+
+		handled := make(chan bool, 1)
+		prov, err := New(WithMessageServices(&generic.MockGenericSvc{
+			HandleFunc: func(*service.DIDCommMsg) (string, error) {
+				handled <- true
+				return "", nil
+			},
+			AcceptFunc: func(header *service.Header) bool {
+				return header.Type == sampleMsgType
+			},
+		}))
+		require.NoError(t, err)
+
+		inboundHandler := prov.InboundMessageHandler()
+
+		err = inboundHandler([]byte(fmt.Sprintf(`
+		{
+			"@frameworkID": "5678876542345",
+			"@type": "%s"
+		}`, sampleMsgType)), "did1", "did2")
+		require.NoError(t, err)
+
+		select {
+		case h := <-handled:
+			require.True(t, h)
+		case <-time.After(5 * time.Second):
+			require.Fail(t, "generic service handler not called")
+		}
 	})
 
 	t.Run("test new with kms and packager service", func(t *testing.T) {

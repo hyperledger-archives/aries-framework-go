@@ -137,3 +137,51 @@ func TestDIDCommMsg_Clone(t *testing.T) {
 	cloned = didMsg.Clone()
 	require.Equal(t, didMsg, cloned)
 }
+
+func TestDIDCommMsg_Purpose(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      string
+		typeVal string
+		purpose []string
+		payload []byte
+		err     string
+	}{{
+		name: "empty payload test",
+		err:  "invalid payload data format: unexpected end of JSON input",
+	}, {
+		name:    "valid payload test",
+		id:      "ID",
+		purpose: []string{"team:01453", "delivery", "geotag", "cred"},
+		typeVal: "sample-type",
+		payload: []byte(`{"@id":"ID", "@type":"sample-type", "~purpose":["team:01453", "delivery", "geotag", "cred"], 
+"id":"ID", "data-type":"data-type-01"}`),
+		err: "",
+	}, {
+		name:    "invalid payload",
+		payload: []byte(`[]`),
+		err:     `invalid payload data format: json: cannot unmarshal array into Go value of type service.Header`,
+	}}
+
+	t.Parallel()
+
+	for _, test := range tests {
+		tc := test
+		t.Run(tc.name, func(t *testing.T) {
+			val, err := NewDIDCommMsg(tc.payload)
+
+			if tc.err != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.err)
+				require.Nil(t, val)
+				return
+			}
+
+			require.Equal(t, tc.id, val.Header.ID)
+			require.Equal(t, tc.typeVal, val.Header.Type)
+			require.Equal(t, tc.purpose, val.Header.Purpose)
+
+			require.NotNil(t, val)
+		})
+	}
+}
