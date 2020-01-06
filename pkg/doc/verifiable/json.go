@@ -78,9 +78,21 @@ func mergeCustomFields(v interface{}, cf map[string]interface{}) (map[string]int
 }
 
 func toMap(v interface{}) (map[string]interface{}, error) {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
+	var (
+		b   []byte
+		err error
+	)
+
+	switch cv := v.(type) {
+	case []byte:
+		b = cv
+	case string:
+		b = []byte(cv)
+	default:
+		b, err = json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var m map[string]interface{}

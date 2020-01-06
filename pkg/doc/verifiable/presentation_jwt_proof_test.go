@@ -164,9 +164,6 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		Issued:  &issued,
 		Expired: &expired,
 		Schemas: []TypedID{},
-		CustomFields: map[string]interface{}{
-			"referenceNumber": 83294847,
-		},
 	}
 
 	vcJWTClaims, e := vc.JWTClaims(true)

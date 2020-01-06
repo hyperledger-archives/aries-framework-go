@@ -14,6 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -106,6 +107,18 @@ func (tid *TypedID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func newTypedID(v interface{}) (TypedID, error) {
+	bytes, err := json.Marshal(v)
+	if err != nil {
+		return TypedID{}, err
+	}
+
+	var tid TypedID
+	err = json.Unmarshal(bytes, &tid)
+
+	return tid, err
+}
+
 func describeSchemaValidationError(result *gojsonschema.Result, what string) string {
 	errMsg := what + " is not valid:\n"
 	for _, desc := range result.Errors() {
@@ -145,7 +158,7 @@ func decodeType(t interface{}) ([]string, error) {
 
 		return types, nil
 	default:
-		return nil, errors.New("credential type of unknown type")
+		return nil, errors.New("credential type of unknown structure")
 	}
 }
 

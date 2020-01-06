@@ -8,6 +8,9 @@ package verifiable
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,7 +21,7 @@ const (
 {
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/ext/type1"
+    "%s"
   ],
   "id": "http://example.edu/credentials/1872",
   "type": [
@@ -45,7 +48,7 @@ const (
 {
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/ext/type2"
+    "%s"
   ],
   "id": "http://example.edu/credentials/1872",
   "type": [
@@ -91,8 +94,7 @@ type Cred1 struct {
 }
 
 func (c1 *Cred1) Accept(vc *Credential) bool {
-	return hasContext(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type1") &&
-		hasType(vc.Types, "CredType1")
+	return hasType(vc.Types, "CredType1")
 }
 
 func (c1 *Cred1) Apply(vc *Credential, dataJSON []byte) (interface{}, error) {
@@ -120,8 +122,7 @@ type Cred2Producer struct {
 }
 
 func (c2p *Cred2Producer) Accept(vc *Credential) bool {
-	return hasContext(vc.Context, "https://www.w3.org/2018/credentials/examples/ext/type2") &&
-		hasType(vc.Types, "CredType2")
+	return hasType(vc.Types, "CredType2")
 }
 
 func (c2p *Cred2Producer) Apply(vc *Credential, dataJSON []byte) (interface{}, error) {
@@ -156,16 +157,6 @@ func (fp *FailingCredentialProducer) Apply(*Credential, []byte) (interface{}, er
 	return nil, errors.New("failed to apply credential extension")
 }
 
-func hasContext(allContexts []string, targetContext string) bool {
-	for _, thatContext := range allContexts {
-		if thatContext == targetContext {
-			return true
-		}
-	}
-
-	return false
-}
-
 func hasType(allTypes []string, targetType string) bool {
 	for _, thatType := range allTypes {
 		if thatType == targetType {
@@ -179,8 +170,40 @@ func hasType(allTypes []string, targetType string) bool {
 func TestCredentialExtensibilitySwitch(t *testing.T) {
 	producers := []CustomCredentialProducer{NewCred1Producer(), NewCred2Producer()}
 
+	jsonldContext1 := `
+{
+  "@context": {
+    "c1": "https://example.com/vocab#c1",
+    "s1": "https://example.com/vocab#s1"
+  }
+}
+`
+
+	jsonldContext2 := `
+{
+  "@context": {
+    "c2": "https://example.com/vocab#c2",
+    "s2": "https://example.com/vocab#s2"
+  }
+}
+`
+
+	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		if req.URL.Query()["context"][0] == "1" {
+			res.WriteHeader(http.StatusOK)
+			_, err := res.Write([]byte(jsonldContext1))
+			require.NoError(t, err)
+		} else {
+			res.WriteHeader(http.StatusOK)
+			_, err := res.Write([]byte(jsonldContext2))
+			require.NoError(t, err)
+		}
+	}))
+
+	defer func() { testServer.Close() }()
+
 	// Producer1 applied.
-	i1, err := CreateCustomCredential([]byte(validCred1), producers)
+	i1, err := CreateCustomCredential([]byte(fmt.Sprintf(validCred1, testServer.URL+"?context=1")), producers)
 	require.NoError(t, err)
 	require.IsType(t, &Cred1{}, i1)
 	cred1, correct := i1.(*Cred1)
@@ -191,7 +214,7 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	require.Equal(t, "custom subject 1", cred1.Subject.CustomSubjectField)
 
 	// Producer2 applied.
-	i2, err := CreateCustomCredential([]byte(validCred2), producers)
+	i2, err := CreateCustomCredential([]byte(fmt.Sprintf(validCred2, testServer.URL+"?context=2")), producers)
 	require.NoError(t, err)
 	require.IsType(t, &Cred2{}, i2)
 	cred2, correct := i2.(*Cred2)

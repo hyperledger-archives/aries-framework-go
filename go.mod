@@ -27,4 +27,7 @@ require (
 	nhooyr.io/websocket v1.7.4
 )
 
+// Temporary workaround to support protected (json-gold issue 22)
+replace github.com/piprate/json-gold v0.2.0 => github.com/trustbloc/json-gold v0.2.1-0.20191230111312-c43a3af13244
+
 go 1.13
