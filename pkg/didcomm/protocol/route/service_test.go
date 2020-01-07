@@ -68,7 +68,7 @@ func TestServiceHandleInbound(t *testing.T) {
 
 		id, err := svc.HandleInbound(&service.DIDCommMsg{Header: &service.Header{
 			ID: msgID,
-		}})
+		}}, "", "")
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})
@@ -79,7 +79,7 @@ func TestServiceHandleOutbound(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider()})
 		require.NoError(t, err)
 
-		err = svc.HandleOutbound(nil, nil)
+		err = svc.HandleOutbound(nil, "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not implemented")
 	})
@@ -94,7 +94,7 @@ func TestServiceRequestMsg(t *testing.T) {
 
 		msgID := randomID()
 
-		id, err := svc.HandleInbound(generateRequestMsgPayload(t, msgID))
+		id, err := svc.HandleInbound(generateRequestMsgPayload(t, msgID), "", "")
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})
@@ -152,7 +152,7 @@ func TestServiceGrantMsg(t *testing.T) {
 
 		msgID := randomID()
 
-		id, err := svc.HandleInbound(generateGrantMsgPayload(t, msgID))
+		id, err := svc.HandleInbound(generateGrantMsgPayload(t, msgID), "", "")
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})
@@ -183,7 +183,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 		id, err := svc.HandleInbound(generateKeyUpdateListMsgPayload(t, msgID, []Update{{
 			RecipientKey: "ABC",
 			Action:       "add",
-		}}))
+		}}), "", "")
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})
@@ -260,7 +260,7 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 			RecipientKey: "ABC",
 			Action:       "add",
 			Result:       success,
-		}}))
+		}}), "", "")
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})
@@ -292,7 +292,7 @@ func TestServiceForwardMsg(t *testing.T) {
 
 		msgID := randomID()
 
-		id, err := svc.HandleInbound(generateForwardMsgPayload(t, msgID, to, nil))
+		id, err := svc.HandleInbound(generateForwardMsgPayload(t, msgID, to, nil), "", "")
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})

@@ -97,7 +97,7 @@ func New(prov provider) (*Service, error) {
 }
 
 // HandleInbound handles inbound route coordination messages.
-func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) { // nolint gocyclo (5 switch cases)
+func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID string, theirDID string) (string, error) { // nolint gocyclo (5 switch cases)
 	// perform action on inbound message asynchronously
 	go func() {
 		switch msg.Header.Type {
@@ -128,7 +128,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg) (string, error) { // no
 }
 
 // HandleOutbound handles outbound route coordination messages.
-func (s *Service) HandleOutbound(msg *service.DIDCommMsg, destination *service.Destination) error {
+func (s *Service) HandleOutbound(msg *service.DIDCommMsg, myDID, theirDID string) error {
 	return errors.New("not implemented")
 }
 
