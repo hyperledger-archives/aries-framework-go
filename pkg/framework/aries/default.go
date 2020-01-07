@@ -18,6 +18,7 @@ import (
 	legacy "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -44,7 +45,8 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.storeProvider = storeProv
 	}
 
-	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators, newExchangeSvc(), newIntroduceSvc())
+	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators,
+		newExchangeSvc(), newIntroduceSvc(), newRouteSvc())
 
 	return setAdditionalDefaultOpts(frameworkOpts)
 }
@@ -58,6 +60,12 @@ func newExchangeSvc() api.ProtocolSvcCreator {
 func newIntroduceSvc() api.ProtocolSvcCreator {
 	return func(prv api.Provider) (dispatcher.Service, error) {
 		return introduce.New(prv)
+	}
+}
+
+func newRouteSvc() api.ProtocolSvcCreator {
+	return func(prv api.Provider) (dispatcher.Service, error) {
+		return route.New(prv)
 	}
 }
 
