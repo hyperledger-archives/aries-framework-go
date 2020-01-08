@@ -2175,7 +2175,7 @@ func setupIntroducee(f *flow) (*introduce.Service, *introduceMocks.MockInvitatio
 	return svc, dep, didChan
 }
 
-func handleInbound(t *testing.T, svc *introduce.Service, msg interface{}, myDID, theirDID string) {
+func handleInbound(t *testing.T, svc service.InboundHandler, msg interface{}, myDID, theirDID string) {
 	t.Helper()
 
 	resp, err := service.NewDIDCommMsg(toBytes(t, msg))

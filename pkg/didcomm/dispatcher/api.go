@@ -17,6 +17,13 @@ type Service interface {
 	Name() string
 }
 
+// MessageService is service for handling generic messages
+// matching accept criteria
+type MessageService interface {
+	service.InboundHandler
+	Accept(header *service.Header) bool
+}
+
 // Outbound interface
 type Outbound interface {
 	// Sends the message after packing with the sender key and recipient keys.

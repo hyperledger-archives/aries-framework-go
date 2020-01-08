@@ -13,12 +13,22 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 )
 
-// Handler provides protocol service handle api.
-type Handler interface {
+// InboundHandler is handler for inbound messages
+type InboundHandler interface {
 	// HandleInbound handles inbound messages.
-	HandleInbound(msg *DIDCommMsg, myDID string, theirDID string) (string, error)
+	HandleInbound(msg *DIDCommMsg, myDID, theirDID string) (string, error)
+}
+
+// OutboundHandler is handler for outbound messages
+type OutboundHandler interface {
 	// HandleOutbound handles outbound messages.
 	HandleOutbound(msg *DIDCommMsg, myDID, theirDID string) error
+}
+
+// Handler provides protocol service handle api.
+type Handler interface {
+	InboundHandler
+	OutboundHandler
 }
 
 // DIDComm defines service APIs.
@@ -34,6 +44,8 @@ type Header struct {
 	ID     string           `json:"@id"`
 	Thread decorator.Thread `json:"~thread"`
 	Type   string           `json:"@type"`
+	// TODO revisit ~purpose, should be generic map [Issue #1037]
+	Purpose []string `json:"~purpose"`
 }
 
 func (h *Header) clone() *Header {
