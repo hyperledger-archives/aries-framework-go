@@ -76,11 +76,11 @@ type TypedID struct {
 }
 
 // MarshalJSON defines custom marshalling of TypedID to JSON.
-func (tid *TypedID) MarshalJSON() ([]byte, error) {
+func (tid TypedID) MarshalJSON() ([]byte, error) {
 	// TODO hide this exported method
 	type Alias TypedID
 
-	alias := (*Alias)(tid)
+	alias := Alias(tid)
 
 	data, err := marshalWithCustomFields(alias, tid.CustomFields)
 	if err != nil {

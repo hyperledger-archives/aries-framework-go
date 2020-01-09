@@ -44,7 +44,7 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, err)
-		require.Equal(t, vc.raw().stringJSON(t), vcRaw.stringJSON(t))
+		require.Equal(t, vc.stringJSON(t), vcRaw.stringJSON(t))
 	})
 
 	t.Run("Marshal signed JWT failed with invalid private key", func(t *testing.T) {
@@ -85,7 +85,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 
 		vc, _, err := NewCredential([]byte(jwtTestCredential))
 		require.NoError(t, err)
-		require.Equal(t, vc.raw().stringJSON(t), vcRaw.stringJSON(t))
+		require.Equal(t, vc.stringJSON(t), vcRaw.stringJSON(t))
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {

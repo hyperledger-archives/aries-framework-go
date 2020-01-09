@@ -115,18 +115,28 @@ const defaultSchema = `{
       "format": "date-time"
     },
     "proof": {
-      "type": "object",
-      "required": [
-        "type"
-      ],
-      "properties": {
-        "type": {
-          "type": "string"
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
         }
-      }
+      ]
     },
     "expirationDate": {
-      "type": "string",
+      "type": [
+        "string",
+        "null"
+      ],
       "format": "date-time"
     },
     "credentialStatus": {
@@ -144,30 +154,37 @@ const defaultSchema = `{
   },
   "definitions": {
     "typedID": {
-      "type": "object",
-      "required": [
-        "id",
-        "type"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "format": "uri"
+      "anyOf": [
+        {
+          "type": "null"
         },
-        "type": {
-          "anyOf": [
-            {
-              "type": "string"
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "type"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uri"
             },
-            {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+            "type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
             }
-          ]
+          }
         }
-      }
+      ]
     },
     "typedIDs": {
       "anyOf": [
@@ -179,6 +196,9 @@ const defaultSchema = `{
           "items": {
             "$ref": "#/definitions/typedID"
           }
+        },
+        {
+          "type": "null"
         }
       ]
     }
@@ -369,26 +389,26 @@ type Credential struct {
 	Schemas        []TypedID
 	Evidence       *Evidence
 	TermsOfUse     []TypedID
-	RefreshService *TypedID
+	RefreshService []TypedID
 
 	CustomFields CustomFields
 }
 
 // rawCredential is a basic verifiable credential
 type rawCredential struct {
-	Context        interface{} `json:"@context,omitempty"`
-	ID             string      `json:"id,omitempty"`
-	Type           interface{} `json:"type,omitempty"`
-	Subject        Subject     `json:"credentialSubject,omitempty"`
-	Issued         *time.Time  `json:"issuanceDate,omitempty"`
-	Expired        *time.Time  `json:"expirationDate,omitempty"`
-	Proof          *Proof      `json:"proof,omitempty"`
-	Status         *TypedID    `json:"credentialStatus,omitempty"`
-	Issuer         interface{} `json:"issuer,omitempty"`
-	Schema         interface{} `json:"credentialSchema,omitempty"`
-	Evidence       *Evidence   `json:"evidence,omitempty"`
-	TermsOfUse     []TypedID   `json:"termsOfUse,omitempty"`
-	RefreshService *TypedID    `json:"refreshService,omitempty"`
+	Context        interface{}     `json:"@context,omitempty"`
+	ID             string          `json:"id,omitempty"`
+	Type           interface{}     `json:"type,omitempty"`
+	Subject        Subject         `json:"credentialSubject,omitempty"`
+	Issued         *time.Time      `json:"issuanceDate,omitempty"`
+	Expired        *time.Time      `json:"expirationDate,omitempty"`
+	Proof          *Proof          `json:"proof,omitempty"`
+	Status         *TypedID        `json:"credentialStatus,omitempty"`
+	Issuer         interface{}     `json:"issuer,omitempty"`
+	Schema         interface{}     `json:"credentialSchema,omitempty"`
+	Evidence       *Evidence       `json:"evidence,omitempty"`
+	TermsOfUse     json.RawMessage `json:"termsOfUse,omitempty"`
+	RefreshService json.RawMessage `json:"refreshService,omitempty"`
 
 	// All unmapped fields are put here.
 	CustomFields `json:"-"`
@@ -783,6 +803,16 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		return nil, fmt.Errorf("fill credential context from raw: %w", err)
 	}
 
+	termsOfUse, err := decodeTypedID(raw.TermsOfUse)
+	if err != nil {
+		return nil, fmt.Errorf("fill credential terms of use from raw: %w", err)
+	}
+
+	refreshService, err := decodeTypedID(raw.RefreshService)
+	if err != nil {
+		return nil, fmt.Errorf("fill credential refresh service from raw: %w", err)
+	}
+
 	return &Credential{
 		Context:        context,
 		CustomContext:  customContext,
@@ -796,10 +826,32 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		Status:         raw.Status,
 		Schemas:        schemas,
 		Evidence:       raw.Evidence,
-		TermsOfUse:     raw.TermsOfUse,
-		RefreshService: raw.RefreshService,
+		TermsOfUse:     termsOfUse,
+		RefreshService: refreshService,
 		CustomFields:   raw.CustomFields,
 	}, nil
+}
+
+func decodeTypedID(bytes json.RawMessage) ([]TypedID, error) {
+	if len(bytes) == 0 {
+		return nil, nil
+	}
+
+	var singleTypedID TypedID
+
+	err := json.Unmarshal(bytes, &singleTypedID)
+	if err == nil {
+		return []TypedID{singleTypedID}, nil
+	}
+
+	var composedTypedID []TypedID
+
+	err = json.Unmarshal(bytes, &composedTypedID)
+	if err == nil {
+		return composedTypedID, nil
+	}
+
+	return nil, err
 }
 
 func decodeRaw(vcData []byte, checkProof bool, pubKeyFetcher PublicKeyFetcher) ([]byte, error) {
@@ -855,7 +907,7 @@ func newDefaultSchemaLoader() *CredentialSchemaLoader {
 	}
 }
 
-func issuerToSerialize(issuer Issuer) interface{} {
+func issuerToRaw(issuer Issuer) interface{} {
 	if issuer.Name != "" {
 		return &compositeIssuer{ID: issuer.ID, Name: issuer.Name}
 	}
@@ -1018,26 +1070,36 @@ func subjectID(subject interface{}) (string, error) {
 	}
 }
 
-func (vc *Credential) raw() *rawCredential {
+func (vc *Credential) raw() (*rawCredential, error) {
+	rawRefreshService, err := typedIDsToRaw(vc.RefreshService)
+	if err != nil {
+		return nil, err
+	}
+
+	rawTermsOfUse, err := typedIDsToRaw(vc.TermsOfUse)
+	if err != nil {
+		return nil, err
+	}
+
 	return &rawCredential{
-		Context:        contextToSerialize(vc.Context, vc.CustomContext),
+		Context:        contextToRaw(vc.Context, vc.CustomContext),
 		ID:             vc.ID,
-		Type:           typesToSerialize(vc.Types),
+		Type:           typesToRaw(vc.Types),
 		Subject:        vc.Subject,
 		Issued:         vc.Issued,
 		Expired:        vc.Expired,
 		Proof:          vc.Proof,
 		Status:         vc.Status,
-		Issuer:         issuerToSerialize(vc.Issuer),
+		Issuer:         issuerToRaw(vc.Issuer),
 		Schema:         vc.Schemas,
 		Evidence:       vc.Evidence,
-		RefreshService: vc.RefreshService,
-		TermsOfUse:     vc.TermsOfUse,
+		RefreshService: rawRefreshService,
+		TermsOfUse:     rawTermsOfUse,
 		CustomFields:   vc.CustomFields,
-	}
+	}, nil
 }
 
-func typesToSerialize(types []string) interface{} {
+func typesToRaw(types []string) interface{} {
 	if len(types) == 1 {
 		// as string
 		return types[0]
@@ -1046,7 +1108,7 @@ func typesToSerialize(types []string) interface{} {
 	return types
 }
 
-func contextToSerialize(context []string, cContext []interface{}) interface{} {
+func contextToRaw(context []string, cContext []interface{}) interface{} {
 	if len(cContext) > 0 {
 		// return as array
 		sContext := make([]interface{}, len(context), len(context)+len(cContext))
@@ -1062,9 +1124,25 @@ func contextToSerialize(context []string, cContext []interface{}) interface{} {
 	return context
 }
 
+func typedIDsToRaw(typedIDs []TypedID) ([]byte, error) {
+	switch len(typedIDs) {
+	case 0:
+		return nil, nil
+	case 1:
+		return json.Marshal(typedIDs[0])
+	default:
+		return json.Marshal(typedIDs)
+	}
+}
+
 // MarshalJSON converts Verifiable Credential to JSON bytes
 func (vc *Credential) MarshalJSON() ([]byte, error) {
-	byteCred, err := json.Marshal(vc.raw())
+	raw, err := vc.raw()
+	if err != nil {
+		return nil, fmt.Errorf("JSON marshalling of verifiable credential: %w", err)
+	}
+
+	byteCred, err := json.Marshal(raw)
 	if err != nil {
 		return nil, fmt.Errorf("JSON marshalling of verifiable credential: %w", err)
 	}

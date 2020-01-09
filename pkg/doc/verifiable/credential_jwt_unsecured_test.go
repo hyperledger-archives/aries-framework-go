@@ -32,7 +32,7 @@ func TestCredentialJWTClaimsMarshallingToUnsecuredJWT(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, err)
-	require.Equal(t, vc.raw().stringJSON(t), vcRaw.stringJSON(t))
+	require.Equal(t, vc.stringJSON(t), vcRaw.stringJSON(t))
 }
 
 func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
