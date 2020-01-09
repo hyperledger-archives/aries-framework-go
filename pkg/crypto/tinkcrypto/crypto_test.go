@@ -81,7 +81,7 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		// encrypt with nil key handle - should fail
 		_, _, err = c.Encrypt(msg, aad, nil)
 		require.Error(t, err)
-		require.EqualError(t, err, "encrypt(): bad key handle format")
+		require.EqualError(t, err, "bad key handle format")
 
 		plainText, err := c.Decrypt(cipherText, nonce, aad, kh)
 		require.NoError(t, err)
@@ -100,7 +100,7 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		// decrypt with nil key handle - should fail
 		_, err = c.Decrypt(cipherText, nonce, aad, nil)
 		require.Error(t, err)
-		require.EqualError(t, err, "decrypt(): bad key handle format")
+		require.EqualError(t, err, "bad key handle format")
 	})
 }
 
@@ -120,7 +120,7 @@ func TestCrypto_SignVerify(t *testing.T) {
 		// sign with nil key handle - should fail
 		_, err = c.Sign(msg, nil)
 		require.Error(t, err)
-		require.EqualError(t, err, "sign(): bad key handle format")
+		require.EqualError(t, err, "bad key handle format")
 
 		// sign with bad key handle - should fail
 		_, err = c.Sign(msg, badKH)
@@ -156,7 +156,7 @@ func TestCrypto_SignVerify(t *testing.T) {
 		// verify with nil key handle - should fail
 		err = c.Verify(s, msg, nil)
 		require.Error(t, err)
-		require.EqualError(t, err, "verify(): bad key handle format")
+		require.EqualError(t, err, "bad key handle format")
 
 		// verify with bad key handle - should fail
 		err = c.Verify(s, msg, badKH)

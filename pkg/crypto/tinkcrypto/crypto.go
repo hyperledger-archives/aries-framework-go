@@ -39,22 +39,22 @@ func New() (*Crypto, error) {
 func (t *Crypto) Encrypt(msg, aad []byte, kh interface{}) ([]byte, []byte, error) {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
-		return nil, nil, errors.New("encrypt(): bad key handle format")
+		return nil, nil, errors.New("bad key handle format")
 	}
 
 	a, err := aead.New(keyHandle)
 	if err != nil {
-		return nil, nil, fmt.Errorf("encrypt(): failed to create new aead for keyHandle: %w", err)
+		return nil, nil, fmt.Errorf("create new aead: %w", err)
 	}
 
 	ct, err := a.Encrypt(msg, aad)
 	if err != nil {
-		return nil, nil, fmt.Errorf("encrypt(): failed to encrypt msg: %w", err)
+		return nil, nil, fmt.Errorf("encrypt msg: %w", err)
 	}
 
 	ps, err := keyHandle.Primitives()
 	if err != nil {
-		return nil, nil, fmt.Errorf("encrypt(): failed to get primitives of keyHandle: %w", err)
+		return nil, nil, fmt.Errorf("get primitives: %w", err)
 	}
 
 	// Tink appends a key prefix + nonce to ciphertext, let's remove them to get the raw ciphertext
@@ -85,17 +85,17 @@ func nonceSize(ps *primitiveset.PrimitiveSet) int {
 func (t *Crypto) Decrypt(cipher, nonce, aad []byte, kh interface{}) ([]byte, error) {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
-		return nil, errors.New("decrypt(): bad key handle format")
+		return nil, errors.New("bad key handle format")
 	}
 
 	a, err := aead.New(keyHandle)
 	if err != nil {
-		return nil, fmt.Errorf("decrypt(): failed to create new aead for keyHandle: %w", err)
+		return nil, fmt.Errorf("create new aead: %w", err)
 	}
 
 	ps, err := keyHandle.Primitives()
 	if err != nil {
-		return nil, fmt.Errorf("decrypt(): failed to get primitives of keyHandle: %w", err)
+		return nil, fmt.Errorf("get primitives: %w", err)
 	}
 
 	// since Tink expects the key prefix + nonce as the ciphertext prefix, prepend them prior to calling its Decrypt()
@@ -106,7 +106,7 @@ func (t *Crypto) Decrypt(cipher, nonce, aad []byte, kh interface{}) ([]byte, err
 
 	pt, err := a.Decrypt(ct, aad)
 	if err != nil {
-		return nil, fmt.Errorf("dcrypt(): failed to decrypt cipher: %w", err)
+		return nil, fmt.Errorf("decrypt cipher: %w", err)
 	}
 
 	return pt, nil
@@ -116,17 +116,17 @@ func (t *Crypto) Decrypt(cipher, nonce, aad []byte, kh interface{}) ([]byte, err
 func (t *Crypto) Sign(msg []byte, kh interface{}) ([]byte, error) {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
-		return nil, errors.New("sign(): bad key handle format")
+		return nil, errors.New("bad key handle format")
 	}
 
 	signer, err := signature.NewSigner(keyHandle)
 	if err != nil {
-		return nil, fmt.Errorf("sign(): failed to create a new signer for keyHandle: %w", err)
+		return nil, fmt.Errorf("create new signer: %w", err)
 	}
 
 	s, err := signer.Sign(msg)
 	if err != nil {
-		return nil, fmt.Errorf("sign(): failed to sign msg: %w", err)
+		return nil, fmt.Errorf("sign msg: %w", err)
 	}
 
 	return s, nil
@@ -136,17 +136,17 @@ func (t *Crypto) Sign(msg []byte, kh interface{}) ([]byte, error) {
 func (t *Crypto) Verify(sig, msg []byte, kh interface{}) error {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
-		return errors.New("verify(): bad key handle format")
+		return errors.New("bad key handle format")
 	}
 
 	verifier, err := signature.NewVerifier(keyHandle)
 	if err != nil {
-		return fmt.Errorf("verify(): failed to create a new verifier for keyHandle: %w", err)
+		return fmt.Errorf("create new verifier: %w", err)
 	}
 
 	err = verifier.Verify(sig, msg)
 	if err != nil {
-		err = fmt.Errorf("verify(): failed to verify msg: %w", err)
+		err = fmt.Errorf("verify msg: %w", err)
 	}
 
 	return err
