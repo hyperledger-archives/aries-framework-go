@@ -11,13 +11,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
-
 	"github.com/stretchr/testify/require"
 
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 func TestNew(t *testing.T) {
@@ -77,7 +76,7 @@ func TestSendRequest(t *testing.T) {
 			}}})
 		require.NoError(t, err)
 
-		connRec := &connectionstore.ConnectionRecord{
+		connRec := &connection.Record{
 			ConnectionID: "conn1", MyDID: "mydid", TheirDID: "theirDID", State: "complete"}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
@@ -98,7 +97,7 @@ func TestSendRequest(t *testing.T) {
 			}}})
 		require.NoError(t, err)
 
-		connRec := &connectionstore.ConnectionRecord{
+		connRec := &connection.Record{
 			ConnectionID: "conn1", MyDID: "mydid", TheirDID: "theirDID", State: "complete"}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)

@@ -17,7 +17,6 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -27,6 +26,7 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 func TestNew(t *testing.T) {
@@ -214,7 +214,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 			InboundEndpointValue:          "endpoint"})
 		require.NoError(t, err)
 
-		connRec := &connectionstore.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
+		connRec := &connection.Record{ConnectionID: connID, ThreadID: threadID, State: "complete"}
 
 		require.NoError(t, err)
 		require.NoError(t, c.connectionStore.SaveConnectionRecord(connRec))
@@ -243,7 +243,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 			InboundEndpointValue:          "endpoint"})
 		require.NoError(t, err)
 
-		connRec := &connectionstore.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
+		connRec := &connection.Record{ConnectionID: connID, ThreadID: threadID, State: "complete"}
 
 		require.NoError(t, err)
 		require.NoError(t, c.connectionStore.SaveConnectionRecord(connRec))
@@ -286,7 +286,7 @@ func TestClient_GetConnection(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceValue:                  svc})
 		require.NoError(t, err)
-		connRec := &connectionstore.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "complete"}
+		connRec := &connection.Record{ConnectionID: connID, ThreadID: threadID, State: "complete"}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		require.NoError(t, s.Put("conn_id1", connBytes))
@@ -470,7 +470,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		const keyPrefix = "conn_"
 		const state = "completed"
 		for i := 0; i < count; i++ {
-			val, e := json.Marshal(&connectionstore.ConnectionRecord{
+			val, e := json.Marshal(&connection.Record{
 				ConnectionID: string(i),
 				State:        state,
 			})
@@ -508,7 +508,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 				queryState = state
 			}
 
-			val, e := json.Marshal(&connectionstore.ConnectionRecord{
+			val, e := json.Marshal(&connection.Record{
 				ConnectionID: string(i),
 				State:        queryState,
 			})

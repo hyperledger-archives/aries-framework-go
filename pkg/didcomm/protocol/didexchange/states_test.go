@@ -21,7 +21,6 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -31,6 +30,7 @@ import (
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/diddoc"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 func TestNoopState(t *testing.T) {
@@ -238,7 +238,7 @@ func TestInvitedState_Execute(t *testing.T) {
 			&stateMachineMsg{
 				header:     &service.Header{Type: InvitationMsgType},
 				payload:    invitationPayloadBytes,
-				connRecord: &connectionstore.ConnectionRecord{},
+				connRecord: &connection.Record{},
 			},
 			"",
 			&context{})
@@ -277,7 +277,7 @@ func TestRequestedState_Execute(t *testing.T) {
 		connRec, _, _, e := (&requested{}).ExecuteInbound(&stateMachineMsg{
 			header:     msg.Header,
 			payload:    msg.Payload,
-			connRecord: &connectionstore.ConnectionRecord{},
+			connRecord: &connection.Record{},
 		}, thid, ctx)
 		require.NoError(t, e)
 		require.NotNil(t, connRec.MyDID)
@@ -300,7 +300,7 @@ func TestRequestedState_Execute(t *testing.T) {
 		require.Nil(t, didDoc)
 	})
 	t.Run("handle inbound invitation public key error", func(t *testing.T) {
-		connRec := &connectionstore.ConnectionRecord{
+		connRec := &connection.Record{
 			State:        (&requested{}).Name(),
 			ThreadID:     "test",
 			ConnectionID: "123",
@@ -347,14 +347,14 @@ func TestRespondedState_Execute(t *testing.T) {
 		connRec, followup, _, e := (&responded{}).ExecuteInbound(&stateMachineMsg{
 			header:     &service.Header{Type: RequestMsgType},
 			payload:    requestPayloadBytes,
-			connRecord: &connectionstore.ConnectionRecord{},
+			connRecord: &connection.Record{},
 		}, "", ctx)
 		require.NoError(t, e)
 		require.NotNil(t, connRec)
 		require.IsType(t, &noOp{}, followup)
 	})
 	t.Run("followup to 'completed' on inbound responses", func(t *testing.T) {
-		connRec := &connectionstore.ConnectionRecord{
+		connRec := &connection.Record{
 			State:        (&responded{}).Name(),
 			ThreadID:     request.ID,
 			ConnectionID: "123",
@@ -385,7 +385,7 @@ func TestRespondedState_Execute(t *testing.T) {
 		_, followup, _, err := (&responded{}).ExecuteInbound(&stateMachineMsg{
 			header:     &service.Header{Type: RequestMsgType},
 			payload:    requestPayloadBytes,
-			connRecord: &connectionstore.ConnectionRecord{},
+			connRecord: &connection.Record{},
 		}, "", ctx2)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "getting sender verification keys")
@@ -422,13 +422,13 @@ func TestCompletedState_Execute(t *testing.T) {
 	ctx := &context{signer: &mockSigner{privateKey: privKey},
 		connectionStore: connStore}
 	newDIDDoc := createDIDDocWithKey(pubKey)
-	connection := &Connection{
+	c := &Connection{
 		DID:    newDIDDoc.ID,
 		DIDDoc: newDIDDoc,
 	}
 	invitation, err := createMockInvitation(pubKey, ctx)
 	require.NoError(t, err)
-	connectionSignature, err := ctx.prepareConnectionSignature(connection, invitation.ID)
+	connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
 	require.NoError(t, err)
 
 	response := &Response{
@@ -443,7 +443,7 @@ func TestCompletedState_Execute(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no followup for inbound responses", func(t *testing.T) {
-		connRec := &connectionstore.ConnectionRecord{
+		connRec := &connection.Record{
 			State:         (&responded{}).Name(),
 			ThreadID:      response.Thread.ID,
 			ConnectionID:  "123",
@@ -465,7 +465,7 @@ func TestCompletedState_Execute(t *testing.T) {
 		require.IsType(t, &noOp{}, followup)
 	})
 	t.Run("no followup for inbound acks", func(t *testing.T) {
-		connRec := &connectionstore.ConnectionRecord{
+		connRec := &connection.Record{
 			State:         (&responded{}).Name(),
 			ThreadID:      response.Thread.ID,
 			ConnectionID:  "123",
@@ -532,7 +532,7 @@ func TestVerifySignature(t *testing.T) {
 	ctx := &context{signer: &mockSigner{privateKey: privKey},
 		connectionStore: connStore}
 	newDIDDoc := createDIDDocWithKey(pubKey)
-	connection := &Connection{
+	c := &Connection{
 		DID:    newDIDDoc.ID,
 		DIDDoc: newDIDDoc,
 	}
@@ -540,7 +540,7 @@ func TestVerifySignature(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("signature verified", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(connection, invitation.ID)
+		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
 		require.NoError(t, err)
 		con, err := verifySignature(connectionSignature, invitation.RecipientKeys[0])
 		require.NoError(t, err)
@@ -554,7 +554,7 @@ func TestVerifySignature(t *testing.T) {
 		require.Nil(t, con)
 	})
 	t.Run("decode signature data error", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(connection, invitation.ID)
+		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
 		require.NoError(t, err)
 
 		connectionSignature.SignedData = "invalid-signed-data"
@@ -564,7 +564,7 @@ func TestVerifySignature(t *testing.T) {
 		require.Nil(t, con)
 	})
 	t.Run("decode signature error", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(connection, invitation.ID)
+		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
 		require.NoError(t, err)
 
 		connectionSignature.Signature = "invalid-signature"
@@ -574,7 +574,7 @@ func TestVerifySignature(t *testing.T) {
 		require.Nil(t, con)
 	})
 	t.Run("decode verification key error ", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(connection, invitation.ID)
+		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
 		require.NoError(t, err)
 
 		con, err := verifySignature(connectionSignature, "invalid-key")
@@ -583,7 +583,7 @@ func TestVerifySignature(t *testing.T) {
 		require.Nil(t, con)
 	})
 	t.Run("verify signature error", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(connection, invitation.ID)
+		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
 		require.NoError(t, err)
 
 		// generate different key and assign it to signature verification key
@@ -647,13 +647,13 @@ func TestPrepareConnectionSignature(t *testing.T) {
 	newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 	require.NoError(t, err)
 
-	connection := &Connection{
+	c := &Connection{
 		DID:    newDidDoc.ID,
 		DIDDoc: newDidDoc,
 	}
 
 	t.Run("prepare connection signature", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(connection, invitation.ID)
+		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
 		require.NoError(t, err)
 		require.NotNil(t, connectionSignature)
 		sigData, err := base64.URLEncoding.DecodeString(connectionSignature.SignedData)
@@ -662,7 +662,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		sigDataConnection := &Connection{}
 		err = json.Unmarshal(connBytes[1], sigDataConnection)
 		require.NoError(t, err)
-		require.Equal(t, connection.DID, sigDataConnection.DID)
+		require.Equal(t, c.DID, sigDataConnection.DID)
 	})
 	t.Run("implicit invitation with DID - success", func(t *testing.T) {
 		connStore, err := newConnectionStore(&prov)
@@ -674,7 +674,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 			signer:          &mockSigner{privateKey: privKey},
 			connectionStore: connStore,
 		}
-		connectionSignature, err := ctx2.prepareConnectionSignature(connection, newDidDoc.ID)
+		connectionSignature, err := ctx2.prepareConnectionSignature(c, newDidDoc.ID)
 		require.NoError(t, err)
 		require.NotNil(t, connectionSignature)
 		sigData, err := base64.URLEncoding.DecodeString(connectionSignature.SignedData)
@@ -683,7 +683,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		sigDataConnection := &Connection{}
 		err = json.Unmarshal(connBytes[1], sigDataConnection)
 		require.NoError(t, err)
-		require.Equal(t, connection.DID, sigDataConnection.DID)
+		require.Equal(t, c.DID, sigDataConnection.DID)
 	})
 	t.Run("implicit invitation with DID - recipient key error", func(t *testing.T) {
 		newDidDoc.PublicKey = nil
@@ -695,13 +695,13 @@ func TestPrepareConnectionSignature(t *testing.T) {
 			signer:          &mockSigner{privateKey: privKey},
 			connectionStore: connStore,
 		}
-		connectionSignature, err := ctx2.prepareConnectionSignature(connection, newDidDoc.ID)
+		connectionSignature, err := ctx2.prepareConnectionSignature(c, newDidDoc.ID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get recipient keys from did")
 		require.Nil(t, connectionSignature)
 	})
 	t.Run("prepare connection signature get invitation", func(t *testing.T) {
-		connectionSignature, err := ctx.prepareConnectionSignature(connection, "test")
+		connectionSignature, err := ctx.prepareConnectionSignature(c, "test")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get invitation for signature: data not found")
 		require.Nil(t, connectionSignature)
@@ -714,7 +714,7 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		}
 		err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
 		require.NoError(t, err)
-		connectionSignature, err := ctx.prepareConnectionSignature(connection, inv.ID)
+		connectionSignature, err := ctx.prepareConnectionSignature(c, inv.ID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get invitation for signature: data not found")
 		require.Nil(t, connectionSignature)
@@ -726,10 +726,10 @@ func TestPrepareConnectionSignature(t *testing.T) {
 
 		ctx := &context{signer: &mockSigner{err: errors.New("sign error")},
 			connectionStore: connStore}
-		connection := &Connection{
+		c := &Connection{
 			DIDDoc: mockdiddoc.GetMockDIDDoc(),
 		}
-		connectionSignature, err := ctx.prepareConnectionSignature(connection, invitation.ID)
+		connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "sign error")
 		require.Nil(t, connectionSignature)
@@ -756,7 +756,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 			Payload: invitationBytes,
 		})
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{}, &connectionstore.ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{}, &connection.Record{})
 		require.NoError(t, err)
 		require.NotNil(t, connRec.MyDID)
 	})
@@ -776,7 +776,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 		})
 		require.NoError(t, err)
 		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{publicDID: doc.ID},
-			&connectionstore.ConnectionRecord{})
+			&connection.Record{})
 		require.NoError(t, err)
 		require.NotNil(t, connRec.MyDID)
 		require.Equal(t, connRec.MyDID, doc.ID)
@@ -792,7 +792,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 			Payload: invitationBytes,
 		})
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{}, &connectionstore.ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{}, &connection.Record{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, connRec)
@@ -806,7 +806,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 		ctx := getContext(t, prov)
 		request, err := createRequest(ctx)
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connectionstore.ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 		require.NoError(t, err)
 		require.NotNil(t, connRec.MyDID)
 		require.NotNil(t, connRec.TheirDID)
@@ -819,7 +819,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 				ResolveValue: mockdiddoc.GetMockDIDDoc(),
 			}}
 		request := &Request{Connection: &Connection{DID: didDoc.ID, DIDDoc: didDoc}}
-		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connectionstore.ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, connRec)
@@ -835,7 +835,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 
 		request, err := createRequest(ctx)
 		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connectionstore.ConnectionRecord{})
+		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "sign error")
@@ -844,7 +844,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 	t.Run("unsuccessful new response from request due to resolve public did from request error", func(t *testing.T) {
 		ctx := &context{vdriRegistry: &mockvdri.MockVDRIRegistry{ResolveErr: errors.New("resolver error")}}
 		request := &Request{Connection: &Connection{DID: "did:sidetree:abc"}}
-		_, _, err := ctx.handleInboundRequest(request, &options{}, &connectionstore.ConnectionRecord{})
+		_, _, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolver error")
 	})
@@ -1142,12 +1142,12 @@ func createResponse(request *Request, ctx *context) (*Response, error) {
 		return nil, err
 	}
 
-	connection := &Connection{
+	c := &Connection{
 		DID:    didDoc.ID,
 		DIDDoc: didDoc,
 	}
 
-	connectionSignature, err := ctx.prepareConnectionSignature(connection, request.Thread.PID)
+	connectionSignature, err := ctx.prepareConnectionSignature(c, request.Thread.PID)
 	if err != nil {
 		return nil, err
 	}
@@ -1172,7 +1172,7 @@ func saveMockConnectionRecord(request *Request, ctx *context) (*Response, error)
 	}
 
 	pubKey, _ := generateKeyPair()
-	connRec := &connectionstore.ConnectionRecord{
+	connRec := &connection.Record{
 		State:         (&responded{}).Name(),
 		ThreadID:      response.Thread.ID,
 		ConnectionID:  "123",

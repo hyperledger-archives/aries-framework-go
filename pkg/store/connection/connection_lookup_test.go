@@ -7,7 +7,7 @@
  *
  */
 
-package connectionstore
+package connection
 
 import (
 	"encoding/json"
@@ -29,7 +29,7 @@ const (
 
 func TestNewConnectionReader(t *testing.T) {
 	t.Run("create new connection reader", func(t *testing.T) {
-		lookup, err := NewConnectionLookup(&mockProvider{})
+		lookup, err := NewLookup(&mockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, lookup)
 		require.NotNil(t, lookup.transientStore)
@@ -37,14 +37,14 @@ func TestNewConnectionReader(t *testing.T) {
 	})
 
 	t.Run("create new connection reader failure due to transient store error", func(t *testing.T) {
-		lookup, err := NewConnectionLookup(&mockProvider{transientStoreError: fmt.Errorf(sampleErrMsg)})
+		lookup, err := NewLookup(&mockProvider{transientStoreError: fmt.Errorf(sampleErrMsg)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleErrMsg)
 		require.Nil(t, lookup)
 	})
 
 	t.Run("create new connection reader failure due to store error", func(t *testing.T) {
-		lookup, err := NewConnectionLookup(&mockProvider{storeError: fmt.Errorf(sampleErrMsg)})
+		lookup, err := NewLookup(&mockProvider{storeError: fmt.Errorf(sampleErrMsg)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleErrMsg)
 		require.Nil(t, lookup)
@@ -61,7 +61,7 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 
 	saveInStore := func(store storage.Store, ids []string) {
 		for _, id := range ids {
-			connRecBytes, err := json.Marshal(&ConnectionRecord{ConnectionID: id,
+			connRecBytes, err := json.Marshal(&Record{ConnectionID: id,
 				ThreadID: fmt.Sprintf(threadIDFmt, id)})
 			require.NoError(t, err)
 			err = store.Put(getConnectionKeyPrefix()(id), connRecBytes)
@@ -70,7 +70,7 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 	}
 
 	t.Run("get connection record - from store", func(t *testing.T) {
-		lookup, e := NewConnectionLookup(&mockProvider{})
+		lookup, e := NewLookup(&mockProvider{})
 		require.NoError(t, e)
 		require.NotNil(t, lookup)
 
@@ -99,7 +99,7 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 	})
 
 	t.Run("get connection record - from transient store", func(t *testing.T) {
-		lookup, e := NewConnectionLookup(&mockProvider{})
+		lookup, e := NewLookup(&mockProvider{})
 		require.NoError(t, e)
 		require.NotNil(t, lookup)
 
@@ -131,7 +131,7 @@ func TestConnectionReader_GetAndQueryConnectionRecord(t *testing.T) {
 		provider := &mockProvider{}
 		provider.store = &mockstorage.MockStore{ErrGet: fmt.Errorf(sampleErrMsg),
 			Store: make(map[string][]byte)}
-		lookup, err := NewConnectionLookup(provider)
+		lookup, err := NewLookup(provider)
 		require.NoError(t, err)
 		require.NotNil(t, lookup)
 
@@ -160,7 +160,7 @@ func TestConnectionReader_GetConnectionRecordAtState(t *testing.T) {
 
 	saveInStore := func(store storage.Store, ids []string) {
 		for _, id := range ids {
-			connRecBytes, err := json.Marshal(&ConnectionRecord{ConnectionID: id,
+			connRecBytes, err := json.Marshal(&Record{ConnectionID: id,
 				ThreadID: fmt.Sprintf(threadIDFmt, id)})
 			require.NoError(t, err)
 			err = store.Put(getConnectionStateKeyPrefix()(id, state), connRecBytes)
@@ -169,7 +169,7 @@ func TestConnectionReader_GetConnectionRecordAtState(t *testing.T) {
 	}
 
 	t.Run("get connection record at state", func(t *testing.T) {
-		store, err := NewConnectionLookup(&mockProvider{})
+		store, err := NewLookup(&mockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -205,7 +205,7 @@ func TestConnectionReader_GetConnectionRecordAtState(t *testing.T) {
 	})
 
 	t.Run("get connection record at state - failure", func(t *testing.T) {
-		store, err := NewConnectionLookup(&mockProvider{})
+		store, err := NewLookup(&mockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -227,7 +227,7 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 	saveInStore := func(store storage.Store, ids []string, skipConnection bool) {
 		for _, id := range ids {
 			connID := fmt.Sprintf(connIDFmt, id)
-			connRecBytes, err := json.Marshal(&ConnectionRecord{ConnectionID: id,
+			connRecBytes, err := json.Marshal(&Record{ConnectionID: id,
 				ThreadID: id})
 			require.NoError(t, err)
 			err = store.Put(id, []byte(connID))
@@ -241,7 +241,7 @@ func TestConnectionReader_GetConnectionRecordByNSThreadID(t *testing.T) {
 	}
 
 	t.Run("get connection record by NS thread ID", func(t *testing.T) {
-		store, err := NewConnectionLookup(&mockProvider{})
+		store, err := NewLookup(&mockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -303,7 +303,7 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 		)
 
 		for i := 0; i < storeCount+overlap; i++ {
-			val, jsonErr := json.Marshal(&ConnectionRecord{
+			val, jsonErr := json.Marshal(&Record{
 				ConnectionID: string(i),
 			})
 			require.NoError(t, jsonErr)
@@ -312,7 +312,7 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 			require.NoError(t, err)
 		}
 		for i := overlap; i < transientStoreCount+storeCount; i++ {
-			val, jsonErr := json.Marshal(&ConnectionRecord{
+			val, jsonErr := json.Marshal(&Record{
 				ConnectionID: string(i),
 			})
 			require.NoError(t, jsonErr)
@@ -321,7 +321,7 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		recorder, err := NewConnectionLookup(&mockProvider{store: store, transientStore: transientStore})
+		recorder, err := NewLookup(&mockProvider{store: store, transientStore: transientStore})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 		result, err := recorder.QueryConnectionRecords()
@@ -334,7 +334,7 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 		err := store.Put(fmt.Sprintf("%s_abc123", connIDKeyPrefix), []byte("-----"))
 		require.NoError(t, err)
 
-		recorder, err := NewConnectionLookup(&mockProvider{store: store})
+		recorder, err := NewLookup(&mockProvider{store: store})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 		result, err := recorder.QueryConnectionRecords()

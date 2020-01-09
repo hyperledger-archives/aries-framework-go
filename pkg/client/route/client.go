@@ -12,9 +12,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
-
-	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 // ErrConnectionNotFound is returned when connection not found
@@ -29,7 +28,7 @@ type provider interface {
 
 // Client enable access to route api
 type Client struct {
-	connectionLookup *connectionstore.ConnectionLookup
+	connectionLookup *connection.Lookup
 	routeSvc         protocolService
 }
 
@@ -54,7 +53,7 @@ func New(ctx provider) (*Client, error) {
 		return nil, errors.New("cast service to route service failed")
 	}
 
-	connectionLookup, err := connectionstore.NewConnectionLookup(ctx)
+	connectionLookup, err := connection.NewLookup(ctx)
 	if err != nil {
 		return nil, err
 	}

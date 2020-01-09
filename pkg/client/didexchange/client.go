@@ -13,11 +13,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 const (
@@ -45,7 +45,7 @@ type Client struct {
 	didexchangeSvc           protocolService
 	kms                      kms.KeyManager
 	inboundTransportEndpoint string
-	connectionStore          *connectionstore.ConnectionRecorder
+	connectionStore          *connection.Recorder
 }
 
 // protocolService defines DID Exchange service.
@@ -76,7 +76,7 @@ func New(ctx provider) (*Client, error) {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
 
-	connectionStore, err := connectionstore.NewConnectionRecorder(ctx)
+	connectionStore, err := connection.NewRecorder(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connectio
 			continue
 		}
 
-		result = append(result, &Connection{ConnectionRecord: record})
+		result = append(result, &Connection{Record: record})
 	}
 
 	return result, nil

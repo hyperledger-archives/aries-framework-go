@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -26,6 +25,7 @@ import (
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 const testMethod = "peer"
@@ -279,12 +279,12 @@ func TestService_Handle_Invitee(t *testing.T) {
 	require.Equal(t, invitation.RecipientKeys, connRecord.RecipientKeys)
 	require.Equal(t, invitation.ServiceEndpoint, connRecord.ServiceEndPoint)
 
-	connection := &Connection{
+	c := &Connection{
 		DID:    newDidDoc.ID,
 		DIDDoc: newDidDoc,
 	}
 
-	connectionSignature, err := ctx.prepareConnectionSignature(connection, invitation.ID)
+	connectionSignature, err := ctx.prepareConnectionSignature(c, invitation.ID)
 	require.NoError(t, err)
 
 	// Bob replies with a Response
@@ -480,7 +480,7 @@ func TestService_CurrentState(t *testing.T) {
 		svc := &Service{
 			connectionStore: connectionStore,
 		}
-		thid, err := connectionstore.CreateNamespaceKey(theirNSPrefix, "ignored")
+		thid, err := connection.CreateNamespaceKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
 		s, err := svc.currentState(thid)
 		require.NoError(t, err)
@@ -489,7 +489,7 @@ func TestService_CurrentState(t *testing.T) {
 
 	t.Run("returns state from store", func(t *testing.T) {
 		expected := &requested{}
-		connRec, err := json.Marshal(&connectionstore.ConnectionRecord{State: expected.Name()})
+		connRec, err := json.Marshal(&connection.Record{State: expected.Name()})
 		require.NoError(t, err)
 
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{
@@ -503,7 +503,7 @@ func TestService_CurrentState(t *testing.T) {
 		svc := &Service{
 			connectionStore: connectionStore,
 		}
-		thid, err := connectionstore.CreateNamespaceKey(theirNSPrefix, "ignored")
+		thid, err := connection.CreateNamespaceKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
 		actual, err := svc.currentState(thid)
 		require.NoError(t, err)
@@ -522,7 +522,7 @@ func TestService_CurrentState(t *testing.T) {
 		require.NoError(t, err)
 
 		svc := &Service{connectionStore: connectionStore}
-		thid, err := connectionstore.CreateNamespaceKey(theirNSPrefix, "ignored")
+		thid, err := connection.CreateNamespaceKey(theirNSPrefix, "ignored")
 		require.NoError(t, err)
 		_, err = svc.currentState(thid)
 		require.Error(t, err)
@@ -533,7 +533,7 @@ func TestService_CurrentState(t *testing.T) {
 func TestService_Update(t *testing.T) {
 	s := &requested{}
 	data := make(map[string][]byte)
-	connRec := &connectionstore.ConnectionRecord{ThreadID: "123", ConnectionID: "123456", State: s.Name(),
+	connRec := &connection.Record{ThreadID: "123", ConnectionID: "123456", State: s.Name(),
 		Namespace: findNamespace(RequestMsgType)}
 	bytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
@@ -556,7 +556,7 @@ func TestService_Update(t *testing.T) {
 
 	require.NoError(t, svc.update(RequestMsgType, connRec))
 
-	cr := &connectionstore.ConnectionRecord{}
+	cr := &connection.Record{}
 	err = json.Unmarshal(bytes, cr)
 	require.NoError(t, err)
 	require.Equal(t, cr, connRec)
@@ -715,7 +715,7 @@ func TestEventsUserError(t *testing.T) {
 	}()
 
 	id := randomString()
-	connRec := &connectionstore.ConnectionRecord{ConnectionID: randomString(), ThreadID: id,
+	connRec := &connection.Record{ConnectionID: randomString(), ThreadID: id,
 		Namespace: findNamespace(RequestMsgType), State: (&null{}).Name()}
 
 	err = svc.connectionStore.saveConnectionRecordWithMapping(connRec)
@@ -772,7 +772,7 @@ func TestEventProcessCallback(t *testing.T) {
 }
 
 func validateState(t *testing.T, svc *Service, id, namespace, expected string) {
-	nsThid, err := connectionstore.CreateNamespaceKey(namespace, id)
+	nsThid, err := connection.CreateNamespaceKey(namespace, id)
 	require.NoError(t, err)
 	s, err := svc.currentState(nsThid)
 	require.NoError(t, err)
@@ -838,7 +838,7 @@ func TestServiceErrors(t *testing.T) {
 
 	// invalid state name
 	message.NextStateName = stateNameInvited
-	message.ConnRecord = &connectionstore.ConnectionRecord{ConnectionID: "abc"}
+	message.ConnRecord = &connection.Record{ConnectionID: "abc"}
 	err = svc.handleWithoutAction(message)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to execute state invited")
@@ -1144,7 +1144,7 @@ func TestAcceptInvitation(t *testing.T) {
 		require.NoError(t, err)
 
 		id := generateRandomID()
-		connRecord := &connectionstore.ConnectionRecord{
+		connRecord := &connection.Record{
 			ConnectionID: id,
 			State:        stateNameRequested,
 		}
@@ -1164,7 +1164,7 @@ func TestAcceptInvitation(t *testing.T) {
 		require.NoError(t, err)
 
 		id := generateRandomID()
-		connRecord := &connectionstore.ConnectionRecord{
+		connRecord := &connection.Record{
 			ConnectionID: id,
 			State:        stateNameRequested,
 		}
@@ -1259,7 +1259,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		require.NoError(t, err)
 
 		id := generateRandomID()
-		connRecord := &connectionstore.ConnectionRecord{
+		connRecord := &connection.Record{
 			ConnectionID: id,
 			State:        stateNameRequested,
 		}
@@ -1279,7 +1279,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		require.NoError(t, err)
 
 		id := generateRandomID()
-		connRecord := &connectionstore.ConnectionRecord{
+		connRecord := &connection.Record{
 			ConnectionID: id,
 			State:        stateNameRequested,
 		}
@@ -1301,7 +1301,7 @@ func TestEventTransientData(t *testing.T) {
 		connID := generateRandomID()
 
 		msg := &message{
-			ConnRecord: &connectionstore.ConnectionRecord{ConnectionID: connID},
+			ConnRecord: &connection.Record{ConnectionID: connID},
 		}
 		err = svc.storeEventTransientData(msg)
 		require.NoError(t, err)
