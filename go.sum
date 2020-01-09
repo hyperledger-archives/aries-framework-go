@@ -1,5 +1,7 @@
 github.com/VictoriaMetrics/fastcache v1.5.4 h1:0BaXbRH01RycJk79OOBwMCXlNryko9z4yEf6RqbP+Xo=
 github.com/VictoriaMetrics/fastcache v1.5.4/go.mod h1:ptDBkNMQI4RtmVo8VS/XwRY6RoTu1dAWCbrk+6WsEM8=
+github.com/VictoriaMetrics/fastcache v1.5.5 h1:HsBlzPgzKG0566YOl1mmfyz8SCU0zLKfbl9RDLsiLD8=
+github.com/VictoriaMetrics/fastcache v1.5.5/go.mod h1:ptDBkNMQI4RtmVo8VS/XwRY6RoTu1dAWCbrk+6WsEM8=
 github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412 h1:w1UutsfOrms1J05zt7ISrnJIXKzwaspym5BTKGx93EI=
 github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412/go.mod h1:WPjqKcmVOxf0XSf3YxCJs6N6AOSrOx3obionmG7T0y0=
 github.com/allegro/bigcache v1.2.1-0.20190218064605-e24eb225f156/go.mod h1:Cb/ax3seSYIx7SuZdm2G2xzfwmv3TPSk2ucNfQESPXM=
@@ -67,6 +69,8 @@ github.com/piprate/json-gold v0.2.0 h1:cY1ER2Yz5R+Hr0i0RtXLkKuAZAO7gONmS5jvoODLN
 github.com/piprate/json-gold v0.2.0/go.mod h1:5EEeMX0Gg1CyQxoy4QRhufCfMSCOvcRAaqwkrn6NqqY=
 github.com/piprate/json-gold v0.2.1-0.20191230111312-c43a3af13244 h1:bjJ3XKMVg3Kwaw2+m9s7Tm6U2ouCIHwIl5tarFd0rVI=
 github.com/piprate/json-gold v0.2.1-0.20191230111312-c43a3af13244/go.mod h1:5EEeMX0Gg1CyQxoy4QRhufCfMSCOvcRAaqwkrn6NqqY=
+github.com/piprate/json-gold v0.3.0 h1:a1vHx7Q1jOO1pjCtKwTI/WCzwaQwRt9VM7apK2uy200=
+github.com/piprate/json-gold v0.3.0/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 h1:J9b7z+QKAmPf4YLrFg6oQUotqHQeUNWwkvo7jZp1GLU=
