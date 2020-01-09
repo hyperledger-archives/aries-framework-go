@@ -9,9 +9,8 @@ package didexchange
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
-
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 const (
@@ -23,7 +22,7 @@ const (
 
 // newConnectionStore returns new connection store instance
 func newConnectionStore(p provider) (*connectionStore, error) {
-	recorder, err := connectionstore.NewConnectionRecorder(p)
+	recorder, err := connection.NewRecorder(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize connection recorder: %w", err)
 	}
@@ -33,18 +32,18 @@ func newConnectionStore(p provider) (*connectionStore, error) {
 		return nil, fmt.Errorf("failed to initialize did connection store: %w", err)
 	}
 
-	return &connectionStore{ConnectionRecorder: recorder, Store: didConnStore}, nil
+	return &connectionStore{Recorder: recorder, Store: didConnStore}, nil
 }
 
 // connectionStore takes care of connection and DID related persistence features
 // TODO merge connection stores [Issue #1004]
 type connectionStore struct {
-	*connectionstore.ConnectionRecorder
+	*connection.Recorder
 	*didconnection.Store
 }
 
 // saveConnectionRecord saves the connection record against the connection id  in the store
-func (c *connectionStore) saveConnectionRecord(record *connectionstore.ConnectionRecord) error {
+func (c *connectionStore) saveConnectionRecord(record *connection.Record) error {
 	err := c.SaveConnectionRecord(record)
 	if err != nil {
 		return fmt.Errorf(" failed to save connection record : %w", err)
@@ -61,7 +60,7 @@ func (c *connectionStore) saveConnectionRecord(record *connectionstore.Connectio
 
 // saveConnectionRecordWithMapping saves newly created connection record against the connection id in the store
 // and it creates mapping from namespaced ThreadID to connection ID
-func (c *connectionStore) saveConnectionRecordWithMapping(record *connectionstore.ConnectionRecord) error {
+func (c *connectionStore) saveConnectionRecordWithMapping(record *connection.Record) error {
 	err := c.SaveConnectionRecordWithMappings(record)
 	if err != nil {
 		return err

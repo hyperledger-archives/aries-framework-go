@@ -7,7 +7,7 @@
  *
  */
 
-package connectionstore
+package connection
 
 import (
 	"encoding/json"
@@ -39,8 +39,8 @@ type provider interface {
 	StorageProvider() storage.Provider
 }
 
-// ConnectionRecord contain info about did exchange connection
-type ConnectionRecord struct {
+// Record contain info about did exchange connection
+type Record struct {
 	ConnectionID    string
 	State           string
 	ThreadID        string
@@ -55,9 +55,9 @@ type ConnectionRecord struct {
 	Namespace       string
 }
 
-// NewConnectionLookup returns new connection lookup instance.
-// ConnectionLookup is read only connection store. It provides connection record related query features.
-func NewConnectionLookup(p provider) (*ConnectionLookup, error) {
+// NewLookup returns new connection lookup instance.
+// Lookup is read only connection store. It provides connection record related query features.
+func NewLookup(p provider) (*Lookup, error) {
 	store, err := p.StorageProvider().OpenStore(nameSpace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open permanent store to create new connection recorder: %w", err)
@@ -68,18 +68,18 @@ func NewConnectionLookup(p provider) (*ConnectionLookup, error) {
 		return nil, fmt.Errorf("failed to open transient store to create new connection recorder: %w", err)
 	}
 
-	return &ConnectionLookup{transientStore: transientStore, store: store}, nil
+	return &Lookup{transientStore: transientStore, store: store}, nil
 }
 
-// ConnectionLookup takes care of connection related persistence features
-type ConnectionLookup struct {
+// Lookup takes care of connection related persistence features
+type Lookup struct {
 	transientStore storage.Store
 	store          storage.Store
 }
 
 // GetConnectionRecord return connection record based on the connection ID
-func (c *ConnectionLookup) GetConnectionRecord(connectionID string) (*ConnectionRecord, error) {
-	var rec ConnectionRecord
+func (c *Lookup) GetConnectionRecord(connectionID string) (*Record, error) {
+	var rec Record
 
 	err := getAndUnmarshal(getConnectionKeyPrefix()(connectionID), &rec, c.store)
 	if err != nil {
@@ -98,19 +98,19 @@ func (c *ConnectionLookup) GetConnectionRecord(connectionID string) (*Connection
 
 // QueryConnectionRecords returns connection records found in underlying store
 // for given query criteria
-func (c *ConnectionLookup) QueryConnectionRecords() ([]*ConnectionRecord, error) {
+func (c *Lookup) QueryConnectionRecords() ([]*Record, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/655 query criteria to be added as part of issue
 	searchKey := getConnectionKeyPrefix()("")
 
 	itr := c.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
 	defer itr.Release()
 
-	var records []*ConnectionRecord
+	var records []*Record
 
 	keys := make(map[string]struct{})
 
 	for itr.Next() {
-		var record ConnectionRecord
+		var record Record
 
 		err := json.Unmarshal(itr.Value(), &record)
 		if err != nil {
@@ -131,7 +131,7 @@ func (c *ConnectionLookup) QueryConnectionRecords() ([]*ConnectionRecord, error)
 			continue
 		}
 
-		var record ConnectionRecord
+		var record Record
 
 		if err := json.Unmarshal(transientItr.Value(), &record); err != nil {
 			return nil, fmt.Errorf("query connection records from transient store : %w", err)
@@ -144,12 +144,12 @@ func (c *ConnectionLookup) QueryConnectionRecords() ([]*ConnectionRecord, error)
 }
 
 // GetConnectionRecordAtState return connection record based on the connection ID and state.
-func (c *ConnectionLookup) GetConnectionRecordAtState(connectionID, stateID string) (*ConnectionRecord, error) {
+func (c *Lookup) GetConnectionRecordAtState(connectionID, stateID string) (*Record, error) {
 	if stateID == "" {
 		return nil, errors.New(stateIDEmptyErr)
 	}
 
-	var rec ConnectionRecord
+	var rec Record
 
 	err := getAndUnmarshal(getConnectionStateKeyPrefix()(connectionID, stateID), &rec, c.transientStore)
 	if err != nil {
@@ -160,13 +160,13 @@ func (c *ConnectionLookup) GetConnectionRecordAtState(connectionID, stateID stri
 }
 
 // GetConnectionRecordByNSThreadID return connection record via namespaced threadID
-func (c *ConnectionLookup) GetConnectionRecordByNSThreadID(nsThreadID string) (*ConnectionRecord, error) {
+func (c *Lookup) GetConnectionRecordByNSThreadID(nsThreadID string) (*Record, error) {
 	connectionIDBytes, err := c.transientStore.Get(nsThreadID)
 	if err != nil {
 		return nil, fmt.Errorf("get connectionID by namespaced threadID: %w", err)
 	}
 
-	var rec ConnectionRecord
+	var rec Record
 
 	err = getAndUnmarshal(getConnectionKeyPrefix()(string(connectionIDBytes)), &rec, c.transientStore)
 	if err != nil {
@@ -178,7 +178,7 @@ func (c *ConnectionLookup) GetConnectionRecordByNSThreadID(nsThreadID string) (*
 
 // GetInvitation finds and parses stored invitation to target type
 // TODO should avoid using target of type `interface{}` [Issue #1030]
-func (c *ConnectionLookup) GetInvitation(id string, target interface{}) error {
+func (c *Lookup) GetInvitation(id string, target interface{}) error {
 	if id == "" {
 		return fmt.Errorf(errMsgInvalidKey)
 	}
@@ -188,7 +188,7 @@ func (c *ConnectionLookup) GetInvitation(id string, target interface{}) error {
 
 // GetEvent returns persisted event data for given connection ID
 // TODO connection event data shouldn't be transient [Issues #1029]
-func (c *ConnectionRecorder) GetEvent(connectionID string) ([]byte, error) {
+func (c *Recorder) GetEvent(connectionID string) ([]byte, error) {
 	if connectionID == "" {
 		return nil, fmt.Errorf(errMsgInvalidKey)
 	}

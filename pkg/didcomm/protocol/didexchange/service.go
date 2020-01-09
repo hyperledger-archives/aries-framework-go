@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -21,6 +20,7 @@ import (
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 var logger = log.New("aries-framework/did-exchange/service")
@@ -46,7 +46,7 @@ type message struct {
 	ThreadID      string
 	Options       *options
 	NextStateName string
-	ConnRecord    *connectionstore.ConnectionRecord
+	ConnRecord    *connection.Record
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -66,7 +66,7 @@ type provider interface {
 type stateMachineMsg struct {
 	header     *service.Header
 	payload    []byte
-	connRecord *connectionstore.ConnectionRecord
+	connRecord *connection.Record
 	options    *options
 }
 
@@ -181,7 +181,7 @@ func (s *Service) HandleOutbound(msg *service.DIDCommMsg, myDID, theirDID string
 }
 
 func (s *Service) nextState(msgType, thID string) (state, error) {
-	nsThID, err := connectionstore.CreateNamespaceKey(findNamespace(msgType), thID)
+	nsThID, err := connection.CreateNamespaceKey(findNamespace(msgType), thID)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		var (
 			action           stateAction
 			followup         state
-			connectionRecord *connectionstore.ConnectionRecord
+			connectionRecord *connection.Record
 		)
 
 		connectionRecord, followup, action, err = next.ExecuteInbound(
@@ -430,7 +430,7 @@ func (s *Service) getEventTransientData(connectionID string) (*message, error) {
 // abandon updates the state to abandoned and trigger failure event.
 func (s *Service) abandon(thID string, msg *service.DIDCommMsg, processErr error) error {
 	// update the state to abandoned
-	nsThID, err := connectionstore.CreateNamespaceKey(findNamespace(msg.Header.Type), thID)
+	nsThID, err := connection.CreateNamespaceKey(findNamespace(msg.Header.Type), thID)
 	if err != nil {
 		return err
 	}
@@ -491,7 +491,7 @@ func (s *Service) currentState(nsThID string) (state, error) {
 	return stateFromName(connRec.State)
 }
 
-func (s *Service) update(msgType string, connectionRecord *connectionstore.ConnectionRecord) error {
+func (s *Service) update(msgType string, connectionRecord *connection.Record) error {
 	if (msgType == RequestMsgType && connectionRecord.State == stateNameRequested) ||
 		(msgType == InvitationMsgType && connectionRecord.State == stateNameInvited) {
 		return s.connectionStore.saveConnectionRecordWithMapping(connectionRecord)
@@ -500,7 +500,7 @@ func (s *Service) update(msgType string, connectionRecord *connectionstore.Conne
 	return s.connectionStore.saveConnectionRecord(connectionRecord)
 }
 
-func (s *Service) connectionRecord(msg *service.DIDCommMsg) (*connectionstore.ConnectionRecord, error) {
+func (s *Service) connectionRecord(msg *service.DIDCommMsg) (*connection.Record, error) {
 	switch msg.Header.Type {
 	case InvitationMsgType:
 		return s.invitationMsgRecord(msg)
@@ -515,7 +515,7 @@ func (s *Service) connectionRecord(msg *service.DIDCommMsg) (*connectionstore.Co
 	return nil, errors.New("invalid message type")
 }
 
-func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*connectionstore.ConnectionRecord, error) {
+func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*connection.Record, error) {
 	thID, msgErr := msg.ThreadID()
 	if msgErr != nil {
 		return nil, msgErr
@@ -533,7 +533,7 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*connectionstore
 		return nil, err
 	}
 
-	connRecord := &connectionstore.ConnectionRecord{
+	connRecord := &connection.Record{
 		ConnectionID:    generateRandomID(),
 		ThreadID:        thID,
 		State:           stateNameNull,
@@ -552,7 +552,7 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*connectionstore
 	return connRecord, nil
 }
 
-func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*connectionstore.ConnectionRecord, error) {
+func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*connection.Record, error) {
 	request := Request{}
 
 	err := json.Unmarshal(msg.Payload, &request)
@@ -560,7 +560,7 @@ func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*connectionstore.Co
 		return nil, fmt.Errorf("unmarshalling failed: %s", err)
 	}
 
-	connRecord := &connectionstore.ConnectionRecord{
+	connRecord := &connection.Record{
 		ConnectionID: generateRandomID(),
 		ThreadID:     request.ID,
 		State:        stateNameNull,
@@ -575,15 +575,15 @@ func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*connectionstore.Co
 	return connRecord, nil
 }
 
-func (s *Service) responseMsgRecord(payload []byte) (*connectionstore.ConnectionRecord, error) {
+func (s *Service) responseMsgRecord(payload []byte) (*connection.Record, error) {
 	return s.fetchConnectionRecord(myNSPrefix, payload)
 }
 
-func (s *Service) ackMsgRecord(payload []byte) (*connectionstore.ConnectionRecord, error) {
+func (s *Service) ackMsgRecord(payload []byte) (*connection.Record, error) {
 	return s.fetchConnectionRecord(theirNSPrefix, payload)
 }
 
-func (s *Service) fetchConnectionRecord(nsPrefix string, payload []byte) (*connectionstore.ConnectionRecord, error) {
+func (s *Service) fetchConnectionRecord(nsPrefix string, payload []byte) (*connection.Record, error) {
 	msg := &struct {
 		Thread decorator.Thread `json:"~thread,omitempty"`
 	}{}
@@ -593,7 +593,7 @@ func (s *Service) fetchConnectionRecord(nsPrefix string, payload []byte) (*conne
 		return nil, err
 	}
 
-	key, err := connectionstore.CreateNamespaceKey(nsPrefix, msg.Thread.ID)
+	key, err := connection.CreateNamespaceKey(nsPrefix, msg.Thread.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -633,7 +633,7 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 	}
 
 	thID := generateRandomID()
-	connRecord := &connectionstore.ConnectionRecord{
+	connRecord := &connection.Record{
 		ConnectionID:    generateRandomID(),
 		ThreadID:        thID,
 		State:           stateNameNull,

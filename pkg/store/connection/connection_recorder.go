@@ -7,7 +7,7 @@
  *
  */
 
-package connectionstore
+package connection
 
 import (
 	"crypto"
@@ -27,26 +27,26 @@ const (
 	errMsgInvalidKey = "invalid key"
 )
 
-// NewConnectionRecorder returns new connection recorder.
-// ConnectionRecorder is read-write connection store which provides
-// write features on top query features from ConnectionLookup
-func NewConnectionRecorder(p provider) (*ConnectionRecorder, error) {
-	lookup, err := NewConnectionLookup(p)
+// NewRecorder returns new connection recorder.
+// Recorder is read-write connection store which provides
+// write features on top query features from Lookup
+func NewRecorder(p provider) (*Recorder, error) {
+	lookup, err := NewLookup(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new connection recorder : %w", err)
 	}
 
-	return &ConnectionRecorder{lookup}, nil
+	return &Recorder{lookup}, nil
 }
 
-// ConnectionRecorder is read-write connection store
-type ConnectionRecorder struct {
-	*ConnectionLookup
+// Recorder is read-write connection store
+type Recorder struct {
+	*Lookup
 }
 
 // SaveInvitation saves invitation in permanent store for given key
 // TODO should avoid using target of type `interface{}` [Issue #1030]
-func (c *ConnectionRecorder) SaveInvitation(id string, invitation interface{}) error {
+func (c *Recorder) SaveInvitation(id string, invitation interface{}) error {
 	if id == "" {
 		return fmt.Errorf(errMsgInvalidKey)
 	}
@@ -55,7 +55,7 @@ func (c *ConnectionRecorder) SaveInvitation(id string, invitation interface{}) e
 }
 
 // SaveConnectionRecord saves given connection records in underlying store
-func (c *ConnectionRecorder) SaveConnectionRecord(record *ConnectionRecord) error {
+func (c *Recorder) SaveConnectionRecord(record *Record) error {
 	if err := marshalAndSave(getConnectionKeyPrefix()(record.ConnectionID),
 		record, c.transientStore); err != nil {
 		return fmt.Errorf("save connection record in transient store: %w", err)
@@ -81,7 +81,7 @@ func (c *ConnectionRecorder) SaveConnectionRecord(record *ConnectionRecord) erro
 
 // SaveConnectionRecordWithMappings saves newly created connection record against the connection id in the store
 // and it creates mapping from namespaced ThreadID to connection ID
-func (c *ConnectionRecorder) SaveConnectionRecordWithMappings(record *ConnectionRecord) error {
+func (c *Recorder) SaveConnectionRecordWithMappings(record *Record) error {
 	err := isValidConnection(record)
 	if err != nil {
 		return fmt.Errorf("validation failed while saving connection record with mapping: %w", err)
@@ -102,12 +102,12 @@ func (c *ConnectionRecorder) SaveConnectionRecordWithMappings(record *Connection
 
 // SaveEvent saves event related data for given connection ID
 // TODO connection event data shouldn't be transient [Issues #1029]
-func (c *ConnectionRecorder) SaveEvent(connectionID string, data []byte) error {
+func (c *Recorder) SaveEvent(connectionID string, data []byte) error {
 	return c.transientStore.Put(getEventDataKeyPrefix()(connectionID), data)
 }
 
 // SaveNamespaceThreadID saves given namespace, threadID and connection ID mapping in transient store
-func (c *ConnectionRecorder) SaveNamespaceThreadID(threadID, namespace, connectionID string) error {
+func (c *Recorder) SaveNamespaceThreadID(threadID, namespace, connectionID string) error {
 	if namespace != myNSPrefix && namespace != theirNSPrefix {
 		return fmt.Errorf("namespace not supported")
 	}
@@ -135,7 +135,7 @@ func marshalAndSave(k string, v interface{}, store storage.Store) error {
 }
 
 // isValidConnection validates connection record
-func isValidConnection(r *ConnectionRecord) error {
+func isValidConnection(r *Record) error {
 	if r.ThreadID == "" || r.ConnectionID == "" || r.Namespace == "" {
 		return fmt.Errorf("input parameters thid : %s and connectionId : %s namespace : %s cannot be empty",
 			r.ThreadID, r.ConnectionID, r.Namespace)

@@ -26,7 +26,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -40,6 +39,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
@@ -399,7 +399,7 @@ func getHandler(t *testing.T, lookup string) operation.Handler {
 func getHandlerWithError(t *testing.T, lookup string, handleErr, acceptErr, implicitErr error) operation.Handler {
 	transientStore := mockstore.MockStore{Store: make(map[string][]byte)}
 	store := mockstore.MockStore{Store: make(map[string][]byte)}
-	connRec := &connectionstore.ConnectionRecord{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
+	connRec := &connection.Record{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
 
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
@@ -644,7 +644,7 @@ func TestHandleMessageEvent(t *testing.T) {
 	require.NotNil(t, op)
 
 	e := didExEvent{}
-	connRec := connectionstore.ConnectionRecord{ConnectionID: e.ConnectionID(), ThreadID: "xyz", State: "completed"}
+	connRec := connection.Record{ConnectionID: e.ConnectionID(), ThreadID: "xyz", State: "completed"}
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 	require.NoError(t, storeProv.Store.Put("conn_"+e.ConnectionID(), connBytes))
@@ -670,7 +670,7 @@ func TestSendConnectionNotification(t *testing.T) {
 	)
 
 	storeProv := &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: make(map[string][]byte)}}
-	connRec := connectionstore.ConnectionRecord{ConnectionID: connID, ThreadID: threadID, State: "completed"}
+	connRec := connection.Record{ConnectionID: connID, ThreadID: threadID, State: "completed"}
 	connBytes, err := json.Marshal(connRec)
 	require.NoError(t, err)
 	require.NoError(t, storeProv.Store.Put("conn_id1", connBytes))
@@ -679,7 +679,7 @@ func TestSendConnectionNotification(t *testing.T) {
 	t.Run("send notification success", func(t *testing.T) {
 		const testState = "completed"
 		store := &mockstore.MockStore{Store: make(map[string][]byte)}
-		connRec := &connectionstore.ConnectionRecord{State: testState, ConnectionID: connID, ThreadID: "th1234"}
+		connRec := &connection.Record{State: testState, ConnectionID: connID, ThreadID: "th1234"}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		require.NoError(t, store.Put(stateKey(connID, testState), connBytes))
@@ -708,7 +708,7 @@ func TestSendConnectionNotification(t *testing.T) {
 	t.Run("send notification webhook error", func(t *testing.T) {
 		const testState = "completed"
 		store := &mockstore.MockStore{Store: make(map[string][]byte)}
-		connRec := &connectionstore.ConnectionRecord{State: testState, ConnectionID: connID, ThreadID: "th1234"}
+		connRec := &connection.Record{State: testState, ConnectionID: connID, ThreadID: "th1234"}
 		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 		require.NoError(t, store.Put(stateKey(connID, testState), connBytes))

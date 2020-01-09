@@ -7,7 +7,7 @@
  *
  */
 
-package connectionstore
+package connection
 
 import (
 	"fmt"
@@ -30,20 +30,20 @@ const (
 
 func Test_NewConnectionRecorder(t *testing.T) {
 	t.Run("create create new recorder - success", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 	})
 
 	t.Run("create new connection recorder - transient store error", func(t *testing.T) {
-		lookup, err := NewConnectionRecorder(&mockProvider{transientStoreError: fmt.Errorf(sampleErrMsg)})
+		lookup, err := NewRecorder(&mockProvider{transientStoreError: fmt.Errorf(sampleErrMsg)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleErrMsg)
 		require.Nil(t, lookup)
 	})
 
 	t.Run("create new connection recorder - permanent store error", func(t *testing.T) {
-		lookup, err := NewConnectionRecorder(&mockProvider{storeError: fmt.Errorf(sampleErrMsg)})
+		lookup, err := NewRecorder(&mockProvider{storeError: fmt.Errorf(sampleErrMsg)})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), sampleErrMsg)
 		require.Nil(t, lookup)
@@ -76,7 +76,7 @@ func TestConnectionStore_SaveInvitation(t *testing.T) {
 
 	t.Run("test save invitation success", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{
+		recorder, err := NewRecorder(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(store),
 		})
 		require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestConnectionStore_SaveInvitation(t *testing.T) {
 
 		k := getInvitationKeyPrefix()(value.ID)
 
-		v, err := recorder.ConnectionLookup.store.Get(k)
+		v, err := recorder.Lookup.store.Get(k)
 		require.NoError(t, err)
 		require.NotEmpty(t, v)
 
@@ -112,7 +112,7 @@ func TestConnectionStore_SaveInvitation(t *testing.T) {
 
 	t.Run("test save invitation failure due to invalid key", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{
+		recorder, err := NewRecorder(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(store),
 		})
 		require.NoError(t, err)
@@ -129,7 +129,7 @@ func TestConnectionStore_SaveInvitation(t *testing.T) {
 
 func TestConnectionStore_GetInvitation(t *testing.T) {
 	t.Run("test get invitation - success", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 
@@ -148,7 +148,7 @@ func TestConnectionStore_GetInvitation(t *testing.T) {
 	})
 
 	t.Run("test get invitation - not found scenario", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 
@@ -159,7 +159,7 @@ func TestConnectionStore_GetInvitation(t *testing.T) {
 	})
 
 	t.Run("test get invitation - invalid key scenario", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 
@@ -172,7 +172,7 @@ func TestConnectionStore_GetInvitation(t *testing.T) {
 
 func TestConnectionStore_SaveAndGetEventData(t *testing.T) {
 	t.Run("test save and get event data - success", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 
@@ -187,7 +187,7 @@ func TestConnectionStore_SaveAndGetEventData(t *testing.T) {
 	})
 
 	t.Run("test get invitation - not found scenario", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 
@@ -198,7 +198,7 @@ func TestConnectionStore_SaveAndGetEventData(t *testing.T) {
 	})
 
 	t.Run("test get invitation - invalid key scenario", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 
@@ -210,10 +210,10 @@ func TestConnectionStore_SaveAndGetEventData(t *testing.T) {
 }
 
 func TestConnectionRecordByState(t *testing.T) {
-	recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+	recorder, err := NewRecorder(&protocol.MockProvider{})
 	require.NoError(t, err)
 
-	connRec := &ConnectionRecord{ConnectionID: uuid.New().String(), ThreadID: threadIDValue,
+	connRec := &Record{ConnectionID: uuid.New().String(), ThreadID: threadIDValue,
 		Namespace: myNSPrefix, State: "requested"}
 	err = recorder.SaveConnectionRecord(connRec)
 	require.NoError(t, err)
@@ -229,7 +229,7 @@ func TestConnectionRecordByState(t *testing.T) {
 	require.Contains(t, err.Error(), "data not found")
 
 	// data with no state details
-	connRec = &ConnectionRecord{ConnectionID: uuid.New().String(), ThreadID: threadIDValue,
+	connRec = &Record{ConnectionID: uuid.New().String(), ThreadID: threadIDValue,
 		Namespace: myNSPrefix}
 	err = recorder.SaveConnectionRecord(connRec)
 	require.NoError(t, err)
@@ -245,11 +245,11 @@ func TestConnectionRecordByState(t *testing.T) {
 
 func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 	t.Run("save connection record with invited state - success", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 
-		record := &ConnectionRecord{ThreadID: threadIDValue,
+		record := &Record{ThreadID: threadIDValue,
 			ConnectionID: uuid.New().String(), State: stateNameInvited, Namespace: theirNSPrefix}
 		err = recorder.SaveConnectionRecord(record)
 		require.NoError(t, err)
@@ -260,23 +260,23 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.Equal(t, record, recordFound)
 
 		// make sure it exists only in transient store
-		var r1 ConnectionRecord
+		var r1 Record
 		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r1, recorder.store)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "data not found")
 
-		var r2 ConnectionRecord
+		var r2 Record
 		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r2, recorder.transientStore)
 		require.NoError(t, err)
 		require.Equal(t, record, &r2)
 	})
 
 	t.Run("save connection record with invited state - completed", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 
-		record := &ConnectionRecord{ThreadID: threadIDValue,
+		record := &Record{ThreadID: threadIDValue,
 			ConnectionID: uuid.New().String(), State: stateNameCompleted, Namespace: theirNSPrefix}
 		err = recorder.SaveConnectionRecord(record)
 		require.NoError(t, err)
@@ -287,12 +287,12 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.Equal(t, record, recordFound)
 
 		// make sure it exists only in both permanent and transient store
-		var r1 ConnectionRecord
+		var r1 Record
 		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r1, recorder.transientStore)
 		require.NoError(t, err)
 		require.Equal(t, record, &r1)
 
-		var r2 ConnectionRecord
+		var r2 Record
 		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r2, recorder.store)
 		require.NoError(t, err)
 		require.Equal(t, record, &r2)
@@ -300,14 +300,14 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 
 	t.Run("save connection record error scenario 1", func(t *testing.T) {
 		const errMsg = "get error"
-		record, err := NewConnectionRecorder(&protocol.MockProvider{
+		record, err := NewRecorder(&protocol.MockProvider{
 			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: fmt.Errorf(errMsg),
 			}),
 		})
 		require.NoError(t, err)
-		connRec := &ConnectionRecord{ThreadID: "",
+		connRec := &Record{ThreadID: "",
 			ConnectionID: "test", State: stateNameInvited, Namespace: theirNSPrefix}
 		err = record.SaveConnectionRecord(connRec)
 		require.Contains(t, err.Error(), errMsg)
@@ -315,14 +315,14 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 
 	t.Run("save connection record error scenario 2", func(t *testing.T) {
 		const errMsg = "get error"
-		record, err := NewConnectionRecorder(&protocol.MockProvider{
+		record, err := NewRecorder(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: fmt.Errorf(errMsg),
 			}),
 		})
 		require.NoError(t, err)
-		connRec := &ConnectionRecord{ThreadID: "",
+		connRec := &Record{ThreadID: "",
 			ConnectionID: "test", State: stateNameCompleted, Namespace: theirNSPrefix}
 		err = record.SaveConnectionRecord(connRec)
 		require.Contains(t, err.Error(), errMsg)
@@ -331,11 +331,11 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 
 func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 	t.Run("get connection record by namespace threadID in my namespace", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 
 		require.NotNil(t, recorder)
-		connRec := &ConnectionRecord{ThreadID: threadIDValue,
+		connRec := &Record{ThreadID: threadIDValue,
 			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: myNSPrefix}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.NoError(t, err)
@@ -348,10 +348,10 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 		require.Equal(t, connRec, storedRecord)
 	})
 	t.Run("get connection record by namespace threadID their namespace", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
-		connRec := &ConnectionRecord{ThreadID: threadIDValue,
+		connRec := &Record{ThreadID: threadIDValue,
 			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: theirNSPrefix}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.NoError(t, err)
@@ -364,11 +364,11 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 		require.Equal(t, connRec, storedRecord)
 	})
 	t.Run("save connection record with mapping - validation failure", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 
 		require.NotNil(t, recorder)
-		connRec := &ConnectionRecord{ThreadID: "",
+		connRec := &Record{ThreadID: "",
 			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: myNSPrefix}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.Error(t, err)
@@ -376,7 +376,7 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 	})
 	t.Run("save connection record with mapping - store failure", func(t *testing.T) {
 		const errMsg = "put error"
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{
+		recorder, err := NewRecorder(&protocol.MockProvider{
 			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: fmt.Errorf(errMsg),
@@ -386,25 +386,25 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 		require.NotNil(t, recorder)
 		require.NoError(t, err)
 
-		connRec := &ConnectionRecord{ThreadID: threadIDValue,
+		connRec := &Record{ThreadID: threadIDValue,
 			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: myNSPrefix}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), errMsg)
 	})
 	t.Run("save connection record with mapping - namespace error", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 
 		require.NotNil(t, recorder)
-		connRec := &ConnectionRecord{ThreadID: threadIDValue,
+		connRec := &Record{ThreadID: threadIDValue,
 			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: "invalid-ns"}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "namespace not supported")
 	})
 	t.Run("data not found error due to missing input parameter", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 		connRec, err := recorder.GetConnectionRecordByNSThreadID("")
@@ -427,7 +427,7 @@ func TestConnectionRecorder_CreateNSKeys(t *testing.T) {
 
 func TestConnectionRecorder_SaveNamespaceThreadID(t *testing.T) {
 	t.Run("missing required parameters", func(t *testing.T) {
-		recorder, err := NewConnectionRecorder(&protocol.MockProvider{})
+		recorder, err := NewRecorder(&protocol.MockProvider{})
 		require.NoError(t, err)
 
 		require.NotNil(t, recorder)

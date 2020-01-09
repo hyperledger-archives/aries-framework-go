@@ -12,11 +12,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/connectionstore"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 const (
@@ -45,7 +45,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 	t.Run("save connection record and get connection Record success", func(t *testing.T) {
 		record, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
-		connRec := &connectionstore.ConnectionRecord{ThreadID: threadIDValue,
+		connRec := &connection.Record{ThreadID: threadIDValue,
 
 			ConnectionID: connIDValue, State: stateNameInvited, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
@@ -58,7 +58,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 	t.Run("save connection record and fetch from no namespace error", func(t *testing.T) {
 		record, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
-		connRec := &connectionstore.ConnectionRecord{ThreadID: threadIDValue,
+		connRec := &connection.Record{ThreadID: threadIDValue,
 
 			ConnectionID: connIDValue, State: stateNameInvited}
 		err = record.saveConnectionRecordWithMapping(connRec)
@@ -74,7 +74,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 			}),
 		})
 		require.NoError(t, err)
-		connRec := &connectionstore.ConnectionRecord{ThreadID: "",
+		connRec := &connection.Record{ThreadID: "",
 			ConnectionID: "test", State: stateNameInvited, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecord(connRec)
 		require.Contains(t, err.Error(), errMsg)
@@ -88,7 +88,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 			}),
 		})
 		require.NoError(t, err)
-		connRec := &connectionstore.ConnectionRecord{ThreadID: threadIDValue,
+		connRec := &connection.Record{ThreadID: threadIDValue,
 			ConnectionID: connIDValue, State: stateNameInvited, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.Contains(t, err.Error(), errMsg)
@@ -104,7 +104,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotNil(t, record)
-		connRec := &connectionstore.ConnectionRecord{ThreadID: threadIDValue,
+		connRec := &connection.Record{ThreadID: threadIDValue,
 			ConnectionID: connIDValue, State: stateNameCompleted, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.Contains(t, err.Error(), errMsg)
@@ -122,7 +122,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NotNil(t, record)
 		require.NoError(t, err)
 
-		connRec := &connectionstore.ConnectionRecord{ThreadID: threadIDValue, MyDID: "did:foo",
+		connRec := &connection.Record{ThreadID: threadIDValue, MyDID: "did:foo",
 			ConnectionID: connIDValue, State: stateNameCompleted, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.Error(t, err)
@@ -145,7 +145,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NotNil(t, record)
 		require.NoError(t, err)
 
-		connRec := &connectionstore.ConnectionRecord{ThreadID: threadIDValue, MyDID: "did:foo",
+		connRec := &connection.Record{ThreadID: threadIDValue, MyDID: "did:foo",
 			ConnectionID: connIDValue, State: stateNameCompleted, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecord(connRec)
 		require.Error(t, err)
@@ -164,12 +164,12 @@ func TestConnectionRecorder_GetConnectionRecordByNSThreadID(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotNil(t, record)
-		connRec := &connectionstore.ConnectionRecord{ThreadID: threadIDValue,
+		connRec := &connection.Record{ThreadID: threadIDValue,
 			ConnectionID: connIDValue, State: stateNameInvited, Namespace: myNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.NoError(t, err)
 
-		nsThreadID, err := connectionstore.CreateNamespaceKey(myNSPrefix, threadIDValue)
+		nsThreadID, err := connection.CreateNamespaceKey(myNSPrefix, threadIDValue)
 		require.NoError(t, err)
 
 		storedRecord, err := record.GetConnectionRecordByNSThreadID(nsThreadID)
@@ -180,12 +180,12 @@ func TestConnectionRecorder_GetConnectionRecordByNSThreadID(t *testing.T) {
 		record, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, record)
-		connRec := &connectionstore.ConnectionRecord{ThreadID: threadIDValue,
+		connRec := &connection.Record{ThreadID: threadIDValue,
 			ConnectionID: connIDValue, State: stateNameInvited, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.NoError(t, err)
 
-		nsThreadID, err := connectionstore.CreateNamespaceKey(theirNSPrefix, threadIDValue)
+		nsThreadID, err := connection.CreateNamespaceKey(theirNSPrefix, threadIDValue)
 		require.NoError(t, err)
 
 		storedRecord, err := record.GetConnectionRecordByNSThreadID(nsThreadID)
