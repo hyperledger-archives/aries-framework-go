@@ -9,8 +9,8 @@ package didexchange
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
 
 const (
@@ -27,7 +27,7 @@ func newConnectionStore(p provider) (*connectionStore, error) {
 		return nil, fmt.Errorf("failed to initialize connection recorder: %w", err)
 	}
 
-	didConnStore, err := didconnection.New(p)
+	didConnStore, err := did.New(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize did connection store: %w", err)
 	}
@@ -39,7 +39,7 @@ func newConnectionStore(p provider) (*connectionStore, error) {
 // TODO merge connection stores [Issue #1004]
 type connectionStore struct {
 	*connection.Recorder
-	*didconnection.Store
+	*did.Store
 }
 
 // saveConnectionRecord saves the connection record against the connection id  in the store

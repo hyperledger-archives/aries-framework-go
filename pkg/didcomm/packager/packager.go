@@ -14,11 +14,11 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
 
 // Provider contains dependencies for the base packager and is typically created by using aries.Context()
@@ -36,7 +36,7 @@ type Creator func(prov Provider) (transport.Packager, error)
 type Packager struct {
 	primaryPacker   packer.Packer
 	packers         map[string]packer.Packer
-	connectionStore *didconnection.Store
+	connectionStore *did.Store
 }
 
 // PackerCreator holds a creator function for a Packer and the name of the Packer's encoding method.
@@ -47,7 +47,7 @@ type PackerCreator struct {
 
 // New return new instance of KMS implementation
 func New(ctx Provider) (*Packager, error) {
-	didConnStore, err := didconnection.New(ctx)
+	didConnStore, err := did.New(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new packager: %w", err)
 	}
@@ -165,14 +165,14 @@ func (bp *Packager) UnpackMessage(encMessage []byte) (*transport.Envelope, error
 
 	//	ignore error - agents can communicate without using DIDs - for example, in DIDExchange
 	theirDID, err := bp.connectionStore.GetDID(base58.Encode(envelope.FromVerKey))
-	if errors.Is(err, didconnection.ErrNotFound) {
+	if errors.Is(err, did.ErrNotFound) {
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get their did: %w", err)
 	}
 
 	// ignore error - at beginning of DIDExchange, you might be about to generate a DID
 	myDID, err := bp.connectionStore.GetDID(base58.Encode(envelope.ToVerKey))
-	if errors.Is(err, didconnection.ErrNotFound) {
+	if errors.Is(err, did.ErrNotFound) {
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get my did: %w", err)
 	}

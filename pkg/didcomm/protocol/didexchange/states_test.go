@@ -21,7 +21,6 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -31,6 +30,7 @@ import (
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
 
 func TestNoopState(t *testing.T) {
@@ -973,7 +973,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		connectionStore.Store, err = didconnection.New(&protocol.MockProvider{
+		connectionStore.Store, err = did.New(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: fmt.Errorf("did error"),
@@ -1014,7 +1014,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		connectionStore.Store, err = didconnection.New(&protocol.MockProvider{
+		connectionStore.Store, err = did.New(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: fmt.Errorf("did error"),
