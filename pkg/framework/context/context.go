@@ -9,7 +9,7 @@ package context
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/api/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
