@@ -12,11 +12,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/didconnection"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
 
 const (
@@ -113,7 +113,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		record, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		record.Store, err = didconnection.New(&protocol.MockProvider{
+		record.Store, err = did.New(&protocol.MockProvider{
 			CustomVDRI: &vdri.MockVDRIRegistry{
 				ResolveErr: fmt.Errorf("resolve error"),
 			},
@@ -137,7 +137,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		record, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		record.Store, err = didconnection.New(&protocol.MockProvider{
+		record.Store, err = did.New(&protocol.MockProvider{
 			CustomVDRI: &vdri.MockVDRIRegistry{
 				ResolveErr: fmt.Errorf("resolve error"),
 			},
