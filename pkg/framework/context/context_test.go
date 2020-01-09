@@ -21,6 +21,7 @@ import (
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/internal/mock/crypto"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/generic"
@@ -89,7 +90,7 @@ func TestNewProvider(t *testing.T) {
 
 				return uuid.New().String(), nil
 			},
-		}))
+		}), WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()))
 		require.NoError(t, err)
 		require.NotEmpty(t, ctx)
 
@@ -132,11 +133,17 @@ func TestNewProvider(t *testing.T) {
 		require.Contains(t, err.Error(), "error handling the message")
 	})
 
-	t.Run("test new with generic inbound service", func(t *testing.T) {
+	t.Run("test new with message service", func(t *testing.T) {
 		const sampleMsgType = "generic-msg-type-2.0"
 
 		handled := make(chan bool, 1)
-		prov, err := New(WithMessageServices(&generic.MockGenericSvc{
+
+		mockMsgHandler := msghandler.NewMockMsgServiceProvider()
+
+		prov, err := New(WithMessageServiceProvider(mockMsgHandler))
+		require.NoError(t, err)
+
+		err = mockMsgHandler.Register(&generic.MockMessageSvc{
 			HandleFunc: func(*service.DIDCommMsg) (string, error) {
 				handled <- true
 				return "", nil
@@ -144,7 +151,7 @@ func TestNewProvider(t *testing.T) {
 			AcceptFunc: func(header *service.Header) bool {
 				return header.Type == sampleMsgType
 			},
-		}))
+		})
 		require.NoError(t, err)
 
 		inboundHandler := prov.InboundMessageHandler()
@@ -241,7 +248,7 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithOutboundTransports(&mockdidcomm.MockOutboundTransport{ExpectedResponse: "data"},
 			&mockdidcomm.MockOutboundTransport{ExpectedResponse: "data1"}))
 		require.NoError(t, err)
-		require.Equal(t, 2, len(prov.OutboundTransports()))
+		require.Len(t, prov.OutboundTransports(), 2)
 		r, err := prov.outboundTransports[0].Send([]byte("data"), &service.Destination{ServiceEndpoint: "url"})
 		require.NoError(t, err)
 		require.Equal(t, "data", r)

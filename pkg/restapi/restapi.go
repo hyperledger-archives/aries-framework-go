@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package restapi
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/common"
@@ -18,6 +20,7 @@ type allOpts struct {
 	webhookURLs  []string
 	defaultLabel string
 	autoAccept   bool
+	msgHandler   dispatcher.MessageHandler
 }
 
 // Opt represents a REST Api option.
@@ -41,6 +44,13 @@ func WithDefaultLabel(defaultLabel string) Opt {
 func WithAutoAccept(autoAccept bool) Opt {
 	return func(opts *allOpts) {
 		opts.autoAccept = autoAccept
+	}
+}
+
+// WithMessageHandler is an option allowing for the message handler to be set.
+func WithMessageHandler(handler dispatcher.MessageHandler) Opt {
+	return func(opts *allOpts) {
+		opts.msgHandler = handler
 	}
 }
 

@@ -39,6 +39,7 @@ type Aries struct {
 	transientStoreProvider storage.Provider
 	protocolSvcCreators    []api.ProtocolSvcCreator
 	services               []dispatcher.Service
+	msgSvcProvider         api.MessageServiceProvider
 	outboundDispatcher     dispatcher.Outbound
 	outboundTransports     []transport.OutboundTransport
 	inboundTransport       transport.InboundTransport
@@ -203,6 +204,14 @@ func WithCrypto(c crypto.Crypto) Option {
 func WithVDRI(v vdriapi.VDRI) Option {
 	return func(opts *Aries) error {
 		opts.vdri = append(opts.vdri, v)
+		return nil
+	}
+}
+
+// WithMessageServiceProvider injects a message service provider to the Aries framework
+func WithMessageServiceProvider(msv api.MessageServiceProvider) Option {
+	return func(opts *Aries) error {
+		opts.msgSvcProvider = msv
 		return nil
 	}
 }

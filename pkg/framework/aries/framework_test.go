@@ -30,6 +30,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/internal/mock/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -442,6 +443,17 @@ func TestFramework(t *testing.T) {
 		_, err = New(WithTransportReturnRoute(transportReturnRoute))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid transport return route option : "+transportReturnRoute)
+	})
+
+	t.Run("test message service provider option", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		aries, err := New(WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()))
+		require.NoError(t, err)
+		require.NotNil(t, aries)
+		require.NotNil(t, aries.msgSvcProvider)
 	})
 }
 

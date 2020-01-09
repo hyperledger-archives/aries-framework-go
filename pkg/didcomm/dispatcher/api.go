@@ -22,6 +22,18 @@ type Service interface {
 type MessageService interface {
 	service.InboundHandler
 	Accept(header *service.Header) bool
+	Name() string
+}
+
+// MessageHandler maintains registered message services
+// and it allows dynamic registration of message services
+type MessageHandler interface {
+	// Services returns list of available message services in this message handler
+	Services() []MessageService
+	// Register registers given message services to this message handler
+	Register(msgSvcs ...MessageService) error
+	// Unregister unregisters message service with given name from this message handler
+	Unregister(name string) error
 }
 
 // Outbound interface

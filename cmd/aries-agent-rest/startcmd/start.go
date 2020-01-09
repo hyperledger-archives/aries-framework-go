@@ -14,10 +14,13 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
@@ -141,6 +144,7 @@ type agentParameters struct {
 	host, inboundHostInternal, inboundHostExternal, dbPath, defaultLabel, inboundTransport string
 	webhookURLs, httpResolvers, outboundTransports                                         []string
 	autoAccept                                                                             bool
+	msgHandler                                                                             dispatcher.MessageHandler
 }
 
 type server interface {
@@ -390,6 +394,9 @@ func startAgent(parameters *agentParameters) error {
 		return errMissingInboundHost
 	}
 
+	// set message handler
+	parameters.msgHandler = msghandler.NewRegistrar()
+
 	ctx, err := createAriesAgent(parameters)
 	if err != nil {
 		return err
@@ -397,7 +404,8 @@ func startAgent(parameters *agentParameters) error {
 
 	// get all HTTP REST API handlers available for controller API
 	restService, err := restapi.New(ctx, restapi.WithWebhookURLs(parameters.webhookURLs...),
-		restapi.WithDefaultLabel(parameters.defaultLabel), restapi.WithAutoAccept(parameters.autoAccept))
+		restapi.WithDefaultLabel(parameters.defaultLabel), restapi.WithAutoAccept(parameters.autoAccept),
+		restapi.WithMessageHandler(parameters.msgHandler))
 	if err != nil {
 		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to get rest service api :  %w",
 			parameters.host, err)
@@ -453,6 +461,7 @@ func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 	}
 
 	opts = append(opts, outboundTransportOpts...)
+	opts = append(opts, aries.WithMessageServiceProvider(parameters.msgHandler))
 
 	framework, err := aries.New(opts...)
 	if err != nil {

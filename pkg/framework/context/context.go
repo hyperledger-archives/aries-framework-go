@@ -24,7 +24,7 @@ import (
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
 	services                 []dispatcher.Service
-	messageServices          []dispatcher.MessageService
+	msgSvcProvider           api.MessageServiceProvider
 	storeProvider            storage.Provider
 	transientStoreProvider   storage.Provider
 	kms                      kms.KMS
@@ -128,7 +128,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 
 		// in case of no services are registered for given message type,
 		// find generic inbound services registered for given message header
-		for _, svc := range p.messageServices {
+		for _, svc := range p.msgSvcProvider.Services() {
 			if svc.Accept(msg.Header) {
 				_, err = svc.HandleInbound(msg, myDID, theirDID)
 				return err
@@ -195,14 +195,6 @@ func WithTransportReturnRoute(transportReturnRoute string) ProviderOption {
 func WithProtocolServices(services ...dispatcher.Service) ProviderOption {
 	return func(opts *Provider) error {
 		opts.services = services
-		return nil
-	}
-}
-
-// WithMessageServices injects services for handling generic messages.
-func WithMessageServices(services ...dispatcher.MessageService) ProviderOption {
-	return func(opts *Provider) error {
-		opts.messageServices = services
 		return nil
 	}
 }
@@ -280,6 +272,14 @@ func WithPacker(primary packer.Packer, additionalPackers ...packer.Packer) Provi
 func WithAriesFrameworkID(id string) ProviderOption {
 	return func(opts *Provider) error {
 		opts.frameworkID = id
+		return nil
+	}
+}
+
+// WithMessageServiceProvider injects a message service provider into the context
+func WithMessageServiceProvider(msv api.MessageServiceProvider) ProviderOption {
+	return func(opts *Provider) error {
+		opts.msgSvcProvider = msv
 		return nil
 	}
 }
