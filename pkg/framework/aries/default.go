@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/provider/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -74,6 +75,16 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 		frameworkOpts.kmsCreator = func(provider api.Provider) (api.CloseableKMS, error) {
 			return kms.New(provider)
 		}
+	}
+
+	if frameworkOpts.crypto == nil {
+		// create default tink crypto if not passed in frameworkOpts
+		cr, err := tinkcrypto.New()
+		if err != nil {
+			return fmt.Errorf("context creation failed: %w", err)
+		}
+
+		frameworkOpts.crypto = cr
 	}
 
 	if frameworkOpts.packerCreator == nil {

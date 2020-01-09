@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/internal/mock/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
@@ -309,6 +310,72 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("test crypto svc - with user provided crypto - Encrypt success", func(t *testing.T) {
+		// with custom crypto
+		aries, err := New(WithCrypto(&mockcrypto.Crypto{
+			EncryptValue:      []byte("mockValue"),
+			EncryptNonceValue: []byte("mockNonce")}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+
+		v, n, err := ctx.Crypto().Encrypt([]byte{}, []byte{}, nil)
+		require.NoError(t, err)
+		require.Equal(t, []byte("mockValue"), v)
+		require.Equal(t, []byte("mockNonce"), n)
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test crypto svc - with user provided crypto - Encrypt fail", func(t *testing.T) {
+		// with custom crypto
+		aries, err := New(WithCrypto(&mockcrypto.Crypto{
+			EncryptErr: fmt.Errorf("error encrypting from crypto")}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+
+		_, _, err = ctx.Crypto().Encrypt([]byte{}, []byte{}, nil)
+		require.EqualError(t, err, "error encrypting from crypto")
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test crypto svc - with user provided crypto - Sign success", func(t *testing.T) {
+		// with custom crypto
+		aries, err := New(WithCrypto(&mockcrypto.Crypto{SignValue: []byte("mockValue")}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+
+		v, err := ctx.Crypto().Sign(nil, "")
+		require.NoError(t, err)
+		require.Equal(t, []byte("mockValue"), v)
+		err = aries.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test crypto svc - with user provided crypto - Sign fail", func(t *testing.T) {
+		// with custom crypto
+		aries, err := New(WithCrypto(&mockcrypto.Crypto{
+			SignErr: fmt.Errorf("error signing from crypto")}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+
+		_, err = ctx.Crypto().Sign(nil, "")
+		require.EqualError(t, err, "error signing from crypto")
+		err = aries.Close()
+		require.NoError(t, err)
+	})
 	t.Run("test error from kms svc", func(t *testing.T) {
 		// with custom kms
 		_, err := New(WithInboundTransport(&mockInboundTransport{}),

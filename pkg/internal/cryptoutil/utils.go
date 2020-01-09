@@ -148,14 +148,12 @@ func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte
 		return nil, ErrInvalidKey
 	}
 
-	// generating Z is inspired by sodium_crypto_scalarmult()
-	// https://github.com/gamringer/php-authcrypt/blob/master/src/Crypt.php#L80
-
-	// with z being a basePoint of a curve25519
-	z := new([chacha.KeySize]byte)
 	// do ScalarMult of the sender's private key with the recipient key to get a derived Z point
 	// ( equivalent to derive an EC key )
-	curve25519.ScalarMult(z, fromPrivKey, toPubKey)
+	z, err := curve25519.X25519(fromPrivKey[:], toPubKey[:])
+	if err != nil {
+		return nil, err
+	}
 
 	// inspired by: github.com/square/go-jose/v3@v3.0.0-20190722231519-723929d55157/cipher/ecdh_es.go
 	// -> DeriveECDHES() call
@@ -176,13 +174,13 @@ func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte
 	apvInfo := lengthPrefix(nil)
 
 	// get a Concat KDF stream for z, encryption algorithm, api, supPubInfo and empty supPrivInfo using sha256
-	reader := josecipher.NewConcatKDF(crypto.SHA256, z[:], algInfo, apuInfo, apvInfo, supPubInfo, []byte{})
+	reader := josecipher.NewConcatKDF(crypto.SHA256, z, algInfo, apuInfo, apvInfo, supPubInfo, []byte{})
 
 	// kek is the recipient specific encryption key used to encrypt the sharedSymKey
 	kek := make([]byte, chacha.KeySize)
 
 	// Read on the KDF will never fail
-	_, err := reader.Read(kek)
+	_, err = reader.Read(kek)
 	if err != nil {
 		return nil, err
 	}

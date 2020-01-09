@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/api/crypto"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
@@ -43,6 +44,7 @@ type Aries struct {
 	inboundTransport       transport.InboundTransport
 	kmsCreator             api.KMSCreator
 	kms                    api.CloseableKMS
+	crypto                 crypto.Crypto
 	packagerCreator        packager.Creator
 	packager               commontransport.Packager
 	packerCreator          packer.Creator
@@ -189,6 +191,14 @@ func WithKMS(k api.KMSCreator) Option {
 	}
 }
 
+// WithCrypto injects a crypto service to the Aries framework
+func WithCrypto(c crypto.Crypto) Option {
+	return func(opts *Aries) error {
+		opts.crypto = c
+		return nil
+	}
+}
+
 // WithVDRI injects a VDRI service to the Aries framework.
 func WithVDRI(v vdriapi.VDRI) Option {
 	return func(opts *Aries) error {
@@ -220,6 +230,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithOutboundTransports(a.outboundTransports...),
 		context.WithProtocolServices(a.services...),
 		context.WithKMS(a.kms),
+		context.WithCrypto(a.crypto),
 		context.WithInboundTransportEndpoint(endPoint),
 		context.WithStorageProvider(a.storeProvider),
 		context.WithTransientStorageProvider(a.transientStoreProvider),
@@ -297,6 +308,7 @@ func createVDRI(frameworkOpts *Aries) error {
 
 	ctx, err := context.New(
 		context.WithKMS(frameworkOpts.kms),
+		context.WithCrypto(frameworkOpts.crypto),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithInboundTransportEndpoint(endPoint),
 	)
@@ -328,6 +340,7 @@ func createVDRI(frameworkOpts *Aries) error {
 func createOutboundDispatcher(frameworkOpts *Aries) error {
 	ctx, err := context.New(
 		context.WithKMS(frameworkOpts.kms),
+		context.WithCrypto(frameworkOpts.crypto),
 		context.WithOutboundTransports(frameworkOpts.outboundTransports...),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithTransportReturnRoute(frameworkOpts.transportReturnRoute),
@@ -345,6 +358,7 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 func startTransports(frameworkOpts *Aries) error {
 	ctx, err := context.New(
 		context.WithKMS(frameworkOpts.kms),
+		context.WithCrypto(frameworkOpts.crypto),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithProtocolServices(frameworkOpts.services...),
 		context.WithAriesFrameworkID(frameworkOpts.id),
@@ -381,6 +395,7 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithTransientStorageProvider(frameworkOpts.transientStoreProvider),
 		context.WithKMS(frameworkOpts.kms),
+		context.WithCrypto(frameworkOpts.crypto),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithInboundTransportEndpoint(endPoint),
 		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
@@ -408,7 +423,10 @@ func loadServices(frameworkOpts *Aries) error {
 }
 
 func createPackersAndPackager(frameworkOpts *Aries) error {
-	ctx, err := context.New(context.WithKMS(frameworkOpts.kms))
+	ctx, err := context.New(
+		context.WithKMS(frameworkOpts.kms),
+		context.WithCrypto(frameworkOpts.crypto),
+	)
 	if err != nil {
 		return fmt.Errorf("create packer context failed: %w", err)
 	}

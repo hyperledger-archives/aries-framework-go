@@ -9,6 +9,7 @@ package context
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/api/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -27,6 +28,7 @@ type Provider struct {
 	storeProvider            storage.Provider
 	transientStoreProvider   storage.Provider
 	kms                      kms.KMS
+	crypto                   crypto.Crypto
 	packager                 commontransport.Packager
 	primaryPacker            packer.Packer
 	packers                  []packer.Packer
@@ -76,6 +78,11 @@ func (p *Provider) Service(id string) (interface{}, error) {
 // KMS returns a kms service.
 func (p *Provider) KMS() kms.KeyManager {
 	return p.kms
+}
+
+// Crypto returns the Crypto service
+func (p *Provider) Crypto() crypto.Crypto {
+	return p.crypto
 }
 
 // Packager returns a packager service.
@@ -204,6 +211,14 @@ func WithMessageServices(services ...dispatcher.MessageService) ProviderOption {
 func WithKMS(w kms.KMS) ProviderOption {
 	return func(opts *Provider) error {
 		opts.kms = w
+		return nil
+	}
+}
+
+// WithCrypto injects a Crypto service into the context
+func WithCrypto(c crypto.Crypto) ProviderOption {
+	return func(opts *Provider) error {
+		opts.crypto = c
 		return nil
 	}
 }
