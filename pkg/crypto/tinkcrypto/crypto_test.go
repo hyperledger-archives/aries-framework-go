@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/api/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 )
 
 // Assert that Crypto implements the Crypto interface.
