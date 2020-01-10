@@ -22,6 +22,10 @@ func TestJwtAlgorithm_Jose(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, jose.EdDSA, joseAlg)
 
+	joseAlg, err = ES256K.jose()
+	require.NoError(t, err)
+	require.Equal(t, jose.ES256K, joseAlg)
+
 	// not supported alg
 	sa, err := JWSAlgorithm(-1).jose()
 	require.Error(t, err)

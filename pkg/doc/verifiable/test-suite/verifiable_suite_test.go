@@ -12,6 +12,7 @@ To run VC Test Suite, execute `make vc-test-suite`.
 package main
 
 import (
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
@@ -55,7 +56,7 @@ func main() {
 		return
 	}
 
-	privateKey, publicKey := parseKeys(*jwt)
+	privateKey, publicKey := parseKeysES256K(*jwt) // can be replaced with parseKeysRS256()
 
 	if *jwtDecode {
 		decodeVCJWTToJSON(vcBytes, publicKey)
@@ -85,7 +86,7 @@ func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
 		abort("verifiable credential encoding to JWS failed: %v", err)
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, privateKey, "any")
+	jws, err := jwtClaims.MarshalJWS(verifiable.ES256K, privateKey, "any")
 	if err != nil {
 		abort("failed to serialize JWS: %v", err)
 	}
@@ -105,7 +106,7 @@ func encodeVPToJWS(vpBytes []byte, audience string, privateKey, publicKey interf
 
 	jwtClaims := vp.JWTClaims([]string{audience}, true)
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, privateKey, "any")
+	jws, err := jwtClaims.MarshalJWS(verifiable.ES256K, privateKey, "any")
 	if err != nil {
 		abort("failed to serialize JWS: %v", err)
 	}
@@ -150,7 +151,7 @@ func decodeVCJWTToJSON(vcBytes []byte, publicKey interface{}) {
 	fmt.Println(string(jsonBytes))
 }
 
-func parseKeys(packedKeys string) (private, public interface{}) {
+func parseKeysRS256(packedKeys string) (private, public interface{}) {
 	// there are several JWKs which are based64
 	decodedJwt, err := base64.StdEncoding.DecodeString(packedKeys)
 	if err != nil {
@@ -186,6 +187,49 @@ func parseKeys(packedKeys string) (private, public interface{}) {
 	privateKey, ok := jwk.Key.(*rsa.PrivateKey)
 	if !ok {
 		abort("expected to get *rsa.PrivateKey, but got smth different")
+	}
+
+	publicKey := &privateKey.PublicKey
+
+	return privateKey, publicKey
+}
+
+func parseKeysES256K(packedKeys string) (private, public interface{}) {
+	// there are several JWKs which are based64
+	decodedJwt, err := base64.StdEncoding.DecodeString(packedKeys)
+	if err != nil {
+		abort("cannot decode base64 of JSON containing JWT keys: %v", err)
+	}
+
+	// found the target JWK
+	decodedJwtMap := make(map[string]interface{})
+
+	err = json.Unmarshal(decodedJwt, &decodedJwtMap)
+	if err != nil {
+		abort("failed to decode JSON containing JWT keys: %v", err)
+	}
+
+	es256KPrivateKeyJwk, exist := decodedJwtMap["es256kPrivateKeyJwk"]
+	if !exist {
+		abort("cannot get es256kPrivateKeyJwk key")
+	}
+
+	// marshal found key back to bytes
+	jwkBytes, err := json.Marshal(es256KPrivateKeyJwk)
+	if err != nil {
+		abort("JSON marshalling error: %v", err)
+	}
+
+	jwk := &jose.JSONWebKey{}
+
+	err = jwk.UnmarshalJSON(jwkBytes)
+	if err != nil {
+		abort("JWK unmarshalling error: %v", err)
+	}
+
+	privateKey, ok := jwk.Key.(*ecdsa.PrivateKey)
+	if !ok {
+		abort("expected to get *ecdsa.PrivateKey, but got smth different")
 	}
 
 	publicKey := &privateKey.PublicKey

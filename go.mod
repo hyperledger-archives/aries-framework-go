@@ -8,6 +8,7 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.5.5
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
+	github.com/decred/dcrd/dcrec/secp256k1/v2 v2.0.0
 	github.com/golang/mock v1.3.1
 	github.com/google/tink v1.3.0-rc3
 	github.com/google/uuid v1.1.1
@@ -26,5 +27,8 @@ require (
 	golang.org/x/sys v0.0.0-20190616124812-15dcb6c0061f // indirect
 	nhooyr.io/websocket v1.7.4
 )
+
+// Temporary workaround to support ES256K signature alg (until https://github.com/square/go-jose/pull/278 got merged)
+replace github.com/square/go-jose/v3 v3.0.0-20190722231519-723929d55157 => github.com/kdimak/go-jose/v3 v3.0.0-20200110171146-c0aba788c306
 
 go 1.13

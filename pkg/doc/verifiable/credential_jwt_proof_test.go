@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	btcec "github.com/decred/dcrd/dcrec/secp256k1/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -131,6 +132,31 @@ func TestNewCredentialFromJWS_EdDSA(t *testing.T) {
 	vcFromJWS, _, err := NewCredential(
 		[]byte(vcJWSStr),
 		WithPublicKeyFetcher(SingleKey(pubKey)))
+	require.NoError(t, err)
+
+	// unmarshalled credential must be the same as original one
+	require.Equal(t, vc, vcFromJWS)
+}
+
+func TestNewCredentialFromJWS_ES256K(t *testing.T) {
+	vcBytes := []byte(jwtTestCredential)
+
+	privateKey, err := btcec.GeneratePrivateKey()
+	require.NoError(t, err)
+
+	vc, _, err := NewCredential(vcBytes)
+	require.NoError(t, err)
+
+	// marshal credential into JWS using EdDSA (Ed25519 signature algorithm).
+	jwtClaims, err := vc.JWTClaims(false)
+	require.NoError(t, err)
+	vcJWSStr, err := jwtClaims.MarshalJWS(ES256K, privateKey.ToECDSA(), vc.Issuer.ID+"#keys-"+keyID)
+	require.NoError(t, err)
+
+	// unmarshal credential from JWS
+	vcFromJWS, _, err := NewCredential(
+		[]byte(vcJWSStr),
+		WithPublicKeyFetcher(SingleKey(privateKey.PubKey().ToECDSA())))
 	require.NoError(t, err)
 
 	// unmarshalled credential must be the same as original one

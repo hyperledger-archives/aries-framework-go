@@ -7,7 +7,7 @@
     "es256kPrivateKeyJwk": {
       "kty": "EC",
       "kid": "did:example:0xab#verikey-1",
-      "crv": "P-256K",
+      "crv": "secp256k1",
       "x": "7KEKZa5xJPh7WVqHJyUpb2MgEe3nA8Rk7eUlXsmBl-M",
       "y": "3zIgl_ml4RhapyEm5J7lvU-4f5jiBvZr4KgxUjEhl9o",
       "key_ops": [

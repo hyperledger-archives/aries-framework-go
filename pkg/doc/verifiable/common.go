@@ -31,8 +31,11 @@ const (
 	// RS256 JWT Algorithm
 	RS256 JWSAlgorithm = iota
 
-	// EdDSA JWT Algorithm
+	// EdDSA JWT Algorithm (Ed25519)
 	EdDSA
+
+	// ES256K JWT Algorithm (secp256k1)
+	ES256K
 )
 
 // jose converts JWSAlgorithm to JOSE one.
@@ -42,6 +45,8 @@ func (ja JWSAlgorithm) jose() (jose.SignatureAlgorithm, error) {
 		return jose.RS256, nil
 	case EdDSA:
 		return jose.EdDSA, nil
+	case ES256K:
+		return jose.ES256K, nil
 	default:
 		return "", fmt.Errorf("unsupported algorithm: %v", ja)
 	}
