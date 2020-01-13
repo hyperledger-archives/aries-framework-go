@@ -53,19 +53,19 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 }
 
 func newExchangeSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.Service, error) {
+	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
 		return didexchange.New(prv)
 	}
 }
 
 func newIntroduceSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.Service, error) {
+	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
 		return introduce.New(prv)
 	}
 }
 
 func newRouteSvc() api.ProtocolSvcCreator {
-	return func(prv api.Provider) (dispatcher.Service, error) {
+	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
 		return route.New(prv)
 	}
 }

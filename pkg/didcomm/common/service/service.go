@@ -45,6 +45,7 @@ type Header struct {
 	Thread decorator.Thread `json:"~thread"`
 	Type   string           `json:"@type"`
 	// TODO revisit ~purpose, should be generic map [Issue #1037]
+	// TODO ~purpose should be out of header [Issue #1058, #1040]
 	Purpose []string `json:"~purpose"`
 }
 

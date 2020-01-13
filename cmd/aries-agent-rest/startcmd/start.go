@@ -19,7 +19,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
@@ -144,7 +143,7 @@ type agentParameters struct {
 	host, inboundHostInternal, inboundHostExternal, dbPath, defaultLabel, inboundTransport string
 	webhookURLs, httpResolvers, outboundTransports                                         []string
 	autoAccept                                                                             bool
-	msgHandler                                                                             dispatcher.MessageHandler
+	msgHandler                                                                             restapi.MessageHandler
 }
 
 type server interface {

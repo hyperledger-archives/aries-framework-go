@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/generic"
 )
 
-func Test_MessageHandlerRegister(t *testing.T) {
+func TestRegistrar_Register(t *testing.T) {
 	tests := []struct {
 		testName string
 		svcs     []dispatcher.MessageService
@@ -92,7 +92,7 @@ func Test_MessageHandlerRegister(t *testing.T) {
 	}
 }
 
-func Test_MessageHandlerUnregister(t *testing.T) {
+func TestRegistrar_Unregister(t *testing.T) {
 	tests := []struct {
 		testName      string
 		register      []dispatcher.MessageService
