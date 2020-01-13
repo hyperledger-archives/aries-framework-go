@@ -18,7 +18,7 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 )
 
-//nolint:gochecknoglobals lll
+//nolint:gochecknoglobals,lll
 var udCredential = `
 
 {

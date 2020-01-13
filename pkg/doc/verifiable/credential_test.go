@@ -117,6 +117,29 @@ func TestNewCredential(t *testing.T) {
 }
 
 func TestValidateVerCredContext(t *testing.T) {
+	t.Run("test verifiable credential with a single context", func(t *testing.T) {
+		var raw rawCredential
+
+		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		raw.Context = "https://www.w3.org/2018/credentials/v1"
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		require.NoError(t, err)
+	})
+
+	t.Run("test verifiable credential with a single invalid context", func(t *testing.T) {
+		var raw rawCredential
+
+		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		raw.Context = "https://www.w3.org/2018/credentials/v2"
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "@context: @context does not match: \"https://www.w3.org/2018/credentials/v1\"")
+	})
+
 	t.Run("test verifiable credential with empty context", func(t *testing.T) {
 		var raw rawCredential
 
@@ -129,7 +152,20 @@ func TestValidateVerCredContext(t *testing.T) {
 		require.Contains(t, err.Error(), "@context is required")
 	})
 
-	t.Run("test verifiable credential with invalid context", func(t *testing.T) {
+	t.Run("test verifiable credential with multiple contexts", func(t *testing.T) {
+		var raw rawCredential
+
+		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		raw.Context = []interface{}{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1"}
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		require.NoError(t, err)
+	})
+
+	t.Run("test verifiable credential with multiple invalid contexts", func(t *testing.T) {
 		var raw rawCredential
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
@@ -140,7 +176,7 @@ func TestValidateVerCredContext(t *testing.T) {
 		require.NoError(t, err)
 		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Does not match pattern '^https://www.w3.org/2018/credentials/v1$'")
+		require.Contains(t, err.Error(), "@context.0: @context.0 does not match: \"https://www.w3.org/2018/credentials/v1\"")
 	})
 
 	t.Run("test verifiable credential with object context", func(t *testing.T) {
@@ -156,7 +192,7 @@ func TestValidateVerCredContext(t *testing.T) {
 		require.NoError(t, err)
 		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Does not match pattern '^https://www.w3.org/2018/credentials/v1$'")
+		require.Contains(t, err.Error(), "@context.0: @context.0 does not match: \"https://www.w3.org/2018/credentials/v1\"")
 	})
 }
 

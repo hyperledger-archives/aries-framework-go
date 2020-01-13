@@ -34,24 +34,32 @@ const defaultSchema = `{
   ],
   "properties": {
     "@context": {
-      "type": "array",
-      "items": [
+      "oneOf": [
         {
           "type": "string",
-          "pattern": "^https://www.w3.org/2018/credentials/v1$"
-        }
-      ],
-      "uniqueItems": true,
-      "additionalItems": {
-        "oneOf": [
-          {
-            "type": "object"
-          },
-          {
-            "type": "string"
+          "const": "https://www.w3.org/2018/credentials/v1"
+        },
+        {
+          "type": "array",
+          "items": [
+            {
+              "type": "string",
+              "const": "https://www.w3.org/2018/credentials/v1"
+            }
+          ],
+          "uniqueItems": true,
+          "additionalItems": {
+            "oneOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "string"
+              }
+            ]
           }
-        ]
-      }
+        }
+      ]
     },
     "id": {
       "type": "string",
