@@ -117,5 +117,17 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 		}
 	}
 
+	if frameworkOpts.msgSvcProvider == nil {
+		frameworkOpts.msgSvcProvider = &noOpMessageServiceProvider{}
+	}
+
 	return nil
+}
+
+// noOpMessageServiceProvider returns noop message service provider
+type noOpMessageServiceProvider struct{}
+
+// Services returns empty list of services for noOpMessageServiceProvider
+func (n *noOpMessageServiceProvider) Services() []dispatcher.MessageService {
+	return []dispatcher.MessageService{}
 }

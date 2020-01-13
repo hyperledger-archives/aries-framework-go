@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
 )
 
 func TestNew_Failure(t *testing.T) {
@@ -46,6 +47,15 @@ func TestNew_Success(t *testing.T) {
 	require.NotNil(t, ctx)
 
 	controller, err := New(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, controller)
+
+	require.NotEmpty(t, controller.GetOperations())
+
+	// test with options
+	controller, err = New(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
+		WithAutoAccept(true), WithDefaultLabel("sample-label"),
+		WithWebhookURLs("sample-wh-url"))
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 
@@ -82,6 +92,16 @@ func TestWithAutoAcceptOption(t *testing.T) {
 	opt(restAPIOpts)
 
 	require.Equal(t, true, restAPIOpts.autoAccept)
+}
+
+func TestWithMessageHandler(t *testing.T) {
+	restAPIOpts := &allOpts{}
+
+	opt := WithMessageHandler(msghandler.NewMockMsgServiceProvider())
+
+	opt(restAPIOpts)
+
+	require.NotNil(t, restAPIOpts.msgHandler)
 }
 
 func generateTempDir(t testing.TB) (string, func()) {
