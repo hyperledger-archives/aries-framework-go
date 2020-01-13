@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
 )
 
 //nolint:lll

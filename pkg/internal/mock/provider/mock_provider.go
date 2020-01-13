@@ -10,7 +10,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -18,7 +18,7 @@ import (
 type Provider struct {
 	ServiceValue                  interface{}
 	ServiceErr                    error
-	KMSValue                      kms.KeyManager
+	KMSValue                      legacykms.KeyManager
 	InboundEndpointValue          string
 	StorageProviderValue          storage.Provider
 	TransientStorageProviderValue storage.Provider
@@ -34,7 +34,7 @@ func (p *Provider) Service(id string) (interface{}, error) {
 }
 
 // KMS returns a KMS instance
-func (p *Provider) KMS() kms.KeyManager {
+func (p *Provider) KMS() legacykms.KeyManager {
 	return p.KMSValue
 }
 

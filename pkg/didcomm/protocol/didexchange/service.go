@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
@@ -58,7 +58,7 @@ type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
-	Signer() kms.Signer
+	Signer() legacykms.Signer
 	VDRIRegistry() vdriapi.Registry
 }
 
@@ -81,7 +81,7 @@ type Service struct {
 
 type context struct {
 	outboundDispatcher dispatcher.Outbound
-	signer             kms.Signer
+	signer             legacykms.Signer
 	connectionStore    *connectionStore
 	vdriRegistry       vdriapi.Registry
 }

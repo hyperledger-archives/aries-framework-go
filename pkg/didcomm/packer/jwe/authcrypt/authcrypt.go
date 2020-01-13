@@ -14,7 +14,7 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 // This package deals with Authcrypt encryption for Packing/Unpacking DID Comm exchange
@@ -42,7 +42,7 @@ var errUnsupportedAlg = errors.New("algorithm not supported")
 type Packer struct {
 	alg        ContentEncryption
 	nonceSize  int
-	kms        kms.KeyManager
+	kms        legacykms.KeyManager
 	randReader io.Reader
 }
 

@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
-	mockKMS "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
 )
 
 func TestNilEncryptSenderJwk(t *testing.T) {
-	mockKMSProvider, err := mockKMS.NewMockProvider()
+	mockKMSProvider, err := mockkms.NewMockProvider()
 	require.NoError(t, err)
 
 	packer, err := New(mockKMSProvider, XC20P)

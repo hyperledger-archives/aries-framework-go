@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -27,7 +27,7 @@ type Provider struct {
 	msgSvcProvider           api.MessageServiceProvider
 	storeProvider            storage.Provider
 	transientStoreProvider   storage.Provider
-	kms                      kms.KMS
+	kms                      legacykms.KMS
 	crypto                   crypto.Crypto
 	packager                 commontransport.Packager
 	primaryPacker            packer.Packer
@@ -76,7 +76,7 @@ func (p *Provider) Service(id string) (interface{}, error) {
 }
 
 // KMS returns a kms service.
-func (p *Provider) KMS() kms.KeyManager {
+func (p *Provider) KMS() legacykms.KeyManager {
 	return p.kms
 }
 
@@ -101,7 +101,7 @@ func (p *Provider) PrimaryPacker() packer.Packer {
 }
 
 // Signer returns a kms signing service.
-func (p *Provider) Signer() kms.Signer {
+func (p *Provider) Signer() legacykms.Signer {
 	return p.kms
 }
 
@@ -200,7 +200,7 @@ func WithProtocolServices(services ...dispatcher.Service) ProviderOption {
 }
 
 // WithKMS injects a kms service into the context.
-func WithKMS(w kms.KMS) ProviderOption {
+func WithKMS(w legacykms.KMS) ProviderOption {
 	return func(opts *Provider) error {
 		opts.kms = w
 		return nil

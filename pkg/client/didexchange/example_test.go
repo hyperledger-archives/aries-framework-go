@@ -12,7 +12,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 )

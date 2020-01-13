@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 // Pack will encode the payload argument
@@ -138,7 +138,7 @@ func (p *Packer) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey []b
 		return nil, err
 	}
 
-	box, err := kms.NewCryptoBox(p.kms)
+	box, err := legacykms.NewCryptoBox(p.kms)
 	if err != nil {
 		return nil, err
 	}

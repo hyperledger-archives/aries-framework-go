@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package kms
+package legacykms
 
 // TODO https://github.com/hyperledger/aries-framework-go/issues/752 Signer is not part of KMS and should be
 //  moved elsewhere, merge KMS and KeyManager interface when Signer is removed.

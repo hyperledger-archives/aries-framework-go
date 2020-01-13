@@ -16,7 +16,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 // Unpack will decode the envelope using the legacy format
@@ -72,7 +72,7 @@ type keys struct {
 	myKey    []byte
 }
 
-func getCEK(recipients []recipient, km kms.KeyManager) (*keys, error) {
+func getCEK(recipients []recipient, km legacykms.KeyManager) (*keys, error) {
 	var candidateKeys []string
 
 	for _, candidate := range recipients {
@@ -107,7 +107,7 @@ func getCEK(recipients []recipient, km kms.KeyManager) (*keys, error) {
 		return nil, err
 	}
 
-	b, err := kms.NewCryptoBox(km)
+	b, err := legacykms.NewCryptoBox(km)
 	if err != nil {
 		return nil, err
 	}
@@ -128,13 +128,13 @@ func getCEK(recipients []recipient, km kms.KeyManager) (*keys, error) {
 	}, nil
 }
 
-func decodeSender(b64Sender string, pk []byte, km kms.KeyManager) ([]byte, []byte, error) {
+func decodeSender(b64Sender string, pk []byte, km legacykms.KeyManager) ([]byte, []byte, error) {
 	encSender, err := base64.URLEncoding.DecodeString(b64Sender)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	b, err := kms.NewCryptoBox(km)
+	b, err := legacykms.NewCryptoBox(km)
 	if err != nil {
 		return nil, nil, err
 	}

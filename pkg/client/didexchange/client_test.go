@@ -22,7 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"

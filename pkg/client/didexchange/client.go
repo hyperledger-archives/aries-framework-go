@@ -15,7 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
@@ -33,7 +33,7 @@ var ErrConnectionNotFound = errors.New("connection not found")
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	Service(id string) (interface{}, error)
-	KMS() kms.KeyManager
+	KMS() legacykms.KeyManager
 	InboundTransportEndpoint() string
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
@@ -43,7 +43,7 @@ type provider interface {
 type Client struct {
 	service.Event
 	didexchangeSvc           protocolService
-	kms                      kms.KeyManager
+	kms                      legacykms.KeyManager
 	inboundTransportEndpoint string
 	connectionStore          *connection.Recorder
 }

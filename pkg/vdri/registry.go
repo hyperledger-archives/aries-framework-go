@@ -13,7 +13,7 @@ import (
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 const (
@@ -25,13 +25,13 @@ type Option func(opts *Registry)
 
 // provider contains dependencies for the did creator
 type provider interface {
-	KMS() kms.KeyManager
+	KMS() legacykms.KeyManager
 }
 
 // Registry vdri registry
 type Registry struct {
 	vdri               []vdriapi.VDRI
-	crypto             kms.KeyManager
+	crypto             legacykms.KeyManager
 	defServiceEndpoint string
 	defServiceType     string
 }

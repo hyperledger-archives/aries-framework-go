@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -25,12 +25,12 @@ type Provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	Service(id string) (interface{}, error)
 	StorageProvider() storage.Provider
-	KMS() kms.KeyManager
+	KMS() legacykms.KeyManager
 	Crypto() crypto.Crypto
 	Packager() transport.Packager
 	InboundTransportEndpoint() string
 	VDRIRegistry() vdriapi.Registry
-	Signer() kms.Signer
+	Signer() legacykms.Signer
 	TransientStorageProvider() storage.Provider
 }
 

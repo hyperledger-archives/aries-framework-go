@@ -11,13 +11,13 @@ import (
 	"io"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 // Packer represents an Authcrypt Pack/Unpacker that outputs/reads legacy Aries envelopes
 type Packer struct {
 	randSource io.Reader
-	kms        kms.KeyManager
+	kms        legacykms.KeyManager
 }
 
 // encodingType is the `typ` string identifier in a message that identifies the format as being legacy
