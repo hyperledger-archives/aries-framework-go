@@ -8,6 +8,7 @@ package route
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -15,10 +16,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/diddoc"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 )
 
 const (
@@ -107,7 +112,7 @@ func TestServiceRequestMsg(t *testing.T) {
 
 		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
 
-		err = svc.handleRequest(msg)
+		err = svc.handleRequest(msg, MYDID, THEIRDID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "route request message unmarshal")
 	})
@@ -138,7 +143,7 @@ func TestServiceRequestMsg(t *testing.T) {
 
 		msgID := randomID()
 
-		err = svc.handleRequest(generateRequestMsgPayload(t, msgID))
+		err = svc.handleRequest(generateRequestMsgPayload(t, msgID), MYDID, THEIRDID)
 		require.NoError(t, err)
 	})
 }
@@ -196,7 +201,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 
 		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
 
-		err = svc.handleKeylistUpdate(msg)
+		err = svc.handleKeylistUpdate(msg, MYDID, THEIRDID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "route key list update message unmarshal")
 	})
@@ -242,7 +247,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 			})
 		}
 
-		err = svc.handleKeylistUpdate(generateKeyUpdateListMsgPayload(t, msgID, updates))
+		err = svc.handleKeylistUpdate(generateKeyUpdateListMsgPayload(t, msgID, updates), MYDID, THEIRDID)
 		require.NoError(t, err)
 	})
 }
@@ -327,6 +332,7 @@ func TestServiceForwardMsg(t *testing.T) {
 	t.Run("test service handle forward msg - validate forward message content", func(t *testing.T) {
 		to := randomID()
 		msgID := randomID()
+		invalidDID := "did:error:123"
 
 		content := "packed message destined to the recipient through router"
 		msg := generateForwardMsgPayload(t, msgID, to, content)
@@ -341,6 +347,14 @@ func TestServiceForwardMsg(t *testing.T) {
 					return nil
 				},
 			},
+			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+					if didID == invalidDID {
+						return nil, errors.New("invalid")
+					}
+					return mockdiddoc.GetMockDIDDoc(), nil
+				},
+			},
 		})
 		require.NoError(t, err)
 
@@ -349,6 +363,13 @@ func TestServiceForwardMsg(t *testing.T) {
 
 		err = svc.handleForward(msg)
 		require.NoError(t, err)
+
+		err = svc.routeStore.Put(dataKey(to), []byte(invalidDID))
+		require.NoError(t, err)
+
+		err = svc.handleForward(msg)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get destination")
 	})
 }
 
