@@ -38,7 +38,7 @@ type Aries struct {
 	// TODO Rename transient store to protocol state store https://github.com/hyperledger/aries-framework-go/issues/835
 	transientStoreProvider storage.Provider
 	protocolSvcCreators    []api.ProtocolSvcCreator
-	services               []dispatcher.Service
+	services               []dispatcher.ProtocolService
 	msgSvcProvider         api.MessageServiceProvider
 	outboundDispatcher     dispatcher.Outbound
 	outboundTransports     []transport.OutboundTransport
@@ -249,6 +249,12 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithTransportReturnRoute(a.transportReturnRoute),
 		context.WithAriesFrameworkID(a.id),
 	)
+}
+
+// Messenger returns messenger for sending messages through this agent framework
+// TODO should use dedicated messenger interface instead of Outbound dispatcher [Issue #1058]
+func (a *Aries) Messenger() dispatcher.Outbound {
+	return a.outboundDispatcher
 }
 
 // Close frees resources being maintained by the framework.

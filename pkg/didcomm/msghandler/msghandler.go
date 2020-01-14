@@ -38,7 +38,10 @@ func (m *Registrar) Services() []dispatcher.MessageService {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
-	return m.services
+	svcs := make([]dispatcher.MessageService, len(m.services))
+	copy(svcs, m.services)
+
+	return svcs
 }
 
 // Register registers given message services to this handler

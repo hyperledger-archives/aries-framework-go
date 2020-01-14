@@ -35,7 +35,7 @@ type Provider interface {
 }
 
 // ProtocolSvcCreator method to create new protocol service
-type ProtocolSvcCreator func(prv Provider) (dispatcher.Service, error)
+type ProtocolSvcCreator func(prv Provider) (dispatcher.ProtocolService, error)
 
 // MessageServiceProvider is provider of message services
 type MessageServiceProvider interface {

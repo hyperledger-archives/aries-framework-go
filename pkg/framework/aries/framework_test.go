@@ -32,6 +32,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/generic"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
@@ -109,6 +110,7 @@ func TestFramework(t *testing.T) {
 					}, nil
 				}))
 		require.NoError(t, err)
+		require.NotNil(t, aries.Messenger())
 
 		// context
 		ctx, err := aries.Context()
@@ -199,7 +201,7 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test protocol svc - with user provided protocol", func(t *testing.T) {
-		newMockSvc := func(prv api.Provider) (dispatcher.Service, error) {
+		newMockSvc := func(prv api.Provider) (dispatcher.ProtocolService, error) {
 			return &mockdidexchange.MockDIDExchangeSvc{
 				ProtocolName: "mockProtocolSvc",
 			}, nil
@@ -223,7 +225,7 @@ func TestFramework(t *testing.T) {
 	})
 
 	t.Run("test new with protocol service", func(t *testing.T) {
-		mockSvcCreator := func(prv api.Provider) (dispatcher.Service, error) {
+		mockSvcCreator := func(prv api.Provider) (dispatcher.ProtocolService, error) {
 			return &mockdidexchange.MockDIDExchangeSvc{
 				ProtocolName: "mockProtocolSvc",
 			}, nil
@@ -246,7 +248,7 @@ func TestFramework(t *testing.T) {
 		defer cleanup()
 		dbPath = path
 
-		newMockSvc := func(prv api.Provider) (dispatcher.Service, error) {
+		newMockSvc := func(prv api.Provider) (dispatcher.ProtocolService, error) {
 			return nil, errors.New("error creating the protocol")
 		}
 		_, err := New(WithProtocols(newMockSvc))
@@ -450,10 +452,28 @@ func TestFramework(t *testing.T) {
 		defer cleanup()
 		dbPath = path
 
-		aries, err := New(WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()))
+		// custom message service provider
+		handler := msghandler.NewMockMsgServiceProvider()
+		aries, err := New(WithMessageServiceProvider(handler))
 		require.NoError(t, err)
+
+		err = handler.Register(&generic.MockMessageSvc{})
+		require.NoError(t, err)
+
 		require.NotNil(t, aries)
 		require.NotNil(t, aries.msgSvcProvider)
+	})
+
+	t.Run("test default message service provider option", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+		dbPath = path
+
+		// default message service provider
+		aries, err := New()
+		require.NoError(t, err)
+		require.NotNil(t, aries.msgSvcProvider)
+		require.Empty(t, aries.msgSvcProvider.Services())
 	})
 }
 

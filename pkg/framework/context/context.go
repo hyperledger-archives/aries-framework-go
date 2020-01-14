@@ -23,7 +23,7 @@ import (
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
-	services                 []dispatcher.Service
+	services                 []dispatcher.ProtocolService
 	msgSvcProvider           api.MessageServiceProvider
 	storeProvider            storage.Provider
 	transientStoreProvider   storage.Provider
@@ -192,7 +192,7 @@ func WithTransportReturnRoute(transportReturnRoute string) ProviderOption {
 }
 
 // WithProtocolServices injects a protocol services into the context.
-func WithProtocolServices(services ...dispatcher.Service) ProviderOption {
+func WithProtocolServices(services ...dispatcher.ProtocolService) ProviderOption {
 	return func(opts *Provider) error {
 		opts.services = services
 		return nil
