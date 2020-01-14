@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -68,6 +69,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 	InboundTransportEndpoint() string
 	KMS() legacykms.KeyManager
+	VDRIRegistry() vdri.Registry
 }
 
 // Service for Route Coordination protocol.
@@ -79,6 +81,7 @@ type Service struct {
 	outbound   dispatcher.Outbound
 	endpoint   string
 	kms        legacykms.KeyManager
+	vdRegistry vdri.Registry
 }
 
 // New return route coordination service.
@@ -93,16 +96,17 @@ func New(prov provider) (*Service, error) {
 		outbound:   prov.OutboundDispatcher(),
 		endpoint:   prov.InboundTransportEndpoint(),
 		kms:        prov.KMS(),
+		vdRegistry: prov.VDRIRegistry(),
 	}, nil
 }
 
 // HandleInbound handles inbound route coordination messages.
-func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID string, theirDID string) (string, error) { // nolint gocyclo (5 switch cases)
+func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string) (string, error) { // nolint gocyclo (5 switch cases)
 	// perform action on inbound message asynchronously
 	go func() {
 		switch msg.Header.Type {
 		case RequestMsgType:
-			if err := s.handleRequest(msg); err != nil {
+			if err := s.handleRequest(msg, myDID, theirDID); err != nil {
 				logger.Errorf("handle route request error : %s", err)
 			}
 		case GrantMsgType:
@@ -110,7 +114,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID string, theirDID 
 				logger.Errorf("handle route grant error : %s", err)
 			}
 		case KeylistUpdateMsgType:
-			if err := s.handleKeylistUpdate(msg); err != nil {
+			if err := s.handleKeylistUpdate(msg, myDID, theirDID); err != nil {
 				logger.Errorf("handle route keylist update error : %s", err)
 			}
 		case KeylistUpdateResponseMsgType:
@@ -162,7 +166,7 @@ func (s *Service) Name() string {
 	return Coordination
 }
 
-func (s *Service) handleRequest(msg *service.DIDCommMsg) error {
+func (s *Service) handleRequest(msg *service.DIDCommMsg, myDID, theirDID string) error {
 	// unmarshal the payload
 	request := &Request{}
 
@@ -185,8 +189,7 @@ func (s *Service) handleRequest(msg *service.DIDCommMsg) error {
 		RoutingKeys: []string{sigPubKey},
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/725 get destination details from the connection
-	return s.outbound.Send(grant, "", nil)
+	return s.outbound.SendToDID(grant, myDID, theirDID)
 }
 
 func (s *Service) handleGrant(msg *service.DIDCommMsg) error {
@@ -203,7 +206,7 @@ func (s *Service) handleGrant(msg *service.DIDCommMsg) error {
 	return nil
 }
 
-func (s *Service) handleKeylistUpdate(msg *service.DIDCommMsg) error {
+func (s *Service) handleKeylistUpdate(msg *service.DIDCommMsg, myDID, theirDID string) error {
 	// unmarshal the payload
 	keyUpdate := &KeylistUpdate{}
 
@@ -217,8 +220,7 @@ func (s *Service) handleKeylistUpdate(msg *service.DIDCommMsg) error {
 	// update the db
 	for _, v := range keyUpdate.Updates {
 		if v.Action == add {
-			// TODO https://github.com/hyperledger/aries-framework-go/issues/725 need to get the DID from the inbound transport
-			val := ""
+			val := theirDID
 			result := success
 
 			err = s.routeStore.Put(dataKey(v.RecipientKey), []byte(val))
@@ -253,8 +255,7 @@ func (s *Service) handleKeylistUpdate(msg *service.DIDCommMsg) error {
 		Updated: updates,
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/725 get destination details from the connection
-	return s.outbound.Send(updateResponse, "", nil)
+	return s.outbound.SendToDID(updateResponse, myDID, theirDID)
 }
 
 func (s *Service) handleKeylistUpdateResponse(msg *service.DIDCommMsg) error {
@@ -282,15 +283,17 @@ func (s *Service) handleForward(msg *service.DIDCommMsg) error {
 
 	// TODO Open question - https://github.com/hyperledger/aries-framework-go/issues/965 Mismatch between Route
 	//  Coordination and Forward RFC. For now assume, the TO field contains the recipient key.
-	_, err = s.routeStore.Get(dataKey(forward.To))
+	theirDID, err := s.routeStore.Get(dataKey(forward.To))
 	if err != nil {
 		return fmt.Errorf("route key fetch : %w", err)
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/725 get destination details from the
-	//  did retrieved from previous Get call.
+	dest, err := service.GetDestination(string(theirDID), s.vdRegistry)
+	if err != nil {
+		return fmt.Errorf("get destination : %w", err)
+	}
 
-	return s.outbound.Forward(forward.Msg, nil)
+	return s.outbound.Forward(forward.Msg, dest)
 }
 
 func dataKey(id string) string {
