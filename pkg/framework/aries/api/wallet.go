@@ -9,14 +9,14 @@ package api
 import (
 	"io"
 
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 // CloseableKMS interface
 type CloseableKMS interface {
 	io.Closer
-	kms.KeyManager
-	kms.Signer
+	legacykms.KeyManager
+	legacykms.Signer
 }
 
 // KMSCreator method to create new key management service

@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package kms
+package legacykms
 
 import (
 	"encoding/json"
@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -39,7 +39,7 @@ func NewMockProvider(kp ...*cryptoutil.MessagingKeys) (*mockprovider.Provider, e
 			Store: store,
 		}}}
 
-	w, err := kms.New(mProvider)
+	w, err := legacykms.New(mProvider)
 	if err != nil {
 		return nil, err
 	}

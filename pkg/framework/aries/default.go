@@ -22,7 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 // defFrameworkOpts provides default framework options
@@ -73,7 +73,7 @@ func newRouteSvc() api.ProtocolSvcCreator {
 func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 	if frameworkOpts.kmsCreator == nil {
 		frameworkOpts.kmsCreator = func(provider api.Provider) (api.CloseableKMS, error) {
-			return kms.New(provider)
+			return legacykms.New(provider)
 		}
 	}
 

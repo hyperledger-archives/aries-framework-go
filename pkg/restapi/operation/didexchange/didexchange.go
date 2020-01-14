@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	resterrors "github.com/hyperledger/aries-framework-go/pkg/restapi/errors"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
@@ -73,7 +73,7 @@ const (
 // provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	Service(id string) (interface{}, error)
-	KMS() kms.KeyManager
+	KMS() legacykms.KeyManager
 	InboundTransportEndpoint() string
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider

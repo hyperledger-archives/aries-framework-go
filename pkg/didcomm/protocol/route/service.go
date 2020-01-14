@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -67,7 +67,7 @@ type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	InboundTransportEndpoint() string
-	KMS() kms.KeyManager
+	KMS() legacykms.KeyManager
 }
 
 // Service for Route Coordination protocol.
@@ -78,7 +78,7 @@ type Service struct {
 	routeStore storage.Store
 	outbound   dispatcher.Outbound
 	endpoint   string
-	kms        kms.KeyManager
+	kms        legacykms.KeyManager
 }
 
 // New return route coordination service.

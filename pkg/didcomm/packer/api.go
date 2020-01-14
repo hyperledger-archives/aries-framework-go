@@ -8,12 +8,12 @@ package packer
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 // Provider interface for Packer ctx
 type Provider interface {
-	KMS() kms.KeyManager
+	KMS() legacykms.KeyManager
 }
 
 // Creator method to create new Packer service

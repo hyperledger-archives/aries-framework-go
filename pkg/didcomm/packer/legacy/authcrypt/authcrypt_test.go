@@ -21,9 +21,9 @@ import (
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
 	mockStorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -56,21 +56,21 @@ func (fw *failReader) Read(out []byte) (int, error) {
 
 type provider struct {
 	storeProvider storage.Provider
-	crypto        kms.KeyManager
+	crypto        legacykms.KeyManager
 }
 
 func (p *provider) StorageProvider() storage.Provider {
 	return p.storeProvider
 }
 
-func newKMS(t *testing.T) (*kms.BaseKMS, storage.Store) {
+func newKMS(t *testing.T) (*legacykms.BaseKMS, storage.Store) {
 	msp := mockStorage.NewMockStoreProvider()
 	p := provider{storeProvider: msp}
 
 	store, err := p.StorageProvider().OpenStore("test-kms")
 	require.NoError(t, err)
 
-	ret, err := kms.New(&p)
+	ret, err := legacykms.New(&p)
 	require.NoError(t, err)
 
 	return ret, store
@@ -121,11 +121,11 @@ func persistKey(pub, priv string, store storage.Store) error {
 	return store.Put(pub, data)
 }
 
-func (p *provider) KMS() kms.KeyManager {
+func (p *provider) KMS() legacykms.KeyManager {
 	return p.crypto
 }
 
-func newWithKMS(k kms.KeyManager) *Packer {
+func newWithKMS(k legacykms.KeyManager) *Packer {
 	return New(&provider{
 		crypto: k,
 	})

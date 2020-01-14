@@ -22,13 +22,13 @@ import (
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	t.Run("test failed to unmarshal encMessage", func(t *testing.T) {
-		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+		w, err := legacykms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
@@ -49,7 +49,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test bad encoding type", func(t *testing.T) {
-		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+		w, err := legacykms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
@@ -86,7 +86,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 	t.Run("test key not found", func(t *testing.T) {
 		wp := newMockKMSProvider(mockstorage.NewMockStoreProvider())
-		w, err := kms.New(wp)
+		w, err := legacykms.New(wp)
 		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
@@ -127,7 +127,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test Pack/Unpack fails", func(t *testing.T) {
-		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+		w, err := legacykms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 
 		decryptValue := func(envelope []byte) (*transport.Envelope, error) {
@@ -197,7 +197,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 	t.Run("test Pack/Unpack success", func(t *testing.T) {
 		// create a mock KMS with storage as a map
-		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+		w, err := legacykms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 		mockedProviders := &mockProvider{
 			storage:       mockstorage.NewMockStoreProvider(),
@@ -255,7 +255,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 
 	t.Run("test success - dids not found", func(t *testing.T) {
 		// create a mock KMS with storage as a map
-		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+		w, err := legacykms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 		mockedProviders := &mockProvider{
 			storage:       mockstorage.NewMockStoreProvider(),
@@ -296,7 +296,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	t.Run("test failure - did lookup broke", func(t *testing.T) {
 		// create a mock KMS with storage as a map
 
-		w, err := kms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
+		w, err := legacykms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 
 		mockedProviders := &mockProvider{
@@ -347,7 +347,7 @@ func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvide
 // mockProvider mocks provider for KMS
 type mockProvider struct {
 	storage       *mockstorage.MockStoreProvider
-	kms           kms.KeyManager
+	kms           legacykms.KeyManager
 	packers       []packer.Packer
 	primaryPacker packer.Packer
 	vdriRegistry  vdriapi.Registry
@@ -357,7 +357,7 @@ func (m *mockProvider) Packers() []packer.Packer {
 	return m.packers
 }
 
-func (m *mockProvider) KMS() kms.KeyManager {
+func (m *mockProvider) KMS() legacykms.KeyManager {
 	return m.kms
 }
 
