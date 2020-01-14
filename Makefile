@@ -23,7 +23,7 @@ GO_VER ?= 1.13.1
 PROJECT_ROOT = github.com/hyperledger/aries-framework-go
 WASM_EXEC = $(shell go env GOROOT)/misc/wasm/wasm_exec.js
 GOBIN_PATH=$(abspath .)/build/bin
-MOCKGEN = $(GOBIN_PATH)/mockgen
+MOCKGEN = $(GOBIN_PATH)/gobin -run github.com/golang/mock/mockgen@1.3.1
 
 .PHONY: all
 all: clean checks unit-test bdd-test
@@ -132,7 +132,7 @@ endef
 
 depend:
 	@mkdir -p ./build/bin
-	GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/golang/mock/mockgen
+	GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/myitcv/gobin
 	GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/agnivade/wasmbrowsertest
 
 .PHONY: mocks
