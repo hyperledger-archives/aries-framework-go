@@ -10,6 +10,8 @@
 *.dll
 *.so
 *.dylib
+*.wasm
+wasm_exec.js
 cmd/aries-agent-rest/aries-agent-rest
 
 # Editor and go temporary files & folders
