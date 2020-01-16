@@ -36,6 +36,7 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 	resterr "github.com/hyperledger/aries-framework-go/pkg/restapi/errors"
+	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/restapi/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
@@ -465,8 +466,8 @@ func TestAcceptExchangeRequest(t *testing.T) {
 		StorageProviderValue:          store,
 		ServiceValue:                  didExSvc,
 		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}},
-		&mockNotifier{
-			notifyFunc: func(topic string, message []byte) error {
+		&mockwebhook.Notifier{
+			NotifyFunc: func(topic string, message []byte) error {
 				require.Equal(t, connectionsWebhookTopic, topic)
 
 				conn := ConnectionMsg{}
@@ -550,8 +551,8 @@ func TestAcceptInvitation(t *testing.T) {
 		TransientStorageProviderValue: store,
 		StorageProviderValue:          mockstore.NewMockStoreProvider(),
 		ServiceValue:                  didExSvc},
-		&mockNotifier{
-			notifyFunc: func(topic string, message []byte) error {
+		&mockwebhook.Notifier{
+			NotifyFunc: func(topic string, message []byte) error {
 				require.Equal(t, connectionsWebhookTopic, topic)
 				conn := ConnectionMsg{}
 				jsonErr := json.Unmarshal(message, &conn)
@@ -717,7 +718,7 @@ func TestSendConnectionNotification(t *testing.T) {
 			TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: store},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: store},
 			ServiceValue:                  &mockdidexchange.MockDIDExchangeSvc{}},
-			&mockNotifier{notifyFunc: func(topic string, message []byte) error {
+			&mockwebhook.Notifier{NotifyFunc: func(topic string, message []byte) error {
 				return errors.New("webhook error")
 			}},
 			"", false)
@@ -745,14 +746,6 @@ func verifyRESTError(t *testing.T, code resterr.Code, data []byte) {
 
 func stateKey(connID, state string) string {
 	return fmt.Sprintf("connstate_%s_%s", connID, state)
-}
-
-type mockNotifier struct {
-	notifyFunc func(topic string, message []byte) error
-}
-
-func (n *mockNotifier) Notify(topic string, message []byte) error {
-	return n.notifyFunc(topic, message)
 }
 
 type didExEvent struct {

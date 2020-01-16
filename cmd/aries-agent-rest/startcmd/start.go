@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi"
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 )
 
@@ -143,7 +143,7 @@ type agentParameters struct {
 	host, inboundHostInternal, inboundHostExternal, dbPath, defaultLabel, inboundTransport string
 	webhookURLs, httpResolvers, outboundTransports                                         []string
 	autoAccept                                                                             bool
-	msgHandler                                                                             restapi.MessageHandler
+	msgHandler                                                                             operation.MessageHandler
 }
 
 type server interface {

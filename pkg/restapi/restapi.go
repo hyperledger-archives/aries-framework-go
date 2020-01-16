@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package restapi
 
 import (
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
-
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/common"
@@ -16,22 +14,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
 )
 
-// MessageHandler maintains registered message services
-// and it allows dynamic registration of message services
-type MessageHandler interface {
-	// Services returns list of available message services in this message handler
-	Services() []dispatcher.MessageService
-	// Register registers given message services to this message handler
-	Register(msgSvcs ...dispatcher.MessageService) error
-	// Unregister unregisters message service with given name from this message handler
-	Unregister(name string) error
-}
-
 type allOpts struct {
 	webhookURLs  []string
 	defaultLabel string
 	autoAccept   bool
-	msgHandler   MessageHandler
+	msgHandler   operation.MessageHandler
 }
 
 // Opt represents a REST Api option.
@@ -59,7 +46,7 @@ func WithAutoAccept(autoAccept bool) Opt {
 }
 
 // WithMessageHandler is an option allowing for the message handler to be set.
-func WithMessageHandler(handler MessageHandler) Opt {
+func WithMessageHandler(handler operation.MessageHandler) Opt {
 	return func(opts *allOpts) {
 		opts.msgHandler = handler
 	}
@@ -83,7 +70,7 @@ func New(ctx *context.Provider, opts ...Opt) (*Controller, error) {
 	}
 
 	// Add common Rest Handlers
-	general := common.New(ctx)
+	general := common.New(ctx, restAPIOpts.msgHandler, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs))
 
 	allHandlers = append(allHandlers, exchange.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, general.GetRESTHandlers()...)

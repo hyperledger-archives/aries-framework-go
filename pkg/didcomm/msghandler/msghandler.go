@@ -44,7 +44,7 @@ func (m *Registrar) Services() []dispatcher.MessageService {
 	return svcs
 }
 
-// Register registers given message services to this handler
+// Register registers given message services to this handler,
 // returns error in case of duplicate registration
 func (m *Registrar) Register(msgServices ...dispatcher.MessageService) error {
 	if len(msgServices) == 0 {
@@ -74,7 +74,8 @@ func (m *Registrar) Register(msgServices ...dispatcher.MessageService) error {
 	return nil
 }
 
-// Unregister unregisters message service with given name from this message handler
+// Unregister unregisters message service with given name from this message handler,
+// returns error if given message service doesn't exists
 func (m *Registrar) Unregister(name string) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()

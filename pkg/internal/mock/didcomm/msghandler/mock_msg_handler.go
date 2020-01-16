@@ -10,10 +10,13 @@
 package msghandler
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 )
+
+const errNeverRegistered = "failed to unregister, unable to find registered message service with name `%s`"
 
 // NewMockMsgServiceProvider returns new custom mock message handler
 func NewMockMsgServiceProvider() *MockMsgSvcProvider {
@@ -62,6 +65,10 @@ func (m *MockMsgSvcProvider) Unregister(name string) error {
 			index = i
 			break
 		}
+	}
+
+	if index < 0 {
+		return fmt.Errorf(errNeverRegistered, name)
 	}
 
 	m.svcs = append(m.svcs[:index], m.svcs[index+1:]...)
