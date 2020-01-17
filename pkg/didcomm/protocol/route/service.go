@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -19,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 var logger = log.New("aries-framework/route/service")
@@ -63,10 +66,19 @@ const (
 	success = "success"
 )
 
+const (
+	// data key to store router connection ID
+	routeConnIDDataKey = "route-connID"
+)
+
+// ErrConnectionNotFound connection not found error
+var ErrConnectionNotFound = errors.New("connection not found")
+
 // provider contains dependencies for the Routing protocol and is typically created by using aries.Context()
 type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
+	TransientStorageProvider() storage.Provider
 	InboundTransportEndpoint() string
 	KMS() legacykms.KeyManager
 	VDRIRegistry() vdri.Registry
@@ -77,11 +89,14 @@ type provider interface {
 type Service struct {
 	service.Action
 	service.Message
-	routeStore storage.Store
-	outbound   dispatcher.Outbound
-	endpoint   string
-	kms        legacykms.KeyManager
-	vdRegistry vdri.Registry
+	routeStore               storage.Store
+	connectionLookup         *connection.Lookup
+	outbound                 dispatcher.Outbound
+	endpoint                 string
+	kms                      legacykms.KeyManager
+	vdRegistry               vdri.Registry
+	routeRegistrationMap     map[string]chan Grant
+	routeRegistrationMapLock sync.RWMutex
 }
 
 // New return route coordination service.
@@ -91,12 +106,19 @@ func New(prov provider) (*Service, error) {
 		return nil, fmt.Errorf("open route coordination store : %w", err)
 	}
 
+	connectionLookup, err := connection.NewLookup(prov)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Service{
-		routeStore: store,
-		outbound:   prov.OutboundDispatcher(),
-		endpoint:   prov.InboundTransportEndpoint(),
-		kms:        prov.KMS(),
-		vdRegistry: prov.VDRIRegistry(),
+		routeStore:           store,
+		outbound:             prov.OutboundDispatcher(),
+		endpoint:             prov.InboundTransportEndpoint(),
+		kms:                  prov.KMS(),
+		vdRegistry:           prov.VDRIRegistry(),
+		connectionLookup:     connectionLookup,
+		routeRegistrationMap: make(map[string]chan Grant),
 	}, nil
 }
 
@@ -194,14 +216,20 @@ func (s *Service) handleRequest(msg *service.DIDCommMsg, myDID, theirDID string)
 
 func (s *Service) handleGrant(msg *service.DIDCommMsg) error {
 	// unmarshal the payload
-	grant := &Grant{}
+	grantMsg := &Grant{}
 
-	err := json.Unmarshal(msg.Payload, grant)
+	err := json.Unmarshal(msg.Payload, grantMsg)
 	if err != nil {
 		return fmt.Errorf("route grant message unmarshal : %w", err)
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/948 integrate with framework components
+	// check if there are any channels registered for the message ID
+	grantCh := s.getRouteRegistrationCh(grantMsg.ID)
+
+	if grantCh != nil {
+		// invoke the channel for the incoming message
+		grantCh <- *grantMsg
+	}
 
 	return nil
 }
@@ -294,6 +322,98 @@ func (s *Service) handleForward(msg *service.DIDCommMsg) error {
 	}
 
 	return s.outbound.Forward(forward.Msg, dest)
+}
+
+// Register registers the agent with the router on the other end of the connection identified by
+// connectionID. This method blocks until a response is received from the router or it times out.
+// The agent is registered with the router and retrieves the router endpoint and routing keys.
+// This function throws an error if the agent is already registered against a router.
+// TODO https://github.com/hyperledger/aries-framework-go/issues/1076 Register agent with
+//  multiple routers
+func (s *Service) Register(connectionID string) error {
+	// check if router is already registered
+	routerConnID, err := s.getRouterConnectionID()
+	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
+		return fmt.Errorf("fetch router connection id : %w", err)
+	}
+
+	if routerConnID != "" {
+		return errors.New("router is already registered")
+	}
+
+	// get the connection record for the ID to fetch DID information
+	conn, err := s.connectionLookup.GetConnectionRecord(connectionID)
+	if err != nil {
+		if errors.Is(err, storage.ErrDataNotFound) {
+			return ErrConnectionNotFound
+		}
+
+		return fmt.Errorf("fetch connection record from store : %w", err)
+	}
+
+	// generate message ID
+	msgID := uuid.New().String()
+
+	// register chan for callback processing
+	grantCh := make(chan Grant)
+	s.setRouteRegistrationCh(msgID, grantCh)
+
+	// create request message
+	req := &Request{
+		ID:   msgID,
+		Type: RequestMsgType,
+	}
+
+	// send message to the router
+	if err := s.outbound.SendToDID(req, conn.MyDID, conn.TheirDID); err != nil {
+		return fmt.Errorf("send route request: %w", err)
+	}
+
+	// callback processing (to make this function look like a sync function)
+	select {
+	case <-grantCh:
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/948 save router endpoint and routing keys
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/948 configure this timeout at decorator level
+	case <-time.After(5 * time.Second):
+		return errors.New("timeout waiting for grant from the router")
+	}
+
+	// remove the channel once its been processed
+	s.setRouteRegistrationCh(msgID, nil)
+
+	// save the connectionID of the router
+	return s.saveRouterConnectionID(connectionID)
+}
+
+func (s *Service) getRouteRegistrationCh(msgID string) chan Grant {
+	s.routeRegistrationMapLock.RLock()
+	defer s.routeRegistrationMapLock.RUnlock()
+
+	return s.routeRegistrationMap[msgID]
+}
+
+func (s *Service) setRouteRegistrationCh(msgID string, grantCh chan Grant) {
+	s.routeRegistrationMapLock.Lock()
+	defer s.routeRegistrationMapLock.Unlock()
+
+	if grantCh == nil {
+		delete(s.routeRegistrationMap, msgID)
+	} else {
+		s.routeRegistrationMap[msgID] = grantCh
+	}
+}
+
+func (s *Service) getRouterConnectionID() (string, error) {
+	id, err := s.routeStore.Get(routeConnIDDataKey)
+	if err != nil {
+		return "", err
+	}
+
+	return string(id), nil
+}
+
+func (s *Service) saveRouterConnectionID(id string) error {
+	return s.routeStore.Put(routeConnIDDataKey, []byte(id))
 }
 
 func dataKey(id string) string {
