@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -296,13 +295,8 @@ func (d *SDKSteps) eventListener(statusCh chan service.StateMsg, agentID string,
 		}
 
 		if e.Type == service.PostState {
-			dst := &bytes.Buffer{}
-			if err := json.Indent(dst, e.Msg.Payload, "", "  "); err != nil {
-				panic(err)
-			}
-
 			if e.StateID != "invited" {
-				logger.Debugf("Agent %s done processing %s message \n%s\n*****", agentID, e.Msg.Header.Type, dst)
+				logger.Debugf("Agent %s done processing %s message \n%s\n*****", agentID, e.Msg.Type(), e.Msg)
 			}
 
 			for _, state := range states {

@@ -64,7 +64,8 @@ type Content struct {
 // PleaseIntroduceTo includes all field from To structure
 // also it has Discovered the field which should be provided by help-me-discover protocol
 type PleaseIntroduceTo struct {
-	To
+	// nolint: staticcheck
+	To `json:",squash"`
 	// Discovered    Discovered `json:"discovered,omitempty"`
 }
 

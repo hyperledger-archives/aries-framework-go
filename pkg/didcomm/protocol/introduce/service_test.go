@@ -238,15 +238,19 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		defer stop(t, svc)
 
+		didMsg, err := service.NewDIDCommMsg(toBytes(t, &service.Header{
+			ID:     "ID",
+			Thread: decorator.Thread{ID: "thID"},
+			Type:   introduce.ResponseMsgType,
+		}))
+		require.NoError(t, err)
+		didMsg["approve"] = "invalid"
 		// inject invitation error
-		err = svc.HandleOutbound(&service.DIDCommMsg{
-			Header:  &service.Header{ID: "ID", Thread: decorator.Thread{ID: "thID"}, Type: introduce.ResponseMsgType},
-			Payload: []byte(`[]`),
-		}, "", "")
+		err = svc.HandleOutbound(didMsg, "", "")
 
-		const errMsg = "inject invitation: json: cannot unmarshal array into Go value of type introduce.Response"
+		const errMsg = `execute: inject invitation`
 
-		require.EqualError(t, errors.Unwrap(err), errMsg)
+		require.Contains(t, err.Error(), errMsg)
 	})
 
 	t.Run("Save error", func(t *testing.T) {
@@ -276,11 +280,15 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		require.NoError(t, svc.RegisterActionEvent(make(chan service.DIDCommAction, 1)))
 
+		didMsg, err := service.NewDIDCommMsg(toBytes(t, &service.Header{
+			ID:     "ID",
+			Thread: decorator.Thread{ID: "thID"},
+			Type:   introduce.AckMsgType,
+		}))
+		require.NoError(t, err)
+
 		// inject invitation error
-		_, err = svc.HandleInbound(&service.DIDCommMsg{
-			Header:  &service.Header{ID: "ID", Thread: decorator.Thread{ID: "thID"}, Type: introduce.AckMsgType},
-			Payload: []byte(`{}`),
-		}, "", "")
+		_, err = svc.HandleInbound(didMsg, "", "")
 
 		const errMsg = "failed to persist state done: DB error"
 
@@ -309,12 +317,15 @@ func TestService_HandleOutbound(t *testing.T) {
 		require.NoError(t, err)
 
 		defer stop(t, svc)
+		didMsg, err := service.NewDIDCommMsg(toBytes(t, &service.Header{
+			ID:     "ID",
+			Thread: decorator.Thread{ID: "thID"},
+			Type:   introduce.ResponseMsgType,
+		}))
+		require.NoError(t, err)
 
 		// inject invitation error
-		err = svc.HandleOutbound(&service.DIDCommMsg{
-			Header:  &service.Header{ID: "ID", Thread: decorator.Thread{ID: "thID"}, Type: introduce.ResponseMsgType},
-			Payload: []byte(`{}`),
-		}, "", "")
+		err = svc.HandleOutbound(didMsg, "", "")
 
 		const errMsg = "invalid state transition: confirming -> arranging"
 
@@ -344,7 +355,7 @@ func TestService_HandleInbound(t *testing.T) {
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
-		_, err = svc.HandleInbound(&service.DIDCommMsg{}, "", "")
+		_, err = svc.HandleInbound(service.DIDCommMsgMap{}, "", "")
 		require.EqualError(t, err, "no clients are registered to handle the message")
 	})
 
@@ -2436,7 +2447,7 @@ func checkStateMsg(t *testing.T, ch chan service.StateMsg, sType service.StateMs
 	select {
 	case res := <-ch:
 		require.Equal(t, sType, res.Type)
-		require.Equal(t, dType, res.Msg.Header.Type)
+		require.Equal(t, dType, res.Msg.Type())
 		require.Equal(t, stateID, res.StateID)
 
 		return
@@ -2450,7 +2461,7 @@ func continueActionStop(t *testing.T, ch chan service.DIDCommAction, action stri
 
 	select {
 	case res := <-ch:
-		require.Equal(t, action, res.Message.Header.Type)
+		require.Equal(t, action, res.Message.Type())
 
 		res.Stop(errors.New("stop error"))
 
@@ -2465,7 +2476,7 @@ func continueAction(t *testing.T, ch chan service.DIDCommAction, action string, 
 
 	select {
 	case res := <-ch:
-		require.Equal(t, action, res.Message.Header.Type)
+		require.Equal(t, action, res.Message.Type())
 
 		res.Continue(dep)
 

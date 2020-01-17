@@ -7,7 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -121,18 +123,22 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
 	dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
+	didmsg, err := service.NewDIDCommMsg(toBytes(t, struct{}{}))
+	require.NoError(t, err)
+
 	followup, err := (&arranging{}).ExecuteOutbound(dispatcher, &metaData{
-		Msg: &service.DIDCommMsg{Payload: []byte(`{}`)},
+		Msg: didmsg,
 	})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 
 	// JSON error
-	errMsg := "json: cannot unmarshal array into Go value of type introduce.Proposal"
+	const errMsg = "outbound unmarshal"
+
 	followup, err = (&arranging{}).ExecuteOutbound(dispatcher, &metaData{
-		Msg: &service.DIDCommMsg{Payload: []byte(`[]`)},
+		Msg: service.DIDCommMsgMap{"@id": map[int]int{1: 1}},
 	})
-	require.EqualError(t, errors.Unwrap(err), errMsg)
+	require.Contains(t, fmt.Sprintf("%v", err), errMsg)
 	require.Nil(t, followup)
 }
 
@@ -207,11 +213,11 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
 		dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test error"))
 
+		didmsg, err := service.NewDIDCommMsg(toBytes(t, &service.Header{Type: RequestMsgType}))
+		require.NoError(t, err)
+
 		followup, err := (&abandoning{}).ExecuteInbound(dispatcher, &metaData{
-			Msg: &service.DIDCommMsg{
-				Header:  &service.Header{Type: RequestMsgType},
-				Payload: []byte(`{}`),
-			},
+			Msg: didmsg,
 		})
 		require.Nil(t, followup)
 		require.EqualError(t, err, "send problem-report: test error")
@@ -316,20 +322,23 @@ func TestRequesting_ExecuteOutbound(t *testing.T) {
 	defer ctrl.Finish()
 
 	followup, err := (&requesting{}).ExecuteOutbound(nil, &metaData{
-		Msg: &service.DIDCommMsg{Payload: []byte(`[]`)},
+		Msg: service.DIDCommMsgMap{
+			"@type":   ResponseMsgType,
+			"~timing": map[int]int{1: 1},
+		},
 	})
 
-	const errMsg = "requesting outbound unmarshal: json: cannot unmarshal array into Go value of type introduce.Request"
+	const errMsg = "requesting outbound unmarshal"
 
-	require.EqualError(t, err, errMsg)
+	require.Contains(t, fmt.Sprintf("%v", err), errMsg)
 	require.Nil(t, followup)
 }
 
 func Test_getApproveFromMsg(t *testing.T) {
 	t.Run("Unmarshal error", func(t *testing.T) {
-		approve, ok := getApproveFromMsg(&service.DIDCommMsg{
-			Header:  &service.Header{Type: ResponseMsgType},
-			Payload: []byte("[]"),
+		approve, ok := getApproveFromMsg(service.DIDCommMsgMap{
+			"@type":   ResponseMsgType,
+			"~thread": map[int]int{1: 1},
 		})
 		require.False(t, approve)
 		require.False(t, ok)
@@ -375,4 +384,13 @@ func Test_save(t *testing.T) {
 	const errMsg = "service save: json: unsupported type: chan struct {}"
 
 	require.EqualError(t, (&Service{}).save("ID", make(chan struct{})), errMsg)
+}
+
+func toBytes(t *testing.T, data interface{}) []byte {
+	t.Helper()
+
+	src, err := json.Marshal(data)
+	require.NoError(t, err)
+
+	return src
 }

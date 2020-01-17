@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -135,7 +134,7 @@ func (s *arranging) ExecuteInbound(dis dispatcher.Outbound, m *metaData) (state,
 	// after receiving a response we need to determine whether it is skip proposal or no
 	// if this is skip proposal we do not need to send a proposal to another introducee
 	// we just simply go to Delivering state
-	if m.Msg.Header.Type == ResponseMsgType && isSkipProposal(m) {
+	if m.Msg.Type() == ResponseMsgType && isSkipProposal(m) {
 		return &delivering{}, nil
 	}
 
@@ -161,12 +160,12 @@ func (s *arranging) ExecuteInbound(dis dispatcher.Outbound, m *metaData) (state,
 }
 
 func (s *arranging) ExecuteOutbound(dis dispatcher.Outbound, m *metaData) (state, error) {
-	var proposal *Proposal
-	if err := json.Unmarshal(m.Msg.Payload, &proposal); err != nil {
+	var proposal = Proposal{}
+	if err := m.Msg.Decode(&proposal); err != nil {
 		return nil, fmt.Errorf("outbound unmarshal: %w", err)
 	}
 
-	if err := dis.SendToDID(proposal, m.myDID, m.theirDID); err != nil {
+	if err := dis.SendToDID(&proposal, m.myDID, m.theirDID); err != nil {
 		return nil, fmt.Errorf("arranging: SendToDID: %w", err)
 	}
 
@@ -194,13 +193,14 @@ func toDestIDx(idx int) int {
 	return 0
 }
 
-func getApproveFromMsg(msg *service.DIDCommMsg) (bool, bool) {
-	if msg.Header.Type != ResponseMsgType {
+func getApproveFromMsg(msg service.DIDCommMsg) (bool, bool) {
+	if msg.Type() != ResponseMsgType {
 		return false, false
 	}
 
 	r := Response{}
-	if err := json.Unmarshal(msg.Payload, &r); err != nil {
+
+	if err := msg.Decode(&r); err != nil {
 		return false, false
 	}
 
@@ -333,11 +333,11 @@ func fillRecipient(recipients []*Recipient, m *metaData) []*Recipient {
 func (s *abandoning) ExecuteInbound(dis dispatcher.Outbound, m *metaData) (state, error) {
 	var recipients []*Recipient
 
-	if m.Msg.Header.Type == RequestMsgType {
+	if m.Msg.Type() == RequestMsgType {
 		recipients = fillRecipient(nil, m)
 	}
 
-	if m.Msg.Header.Type == ResponseMsgType {
+	if m.Msg.Type() == ResponseMsgType {
 		recipients = fillRecipient(m.Recipients, m)
 	}
 
@@ -431,10 +431,11 @@ func (s *requesting) ExecuteInbound(_ dispatcher.Outbound, _ *metaData) (state, 
 }
 
 func (s *requesting) ExecuteOutbound(dis dispatcher.Outbound, m *metaData) (state, error) {
-	var req *Request
-	if err := json.Unmarshal(m.Msg.Payload, &req); err != nil {
+	var req = Request{}
+
+	if err := m.Msg.Decode(&req); err != nil {
 		return nil, fmt.Errorf("requesting outbound unmarshal: %w", err)
 	}
 
-	return &noOp{}, dis.SendToDID(req, m.myDID, m.theirDID)
+	return &noOp{}, dis.SendToDID(&req, m.myDID, m.theirDID)
 }

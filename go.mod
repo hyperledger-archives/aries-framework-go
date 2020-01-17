@@ -12,6 +12,7 @@ require (
 	github.com/google/tink v1.3.0-rc3
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
+	github.com/mitchellh/mapstructure v1.1.2
 	github.com/multiformats/go-multibase v0.0.1
 	github.com/multiformats/go-multihash v0.0.8
 	github.com/piprate/json-gold v0.3.0

@@ -209,7 +209,7 @@ func TestMsgService_HandleInbound(t *testing.T) {
 		require.NotNil(t, msgsvc)
 
 		go func() {
-			s, err := msgsvc.HandleInbound(&service.DIDCommMsg{Payload: []byte(sampleName)}, myDID, theirDID)
+			s, err := msgsvc.HandleInbound(service.DIDCommMsgMap{"payload": sampleName}, myDID, theirDID)
 			require.NoError(t, err)
 			require.Empty(t, s)
 		}()
@@ -223,7 +223,7 @@ func TestMsgService_HandleInbound(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NotNil(t, msg.Message)
-			require.Equal(t, msg.Message.Payload, []byte(sampleName))
+			require.Equal(t, msg.Message["payload"], sampleName)
 			require.Equal(t, msg.MyDID, myDID)
 			require.Equal(t, msg.TheirDID, theirDID)
 
@@ -234,7 +234,7 @@ func TestMsgService_HandleInbound(t *testing.T) {
 
 	t.Run("message service handle inbound failure", func(t *testing.T) {
 		msgsvc := newMessageService(&RegisterMsgSvcParams{}, mockwebhook.NewMockWebhookNotifier())
-		s, err := msgsvc.HandleInbound(&service.DIDCommMsg{Payload: []byte(sampleName)}, myDID, theirDID)
+		s, err := msgsvc.HandleInbound(service.DIDCommMsgMap{"payload": []byte(sampleName)}, myDID, theirDID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), errTopicNotFound)
 		require.Empty(t, s)

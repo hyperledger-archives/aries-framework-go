@@ -218,8 +218,9 @@ func TestInvitedState_Execute(t *testing.T) {
 	t.Run("rejects msgs other than invitations", func(t *testing.T) {
 		others := []string{RequestMsgType, ResponseMsgType, AckMsgType}
 		for _, o := range others {
-			_, _, _, err := (&invited{}).ExecuteInbound(&stateMachineMsg{header: &service.Header{Type: o}},
-				"", &context{})
+			_, _, _, err := (&invited{}).ExecuteInbound(&stateMachineMsg{
+				DIDCommMsg: toDIDCommMsg(t, &service.Header{Type: o}),
+			}, "", &context{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "illegal msg type")
 		}
@@ -236,8 +237,7 @@ func TestInvitedState_Execute(t *testing.T) {
 		require.NoError(t, err)
 		connRec, followup, _, err := (&invited{}).ExecuteInbound(
 			&stateMachineMsg{
-				header:     &service.Header{Type: InvitationMsgType},
-				payload:    invitationPayloadBytes,
+				DIDCommMsg: bytesToDIDCommMsg(t, invitationPayloadBytes),
 				connRecord: &connection.Record{},
 			},
 			"",
@@ -262,7 +262,9 @@ func TestRequestedState_Execute(t *testing.T) {
 	t.Run("rejects messages other than invitations or requests", func(t *testing.T) {
 		others := []string{ResponseMsgType, AckMsgType}
 		for _, o := range others {
-			_, _, _, e := (&requested{}).ExecuteInbound(&stateMachineMsg{header: &service.Header{Type: o}}, "", &context{})
+			_, _, _, e := (&requested{}).ExecuteInbound(&stateMachineMsg{
+				DIDCommMsg: toDIDCommMsg(t, &service.Header{Type: o}),
+			}, "", &context{})
 			require.Error(t, e)
 			require.Contains(t, e.Error(), "illegal msg type")
 		}
@@ -275,8 +277,7 @@ func TestRequestedState_Execute(t *testing.T) {
 		thid, err := threadID(msg)
 		require.NoError(t, err)
 		connRec, _, _, e := (&requested{}).ExecuteInbound(&stateMachineMsg{
-			header:     msg.Header,
-			payload:    msg.Payload,
+			DIDCommMsg: msg,
 			connRecord: &connection.Record{},
 		}, thid, ctx)
 		require.NoError(t, e)
@@ -284,8 +285,10 @@ func TestRequestedState_Execute(t *testing.T) {
 	})
 	t.Run("inbound request unmarshalling error", func(t *testing.T) {
 		_, followup, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
-			header:  &service.Header{Type: InvitationMsgType},
-			payload: nil,
+			DIDCommMsg: service.DIDCommMsgMap{
+				"@type": InvitationMsgType,
+				"@id":   map[int]int{},
+			},
 		}, "", &context{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "JSON unmarshalling of invitation")
@@ -314,8 +317,7 @@ func TestRequestedState_Execute(t *testing.T) {
 			signer:          &mockSigner{},
 			connectionStore: connectionStore}
 		_, followup, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
-			header:     &service.Header{Type: InvitationMsgType},
-			payload:    invitationPayloadBytes,
+			DIDCommMsg: bytesToDIDCommMsg(t, invitationPayloadBytes),
 			connRecord: connRec,
 		}, "", ctx2)
 		require.Error(t, err)
@@ -338,15 +340,16 @@ func TestRespondedState_Execute(t *testing.T) {
 	t.Run("rejects messages other than requests and responses", func(t *testing.T) {
 		others := []string{InvitationMsgType, AckMsgType}
 		for _, o := range others {
-			_, _, _, e := (&responded{}).ExecuteInbound(&stateMachineMsg{header: &service.Header{Type: o}}, "", &context{})
+			_, _, _, e := (&responded{}).ExecuteInbound(&stateMachineMsg{
+				DIDCommMsg: toDIDCommMsg(t, &service.Header{Type: o}),
+			}, "", &context{})
 			require.Error(t, e)
 			require.Contains(t, e.Error(), "illegal msg type")
 		}
 	})
 	t.Run("no followup for inbound requests", func(t *testing.T) {
 		connRec, followup, _, e := (&responded{}).ExecuteInbound(&stateMachineMsg{
-			header:     &service.Header{Type: RequestMsgType},
-			payload:    requestPayloadBytes,
+			DIDCommMsg: bytesToDIDCommMsg(t, requestPayloadBytes),
 			connRecord: &connection.Record{},
 		}, "", ctx)
 		require.NoError(t, e)
@@ -365,8 +368,7 @@ func TestRespondedState_Execute(t *testing.T) {
 		require.NoError(t, err)
 		connRec, followup, _, e := (&responded{}).ExecuteInbound(
 			&stateMachineMsg{
-				header:     &service.Header{Type: ResponseMsgType},
-				payload:    responsePayloadBytes,
+				DIDCommMsg: bytesToDIDCommMsg(t, responsePayloadBytes),
 				connRecord: connRec,
 			}, "", ctx)
 		require.NoError(t, e)
@@ -383,17 +385,17 @@ func TestRespondedState_Execute(t *testing.T) {
 			vdriRegistry: &mockvdri.MockVDRIRegistry{CreateValue: didDoc}, signer: &mockSigner{},
 			connectionStore: connStore}
 		_, followup, _, err := (&responded{}).ExecuteInbound(&stateMachineMsg{
-			header:     &service.Header{Type: RequestMsgType},
-			payload:    requestPayloadBytes,
+			DIDCommMsg: bytesToDIDCommMsg(t, requestPayloadBytes),
 			connRecord: &connection.Record{},
 		}, "", ctx2)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "getting sender verification keys")
 		require.Nil(t, followup)
 	})
+
 	t.Run("handle inbound request unmarshalling error", func(t *testing.T) {
 		_, followup, _, err := (&responded{}).ExecuteInbound(&stateMachineMsg{
-			header: &service.Header{Type: RequestMsgType},
+			DIDCommMsg: service.DIDCommMsgMap{"@id": map[int]int{}, "@type": RequestMsgType},
 		}, "", &context{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "JSON unmarshalling of request")
@@ -403,7 +405,8 @@ func TestRespondedState_Execute(t *testing.T) {
 func TestAbandonedState_Execute(t *testing.T) {
 	t.Run("execute abandon state", func(t *testing.T) {
 		connRec, _, _, err := (&abandoned{}).ExecuteInbound(&stateMachineMsg{
-			header: &service.Header{Type: ResponseMsgType}}, "", &context{})
+			DIDCommMsg: toDIDCommMsg(t, &service.Header{Type: ResponseMsgType}),
+		}, "", &context{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not implemented")
 		require.Nil(t, connRec)
@@ -457,8 +460,7 @@ func TestCompletedState_Execute(t *testing.T) {
 		ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{ResolveValue: mockdiddoc.GetMockDIDDoc()}
 		require.NoError(t, err)
 		_, followup, _, e := (&completed{}).ExecuteInbound(&stateMachineMsg{
-			header:     &service.Header{Type: ResponseMsgType},
-			payload:    responsePayloadBytes,
+			DIDCommMsg: bytesToDIDCommMsg(t, responsePayloadBytes),
 			connRecord: connRec,
 		}, "", ctx)
 		require.NoError(t, e)
@@ -485,8 +487,7 @@ func TestCompletedState_Execute(t *testing.T) {
 		ackPayloadBytes, e := json.Marshal(ack)
 		require.NoError(t, e)
 		_, followup, _, e := (&completed{}).ExecuteInbound(&stateMachineMsg{
-			header:  &service.Header{Type: AckMsgType},
-			payload: ackPayloadBytes,
+			DIDCommMsg: bytesToDIDCommMsg(t, ackPayloadBytes),
 		}, "", ctx)
 		require.NoError(t, e)
 		require.IsType(t, &noOp{}, followup)
@@ -494,14 +495,15 @@ func TestCompletedState_Execute(t *testing.T) {
 	t.Run("rejects messages other than responses and acks", func(t *testing.T) {
 		others := []string{InvitationMsgType, RequestMsgType}
 		for _, o := range others {
-			_, _, _, err = (&completed{}).ExecuteInbound(&stateMachineMsg{header: &service.Header{Type: o}}, "", &context{})
+			_, _, _, err = (&completed{}).ExecuteInbound(&stateMachineMsg{
+				DIDCommMsg: toDIDCommMsg(t, &service.Header{Type: o})}, "", &context{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "illegal msg type")
 		}
 	})
 	t.Run("no followup for inbound responses unmarshalling error", func(t *testing.T) {
 		_, followup, _, err := (&completed{}).ExecuteInbound(&stateMachineMsg{
-			header: &service.Header{Type: ResponseMsgType},
+			DIDCommMsg: service.DIDCommMsgMap{"@id": map[int]int{}, "@type": ResponseMsgType},
 		}, "", &context{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "JSON unmarshalling of response")
@@ -512,8 +514,7 @@ func TestCompletedState_Execute(t *testing.T) {
 		responsePayloadBytes, err := json.Marshal(response)
 		require.NoError(t, err)
 		_, followup, _, err := (&completed{}).ExecuteInbound(&stateMachineMsg{
-			header:  &service.Header{Type: ResponseMsgType},
-			payload: responsePayloadBytes,
+			DIDCommMsg: bytesToDIDCommMsg(t, responsePayloadBytes),
 		}, "", ctx)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "handle inbound response")
@@ -751,10 +752,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 		ctx := getContext(t, prov)
 		invitationBytes, err := json.Marshal(invitation)
 		require.NoError(t, err)
-		thid, err := threadID(&service.DIDCommMsg{
-			Header:  &service.Header{Type: InvitationMsgType},
-			Payload: invitationBytes,
-		})
+		thid, err := threadID(bytesToDIDCommMsg(t, invitationBytes))
 		require.NoError(t, err)
 		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{}, &connection.Record{})
 		require.NoError(t, err)
@@ -770,10 +768,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 
 		invitationBytes, err := json.Marshal(invitation)
 		require.NoError(t, err)
-		thid, err := threadID(&service.DIDCommMsg{
-			Header:  &service.Header{Type: InvitationMsgType},
-			Payload: invitationBytes,
-		})
+		thid, err := threadID(bytesToDIDCommMsg(t, invitationBytes))
 		require.NoError(t, err)
 		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{publicDID: doc.ID},
 			&connection.Record{})
@@ -785,12 +780,9 @@ func TestNewRequestFromInvitation(t *testing.T) {
 		prov := protocol.MockProvider{}
 		ctx := &context{outboundDispatcher: prov.OutboundDispatcher(),
 			vdriRegistry: &mockvdri.MockVDRIRegistry{CreateErr: fmt.Errorf("create DID error")}}
-		invitationBytes, err := json.Marshal(&Invitation{})
+		invitationBytes, err := json.Marshal(&Invitation{Type: InvitationMsgType})
 		require.NoError(t, err)
-		thid, err := threadID(&service.DIDCommMsg{
-			Header:  &service.Header{Type: InvitationMsgType},
-			Payload: invitationBytes,
-		})
+		thid, err := threadID(bytesToDIDCommMsg(t, invitationBytes))
 		require.NoError(t, err)
 		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{}, &connection.Record{})
 		require.Error(t, err)
@@ -1218,4 +1210,27 @@ func createMockInvitation(pubKey string, ctx *context) (*Invitation, error) {
 	}
 
 	return invitation, nil
+}
+
+func toDIDCommMsg(t *testing.T, v interface{}) service.DIDCommMsgMap {
+	msg, err := service.NewDIDCommMsg(toBytes(t, v))
+	require.NoError(t, err)
+
+	return msg
+}
+
+func bytesToDIDCommMsg(t *testing.T, v []byte) service.DIDCommMsg {
+	msg, err := service.NewDIDCommMsg(v)
+	require.NoError(t, err)
+
+	return msg
+}
+
+func toBytes(t *testing.T, data interface{}) []byte {
+	t.Helper()
+
+	src, err := json.Marshal(data)
+	require.NoError(t, err)
+
+	return src
 }

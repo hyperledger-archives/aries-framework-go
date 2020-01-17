@@ -33,7 +33,7 @@ type StateMsg struct {
 	StateID string
 
 	// DIDComm message along with message type
-	Msg *DIDCommMsg
+	Msg DIDCommMsg
 
 	// Properties contains value based on specific protocol. The consumers need to call the protocol client
 	// functions to get the data.
@@ -52,7 +52,7 @@ type DIDCommAction struct {
 	ProtocolName string
 
 	// DIDComm message
-	Message *DIDCommMsg
+	Message DIDCommMsg
 
 	// Continue function to be called by the consumer for further processing the message.
 	Continue func(args interface{})

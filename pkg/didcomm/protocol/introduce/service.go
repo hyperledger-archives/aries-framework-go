@@ -91,7 +91,7 @@ type Recipient struct {
 // metaData type to store data for internal usage
 type metaData struct {
 	record
-	Msg      *service.DIDCommMsg
+	Msg      service.DIDCommMsg
 	ThreadID string
 	// keeps a dependency for the protocol injected by Continue() function
 	dependency InvitationEnvelope
@@ -236,7 +236,7 @@ func logInternalError(err error) {
 	}
 }
 
-func (s *Service) doHandle(msg *service.DIDCommMsg, outbound bool) (*metaData, error) {
+func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, error) {
 	thID, err := msg.ThreadID()
 	if err != nil {
 		return nil, err
@@ -275,14 +275,19 @@ func (s *Service) InvitationReceived(msg service.StateMsg) error {
 		return nil
 	}
 
-	if msg.Msg.Header == nil || msg.Msg.Header.Thread.PID == "" {
+	var h = service.Header{}
+	if err := msg.Msg.Decode(&h); err != nil {
+		return err
+	}
+
+	if h.Thread.PID == "" {
 		return nil
 	}
 
 	payload, err := json.Marshal(&model.Ack{
 		Type:   AckMsgType,
 		ID:     uuid.New().String(),
-		Thread: &decorator.Thread{ID: msg.Msg.Header.Thread.PID},
+		Thread: &decorator.Thread{ID: h.Thread.PID},
 	})
 	if err != nil {
 		return fmt.Errorf("invitation received marshal: %w", err)
@@ -299,7 +304,7 @@ func (s *Service) InvitationReceived(msg service.StateMsg) error {
 }
 
 // HandleInbound handles inbound message (introduce protocol)
-func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	aEvent := s.ActionEvent()
 
 	// throw error if there is no action event registered for inbound messages
@@ -328,7 +333,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string)
 }
 
 // HandleOutbound handles outbound message (introduce protocol)
-func (s *Service) HandleOutbound(msg *service.DIDCommMsg, myDID, theirDID string) error {
+func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
 	mData, err := s.doHandle(msg, true)
 	if err != nil {
 		return err
@@ -355,7 +360,7 @@ func (s *Service) newDIDCommActionMsg(msg *metaData) service.DIDCommAction {
 	// trigger the registered action event
 	actionStop := func(err error) {
 		// if introducee received Proposal disapprove must be true
-		if msg.Msg.Header.Type == ProposalMsgType {
+		if msg.Msg.Type() == ProposalMsgType {
 			msg.disapprove = true
 		}
 
@@ -365,7 +370,7 @@ func (s *Service) newDIDCommActionMsg(msg *metaData) service.DIDCommAction {
 
 	return service.DIDCommAction{
 		ProtocolName: Introduce,
-		Message:      msg.Msg.Clone(),
+		Message:      msg.Msg,
 		Continue: func(args interface{}) {
 			// there is no way to receive another interface
 			if dep, ok := args.(InvitationEnvelope); ok {
@@ -386,8 +391,8 @@ func (s *Service) processCallback(msg *metaData) {
 	s.callbacks <- msg
 }
 
-func nextState(msg *service.DIDCommMsg, rec *record, outbound bool) (state, error) {
-	switch msg.Header.Type {
+func nextState(msg service.DIDCommMsg, rec *record, outbound bool) (state, error) {
+	switch msg.Type() {
 	case RequestMsgType:
 		if outbound {
 			return &requesting{}, nil
@@ -413,7 +418,7 @@ func nextState(msg *service.DIDCommMsg, rec *record, outbound bool) (state, erro
 	case AckMsgType:
 		return &done{}, nil
 	default:
-		return nil, fmt.Errorf("unrecognized msgType: %s", msg.Header.Type)
+		return nil, fmt.Errorf("unrecognized msgType: %s", msg.Type())
 	}
 }
 
@@ -478,8 +483,8 @@ func stateFromName(name string) state {
 }
 
 // canTriggerActionEvents checks if the incoming message can trigger an action event
-func canTriggerActionEvents(msg *service.DIDCommMsg) bool {
-	switch msg.Header.Type {
+func canTriggerActionEvents(msg service.DIDCommMsg) bool {
+	switch msg.Type() {
 	case ProposalMsgType, ResponseMsgType, RequestMsgType:
 		return true
 	}
@@ -509,7 +514,7 @@ func isSkipProposal(msg *metaData) bool {
 func injectInvitation(msg *metaData) error {
 	// we can inject invitation only when we received the Response message
 	// the Response message comes always from introduce
-	if msg.Msg.Header.Type != ResponseMsgType {
+	if msg.Msg.Type() != ResponseMsgType {
 		return nil
 	}
 
@@ -522,8 +527,9 @@ func injectInvitation(msg *metaData) error {
 	// increases counter to determine from who we got an invitation
 	msg.IntroduceeIndex++
 
-	var resp *Response
-	if err := json.Unmarshal(msg.Msg.Payload, &resp); err != nil {
+	var resp = Response{}
+
+	if err := msg.Msg.Decode(&resp); err != nil {
 		return err
 	}
 
@@ -556,7 +562,7 @@ func (s *Service) execute(next state, msg *metaData) (state, error) {
 	s.sendMsgEvents(&service.StateMsg{
 		ProtocolName: Introduce,
 		Type:         service.PreState,
-		Msg:          msg.Msg.Clone(),
+		Msg:          msg.Msg,
 		StateID:      next.Name(),
 	})
 
@@ -593,7 +599,7 @@ func (s *Service) execute(next state, msg *metaData) (state, error) {
 	s.sendMsgEvents(&service.StateMsg{
 		ProtocolName: Introduce,
 		Type:         service.PostState,
-		Msg:          msg.Msg.Clone(),
+		Msg:          msg.Msg,
 		StateID:      next.Name(),
 	})
 

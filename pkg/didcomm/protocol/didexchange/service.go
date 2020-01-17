@@ -42,7 +42,7 @@ const (
 
 // message type to store data for eventing. This is retrieved during callback.
 type message struct {
-	Msg           *service.DIDCommMsg
+	Msg           service.DIDCommMsgMap
 	ThreadID      string
 	Options       *options
 	NextStateName string
@@ -64,8 +64,7 @@ type provider interface {
 
 // stateMachineMsg is an internal struct used to pass data to state machine.
 type stateMachineMsg struct {
-	header     *service.Header
-	payload    []byte
+	service.DIDCommMsg
 	connRecord *connection.Record
 	options    *options
 }
@@ -121,8 +120,8 @@ func New(prov provider) (*Service, error) {
 }
 
 // HandleInbound handles inbound didexchange messages.
-func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string) (string, error) {
-	logger.Debugf("receive inbound message : %s", msg.Payload)
+func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+	logger.Debugf("receive inbound message : %s", msg)
 
 	// fetch the thread id
 	thID, err := threadID(msg)
@@ -131,7 +130,7 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string)
 	}
 
 	// valid state transition and get the next state
-	next, err := s.nextState(msg.Header.Type, thID)
+	next, err := s.nextState(msg.Type(), thID)
 	if err != nil {
 		return "", fmt.Errorf("handle inbound - next state : %w", err)
 	}
@@ -142,7 +141,13 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string)
 		return "", err
 	}
 
-	internalMsg := &message{Msg: msg, ThreadID: thID, NextStateName: next.Name(), ConnRecord: connRecord}
+	// TODO: get rid of this  msg.(service.DIDCommMsgMap)
+	internalMsg := &message{
+		Msg:           msg.(service.DIDCommMsgMap),
+		ThreadID:      thID,
+		NextStateName: next.Name(),
+		ConnRecord:    connRecord,
+	}
 
 	go func(msg *message, aEvent chan<- service.DIDCommAction) {
 		if err = s.handle(msg, aEvent); err != nil {
@@ -176,7 +181,7 @@ func (s *Service) Accept(msgType string) bool {
 }
 
 // HandleOutbound handles outbound didexchange messages.
-func (s *Service) HandleOutbound(msg *service.DIDCommMsg, myDID, theirDID string) error {
+func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
 	return errors.New("not implemented")
 }
 
@@ -217,7 +222,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		s.sendMsgEvents(&service.StateMsg{
 			ProtocolName: DIDExchange,
 			Type:         service.PreState,
-			Msg:          msg.Msg.Clone(),
+			Msg:          msg.Msg,
 			StateID:      next.Name(),
 			Properties:   createEventProperties(msg.ConnRecord.ConnectionID, msg.ConnRecord.InvitationID),
 		})
@@ -231,8 +236,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 
 		connectionRecord, followup, action, err = next.ExecuteInbound(
 			&stateMachineMsg{
-				header:     msg.Msg.Header,
-				payload:    msg.Msg.Payload,
+				DIDCommMsg: msg.Msg,
 				connRecord: msg.ConnRecord,
 				options:    msg.Options,
 			},
@@ -246,7 +250,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		connectionRecord.State = next.Name()
 		logger.Debugf("finished execute state: %s", next.Name())
 
-		if err = s.update(msg.Msg.Header.Type, connectionRecord); err != nil {
+		if err = s.update(msg.Msg.Type(), connectionRecord); err != nil {
 			return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 		}
 
@@ -275,7 +279,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		s.sendMsgEvents(&service.StateMsg{
 			ProtocolName: DIDExchange,
 			Type:         service.PostState,
-			Msg:          msg.Msg.Clone(),
+			Msg:          msg.Msg,
 			StateID:      prev.Name(),
 			Properties:   createEventProperties(connectionRecord.ConnectionID, connectionRecord.InvitationID),
 		})
@@ -320,7 +324,7 @@ func (s *Service) sendActionEvent(internalMsg *message, aEvent chan<- service.DI
 		// trigger action event
 		aEvent <- service.DIDCommAction{
 			ProtocolName: DIDExchange,
-			Message:      internalMsg.Msg.Clone(),
+			Message:      internalMsg.Msg,
 			Continue: func(args interface{}) {
 				switch v := args.(type) {
 				case opts:
@@ -428,9 +432,9 @@ func (s *Service) getEventTransientData(connectionID string) (*message, error) {
 }
 
 // abandon updates the state to abandoned and trigger failure event.
-func (s *Service) abandon(thID string, msg *service.DIDCommMsg, processErr error) error {
+func (s *Service) abandon(thID string, msg service.DIDCommMsg, processErr error) error {
 	// update the state to abandoned
-	nsThID, err := connection.CreateNamespaceKey(findNamespace(msg.Header.Type), thID)
+	nsThID, err := connection.CreateNamespaceKey(findNamespace(msg.Type()), thID)
 	if err != nil {
 		return err
 	}
@@ -442,7 +446,7 @@ func (s *Service) abandon(thID string, msg *service.DIDCommMsg, processErr error
 
 	connRec.State = (&abandoned{}).Name()
 
-	err = s.update(msg.Header.Type, connRec)
+	err = s.update(msg.Type(), connRec)
 	if err != nil {
 		return fmt.Errorf("unable to update the state to abandoned: %w", err)
 	}
@@ -451,7 +455,7 @@ func (s *Service) abandon(thID string, msg *service.DIDCommMsg, processErr error
 	s.sendMsgEvents(&service.StateMsg{
 		ProtocolName: DIDExchange,
 		Type:         service.PostState,
-		Msg:          msg.Clone(),
+		Msg:          msg,
 		StateID:      stateNameAbandoned,
 		Properties:   createErrorEventProperties(thID, "", processErr),
 	})
@@ -470,8 +474,8 @@ func isNoOp(s state) bool {
 	return ok
 }
 
-func threadID(didCommMsg *service.DIDCommMsg) (string, error) {
-	if didCommMsg.Header.Type == InvitationMsgType {
+func threadID(didCommMsg service.DIDCommMsg) (string, error) {
+	if didCommMsg.Type() == InvitationMsgType {
 		return generateRandomID(), nil
 	}
 
@@ -500,22 +504,22 @@ func (s *Service) update(msgType string, connectionRecord *connection.Record) er
 	return s.connectionStore.saveConnectionRecord(connectionRecord)
 }
 
-func (s *Service) connectionRecord(msg *service.DIDCommMsg) (*connection.Record, error) {
-	switch msg.Header.Type {
+func (s *Service) connectionRecord(msg service.DIDCommMsg) (*connection.Record, error) {
+	switch msg.Type() {
 	case InvitationMsgType:
 		return s.invitationMsgRecord(msg)
 	case RequestMsgType:
 		return s.requestMsgRecord(msg)
 	case ResponseMsgType:
-		return s.responseMsgRecord(msg.Payload)
+		return s.responseMsgRecord(msg)
 	case AckMsgType:
-		return s.ackMsgRecord(msg.Payload)
+		return s.ackMsgRecord(msg)
 	}
 
 	return nil, errors.New("invalid message type")
 }
 
-func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*connection.Record, error) {
+func (s *Service) invitationMsgRecord(msg service.DIDCommMsg) (*connection.Record, error) {
 	thID, msgErr := msg.ThreadID()
 	if msgErr != nil {
 		return nil, msgErr
@@ -523,7 +527,7 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*connection.Reco
 
 	invitation := &Invitation{}
 
-	err := json.Unmarshal(msg.Payload, invitation)
+	err := msg.Decode(invitation)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +546,7 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*connection.Reco
 		ServiceEndPoint: invitation.ServiceEndpoint,
 		RecipientKeys:   []string{recKey},
 		TheirLabel:      invitation.Label,
-		Namespace:       findNamespace(msg.Header.Type),
+		Namespace:       findNamespace(msg.Type()),
 	}
 
 	if err := s.connectionStore.saveConnectionRecord(connRecord); err != nil {
@@ -552,10 +556,10 @@ func (s *Service) invitationMsgRecord(msg *service.DIDCommMsg) (*connection.Reco
 	return connRecord, nil
 }
 
-func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*connection.Record, error) {
+func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, error) {
 	request := Request{}
 
-	err := json.Unmarshal(msg.Payload, &request)
+	err := msg.Decode(&request)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshalling failed: %s", err)
 	}
@@ -575,20 +579,20 @@ func (s *Service) requestMsgRecord(msg *service.DIDCommMsg) (*connection.Record,
 	return connRecord, nil
 }
 
-func (s *Service) responseMsgRecord(payload []byte) (*connection.Record, error) {
+func (s *Service) responseMsgRecord(payload service.DIDCommMsg) (*connection.Record, error) {
 	return s.fetchConnectionRecord(myNSPrefix, payload)
 }
 
-func (s *Service) ackMsgRecord(payload []byte) (*connection.Record, error) {
+func (s *Service) ackMsgRecord(payload service.DIDCommMsg) (*connection.Record, error) {
 	return s.fetchConnectionRecord(theirNSPrefix, payload)
 }
 
-func (s *Service) fetchConnectionRecord(nsPrefix string, payload []byte) (*connection.Record, error) {
+func (s *Service) fetchConnectionRecord(nsPrefix string, payload service.DIDCommMsg) (*connection.Record, error) {
 	msg := &struct {
 		Thread decorator.Thread `json:"~thread,omitempty"`
 	}{}
 
-	err := json.Unmarshal(payload, msg)
+	err := payload.Decode(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -661,7 +665,12 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 	}
 
 	next := &requested{}
-	internalMsg := &message{Msg: msg, ThreadID: thID, NextStateName: next.Name(), ConnRecord: connRecord}
+	internalMsg := &message{
+		Msg:           msg.(service.DIDCommMsgMap),
+		ThreadID:      thID,
+		NextStateName: next.Name(),
+		ConnRecord:    connRecord,
+	}
 	internalMsg.Options = &options{publicDID: inviteeDID, label: inviteeLabel}
 
 	go func(msg *message, aEvent chan<- service.DIDCommAction) {
@@ -673,7 +682,7 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 	return connRecord.ConnectionID, nil
 }
 
-func createDIDCommMsg(invitation *Invitation) (*service.DIDCommMsg, error) {
+func createDIDCommMsg(invitation *Invitation) (service.DIDCommMsg, error) {
 	payload, err := json.Marshal(invitation)
 	if err != nil {
 		return nil, fmt.Errorf("marshal invitation: %w", err)
