@@ -280,6 +280,55 @@ func (d *SDKSteps) RegisterPostMsgEvent(agents, statesValue string) error {
 	return nil
 }
 
+func (d *SDKSteps) performDIDExchange(inviter, invitee string) error {
+	const completedStateValue = "completed"
+
+	agentIDS := []string{invitee, inviter}
+
+	for _, agentID := range agentIDS {
+		err := d.RegisterPostMsgEvent(agentID, completedStateValue)
+		if err != nil {
+			return err
+		}
+	}
+
+	// create invitation
+	err := d.createInvitation(inviter)
+	if err != nil {
+		return err
+	}
+
+	// receive invitation
+	err = d.ReceiveInvitation(invitee, inviter)
+	if err != nil {
+		return err
+	}
+
+	err = d.ApproveRequest(invitee)
+	if err != nil {
+		return err
+	}
+
+	err = d.ApproveRequest(inviter)
+	if err != nil {
+		return err
+	}
+
+	for _, agentID := range agentIDS {
+		err = d.WaitForPostEvent(agentID, completedStateValue)
+		if err != nil {
+			return err
+		}
+
+		err = d.validateConnection(agentID, completedStateValue)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (d *SDKSteps) initializeStates(agentID string, states []string) {
 	d.postStatesFlag[agentID] = make(map[string]chan bool)
 	for _, state := range states {
@@ -342,4 +391,5 @@ func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" approves did exchange request`, d.ApproveRequest)
 	s.Step(`^"([^"]*)" approves invitation request`, d.ApproveRequest)
 	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, d.RegisterPostMsgEvent)
+	s.Step(`^"([^"]*)" has established connection with "([^"]*)" through did exchange$`, d.performDIDExchange)
 }

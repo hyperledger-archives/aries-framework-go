@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
@@ -48,11 +49,17 @@ func NewSDKSteps(ctx *context.BDDContext) *SDKSteps {
 }
 
 func (a *SDKSteps) createAgent(agentID, inboundHost, inboundPort, scheme string) error {
-	var opts []aries.Option
+	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)))
 
-	storeProv := a.getStoreProvider(agentID)
+	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
+}
 
-	opts = append(opts, aries.WithStoreProvider(storeProv))
+func (a *SDKSteps) createAgentWithRegistrar(agentID, inboundHost, inboundPort, scheme string) error {
+	msgRegistrar := msghandler.NewRegistrar()
+	a.bddContext.MessageRegistrar[agentID] = msgRegistrar
+
+	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)),
+		aries.WithMessageServiceProvider(msgRegistrar))
 
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
 }
@@ -157,6 +164,7 @@ func (a *SDKSteps) createFramework(agentID string, opts ...aries.Option) error {
 	}
 
 	a.bddContext.AgentCtx[agentID] = ctx
+	a.bddContext.Messengers[agentID] = agent.Messenger()
 
 	return nil
 }
@@ -169,6 +177,8 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 		`and "([^"]*)" as the transport return route option`, a.createEdgeAgent)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+
 		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.CreateAgentWithHTTPDIDResolver)
+	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" `+
+		`with "([^"]*)" as the transport provider$`, a.createAgentWithRegistrar)
 }
 
 func mustGetRandomPort(n int) int {
