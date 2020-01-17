@@ -120,7 +120,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 
 		// find the service which accepts the message type
 		for _, svc := range p.services {
-			if svc.Accept(msg.Header.Type) {
+			if svc.Accept(msg.Type()) {
 				_, err = svc.HandleInbound(msg, myDID, theirDID)
 				return err
 			}
@@ -129,13 +129,19 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		// in case of no services are registered for given message type,
 		// find generic inbound services registered for given message header
 		for _, svc := range p.msgSvcProvider.Services() {
-			if svc.Accept(msg.Header) {
+			h := &service.Header{}
+			err = msg.Decode(h)
+			if err != nil {
+				return err
+			}
+
+			if svc.Accept(h) {
 				_, err = svc.HandleInbound(msg, myDID, theirDID)
 				return err
 			}
 		}
 
-		return fmt.Errorf("no message handlers found for the message type: %s", msg.Header.Type)
+		return fmt.Errorf("no message handlers found for the message type: %s", msg.Type())
 	}
 }
 

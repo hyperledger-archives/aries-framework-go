@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -211,7 +210,7 @@ func (a *SDKSteps) checkAndStop(agentID, introduceeID string) error {
 	select {
 	case e := <-a.actions[agentID]:
 		proposal := &introduceService.Proposal{}
-		if err := json.Unmarshal(e.Message.Payload, proposal); err != nil {
+		if err := e.Message.Decode(proposal); err != nil {
 			return err
 		}
 
@@ -231,7 +230,7 @@ func (a *SDKSteps) handleRequest(agentID, introducee string) error {
 	select {
 	case e := <-a.actions[agentID]:
 		request := &introduceService.Request{}
-		if err := json.Unmarshal(e.Message.Payload, request); err != nil {
+		if err := e.Message.Decode(request); err != nil {
 			return err
 		}
 
@@ -248,7 +247,7 @@ func (a *SDKSteps) handleRequest(agentID, introducee string) error {
 
 		to := &introduceService.To{Name: request.PleaseIntroduceTo.Name}
 		// nolint: govet
-		if err := a.clients[agentID].HandleRequest(*e.Message, to, recipient); err != nil {
+		if err := a.clients[agentID].HandleRequest(e.Message, to, recipient); err != nil {
 			return err
 		}
 
@@ -269,7 +268,7 @@ func (a *SDKSteps) handleRequestWithInvitation(agentID string) error {
 	select {
 	case e := <-a.actions[agentID]:
 		request := &introduceService.Request{}
-		if err := json.Unmarshal(e.Message.Payload, request); err != nil {
+		if err := e.Message.Decode(request); err != nil {
 			return err
 		}
 
@@ -282,7 +281,7 @@ func (a *SDKSteps) handleRequestWithInvitation(agentID string) error {
 
 		to := &introduceService.To{Name: inv.Label}
 		// nolint: govet
-		if err := a.clients[agentID].HandleRequestWithInvitation(*e.Message, inv.Invitation, to); err != nil {
+		if err := a.clients[agentID].HandleRequestWithInvitation(e.Message, inv.Invitation, to); err != nil {
 			return err
 		}
 
@@ -308,7 +307,7 @@ func (a *SDKSteps) checkAndContinue(agentID, introduceeID string) error {
 		}
 
 		proposal := &introduceService.Proposal{}
-		if err := json.Unmarshal(e.Message.Payload, proposal); err != nil {
+		if err := e.Message.Decode(proposal); err != nil {
 			return err
 		}
 

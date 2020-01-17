@@ -144,8 +144,8 @@ func (s *invited) CanTransitionTo(next state) bool {
 
 func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
 	state, stateAction, error) {
-	if msg.header.Type != InvitationMsgType {
-		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
+	if msg.Type() != InvitationMsgType {
+		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type(), s.Name())
 	}
 
 	msg.connRecord.ThreadID = thid
@@ -167,11 +167,11 @@ func (s *requested) CanTransitionTo(next state) bool {
 
 func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
 	state, stateAction, error) {
-	switch msg.header.Type {
+	switch msg.Type() {
 	case InvitationMsgType:
 		invitation := &Invitation{}
 
-		err := json.Unmarshal(msg.payload, invitation)
+		err := msg.Decode(invitation)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("JSON unmarshalling of invitation: %w", err)
 		}
@@ -185,7 +185,7 @@ func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	case RequestMsgType:
 		return msg.connRecord, &responded{}, func() error { return nil }, nil
 	default:
-		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
+		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type(), s.Name())
 	}
 }
 
@@ -203,11 +203,11 @@ func (s *responded) CanTransitionTo(next state) bool {
 
 func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
 	state, stateAction, error) {
-	switch msg.header.Type {
+	switch msg.Type() {
 	case RequestMsgType:
 		request := &Request{}
 
-		err := json.Unmarshal(msg.payload, request)
+		err := msg.Decode(request)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("JSON unmarshalling of request: %w", err)
 		}
@@ -221,7 +221,7 @@ func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	case ResponseMsgType:
 		return msg.connRecord, &completed{}, func() error { return nil }, nil
 	default:
-		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
+		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type(), s.Name())
 	}
 }
 
@@ -239,11 +239,11 @@ func (s *completed) CanTransitionTo(next state) bool {
 
 func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
 	state, stateAction, error) {
-	switch msg.header.Type {
+	switch msg.Type() {
 	case ResponseMsgType:
 		response := &Response{}
 
-		err := json.Unmarshal(msg.payload, response)
+		err := msg.Decode(response)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("JSON unmarshalling of response: %w", err)
 		}
@@ -258,7 +258,7 @@ func (s *completed) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 		action := func() error { return nil }
 		return msg.connRecord, &noOp{}, action, nil
 	default:
-		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.header.Type, s.Name())
+		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type(), s.Name())
 	}
 }
 

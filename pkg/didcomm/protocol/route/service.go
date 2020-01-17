@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package route
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -123,10 +122,10 @@ func New(prov provider) (*Service, error) {
 }
 
 // HandleInbound handles inbound route coordination messages.
-func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string) (string, error) { // nolint gocyclo (5 switch cases)
+func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) { // nolint gocyclo (5 switch cases)
 	// perform action on inbound message asynchronously
 	go func() {
-		switch msg.Header.Type {
+		switch msg.Type() {
 		case RequestMsgType:
 			if err := s.handleRequest(msg, myDID, theirDID); err != nil {
 				logger.Errorf("handle route request error : %s", err)
@@ -150,11 +149,11 @@ func (s *Service) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string)
 		}
 	}()
 
-	return msg.Header.ID, nil
+	return msg.ID(), nil
 }
 
 // HandleOutbound handles outbound route coordination messages.
-func (s *Service) HandleOutbound(msg *service.DIDCommMsg, myDID, theirDID string) error {
+func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
 	return errors.New("not implemented")
 }
 
@@ -188,11 +187,11 @@ func (s *Service) Name() string {
 	return Coordination
 }
 
-func (s *Service) handleRequest(msg *service.DIDCommMsg, myDID, theirDID string) error {
+func (s *Service) handleRequest(msg service.DIDCommMsg, myDID, theirDID string) error {
 	// unmarshal the payload
 	request := &Request{}
 
-	err := json.Unmarshal(msg.Payload, request)
+	err := msg.Decode(request)
 	if err != nil {
 		return fmt.Errorf("route request message unmarshal : %w", err)
 	}
@@ -206,7 +205,7 @@ func (s *Service) handleRequest(msg *service.DIDCommMsg, myDID, theirDID string)
 	// send the grant response
 	grant := &Grant{
 		Type:        GrantMsgType,
-		ID:          msg.Header.ID,
+		ID:          msg.ID(),
 		Endpoint:    s.endpoint,
 		RoutingKeys: []string{sigPubKey},
 	}
@@ -214,11 +213,11 @@ func (s *Service) handleRequest(msg *service.DIDCommMsg, myDID, theirDID string)
 	return s.outbound.SendToDID(grant, myDID, theirDID)
 }
 
-func (s *Service) handleGrant(msg *service.DIDCommMsg) error {
+func (s *Service) handleGrant(msg service.DIDCommMsg) error {
 	// unmarshal the payload
 	grantMsg := &Grant{}
 
-	err := json.Unmarshal(msg.Payload, grantMsg)
+	err := msg.Decode(grantMsg)
 	if err != nil {
 		return fmt.Errorf("route grant message unmarshal : %w", err)
 	}
@@ -234,11 +233,11 @@ func (s *Service) handleGrant(msg *service.DIDCommMsg) error {
 	return nil
 }
 
-func (s *Service) handleKeylistUpdate(msg *service.DIDCommMsg, myDID, theirDID string) error {
+func (s *Service) handleKeylistUpdate(msg service.DIDCommMsg, myDID, theirDID string) error {
 	// unmarshal the payload
 	keyUpdate := &KeylistUpdate{}
 
-	err := json.Unmarshal(msg.Payload, keyUpdate)
+	err := msg.Decode(keyUpdate)
 	if err != nil {
 		return fmt.Errorf("route key list update message unmarshal : %w", err)
 	}
@@ -279,18 +278,18 @@ func (s *Service) handleKeylistUpdate(msg *service.DIDCommMsg, myDID, theirDID s
 	// send the key update response
 	updateResponse := &KeylistUpdateResponse{
 		Type:    KeylistUpdateResponseMsgType,
-		ID:      msg.Header.ID,
+		ID:      msg.ID(),
 		Updated: updates,
 	}
 
 	return s.outbound.SendToDID(updateResponse, myDID, theirDID)
 }
 
-func (s *Service) handleKeylistUpdateResponse(msg *service.DIDCommMsg) error {
+func (s *Service) handleKeylistUpdateResponse(msg service.DIDCommMsg) error {
 	// unmarshal the payload
 	resp := &KeylistUpdateResponse{}
 
-	err := json.Unmarshal(msg.Payload, resp)
+	err := msg.Decode(resp)
 	if err != nil {
 		return fmt.Errorf("route keylist update response message unmarshal : %w", err)
 	}
@@ -300,11 +299,11 @@ func (s *Service) handleKeylistUpdateResponse(msg *service.DIDCommMsg) error {
 	return nil
 }
 
-func (s *Service) handleForward(msg *service.DIDCommMsg) error {
+func (s *Service) handleForward(msg service.DIDCommMsg) error {
 	// unmarshal the payload
 	forward := &Forward{}
 
-	err := json.Unmarshal(msg.Payload, forward)
+	err := msg.Decode(forward)
 	if err != nil {
 		return fmt.Errorf("forward message unmarshal : %w", err)
 	}

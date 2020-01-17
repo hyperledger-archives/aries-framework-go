@@ -36,9 +36,9 @@ type MockMessageSvc struct {
 }
 
 // HandleInbound msg
-func (m *MockMessageSvc) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (m *MockMessageSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if m.HandleFunc != nil {
-		return m.HandleFunc(msg)
+		return m.HandleFunc(&msg)
 	}
 
 	return uuid.New().String(), nil

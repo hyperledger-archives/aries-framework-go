@@ -415,7 +415,7 @@ func getHandlerWithError(t *testing.T, lookup string, handleErr, acceptErr, impl
 	svc, err := New(&mockprovider.Provider{
 		ServiceValue: &mockdidexchange.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
-			HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
+			HandleFunc: func(msg service.DIDCommMsg) (string, error) {
 				return uuid.New().String(), handleErr
 			},
 			AcceptError:           acceptErr,

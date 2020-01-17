@@ -455,13 +455,17 @@ func TestService_Accept(t *testing.T) {
 
 func TestService_threadID(t *testing.T) {
 	t.Run("returns new thid for ", func(t *testing.T) {
-		thid, err := threadID(&service.DIDCommMsg{Header: &service.Header{Type: InvitationMsgType}})
+		didMsg, err := service.NewDIDCommMsg(toBytes(t, &service.Header{Type: InvitationMsgType}))
+		require.NoError(t, err)
+		thid, err := threadID(didMsg)
 		require.NoError(t, err)
 		require.NotNil(t, thid)
 	})
 
 	t.Run("returns unmarshall error", func(t *testing.T) {
-		_, err := threadID(&service.DIDCommMsg{Header: &service.Header{Type: RequestMsgType}})
+		didMsg, err := service.NewDIDCommMsg(toBytes(t, &service.Header{Type: RequestMsgType}))
+		require.NoError(t, err)
+		_, err = threadID(didMsg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "threadID not found")
 	})
@@ -742,7 +746,7 @@ func TestEventStoreError(t *testing.T) {
 	go func() {
 		for e := range actionCh {
 			e.Continue = func(args interface{}) {
-				svc.processCallback(&message{Msg: &service.DIDCommMsg{Header: &service.Header{}}})
+				svc.processCallback(&message{Msg: toDIDCommMsg(t, &service.Header{})})
 			}
 			e.Continue(&service.Empty{})
 		}
@@ -757,9 +761,12 @@ func TestEventProcessCallback(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
 
+	didMsg, err := service.NewDIDCommMsg(toBytes(t, &service.Header{Type: AckMsgType}))
+	require.NoError(t, err)
+
 	msg := &message{
 		ThreadID: threadIDValue,
-		Msg:      &service.DIDCommMsg{Header: &service.Header{Type: AckMsgType}},
+		Msg:      didMsg,
 	}
 
 	err = svc.handleWithoutAction(msg)
@@ -821,7 +828,7 @@ func TestServiceErrors(t *testing.T) {
 	require.NoError(t, err)
 
 	// invalid message type
-	msg.Header.Type = "invalid"
+	msg["@type"] = "invalid"
 	svc.connectionStore, err = newConnectionStore(&protocol.MockProvider{})
 	require.NoError(t, err)
 
@@ -830,7 +837,7 @@ func TestServiceErrors(t *testing.T) {
 	require.Contains(t, err.Error(), "unrecognized msgType: invalid")
 
 	// test handle - invalid state name
-	msg.Header.Type = ResponseMsgType
+	msg["@type"] = ResponseMsgType
 	message := &message{Msg: msg, ThreadID: randomString()}
 	err = svc.handleWithoutAction(message)
 	require.Error(t, err)
@@ -848,7 +855,7 @@ func TestHandleOutbound(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
 	require.NoError(t, err)
 
-	err = svc.HandleOutbound(&service.DIDCommMsg{}, "", "")
+	err = svc.HandleOutbound(service.DIDCommMsgMap{}, "", "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not implemented")
 }
@@ -1363,21 +1370,18 @@ func TestFetchConnectionRecord(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		_, err = svc.fetchConnectionRecord("", []byte(""))
-		require.Contains(t, err.Error(), "unexpected end of JSON input")
+		_, err = svc.fetchConnectionRecord("", service.DIDCommMsgMap{"~thread": map[int]int{1: 1}})
+		require.Contains(t, fmt.Sprintf("%v", err), `'~thread' needs a map with string keys`)
 	})
 
 	t.Run("fetch connection record - no thread id", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		requestBytes, err := json.Marshal(&Request{
+		_, err = svc.fetchConnectionRecord(theirNSPrefix, toDIDCommMsg(t, &Request{
 			Type: ResponseMsgType,
 			ID:   generateRandomID(),
-		})
-		require.NoError(t, err)
-
-		_, err = svc.fetchConnectionRecord(theirNSPrefix, requestBytes)
+		}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unable to compute hash, empty bytes")
 	})
@@ -1386,20 +1390,17 @@ func TestFetchConnectionRecord(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		requestBytes, err := json.Marshal(&Response{
+		_, err = svc.fetchConnectionRecord(theirNSPrefix, toDIDCommMsg(t, &Response{
 			Type:   ResponseMsgType,
 			ID:     generateRandomID(),
 			Thread: &decorator.Thread{ID: generateRandomID()},
-		})
-		require.NoError(t, err)
-
-		_, err = svc.fetchConnectionRecord(theirNSPrefix, requestBytes)
+		}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get connectionID by namespaced threadID: data not found")
 	})
 }
 
-func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID string) *service.DIDCommMsg {
+func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID string) service.DIDCommMsg {
 	connStore, err := newConnectionStore(prov)
 	require.NoError(t, err)
 	require.NotNil(t, connStore)

@@ -10,8 +10,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 )
 
 func TestNewDIDCommMsg(t *testing.T) {
@@ -33,7 +31,7 @@ func TestNewDIDCommMsg(t *testing.T) {
 	}, {
 		name:    "Array payload",
 		payload: []byte(`[]`),
-		err:     `invalid payload data format: json: cannot unmarshal array into Go value of type service.Header`,
+		err:     `invalid payload data format: json: cannot unmarshal array into Go value of type service.DIDCommMsg`,
 	}}
 
 	t.Parallel()
@@ -55,31 +53,31 @@ func TestNewDIDCommMsg(t *testing.T) {
 func TestDIDCommMsg_ThreadID(t *testing.T) {
 	tests := []struct {
 		name string
-		msg  DIDCommMsg
+		msg  DIDCommMsgMap
 		val  string
 		err  string
 	}{{
 		name: "No header",
-		msg:  DIDCommMsg{},
-		err:  ErrNoHeader.Error(),
+		msg:  nil,
+		err:  ErrInvalidMessage.Error(),
 	}, {
 		name: "ID without Thread ID",
-		msg:  DIDCommMsg{Header: &Header{ID: "ID"}},
+		msg:  DIDCommMsgMap{jsonID: "ID"},
 		val:  "ID",
 		err:  "",
 	}, {
 		name: "Thread ID with ID",
-		msg:  DIDCommMsg{Header: &Header{ID: "ID", Thread: decorator.Thread{ID: "thID"}}},
+		msg:  DIDCommMsgMap{jsonID: "ID", jsonThread: map[string]interface{}{jsonThreadID: "thID"}},
 		val:  "thID",
 		err:  "",
 	}, {
 		name: "Thread ID without ID",
-		msg:  DIDCommMsg{Header: &Header{Thread: decorator.Thread{ID: "thID"}}},
+		msg:  DIDCommMsgMap{jsonThread: map[string]interface{}{jsonThreadID: "thID"}},
 		val:  "",
 		err:  ErrInvalidMessage.Error(),
 	}, {
 		name: "No Thread ID and ID",
-		msg:  DIDCommMsg{Header: &Header{}},
+		msg:  DIDCommMsgMap{},
 		val:  "",
 		err:  ErrThreadIDNotFound.Error(),
 	}}
@@ -94,94 +92,6 @@ func TestDIDCommMsg_ThreadID(t *testing.T) {
 				require.Contains(t, err.Error(), tc.err)
 			}
 			require.Equal(t, tc.val, val)
-		})
-	}
-}
-
-func TestDIDCommMsg_Clone(t *testing.T) {
-	var didMsg *DIDCommMsg
-
-	require.Nil(t, didMsg)
-	// clone nil DIDCommMsg
-	require.Equal(t, didMsg, didMsg.Clone())
-
-	// clone DIDCommMsg with Payload and modified Payload
-	didMsg = &DIDCommMsg{Payload: []byte{0x1}}
-	cloned := didMsg.Clone()
-	require.Equal(t, didMsg, cloned)
-	// modifies Payload
-	didMsg.Payload[0] = 0x2
-	require.NotEqual(t, didMsg, cloned)
-
-	// clone DIDCommMsg with Payload and Header
-	didMsg = &DIDCommMsg{Payload: []byte{0x1}, Header: &Header{
-		ID:     "ID",
-		Thread: decorator.Thread{ID: "ID"},
-		Type:   "Type",
-	}}
-	cloned = didMsg.Clone()
-	require.Equal(t, didMsg, cloned)
-	// modifies Header
-	didMsg.Header.ID = "newID"
-	require.NotEqual(t, didMsg, cloned)
-
-	// clone DIDCommMsg with ReceivedOrders in Thread
-	didMsg = &DIDCommMsg{Payload: []byte{0x1}, Header: &Header{
-		ID: "ID",
-		Thread: decorator.Thread{
-			ID:             "ID",
-			ReceivedOrders: map[string]int{"did:sov:qwerty": 0},
-		},
-		Type: "Type",
-	}}
-	cloned = didMsg.Clone()
-	require.Equal(t, didMsg, cloned)
-}
-
-func TestDIDCommMsg_Purpose(t *testing.T) {
-	tests := []struct {
-		name    string
-		id      string
-		typeVal string
-		purpose []string
-		payload []byte
-		err     string
-	}{{
-		name: "empty payload test",
-		err:  "invalid payload data format: unexpected end of JSON input",
-	}, {
-		name:    "valid payload test",
-		id:      "ID",
-		purpose: []string{"team:01453", "delivery", "geotag", "cred"},
-		typeVal: "sample-type",
-		payload: []byte(`{"@id":"ID", "@type":"sample-type", "~purpose":["team:01453", "delivery", "geotag", "cred"], 
-"id":"ID", "data-type":"data-type-01"}`),
-		err: "",
-	}, {
-		name:    "invalid payload",
-		payload: []byte(`[]`),
-		err:     `invalid payload data format: json: cannot unmarshal array into Go value of type service.Header`,
-	}}
-
-	t.Parallel()
-
-	for _, test := range tests {
-		tc := test
-		t.Run(tc.name, func(t *testing.T) {
-			val, err := NewDIDCommMsg(tc.payload)
-
-			if tc.err != "" {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tc.err)
-				require.Nil(t, val)
-				return
-			}
-
-			require.Equal(t, tc.id, val.Header.ID)
-			require.Equal(t, tc.typeVal, val.Header.Type)
-			require.Equal(t, tc.purpose, val.Header.Purpose)
-
-			require.NotNil(t, val)
 		})
 	}
 }

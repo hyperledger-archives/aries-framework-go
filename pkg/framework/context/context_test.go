@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -72,12 +71,12 @@ func TestNewProvider(t *testing.T) {
 			AcceptFunc: func(msgType string) bool {
 				return msgType == "valid-message-type"
 			},
-			HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
+			HandleFunc: func(msg service.DIDCommMsg) (string, error) {
 				payload := &struct {
 					Label string `json:"label,omitempty"`
 				}{}
 
-				err := json.Unmarshal(msg.Payload, payload)
+				err := msg.Decode(payload)
 				if err != nil {
 					return "", fmt.Errorf("invalid payload data format: %w", err)
 				}

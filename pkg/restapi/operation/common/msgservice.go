@@ -21,9 +21,9 @@ const (
 
 // inboundMsg is the message to be sent to message service webhook
 type inboundMsg struct {
-	Message  *service.DIDCommMsg `json:"message"`
-	MyDID    string              `json:"mydid"`
-	TheirDID string              `json:"theirdid"`
+	Message  service.DIDCommMsgMap `json:"message"`
+	MyDID    string                `json:"mydid"`
+	TheirDID string                `json:"theirdid"`
 }
 
 // newMessageService returns new message service instance
@@ -72,12 +72,12 @@ func (m *msgService) Accept(header *service.Header) bool {
 	return purposeMatched && typeMatched
 }
 
-func (m *msgService) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (m *msgService) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if m.name == "" {
 		return "", fmt.Errorf(errTopicNotFound)
 	}
 
-	bytes, err := json.Marshal(&inboundMsg{Message: msg, MyDID: myDID, TheirDID: theirDID})
+	bytes, err := json.Marshal(&inboundMsg{Message: msg.(service.DIDCommMsgMap), MyDID: myDID, TheirDID: theirDID})
 	if err != nil {
 		return "", fmt.Errorf(errMsgSvcHandleFailed, err)
 	}

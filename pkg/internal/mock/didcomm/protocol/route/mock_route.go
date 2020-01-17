@@ -15,14 +15,14 @@ import (
 // MockRouteSvc mock route service
 type MockRouteSvc struct {
 	ProtocolName       string
-	HandleFunc         func(*service.DIDCommMsg) (string, error)
-	HandleOutboundFunc func(msg *service.DIDCommMsg, myDID, theirDID string) error
+	HandleFunc         func(service.DIDCommMsg) (string, error)
+	HandleOutboundFunc func(msg service.DIDCommMsg, myDID, theirDID string) error
 	AcceptFunc         func(string) bool
 	SendRequestFunc    func(myDID, theirDID string) (string, error)
 }
 
 // HandleInbound msg
-func (m *MockRouteSvc) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (m *MockRouteSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if m.HandleFunc != nil {
 		return m.HandleFunc(msg)
 	}
@@ -31,7 +31,7 @@ func (m *MockRouteSvc) HandleInbound(msg *service.DIDCommMsg, myDID, theirDID st
 }
 
 // HandleOutbound msg
-func (m *MockRouteSvc) HandleOutbound(msg *service.DIDCommMsg, myDID, theirDID string) error {
+func (m *MockRouteSvc) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
 	if m.HandleOutboundFunc != nil {
 		return m.HandleOutboundFunc(msg, myDID, theirDID)
 	}

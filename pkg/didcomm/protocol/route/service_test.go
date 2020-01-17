@@ -78,9 +78,7 @@ func TestServiceHandleInbound(t *testing.T) {
 
 		msgID := randomID()
 
-		id, err := svc.HandleInbound(&service.DIDCommMsg{Header: &service.Header{
-			ID: msgID,
-		}}, "", "")
+		id, err := svc.HandleInbound(&service.DIDCommMsgMap{"@id": msgID}, "", "")
 		require.NoError(t, err)
 		require.Equal(t, msgID, id)
 	})
@@ -124,7 +122,7 @@ func TestServiceRequestMsg(t *testing.T) {
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
-		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
+		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
 
 		err = svc.handleRequest(msg, MYDID, THEIRDID)
 		require.Error(t, err)
@@ -187,7 +185,7 @@ func TestServiceGrantMsg(t *testing.T) {
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
-		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
+		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
 
 		err = svc.handleGrant(msg)
 		require.Error(t, err)
@@ -222,7 +220,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
-		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
+		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
 
 		err = svc.handleKeylistUpdate(msg, MYDID, THEIRDID)
 		require.Error(t, err)
@@ -304,7 +302,7 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
-		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
+		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
 
 		err = svc.handleKeylistUpdateResponse(msg)
 		require.Error(t, err)
@@ -340,7 +338,7 @@ func TestServiceForwardMsg(t *testing.T) {
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
-		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
+		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
 
 		err = svc.handleForward(msg)
 		require.Error(t, err)
@@ -539,7 +537,7 @@ func TestRegister(t *testing.T) {
 	})
 }
 
-func generateRequestMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
+func generateRequestMsgPayload(t *testing.T, id string) service.DIDCommMsg {
 	requestBytes, err := json.Marshal(&Request{
 		Type: RequestMsgType,
 		ID:   id,
@@ -552,7 +550,7 @@ func generateRequestMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
 	return didMsg
 }
 
-func generateGrantMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
+func generateGrantMsgPayload(t *testing.T, id string) service.DIDCommMsg {
 	grantBytes, err := json.Marshal(&Grant{
 		Type: GrantMsgType,
 		ID:   id,
@@ -565,7 +563,7 @@ func generateGrantMsgPayload(t *testing.T, id string) *service.DIDCommMsg {
 	return didMsg
 }
 
-func generateKeyUpdateListMsgPayload(t *testing.T, id string, updates []Update) *service.DIDCommMsg {
+func generateKeyUpdateListMsgPayload(t *testing.T, id string, updates []Update) service.DIDCommMsg {
 	requestBytes, err := json.Marshal(&KeylistUpdate{
 		Type:    KeylistUpdateMsgType,
 		ID:      id,
@@ -579,7 +577,7 @@ func generateKeyUpdateListMsgPayload(t *testing.T, id string, updates []Update) 
 	return didMsg
 }
 
-func generateKeylistUpdateResponseMsgPayload(t *testing.T, id string, updates []UpdateResponse) *service.DIDCommMsg {
+func generateKeylistUpdateResponseMsgPayload(t *testing.T, id string, updates []UpdateResponse) service.DIDCommMsg {
 	respBytes, err := json.Marshal(&KeylistUpdateResponse{
 		Type:    KeylistUpdateResponseMsgType,
 		ID:      id,
@@ -593,7 +591,7 @@ func generateKeylistUpdateResponseMsgPayload(t *testing.T, id string, updates []
 	return didMsg
 }
 
-func generateForwardMsgPayload(t *testing.T, id, to string, msg interface{}) *service.DIDCommMsg {
+func generateForwardMsgPayload(t *testing.T, id, to string, msg interface{}) service.DIDCommMsg {
 	requestBytes, err := json.Marshal(&Forward{
 		Type: ForwardMsgType,
 		ID:   id,

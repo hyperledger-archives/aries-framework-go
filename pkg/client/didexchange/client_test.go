@@ -352,7 +352,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue: &mocksvc.MockDIDExchangeSvc{HandleFunc: func(msg *service.DIDCommMsg) (string, error) {
+			ServiceValue: &mocksvc.MockDIDExchangeSvc{HandleFunc: func(msg service.DIDCommMsg) (string, error) {
 				return "", fmt.Errorf("handle error")
 			}},
 			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})

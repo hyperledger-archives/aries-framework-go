@@ -67,7 +67,7 @@ func TestClient_handleOutbound(t *testing.T) {
 	t.Run("invalid payload data format", func(t *testing.T) {
 		c := &Client{}
 		err := c.handleOutbound([]int{}, InvitationEnvelope{})
-		const errMsg = "invalid payload data format: json: cannot unmarshal array into Go value of type service.Header"
+		const errMsg = "invalid payload data format: json: cannot unmarshal array into Go value of type service.DIDCommMsgMap"
 		require.EqualError(t, errors.Unwrap(err), errMsg)
 	})
 
@@ -216,11 +216,11 @@ func TestClient_HandleRequest(t *testing.T) {
 		ID:   UUID,
 	}))
 	require.NoError(t, err)
-	require.NoError(t, client.HandleRequest(*msg, opts.Recps[0].To, opts.Recps[1]))
+	require.NoError(t, client.HandleRequest(msg, opts.Recps[0].To, opts.Recps[1]))
 
 	// cover error case
-	err = client.HandleRequest(service.DIDCommMsg{}, opts.Recps[0].To, opts.Recps[1])
-	require.EqualError(t, errors.Unwrap(err), service.ErrNoHeader.Error())
+	err = client.HandleRequest(service.DIDCommMsgMap{}, opts.Recps[0].To, opts.Recps[1])
+	require.EqualError(t, errors.Unwrap(err), service.ErrThreadIDNotFound.Error())
 }
 
 func TestClient_HandleRequestWithInvitation(t *testing.T) {
@@ -259,11 +259,11 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 		ID:   UUID,
 	}))
 	require.NoError(t, err)
-	require.NoError(t, client.HandleRequestWithInvitation(*msg, opts.Inv, opts.Recps[0].To))
+	require.NoError(t, client.HandleRequestWithInvitation(msg, opts.Inv, opts.Recps[0].To))
 
 	// cover error case
-	err = client.HandleRequestWithInvitation(service.DIDCommMsg{}, opts.Inv, opts.Recps[0].To)
-	require.EqualError(t, errors.Unwrap(err), service.ErrNoHeader.Error())
+	err = client.HandleRequestWithInvitation(service.DIDCommMsgMap{}, opts.Inv, opts.Recps[0].To)
+	require.EqualError(t, errors.Unwrap(err), service.ErrThreadIDNotFound.Error())
 }
 
 func TestClient_InvitationEnvelope(t *testing.T) {
