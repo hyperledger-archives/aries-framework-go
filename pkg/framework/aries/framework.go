@@ -248,6 +248,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithVDRIRegistry(a.vdriRegistry),
 		context.WithTransportReturnRoute(a.transportReturnRoute),
 		context.WithAriesFrameworkID(a.id),
+		context.WithMessageServiceProvider(a.msgSvcProvider),
 	)
 }
 
@@ -377,6 +378,7 @@ func startTransports(frameworkOpts *Aries) error {
 		context.WithPackager(frameworkOpts.packager),
 		context.WithProtocolServices(frameworkOpts.services...),
 		context.WithAriesFrameworkID(frameworkOpts.id),
+		context.WithMessageServiceProvider(frameworkOpts.msgSvcProvider),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)

@@ -10,6 +10,8 @@ import (
 	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 )
@@ -19,6 +21,8 @@ type BDDContext struct {
 	DIDExchangeClients map[string]*didexchange.Client
 	PublicDIDs         map[string]*did.Doc
 	AgentCtx           map[string]*context.Provider
+	MessageRegistrar   map[string]*msghandler.Registrar
+	Messengers         map[string]dispatcher.Outbound
 	Args               map[string]string
 	controllerURLs     map[string]string
 	webhookURLs        map[string]string
@@ -31,6 +35,8 @@ func NewBDDContext() (*BDDContext, error) {
 		DIDExchangeClients: make(map[string]*didexchange.Client),
 		PublicDIDs:         make(map[string]*did.Doc),
 		AgentCtx:           make(map[string]*context.Provider),
+		MessageRegistrar:   make(map[string]*msghandler.Registrar),
+		Messengers:         make(map[string]dispatcher.Outbound),
 		Args:               make(map[string]string),
 		controllerURLs:     make(map[string]string),
 		webhookURLs:        make(map[string]string),

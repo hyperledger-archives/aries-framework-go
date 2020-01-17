@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/introduce"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/messaging"
 )
 
 const (
@@ -157,4 +158,7 @@ func FeatureContext(s *godog.Suite) {
 
 	// Register did resolver tests
 	didresolver.NewDIDResolverSteps(bddContext).RegisterSteps(s)
+
+	// Register messaging tests
+	messaging.NewMessagingSDKSteps(bddContext).RegisterSteps(s)
 }
