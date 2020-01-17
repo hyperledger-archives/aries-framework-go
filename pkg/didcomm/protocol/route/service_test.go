@@ -24,6 +24,7 @@ import (
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 const (
@@ -38,7 +39,10 @@ type updateResult struct {
 
 func TestServiceNew(t *testing.T) {
 	t.Run("test new service - success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider()})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
 		require.NoError(t, err)
 		require.Equal(t, Coordination, svc.Name())
 	})
@@ -66,7 +70,10 @@ func TestServiceAccept(t *testing.T) {
 
 func TestServiceHandleInbound(t *testing.T) {
 	t.Run("test handle outbound ", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider()})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
 		require.NoError(t, err)
 
 		msgID := randomID()
@@ -81,7 +88,10 @@ func TestServiceHandleInbound(t *testing.T) {
 
 func TestServiceHandleOutbound(t *testing.T) {
 	t.Run("test handle outbound ", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider()})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
 		require.NoError(t, err)
 
 		err = svc.HandleOutbound(nil, "", "")
@@ -92,9 +102,11 @@ func TestServiceHandleOutbound(t *testing.T) {
 
 func TestServiceRequestMsg(t *testing.T) {
 	t.Run("test service handle inbound request msg - success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msgID := randomID()
@@ -105,9 +117,11 @@ func TestServiceRequestMsg(t *testing.T) {
 	})
 
 	t.Run("test service handle request msg - success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
@@ -120,9 +134,10 @@ func TestServiceRequestMsg(t *testing.T) {
 	t.Run("test service handle request msg - verify outbound message", func(t *testing.T) {
 		endpoint := "ws://agent.example.com"
 		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:             &mockkms.CloseableKMS{},
-			InboundEndpointValue: endpoint,
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			InboundEndpointValue:          endpoint,
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSend: func(msg interface{}, senderVerKey string, des *service.Destination) error {
 					res, err := json.Marshal(msg)
@@ -150,9 +165,11 @@ func TestServiceRequestMsg(t *testing.T) {
 
 func TestServiceGrantMsg(t *testing.T) {
 	t.Run("test service handle inbound grant msg - success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msgID := randomID()
@@ -163,9 +180,11 @@ func TestServiceGrantMsg(t *testing.T) {
 	})
 
 	t.Run("test service handle grant msg - success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
@@ -178,9 +197,11 @@ func TestServiceGrantMsg(t *testing.T) {
 
 func TestServiceUpdateKeyListMsg(t *testing.T) {
 	t.Run("test service handle inbound key list update msg - success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msgID := randomID()
@@ -194,9 +215,11 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 	})
 
 	t.Run("test service handle key list update msg - success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
@@ -213,8 +236,9 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 		update[""] = updateResult{action: add, result: success}
 
 		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:             &mockkms.CloseableKMS{},
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSend: func(msg interface{}, senderVerKey string, des *service.Destination) error {
 					res, err := json.Marshal(msg)
@@ -254,9 +278,11 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 
 func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 	t.Run("test service handle inbound key list update response msg - success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msgID := randomID()
@@ -271,9 +297,11 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 	})
 
 	t.Run("test service handle key list update response msg - success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
@@ -287,9 +315,11 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 func TestServiceForwardMsg(t *testing.T) {
 	t.Run("test service handle inbound forward msg - success", func(t *testing.T) {
 		to := randomID()
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		err = svc.routeStore.Put(to, []byte("did:example:123"))
@@ -303,9 +333,11 @@ func TestServiceForwardMsg(t *testing.T) {
 	})
 
 	t.Run("test service handle forward msg - success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		msg := &service.DIDCommMsg{Payload: []byte("invalid json")}
@@ -319,9 +351,11 @@ func TestServiceForwardMsg(t *testing.T) {
 		to := randomID()
 		msgID := randomID()
 
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
 		err = svc.handleForward(generateForwardMsgPayload(t, msgID, to, nil))
@@ -338,8 +372,9 @@ func TestServiceForwardMsg(t *testing.T) {
 		msg := generateForwardMsgPayload(t, msgID, to, content)
 
 		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:             &mockkms.CloseableKMS{},
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateForward: func(msg interface{}, des *service.Destination) error {
 					require.Equal(t, content, msg)
@@ -375,8 +410,10 @@ func TestServiceForwardMsg(t *testing.T) {
 
 func TestSendRequest(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue: &mockkms.CloseableKMS{},
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -391,8 +428,10 @@ func TestSendRequest(t *testing.T) {
 	})
 
 	t.Run("test error from send to did", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue: &mockkms.CloseableKMS{},
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return fmt.Errorf("error send")
@@ -402,6 +441,101 @@ func TestSendRequest(t *testing.T) {
 		_, err = svc.SendRequest(MYDID, THEIRDID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error send")
+	})
+}
+
+func TestRegister(t *testing.T) {
+	t.Run("test register route - success", func(t *testing.T) {
+		msgID := make(chan string)
+
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					require.Equal(t, myDID, MYDID)
+					require.Equal(t, theirDID, THEIRDID)
+
+					request, ok := msg.(*Request)
+					require.True(t, ok)
+
+					msgID <- request.ID
+					return nil
+				}}})
+		require.NoError(t, err)
+
+		connRec := &connection.Record{
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+		s["conn_conn1"] = connBytes
+
+		go func() {
+			id := <-msgID
+			require.NoError(t, svc.handleGrant(generateGrantMsgPayload(t, id)))
+		}()
+
+		err = svc.Register("conn1")
+		require.NoError(t, err)
+
+		err = svc.Register("")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "router is already registered")
+	})
+
+	t.Run("test register route - timeout error", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		connRec := &connection.Record{
+			ConnectionID: "conn2", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+		s["conn_conn2"] = connBytes
+
+		err = svc.Register("conn2")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "timeout waiting for grant from the router")
+	})
+
+	t.Run("test register route - router connection not found", func(t *testing.T) {
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					return fmt.Errorf("error send")
+				}}})
+		require.NoError(t, err)
+
+		err = svc.Register("conn1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), ErrConnectionNotFound.Error())
+	})
+
+	t.Run("test register route - router connection fetch error", func(t *testing.T) {
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				Store: &mockstore.MockStore{ErrGet: fmt.Errorf("get error")}},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					return fmt.Errorf("error send")
+				}}})
+		require.NoError(t, err)
+
+		err = svc.Register("conn1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "fetch router connection id")
 	})
 }
 
