@@ -1,0 +1,36 @@
+<!--
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+ -->
+
+<!--
+This is a test page for developers to test WASM integration.
+-->
+
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <script src="aries.js"></script>
+    <script>
+        async function handleInput() {
+            const invite = document.querySelector("#test-input").value
+            const connID = await Aries._test._echo(invite)
+            document.querySelector("#test-output").value = connID
+        }
+    </script>
+</head>
+<body>
+<div>
+    <label for="test-input">Input: </label>
+    <input type="text" id="test-input"></input>
+    <button onClick="handleInput()">echo</button>
+</div>
+<hr/>
+<div>
+     <label for="test-output">Output: </label>
+     <output id="test-output"></output>
+</div>
+</body>
+</html>
+

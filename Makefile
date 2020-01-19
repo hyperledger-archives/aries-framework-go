@@ -5,6 +5,7 @@
 GO_CMD ?= go
 ARIES_AGENT_REST_PATH=cmd/aries-agent-rest
 ARIES_AGENT_WASM_PATH=cmd/aries-agent-wasm
+ARIES_JS_WORKER_WASM_PATH=cmd/aries-js-worker
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
 OPENAPI_SPEC_PATH=build/rest/openapi/spec
 OPENAPI_DOCKER_IMG_VERSION=v0.21.0
@@ -26,7 +27,7 @@ GOBIN_PATH=$(abspath .)/build/bin
 MOCKGEN = $(GOBIN_PATH)/gobin -run github.com/golang/mock/mockgen@1.3.1
 
 .PHONY: all
-all: clean checks unit-test bdd-test
+all: clean checks unit-test unit-test-wasm bdd-test
 
 .PHONY: checks
 checks: license lint generate-openapi-spec
@@ -97,6 +98,15 @@ agent-wasm:
 	@cp $(WASM_EXEC)  ./build/bin/wasm
 	@cp ${ARIES_AGENT_WASM_PATH}/index.html  ./build/bin/wasm
 	@cd ${ARIES_AGENT_WASM_PATH} && GOOS=js GOARCH=wasm go build -o ../../build/bin/wasm/aries-agent.wasm main.go
+
+.PHONY: agent-js-worker-wasm
+agent-js-worker-wasm:
+	@echo "Building aries-js-worker.wasm"
+	@mkdir -p ./build/bin/aries_js_worker_wasm
+	@cp $(WASM_EXEC) ./build/bin/aries_js_worker_wasm
+	@cp ${ARIES_JS_WORKER_WASM_PATH}/aries.js ./build/bin/aries_js_worker_wasm
+	@cp ${ARIES_JS_WORKER_WASM_PATH}/aries-worker.js ./build/bin/aries_js_worker_wasm
+	@cd ${ARIES_JS_WORKER_WASM_PATH} && GOOS=js GOARCH=wasm go build -o ../../build/bin/aries_js_worker_wasm/aries-js-worker.wasm main.go
 
 .PHONY: agent-rest-docker
 agent-rest-docker:
