@@ -22,10 +22,16 @@ type MockProvider struct {
 	StoreProvider          *mockstore.MockStoreProvider
 	TransientStoreProvider *mockstore.MockStoreProvider
 	CustomVDRI             vdriapi.Registry
+	CustomOutbound         *mockdispatcher.MockOutbound
+	CustomKMS              *mockkms.CloseableKMS
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service
 func (p *MockProvider) OutboundDispatcher() dispatcher.Outbound {
+	if p.CustomOutbound != nil {
+		return p.CustomOutbound
+	}
+
 	return &mockdispatcher.MockOutbound{}
 }
 
@@ -59,4 +65,13 @@ func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
 	}
 
 	return &mockvdri.MockVDRIRegistry{}
+}
+
+// KMS returns mock KMS
+func (p *MockProvider) KMS() legacykms.KeyManager {
+	if p.CustomKMS != nil {
+		return p.CustomKMS
+	}
+
+	return &mockkms.CloseableKMS{}
 }

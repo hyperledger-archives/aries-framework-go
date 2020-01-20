@@ -16,13 +16,17 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
-
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	resterrors "github.com/hyperledger/aries-framework-go/pkg/restapi/errors"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
+	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 var logger = log.New("aries-framework/controller/common")
@@ -37,10 +41,21 @@ const (
 	registerMsgService    = msgServiceOperationID + "/register-service"
 	unregisterMsgService  = msgServiceOperationID + "/unregister-service"
 	msgServiceList        = msgServiceOperationID + "/services"
+	sendNewMsg            = msgServiceOperationID + "/send"
+	sendReplyMsg          = msgServiceOperationID + "/reply"
+
+	// states
+	stateNameCompleted = "completed"
 
 	// error messages
-	errMsgSvcNameRequired       = "service name is required"
-	errMsgInvalidAcceptanceCrit = "invalid acceptance criteria"
+	errMsgSvcNameRequired               = "service name is required"
+	errMsgInvalidAcceptanceCrit         = "invalid acceptance criteria"
+	errMsgBodyEmpty                     = "empty message body"
+	errMsgDestinationMissing            = "missing message destination"
+	errMsgDestSvcEndpointMissing        = "missing service endpoint in message destination"
+	errMsgDestSvcEndpointKeysMissing    = "missing service endpoint recipient/routing keys in message destination"
+	errMsgConnectionMatchingDIDNotFound = "unable to find connection matching theirDID[%s]"
+	errMsgIDEmpty                       = "empty message ID"
 )
 
 // Error codes
@@ -56,32 +71,49 @@ const (
 
 	// UnregisterMsgSvcError is for failures while unregistering a message service
 	UnregisterMsgSvcError
+
+	// SendMsgError is for failures while sending messages
+	SendMsgError
+
+	// SendMsgReplyError is for failures while sending message replies
+	SendMsgReplyError
 )
 
 // provider contains dependencies for the common controller operations
 // and is typically created by using aries.Context()
 type provider interface {
 	VDRIRegistry() vdriapi.Registry
+	OutboundDispatcher() dispatcher.Outbound
+	TransientStorageProvider() storage.Provider
+	StorageProvider() storage.Provider
+	KMS() legacykms.KeyManager
 }
 
 // Operation contains basic common operations provided by controller REST API
 type Operation struct {
-	ctx          provider
-	handlers     []operation.Handler
-	msgRegistrar operation.MessageHandler
-	notifier     webhook.Notifier
+	ctx              provider
+	handlers         []operation.Handler
+	msgRegistrar     operation.MessageHandler
+	notifier         webhook.Notifier
+	connectionLookup *connection.Lookup
 }
 
 // New returns new common operations rest client instance
-func New(ctx provider, registrar operation.MessageHandler, notifier webhook.Notifier) *Operation {
+func New(ctx provider, registrar operation.MessageHandler, notifier webhook.Notifier) (*Operation, error) {
+	connectionLookup, err := connection.NewLookup(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize connection lookup : %w", err)
+	}
+
 	o := &Operation{
-		ctx:          ctx,
-		msgRegistrar: registrar,
-		notifier:     notifier,
+		ctx:              ctx,
+		msgRegistrar:     registrar,
+		notifier:         notifier,
+		connectionLookup: connectionLookup,
 	}
 	defer o.registerHandler()
 
-	return o
+	return o, nil
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -97,6 +129,8 @@ func (o *Operation) registerHandler() {
 		support.NewHTTPHandler(registerMsgService, http.MethodPost, o.RegisterMessageService),
 		support.NewHTTPHandler(unregisterMsgService, http.MethodPost, o.UnregisterMessageService),
 		support.NewHTTPHandler(msgServiceList, http.MethodGet, o.RegisteredServices),
+		support.NewHTTPHandler(sendNewMsg, http.MethodPost, o.SendNewMessage),
+		support.NewHTTPHandler(sendReplyMsg, http.MethodPost, o.SendReplyMessage),
 	}
 }
 
@@ -210,6 +244,156 @@ func (o *Operation) RegisteredServices(rw http.ResponseWriter, req *http.Request
 	}
 
 	o.writeResponse(rw, RegisteredServicesResponse{Names: names})
+}
+
+// SendNewMessage swagger:route POST /message/send message sendNewMessage
+//
+// sends new message to destination provided
+//
+// Responses:
+//    default: genericError
+func (o *Operation) SendNewMessage(rw http.ResponseWriter, req *http.Request) {
+	var request SendNewMessageRequest
+
+	err := json.NewDecoder(req.Body).Decode(&request.Params)
+	if err != nil {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, err)
+		return
+	}
+
+	if len(request.Params.MessageBody) == 0 {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf(errMsgBodyEmpty))
+		return
+	}
+
+	err = o.validateMessageDestination(request.Params)
+	if err != nil {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, err)
+		return
+	}
+
+	if request.Params.ConnectionID != "" {
+		conn, err := o.connectionLookup.GetConnectionRecord(request.Params.ConnectionID)
+		if err != nil {
+			resterrors.SendHTTPInternalServerError(rw, SendMsgError, err)
+			return
+		}
+
+		o.sendMessageToConnection(request.Params.MessageBody, rw, conn)
+
+		return
+	}
+
+	if request.Params.TheirDID != "" {
+		conn, err := o.getConnectionByTheirDID(request.Params.TheirDID)
+		if err != nil {
+			resterrors.SendHTTPInternalServerError(rw, SendMsgError, err)
+			return
+		}
+
+		o.sendMessageToConnection(request.Params.MessageBody, rw, conn)
+
+		return
+	}
+
+	o.sendMessageToDestination(request.Params.MessageBody, rw, request.Params.ServiceEndpointDestination)
+}
+
+// SendReplyMessage swagger:route POST /message/reply message sendReplyMessage
+//
+// sends reply to existing message
+//
+// Responses:
+//    default: genericError
+func (o *Operation) SendReplyMessage(rw http.ResponseWriter, req *http.Request) {
+	var request SendReplyMessageRequest
+
+	err := json.NewDecoder(req.Body).Decode(&request.Params)
+	if err != nil {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, err)
+		return
+	}
+
+	if len(request.Params.MessageBody) == 0 {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf(errMsgBodyEmpty))
+		return
+	}
+
+	if request.Params.MessageID == "" {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf(errMsgIDEmpty))
+		return
+	}
+
+	// TODO this operation will be supported once messenger API [Issue #1039] is available
+	// TODO implementation for SendReply to be added as part of [Issue #1089]
+	resterrors.SendHTTPStatusError(rw, SendMsgReplyError, fmt.Errorf("to be implemented"), http.StatusNotImplemented)
+}
+
+func (o *Operation) validateMessageDestination(dest *SendNewMessageParams) error {
+	var didMissing, connIDMissing, svcEPMissing = dest.TheirDID == "",
+		dest.ConnectionID == "",
+		dest.ServiceEndpointDestination == nil
+
+	if didMissing && connIDMissing && svcEPMissing {
+		return fmt.Errorf(errMsgDestinationMissing)
+	}
+
+	if !didMissing || !connIDMissing {
+		return nil
+	}
+
+	if dest.ServiceEndpointDestination.ServiceEndpoint == "" {
+		return fmt.Errorf(errMsgDestSvcEndpointMissing)
+	}
+
+	if len(dest.ServiceEndpointDestination.RecipientKeys) == 0 &&
+		len(dest.ServiceEndpointDestination.RoutingKeys) == 0 {
+		return fmt.Errorf(errMsgDestSvcEndpointKeysMissing)
+	}
+
+	return nil
+}
+
+func (o *Operation) getConnectionByTheirDID(theirDID string) (*connection.Record, error) {
+	records, err := o.connectionLookup.QueryConnectionRecords()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, record := range records {
+		if record.State == stateNameCompleted && record.TheirDID == theirDID {
+			return record, nil
+		}
+	}
+
+	return nil, fmt.Errorf(errMsgConnectionMatchingDIDNotFound, theirDID)
+}
+
+func (o *Operation) sendMessageToConnection(msg json.RawMessage, rw http.ResponseWriter, conn *connection.Record) {
+	err := o.ctx.OutboundDispatcher().SendToDID(msg, conn.MyDID, conn.TheirDID)
+	if err != nil {
+		resterrors.SendHTTPInternalServerError(rw, SendMsgError, err)
+		return
+	}
+}
+
+func (o *Operation) sendMessageToDestination(msg json.RawMessage, rw http.ResponseWriter,
+	dest *ServiceEndpointDestinationParams) {
+	_, sigPubKey, err := o.ctx.KMS().CreateKeySet()
+	if err != nil {
+		resterrors.SendHTTPInternalServerError(rw, SendMsgError, err)
+		return
+	}
+
+	err = o.ctx.OutboundDispatcher().Send(msg, sigPubKey, &service.Destination{
+		RoutingKeys:     dest.RoutingKeys,
+		RecipientKeys:   dest.RecipientKeys,
+		ServiceEndpoint: dest.ServiceEndpoint,
+	})
+	if err != nil {
+		resterrors.SendHTTPInternalServerError(rw, SendMsgError, err)
+		return
+	}
 }
 
 // writeResponse writes interface value to response

@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"encoding/json"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
@@ -101,4 +103,76 @@ type RegisteredServicesResponse struct {
 	//
 	// in: body
 	Names []string `json:"names"`
+}
+
+// SendNewMessageRequest model
+//
+// This is used for operation to send new message
+//
+// swagger:parameters sendNewMessage
+type SendNewMessageRequest struct {
+	// Params for sending new message
+	//
+	// in: body
+	Params *SendNewMessageParams
+}
+
+// SendNewMessageParams contains parameters for sending new message
+// with one of three destination options below,
+//	1. ConnectionID - ID of the connection between sender and receiver of this message.
+//	2. TheirDID - TheirDID of the DID exchange connection record between sender and receiver of this message.
+//	3. ServiceEndpoint (With recipient Keys, endpoint and optional routing keys) - To Send message outside connection.
+// Note: Precedence logic when multiple destination options are provided are according to above order.
+type SendNewMessageParams struct {
+
+	// Connection ID of the message destination
+	// This parameter takes precedence over all the other destination parameters.
+	ConnectionID string `json:"connection_ID,omitempty"`
+
+	// DID of the destination.
+	// This parameter takes precedence over `ServiceEndpoint` destination parameter.
+	TheirDID string `json:"their_did,omitempty"`
+
+	// ServiceEndpointDestination service endpoint destination.
+	// This param can be used to send messages outside connection.
+	ServiceEndpointDestination *ServiceEndpointDestinationParams `json:"service_endpoint,omitempty"`
+
+	// Message body of the message
+	// required: true
+	MessageBody json.RawMessage `json:"message_body"`
+}
+
+// ServiceEndpointDestinationParams contains service endpoint params
+type ServiceEndpointDestinationParams struct {
+	// Recipient keys of service endpoint
+	RecipientKeys []string `json:"recipientKeys,omitempty"`
+
+	// Service endpoint
+	ServiceEndpoint string `json:"serviceEndpoint,omitempty"`
+
+	// Routing Keys of service endpoint
+	RoutingKeys []string `json:"routingKeys,omitempty"`
+}
+
+// SendReplyMessageRequest model
+//
+// This is used for operation to send reply to message
+//
+// swagger:parameters sendReplyMessage
+type SendReplyMessageRequest struct {
+	// Params for sending message reply
+	//
+	// in: body
+	Params *SendReplyMessageParams
+}
+
+// SendReplyMessageParams contains parameters for sending message reply
+type SendReplyMessageParams struct {
+	// ID of the message replying to
+	// required: true
+	MessageID string `json:"message_ID"`
+
+	// Message body of the reply message
+	// required: true
+	MessageBody json.RawMessage `json:"message_body"`
 }

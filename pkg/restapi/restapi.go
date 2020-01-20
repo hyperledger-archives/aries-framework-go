@@ -70,7 +70,10 @@ func New(ctx *context.Provider, opts ...Opt) (*Controller, error) {
 	}
 
 	// Add common Rest Handlers
-	general := common.New(ctx, restAPIOpts.msgHandler, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs))
+	general, err := common.New(ctx, restAPIOpts.msgHandler, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs))
+	if err != nil {
+		return nil, err
+	}
 
 	allHandlers = append(allHandlers, exchange.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, general.GetRESTHandlers()...)
