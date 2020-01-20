@@ -406,42 +406,6 @@ func TestServiceForwardMsg(t *testing.T) {
 	})
 }
 
-func TestSendRequest(t *testing.T) {
-	t.Run("test success", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
-				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
-					require.Equal(t, myDID, MYDID)
-					require.Equal(t, theirDID, THEIRDID)
-					return nil
-				}}})
-		require.NoError(t, err)
-
-		reqID, err := svc.SendRequest(MYDID, THEIRDID)
-		require.NoError(t, err)
-		require.NotEmpty(t, reqID)
-	})
-
-	t.Run("test error from send to did", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
-			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
-				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
-					return fmt.Errorf("error send")
-				}}})
-		require.NoError(t, err)
-
-		_, err = svc.SendRequest(MYDID, THEIRDID)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "error send")
-	})
-}
-
 func TestRegister(t *testing.T) {
 	t.Run("test register route - success", func(t *testing.T) {
 		msgID := make(chan string)

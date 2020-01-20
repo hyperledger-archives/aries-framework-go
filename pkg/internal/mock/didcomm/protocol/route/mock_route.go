@@ -18,7 +18,7 @@ type MockRouteSvc struct {
 	HandleFunc         func(service.DIDCommMsg) (string, error)
 	HandleOutboundFunc func(msg service.DIDCommMsg, myDID, theirDID string) error
 	AcceptFunc         func(string) bool
-	SendRequestFunc    func(myDID, theirDID string) (string, error)
+	RegisterFunc       func(connectionID string) error
 }
 
 // HandleInbound msg
@@ -57,11 +57,11 @@ func (m *MockRouteSvc) Name() string {
 	return "route"
 }
 
-// SendRequest send route request
-func (m *MockRouteSvc) SendRequest(myDID, theirDID string) (string, error) {
-	if m.SendRequestFunc != nil {
-		return m.SendRequestFunc(myDID, theirDID)
+// Register registers agent with the router.
+func (m *MockRouteSvc) Register(connectionID string) error {
+	if m.RegisterFunc != nil {
+		return m.RegisterFunc(connectionID)
 	}
 
-	return "", nil
+	return nil
 }

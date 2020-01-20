@@ -160,21 +160,6 @@ func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string)
 	return errors.New("not implemented")
 }
 
-// SendRequest send route request
-func (s *Service) SendRequest(myDID, theirDID string) (string, error) {
-	// send the request
-	req := &Request{
-		ID:   uuid.New().String(),
-		Type: RequestMsgType,
-	}
-
-	if err := s.outbound.SendToDID(req, myDID, theirDID); err != nil {
-		return "", fmt.Errorf("failed to send route request: %w", err)
-	}
-
-	return req.ID, nil
-}
-
 // Accept checks whether the service can handle the message type.
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
