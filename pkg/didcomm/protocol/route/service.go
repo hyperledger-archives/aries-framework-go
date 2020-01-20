@@ -96,6 +96,8 @@ type Service struct {
 	vdRegistry               vdri.Registry
 	routeRegistrationMap     map[string]chan Grant
 	routeRegistrationMapLock sync.RWMutex
+	keylistUpdateMap         map[string]chan *KeylistUpdateResponse
+	keylistUpdateMapLock     sync.RWMutex
 }
 
 // New return route coordination service.
@@ -118,6 +120,7 @@ func New(prov provider) (*Service, error) {
 		vdRegistry:           prov.VDRIRegistry(),
 		connectionLookup:     connectionLookup,
 		routeRegistrationMap: make(map[string]chan Grant),
+		keylistUpdateMap:     make(map[string]chan *KeylistUpdateResponse),
 	}, nil
 }
 
@@ -287,14 +290,20 @@ func (s *Service) handleKeylistUpdate(msg service.DIDCommMsg, myDID, theirDID st
 
 func (s *Service) handleKeylistUpdateResponse(msg service.DIDCommMsg) error {
 	// unmarshal the payload
-	resp := &KeylistUpdateResponse{}
+	respMsg := &KeylistUpdateResponse{}
 
-	err := msg.Decode(resp)
+	err := msg.Decode(respMsg)
 	if err != nil {
 		return fmt.Errorf("route keylist update response message unmarshal : %w", err)
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/948 integrate with framework components
+	// check if there are any channels registered for the message ID
+	keylistUpdateCh := s.getKeyUpdateResponseCh(respMsg.ID)
+
+	if keylistUpdateCh != nil {
+		// invoke the channel for the incoming message
+		keylistUpdateCh <- respMsg
+	}
 
 	return nil
 }
@@ -341,13 +350,9 @@ func (s *Service) Register(connectionID string) error {
 	}
 
 	// get the connection record for the ID to fetch DID information
-	conn, err := s.connectionLookup.GetConnectionRecord(connectionID)
+	conn, err := s.getConnection(connectionID)
 	if err != nil {
-		if errors.Is(err, storage.ErrDataNotFound) {
-			return ErrConnectionNotFound
-		}
-
-		return fmt.Errorf("fetch connection record from store : %w", err)
+		return err
 	}
 
 	// generate message ID
@@ -384,6 +389,74 @@ func (s *Service) Register(connectionID string) error {
 	return s.saveRouterConnectionID(connectionID)
 }
 
+// AddKey adds a recKey of the agent to the registered router. This method blocks until a response is
+// received from the router or it times out.
+// TODO https://github.com/hyperledger/aries-framework-go/issues/1076 Support for multiple routers
+func (s *Service) AddKey(recKey string) error {
+	// check if router is already registered
+	routerConnID, err := s.getRouterConnectionID()
+	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
+		return fmt.Errorf("fetch router connection id : %w", err)
+	}
+
+	if routerConnID == "" {
+		return errors.New("router not registered")
+	}
+
+	// get the connection record for the ID to fetch DID information
+	conn, err := s.getConnection(routerConnID)
+	if err != nil {
+		return err
+	}
+
+	// generate message ID
+	msgID := uuid.New().String()
+
+	// register chan for callback processing
+	keyUpdateCh := make(chan *KeylistUpdateResponse)
+	s.setKeyUpdateResponseCh(msgID, keyUpdateCh)
+
+	keyUpdate := &KeylistUpdate{
+		ID:   msgID,
+		Type: KeylistUpdateMsgType,
+		Updates: []Update{
+			{
+				RecipientKey: recKey,
+				Action:       add,
+			},
+		},
+	}
+
+	if err := s.outbound.SendToDID(keyUpdate, conn.MyDID, conn.TheirDID); err != nil {
+		return fmt.Errorf("send route request: %w", err)
+	}
+
+	select {
+	case keyUpdateResp := <-keyUpdateCh:
+		if err := processKeylistUpdateResp(recKey, keyUpdateResp); err != nil {
+			return err
+		}
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/948 configure this timeout at decorator level
+	case <-time.After(5 * time.Second):
+		return errors.New("timeout waiting for keylist update response from the router")
+	}
+
+	// remove the channel once its been processed
+	s.setRouteRegistrationCh(msgID, nil)
+
+	return nil
+}
+
+func processKeylistUpdateResp(recKey string, keyUpdateResp *KeylistUpdateResponse) error {
+	for _, result := range keyUpdateResp.Updated {
+		if result.RecipientKey == recKey && result.Action == add && result.Result != success {
+			return errors.New("failed to update the recipient key with the router")
+		}
+	}
+
+	return nil
+}
+
 func (s *Service) getRouteRegistrationCh(msgID string) chan Grant {
 	s.routeRegistrationMapLock.RLock()
 	defer s.routeRegistrationMapLock.RUnlock()
@@ -402,6 +475,24 @@ func (s *Service) setRouteRegistrationCh(msgID string, grantCh chan Grant) {
 	}
 }
 
+func (s *Service) getKeyUpdateResponseCh(msgID string) chan *KeylistUpdateResponse {
+	s.keylistUpdateMapLock.RLock()
+	defer s.keylistUpdateMapLock.RUnlock()
+
+	return s.keylistUpdateMap[msgID]
+}
+
+func (s *Service) setKeyUpdateResponseCh(msgID string, keyUpdateCh chan *KeylistUpdateResponse) {
+	s.keylistUpdateMapLock.Lock()
+	defer s.keylistUpdateMapLock.Unlock()
+
+	if keyUpdateCh == nil {
+		delete(s.keylistUpdateMap, msgID)
+	} else {
+		s.keylistUpdateMap[msgID] = keyUpdateCh
+	}
+}
+
 func (s *Service) getRouterConnectionID() (string, error) {
 	id, err := s.routeStore.Get(routeConnIDDataKey)
 	if err != nil {
@@ -413,6 +504,19 @@ func (s *Service) getRouterConnectionID() (string, error) {
 
 func (s *Service) saveRouterConnectionID(id string) error {
 	return s.routeStore.Put(routeConnIDDataKey, []byte(id))
+}
+
+func (s *Service) getConnection(routerConnID string) (*connection.Record, error) {
+	conn, err := s.connectionLookup.GetConnectionRecord(routerConnID)
+	if err != nil {
+		if errors.Is(err, storage.ErrDataNotFound) {
+			return nil, ErrConnectionNotFound
+		}
+
+		return nil, fmt.Errorf("fetch connection record from store : %w", err)
+	}
+
+	return conn, nil
 }
 
 func dataKey(id string) string {
