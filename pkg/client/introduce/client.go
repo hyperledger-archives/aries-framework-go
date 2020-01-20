@@ -151,7 +151,7 @@ func (c *Client) handleOutbound(msg interface{}, o InvitationEnvelope) error {
 		return fmt.Errorf("marshal outbound msg: %w", err)
 	}
 
-	didMsg, err := service.NewDIDCommMsg(payload)
+	didMsg, err := service.NewDIDCommMsgMap(payload)
 	if err != nil {
 		return fmt.Errorf("new outbound DIDCommMsg msg: %w", err)
 	}

@@ -664,6 +664,7 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 		return "", fmt.Errorf("failed to create DIDCommMsg for implicit invitation: %w", err)
 	}
 
+	// TODO: get rid of this  msg.(service.DIDCommMsgMap)
 	next := &requested{}
 	internalMsg := &message{
 		Msg:           msg.(service.DIDCommMsgMap),
@@ -688,5 +689,5 @@ func createDIDCommMsg(invitation *Invitation) (service.DIDCommMsg, error) {
 		return nil, fmt.Errorf("marshal invitation: %w", err)
 	}
 
-	return service.NewDIDCommMsg(payload)
+	return service.NewDIDCommMsgMap(payload)
 }

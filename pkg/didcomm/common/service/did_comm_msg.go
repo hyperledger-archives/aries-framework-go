@@ -38,8 +38,8 @@ type Header struct {
 // DIDCommMsgMap did comm msg
 type DIDCommMsgMap map[string]interface{}
 
-// NewDIDCommMsg returns DIDCommMsg with Header
-func NewDIDCommMsg(payload []byte) (DIDCommMsgMap, error) {
+// NewDIDCommMsgMap returns DIDCommMsg with Header
+func NewDIDCommMsgMap(payload []byte) (DIDCommMsgMap, error) {
 	var msg DIDCommMsgMap
 
 	err := json.Unmarshal(payload, &msg)

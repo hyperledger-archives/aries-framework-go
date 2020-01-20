@@ -293,7 +293,7 @@ func (s *Service) InvitationReceived(msg service.StateMsg) error {
 		return fmt.Errorf("invitation received marshal: %w", err)
 	}
 
-	didMsg, err := service.NewDIDCommMsg(payload)
+	didMsg, err := service.NewDIDCommMsgMap(payload)
 	if err != nil {
 		return fmt.Errorf("invitation received new DIDComm msg: %w", err)
 	}

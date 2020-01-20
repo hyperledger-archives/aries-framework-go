@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDIDCommMsg_ID(t *testing.T) {
+func TestDIDCommMsgMap_ID(t *testing.T) {
 	tests := []struct {
 		name     string
 		expected string
@@ -46,7 +46,7 @@ func TestDIDCommMsg_ID(t *testing.T) {
 	}
 }
 
-func TestDIDCommMsg_Type(t *testing.T) {
+func TestDIDCommMsgMap_Type(t *testing.T) {
 	tests := []struct {
 		name     string
 		expected string
@@ -78,7 +78,7 @@ func TestDIDCommMsg_Type(t *testing.T) {
 	}
 }
 
-func TestDIDCommMsg_ToStruct(t *testing.T) {
+func TestDIDCommMsgMap_ToStruct(t *testing.T) {
 	type Test struct {
 		Time  time.Time
 		Bytes []byte
@@ -92,7 +92,7 @@ func TestDIDCommMsg_ToStruct(t *testing.T) {
 	b, err := json.Marshal(expected)
 	require.NoError(t, err)
 
-	msg, err := NewDIDCommMsg(b)
+	msg, err := NewDIDCommMsgMap(b)
 	require.NoError(t, err)
 
 	actual := Test{}

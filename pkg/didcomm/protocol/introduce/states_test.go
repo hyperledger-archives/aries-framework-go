@@ -123,7 +123,7 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
 	dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
-	didmsg, err := service.NewDIDCommMsg(toBytes(t, struct{}{}))
+	didmsg, err := service.NewDIDCommMsgMap(toBytes(t, struct{}{}))
 	require.NoError(t, err)
 
 	followup, err := (&arranging{}).ExecuteOutbound(dispatcher, &metaData{
@@ -213,7 +213,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
 		dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test error"))
 
-		didmsg, err := service.NewDIDCommMsg(toBytes(t, &service.Header{Type: RequestMsgType}))
+		didmsg, err := service.NewDIDCommMsgMap(toBytes(t, &service.Header{Type: RequestMsgType}))
 		require.NoError(t, err)
 
 		followup, err := (&abandoning{}).ExecuteInbound(dispatcher, &metaData{

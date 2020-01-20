@@ -514,7 +514,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	msg, err := service.NewDIDCommMsg(request)
+	msg, err := service.NewDIDCommMsgMap(request)
 	require.NoError(t, err)
 
 	_, err = didExSvc.HandleInbound(msg, "", "")
@@ -586,7 +586,7 @@ func TestAcceptInvitation(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	msg, err := service.NewDIDCommMsg(invitation)
+	msg, err := service.NewDIDCommMsgMap(invitation)
 	require.NoError(t, err)
 
 	_, err = didExSvc.HandleInbound(msg, "", "")

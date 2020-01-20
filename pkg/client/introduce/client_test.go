@@ -211,7 +211,7 @@ func TestClient_HandleRequest(t *testing.T) {
 
 	client.newUUID = func() string { return UUID }
 
-	msg, err := service.NewDIDCommMsg(toBytes(t, &introduce.Request{
+	msg, err := service.NewDIDCommMsgMap(toBytes(t, &introduce.Request{
 		Type: introduce.RequestMsgType,
 		ID:   UUID,
 	}))
@@ -254,7 +254,7 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 	client.newUUID = func() string { return UUID }
 
 	require.NoError(t, err)
-	msg, err := service.NewDIDCommMsg(toBytes(t, &introduce.Request{
+	msg, err := service.NewDIDCommMsgMap(toBytes(t, &introduce.Request{
 		Type: introduce.RequestMsgType,
 		ID:   UUID,
 	}))

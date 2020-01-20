@@ -77,6 +77,7 @@ func (m *msgService) HandleInbound(msg service.DIDCommMsg, myDID, theirDID strin
 		return "", fmt.Errorf(errTopicNotFound)
 	}
 
+	// TODO: get rid of this  msg.(service.DIDCommMsgMap)
 	bytes, err := json.Marshal(&inboundMsg{Message: msg.(service.DIDCommMsgMap), MyDID: myDID, TheirDID: theirDID})
 	if err != nil {
 		return "", fmt.Errorf(errMsgSvcHandleFailed, err)

@@ -271,7 +271,7 @@ func TestRequestedState_Execute(t *testing.T) {
 	})
 	t.Run("handle inbound invitations", func(t *testing.T) {
 		ctx := getContext(t, prov)
-		msg, err := service.NewDIDCommMsg(invitationPayloadBytes)
+		msg, err := service.NewDIDCommMsgMap(invitationPayloadBytes)
 		require.NoError(t, err)
 		// nolint: govet
 		thid, err := threadID(msg)
@@ -1213,14 +1213,14 @@ func createMockInvitation(pubKey string, ctx *context) (*Invitation, error) {
 }
 
 func toDIDCommMsg(t *testing.T, v interface{}) service.DIDCommMsgMap {
-	msg, err := service.NewDIDCommMsg(toBytes(t, v))
+	msg, err := service.NewDIDCommMsgMap(toBytes(t, v))
 	require.NoError(t, err)
 
 	return msg
 }
 
 func bytesToDIDCommMsg(t *testing.T, v []byte) service.DIDCommMsg {
-	msg, err := service.NewDIDCommMsg(v)
+	msg, err := service.NewDIDCommMsgMap(v)
 	require.NoError(t, err)
 
 	return msg
