@@ -523,12 +523,14 @@ func WithBaseContextExtendedValidation(customContexts, customTypes []string) Cre
 		for _, context := range customContexts {
 			opts.allowedCustomContexts[context] = true
 		}
+
 		opts.allowedCustomContexts[baseContext] = true
 
 		opts.allowedCustomTypes = make(map[string]bool)
 		for _, context := range customTypes {
 			opts.allowedCustomTypes[context] = true
 		}
+
 		opts.allowedCustomTypes[vcType] = true
 	}
 }

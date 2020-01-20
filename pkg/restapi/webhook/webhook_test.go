@@ -276,6 +276,7 @@ func listenAndStopAfterReceivingNotification(addr string) error {
 		err := srv.ListenAndServe()
 		if err != nil {
 			errorChannel <- err
+
 			cancel()
 		}
 	}()

@@ -131,6 +131,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		for _, svc := range p.msgSvcProvider.Services() {
 			h := &service.Header{}
 			err = msg.Decode(h)
+
 			if err != nil {
 				return err
 			}
@@ -268,6 +269,7 @@ func WithPacker(primary packer.Packer, additionalPackers ...packer.Packer) Provi
 	return func(opts *Provider) error {
 		opts.primaryPacker = primary
 		opts.packers = append(opts.packers, additionalPackers...)
+
 		return nil
 	}
 }
