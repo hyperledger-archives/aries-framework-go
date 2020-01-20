@@ -39,7 +39,7 @@ func TestNewDIDCommMsg(t *testing.T) {
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.name, func(t *testing.T) {
-			val, err := NewDIDCommMsg(tc.payload)
+			val, err := NewDIDCommMsgMap(tc.payload)
 			if err != nil {
 				require.Contains(t, err.Error(), tc.err)
 				require.Nil(t, val)

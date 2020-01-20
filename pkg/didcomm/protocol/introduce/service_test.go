@@ -177,7 +177,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ResponseMsgType)))
+		msg, err := service.NewDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ResponseMsgType)))
 		require.NoError(t, err)
 		const errMsg = "json: cannot unmarshal array into Go value of type introduce.record"
 		require.EqualError(t, svc.HandleOutbound(msg, "", ""), errMsg)
@@ -207,7 +207,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		require.NoError(t, err)
 		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
+		msg, err := service.NewDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
@@ -238,7 +238,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		defer stop(t, svc)
 
-		didMsg, err := service.NewDIDCommMsg(toBytes(t, &service.Header{
+		didMsg, err := service.NewDIDCommMsgMap(toBytes(t, &service.Header{
 			ID:     "ID",
 			Thread: decorator.Thread{ID: "thID"},
 			Type:   introduce.ResponseMsgType,
@@ -280,7 +280,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		require.NoError(t, svc.RegisterActionEvent(make(chan service.DIDCommAction, 1)))
 
-		didMsg, err := service.NewDIDCommMsg(toBytes(t, &service.Header{
+		didMsg, err := service.NewDIDCommMsgMap(toBytes(t, &service.Header{
 			ID:     "ID",
 			Thread: decorator.Thread{ID: "thID"},
 			Type:   introduce.AckMsgType,
@@ -317,7 +317,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		require.NoError(t, err)
 
 		defer stop(t, svc)
-		didMsg, err := service.NewDIDCommMsg(toBytes(t, &service.Header{
+		didMsg, err := service.NewDIDCommMsgMap(toBytes(t, &service.Header{
 			ID:     "ID",
 			Thread: decorator.Thread{ID: "thID"},
 			Type:   introduce.ResponseMsgType,
@@ -378,7 +378,7 @@ func TestService_HandleInbound(t *testing.T) {
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsg([]byte(`{}`))
+		msg, err := service.NewDIDCommMsgMap([]byte(`{}`))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
@@ -411,7 +411,7 @@ func TestService_HandleInbound(t *testing.T) {
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
+		msg, err := service.NewDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
@@ -443,7 +443,7 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		defer stop(t, svc)
 
-		msg, err := service.NewDIDCommMsg([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
+		msg, err := service.NewDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
@@ -474,7 +474,7 @@ func TestService_HandleInbound(t *testing.T) {
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsg([]byte(`{"@id":"ID","@type":"unknown"}`))
+		msg, err := service.NewDIDCommMsgMap([]byte(`{"@id":"ID","@type":"unknown"}`))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
@@ -2189,7 +2189,7 @@ func setupIntroducee(f *flow) (*introduce.Service, *introduceMocks.MockInvitatio
 func handleInbound(t *testing.T, svc service.InboundHandler, msg interface{}, myDID, theirDID string) {
 	t.Helper()
 
-	resp, err := service.NewDIDCommMsg(toBytes(t, msg))
+	resp, err := service.NewDIDCommMsgMap(toBytes(t, msg))
 	require.NoError(t, err)
 	_, err = svc.HandleInbound(resp, myDID, theirDID)
 	require.NoError(t, err)
@@ -2209,7 +2209,7 @@ func checkAndHandle(f *flow) {
 
 	if f.startWithRequest {
 		// creates request msg
-		request, err := service.NewDIDCommMsg(toBytes(f.t, introduce.Request{
+		request, err := service.NewDIDCommMsgMap(toBytes(f.t, introduce.Request{
 			Type: introduce.RequestMsgType,
 			// creates threadID
 			ID: uuid.New().String(),
@@ -2226,7 +2226,7 @@ func checkAndHandle(f *flow) {
 
 	if f.startWithProposal {
 		// creates proposal msg
-		proposal, err := service.NewDIDCommMsg(toBytes(f.t, introduce.Proposal{
+		proposal, err := service.NewDIDCommMsgMap(toBytes(f.t, introduce.Proposal{
 			Type: introduce.ProposalMsgType,
 			// creates threadID
 			ID: uuid.New().String(),
@@ -2392,7 +2392,7 @@ func checkAndHandle(f *flow) {
 			return
 		case *didexchange.Invitation:
 			go func() {
-				inv, err := service.NewDIDCommMsg(toBytes(f.t, iMsg))
+				inv, err := service.NewDIDCommMsgMap(toBytes(f.t, iMsg))
 				require.NoError(f.t, err)
 				_, err = inv.ThreadID()
 				require.NoError(f.t, err)
@@ -2517,7 +2517,7 @@ func stop(t *testing.T, s stopper) {
 func TestService_InvitationReceived(t *testing.T) {
 	t.Run("PreState is not correct", func(t *testing.T) {
 		svc := &introduce.Service{}
-		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
+		msg, err := service.NewDIDCommMsgMap(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
 		require.NoError(t, err)
 		require.NoError(t, svc.InvitationReceived(service.StateMsg{
 			Type:    service.PreState,
@@ -2529,7 +2529,7 @@ func TestService_InvitationReceived(t *testing.T) {
 	t.Run("StateID is not correct", func(t *testing.T) {
 		// should not panic
 		svc := &introduce.Service{}
-		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{}))
+		msg, err := service.NewDIDCommMsgMap(toBytes(t, &didexchange.Invitation{}))
 		require.NoError(t, err)
 		require.NoError(t, svc.InvitationReceived(service.StateMsg{
 			Type: service.PostState,
@@ -2540,7 +2540,7 @@ func TestService_InvitationReceived(t *testing.T) {
 	t.Run("Thread is nil", func(t *testing.T) {
 		// should not panic
 		svc := &introduce.Service{}
-		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{}))
+		msg, err := service.NewDIDCommMsgMap(toBytes(t, &didexchange.Invitation{}))
 		require.NoError(t, err)
 		require.NoError(t, svc.InvitationReceived(service.StateMsg{
 			Type:    service.PostState,
@@ -2551,7 +2551,7 @@ func TestService_InvitationReceived(t *testing.T) {
 
 	t.Run("No PID in Thread", func(t *testing.T) {
 		svc := &introduce.Service{}
-		msg, err := service.NewDIDCommMsg(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
+		msg, err := service.NewDIDCommMsgMap(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
 		require.NoError(t, err)
 		require.NoError(t, svc.InvitationReceived(service.StateMsg{
 			Type:    service.PostState,

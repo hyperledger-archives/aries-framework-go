@@ -113,7 +113,7 @@ func (p *Provider) InboundTransportEndpoint() string {
 // InboundMessageHandler return an inbound message handler.
 func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	return func(message []byte, myDID, theirDID string) error {
-		msg, err := service.NewDIDCommMsg(message)
+		msg, err := service.NewDIDCommMsgMap(message)
 		if err != nil {
 			return err
 		}
