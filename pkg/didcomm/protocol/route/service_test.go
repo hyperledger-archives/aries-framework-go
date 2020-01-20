@@ -537,6 +537,140 @@ func TestRegister(t *testing.T) {
 	})
 }
 
+func TestKeylistUpdate(t *testing.T) {
+	t.Run("test keylist update - success", func(t *testing.T) {
+		keyUpdateMsg := make(chan KeylistUpdate)
+		recKey := "ojaosdjoajs123jkas"
+
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					require.Equal(t, myDID, MYDID)
+					require.Equal(t, theirDID, THEIRDID)
+
+					request, ok := msg.(*KeylistUpdate)
+					require.True(t, ok)
+
+					keyUpdateMsg <- *request
+					return nil
+				}}})
+		require.NoError(t, err)
+
+		// save router connID
+		require.NoError(t, svc.saveRouterConnectionID("conn1"))
+
+		// save connections
+		connRec := &connection.Record{
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+		s["conn_conn1"] = connBytes
+
+		go func() {
+			updateMsg := <-keyUpdateMsg
+
+			updates := []UpdateResponse{
+				{
+					RecipientKey: updateMsg.Updates[0].RecipientKey,
+					Action:       updateMsg.Updates[0].Action,
+					Result:       success,
+				},
+			}
+			require.NoError(t, svc.handleKeylistUpdateResponse(generateKeylistUpdateResponseMsgPayload(
+				t, updateMsg.ID, updates)))
+		}()
+
+		err = svc.AddKey(recKey)
+		require.NoError(t, err)
+	})
+
+	t.Run("test keylist update - failure", func(t *testing.T) {
+		keyUpdateMsg := make(chan KeylistUpdate)
+		recKey := "ojaosdjoajs123jkas"
+
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					require.Equal(t, myDID, MYDID)
+					require.Equal(t, theirDID, THEIRDID)
+
+					request, ok := msg.(*KeylistUpdate)
+					require.True(t, ok)
+
+					keyUpdateMsg <- *request
+					return nil
+				}}})
+		require.NoError(t, err)
+
+		// no router registered
+		err = svc.AddKey(recKey)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "router not registered")
+
+		// save router connID
+		require.NoError(t, svc.saveRouterConnectionID("conn1"))
+
+		// no connections saved
+		err = svc.AddKey(recKey)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "connection not found")
+
+		// save connections
+		connRec := &connection.Record{
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+		s["conn_conn1"] = connBytes
+
+		go func() {
+			updateMsg := <-keyUpdateMsg
+
+			updates := []UpdateResponse{
+				{
+					RecipientKey: updateMsg.Updates[0].RecipientKey,
+					Action:       updateMsg.Updates[0].Action,
+					Result:       serverError,
+				},
+			}
+			require.NoError(t, svc.handleKeylistUpdateResponse(generateKeylistUpdateResponseMsgPayload(
+				t, updateMsg.ID, updates)))
+		}()
+
+		err = svc.AddKey(recKey)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to update the recipient key with the router")
+	})
+
+	t.Run("test keylist update - timeout error", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		connRec := &connection.Record{
+			ConnectionID: "conn2", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+		s["conn_conn2"] = connBytes
+		require.NoError(t, svc.saveRouterConnectionID("conn2"))
+
+		err = svc.AddKey("recKey")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "timeout waiting for keylist update response from the router")
+	})
+}
+
 func generateRequestMsgPayload(t *testing.T, id string) service.DIDCommMsg {
 	requestBytes, err := json.Marshal(&Request{
 		Type: RequestMsgType,
