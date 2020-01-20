@@ -20,17 +20,19 @@ const Aries = new function() {
     /**
      * Test methods.
      * TODO - remove. Used for testing.
+     * @type {{_echo: (function(*=): Promise<String>)}}
+     * @private
      */
-    this._test = new function() {
+    this._test = {
 
         /**
          * Returns the input text prepended with "echo: ".
          * TODO - remove.
          * @param text
-         * @returns {Promise<unknown>}
+         * @returns {Promise<String>}
          * @private
          */
-        super.this._echo = async function(text) {
+        _echo: async function(text) {
             return Aries._invoke("test", "echo", text, "timeout while accepting invitation")
         }
     }
