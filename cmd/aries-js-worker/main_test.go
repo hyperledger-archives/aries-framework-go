@@ -1,3 +1,5 @@
+// +build js,wasm
+
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
 
@@ -88,6 +90,7 @@ func acceptResults(in chan *result) func(js.Value, []js.Value) interface{} {
 			panic(err)
 		}
 		in <- r
+
 		return nil
 	}
 }

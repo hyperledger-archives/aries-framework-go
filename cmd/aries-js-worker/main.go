@@ -1,3 +1,5 @@
+// +build js,wasm
+
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
 
@@ -74,6 +76,7 @@ func takeFrom(in chan *command) func(js.Value, []js.Value) interface{} {
 			)
 		}
 		in <- cmd
+
 		return nil
 	}
 }

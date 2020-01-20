@@ -69,6 +69,7 @@ func TestMain(m *testing.M) {
 	os.Exit(status)
 }
 
+//nolint:gocognit
 func runBddTests(tags, format string) int {
 	return godog.RunWithOptions("godogs", func(s *godog.Suite) {
 		s.BeforeSuite(func() {

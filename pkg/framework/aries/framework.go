@@ -156,6 +156,7 @@ func WithTransportReturnRoute(transportReturnRoute string) Option {
 		}
 
 		opts.transportReturnRoute = transportReturnRoute
+
 		return nil
 	}
 }
@@ -223,6 +224,7 @@ func WithPacker(primary packer.Creator, additionalPackers ...packer.Creator) Opt
 	return func(opts *Aries) error {
 		opts.packerCreator = primary
 		opts.packerCreators = append(opts.packerCreators, additionalPackers...)
+
 		return nil
 	}
 }

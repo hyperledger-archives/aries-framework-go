@@ -35,9 +35,11 @@ type mockProvider struct {
 func (p *mockProvider) InboundMessageHandler() transport.InboundMessageHandler {
 	return func(message []byte, myDID, theirDID string) error {
 		logger.Infof("message received is %s", string(message))
+
 		if string(message) == "invalid-data" {
 			return errors.New("error")
 		}
+
 		return nil
 	}
 }

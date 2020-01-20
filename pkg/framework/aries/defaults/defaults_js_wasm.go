@@ -18,6 +18,7 @@ func WithStorePath(storePath string) aries.Option {
 		if err != nil {
 			return err
 		}
+
 		return aries.WithStoreProvider(store)(opts)
 	}
 }

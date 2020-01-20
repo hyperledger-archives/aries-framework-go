@@ -22,6 +22,7 @@ func WithInboundHTTPAddr(internalAddr, externalAddr string) aries.Option {
 		if err != nil {
 			return fmt.Errorf("http inbound transport initialization failed : %w", err)
 		}
+
 		return aries.WithInboundTransport(inbound)(opts)
 	}
 }
@@ -33,6 +34,7 @@ func WithInboundWSAddr(internalAddr, externalAddr string) aries.Option {
 		if err != nil {
 			return fmt.Errorf("ws inbound transport initialization failed : %w", err)
 		}
+
 		return aries.WithInboundTransport(inbound)(opts)
 	}
 }

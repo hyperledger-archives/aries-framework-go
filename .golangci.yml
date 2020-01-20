@@ -69,6 +69,7 @@ linters-settings:
       - opinionated
     disabled-checks:
       - unnamedResult
+      - whyNoLint # TODO enable.
   funlen:
     lines: 60
     statements: 40
@@ -84,6 +85,7 @@ linters:
   disable:
     - maligned
     - prealloc
+    - gomnd # TODO enable.
 
 issues:
   exclude-use-default: false
