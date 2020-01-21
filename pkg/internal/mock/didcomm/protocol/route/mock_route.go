@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 )
 
 // MockRouteSvc mock route service
@@ -19,6 +20,9 @@ type MockRouteSvc struct {
 	HandleOutboundFunc func(msg service.DIDCommMsg, myDID, theirDID string) error
 	AcceptFunc         func(string) bool
 	RegisterFunc       func(connectionID string) error
+	RouterEndpoint     string
+	RoutingKeys        []string
+	ConfigErr          error
 }
 
 // HandleInbound msg
@@ -64,4 +68,23 @@ func (m *MockRouteSvc) Register(connectionID string) error {
 	}
 
 	return nil
+}
+
+// AddKey adds agents recKey to the router
+func (m *MockRouteSvc) AddKey(recKey string) error {
+	return nil
+}
+
+// Config gives back the router configuration
+func (m *MockRouteSvc) Config() (*route.Config, error) {
+	if m.ConfigErr != nil {
+		return nil, m.ConfigErr
+	}
+
+	// default, route not registered error
+	if m.RouterEndpoint == "" || m.RoutingKeys == nil {
+		return nil, route.ErrRouterNotRegistered
+	}
+
+	return route.NewConfig(m.RouterEndpoint, m.RoutingKeys), nil
 }
