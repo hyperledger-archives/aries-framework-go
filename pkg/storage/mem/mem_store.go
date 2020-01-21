@@ -38,6 +38,16 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	return store, nil
 }
 
+// OpenStoreWithDelete opens and returns a store with Delete capability for given name space.
+func (p *Provider) OpenStoreWithDelete(name string) (storage.StoreWithDelete, error) {
+	store := p.getMemStore(name)
+	if store == nil {
+		return p.newMemStore(name), nil
+	}
+
+	return store, nil
+}
+
 // getMemStore finds mem store with given name
 // returns nil if not found
 func (p *Provider) getMemStore(name string) *memStore {
@@ -141,6 +151,19 @@ func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
 	}
 
 	return newMemIterator(batch)
+}
+
+// Delete fetches the record based on key
+func (s *memStore) Delete(k string) error {
+	if k == "" {
+		return errors.New("key is mandatory")
+	}
+
+	s.Lock()
+	delete(s.db, k)
+	s.Unlock()
+
+	return nil
 }
 
 type memIterator struct {

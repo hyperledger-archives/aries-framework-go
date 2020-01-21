@@ -41,8 +41,8 @@ func (p *Provider) Service(id string) (interface{}, error) {
 	return p.ServiceValue, nil
 }
 
-// KMS returns a KMS instance
-func (p *Provider) KMS() legacykms.KeyManager {
+// LegacyKMS returns a LegacyKMS instance
+func (p *Provider) LegacyKMS() legacykms.KeyManager {
 	return p.KMSValue
 }
 

@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -19,7 +20,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -36,6 +39,7 @@ import (
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/generic"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
+	mocklocalkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
@@ -93,7 +97,7 @@ func TestFramework(t *testing.T) {
 
 		aries, err := New(
 			WithInboundTransport(&mockInboundTransport{}),
-			WithKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
+			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
 				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
 			}),
 			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
@@ -291,14 +295,14 @@ func TestFramework(t *testing.T) {
 		require.Contains(t, err.Error(), "inbound transport close failed")
 	})
 
-	t.Run("test kms svc - with user provided kms", func(t *testing.T) {
+	t.Run("test legacyKMS svc - with user provided legacyKMS", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
 
-		// with custom kms
+		// with custom legacyKMS
 		aries, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
+			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
 				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
 			}))
 		require.NoError(t, err)
@@ -312,6 +316,52 @@ func TestFramework(t *testing.T) {
 		require.Equal(t, []byte("mockValue"), v)
 		err = aries.Close()
 		require.NoError(t, err)
+	})
+
+
+	t.Run("test kms svc - with user provided kms - Key create , Get and Rotate success", func(t *testing.T) {
+		// set env keys for tests
+		masterKeyURILabel := "AGENT_MASTER_KEYURI"
+		masterKeyURIValue := "local-lock://test/hey/uri"
+		origMasterKeyURI := os.Getenv(masterKeyURILabel)
+		err := os.Setenv(masterKeyURILabel, masterKeyURIValue)
+		require.NoError(t, err)
+
+		// create a test master key
+		masterKey := random.GetRandomBytes(chacha20poly1305.KeySize)
+		masterKeyEnc := base64.URLEncoding.EncodeToString(masterKey)
+
+		envKey := "LOCAL_" + strings.ReplaceAll(masterKeyURIValue, "/", "_")
+		err = os.Setenv(envKey, masterKeyEnc)
+		require.NoError(t, err)
+		defer func() {
+			e := os.Setenv(masterKeyURILabel, origMasterKeyURI)
+			require.NoError(t, e)
+
+			e = os.Unsetenv(envKey)
+			require.NoError(t, e)
+		}()
+
+		// create a test keyHandle to be used for mocking the local LegacyKMS
+		mockKeysetHandle, err := mocklocalkms.CreateMockKeyHandle()
+		require.NoError(t, err)
+
+		// with custom crypto
+		aries, err := New(WithKMS(&mocklocalkms.KeyManager{
+			CreateKeyValue:     mockKeysetHandle,
+			CreateKeyID: "1"}))
+		require.NoError(t, err)
+		require.NotEmpty(t, aries)
+
+		ctx, err := aries.Context()
+		require.NoError(t, err)
+
+		//khID, kh, err := ctx.LegacyKMS().CreateKeySet()
+		//require.NoError(t, err)
+		//require.Equal(t, "1", khID)
+		//require.Equal(t, mockKeysetHandle, kh)
+		//err = aries.Close()
+		//require.NoError(t, err)
 	})
 
 	t.Run("test crypto svc - with user provided crypto - Encrypt success", func(t *testing.T) {
@@ -380,14 +430,15 @@ func TestFramework(t *testing.T) {
 		err = aries.Close()
 		require.NoError(t, err)
 	})
-	t.Run("test error from kms svc", func(t *testing.T) {
-		// with custom kms
+
+	t.Run("test error from legacyKMS svc", func(t *testing.T) {
+		// with custom legacyKMS
 		_, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
-				return nil, fmt.Errorf("error from kms")
+			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
+				return nil, fmt.Errorf("error from legacyKMS")
 			}))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "error from kms")
+		require.Contains(t, err.Error(), "error from legacyKMS")
 	})
 
 	t.Run("test transient store - with user provided transient store", func(t *testing.T) {

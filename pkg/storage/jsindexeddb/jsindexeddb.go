@@ -44,6 +44,16 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	return &store{name: name, db: db}, nil
 }
 
+// OpenStoreWithDelete open store with Delete() capability
+func (p *Provider) OpenStoreWithDelete(name string) (storage.StoreWithDelete, error) {
+	db, err := openDB(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &store{name: name, db: db}, nil
+}
+
 func openDB(name string) (*js.Value, error) {
 	dbName := "aries-" + name
 	req := js.Global().Get("indexedDB").Call("open", dbName, dbVersion)
@@ -125,6 +135,22 @@ func (s *store) Iterator(start, limit string) storage.StoreIterator {
 	batch, err := getResult(openCursor)
 
 	return newIterator(batch, err)
+}
+
+// Delete stores the key and the record
+func (s *store) Delete(k string) error {
+	if k == "" {
+		return errors.New("key is mandatory")
+	}
+
+	req := s.db.Call("transaction", s.name, "readwrite").Call("objectStore", s.name).Call("delete", k)
+
+	_, err := getResult(req)
+	if err != nil {
+		return fmt.Errorf("failed to delete data with key: %s - error: %w", k, err)
+	}
+
+	return nil
 }
 
 type iterator struct {

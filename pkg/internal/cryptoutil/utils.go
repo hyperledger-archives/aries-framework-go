@@ -89,7 +89,7 @@ type SigKeyPair struct {
 }
 
 // MessagingKeys represents a pair of key pairs, one for encryption and one for signature
-// usually stored in a KMS, it helps prevent converting signing keys into encryption ones
+// usually stored in a LegacyKMS, it helps prevent converting signing keys into encryption ones
 // TODO refactor this structure and all KeyPair handling as per issue #596
 type MessagingKeys struct {
 	*EncKeyPair `json:"enckeypair,omitempty"`

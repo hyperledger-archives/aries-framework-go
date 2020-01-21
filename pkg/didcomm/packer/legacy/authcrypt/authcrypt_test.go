@@ -121,7 +121,7 @@ func persistKey(pub, priv string, store storage.Store) error {
 	return store.Put(pub, data)
 }
 
-func (p *provider) KMS() legacykms.KeyManager {
+func (p *provider) LegacyKMS() legacykms.KeyManager {
 	return p.crypto
 }
 

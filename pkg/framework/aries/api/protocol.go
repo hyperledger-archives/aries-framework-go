@@ -27,7 +27,7 @@ type Provider interface {
 	Messenger() service.Messenger
 	Service(id string) (interface{}, error)
 	StorageProvider() storage.Provider
-	KMS() legacykms.KeyManager
+	LegacyKMS() legacykms.KeyManager
 	Crypto() crypto.Crypto
 	Packager() transport.Packager
 	InboundTransportEndpoint() string

@@ -25,7 +25,7 @@ type Option func(opts *Registry)
 
 // provider contains dependencies for the did creator
 type provider interface {
-	KMS() legacykms.KeyManager
+	LegacyKMS() legacykms.KeyManager
 }
 
 // Registry vdri registry
@@ -38,7 +38,7 @@ type Registry struct {
 
 // New return new instance of vdri
 func New(ctx provider, opts ...Option) *Registry {
-	baseVDRI := &Registry{crypto: ctx.KMS()}
+	baseVDRI := &Registry{crypto: ctx.LegacyKMS()}
 
 	// Apply options
 	for _, opt := range opts {

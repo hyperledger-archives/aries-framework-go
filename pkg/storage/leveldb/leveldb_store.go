@@ -45,6 +45,16 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	return store, nil
 }
 
+// OpenStoreWithDelete opens and returns a store with Delete capability for given name space.
+func (p *Provider) OpenStoreWithDelete(name string) (storage.StoreWithDelete, error) {
+	store := p.getLeveldbStore(name)
+	if store == nil {
+		return p.newLeveldbStore(name)
+	}
+
+	return store, nil
+}
+
 // getLeveldbStore finds level db store with given name
 // returns nil if not found
 func (p *Provider) getLeveldbStore(name string) *leveldbStore {
@@ -148,4 +158,13 @@ func (s *leveldbStore) Iterator(start, limit string) storage.StoreIterator {
 	}
 
 	return s.db.NewIterator(&util.Range{Start: []byte(start), Limit: []byte(limit)}, nil)
+}
+
+// Delete will delete record with k key
+func (s *leveldbStore) Delete(k string) error {
+	if k == "" {
+		return errors.New("key is mandatory")
+	}
+
+	return s.db.Delete([]byte(k), nil)
 }

@@ -102,7 +102,7 @@ type jwk struct {
 // XC20P (xchacha20-poly1305 ietf)
 // The returned Packer contains all the information required to pack and unpack payloads.
 func New(ctx packer.Provider, alg ContentEncryption) (*Packer, error) {
-	k := ctx.KMS()
+	k := ctx.LegacyKMS()
 
 	var nonceSize int
 

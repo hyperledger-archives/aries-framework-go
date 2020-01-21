@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -27,7 +28,8 @@ type Provider struct {
 	msgSvcProvider           api.MessageServiceProvider
 	storeProvider            storage.Provider
 	transientStoreProvider   storage.Provider
-	kms                      legacykms.KMS
+	legacyKMS                legacykms.KMS
+	kms                      kms.KeyManager
 	crypto                   crypto.Crypto
 	packager                 commontransport.Packager
 	primaryPacker            packer.Packer
@@ -76,8 +78,13 @@ func (p *Provider) Service(id string) (interface{}, error) {
 	return nil, api.ErrSvcNotFound
 }
 
-// KMS returns a kms service.
-func (p *Provider) KMS() legacykms.KeyManager {
+// LegacyKMS returns a legacyKMS service.
+func (p *Provider) LegacyKMS() legacykms.KeyManager {
+	return p.legacyKMS
+}
+
+// KMS returns a KMS service
+func (p *Provider) KMS() kms.KeyManager {
 	return p.kms
 }
 
@@ -106,9 +113,9 @@ func (p *Provider) PrimaryPacker() packer.Packer {
 	return p.primaryPacker
 }
 
-// Signer returns a kms signing service.
+// Signer returns a legacyKMS signing service.
 func (p *Provider) Signer() legacykms.Signer {
-	return p.kms
+	return p.legacyKMS
 }
 
 // InboundTransportEndpoint returns an inbound transport endpoint.
@@ -230,10 +237,10 @@ func WithProtocolServices(services ...dispatcher.ProtocolService) ProviderOption
 	}
 }
 
-// WithKMS injects a kms service into the context.
-func WithKMS(w legacykms.KMS) ProviderOption {
+// WithLegacyKMS injects a legacy legacyKMS service into the context.
+func WithLegacyKMS(w legacykms.KMS) ProviderOption {
 	return func(opts *Provider) error {
-		opts.kms = w
+		opts.legacyKMS = w
 		return nil
 	}
 }

@@ -16,6 +16,9 @@ type Provider interface {
 	// OpenStore opens a store with given name space and returns the handle
 	OpenStore(name string) (Store, error)
 
+	// OpenStoreWithDelete opens a store with given name spaces with Delete capability
+	OpenStoreWithDelete(name string) (StoreWithDelete, error)
+
 	// CloseStore closes store of given name space
 	CloseStore(name string) error
 
@@ -43,6 +46,13 @@ type Store interface {
 	//
 	// StoreIterator: iterator for result range
 	Iterator(start, limit string) StoreIterator
+}
+
+// StoreWithDelete is similar to Store interface with the addition of Delete() call
+type StoreWithDelete interface {
+	Store
+	// Delete will delete the record with k key
+	Delete(k string) error
 }
 
 // StoreIterator is the iterator for the latest snapshot of the underlying store.

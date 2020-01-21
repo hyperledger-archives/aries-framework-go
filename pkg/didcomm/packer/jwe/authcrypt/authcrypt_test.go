@@ -323,9 +323,9 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, recPacker)
 
-		encSign, _, err := allKMSProvider.KMS().CreateKeySet()
+		encSign, _, err := allKMSProvider.LegacyKMS().CreateKeySet()
 		require.NoError(t, err)
-		_, recSign, err := allKMSProvider.KMS().CreateKeySet()
+		_, recSign, err := allKMSProvider.LegacyKMS().CreateKeySet()
 		require.NoError(t, err)
 
 		msgIn := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit.")

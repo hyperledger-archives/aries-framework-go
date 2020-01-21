@@ -158,6 +158,12 @@ func TestLevelDBStore(t *testing.T) {
 
 			e = store.Put(commonKey, data)
 			require.NoError(t, e)
+
+			storeD, e := prov.OpenStoreWithDelete(name)
+			require.NoError(t, e)
+
+			e = storeD.Put(commonKey, data)
+			require.NoError(t, e)
 		}
 
 		for _, name := range storeNames {
@@ -254,4 +260,40 @@ func cleanupFile(t *testing.T, file *os.File) {
 	if err != nil {
 		t.Fatalf("Failed to cleanup file: %s", file.Name())
 	}
+}
+
+func TestLevelDBStoreDelete(t *testing.T) {
+	path, cleanup := setupLevelDB(t)
+	defer cleanup()
+
+	const commonKey = "did:example:1"
+
+	prov := NewProvider(path)
+	data := []byte("value1")
+
+	// create store 1 & store 2
+	store1, err := prov.OpenStoreWithDelete("store1")
+	require.NoError(t, err)
+
+	// put in store 1
+	err = store1.Put(commonKey, data)
+	require.NoError(t, err)
+
+	// get in store 1 - found
+	doc, err := store1.Get(commonKey)
+	require.NoError(t, err)
+	require.NotEmpty(t, doc)
+	require.Equal(t, data, doc)
+
+	// now try Delete with an empty key - should fail
+	err = store1.Delete("")
+	require.EqualError(t, err, "key is mandatory")
+
+	// finally test Delete an existing key
+	err = store1.Delete(commonKey)
+	require.NoError(t, err)
+
+	doc, err = store1.Get(commonKey)
+	require.EqualError(t, err, storage.ErrDataNotFound.Error())
+	require.Empty(t, doc)
 }

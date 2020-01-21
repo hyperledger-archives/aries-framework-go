@@ -34,7 +34,7 @@ var ErrConnectionNotFound = errors.New("connection not found")
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	Service(id string) (interface{}, error)
-	KMS() legacykms.KeyManager
+	LegacyKMS() legacykms.KeyManager
 	InboundTransportEndpoint() string
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
@@ -97,7 +97,7 @@ func New(ctx provider) (*Client, error) {
 		Event:                    didexchangeSvc,
 		didexchangeSvc:           didexchangeSvc,
 		routeSvc:                 routeSvc,
-		kms:                      ctx.KMS(),
+		kms:                      ctx.LegacyKMS(),
 		inboundTransportEndpoint: ctx.InboundTransportEndpoint(),
 		connectionStore:          connectionStore,
 	}, nil

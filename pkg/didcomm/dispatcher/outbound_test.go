@@ -297,7 +297,7 @@ func (p *mockProvider) VDRIRegistry() vdri.Registry {
 	return p.vdriRegistry
 }
 
-func (p *mockProvider) KMS() legacykms.KeyManager {
+func (p *mockProvider) LegacyKMS() legacykms.KeyManager {
 	if p.kms != nil {
 		return p.kms
 	}
@@ -343,7 +343,7 @@ func (m *mockPackager) UnpackMessage(encMessage []byte) (*commontransport.Envelo
 	return nil, nil
 }
 
-// mockKMS mock Key Management Service (KMS)
+// mockKMS mock Key Management Service (LegacyKMS)
 type mockKMS struct {
 	CreateEncryptionKeyValue string
 	CreateSigningKeyValue    string

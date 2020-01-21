@@ -17,6 +17,7 @@ import (
 // MockStoreProvider mock store provider.
 type MockStoreProvider struct {
 	Store              *MockStore
+	StoreWithDelete    *MockStoreWithDelete
 	Custom             storage.Store
 	ErrOpenStoreHandle error
 	FailNamespace      string
@@ -48,6 +49,15 @@ func (s *MockStoreProvider) OpenStore(name string) (storage.Store, error) {
 	return s.Store, s.ErrOpenStoreHandle
 }
 
+// OpenStoreWithDelete opens and returns a store with Delete capability for given name space.
+func (s *MockStoreProvider) OpenStoreWithDelete(name string) (storage.StoreWithDelete, error) {
+	if name == s.FailNamespace {
+		return nil, fmt.Errorf("failed to open store for name space %s", name)
+	}
+
+	return s.StoreWithDelete, s.ErrOpenStoreHandle
+}
+
 // Close closes all stores created under this store provider
 func (s *MockStoreProvider) Close() error {
 	return nil
@@ -65,6 +75,11 @@ type MockStore struct {
 	ErrPut error
 	ErrGet error
 	ErrItr error
+}
+
+// MockStoreWithDelete mock store with delete capability
+type MockStoreWithDelete struct {
+	MockStore
 }
 
 // Put stores the key and the record
@@ -119,6 +134,15 @@ func (s *MockStore) Iterator(start, limit string) storage.StoreIterator {
 	}
 
 	return NewMockIterator(batch)
+}
+
+// Delete will delete record with k key
+func (s *MockStoreWithDelete) Delete(k string) error {
+	s.lock.Lock()
+	delete(s.Store, k)
+	s.lock.Unlock()
+
+	return nil
 }
 
 // NewMockIterator returns new mock iterator for given batch

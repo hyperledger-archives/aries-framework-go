@@ -76,6 +76,21 @@ func (mr *MockProviderMockRecorder) OpenStore(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenStore", reflect.TypeOf((*MockProvider)(nil).OpenStore), arg0)
 }
 
+// OpenStoreWithDelete mocks base method
+func (m *MockProvider) OpenStoreWithDelete(arg0 string) (storage.StoreWithDelete, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenStoreWithDelete", arg0)
+	ret0, _ := ret[0].(storage.StoreWithDelete)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OpenStoreWithDelete indicates an expected call of OpenStoreWithDelete
+func (mr *MockProviderMockRecorder) OpenStoreWithDelete(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenStoreWithDelete", reflect.TypeOf((*MockProvider)(nil).OpenStoreWithDelete), arg0)
+}
+
 // MockStore is a mock of Store interface
 type MockStore struct {
 	ctrl     *gomock.Controller

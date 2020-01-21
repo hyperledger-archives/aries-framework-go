@@ -11,7 +11,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
-// CloseableKMS mock Key Management Service (KMS)
+// CloseableKMS mock Key Management Service (LegacyKMS)
 type CloseableKMS struct {
 	CreateEncryptionKeyValue string
 	CreateKeyErr             error
@@ -31,7 +31,7 @@ type CloseableKMS struct {
 	EncryptionKeyErr         error
 }
 
-// Close previously-opened KMS, removing it if so configured.
+// Close previously-opened LegacyKMS, removing it if so configured.
 func (m *CloseableKMS) Close() error {
 	return nil
 }

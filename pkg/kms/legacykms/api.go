@@ -6,10 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package legacykms
 
-// TODO https://github.com/hyperledger/aries-framework-go/issues/752 Signer is not part of KMS and should be
-//  moved elsewhere, merge KMS and KeyManager interface when Signer is removed.
+// TODO https://github.com/hyperledger/aries-framework-go/issues/752 Signer is not part of LegacyKMS and should be
+//  moved elsewhere, merge LegacyKMS and KeyManager interface when Signer is removed.
 
-// KMS Key Management Service interface
+// LegacyKMS Key Management Service interface
 type KMS interface {
 	KeyManager
 	Signer
@@ -28,7 +28,7 @@ type KeyManager interface {
 	CreateKeySet() (string, string, error)
 
 	// DeriveKEK will derive an ephemeral symmetric key (kek) using a private from key fetched from
-	// from the KMS corresponding to fromPubKey and derived with toPubKey.
+	// from the LegacyKMS corresponding to fromPubKey and derived with toPubKey.
 	//
 	// This function assumes both fromPubKey and toPubKey to be on curve25519.
 	//
@@ -37,10 +37,10 @@ type KeyManager interface {
 	//		error in case of errors
 	DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, error)
 
-	// FindVerKey will search the KMS to find stored keys that match any of candidateKeys and
+	// FindVerKey will search the LegacyKMS to find stored keys that match any of candidateKeys and
 	// 		return the index of the first match
 	// returns:
-	// 		int index of candidateKeys that matches the first key found in the KMS
+	// 		int index of candidateKeys that matches the first key found in the LegacyKMS
 	//		error in case of errors (including ErrKeyNotFound)
 	//
 	//		in case of error, the index will be -1

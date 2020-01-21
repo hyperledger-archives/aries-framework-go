@@ -29,7 +29,7 @@ type provider interface {
 	OutboundTransports() []transport.OutboundTransport
 	TransportReturnRoute() string
 	VDRIRegistry() vdri.Registry
-	KMS() legacykms.KeyManager
+	LegacyKMS() legacykms.KeyManager
 }
 
 // OutboundDispatcher dispatch msgs to destination
@@ -48,7 +48,7 @@ func NewOutbound(prov provider) *OutboundDispatcher {
 		packager:             prov.Packager(),
 		transportReturnRoute: prov.TransportReturnRoute(),
 		vdRegistry:           prov.VDRIRegistry(),
-		kms:                  prov.KMS(),
+		kms:                  prov.LegacyKMS(),
 	}
 }
 

@@ -72,8 +72,8 @@ func newRouteSvc() api.ProtocolSvcCreator {
 }
 
 func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
-	if frameworkOpts.kmsCreator == nil {
-		frameworkOpts.kmsCreator = func(provider api.Provider) (api.CloseableKMS, error) {
+	if frameworkOpts.legacyKmsCreator == nil {
+		frameworkOpts.legacyKmsCreator = func(provider api.Provider) (api.CloseableKMS, error) {
 			return legacykms.New(provider)
 		}
 	}
