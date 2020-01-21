@@ -30,6 +30,7 @@ import (
 const (
 	MYDID    = "myDID"
 	THEIRDID = "theirDID"
+	ENDPOINT = "http://router.example.com"
 )
 
 type updateResult struct {
@@ -447,6 +448,42 @@ func TestRegister(t *testing.T) {
 		require.Contains(t, err.Error(), "router is already registered")
 	})
 
+	t.Run("test register route - save config error", func(t *testing.T) {
+		msgID := make(chan string)
+
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				Store: &mockstore.MockStore{Store: s, ErrPut: errors.New("save error")},
+			},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					request, ok := msg.(*Request)
+					require.True(t, ok)
+
+					msgID <- request.ID
+					return nil
+				}}})
+		require.NoError(t, err)
+
+		connRec := &connection.Record{
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+		s["conn_conn1"] = connBytes
+
+		go func() {
+			id := <-msgID
+			require.NoError(t, svc.handleGrant(generateGrantMsgPayload(t, id)))
+		}()
+
+		err = svc.Register("conn1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "save route config")
+	})
+
 	t.Run("test register route - timeout error", func(t *testing.T) {
 		s := make(map[string][]byte)
 		svc, err := New(&mockprovider.Provider{
@@ -632,6 +669,117 @@ func TestKeylistUpdate(t *testing.T) {
 		err = svc.AddKey("recKey")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "timeout waiting for keylist update response from the router")
+	})
+
+	t.Run("test keylist update - router connectionID fetch error", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
+			},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		err = svc.AddKey("recKey")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "fetch router connection id")
+	})
+}
+
+func TestConfig(t *testing.T) {
+	var routingKeys = []string{"abc", "xyz"}
+
+	t.Run("test config - success", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
+		require.NoError(t, svc.saveRouterConfig(&config{
+			RouterEndpoint: ENDPOINT,
+			RoutingKeys:    routingKeys,
+		}))
+
+		conf, err := svc.Config()
+		require.NoError(t, err)
+		require.Equal(t, ENDPOINT, conf.Endpoint())
+		require.Equal(t, routingKeys, conf.Keys())
+	})
+
+	t.Run("test config - no router registered", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		conf, err := svc.Config()
+		require.Error(t, err)
+		require.Equal(t, err, ErrRouterNotRegistered)
+		require.Nil(t, conf)
+	})
+
+	t.Run("test config - missing configs", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
+
+		conf, err := svc.Config()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get router config data")
+		require.Nil(t, conf)
+	})
+
+	t.Run("test config - invalid config data in db", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
+		require.NoError(t, svc.routeStore.Put(routeConfigDataKey, []byte("invalid data")))
+
+		conf, err := svc.Config()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unmarshal router config data")
+		require.Nil(t, conf)
+	})
+
+	t.Run("test config - router connectionID fetch error", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
+			},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			KMSValue:                      &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		require.NoError(t, svc.saveRouterConnectionID("connID-123"))
+		require.NoError(t, svc.routeStore.Put(routeConfigDataKey, []byte("invalid data")))
+
+		conf, err := svc.Config()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "fetch router connection id")
+		require.Nil(t, conf)
 	})
 }
 
