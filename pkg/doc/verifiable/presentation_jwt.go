@@ -32,7 +32,7 @@ func (jpc *JWTPresClaims) refineFromJWTClaims() {
 }
 
 // newJWTPresClaims creates JWT Claims of VP with an option to minimize certain fields put into "vp" claim.
-func newJWTPresClaims(vp *Presentation, audience []string, minimizeVP bool) *JWTPresClaims {
+func newJWTPresClaims(vp *Presentation, audience []string, minimizeVP bool) (*JWTPresClaims, error) {
 	// currently jwt encoding supports only single subject (by the spec)
 	jwtClaims := &jwt.Claims{
 		Issuer: vp.Holder, // iss
@@ -42,15 +42,22 @@ func newJWTPresClaims(vp *Presentation, audience []string, minimizeVP bool) *JWT
 		jwtClaims.Audience = audience
 	}
 
-	var rawVP *rawPresentation
+	var (
+		rawVP *rawPresentation
+		err   error
+	)
 
 	if minimizeVP {
 		vpCopy := *vp
 		vpCopy.ID = ""
 		vpCopy.Holder = ""
-		rawVP = vpCopy.raw()
+		rawVP, err = vpCopy.raw()
 	} else {
-		rawVP = vp.raw()
+		rawVP, err = vp.raw()
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	presClaims := &JWTPresClaims{
@@ -58,7 +65,7 @@ func newJWTPresClaims(vp *Presentation, audience []string, minimizeVP bool) *JWT
 		Presentation: rawVP,
 	}
 
-	return presClaims
+	return presClaims, nil
 }
 
 // JWTPresClaimsUnmarshaller parses JWT of certain type to JWT Claims containing "vp" (Presentation) claim.

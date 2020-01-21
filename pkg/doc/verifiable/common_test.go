@@ -186,3 +186,37 @@ func TestDecodeContext(t *testing.T) {
 		require.Nil(t, extraContexts)
 	})
 }
+
+func Test_safeStringValue(t *testing.T) {
+	var i interface{} = "str"
+
+	require.Equal(t, "str", safeStringValue(i))
+
+	i = nil
+	require.Equal(t, "", safeStringValue(i))
+}
+
+func Test_proofsToRaw(t *testing.T) {
+	singleProof := []Proof{{
+		"proofValue": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..67TTULBvibJaJ2oZf3tGYhxZqxYS89qGQykL5hfCoh-MF0vrwQqzciZhjNrAGTAgHtDZsnSQVwJ8bO_7Sc0ECw", //nolint:lll
+	}}
+
+	singleProofBytes, err := proofsToRaw(singleProof)
+	require.NoError(t, err)
+
+	var singleProofMap map[string]interface{}
+
+	err = json.Unmarshal(singleProofBytes, &singleProofMap)
+	require.NoError(t, err)
+
+	severalProofs := []Proof{
+		singleProof[0],
+		{"proofValue": "if8ooA+32YZc4SQBvIDDY9tgTatPoq4IZ8Kr+We1t38LR2RuURmaVu9D4shbi4VvND87PUqq5/0vsNFEGIIEDA=="},
+	}
+	severalProofsBytes, err := proofsToRaw(severalProofs)
+	require.NoError(t, err)
+
+	var severalProofsMap []map[string]interface{}
+	err = json.Unmarshal(severalProofsBytes, &severalProofsMap)
+	require.NoError(t, err)
+}

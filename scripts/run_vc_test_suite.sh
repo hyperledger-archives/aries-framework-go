@@ -20,6 +20,7 @@ SUITE_DIR="${BUILD_DIR}/${VC_TEST_SUITE}/suite"
 # build the app to test
 cd $GENERATOR_DIR
 # rename test file in order to be able to build it
+rm -rf tmp
 mkdir tmp
 cp verifiable_suite_test.go tmp/vc_test_suite_app.go
 cd tmp

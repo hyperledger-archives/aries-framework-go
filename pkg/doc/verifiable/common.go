@@ -60,7 +60,7 @@ func SingleKey(pubKey interface{}) PublicKeyFetcher {
 }
 
 // Proof defines embedded proof of Verifiable Credential
-type Proof interface{}
+type Proof map[string]interface{}
 
 // CustomFields is a map of extra fields of struct build when unmarshalling JSON which are not
 // mapped to the struct fields.
@@ -189,4 +189,45 @@ func decodeContext(c interface{}) ([]string, []interface{}, error) {
 	default:
 		return nil, nil, errors.New("credential context of unknown type")
 	}
+}
+
+func safeStringValue(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+
+	return v.(string)
+}
+
+func proofsToRaw(proofs []Proof) ([]byte, error) {
+	switch len(proofs) {
+	case 0:
+		return nil, nil
+	case 1:
+		return json.Marshal(proofs[0])
+	default:
+		return json.Marshal(proofs)
+	}
+}
+
+func decodeProof(proofBytes json.RawMessage) ([]Proof, error) {
+	if len(proofBytes) == 0 {
+		return nil, nil
+	}
+
+	var singleProof Proof
+
+	err := json.Unmarshal(proofBytes, &singleProof)
+	if err == nil {
+		return []Proof{singleProof}, nil
+	}
+
+	var composedProof []Proof
+
+	err = json.Unmarshal(proofBytes, &composedProof)
+	if err == nil {
+		return composedProof, nil
+	}
+
+	return nil, err
 }

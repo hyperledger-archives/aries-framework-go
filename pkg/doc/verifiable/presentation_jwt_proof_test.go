@@ -93,7 +93,9 @@ func TestNewPresentationFromJWS_EdDSA(t *testing.T) {
 	require.NoError(t, err)
 
 	// marshal presentation into JWS using EdDSA (Ed25519 signature algorithm).
-	jwtClaims := vp.JWTClaims([]string{}, false)
+	jwtClaims, err := vp.JWTClaims([]string{}, false)
+	require.NoError(t, err)
+
 	vpJWSStr, err := jwtClaims.MarshalJWS(EdDSA, privKey, vp.Holder+"#keys-"+keyID)
 	require.NoError(t, err)
 
@@ -191,7 +193,10 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		holderPubKey, holderPrivKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		vpJWS, err := vp.JWTClaims([]string{}, true).MarshalJWS(
+		jwtClaims, err := vp.JWTClaims([]string{}, true)
+		require.NoError(t, err)
+
+		vpJWS, err := jwtClaims.MarshalJWS(
 			EdDSA, holderPrivKey, "holder-key")
 		r.NoError(err)
 
@@ -233,7 +238,10 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		holderPubKey, holderPrivKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		vpJWS, err := vp.JWTClaims([]string{}, true).MarshalJWS(
+		jwtClaims, err := vp.JWTClaims([]string{}, true)
+		require.NoError(t, err)
+
+		vpJWS, err := jwtClaims.MarshalJWS(
 			EdDSA, holderPrivKey, "holder-key")
 		r.NoError(err)
 
@@ -265,7 +273,10 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		holderPubKey, holderPrivKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		vpJWS, err := vp.JWTClaims([]string{}, true).MarshalJWS(
+		jwtClaims, err := vp.JWTClaims([]string{}, true)
+		require.NoError(t, err)
+
+		vpJWS, err := jwtClaims.MarshalJWS(
 			EdDSA, holderPrivKey, "holder-key")
 		r.NoError(err)
 
@@ -299,7 +310,9 @@ func createPresJWS(t *testing.T, vpBytes []byte, minimize bool) []byte {
 	privateKey, err := readPrivateKey(filepath.Join(certPrefix, "holder_private.pem"))
 	require.NoError(t, err)
 
-	jwtClaims := vp.JWTClaims([]string{}, minimize)
+	jwtClaims, err := vp.JWTClaims([]string{}, minimize)
+	require.NoError(t, err)
+
 	vpJWT, err := jwtClaims.MarshalJWS(RS256, privateKey, vp.Holder+"#keys-"+keyID)
 	require.NoError(t, err)
 
@@ -323,7 +336,8 @@ func createPresUnsecuredJWT(t *testing.T, cred []byte, minimize bool) []byte {
 	vp, err := NewPresentation(cred)
 	require.NoError(t, err)
 
-	jwtClaims := vp.JWTClaims([]string{}, minimize)
+	jwtClaims, err := vp.JWTClaims([]string{}, minimize)
+	require.NoError(t, err)
 
 	vpJWT, err := jwtClaims.MarshalUnsecuredJWT()
 	require.NoError(t, err)

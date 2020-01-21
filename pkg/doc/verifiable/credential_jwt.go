@@ -59,14 +59,12 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 		vcCopy.ID = ""
 
 		raw, err = vcCopy.raw()
-		if err != nil {
-			return nil, err
-		}
 	} else {
 		raw, err = vc.raw()
-		if err != nil {
-			return nil, err
-		}
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	vcMap, err := mergeCustomFields(raw, raw.CustomFields)

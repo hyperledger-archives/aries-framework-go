@@ -85,14 +85,7 @@ func ExamplePresentation_JWTClaims() {
       ]
     }
   ],
-  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-  "proof": {
-    "type": "RsaSignature2018",
-    "created": "2018-06-18T21:19:10Z",
-    "proofPurpose": "assertionMethod",
-    "verificationMethod": "https://example.com/jdoe/keys/1",
-    "jws": "eyJhbGciOiJQUzI1N..Dw_mmMCjs9qxg0zcZzqEJw"
-  }
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
 }
 `
 
@@ -104,7 +97,12 @@ func ExamplePresentation_JWTClaims() {
 
 	aud := []string{"did:example:4a57546973436f6f6c4a4a57573"}
 
-	jws, err := vp.JWTClaims(aud, true).MarshalJWS(verifiable.EdDSA, privHolderKey, "")
+	jwtClaims, err := vp.JWTClaims(aud, true)
+	if err != nil {
+		fmt.Println(fmt.Errorf("failed to create JWT claims of VP: %w", err))
+	}
+
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, privHolderKey, "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}
@@ -164,7 +162,12 @@ func ExampleCredential_Presentation() {
 
 	aud := []string{"did:example:4a57546973436f6f6c4a4a57573"}
 
-	jws, err := vp.JWTClaims(aud, true).MarshalJWS(verifiable.EdDSA, privHolderKey, "")
+	jwtClaims, err := vp.JWTClaims(aud, true)
+	if err != nil {
+		fmt.Println(fmt.Errorf("failed to create JWT claims of VP: %w", err))
+	}
+
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, privHolderKey, "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}
@@ -186,7 +189,7 @@ func ExamplePresentation_SetCredentials() {
 	}
 
 	// The first VC is created on fly (or just decoded using NewCredential).
-	vc := verifiable.Credential{
+	vc := &verifiable.Credential{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1"},
@@ -235,7 +238,7 @@ func ExamplePresentation_MarshalJSON() {
 		Holder: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 	}
 
-	vc := verifiable.Credential{
+	vc := &verifiable.Credential{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1"},
@@ -287,40 +290,32 @@ func ExamplePresentation_MarshalJSON() {
 	//	],
 	//	"verifiableCredential": [
 	//		{
-	//			"Context": [
+	//			"@context": [
 	//				"https://www.w3.org/2018/credentials/v1",
 	//				"https://www.w3.org/2018/credentials/examples/v1"
 	//			],
-	//			"CustomContext": null,
-	//			"ID": "http://example.edu/credentials/1872",
-	//			"Types": [
-	//				"VerifiableCredential",
-	//				"UniversityDegreeCredential"
-	//			],
-	//			"Subject": {
-	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-	//				"name": "Jayden Doe",
-	//				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+	//			"credentialSchema": [],
+	//			"credentialSubject": {
 	//				"degree": {
 	//					"type": "BachelorDegree",
 	//					"university": "MIT"
-	//				}
+	//				},
+	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	//				"name": "Jayden Doe",
+	//				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
 	//			},
-	//			"Issuer": {
-	//				"ID": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-	//				"Name": "Example University"
+	//			"expirationDate": "2020-01-01T19:23:24Z",
+	//			"id": "http://example.edu/credentials/1872",
+	//			"issuanceDate": "2010-01-01T19:23:24Z",
+	//			"issuer": {
+	//				"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	//				"name": "Example University"
 	//			},
-	//			"Issued": "2010-01-01T19:23:24Z",
-	//			"Expired": "2020-01-01T19:23:24Z",
-	//			"Proof": null,
-	//			"Status": null,
-	//			"Schemas": [],
-	//			"Evidence": null,
-	//			"TermsOfUse": null,
-	//			"RefreshService": null,
-	//			"CustomFields": {
-	//				"referenceNumber": 83294847
-	//			}
+	//			"referenceNumber": 83294847,
+	//			"type": [
+	//				"VerifiableCredential",
+	//				"UniversityDegreeCredential"
+	//			]
 	//		}
 	//	],
 	//	"holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
@@ -364,12 +359,12 @@ func ExamplePresentation_MarshalledCredentials() {
 	}
 
 	// Put JWS form of VC into VP.
-	jwtClaims, err := vc.JWTClaims(true)
+	vcJWTClaims, err := vc.JWTClaims(true)
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}
 
-	vcJWS, err := jwtClaims.MarshalJWS(verifiable.EdDSA, privIssuerKey, "i-kid")
+	vcJWS, err := vcJWTClaims.MarshalJWS(verifiable.EdDSA, privIssuerKey, "i-kid")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VC JWT: %w", err))
 	}
@@ -380,7 +375,13 @@ func ExamplePresentation_MarshalledCredentials() {
 	}
 
 	// Marshal VP to JWS as well.
-	vpJWS, err := vp.JWTClaims(nil, true).MarshalJWS(verifiable.EdDSA, privHolderKey, "h-kid")
+
+	vpJWTClaims, err := vp.JWTClaims(nil, true)
+	if err != nil {
+		fmt.Println(fmt.Errorf("failed to create JWT claims of VP: %w", err))
+	}
+
+	vpJWS, err := vpJWTClaims.MarshalJWS(verifiable.EdDSA, privHolderKey, "h-kid")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}

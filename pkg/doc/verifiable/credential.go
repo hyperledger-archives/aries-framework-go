@@ -125,16 +125,14 @@ const defaultSchema = `{
     "proof": {
       "anyOf": [
         {
-          "type": "object",
-          "required": [
-            "type"
-          ],
-          "properties": {
-            "type": {
-              "type": "string"
-            }
-          }
+          "$ref": "#/definitions/proof"
         },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/proof"
+          }
+        },        
         {
           "type": "null"
         }
@@ -209,6 +207,17 @@ const defaultSchema = `{
           "type": "null"
         }
       ]
+    },
+    "proof": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        }
+      }
     }
   }
 }
@@ -392,7 +401,7 @@ type Credential struct {
 	Issuer         Issuer
 	Issued         *time.Time
 	Expired        *time.Time
-	Proof          *Proof
+	Proofs         []Proof
 	Status         *TypedID
 	Schemas        []TypedID
 	Evidence       *Evidence
@@ -410,7 +419,7 @@ type rawCredential struct {
 	Subject        Subject         `json:"credentialSubject,omitempty"`
 	Issued         *time.Time      `json:"issuanceDate,omitempty"`
 	Expired        *time.Time      `json:"expirationDate,omitempty"`
-	Proof          *Proof          `json:"proof,omitempty"`
+	Proof          json.RawMessage `json:"proof,omitempty"`
 	Status         *TypedID        `json:"credentialStatus,omitempty"`
 	Issuer         interface{}     `json:"issuer,omitempty"`
 	Schema         interface{}     `json:"credentialSchema,omitempty"`
@@ -460,15 +469,16 @@ type CredentialTemplate func() *Credential
 
 // credentialOpts holds options for the Verifiable Credential decoding
 type credentialOpts struct {
-	issuerPublicKeyFetcher PublicKeyFetcher
-	disabledCustomSchema   bool
-	schemaLoader           *CredentialSchemaLoader
-	modelValidationMode    vcModelValidationMode
-	allowedCustomContexts  map[string]bool
-	allowedCustomTypes     map[string]bool
-	disabledProofCheck     bool
-	jsonldDocumentLoader   ld.DocumentLoader
-	strictValidation       bool
+	publicKeyFetcher      PublicKeyFetcher
+	disabledCustomSchema  bool
+	schemaLoader          *CredentialSchemaLoader
+	modelValidationMode   vcModelValidationMode
+	allowedCustomContexts map[string]bool
+	allowedCustomTypes    map[string]bool
+	disabledProofCheck    bool
+	jsonldDocumentLoader  ld.DocumentLoader
+	strictValidation      bool
+	ldpSuites             []verifierSignatureSuite
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
@@ -485,7 +495,7 @@ func WithNoCustomSchemaCheck() CredentialOpt {
 // WithPublicKeyFetcher set public key fetcher used when decoding from JWS.
 func WithPublicKeyFetcher(fetcher PublicKeyFetcher) CredentialOpt {
 	return func(opts *credentialOpts) {
-		opts.issuerPublicKeyFetcher = fetcher
+		opts.publicKeyFetcher = fetcher
 	}
 }
 
@@ -553,6 +563,13 @@ func WithJSONLDDocumentLoader(documentLoader ld.DocumentLoader) CredentialOpt {
 func WithStrictValidation() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.strictValidation = true
+	}
+}
+
+// WithEmbeddedSignatureSuites defines the suites which are used to check embedded linked data proof of VC.
+func WithEmbeddedSignatureSuites(suites ...verifierSignatureSuite) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.ldpSuites = suites
 	}
 }
 
@@ -649,7 +666,7 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, e
 	vcOpts := parseCredentialOpts(opts)
 
 	// Decode credential (e.g. from JWT).
-	vcDataDecoded, err := decodeRaw(vcData, !vcOpts.disabledProofCheck, vcOpts.issuerPublicKeyFetcher)
+	vcDataDecoded, err := decodeRaw(vcData, vcOpts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("decode new credential: %w", err)
 	}
@@ -784,12 +801,11 @@ func CreateCustomCredential(
 }
 
 func newCredential(raw *rawCredential) (*Credential, error) {
-	var (
-		schemas []TypedID
-		err     error
-	)
+	var schemas []TypedID
 
 	if raw.Schema != nil {
+		var err error
+
 		schemas, err = decodeCredentialSchemas(raw)
 		if err != nil {
 			return nil, fmt.Errorf("fill credential schemas from raw: %w", err)
@@ -823,6 +839,11 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		return nil, fmt.Errorf("fill credential refresh service from raw: %w", err)
 	}
 
+	proofs, err := decodeProof(raw.Proof)
+	if err != nil {
+		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
+	}
+
 	return &Credential{
 		Context:        context,
 		CustomContext:  customContext,
@@ -832,7 +853,7 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		Issuer:         issuer,
 		Issued:         raw.Issued,
 		Expired:        raw.Expired,
-		Proof:          raw.Proof,
+		Proofs:         proofs,
 		Status:         raw.Status,
 		Schemas:        schemas,
 		Evidence:       raw.Evidence,
@@ -864,13 +885,13 @@ func decodeTypedID(bytes json.RawMessage) ([]TypedID, error) {
 	return nil, err
 }
 
-func decodeRaw(vcData []byte, checkProof bool, pubKeyFetcher PublicKeyFetcher) ([]byte, error) {
-	if isJWS(vcData) {
-		if pubKeyFetcher == nil {
+func decodeRaw(vcData []byte, vcOpts *credentialOpts) ([]byte, error) {
+	if isJWS(vcData) { // External proof, is checked by JWS.
+		if vcOpts.publicKeyFetcher == nil {
 			return nil, errors.New("public key fetcher is not defined")
 		}
 
-		vcDecodedBytes, err := decodeCredJWS(vcData, checkProof, pubKeyFetcher)
+		vcDecodedBytes, err := decodeCredJWS(vcData, !vcOpts.disabledProofCheck, vcOpts.publicKeyFetcher)
 		if err != nil {
 			return nil, fmt.Errorf("JWS decoding: %w", err)
 		}
@@ -878,16 +899,17 @@ func decodeRaw(vcData []byte, checkProof bool, pubKeyFetcher PublicKeyFetcher) (
 		return vcDecodedBytes, nil
 	}
 
-	if isJWTUnsecured(vcData) {
+	if isJWTUnsecured(vcData) { // Embedded proof.
 		vcDecodedBytes, err := decodeCredJWTUnsecured(vcData)
 		if err != nil {
 			return nil, fmt.Errorf("unsecured JWT decoding: %w", err)
 		}
 
-		return vcDecodedBytes, nil
+		return checkEmbeddedProof(vcDecodedBytes, vcOpts)
 	}
 
-	return vcData, nil
+	// Embedded proof.
+	return checkEmbeddedProof(vcData, vcOpts)
 }
 
 func parseCredentialOpts(opts []CredentialOpt) *credentialOpts {
@@ -1091,6 +1113,11 @@ func (vc *Credential) raw() (*rawCredential, error) {
 		return nil, err
 	}
 
+	proof, err := proofsToRaw(vc.Proofs)
+	if err != nil {
+		return nil, err
+	}
+
 	return &rawCredential{
 		Context:        contextToRaw(vc.Context, vc.CustomContext),
 		ID:             vc.ID,
@@ -1098,7 +1125,7 @@ func (vc *Credential) raw() (*rawCredential, error) {
 		Subject:        vc.Subject,
 		Issued:         vc.Issued,
 		Expired:        vc.Expired,
-		Proof:          vc.Proof,
+		Proof:          proof,
 		Status:         vc.Status,
 		Issuer:         issuerToRaw(vc.Issuer),
 		Schema:         vc.Schemas,

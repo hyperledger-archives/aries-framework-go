@@ -21,7 +21,7 @@ func TestJWTPresClaims_MarshalUnsecuredJWT(t *testing.T) {
 	_, rawVC, err := decodeVPFromUnsecuredJWT([]byte(jws))
 
 	require.NoError(t, err)
-	require.Equal(t, vp.raw().stringJSON(t), rawVC.stringJSON(t))
+	require.Equal(t, vp.stringJSON(t), rawVC.stringJSON(t))
 }
 
 func TestDecodeVPFromUnsecuredJWT(t *testing.T) {
@@ -34,7 +34,7 @@ func TestDecodeVPFromUnsecuredJWT(t *testing.T) {
 		vpDecodedBytes, vpRaw, err := decodeVPFromUnsecuredJWT([]byte(jws))
 		require.NoError(t, err)
 		require.NotNil(t, vpDecodedBytes)
-		require.Equal(t, vp.raw().stringJSON(t), vpRaw.stringJSON(t))
+		require.Equal(t, vp.stringJSON(t), vpRaw.stringJSON(t))
 	})
 
 	t.Run("Invalid serialized unsecured JWT", func(t *testing.T) {
@@ -63,7 +63,8 @@ func TestDecodeVPFromUnsecuredJWT(t *testing.T) {
 }
 
 func createCredUnsecuredJWT(t *testing.T, vp *Presentation) string {
-	claims := newJWTPresClaims(vp, []string{}, false)
+	claims, err := newJWTPresClaims(vp, []string{}, false)
+	require.NoError(t, err)
 	require.NotNil(t, claims)
 
 	unsecuredJWT, err := claims.MarshalUnsecuredJWT()

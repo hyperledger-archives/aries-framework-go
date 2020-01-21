@@ -23,7 +23,7 @@ func TestJWTPresClaims_MarshalJWS(t *testing.T) {
 	_, rawVC, err := decodeVPFromJWS([]byte(jws), true, holderPublicKeyFetcher(t))
 
 	require.NoError(t, err)
-	require.Equal(t, vp.raw().stringJSON(t), rawVC.stringJSON(t))
+	require.Equal(t, vp.stringJSON(t), rawVC.stringJSON(t))
 }
 
 type invalidPresClaims struct {
@@ -43,7 +43,7 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 
 		claims, err := unmarshalPresJWSClaims([]byte(jws), true, testFetcher)
 		require.NoError(t, err)
-		require.Equal(t, vp.raw().stringJSON(t), claims.Presentation.stringJSON(t))
+		require.Equal(t, vp.stringJSON(t), claims.Presentation.stringJSON(t))
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {
@@ -100,7 +100,8 @@ func createCredJWS(t *testing.T, vp *Presentation) string {
 	privateKey, err := readPrivateKey(filepath.Join(certPrefix, "holder_private.pem"))
 	require.NoError(t, err)
 
-	claims := newJWTPresClaims(vp, []string{}, false)
+	claims, err := newJWTPresClaims(vp, []string{}, false)
+	require.NoError(t, err)
 	require.NotNil(t, claims)
 
 	jws, err := claims.MarshalJWS(RS256, privateKey, "any")

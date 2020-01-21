@@ -18,7 +18,8 @@ func TestNewJWTPresClaims(t *testing.T) {
 	audience := []string{"did:example:4a57546973436f6f6c4a4a57573"}
 
 	t.Run("new JWT claims of VP with minimization", func(t *testing.T) {
-		claims := newJWTPresClaims(vp, audience, true)
+		claims, err := newJWTPresClaims(vp, audience, true)
+		require.NoError(t, err)
 		require.NotNil(t, claims)
 
 		// issuer, ID and audience are filled in JWT claims
@@ -38,7 +39,8 @@ func TestNewJWTPresClaims(t *testing.T) {
 	})
 
 	t.Run("new JWT claims of VP without minimization", func(t *testing.T) {
-		claims := newJWTPresClaims(vp, audience, false)
+		claims, err := newJWTPresClaims(vp, audience, false)
+		require.NoError(t, err)
 		require.NotNil(t, claims)
 
 		// issuer, ID and audience are filled in JWT claims
