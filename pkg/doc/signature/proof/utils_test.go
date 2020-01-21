@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAddProof(t *testing.T) {
+func TestAddManyProofs(t *testing.T) {
 	doc := getDefaultDoc()
 	proofs, err := GetProofs(doc)
 	require.Equal(t, err, ErrProofNotFound)
@@ -61,7 +61,7 @@ func TestGetCopyWithoutProof(t *testing.T) {
 	require.True(t, reflect.DeepEqual(docCopy, getDefaultDoc()))
 }
 
-func TestInvalidProofFormat(t *testing.T) {
+func TestAddSingleProof(t *testing.T) {
 	doc := map[string]interface{}{
 		"test": "test",
 		"proof": map[string]interface{}{
@@ -72,9 +72,10 @@ func TestInvalidProofFormat(t *testing.T) {
 		},
 	}
 	proofs, err := GetProofs(doc)
-	require.NotNil(t, err)
-	require.Nil(t, proofs)
-	require.Contains(t, err.Error(), "expecting []interface{}")
+	require.NoError(t, err)
+	require.NotNil(t, proofs)
+	require.Equal(t, 1, len(proofs))
+	require.Equal(t, "creator", proofs[0].Creator)
 
 	now := time.Now()
 	proof := Proof{Creator: "creator-2",
@@ -83,8 +84,7 @@ func TestInvalidProofFormat(t *testing.T) {
 		Type:       "Ed25519Signature2018"}
 
 	err = AddProof(doc, &proof)
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "expecting []interface{}")
+	require.NoError(t, err)
 }
 
 func getDefaultDoc() map[string]interface{} {

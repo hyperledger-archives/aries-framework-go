@@ -34,13 +34,6 @@ const validCredential = `{
     "name": "Example University"
   },
   "issuanceDate": "2010-01-01T19:23:24Z",
-  "proof": {
-    "type": "RsaSignature2018",
-    "created": "2018-06-18T21:19:10Z",
-    "proofPurpose": "assertionMethod",
-    "verificationMethod": "https://example.com/jdoe/keys/1",
-    "jws": "eyJhbGciOiJQUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..DJBMvvFAIC00nSGB6Tn0XKbbF9XrsaJZREWvR2aONYTQQxnyXirtXnlewJMBBn2h9hfcGZrvnC1b6PgWmukzFJ1IiH1dWgnDIS81BH-IxXnPkbuYDeySorc4QU9MJxdVkY5EL4HYbcIfwKj6X4LBQ2_ZHZIu1jdqLcRZqHcsDF5KKylKc1THn5VRWy5WhYg_gBnyWny8E6Qkrze53MR7OuAmmNJ1m1nN8SxDrG6a08L78J0-Fbas5OjAQz3c17GY8mVuDPOBIOVjMEghBlgl3nOi1ysxbRGhHLEK4s0KKbeRogZdgt1DkQxDFxxn41QWDw_mmMCjs9qxg0zcZzqEJw"
-  },
   "expirationDate": "2020-01-01T19:23:24Z",
   "credentialStatus": {
     "id": "https://example.edu/status/24",
@@ -158,6 +151,13 @@ func (vc *Credential) byteJSON(t *testing.T) []byte {
 
 func (raw *rawPresentation) stringJSON(t *testing.T) string {
 	bytes, err := json.Marshal(raw)
+	require.NoError(t, err)
+
+	return string(bytes)
+}
+
+func (vp *Presentation) stringJSON(t *testing.T) string {
+	bytes, err := json.Marshal(vp)
 	require.NoError(t, err)
 
 	return string(bytes)

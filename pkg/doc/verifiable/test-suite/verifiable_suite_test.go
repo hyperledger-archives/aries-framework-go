@@ -75,7 +75,7 @@ func main() {
 }
 
 func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
-	credential, _, err := verifiable.NewCredential(vcBytes)
+	credential, _, err := verifiable.NewCredential(vcBytes, verifiable.WithNoProofCheck())
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
@@ -103,7 +103,10 @@ func encodeVPToJWS(vpBytes []byte, audience string, privateKey, publicKey interf
 		abort("failed to decode presentation: %v", err)
 	}
 
-	jwtClaims := vp.JWTClaims([]string{audience}, true)
+	jwtClaims, err := vp.JWTClaims([]string{audience}, true)
+	if err != nil {
+		abort("failed to build JWT claims: %v", err)
+	}
 
 	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, privateKey, "any")
 	if err != nil {
@@ -114,7 +117,7 @@ func encodeVPToJWS(vpBytes []byte, audience string, privateKey, publicKey interf
 }
 
 func encodeVCToJWTUnsecured(vcBytes []byte) {
-	credential, _, err := verifiable.NewCredential(vcBytes)
+	credential, _, err := verifiable.NewCredential(vcBytes, verifiable.WithNoProofCheck())
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
@@ -194,7 +197,7 @@ func parseKeys(packedKeys string) (private, public interface{}) {
 }
 
 func encodeVCToJSON(vcBytes []byte, testFileName string) {
-	vcOpts := []verifiable.CredentialOpt{verifiable.WithNoCustomSchemaCheck()}
+	vcOpts := []verifiable.CredentialOpt{verifiable.WithNoCustomSchemaCheck(), verifiable.WithNoProofCheck()}
 
 	// This are special test cases which should be made more precise in VC Test Suite.
 	// See https://github.com/w3c/vc-test-suite/issues/96 for more information.

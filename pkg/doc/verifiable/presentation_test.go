@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,25 +49,14 @@ const validPresentation = `
             }
           ]
         }
-      },
-      "proof": {
-        "type": "RsaSignature2018",
-        "created": "2017-06-18T21:19:10Z",
-        "proofPurpose": "assertionMethod",
-        "verificationMethod": "https://example.edu/issuers/keys/1",
-        "jws": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..TCYt5XsITJX1CxPCT8yAV-TVkIEq_PbChOMqsLfRoPsnsgw5WEuts01mq-pQy7UJiN5mgRxD-WUcX16dUEMGlv50aqzpqh4Qktb3rk-BuQy72IFLOqV0G_zS245-kronKb78cPN25DGlcTwLtjPAYuNzVBAh4vGHSrQyHUdBBPM"
       }
     }
   ],
   "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
   "proof": {
-    "type": "RsaSignature2018",
-    "created": "2018-09-14T21:19:10Z",
-    "proofPurpose": "authentication",
-    "verificationMethod": "did:example:ebfeb1f712ebc6f1c276e12ec21#keys-1",
-    "challenge": "1f44d55f-f161-4938-a659-f8026467f126",
-    "domain": "4jt78h47fh47",
-    "jws": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01mq-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVBAh4vGHSrQyHUGlcTwLtjPAnKb78"
+    "type": "Ed25519Signature2018",
+    "created": "2020-01-21T16:44:53+02:00",
+    "proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01mq-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVBAh4vGHSrQyHUGlcTwLtjPAnKb78"
   },
   "refreshService": {
     "id": "https://example.edu/refresh/3732",
@@ -99,7 +90,7 @@ func TestNewPresentation(t *testing.T) {
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", vp.Holder)
 
 		// check proof
-		require.NotNil(t, vp.Proof)
+		require.NotNil(t, vp.Proofs)
 
 		// check refreshService
 		require.NotNil(t, vp.RefreshService)
@@ -338,14 +329,9 @@ func TestPresentation_SetCredentials(t *testing.T) {
 	r := require.New(t)
 	vp := Presentation{}
 
-	// Pass Credential struct
-	vc := Credential{}
-	err := vp.SetCredentials(vc)
-	r.NoError(err)
-
 	// Pass Credential struct pointer
 	vcp := &Credential{}
-	err = vp.SetCredentials(vcp)
+	err := vp.SetCredentials(vcp)
 	r.NoError(err)
 
 	// Pass bytes (e.g. marshalled JSON)
@@ -391,4 +377,25 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 	opts.publicKeyFetcher = nil
 	_, err = decodeCredentials(jws, opts)
 	r.Error(err)
+}
+
+func TestWithPresPublicKeyFetcher(t *testing.T) {
+	vpOpt := WithPresPublicKeyFetcher(SingleKey("test pubKey"))
+	require.NotNil(t, vpOpt)
+
+	opts := &presentationOpts{}
+	vpOpt(opts)
+	require.NotNil(t, opts.publicKeyFetcher)
+}
+
+func TestWithPresEmbeddedSignatureSuites(t *testing.T) {
+	suite := ed25519signature2018.New()
+
+	vpOpt := WithPresEmbeddedSignatureSuites(suite)
+	require.NotNil(t, vpOpt)
+
+	opts := &presentationOpts{}
+	vpOpt(opts)
+	require.Len(t, opts.ldpSuites, 1)
+	require.Equal(t, suite, opts.ldpSuites[0])
 }

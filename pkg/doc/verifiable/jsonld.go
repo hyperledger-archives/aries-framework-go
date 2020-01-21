@@ -354,13 +354,13 @@ func credentialSubjectsMap(credentialSubject interface{}) map[string]credentialS
 
 	switch cs := credentialSubject.(type) {
 	case map[string]interface{}:
-		csMap[cs["id"].(string)] = cs
+		csMap[safeStringValue(cs["id"])] = cs
 	case string:
 		csMap[cs] = credentialSubjectMap{"id": cs}
 	case []interface{}:
 		for i := range cs {
 			subjectMap, _ := cs[i].(map[string]interface{}) //nolint:errcheck
-			csMap[subjectMap["id"].(string)] = subjectMap
+			csMap[safeStringValue(subjectMap["id"])] = subjectMap
 		}
 	}
 

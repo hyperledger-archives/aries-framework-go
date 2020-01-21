@@ -159,15 +159,20 @@ type Presentation struct {
 	Type           []string
 	credentials    []interface{}
 	Holder         string
-	Proof          Proof
+	Proofs         []Proof
 	RefreshService *TypedID
 }
 
 // MarshalJSON converts Verifiable Presentation to JSON bytes.
 func (vp *Presentation) MarshalJSON() ([]byte, error) {
-	byteCred, err := json.Marshal(vp.raw())
+	raw, err := vp.raw()
 	if err != nil {
-		return nil, fmt.Errorf("JSON marshalling of verifiable credential: %w", err)
+		return nil, fmt.Errorf("JSON marshalling of verifiable presentation: %w", err)
+	}
+
+	byteCred, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("JSON marshalling of verifiable presentation: %w", err)
 	}
 
 	return byteCred, nil
@@ -175,7 +180,7 @@ func (vp *Presentation) MarshalJSON() ([]byte, error) {
 
 // JWTClaims converts Verifiable Presentation into JWT Presentation claims, which can be than serialized
 // e.g. into JWS.
-func (vp *Presentation) JWTClaims(audience []string, minimizeVP bool) *JWTPresClaims {
+func (vp *Presentation) JWTClaims(audience []string, minimizeVP bool) (*JWTPresClaims, error) {
 	return newJWTPresClaims(vp, audience, minimizeVP)
 }
 
@@ -189,7 +194,7 @@ func (vp *Presentation) Credentials() []interface{} {
 func (vp *Presentation) SetCredentials(creds ...interface{}) error {
 	for i := range creds {
 		switch creds[i].(type) {
-		case []byte, string, *Credential, Credential:
+		case []byte, string, *Credential:
 			// Acceptable.
 		default:
 			return errors.New("unsupported credential format")
@@ -226,33 +231,39 @@ func (vp *Presentation) MarshalledCredentials() ([]MarshalledCredential, error) 
 	return mCreds, nil
 }
 
-func (vp *Presentation) raw() *rawPresentation {
+func (vp *Presentation) raw() (*rawPresentation, error) {
+	proof, err := proofsToRaw(vp.Proofs)
+	if err != nil {
+		return nil, err
+	}
+
 	return &rawPresentation{
 		Context:        vp.Context,
 		ID:             vp.ID,
 		Type:           vp.Type,
 		Credential:     vp.credentials,
 		Holder:         vp.Holder,
-		Proof:          vp.Proof,
+		Proof:          proof,
 		RefreshService: vp.RefreshService,
-	}
+	}, nil
 }
 
 // rawPresentation is a basic verifiable credential
 type rawPresentation struct {
-	Context        interface{} `json:"@context,omitempty"`
-	ID             string      `json:"id,omitempty"`
-	Type           interface{} `json:"type,omitempty"`
-	Credential     interface{} `json:"verifiableCredential,omitempty"`
-	Holder         string      `json:"holder,omitempty"`
-	Proof          Proof       `json:"proof,omitempty"`
-	RefreshService *TypedID    `json:"refreshService,omitempty"`
+	Context        interface{}     `json:"@context,omitempty"`
+	ID             string          `json:"id,omitempty"`
+	Type           interface{}     `json:"type,omitempty"`
+	Credential     interface{}     `json:"verifiableCredential,omitempty"`
+	Holder         string          `json:"holder,omitempty"`
+	Proof          json.RawMessage `json:"proof,omitempty"`
+	RefreshService *TypedID        `json:"refreshService,omitempty"`
 }
 
 // presentationOpts holds options for the Verifiable Presentation decoding
 type presentationOpts struct {
 	publicKeyFetcher   PublicKeyFetcher
 	disabledProofCheck bool
+	ldpSuites          []verifierSignatureSuite
 }
 
 // PresentationOpt is the Verifiable Presentation decoding option
@@ -263,6 +274,13 @@ type PresentationOpt func(opts *presentationOpts)
 func WithPresPublicKeyFetcher(fetcher PublicKeyFetcher) PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.publicKeyFetcher = fetcher
+	}
+}
+
+// WithPresEmbeddedSignatureSuites defines the suites which are used to check embedded linked data proof of VP.
+func WithPresEmbeddedSignatureSuites(suites ...verifierSignatureSuite) PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.ldpSuites = suites
 	}
 }
 
@@ -301,6 +319,11 @@ func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, err
 		return nil, fmt.Errorf("decode credentials of presentation: %w", err)
 	}
 
+	proofs, err := decodeProof(vpRaw.Proof)
+	if err != nil {
+		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
+	}
+
 	vp := &Presentation{
 		Context:        context,
 		CustomContext:  customContext,
@@ -308,7 +331,7 @@ func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, err
 		Type:           types,
 		credentials:    creds,
 		Holder:         vpRaw.Holder,
-		Proof:          vpRaw.Proof,
+		Proofs:         proofs,
 		RefreshService: vpRaw.RefreshService,
 	}
 
@@ -328,7 +351,7 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface
 		if sCred, ok := cred.(string); ok {
 			bCred := []byte(sCred)
 
-			credDecoded, err := decodeRaw(bCred, !opts.disabledProofCheck, opts.publicKeyFetcher)
+			credDecoded, err := decodeRaw(bCred, mapOpts(opts))
 			if err != nil {
 				return nil, fmt.Errorf("decode credential of presentation: %w", err)
 			}
@@ -363,6 +386,15 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface
 		}
 
 		return []interface{}{c}, nil
+	}
+}
+
+func mapOpts(vpOpts *presentationOpts) *credentialOpts {
+	// !opts.disabledProofCheck, opts.publicKeyFetcher, opts.suite
+	return &credentialOpts{
+		publicKeyFetcher:   vpOpts.publicKeyFetcher,
+		disabledProofCheck: vpOpts.disabledProofCheck,
+		ldpSuites:          vpOpts.ldpSuites,
 	}
 }
 

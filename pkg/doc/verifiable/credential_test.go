@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+
 	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
@@ -78,9 +80,6 @@ func TestNewCredential(t *testing.T) {
 		// check issued date
 		expectedExpired := time.Date(2020, time.January, 1, 19, 23, 24, 0, time.UTC)
 		require.Equal(t, &expectedExpired, vc.Expired)
-
-		// validate proof
-		require.NotNil(t, vc.Proof)
 
 		// check credential status
 		require.NotNil(t, vc.Status)
@@ -393,6 +392,26 @@ func TestValidateVerCredIssuanceDate(t *testing.T) {
 }
 
 func TestValidateVerCredProof(t *testing.T) {
+	t.Run("test verifiable credential with embedded proof", func(t *testing.T) {
+		var raw rawCredential
+
+		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+
+		proofBytes, err := json.Marshal([]Proof{{
+			"type":               "Ed25519Signature2018",
+			"created":            "2018-06-18T21:19:10Z",
+			"proofPurpose":       "assertionMethod",
+			"verificationMethod": "https://example.com/jdoe/keys/1",
+			"jws":                "eyJhbGciOiJQUzI1N..Dw_mmMCjs9qxg0zcZzqEJw",
+		}})
+		require.NoError(t, err)
+
+		raw.Proof = proofBytes
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		require.NoError(t, err)
+	})
 	t.Run("test verifiable credential with empty proof", func(t *testing.T) {
 		var raw rawCredential
 
@@ -658,6 +677,15 @@ func TestCredential_MarshalJSON(t *testing.T) {
 	})
 }
 
+func TestWithPublicKeyFetcher(t *testing.T) {
+	credentialOpt := WithPublicKeyFetcher(SingleKey("test pubKey"))
+	require.NotNil(t, credentialOpt)
+
+	opts := &credentialOpts{}
+	credentialOpt(opts)
+	require.NotNil(t, opts.publicKeyFetcher)
+}
+
 func TestWithDisabledExternalSchemaCheck(t *testing.T) {
 	credentialOpt := WithNoCustomSchemaCheck()
 	require.NotNil(t, credentialOpt)
@@ -762,6 +790,18 @@ func TestWithStrictValidation(t *testing.T) {
 	opts := &credentialOpts{}
 	credentialOpt(opts)
 	require.True(t, opts.strictValidation)
+}
+
+func TestWithEmbeddedSignatureSuites(t *testing.T) {
+	suite := ed25519signature2018.New()
+
+	credentialOpt := WithEmbeddedSignatureSuites(suite)
+	require.NotNil(t, credentialOpt)
+
+	opts := &credentialOpts{}
+	credentialOpt(opts)
+	require.Len(t, opts.ldpSuites, 1)
+	require.Equal(t, suite, opts.ldpSuites[0])
 }
 
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
@@ -1282,6 +1322,16 @@ func TestNewCredentialFromRaw(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential refresh service from raw")
 	require.Nil(t, vc)
+
+	vc, err = newCredential(&rawCredential{
+		Type:    "VerifiableCredential",
+		Issuer:  "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Context: "https://www.w3.org/2018/credentials/v1",
+		Proof:   []byte("not json"),
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "fill credential proof from raw")
+	require.Nil(t, vc)
 }
 
 func TestCredential_CreatePresentation(t *testing.T) {
@@ -1475,6 +1525,19 @@ func TestCredential_raw(t *testing.T) {
 		vc.TermsOfUse = []TypedID{{CustomFields: map[string]interface{}{
 			"invalidField": make(chan int),
 		}}}
+
+		vcRaw, err := vc.raw()
+		require.Error(t, err)
+		require.Nil(t, vcRaw)
+	})
+
+	t.Run("Serialize with invalid proof", func(t *testing.T) {
+		vc, _, err := NewCredential([]byte(validCredential))
+		require.NoError(t, err)
+
+		vc.Proofs = []Proof{{
+			"invalidField": make(chan int),
+		}}
 
 		vcRaw, err := vc.raw()
 		require.Error(t, err)

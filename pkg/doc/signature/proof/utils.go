@@ -20,9 +20,14 @@ func GetProofs(jsonLdObject map[string]interface{}) ([]*Proof, error) {
 		return nil, ErrProofNotFound
 	}
 
-	typedEntry, ok := entry.([]interface{})
-	if !ok {
-		return nil, errors.New("expecting []interface{}, got something else")
+	var typedEntry []interface{}
+	switch te := entry.(type) {
+	case []interface{}:
+		typedEntry = te
+	case map[string]interface{}:
+		typedEntry = []interface{}{te}
+	default:
+		return nil, errors.New("expecting []interface{} or map[string]interface{}, got something else")
 	}
 
 	var result []*Proof
@@ -51,11 +56,11 @@ func AddProof(jsonLdObject map[string]interface{}, proof *Proof) error {
 	entry, exists := jsonLdObject[jsonldProof]
 
 	if exists {
-		var ok bool
-
-		proofs, ok = entry.([]interface{})
-		if !ok {
-			return errors.New("expecting []interface{}, got something else")
+		switch p := entry.(type) {
+		case []interface{}:
+			proofs = p
+		default:
+			proofs = []interface{}{p}
 		}
 	}
 
