@@ -23,6 +23,7 @@ type MockRouteSvc struct {
 	RouterEndpoint     string
 	RoutingKeys        []string
 	ConfigErr          error
+	AddKeyErr          error
 }
 
 // HandleInbound msg
@@ -72,7 +73,7 @@ func (m *MockRouteSvc) Register(connectionID string) error {
 
 // AddKey adds agents recKey to the router
 func (m *MockRouteSvc) AddKey(recKey string) error {
-	return nil
+	return m.AddKeyErr
 }
 
 // Config gives back the router configuration

@@ -1,6 +1,5 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
-
 SPDX-License-Identifier: Apache-2.0
 */
 
@@ -18,6 +17,7 @@ import (
 type Provider struct {
 	ServiceValue                  interface{}
 	ServiceErr                    error
+	ServiceMap                    map[string]interface{}
 	KMSValue                      legacykms.KeyManager
 	InboundEndpointValue          string
 	StorageProviderValue          storage.Provider
@@ -30,7 +30,15 @@ type Provider struct {
 
 // Service return service
 func (p *Provider) Service(id string) (interface{}, error) {
-	return p.ServiceValue, p.ServiceErr
+	if p.ServiceErr != nil {
+		return nil, p.ServiceErr
+	}
+
+	if p.ServiceMap[id] != nil {
+		return p.ServiceMap[id], nil
+	}
+
+	return p.ServiceValue, nil
 }
 
 // KMS returns a KMS instance

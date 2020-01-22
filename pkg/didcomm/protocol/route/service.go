@@ -399,7 +399,7 @@ func (s *Service) AddKey(recKey string) error {
 	}
 
 	if routerConnID == "" {
-		return errors.New("router not registered")
+		return ErrRouterNotRegistered
 	}
 
 	// get the connection record for the ID to fetch DID information

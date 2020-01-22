@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -43,6 +44,7 @@ type provider interface {
 type Client struct {
 	service.Event
 	didexchangeSvc           protocolService
+	routeSvc                 route.ProtocolService
 	kms                      legacykms.KeyManager
 	inboundTransportEndpoint string
 	connectionStore          *connection.Recorder
@@ -76,6 +78,16 @@ func New(ctx provider) (*Client, error) {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
 
+	s, err := ctx.Service(route.Coordination)
+	if err != nil {
+		return nil, err
+	}
+
+	routeSvc, ok := s.(route.ProtocolService)
+	if !ok {
+		return nil, errors.New("cast service to Route Service failed")
+	}
+
 	connectionStore, err := connection.NewRecorder(ctx)
 	if err != nil {
 		return nil, err
@@ -84,6 +96,7 @@ func New(ctx provider) (*Client, error) {
 	return &Client{
 		Event:                    didexchangeSvc,
 		didexchangeSvc:           didexchangeSvc,
+		routeSvc:                 routeSvc,
 		kms:                      ctx.KMS(),
 		inboundTransportEndpoint: ctx.InboundTransportEndpoint(),
 		connectionStore:          connectionStore,
@@ -101,12 +114,23 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
 	}
 
+	// get the route configs
+	serviceEndpoint, routingKeys, err := route.GetRouterConfig(c.routeSvc, c.inboundTransportEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("create invitation - fetch router config : %w", err)
+	}
+
 	invitation := &didexchange.Invitation{
 		ID:              uuid.New().String(),
 		Label:           label,
 		RecipientKeys:   []string{sigPubKey},
-		ServiceEndpoint: c.inboundTransportEndpoint,
+		ServiceEndpoint: serviceEndpoint,
 		Type:            didexchange.InvitationMsgType,
+		RoutingKeys:     routingKeys,
+	}
+
+	if err = route.AddKeyToRouter(c.routeSvc, sigPubKey); err != nil {
+		return nil, fmt.Errorf("create invitation - add key to the router : %w", err)
 	}
 
 	err = c.connectionStore.SaveInvitation(invitation.ID, invitation)

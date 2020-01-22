@@ -11,7 +11,9 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -135,7 +137,11 @@ func mockContext() provider {
 		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 		TransientStorageProviderValue: transientStoreProvider,
 		StorageProviderValue:          storeProvider,
-		ServiceValue:                  svc}
+		ServiceMap: map[string]interface{}{
+			didexchange.DIDExchange: svc,
+			route.Coordination:      &mockroute.MockRouteSvc{},
+		},
+	}
 
 	return context
 }
