@@ -162,4 +162,5 @@ func FeatureContext(s *godog.Suite) {
 
 	// Register messaging tests
 	messaging.NewMessagingSDKSteps(bddContext).RegisterSteps(s)
+	messaging.NewMessagingControllerSteps(bddContext).RegisterSteps(s)
 }
