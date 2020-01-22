@@ -153,7 +153,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 			},
 		})
 	require.NoError(t, err)
-	msg, err := service.NewDIDCommMsgMap(payloadBytes)
+	msg, err := service.ParseDIDCommMsgMap(payloadBytes)
 	require.NoError(t, err)
 	_, err = s.HandleInbound(msg, newDidDoc.ID, "")
 	require.NoError(t, err)
@@ -174,7 +174,7 @@ func TestService_Handle_Inviter(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	didMsg, err := service.NewDIDCommMsgMap(payloadBytes)
+	didMsg, err := service.ParseDIDCommMsgMap(payloadBytes)
 	require.NoError(t, err)
 
 	_, err = s.HandleInbound(didMsg, newDidDoc.ID, "theirDID")
@@ -283,7 +283,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	payloadBytes, err := json.Marshal(invitation)
 	require.NoError(t, err)
 
-	didMsg, err := service.NewDIDCommMsgMap(payloadBytes)
+	didMsg, err := service.ParseDIDCommMsgMap(payloadBytes)
 	require.NoError(t, err)
 
 	_, err = s.HandleInbound(didMsg, "", "")
@@ -325,7 +325,7 @@ func TestService_Handle_Invitee(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	didMsg, err = service.NewDIDCommMsgMap(payloadBytes)
+	didMsg, err = service.ParseDIDCommMsgMap(payloadBytes)
 	require.NoError(t, err)
 
 	_, err = s.HandleInbound(didMsg, "", "")
@@ -381,7 +381,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		didMsg, err := service.NewDIDCommMsgMap(response)
+		didMsg, err := service.ParseDIDCommMsgMap(response)
 		require.NoError(t, err)
 
 		_, err = s.HandleInbound(didMsg, "", "")
@@ -406,7 +406,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		didMsg, err := service.NewDIDCommMsgMap(requestBytes)
+		didMsg, err := service.ParseDIDCommMsgMap(requestBytes)
 		require.NoError(t, err)
 
 		_, err = svc.HandleInbound(didMsg, "", "")
@@ -477,7 +477,7 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 
 		// send invite
-		didMsg, err := service.NewDIDCommMsgMap(requestBytes)
+		didMsg, err := service.ParseDIDCommMsgMap(requestBytes)
 		require.NoError(t, err)
 
 		_, err = svc.HandleInbound(didMsg, "", "")
@@ -497,7 +497,7 @@ func TestService_Accept(t *testing.T) {
 
 func TestService_threadID(t *testing.T) {
 	t.Run("returns new thid for ", func(t *testing.T) {
-		didMsg, err := service.NewDIDCommMsgMap(toBytes(t, &service.Header{Type: InvitationMsgType}))
+		didMsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{Type: InvitationMsgType}))
 		require.NoError(t, err)
 		thid, err := threadID(didMsg)
 		require.NoError(t, err)
@@ -505,7 +505,7 @@ func TestService_threadID(t *testing.T) {
 	})
 
 	t.Run("returns unmarshall error", func(t *testing.T) {
-		didMsg, err := service.NewDIDCommMsgMap(toBytes(t, &service.Header{Type: RequestMsgType}))
+		didMsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{Type: RequestMsgType}))
 		require.NoError(t, err)
 		_, err = threadID(didMsg)
 		require.Error(t, err)
@@ -674,7 +674,7 @@ func TestEventsSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	// send invite
-	didMsg, err := service.NewDIDCommMsgMap(invite)
+	didMsg, err := service.ParseDIDCommMsgMap(invite)
 	require.NoError(t, err)
 
 	_, err = svc.HandleInbound(didMsg, "", "")
@@ -715,7 +715,7 @@ func TestContinueWithPublicDID(t *testing.T) {
 	require.NoError(t, err)
 
 	// send invite
-	didMsg, err := service.NewDIDCommMsgMap(invite)
+	didMsg, err := service.ParseDIDCommMsgMap(invite)
 	require.NoError(t, err)
 
 	_, err = svc.HandleInbound(didMsg, "", "")
@@ -823,7 +823,7 @@ func TestEventProcessCallback(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	didMsg, err := service.NewDIDCommMsgMap(toBytes(t, &service.Header{Type: AckMsgType}))
+	didMsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{Type: AckMsgType}))
 	require.NoError(t, err)
 
 	msg := &message{
@@ -858,7 +858,7 @@ func TestServiceErrors(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	msg, err := service.NewDIDCommMsgMap(requestBytes)
+	msg, err := service.ParseDIDCommMsgMap(requestBytes)
 	require.NoError(t, err)
 
 	svc, err := New(&protocol.MockProvider{
@@ -955,7 +955,7 @@ func TestConnectionRecord(t *testing.T) {
 		Type: "invalid-type",
 	})
 	require.NoError(t, err)
-	msg, err := service.NewDIDCommMsgMap(requestBytes)
+	msg, err := service.ParseDIDCommMsgMap(requestBytes)
 	require.NoError(t, err)
 
 	_, err = svc.connectionRecord(msg)
@@ -979,7 +979,7 @@ func TestInvitationRecord(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	msg, err := service.NewDIDCommMsgMap(invitationBytes)
+	msg, err := service.ParseDIDCommMsgMap(invitationBytes)
 	require.NoError(t, err)
 
 	conn, err := svc.invitationMsgRecord(msg)
@@ -991,7 +991,7 @@ func TestInvitationRecord(t *testing.T) {
 		Type: "invalid-type",
 	})
 	require.NoError(t, err)
-	msg, err = service.NewDIDCommMsgMap(invitationBytes)
+	msg, err = service.ParseDIDCommMsgMap(invitationBytes)
 	require.NoError(t, err)
 
 	_, err = svc.invitationMsgRecord(msg)
@@ -1017,7 +1017,7 @@ func TestInvitationRecord(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	msg, err = service.NewDIDCommMsgMap(invitationBytes)
+	msg, err = service.ParseDIDCommMsgMap(invitationBytes)
 	require.NoError(t, err)
 
 	_, err = svc.invitationMsgRecord(msg)
@@ -1234,7 +1234,7 @@ func TestAcceptInvitation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		didMsg, err := service.NewDIDCommMsgMap(invitationBytes)
+		didMsg, err := service.ParseDIDCommMsgMap(invitationBytes)
 		require.NoError(t, err)
 
 		_, err = svc.HandleInbound(didMsg, "", "")
@@ -1366,7 +1366,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		didMsg, err := service.NewDIDCommMsgMap(invitationBytes)
+		didMsg, err := service.ParseDIDCommMsgMap(invitationBytes)
 		require.NoError(t, err)
 
 		_, err = svc.HandleInbound(didMsg, "", "")
@@ -1595,7 +1595,7 @@ func generateRequestMsgPayload(t *testing.T, prov provider, id, invitationID str
 	})
 	require.NoError(t, err)
 
-	didMsg, err := service.NewDIDCommMsgMap(requestBytes)
+	didMsg, err := service.ParseDIDCommMsgMap(requestBytes)
 	require.NoError(t, err)
 
 	return didMsg

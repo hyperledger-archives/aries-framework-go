@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	clientIntroduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/introduce"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
-	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	protocolIntroduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/introduce"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -82,29 +80,19 @@ func provider(agent string, transport map[string]chan transportMsg) (Provider, c
 		Return(fakeStore(ctrl), nil).
 		AnyTimes()
 
-	// creates dispatcher
-	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-	dispatcher.EXPECT().
-		SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
+	// creates messenger
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
 		Do(func(msg interface{}, myDID string, theirDID string) error {
-			// converts message to bytes
-			payload, err := json.Marshal(msg)
-			if err != nil {
-				return err
-			}
-
-			// creates DIDCommMsgMap
-			didMsg, err := service.NewDIDCommMsgMap(payload)
-			if err != nil {
-				return err
-			}
-
 			// sends a message
-			transport[theirDID] <- transportMsg{msg: didMsg, myDID: myDID, theirDID: theirDID}
+			transport[theirDID] <- transportMsg{
+				msg:      msg.(service.DIDCommMsgMap),
+				myDID:    myDID,
+				theirDID: theirDID,
+			}
 
 			return nil
-		}).
-		AnyTimes()
+		}).AnyTimes()
 
 	// creates didexchange service
 	didexchangeService := serviceMocks.NewMockDIDComm(ctrl)
@@ -118,8 +106,8 @@ func provider(agent string, transport map[string]chan transportMsg) (Provider, c
 		StorageProvider().
 		Return(storageProvider)
 	introduceProvider.EXPECT().
-		OutboundDispatcher().
-		Return(dispatcher)
+		Messenger().
+		Return(messenger)
 	introduceProvider.EXPECT().
 		Service(didexchange.DIDExchange).
 		Return(didexchangeService, nil)

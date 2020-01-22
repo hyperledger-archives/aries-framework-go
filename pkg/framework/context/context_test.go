@@ -12,11 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
+	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/internal/mock/crypto"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
@@ -30,6 +32,9 @@ import (
 )
 
 func TestNewProvider(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	t.Run("test new with default", func(t *testing.T) {
 		prov, err := New()
 		require.NoError(t, err)
@@ -66,6 +71,9 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test inbound message handlers/dispatchers", func(t *testing.T) {
+		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
+		messengerHandler.EXPECT().HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
 		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
 			ProtocolName: "mockProtocolSvc",
 			AcceptFunc: func(msgType string) bool {
@@ -89,7 +97,7 @@ func TestNewProvider(t *testing.T) {
 
 				return uuid.New().String(), nil
 			},
-		}), WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()))
+		}), WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()), WithMessengerHandler(messengerHandler))
 		require.NoError(t, err)
 		require.NotEmpty(t, ctx)
 
@@ -132,14 +140,49 @@ func TestNewProvider(t *testing.T) {
 		require.Contains(t, err.Error(), "error handling the message")
 	})
 
+	t.Run("Messenger handle inbound error", func(t *testing.T) {
+		errTest := errors.New("test")
+
+		messengerHandler := serviceMocks.NewMockMessengerHandler(ctrl)
+		messengerHandler.EXPECT().
+			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(errTest).
+			Times(1)
+
+		ctx, err := New(
+			WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{}),
+			WithMessageServiceProvider(msghandler.NewMockMsgServiceProvider()),
+			WithMessengerHandler(messengerHandler),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, ctx)
+		require.NotEmpty(t, ctx.Messenger())
+
+		inboundHandler := ctx.InboundMessageHandler()
+
+		// valid json and message type
+		err = inboundHandler([]byte(`
+		{
+			"@frameworkID": "5678876542345",
+			"@type": "valid-message-type"
+		}`), "", "")
+
+		require.EqualError(t, errors.Unwrap(err), errTest.Error())
+	})
+
 	t.Run("test new with message service", func(t *testing.T) {
 		const sampleMsgType = "generic-msg-type-2.0"
 
 		handled := make(chan bool, 1)
 
-		mockMsgHandler := msghandler.NewMockMsgServiceProvider()
+		messenger := serviceMocks.NewMockMessengerHandler(ctrl)
+		messenger.EXPECT().
+			HandleInbound(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil).
+			AnyTimes()
 
-		prov, err := New(WithMessageServiceProvider(mockMsgHandler))
+		mockMsgHandler := msghandler.NewMockMsgServiceProvider()
+		prov, err := New(WithMessageServiceProvider(mockMsgHandler), WithMessengerHandler(messenger))
 		require.NoError(t, err)
 
 		err = mockMsgHandler.Register(&generic.MockMessageSvc{

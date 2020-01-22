@@ -34,6 +34,7 @@ type Provider struct {
 	packers                  []packer.Packer
 	inboundTransportEndpoint string
 	outboundDispatcher       dispatcher.Outbound
+	messenger                service.MessengerHandler
 	outboundTransports       []transport.OutboundTransport
 	vdriRegistry             vdriapi.Registry
 	transportReturnRoute     string
@@ -90,6 +91,11 @@ func (p *Provider) Packager() commontransport.Packager {
 	return p.packager
 }
 
+// Messenger returns a messenger.
+func (p *Provider) Messenger() service.Messenger {
+	return p.messenger
+}
+
 // Packers returns a list of enabled packers.
 func (p *Provider) Packers() []packer.Packer {
 	return p.packers
@@ -110,10 +116,20 @@ func (p *Provider) InboundTransportEndpoint() string {
 	return p.inboundTransportEndpoint
 }
 
+func (p *Provider) tryToHandle(svc service.InboundHandler, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+	if err := p.messenger.HandleInbound(msg, myDID, theirDID); err != nil {
+		return fmt.Errorf("messenger HandleInbound: %w", err)
+	}
+
+	_, err := svc.HandleInbound(msg, myDID, theirDID)
+
+	return err
+}
+
 // InboundMessageHandler return an inbound message handler.
 func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 	return func(message []byte, myDID, theirDID string) error {
-		msg, err := service.NewDIDCommMsgMap(message)
+		msg, err := service.ParseDIDCommMsgMap(message)
 		if err != nil {
 			return err
 		}
@@ -121,8 +137,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		// find the service which accepts the message type
 		for _, svc := range p.services {
 			if svc.Accept(msg.Type()) {
-				_, err = svc.HandleInbound(msg, myDID, theirDID)
-				return err
+				return p.tryToHandle(svc, msg, myDID, theirDID)
 			}
 		}
 
@@ -139,8 +154,7 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 			}
 
 			if svc.Accept(msg.Type(), h.Purpose) {
-				_, err = svc.HandleInbound(msg, myDID, theirDID)
-				return err
+				return p.tryToHandle(svc, msg, myDID, theirDID)
 			}
 		}
 
@@ -188,6 +202,14 @@ func WithOutboundTransports(transports ...transport.OutboundTransport) ProviderO
 func WithOutboundDispatcher(outboundDispatcher dispatcher.Outbound) ProviderOption {
 	return func(opts *Provider) error {
 		opts.outboundDispatcher = outboundDispatcher
+		return nil
+	}
+}
+
+// WithMessengerHandler injects the messenger into the context.
+func WithMessengerHandler(mh service.MessengerHandler) ProviderOption {
+	return func(opts *Provider) error {
+		opts.messenger = mh
 		return nil
 	}
 }

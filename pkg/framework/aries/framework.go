@@ -9,9 +9,12 @@ package aries
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
+
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
@@ -41,6 +44,7 @@ type Aries struct {
 	services               []dispatcher.ProtocolService
 	msgSvcProvider         api.MessageServiceProvider
 	outboundDispatcher     dispatcher.Outbound
+	messenger              service.MessengerHandler
 	outboundTransports     []transport.OutboundTransport
 	inboundTransport       transport.InboundTransport
 	kmsCreator             api.KMSCreator
@@ -115,6 +119,11 @@ func initializeServices(frameworkOpts *Aries) (*Aries, error) {
 		return nil, err
 	}
 
+	// Create messenger handler
+	if err := createMessengerHandler(frameworkOpts); err != nil {
+		return nil, err
+	}
+
 	// Load services
 	if err := loadServices(frameworkOpts); err != nil {
 		return nil, err
@@ -126,6 +135,14 @@ func initializeServices(frameworkOpts *Aries) (*Aries, error) {
 	}
 
 	return frameworkOpts, nil
+}
+
+// WithMessengerHandler injects a messenger handler to the Aries framework
+func WithMessengerHandler(mh service.MessengerHandler) Option {
+	return func(opts *Aries) error {
+		opts.messenger = mh
+		return nil
+	}
 }
 
 // WithOutboundTransports injects an outbound transports to the Aries framework.
@@ -240,6 +257,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 
 	return context.New(
 		context.WithOutboundDispatcher(a.outboundDispatcher),
+		context.WithMessengerHandler(a.messenger),
 		context.WithOutboundTransports(a.outboundTransports...),
 		context.WithProtocolServices(a.services...),
 		context.WithKMS(a.kms),
@@ -258,8 +276,8 @@ func (a *Aries) Context() (*context.Provider, error) {
 
 // Messenger returns messenger for sending messages through this agent framework
 // TODO should use dedicated messenger interface instead of Outbound dispatcher [Issue #1058]
-func (a *Aries) Messenger() dispatcher.Outbound {
-	return a.outboundDispatcher
+func (a *Aries) Messenger() service.Messenger {
+	return a.messenger
 }
 
 // Close frees resources being maintained by the framework.
@@ -357,6 +375,23 @@ func createVDRI(frameworkOpts *Aries) error {
 	return nil
 }
 
+func createMessengerHandler(frameworkOpts *Aries) error {
+	if frameworkOpts.messenger != nil {
+		return nil
+	}
+
+	ctx, err := context.New(
+		context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
+	)
+	if err != nil {
+		return fmt.Errorf("context creation failed: %w", err)
+	}
+
+	frameworkOpts.messenger = messenger.NewMessenger(ctx)
+
+	return nil
+}
+
 func createOutboundDispatcher(frameworkOpts *Aries) error {
 	ctx, err := context.New(
 		context.WithKMS(frameworkOpts.kms),
@@ -383,6 +418,7 @@ func startTransports(frameworkOpts *Aries) error {
 		context.WithProtocolServices(frameworkOpts.services...),
 		context.WithAriesFrameworkID(frameworkOpts.id),
 		context.WithMessageServiceProvider(frameworkOpts.msgSvcProvider),
+		context.WithMessengerHandler(frameworkOpts.messenger),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
@@ -413,6 +449,7 @@ func loadServices(frameworkOpts *Aries) error {
 
 	ctx, err := context.New(
 		context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
+		context.WithMessengerHandler(frameworkOpts.messenger),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithTransientStorageProvider(frameworkOpts.transientStoreProvider),
 		context.WithKMS(frameworkOpts.kms),

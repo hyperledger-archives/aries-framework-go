@@ -95,7 +95,7 @@ func TestClient_SendProposal(t *testing.T) {
 
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
-	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+	introduceProvider.EXPECT().Messenger().Return(nil)
 	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(introduceProvider)
@@ -140,7 +140,7 @@ func TestClient_SendProposalWithInvitation(t *testing.T) {
 
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
-	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+	introduceProvider.EXPECT().Messenger().Return(nil)
 	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(introduceProvider)
@@ -187,7 +187,7 @@ func TestClient_HandleRequest(t *testing.T) {
 
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
-	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+	introduceProvider.EXPECT().Messenger().Return(nil)
 	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(introduceProvider)
@@ -211,7 +211,7 @@ func TestClient_HandleRequest(t *testing.T) {
 
 	client.newUUID = func() string { return UUID }
 
-	msg, err := service.NewDIDCommMsgMap(toBytes(t, &introduce.Request{
+	msg, err := service.ParseDIDCommMsgMap(toBytes(t, &introduce.Request{
 		Type: introduce.RequestMsgType,
 		ID:   UUID,
 	}))
@@ -254,7 +254,7 @@ func TestClient_HandleRequestWithInvitation(t *testing.T) {
 	client.newUUID = func() string { return UUID }
 
 	require.NoError(t, err)
-	msg, err := service.NewDIDCommMsgMap(toBytes(t, &introduce.Request{
+	msg, err := service.ParseDIDCommMsgMap(toBytes(t, &introduce.Request{
 		Type: introduce.RequestMsgType,
 		ID:   UUID,
 	}))
@@ -282,7 +282,7 @@ func TestClient_InvitationEnvelope(t *testing.T) {
 
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
-	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+	introduceProvider.EXPECT().Messenger().Return(nil)
 	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(introduceProvider)
@@ -347,7 +347,7 @@ func TestClient_SendRequest(t *testing.T) {
 
 	introduceProvider := introduceMocks.NewMockProvider(ctrl)
 	introduceProvider.EXPECT().StorageProvider().Return(storageProvider)
-	introduceProvider.EXPECT().OutboundDispatcher().Return(nil)
+	introduceProvider.EXPECT().Messenger().Return(nil)
 	introduceProvider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(introduceProvider)

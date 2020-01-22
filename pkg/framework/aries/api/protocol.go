@@ -10,6 +10,7 @@ import (
 	"errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -23,6 +24,7 @@ var ErrSvcNotFound = errors.New("service not found")
 // Provider interface for protocol ctx
 type Provider interface {
 	OutboundDispatcher() dispatcher.Outbound
+	Messenger() service.Messenger
 	Service(id string) (interface{}, error)
 	StorageProvider() storage.Provider
 	KMS() legacykms.KeyManager

@@ -6,7 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	dispatcher "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	didexchange "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	introduce "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	storage "github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -36,18 +36,18 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 	return m.recorder
 }
 
-// OutboundDispatcher mocks base method
-func (m *MockProvider) OutboundDispatcher() dispatcher.Outbound {
+// Messenger mocks base method
+func (m *MockProvider) Messenger() service.Messenger {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OutboundDispatcher")
-	ret0, _ := ret[0].(dispatcher.Outbound)
+	ret := m.ctrl.Call(m, "Messenger")
+	ret0, _ := ret[0].(service.Messenger)
 	return ret0
 }
 
-// OutboundDispatcher indicates an expected call of OutboundDispatcher
-func (mr *MockProviderMockRecorder) OutboundDispatcher() *gomock.Call {
+// Messenger indicates an expected call of Messenger
+func (mr *MockProviderMockRecorder) Messenger() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OutboundDispatcher", reflect.TypeOf((*MockProvider)(nil).OutboundDispatcher))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Messenger", reflect.TypeOf((*MockProvider)(nil).Messenger))
 }
 
 // Service mocks base method

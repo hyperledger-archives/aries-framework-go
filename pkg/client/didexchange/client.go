@@ -168,7 +168,7 @@ func (c *Client) HandleInvitation(invitation *Invitation) (string, error) {
 		return "", fmt.Errorf("failed marshal invitation: %w", err)
 	}
 
-	msg, err := service.NewDIDCommMsgMap(payload)
+	msg, err := service.ParseDIDCommMsgMap(payload)
 	if err != nil {
 		return "", fmt.Errorf("failed to create DIDCommMsg: %w", err)
 	}

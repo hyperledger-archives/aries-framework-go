@@ -7,12 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package service
 
 import (
+	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 )
 
-func TestNewDIDCommMsg(t *testing.T) {
+func TestParseDIDCommMsgMap(t *testing.T) {
 	tests := []struct {
 		name    string
 		payload []byte
@@ -39,13 +43,129 @@ func TestNewDIDCommMsg(t *testing.T) {
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.name, func(t *testing.T) {
-			val, err := NewDIDCommMsgMap(tc.payload)
+			val, err := ParseDIDCommMsgMap(tc.payload)
 			if err != nil {
 				require.Contains(t, err.Error(), tc.err)
 				require.Nil(t, val)
 			} else {
 				require.NotNil(t, val)
 			}
+		})
+	}
+}
+
+func TestNewDIDCommMsgMap(t *testing.T) {
+	tests := []struct {
+		name     string
+		payload  interface{}
+		expected DIDCommMsgMap
+		err      string
+	}{
+		{
+			name: "Thread decorator",
+			payload: struct {
+				Time    time.Time
+				Threads []decorator.Thread
+				Thread  decorator.Thread
+			}{
+				Threads: []decorator.Thread{{
+					ID:             "test",
+					ReceivedOrders: map[string]int{"order": 1},
+				}},
+				Thread: decorator.Thread{
+					ID:             "test",
+					ReceivedOrders: map[string]int{"order": 1},
+				},
+			},
+			expected: DIDCommMsgMap{
+				"Thread": map[string]interface{}{
+					"received_orders": map[string]interface{}{"order": 1},
+					"thid":            "test",
+				},
+				"Threads": []interface{}{map[string]interface{}{
+					"received_orders": map[string]interface{}{"order": 1},
+					"thid":            "test",
+				}},
+				"Time": time.Time{},
+			},
+		},
+		{
+			name: "Ignore",
+			payload: struct {
+				Ignore string `json:"-"`
+			}{
+				Ignore: "Ignore",
+			},
+			expected: DIDCommMsgMap{},
+		},
+		{
+			name: "Build-in",
+			payload: struct {
+				decorator.Thread
+			}{
+				Thread: decorator.Thread{
+					ID:             "test",
+					ReceivedOrders: map[string]int{"order": 1},
+				},
+			},
+			expected: DIDCommMsgMap{
+				"received_orders": map[string]interface{}{"order": 1},
+				"thid":            "test",
+			},
+		},
+		{
+			name: "Build-in with pointer",
+			payload: struct {
+				*decorator.Thread
+			}{
+				Thread: &decorator.Thread{
+					ID:             "test",
+					ReceivedOrders: map[string]int{"order": 1},
+				},
+			},
+			expected: DIDCommMsgMap{
+				"received_orders": map[string]interface{}{"order": 1},
+				"thid":            "test",
+			},
+		},
+		{
+			name: "Build-in with JSON tag",
+			payload: struct {
+				*decorator.Thread `json:"~thread"`
+			}{
+				Thread: &decorator.Thread{
+					ID:             "test",
+					ReceivedOrders: map[string]int{"order": 1},
+				},
+			},
+			expected: DIDCommMsgMap{
+				"~thread": map[string]interface{}{
+					"received_orders": map[string]interface{}{"order": 1},
+					"thid":            "test",
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		tc := test
+		t.Run(tc.name, func(t *testing.T) {
+			val := NewDIDCommMsgMap(tc.payload)
+			require.Equal(t, tc.expected, val)
+
+			eRes, err := json.Marshal(tc.payload)
+			require.NoError(t, err)
+
+			vRes, err := json.Marshal(val)
+			require.NoError(t, err)
+
+			eResMap := make(map[string]interface{})
+			require.NoError(t, json.Unmarshal(eRes, &eResMap))
+
+			vResMap := make(map[string]interface{})
+			require.NoError(t, json.Unmarshal(vRes, &vResMap))
+
+			require.Equal(t, eResMap, vResMap)
 		})
 	}
 }

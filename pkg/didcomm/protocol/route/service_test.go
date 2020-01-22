@@ -798,7 +798,7 @@ func generateRequestMsgPayload(t *testing.T, id string) service.DIDCommMsg {
 	})
 	require.NoError(t, err)
 
-	didMsg, err := service.NewDIDCommMsgMap(requestBytes)
+	didMsg, err := service.ParseDIDCommMsgMap(requestBytes)
 	require.NoError(t, err)
 
 	return didMsg
@@ -811,7 +811,7 @@ func generateGrantMsgPayload(t *testing.T, id string) service.DIDCommMsg {
 	})
 	require.NoError(t, err)
 
-	didMsg, err := service.NewDIDCommMsgMap(grantBytes)
+	didMsg, err := service.ParseDIDCommMsgMap(grantBytes)
 	require.NoError(t, err)
 
 	return didMsg
@@ -825,7 +825,7 @@ func generateKeyUpdateListMsgPayload(t *testing.T, id string, updates []Update) 
 	})
 	require.NoError(t, err)
 
-	didMsg, err := service.NewDIDCommMsgMap(requestBytes)
+	didMsg, err := service.ParseDIDCommMsgMap(requestBytes)
 	require.NoError(t, err)
 
 	return didMsg
@@ -839,7 +839,7 @@ func generateKeylistUpdateResponseMsgPayload(t *testing.T, id string, updates []
 	})
 	require.NoError(t, err)
 
-	didMsg, err := service.NewDIDCommMsgMap(respBytes)
+	didMsg, err := service.ParseDIDCommMsgMap(respBytes)
 	require.NoError(t, err)
 
 	return didMsg
@@ -854,7 +854,7 @@ func generateForwardMsgPayload(t *testing.T, id, to string, msg *model.Envelope)
 	})
 	require.NoError(t, err)
 
-	didMsg, err := service.NewDIDCommMsgMap(requestBytes)
+	didMsg, err := service.ParseDIDCommMsgMap(requestBytes)
 	require.NoError(t, err)
 
 	return didMsg

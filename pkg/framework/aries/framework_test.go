@@ -18,6 +18,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -28,6 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/internal/mock/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
@@ -110,7 +112,6 @@ func TestFramework(t *testing.T) {
 					}, nil
 				}))
 		require.NoError(t, err)
-		require.NotNil(t, aries.Messenger())
 
 		// context
 		ctx, err := aries.Context()
@@ -417,6 +418,16 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "data1", r)
 		require.NoError(t, aries.Close())
+	})
+
+	t.Run("test new with messenger handler", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		messengerHandler := mocks.NewMockMessengerHandler(ctrl)
+		aries, err := New(WithMessengerHandler(messengerHandler))
+		require.NoError(t, err)
+		require.Equal(t, messengerHandler, aries.Messenger())
 	})
 
 	t.Run("test new with transport return route", func(t *testing.T) {

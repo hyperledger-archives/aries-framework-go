@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+
 	"github.com/DATA-DOG/godog"
 	"github.com/google/uuid"
 
@@ -90,16 +92,16 @@ func (d *SDKSteps) sendMessage(fromAgentID, msg, msgType, purpose, toAgentID str
 		}
 	}
 
-	message := &genericInviteMsg{
+	msgMap := service.NewDIDCommMsgMap(&genericInviteMsg{
 		ID:      uuid.New().String(),
 		Type:    msgType,
 		Purpose: strings.Split(purpose, ","),
 		Message: msg,
 		From:    fromAgentID,
-	}
+	})
 
 	// send message
-	err = messenger.SendToDID(message, target.MyDID, target.TheirDID)
+	err = messenger.Send(msgMap, target.MyDID, target.TheirDID)
 	if err != nil {
 		return fmt.Errorf("failed to send message to agent[%s] : %w", toAgentID, err)
 	}
