@@ -91,6 +91,8 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 		a.createImplicitInvitation)
 	s.Step(`^"([^"]*)" initiates connection through controller with "([^"]*)" using public DID$`,
 		a.createImplicitInvitationWithDID)
+	s.Step(`^"([^"]*)" has established connection with "([^"]*)" through did exchange using controller$`,
+		a.performDIDExchange)
 }
 
 func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, error) {
@@ -533,6 +535,45 @@ func (a *ControllerSteps) waitForPublicDID(id string) error {
 	return fmt.Errorf("unable to resolve public DID [%s]", id)
 }
 
+func (a *ControllerSteps) performDIDExchange(inviter, invitee string) error {
+	err := a.createInvitation(inviter, inviter)
+	if err != nil {
+		return err
+	}
+
+	err = a.receiveInvitation(invitee, inviter)
+	if err != nil {
+		return err
+	}
+
+	err = a.approveInvitation(invitee)
+	if err != nil {
+		return err
+	}
+
+	err = a.approveRequest(inviter)
+	if err != nil {
+		return err
+	}
+
+	const expectedState = "completed"
+
+	agentIDs := []string{inviter, invitee}
+	for _, agentID := range agentIDs {
+		err = a.waitForPostEvent(agentID, expectedState)
+		if err != nil {
+			return err
+		}
+
+		err = a.validateConnection(agentID, expectedState)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func sendHTTP(method, destination string, message []byte, result interface{}) error {
 	// create request
 	req, err := http.NewRequest(method, destination, bytes.NewBuffer(message))
@@ -556,7 +597,7 @@ func sendHTTP(method, destination string, message []byte, result interface{}) er
 		return fmt.Errorf("unable to read response from '%s', cause :%s", destination, err)
 	}
 
-	logger.Debugf(" Got response from '%s' [method: %s], response payload: %s", destination, method, string(data))
+	logger.Debugf("Got response from '%s' [method: %s], response payload: %s", destination, method, string(data))
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to get successful response from '%s', unexpected status code [%d], "+
