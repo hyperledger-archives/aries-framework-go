@@ -84,13 +84,15 @@ func (m *msgService) pushMessage(msg service.DIDCommMsg) {
 }
 
 func (m *msgService) popMessage() (*genericInviteMsg, error) {
+	const timeout = 5 * time.Second
+
 	select {
 	case msg := <-m.msgQueue:
 		inviteMsg := genericInviteMsg{}
 		err := msg.Decode(&inviteMsg)
 
 		return &inviteMsg, err
-	case <-time.After(5 * time.Second):
+	case <-time.After(timeout):
 		return nil, fmt.Errorf(errTimeoutWaitingForMsg)
 	}
 }

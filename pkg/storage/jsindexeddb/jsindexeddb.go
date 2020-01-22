@@ -181,6 +181,8 @@ func getResult(req js.Value) (*js.Value, error) {
 	onsuccess := make(chan js.Value)
 	onerror := make(chan js.Value)
 
+	const timeout = 3
+
 	req.Set("onsuccess", js.FuncOf(func(this js.Value, inputs []js.Value) interface{} {
 		onsuccess <- this.Get("result")
 		return nil
@@ -195,7 +197,7 @@ func getResult(req js.Value) (*js.Value, error) {
 	case value := <-onerror:
 		return nil, fmt.Errorf("%s %s", value.Get("name").String(),
 			value.Get("message").String())
-	case <-time.After(3 * time.Second):
+	case <-time.After(timeout * time.Second):
 		return nil, errors.New("timeout waiting for eve")
 	}
 }

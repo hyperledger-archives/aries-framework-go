@@ -144,6 +144,8 @@ func (a *SDKSteps) createIntroduceClientWithInvitation(agentID string) error {
 }
 
 func (a *SDKSteps) createClient(agentID string, inv *didexchange.Invitation) error {
+	const stateMsgChanSize = 10
+
 	client, err := introduce.New(a.bddContext.AgentCtx[agentID], inv.Invitation)
 	if err != nil {
 		return err
@@ -161,7 +163,7 @@ func (a *SDKSteps) createClient(agentID string, inv *didexchange.Invitation) err
 
 	a.clients[agentID] = client
 	a.actions[agentID] = make(chan service.DIDCommAction, 1)
-	a.events[agentID] = make(chan service.StateMsg, 10)
+	a.events[agentID] = make(chan service.StateMsg, stateMsgChanSize)
 
 	if err := client.RegisterMsgEvent(a.events[agentID]); err != nil {
 		return err

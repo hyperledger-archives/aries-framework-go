@@ -27,9 +27,11 @@ const (
 	connectionsPath   = "/connections"
 	checkTopicsPath   = "/checktopics"
 	genericInvitePath = "/generic-invite"
+	topicsSize        = 50
+	topicTimeout      = 100 * time.Millisecond
 )
 
-var topics = make(chan []byte, 50) //nolint:gochecknoglobals
+var topics = make(chan []byte, topicsSize) //nolint:gochecknoglobals
 
 func connections(w http.ResponseWriter, r *http.Request) {
 	msg, err := ioutil.ReadAll(r.Body)
@@ -56,7 +58,7 @@ func checkTopics(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			fmt.Fprintf(w, `{"error":"failed to pull topics, cause: %s"}`, err)
 		}
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(topicTimeout):
 		fmt.Fprintf(w, `{"error":"no topic found in queue"}`)
 	}
 }

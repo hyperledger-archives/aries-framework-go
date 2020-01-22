@@ -118,8 +118,13 @@ func (a *SDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
 }
 
 func (a *SDKSteps) create(agentID, inboundHost, inboundPort, scheme string, opts ...aries.Option) error {
+	const (
+		portAttempts  = 5
+		listenTimeout = 2 * time.Second
+	)
+
 	if inboundPort == "random" {
-		inboundPort = strconv.Itoa(mustGetRandomPort(5))
+		inboundPort = strconv.Itoa(mustGetRandomPort(portAttempts))
 	}
 
 	inboundAddr := fmt.Sprintf("%s:%s", inboundHost, inboundPort)
@@ -143,7 +148,7 @@ func (a *SDKSteps) create(agentID, inboundHost, inboundPort, scheme string, opts
 		return fmt.Errorf("failed to create new agent: %w", err)
 	}
 
-	if err := listenFor(fmt.Sprintf("%s:%s", inboundHost, inboundPort), 2*time.Second); err != nil {
+	if err := listenFor(fmt.Sprintf("%s:%s", inboundHost, inboundPort), listenTimeout); err != nil {
 		return err
 	}
 

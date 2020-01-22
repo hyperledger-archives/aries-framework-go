@@ -351,12 +351,14 @@ func (b *CredentialSchemaLoaderBuilder) Build() *CredentialSchemaLoader {
 func (sc *ExpirableSchemaCache) Put(k string, v []byte) {
 	expires := time.Now().Add(sc.expiration).Unix()
 
-	b := make([]byte, 8)
+	const numBytesTime = 8
+
+	b := make([]byte, numBytesTime)
 	binary.LittleEndian.PutUint64(b, uint64(expires))
 
-	ve := make([]byte, 8+len(v))
-	copy(ve[:8], b)
-	copy(ve[8:], v)
+	ve := make([]byte, numBytesTime+len(v))
+	copy(ve[:numBytesTime], b)
+	copy(ve[numBytesTime:], v)
 
 	sc.cache.Set([]byte(k), ve)
 }
@@ -369,14 +371,16 @@ func (sc *ExpirableSchemaCache) Get(k string) ([]byte, bool) {
 		return nil, false
 	}
 
-	expires := int64(binary.LittleEndian.Uint64(b[:8]))
+	const numBytesTime = 8
+
+	expires := int64(binary.LittleEndian.Uint64(b[:numBytesTime]))
 	if expires < time.Now().Unix() {
 		// cache expires
 		sc.cache.Del([]byte(k))
 		return nil, false
 	}
 
-	return b[8:], true
+	return b[numBytesTime:], true
 }
 
 // Evidence defines evidence of Verifiable Credential
