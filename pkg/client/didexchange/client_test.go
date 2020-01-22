@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+
 SPDX-License-Identifier: Apache-2.0
 */
 
@@ -20,8 +21,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
@@ -38,7 +41,11 @@ func TestNew(t *testing.T) {
 		_, err = New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  svc})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 	})
 
@@ -54,6 +61,19 @@ func TestNew(t *testing.T) {
 		require.Contains(t, err.Error(), "cast service to DIDExchange Service failed")
 	})
 
+	t.Run("test route service cast error", func(t *testing.T) {
+		_, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
+				route.Coordination:      &mocksvc.MockDIDExchangeSvc{},
+			},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cast service to Route Service failed")
+	})
+
 	t.Run("test error from open store", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{})
 		require.NoError(t, err)
@@ -63,7 +83,10 @@ func TestNew(t *testing.T) {
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				ErrOpenStoreHandle: fmt.Errorf("failed to open store")},
-			ServiceValue:         svc,
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
 			InboundEndpointValue: "endpoint"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open store")
@@ -78,7 +101,10 @@ func TestNew(t *testing.T) {
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: &mockstore.MockStoreProvider{
 				ErrOpenStoreHandle: fmt.Errorf("failed to open transient store")},
-			ServiceValue:         svc,
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
 			InboundEndpointValue: "endpoint"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open transient store")
@@ -94,9 +120,12 @@ func TestClient_CreateInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  svc,
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue:          "endpoint"})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
@@ -104,6 +133,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 		require.NotNil(t, inviteReq)
 		require.NotEmpty(t, inviteReq.Label)
 		require.NotEmpty(t, inviteReq.ID)
+		require.Nil(t, inviteReq.RoutingKeys)
 		require.Equal(t, "endpoint", inviteReq.ServiceEndpoint)
 	})
 
@@ -115,8 +145,11 @@ func TestClient_CreateInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  svc,
-			KMSValue:                      &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("createKeyErr")}})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue: &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("createKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
@@ -138,12 +171,97 @@ func TestClient_CreateInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewCustomMockStoreProvider(store),
-			ServiceValue:                  svc,
-			KMSValue:                      &mockkms.CloseableKMS{}})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue: &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to save invitation")
+	})
+
+	t.Run("test success with router registered", func(t *testing.T) {
+		endpoint := "http://router.example.com"
+		routingKeys := []string{"abc", "xyz"}
+
+		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{RoutingKeys: routingKeys, RouterEndpoint: endpoint},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint",
+		})
+		require.NoError(t, err)
+
+		inviteReq, err := c.CreateInvitation("agent")
+		require.NoError(t, err)
+		require.NotNil(t, inviteReq)
+		require.NotEmpty(t, inviteReq.Label)
+		require.NotEmpty(t, inviteReq.ID)
+		require.Equal(t, endpoint, inviteReq.ServiceEndpoint)
+		require.Equal(t, routingKeys, inviteReq.RoutingKeys)
+	})
+
+	t.Run("test create invitation with router config error", func(t *testing.T) {
+		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{ConfigErr: errors.New("router config error")},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint",
+		})
+		require.NoError(t, err)
+
+		inviteReq, err := c.CreateInvitation("agent")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create invitation - fetch router config")
+		require.Nil(t, inviteReq)
+	})
+
+	t.Run("test create invitation with adding key to router error", func(t *testing.T) {
+		endpoint := "http://router.example.com"
+		routingKeys := []string{"abc", "xyz"}
+
+		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination: &mockroute.MockRouteSvc{
+					RoutingKeys:    routingKeys,
+					RouterEndpoint: endpoint,
+					AddKeyErr:      errors.New("failed to add key to the router"),
+				},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint",
+		})
+		require.NoError(t, err)
+
+		inviteReq, err := c.CreateInvitation("agent")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create invitation - add key to the router")
+		require.Nil(t, inviteReq)
 	})
 }
 
@@ -156,9 +274,12 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  svc,
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue:          "endpoint"})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		const label = "agent"
@@ -170,6 +291,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		require.NotEmpty(t, inviteReq.ID)
 		require.Equal(t, id, inviteReq.DID)
 	})
+
 	t.Run("test error from save invitation", func(t *testing.T) {
 		store := &mockstore.MockStore{
 			Store:  make(map[string][]byte),
@@ -185,8 +307,11 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewCustomMockStoreProvider(store),
-			ServiceValue:                  svc,
-			KMSValue:                      &mockkms.CloseableKMS{}})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue: &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
 
 		_, err = c.CreateInvitationWithDID("agent", "did:sidetree:123")
@@ -209,9 +334,12 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  svc,
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue:          "endpoint"})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{ConnectionID: connID, ThreadID: threadID, State: "complete"}
@@ -238,9 +366,12 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewCustomMockStoreProvider(store),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  svc,
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue:          "endpoint"})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{ConnectionID: connID, ThreadID: threadID, State: "complete"}
@@ -260,9 +391,12 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  svc,
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue:          "endpoint"})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		result, err := c.GetConnection(connID)
@@ -284,7 +418,11 @@ func TestClient_GetConnection(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  svc})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		connRec := &connection.Record{ConnectionID: connID, ThreadID: threadID, State: "complete"}
 		connBytes, err := json.Marshal(connRec)
@@ -306,7 +444,11 @@ func TestClientGetConnectionAtState(t *testing.T) {
 	c, err := New(&mockprovider.Provider{
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          mockstore.NewMockStoreProvider(),
-		ServiceValue:                  svc})
+		ServiceMap: map[string]interface{}{
+			didexchange.DIDExchange: svc,
+			route.Coordination:      &mockroute.MockRouteSvc{},
+		},
+	})
 	require.NoError(t, err)
 
 	// not found
@@ -323,7 +465,11 @@ func TestClient_RemoveConnection(t *testing.T) {
 	c, err := New(&mockprovider.Provider{
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          mockstore.NewMockStoreProvider(),
-		ServiceValue:                  svc})
+		ServiceMap: map[string]interface{}{
+			didexchange.DIDExchange: svc,
+			route.Coordination:      &mockroute.MockRouteSvc{},
+		},
+	})
 	require.NoError(t, err)
 
 	err = c.RemoveConnection("sample-id")
@@ -335,9 +481,12 @@ func TestClient_HandleInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  &mocksvc.MockDIDExchangeSvc{},
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue:          "endpoint"})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
@@ -352,9 +501,13 @@ func TestClient_HandleInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue: &mocksvc.MockDIDExchangeSvc{HandleFunc: func(msg service.DIDCommMsg) (string, error) {
-				return "", fmt.Errorf("handle error")
-			}},
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{HandleFunc: func(msg service.DIDCommMsg) (string, error) {
+					return "", fmt.Errorf("handle error")
+				}},
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+
 			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
@@ -371,9 +524,12 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  &mocksvc.MockDIDExchangeSvc{},
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue:          "endpoint"})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connectionID, err := c.CreateImplicitInvitation("alice", "did:example:123")
@@ -385,8 +541,11 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue: &mocksvc.MockDIDExchangeSvc{
-				ImplicitInvitationErr: errors.New("implicit error")},
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
+					ImplicitInvitationErr: errors.New("implicit error")},
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
@@ -406,9 +565,12 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  &mocksvc.MockDIDExchangeSvc{},
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue:          "endpoint"})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connectionID, err := c.CreateImplicitInvitationWithDID(inviter, invitee)
@@ -420,8 +582,11 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue: &mocksvc.MockDIDExchangeSvc{
-				ImplicitInvitationErr: errors.New("implicit with DID error")},
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
+					ImplicitInvitationErr: errors.New("implicit with DID error")},
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
@@ -436,9 +601,12 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceValue:                  &mocksvc.MockDIDExchangeSvc{},
-			KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue:          "endpoint"})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			InboundEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connectionID, err := c.CreateImplicitInvitationWithDID(inviter, nil)
@@ -463,7 +631,11 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          storageProvider,
-			ServiceValue:                  svc})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 
 		const count = 10
@@ -495,7 +667,11 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          storageProvider,
-			ServiceValue:                  svc})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 
 		const count = 10
@@ -542,7 +718,11 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          storageProvider,
-			ServiceValue:                  svc})
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 
 		require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc", keyPrefix), []byte("----")))
@@ -565,8 +745,11 @@ func TestServiceEvents(t *testing.T) {
 	c, err := New(&mockprovider.Provider{
 		TransientStorageProviderValue: transientStore,
 		StorageProviderValue:          store,
-		ServiceValue:                  didExSvc,
-		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}})
+		ServiceMap: map[string]interface{}{
+			didexchange.DIDExchange: didExSvc,
+			route.Coordination:      &mockroute.MockRouteSvc{},
+		},
+		KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -648,8 +831,11 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	c, err := New(&mockprovider.Provider{
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          store,
-		ServiceValue:                  didExSvc,
-		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}},
+		ServiceMap: map[string]interface{}{
+			didexchange.DIDExchange: didExSvc,
+			route.Coordination:      &mockroute.MockRouteSvc{},
+		},
+		KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, c)
@@ -733,7 +919,10 @@ func TestAcceptInvitation(t *testing.T) {
 	c, err := New(&mockprovider.Provider{
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          store,
-		ServiceValue:                  didExSvc,
+		ServiceMap: map[string]interface{}{
+			didexchange.DIDExchange: didExSvc,
+			route.Coordination:      &mockroute.MockRouteSvc{},
+		},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, c)
