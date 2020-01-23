@@ -74,6 +74,10 @@ const (
 	routeConfigDataKey = "route-config"
 )
 
+const (
+	updateTimeout = 5 * time.Second
+)
+
 // ErrConnectionNotFound connection not found error
 var ErrConnectionNotFound = errors.New("connection not found")
 
@@ -377,7 +381,7 @@ func (s *Service) Register(connectionID string) error {
 			return fmt.Errorf("save route config : %w", err)
 		}
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/948 configure this timeout at decorator level
-	case <-time.After(5 * time.Second):
+	case <-time.After(updateTimeout):
 		return errors.New("timeout waiting for grant from the router")
 	}
 
@@ -436,7 +440,7 @@ func (s *Service) AddKey(recKey string) error {
 			return err
 		}
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/948 configure this timeout at decorator level
-	case <-time.After(5 * time.Second):
+	case <-time.After(updateTimeout):
 		return errors.New("timeout waiting for keylist update response from the router")
 	}
 

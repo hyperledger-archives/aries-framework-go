@@ -509,6 +509,8 @@ func (a *ControllerSteps) createPublicDID(agentID, didMethod string) error {
 
 // waitForPublicDID wait for public DID to be available before throw error after timeout
 func (a *ControllerSteps) waitForPublicDID(id string) error {
+	const retryDelay = 500 * time.Millisecond
+
 	endpointURL, ok := a.bddContext.Args[sideTreeURL]
 	if !ok {
 		return fmt.Errorf("failed to find sidetree URL to resolve sidetree public DID")
@@ -524,7 +526,7 @@ func (a *ControllerSteps) waitForPublicDID(id string) error {
 		err := sendHTTP(http.MethodGet, endpointURL+"/"+id, nil, nil)
 		if err != nil {
 			logger.Warnf("Failed to resolve public DID, due to error [%s] will retry", err)
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(retryDelay)
 
 			continue
 		}

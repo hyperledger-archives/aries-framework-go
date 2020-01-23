@@ -82,10 +82,12 @@ func (l *DefLog) SetOutput(output io.Writer) {
 }
 
 func (l *DefLog) logf(level metadata.Level, format string, args ...interface{}) {
+	const callDepth = 2
+
 	// Format prefix to show function name and log level and to indicate that timezone used is UTC
 	customPrefix := fmt.Sprintf(logLevelFormatter, l.getCallerInfo(level), metadata.ParseString(level))
 
-	err := l.logger.Output(2, customPrefix+fmt.Sprintf(format, args...))
+	err := l.logger.Output(callDepth, customPrefix+fmt.Sprintf(format, args...))
 	if err != nil {
 		fmt.Printf("error from logger.Output %v\n", err)
 	}

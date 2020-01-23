@@ -85,7 +85,6 @@ linters:
   disable:
     - maligned
     - prealloc
-    - gomnd # TODO enable.
 
 issues:
   exclude-use-default: false
@@ -94,6 +93,7 @@ issues:
       linters:
         - dupl
         - funlen
+        - gomnd
 
   exclude:
     # Allow package logger variables (for now)
@@ -106,3 +106,5 @@ issues:
     -  Line contains TODO/BUG/FIXME
     # Add comments for package
     -  at least one file in a package should have a package comment
+    # Allow magic number 1
+    - Magic number[:] 1[^\d]

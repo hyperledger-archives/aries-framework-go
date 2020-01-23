@@ -320,10 +320,12 @@ func getUserSetVars(cmd *cobra.Command, hostFlagName,
 func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
 	var opts []aries.Option
 
+	const numPartsResolverOption = 2
+
 	if len(httpResolvers) > 0 {
 		for _, httpResolver := range httpResolvers {
 			r := strings.Split(httpResolver, "@")
-			if len(r) != 2 {
+			if len(r) != numPartsResolverOption {
 				return nil, fmt.Errorf("invalid http resolver options found")
 			}
 

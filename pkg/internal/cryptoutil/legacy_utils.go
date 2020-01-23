@@ -12,7 +12,7 @@ import "golang.org/x/crypto/blake2b"
 func Nonce(pub1, pub2 []byte) (*[NonceSize]byte, error) {
 	var nonce [NonceSize]byte
 	// generate an equivalent nonce to libsodium's (see link above)
-	nonceWriter, err := blake2b.New(24, nil)
+	nonceWriter, err := blake2b.New(NonceSize, nil)
 	if err != nil {
 		return nil, err
 	}

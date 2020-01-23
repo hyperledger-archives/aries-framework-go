@@ -145,6 +145,9 @@ func throwError(c *command) *result {
 
 // test handler
 func timeout(c *command) *result {
-	time.Sleep(10 * time.Second)
+	const echoTimeout = 10 * time.Second
+
+	time.Sleep(echoTimeout)
+
 	return echo(c)
 }

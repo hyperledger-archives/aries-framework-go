@@ -138,11 +138,13 @@ func (d *SDKSteps) ReceiveInvitation(inviteeAgentID, inviterAgentID string) erro
 
 // WaitForPostEvent waits for post event
 func (d *SDKSteps) WaitForPostEvent(agents, statesValue string) error {
+	const timeout = 5 * time.Second
+
 	for _, agentID := range strings.Split(agents, ",") {
 		for _, state := range strings.Split(statesValue, ",") {
 			select {
 			case <-d.postStatesFlag[agentID][state]:
-			case <-time.After(5 * time.Second):
+			case <-time.After(timeout):
 				return fmt.Errorf("timeout waiting for post state event %s", state)
 			}
 		}

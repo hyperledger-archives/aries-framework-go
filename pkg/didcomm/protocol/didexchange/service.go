@@ -101,6 +101,8 @@ func New(prov provider) (*Service, error) {
 		return nil, fmt.Errorf("failed to initialize connection store : %w", err)
 	}
 
+	const callbackChannelSize = 10
+
 	svc := &Service{
 		ctx: &context{
 			outboundDispatcher: prov.OutboundDispatcher(),
@@ -109,7 +111,7 @@ func New(prov provider) (*Service, error) {
 			connectionStore:    connRecorder,
 		},
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
-		callbackChannel: make(chan *message, 10),
+		callbackChannel: make(chan *message, callbackChannelSize),
 		connectionStore: connRecorder,
 	}
 

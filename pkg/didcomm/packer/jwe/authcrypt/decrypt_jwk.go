@@ -19,8 +19,10 @@ import (
 // the sender's public key as a jwk). It uses the recipent's private/public keypair for decryption
 // the returned decrypted value is the sender's public key
 func (p *Packer) decryptSPK(recipientPubKey *[chacha.KeySize]byte, spk string) ([]byte, error) {
+	const jweNumComponents = 5
+
 	jwe := strings.Split(spk, ".")
-	if len(jwe) != 5 {
+	if len(jwe) != jweNumComponents {
 		return nil, fmt.Errorf("bad SPK format")
 	}
 

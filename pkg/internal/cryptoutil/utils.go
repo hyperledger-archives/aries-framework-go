@@ -148,6 +148,11 @@ func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte
 		return nil, ErrInvalidKey
 	}
 
+	const (
+		numBitsPerByte = 8
+		supPubInfoLen  = 4
+	)
+
 	// do ScalarMult of the sender's private key with the recipient key to get a derived Z point
 	// ( equivalent to derive an EC key )
 	z, err := curve25519.X25519(fromPrivKey[:], toPubKey[:])
@@ -158,9 +163,9 @@ func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte
 	// inspired by: github.com/square/go-jose/v3@v3.0.0-20190722231519-723929d55157/cipher/ecdh_es.go
 	// -> DeriveECDHES() call
 	// suppPubInfo is the encoded length of the recipient shared key output size in bits
-	supPubInfo := make([]byte, 4)
+	supPubInfo := make([]byte, supPubInfoLen)
 	// since we're using chacha20poly1305 keys, keySize is known
-	binary.BigEndian.PutUint32(supPubInfo, uint32(chacha.KeySize)*8)
+	binary.BigEndian.PutUint32(supPubInfo, uint32(chacha.KeySize)*numBitsPerByte)
 
 	// as per https://tools.ietf.org/html/rfc7518#section-4.6.2
 	// concatKDF requires info data to be length prefixed with BigEndian 32 bits type
@@ -190,9 +195,11 @@ func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte
 
 // lengthPrefix array with a bigEndian uint32 value of array's length
 func lengthPrefix(array []byte) []byte {
-	arrInfo := make([]byte, 4+len(array))
+	const prefixLen = 4
+
+	arrInfo := make([]byte, prefixLen+len(array))
 	binary.BigEndian.PutUint32(arrInfo, uint32(len(array)))
-	copy(arrInfo[4:], array)
+	copy(arrInfo[prefixLen:], array)
 
 	return arrInfo
 }

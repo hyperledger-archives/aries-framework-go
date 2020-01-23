@@ -190,8 +190,10 @@ func getDidMethod(didID string) (string, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/20 Validate that the input DID conforms to
 	//  the did rule of the Generic DID Syntax. Reference: https://w3c-ccg.github.io/did-spec/#generic-did-syntax
 	// For now we do simple validation
-	didParts := strings.SplitN(didID, ":", 3)
-	if len(didParts) != 3 {
+	const numPartsDID = 3
+
+	didParts := strings.SplitN(didID, ":", numPartsDID)
+	if len(didParts) != numPartsDID {
 		return "", fmt.Errorf("wrong format did input: %s", didID)
 	}
 

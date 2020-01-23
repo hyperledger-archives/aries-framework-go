@@ -33,9 +33,11 @@ func marshalUnsecuredJWT(headers map[string]string, claims interface{}) (string,
 
 // unmarshalUnsecuredJWT unmarshals serialized JWT in unsecured form into jose headers and claims body.
 func unmarshalUnsecuredJWT(rawJWT []byte) (joseHeaders map[string]string, bytesClaim []byte, err error) {
+	const numPartsJWT = 3
+
 	parts := strings.Split(string(rawJWT), ".")
 
-	if len(parts) != 3 {
+	if len(parts) != numPartsJWT {
 		return nil, nil, errors.New("JWT format must have three parts")
 	}
 
