@@ -5,7 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package proof
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 const jsonldContext = "@context"
 
@@ -17,6 +20,32 @@ type signatureSuite interface {
 
 	// GetDigest returns document digest
 	GetDigest(doc []byte) []byte
+}
+
+// SignatureRepresentation defines a representation of signature value.
+type SignatureRepresentation int
+
+const (
+	// SignatureProofValue uses "proofValue" field in a Proof to put/read a digital signature.
+	SignatureProofValue SignatureRepresentation = iota
+
+	// SignatureJWS uses "jws" field in a Proof as an element for representation of detached JSON Web Signatures.
+	SignatureJWS
+)
+
+// CreateVerifyData creates data that is used to generate or verify a digital signature.
+// It depends on the signature value holder type.
+// In case of "proofValue", the standard Create Verify Hash algorithm is used.
+// In case of "jws", verify data is built as JSON Web Signature (JWS) with detached payload.
+func CreateVerifyData(suite signatureSuite, jsonldDoc map[string]interface{}, proof *Proof) ([]byte, error) {
+	switch proof.SignatureRepresentation {
+	case SignatureProofValue:
+		return CreateVerifyHash(suite, jsonldDoc, proof.JSONLdObject())
+	case SignatureJWS:
+		return createVerifyJWS(suite, jsonldDoc, proof)
+	}
+
+	return nil, fmt.Errorf("unsupported signature representation: %v", proof.SignatureRepresentation)
 }
 
 // CreateVerifyHash returns data that is used to generate or verify a digital signature
@@ -48,18 +77,13 @@ func CreateVerifyHash(suite signatureSuite, jsonldDoc, proofOptions map[string]i
 }
 
 func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]interface{}) ([]byte, error) {
-	value, ok := proofOptions[jsonldCreator]
-	if !ok || value == nil {
-		return nil, errors.New("creator is missing")
-	}
-
-	value, ok = proofOptions[jsonldCreated]
+	value, ok := proofOptions[jsonldCreated]
 	if !ok || value == nil {
 		return nil, errors.New("created is missing")
 	}
 
 	// copy from the original proof options map without specific keys
-	proofOptionsCopy := make(map[string]interface{})
+	proofOptionsCopy := make(map[string]interface{}, len(proofOptions))
 
 	for key, value := range proofOptions {
 		if excludedKeyFromString(key) == 0 {
@@ -86,14 +110,21 @@ const (
 	proofType excludedKey = iota + 1
 	proofID
 	proofValue
+	jws
+)
+
+//nolint:gochecknoglobals
+var (
+	excludedKeysStr = [...]string{"type", "id", "proofValue", "jws"}
+	excludedKeys    = [...]excludedKey{proofType, proofID, proofValue, jws}
 )
 
 func (ek excludedKey) String() string {
-	return [...]string{"type", "id", "proofValue"}[ek-1]
+	return excludedKeysStr[ek-1]
 }
 
 func excludedKeyFromString(s string) excludedKey {
-	for _, ek := range [...]excludedKey{proofType, proofID, proofValue} {
+	for _, ek := range excludedKeys {
 		if ek.String() == s {
 			return ek
 		}

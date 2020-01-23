@@ -13,7 +13,7 @@ package ed25519signature2018
 
 import (
 	"crypto/ed25519"
-	"crypto/sha512"
+	"crypto/sha256"
 	"errors"
 
 	"github.com/piprate/json-gold/ld"
@@ -74,7 +74,7 @@ func (s *SignatureSuite) GetCanonicalDocument(doc map[string]interface{}) ([]byt
 
 // GetDigest returns document digest
 func (s *SignatureSuite) GetDigest(doc []byte) []byte {
-	digest := sha512.Sum512(doc)
+	digest := sha256.Sum256(doc)
 	return digest[:]
 }
 

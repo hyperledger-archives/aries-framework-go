@@ -9,6 +9,7 @@ import (
 	"crypto/sha512"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
@@ -30,11 +31,11 @@ func TestCreateVerifyHashAlgorithm(t *testing.T) {
 	require.NotEmpty(t, normalizedDoc)
 
 	// test error due to missing proof option
-	delete(proofOptions, jsonldCreator)
+	delete(proofOptions, jsonldCreated)
 	normalizedDoc, err = CreateVerifyHash(&mockSignatureSuite{}, doc, proofOptions)
 	require.NotNil(t, err)
 	require.Nil(t, normalizedDoc)
-	require.Contains(t, err.Error(), "creator is missing")
+	require.Contains(t, err.Error(), "created is missing")
 }
 
 func TestPrepareCanonicalDocument(t *testing.T) {
@@ -68,14 +69,40 @@ func TestPrepareCanonicalProofOptions(t *testing.T) {
 	require.NotNil(t, err)
 	require.Nil(t, canonicalProofOptions)
 	require.Contains(t, err.Error(), "created is missing")
+}
 
-	// test missing creator
-	proofOptions[jsonldCreated] = "2018-03-15T00:00:00Z"
-	delete(proofOptions, jsonldCreator)
-	canonicalProofOptions, err = prepareCanonicalProofOptions(&mockSignatureSuite{}, proofOptions)
-	require.NotNil(t, err)
-	require.Nil(t, canonicalProofOptions)
-	require.Contains(t, err.Error(), "creator is missing")
+func TestCreateVerifyData(t *testing.T) {
+	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
+	require.NoError(t, err)
+
+	p := &Proof{
+		Type:    "type",
+		Created: &created,
+		Creator: "key1",
+	}
+
+	var doc map[string]interface{}
+	err = json.Unmarshal([]byte(validDoc), &doc)
+	require.NoError(t, err)
+
+	p.SignatureRepresentation = SignatureProofValue
+	normalizedDoc, err := CreateVerifyData(&mockSignatureSuite{}, doc, p)
+	require.NoError(t, err)
+	require.NotEmpty(t, normalizedDoc)
+
+	p.SignatureRepresentation = SignatureJWS
+	p.JWS = "jws header.."
+	normalizedDoc, err = CreateVerifyData(&mockSignatureSuite{}, doc, p)
+	require.NoError(t, err)
+	require.NotEmpty(t, normalizedDoc)
+
+	// unsupported signature representation
+	p.SignatureRepresentation = SignatureRepresentation(-1)
+	signature, err := CreateVerifyData(&mockSignatureSuite{}, doc, p)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported signature representation")
+	require.Nil(t, signature)
 }
 
 type mockSignatureSuite struct {

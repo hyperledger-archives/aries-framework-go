@@ -42,6 +42,7 @@ func TestProof(t *testing.T) {
 }
 
 func TestInvalidProofValue(t *testing.T) {
+	// invalid proof value
 	p, err := NewProof(map[string]interface{}{
 		"type":       "Ed25519Signature2018",
 		"creator":    "creator",
@@ -49,9 +50,18 @@ func TestInvalidProofValue(t *testing.T) {
 		"proofValue": "hello",
 	})
 	require.Error(t, err)
-
 	require.Nil(t, p)
 	require.Contains(t, err.Error(), "illegal base64 data")
+
+	// proof is not defined (neither "proofValue" nor "jws" is defined)
+	p, err = NewProof(map[string]interface{}{
+		"type":    "Ed25519Signature2018",
+		"creator": "creator",
+		"created": "2011-09-23T20:21:34Z",
+	})
+	require.Error(t, err)
+	require.Nil(t, p)
+	require.Contains(t, err.Error(), "signature is not defined")
 }
 
 func TestInvalidNonce(t *testing.T) {
@@ -66,4 +76,38 @@ func TestInvalidNonce(t *testing.T) {
 
 	require.Nil(t, p)
 	require.Contains(t, err.Error(), "illegal base64 data")
+}
+
+func TestProof_JSONLdObject(t *testing.T) {
+	r := require.New(t)
+
+	proofValueBytes, err := base64.RawURLEncoding.DecodeString(proofValueBase64)
+	r.NoError(err)
+
+	nonceBase64, err := base64.RawURLEncoding.DecodeString("abc")
+	r.NoError(err)
+
+	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
+	r.NoError(err)
+
+	p := &Proof{
+		Type:         "Ed25519Signature2018",
+		Created:      &created,
+		Creator:      "creator",
+		ProofValue:   proofValueBytes,
+		JWS:          "test.jws.value",
+		ProofPurpose: "assertionMethod",
+		Domain:       "internal",
+		Nonce:        nonceBase64,
+	}
+
+	pJSONLd := p.JSONLdObject()
+	r.Equal("Ed25519Signature2018", pJSONLd["type"])
+	r.Equal("2018-03-15T00:00:00Z", pJSONLd["created"])
+	r.Equal("creator", pJSONLd["creator"])
+	r.Equal(proofValueBase64, pJSONLd["proofValue"])
+	r.Equal("test.jws.value", pJSONLd["jws"])
+	r.Equal("assertionMethod", pJSONLd["proofPurpose"])
+	r.Equal("internal", pJSONLd["domain"])
+	r.Equal("abc", pJSONLd["nonce"])
 }

@@ -8,12 +8,14 @@ package signer
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 )
 
 const signatureType = "Ed25519Signature2018"
@@ -27,6 +29,11 @@ func TestDocumentSigner_Sign(t *testing.T) {
 	signedDoc, err := s.Sign(context, []byte(validDoc))
 	require.NoError(t, err)
 	require.NotNil(t, signedDoc)
+
+	context.SignatureRepresentation = proof.SignatureJWS
+	signedJWSDoc, err := s.Sign(context, []byte(validDoc))
+	require.NoError(t, err)
+	require.NotNil(t, signedJWSDoc)
 }
 
 func TestDocumentSigner_SignErrors(t *testing.T) {
@@ -41,13 +48,6 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "failed to unmarshal json ld document")
 
-	// test for invalid context
-	context.Creator = ""
-	signedDoc, err = s.Sign(context, []byte(validDoc))
-	require.NotNil(t, err)
-	require.Nil(t, signedDoc)
-	require.Contains(t, err.Error(), "creator is missing")
-
 	// test for signature suite not supported
 	context = getSignatureContext()
 	context.SignatureType = "non-existent"
@@ -56,13 +56,21 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "signature type non-existent not supported")
 
-	// test invalid context
+	// test verify data creation error
+	var validDocMap map[string]interface{}
+
+	err = json.Unmarshal([]byte(validDoc), &validDocMap)
+	require.NoError(t, err)
+
+	validDocMap["@context"] = "invalid context"
+	invalidDocBytes, err := json.Marshal(validDocMap)
+	require.NoError(t, err)
+
 	context = getSignatureContext()
-	context.Creator = ""
-	signedDoc, err = s.Sign(context, []byte(validDoc))
+	signedDoc, err = s.Sign(context, invalidDocBytes)
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
-	require.Contains(t, err.Error(), "creator is missing")
+	require.Contains(t, err.Error(), "invalid context")
 
 	// test signing error
 	context = getSignatureContext()
@@ -79,15 +87,8 @@ func TestDocumentSigner_isValidContext(t *testing.T) {
 	s := New()
 
 	context := getSignatureContext()
-	context.Creator = ""
-	signedDoc, err := s.Sign(context, []byte(validDoc))
-	require.NotNil(t, err)
-	require.Nil(t, signedDoc)
-	require.Contains(t, err.Error(), "creator is missing")
-
-	context = getSignatureContext()
 	context.SignatureType = ""
-	signedDoc, err = s.Sign(context, []byte(validDoc))
+	signedDoc, err := s.Sign(context, []byte(validDoc))
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "signature type is missing")

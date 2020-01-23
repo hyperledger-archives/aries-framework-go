@@ -343,10 +343,10 @@ func ExampleCredential_AddLinkedDataProof() {
 	}
 
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
-		Created:       &issued,
-		Creator:       "Example University",
-		SignatureType: "Ed25519Signature2018",
-		Suite:         ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privIssuerKey))),
+		Created:                 &issued,
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privIssuerKey))),
+		SignatureRepresentation: verifiable.SignatureJWS,
 	})
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to add linked data proof: %w", err))
@@ -359,6 +359,7 @@ func ExampleCredential_AddLinkedDataProof() {
 
 	fmt.Println(string(vcJSONWithProof))
 
+	//nolint
 	// Output: {
 	//	"@context": [
 	//		"https://www.w3.org/2018/credentials/v1",
@@ -383,10 +384,7 @@ func ExampleCredential_AddLinkedDataProof() {
 	//	},
 	//	"proof": {
 	//		"created": "2010-01-01T19:23:24Z",
-	//		"creator": "Example University",
-	//		"domain": "",
-	//		"nonce": "",
-	//		"proofValue": "IHtZUp8KQ0l_HMIpbjgPakSgCKZ0rimcwv0o8yi4YBxcdgk7khAwW0aeX2AkBLWZaL_ce142h1zOqdjI-tQLBg",
+	//		"jws": "eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..fTH7cLO4IsJByBRD3FxDX6OI4zPYoznOPbMxTv0pagMPrtC-i3R6Buh2wWMY_zUGvOQaQ9Idy6Of6wjCyuPDCw",
 	//		"type": "Ed25519Signature2018"
 	//	},
 	//	"referenceNumber": 83294849,

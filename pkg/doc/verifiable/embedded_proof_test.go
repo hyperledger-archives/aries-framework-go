@@ -69,7 +69,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
 }`
 		docBytes, err := checkEmbeddedProof([]byte(docWithNotMapProof), defaultVCOpts)
 		r.Error(err)
-		r.EqualError(err, "check embedded proof: expecting [string]interface{}, got something else")
+		r.EqualError(err, "check embedded proof: expecting [string]interface{}")
 		r.Nil(docBytes)
 	})
 
