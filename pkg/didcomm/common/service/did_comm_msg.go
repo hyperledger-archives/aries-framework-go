@@ -31,8 +31,6 @@ type Header struct {
 	ID     string           `json:"@id"`
 	Thread decorator.Thread `json:"~thread"`
 	Type   string           `json:"@type"`
-	// TODO revisit ~purpose, should be generic map [Issue #1037]
-	Purpose []string `json:"~purpose"`
 }
 
 // DIDCommMsgMap did comm msg

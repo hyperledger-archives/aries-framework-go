@@ -25,7 +25,8 @@ func TestMsgService_AcceptAndName(t *testing.T) {
 		name     string
 		service  *RegisterMsgSvcParams
 		testdata []struct {
-			request *service.Header
+			msgtype string
+			purpose []string
 			result  bool
 		}
 	}{
@@ -33,40 +34,34 @@ func TestMsgService_AcceptAndName(t *testing.T) {
 			name:    "msgService accept with message type and purpose",
 			service: &RegisterMsgSvcParams{Name: "test-01", Type: "msg-type-01", Purpose: []string{"prp-01-01", "prp-01-02"}},
 			testdata: []struct {
-				request *service.Header
+				msgtype string
+				purpose []string
 				result  bool
 			}{
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-01", "prp-01-02"}},
-					true,
+					"msg-type-01", []string{"prp-01-01", "prp-01-02"}, true,
 				},
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-02"}},
-					true,
+					"msg-type-01", []string{"prp-01-02"}, true,
 				},
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-01"}},
-					true,
+					"msg-type-01", []string{"prp-01-01"}, true,
 				},
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-01", "prp-01-03", "prp-01-04"}},
-					true,
+
+					"msg-type-01", []string{"prp-01-01", "prp-01-03", "prp-01-04"}, true,
 				},
 				{
-					&service.Header{Purpose: []string{"prp-01-01", "prp-01-02"}},
-					false,
+					"", []string{"prp-01-01", "prp-01-02"}, false,
 				},
 				{
-					&service.Header{Purpose: []string{"prp-01-02"}},
-					false,
+					"", []string{"prp-01-02"}, false,
 				},
 				{
-					&service.Header{Type: "msg-type-01"},
-					false,
+					"msg-type-01", nil, false,
 				},
 				{
-					&service.Header{Type: "msg-type-02", Purpose: []string{"prp-02-01", "prp-02-02"}},
-					false,
+					"msg-type-02", []string{"prp-02-01", "prp-02-02"}, false,
 				},
 			},
 		},
@@ -74,44 +69,37 @@ func TestMsgService_AcceptAndName(t *testing.T) {
 			name:    "msgService accept success with only purposes",
 			service: &RegisterMsgSvcParams{Name: "test-01", Purpose: []string{"prp-01-01", "prp-01-02"}},
 			testdata: []struct {
-				request *service.Header
+				msgtype string
+				purpose []string
 				result  bool
 			}{
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-01", "prp-01-02"}},
-					true,
+
+					"msg-type-01", []string{"prp-01-01", "prp-01-02"}, true,
 				},
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-02"}},
-					true,
+					"msg-type-01", []string{"prp-01-02"}, true,
 				},
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-01"}},
-					true,
+					"msg-type-01", []string{"prp-01-01"}, true,
 				},
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-01", "prp-01-03", "prp-01-04"}},
-					true,
+					"msg-type-01", []string{"prp-01-01", "prp-01-03", "prp-01-04"}, true,
 				},
 				{
-					&service.Header{Purpose: []string{"prp-01-01", "prp-01-02"}},
-					true,
+					"", []string{"prp-01-01", "prp-01-02"}, true,
 				},
 				{
-					&service.Header{Purpose: []string{"prp-01-02"}},
-					true,
+					"", []string{"prp-01-02"}, true,
 				},
 				{
-					&service.Header{Purpose: []string{"prp-02-01", "prp-02-02"}},
-					false,
+					"", []string{"prp-02-01", "prp-02-02"}, false,
 				},
 				{
-					&service.Header{Type: "msg-type-01"},
-					false,
+					"msg-type-01", nil, false,
 				},
 				{
-					&service.Header{Type: "msg-type-02", Purpose: []string{"prp-02-01", "prp-02-02"}},
-					false,
+					"msg-type-02", []string{"prp-02-01", "prp-02-02"}, false,
 				},
 			},
 		},
@@ -119,28 +107,24 @@ func TestMsgService_AcceptAndName(t *testing.T) {
 			name:    "msgService accept success with only message type",
 			service: &RegisterMsgSvcParams{Name: "test-01", Type: "msg-type-01"},
 			testdata: []struct {
-				request *service.Header
+				msgtype string
+				purpose []string
 				result  bool
 			}{
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-01", "prp-01-02"}},
-					true,
+					"msg-type-01", []string{"prp-01-01", "prp-01-02"}, true,
 				},
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-02"}},
-					true,
+					"msg-type-01", []string{"prp-01-02"}, true,
 				},
 				{
-					&service.Header{Purpose: []string{"prp-01-01", "prp-01-02"}},
-					false,
+					"", []string{"prp-01-01", "prp-01-02"}, false,
 				},
 				{
-					&service.Header{Purpose: []string{"prp-01-02"}},
-					false,
+					"", []string{"prp-01-02"}, false,
 				},
 				{
-					&service.Header{Type: "msg-type-02"},
-					false,
+					"msg-type-02", nil, false,
 				},
 			},
 		},
@@ -148,24 +132,21 @@ func TestMsgService_AcceptAndName(t *testing.T) {
 			name:    "msgService accept failure with no criteria",
 			service: &RegisterMsgSvcParams{Name: "test-01"},
 			testdata: []struct {
-				request *service.Header
+				msgtype string
+				purpose []string
 				result  bool
 			}{
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-01", "prp-01-02"}},
-					false,
+					"msg-type-01", []string{"prp-01-01", "prp-01-02"}, false,
 				},
 				{
-					&service.Header{Type: "msg-type-01", Purpose: []string{"prp-01-02"}},
-					false,
+					"msg-type-01", []string{"prp-01-02"}, false,
 				},
 				{
-					&service.Header{Purpose: []string{"prp-01-01", "prp-01-02"}},
-					false,
+					"", []string{"prp-01-01", "prp-01-02"}, false,
 				},
 				{
-					&service.Header{Type: "msg-type-02"},
-					false,
+					"msg-type-02", nil, false,
 				},
 			},
 		},
@@ -181,8 +162,9 @@ func TestMsgService_AcceptAndName(t *testing.T) {
 			require.Equal(t, tc.service.Name, msgsvc.Name())
 
 			for _, testdata := range tc.testdata {
-				require.Equal(t, testdata.result, msgsvc.Accept(testdata.request),
-					"test failed header[%v] and criteria[%s]; expected[%v]", testdata.request, tc.service, testdata.result)
+				require.Equal(t, testdata.result, msgsvc.Accept(testdata.msgtype, testdata.purpose),
+					"test failed header[%s,%s] and criteria[%s]; expected[%v]",
+					testdata.msgtype, testdata.purpose, tc.service, testdata.result)
 			}
 		})
 	}

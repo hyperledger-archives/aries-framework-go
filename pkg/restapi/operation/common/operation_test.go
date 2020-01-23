@@ -18,7 +18,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
@@ -118,8 +117,8 @@ func TestOperation_RegisterMessageService(t *testing.T) {
 		require.NotEmpty(t, mhandler.Services())
 		require.Equal(t, "json-msg-01", mhandler.Services()[0].Name())
 		require.True(t, mhandler.Services()[0].Accept(
-			&service.Header{Type: "https://didcomm.org/json/1.0/msg",
-				Purpose: []string{"prp-01", "prp-02"}},
+			"https://didcomm.org/json/1.0/msg",
+			[]string{"prp-01", "prp-02"},
 		))
 	})
 

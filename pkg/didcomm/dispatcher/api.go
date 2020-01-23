@@ -22,7 +22,7 @@ type ProtocolService interface {
 // matching accept criteria based on message header
 type MessageService interface {
 	service.InboundHandler
-	Accept(header *service.Header) bool
+	Accept(msgType string, purpose []string) bool
 	Name() string
 }
 
