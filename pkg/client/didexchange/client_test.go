@@ -34,7 +34,11 @@ import (
 
 func TestNew(t *testing.T) {
 	t.Run("test new client", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -75,7 +79,11 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("test error from open store", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -93,7 +101,11 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("test error from open transient store", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -113,7 +125,11 @@ func TestNew(t *testing.T) {
 
 func TestClient_CreateInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -138,7 +154,11 @@ func TestClient_CreateInvitation(t *testing.T) {
 	})
 
 	t.Run("test error from createSigningKey", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -164,6 +184,9 @@ func TestClient_CreateInvitation(t *testing.T) {
 
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			StoreProvider: mockstore.NewCustomMockStoreProvider(store),
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
@@ -186,7 +209,11 @@ func TestClient_CreateInvitation(t *testing.T) {
 		endpoint := "http://router.example.com"
 		routingKeys := []string{"abc", "xyz"}
 
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -212,7 +239,11 @@ func TestClient_CreateInvitation(t *testing.T) {
 	})
 
 	t.Run("test create invitation with router config error", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -238,7 +269,11 @@ func TestClient_CreateInvitation(t *testing.T) {
 		endpoint := "http://router.example.com"
 		routingKeys := []string{"abc", "xyz"}
 
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -267,7 +302,11 @@ func TestClient_CreateInvitation(t *testing.T) {
 
 func TestClient_CreateInvitationWithDID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -300,6 +339,9 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			StoreProvider: mockstore.NewCustomMockStoreProvider(store),
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
@@ -327,7 +369,11 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 	)
 
 	t.Run("test success", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -354,7 +400,11 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 
 	t.Run("test error", func(t *testing.T) {
 		const errMsg = "query connection error"
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -384,7 +434,11 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 	})
 
 	t.Run("test data not found", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -411,7 +465,11 @@ func TestClient_GetConnection(t *testing.T) {
 	threadID := "thid1"
 
 	t.Run("test failure", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 		s := &mockstore.MockStore{Store: make(map[string][]byte), ErrGet: ErrConnectionNotFound}
@@ -436,7 +494,11 @@ func TestClient_GetConnection(t *testing.T) {
 
 func TestClientGetConnectionAtState(t *testing.T) {
 	// create service
-	svc, err := didexchange.New(&mockprotocol.MockProvider{})
+	svc, err := didexchange.New(&mockprotocol.MockProvider{
+		ServiceMap: map[string]interface{}{
+			route.Coordination: &mockroute.MockRouteSvc{},
+		},
+	})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -458,7 +520,11 @@ func TestClientGetConnectionAtState(t *testing.T) {
 }
 
 func TestClient_RemoveConnection(t *testing.T) {
-	svc, err := didexchange.New(&mockprotocol.MockProvider{})
+	svc, err := didexchange.New(&mockprotocol.MockProvider{
+		ServiceMap: map[string]interface{}{
+			route.Coordination: &mockroute.MockRouteSvc{},
+		},
+	})
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -623,7 +689,11 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 
 func TestClient_QueryConnectionsByParams(t *testing.T) {
 	t.Run("test get all connections", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -659,7 +729,11 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 	})
 
 	t.Run("test get connections by state param", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
@@ -709,7 +783,11 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 	})
 
 	t.Run("test get connections error", func(t *testing.T) {
-		svc, err := didexchange.New(&mockprotocol.MockProvider{})
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 		const keyPrefix = "conn_"
@@ -738,7 +816,11 @@ func TestServiceEvents(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
 	didExSvc, err := didexchange.New(&mockprotocol.MockProvider{
 		TransientStoreProvider: transientStore,
-		StoreProvider:          store})
+		StoreProvider:          store,
+		ServiceMap: map[string]interface{}{
+			route.Coordination: &mockroute.MockRouteSvc{},
+		},
+	})
 	require.NoError(t, err)
 
 	// create the client
@@ -824,7 +906,12 @@ func TestServiceEvents(t *testing.T) {
 
 func TestAcceptExchangeRequest(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
-	didExSvc, err := didexchange.New(&mockprotocol.MockProvider{StoreProvider: store})
+	didExSvc, err := didexchange.New(&mockprotocol.MockProvider{
+		StoreProvider: store,
+		ServiceMap: map[string]interface{}{
+			route.Coordination: &mockroute.MockRouteSvc{},
+		},
+	})
 	require.NoError(t, err)
 
 	// create the client
@@ -912,7 +999,12 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 func TestAcceptInvitation(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
-	didExSvc, err := didexchange.New(&mockprotocol.MockProvider{StoreProvider: store})
+	didExSvc, err := didexchange.New(&mockprotocol.MockProvider{
+		StoreProvider: store,
+		ServiceMap: map[string]interface{}{
+			route.Coordination: &mockroute.MockRouteSvc{},
+		},
+	})
 	require.NoError(t, err)
 
 	// create the client

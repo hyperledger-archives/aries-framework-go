@@ -24,6 +24,8 @@ type MockProvider struct {
 	CustomVDRI             vdriapi.Registry
 	CustomOutbound         *mockdispatcher.MockOutbound
 	CustomKMS              *mockkms.CloseableKMS
+	ServiceErr             error
+	ServiceMap             map[string]interface{}
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service
@@ -74,4 +76,13 @@ func (p *MockProvider) KMS() legacykms.KeyManager {
 	}
 
 	return &mockkms.CloseableKMS{}
+}
+
+// Service return service
+func (p *MockProvider) Service(id string) (interface{}, error) {
+	if p.ServiceErr != nil {
+		return nil, p.ServiceErr
+	}
+
+	return p.ServiceMap[id], nil
 }

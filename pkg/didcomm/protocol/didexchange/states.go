@@ -22,8 +22,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	connectionstore "github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
@@ -416,10 +418,31 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 
 	logger.Debugf("creating new '%s' did for connection", didMethod)
 
+	// get the route configs (pass empty service endpoint, as default servie endpoint added in VDRI)
+	serviceEndpoint, routingKeys, err := route.GetRouterConfig(ctx.routeSvc, "")
+	if err != nil {
+		return nil, nil, fmt.Errorf("did doc - fetch router config : %w", err)
+	}
+
 	// by default use peer did
-	newDidDoc, err := ctx.vdriRegistry.Create(didMethod)
+	newDidDoc, err := ctx.vdriRegistry.Create(
+		didMethod,
+		vdri.WithServiceEndpoint(serviceEndpoint),
+		vdri.WithRoutingKeys(routingKeys),
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
+	}
+
+	svc, found := did.LookupService(newDidDoc, didCommServiceType)
+	if found {
+		for _, recKey := range svc.RecipientKeys {
+			// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
+			//  recKeys to the Router
+			if err = route.AddKeyToRouter(ctx.routeSvc, recKey); err != nil {
+				return nil, nil, fmt.Errorf("did doc - add key to the router : %w", err)
+			}
+		}
 	}
 
 	err = ctx.connectionStore.SaveDIDFromDoc(newDidDoc)

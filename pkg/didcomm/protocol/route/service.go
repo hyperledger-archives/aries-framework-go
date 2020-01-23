@@ -395,6 +395,8 @@ func (s *Service) Register(connectionID string) error {
 // AddKey adds a recKey of the agent to the registered router. This method blocks until a response is
 // received from the router or it times out.
 // TODO https://github.com/hyperledger/aries-framework-go/issues/1076 Support for multiple routers
+// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
+//  recKeys to the Router
 func (s *Service) AddKey(recKey string) error {
 	// check if router is already registered
 	routerConnID, err := s.getRouterConnectionID()
