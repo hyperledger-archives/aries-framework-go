@@ -41,8 +41,13 @@ func TestDIDCreator(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, c)
 
-		didDoc, err := c.Build(getSigningKey(), api.WithServiceEndpoint("request-endpoint"),
-			api.WithServiceType("request-type"))
+		routingKeys := []string{"abc", "xyz"}
+		didDoc, err := c.Build(
+			getSigningKey(),
+			api.WithServiceEndpoint("request-endpoint"),
+			api.WithServiceType("request-type"),
+			api.WithRoutingKeys(routingKeys),
+		)
 		require.NoError(t, err)
 		require.NotNil(t, didDoc)
 
@@ -50,6 +55,7 @@ func TestDIDCreator(t *testing.T) {
 		require.NotEmpty(t, didDoc.Service)
 		require.Equal(t, "request-type", didDoc.Service[0].Type)
 		require.Equal(t, "request-endpoint", didDoc.Service[0].ServiceEndpoint)
+		require.Equal(t, routingKeys, didDoc.Service[0].RoutingKeys)
 	})
 
 	t.Run("test accept", func(t *testing.T) {

@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -60,6 +61,7 @@ type provider interface {
 	TransientStorageProvider() storage.Provider
 	Signer() legacykms.Signer
 	VDRIRegistry() vdriapi.Registry
+	Service(id string) (interface{}, error)
 }
 
 // stateMachineMsg is an internal struct used to pass data to state machine.
@@ -83,6 +85,7 @@ type context struct {
 	signer             legacykms.Signer
 	connectionStore    *connectionStore
 	vdriRegistry       vdriapi.Registry
+	routeSvc           route.ProtocolService
 }
 
 // opts are used to provide client properties to DID Exchange service
@@ -101,6 +104,16 @@ func New(prov provider) (*Service, error) {
 		return nil, fmt.Errorf("failed to initialize connection store : %w", err)
 	}
 
+	s, err := prov.Service(route.Coordination)
+	if err != nil {
+		return nil, err
+	}
+
+	routeSvc, ok := s.(route.ProtocolService)
+	if !ok {
+		return nil, errors.New("cast service to Route Service failed")
+	}
+
 	const callbackChannelSize = 10
 
 	svc := &Service{
@@ -109,6 +122,7 @@ func New(prov provider) (*Service, error) {
 			signer:             prov.Signer(),
 			vdriRegistry:       prov.VDRIRegistry(),
 			connectionStore:    connRecorder,
+			routeSvc:           routeSvc,
 		},
 		// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 		callbackChannel: make(chan *message, callbackChannelSize),

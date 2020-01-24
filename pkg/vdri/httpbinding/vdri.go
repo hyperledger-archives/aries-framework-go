@@ -101,6 +101,7 @@ func (v *VDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc,
 			ID:              svcEndpointIndex1,
 			Type:            docOpts.ServiceType,
 			ServiceEndpoint: docOpts.ServiceEndpoint,
+			RoutingKeys:     docOpts.RoutingKeys,
 		}
 
 		if docOpts.ServiceType == vdriapi.DIDCommServiceType {

@@ -46,8 +46,9 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.storeProvider = storeProv
 	}
 
+	// order is important as DIDExchange service depends on Route service and Introduce depends on DIDExchange
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators,
-		newExchangeSvc(), newIntroduceSvc(), newRouteSvc())
+		newRouteSvc(), newExchangeSvc(), newIntroduceSvc())
 
 	return setAdditionalDefaultOpts(frameworkOpts)
 }

@@ -464,7 +464,13 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	transientStore := mockstore.NewMockStoreProvider()
 	store := mockstore.NewMockStoreProvider()
 	didExSvc, err := didexsvc.New(
-		&protocol.MockProvider{TransientStoreProvider: transientStore, StoreProvider: store})
+		&protocol.MockProvider{
+			TransientStoreProvider: transientStore, StoreProvider: store,
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		},
+	)
 
 	require.NoError(t, err)
 
@@ -553,7 +559,12 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 func TestAcceptInvitation(t *testing.T) {
 	store := mockstore.NewMockStoreProvider()
-	didExSvc, err := didexsvc.New(&protocol.MockProvider{TransientStoreProvider: store})
+	didExSvc, err := didexsvc.New(&protocol.MockProvider{
+		TransientStoreProvider: store,
+		ServiceMap: map[string]interface{}{
+			route.Coordination: &mockroute.MockRouteSvc{},
+		},
+	})
 
 	require.NoError(t, err)
 

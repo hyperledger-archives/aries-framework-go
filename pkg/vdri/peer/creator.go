@@ -46,6 +46,7 @@ func build(pubKey *vdriapi.PubKey, docOpts *vdriapi.CreateDIDOpts) (*did.Doc, er
 			ID:              "#agent",
 			Type:            docOpts.ServiceType,
 			ServiceEndpoint: docOpts.ServiceEndpoint,
+			RoutingKeys:     docOpts.RoutingKeys,
 		}
 
 		if docOpts.ServiceType == vdriapi.DIDCommServiceType {

@@ -91,6 +91,7 @@ type CreateDIDOpts struct {
 	ServiceType     string
 	KeyType         string
 	ServiceEndpoint string
+	RoutingKeys     []string
 	RequestBuilder  func([]byte) (io.Reader, error)
 }
 
@@ -115,6 +116,13 @@ func WithKeyType(keyType string) DocOpts {
 func WithServiceEndpoint(serviceEndpoint string) DocOpts {
 	return func(opts *CreateDIDOpts) {
 		opts.ServiceEndpoint = serviceEndpoint
+	}
+}
+
+// WithRoutingKeys allows for setting routing keys.
+func WithRoutingKeys(routingKeys []string) DocOpts {
+	return func(opts *CreateDIDOpts) {
+		opts.RoutingKeys = routingKeys
 	}
 }
 

@@ -126,7 +126,11 @@ func mockContext() provider {
 	storeProvider := mockstore.NewMockStoreProvider()
 	mockProvider := &mockprotocol.MockProvider{
 		TransientStoreProvider: transientStoreProvider,
-		StoreProvider:          storeProvider}
+		StoreProvider:          storeProvider,
+		ServiceMap: map[string]interface{}{
+			route.Coordination: &mockroute.MockRouteSvc{},
+		},
+	}
 
 	svc, err := didexchange.New(mockProvider)
 	if err != nil {
