@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/msghandler"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"

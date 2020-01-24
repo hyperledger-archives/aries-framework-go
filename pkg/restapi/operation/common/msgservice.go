@@ -49,7 +49,7 @@ func (m *msgService) Name() string {
 	return m.name
 }
 
-func (m *msgService) Accept(header *service.Header) bool {
+func (m *msgService) Accept(msgType string, purpose []string) bool {
 	var purposeMatched, typeMatched = len(m.purpose) == 0, m.msgType == ""
 
 	if purposeMatched && typeMatched {
@@ -57,7 +57,7 @@ func (m *msgService) Accept(header *service.Header) bool {
 	}
 
 	for _, purposeCriteria := range m.purpose {
-		for _, msgPurpose := range header.Purpose {
+		for _, msgPurpose := range purpose {
 			if purposeCriteria == msgPurpose {
 				purposeMatched = true
 				break
@@ -65,7 +65,7 @@ func (m *msgService) Accept(header *service.Header) bool {
 		}
 	}
 
-	if m.msgType == header.Type {
+	if m.msgType == msgType {
 		typeMatched = true
 	}
 

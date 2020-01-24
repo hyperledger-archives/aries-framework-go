@@ -147,8 +147,8 @@ func TestNewProvider(t *testing.T) {
 				handled <- true
 				return "", nil
 			},
-			AcceptFunc: func(header *service.Header) bool {
-				return header.Type == sampleMsgType
+			AcceptFunc: func(msgType string, purpose []string) bool {
+				return sampleMsgType == msgType
 			},
 		})
 		require.NoError(t, err)

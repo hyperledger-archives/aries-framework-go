@@ -16,13 +16,13 @@ import (
 )
 
 // NewCustomMockMessageSvc returns new custom mock message service
-func NewCustomMockMessageSvc(msgType, name string) *MockMessageSvc {
+func NewCustomMockMessageSvc(typeVal, name string) *MockMessageSvc {
 	return &MockMessageSvc{
 		HandleFunc: func(*service.DIDCommMsg) (string, error) {
 			return "", nil
 		},
-		AcceptFunc: func(header *service.Header) bool {
-			return header.Type == msgType
+		AcceptFunc: func(msgType string, purpose []string) bool {
+			return typeVal == msgType
 		},
 		NameVal: name,
 	}
@@ -31,7 +31,7 @@ func NewCustomMockMessageSvc(msgType, name string) *MockMessageSvc {
 // MockMessageSvc is mock generic service
 type MockMessageSvc struct {
 	HandleFunc func(*service.DIDCommMsg) (string, error)
-	AcceptFunc func(header *service.Header) bool
+	AcceptFunc func(msgType string, purpose []string) bool
 	NameVal    string
 }
 
@@ -45,9 +45,9 @@ func (m *MockMessageSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID s
 }
 
 // Accept msg checks the msg type
-func (m *MockMessageSvc) Accept(header *service.Header) bool {
+func (m *MockMessageSvc) Accept(msgType string, purpose []string) bool {
 	if m.AcceptFunc != nil {
-		return m.AcceptFunc(header)
+		return m.AcceptFunc(msgType, purpose)
 	}
 
 	return true

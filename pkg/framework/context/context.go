@@ -129,14 +129,16 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 		// in case of no services are registered for given message type,
 		// find generic inbound services registered for given message header
 		for _, svc := range p.msgSvcProvider.Services() {
-			h := &service.Header{}
-			err = msg.Decode(h)
+			h := struct {
+				Purpose []string `json:"~purpose"`
+			}{}
+			err = msg.Decode(&h)
 
 			if err != nil {
 				return err
 			}
 
-			if svc.Accept(h) {
+			if svc.Accept(msg.Type(), h.Purpose) {
 				_, err = svc.HandleInbound(msg, myDID, theirDID)
 				return err
 			}
