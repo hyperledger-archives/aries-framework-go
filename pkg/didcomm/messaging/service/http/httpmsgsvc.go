@@ -10,7 +10,10 @@
 package http
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
+	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
@@ -19,20 +22,65 @@ const (
 	// OverDIDCommSpec is http over DIDComm Spec value
 	OverDIDCommSpec = "https://didcomm.org/http-over-didcomm/1.0/"
 
-	// httpOverDIDComm is http over DIDComm message service name
-	httpOverDIDComm = "http-over-didcomm"
+	// error messages
+	errNameAndHandleMandatory   = "service name and http request handle is mandatory"
+	errFailedToDecodeMsg        = "unable to decode DID comm message: %w"
+	errFailedToDecodeBody       = "unable to decode message body: %w"
+	errFailedToCreateNewRequest = "failed to create http request from incoming message: %w"
 )
 
-// NewHTTPOverDIDComm creates new HTTP over DIDComm message service which serves
-// incoming DIDComm message over HTTP.
-func NewHTTPOverDIDComm() *OverDIDComm {
-	return &OverDIDComm{httpOverDIDComm}
+// RequestHandle handle function for http over did comm message service which gets called by
+// `OverDIDComm` message service to handle incoming request.
+//
+// Args
+//
+// msgID : message ID of incoming message.
+// request: http request derived from incoming DID comm message.
+//
+// Returns
+//
+// error : handle can return error back to service to notify message dispatcher about failures.
+type RequestHandle func(msgID string, request *http.Request) error
+
+// NewOverDIDComm creates new HTTP over DIDComm message service which serves
+// incoming DIDComm message over HTTP. DIDComm message receiver of [RFC-0351]
+//
+// Reference:
+// https://github.com/hyperledger/aries-rfcs/blob/master/features/0335-http-over-didcomm/README.md
+// https://github.com/hyperledger/aries-rfcs/blob/master/features/0351-purpose-decorator/README.md
+//
+// Args:
+//
+// name: service name, this is mandatory argument.
+//
+// purpose: optional list of purposes to be handled by this http-over-didcomm service [RFC-0351].
+// If not provided only message type will be taken into consideration in acceptance criteria of this message service.
+//
+// httpHandle: handle function to which incoming DIDComm message will be sent after being converted to
+// http request. this is mandatory argument.
+//
+// Returns:
+//
+// OverDIDComm: http over didcomm message service
+// error: arg validation errors
+func NewOverDIDComm(name string, httpHandle RequestHandle, purpose ...string) (*OverDIDComm, error) {
+	if name == "" || httpHandle == nil {
+		return nil, fmt.Errorf(errNameAndHandleMandatory)
+	}
+
+	return &OverDIDComm{
+		name:       name,
+		purpose:    purpose,
+		httpHandle: httpHandle,
+	}, nil
 }
 
 // OverDIDComm is message service which transports incoming DIDComm message over to
 // intended http resource providers
 type OverDIDComm struct {
-	name string
+	name       string
+	purpose    []string
+	httpHandle RequestHandle
 }
 
 // Name of HTTP over DIDComm message service
@@ -40,14 +88,56 @@ func (m *OverDIDComm) Name() string {
 	return m.name
 }
 
-// Accept criteria for HTTP over DIDComm message service
-// TODO purpose based acceptance criteria [Issue #1106]
+// Accept criteria for HTTP over DIDComm message service, it accepts http-didcomm-over message type [RFC-0335]
+// and follows `A tagging system` purpose field validation from RFC-0351
 func (m *OverDIDComm) Accept(msgType string, purpose []string) bool {
-	return msgType == OverDIDCommSpec
+	if msgType != OverDIDCommSpec {
+		return false
+	}
+
+	// if purpose not set, then match only message type.
+	if len(m.purpose) == 0 {
+		return true
+	}
+
+	// match purpose if provided
+	for _, msgPurpose := range purpose {
+		for _, svcPurpose := range m.purpose {
+			if msgPurpose == svcPurpose {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // HandleInbound for HTTP over DIDComm message service
-// TODO incoming DIDComm message to HTTP request[Issue #1106]
 func (m *OverDIDComm) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
-	return "", fmt.Errorf("to be implemented")
+	svcMsg := httpOverDIDCommMsg{}
+
+	err := msg.Decode(&svcMsg)
+	if err != nil {
+		return "", fmt.Errorf(errFailedToDecodeMsg, err)
+	}
+
+	rqBody, err := base64.StdEncoding.DecodeString(svcMsg.BodyB64)
+	if err != nil {
+		return "", fmt.Errorf(errFailedToDecodeBody, err)
+	}
+
+	// create request
+	request, err := http.NewRequest(svcMsg.Method, svcMsg.ResourceURI, bytes.NewBuffer(rqBody))
+	if err != nil {
+		return "", fmt.Errorf(errFailedToCreateNewRequest, err)
+	}
+
+	// add headers
+	for _, header := range svcMsg.Headers {
+		request.Header.Add(header.Name, header.Value)
+	}
+
+	// TODO implement http version switch based on `msg.Version` [Issue:#1110]
+
+	return "", m.httpHandle(msg.ID(), request)
 }
