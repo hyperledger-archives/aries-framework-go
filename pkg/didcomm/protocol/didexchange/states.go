@@ -434,9 +434,9 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
 	}
 
-	svc, found := did.LookupService(newDidDoc, didCommServiceType)
-	if found {
-		for _, recKey := range svc.RecipientKeys {
+	recipientKeys, ok := did.LookupRecipientKeys(newDidDoc, didCommServiceType, ed25519KeyType)
+	if ok {
+		for _, recKey := range recipientKeys {
 			// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
 			//  recKeys to the Router
 			if err = route.AddKeyToRouter(ctx.routeSvc, recKey); err != nil {

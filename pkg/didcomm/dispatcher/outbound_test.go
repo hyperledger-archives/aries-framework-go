@@ -24,6 +24,7 @@ import (
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/diddoc"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 func TestOutboundDispatcher_Send(t *testing.T) {
@@ -58,6 +59,52 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		err := o.Send("data", "", &service.Destination{ServiceEndpoint: "url"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "send error")
+	})
+
+	t.Run("test send with forward message - success", func(t *testing.T) {
+		o := NewOutbound(&mockProvider{
+			packagerValue:           &mockpackager.Packager{},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+		})
+
+		require.NoError(t, o.Send("data", "", &service.Destination{
+			ServiceEndpoint: "url",
+			RecipientKeys:   []string{"abc"},
+			RoutingKeys:     []string{"xyz"},
+		}))
+	})
+
+	t.Run("test send with forward message - create key failure", func(t *testing.T) {
+		o := NewOutbound(&mockProvider{
+			packagerValue:           &mockpackager.Packager{},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+			kms: &mockKMS{
+				CreateKeyErr: errors.New("create key error"),
+			},
+		})
+
+		err := o.Send("data", "", &service.Destination{
+			ServiceEndpoint: "url",
+			RecipientKeys:   []string{"abc"},
+			RoutingKeys:     []string{"xyz"},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create forward msg")
+	})
+
+	t.Run("test send with forward message - packer error", func(t *testing.T) {
+		o := NewOutbound(&mockProvider{
+			packagerValue:           &mockpackager.Packager{PackErr: errors.New("pack error")},
+			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
+		})
+
+		_, err := o.createForwardMessage([]byte("data"), &service.Destination{
+			ServiceEndpoint: "url",
+			RecipientKeys:   []string{"abc"},
+			RoutingKeys:     []string{"xyz"},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "pack forward msg")
 	})
 }
 
@@ -206,6 +253,7 @@ type mockProvider struct {
 	outboundTransportsValue []transport.OutboundTransport
 	transportReturnRoute    string
 	vdriRegistry            vdri.Registry
+	kms                     legacykms.KMS
 }
 
 func (p *mockProvider) Packager() commontransport.Packager {
@@ -222,6 +270,14 @@ func (p *mockProvider) TransportReturnRoute() string {
 
 func (p *mockProvider) VDRIRegistry() vdri.Registry {
 	return p.vdriRegistry
+}
+
+func (p *mockProvider) KMS() legacykms.KeyManager {
+	if p.kms != nil {
+		return p.kms
+	}
+
+	return &mockKMS{}
 }
 
 // mockOutboundTransport mock outbound transport
@@ -259,5 +315,40 @@ func (m *mockPackager) PackMessage(e *commontransport.Envelope) ([]byte, error) 
 }
 
 func (m *mockPackager) UnpackMessage(encMessage []byte) (*commontransport.Envelope, error) {
+	return nil, nil
+}
+
+// mockKMS mock Key Management Service (KMS)
+type mockKMS struct {
+	CreateEncryptionKeyValue string
+	CreateSigningKeyValue    string
+	CreateKeyErr             error
+}
+
+func (m *mockKMS) Close() error {
+	return nil
+}
+
+func (m *mockKMS) CreateKeySet() (string, string, error) {
+	return m.CreateEncryptionKeyValue, m.CreateSigningKeyValue, m.CreateKeyErr
+}
+
+func (m *mockKMS) FindVerKey(candidateKeys []string) (int, error) {
+	return 0, nil
+}
+
+func (m *mockKMS) SignMessage(message []byte, fromVerKey string) ([]byte, error) {
+	return nil, nil
+}
+
+func (m *mockKMS) DeriveKEK(alg, apu, fromKey, toPubKey []byte) ([]byte, error) {
+	return nil, nil
+}
+
+func (m *mockKMS) GetEncryptionKey(verKey []byte) ([]byte, error) {
+	return nil, nil
+}
+
+func (m *mockKMS) ConvertToEncryptionKey(key []byte) ([]byte, error) {
 	return nil, nil
 }

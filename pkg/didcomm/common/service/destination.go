@@ -54,5 +54,6 @@ func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 	return &Destination{
 		RecipientKeys:   recipientKeys,
 		ServiceEndpoint: didCommService.ServiceEndpoint,
+		RoutingKeys:     didCommService.RoutingKeys,
 	}, nil
 }

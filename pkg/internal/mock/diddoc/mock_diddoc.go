@@ -22,6 +22,7 @@ func GetMockDIDDoc() *did.Doc {
 				Type:            "did-communication",
 				Priority:        0,
 				RecipientKeys:   []string{"did:example:123456789abcdefghi#keys-2"},
+				RoutingKeys:     []string{"76HmFbj8sds7jjdnZ4hMVcQgtUYZpEN1HEmPnCrH2Bby"},
 			},
 			{
 				ServiceEndpoint: "https://localhost:8090",
