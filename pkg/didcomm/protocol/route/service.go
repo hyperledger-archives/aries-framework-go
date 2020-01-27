@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -45,9 +46,6 @@ const (
 
 	// KeyListUpdateResponseMsgType defines the route coordination key list update message response type.
 	KeylistUpdateResponseMsgType = CoordinationSpec + "keylist_update_response"
-
-	// ForwardMsgType defines the route forward message type.
-	ForwardMsgType = "https://didcomm.org/routing/1.0/forward"
 )
 
 // constants for key list update processing
@@ -156,7 +154,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 			if err := s.handleKeylistUpdateResponse(msg); err != nil {
 				logger.Errorf("handle route keylist update response error : %s", err)
 			}
-		case ForwardMsgType:
+		case service.ForwardMsgType:
 			if err := s.handleForward(msg); err != nil {
 				logger.Errorf("handle forward error : %s", err)
 			}
@@ -174,7 +172,7 @@ func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string)
 // Accept checks whether the service can handle the message type.
 func (s *Service) Accept(msgType string) bool {
 	switch msgType {
-	case RequestMsgType, GrantMsgType, KeylistUpdateMsgType, KeylistUpdateResponseMsgType, ForwardMsgType:
+	case RequestMsgType, GrantMsgType, KeylistUpdateMsgType, KeylistUpdateResponseMsgType, service.ForwardMsgType:
 		return true
 	}
 
@@ -306,7 +304,7 @@ func (s *Service) handleKeylistUpdateResponse(msg service.DIDCommMsg) error {
 
 func (s *Service) handleForward(msg service.DIDCommMsg) error {
 	// unmarshal the payload
-	forward := &Forward{}
+	forward := &model.Forward{}
 
 	err := msg.Decode(forward)
 	if err != nil {

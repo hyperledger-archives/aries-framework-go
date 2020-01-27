@@ -12,12 +12,15 @@ import (
 	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 // provider interface for outbound ctx
@@ -26,6 +29,7 @@ type provider interface {
 	OutboundTransports() []transport.OutboundTransport
 	TransportReturnRoute() string
 	VDRIRegistry() vdri.Registry
+	KMS() legacykms.KeyManager
 }
 
 // OutboundDispatcher dispatch msgs to destination
@@ -34,6 +38,7 @@ type OutboundDispatcher struct {
 	packager             commontransport.Packager
 	transportReturnRoute string
 	vdRegistry           vdri.Registry
+	kms                  legacykms.KeyManager
 }
 
 // NewOutbound return new dispatcher outbound instance
@@ -43,6 +48,7 @@ func NewOutbound(prov provider) *OutboundDispatcher {
 		packager:             prov.Packager(),
 		transportReturnRoute: prov.TransportReturnRoute(),
 		vdRegistry:           prov.VDRIRegistry(),
+		kms:                  prov.KMS(),
 	}
 }
 
@@ -81,22 +87,9 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		}
 
 		// update the outbound message with transport return route option [all or thread]
-		if o.transportReturnRoute == decorator.TransportReturnRouteAll ||
-			o.transportReturnRoute == decorator.TransportReturnRouteThread {
-			// create the decorator with the option set in the framework
-			transportDec := &decorator.Transport{ReturnRoute: &decorator.ReturnRoute{Value: o.transportReturnRoute}}
-
-			transportDecJSON, jsonErr := json.Marshal(transportDec)
-			if jsonErr != nil {
-				return fmt.Errorf("json marshal : %w", jsonErr)
-			}
-
-			request := string(req)
-			index := strings.Index(request, "{")
-
-			// add transport route option decorator to the original request
-			req = []byte(request[:index+1] + string(transportDecJSON)[1:len(string(transportDecJSON))-1] + "," +
-				request[index+1:])
+		req, err = o.addTransportRouteOptions(req)
+		if err != nil {
+			return fmt.Errorf("add transport route options : %w", err)
 		}
 
 		packedMsg, err := o.packager.PackMessage(
@@ -108,7 +101,10 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		// set the return route option
 		des.TransportReturnRoute = o.transportReturnRoute
 
-		packedMsg = createForwardMessage(packedMsg, des)
+		packedMsg, err = o.createForwardMessage(packedMsg, des)
+		if err != nil {
+			return fmt.Errorf("create forward msg : %w", err)
+		}
 
 		_, err = v.Send(packedMsg, des)
 		if err != nil {
@@ -146,22 +142,61 @@ func (o *OutboundDispatcher) Forward(msg interface{}, des *service.Destination) 
 	return fmt.Errorf("no outbound transport found for serviceEndpoint: %s", des.ServiceEndpoint)
 }
 
-func createForwardMessage(msg []byte, des *service.Destination) []byte {
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/807#issuecomment-566126744 message needs to
-	//  be packed with anon crypt if the request needs through routed ie. des.RoutingKeys != nil
-	//  psuedocode:
-	//		if des.RoutingKeys != nil {
-	//			// create forward message:
-	//			forward := &Forward{
-	//				Type: "https://didcomm.org/routing/1.0/forward",
-	//				ID:   uuid.New().String(),
-	//				To:   "destinationRecKey",
-	//				Msg:  packedMsg,
-	//			}
-	//
-	//			// pack above message using anon crypt
-	//
-	//			// return the message
-	//		}
-	return msg
+func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Destination) ([]byte, error) {
+	if len(des.RoutingKeys) == 0 {
+		return msg, nil
+	}
+
+	// create forward message
+	forward := &model.Forward{
+		Type: service.ForwardMsgType,
+		ID:   uuid.New().String(),
+		To:   des.RecipientKeys[0],
+		Msg:  msg,
+	}
+
+	// convert forward message to bytes
+	req, err := json.Marshal(forward)
+	if err != nil {
+		return nil, fmt.Errorf("failed marshal to bytes: %w", err)
+	}
+
+	// create key set
+	_, senderVerKey, err := o.kms.CreateKeySet()
+	if err != nil {
+		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
+	}
+
+	// pack above message using auth crypt
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/1112 Configurable packing
+	//  algorithm(auth/anon crypt) for Forward(router) message
+	packedMsg, err := o.packager.PackMessage(
+		&commontransport.Envelope{Message: req, FromVerKey: base58.Decode(senderVerKey), ToVerKeys: des.RoutingKeys})
+	if err != nil {
+		return nil, fmt.Errorf("pack forward msg: %w", err)
+	}
+
+	return packedMsg, nil
+}
+
+func (o *OutboundDispatcher) addTransportRouteOptions(req []byte) ([]byte, error) {
+	if o.transportReturnRoute == decorator.TransportReturnRouteAll ||
+		o.transportReturnRoute == decorator.TransportReturnRouteThread {
+		// create the decorator with the option set in the framework
+		transportDec := &decorator.Transport{ReturnRoute: &decorator.ReturnRoute{Value: o.transportReturnRoute}}
+
+		transportDecJSON, jsonErr := json.Marshal(transportDec)
+		if jsonErr != nil {
+			return nil, fmt.Errorf("json marshal : %w", jsonErr)
+		}
+
+		request := string(req)
+		index := strings.Index(request, "{")
+
+		// add transport route option decorator to the original request
+		req = []byte(request[:index+1] + string(transportDecJSON)[1:len(string(transportDecJSON))-1] + "," +
+			request[index+1:])
+	}
+
+	return req, nil
 }

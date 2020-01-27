@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -65,7 +66,7 @@ func TestServiceAccept(t *testing.T) {
 	require.Equal(t, true, s.Accept(GrantMsgType))
 	require.Equal(t, true, s.Accept(KeylistUpdateMsgType))
 	require.Equal(t, true, s.Accept(KeylistUpdateResponseMsgType))
-	require.Equal(t, true, s.Accept(ForwardMsgType))
+	require.Equal(t, true, s.Accept(service.ForwardMsgType))
 	require.Equal(t, false, s.Accept("unsupported msg type"))
 }
 
@@ -838,8 +839,8 @@ func generateKeylistUpdateResponseMsgPayload(t *testing.T, id string, updates []
 }
 
 func generateForwardMsgPayload(t *testing.T, id, to string, msg interface{}) service.DIDCommMsg {
-	requestBytes, err := json.Marshal(&Forward{
-		Type: ForwardMsgType,
+	requestBytes, err := json.Marshal(&model.Forward{
+		Type: service.ForwardMsgType,
 		ID:   id,
 		To:   to,
 		Msg:  msg,

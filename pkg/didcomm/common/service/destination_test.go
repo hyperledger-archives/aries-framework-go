@@ -68,6 +68,7 @@ func TestPrepareDestination(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, dest)
 		require.Equal(t, dest.ServiceEndpoint, "https://localhost:8090")
+		require.Equal(t, []string{"76HmFbj8sds7jjdnZ4hMVcQgtUYZpEN1HEmPnCrH2Bby"}, dest.RoutingKeys)
 	})
 
 	t.Run("error while getting service", func(t *testing.T) {
