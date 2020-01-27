@@ -4,18 +4,15 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+'use strict'
+
+const _aries_isNodeJS = typeof module !== 'undefined' && module.exports
+
 // TODO not all browsers support private members of classes
 /* @class Aries provides Aries SSI-agent functions. */
 const Aries = new function() {
     // TODO synchronize access on this map?
     this._pending = new Map()
-    this._worker = new Worker('aries-worker.js')
-    this._worker.onmessage = e => {
-        const result = e.data
-        const cb = this._pending.get(result.id)
-        this._pending.delete(result.id)
-        cb(result)
-    }
 
     /**
      * Test methods.
@@ -63,5 +60,33 @@ const Aries = new function() {
             Aries._worker.postMessage(msg)
         })
     }
+
+    this._getWorker = () => {
+        if (_aries_isNodeJS) {
+            const { Worker } = require('worker_threads')
+            const worker = new Worker('./aries-worker-node.js')
+            worker.on("message", result => {
+                const cb = Aries._pending.get(result.id)
+                Aries._pending.delete(result.id)
+                cb(result)
+            })
+            return worker
+        } else {
+            const worker = new Worker('./aries-worker.js')
+            worker.onmessage = e => {
+                const result = e.data
+                const cb = Aries._pending.get(result.id)
+                Aries._pending.delete(result.id)
+                cb(result)
+            }
+            return worker
+        }
+    }
+
+    this._worker = this._getWorker()
 }
 
+
+if (_aries_isNodeJS) {
+    module.exports.Aries = Aries
+}
