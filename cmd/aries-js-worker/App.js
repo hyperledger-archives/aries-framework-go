@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 // This is a test nodejs app for developers to test WASM integration.
 
-const { Aries } = require('./aries.js')
+const { Aries } = require('./dist/node/aries.js')
 
 // TODO add a 'ready' signal from the wasm to let users know when it's loaded
 

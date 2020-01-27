@@ -6,11 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 'use strict'
 
-const _aries_isNodeJS = typeof module !== 'undefined' && module.exports
+import { _getWorker } from 'worker_loader'
 
 // TODO not all browsers support private members of classes
 /* @class Aries provides Aries SSI-agent functions. */
-const Aries = new function() {
+export const Aries = new function() {
     // TODO synchronize access on this map?
     this._pending = new Map()
 
@@ -61,32 +61,10 @@ const Aries = new function() {
         })
     }
 
-    this._getWorker = () => {
-        if (_aries_isNodeJS) {
-            const { Worker } = require('worker_threads')
-            const worker = new Worker('./aries-worker-node.js')
-            worker.on("message", result => {
-                const cb = Aries._pending.get(result.id)
-                Aries._pending.delete(result.id)
-                cb(result)
-            })
-            return worker
-        } else {
-            const worker = new Worker('./aries-worker.js')
-            worker.onmessage = e => {
-                const result = e.data
-                const cb = Aries._pending.get(result.id)
-                Aries._pending.delete(result.id)
-                cb(result)
-            }
-            return worker
-        }
+    this.getWorker = () => {
+        return _getWorker(this._pending)
     }
 
-    this._worker = this._getWorker()
+    this._worker = this.getWorker()
 }
 
-
-if (_aries_isNodeJS) {
-    module.exports.Aries = Aries
-}

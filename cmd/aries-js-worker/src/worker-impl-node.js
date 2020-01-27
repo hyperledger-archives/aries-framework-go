@@ -4,13 +4,19 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-require("./wasm_exec.js")
-const { parentPort } = require('worker_threads')
+const { workerData, parentPort } = require("worker_threads")
+const fs = require("fs")
+
+// We expect two things in workerData:
+// - wasmJS: absolute path to the Go webassembly wrapper JS file
+// - wasm: absolute path to the wasm blob file
+
+require(workerData.wasmJS)
 
 const go = new Go();
 go.env = Object.assign({ TMPDIR: require("os").tmpdir() }, process.env);
 go.exit = process.exit;
-WebAssembly.instantiate(fs.readFileSync("./aries-js-worker.wasm"), go.importObject).then((result) => {
+WebAssembly.instantiate(fs.readFileSync(workerData.wasmPath), go.importObject).then((result) => {
     return go.run(result.instance);
 }).catch((err) => {
     console.error(err);
@@ -22,5 +28,6 @@ handleResult = function(r) {
 }
 
 parentPort.on("message", m => {
+    // handleMsg is not defined here but is instead defined by the WASM blob during initialization
     handleMsg(JSON.stringify(m))
 })
