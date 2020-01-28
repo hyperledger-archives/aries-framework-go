@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/introduce"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/messaging"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/route"
 )
 
 const (
@@ -163,4 +164,7 @@ func FeatureContext(s *godog.Suite) {
 	// Register messaging tests
 	messaging.NewMessagingSDKSteps(bddContext).RegisterSteps(s)
 	messaging.NewMessagingControllerSteps(bddContext).RegisterSteps(s)
+
+	// Register router tests
+	route.NewRouteSDKSteps(bddContext).RegisterSteps(s)
 }

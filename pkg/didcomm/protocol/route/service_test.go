@@ -368,7 +368,14 @@ func TestServiceForwardMsg(t *testing.T) {
 		msgID := randomID()
 		invalidDID := "did:error:123"
 
-		content := "packed message destined to the recipient through router"
+		content := &model.Envelope{
+			Protected: "eyJ0eXAiOiJwcnMuaHlwZXJsZWRnZXIuYXJpZXMtYXV0aC1t" +
+				"ZXNzYWdlIiwiYWxnIjoiRUNESC1TUytYQzIwUEtXIiwiZW5jIjoiWEMyMFAifQ",
+			IV:         "JS2FxjEKdndnt-J7QX5pEnVwyBTu0_3d",
+			CipherText: "qQyzvajdvCDJbwxM",
+			Tag:        "2FqZMMQuNPYfL0JsSkj8LQ",
+		}
+
 		msg := generateForwardMsgPayload(t, msgID, to, content)
 
 		svc, err := New(&mockprovider.Provider{
@@ -838,7 +845,7 @@ func generateKeylistUpdateResponseMsgPayload(t *testing.T, id string, updates []
 	return didMsg
 }
 
-func generateForwardMsgPayload(t *testing.T, id, to string, msg interface{}) service.DIDCommMsg {
+func generateForwardMsgPayload(t *testing.T, id, to string, msg *model.Envelope) service.DIDCommMsg {
 	requestBytes, err := json.Marshal(&model.Forward{
 		Type: service.ForwardMsgType,
 		ID:   id,
