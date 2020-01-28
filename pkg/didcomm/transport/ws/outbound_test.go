@@ -103,6 +103,30 @@ func TestClient(t *testing.T) {
 		require.False(t, outbound.AcceptRecipient(recKey))
 	})
 
+	t.Run("test outbound transport pool - accept routing keys", func(t *testing.T) {
+		verKey := "XYZ"
+		routeKey := "ABC"
+		recKey := []string{verKey}
+		routingKeys := []string{routeKey}
+
+		outbound := NewOutbound()
+		require.NotNil(t, outbound)
+
+		require.NoError(t, outbound.Start(&mockProvider{
+			&mockpackager.Packager{UnpackValue: &commontransport.Envelope{Message: []byte("data")}}},
+		))
+
+		addr := startWebSocketServer(t, echo)
+
+		des := prepareDestinationWithTransport("ws://"+addr, decorator.TransportReturnRouteAll, recKey)
+		des.RoutingKeys = routingKeys
+
+		data := "didcomm-message"
+		resp, err := outbound.Send([]byte(data), des)
+		require.NoError(t, err)
+		require.Equal(t, "", resp)
+	})
+
 	t.Run("test outbound transport pool success - transport decorator", func(t *testing.T) {
 		outbound := NewOutbound()
 		require.NotNil(t, outbound)

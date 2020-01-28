@@ -69,8 +69,13 @@ func (cs *OutboundClient) AcceptRecipient(keys []string) bool {
 func (cs *OutboundClient) getConnection(destination *service.Destination) (*websocket.Conn, func(), error) {
 	var conn *websocket.Conn
 
-	// get the connection for the recipient keys
-	for _, v := range destination.RecipientKeys {
+	// get the connection for the routing or recipient keys
+	keys := destination.RecipientKeys
+	if len(destination.RoutingKeys) != 0 {
+		keys = destination.RoutingKeys
+	}
+
+	for _, v := range keys {
 		if c := cs.pool.fetch(v); c != nil {
 			conn = c
 

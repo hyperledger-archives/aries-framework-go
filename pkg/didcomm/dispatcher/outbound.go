@@ -75,7 +75,13 @@ func (o *OutboundDispatcher) SendToDID(msg interface{}, myDID, theirDID string) 
 // Send sends the message after packing with the sender key and recipient keys.
 func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *service.Destination) error {
 	for _, v := range o.outboundTransports {
-		if !v.AcceptRecipient(des.RecipientKeys) {
+		// check if outbound accepts routing keys, else use recipient keys
+		keys := des.RecipientKeys
+		if len(des.RoutingKeys) != 0 {
+			keys = des.RoutingKeys
+		}
+
+		if !v.AcceptRecipient(keys) {
 			if !v.Accept(des.ServiceEndpoint) {
 				continue
 			}
@@ -147,12 +153,18 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 		return msg, nil
 	}
 
+	env := &model.Envelope{}
+
+	err := json.Unmarshal(msg, env)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal envelope : %w", err)
+	}
 	// create forward message
 	forward := &model.Forward{
 		Type: service.ForwardMsgType,
 		ID:   uuid.New().String(),
 		To:   des.RecipientKeys[0],
-		Msg:  msg,
+		Msg:  env,
 	}
 
 	// convert forward message to bytes

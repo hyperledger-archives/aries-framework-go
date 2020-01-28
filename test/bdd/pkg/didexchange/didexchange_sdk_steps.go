@@ -360,6 +360,12 @@ func (d *SDKSteps) eventListener(statusCh chan service.StateMsg, agentID string,
 	}
 }
 
+func (d *SDKSteps) saveConnectionID(agentID, varName string) error {
+	d.bddContext.Args[varName] = d.connectionID[agentID]
+
+	return nil
+}
+
 func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddoc.Doc, error) {
 	var doc *diddoc.Doc
 
@@ -394,4 +400,5 @@ func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" approves invitation request`, d.ApproveRequest)
 	s.Step(`^"([^"]*)" registers to receive notification for post state event "([^"]*)"$`, d.RegisterPostMsgEvent)
 	s.Step(`^"([^"]*)" has established connection with "([^"]*)" through did exchange$`, d.performDIDExchange)
+	s.Step(`^"([^"]*)" saves connectionID to variable "([^"]*)"$`, d.saveConnectionID)
 }

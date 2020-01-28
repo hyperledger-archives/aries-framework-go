@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/client/route"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -19,6 +20,7 @@ import (
 // BDDContext is a global context shared between different test suites in bddtests
 type BDDContext struct {
 	DIDExchangeClients map[string]*didexchange.Client
+	RouteClients       map[string]*route.Client
 	PublicDIDs         map[string]*did.Doc
 	AgentCtx           map[string]*context.Provider
 	MessageRegistrar   map[string]*msghandler.Registrar
@@ -33,6 +35,7 @@ type BDDContext struct {
 func NewBDDContext() (*BDDContext, error) {
 	instance := BDDContext{
 		DIDExchangeClients: make(map[string]*didexchange.Client),
+		RouteClients:       make(map[string]*route.Client),
 		PublicDIDs:         make(map[string]*did.Doc),
 		AgentCtx:           make(map[string]*context.Provider),
 		MessageRegistrar:   make(map[string]*msghandler.Registrar),
