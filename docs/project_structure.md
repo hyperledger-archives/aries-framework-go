@@ -23,4 +23,5 @@ As a user, what do you do:
 - [DID Method](../pkg/didmethod): Provides support for DID Methods. Currently, framework supports HTTP and Peer DID Methods.
 - [Storage](../pkg/storage): Provides agent data storage options. Currently, LevelDB is supported by default.
 - [DIDComm Envelope](../pkg/didcomm/packer): Supports packing and unpacking of DIDComm message envelopes. 
+- [Verifiable Credential](../pkg/doc/verifiable): Defines Verifiable Credentials and Presentations data model. 
 

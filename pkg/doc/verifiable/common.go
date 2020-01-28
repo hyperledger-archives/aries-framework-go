@@ -3,13 +3,13 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package verifiable provides implementation of Verifiable Credential and Presentation
+// Package verifiable implements Verifiable Credential and Presentation data model
 // (https://www.w3.org/TR/vc-data-model).
 // It provides the data structures and functions which allow to process the Verifiable documents on different
 // sides and levels. For example, an Issuer can create verifiable.Credential structure and issue it to a
-// Holder in JWS. The Holder can decode received Credential and make sure the signature is valid.
-// The Holder can present the Credential to the Verifier or combine one or more Credentials into Verifiable
-// Presentation. The Verifier can decode received Credentials and Presentations.
+// Holder in JWS form. The Holder can decode received Credential and make sure the signature is valid.
+// The Holder can present the Credential to the Verifier or combine one or more Credentials into a Verifiable
+// Presentation. The Verifier can decode and verify the received Credentials and Presentations.
 //
 package verifiable
 
