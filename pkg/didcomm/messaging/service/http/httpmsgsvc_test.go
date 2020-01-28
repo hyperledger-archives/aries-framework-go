@@ -103,22 +103,22 @@ func TestOverDIDComm_Accept(t *testing.T) {
 					"sample-msgtype-01", []string{"foo", "bar"}, false,
 				},
 				{
-					OverDIDCommSpec, []string{"bla"}, false,
+					OverDIDCommMsgRequestType, []string{"bla"}, false,
 				},
 				{
-					OverDIDCommSpec, []string{}, false,
+					OverDIDCommMsgRequestType, []string{}, false,
 				},
 				{
-					OverDIDCommSpec, nil, false,
+					OverDIDCommMsgRequestType, nil, false,
 				},
 				{
-					OverDIDCommSpec, []string{"foo"}, true,
+					OverDIDCommMsgRequestType, []string{"foo"}, true,
 				},
 				{
-					OverDIDCommSpec, []string{"bar"}, true,
+					OverDIDCommMsgRequestType, []string{"bar"}, true,
 				},
 				{
-					OverDIDCommSpec, []string{"foo", "bar"}, true,
+					OverDIDCommMsgRequestType, []string{"foo", "bar"}, true,
 				},
 			},
 		},
@@ -148,22 +148,22 @@ func TestOverDIDComm_Accept(t *testing.T) {
 					"sample-msgtype-01", []string{"foo", "bar"}, false,
 				},
 				{
-					OverDIDCommSpec, []string{"bla"}, true,
+					OverDIDCommMsgRequestType, []string{"bla"}, true,
 				},
 				{
-					OverDIDCommSpec, []string{}, true,
+					OverDIDCommMsgRequestType, []string{}, true,
 				},
 				{
-					OverDIDCommSpec, nil, true,
+					OverDIDCommMsgRequestType, nil, true,
 				},
 				{
-					OverDIDCommSpec, []string{"foo"}, true,
+					OverDIDCommMsgRequestType, []string{"foo"}, true,
 				},
 				{
-					OverDIDCommSpec, []string{"bar"}, true,
+					OverDIDCommMsgRequestType, []string{"bar"}, true,
 				},
 				{
-					OverDIDCommSpec, []string{"foo", "bar"}, true,
+					OverDIDCommMsgRequestType, []string{"foo", "bar"}, true,
 				},
 			},
 		},

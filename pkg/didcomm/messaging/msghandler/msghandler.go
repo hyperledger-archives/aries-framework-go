@@ -7,6 +7,14 @@
  *
  */
 
+// Package msghandler dynamically maintains the list of registered message services.
+//
+// In addition to returning list of available message services as a message service provider implementation,
+// this message handler also provides register/unregister functionality which can be used to add/remove
+// message services from already running agent.
+//
+// (RFC Reference : https://github.com/hyperledger/aries-rfcs/blob/master/features/0351-purpose-decorator/README.md)
+//
 package msghandler
 
 import (
@@ -26,7 +34,7 @@ func NewRegistrar() *Registrar {
 	return &Registrar{}
 }
 
-// Registrar is message handler implementation which maintains list of registered message service
+// Registrar is message service provider implementation which maintains list of registered message service
 // and also allows dynamic register/unregister of message services
 type Registrar struct {
 	services []dispatcher.MessageService

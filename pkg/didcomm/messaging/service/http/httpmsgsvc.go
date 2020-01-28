@@ -7,6 +7,16 @@
  *
  */
 
+// Package http provides http-over-didcomm message service features.
+//
+// Any incoming message of type "https://didcomm.org/http-over-didcomm/1.0/request" and matching purpose can be handled
+// by registering 'OverDIDComm' message service.
+//
+// RFC Reference:
+//
+// https://github.com/hyperledger/aries-rfcs/blob/master/features/0335-http-over-didcomm/README.md
+// https://github.com/hyperledger/aries-rfcs/blob/master/features/0351-purpose-decorator/README.md
+//
 package http
 
 import (
@@ -22,6 +32,9 @@ const (
 	// OverDIDCommSpec is http over DIDComm Spec value
 	OverDIDCommSpec = "https://didcomm.org/http-over-didcomm/1.0/"
 
+	// OverDIDCommMsgRequestType is http over DIDComm request message type
+	OverDIDCommMsgRequestType = OverDIDCommSpec + "request"
+
 	// error messages
 	errNameAndHandleMandatory   = "service name and http request handle is mandatory"
 	errFailedToDecodeMsg        = "unable to decode DID comm message: %w"
@@ -30,7 +43,7 @@ const (
 )
 
 // RequestHandle handle function for http over did comm message service which gets called by
-// `OverDIDComm` message service to handle incoming request.
+// `OverDIDComm` message service to handle matching incoming request.
 //
 // Args
 //
@@ -46,23 +59,25 @@ type RequestHandle func(msgID string, request *http.Request) error
 // incoming DIDComm message over HTTP. DIDComm message receiver of [RFC-0351]
 //
 // Reference:
+//
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0335-http-over-didcomm/README.md
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0351-purpose-decorator/README.md
 //
 // Args:
 //
-// name: service name, this is mandatory argument.
+// name - is name of this message service (this is mandatory argument).
 //
-// purpose: optional list of purposes to be handled by this http-over-didcomm service [RFC-0351].
-// If not provided only message type will be taken into consideration in acceptance criteria of this message service.
+// purpose - is optional list of purposes to be handled by this message service. If not provided then only message type
+// will be taken into consideration in acceptance criteria of this message service.
 //
-// httpHandle: handle function to which incoming DIDComm message will be sent after being converted to
-// http request. this is mandatory argument.
+// httpHandle - is handle function to which incoming DIDComm message will be sent after being converted to
+// http request. (this is mandatory argument).
 //
 // Returns:
 //
-// OverDIDComm: http over didcomm message service
-// error: arg validation errors
+// OverDIDComm: http over didcomm message service,
+//
+// error: arg validation errors.
 func NewOverDIDComm(name string, httpHandle RequestHandle, purpose ...string) (*OverDIDComm, error) {
 	if name == "" || httpHandle == nil {
 		return nil, fmt.Errorf(errNameAndHandleMandatory)
@@ -76,22 +91,23 @@ func NewOverDIDComm(name string, httpHandle RequestHandle, purpose ...string) (*
 }
 
 // OverDIDComm is message service which transports incoming DIDComm message over to
-// intended http resource providers
+// intended http resource providers.
 type OverDIDComm struct {
 	name       string
 	purpose    []string
 	httpHandle RequestHandle
 }
 
-// Name of HTTP over DIDComm message service
+// Name of HTTP over DIDComm message service.
 func (m *OverDIDComm) Name() string {
 	return m.name
 }
 
-// Accept criteria for HTTP over DIDComm message service, it accepts http-didcomm-over message type [RFC-0335]
-// and follows `A tagging system` purpose field validation from RFC-0351
+// Accept is acceptance criteria for this HTTP over DIDComm message service,
+// it accepts http-didcomm-over message type [RFC-0335] and follows `A tagging system` purpose field validation
+// from RFC-0351.
 func (m *OverDIDComm) Accept(msgType string, purpose []string) bool {
-	if msgType != OverDIDCommSpec {
+	if msgType != OverDIDCommMsgRequestType {
 		return false
 	}
 
@@ -112,7 +128,7 @@ func (m *OverDIDComm) Accept(msgType string, purpose []string) bool {
 	return false
 }
 
-// HandleInbound for HTTP over DIDComm message service
+// HandleInbound for HTTP over DIDComm message service.
 func (m *OverDIDComm) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	svcMsg := httpOverDIDCommMsg{}
 

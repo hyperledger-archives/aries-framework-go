@@ -209,7 +209,9 @@ func WithVDRI(v vdriapi.VDRI) Option {
 	}
 }
 
-// WithMessageServiceProvider injects a message service provider to the Aries framework
+// WithMessageServiceProvider injects a message service provider to the Aries framework.
+// Message service provider returns list of message services which can be used to provide custom handle
+// functionality based on incoming messages type and purpose.
 func WithMessageServiceProvider(msv api.MessageServiceProvider) Option {
 	return func(opts *Aries) error {
 		opts.msgSvcProvider = msv
