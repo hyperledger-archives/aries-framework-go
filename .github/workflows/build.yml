@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 10
     strategy:
       matrix:
-        os: [ubuntu-18.04, macOS-10.14]
+        os: [ubuntu-18.04, macOS-10.15]
     steps:
 
     - name: Setup Go 1.13
