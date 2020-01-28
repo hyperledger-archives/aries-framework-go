@@ -67,8 +67,8 @@ func New(ctx Provider, inv *didexchange.Invitation) (*Client, error) {
 
 // InvitationEnvelope is a helper function that returns the dependency needed for the
 // service to proceed with the protocol. Dependency should be passed to the service through `Continue` function.
-// The function should never return an error, instead of error we provide the callable interface
-// and the state machine will act according to the provided data.
+// The function should never return an error. Instead of an error we provide a callable interface
+// and a state machine that will act according to the provided data.
 // Dependency is populated after executing the following functions:
 //  - SendProposal
 //  - SendProposalWithInvitation
@@ -90,14 +90,14 @@ func (c *Client) InvitationEnvelope(thID string) *InvitationEnvelope {
 	return opts
 }
 
-// SendProposal sends proposal to introducees (the client does not have a public Invitation)
+// SendProposal sends a proposal to the introducees (the client does not have a public Invitation).
 func (c *Client) SendProposal(recipient1, recipient2 *introduce.Recipient) error {
 	return c.sendProposal(InvitationEnvelope{
 		Recps: []*introduce.Recipient{recipient1, recipient2},
 	})
 }
 
-// SendProposalWithInvitation sends proposal to introducee (the client has a public Invitation)
+// SendProposalWithInvitation sends a proposal to the introducee (the client has a public Invitation).
 func (c *Client) SendProposalWithInvitation(inv *didexchange.Invitation, recipient *introduce.Recipient) error {
 	return c.sendProposal(InvitationEnvelope{
 		Inv:   inv,
@@ -105,8 +105,8 @@ func (c *Client) SendProposalWithInvitation(inv *didexchange.Invitation, recipie
 	})
 }
 
-// SendRequest sends a request
-// sending a request means that introducee is willing to share its invitation
+// SendRequest sends a request.
+// Sending a request means that the introducee is willing to share its invitation.
 func (c *Client) SendRequest(to *introduce.PleaseIntroduceTo, myDID, theirDID string) error {
 	return c.handleOutbound(&introduce.Request{
 		Type:              introduce.RequestMsgType,
@@ -117,7 +117,7 @@ func (c *Client) SendRequest(to *introduce.PleaseIntroduceTo, myDID, theirDID st
 	})
 }
 
-// HandleRequest is a helper function to prepare the right protocol dependency interface
+// HandleRequest is a helper function to prepare the right protocol dependency interface.
 // It can be executed after receiving a Request action message (the client does not have a public Invitation)
 func (c *Client) HandleRequest(msg service.DIDCommMsg, to *introduce.To, recipient *introduce.Recipient) error {
 	thID, err := msg.ThreadID()
@@ -130,10 +130,10 @@ func (c *Client) HandleRequest(msg service.DIDCommMsg, to *introduce.To, recipie
 	})
 }
 
-// HandleRequestWithInvitation is a helper function to prepare the right protocol dependency interface
+// HandleRequestWithInvitation is a helper function to prepare the right protocol dependency interface.
 // It can be executed after receiving a Request action message (the client has a public Invitation)
-// nolint: lll
-func (c *Client) HandleRequestWithInvitation(msg service.DIDCommMsg, inv *didexchange.Invitation, to *introduce.To) error {
+func (c *Client) HandleRequestWithInvitation(msg service.DIDCommMsg,
+	inv *didexchange.Invitation, to *introduce.To) error {
 	thID, err := msg.ThreadID()
 	if err != nil {
 		return fmt.Errorf("handle request with invitation threadID: %w", err)

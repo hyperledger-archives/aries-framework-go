@@ -14,14 +14,14 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	mocks "github.com/hyperledger/aries-framework-go/pkg/client/introduce/gomocks"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service/gomocks"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
-	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce/gomocks"
+	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/introduce"
+	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
+	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/introduce"
+	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	storageMocks "github.com/hyperledger/aries-framework-go/pkg/storage/gomocks"
 )
 
 func TestNew(t *testing.T) {
