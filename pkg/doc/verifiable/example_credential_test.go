@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
@@ -301,4 +302,97 @@ func ExampleCredential_JWTClaims() {
 
 	//nolint
 	// Output: eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFNjaGVtYSI6W10sImNyZWRlbnRpYWxTdWJqZWN0Ijp7ImRlZ3JlZSI6eyJ0eXBlIjoiQmFjaGVsb3JEZWdyZWUiLCJ1bml2ZXJzaXR5IjoiTUlUIn0sImlkIjoiZGlkOmV4YW1wbGU6ZWJmZWIxZjcxMmViYzZmMWMyNzZlMTJlYzIxIiwibmFtZSI6IkpheWRlbiBEb2UiLCJzcG91c2UiOiJkaWQ6ZXhhbXBsZTpjMjc2ZTEyZWMyMWViZmViMWY3MTJlYmM2ZjEifSwiaXNzdWVyIjp7Im5hbWUiOiJFeGFtcGxlIFVuaXZlcnNpdHkifSwicmVmZXJlbmNlTnVtYmVyIjo4LjMyOTQ4NDdlKzA3LCJ0eXBlIjpbIlZlcmlmaWFibGVDcmVkZW50aWFsIiwiVW5pdmVyc2l0eURlZ3JlZUNyZWRlbnRpYWwiXX19.auzCDgrk2TOK9BQFZHVI4p5bX1EI3CEfFNjXneC0r5fV5JE9jHY7WAIuRgKoFhNnadLKHdIekED_NrnlOEa0BA
+}
+
+func ExampleCredential_AddLinkedDataProof() {
+	vcJSON := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "credentialSchema": [],
+  "credentialSubject": {
+    "degree": {
+      "type": "BachelorDegree",
+      "university": "MIT"
+    },
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "expirationDate": "2020-01-01T19:23:24Z",
+  "id": "http://example.edu/credentials/1872",
+  "issuanceDate": "2009-01-01T19:23:24Z",
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University"
+  },
+  "referenceNumber": 83294849,
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ]
+}
+`
+
+	vc, _, err := verifiable.NewCredential([]byte(vcJSON))
+	if err != nil {
+		fmt.Println(fmt.Errorf("failed to decode VC JSON: %w", err))
+	}
+
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		Created:       &issued,
+		Creator:       "Example University",
+		SignatureType: "Ed25519Signature2018",
+		Suite:         ed25519signature2018.New(),
+		PrivateKey:    privIssuerKey,
+	})
+	if err != nil {
+		fmt.Println(fmt.Errorf("failed to add linked data proof: %w", err))
+	}
+
+	vcJSONWithProof, err := json.MarshalIndent(vc, "", "\t")
+	if err != nil {
+		fmt.Println(fmt.Errorf("failed to marshal VC to JSON: %w", err))
+	}
+
+	fmt.Println(string(vcJSONWithProof))
+
+	// Output: {
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1",
+	//		"https://www.w3.org/2018/credentials/examples/v1"
+	//	],
+	//	"credentialSchema": [],
+	//	"credentialSubject": {
+	//		"degree": {
+	//			"type": "BachelorDegree",
+	//			"university": "MIT"
+	//		},
+	//		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	//		"name": "Jayden Doe",
+	//		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+	//	},
+	//	"expirationDate": "2020-01-01T19:23:24Z",
+	//	"id": "http://example.edu/credentials/1872",
+	//	"issuanceDate": "2009-01-01T19:23:24Z",
+	//	"issuer": {
+	//		"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	//		"name": "Example University"
+	//	},
+	//	"proof": {
+	//		"created": "2010-01-01T19:23:24Z",
+	//		"creator": "Example University",
+	//		"domain": "",
+	//		"nonce": "",
+	//		"proofValue": "IHtZUp8KQ0l_HMIpbjgPakSgCKZ0rimcwv0o8yi4YBxcdgk7khAwW0aeX2AkBLWZaL_ce142h1zOqdjI-tQLBg",
+	//		"type": "Ed25519Signature2018"
+	//	},
+	//	"referenceNumber": 83294849,
+	//	"type": [
+	//		"VerifiableCredential",
+	//		"UniversityDegreeCredential"
+	//	]
+	//}
 }
