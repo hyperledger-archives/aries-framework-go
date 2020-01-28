@@ -19,7 +19,7 @@ type provider interface {
 	Service(id string) (interface{}, error)
 }
 
-// Client enable access to route api
+// Client enable access to route api.
 type Client struct {
 	routeSvc protocolService
 }
@@ -33,7 +33,7 @@ type protocolService interface {
 	Register(connectionID string) error
 }
 
-// New return new instance of route client
+// New return new instance of route client.
 func New(ctx provider) (*Client, error) {
 	svc, err := ctx.Service(route.Coordination)
 	if err != nil {
@@ -50,7 +50,8 @@ func New(ctx provider) (*Client, error) {
 	}, nil
 }
 
-// Register registers agent with the router.
+// Register the agent with the router(passed in connectionID). This function asks router's
+// permission to publish it's endpoint and routing keys.
 func (c *Client) Register(connectionID string) error {
 	if err := c.routeSvc.Register(connectionID); err != nil {
 		return fmt.Errorf("router registration : %w", err)
