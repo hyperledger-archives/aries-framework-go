@@ -136,8 +136,8 @@ comma:= ,
 semicolon:= ;
 
 define create_mock
-  mkdir -p $(1)/gomocks && rm -rf $(1)/gomocks/*
-  $(MOCKGEN) -destination $(1)/gomocks/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
+  mkdir -p $(1) && rm -rf $(1)/*
+  $(MOCKGEN) -destination $(1)/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(2) $(subst $(semicolon),$(comma),$(3))
 endef
 
 depend:
@@ -147,16 +147,15 @@ depend:
 
 .PHONY: mocks
 mocks: depend
-	$(call create_mock,pkg/client/introduce,Provider)
-	$(call create_mock,pkg/didcomm/protocol/introduce,Provider;InvitationEnvelope)
-	$(call create_mock,pkg/didcomm/common/service,Event)
-	$(call create_mock,pkg/didcomm/dispatcher,Outbound)
-	$(call create_mock,pkg/storage,Provider;Store)
-	$(call create_mock,pkg/didcomm/common/service,DIDComm)
+	$(call create_mock,pkg/internal/gomocks/client/introduce,pkg/client/introduce,Provider)
+	$(call create_mock,pkg/internal/gomocks/didcomm/protocol/introduce,pkg/didcomm/protocol/introduce,Provider;InvitationEnvelope)
+	$(call create_mock,pkg/internal/gomocks/didcomm/common/service,pkg/didcomm/common/service,Event;DIDComm)
+	$(call create_mock,pkg/internal/gomocks/didcomm/dispatcher,pkg/didcomm/dispatcher,Outbound)
+	$(call create_mock,pkg/internal/gomocks/storage,pkg/storage,Provider;Store)
 
 .PHONY: clean-mocks
 clean-mocks:
-	@find . -name gomocks -type d -exec rm -r {} +
+	rm -r pkg/internal/gomocks
 
 .PHONY: clean
 clean: clean-fixtures clean-build clean-images clean-mocks

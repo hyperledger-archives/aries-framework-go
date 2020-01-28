@@ -20,14 +20,14 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service/gomocks"
-	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher/gomocks"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
-	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce/gomocks"
+	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
+	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
+	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/introduce"
+	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	storageMocks "github.com/hyperledger/aries-framework-go/pkg/storage/gomocks"
 )
 
 const (
