@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	svchttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/http"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
@@ -136,13 +137,13 @@ func TestOperation_RegisterMessageService(t *testing.T) {
 				errorMsg:  errMsgSvcNameRequired,
 			},
 			{
-				name:      "missing name test",
+				name:      "missing type test",
 				json:      `{"name": "svx-001"}`,
 				errorCode: InvalidRequestErrorCode,
 				errorMsg:  errMsgInvalidAcceptanceCrit,
 			},
 			{
-				name:      "missing name test",
+				name:      "message decode error",
 				json:      `-----`,
 				errorCode: InvalidRequestErrorCode,
 				errorMsg:  "invalid character",
@@ -184,6 +185,95 @@ func TestOperation_RegisterMessageService(t *testing.T) {
   	}`)
 
 		handler := lookupCreatePublicDIDHandler(t, svc, registerMsgService)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+		require.Equal(t, http.StatusInternalServerError, code)
+		verifyError(t, RegisterMsgSvcError, errMsg, buf.Bytes())
+	})
+}
+
+func TestOperation_RegisterHTTPMessageService(t *testing.T) {
+	t.Run("Successful Register HTTP Message Service", func(t *testing.T) {
+		mhandler := msghandler.NewMockMsgServiceProvider()
+		svc, err := New(&protocol.MockProvider{}, mhandler, webhook.NewMockWebhookNotifier())
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		var jsonStr = []byte(`{
+		"name":"json-msg-01",
+    	"purpose": ["prp-01","prp-02"]
+  	}`)
+
+		handler := lookupCreatePublicDIDHandler(t, svc, registerHTTPOverDIDCommService)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.Empty(t, buf)
+
+		// verify if new service is registered
+		require.NotEmpty(t, mhandler.Services())
+		require.Equal(t, "json-msg-01", mhandler.Services()[0].Name())
+		require.True(t, mhandler.Services()[0].Accept(
+			svchttp.OverDIDCommMsgRequestType,
+			[]string{"prp-01", "prp-02"},
+		))
+	})
+
+	t.Run("Register HTTP Message Service Input validation", func(t *testing.T) {
+		tests := []struct {
+			name      string
+			json      string
+			errorCode resterrs.Code
+			errorMsg  string
+		}{
+			{
+				name:      "missing name test",
+				json:      `{"purpose": ["prp-01","prp-02"]}`,
+				errorCode: InvalidRequestErrorCode,
+				errorMsg:  errMsgSvcNameRequired,
+			},
+			{
+				name:      "message decode error test",
+				json:      `-----`,
+				errorCode: InvalidRequestErrorCode,
+				errorMsg:  "invalid character",
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.name, func(t *testing.T) {
+				svc, err := New(&protocol.MockProvider{}, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
+				require.NoError(t, err)
+				require.NotNil(t, svc)
+
+				handler := lookupCreatePublicDIDHandler(t, svc, registerHTTPOverDIDCommService)
+				buf, code, err := sendRequestToHandler(handler, bytes.NewBufferString(tc.json), handler.Path())
+				require.NoError(t, err)
+				require.NotEmpty(t, buf)
+				require.Equal(t, http.StatusBadRequest, code)
+				verifyError(t, tc.errorCode, tc.errorMsg, buf.Bytes())
+			})
+		}
+	})
+
+	t.Run("HTTP message service registration failure", func(t *testing.T) {
+		const errMsg = "sample-error"
+		mhandler := msghandler.NewMockMsgServiceProvider()
+		mhandler.RegisterErr = fmt.Errorf(errMsg)
+
+		svc, err := New(&protocol.MockProvider{}, mhandler, webhook.NewMockWebhookNotifier())
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		var jsonStr = []byte(`{
+		"name":"json-msg-01",
+    	"purpose": ["prp-01","prp-02"]
+  	}`)
+
+		handler := lookupCreatePublicDIDHandler(t, svc, registerHTTPOverDIDCommService)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
