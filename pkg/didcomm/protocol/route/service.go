@@ -193,6 +193,9 @@ func (s *Service) handleRequest(msg service.DIDCommMsg, myDID, theirDID string) 
 		return fmt.Errorf("route request message unmarshal : %w", err)
 	}
 
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/1133 Support to
+	//  add business logic for Route Request Approval
+
 	// create keys
 	_, sigPubKey, err := s.kms.CreateKeySet()
 	if err != nil {
@@ -378,7 +381,7 @@ func (s *Service) Register(connectionID string) error {
 		if err := s.saveRouterConfig(conf); err != nil {
 			return fmt.Errorf("save route config : %w", err)
 		}
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/948 configure this timeout at decorator level
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/1134 configure this timeout at decorator level
 	case <-time.After(updateTimeout):
 		return errors.New("timeout waiting for grant from the router")
 	}
@@ -439,7 +442,7 @@ func (s *Service) AddKey(recKey string) error {
 		if err := processKeylistUpdateResp(recKey, keyUpdateResp); err != nil {
 			return err
 		}
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/948 configure this timeout at decorator level
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/1134 configure this timeout at decorator level
 	case <-time.After(updateTimeout):
 		return errors.New("timeout waiting for keylist update response from the router")
 	}
