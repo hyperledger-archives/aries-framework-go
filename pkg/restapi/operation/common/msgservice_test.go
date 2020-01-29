@@ -11,6 +11,7 @@ package common
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -177,7 +178,7 @@ func TestMsgService_HandleInbound(t *testing.T) {
 
 	const theirDID = "sample-theriDID-01"
 
-	t.Run("message service handle inbound success", func(t *testing.T) {
+	t.Run("test message service handle inbound success with generic topic", func(t *testing.T) {
 		webhookCh := make(chan []byte)
 
 		msgsvc := newMessageService(&RegisterMsgSvcParams{Name: sampleName},
@@ -200,7 +201,7 @@ func TestMsgService_HandleInbound(t *testing.T) {
 		case msgBytes := <-webhookCh:
 			require.NotEmpty(t, msgBytes)
 
-			msg := inboundMsg{}
+			msg := mockTopic{}
 			err := json.Unmarshal(msgBytes, &msg)
 			require.NoError(t, err)
 
@@ -221,4 +222,24 @@ func TestMsgService_HandleInbound(t *testing.T) {
 		require.Contains(t, err.Error(), errTopicNotFound)
 		require.Empty(t, s)
 	})
+
+	t.Run("message service handle inbound topic handle failure", func(t *testing.T) {
+		const sampleErr = "sample topic error"
+		topicHandle := func(msg service.DIDCommMsg, myDID, theirDID string) ([]byte, error) {
+			return nil, fmt.Errorf(sampleErr)
+		}
+
+		msgsvc := newCustomMessageService(sampleName, "test", nil, mockwebhook.NewMockWebhookNotifier(), topicHandle)
+		s, err := msgsvc.HandleInbound(service.DIDCommMsgMap{"payload": []byte(sampleName)}, myDID, theirDID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), sampleErr)
+		require.Empty(t, s)
+	})
+}
+
+// mockTopic mock topic from message service handler
+type mockTopic struct {
+	Message  service.DIDCommMsgMap `json:"message"`
+	MyDID    string                `json:"mydid"`
+	TheirDID string                `json:"theirdid"`
 }

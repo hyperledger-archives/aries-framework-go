@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	svchttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/http"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -35,6 +36,10 @@ const (
 	// vdri endpoints
 	vdriOperationID     = "/vdri"
 	createPublicDIDPath = vdriOperationID + "/create-public-did"
+
+	// http over didcomm endpoints
+	httpOverDIDComm                = "/http-over-didcomm"
+	registerHTTPOverDIDCommService = httpOverDIDComm + "/register"
 
 	// message service endpoints
 	msgServiceOperationID = "/message"
@@ -131,6 +136,7 @@ func (o *Operation) registerHandler() {
 		support.NewHTTPHandler(msgServiceList, http.MethodGet, o.RegisteredServices),
 		support.NewHTTPHandler(sendNewMsg, http.MethodPost, o.SendNewMessage),
 		support.NewHTTPHandler(sendReplyMsg, http.MethodPost, o.SendReplyMessage),
+		support.NewHTTPHandler(registerHTTPOverDIDCommService, http.MethodPost, o.RegisterHTTPMessageService),
 	}
 }
 
@@ -182,26 +188,10 @@ func (o *Operation) RegisterMessageService(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	if request.Params.Name == "" {
-		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf(errMsgSvcNameRequired))
-		return
-	}
-
-	if len(request.Params.Purpose) == 0 || request.Params.Type == "" {
-		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf(errMsgInvalidAcceptanceCrit))
-		return
-	}
-
-	err = o.msgRegistrar.Register(newMessageService(request.Params, o.notifier))
-	if err != nil {
-		resterrors.SendHTTPInternalServerError(rw, RegisterMsgSvcError, err)
-		return
-	}
-
-	rw.WriteHeader(http.StatusOK)
+	o.registerMessageService(rw, request.Params)
 }
 
-// UnregisterMessageService swagger:route POST /message/unregister-service message unregisterMsgSvc
+// UnregisterMessageService swagger:route POST /message/unregister-service message http-over-didcomm unregisterMsgSvc
 //
 // unregisters given message service handler registrar
 //
@@ -230,7 +220,7 @@ func (o *Operation) UnregisterMessageService(rw http.ResponseWriter, req *http.R
 	rw.WriteHeader(http.StatusOK)
 }
 
-// RegisteredServices swagger:route GET /message/services message services
+// RegisteredServices swagger:route GET /message/services message http-over-didcomm services
 //
 // returns list of registered service names
 //
@@ -327,6 +317,48 @@ func (o *Operation) SendReplyMessage(rw http.ResponseWriter, req *http.Request) 
 	// TODO this operation will be supported once messenger API [Issue #1039] is available
 	// TODO implementation for SendReply to be added as part of [Issue #1089]
 	resterrors.SendHTTPStatusError(rw, SendMsgReplyError, fmt.Errorf("to be implemented"), http.StatusNotImplemented)
+}
+
+// RegisterHTTPMessageService swagger:route POST /http-over-didcomm/register http-over-didcomm registerHttpMsgSvc
+//
+// registers new http over didcomm service to message handler registrar
+//
+// Responses:
+//    default: genericError
+func (o *Operation) RegisterHTTPMessageService(rw http.ResponseWriter, req *http.Request) {
+	var request RegisterHTTPMessageServiceRequest
+
+	err := json.NewDecoder(req.Body).Decode(&request.Params)
+	if err != nil {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, err)
+		return
+	}
+
+	o.registerMessageService(rw, &RegisterMsgSvcParams{
+		Name:    request.Params.Name,
+		Type:    svchttp.OverDIDCommMsgRequestType,
+		Purpose: request.Params.Purpose,
+	})
+}
+
+func (o *Operation) registerMessageService(rw http.ResponseWriter, params *RegisterMsgSvcParams) {
+	if params.Name == "" {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf(errMsgSvcNameRequired))
+		return
+	}
+
+	if params.Type == "" {
+		resterrors.SendHTTPBadRequest(rw, InvalidRequestErrorCode, fmt.Errorf(errMsgInvalidAcceptanceCrit))
+		return
+	}
+
+	err := o.msgRegistrar.Register(newMessageService(params, o.notifier))
+	if err != nil {
+		resterrors.SendHTTPInternalServerError(rw, RegisterMsgSvcError, err)
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
 }
 
 func (o *Operation) validateMessageDestination(dest *SendNewMessageParams) error {

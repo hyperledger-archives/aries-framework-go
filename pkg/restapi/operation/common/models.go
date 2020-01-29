@@ -176,3 +176,27 @@ type SendReplyMessageParams struct {
 	// required: true
 	MessageBody json.RawMessage `json:"message_body"`
 }
+
+// RegisterHTTPMessageServiceRequest model
+//
+// This is used for operation to register a HTTP over DIDComm message service to message handler
+//
+// swagger:parameters registerHttpMsgSvc
+type RegisterHTTPMessageServiceRequest struct {
+	// Params for registering http over did comm message service.
+	//
+	// in: body
+	Params *RegisterHTTPMsgSvcParams
+}
+
+// RegisterHTTPMsgSvcParams contains parameters for registering a HTTP over DIDComm message service to message handler.
+type RegisterHTTPMsgSvcParams struct {
+	// Name of the HTTP over DIDComm message service
+	// required: true
+	Name string `json:"name"`
+
+	// Acceptance criteria for http over did comm message service based on message purpose.
+	// In case of multiple purposes, operation will follow `A tagging system` purpose field validation from RFC-0351
+	// If not provided then all incoming messages of HTTP over DIDComm type will be handled by operation.
+	Purpose []string `json:"purpose"`
+}
