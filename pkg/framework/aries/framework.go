@@ -382,14 +382,15 @@ func createMessengerHandler(frameworkOpts *Aries) error {
 
 	ctx, err := context.New(
 		context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
+		context.WithStorageProvider(frameworkOpts.storeProvider),
 	)
 	if err != nil {
 		return fmt.Errorf("context creation failed: %w", err)
 	}
 
-	frameworkOpts.messenger = messenger.NewMessenger(ctx)
+	frameworkOpts.messenger, err = messenger.NewMessenger(ctx)
 
-	return nil
+	return err
 }
 
 func createOutboundDispatcher(frameworkOpts *Aries) error {
