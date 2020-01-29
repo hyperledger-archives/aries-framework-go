@@ -25,6 +25,7 @@ PROJECT_ROOT = github.com/hyperledger/aries-framework-go
 WASM_EXEC = $(shell go env GOROOT)/misc/wasm/wasm_exec.js
 GOBIN_PATH=$(abspath .)/build/bin
 MOCKGEN = $(GOBIN_PATH)/gobin -run github.com/golang/mock/mockgen@1.3.1
+GOMOCKS=pkg/internal/gomocks
 
 .PHONY: all
 all: clean checks unit-test unit-test-wasm bdd-test
@@ -134,29 +135,32 @@ sample-webhook-docker:
 
 comma:= ,
 semicolon:= ;
+mocks_dir =
 
 define create_mock
-  mkdir -p $(1) && rm -rf $(1)/*
-  $(MOCKGEN) -destination $(1)/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(2) $(subst $(semicolon),$(comma),$(3))
+  $(eval mocks_dir := $(subst pkg,$(GOMOCKS),$(1)))
+  @echo Creating $(mocks_dir)
+  @mkdir -p $(mocks_dir) && rm -rf $(mocks_dir)/*
+  @$(MOCKGEN) -destination $(mocks_dir)/mocks.go -self_package mocks -package mocks $(PROJECT_ROOT)/$(1) $(subst $(semicolon),$(comma),$(2))
 endef
 
 depend:
 	@mkdir -p ./build/bin
-	GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/myitcv/gobin
-	GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/agnivade/wasmbrowsertest
+	@GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/myitcv/gobin
+	@GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/agnivade/wasmbrowsertest
 
 .PHONY: mocks
 mocks: depend
-	$(call create_mock,pkg/internal/gomocks/client/introduce,pkg/client/introduce,Provider)
-	$(call create_mock,pkg/internal/gomocks/didcomm/protocol/introduce,pkg/didcomm/protocol/introduce,Provider;InvitationEnvelope)
-	$(call create_mock,pkg/internal/gomocks/didcomm/common/service,pkg/didcomm/common/service,DIDComm;Event;Messenger;MessengerHandler)
-	$(call create_mock,pkg/internal/gomocks/didcomm/dispatcher,pkg/didcomm/dispatcher,Outbound)
-	$(call create_mock,pkg/internal/gomocks/storage,pkg/storage,Provider;Store)
-	$(call create_mock,pkg/internal/gomocks/didcomm/messenger,pkg/didcomm/messenger,Provider)
+	$(call create_mock,pkg/client/introduce,Provider)
+	$(call create_mock,pkg/didcomm/protocol/introduce,Provider;InvitationEnvelope)
+	$(call create_mock,pkg/didcomm/common/service,DIDComm;Event;Messenger;MessengerHandler)
+	$(call create_mock,pkg/didcomm/dispatcher,Outbound)
+	$(call create_mock,pkg/storage,Provider;Store)
+	$(call create_mock,pkg/didcomm/messenger,Provider)
 
 .PHONY: clean-mocks
 clean-mocks:
-	rm -r pkg/internal/gomocks
+	@if [ -d $(GOMOCKS) ]; then rm -r $(GOMOCKS); echo "Folder $(GOMOCKS) was removed!"; fi
 
 .PHONY: clean
 clean: clean-fixtures clean-build clean-images clean-mocks
