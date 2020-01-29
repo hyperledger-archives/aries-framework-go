@@ -71,13 +71,13 @@ func TestStart_CanTransitionTo(t *testing.T) {
 
 func TestStart_ExecuteInbound(t *testing.T) {
 	followup, err := (&start{}).ExecuteInbound(nil, &metaData{})
-	require.EqualError(t, err, "start ExecuteInbound: not implemented yet")
+	require.EqualError(t, err, "start: ExecuteInbound function is not supposed to be used")
 	require.Nil(t, followup)
 }
 
 func TestStart_ExecuteOutbound(t *testing.T) {
 	followup, err := (&start{}).ExecuteOutbound(nil, &metaData{})
-	require.EqualError(t, err, "start ExecuteOutbound: not implemented yet")
+	require.EqualError(t, err, "start: ExecuteOutbound function is not supposed to be used")
 	require.Nil(t, followup)
 }
 

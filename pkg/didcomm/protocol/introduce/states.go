@@ -88,11 +88,11 @@ func (s *start) CanTransitionTo(next state) bool {
 }
 
 func (s *start) ExecuteInbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("start ExecuteInbound: not implemented yet")
+	return nil, errors.New("start: ExecuteInbound function is not supposed to be used")
 }
 
 func (s *start) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("start ExecuteOutbound: not implemented yet")
+	return nil, errors.New("start: ExecuteOutbound function is not supposed to be used")
 }
 
 // done state
@@ -113,7 +113,7 @@ func (s *done) ExecuteInbound(_ service.Messenger, _ *metaData) (state, error) {
 }
 
 func (s *done) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("done ExecuteOutbound: not implemented yet")
+	return nil, errors.New("done: ExecuteOutbound function is not supposed to be used")
 }
 
 // arranging state
@@ -257,7 +257,7 @@ func (s *delivering) ExecuteInbound(messenger service.Messenger, m *metaData) (s
 }
 
 func (s *delivering) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("delivering ExecuteOutbound: not implemented yet")
+	return nil, errors.New("delivering: ExecuteOutbound function is not supposed to be used")
 }
 
 // confirming state
@@ -288,7 +288,7 @@ func (s *confirming) ExecuteInbound(messenger service.Messenger, m *metaData) (s
 }
 
 func (s *confirming) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("confirming ExecuteOutbound: not implemented yet")
+	return nil, errors.New("confirming: ExecuteOutbound function is not supposed to be used")
 }
 
 // abandoning state
@@ -349,7 +349,7 @@ func (s *abandoning) ExecuteInbound(messenger service.Messenger, m *metaData) (s
 }
 
 func (s *abandoning) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("abandoning ExecuteOutbound: not implemented yet")
+	return nil, errors.New("abandoning: ExecuteOutbound function is not supposed to be used")
 }
 
 // deciding state
@@ -388,7 +388,7 @@ func (s *deciding) ExecuteInbound(messenger service.Messenger, m *metaData) (sta
 }
 
 func (s *deciding) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("deciding ExecuteOutbound: not implemented yet")
+	return nil, errors.New("deciding: ExecuteOutbound function is not supposed to be used")
 }
 
 // waiting state
@@ -408,7 +408,7 @@ func (s *waiting) ExecuteInbound(_ service.Messenger, _ *metaData) (state, error
 }
 
 func (s *waiting) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("waiting ExecuteOutbound: not implemented yet")
+	return nil, errors.New("waiting: ExecuteOutbound function is not supposed to be used")
 }
 
 // requesting state
@@ -424,7 +424,7 @@ func (s *requesting) CanTransitionTo(next state) bool {
 }
 
 func (s *requesting) ExecuteInbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("requesting ExecuteInbound: not implemented yet")
+	return nil, errors.New("requesting: ExecuteInbound function is not supposed to be used")
 }
 
 func (s *requesting) ExecuteOutbound(messenger service.Messenger, m *metaData) (state, error) {
