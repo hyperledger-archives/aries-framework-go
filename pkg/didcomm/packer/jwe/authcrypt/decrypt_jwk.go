@@ -79,7 +79,7 @@ func (p *Packer) decryptJWKSharedKey(cipherKEK []byte, headersJSON *recipientSPK
 		return nil, err
 	}
 
-	kek, err := p.kms.DeriveKEK([]byte(p.alg+"KW"), nil, recPubKey, epk)
+	kek, err := p.legacyKMS.DeriveKEK([]byte(p.alg+"KW"), nil, recPubKey, epk)
 	if err != nil {
 		return nil, err
 	}

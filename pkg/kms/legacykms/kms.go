@@ -25,7 +25,7 @@ const (
 	keyStoreNamespace = "keystore"
 )
 
-// provider contains dependencies for the base KMS and is typically created by using aries.Context()
+// provider contains dependencies for the base LegacyKMS and is typically created by using aries.Context()
 type provider interface {
 	StorageProvider() storage.Provider
 }
@@ -35,7 +35,7 @@ type BaseKMS struct {
 	keystore storage.Store
 }
 
-// New return new instance of KMS implementation
+// New return new instance of LegacyKMS implementation
 func New(ctx provider) (*BaseKMS, error) {
 	ks, err := ctx.StorageProvider().OpenStore(keyStoreNamespace)
 	if err != nil {
@@ -47,8 +47,8 @@ func New(ctx provider) (*BaseKMS, error) {
 
 // CreateKeySet creates a new public/private encryption and signature keypairs combo.
 // returns:
-// 		string: encryption key id base58 encoded of the marshaled cryptoutil.KayPairCombo stored in the KMS store
-// 		string: signature key id base58 encoded of the marshaled cryptoutil.KayPairCombo stored in the KMS store
+// 		string: encryption key id base58 encoded of the marshaled cryptoutil.KayPairCombo stored in the LegacyKMS store
+// 		string: signature key id base58 encoded of the marshaled cryptoutil.KayPairCombo stored in the LegacyKMS store
 //		error: in case of errors
 func (w *BaseKMS) CreateKeySet() (string, string, error) {
 	// TODO - need to encrypt the encPriv and sigPriv before putting them in the store.
@@ -86,7 +86,7 @@ func (w *BaseKMS) CreateKeySet() (string, string, error) {
 
 // createEncKeyPair will convert sigKp into an encKeyPair - for now it's a key conversion operation.
 // it can be modified to be generated independently from sigKp - this has implications on
-// the KMS store and the Packager/Packer as they use Signature keys as arguments and use the converted
+// the LegacyKMS store and the Packager/Packer as they use Signature keys as arguments and use the converted
 //  to Encryption keys for Pack/Unpack.
 func createEncKeyPair(sigKp *cryptoutil.SigKeyPair) (*cryptoutil.EncKeyPair, error) {
 	encPub, err := cryptoutil.PublicEd25519toCurve25519(sigKp.Pub)
@@ -119,7 +119,7 @@ func createSigKeyPair() (*cryptoutil.SigKeyPair, error) {
 	}, nil
 }
 
-// ConvertToEncryptionKey converts an ed25519 keypair present in the KMS,
+// ConvertToEncryptionKey converts an ed25519 keypair present in the LegacyKMS,
 // persists the resulting keypair, and returns the result public key.
 func (w *BaseKMS) ConvertToEncryptionKey(verKey []byte) ([]byte, error) {
 	encPub, err := cryptoutil.PublicEd25519toCurve25519(verKey)
@@ -169,7 +169,7 @@ func (w *BaseKMS) SignMessage(message []byte, fromVerKey string) ([]byte, error)
 	return ed25519signature2018.New().Sign(kpc.SigKeyPair.Priv, message)
 }
 
-// Close the KMS
+// Close the LegacyKMS
 func (w *BaseKMS) Close() error {
 	return nil
 }
@@ -196,7 +196,7 @@ func (w *BaseKMS) getKeyPairSet(verKey string) (*cryptoutil.MessagingKeys, error
 }
 
 // DeriveKEK will derive an ephemeral symmetric key (kek) using a private key fetched from
-// the KMS corresponding to fromPubKey and derived with toPubKey
+// the LegacyKMS corresponding to fromPubKey and derived with toPubKey
 // This implementation is for curve 25519 only
 func (w *BaseKMS) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, error) { // nolint:lll
 	if fromPubKey == nil || toPubKey == nil {
@@ -206,7 +206,7 @@ func (w *BaseKMS) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, erro
 	fromPrivKey := new([chacha.KeySize]byte)
 	copy(fromPrivKey[:], fromPubKey)
 
-	// get key pairs combo from KMS store
+	// get key pairs combo from LegacyKMS store
 	kpc, err := w.getKeyPairSet(base58.Encode(fromPubKey))
 	if err != nil {
 		return nil, fmt.Errorf("failed from getKeyPairSet: %w", err)
@@ -220,7 +220,7 @@ func (w *BaseKMS) DeriveKEK(alg, apu, fromPubKey, toPubKey []byte) ([]byte, erro
 	return cryptoutil.Derive25519KEK(alg, apu, fromPrivKey, toKey)
 }
 
-// FindVerKey selects a signing key which is present in candidateKeys that is present in the KMS
+// FindVerKey selects a signing key which is present in candidateKeys that is present in the LegacyKMS
 func (w *BaseKMS) FindVerKey(candidateKeys []string) (int, error) {
 	for i, key := range candidateKeys {
 		_, err := w.getKeyPairSet(key)

@@ -45,7 +45,7 @@ type PackerCreator struct {
 	Creator    packer.Creator
 }
 
-// New return new instance of KMS implementation
+// New return new instance of LegacyKMS implementation
 func New(ctx Provider) (*Packager, error) {
 	didConnStore, err := did.New(ctx)
 	if err != nil {

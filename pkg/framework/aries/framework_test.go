@@ -93,7 +93,7 @@ func TestFramework(t *testing.T) {
 
 		aries, err := New(
 			WithInboundTransport(&mockInboundTransport{}),
-			WithKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
+			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
 				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
 			}),
 			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
@@ -298,7 +298,7 @@ func TestFramework(t *testing.T) {
 
 		// with custom kms
 		aries, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
+			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
 				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
 			}))
 		require.NoError(t, err)
@@ -383,7 +383,7 @@ func TestFramework(t *testing.T) {
 	t.Run("test error from kms svc", func(t *testing.T) {
 		// with custom kms
 		_, err := New(WithInboundTransport(&mockInboundTransport{}),
-			WithKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
+			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
 				return nil, fmt.Errorf("error from kms")
 			}))
 		require.Error(t, err)

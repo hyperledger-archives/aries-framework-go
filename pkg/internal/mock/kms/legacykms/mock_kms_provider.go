@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// NewMockProvider will create a new mock KMS Provider that builds a KMS with the keypairs list kp
+// NewMockProvider will create a new mock LegacyKMS Provider that builds a LegacyKMS with the keypairs list kp
 func NewMockProvider(kp ...*cryptoutil.MessagingKeys) (*mockprovider.Provider, error) {
 	store := make(map[string][]byte)
 
@@ -51,12 +51,12 @@ func NewMockProvider(kp ...*cryptoutil.MessagingKeys) (*mockprovider.Provider, e
 	return mockKMSProvider, nil
 }
 
-// mockProvider mocks provider for KMS
+// mockProvider mocks provider for LegacyKMS
 type mockProvider struct {
 	storage *mockstorage.MockStoreProvider
 }
 
-// StorageProvider() returns the mock storage provider of this mock KMS provider
+// StorageProvider() returns the mock storage provider of this mock LegacyKMS provider
 func (m *mockProvider) StorageProvider() storage.Provider {
 	return m.storage
 }

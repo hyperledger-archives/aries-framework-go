@@ -73,7 +73,7 @@ const (
 // provider contains dependencies for the Exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	Service(id string) (interface{}, error)
-	KMS() legacykms.KeyManager
+	LegacyKMS() legacykms.KeyManager
 	InboundTransportEndpoint() string
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider

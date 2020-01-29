@@ -67,7 +67,7 @@ func newKMS(t *testing.T) (*legacykms.BaseKMS, storage.Store) {
 	msp := mockStorage.NewMockStoreProvider()
 	p := provider{storeProvider: msp}
 
-	store, err := p.StorageProvider().OpenStore("test-kms")
+	store, err := p.StorageProvider().OpenStore("test-legacyKMS")
 	require.NoError(t, err)
 
 	ret, err := legacykms.New(&p)
@@ -121,7 +121,7 @@ func persistKey(pub, priv string, store storage.Store) error {
 	return store.Put(pub, data)
 }
 
-func (p *provider) KMS() legacykms.KeyManager {
+func (p *provider) LegacyKMS() legacykms.KeyManager {
 	return p.crypto
 }
 

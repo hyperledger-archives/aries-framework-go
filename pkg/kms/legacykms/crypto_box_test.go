@@ -47,7 +47,7 @@ func TestNewCryptoBox(t *testing.T) {
 	require.Equal(t, b.km, k)
 
 	_, err = NewCryptoBox(KMS(nil))
-	require.EqualError(t, err, "cannot use parameter as KMS")
+	require.EqualError(t, err, "cannot use parameter as LegacyKMS")
 }
 
 func TestBoxSeal(t *testing.T) {
@@ -74,7 +74,7 @@ func TestBoxSeal(t *testing.T) {
 		require.Equal(t, msg, dec)
 	})
 
-	t.Run("Failed decrypt, key missing from KMS", func(t *testing.T) {
+	t.Run("Failed decrypt, key missing from LegacyKMS", func(t *testing.T) {
 		msg := []byte("pretend this is an encrypted message")
 
 		_, err := b.SealOpen(msg, base58.Decode("BADKEY23452345234523452345"))
@@ -143,7 +143,7 @@ func TestBoxEasy(t *testing.T) {
 	b, err := NewCryptoBox(w)
 	require.NoError(t, err)
 
-	t.Run("Failed encrypt, key missing from KMS", func(t *testing.T) {
+	t.Run("Failed encrypt, key missing from LegacyKMS", func(t *testing.T) {
 		msg := []byte("pretend this is an encrypted message")
 
 		_, err := b.Easy(msg, nonce, base58.Decode("BADKEY1"), base58.Decode("BADKEY2"))
@@ -151,7 +151,7 @@ func TestBoxEasy(t *testing.T) {
 		require.EqualError(t, err, "key not found")
 	})
 
-	t.Run("Failed decrypt, key missing from KMS", func(t *testing.T) {
+	t.Run("Failed decrypt, key missing from LegacyKMS", func(t *testing.T) {
 		msg := []byte("pretend this is an encrypted message")
 
 		_, err := b.EasyOpen(msg, nonce, base58.Decode("BADKEY1"), base58.Decode("BADKEY2"))

@@ -98,16 +98,16 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 		testPacker, err := jwe.New(mockedProviders, jwe.XC20P)
 		require.NoError(t, err)
 
-		// use a real testPacker with a mocked KMS to validate pack/unpack
+		// use a real testPacker with a mocked LegacyKMS to validate pack/unpack
 		mockedProviders.primaryPacker = testPacker
 		packager, err := New(mockedProviders)
 		require.NoError(t, err)
 
-		// fromKey is stored in the KMS
+		// fromKey is stored in the LegacyKMS
 		_, base58FromVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 
-		// toVerKey is stored in the KMS as well
+		// toVerKey is stored in the LegacyKMS as well
 		base58ToEncKey, base58ToVerKey, err := w.CreateKeySet()
 		require.NoError(t, err)
 
@@ -117,10 +117,10 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			ToVerKeys:  []string{base58ToVerKey}})
 		require.NoError(t, err)
 
-		// mock KMS without ToVerKey and ToEncKey then try UnpackMessage
+		// mock LegacyKMS without ToVerKey and ToEncKey then try UnpackMessage
 		delete(wp.storage.Store.Store, base58ToVerKey)
 		delete(wp.storage.Store.Store, base58ToEncKey)
-		// It should fail since Recipient keys are not found in the KMS
+		// It should fail since Recipient keys are not found in the LegacyKMS
 		_, err = packager.UnpackMessage(packMsg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "key not found")
@@ -141,7 +141,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 			packers:       nil,
 		}
 
-		// use a mocked packager with a mocked KMS to validate pack/unpack
+		// use a mocked packager with a mocked LegacyKMS to validate pack/unpack
 		e := func(payload []byte, senderPubKey []byte, recipientsKeys [][]byte) (bytes []byte, e error) {
 			p, e := jwe.New(mockedProviders, jwe.XC20P)
 			require.NoError(t, e)
@@ -196,7 +196,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test Pack/Unpack success", func(t *testing.T) {
-		// create a mock KMS with storage as a map
+		// create a mock LegacyKMS with storage as a map
 		w, err := legacykms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 		mockedProviders := &mockProvider{
@@ -254,7 +254,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test success - dids not found", func(t *testing.T) {
-		// create a mock KMS with storage as a map
+		// create a mock LegacyKMS with storage as a map
 		w, err := legacykms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
 		mockedProviders := &mockProvider{
@@ -294,7 +294,7 @@ func TestBaseKMSInPackager_UnpackMessage(t *testing.T) {
 	})
 
 	t.Run("test failure - did lookup broke", func(t *testing.T) {
-		// create a mock KMS with storage as a map
+		// create a mock LegacyKMS with storage as a map
 
 		w, err := legacykms.New(newMockKMSProvider(mockstorage.NewMockStoreProvider()))
 		require.NoError(t, err)
@@ -344,7 +344,7 @@ func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvide
 	return &mockProvider{storagePvdr, nil, nil, nil, nil}
 }
 
-// mockProvider mocks provider for KMS
+// mockProvider mocks provider for LegacyKMS
 type mockProvider struct {
 	storage       *mockstorage.MockStoreProvider
 	kms           legacykms.KeyManager
@@ -357,7 +357,7 @@ func (m *mockProvider) Packers() []packer.Packer {
 	return m.packers
 }
 
-func (m *mockProvider) KMS() legacykms.KeyManager {
+func (m *mockProvider) LegacyKMS() legacykms.KeyManager {
 	return m.kms
 }
 

@@ -79,7 +79,7 @@ func TestOutboundDispatcher_Send(t *testing.T) {
 		o := NewOutbound(&mockProvider{
 			packagerValue:           &mockpackager.Packager{PackValue: createPackedMsgForForward(t)},
 			outboundTransportsValue: []transport.OutboundTransport{&mockdidcomm.MockOutboundTransport{AcceptValue: true}},
-			kms: &mockKMS{
+			legacyKMS: &mockKMS{
 				CreateKeyErr: errors.New("create key error"),
 			},
 		})
@@ -278,7 +278,7 @@ type mockProvider struct {
 	outboundTransportsValue []transport.OutboundTransport
 	transportReturnRoute    string
 	vdriRegistry            vdri.Registry
-	kms                     legacykms.KMS
+	legacyKMS               legacykms.KMS
 }
 
 func (p *mockProvider) Packager() commontransport.Packager {
@@ -297,9 +297,9 @@ func (p *mockProvider) VDRIRegistry() vdri.Registry {
 	return p.vdriRegistry
 }
 
-func (p *mockProvider) KMS() legacykms.KeyManager {
-	if p.kms != nil {
-		return p.kms
+func (p *mockProvider) LegacyKMS() legacykms.KeyManager {
+	if p.legacyKMS != nil {
+		return p.legacyKMS
 	}
 
 	return &mockKMS{}
@@ -343,7 +343,7 @@ func (m *mockPackager) UnpackMessage(encMessage []byte) (*commontransport.Envelo
 	return nil, nil
 }
 
-// mockKMS mock Key Management Service (KMS)
+// mockKMS mock Key Management Service (LegacyKMS)
 type mockKMS struct {
 	CreateEncryptionKeyValue string
 	CreateSigningKeyValue    string

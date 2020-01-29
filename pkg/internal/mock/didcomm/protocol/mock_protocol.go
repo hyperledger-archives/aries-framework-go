@@ -69,8 +69,8 @@ func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
 	return &mockvdri.MockVDRIRegistry{}
 }
 
-// KMS returns mock KMS
-func (p *MockProvider) KMS() legacykms.KeyManager {
+// LegacyKMS returns mock LegacyKMS
+func (p *MockProvider) LegacyKMS() legacykms.KeyManager {
 	if p.CustomKMS != nil {
 		return p.CustomKMS
 	}
