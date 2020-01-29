@@ -705,5 +705,5 @@ func createDIDCommMsg(invitation *Invitation) (service.DIDCommMsg, error) {
 		return nil, fmt.Errorf("marshal invitation: %w", err)
 	}
 
-	return service.NewDIDCommMsgMap(payload)
+	return service.ParseDIDCommMsgMap(payload)
 }

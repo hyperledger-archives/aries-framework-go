@@ -294,7 +294,7 @@ func TestOverDIDComm_HandleInbound(t *testing.T) {
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.name, func(t *testing.T) {
-			didCommMsg, err := service.NewDIDCommMsgMap([]byte(tc.jsonStr))
+			didCommMsg, err := service.ParseDIDCommMsgMap([]byte(tc.jsonStr))
 			require.NoError(t, err)
 
 			if tc.expected.failure != "" {

@@ -92,7 +92,7 @@ func TestDIDCommMsgMap_ToStruct(t *testing.T) {
 	b, err := json.Marshal(expected)
 	require.NoError(t, err)
 
-	msg, err := NewDIDCommMsgMap(b)
+	msg, err := ParseDIDCommMsgMap(b)
 	require.NoError(t, err)
 
 	actual := Test{}

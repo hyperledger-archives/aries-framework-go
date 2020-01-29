@@ -28,12 +28,19 @@ type Messenger interface {
 	// ReplyTo replies to the message by given msgID.
 	// Keeps threadID in the *decorator.Thread.
 	// Using this function means that communication will be on the same thread.
-	ReplyTo(msgID string, msg DIDCommMsgMap)
+	ReplyTo(msgID string, msg DIDCommMsgMap) error
 
 	// Send sends the message by starting a new thread.
-	Send(msg DIDCommMsgMap, myDID, theirDID string)
+	Send(msg DIDCommMsgMap, myDID, theirDID string) error
 
 	// ReplyToNested sends the message by starting a new thread.
 	// Keeps parent threadID in the *decorator.Thread
-	ReplyToNested(threadID string, msg DIDCommMsgMap)
+	ReplyToNested(threadID string, msg DIDCommMsgMap, myDID, theirDID string) error
+}
+
+// MessengerHandler includes Messenger interface and Handle function to handle inbound messages
+type MessengerHandler interface {
+	Messenger
+	// HandleInbound handles all inbound messages
+	HandleInbound(msg DIDCommMsgMap, myDID, theirDID string) error
 }

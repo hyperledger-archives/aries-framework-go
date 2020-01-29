@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -124,7 +123,7 @@ type Service struct {
 	callbacks       chan *metaData
 	didEvent        chan service.StateMsg
 	didEventService service.Event
-	dispatcher      dispatcher.Outbound
+	messenger       service.Messenger
 	wg              sync.WaitGroup
 	stop            chan struct{}
 	closedMutex     sync.Mutex
@@ -133,7 +132,7 @@ type Service struct {
 
 // Provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type Provider interface {
-	OutboundDispatcher() dispatcher.Outbound
+	Messenger() service.Messenger
 	StorageProvider() storage.Provider
 	Service(id string) (interface{}, error)
 }
@@ -156,7 +155,7 @@ func New(p Provider) (*Service, error) {
 	}
 
 	svc := &Service{
-		dispatcher:      p.OutboundDispatcher(),
+		messenger:       p.Messenger(),
 		store:           store,
 		didEventService: didService,
 		callbacks:       make(chan *metaData),
@@ -293,7 +292,7 @@ func (s *Service) InvitationReceived(msg service.StateMsg) error {
 		return fmt.Errorf("invitation received marshal: %w", err)
 	}
 
-	didMsg, err := service.NewDIDCommMsgMap(payload)
+	didMsg, err := service.ParseDIDCommMsgMap(payload)
 	if err != nil {
 		return fmt.Errorf("invitation received new DIDComm msg: %w", err)
 	}
@@ -580,9 +579,9 @@ func (s *Service) execute(next state, msg *metaData) (state, error) {
 	}
 
 	if msg.inbound {
-		followup, err = next.ExecuteInbound(s.dispatcher, msg)
+		followup, err = next.ExecuteInbound(s.messenger, msg)
 	} else {
-		followup, err = next.ExecuteOutbound(s.dispatcher, msg)
+		followup, err = next.ExecuteOutbound(s.messenger, msg)
 	}
 
 	if err != nil {

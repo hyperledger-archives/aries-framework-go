@@ -18,13 +18,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
-	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/introduce"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -46,7 +44,7 @@ type flow struct {
 	expectedInv             *didexchange.Invitation
 	inv                     *didexchange.Invitation
 	transportKey            string
-	transport               map[string]chan interface{}
+	transport               map[string]chan service.DIDCommMsg
 	dependency              introduce.InvitationEnvelope
 	recipients              []*introduce.Recipient
 	didEvent                chan<- service.StateMsg
@@ -120,7 +118,7 @@ func TestService_Stop(t *testing.T) {
 
 	provider := introduceMocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
-	provider.EXPECT().OutboundDispatcher().Return(nil)
+	provider.EXPECT().Messenger().Return(nil)
 	provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(provider)
@@ -143,7 +141,7 @@ func TestService_Name(t *testing.T) {
 
 	provider := introduceMocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
-	provider.EXPECT().OutboundDispatcher().Return(nil)
+	provider.EXPECT().Messenger().Return(nil)
 	provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(provider)
@@ -171,13 +169,13 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ResponseMsgType)))
+		msg, err := service.ParseDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ResponseMsgType)))
 		require.NoError(t, err)
 		const errMsg = "json: cannot unmarshal array into Go value of type introduce.record"
 		require.EqualError(t, svc.HandleOutbound(msg, "", ""), errMsg)
@@ -200,14 +198,14 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 
 		require.NoError(t, err)
 		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
+		msg, err := service.ParseDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
@@ -230,7 +228,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
@@ -238,7 +236,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		defer stop(t, svc)
 
-		didMsg, err := service.NewDIDCommMsgMap(toBytes(t, &service.Header{
+		didMsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{
 			ID:     "ID",
 			Thread: decorator.Thread{ID: "thID"},
 			Type:   introduce.ResponseMsgType,
@@ -270,7 +268,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
@@ -280,7 +278,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		require.NoError(t, svc.RegisterActionEvent(make(chan service.DIDCommAction, 1)))
 
-		didMsg, err := service.NewDIDCommMsgMap(toBytes(t, &service.Header{
+		didMsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{
 			ID:     "ID",
 			Thread: decorator.Thread{ID: "thID"},
 			Type:   introduce.AckMsgType,
@@ -310,14 +308,14 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 
 		defer stop(t, svc)
-		didMsg, err := service.NewDIDCommMsgMap(toBytes(t, &service.Header{
+		didMsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{
 			ID:     "ID",
 			Thread: decorator.Thread{ID: "thID"},
 			Type:   introduce.ResponseMsgType,
@@ -349,7 +347,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
@@ -372,13 +370,13 @@ func TestService_HandleInbound(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsgMap([]byte(`{}`))
+		msg, err := service.ParseDIDCommMsgMap([]byte(`{}`))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
@@ -405,13 +403,13 @@ func TestService_HandleInbound(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
+		msg, err := service.ParseDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
@@ -436,14 +434,14 @@ func TestService_HandleInbound(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
 
-		msg, err := service.NewDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
+		msg, err := service.ParseDIDCommMsgMap([]byte(fmt.Sprintf(`{"@id":"ID","@type":%q}`, introduce.ProposalMsgType)))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
@@ -468,13 +466,13 @@ func TestService_HandleInbound(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().OutboundDispatcher().Return(nil)
+		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
 		defer stop(t, svc)
-		msg, err := service.NewDIDCommMsgMap([]byte(`{"@id":"ID","@type":"unknown"}`))
+		msg, err := service.ParseDIDCommMsgMap([]byte(`{"@id":"ID","@type":"unknown"}`))
 		require.NoError(t, err)
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
@@ -497,7 +495,7 @@ func TestService_Accept(t *testing.T) {
 
 	provider := introduceMocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
-	provider.EXPECT().OutboundDispatcher().Return(nil)
+	provider.EXPECT().Messenger().Return(nil)
 	provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(provider)
@@ -523,7 +521,7 @@ func TestService_Accept(t *testing.T) {
 func TestService_Proposal(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Type: didexchange.InvitationMsgType, Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -618,7 +616,11 @@ func TestService_Proposal(t *testing.T) {
 func TestService_SkipProposal(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
+	inv := &didexchange.Invitation{
+		ID:    uuid.New().String(),
+		Type:  didexchange.InvitationMsgType,
+		Label: "Public Invitation",
+	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -694,7 +696,7 @@ func TestService_SkipProposal(t *testing.T) {
 func TestService_ProposalUnusual(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Type: didexchange.InvitationMsgType, Label: Carol}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -790,7 +792,11 @@ func TestService_ProposalUnusual(t *testing.T) {
 func TestService_SkipProposalWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
+	inv := &didexchange.Invitation{
+		ID:    uuid.New().String(),
+		Type:  didexchange.InvitationMsgType,
+		Label: "Public Invitation",
+	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -866,7 +872,7 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 func TestService_ProposalWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Type: didexchange.InvitationMsgType, Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -964,7 +970,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 func TestService_ProposalUnusualWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Type: didexchange.InvitationMsgType, Label: Carol}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1247,7 +1253,7 @@ func TestService_ProposalNoInvitationWithRequest(t *testing.T) {
 func TestService_ProposalStop(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Type: didexchange.InvitationMsgType, Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1316,7 +1322,7 @@ func TestService_ProposalStop(t *testing.T) {
 func TestService_ProposalStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Type: didexchange.InvitationMsgType, Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1386,7 +1392,11 @@ func TestService_ProposalStopWithRequest(t *testing.T) {
 func TestService_SkipProposalStop(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
+	inv := &didexchange.Invitation{
+		ID:    uuid.New().String(),
+		Type:  didexchange.InvitationMsgType,
+		Label: "Public Invitation",
+	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1457,7 +1467,11 @@ func TestService_SkipProposalStop(t *testing.T) {
 func TestService_SkipProposalStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
+	inv := &didexchange.Invitation{
+		ID:    uuid.New().String(),
+		Type:  didexchange.InvitationMsgType,
+		Label: "Public Invitation",
+	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1532,7 +1546,7 @@ func TestService_SkipProposalStopWithRequest(t *testing.T) {
 func TestService_ProposalStopUnusual(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Type: didexchange.InvitationMsgType, Label: Carol}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1631,7 +1645,7 @@ func TestService_ProposalStopUnusual(t *testing.T) {
 func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Carol}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Type: didexchange.InvitationMsgType, Label: Carol}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1724,7 +1738,7 @@ func TestService_ProposalStopUnusualWithRequest(t *testing.T) {
 func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Type: didexchange.InvitationMsgType, Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1791,7 +1805,7 @@ func TestService_ProposalIntroducerStopWithRequest(t *testing.T) {
 func TestService_ProposalIntroducerStop(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: Bob}
+	inv := &didexchange.Invitation{ID: uuid.New().String(), Type: didexchange.InvitationMsgType, Label: Bob}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1861,7 +1875,11 @@ func TestService_ProposalIntroducerStop(t *testing.T) {
 func TestService_SkipProposalIntroducerStopWithRequest(t *testing.T) {
 	var transport = transport()
 
-	inv := &didexchange.Invitation{ID: uuid.New().String(), Label: "Public Invitation"}
+	inv := &didexchange.Invitation{
+		ID:    uuid.New().String(),
+		Type:  didexchange.InvitationMsgType,
+		Label: "Public Invitation",
+	}
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -2119,9 +2137,9 @@ func TestService_ProposalIntroducerSecondStopWithRequest(t *testing.T) {
 func setupIntroducer(f *flow) (*introduce.Service, *introduceMocks.MockInvitationEnvelope) {
 	ctrl := f.controller
 
-	disp := dispatcherMocks.NewMockOutbound(ctrl)
-	disp.EXPECT().SendToDID(gomock.Any(), f.transportKey, gomock.Any()).
-		Do(func(msg interface{}, _ string, dest string) error {
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().Send(gomock.Any(), f.transportKey, gomock.Any()).
+		Do(func(msg service.DIDCommMsg, _ string, dest string) error {
 			f.transport[dest] <- msg
 			return nil
 		}).AnyTimes()
@@ -2135,7 +2153,7 @@ func setupIntroducer(f *flow) (*introduce.Service, *introduceMocks.MockInvitatio
 
 	provider := introduceMocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
-	provider.EXPECT().OutboundDispatcher().Return(disp)
+	provider.EXPECT().Messenger().Return(messenger)
 	provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(provider)
@@ -2152,9 +2170,9 @@ func setupIntroducer(f *flow) (*introduce.Service, *introduceMocks.MockInvitatio
 func setupIntroducee(f *flow) (*introduce.Service, *introduceMocks.MockInvitationEnvelope, chan<- service.StateMsg) {
 	ctrl := f.controller
 
-	disp := dispatcherMocks.NewMockOutbound(ctrl)
-	disp.EXPECT().SendToDID(gomock.Any(), f.transportKey, Alice).
-		Do(func(msg interface{}, _ string, dest string) error {
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().Send(gomock.Any(), f.transportKey, Alice).
+		Do(func(msg service.DIDCommMsg, _ string, dest string) error {
 			f.transport[dest] <- msg
 			return nil
 		}).AnyTimes()
@@ -2173,7 +2191,7 @@ func setupIntroducee(f *flow) (*introduce.Service, *introduceMocks.MockInvitatio
 
 	provider := introduceMocks.NewMockProvider(ctrl)
 	provider.EXPECT().StorageProvider().Return(storageProvider)
-	provider.EXPECT().OutboundDispatcher().Return(disp)
+	provider.EXPECT().Messenger().Return(messenger)
 	provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
 
 	svc, err := introduce.New(provider)
@@ -2189,13 +2207,13 @@ func setupIntroducee(f *flow) (*introduce.Service, *introduceMocks.MockInvitatio
 func handleInbound(t *testing.T, svc service.InboundHandler, msg interface{}, myDID, theirDID string) {
 	t.Helper()
 
-	resp, err := service.NewDIDCommMsgMap(toBytes(t, msg))
+	resp, err := service.ParseDIDCommMsgMap(toBytes(t, msg))
 	require.NoError(t, err)
 	_, err = svc.HandleInbound(resp, myDID, theirDID)
 	require.NoError(t, err)
 }
 
-// nolint: gocyclo
+// nolint: gocyclo,gocognit
 func checkAndHandle(f *flow) {
 	defer f.wg.Done()
 
@@ -2209,7 +2227,7 @@ func checkAndHandle(f *flow) {
 
 	if f.startWithRequest {
 		// creates request msg
-		request, err := service.NewDIDCommMsgMap(toBytes(f.t, introduce.Request{
+		request, err := service.ParseDIDCommMsgMap(toBytes(f.t, introduce.Request{
 			Type: introduce.RequestMsgType,
 			// creates threadID
 			ID: uuid.New().String(),
@@ -2226,7 +2244,7 @@ func checkAndHandle(f *flow) {
 
 	if f.startWithProposal {
 		// creates proposal msg
-		proposal, err := service.NewDIDCommMsgMap(toBytes(f.t, introduce.Proposal{
+		proposal, err := service.ParseDIDCommMsgMap(toBytes(f.t, introduce.Proposal{
 			Type: introduce.ProposalMsgType,
 			// creates threadID
 			ID: uuid.New().String(),
@@ -2245,7 +2263,7 @@ func checkAndHandle(f *flow) {
 	var responseCounter int
 
 	for {
-		var incomingMsg interface{}
+		var incomingMsg service.DIDCommMsg
 		select {
 		case incomingMsg = <-f.transport[f.transportKey]:
 		case <-time.After(time.Second):
@@ -2253,8 +2271,8 @@ func checkAndHandle(f *flow) {
 			return
 		}
 
-		switch iMsg := incomingMsg.(type) {
-		case *introduce.Request:
+		switch incomingMsg.Type() {
+		case introduce.RequestMsgType:
 			go handleInbound(f.t, f.svc, incomingMsg, f.recipients[0].MyDID, f.recipients[0].TheirDID)
 
 			if f.withRequestStop {
@@ -2272,7 +2290,7 @@ func checkAndHandle(f *flow) {
 
 			checkStateMsg(f.t, sCh, service.PreState, introduce.RequestMsgType, "arranging")
 			checkStateMsg(f.t, sCh, service.PostState, introduce.RequestMsgType, "arranging")
-		case *introduce.Response:
+		case introduce.ResponseMsgType:
 			responseCounter++
 
 			go handleInbound(f.t, f.svc, incomingMsg, f.recipients[0].MyDID, f.recipients[0].TheirDID)
@@ -2352,10 +2370,8 @@ func checkAndHandle(f *flow) {
 			checkStateMsg(f.t, sCh, service.PostState, introduce.ResponseMsgType, "done")
 
 			return
-		case *introduce.Proposal:
+		case introduce.ProposalMsgType:
 			go handleInbound(f.t, f.svc, incomingMsg, f.recipients[0].MyDID, f.recipients[0].TheirDID)
-
-			require.NotEmpty(f.t, iMsg.To.Name)
 
 			if f.withProposalStop {
 				continueActionStop(f.t, aCh, introduce.ProposalMsgType)
@@ -2376,7 +2392,7 @@ func checkAndHandle(f *flow) {
 			checkStateMsg(f.t, sCh, service.PostState, introduce.ProposalMsgType, "deciding")
 			checkStateMsg(f.t, sCh, service.PreState, introduce.ProposalMsgType, "waiting")
 			checkStateMsg(f.t, sCh, service.PostState, introduce.ProposalMsgType, "waiting")
-		case *model.ProblemReport:
+		case introduce.ProblemReportMsgType:
 			go handleInbound(f.t, f.svc, incomingMsg, f.recipients[0].MyDID, f.recipients[0].TheirDID)
 			checkStateMsg(f.t, sCh, service.PreState, introduce.ProblemReportMsgType, "abandoning")
 			checkStateMsg(f.t, sCh, service.PostState, introduce.ProblemReportMsgType, "abandoning")
@@ -2384,23 +2400,18 @@ func checkAndHandle(f *flow) {
 			checkStateMsg(f.t, sCh, service.PostState, introduce.ProblemReportMsgType, "done")
 
 			return
-		case *model.Ack:
+		case introduce.AckMsgType:
 			go handleInbound(f.t, f.svc, incomingMsg, f.recipients[0].MyDID, f.recipients[0].TheirDID)
 			checkStateMsg(f.t, sCh, service.PreState, introduce.AckMsgType, "done")
 			checkStateMsg(f.t, sCh, service.PostState, introduce.AckMsgType, "done")
 
 			return
-		case *didexchange.Invitation:
+		case didexchange.InvitationMsgType:
 			go func() {
-				inv, err := service.NewDIDCommMsgMap(toBytes(f.t, iMsg))
-				require.NoError(f.t, err)
-				_, err = inv.ThreadID()
-				require.NoError(f.t, err)
-
 				f.didEvent <- service.StateMsg{
 					Type:    service.PostState,
 					StateID: "invited",
-					Msg:     inv,
+					Msg:     incomingMsg,
 				}
 			}()
 			checkStateMsg(f.t, sCh, service.PreState, introduce.AckMsgType, "done")
@@ -2411,12 +2422,12 @@ func checkAndHandle(f *flow) {
 	}
 }
 
-func transport() map[string]chan interface{} {
+func transport() map[string]chan service.DIDCommMsg {
 	// the map of channels which is responsible for the communication
-	return map[string]chan interface{}{
-		Alice: make(chan interface{}),
-		Bob:   make(chan interface{}),
-		Carol: make(chan interface{}),
+	return map[string]chan service.DIDCommMsg{
+		Alice: make(chan service.DIDCommMsg),
+		Bob:   make(chan service.DIDCommMsg),
+		Carol: make(chan service.DIDCommMsg),
 	}
 }
 
@@ -2517,7 +2528,7 @@ func stop(t *testing.T, s stopper) {
 func TestService_InvitationReceived(t *testing.T) {
 	t.Run("PreState is not correct", func(t *testing.T) {
 		svc := &introduce.Service{}
-		msg, err := service.NewDIDCommMsgMap(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
+		msg, err := service.ParseDIDCommMsgMap(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
 		require.NoError(t, err)
 		require.NoError(t, svc.InvitationReceived(service.StateMsg{
 			Type:    service.PreState,
@@ -2529,7 +2540,7 @@ func TestService_InvitationReceived(t *testing.T) {
 	t.Run("StateID is not correct", func(t *testing.T) {
 		// should not panic
 		svc := &introduce.Service{}
-		msg, err := service.NewDIDCommMsgMap(toBytes(t, &didexchange.Invitation{}))
+		msg, err := service.ParseDIDCommMsgMap(toBytes(t, &didexchange.Invitation{}))
 		require.NoError(t, err)
 		require.NoError(t, svc.InvitationReceived(service.StateMsg{
 			Type: service.PostState,
@@ -2540,7 +2551,7 @@ func TestService_InvitationReceived(t *testing.T) {
 	t.Run("Thread is nil", func(t *testing.T) {
 		// should not panic
 		svc := &introduce.Service{}
-		msg, err := service.NewDIDCommMsgMap(toBytes(t, &didexchange.Invitation{}))
+		msg, err := service.ParseDIDCommMsgMap(toBytes(t, &didexchange.Invitation{}))
 		require.NoError(t, err)
 		require.NoError(t, svc.InvitationReceived(service.StateMsg{
 			Type:    service.PostState,
@@ -2551,7 +2562,7 @@ func TestService_InvitationReceived(t *testing.T) {
 
 	t.Run("No PID in Thread", func(t *testing.T) {
 		svc := &introduce.Service{}
-		msg, err := service.NewDIDCommMsgMap(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
+		msg, err := service.ParseDIDCommMsgMap(toBytes(t, &didexchange.Invitation{Thread: &decorator.Thread{ID: "ID"}}))
 		require.NoError(t, err)
 		require.NoError(t, svc.InvitationReceived(service.StateMsg{
 			Type:    service.PostState,

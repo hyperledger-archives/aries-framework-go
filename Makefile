@@ -149,9 +149,10 @@ depend:
 mocks: depend
 	$(call create_mock,pkg/internal/gomocks/client/introduce,pkg/client/introduce,Provider)
 	$(call create_mock,pkg/internal/gomocks/didcomm/protocol/introduce,pkg/didcomm/protocol/introduce,Provider;InvitationEnvelope)
-	$(call create_mock,pkg/internal/gomocks/didcomm/common/service,pkg/didcomm/common/service,Event;DIDComm)
+	$(call create_mock,pkg/internal/gomocks/didcomm/common/service,pkg/didcomm/common/service,DIDComm;Event;Messenger;MessengerHandler)
 	$(call create_mock,pkg/internal/gomocks/didcomm/dispatcher,pkg/didcomm/dispatcher,Outbound)
 	$(call create_mock,pkg/internal/gomocks/storage,pkg/storage,Provider;Store)
+	$(call create_mock,pkg/internal/gomocks/didcomm/messenger,pkg/didcomm/messenger,Provider)
 
 .PHONY: clean-mocks
 clean-mocks:

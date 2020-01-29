@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
+	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 )
 
 func notTransition(t *testing.T, st state) {
@@ -117,26 +117,27 @@ func TestArranging_CanTransitionTo(t *testing.T) {
 }
 
 func TestArranging_ExecuteOutbound(t *testing.T) {
+	const errMsg = "outbound unmarshal"
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-	dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
-	didmsg, err := service.NewDIDCommMsgMap(toBytes(t, struct{}{}))
+	didmsg, err := service.ParseDIDCommMsgMap(toBytes(t, struct{}{}))
 	require.NoError(t, err)
 
-	followup, err := (&arranging{}).ExecuteOutbound(dispatcher, &metaData{
+	followup, err := (&arranging{}).ExecuteOutbound(messenger, &metaData{
 		Msg: didmsg,
 	})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 
-	// JSON error
-	const errMsg = "outbound unmarshal"
-
-	followup, err = (&arranging{}).ExecuteOutbound(dispatcher, &metaData{
-		Msg: service.DIDCommMsgMap{"@id": map[int]int{1: 1}},
+	// Send an error
+	followup, err = (&arranging{}).ExecuteOutbound(messenger, &metaData{
+		Msg: service.DIDCommMsgMap{},
 	})
 	require.Contains(t, fmt.Sprintf("%v", err), errMsg)
 	require.Nil(t, followup)
@@ -210,13 +211,13 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-		dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test error"))
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test error"))
 
-		didmsg, err := service.NewDIDCommMsgMap(toBytes(t, &service.Header{Type: RequestMsgType}))
+		didmsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{Type: RequestMsgType}))
 		require.NoError(t, err)
 
-		followup, err := (&abandoning{}).ExecuteInbound(dispatcher, &metaData{
+		followup, err := (&abandoning{}).ExecuteInbound(messenger, &metaData{
 			Msg: didmsg,
 		})
 		require.Nil(t, followup)
@@ -251,10 +252,10 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	dispatcher := dispatcherMocks.NewMockOutbound(ctrl)
-	dispatcher.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
-	followup, err := (&deciding{}).ExecuteInbound(dispatcher, &metaData{})
+	followup, err := (&deciding{}).ExecuteInbound(messenger, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &waiting{}, followup)
 }
@@ -314,23 +315,6 @@ func TestRequesting_CanTransitionTo(t *testing.T) {
 func TestRequesting_ExecuteInbound(t *testing.T) {
 	followup, err := (&requesting{}).ExecuteInbound(nil, &metaData{})
 	require.Error(t, err)
-	require.Nil(t, followup)
-}
-
-func TestRequesting_ExecuteOutbound(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	followup, err := (&requesting{}).ExecuteOutbound(nil, &metaData{
-		Msg: service.DIDCommMsgMap{
-			"@type":   ResponseMsgType,
-			"~timing": map[int]int{1: 1},
-		},
-	})
-
-	const errMsg = "requesting outbound unmarshal"
-
-	require.Contains(t, fmt.Sprintf("%v", err), errMsg)
 	require.Nil(t, followup)
 }
 
