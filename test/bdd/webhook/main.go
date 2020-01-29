@@ -27,6 +27,7 @@ const (
 	connectionsPath   = "/connections"
 	checkTopicsPath   = "/checktopics"
 	genericInvitePath = "/generic-invite"
+	basicMsgPath      = "/basic-message"
 	topicsSize        = 50
 	topicTimeout      = 100 * time.Millisecond
 )
@@ -84,5 +85,6 @@ func main() {
 	router.HandleFunc(connectionsPath, connections).Methods(http.MethodPost)
 	router.HandleFunc(checkTopicsPath, checkTopics).Methods(http.MethodGet)
 	router.HandleFunc(genericInvitePath, messages).Methods(http.MethodPost)
+	router.HandleFunc(basicMsgPath, messages).Methods(http.MethodPost)
 	logger.Fatalf("webhook server start error %s", http.ListenAndServe(fmt.Sprintf(addressPattern, port), router))
 }

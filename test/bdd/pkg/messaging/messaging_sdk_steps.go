@@ -12,6 +12,9 @@ package messaging
 import (
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/basic"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 
@@ -19,79 +22,39 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+)
+
+const (
+	locale = "en"
 )
 
 var logger = log.New("aries-framework/tests/messaging")
 
 // SDKSteps is steps for messaging using client SDK
 type SDKSteps struct {
-	bddContext  *context.BDDContext
-	msgServices map[string]*msgService
+	steps           *messagingSDKSteps
+	genericMessages map[string]*msgService
+	basicMessages   map[string]basic.Message
 }
 
 // NewMessagingSDKSteps return new steps for messaging using client SDK
 func NewMessagingSDKSteps(ctx *context.BDDContext) *SDKSteps {
 	return &SDKSteps{
-		bddContext:  ctx,
-		msgServices: make(map[string]*msgService),
+		steps:           newMessagingSDKSteps(ctx),
+		genericMessages: make(map[string]*msgService),
+		basicMessages:   make(map[string]basic.Message),
 	}
 }
 
-func (d *SDKSteps) registerMsgService(agentID, name, msgType, purpose string) error {
-	registrar, ok := d.bddContext.MessageRegistrar[agentID]
-	if !ok {
-		return fmt.Errorf("unable to find message registrar for agent `%s`", agentID)
-	}
-
+func (d *SDKSteps) registerGenericMsgService(agentID, name, msgType, purpose string) error {
 	msgSvc := newMessageService(name, msgType, strings.Split(purpose, ","))
+	d.genericMessages[agentID] = msgSvc
 
-	err := registrar.Register(msgSvc)
-	if err != nil {
-		return fmt.Errorf("unable to register message service '%s' for type/purpose [%s/%s] : %w",
-			name, msgType, purpose, err)
-	}
-
-	d.msgServices[agentID] = msgSvc
-
-	logger.Debugf("Agent[%s] registered message service '%s' for type[%s] and purpose[%s]",
-		agentID, name, msgType, purpose)
-
-	return nil
+	return d.steps.registerMsgService(agentID, msgSvc)
 }
 
-func (d *SDKSteps) sendMessage(fromAgentID, msg, msgType, purpose, toAgentID string) error {
-	messenger, ok := d.bddContext.Messengers[fromAgentID]
-	if !ok {
-		return fmt.Errorf("unable to find messenger for agent `%s`", fromAgentID)
-	}
-
-	ctx, ok := d.bddContext.AgentCtx[fromAgentID]
-	if !ok {
-		return fmt.Errorf("unable to find context for agent `%s`", fromAgentID)
-	}
-
-	// find connection matching destination
-	lookup, err := connection.NewLookup(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get connection lookup")
-	}
-
-	connections, err := lookup.QueryConnectionRecords()
-	if err != nil {
-		return fmt.Errorf("failed to query connections")
-	}
-
-	var target *connection.Record
-
-	for _, conn := range connections {
-		if conn.State == "completed" && conn.TheirLabel == toAgentID {
-			target = conn
-			break
-		}
-	}
-
+func (d *SDKSteps) sendGenericMessage(fromAgentID, msg, msgType, purpose, toAgentID string) error {
 	msgMap := service.NewDIDCommMsgMap(&genericInviteMsg{
 		ID:      uuid.New().String(),
 		Type:    msgType,
@@ -100,22 +63,16 @@ func (d *SDKSteps) sendMessage(fromAgentID, msg, msgType, purpose, toAgentID str
 		From:    fromAgentID,
 	})
 
-	// send message
-	err = messenger.Send(msgMap, target.MyDID, target.TheirDID)
-	if err != nil {
-		return fmt.Errorf("failed to send message to agent[%s] : %w", toAgentID, err)
-	}
-
-	return nil
+	return d.steps.sendMessage(fromAgentID, toAgentID, msgMap)
 }
 
-func (d *SDKSteps) receiveMessage(agentID, expectedMsg, expectedMsgType, from string) error {
-	msgService, ok := d.msgServices[agentID]
+func (d *SDKSteps) receiveGenericMessage(agentID, expectedMsg, expectedMsgType, from string) error {
+	msgSvc, ok := d.genericMessages[agentID]
 	if !ok {
 		return fmt.Errorf("unable to find message service queue for agent[%s]", agentID)
 	}
 
-	invite, err := msgService.popMessage()
+	invite, err := msgSvc.popMessage()
 	if err != nil {
 		return fmt.Errorf("failed to receive message for agent[%s]", agentID)
 	}
@@ -135,7 +92,7 @@ func (d *SDKSteps) receiveMessage(agentID, expectedMsg, expectedMsgType, from st
 			invite.Type, expectedMsgType)
 	}
 
-	_, err = msgService.popMessage()
+	_, err = msgSvc.popMessage()
 	if err == nil || err.Error() != errTimeoutWaitingForMsg {
 		return fmt.Errorf("expected only one incoming message for agent [%s]", agentID)
 	}
@@ -143,12 +100,66 @@ func (d *SDKSteps) receiveMessage(agentID, expectedMsg, expectedMsgType, from st
 	return nil
 }
 
+func (d *SDKSteps) registerBasicMsgService(agentID, name string) error {
+	messageHandle := func(message basic.Message, myDID, theirDID string) error {
+		d.basicMessages[agentID] = message
+		return nil
+	}
+
+	msgSvc, err := basic.NewMessageService(name, messageHandle)
+	if err != nil {
+		return fmt.Errorf("failed to register basic message service")
+	}
+
+	return d.steps.registerMsgService(agentID, msgSvc)
+}
+
+func (d *SDKSteps) sendBasicMsg(fromAgentID, msg, toAgentID string) error {
+	msgMap := service.NewDIDCommMsgMap(&basic.Message{
+		ID:      uuid.New().String(),
+		Type:    basic.MessageRequestType,
+		Content: msg,
+		I10n: struct {
+			Locale string `json:"locale"`
+		}{
+			Locale: "en",
+		},
+		SentTime: time.Now(),
+	})
+
+	return d.steps.sendMessage(fromAgentID, toAgentID, msgMap)
+}
+
+func (d *SDKSteps) receiveBasicMsg(agentID, msg, from string) error {
+	basicMsg, ok := d.basicMessages[agentID]
+	if !ok {
+		return fmt.Errorf("didn't receive any basic message for agent[%s]", agentID)
+	}
+
+	if basicMsg.Content != msg {
+		return fmt.Errorf(" expected basic message content [%s], but got [%s]", msg, basicMsg.Content)
+	}
+
+	if basicMsg.I10n.Locale != locale {
+		return fmt.Errorf(" expected basic message locale [%s], but got [%s]", locale, basicMsg.I10n.Locale)
+	}
+
+	return nil
+}
+
 // RegisterSteps registers messaging steps
 func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
+	// generic message
 	s.Step(`^"([^"]*)" registers a message service with name "([^"]*)" for type "([^"]*)" and purpose "([^"]*)"$`,
-		d.registerMsgService)
+		d.registerGenericMsgService)
 	s.Step(`^"([^"]*)" sends meeting invite message "([^"]*)" with type "([^"]*)" and purpose "([^"]*)" to "([^"]*)"$`,
-		d.sendMessage)
+		d.sendGenericMessage)
 	s.Step(`^"([^"]*)" message service receives meeting invite message "([^"]*)" with type "([^"]*)" from "([^"]*)"$`,
-		d.receiveMessage)
+		d.receiveGenericMessage)
+
+	// basic message
+	s.Step(`^"([^"]*)" registers a message service with name "([^"]*)" for basic message type$`,
+		d.registerBasicMsgService)
+	s.Step(`^"([^"]*)" sends basic message "([^"]*)" to "([^"]*)"$`, d.sendBasicMsg)
+	s.Step(`^"([^"]*)" receives basic message "([^"]*)" from "([^"]*)"$`, d.receiveBasicMsg)
 }
