@@ -7,6 +7,7 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	dispatcher "github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	storage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	reflect "reflect"
 )
 
@@ -45,4 +46,18 @@ func (m *MockProvider) OutboundDispatcher() dispatcher.Outbound {
 func (mr *MockProviderMockRecorder) OutboundDispatcher() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OutboundDispatcher", reflect.TypeOf((*MockProvider)(nil).OutboundDispatcher))
+}
+
+// StorageProvider mocks base method
+func (m *MockProvider) StorageProvider() storage.Provider {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StorageProvider")
+	ret0, _ := ret[0].(storage.Provider)
+	return ret0
+}
+
+// StorageProvider indicates an expected call of StorageProvider
+func (mr *MockProviderMockRecorder) StorageProvider() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageProvider", reflect.TypeOf((*MockProvider)(nil).StorageProvider))
 }

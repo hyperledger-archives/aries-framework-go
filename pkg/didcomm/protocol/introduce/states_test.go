@@ -212,7 +212,9 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 		defer ctrl.Finish()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test error"))
+		messenger.EXPECT().
+			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(errors.New("test error"))
 
 		didmsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{Type: RequestMsgType}))
 		require.NoError(t, err)
@@ -253,9 +255,11 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 	defer ctrl.Finish()
 
 	messenger := serviceMocks.NewMockMessenger(ctrl)
-	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).Return(nil)
 
-	followup, err := (&deciding{}).ExecuteInbound(messenger, &metaData{})
+	followup, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
+		Msg: service.DIDCommMsgMap(map[string]interface{}{}),
+	})
 	require.NoError(t, err)
 	require.Equal(t, &waiting{}, followup)
 }

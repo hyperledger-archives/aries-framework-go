@@ -13,15 +13,26 @@ import (
 
 	"github.com/golang/mock/gomock"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	clientIntroduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/introduce"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
+	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
+	messengerMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
 	protocolIntroduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/introduce"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
+
+// TODO: remove init function [Issue #1158]
+// nolint: gochecknoinits
+func init() {
+	// turns warnings off
+	log.SetLevel("aries-framework/didcomm/messenger", log.ERROR)
+}
 
 const (
 	Alice = "Alice"
@@ -80,17 +91,26 @@ func provider(agent string, transport map[string]chan transportMsg) (Provider, c
 		Return(fakeStore(ctrl), nil).
 		AnyTimes()
 
-	// creates messenger
-	messenger := serviceMocks.NewMockMessenger(ctrl)
-	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
-		Do(func(msg interface{}, myDID string, theirDID string) error {
+	storageProvider.EXPECT().OpenStore(gomock.Any()).Return(fakeStore(ctrl), nil)
+	dispatcherOutbound := dispatcherMocks.NewMockOutbound(ctrl)
+	messengerProvider := messengerMocks.NewMockProvider(ctrl)
+	messengerProvider.EXPECT().StorageProvider().Return(storageProvider)
+	messengerProvider.EXPECT().OutboundDispatcher().Return(dispatcherOutbound)
+	// use real messenger
+	msgr, err := messenger.NewMessenger(messengerProvider)
+	if err != nil {
+		fmt.Println("messenger.NewMessenger", err)
+	}
+
+	dispatcherOutbound.EXPECT().
+		SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
+		Do(func(msg service.DIDCommMsg, myDID string, theirDID string) error {
 			// sends a message
 			transport[theirDID] <- transportMsg{
 				msg:      msg.(service.DIDCommMsgMap),
 				myDID:    myDID,
 				theirDID: theirDID,
 			}
-
 			return nil
 		}).AnyTimes()
 
@@ -107,7 +127,7 @@ func provider(agent string, transport map[string]chan transportMsg) (Provider, c
 		Return(storageProvider)
 	introduceProvider.EXPECT().
 		Messenger().
-		Return(messenger)
+		Return(msgr)
 	introduceProvider.EXPECT().
 		Service(didexchange.DIDExchange).
 		Return(didexchangeService, nil)
@@ -122,7 +142,9 @@ func provider(agent string, transport map[string]chan transportMsg) (Provider, c
 	done := make(chan struct{})
 
 	stateMsgCh := make(chan service.StateMsg)
-	if err := svc.RegisterMsgEvent(stateMsgCh); err != nil {
+
+	err = svc.RegisterMsgEvent(stateMsgCh)
+	if err != nil {
 		fmt.Println("svc.RegisterMsgEvent", err)
 		return nil, nil
 	}
@@ -144,6 +166,11 @@ func provider(agent string, transport map[string]chan transportMsg) (Provider, c
 				fmt.Println("timeout")
 				close(done)
 			case inboundMsg := <-transport[agent]:
+				err = msgr.HandleInbound(inboundMsg.msg.(service.DIDCommMsgMap), inboundMsg.theirDID, inboundMsg.myDID)
+				if err != nil {
+					fmt.Println("HandleInbound", err)
+				}
+
 				if inboundMsg.msg.Type() != didexchange.InvitationMsgType {
 					if _, err := svc.HandleInbound(inboundMsg.msg, inboundMsg.theirDID, inboundMsg.myDID); err != nil {
 						fmt.Println("svc.HandleInbound", err)

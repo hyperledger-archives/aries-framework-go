@@ -10,8 +10,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -150,9 +148,9 @@ func (s *arranging) ExecuteInbound(messenger service.Messenger, m *metaData) (st
 		recipient = m.Recipients[1]
 	}
 
+	// TODO: Send should be replaced with ReplyTo. [Issue #1159]
 	return &noOp{}, messenger.Send(service.NewDIDCommMsgMap(Proposal{
 		Type:   ProposalMsgType,
-		ID:     uuid.New().String(),
 		To:     recipient.To,
 		Thread: &decorator.Thread{ID: m.ThreadID},
 	}), recipient.MyDID, recipient.TheirDID)
@@ -202,13 +200,11 @@ func getApproveFromMsg(msg service.DIDCommMsg) (bool, bool) {
 }
 
 func sendProblemReport(messenger service.Messenger, m *metaData, recipients []*Recipient) (state, error) {
-	problem := service.NewDIDCommMsgMap(model.ProblemReport{
-		Type: ProblemReportMsgType,
-		ID:   m.ThreadID,
-	})
-
 	for _, recipient := range recipients {
-		if err := messenger.Send(problem, recipient.MyDID, recipient.TheirDID); err != nil {
+		// TODO: add description code to the ProblemReport message [Issues #1160]
+		problem := service.NewDIDCommMsgMap(model.ProblemReport{Type: ProblemReportMsgType})
+
+		if err := messenger.ReplyToNested(m.ThreadID, problem, recipient.MyDID, recipient.TheirDID); err != nil {
 			return nil, fmt.Errorf("send problem-report: %w", err)
 		}
 	}
@@ -218,10 +214,10 @@ func sendProblemReport(messenger service.Messenger, m *metaData, recipients []*R
 
 func deliveringSkipInvitation(messenger service.Messenger, m *metaData, recipients []*Recipient) (state, error) {
 	// for skip proposal, we always have only one recipient e.g recipients[0]
-	inv := m.dependency.Invitation()
-	inv.Thread = &decorator.Thread{PID: m.ThreadID}
-
-	err := messenger.Send(service.NewDIDCommMsgMap(inv), recipients[0].MyDID, recipients[0].TheirDID)
+	err := messenger.ReplyToNested(m.ThreadID,
+		service.NewDIDCommMsgMap(m.dependency.Invitation()),
+		recipients[0].MyDID, recipients[0].TheirDID,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("send inbound invitation (skip): %w", err)
 	}
@@ -243,13 +239,11 @@ func (s *delivering) ExecuteInbound(messenger service.Messenger, m *metaData) (s
 		return &abandoning{}, nil
 	}
 
-	m.Invitation.Thread = &decorator.Thread{PID: m.ThreadID}
-
 	recipient := m.Recipients[toDestIDx(m.IntroduceeIndex)]
 
 	msgMap := service.NewDIDCommMsgMap(m.Invitation)
 
-	if err := messenger.Send(msgMap, recipient.MyDID, recipient.TheirDID); err != nil {
+	if err := messenger.ReplyToNested(m.ThreadID, msgMap, recipient.MyDID, recipient.TheirDID); err != nil {
 		return nil, fmt.Errorf("send inbound invitation: %w", err)
 	}
 
@@ -277,9 +271,10 @@ func (s *confirming) ExecuteInbound(messenger service.Messenger, m *metaData) (s
 
 	msgMap := service.NewDIDCommMsgMap(model.Ack{
 		Type:   AckMsgType,
-		ID:     uuid.New().String(),
 		Thread: &decorator.Thread{ID: m.ThreadID},
 	})
+
+	// TODO: Send should be replaced with ReplyTo. [Issue #1159]
 	if err := messenger.Send(msgMap, recipient.MyDID, recipient.TheirDID); err != nil {
 		return nil, fmt.Errorf("send ack: %w", err)
 	}
@@ -378,13 +373,11 @@ func (s *deciding) ExecuteInbound(messenger service.Messenger, m *metaData) (sta
 
 	msgMap := service.NewDIDCommMsgMap(Response{
 		Type:       ResponseMsgType,
-		ID:         uuid.New().String(),
-		Thread:     &decorator.Thread{ID: m.ThreadID},
 		Invitation: inv,
 		Approve:    !m.disapprove,
 	})
 
-	return st, messenger.Send(msgMap, m.myDID, m.theirDID)
+	return st, messenger.ReplyTo(m.Msg.ID(), msgMap)
 }
 
 func (s *deciding) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {

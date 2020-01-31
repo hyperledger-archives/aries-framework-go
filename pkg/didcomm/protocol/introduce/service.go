@@ -283,21 +283,13 @@ func (s *Service) InvitationReceived(msg service.StateMsg) error {
 		return nil
 	}
 
-	payload, err := json.Marshal(&model.Ack{
+	// NOTE: the message is being used internally.
+	// Do not modify the payload such as ID and Thread.
+	_, err := s.HandleInbound(service.NewDIDCommMsgMap(&model.Ack{
 		Type:   AckMsgType,
 		ID:     uuid.New().String(),
 		Thread: &decorator.Thread{ID: h.Thread.PID},
-	})
-	if err != nil {
-		return fmt.Errorf("invitation received marshal: %w", err)
-	}
-
-	didMsg, err := service.ParseDIDCommMsgMap(payload)
-	if err != nil {
-		return fmt.Errorf("invitation received new DIDComm msg: %w", err)
-	}
-
-	_, err = s.HandleInbound(didMsg, "", "")
+	}), "", "")
 
 	return err
 }
