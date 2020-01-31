@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/basic"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/common"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
@@ -73,9 +74,12 @@ func (d *ControllerSteps) registerMsgService(agentID, name, msgType, purpose str
 	}
 
 	params := common.RegisterMsgSvcParams{
-		Type:    msgType,
-		Purpose: strings.Split(purpose, ","),
-		Name:    name,
+		Type: msgType,
+		Name: name,
+	}
+
+	if purpose != "" {
+		params.Purpose = strings.Split(purpose, ",")
 	}
 
 	logger.Debugf("Registering message service for agent[%s],  params : %s", params)
@@ -142,7 +146,7 @@ func (d *ControllerSteps) getServicesList(url string) ([]string, error) {
 	return result.Names, nil
 }
 
-func (d *ControllerSteps) sendMessage(fromAgentID, msg, msgType, purpose, toAgentID string) error {
+func (d *ControllerSteps) sendMessage(fromAgentID, toAgentID string, msg interface{}) error {
 	destination, ok := d.bddContext.GetControllerURL(fromAgentID)
 	if !ok {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", fromAgentID)
@@ -155,13 +159,7 @@ func (d *ControllerSteps) sendMessage(fromAgentID, msg, msgType, purpose, toAgen
 	}
 
 	// prepare message
-	rawBytes, err := json.Marshal(&genericInviteMsg{
-		ID:      uuid.New().String(),
-		Type:    msgType,
-		Purpose: strings.Split(purpose, ","),
-		Message: msg,
-		From:    fromAgentID,
-	})
+	rawBytes, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("failed to get raw message bytes:  %w", err)
 	}
@@ -205,43 +203,30 @@ func (d *ControllerSteps) findConnection(agentID string) (string, error) {
 	return response.Results[0].ConnectionID, nil
 }
 
-func (d *ControllerSteps) receiveMessage(agentID, expectedMsg, expectedMsgType, from string) error {
+func (d *ControllerSteps) receiveMessage(
+	agentID, expectedMsgType string) (*service.DIDCommMsgMap, error) {
 	msg, err := d.pullMsgFromWebhook(agentID)
 	if err != nil {
-		return fmt.Errorf("failed to pull incoming message from webhook : %w", err)
+		return nil, fmt.Errorf("failed to pull incoming message from webhook : %w", err)
 	}
 
-	inviteMsg := struct {
+	incomingMsg := struct {
 		Message  service.DIDCommMsgMap `json:"message"`
 		MyDID    string                `json:"mydid"`
 		TheirDID string                `json:"theirdid"`
 	}{}
 
-	err = msg.Decode(&inviteMsg)
+	err = msg.Decode(&incomingMsg)
 	if err != nil {
-		return fmt.Errorf("failed to read incoming message from webhook : %w", err)
+		return nil, fmt.Errorf("failed to read message: %w", err)
 	}
 
-	if inviteMsg.Message.Type() != expectedMsgType {
-		return fmt.Errorf("expected message type [%s], but got [%s]", expectedMsgType, inviteMsg.Message.Type())
+	if incomingMsg.Message.Type() != expectedMsgType {
+		return nil, fmt.Errorf("expected incoming message of type [%s], but got [%s]", expectedMsgType,
+			incomingMsg.Message.Type())
 	}
 
-	invite := genericInviteMsg{}
-
-	err = inviteMsg.Message.Decode(&invite)
-	if err != nil {
-		return fmt.Errorf("failed to read incoming invite message: %w", err)
-	}
-
-	if invite.Message != expectedMsg {
-		return fmt.Errorf("expected message [%s], but got [%s]", expectedMsg, invite.Message)
-	}
-
-	if invite.From != from {
-		return fmt.Errorf("expected message from [%s], but got from[%s]", from, invite.From)
-	}
-
-	return nil
+	return &incomingMsg.Message, nil
 }
 
 func (d *ControllerSteps) pullMsgFromWebhook(agentID string) (*service.DIDCommMsgMap, error) {
@@ -311,6 +296,86 @@ func sendHTTP(method, destination string, param, result interface{}) error {
 	return json.Unmarshal(data, result)
 }
 
+func (d *ControllerSteps) registerBasicMsgService(agentID, name string) error {
+	return d.registerMsgService(agentID, name, basic.MessageRequestType, "")
+}
+
+func (d *ControllerSteps) sendInviteMessage(fromAgentID, msg, msgType, purpose, toAgentID string) error {
+	genericMsg := &genericInviteMsg{
+		ID:      uuid.New().String(),
+		Type:    msgType,
+		Purpose: strings.Split(purpose, ","),
+		Message: msg,
+		From:    fromAgentID,
+	}
+
+	return d.sendMessage(fromAgentID, toAgentID, genericMsg)
+}
+
+func (d *ControllerSteps) sendBasicMessage(fromAgentID, msg, toAgentID string) error {
+	basicMsg := &basic.Message{
+		ID:      uuid.New().String(),
+		Type:    basic.MessageRequestType,
+		Content: msg,
+		I10n: struct {
+			Locale string `json:"locale"`
+		}{
+			Locale: "en",
+		},
+		SentTime: time.Now(),
+	}
+
+	return d.sendMessage(fromAgentID, toAgentID, basicMsg)
+}
+
+func (d *ControllerSteps) receiveInviteMessage(agentID, expectedMsg, expectedMsgType, from string) error {
+	msg, err := d.receiveMessage(agentID, expectedMsgType)
+	if err != nil {
+		return err
+	}
+
+	invite := genericInviteMsg{}
+
+	err = msg.Decode(&invite)
+	if err != nil {
+		return fmt.Errorf("failed to read incoming invite message: %w", err)
+	}
+
+	if invite.Message != expectedMsg {
+		return fmt.Errorf("expected message [%s], but got [%s]", expectedMsg, invite.Message)
+	}
+
+	if invite.From != from {
+		return fmt.Errorf("expected message from [%s], but got from[%s]", from, invite.From)
+	}
+
+	return nil
+}
+
+func (d *ControllerSteps) receiveBasicMessage(agentID, expectedMsg, from string) error {
+	msg, err := d.receiveMessage(agentID, basic.MessageRequestType)
+	if err != nil {
+		return err
+	}
+
+	basicMsg := basic.Message{}
+
+	err = msg.Decode(&basicMsg)
+	if err != nil {
+		return fmt.Errorf("failed to read incoming basic message: %w", err)
+	}
+
+	if basicMsg.Content != expectedMsg {
+		return fmt.Errorf("expected basic message content [%s], but got [%s]", expectedMsg, basicMsg.Content)
+	}
+
+	if basicMsg.I10n.Locale != locale {
+		return fmt.Errorf("expected basic message locale [%s], but got from[%s]", locale, basicMsg.I10n.Locale)
+	}
+
+	return nil
+}
+
 func closeResponse(c io.Closer) {
 	err := c.Close()
 	if err != nil {
@@ -320,10 +385,17 @@ func closeResponse(c io.Closer) {
 
 // RegisterSteps registers messaging steps
 func (d *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
+	// generic messaging
 	s.Step(`^"([^"]*)" registers a message service through controller with name "([^"]*)" for type "([^"]*)"`+
 		` and purpose "([^"]*)"$`, d.registerMsgService)
 	s.Step(`^"([^"]*)" sends meeting invite message "([^"]*)" through controller with type "([^"]*)" `+
-		`and purpose "([^"]*)" to "([^"]*)"$`, d.sendMessage)
+		`and purpose "([^"]*)" to "([^"]*)"$`, d.sendInviteMessage)
 	s.Step(`^"([^"]*)" message service receives meeting invite message to webhook "([^"]*)" with type "([^"]*)"`+
-		` from "([^"]*)"$`, d.receiveMessage)
+		` from "([^"]*)"$`, d.receiveInviteMessage)
+
+	// basic messaging
+	s.Step(`^"([^"]*)" registers a message service through controller with name "([^"]*)" for basic message type$`,
+		d.registerBasicMsgService)
+	s.Step(`^"([^"]*)" sends basic message "([^"]*)" through controller to "([^"]*)"$`, d.sendBasicMessage)
+	s.Step(`^"([^"]*)" receives basic message to webhook "([^"]*)" from "([^"]*)"$`, d.receiveBasicMessage)
 }
