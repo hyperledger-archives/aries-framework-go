@@ -91,7 +91,7 @@ type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	TransientStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
-	KMS() legacykms.KeyManager
+	LegacyKMS() legacykms.KeyManager
 }
 
 // Operation contains basic common operations provided by controller REST API
@@ -411,7 +411,7 @@ func (o *Operation) sendMessageToConnection(msg json.RawMessage, rw http.Respons
 
 func (o *Operation) sendMessageToDestination(msg json.RawMessage, rw http.ResponseWriter,
 	dest *ServiceEndpointDestinationParams) {
-	_, sigPubKey, err := o.ctx.KMS().CreateKeySet()
+	_, sigPubKey, err := o.ctx.LegacyKMS().CreateKeySet()
 	if err != nil {
 		resterrors.SendHTTPInternalServerError(rw, SendMsgError, err)
 		return

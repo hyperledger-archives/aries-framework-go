@@ -215,7 +215,7 @@ func TestNewProvider(t *testing.T) {
 
 	t.Run("test new with kms and packager service", func(t *testing.T) {
 		prov, err := New(
-			WithKMS(&mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}),
+			WithLegacyKMS(&mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}),
 			WithPackager(&mockpackager.Packager{PackValue: []byte("data")}),
 			WithPacker(
 				&mockdidcomm.MockAuthCrypt{
@@ -235,7 +235,7 @@ func TestNewProvider(t *testing.T) {
 		v, err := prov.Signer().SignMessage(nil, "")
 		require.NoError(t, err)
 		require.Equal(t, []byte("mockValue"), v)
-		index, err := prov.KMS().FindVerKey([]string{"non-existent"})
+		index, err := prov.LegacyKMS().FindVerKey([]string{"non-existent"})
 		require.NoError(t, err)
 		require.Equal(t, 0, index)
 		v, err = prov.Packager().PackMessage(&transport.Envelope{})

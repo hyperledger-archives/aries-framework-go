@@ -107,7 +107,7 @@ func (p *Packer) getSenderPubEncKey(senderVerKey []byte) (*[chacha.KeySize]byte,
 		return nil, fmt.Errorf("failed to pack message: empty sender key")
 	}
 
-	senderKey, err := p.kms.GetEncryptionKey(senderVerKey)
+	senderKey, err := p.legacyKMS.GetEncryptionKey(senderVerKey)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.Key
 	}
 
 	// derive an ephemeral key for the sender and recipient
-	kek, err := p.kms.DeriveKEK([]byte(p.alg), apu, senderPubKey[:], recipientPubKey[:])
+	kek, err := p.legacyKMS.DeriveKEK([]byte(p.alg), apu, senderPubKey[:], recipientPubKey[:])
 	if err != nil {
 		return nil, err
 	}

@@ -128,7 +128,7 @@ func (p *Packer) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey []b
 	}
 
 	// We need the private key to be converted and keypair to be persisted
-	senderEncKey, err := p.kms.ConvertToEncryptionKey(senderKey)
+	senderEncKey, err := p.legacyKMS.ConvertToEncryptionKey(senderKey)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func (p *Packer) buildRecipient(cek *[chacha.KeySize]byte, senderKey, recKey []b
 		return nil, err
 	}
 
-	box, err := legacykms.NewCryptoBox(p.kms)
+	box, err := legacykms.NewCryptoBox(p.legacyKMS)
 	if err != nil {
 		return nil, err
 	}

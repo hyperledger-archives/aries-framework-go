@@ -42,7 +42,7 @@ var errUnsupportedAlg = errors.New("algorithm not supported")
 type Packer struct {
 	alg        ContentEncryption
 	nonceSize  int
-	kms        legacykms.KeyManager
+	legacyKMS  legacykms.KeyManager
 	randReader io.Reader
 }
 
@@ -102,7 +102,7 @@ type jwk struct {
 // XC20P (xchacha20-poly1305 ietf)
 // The returned Packer contains all the information required to pack and unpack payloads.
 func New(ctx packer.Provider, alg ContentEncryption) (*Packer, error) {
-	k := ctx.KMS()
+	k := ctx.LegacyKMS()
 
 	var nonceSize int
 
@@ -118,7 +118,7 @@ func New(ctx packer.Provider, alg ContentEncryption) (*Packer, error) {
 	return &Packer{
 		alg:        alg,
 		nonceSize:  nonceSize,
-		kms:        k,
+		legacyKMS:  k,
 		randReader: rand.Reader,
 	}, nil
 }

@@ -76,8 +76,8 @@ func (p *Provider) Service(id string) (interface{}, error) {
 	return nil, api.ErrSvcNotFound
 }
 
-// KMS returns a kms service.
-func (p *Provider) KMS() legacykms.KeyManager {
+// LegacyKMS returns a kms service.
+func (p *Provider) LegacyKMS() legacykms.KeyManager {
 	return p.kms
 }
 
@@ -230,8 +230,8 @@ func WithProtocolServices(services ...dispatcher.ProtocolService) ProviderOption
 	}
 }
 
-// WithKMS injects a kms service into the context.
-func WithKMS(w legacykms.KMS) ProviderOption {
+// WithLegacyKMS injects a legacy kms service into the context.
+func WithLegacyKMS(w legacykms.KMS) ProviderOption {
 	return func(opts *Provider) error {
 		opts.kms = w
 		return nil

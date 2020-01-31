@@ -17,7 +17,7 @@ import (
 // Packer represents an Authcrypt Pack/Unpacker that outputs/reads legacy Aries envelopes
 type Packer struct {
 	randSource io.Reader
-	kms        legacykms.KeyManager
+	legacyKMS  legacykms.KeyManager
 }
 
 // encodingType is the `typ` string identifier in a message that identifies the format as being legacy
@@ -26,11 +26,11 @@ const encodingType string = "JWM/1.0"
 // New will create a Packer that encrypts messages using the legacy Aries format
 // Note: legacy Packer does not support XChacha20Poly1035 (XC20P), only Chacha20Poly1035 (C20P)
 func New(ctx packer.Provider) *Packer {
-	k := ctx.KMS()
+	k := ctx.LegacyKMS()
 
 	return &Packer{
 		randSource: rand.Reader,
-		kms:        k,
+		legacyKMS:  k,
 	}
 }
 

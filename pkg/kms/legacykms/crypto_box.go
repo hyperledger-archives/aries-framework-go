@@ -17,8 +17,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
-// TODO: move CryptoBox out of the KMS package.
-//   this currently only sits inside KMS so it can access private keys. See issue #511
+// TODO: move CryptoBox out of the LegacyKMS package.
+//   this currently only sits inside LegacyKMS so it can access private keys. See issue #511
 
 // CryptoBox provides an elliptic-curve-based authenticated encryption scheme
 //
@@ -26,18 +26,18 @@ import (
 // using a shared key derived from a shared secret created by
 //   Curve25519 Elliptic Curve Diffie-Hellman key exchange.
 //
-// CryptoBox is created by a KMS, and reads secret keys from the KMS
+// CryptoBox is created by a LegacyKMS, and reads secret keys from the LegacyKMS
 //   for encryption/decryption, so clients do not need to see
 //   the secrets themselves.
 type CryptoBox struct {
 	km *BaseKMS
 }
 
-// NewCryptoBox creates a CryptoBox which provides crypto box encryption using the given KMS's keypairs
+// NewCryptoBox creates a CryptoBox which provides crypto box encryption using the given LegacyKMS's keypairs
 func NewCryptoBox(w KeyManager) (*CryptoBox, error) {
 	wa, ok := w.(*BaseKMS)
 	if !ok {
-		return nil, fmt.Errorf("cannot use parameter as KMS")
+		return nil, fmt.Errorf("cannot use parameter as LegacyKMS")
 	}
 
 	return &CryptoBox{km: wa}, nil

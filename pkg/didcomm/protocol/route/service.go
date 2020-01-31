@@ -88,7 +88,7 @@ type provider interface {
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
 	InboundTransportEndpoint() string
-	KMS() legacykms.KeyManager
+	LegacyKMS() legacykms.KeyManager
 	VDRIRegistry() vdri.Registry
 }
 
@@ -125,7 +125,7 @@ func New(prov provider) (*Service, error) {
 		routeStore:           store,
 		outbound:             prov.OutboundDispatcher(),
 		endpoint:             prov.InboundTransportEndpoint(),
-		kms:                  prov.KMS(),
+		kms:                  prov.LegacyKMS(),
 		vdRegistry:           prov.VDRIRegistry(),
 		connectionLookup:     connectionLookup,
 		routeRegistrationMap: make(map[string]chan Grant),

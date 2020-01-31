@@ -109,7 +109,7 @@ func initializeServices(frameworkOpts *Aries) (*Aries, error) {
 		return nil, e
 	}
 
-	// create packers and packager (must be done after KMS and connection store)
+	// create packers and packager (must be done after LegacyKMS and connection store)
 	if err := createPackersAndPackager(frameworkOpts); err != nil {
 		return nil, err
 	}
@@ -202,8 +202,8 @@ func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
 	}
 }
 
-// WithKMS injects a KMS service to the Aries framework.
-func WithKMS(k api.KMSCreator) Option {
+// WithLegacyKMS injects a LegacyKMS service to the Aries framework.
+func WithLegacyKMS(k api.KMSCreator) Option {
 	return func(opts *Aries) error {
 		opts.kmsCreator = k
 		return nil
@@ -260,7 +260,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithMessengerHandler(a.messenger),
 		context.WithOutboundTransports(a.outboundTransports...),
 		context.WithProtocolServices(a.services...),
-		context.WithKMS(a.kms),
+		context.WithLegacyKMS(a.kms),
 		context.WithCrypto(a.crypto),
 		context.WithInboundTransportEndpoint(endPoint),
 		context.WithStorageProvider(a.storeProvider),
@@ -345,7 +345,7 @@ func createVDRI(frameworkOpts *Aries) error {
 	}
 
 	ctx, err := context.New(
-		context.WithKMS(frameworkOpts.kms),
+		context.WithLegacyKMS(frameworkOpts.kms),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithInboundTransportEndpoint(endPoint),
@@ -394,7 +394,7 @@ func createMessengerHandler(frameworkOpts *Aries) error {
 
 func createOutboundDispatcher(frameworkOpts *Aries) error {
 	ctx, err := context.New(
-		context.WithKMS(frameworkOpts.kms),
+		context.WithLegacyKMS(frameworkOpts.kms),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithOutboundTransports(frameworkOpts.outboundTransports...),
 		context.WithPackager(frameworkOpts.packager),
@@ -412,7 +412,7 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 
 func startTransports(frameworkOpts *Aries) error {
 	ctx, err := context.New(
-		context.WithKMS(frameworkOpts.kms),
+		context.WithLegacyKMS(frameworkOpts.kms),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithProtocolServices(frameworkOpts.services...),
@@ -452,7 +452,7 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithMessengerHandler(frameworkOpts.messenger),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithTransientStorageProvider(frameworkOpts.transientStoreProvider),
-		context.WithKMS(frameworkOpts.kms),
+		context.WithLegacyKMS(frameworkOpts.kms),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithInboundTransportEndpoint(endPoint),
@@ -482,7 +482,7 @@ func loadServices(frameworkOpts *Aries) error {
 
 func createPackersAndPackager(frameworkOpts *Aries) error {
 	ctx, err := context.New(
-		context.WithKMS(frameworkOpts.kms),
+		context.WithLegacyKMS(frameworkOpts.kms),
 		context.WithCrypto(frameworkOpts.crypto),
 	)
 	if err != nil {

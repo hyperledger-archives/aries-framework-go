@@ -34,7 +34,7 @@ var ErrConnectionNotFound = errors.New("connection not found")
 // provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
 type provider interface {
 	Service(id string) (interface{}, error)
-	KMS() legacykms.KeyManager
+	LegacyKMS() legacykms.KeyManager
 	InboundTransportEndpoint() string
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
@@ -45,7 +45,7 @@ type Client struct {
 	service.Event
 	didexchangeSvc           protocolService
 	routeSvc                 route.ProtocolService
-	kms                      legacykms.KeyManager
+	legacyKMS                legacykms.KeyManager
 	inboundTransportEndpoint string
 	connectionStore          *connection.Recorder
 }
@@ -97,7 +97,7 @@ func New(ctx provider) (*Client, error) {
 		Event:                    didexchangeSvc,
 		didexchangeSvc:           didexchangeSvc,
 		routeSvc:                 routeSvc,
-		kms:                      ctx.KMS(),
+		legacyKMS:                ctx.LegacyKMS(),
 		inboundTransportEndpoint: ctx.InboundTransportEndpoint(),
 		connectionStore:          connectionStore,
 	}, nil
@@ -109,7 +109,7 @@ func New(ctx provider) (*Client, error) {
 func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
 	//  with connection record
-	_, sigPubKey, err := c.kms.CreateKeySet()
+	_, sigPubKey, err := c.legacyKMS.CreateKeySet()
 	if err != nil {
 		return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
 	}

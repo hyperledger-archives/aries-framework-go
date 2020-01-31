@@ -13,7 +13,7 @@ import (
 
 // Provider interface for Packer ctx
 type Provider interface {
-	KMS() legacykms.KeyManager
+	LegacyKMS() legacykms.KeyManager
 }
 
 // Creator method to create new Packer service
@@ -30,7 +30,7 @@ type Packer interface {
 	// TODO add key type of recipients and sender keys to be validated by the implementation - Issue #272
 	Pack(payload []byte, senderKey []byte, recipients [][]byte) ([]byte, error)
 	// Unpack an envelope in an Aries compliant format.
-	// 		The recipient's key will be the one found in KMS that matches one of the list of recipients in the envelope
+	// 		The recipient's key will be the one found in LegacyKMS that matches one of the list of recipients in the envelope
 	//
 	// returns:
 	// 		Envelope containing the message, decryption key, and sender key

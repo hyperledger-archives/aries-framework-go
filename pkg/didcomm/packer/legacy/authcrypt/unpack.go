@@ -50,7 +50,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 		return nil, fmt.Errorf("message format %s not supported", protectedData.Alg)
 	}
 
-	keys, err := getCEK(protectedData.Recipients, p.kms)
+	keys, err := getCEK(protectedData.Recipients, p.legacyKMS)
 	if err != nil {
 		return nil, err
 	}

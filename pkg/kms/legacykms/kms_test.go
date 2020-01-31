@@ -221,7 +221,7 @@ func TestBaseKMS_DeriveKEK(t *testing.T) {
 	}}))
 
 	t.Run("test success", func(t *testing.T) {
-		// test DeriveKEK from KMS where fromKey is a public key (private fromKey will be fetched from the KMS)
+		// test DeriveKEK from LegacyKMS where fromKey is a public key (private fromKey will be fetched from the LegacyKMS)
 		require.NoError(t, err)
 		kek, e := k.DeriveKEK(nil, nil, pk32[:], pk32a[:])
 		require.NoError(t, e)
@@ -234,7 +234,7 @@ func TestBaseKMS_DeriveKEK(t *testing.T) {
 	})
 
 	t.Run("test failure fromKey empty and toKey not empty", func(t *testing.T) {
-		// test DeriveKEK from KMS where fromKey is a public key (private fromKey will be fetched from the KMS)
+		// test DeriveKEK from LegacyKMS where fromKey is a public key (private fromKey will be fetched from the LegacyKMS)
 		kek, e := k.DeriveKEK(nil, nil, nil, pk32a[:])
 		require.EqualError(t, e, cryptoutil.ErrInvalidKey.Error())
 		require.Empty(t, kek)
@@ -246,7 +246,7 @@ func TestBaseKMS_DeriveKEK(t *testing.T) {
 	})
 
 	t.Run("test failure fromKey not empty and toKey empty", func(t *testing.T) {
-		// test DeriveKEK from KMS where fromKey is a public key (private fromKey will be fetched from the KMS)
+		// test DeriveKEK from LegacyKMS where fromKey is a public key (private fromKey will be fetched from the LegacyKMS)
 		kek, e := k.DeriveKEK(nil, nil, pk32[:], nil)
 		require.EqualError(t, e, cryptoutil.ErrInvalidKey.Error())
 		require.Empty(t, kek)
@@ -257,8 +257,8 @@ func TestBaseKMS_DeriveKEK(t *testing.T) {
 		require.Empty(t, kek)
 	})
 
-	t.Run("test failure fromPubKey not found in KMS", func(t *testing.T) {
-		// test DeriveKEK from KMS where fromKey is a public key (private fromKey will be fetched from the KMS)
+	t.Run("test failure fromPubKey not found in LegacyKMS", func(t *testing.T) {
+		// test DeriveKEK from LegacyKMS where fromKey is a public key (private fromKey will be fetched from the LegacyKMS)
 		kek, e := k.DeriveKEK(nil, nil, pk32a[:], pk32[:])
 		require.EqualError(t, e, "failed from getKeyPairSet: "+cryptoutil.ErrKeyNotFound.Error())
 		require.Empty(t, kek)
@@ -383,7 +383,7 @@ func newMockKMSProvider(storagePvdr *mockstorage.MockStoreProvider) *mockProvide
 	return &mockProvider{storagePvdr}
 }
 
-// mockProvider mocks provider for KMS
+// mockProvider mocks provider for LegacyKMS
 type mockProvider struct {
 	storage *mockstorage.MockStoreProvider
 }

@@ -287,7 +287,7 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("Success test case: Decrypting a message (with the same packer)", func(t *testing.T) {
-		// not a real life scenario, the kms is using both sender and rec1 key pairs
+		// not a real life scenario, the legacyKMS is using both sender and rec1 key pairs
 		// allKMSProvider is used here for testing purposes only
 		packer, e := New(allKMSProvider, XC20P)
 		require.NoError(t, e)
@@ -303,7 +303,7 @@ func TestEncrypt(t *testing.T) {
 		t.Logf("Encryption with unescaped XC20P: %s", enc)
 		t.Logf("Encryption with XC20P: %s", m)
 
-		// decrypt for rec1 (as found in kms)
+		// decrypt for rec1 (as found in legacyKMS)
 		env, e := packer.Unpack(enc)
 		require.NoError(t, e)
 		require.NotEmpty(t, env)
@@ -323,9 +323,9 @@ func TestEncrypt(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, recPacker)
 
-		encSign, _, err := allKMSProvider.KMS().CreateKeySet()
+		encSign, _, err := allKMSProvider.LegacyKMS().CreateKeySet()
 		require.NoError(t, err)
-		_, recSign, err := allKMSProvider.KMS().CreateKeySet()
+		_, recSign, err := allKMSProvider.LegacyKMS().CreateKeySet()
 		require.NoError(t, err)
 
 		msgIn := []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit.")
