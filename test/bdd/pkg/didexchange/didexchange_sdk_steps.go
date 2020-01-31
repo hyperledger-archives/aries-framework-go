@@ -8,6 +8,7 @@ package didexchange
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -55,6 +56,16 @@ func (d *SDKSteps) createInvitation(inviterAgentID string) error {
 	}
 
 	logger.Debugf("Agent %s create invitation %s", inviterAgentID, invitationBytes)
+
+	return nil
+}
+
+func (d *SDKSteps) validateInvitationEndpointScheme(inviterAgentID, scheme string) error {
+	invitation := d.invitations[inviterAgentID]
+
+	if !strings.HasPrefix(invitation.ServiceEndpoint, scheme) {
+		return errors.New("invitation service endpoint - invalid transport type")
+	}
 
 	return nil
 }
@@ -386,6 +397,7 @@ func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddo
 // RegisterSteps registers did exchange steps
 func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
+	s.Step(`^"([^"]*)" validates that invitation service endpoint of type "([^"]*)"$`, d.validateInvitationEndpointScheme)
 	s.Step(`^"([^"]*)" creates invitation with public DID$`, d.CreateInvitationWithDID)
 	s.Step(`^"([^"]*)" waits for public did to become available in sidetree for up to (\d+) seconds$`,
 		d.WaitForPublicDID)

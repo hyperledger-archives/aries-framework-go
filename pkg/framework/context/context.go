@@ -23,22 +23,23 @@ import (
 
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
-	services                 []dispatcher.ProtocolService
-	msgSvcProvider           api.MessageServiceProvider
-	storeProvider            storage.Provider
-	transientStoreProvider   storage.Provider
-	kms                      legacykms.KMS
-	crypto                   crypto.Crypto
-	packager                 commontransport.Packager
-	primaryPacker            packer.Packer
-	packers                  []packer.Packer
-	inboundTransportEndpoint string
-	outboundDispatcher       dispatcher.Outbound
-	messenger                service.MessengerHandler
-	outboundTransports       []transport.OutboundTransport
-	vdriRegistry             vdriapi.Registry
-	transportReturnRoute     string
-	frameworkID              string
+	services               []dispatcher.ProtocolService
+	msgSvcProvider         api.MessageServiceProvider
+	storeProvider          storage.Provider
+	transientStoreProvider storage.Provider
+	kms                    legacykms.KMS
+	crypto                 crypto.Crypto
+	packager               commontransport.Packager
+	primaryPacker          packer.Packer
+	packers                []packer.Packer
+	serviceEndpoint        string
+	routerEndpoint         string
+	outboundDispatcher     dispatcher.Outbound
+	messenger              service.MessengerHandler
+	outboundTransports     []transport.OutboundTransport
+	vdriRegistry           vdriapi.Registry
+	transportReturnRoute   string
+	frameworkID            string
 }
 
 // New instantiates a new context provider.
@@ -113,7 +114,12 @@ func (p *Provider) Signer() legacykms.Signer {
 
 // InboundTransportEndpoint returns an inbound transport endpoint.
 func (p *Provider) InboundTransportEndpoint() string {
-	return p.inboundTransportEndpoint
+	return p.serviceEndpoint
+}
+
+// RouterEndpoint returns a router transport endpoint.
+func (p *Provider) RouterEndpoint() string {
+	return p.routerEndpoint
 }
 
 func (p *Provider) tryToHandle(svc service.InboundHandler, msg service.DIDCommMsgMap, myDID, theirDID string) error {
@@ -254,10 +260,18 @@ func WithVDRIRegistry(vdri vdriapi.Registry) ProviderOption {
 	}
 }
 
-// WithInboundTransportEndpoint injects an inbound transport endpoint into the context.
-func WithInboundTransportEndpoint(endpoint string) ProviderOption {
+// WithServiceEndpoint injects an service transport endpoint into the context.
+func WithServiceEndpoint(endpoint string) ProviderOption {
 	return func(opts *Provider) error {
-		opts.inboundTransportEndpoint = endpoint
+		opts.serviceEndpoint = endpoint
+		return nil
+	}
+}
+
+// WithRouterEndpoint injects an router transport endpoint into the context.
+func WithRouterEndpoint(endpoint string) ProviderOption {
+	return func(opts *Provider) error {
+		opts.routerEndpoint = endpoint
 		return nil
 	}
 }

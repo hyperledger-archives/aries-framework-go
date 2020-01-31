@@ -51,6 +51,11 @@ func (p *Provider) InboundTransportEndpoint() string {
 	return p.InboundEndpointValue
 }
 
+// RouterEndpoint returns the router transport endpoint
+func (p *Provider) RouterEndpoint() string {
+	return p.InboundEndpointValue
+}
+
 // StorageProvider returns the storage provider
 func (p *Provider) StorageProvider() storage.Provider {
 	return p.StorageProviderValue

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
@@ -107,40 +109,70 @@ func (a *SDKSteps) createEdgeAgent(agentID, scheme, routeOpt string) error {
 		aries.WithTransportReturnRoute(routeOpt),
 	)
 
-	switch scheme {
-	case webSocketTransportProvider:
-		opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound()))
-	default:
-		return fmt.Errorf("invalid transport provider type : %s (only websocket is supported)", scheme)
+	sch := strings.Split(scheme, ",")
+
+	for _, s := range sch {
+		switch s {
+		case webSocketTransportProvider:
+			opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound()))
+		case httpTransportProvider:
+			out, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
+			if err != nil {
+				return fmt.Errorf("failed to create http outbound: %w", err)
+			}
+
+			opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound(), out))
+		default:
+			return fmt.Errorf("invalid transport provider type : %s (only websocket/http is supported)", scheme)
+		}
 	}
 
 	return a.createFramework(agentID, opts...)
 }
 
-func (a *SDKSteps) create(agentID, inboundHost, inboundPort, scheme string, opts ...aries.Option) error {
+func (a *SDKSteps) create(agentID, inboundHosts, inboundPorts, schemes string, opts ...aries.Option) error { // nolint gocyclo
 	const (
 		portAttempts  = 5
 		listenTimeout = 2 * time.Second
 	)
 
-	if inboundPort == "random" {
-		inboundPort = strconv.Itoa(mustGetRandomPort(portAttempts))
-	}
+	scheme := strings.Split(schemes, ",")
+	hosts := strings.Split(inboundHosts, ",")
+	ports := strings.Split(inboundPorts, ",")
+	schemeAddrMap := make(map[string]string)
 
-	inboundAddr := fmt.Sprintf("%s:%s", inboundHost, inboundPort)
-
-	switch scheme {
-	case webSocketTransportProvider:
-		inbound, err := ws.NewInbound(inboundAddr, "ws://"+inboundAddr)
-		if err != nil {
-			return fmt.Errorf("failed to create websocket: %w", err)
+	for i := 0; i < len(scheme); i++ {
+		port := ports[i]
+		if port == "random" {
+			port = strconv.Itoa(mustGetRandomPort(portAttempts))
 		}
 
-		opts = append(opts, aries.WithInboundTransport(inbound), aries.WithOutboundTransports(ws.NewOutbound()))
-	case httpTransportProvider:
-		opts = append(opts, defaults.WithInboundHTTPAddr(inboundAddr, "http://"+inboundAddr))
-	default:
-		return fmt.Errorf("invalid transport provider type : %s", scheme)
+		inboundAddr := fmt.Sprintf("%s:%s", hosts[i], port)
+
+		schemeAddrMap[scheme[i]] = inboundAddr
+	}
+
+	for _, s := range scheme {
+		switch s {
+		case webSocketTransportProvider:
+			inbound, err := ws.NewInbound(schemeAddrMap[s], "ws://"+schemeAddrMap[s])
+			if err != nil {
+				return fmt.Errorf("failed to create websocket: %w", err)
+			}
+
+			opts = append(opts, aries.WithInboundTransport(inbound), aries.WithOutboundTransports(ws.NewOutbound()))
+		case httpTransportProvider:
+			opts = append(opts, defaults.WithInboundHTTPAddr(schemeAddrMap[s], "http://"+schemeAddrMap[s]))
+
+			out, err := arieshttp.NewOutbound(arieshttp.WithOutboundHTTPClient(&http.Client{}))
+			if err != nil {
+				return fmt.Errorf("failed to create http outbound: %w", err)
+			}
+
+			opts = append(opts, aries.WithOutboundTransports(ws.NewOutbound(), out))
+		default:
+			return fmt.Errorf("invalid transport provider type : %s (only websocket/http is supported)", scheme)
+		}
 	}
 
 	err := a.createFramework(agentID, opts...)
@@ -148,11 +180,13 @@ func (a *SDKSteps) create(agentID, inboundHost, inboundPort, scheme string, opts
 		return fmt.Errorf("failed to create new agent: %w", err)
 	}
 
-	if err := listenFor(fmt.Sprintf("%s:%s", inboundHost, inboundPort), listenTimeout); err != nil {
-		return err
-	}
+	for _, inboundAddr := range schemeAddrMap {
+		if err := listenFor(inboundAddr, listenTimeout); err != nil {
+			return err
+		}
 
-	logger.Debugf("Agent %s start listening on %s:%s", agentID, inboundHost, inboundPort)
+		logger.Debugf("Agent %s start listening on %s", agentID, inboundAddr)
+	}
 
 	return nil
 }

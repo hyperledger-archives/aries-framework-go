@@ -87,7 +87,7 @@ type provider interface {
 	OutboundDispatcher() dispatcher.Outbound
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
-	InboundTransportEndpoint() string
+	RouterEndpoint() string
 	LegacyKMS() legacykms.KeyManager
 	VDRIRegistry() vdri.Registry
 }
@@ -124,7 +124,7 @@ func New(prov provider) (*Service, error) {
 	return &Service{
 		routeStore:           store,
 		outbound:             prov.OutboundDispatcher(),
-		endpoint:             prov.InboundTransportEndpoint(),
+		endpoint:             prov.RouterEndpoint(),
 		kms:                  prov.LegacyKMS(),
 		vdRegistry:           prov.VDRIRegistry(),
 		connectionLookup:     connectionLookup,

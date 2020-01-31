@@ -31,6 +31,7 @@ type Provider interface {
 	Crypto() crypto.Crypto
 	Packager() transport.Packager
 	InboundTransportEndpoint() string
+	RouterEndpoint() string
 	VDRIRegistry() vdriapi.Registry
 	Signer() legacykms.Signer
 	TransientStorageProvider() storage.Provider
