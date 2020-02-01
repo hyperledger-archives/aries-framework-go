@@ -260,9 +260,15 @@ func TestNewProvider(t *testing.T) {
 	})
 
 	t.Run("test new with inbound transport endpoint", func(t *testing.T) {
-		prov, err := New(WithInboundTransportEndpoint("endpoint"))
+		prov, err := New(WithServiceEndpoint("endpoint"))
 		require.NoError(t, err)
 		require.Equal(t, "endpoint", prov.InboundTransportEndpoint())
+	})
+
+	t.Run("test new with router endpoint", func(t *testing.T) {
+		prov, err := New(WithRouterEndpoint("router-endpoint"))
+		require.NoError(t, err)
+		require.Equal(t, "router-endpoint", prov.RouterEndpoint())
 	})
 
 	t.Run("test new with storage provider", func(t *testing.T) {

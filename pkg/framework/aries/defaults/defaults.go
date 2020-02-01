@@ -9,9 +9,8 @@ package defaults
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
-
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 )
 

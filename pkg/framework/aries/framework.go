@@ -8,6 +8,7 @@ package aries
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
 
@@ -46,7 +47,7 @@ type Aries struct {
 	outboundDispatcher     dispatcher.Outbound
 	messenger              service.MessengerHandler
 	outboundTransports     []transport.OutboundTransport
-	inboundTransport       transport.InboundTransport
+	inboundTransports      []transport.InboundTransport
 	kmsCreator             api.KMSCreator
 	kms                    api.CloseableKMS
 	crypto                 crypto.Crypto
@@ -154,9 +155,9 @@ func WithOutboundTransports(outboundTransports ...transport.OutboundTransport) O
 }
 
 // WithInboundTransport injects an inbound transport to the Aries framework.
-func WithInboundTransport(inboundTransport transport.InboundTransport) Option {
+func WithInboundTransport(inboundTransport ...transport.InboundTransport) Option {
 	return func(opts *Aries) error {
-		opts.inboundTransport = inboundTransport
+		opts.inboundTransports = append(opts.inboundTransports, inboundTransport...)
 		return nil
 	}
 }
@@ -250,11 +251,6 @@ func WithPacker(primary packer.Creator, additionalPackers ...packer.Creator) Opt
 
 // Context provides a handle to the framework context.
 func (a *Aries) Context() (*context.Provider, error) {
-	endPoint := defaultEndpoint
-	if a.inboundTransport != nil {
-		endPoint = a.inboundTransport.Endpoint()
-	}
-
 	return context.New(
 		context.WithOutboundDispatcher(a.outboundDispatcher),
 		context.WithMessengerHandler(a.messenger),
@@ -262,7 +258,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithProtocolServices(a.services...),
 		context.WithLegacyKMS(a.kms),
 		context.WithCrypto(a.crypto),
-		context.WithInboundTransportEndpoint(endPoint),
+		context.WithServiceEndpoint(serviceEndpoint(a)),
 		context.WithStorageProvider(a.storeProvider),
 		context.WithTransientStorageProvider(a.transientStoreProvider),
 		context.WithPacker(a.primaryPacker, a.packers...),
@@ -303,8 +299,8 @@ func (a *Aries) Close() error {
 		}
 	}
 
-	if a.inboundTransport != nil {
-		if err := a.inboundTransport.Stop(); err != nil {
+	for _, inbound := range a.inboundTransports {
+		if err := inbound.Stop(); err != nil {
 			return fmt.Errorf("inbound transport close failed: %w", err)
 		}
 	}
@@ -339,16 +335,11 @@ func createKMS(frameworkOpts *Aries) error {
 }
 
 func createVDRI(frameworkOpts *Aries) error {
-	endPoint := defaultEndpoint
-	if frameworkOpts.inboundTransport != nil {
-		endPoint = frameworkOpts.inboundTransport.Endpoint()
-	}
-
 	ctx, err := context.New(
 		context.WithLegacyKMS(frameworkOpts.kms),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
-		context.WithInboundTransportEndpoint(endPoint),
+		context.WithServiceEndpoint(serviceEndpoint(frameworkOpts)),
 	)
 	if err != nil {
 		return fmt.Errorf("create context failed: %w", err)
@@ -425,9 +416,9 @@ func startTransports(frameworkOpts *Aries) error {
 		return fmt.Errorf("context creation failed: %w", err)
 	}
 
-	if frameworkOpts.inboundTransport != nil {
+	for _, inbound := range frameworkOpts.inboundTransports {
 		// Start the inbound transport
-		if err = frameworkOpts.inboundTransport.Start(ctx); err != nil {
+		if err = inbound.Start(ctx); err != nil {
 			return fmt.Errorf("inbound transport start failed: %w", err)
 		}
 	}
@@ -443,11 +434,6 @@ func startTransports(frameworkOpts *Aries) error {
 }
 
 func loadServices(frameworkOpts *Aries) error {
-	endPoint := defaultEndpoint
-	if frameworkOpts.inboundTransport != nil {
-		endPoint = frameworkOpts.inboundTransport.Endpoint()
-	}
-
 	ctx, err := context.New(
 		context.WithOutboundDispatcher(frameworkOpts.outboundDispatcher),
 		context.WithMessengerHandler(frameworkOpts.messenger),
@@ -456,7 +442,8 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithLegacyKMS(frameworkOpts.kms),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithPackager(frameworkOpts.packager),
-		context.WithInboundTransportEndpoint(endPoint),
+		context.WithServiceEndpoint(serviceEndpoint(frameworkOpts)),
+		context.WithRouterEndpoint(routingEndpoint(frameworkOpts)),
 		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
 	)
 
@@ -520,4 +507,28 @@ func createPackersAndPackager(frameworkOpts *Aries) error {
 	}
 
 	return nil
+}
+
+func serviceEndpoint(frameworkOpts *Aries) string {
+	return fetchEndpoint(frameworkOpts, "ws")
+}
+
+func routingEndpoint(frameworkOpts *Aries) string {
+	return fetchEndpoint(frameworkOpts, "http")
+}
+
+func fetchEndpoint(frameworkOpts *Aries, defaultScheme string) string {
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/1161 Select Service and Router
+	//  endpoint from Multiple Inbound Transports
+	for _, inbound := range frameworkOpts.inboundTransports {
+		if strings.HasPrefix(inbound.Endpoint(), defaultScheme) {
+			return inbound.Endpoint()
+		}
+	}
+
+	if len(frameworkOpts.inboundTransports) > 0 {
+		return frameworkOpts.inboundTransports[0].Endpoint()
+	}
+
+	return defaultEndpoint
 }
