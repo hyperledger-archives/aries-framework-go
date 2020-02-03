@@ -22,10 +22,13 @@ import (
 const (
 	messengerStore = "messenger_store"
 
+	metadataKey = "metadata_%s"
+
 	jsonID             = "@id"
 	jsonThread         = "~thread"
 	jsonThreadID       = "thid"
 	jsonParentThreadID = "pthid"
+	jsonMetadata       = "_internal_metadata"
 )
 
 var logger = log.New("aries-framework/didcomm/messenger")
@@ -35,6 +38,7 @@ type record struct {
 	MyDID    string
 	TheirDID string
 	ThreadID string
+	Metadata map[string]interface{}
 }
 
 // Provider contains dependencies for the Messenger
@@ -77,15 +81,59 @@ func (m *Messenger) HandleInbound(msg service.DIDCommMsgMap, myDID, theirDID str
 		return fmt.Errorf("threadID: %w", err)
 	}
 
+	if err := m.populateMetadata(thID, msg); err != nil {
+		return fmt.Errorf("with metadata: %w", err)
+	}
+
 	// saves message payload
 	return m.saveRecord(msg.ID(), record{MyDID: myDID, TheirDID: theirDID, ThreadID: thID})
+}
+
+func (m *Messenger) saveMetadata(msg service.DIDCommMsgMap) error {
+	metadata := msg.Metadata()
+	if metadata == nil {
+		return nil
+	}
+
+	thID, err := msg.ThreadID()
+	if err != nil {
+		return fmt.Errorf("threadID: %w", err)
+	}
+
+	delete(msg, jsonMetadata)
+
+	return m.saveRecord(fmt.Sprintf(metadataKey, thID), record{Metadata: metadata})
+}
+
+func (m *Messenger) populateMetadata(thID string, msg service.DIDCommMsgMap) error {
+	rec, err := m.getRecord(fmt.Sprintf(metadataKey, thID))
+	if errors.Is(err, storage.ErrDataNotFound) {
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("get record: %w", err)
+	}
+
+	if rec.Metadata == nil {
+		return nil
+	}
+
+	msg[jsonMetadata] = rec.Metadata
+
+	return nil
 }
 
 // Send sends the message by starting a new thread.
 // Do not provide a message with ~thread decorator. It will be removed.
 // Use ReplyTo function instead. It will keep ~thread decorator automatically.
 func (m *Messenger) Send(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+	// fills missing fields
 	fillIfMissing(msg)
+
+	if err := m.saveMetadata(msg); err != nil {
+		return fmt.Errorf("save metadata: %w", err)
+	}
 
 	if msg[jsonThread] != nil {
 		logger.Warnf("do not pass message with %s decorator, it will be ignored with the next change", jsonThread)
@@ -106,6 +154,10 @@ func (m *Messenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
 		return fmt.Errorf("get record: %w", err)
 	}
 
+	if err := m.saveMetadata(msg); err != nil {
+		return fmt.Errorf("save metadata: %w", err)
+	}
+
 	if msg[jsonThread] != nil {
 		logger.Warnf("do not pass message with %s decorator, the package will rewrite it", jsonThread)
 	}
@@ -123,6 +175,10 @@ func (m *Messenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
 func (m *Messenger) ReplyToNested(threadID string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
 	// fills missing fields
 	fillIfMissing(msg)
+
+	if err := m.saveMetadata(msg); err != nil {
+		return fmt.Errorf("save metadata: %w", err)
+	}
 
 	if msg[jsonThread] != nil {
 		logger.Warnf("do not pass message with %s decorator, the package will rewrite it", jsonThread)

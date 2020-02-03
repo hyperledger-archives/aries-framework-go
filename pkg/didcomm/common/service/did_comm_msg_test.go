@@ -46,6 +46,32 @@ func TestDIDCommMsgMap_ID(t *testing.T) {
 	}
 }
 
+func TestDIDCommMsgMap_MetaData(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected map[string]interface{}
+		msg      DIDCommMsgMap
+	}{
+		{
+			name: "Empty (nil msg)",
+			msg:  DIDCommMsgMap{},
+		},
+		{
+			name: "Bad type Type",
+			msg:  DIDCommMsgMap{jsonMetadata: map[int]int{}},
+		},
+		{
+			name:     "Success",
+			msg:      DIDCommMsgMap{jsonMetadata: map[string]interface{}{"key": "val"}},
+			expected: map[string]interface{}{"key": "val"},
+		},
+	}
+
+	for i := range tests {
+		require.Equal(t, tests[i].expected, tests[i].msg.Metadata())
+	}
+}
+
 func TestDIDCommMsgMap_Type(t *testing.T) {
 	tests := []struct {
 		name     string
