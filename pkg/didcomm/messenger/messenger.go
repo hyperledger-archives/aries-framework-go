@@ -35,10 +35,11 @@ var logger = log.New("aries-framework/didcomm/messenger")
 
 // record is an internal structure and keeps payload about inbound message
 type record struct {
-	MyDID    string
-	TheirDID string
-	ThreadID string
-	Metadata map[string]interface{}
+	MyDID          string                 `json:"my_did,omitempty"`
+	TheirDID       string                 `json:"their_did,omitempty"`
+	ThreadID       string                 `json:"thread_id,omitempty"`
+	ParentThreadID string                 `json:"parent_thread_id,omitempty"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // Provider contains dependencies for the Messenger
@@ -81,12 +82,25 @@ func (m *Messenger) HandleInbound(msg service.DIDCommMsgMap, myDID, theirDID str
 		return fmt.Errorf("threadID: %w", err)
 	}
 
+	var parentThreadID string
+
+	if thread, ok := msg[jsonThread].(map[string]interface{}); ok && thread != nil {
+		if pthID, ok := thread[jsonParentThreadID].(string); ok && pthID != "" {
+			parentThreadID = pthID
+		}
+	}
+
 	if err := m.populateMetadata(thID, msg); err != nil {
 		return fmt.Errorf("with metadata: %w", err)
 	}
 
 	// saves message payload
-	return m.saveRecord(msg.ID(), record{MyDID: myDID, TheirDID: theirDID, ThreadID: thID})
+	return m.saveRecord(msg.ID(), record{
+		ParentThreadID: parentThreadID,
+		MyDID:          myDID,
+		TheirDID:       theirDID,
+		ThreadID:       thID,
+	})
 }
 
 func (m *Messenger) saveMetadata(msg service.DIDCommMsgMap) error {
@@ -163,7 +177,16 @@ func (m *Messenger) ReplyTo(msgID string, msg service.DIDCommMsgMap) error {
 	}
 
 	// sets threadID
-	msg[jsonThread] = map[string]interface{}{jsonThreadID: rec.ThreadID}
+	thread := map[string]interface{}{
+		jsonThreadID: rec.ThreadID,
+	}
+
+	// sets parent threadID
+	if rec.ParentThreadID != "" {
+		thread[jsonParentThreadID] = rec.ParentThreadID
+	}
+
+	msg[jsonThread] = thread
 
 	return m.dispatcher.SendToDID(msg, rec.MyDID, rec.TheirDID)
 }

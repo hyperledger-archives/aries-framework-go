@@ -141,8 +141,9 @@ func TestMessenger_HandleInbound(t *testing.T) {
 
 	t.Run("success with metadata", func(t *testing.T) {
 		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Put(ID, gomock.Any()).Return(nil)
-		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"Metadata":{"key":"val"}}`), nil)
+		payload := []byte(`{"my_did":"myDID","their_did":"theirDID","thread_id":"thID","parent_thread_id":"pthID"}`)
+		store.EXPECT().Put(ID, payload).Return(nil)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"metadata":{"key":"val"}}`), nil)
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
@@ -155,7 +156,10 @@ func TestMessenger_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
 
-		msg := service.DIDCommMsgMap{jsonID: ID, jsonThread: map[string]interface{}{jsonThreadID: "thID"}}
+		msg := service.DIDCommMsgMap{jsonID: ID, jsonThread: map[string]interface{}{
+			jsonThreadID:       "thID",
+			jsonParentThreadID: "pthID",
+		}}
 		require.NoError(t, msgr.HandleInbound(msg, myDID, theirDID))
 
 		v := struct {
@@ -170,7 +174,7 @@ func TestMessenger_HandleInbound(t *testing.T) {
 	t.Run("success with metadata (thread is nil)", func(t *testing.T) {
 		store := storageMocks.NewMockStore(ctrl)
 		store.EXPECT().Put(ID, gomock.Any()).Return(nil)
-		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"Metadata":{"key":"val"}}`), nil)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{"metadata":{"key":"val"}}`), nil)
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
@@ -297,14 +301,14 @@ func TestMessenger_ReplyTo(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(ID).Return([]byte(`{"ThreadID":"thID"}`), nil)
+		store.EXPECT().Get(ID).Return([]byte(`{"thread_id":"thID","parent_thread_id":"pthID"}`), nil)
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
 
 		outbound := dispatcherMocks.NewMockOutbound(ctrl)
 		outbound.EXPECT().SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
-			Do(sendToDIDCheck(t, jsonID, jsonMetadata, jsonThreadID))
+			Do(sendToDIDCheck(t, jsonID, jsonMetadata, jsonThreadID, jsonParentThreadID))
 
 		provider := messengerMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
@@ -337,7 +341,7 @@ func TestMessenger_ReplyTo(t *testing.T) {
 
 	t.Run("success msg without id", func(t *testing.T) {
 		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(ID).Return([]byte(`{"ThreadID":"thID"}`), nil)
+		store.EXPECT().Get(ID).Return([]byte(`{"thread_id":"thID"}`), nil)
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
@@ -359,7 +363,7 @@ func TestMessenger_ReplyTo(t *testing.T) {
 
 	t.Run("save metadata error", func(t *testing.T) {
 		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(ID).Return([]byte(`{"ThreadID":"thID"}`), nil)
+		store.EXPECT().Get(ID).Return([]byte(`{}`), nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
