@@ -9,6 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 package aries
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -19,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -38,6 +41,9 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	locallock "github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/hkdf"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
@@ -380,14 +386,73 @@ func TestFramework(t *testing.T) {
 		err = aries.Close()
 		require.NoError(t, err)
 	})
-	t.Run("test error from kms svc", func(t *testing.T) {
-		// with custom kms
+
+	t.Run("test error from legacy kms svc", func(t *testing.T) {
+		// with custom legacy kms
 		_, err := New(WithInboundTransport(&mockInboundTransport{}),
 			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
 				return nil, fmt.Errorf("error from kms")
 			}))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error from kms")
+	})
+
+	t.Run("test new with custom kms svc and secret lock svc", func(t *testing.T) {
+		// pre steps (preparation), create a protected master key and store it in a local file
+		masterKeyFilePath := "masterKey_aries.txt"
+		tmpfile, err := ioutil.TempFile("", masterKeyFilePath)
+		require.NoError(t, err)
+
+		defer func() {
+			// close file
+			require.NoError(t, tmpfile.Close())
+			// clean up
+			require.NoError(t, os.Remove(tmpfile.Name()))
+		}()
+
+		passphrase := "testPassword"
+		keySize := sha256.New().Size()
+
+		salt := make([]byte, keySize)
+		_, err = rand.Read(salt)
+		require.NoError(t, err)
+
+		// create a master lock to protect the master key (salt is optional)
+		masterLock, err := hkdf.NewMasterLock(passphrase, sha256.New, salt)
+		require.NoError(t, err)
+		require.NotEmpty(t, masterLock)
+
+		// generate a random master key
+		masterKeyContent := random.GetRandomBytes(uint32(keySize))
+		require.NotEmpty(t, masterKeyContent)
+
+		// encrypt it
+		masterKeyEnc, err := masterLock.Encrypt("", &secretlock.EncryptRequest{
+			Plaintext: string(masterKeyContent)})
+		require.NoError(t, err)
+		require.NotEmpty(t, masterKeyEnc)
+
+		// store encrypted content to file
+		n, err := tmpfile.Write([]byte(masterKeyEnc.Ciphertext))
+		require.NoError(t, err)
+		require.Equal(t, len(masterKeyEnc.Ciphertext), n)
+
+		// create a reader for this file
+		r, err := locallock.MasterKeyFromPath(tmpfile.Name())
+		require.NoError(t, err)
+		require.NotEmpty(t, r)
+
+		// normal steps - once a protected master key is stored in a local path (or env variable)
+		// 		a user will first create a secretLock using a masterLock (same as above) and
+		//		a reader to the local path (or env using locallock.MasterKeyFromEnv())
+		s, err := locallock.NewService(r, masterLock)
+		require.NoError(t, err)
+		require.NotEmpty(t, s)
+
+		// final step, create the Aries agent with this secret lock
+		a, err := New(WithSecretLock(s))
+		require.NoError(t, err)
+		require.NotEmpty(t, a)
 	})
 
 	t.Run("test transient store - with user provided transient store", func(t *testing.T) {

@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -28,6 +29,7 @@ type Provider struct {
 	storeProvider          storage.Provider
 	transientStoreProvider storage.Provider
 	kms                    legacykms.KMS
+	secretLock             secretlock.Service
 	crypto                 crypto.Crypto
 	packager               commontransport.Packager
 	primaryPacker          packer.Packer
@@ -80,6 +82,11 @@ func (p *Provider) Service(id string) (interface{}, error) {
 // LegacyKMS returns a kms service.
 func (p *Provider) LegacyKMS() legacykms.KeyManager {
 	return p.kms
+}
+
+// SecretLock returns a secret lock service
+func (p *Provider) SecretLock() secretlock.Service {
+	return p.secretLock
 }
 
 // Crypto returns the Crypto service
@@ -244,6 +251,14 @@ func WithProtocolServices(services ...dispatcher.ProtocolService) ProviderOption
 func WithLegacyKMS(w legacykms.KMS) ProviderOption {
 	return func(opts *Provider) error {
 		opts.kms = w
+		return nil
+	}
+}
+
+// WithSecretLock injects a secret lock service into the context
+func WithSecretLock(s secretlock.Service) ProviderOption {
+	return func(opts *Provider) error {
+		opts.secretLock = s
 		return nil
 	}
 }

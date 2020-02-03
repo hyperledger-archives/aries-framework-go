@@ -25,6 +25,7 @@ import (
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/generic"
+	mocklock "github.com/hyperledger/aries-framework-go/pkg/internal/mock/secretlock"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -257,6 +258,13 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithCrypto(mCrypto))
 		require.NoError(t, err)
 		require.Equal(t, mCrypto, prov.Crypto())
+	})
+
+	t.Run("test new with secret lock service", func(t *testing.T) {
+		mSecLck := &mocklock.MockSecretLock{}
+		prov, err := New(WithSecretLock(mSecLck))
+		require.NoError(t, err)
+		require.Equal(t, mSecLck, prov.SecretLock())
 	})
 
 	t.Run("test new with inbound transport endpoint", func(t *testing.T) {
