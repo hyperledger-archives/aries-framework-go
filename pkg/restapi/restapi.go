@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package restapi
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/common"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
 )
 
 type allOpts struct {

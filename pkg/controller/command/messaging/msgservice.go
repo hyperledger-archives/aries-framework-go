@@ -1,10 +1,13 @@
 /*
-Copyright SecureKey Technologies Inc. All Rights Reserved.
+ *
+ * Copyright SecureKey Technologies Inc. All Rights Reserved.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ * /
+ *
+ */
 
-SPDX-License-Identifier: Apache-2.0
-*/
-
-package common
+package messaging
 
 import (
 	"encoding/json"
@@ -23,7 +26,7 @@ const (
 type handleFunc func(msg service.DIDCommMsg, myDID, theirDID string) ([]byte, error)
 
 // newMessageService returns new message service instance.
-func newMessageService(params *RegisterMsgSvcParams, notifier webhook.Notifier) *msgService {
+func newMessageService(params *RegisterMsgSvcArgs, notifier webhook.Notifier) *msgService {
 	return newCustomMessageService(params.Name, params.Type, params.Purpose, notifier, genericHandleFunc())
 }
 
