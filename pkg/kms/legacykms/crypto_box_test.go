@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/nacl/box"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	mockStorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockStorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 

@@ -23,9 +23,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
-	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/diddoc"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
 func TestOutboundDispatcher_Send(t *testing.T) {

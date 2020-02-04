@@ -17,8 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/diddoc"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
+	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
 func TestGetDestinationFromDID(t *testing.T) {

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	api "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
 const (
