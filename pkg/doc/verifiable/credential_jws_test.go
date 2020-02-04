@@ -73,7 +73,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		return publicKey, err
 	}
 
-	validJWS := createJWS(t, []byte(jwtTestCredential), false)
+	validJWS := createRS256JWS(t, []byte(jwtTestCredential), false)
 
 	t.Run("Successful JWS decoding", func(t *testing.T) {
 		vcBytes, err := decodeCredJWS(validJWS, true, pkFetcher)

@@ -9,10 +9,15 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
 const jwtTestCredential = `
@@ -43,11 +48,14 @@ const keyID = "1"
 func TestNewCredentialFromJWS(t *testing.T) {
 	testCred := []byte(jwtTestCredential)
 
-	keyFetcher := createKeyFetcher(t)
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	keyFetcher := createDIDKeyFetcher(t, pubKey, "76e12ec712ebc6f1c221ebfeb1f")
 
 	t.Run("Decoding credential from JWS", func(t *testing.T) {
 		vcFromJWT, _, err := NewCredential(
-			createJWS(t, testCred, false),
+			createEdDSAJWS(t, testCred, privKey, false),
 			WithPublicKeyFetcher(keyFetcher))
 
 		require.NoError(t, err)
@@ -60,7 +68,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 
 	t.Run("Decoding credential from JWS with minimized fields of \"vc\" claim", func(t *testing.T) {
 		vcFromJWT, _, err := NewCredential(
-			createJWS(t, testCred, true),
+			createEdDSAJWS(t, testCred, privKey, true),
 			WithPublicKeyFetcher(keyFetcher))
 
 		require.NoError(t, err)
@@ -73,7 +81,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 
 	t.Run("Failed JWT signature verification of credential", func(t *testing.T) {
 		vc, vcBytes, err := NewCredential(
-			createJWS(t, testCred, true),
+			createRS256JWS(t, testCred, true),
 			// passing holder's key, while expecting issuer one
 			WithPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
 				publicKey, err := readPublicKey(filepath.Join(certPrefix, "holder_public.pem"))
@@ -91,7 +99,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 
 	t.Run("Failed public key fetching", func(t *testing.T) {
 		vc, vcBytes, err := NewCredential(
-			createJWS(t, testCred, true),
+			createRS256JWS(t, testCred, true),
 
 			WithPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
 				return nil, errors.New("test: public key is not found")
@@ -103,7 +111,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 	})
 
 	t.Run("Not defined public key fetcher", func(t *testing.T) {
-		vc, vcBytes, err := NewCredential(createJWS(t, testCred, true))
+		vc, vcBytes, err := NewCredential(createRS256JWS(t, testCred, true))
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "public key fetcher is not defined")
@@ -121,15 +129,11 @@ func TestNewCredentialFromJWS_EdDSA(t *testing.T) {
 	vc, _, err := NewCredential(vcBytes)
 	require.NoError(t, err)
 
-	// marshal credential into JWS using EdDSA (Ed25519 signature algorithm).
-	jwtClaims, err := vc.JWTClaims(false)
-	require.NoError(t, err)
-	vcJWSStr, err := jwtClaims.MarshalJWS(EdDSA, privKey, vc.Issuer.ID+"#keys-"+keyID)
-	require.NoError(t, err)
+	vcJWSStr := createEdDSAJWS(t, vcBytes, privKey, false)
 
 	// unmarshal credential from JWS
 	vcFromJWS, _, err := NewCredential(
-		[]byte(vcJWSStr),
+		vcJWSStr,
 		WithPublicKeyFetcher(SingleKey(pubKey)))
 	require.NoError(t, err)
 
@@ -164,8 +168,8 @@ func TestNewCredentialFromUnsecuredJWT(t *testing.T) {
 }
 
 func TestJwtWithExtension(t *testing.T) {
-	keyFetcher := WithPublicKeyFetcher(createKeyFetcher(t))
-	vcJWS := createJWS(t, []byte(jwtTestCredential), true)
+	keyFetcher := WithPublicKeyFetcher(createMockKeyFetcher(t))
+	vcJWS := createRS256JWS(t, []byte(jwtTestCredential), true)
 
 	// Decode to base credential.
 	cred, _, err := NewCredential(vcJWS, keyFetcher)
@@ -209,7 +213,7 @@ func TestRefineVcIssuerFromJwtClaims(t *testing.T) {
 	})
 }
 
-func createKeyFetcher(t *testing.T) func(issuerID string, keyID string) (interface{}, error) {
+func createMockKeyFetcher(t *testing.T) PublicKeyFetcher {
 	return func(issuerID, keyID string) (interface{}, error) {
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuerID)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f#keys-1", keyID)
@@ -222,7 +226,59 @@ func createKeyFetcher(t *testing.T) func(issuerID string, keyID string) (interfa
 	}
 }
 
-func createJWS(t *testing.T, cred []byte, minimize bool) []byte {
+func createDIDKeyFetcher(t *testing.T, pub ed25519.PublicKey, didID string) PublicKeyFetcher {
+	const (
+		didFormat    = "did:%s:%s"
+		didPKID      = "%s#keys-%d"
+		didServiceID = "%s#endpoint-%d"
+		method       = "example"
+	)
+
+	id := fmt.Sprintf(didFormat, method, didID)
+	pubKeyID := fmt.Sprintf(didPKID, id, 1)
+	pubKey := did.PublicKey{
+		ID:         pubKeyID,
+		Type:       "Ed25519VerificationKey2018",
+		Controller: id,
+		Value:      pub,
+	}
+	services := []did.Service{
+		{
+			ID:              fmt.Sprintf(didServiceID, id, 1),
+			Type:            "did-communication",
+			ServiceEndpoint: "http://localhost:47582",
+			Priority:        0,
+			RecipientKeys:   []string{pubKeyID},
+		},
+	}
+	createdTime := time.Now()
+	didDoc := &did.Doc{
+		Context:   []string{did.Context},
+		ID:        id,
+		PublicKey: []did.PublicKey{pubKey},
+		Service:   services,
+		Created:   &createdTime,
+		Updated:   &createdTime,
+	}
+
+	v := &mockvdri.MockVDRIRegistry{
+		ResolveValue: didDoc,
+	}
+
+	resolver := NewDIDKeyResolver(v)
+	require.NotNil(t, resolver)
+
+	return func(issuerID, keyID string) (i interface{}, err error) {
+		pKey, keyErr := resolver.resolvePublicKey(issuerID, keyID)
+		if keyErr != nil {
+			return nil, keyErr
+		}
+
+		return ed25519.PublicKey(pKey.([]byte)), nil
+	}
+}
+
+func createRS256JWS(t *testing.T, cred []byte, minimize bool) []byte {
 	vc, _, err := NewCredential(cred)
 	require.NoError(t, err)
 
@@ -232,6 +288,18 @@ func createJWS(t *testing.T, cred []byte, minimize bool) []byte {
 	jwtClaims, err := vc.JWTClaims(minimize)
 	require.NoError(t, err)
 	vcJWT, err := jwtClaims.MarshalJWS(RS256, privateKey, vc.Issuer.ID+"#keys-"+keyID)
+	require.NoError(t, err)
+
+	return []byte(vcJWT)
+}
+
+func createEdDSAJWS(t *testing.T, cred, privateKey ed25519.PrivateKey, minimize bool) []byte {
+	vc, _, err := NewCredential(cred)
+	require.NoError(t, err)
+
+	jwtClaims, err := vc.JWTClaims(minimize)
+	require.NoError(t, err)
+	vcJWT, err := jwtClaims.MarshalJWS(EdDSA, privateKey, vc.Issuer.ID+"#keys-"+keyID)
 	require.NoError(t, err)
 
 	return []byte(vcJWT)
