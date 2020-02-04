@@ -19,16 +19,16 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
-	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/internal/mock/crypto"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
 	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/generic"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
+	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
 func TestNewProvider(t *testing.T) {

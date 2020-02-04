@@ -14,9 +14,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
-	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
 func Example() {

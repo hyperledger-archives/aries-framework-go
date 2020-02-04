@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
-	mockstore "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
 //nolint:gochecknoglobals,lll

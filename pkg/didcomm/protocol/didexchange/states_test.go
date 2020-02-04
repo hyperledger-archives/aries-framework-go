@@ -27,9 +27,9 @@ import (
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
-	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/diddoc"
-	mockstorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
+	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
+	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
 )

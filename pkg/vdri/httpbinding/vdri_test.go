@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
 func TestVDRI_Close(t *testing.T) {

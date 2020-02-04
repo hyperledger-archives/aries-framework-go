@@ -21,9 +21,9 @@ import (
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/internal/mock/kms/legacykms"
-	mockStorage "github.com/hyperledger/aries-framework-go/pkg/internal/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockStorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 

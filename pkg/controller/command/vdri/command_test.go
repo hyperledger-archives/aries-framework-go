@@ -19,7 +19,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
-	mockvdri "github.com/hyperledger/aries-framework-go/pkg/internal/mock/vdri"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
 func TestOperation_CreatePublicDID(t *testing.T) {
