@@ -95,7 +95,7 @@ func TestNew(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open store")
 	})
@@ -117,7 +117,7 @@ func TestNew(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open transient store")
 	})
@@ -141,7 +141,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
@@ -225,7 +225,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				route.Coordination:      &mockroute.MockRouteSvc{RoutingKeys: routingKeys, RouterEndpoint: endpoint},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint",
+			ServiceEndpointValue: "endpoint",
 		})
 		require.NoError(t, err)
 
@@ -255,7 +255,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				route.Coordination:      &mockroute.MockRouteSvc{ConfigErr: errors.New("router config error")},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint",
+			ServiceEndpointValue: "endpoint",
 		})
 		require.NoError(t, err)
 
@@ -289,7 +289,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint",
+			ServiceEndpointValue: "endpoint",
 		})
 		require.NoError(t, err)
 
@@ -318,7 +318,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		const label = "agent"
@@ -385,7 +385,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{ConnectionID: connID, ThreadID: threadID, State: "complete"}
@@ -421,7 +421,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connRec := &connection.Record{ConnectionID: connID, ThreadID: threadID, State: "complete"}
@@ -450,7 +450,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		result, err := c.GetConnection(connID)
@@ -552,7 +552,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
@@ -574,7 +574,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 				route.Coordination: &mockroute.MockRouteSvc{},
 			},
 
-			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, InboundEndpointValue: "endpoint"})
+			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
@@ -595,7 +595,7 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connectionID, err := c.CreateImplicitInvitation("alice", "did:example:123")
@@ -613,7 +613,7 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 				route.Coordination: &mockroute.MockRouteSvc{},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connectionID, err := c.CreateImplicitInvitation("Alice", "did:example:123")
@@ -636,7 +636,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connectionID, err := c.CreateImplicitInvitationWithDID(inviter, invitee)
@@ -654,7 +654,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 				route.Coordination: &mockroute.MockRouteSvc{},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connectionID, err := c.CreateImplicitInvitationWithDID(inviter, invitee)
@@ -672,7 +672,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
 			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-			InboundEndpointValue: "endpoint"})
+			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
 		connectionID, err := c.CreateImplicitInvitationWithDID(inviter, nil)

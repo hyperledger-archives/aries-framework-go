@@ -112,12 +112,16 @@ func (p *Provider) Signer() legacykms.Signer {
 	return p.kms
 }
 
-// InboundTransportEndpoint returns an inbound transport endpoint.
-func (p *Provider) InboundTransportEndpoint() string {
+// ServiceEndpoint returns an service endpoint. This endpoint is used in DID
+// Exchange Invitation or DID Document service to send messages to the agent.
+func (p *Provider) ServiceEndpoint() string {
 	return p.serviceEndpoint
 }
 
-// RouterEndpoint returns a router transport endpoint.
+// RouterEndpoint returns a router transport endpoint. The router gives this
+// endpoint to the requester agent during route registration. The requester
+// agent can use as it's service endpoint. The router checks the forward
+// message to routes the message based on the recipient keys(if registered).
 func (p *Provider) RouterEndpoint() string {
 	return p.routerEndpoint
 }

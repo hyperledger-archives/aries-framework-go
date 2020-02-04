@@ -30,7 +30,7 @@ type Provider interface {
 	LegacyKMS() legacykms.KeyManager
 	Crypto() crypto.Crypto
 	Packager() transport.Packager
-	InboundTransportEndpoint() string
+	ServiceEndpoint() string
 	RouterEndpoint() string
 	VDRIRegistry() vdriapi.Registry
 	Signer() legacykms.Signer

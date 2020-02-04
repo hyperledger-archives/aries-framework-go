@@ -433,7 +433,7 @@ func getHandlerWithError(t *testing.T, lookup string, handleErr, acceptErr, impl
 			route.Coordination: &mockroute.MockRouteSvc{},
 		},
 		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
-		InboundEndpointValue:          "endpoint",
+		ServiceEndpointValue:          "endpoint",
 		TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: &transientStore},
 		StorageProviderValue:          &mockstore.MockStoreProvider{Store: &store}},
 		webhook.NewHTTPNotifier(nil),

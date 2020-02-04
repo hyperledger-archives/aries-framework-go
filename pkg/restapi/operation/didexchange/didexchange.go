@@ -74,7 +74,7 @@ const (
 type provider interface {
 	Service(id string) (interface{}, error)
 	LegacyKMS() legacykms.KeyManager
-	InboundTransportEndpoint() string
+	ServiceEndpoint() string
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
 }

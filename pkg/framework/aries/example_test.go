@@ -31,7 +31,7 @@ func Example() {
 	}
 
 	fmt.Println("context created successfully")
-	fmt.Println(ctx.InboundTransportEndpoint())
+	fmt.Println(ctx.ServiceEndpoint())
 
 	// Output:
 	// context created successfully
