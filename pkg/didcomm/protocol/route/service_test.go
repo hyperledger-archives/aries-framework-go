@@ -137,7 +137,7 @@ func TestServiceRequestMsg(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			KMSValue:                      &mockkms.CloseableKMS{},
-			InboundEndpointValue:          endpoint,
+			ServiceEndpointValue:          endpoint,
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSend: func(msg interface{}, senderVerKey string, des *service.Destination) error {
 					res, err := json.Marshal(msg)

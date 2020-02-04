@@ -35,7 +35,7 @@ var ErrConnectionNotFound = errors.New("connection not found")
 type provider interface {
 	Service(id string) (interface{}, error)
 	LegacyKMS() legacykms.KeyManager
-	InboundTransportEndpoint() string
+	ServiceEndpoint() string
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
 }
@@ -43,11 +43,11 @@ type provider interface {
 // Client enable access to didexchange api
 type Client struct {
 	service.Event
-	didexchangeSvc           protocolService
-	routeSvc                 route.ProtocolService
-	legacyKMS                legacykms.KeyManager
-	inboundTransportEndpoint string
-	connectionStore          *connection.Recorder
+	didexchangeSvc  protocolService
+	routeSvc        route.ProtocolService
+	legacyKMS       legacykms.KeyManager
+	serviceEndpoint string
+	connectionStore *connection.Recorder
 }
 
 // protocolService defines DID Exchange service.
@@ -94,12 +94,12 @@ func New(ctx provider) (*Client, error) {
 	}
 
 	return &Client{
-		Event:                    didexchangeSvc,
-		didexchangeSvc:           didexchangeSvc,
-		routeSvc:                 routeSvc,
-		legacyKMS:                ctx.LegacyKMS(),
-		inboundTransportEndpoint: ctx.InboundTransportEndpoint(),
-		connectionStore:          connectionStore,
+		Event:           didexchangeSvc,
+		didexchangeSvc:  didexchangeSvc,
+		routeSvc:        routeSvc,
+		legacyKMS:       ctx.LegacyKMS(),
+		serviceEndpoint: ctx.ServiceEndpoint(),
+		connectionStore: connectionStore,
 	}, nil
 }
 
@@ -115,7 +115,7 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	}
 
 	// get the route configs
-	serviceEndpoint, routingKeys, err := route.GetRouterConfig(c.routeSvc, c.inboundTransportEndpoint)
+	serviceEndpoint, routingKeys, err := route.GetRouterConfig(c.routeSvc, c.serviceEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("create invitation - fetch router config : %w", err)
 	}

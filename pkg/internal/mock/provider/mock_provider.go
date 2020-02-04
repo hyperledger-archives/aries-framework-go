@@ -19,7 +19,7 @@ type Provider struct {
 	ServiceErr                    error
 	ServiceMap                    map[string]interface{}
 	KMSValue                      legacykms.KeyManager
-	InboundEndpointValue          string
+	ServiceEndpointValue          string
 	StorageProviderValue          storage.Provider
 	TransientStorageProviderValue storage.Provider
 	PackerList                    []packer.Packer
@@ -46,14 +46,14 @@ func (p *Provider) LegacyKMS() legacykms.KeyManager {
 	return p.KMSValue
 }
 
-// InboundTransportEndpoint returns the inbound transport endpoint
-func (p *Provider) InboundTransportEndpoint() string {
-	return p.InboundEndpointValue
+// ServiceEndpoint returns the service endpoint
+func (p *Provider) ServiceEndpoint() string {
+	return p.ServiceEndpointValue
 }
 
 // RouterEndpoint returns the router transport endpoint
 func (p *Provider) RouterEndpoint() string {
-	return p.InboundEndpointValue
+	return p.ServiceEndpointValue
 }
 
 // StorageProvider returns the storage provider

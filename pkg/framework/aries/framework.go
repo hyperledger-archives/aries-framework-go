@@ -259,6 +259,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithLegacyKMS(a.kms),
 		context.WithCrypto(a.crypto),
 		context.WithServiceEndpoint(serviceEndpoint(a)),
+		context.WithRouterEndpoint(routingEndpoint(a)),
 		context.WithStorageProvider(a.storeProvider),
 		context.WithTransientStorageProvider(a.transientStoreProvider),
 		context.WithPacker(a.primaryPacker, a.packers...),
@@ -358,7 +359,7 @@ func createVDRI(frameworkOpts *Aries) error {
 	opts = append(opts,
 		vdri.WithVDRI(p),
 		vdri.WithDefaultServiceType(vdriapi.DIDCommServiceType),
-		vdri.WithDefaultServiceEndpoint(ctx.InboundTransportEndpoint()),
+		vdri.WithDefaultServiceEndpoint(ctx.ServiceEndpoint()),
 	)
 
 	frameworkOpts.vdriRegistry = vdri.New(ctx, opts...)
