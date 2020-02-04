@@ -9,7 +9,7 @@ import wasm from "./aries-js-worker.wasm"
 import workerJS from "./worker-impl-web"
 
 export function _getWorker(pending) {
-    const worker = new Worker(workerJS + "?wasmJS=" + wasmJS + "&wasm=" + wasm)
+    const worker = new Worker(workerJS + "?wasmJS=" + wasmJS + "&wasm=" + wasm + ".gz")
     worker.onmessage = e => {
         const result = e.data
         const cb = pending.get(result.id)

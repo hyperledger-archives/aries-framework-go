@@ -28,10 +28,13 @@ if (!WebAssembly.instantiateStreaming) { // polyfill
 }
 
 const go = new Go();
+// Firefox is not including 'br' in fetch() for some reason.
+// Cannot override Accept-Encoding header for the fetch call (would've liked to use brotli).
+// Accept-Encoding is one of the forbidden headers of the Fetch API: https://fetch.spec.whatwg.org/#forbidden-header-name
 WebAssembly.instantiateStreaming(fetch(wasm), go.importObject).then(
-    result => { go.run(result.instance); },
-    err => { throw new Error("failed to fetch wasm blob: " + err.message) }
-);
+    result => {go.run(result.instance);},
+    err => {throw new Error("failed to fetch wasm blob: " + err.message)}
+)
 
 handleResult = function(r) {
     postMessage(JSON.parse(r))
