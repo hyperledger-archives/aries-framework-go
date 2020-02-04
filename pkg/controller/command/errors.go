@@ -33,6 +33,7 @@ const (
 // Example: 2000, 3000, 4000 ...... 25000
 type Group int32
 
+// TODO command types shouldn't be mentioned in common error package, [Issue#1182]
 const (
 	// Common error group for general command errors
 	Common Group = 1000
