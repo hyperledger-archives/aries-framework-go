@@ -75,20 +75,21 @@ func TestStartCmdContents(t *testing.T) {
 	require.Equal(t, "Start an agent", startCmd.Short)
 	require.Equal(t, "Start an Aries agent controller", startCmd.Long)
 
-	checkFlagPropertiesCorrect(t, startCmd, agentHostFlagName, agentHostFlagShorthand, agentHostFlagUsage)
+	checkFlagPropertiesCorrect(t, startCmd, agentHostFlagName, agentHostFlagShorthand, agentHostFlagUsage, "")
 	checkFlagPropertiesCorrect(t, startCmd, agentInboundHostFlagName,
-		agentInboundHostFlagShorthand, agentInboundHostFlagUsage)
-	checkFlagPropertiesCorrect(t, startCmd, agentDBPathFlagName, agentDBPathFlagShorthand, agentDBPathFlagUsage)
+		agentInboundHostFlagShorthand, agentInboundHostFlagUsage, "[]")
+	checkFlagPropertiesCorrect(t, startCmd, agentDBPathFlagName, agentDBPathFlagShorthand, agentDBPathFlagUsage, "")
 }
 
-func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flagShorthand, flagUsage string) {
+func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName,
+	flagShorthand, flagUsage, expectedVal string) {
 	flag := cmd.Flag(flagName)
 
 	require.NotNil(t, flag)
 	require.Equal(t, flagName, flag.Name)
 	require.Equal(t, flagShorthand, flag.Shorthand)
 	require.Equal(t, flagUsage, flag.Usage)
-	require.Equal(t, "", flag.Value.String())
+	require.Equal(t, expectedVal, flag.Value.String())
 
 	flagAnnotations := flag.Annotations
 	require.Nil(t, flagAnnotations)
@@ -102,9 +103,14 @@ func TestStartAriesDRequests(t *testing.T) {
 	testInboundHostURL := randomURL()
 
 	go func() {
-		parameters := &agentParameters{server: &HTTPServer{}, host: testHostURL, inboundHostInternal: testInboundHostURL,
-			inboundHostExternal: "", dbPath: path, defaultLabel: "x", webhookURLs: []string{},
-			httpResolvers: []string{"sample@http://sample.com"}, outboundTransports: []string{}, inboundTransport: ""}
+		parameters := &agentParameters{
+			server:               &HTTPServer{},
+			host:                 testHostURL,
+			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
+			dbPath:               path,
+			defaultLabel:         "x",
+			httpResolvers:        []string{"sample@http://sample.com"},
+		}
 		err := startAgent(parameters)
 		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
 	}()
@@ -241,9 +247,10 @@ func TestStartCmdWithMissingHostArg(t *testing.T) {
 }
 
 func TestStartAgentWithBlankHost(t *testing.T) {
-	parameters := &agentParameters{server: &mockServer{}, host: "", inboundHostInternal: randomURL(),
-		inboundHostExternal: "", dbPath: "", defaultLabel: "",
-		webhookURLs: []string{}, httpResolvers: []string{}, outboundTransports: []string{}, inboundTransport: ""}
+	parameters := &agentParameters{
+		server:               &mockServer{},
+		inboundHostInternals: []string{randomURL()},
+	}
 
 	err := startAgent(parameters)
 	require.NotNil(t, err)
@@ -262,14 +269,15 @@ func TestStartCmdWithoutInboundHostArg(t *testing.T) {
 	err = startCmd.Execute()
 	require.NotNil(t, err)
 	require.Equal(t,
-		"Neither inbound-host (command line flag) nor ARIESD_INBOUND_HOST (environment variable) have been set.",
+		" inbound-host not set. It must be set via either command line or environment variable",
 		err.Error())
 }
 
 func TestStartAgentWithBlankInboundHost(t *testing.T) {
-	parameters := &agentParameters{server: &mockServer{}, host: randomURL(), inboundHostInternal: "",
-		inboundHostExternal: "", dbPath: "", defaultLabel: "",
-		webhookURLs: []string{}, httpResolvers: []string{}, outboundTransports: []string{}, inboundTransport: ""}
+	parameters := &agentParameters{
+		server: &mockServer{},
+		host:   randomURL(),
+	}
 	err := startAgent(parameters)
 
 	require.Equal(t, errMissingInboundHost, err)
@@ -279,8 +287,14 @@ func TestStartCmdWithoutDBPath(t *testing.T) {
 	startCmd, err := Cmd(&mockServer{})
 	require.NoError(t, err)
 
-	args := []string{"--" + agentHostFlagName, randomURL(), "--" + agentInboundHostFlagName, randomURL(),
-		"--" + agentWebhookFlagName, ""}
+	args := []string{
+		"--" + agentHostFlagName,
+		randomURL(),
+		"--" + agentInboundHostFlagName,
+		randomURL(),
+		"--" + agentWebhookFlagName,
+		"",
+	}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
@@ -296,8 +310,16 @@ func TestStartCmdWithoutWebhookURL(t *testing.T) {
 	path, cleanup := generateTempDir(t)
 	defer cleanup()
 
-	args := []string{"--" + agentHostFlagName, randomURL(), "--" + agentInboundHostFlagName,
-		randomURL(), "--" + agentInboundHostExternalFlagName, randomURL(), "--" + agentDBPathFlagName, path}
+	args := []string{
+		"--" + agentHostFlagName,
+		randomURL(),
+		"--" + agentInboundHostFlagName,
+		httpProtocol + "@" + randomURL(),
+		"--" + agentInboundHostExternalFlagName,
+		httpProtocol + "@" + randomURL(),
+		"--" + agentDBPathFlagName,
+		path,
+	}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
@@ -312,9 +334,18 @@ func TestStartCmdWithoutWebhookURLAndAutoAccept(t *testing.T) {
 	path, cleanup := generateTempDir(t)
 	defer cleanup()
 
-	args := []string{"--" + agentHostFlagName, randomURL(), "--" + agentInboundHostFlagName,
-		randomURL(), "--" + agentInboundHostExternalFlagName, randomURL(), "--" + agentDBPathFlagName, path,
-		"--" + agentAutoAcceptFlagName, "true"}
+	args := []string{
+		"--" + agentHostFlagName,
+		randomURL(),
+		"--" + agentInboundHostFlagName,
+		httpProtocol + "@" + randomURL(),
+		"--" + agentInboundHostExternalFlagName,
+		httpProtocol + "@" + randomURL(),
+		"--" + agentDBPathFlagName,
+		path,
+		"--" + agentAutoAcceptFlagName,
+		"true",
+	}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
@@ -328,9 +359,20 @@ func TestStartCmdValidArgs(t *testing.T) {
 	path, cleanup := generateTempDir(t)
 	defer cleanup()
 
-	args := []string{"--" + agentHostFlagName, randomURL(), "--" + agentInboundHostFlagName,
-		randomURL(), "--" + agentInboundHostExternalFlagName, randomURL(), "--" + agentDBPathFlagName, path,
-		"--" + agentDefaultLabelFlagName, "agent", "--" + agentWebhookFlagName, ""}
+	args := []string{
+		"--" + agentHostFlagName,
+		randomURL(),
+		"--" + agentInboundHostFlagName,
+		httpProtocol + "@" + randomURL(),
+		"--" + agentInboundHostExternalFlagName,
+		httpProtocol + "@" + randomURL(),
+		"--" + agentDBPathFlagName,
+		path,
+		"--" + agentDefaultLabelFlagName,
+		"agent",
+		"--" + agentWebhookFlagName,
+		"",
+	}
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
@@ -344,7 +386,7 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 
 	err = os.Setenv(agentHostEnvKey, randomURL())
 	require.Nil(t, err)
-	err = os.Setenv(agentInboundHostEnvKey, randomURL())
+	err = os.Setenv(agentInboundHostEnvKey, httpProtocol+"@"+randomURL())
 	require.Nil(t, err)
 
 	path, cleanup := generateTempDir(t)
@@ -371,9 +413,13 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 	defer cleanup1()
 
 	go func() {
-		parameters := &agentParameters{server: &HTTPServer{}, host: host, inboundHostInternal: inboundHost,
-			inboundHostExternal: "", dbPath: path1, defaultLabel: "",
-			webhookURLs: []string{}, httpResolvers: []string{}, outboundTransports: []string{}, inboundTransport: ""}
+		parameters := &agentParameters{
+			server:               &HTTPServer{},
+			host:                 host,
+			inboundHostInternals: []string{httpProtocol + "@" + inboundHost},
+			dbPath:               path1,
+			defaultLabel:         "",
+		}
 		err := startAgent(parameters)
 		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
 	}()
@@ -383,9 +429,12 @@ func TestStartMultipleAgentsWithSameHost(t *testing.T) {
 	path2, cleanup2 := generateTempDir(t)
 	defer cleanup2()
 
-	parameters := &agentParameters{server: &HTTPServer{}, host: host, inboundHostInternal: inboundHost2,
-		inboundHostExternal: "", dbPath: path2, defaultLabel: "",
-		webhookURLs: []string{}, httpResolvers: []string{}, outboundTransports: []string{}, inboundTransport: ""}
+	parameters := &agentParameters{
+		server:               &HTTPServer{},
+		host:                 host,
+		inboundHostInternals: []string{httpProtocol + "@" + inboundHost2},
+		dbPath:               path2,
+	}
 
 	addressAlreadyInUseErrorMessage := "failed to start aries agent rest on port [" + host +
 		"], cause:  listen tcp 127.0.0.1:8095: bind: address already in use"
@@ -405,9 +454,12 @@ func TestStartMultipleAgentsWithSameDBPath(t *testing.T) {
 	defer cleanup()
 
 	go func() {
-		parameters := &agentParameters{server: &HTTPServer{}, host: host1, inboundHostInternal: inboundHost1,
-			inboundHostExternal: "", dbPath: path, defaultLabel: "",
-			webhookURLs: []string{}, httpResolvers: []string{}, outboundTransports: []string{}, inboundTransport: ""}
+		parameters := &agentParameters{
+			server:               &HTTPServer{},
+			host:                 host1,
+			inboundHostInternals: []string{httpProtocol + "@" + inboundHost1},
+			dbPath:               path,
+		}
 
 		err := startAgent(parameters)
 		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
@@ -415,9 +467,12 @@ func TestStartMultipleAgentsWithSameDBPath(t *testing.T) {
 
 	waitForServerToStart(t, host1, inboundHost1)
 
-	parameters := &agentParameters{server: &HTTPServer{}, host: host2, inboundHostInternal: inboundHost2,
-		inboundHostExternal: "", dbPath: path, defaultLabel: "",
-		webhookURLs: []string{}, httpResolvers: []string{}, outboundTransports: []string{}, inboundTransport: ""}
+	parameters := &agentParameters{
+		server:               &HTTPServer{},
+		host:                 host2,
+		inboundHostInternals: []string{httpProtocol + "@" + inboundHost2},
+		dbPath:               path,
+	}
 	err := startAgent(parameters)
 
 	require.NotNil(t, err)
@@ -432,10 +487,14 @@ func TestStartAriesErrorWithResolvers(t *testing.T) {
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
-		parameters := &agentParameters{server: &HTTPServer{}, host: testHostURL, inboundHostInternal: testInboundHostURL,
-			inboundHostExternal: "", dbPath: path, defaultLabel: "x",
-			webhookURLs: []string{}, httpResolvers: []string{"http://sample.com"},
-			outboundTransports: []string{}, inboundTransport: ""}
+		parameters := &agentParameters{
+			server:               &HTTPServer{},
+			host:                 testHostURL,
+			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
+			dbPath:               path,
+			defaultLabel:         "x",
+			httpResolvers:        []string{"http://sample.com"},
+		}
 
 		err := startAgent(parameters)
 		require.Error(t, err)
@@ -449,10 +508,14 @@ func TestStartAriesErrorWithResolvers(t *testing.T) {
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
-		parameters := &agentParameters{server: &HTTPServer{}, host: testHostURL, inboundHostInternal: testInboundHostURL,
-			inboundHostExternal: "", dbPath: path, defaultLabel: "x",
-			webhookURLs: []string{}, httpResolvers: []string{"@h"},
-			outboundTransports: []string{}, inboundTransport: ""}
+		parameters := &agentParameters{
+			server:               &HTTPServer{},
+			host:                 testHostURL,
+			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
+			dbPath:               path,
+			defaultLabel:         "x",
+			httpResolvers:        []string{"@h"},
+		}
 		err := startAgent(parameters)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), " base URL invalid")
@@ -468,10 +531,14 @@ func TestStartAriesWithOutboundTransports(t *testing.T) {
 		testInboundHostURL := randomURL()
 
 		go func() {
-			parameters := &agentParameters{server: &HTTPServer{}, host: testHostURL, inboundHostInternal: testInboundHostURL,
-				inboundHostExternal: "", dbPath: path, defaultLabel: "x",
-				webhookURLs: []string{}, httpResolvers: []string{},
-				outboundTransports: []string{"http", "ws"}, inboundTransport: ""}
+			parameters := &agentParameters{
+				server:               &HTTPServer{},
+				host:                 testHostURL,
+				inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
+				dbPath:               path,
+				defaultLabel:         "x",
+				outboundTransports:   []string{"http", "ws"},
+			}
 
 			err := startAgent(parameters)
 			require.NoError(t, err)
@@ -488,10 +555,14 @@ func TestStartAriesWithOutboundTransports(t *testing.T) {
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
-		parameters := &agentParameters{server: &HTTPServer{}, host: testHostURL, inboundHostInternal: testInboundHostURL,
-			inboundHostExternal: "", dbPath: path, defaultLabel: "x",
-			webhookURLs: []string{}, httpResolvers: []string{},
-			outboundTransports: []string{"http", "wss"}, inboundTransport: ""}
+		parameters := &agentParameters{
+			server:               &HTTPServer{},
+			host:                 testHostURL,
+			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
+			dbPath:               path,
+			defaultLabel:         "x",
+			outboundTransports:   []string{"http", "wss"},
+		}
 		err := startAgent(parameters)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "outbound transport [wss] not supported")
@@ -507,10 +578,13 @@ func TestStartAriesWithInboundTransport(t *testing.T) {
 		testInboundHostURL := randomURL()
 
 		go func() {
-			parameters := &agentParameters{server: &HTTPServer{}, host: testHostURL, inboundHostInternal: testInboundHostURL,
-				inboundHostExternal: "", dbPath: path, defaultLabel: "x",
-				webhookURLs: []string{}, httpResolvers: []string{},
-				outboundTransports: []string{}, inboundTransport: "ws"}
+			parameters := &agentParameters{
+				server:               &HTTPServer{},
+				host:                 testHostURL,
+				inboundHostInternals: []string{websocketProtocol + "@" + testInboundHostURL},
+				dbPath:               path,
+				defaultLabel:         "x",
+			}
 
 			err := startAgent(parameters)
 			require.NoError(t, err)
@@ -527,10 +601,13 @@ func TestStartAriesWithInboundTransport(t *testing.T) {
 		testHostURL := randomURL()
 		testInboundHostURL := randomURL()
 
-		parameters := &agentParameters{server: &HTTPServer{}, host: testHostURL, inboundHostInternal: testInboundHostURL,
-			inboundHostExternal: "", dbPath: path, defaultLabel: "x",
-			webhookURLs: []string{}, httpResolvers: []string{},
-			outboundTransports: []string{}, inboundTransport: "wss"}
+		parameters := &agentParameters{
+			server:               &HTTPServer{},
+			host:                 testHostURL,
+			inboundHostInternals: []string{"wss" + "@" + testInboundHostURL},
+			dbPath:               path,
+			defaultLabel:         "x",
+		}
 		err := startAgent(parameters)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "inbound transport [wss] not supported")
@@ -546,10 +623,14 @@ func TestStartAriesWithAutoAccept(t *testing.T) {
 		testInboundHostURL := randomURL()
 
 		go func() {
-			parameters := &agentParameters{server: &HTTPServer{}, host: testHostURL, inboundHostInternal: testInboundHostURL,
-				inboundHostExternal: "", dbPath: path, defaultLabel: "x",
-				webhookURLs: []string{}, httpResolvers: []string{},
-				outboundTransports: []string{}, inboundTransport: "", autoAccept: true}
+			parameters := &agentParameters{
+				server:               &HTTPServer{},
+				host:                 testHostURL,
+				inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
+				dbPath:               path,
+				defaultLabel:         "x",
+				autoAccept:           true,
+			}
 
 			err := startAgent(parameters)
 			require.NoError(t, err)
