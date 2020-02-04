@@ -31,99 +31,75 @@ import (
 )
 
 const (
-	agentHostFlagName = "api-host"
-
+	// api host flag
+	agentHostFlagName      = "api-host"
+	agentHostEnvKey        = "ARIESD_API_HOST"
 	agentHostFlagShorthand = "a"
-
-	agentHostFlagUsage = "Host Name:Port." +
+	agentHostFlagUsage     = "Host Name:Port." +
 		" Alternatively, this can be set with the following environment variable: " + agentHostEnvKey
 
-	agentHostEnvKey = "ARIESD_API_HOST"
-
-	agentInboundHostFlagName = "inbound-host"
-
-	agentInboundHostFlagShorthand = "i"
-
-	agentInboundHostFlagUsage = "Inbound Host Name:Port. This is used internally to start the inbound server." +
-		" Alternatively, this can be set with the following environment variable: " + agentInboundHostEnvKey
-
-	agentInboundHostEnvKey = "ARIESD_INBOUND_HOST"
-
-	agentInboundHostExternalFlagName = "inbound-host-external"
-
-	agentInboundHostExternalFlagShorthand = "e"
-
-	agentInboundHostExternalFlagUsage = "Inbound Host External Name:Port." +
-		" This is the URL for the inbound server as seen externally." +
-		" If not provided, then the internal inbound host will be used here." +
-		" Alternatively, this can be set with the following environment variable: " + agentInboundHostExternalEnvKey
-
-	agentInboundHostExternalEnvKey = "ARIESD_INBOUND_HOST_EXTERNAL"
-
-	agentDBPathFlagName = "db-path"
-
+	// db path flag
+	agentDBPathFlagName      = "db-path"
+	agentDBPathEnvKey        = "ARIESD_DB_PATH"
 	agentDBPathFlagShorthand = "d"
-
-	agentDBPathFlagUsage = "Path to database." +
+	agentDBPathFlagUsage     = "Path to database." +
 		" Alternatively, this can be set with the following environment variable: " + agentDBPathEnvKey
 
-	agentDBPathEnvKey = "ARIESD_DB_PATH"
-
-	agentWebhookFlagName = "webhook-url"
-
+	// webhook url flag
+	agentWebhookFlagName      = "webhook-url"
+	agentWebhookEnvKey        = "ARIESD_WEBHOOK_URL"
 	agentWebhookFlagShorthand = "w"
-
-	agentWebhookFlagUsage = "URL to send notifications to." +
+	agentWebhookFlagUsage     = "URL to send notifications to." +
 		" This flag can be repeated, allowing for multiple listeners." +
 		" Alternatively, this can be set with the following environment variable (in CSV format): " + agentWebhookEnvKey
 
-	agentWebhookEnvKey = "ARIESD_WEBHOOK_URL"
-
-	agentDefaultLabelFlagName = "agent-default-label"
-
+	// default label flag
+	agentDefaultLabelFlagName      = "agent-default-label"
+	agentDefaultLabelEnvKey        = "ARIESD_DEFAULT_LABEL"
 	agentDefaultLabelFlagShorthand = "l"
-
-	agentDefaultLabelFlagUsage = "Default Label for this agent. Defaults to blank if not set." +
+	agentDefaultLabelFlagUsage     = "Default Label for this agent. Defaults to blank if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentDefaultLabelEnvKey
 
-	agentDefaultLabelEnvKey = "ARIESD_DEFAULT_LABEL"
-
-	agentHTTPResolverFlagName = "http-resolver-url"
-
+	// http resolver url flag
+	agentHTTPResolverFlagName      = "http-resolver-url"
+	agentHTTPResolverEnvKey        = "ARIESD_HTTP_RESOLVER"
 	agentHTTPResolverFlagShorthand = "r"
-
-	agentHTTPResolverFlagUsage = "HTTP binding DID resolver method and url. Values should be in `method@url` format." +
+	agentHTTPResolverFlagUsage     = "HTTP binding DID resolver method and url. Values should be in `method@url` format." +
 		" This flag can be repeated, allowing multiple http resolvers. Defaults to peer DID resolver if not set." +
 		" Alternatively, this can be set with the following environment variable (in CSV format): " +
 		agentHTTPResolverEnvKey
 
-	agentHTTPResolverEnvKey = "ARIESD_HTTP_RESOLVER"
-
-	agentOutboundTransportFlagName = "outbound-transport"
-
+	// outbound transport flag
+	agentOutboundTransportFlagName      = "outbound-transport"
+	agentOutboundTransportEnvKey        = "ARIESD_OUTBOUND_TRANSPORT"
 	agentOutboundTransportFlagShorthand = "o"
-
-	agentOutboundTransportFlagUsage = "Outbound transport type." +
+	agentOutboundTransportFlagUsage     = "Outbound transport type." +
 		" This flag can be repeated, allowing for multiple transports." +
 		" Possible values [http] [ws]. Defaults to http if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentOutboundTransportEnvKey
 
-	agentOutboundTransportEnvKey = "ARIESD_OUTBOUND_TRANSPORT"
+	// inbound host url flag
+	agentInboundHostFlagName      = "inbound-host"
+	agentInboundHostEnvKey        = "ARIESD_INBOUND_HOST"
+	agentInboundHostFlagShorthand = "i"
+	agentInboundHostFlagUsage     = "Inbound Host Name:Port. This is used internally to start the inbound server." +
+		" Values should be in `scheme@url` format and is mandatory" +
+		" This flag can be repeated, allowing to configure multiple inbound transports." +
+		" Alternatively, this can be set with the following environment variable: " + agentInboundHostEnvKey
 
-	agentInboundTransportEnvKey = "ARIESD_INBOUND_TRANSPORT"
+	// inbound host external url flag
+	agentInboundHostExternalFlagName      = "inbound-host-external"
+	agentInboundHostExternalEnvKey        = "ARIESD_INBOUND_HOST_EXTERNAL"
+	agentInboundHostExternalFlagShorthand = "e"
+	agentInboundHostExternalFlagUsage     = "Inbound Host External Name:Port and values should be in `scheme@url` format" +
+		" This is the URL for the inbound server as seen externally." +
+		" If not provided, then the internal inbound host will be used here." +
+		" This flag can be repeated, allowing to configure multiple inbound transports." +
+		" Alternatively, this can be set with the following environment variable: " + agentInboundHostExternalEnvKey
 
-	agentInboundTransportFlagName = "inbound-transport"
-
-	agentInboundTransportFlagShorthand = "b"
-
-	agentInboundTransportFlagUsage = "Inbound transport type." +
-		" Possible values [http] [ws]. Defaults to http if not set." +
-		" Alternatively, this can be set with the following environment variable: " + agentInboundTransportEnvKey
-
-	agentAutoAcceptEnvKey = "ARIESD_AUTO_ACCEPT"
-
-	agentAutoAcceptFlagName = "auto-accept"
-
+	// auto accept flag
+	agentAutoAcceptFlagName  = "auto-accept"
+	agentAutoAcceptEnvKey    = "ARIESD_AUTO_ACCEPT"
 	agentAutoAcceptFlagUsage = "Auto accept requests." +
 		" Possible values [true] [false]. Defaults to false if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentAutoAcceptEnvKey
@@ -133,17 +109,16 @@ const (
 )
 
 var errMissingHost = errors.New("host not provided")
-
 var errMissingInboundHost = errors.New("HTTP Inbound transport host not provided")
-
 var logger = log.New("aries-framework/agent-rest")
 
 type agentParameters struct {
-	server                                                                                 server
-	host, inboundHostInternal, inboundHostExternal, dbPath, defaultLabel, inboundTransport string
-	webhookURLs, httpResolvers, outboundTransports                                         []string
-	autoAccept                                                                             bool
-	msgHandler                                                                             operation.MessageHandler
+	server                                         server
+	host, dbPath, defaultLabel                     string
+	webhookURLs, httpResolvers, outboundTransports []string
+	inboundHostInternals, inboundHostExternals     []string
+	autoAccept                                     bool
+	msgHandler                                     operation.MessageHandler
 }
 
 type server interface {
@@ -178,18 +153,18 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 				return err
 			}
 
-			inboundHost, err := getUserSetVar(cmd, agentInboundHostFlagName, agentInboundHostEnvKey, false)
+			inboundHosts, err := getUserSetVars(cmd, agentInboundHostFlagName, agentInboundHostEnvKey, false)
+			if err != nil {
+				return err
+			}
+
+			inboundHostExternals, err := getUserSetVars(cmd, agentInboundHostExternalFlagName,
+				agentInboundHostExternalEnvKey, true)
 			if err != nil {
 				return err
 			}
 
 			dbPath, err := getUserSetVar(cmd, agentDBPathFlagName, agentDBPathEnvKey, false)
-			if err != nil {
-				return err
-			}
-
-			inboundHostExternal, err := getUserSetVar(cmd, agentInboundHostExternalFlagName,
-				agentInboundHostExternalEnvKey, true)
 			if err != nil {
 				return err
 			}
@@ -222,15 +197,19 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 				return err
 			}
 
-			inboundTransport, err := getUserSetVar(cmd, agentInboundTransportFlagName, agentInboundTransportEnvKey, true)
-			if err != nil {
-				return err
+			parameters := &agentParameters{
+				server:               server,
+				host:                 host,
+				inboundHostInternals: inboundHosts,
+				inboundHostExternals: inboundHostExternals,
+				dbPath:               dbPath,
+				defaultLabel:         defaultLabel,
+				webhookURLs:          webhookURLs,
+				httpResolvers:        httpResolvers,
+				outboundTransports:   outboundTransports,
+				autoAccept:           autoAccept,
 			}
 
-			parameters := &agentParameters{server: server, host: host, inboundHostInternal: inboundHost,
-				inboundHostExternal: inboundHostExternal, dbPath: dbPath, defaultLabel: defaultLabel, webhookURLs: webhookURLs,
-				httpResolvers: httpResolvers, outboundTransports: outboundTransports, inboundTransport: inboundTransport,
-				autoAccept: autoAccept}
 			return startAgent(parameters)
 		},
 	}
@@ -251,21 +230,20 @@ func getAutoAcceptValue(cmd *cobra.Command) (bool, error) {
 
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(agentHostFlagName, agentHostFlagShorthand, "", agentHostFlagUsage)
-	startCmd.Flags().StringP(agentInboundHostFlagName, agentInboundHostFlagShorthand, "", agentInboundHostFlagUsage)
+	startCmd.Flags().StringSliceP(agentInboundHostFlagName, agentInboundHostFlagShorthand, []string{},
+		agentInboundHostFlagUsage)
 	startCmd.Flags().StringP(agentDBPathFlagName, agentDBPathFlagShorthand, "", agentDBPathFlagUsage)
 	startCmd.Flags().StringSliceP(agentWebhookFlagName, agentWebhookFlagShorthand, []string{},
 		agentWebhookFlagUsage)
 	startCmd.Flags().StringSliceP(agentHTTPResolverFlagName, agentHTTPResolverFlagShorthand, []string{},
 		agentHTTPResolverFlagUsage)
-	startCmd.Flags().StringP(agentInboundHostExternalFlagName, agentInboundHostExternalFlagShorthand,
-		"", agentInboundHostExternalFlagUsage)
+	startCmd.Flags().StringSliceP(agentInboundHostExternalFlagName, agentInboundHostExternalFlagShorthand,
+		[]string{}, agentInboundHostExternalFlagUsage)
 	startCmd.Flags().StringP(agentDefaultLabelFlagName, agentDefaultLabelFlagShorthand, "",
 		agentDefaultLabelFlagUsage)
 	startCmd.Flags().StringSliceP(
 		agentOutboundTransportFlagName, agentOutboundTransportFlagShorthand, []string{},
 		agentOutboundTransportFlagUsage)
-	startCmd.Flags().StringP(agentInboundTransportFlagName, agentInboundTransportFlagShorthand, "",
-		agentInboundTransportFlagUsage)
 	startCmd.Flags().StringP(agentAutoAcceptFlagName, "", "",
 		agentAutoAcceptFlagUsage)
 }
@@ -371,19 +349,48 @@ func getOutboundTransportOpts(outboundTransports []string) ([]aries.Option, erro
 	return opts, nil
 }
 
-func getInboundTransportOpts(inboundTransport, inboundHostInternal, inboundHostExternal string) (aries.Option, error) {
-	if inboundTransport == "" {
-		inboundTransport = httpProtocol
+func getInboundTransportOpts(inboundHostInternals, inboundHostExternals []string) (aries.Option, error) {
+	internalHost, err := getInboundSchemeToURLMap(inboundHostInternals)
+	if err != nil {
+		return nil, fmt.Errorf("inbound internal host : %w", err)
 	}
 
-	switch inboundTransport {
-	case httpProtocol:
-		return defaults.WithInboundHTTPAddr(inboundHostInternal, inboundHostExternal), nil
-	case websocketProtocol:
-		return defaults.WithInboundWSAddr(inboundHostInternal, inboundHostExternal), nil
-	default:
-		return nil, fmt.Errorf("inbound transport [%s] not supported", inboundTransport)
+	externalHost, err := getInboundSchemeToURLMap(inboundHostExternals)
+	if err != nil {
+		return nil, fmt.Errorf("inbound external host : %w", err)
 	}
+
+	var opts aries.Option
+
+	for scheme, host := range internalHost {
+		switch scheme {
+		case httpProtocol:
+			opts = defaults.WithInboundHTTPAddr(host, externalHost[scheme])
+		case websocketProtocol:
+			opts = defaults.WithInboundWSAddr(host, externalHost[scheme])
+		default:
+			return nil, fmt.Errorf("inbound transport [%s] not supported", scheme)
+		}
+	}
+
+	return opts, nil
+}
+
+func getInboundSchemeToURLMap(schemeHostStr []string) (map[string]string, error) {
+	const validSliceLen = 2
+
+	schemeHostMap := make(map[string]string)
+
+	for _, schemeHost := range schemeHostStr {
+		schemeHostSlice := strings.Split(schemeHost, "@")
+		if len(schemeHostSlice) != validSliceLen {
+			return nil, fmt.Errorf("invalid inbound host option: Use scheme@url to pass the option")
+		}
+
+		schemeHostMap[schemeHostSlice[0]] = schemeHostSlice[1]
+	}
+
+	return schemeHostMap, nil
 }
 
 func startAgent(parameters *agentParameters) error {
@@ -391,7 +398,7 @@ func startAgent(parameters *agentParameters) error {
 		return errMissingHost
 	}
 
-	if parameters.inboundHostInternal == "" {
+	if len(parameters.inboundHostInternals) == 0 {
 		return errMissingInboundHost
 	}
 
@@ -438,8 +445,8 @@ func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 		opts = append(opts, defaults.WithStorePath(parameters.dbPath))
 	}
 
-	inboundTransportOpt, err := getInboundTransportOpts(parameters.inboundTransport,
-		parameters.inboundHostInternal, parameters.inboundHostExternal)
+	inboundTransportOpt, err := getInboundTransportOpts(parameters.inboundHostInternals,
+		parameters.inboundHostExternals)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start aries agent rest on port [%s], failed to inbound tranpsort opt : %w",
 			parameters.host, err)
