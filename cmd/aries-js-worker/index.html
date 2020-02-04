@@ -11,11 +11,12 @@ This is a test page for developers to test WASM integration.
 <html>
 <head>
     <meta charset="utf-8"/>
-    <script src="aries.js"></script>
+    <script src="dist/web/aries.js"></script>
     <script>
         async function handleInput() {
             const invite = document.querySelector("#test-input").value
-            const connID = await Aries._test._echo(invite)
+            // TODO fix the stutter in the API's exports ("Aries.Aries....")
+            const connID = await Aries.Aries._test._echo(invite)
             document.querySelector("#test-output").value = connID
         }
     </script>
