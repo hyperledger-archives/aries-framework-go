@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -41,7 +42,6 @@ import (
 	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/restapi/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 

@@ -18,13 +18,13 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	resterrors "github.com/hyperledger/aries-framework-go/pkg/restapi/errors"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
