@@ -11,7 +11,7 @@ import wasm from "./aries-js-worker.wasm"
 import workerJS from "./worker-impl-node"
 
 export function _getWorker(pending) {
-    const worker = new Worker(workerJS, { workerData: {wasmJS: wasmJS, wasmPath: wasm} })
+    const worker = new Worker(workerJS, { workerData: {wasmJS: wasmJS, wasmPath: wasm + ".gz"} })
     worker.on("message", result => {
         const cb = pending.get(result.id)
         pending.delete(result.id)

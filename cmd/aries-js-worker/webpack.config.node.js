@@ -8,6 +8,7 @@ const path = require("path")
 
 const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 const WebpackShellPlugin = require('webpack-shell-plugin')
+const CompressionPlugin = require("compression-webpack-plugin")
 
 const { PATHS } = require("./webpack.config.common.js")
 
@@ -29,6 +30,10 @@ module.exports = {
             onBuildStart: [
                 "mkdir -p " + OUTPUT
             ]
+        }),
+        new CompressionPlugin({
+            include: /\.wasm/,
+            deleteOriginalAssets: true
         })
     ],
     module: {
