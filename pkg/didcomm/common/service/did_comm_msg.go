@@ -23,7 +23,21 @@ const (
 	jsonType     = "@type"
 	jsonThread   = "~thread"
 	jsonThreadID = "thid"
+	jsonMetadata = "_internal_metadata"
 )
+
+// Metadata may contain additional payload for the protocol. It might be populated by the client/protocol
+// for outbound messages. If metadata were populated, the messenger will automatically add it to the incoming
+// messages by the threadID. If Metadata is <nil> in the outbound message the previous payload
+// will be added to the incoming message. Otherwise, the payload will be rewritten.
+// NOTE: Metadata is not a part of the JSON message. The payload will not be sent to another agent.
+// Metadata should be used by embedding it to the model structure. e.g
+// 	type A struct {
+// 		Metadata `json:",squash"`
+// 	}
+type Metadata struct {
+	Payload map[string]interface{} `json:"_internal_metadata,omitempty"`
+}
 
 // Header helper structure which keeps reusable fields
 // Deprecated: Use DIDCommMsg instead of Header
@@ -88,6 +102,20 @@ func (m DIDCommMsgMap) ThreadID() (string, error) {
 	}
 
 	return "", ErrThreadIDNotFound
+}
+
+// Metadata returns message metadata
+func (m DIDCommMsgMap) Metadata() map[string]interface{} {
+	if m[jsonMetadata] == nil {
+		return nil
+	}
+
+	metadata, ok := m[jsonMetadata].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	return metadata
 }
 
 // Type returns the message type
