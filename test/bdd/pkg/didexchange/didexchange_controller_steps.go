@@ -18,7 +18,7 @@ import (
 
 	"github.com/DATA-DOG/godog"
 
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/common"
+	vdricmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -480,7 +480,7 @@ func (a *ControllerSteps) createPublicDID(agentID, didMethod string) error {
 	// call controller
 	path := fmt.Sprintf("%s%s?method=%s&header=%s", destination, createPublicDIDPath, didMethod, publicDIDCreateHeader)
 
-	var result common.CreatePublicDIDResponse
+	var result vdricmd.CreatePublicDIDResponse
 
 	err := sendHTTP(http.MethodPost, path, nil, &result)
 	if err != nil {

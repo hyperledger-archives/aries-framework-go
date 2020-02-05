@@ -22,9 +22,9 @@ import (
 	"github.com/DATA-DOG/godog"
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/basic"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/common"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
@@ -73,7 +73,7 @@ func (d *ControllerSteps) registerMsgService(agentID, name, msgType, purpose str
 		return fmt.Errorf("failed to cleanup already registered services list : %w", err)
 	}
 
-	params := common.RegisterMsgSvcParams{
+	params := messaging.RegisterMsgSvcArgs{
 		Type: msgType,
 		Name: name,
 	}
@@ -119,7 +119,7 @@ func (d *ControllerSteps) unregisterAllMsgServices(agentID, destination string) 
 	}
 
 	for _, svcName := range svcNames {
-		params := common.UnregisterMsgSvcParams{
+		params := messaging.UnregisterMsgSvcArgs{
 			Name: svcName,
 		}
 
@@ -136,7 +136,7 @@ func (d *ControllerSteps) unregisterAllMsgServices(agentID, destination string) 
 }
 
 func (d *ControllerSteps) getServicesList(url string) ([]string, error) {
-	result := common.RegisteredServicesResponse{}
+	result := messaging.RegisteredServicesResponse{}
 	// call controller
 	err := sendHTTP(http.MethodGet, url, nil, &result)
 	if err != nil {
@@ -166,15 +166,13 @@ func (d *ControllerSteps) sendMessage(fromAgentID, toAgentID string, msg interfa
 
 	logger.Debugf("Sending message to agent[%s], message:[%s]", toAgentID, string(rawBytes))
 
-	request := common.SendNewMessageRequest{
-		Params: &common.SendNewMessageParams{
-			ConnectionID: connID,
-			MessageBody:  rawBytes,
-		},
+	request := &messaging.SendNewMessageArgs{
+		ConnectionID: connID,
+		MessageBody:  rawBytes,
 	}
 
 	// call controller to send message
-	err = sendHTTP(http.MethodPost, destination+sendNewMsg, request.Params, nil)
+	err = sendHTTP(http.MethodPost, destination+sendNewMsg, request, nil)
 	if err != nil {
 		return fmt.Errorf("failed to send message : %w", err)
 	}

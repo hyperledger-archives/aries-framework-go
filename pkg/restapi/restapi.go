@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package restapi
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/messaging"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/common"
 	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
 )
 
@@ -60,28 +61,37 @@ func New(ctx *context.Provider, opts ...Opt) (*Controller, error) {
 		opt(restAPIOpts)
 	}
 
-	var allHandlers []operation.Handler
-
-	// Add DID Exchange Rest Handlers
-	exchange, err := didexchange.New(ctx, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs), restAPIOpts.defaultLabel,
+	// DID Exchange REST operation
+	// TODO : to be moved to controller command API [Issue #1176]
+	exchangeOp, err := didexchange.New(ctx, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs), restAPIOpts.defaultLabel,
 		restAPIOpts.autoAccept)
 	if err != nil {
 		return nil, err
 	}
 
-	// Add common Rest Handlers
-	general, err := common.New(ctx, restAPIOpts.msgHandler, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs))
+	// VDRI REST operation
+	vdriOp, err := vdri.New(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	allHandlers = append(allHandlers, exchange.GetRESTHandlers()...)
-	allHandlers = append(allHandlers, general.GetRESTHandlers()...)
+	// messaging REST operation
+	messagingOp, err := messaging.New(ctx, restAPIOpts.msgHandler, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs))
+	if err != nil {
+		return nil, err
+	}
+
+	// creat handlers from all operations
+	var allHandlers []operation.Handler
+	allHandlers = append(allHandlers, exchangeOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, vdriOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, messagingOp.GetRESTHandlers()...)
 
 	return &Controller{handlers: allHandlers}, nil
 }
 
 // Controller contains handlers for controller REST API
+// TODO : to be moved to controller [Issue #1176]
 type Controller struct {
 	handlers []operation.Handler
 }
