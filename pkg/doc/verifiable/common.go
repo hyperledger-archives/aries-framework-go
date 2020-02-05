@@ -20,6 +20,8 @@ import (
 
 	"github.com/square/go-jose/v3"
 	"github.com/xeipuuv/gojsonschema"
+
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
 // TODO https://github.com/square/go-jose/issues/263 support ES256K
@@ -57,6 +59,38 @@ func SingleKey(pubKey interface{}) PublicKeyFetcher {
 	return func(issuerID, keyID string) (interface{}, error) {
 		return pubKey, nil
 	}
+}
+
+// DIDKeyResolver resolves DID in order to find public keys for VC verification using vdri.Registry.
+// A source of DID could be issuer of VC or holder of VP. It can be also obtained from
+// JWS "issuer" claim or "verificationMethod" of Linked Data Proof.
+type DIDKeyResolver struct {
+	vdriRegistry vdri.Registry
+}
+
+// NewDIDKeyResolver creates DIDKeyResolver.
+func NewDIDKeyResolver(vdriRegistry vdri.Registry) *DIDKeyResolver {
+	return &DIDKeyResolver{vdriRegistry: vdriRegistry}
+}
+
+func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (interface{}, error) {
+	doc, err := r.vdriRegistry.Resolve(issuerDID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve DID %s: %w", issuerDID, err)
+	}
+
+	for _, key := range doc.PublicKey {
+		if key.ID == keyID {
+			return key.Value, nil
+		}
+	}
+
+	return nil, fmt.Errorf("public key with KID %s is not found for DID %s", keyID, issuerDID)
+}
+
+// PublicKeyFetcher returns Public Key Fetcher via DID resolution mechanism.
+func (r *DIDKeyResolver) PublicKeyFetcher() PublicKeyFetcher {
+	return r.resolvePublicKey
 }
 
 // Proof defines embedded proof of Verifiable Credential

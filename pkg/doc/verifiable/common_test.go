@@ -6,11 +6,22 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
+	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri"
 )
 
 func TestJwtAlgorithm_Jose(t *testing.T) {
@@ -219,4 +230,90 @@ func Test_proofsToRaw(t *testing.T) {
 	var severalProofsMap []map[string]interface{}
 	err = json.Unmarshal(severalProofsBytes, &severalProofsMap)
 	require.NoError(t, err)
+}
+
+func TestNewDIDKeyResolver(t *testing.T) {
+	resolver := NewDIDKeyResolver(vdri.New(&mockprovider.Provider{}))
+	require.NotNil(t, resolver)
+}
+
+func TestDIDKeyResolver_Resolve(t *testing.T) {
+	r := require.New(t)
+
+	didDoc := createDIDDoc()
+	publicKey := didDoc.PublicKey[0]
+
+	v := &mockvdri.MockVDRIRegistry{
+		ResolveValue: didDoc,
+	}
+
+	resolver := NewDIDKeyResolver(v)
+	r.NotNil(resolver)
+
+	pubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, publicKey.ID)
+	r.NoError(err)
+	r.Equal(publicKey.Value, pubKey)
+
+	pubKey, err = resolver.PublicKeyFetcher()(didDoc.ID, "invalid key")
+	r.Error(err)
+	r.EqualError(err, fmt.Sprintf("public key with KID invalid key is not found for DID %s", didDoc.ID))
+	r.Nil(pubKey)
+
+	v.ResolveErr = errors.New("resolver error")
+	pubKey, err = resolver.PublicKeyFetcher()(didDoc.ID, "")
+	r.Error(err)
+	r.EqualError(err, fmt.Sprintf("resolve DID %s: resolver error", didDoc.ID))
+	r.Nil(pubKey)
+}
+
+func createDIDDoc() *did.Doc {
+	pubKey, _ := generateKeyPair()
+	return createDIDDocWithKey(pubKey)
+}
+
+func generateKeyPair() (string, []byte) {
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	return base58.Encode(pubKey[:]), privKey
+}
+
+func createDIDDocWithKey(pub string) *did.Doc {
+	const (
+		didFormat    = "did:%s:%s"
+		didPKID      = "%s#keys-%d"
+		didServiceID = "%s#endpoint-%d"
+		method       = "test"
+	)
+
+	id := fmt.Sprintf(didFormat, method, pub[:16])
+	pubKeyID := fmt.Sprintf(didPKID, id, 1)
+	pubKey := did.PublicKey{
+		ID:         pubKeyID,
+		Type:       "Ed25519VerificationKey2018",
+		Controller: id,
+		Value:      []byte(pub),
+	}
+	services := []did.Service{
+		{
+			ID:              fmt.Sprintf(didServiceID, id, 1),
+			Type:            "did-communication",
+			ServiceEndpoint: "http://localhost:47582",
+			Priority:        0,
+			RecipientKeys:   []string{pubKeyID},
+		},
+	}
+	createdTime := time.Now()
+	didDoc := &did.Doc{
+		Context:   []string{did.Context},
+		ID:        id,
+		PublicKey: []did.PublicKey{pubKey},
+		Service:   services,
+		Created:   &createdTime,
+		Updated:   &createdTime,
+	}
+
+	return didDoc
 }
