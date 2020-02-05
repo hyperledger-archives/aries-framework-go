@@ -21,6 +21,7 @@ import (
 
 // SignatureSuite implements ed25519 signature suite
 type SignatureSuite struct {
+	signer signer
 }
 
 const (
@@ -28,9 +29,30 @@ const (
 	format        = "application/n-quads"
 )
 
+type signer interface {
+	// Sign will sign document and return signature
+	Sign(data []byte) ([]byte, error)
+}
+
+// SuiteOpt is the SignatureSuite option.
+type SuiteOpt func(opts *SignatureSuite)
+
+// WithSigner defines a signer for the Signature Suite.
+func WithSigner(s signer) SuiteOpt {
+	return func(opts *SignatureSuite) {
+		opts.signer = s
+	}
+}
+
 // New an instance of ed25519 signature suite
-func New() *SignatureSuite {
-	return &SignatureSuite{}
+func New(opts ...SuiteOpt) *SignatureSuite {
+	suite := &SignatureSuite{}
+
+	for _, opt := range opts {
+		opt(suite)
+	}
+
+	return suite
 }
 
 // GetCanonicalDocument will return normalized/canonical version of the document
@@ -56,7 +78,7 @@ func (s *SignatureSuite) GetDigest(doc []byte) []byte {
 	return digest[:]
 }
 
-// Verify will verify ed25519 signature against public key
+// Verify will verify a signature.
 func (s *SignatureSuite) Verify(pubKey, doc, signature []byte) error {
 	// ed25519 panics if key size is wrong
 	if l := len(pubKey); l != ed25519.PublicKeySize {
@@ -71,19 +93,19 @@ func (s *SignatureSuite) Verify(pubKey, doc, signature []byte) error {
 	return nil
 }
 
-// Sign will return ed25519 signature
-func (s *SignatureSuite) Sign(privKey, doc []byte) ([]byte, error) {
-	// ed25519 panics if key size is wrong
-	if l := len(privKey); l != ed25519.PrivateKeySize {
-		return nil, errors.New("ed25519: bad private key length")
+// Sign will sign input data.
+func (s *SignatureSuite) Sign(data []byte) ([]byte, error) {
+	if s.signer == nil {
+		return nil, ErrSignerNotDefined
 	}
 
-	signature := ed25519.Sign(privKey, doc)
-
-	return signature, nil
+	return s.signer.Sign(data)
 }
 
 // Accept will accept only ed25519 signature type
 func (s *SignatureSuite) Accept(t string) bool {
 	return t == signatureType
 }
+
+// ErrSignerNotDefined is returned when Sign() is called but signer option is not defined.
+var ErrSignerNotDefined = errors.New("signer is not defined")

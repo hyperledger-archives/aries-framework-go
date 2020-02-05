@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
@@ -39,9 +38,8 @@ type verifierSignatureSuite interface {
 type signerSignatureSuite interface {
 	signatureSuite
 
-	// Sign  will sign JSON LD document
-	// todo refactor, do not pass privateKey (https://github.com/hyperledger/aries-framework-go/issues/339)
-	Sign(jsonLdDoc, privKey []byte) ([]byte, error)
+	// Sign will sign JSON LD document
+	Sign(jsonLdDoc []byte) ([]byte, error)
 }
 
 type keyResolverAdapter struct {
@@ -63,18 +61,17 @@ func (k *keyResolverAdapter) Resolve(id string) ([]byte, error) {
 }
 
 // LinkedDataProofContext holds options needed to build a Linked Data Proof.
-// todo refactor, do not pass privateKey (https://github.com/hyperledger/aries-framework-go/issues/339)
 type LinkedDataProofContext struct {
 	SignatureType string               // required
 	Suite         signerSignatureSuite // required
-	PrivateKey    []byte               // required
 	Creator       string               // required
 	Created       *time.Time           // optional
 }
 
-func checkLinkedDataProof(jsonldBytes []byte, _ []verifierSignatureSuite, pubKeyFetcher PublicKeyFetcher) error {
-	// todo pass signature suites to the document verifier - current its API does not allow that
-	documentVerifier := verifier.New(&keyResolverAdapter{pubKeyFetcher})
+func checkLinkedDataProof(jsonldBytes []byte, suite verifierSignatureSuite, pubKeyFetcher PublicKeyFetcher) error {
+	documentVerifier := verifier.New(
+		&keyResolverAdapter{pubKeyFetcher},
+		suite)
 
 	err := documentVerifier.Verify(jsonldBytes)
 	if err != nil {
@@ -89,7 +86,7 @@ type rawProof struct {
 }
 
 func addLinkedDataProof(context *LinkedDataProofContext, jsonldBytes []byte) ([]Proof, error) {
-	documentSigner := signer.New()
+	documentSigner := signer.New(context.Suite)
 
 	vcWithNewProofBytes, err := documentSigner.Sign(mapContext(context), jsonldBytes)
 	if err != nil {
@@ -112,23 +109,9 @@ func addLinkedDataProof(context *LinkedDataProofContext, jsonldBytes []byte) ([]
 	return proofs, nil
 }
 
-type signerWrapper struct {
-	suite   signerSignatureSuite
-	privKey []byte
-}
-
-func (sw *signerWrapper) Sign(doc []byte) ([]byte, error) {
-	return sw.suite.Sign(sw.privKey, doc)
-}
-
 func mapContext(context *LinkedDataProofContext) *signer.Context {
-	sw := &signerWrapper{
-		suite:   context.Suite,
-		privKey: context.PrivateKey}
-
 	return &signer.Context{
 		SignatureType: context.SignatureType,
-		Signer:        sw,
 		Created:       context.Created,
 		Creator:       context.Creator,
 	}

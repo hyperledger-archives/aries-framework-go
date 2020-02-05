@@ -396,6 +396,5 @@ func TestWithPresEmbeddedSignatureSuites(t *testing.T) {
 
 	opts := &presentationOpts{}
 	vpOpt(opts)
-	require.Len(t, opts.ldpSuites, 1)
-	require.Equal(t, suite, opts.ldpSuites[0])
+	require.Equal(t, suite, opts.ldpSuite)
 }

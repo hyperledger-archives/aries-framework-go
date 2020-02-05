@@ -800,8 +800,7 @@ func TestWithEmbeddedSignatureSuites(t *testing.T) {
 
 	opts := &credentialOpts{}
 	credentialOpt(opts)
-	require.Len(t, opts.ldpSuites, 1)
-	require.Equal(t, suite, opts.ldpSuites[0])
+	require.Equal(t, suite, opts.ldpSuite)
 }
 
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {

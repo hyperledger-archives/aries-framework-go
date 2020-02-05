@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
@@ -161,4 +162,20 @@ func (vp *Presentation) stringJSON(t *testing.T) string {
 	require.NoError(t, err)
 
 	return string(bytes)
+}
+
+func getSigner(privKey []byte) *testSigner {
+	return &testSigner{privateKey: privKey}
+}
+
+type testSigner struct {
+	privateKey []byte
+}
+
+func (s *testSigner) Sign(doc []byte) ([]byte, error) {
+	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
+		return nil, errors.New("ed25519: bad private key length")
+	}
+
+	return ed25519.Sign(s.privateKey, doc), nil
 }

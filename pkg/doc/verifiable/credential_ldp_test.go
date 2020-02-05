@@ -22,11 +22,12 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
+	suite := ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey)))
+
 	ldpContext := &LinkedDataProofContext{
 		Creator:       "John",
 		SignatureType: "Ed25519Signature2018",
-		Suite:         ed25519signature2018.New(),
-		PrivateKey:    privKey,
+		Suite:         suite,
 	}
 
 	vc, _, err := NewCredential([]byte(validCredential))
@@ -39,7 +40,7 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 	r.NoError(err)
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
-		WithEmbeddedSignatureSuites(ed25519signature2018.New()),
+		WithEmbeddedSignatureSuites(suite),
 		WithPublicKeyFetcher(SingleKey([]byte(pubKey))))
 	r.NoError(err)
 
@@ -47,7 +48,6 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 	r.Equal(vc, vcWithLdp)
 }
 
-// TODO add a scenario when a new proof is appended to already existent one.
 func TestCredential_AddLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
@@ -57,8 +57,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 	ldpContext := &LinkedDataProofContext{
 		Creator:       "John",
 		SignatureType: "Ed25519Signature2018",
-		Suite:         ed25519signature2018.New(),
-		PrivateKey:    privKey,
+		Suite:         ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
 	}
 
 	t.Run("Add a valid Linked Data proof to VC", func(t *testing.T) {
@@ -103,9 +102,8 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 
 		vc.CustomFields = nil
 		ldpContextWithMissingSignatureType := &LinkedDataProofContext{
-			Creator:    "John",
-			Suite:      ed25519signature2018.New(),
-			PrivateKey: privKey,
+			Creator: "John",
+			Suite:   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
 		}
 
 		err = vc.AddLinkedDataProof(ldpContextWithMissingSignatureType)

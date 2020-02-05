@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 )
 
 const signatureType = "Ed25519Signature2018"
@@ -19,7 +21,9 @@ const signatureType = "Ed25519Signature2018"
 func TestDocumentSigner_Sign(t *testing.T) {
 	context := getSignatureContext()
 
-	s := New()
+	s := New(ed25519signature2018.New(
+		ed25519signature2018.WithSigner(
+			getSigner(generatePrivateKey()))))
 	signedDoc, err := s.Sign(context, []byte(validDoc))
 	require.NoError(t, err)
 	require.NotNil(t, signedDoc)
@@ -27,7 +31,9 @@ func TestDocumentSigner_Sign(t *testing.T) {
 
 func TestDocumentSigner_SignErrors(t *testing.T) {
 	context := getSignatureContext()
-	s := New()
+	s := New(ed25519signature2018.New(
+		ed25519signature2018.WithSigner(
+			getSigner(generatePrivateKey()))))
 
 	// test invalid json
 	signedDoc, err := s.Sign(context, []byte("not json"))
@@ -60,7 +66,9 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 
 	// test signing error
 	context = getSignatureContext()
-	context.Signer = getSigner([]byte("invalid"))
+	s = New(ed25519signature2018.New(
+		ed25519signature2018.WithSigner(
+			getSigner([]byte("invalid")))))
 	signedDoc, err = s.Sign(context, []byte(validDoc))
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
@@ -83,19 +91,11 @@ func TestDocumentSigner_isValidContext(t *testing.T) {
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
 	require.Contains(t, err.Error(), "signature type is missing")
-
-	context = getSignatureContext()
-	context.Signer = nil
-	signedDoc, err = s.Sign(context, []byte(validDoc))
-	require.NotNil(t, err)
-	require.Nil(t, signedDoc)
-	require.Contains(t, err.Error(), "signer is missing")
 }
 
 func getSignatureContext() *Context {
 	return &Context{Creator: "creator",
-		SignatureType: signatureType,
-		Signer:        getSigner(generatePrivateKey())}
+		SignatureType: signatureType}
 }
 
 func generatePrivateKey() []byte {
@@ -107,15 +107,15 @@ func generatePrivateKey() []byte {
 	return privKey
 }
 
-func getSigner(privKey []byte) *TestSigner {
-	return &TestSigner{privateKey: privKey}
+func getSigner(privKey []byte) *testSigner {
+	return &testSigner{privateKey: privKey}
 }
 
-type TestSigner struct {
+type testSigner struct {
 	privateKey []byte
 }
 
-func (s *TestSigner) Sign(doc []byte) ([]byte, error) {
+func (s *testSigner) Sign(doc []byte) ([]byte, error) {
 	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
 		return nil, errors.New("ed25519: bad private key length")
 	}
