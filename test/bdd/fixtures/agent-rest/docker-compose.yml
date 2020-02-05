@@ -63,6 +63,61 @@ services:
     networks:
       - bdd_net
 
+  carl.agent.example.com:
+    container_name: carl.aries.example.com
+    image: ${AGENT_REST_IMAGE}:${AGENT_REST_IMAGE_TAG}
+    environment:
+      - ARIESD_API_HOST=${CARL_HOST}:${CARL_API_PORT}
+      - ARIESD_WEBHOOK_URL=http://${CARL_WEBHOOK_CONTAINER_NAME}:${CARL_WEBHOOK_PORT}
+      - ARIESD_DEFAULT_LABEL=carl-agent
+      - ARIESD_DB_PATH=${CARL_DB_PATH}
+      - ARIESD_OUTBOUND_TRANSPORT=${HTTP_SCHEME},${WS_SCHEME}
+      - ARIESD_TRANSPORT_RETURN_ROUTE=${TRANSPORT_RETURN_OPTION_ALL}
+    ports:
+      - ${CARL_API_PORT}:${CARL_API_PORT}
+    command: start
+    networks:
+      - bdd_net
+
+  carl.webhook.example.com:
+    container_name: ${CARL_WEBHOOK_CONTAINER_NAME}
+    image: ${SAMPLE_WEBHOOK_IMAGE}:${SAMPLE_WEBHOOK_IMAGE_TAG}
+    environment:
+      - WEBHOOK_PORT=${CARL_WEBHOOK_PORT}
+    ports:
+      - ${CARL_WEBHOOK_PORT}:${CARL_WEBHOOK_PORT}
+    networks:
+      - bdd_net
+
+  carl.router.agent.example.com:
+    container_name: carl.router.aries.example.com
+    image: ${AGENT_REST_IMAGE}:${AGENT_REST_IMAGE_TAG}
+    environment:
+      - ARIESD_API_HOST=${CARL_ROUTER_HOST}:${CARL_ROUTER_API_PORT}
+      - ARIESD_INBOUND_HOST=${HTTP_SCHEME}@${CARL_ROUTER_HOST}:${CARL_ROUTER_HTTP_INBOUND_PORT},${WS_SCHEME}@${CARL_ROUTER_HOST}:${CARL_ROUTER_WS_INBOUND_PORT}
+      - ARIESD_INBOUND_HOST_EXTERNAL=${HTTP_SCHEME}@http://carl.router.aries.example.com:${CARL_ROUTER_HTTP_INBOUND_PORT},${WS_SCHEME}@ws://carl.router.aries.example.com:${CARL_ROUTER_WS_INBOUND_PORT}
+      - ARIESD_WEBHOOK_URL=http://${CARL_ROUTER_WEBHOOK_CONTAINER_NAME}:${CARL_ROUTER_WEBHOOK_PORT}
+      - ARIESD_DB_PATH=${CARL_ROUTER_DB_PATH}
+      - ARIESD_DEFAULT_LABEL=carl-router-agent
+      - ARIESD_OUTBOUND_TRANSPORT=${HTTP_SCHEME},${WS_SCHEME}
+      - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+    ports:
+      - ${CARL_ROUTER_HTTP_INBOUND_PORT}:${CARL_ROUTER_HTTP_INBOUND_PORT}
+      - ${CARL_ROUTER_WS_INBOUND_PORT}:${CARL_ROUTER_WS_INBOUND_PORT}
+      - ${CARL_ROUTER_API_PORT}:${CARL_ROUTER_API_PORT}
+    command: start
+    networks:
+      - bdd_net
+
+  carl.router.webhook.example.com:
+    container_name: ${CARL_ROUTER_WEBHOOK_CONTAINER_NAME}
+    image: ${SAMPLE_WEBHOOK_IMAGE}:${SAMPLE_WEBHOOK_IMAGE_TAG}
+    environment:
+      - WEBHOOK_PORT=${CARL_ROUTER_WEBHOOK_PORT}
+    ports:
+      - ${CARL_ROUTER_WEBHOOK_PORT}:${CARL_ROUTER_WEBHOOK_PORT}
+    networks:
+      - bdd_net
 
 networks:
   bdd_net:
