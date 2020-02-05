@@ -110,6 +110,7 @@ func TestStartAriesDRequests(t *testing.T) {
 			dbPath:               path,
 			defaultLabel:         "x",
 			httpResolvers:        []string{"sample@http://sample.com"},
+			transportReturnRoute: "all",
 		}
 		err := startAgent(parameters)
 		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
@@ -267,20 +268,7 @@ func TestStartCmdWithoutInboundHostArg(t *testing.T) {
 	startCmd.SetArgs(args)
 
 	err = startCmd.Execute()
-	require.NotNil(t, err)
-	require.Equal(t,
-		" inbound-host not set. It must be set via either command line or environment variable",
-		err.Error())
-}
-
-func TestStartAgentWithBlankInboundHost(t *testing.T) {
-	parameters := &agentParameters{
-		server: &mockServer{},
-		host:   randomURL(),
-	}
-	err := startAgent(parameters)
-
-	require.Equal(t, errMissingInboundHost, err)
+	require.NoError(t, err)
 }
 
 func TestStartCmdWithoutDBPath(t *testing.T) {

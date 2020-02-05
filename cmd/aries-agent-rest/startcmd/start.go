@@ -83,7 +83,7 @@ const (
 	agentInboundHostEnvKey        = "ARIESD_INBOUND_HOST"
 	agentInboundHostFlagShorthand = "i"
 	agentInboundHostFlagUsage     = "Inbound Host Name:Port. This is used internally to start the inbound server." +
-		" Values should be in `scheme@url` format and is mandatory" +
+		" Values should be in `scheme@url` format." +
 		" This flag can be repeated, allowing to configure multiple inbound transports." +
 		" Alternatively, this can be set with the following environment variable: " + agentInboundHostEnvKey
 
@@ -104,21 +104,27 @@ const (
 		" Possible values [true] [false]. Defaults to false if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentAutoAcceptEnvKey
 
+	// transport return route option flag
+	agentTransportReturnRouteFlagName  = "transport-return-route"
+	agentTransportReturnRouteEnvKey    = "ARIESD_TRANSPORT_RETURN_ROUTE"
+	agentTransportReturnRouteFlagUsage = "Transport Return Route option." +
+		" Refer https://github.com/hyperledger/aries-framework-go/blob/8449c727c7c44f47ed7c9f10f35f0cd051dcb4e9/pkg/framework/aries/framework.go#L165-L168." + // nolint lll
+		" Alternatively, this can be set with the following environment variable: " + agentTransportReturnRouteEnvKey
+
 	httpProtocol      = "http"
 	websocketProtocol = "ws"
 )
 
 var errMissingHost = errors.New("host not provided")
-var errMissingInboundHost = errors.New("HTTP Inbound transport host not provided")
 var logger = log.New("aries-framework/agent-rest")
 
 type agentParameters struct {
-	server                                         server
-	host, dbPath, defaultLabel                     string
-	webhookURLs, httpResolvers, outboundTransports []string
-	inboundHostInternals, inboundHostExternals     []string
-	autoAccept                                     bool
-	msgHandler                                     operation.MessageHandler
+	server                                           server
+	host, dbPath, defaultLabel, transportReturnRoute string
+	webhookURLs, httpResolvers, outboundTransports   []string
+	inboundHostInternals, inboundHostExternals       []string
+	autoAccept                                       bool
+	msgHandler                                       operation.MessageHandler
 }
 
 type server interface {
@@ -153,7 +159,7 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 				return err
 			}
 
-			inboundHosts, err := getUserSetVars(cmd, agentInboundHostFlagName, agentInboundHostEnvKey, false)
+			inboundHosts, err := getUserSetVars(cmd, agentInboundHostFlagName, agentInboundHostEnvKey, true)
 			if err != nil {
 				return err
 			}
@@ -179,20 +185,24 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 				return err
 			}
 
-			webhookURLs, err := getUserSetVars(cmd, agentWebhookFlagName,
-				agentWebhookEnvKey, autoAccept)
+			webhookURLs, err := getUserSetVars(cmd, agentWebhookFlagName, agentWebhookEnvKey, autoAccept)
 			if err != nil {
 				return err
 			}
 
-			httpResolvers, err := getUserSetVars(cmd, agentHTTPResolverFlagName,
-				agentHTTPResolverEnvKey, true)
+			httpResolvers, err := getUserSetVars(cmd, agentHTTPResolverFlagName, agentHTTPResolverEnvKey, true)
 			if err != nil {
 				return err
 			}
 
 			outboundTransports, err := getUserSetVars(cmd, agentOutboundTransportFlagName,
 				agentOutboundTransportEnvKey, true)
+			if err != nil {
+				return err
+			}
+
+			transportReturnRoute, err := getUserSetVar(cmd, agentTransportReturnRouteFlagName,
+				agentTransportReturnRouteEnvKey, true)
 			if err != nil {
 				return err
 			}
@@ -208,6 +218,7 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 				httpResolvers:        httpResolvers,
 				outboundTransports:   outboundTransports,
 				autoAccept:           autoAccept,
+				transportReturnRoute: transportReturnRoute,
 			}
 
 			return startAgent(parameters)
@@ -229,23 +240,40 @@ func getAutoAcceptValue(cmd *cobra.Command) (bool, error) {
 }
 
 func createFlags(startCmd *cobra.Command) {
+	// agent host flag
 	startCmd.Flags().StringP(agentHostFlagName, agentHostFlagShorthand, "", agentHostFlagUsage)
+
+	// inbound host flag
 	startCmd.Flags().StringSliceP(agentInboundHostFlagName, agentInboundHostFlagShorthand, []string{},
 		agentInboundHostFlagUsage)
-	startCmd.Flags().StringP(agentDBPathFlagName, agentDBPathFlagShorthand, "", agentDBPathFlagUsage)
-	startCmd.Flags().StringSliceP(agentWebhookFlagName, agentWebhookFlagShorthand, []string{},
-		agentWebhookFlagUsage)
-	startCmd.Flags().StringSliceP(agentHTTPResolverFlagName, agentHTTPResolverFlagShorthand, []string{},
-		agentHTTPResolverFlagUsage)
+
+	// inbound external host flag
 	startCmd.Flags().StringSliceP(agentInboundHostExternalFlagName, agentInboundHostExternalFlagShorthand,
 		[]string{}, agentInboundHostExternalFlagUsage)
+
+	// db path flag
+	startCmd.Flags().StringP(agentDBPathFlagName, agentDBPathFlagShorthand, "", agentDBPathFlagUsage)
+
+	// webhook url flag
+	startCmd.Flags().StringSliceP(agentWebhookFlagName, agentWebhookFlagShorthand, []string{}, agentWebhookFlagUsage)
+
+	// http resolver url flag
+	startCmd.Flags().StringSliceP(agentHTTPResolverFlagName, agentHTTPResolverFlagShorthand, []string{},
+		agentHTTPResolverFlagUsage)
+
+	// agent default label flag
 	startCmd.Flags().StringP(agentDefaultLabelFlagName, agentDefaultLabelFlagShorthand, "",
 		agentDefaultLabelFlagUsage)
-	startCmd.Flags().StringSliceP(
-		agentOutboundTransportFlagName, agentOutboundTransportFlagShorthand, []string{},
+
+	// agent outbound transport flag
+	startCmd.Flags().StringSliceP(agentOutboundTransportFlagName, agentOutboundTransportFlagShorthand, []string{},
 		agentOutboundTransportFlagUsage)
-	startCmd.Flags().StringP(agentAutoAcceptFlagName, "", "",
-		agentAutoAcceptFlagUsage)
+
+	// auto accept flag
+	startCmd.Flags().StringP(agentAutoAcceptFlagName, "", "", agentAutoAcceptFlagUsage)
+
+	// transport return route option flag
+	startCmd.Flags().StringP(agentTransportReturnRouteFlagName, "", "", agentTransportReturnRouteFlagUsage)
 }
 
 func getUserSetVar(cmd *cobra.Command, hostFlagName, envKey string, isOptional bool) (string, error) {
@@ -349,7 +377,7 @@ func getOutboundTransportOpts(outboundTransports []string) ([]aries.Option, erro
 	return opts, nil
 }
 
-func getInboundTransportOpts(inboundHostInternals, inboundHostExternals []string) (aries.Option, error) {
+func getInboundTransportOpts(inboundHostInternals, inboundHostExternals []string) ([]aries.Option, error) {
 	internalHost, err := getInboundSchemeToURLMap(inboundHostInternals)
 	if err != nil {
 		return nil, fmt.Errorf("inbound internal host : %w", err)
@@ -360,14 +388,14 @@ func getInboundTransportOpts(inboundHostInternals, inboundHostExternals []string
 		return nil, fmt.Errorf("inbound external host : %w", err)
 	}
 
-	var opts aries.Option
+	var opts []aries.Option
 
 	for scheme, host := range internalHost {
 		switch scheme {
 		case httpProtocol:
-			opts = defaults.WithInboundHTTPAddr(host, externalHost[scheme])
+			opts = append(opts, defaults.WithInboundHTTPAddr(host, externalHost[scheme]))
 		case websocketProtocol:
-			opts = defaults.WithInboundWSAddr(host, externalHost[scheme])
+			opts = append(opts, defaults.WithInboundWSAddr(host, externalHost[scheme]))
 		default:
 			return nil, fmt.Errorf("inbound transport [%s] not supported", scheme)
 		}
@@ -396,10 +424,6 @@ func getInboundSchemeToURLMap(schemeHostStr []string) (map[string]string, error)
 func startAgent(parameters *agentParameters) error {
 	if parameters.host == "" {
 		return errMissingHost
-	}
-
-	if len(parameters.inboundHostInternals) == 0 {
-		return errMissingInboundHost
 	}
 
 	// set message handler
@@ -445,6 +469,10 @@ func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 		opts = append(opts, defaults.WithStorePath(parameters.dbPath))
 	}
 
+	if parameters.transportReturnRoute != "" {
+		opts = append(opts, aries.WithTransportReturnRoute(parameters.transportReturnRoute))
+	}
+
 	inboundTransportOpt, err := getInboundTransportOpts(parameters.inboundHostInternals,
 		parameters.inboundHostExternals)
 	if err != nil {
@@ -452,7 +480,7 @@ func createAriesAgent(parameters *agentParameters) (*context.Provider, error) {
 			parameters.host, err)
 	}
 
-	opts = append(opts, inboundTransportOpt)
+	opts = append(opts, inboundTransportOpt...)
 
 	resolverOpts, err := getResolverOpts(parameters.httpResolvers)
 	if err != nil {
