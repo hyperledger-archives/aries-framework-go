@@ -20,16 +20,26 @@ func Test_keyResolverAdapter_Resolve(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
 		kra := &keyResolverAdapter{pubKeyFetcher: SingleKey([]byte(pubKey))}
-		resolvedPubKey, err := kra.Resolve("any")
+		resolvedPubKey, err := kra.Resolve("did1#key1")
 		require.NoError(t, err)
 		require.Equal(t, []byte(pubKey), resolvedPubKey)
+	})
+
+	t.Run("error wrong key format", func(t *testing.T) {
+		kra := &keyResolverAdapter{pubKeyFetcher: func(issuerID, keyID string) (interface{}, error) {
+			return nil, nil
+		}}
+		resolvedPubKey, err := kra.Resolve("any")
+		require.Error(t, err)
+		require.EqualError(t, err, "wrong id [any] to resolve")
+		require.Nil(t, resolvedPubKey)
 	})
 
 	t.Run("error at public key resolving (e.g. not found)", func(t *testing.T) {
 		kra := &keyResolverAdapter{pubKeyFetcher: func(issuerID, keyID string) (interface{}, error) {
 			return nil, errors.New("no key found")
 		}}
-		resolvedPubKey, err := kra.Resolve("any")
+		resolvedPubKey, err := kra.Resolve("any#key1")
 		require.Error(t, err)
 		require.EqualError(t, err, "no key found")
 		require.Nil(t, resolvedPubKey)
@@ -39,7 +49,7 @@ func Test_keyResolverAdapter_Resolve(t *testing.T) {
 		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 		require.NoError(t, err)
 		kra := &keyResolverAdapter{pubKeyFetcher: SingleKey(privateKey.Public())}
-		resolvedPubKey, err := kra.Resolve("any")
+		resolvedPubKey, err := kra.Resolve("any#key1")
 		require.Error(t, err)
 		require.EqualError(t, err, "expecting []byte public key, got something else")
 		require.Nil(t, resolvedPubKey)
