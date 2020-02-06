@@ -6,9 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 
 const path = require('path');
 
+const srcDir = path.join(__dirname, "src/")
+const buildDir = path.join(__dirname, "dist/")
+const assetsDir = path.join(buildDir, "assets/")
+
 const PATHS = {
-    srcDir: path.join(__dirname, "src/"),
-    buildDir: path.join(__dirname, "dist/")
+    srcDir: srcDir,
+    buildDir: buildDir,
+    assetsDir: assetsDir
 }
 
 module.exports.PATHS = PATHS

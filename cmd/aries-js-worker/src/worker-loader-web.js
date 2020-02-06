@@ -5,11 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 import wasmJS from "./wasm_exec.js"
-import wasm from "./aries-js-worker.wasm"
+import wasm from "./aries-js-worker.wasm.gz"
 import workerJS from "./worker-impl-web"
 
 export function _getWorker(pending) {
-    const worker = new Worker(workerJS + "?wasmJS=" + wasmJS + "&wasm=" + wasm + ".gz")
+    const worker = new Worker(workerJS + "?wasmJS=" + wasmJS + "&wasm=" + wasm)
     worker.onmessage = e => {
         const result = e.data
         const cb = pending.get(result.id)

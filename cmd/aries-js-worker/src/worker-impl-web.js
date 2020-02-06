@@ -15,8 +15,8 @@ location.search.slice(1).split("&").forEach(param => {
 
 // Only relative paths work in the browser.
 // We expect the wasmJS and wasm files to be siblings of this script.
-const wasmJS = "." + args["wasmJS"].substr(args["wasmJS"].lastIndexOf("/"))
-const wasm = "." + args["wasm"].substr(args["wasm"].lastIndexOf("/"))
+const wasmJS = "../assets" + args["wasmJS"].substr(args["wasmJS"].lastIndexOf("/"))
+const wasm = "../assets" + args["wasm"].substr(args["wasm"].lastIndexOf("/"))
 
 self.importScripts(wasmJS)
 

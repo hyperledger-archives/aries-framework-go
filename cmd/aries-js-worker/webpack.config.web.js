@@ -8,7 +8,6 @@ const path = require("path")
 
 const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 const WebpackShellPlugin = require('webpack-shell-plugin')
-const CompressionPlugin = require("compression-webpack-plugin")
 
 const { PATHS } = require("./webpack.config.common.js")
 
@@ -31,10 +30,6 @@ module.exports = {
             onBuildStart: [
                 "mkdir -p " + OUTPUT
             ]
-        }),
-        new CompressionPlugin({
-            include: /\.wasm/,
-            deleteOriginalAssets: true
         })
     ],
     module: {
@@ -51,15 +46,19 @@ module.exports = {
                 test: /wasm_exec.js/,
                 loader: "file-loader",
                 options: {
-                    name: "[name].[ext]"
+                    name: "[name].[ext]",
+                    emitFile: false,
+                    publicPath: PATHS.assetsDir
                 }
             },
             {
                 type: "javascript/auto",
-                test: /aries-js-worker.wasm/,
+                test: /aries-js-worker.wasm.gz/,
                 loader: "file-loader",
                 options: {
-                    name: "[name].[ext]"
+                    name: "[name].[ext]",
+                    emitFile: false,
+                    publicPath: PATHS.assetsDir
                 }
             }
         ]
