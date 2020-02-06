@@ -10,28 +10,37 @@ Feature: DIDComm between Edge Agent(without Inbound) and Router/Mediator
 
   Scenario: Decentralized Identifier(DID) between Edge Agent and Router/Mediator using Transport Return Route option [SDK Binding]
     Given "Alice" agent is running on "localhost" port "random" with "websocket" as the transport provider
-    And   "Alice" creates did exchange client
+    Then   "Alice" creates did exchange client
     And   "Alice" registers to receive notification for post state event "completed"
+
     Given "Bob" edge agent is running with "websocket" as the outbound transport provider and "all" as the transport return route option
-    And   "Bob" creates did exchange client
+    Then  "Bob" creates did exchange client
     And   "Bob" registers to receive notification for post state event "completed"
-    And   "Alice" creates invitation
-    And   "Bob" receives invitation from "Alice"
-    And   "Bob" approves invitation request
-    And   "Alice" approves did exchange request
-    And   "Alice" waits for post state event "completed"
-    And   "Bob" waits for post state event "completed"
-    And   "Alice" retrieves connection record and validates that connection state is "completed"
-    And   "Bob" retrieves connection record and validates that connection state is "completed"
+
+    When   "Alice" creates invitation
+      And   "Bob" receives invitation from "Alice"
+
+    Then   "Bob" approves invitation request
+      And   "Alice" approves did exchange request
+
+    Then   "Alice" waits for post state event "completed"
+      And   "Bob" waits for post state event "completed"
+
+    Then   "Alice" retrieves connection record and validates that connection state is "completed"
+      And   "Bob" retrieves connection record and validates that connection state is "completed"
 
   Scenario: Decentralized Identifier(DID) between Edge Agent and Router/Mediator using Transport Return Route option [REST Binding]
     Given "Carl" agent is running with controller "http://localhost:10081" and webhook "http://localhost:10082" and "all" as the transport return route option
     And   "Carl-Router" agent is running on "http://localhost:10091,ws://localhost:10092" with controller "http://localhost:10093" and webhook "http://localhost:10094"
-    And   "Carl-Router" creates invitation through controller with label "carl-router-agent"
-    And   "Carl" receives invitation from "Carl-Router" through controller
-    And   "Carl" approves exchange invitation through controller
+
+    When   "Carl-Router" creates invitation through controller with label "carl-router-agent"
+      And   "Carl" receives invitation from "Carl-Router" through controller
+
+    Then   "Carl" approves exchange invitation through controller
     And   "Carl-Router" approves exchange request through controller
-    And   "Carl-Router" waits for post state event "completed" to webhook
+
+    Then   "Carl-Router" waits for post state event "completed" to webhook
     And   "Carl" waits for post state event "completed" to webhook
-    And   "Carl-Router" retrieves connection record through controller and validates that connection state is "completed"
+
+    Then   "Carl-Router" retrieves connection record through controller and validates that connection state is "completed"
     And   "Carl" retrieves connection record through controller and validates that connection state is "completed"

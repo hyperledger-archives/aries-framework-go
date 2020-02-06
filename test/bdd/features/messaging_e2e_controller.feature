@@ -17,7 +17,7 @@ Feature: Messaging between the agents using REST/controller binding
     And   "Baha" has established connection with "Tal" through did exchange using controller
 
     When  "Tal" sends meeting invite message "Hey, meet me today at 4PM" through controller with type "https://didcomm.org/generic/1.0/message" and purpose "meeting" to "Baha"
-    And   "Baha" message service receives meeting invite message to webhook "Hey, meet me today at 4PM" with type "https://didcomm.org/generic/1.0/message" from "Tal"
+    Then   "Baha" message service receives meeting invite message to webhook "Hey, meet me today at 4PM" with type "https://didcomm.org/generic/1.0/message" from "Tal"
 
   @basic_message_e2e_controller
     # Reference : https://github.com/hyperledger/aries-rfcs/tree/master/features/0095-basic-message
@@ -29,4 +29,4 @@ Feature: Messaging between the agents using REST/controller binding
     And   "Baha" has established connection with "Tal" through did exchange using controller
 
     When  "Tal" sends basic message "Your hovercraft is full of eels." through controller to "Baha"
-    And   "Baha" receives basic message to webhook "Your hovercraft is full of eels." from "Tal"
+    Then   "Baha" receives basic message to webhook "Your hovercraft is full of eels." from "Tal"
