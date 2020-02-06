@@ -1,11 +1,8 @@
 /*
- *
- * Copyright SecureKey Technologies Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- * /
- *
- */
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 package vdri
 
@@ -17,9 +14,10 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	resterrors "github.com/hyperledger/aries-framework-go/pkg/controller/restapi/errors"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/internal/exec"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 )
 
 const (
@@ -74,10 +72,7 @@ func (o *Operation) CreatePublicDID(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	commandErr := o.command.CreatePublicDID(rw, bytes.NewReader(reqBytes))
-	if commandErr != nil {
-		resterrors.SendError(rw, commandErr)
-	}
+	exec.Command(o.command.CreatePublicDID, rw, bytes.NewReader(reqBytes))
 }
 
 // queryValuesAsJSON converts query strings to `map[string]string`

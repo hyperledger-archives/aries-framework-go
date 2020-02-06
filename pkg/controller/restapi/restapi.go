@@ -7,19 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package restapi
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
 )
 
 type allOpts struct {
 	webhookURLs  []string
 	defaultLabel string
 	autoAccept   bool
-	msgHandler   operation.MessageHandler
+	msgHandler   command.MessageHandler
 }
 
 // Opt represents a REST Api option.
@@ -47,7 +48,7 @@ func WithAutoAccept(autoAccept bool) Opt {
 }
 
 // WithMessageHandler is an option allowing for the message handler to be set.
-func WithMessageHandler(handler operation.MessageHandler) Opt {
+func WithMessageHandler(handler command.MessageHandler) Opt {
 	return func(opts *allOpts) {
 		opts.msgHandler = handler
 	}
@@ -62,7 +63,6 @@ func New(ctx *context.Provider, opts ...Opt) (*Controller, error) {
 	}
 
 	// DID Exchange REST operation
-	// TODO : to be moved to controller command API [Issue #1176]
 	exchangeOp, err := didexchange.New(ctx, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs), restAPIOpts.defaultLabel,
 		restAPIOpts.autoAccept)
 	if err != nil {
@@ -91,7 +91,6 @@ func New(ctx *context.Provider, opts ...Opt) (*Controller, error) {
 }
 
 // Controller contains handlers for controller REST API
-// TODO : to be moved to controller [Issue #1176]
 type Controller struct {
 	handlers []operation.Handler
 }

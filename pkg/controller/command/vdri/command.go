@@ -1,11 +1,8 @@
 /*
- *
- * Copyright SecureKey Technologies Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- * /
- *
- */
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 package vdri
 
@@ -76,13 +73,13 @@ func (o *Command) CreatePublicDID(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(CreatePublicDIDError, err)
 	}
 
-	o.writeResponse(rw, CreatePublicDIDResponse{DID: doc})
+	writeResponse(rw, CreatePublicDIDResponse{DID: doc})
 
 	return nil
 }
 
 // writeResponse writes interface value to response
-func (o *Command) writeResponse(rw io.Writer, v interface{}) {
+func writeResponse(rw io.Writer, v interface{}) {
 	err := json.NewEncoder(rw).Encode(v)
 	// as of now, just log errors for writing response
 	if err != nil {

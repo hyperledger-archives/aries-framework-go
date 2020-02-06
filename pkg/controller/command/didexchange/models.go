@@ -1,11 +1,8 @@
 /*
- *
- * Copyright SecureKey Technologies Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- * /
- *
- */
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 package didexchange
 
@@ -293,11 +290,11 @@ type RemoveConnectionRequest struct {
 	ID string `json:"id"`
 }
 
-// QueryConnectionByIDArgs model
+// ConnectionIDArg model
 //
-// This is used for querying connection by ID
+// This is used for querying/removing connection by ID
 //
-type QueryConnectionByIDArgs struct {
+type ConnectionIDArg struct {
 	// Connection ID
 	ID string `json:"id"`
 }

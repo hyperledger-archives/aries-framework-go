@@ -1,11 +1,8 @@
 /*
- *
- * Copyright SecureKey Technologies Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- * /
- *
- */
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 package messaging
 
@@ -24,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/mocks/webhook"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	svchttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/http"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
@@ -32,7 +30,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/generic"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
