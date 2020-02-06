@@ -166,7 +166,9 @@ func (w *BaseKMS) SignMessage(message []byte, fromVerKey string) ([]byte, error)
 		return nil, fmt.Errorf("failed to get key: %w", err)
 	}
 
-	return ed25519signature2018.New().Sign(kpc.SigKeyPair.Priv, message)
+	signer := &ed25519Signer{kpc: kpc}
+
+	return ed25519signature2018.New(ed25519signature2018.WithSigner(signer)).Sign(message)
 }
 
 // Close the LegacyKMS
@@ -264,4 +266,12 @@ func (w *BaseKMS) GetEncryptionKey(verKey []byte) ([]byte, error) {
 	}
 
 	return kpCombo.EncKeyPair.Pub, nil
+}
+
+type ed25519Signer struct {
+	kpc *cryptoutil.MessagingKeys
+}
+
+func (s *ed25519Signer) Sign(data []byte) ([]byte, error) {
+	return ed25519.Sign(s.kpc.SigKeyPair.Priv, data), nil
 }

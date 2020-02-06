@@ -14,14 +14,28 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 )
 
+func TestNew(t *testing.T) {
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	// default ed25519signature2018 signature suite is created
+	_, testKeyResolver := getDefaultSignedDoc(privKey, pubKey)
+	verifier := New(testKeyResolver)
+	require.Len(t, verifier.signatureSuites, 1)
+}
+
 func TestVerify(t *testing.T) {
-	signedDocBytes, testKeyResolver := getDefaultSignedDoc()
-	v := New(testKeyResolver)
-	err := v.Verify(signedDocBytes)
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	signedDocBytes, testKeyResolver := getDefaultSignedDoc(privKey, pubKey)
+	v := New(testKeyResolver, ed25519signature2018.New())
+	err = v.Verify(signedDocBytes)
 	require.Nil(t, err)
 
 	// test invalid json
@@ -36,11 +50,16 @@ func TestVerify(t *testing.T) {
 }
 
 func TestVerifyObject(t *testing.T) {
-	jsonLdObject, tkr := getDefaultSignedDocObject()
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	jsonLdObject, tkr := getDefaultSignedDocObject(privKey, pubKey)
+
+	suite := ed25519signature2018.New()
 
 	// happy path
-	v := New(tkr)
-	err := v.verifyObject(jsonLdObject)
+	v := New(tkr, suite)
+	err = v.verifyObject(jsonLdObject)
 	require.Nil(t, err)
 
 	// test invalid signature suite
@@ -56,13 +75,13 @@ func TestVerifyObject(t *testing.T) {
 	require.Contains(t, err.Error(), "signature type non-existent not supported")
 
 	// test key resolver error - key not found
-	v = New(&testKeyResolver{})
+	v = New(&testKeyResolver{}, suite)
 	err = v.verifyObject(jsonLdObject)
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "key not found")
 
 	// test signature error - pass in invalid proof value
-	jsonLdObject, tkr = getDefaultSignedDocObject()
+	jsonLdObject, tkr = getDefaultSignedDocObject(privKey, pubKey)
 	proofs, err = proof.GetProofs(jsonLdObject)
 	require.NoError(t, err)
 
@@ -70,26 +89,20 @@ func TestVerifyObject(t *testing.T) {
 	err = proof.AddProof(jsonLdObject, proofs[0])
 	require.NoError(t, err)
 
-	v = New(tkr)
+	v = New(tkr, suite)
 	err = v.verifyObject(jsonLdObject)
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "signature doesn't match")
 }
 
-func getDefaultSignedDoc() ([]byte, keyResolver) {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		panic(err)
-	}
-
+func getDefaultSignedDoc(privKey, pubKey []byte) ([]byte, keyResolver) {
 	const creator = "key-1"
 
 	keys := make(map[string][]byte)
 	keys[creator] = pubKey
 
 	context := signer.Context{Creator: creator,
-		SignatureType: "Ed25519Signature2018",
-		Signer:        getSigner(privKey)}
+		SignatureType: "Ed25519Signature2018"}
 
 	doc := getDefaultDoc()
 
@@ -98,7 +111,9 @@ func getDefaultSignedDoc() ([]byte, keyResolver) {
 		panic(err)
 	}
 
-	s := signer.New()
+	s := signer.New(ed25519signature2018.New(
+		ed25519signature2018.WithSigner(
+			getSigner(privKey))))
 
 	signedDocBytes, err := s.Sign(&context, docBytes)
 	if err != nil {
@@ -108,8 +123,8 @@ func getDefaultSignedDoc() ([]byte, keyResolver) {
 	return signedDocBytes, &testKeyResolver{Keys: keys}
 }
 
-func getDefaultSignedDocObject() (map[string]interface{}, keyResolver) {
-	signedDocBytes, testKeyResolver := getDefaultSignedDoc()
+func getDefaultSignedDocObject(privKey, pubKey []byte) (map[string]interface{}, keyResolver) {
+	signedDocBytes, testKeyResolver := getDefaultSignedDoc(privKey, pubKey)
 
 	var jsonLdObject map[string]interface{}
 

@@ -66,7 +66,7 @@ func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error)
 
 	switch proofType {
 	case linkedDataProof:
-		err = checkLinkedDataProof(docBytes, vcOpts.ldpSuites, vcOpts.publicKeyFetcher)
+		err = checkLinkedDataProof(docBytes, vcOpts.ldpSuite, vcOpts.publicKeyFetcher)
 	default:
 		err = fmt.Errorf("unsupported proof type: %v", proofType)
 	}

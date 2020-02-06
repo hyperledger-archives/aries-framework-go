@@ -9,6 +9,7 @@ package verifiable_test
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -345,8 +346,7 @@ func ExampleCredential_AddLinkedDataProof() {
 		Created:       &issued,
 		Creator:       "Example University",
 		SignatureType: "Ed25519Signature2018",
-		Suite:         ed25519signature2018.New(),
-		PrivateKey:    privIssuerKey,
+		Suite:         ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privIssuerKey))),
 	})
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to add linked data proof: %w", err))
@@ -395,4 +395,20 @@ func ExampleCredential_AddLinkedDataProof() {
 	//		"UniversityDegreeCredential"
 	//	]
 	//}
+}
+
+func getSigner(privKey []byte) *testSigner {
+	return &testSigner{privateKey: privKey}
+}
+
+type testSigner struct {
+	privateKey []byte
+}
+
+func (s *testSigner) Sign(doc []byte) ([]byte, error) {
+	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
+		return nil, errors.New("ed25519: bad private key length")
+	}
+
+	return ed25519.Sign(s.privateKey, doc), nil
 }

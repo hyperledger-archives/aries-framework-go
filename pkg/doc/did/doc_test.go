@@ -20,6 +20,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 )
 
@@ -614,18 +615,25 @@ func TestJSONConversion(t *testing.T) {
 }
 
 func TestVerifyProof(t *testing.T) {
-	signedDoc := createSignedDidDocument()
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	signedDoc := createSignedDidDocument(privKey, pubKey)
+
+	suite := ed25519signature2018.New()
 
 	// happy path - valid signed document
 	doc, err := ParseDocument(signedDoc)
 	require.Nil(t, err)
 	require.NotNil(t, doc)
-	err = doc.VerifyProof()
+	err = doc.VerifyProof(suite)
 	require.NoError(t, err)
 
 	// error - doc with invalid proof value
 	doc.Proof[0].ProofValue = []byte("invalid")
-	err = doc.VerifyProof()
+	err = doc.VerifyProof(suite)
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "signature doesn't match")
 
@@ -633,7 +641,7 @@ func TestVerifyProof(t *testing.T) {
 	doc, err = ParseDocument([]byte(validDoc))
 	require.NoError(t, err)
 	require.NotNil(t, doc)
-	err = doc.VerifyProof()
+	err = doc.VerifyProof(suite)
 	require.Equal(t, ErrProofNotFound, err)
 	require.Contains(t, err.Error(), "proof not found")
 }
@@ -693,12 +701,7 @@ func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
 	return didDoc
 }
 
-func createSignedDidDocument() []byte {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		panic(err)
-	}
-
+func createSignedDidDocument(privKey, pubKey []byte) []byte {
 	didDoc := createDidDocumentWithSigningKey(pubKey)
 
 	jsonDoc, err := didDoc.JSONBytes()
@@ -707,10 +710,10 @@ func createSignedDidDocument() []byte {
 	}
 
 	context := &signer.Context{Creator: creator,
-		SignatureType: signatureType,
-		Signer:        getSigner(privKey)}
+		SignatureType: signatureType}
 
-	s := signer.New()
+	s := signer.New(ed25519signature2018.New(
+		ed25519signature2018.WithSigner(getSigner(privKey))))
 
 	signedDoc, err := s.Sign(context, jsonDoc)
 	if err != nil {

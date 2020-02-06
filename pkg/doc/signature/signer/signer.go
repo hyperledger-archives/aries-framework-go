@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 )
 
@@ -26,9 +25,7 @@ type signatureSuite interface {
 
 	// Accept registers this signature suite with the given signature type
 	Accept(signatureType string) bool
-}
 
-type signer interface {
 	// Sign will sign document and return signature
 	Sign(doc []byte) ([]byte, error)
 }
@@ -42,17 +39,13 @@ type DocumentSigner struct {
 type Context struct {
 	SignatureType string     // required
 	Creator       string     // required
-	Signer        signer     // required
 	Created       *time.Time // optional
 	Domain        string     // optional
 	Nonce         []byte     // optional
 }
 
 // New returns new instance of document verifier
-func New() *DocumentSigner {
-	var signatureSuites []signatureSuite
-	signatureSuites = append(signatureSuites, &ed25519signature2018.SignatureSuite{})
-
+func New(signatureSuites ...signatureSuite) *DocumentSigner {
 	return &DocumentSigner{signatureSuites: signatureSuites}
 }
 
@@ -108,7 +101,7 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		return err
 	}
 
-	s, err := context.Signer.Sign(message)
+	s, err := suite.Sign(message)
 	if err != nil {
 		return err
 	}
@@ -138,10 +131,6 @@ func isValidContext(context *Context) error {
 
 	if context.SignatureType == "" {
 		return errors.New("signature type is missing")
-	}
-
-	if context.Signer == nil {
-		return errors.New("signer is missing")
 	}
 
 	return nil

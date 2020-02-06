@@ -263,7 +263,7 @@ type rawPresentation struct {
 type presentationOpts struct {
 	publicKeyFetcher   PublicKeyFetcher
 	disabledProofCheck bool
-	ldpSuites          []verifierSignatureSuite
+	ldpSuite           verifierSignatureSuite
 }
 
 // PresentationOpt is the Verifiable Presentation decoding option
@@ -277,10 +277,10 @@ func WithPresPublicKeyFetcher(fetcher PublicKeyFetcher) PresentationOpt {
 	}
 }
 
-// WithPresEmbeddedSignatureSuites defines the suites which are used to check embedded linked data proof of VP.
-func WithPresEmbeddedSignatureSuites(suites ...verifierSignatureSuite) PresentationOpt {
+// WithPresEmbeddedSignatureSuites defines the suite which is used to check embedded linked data proof of VP.
+func WithPresEmbeddedSignatureSuites(suite verifierSignatureSuite) PresentationOpt {
 	return func(opts *presentationOpts) {
-		opts.ldpSuites = suites
+		opts.ldpSuite = suite
 	}
 }
 
@@ -390,11 +390,10 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface
 }
 
 func mapOpts(vpOpts *presentationOpts) *credentialOpts {
-	// !opts.disabledProofCheck, opts.publicKeyFetcher, opts.suite
 	return &credentialOpts{
 		publicKeyFetcher:   vpOpts.publicKeyFetcher,
 		disabledProofCheck: vpOpts.disabledProofCheck,
-		ldpSuites:          vpOpts.ldpSuites,
+		ldpSuite:           vpOpts.ldpSuite,
 	}
 }
 

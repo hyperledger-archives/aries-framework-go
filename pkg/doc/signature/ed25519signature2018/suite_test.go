@@ -6,29 +6,37 @@ SPDX-License-Identifier: Apache-2.0
 package ed25519signature2018
 
 import (
+	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"crypto/ed25519"
 )
 
 func TestSignatureSuite_Sign(t *testing.T) {
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-	require.NotEmpty(t, privKey)
+	doc := []byte("test doc")
 
-	ss := New()
-	signature, err := ss.Sign(privKey, []byte("test doc"))
+	ss := New(WithSigner(&mockSigner{
+		signature: []byte("test signature"),
+	}))
+	bytes, err := ss.Sign(doc)
 	require.NoError(t, err)
-	require.NotEmpty(t, signature)
+	require.NotEmpty(t, bytes)
 
-	// test wrong private key size
-	signature, err = ss.Sign([]byte("private"), []byte("test doc"))
-	require.NotNil(t, err)
-	require.Nil(t, signature)
-	require.Contains(t, err.Error(), "ed25519: bad private key length")
+	ss = New(WithSigner(&mockSigner{
+		err: errors.New("signature error"),
+	}))
+	bytes, err = ss.Sign(doc)
+	require.Error(t, err)
+	require.EqualError(t, err, "signature error")
+	require.Empty(t, bytes)
+
+	ss = New()
+	bytes, err = ss.Sign(doc)
+	require.Error(t, err)
+	require.Equal(t, ErrSignerNotDefined, err)
+	require.Empty(t, bytes)
 }
 
 func TestSignatureSuite_Verify(t *testing.T) {
@@ -39,10 +47,10 @@ func TestSignatureSuite_Verify(t *testing.T) {
 
 	doc := []byte("hello world")
 
-	ss := New()
-	signature, err := ss.Sign(privKey, doc)
-	require.NoError(t, err)
+	signature := ed25519.Sign(privKey, doc)
 	require.NotEmpty(t, signature)
+
+	ss := New()
 
 	err = ss.Verify(pubKey, doc, signature)
 	require.Nil(t, err)
@@ -84,6 +92,44 @@ func TestSignatureSuite_Accept(t *testing.T) {
 	require.False(t, accepted)
 }
 
+func TestWithSigner(t *testing.T) {
+	suiteOpt := WithSigner(&mockSigner{})
+	require.NotNil(t, suiteOpt)
+
+	opts := &SignatureSuite{}
+	suiteOpt(opts)
+	require.NotNil(t, opts.signer)
+}
+
+/*func TestEd25519Verifier(t *testing.T) {
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	require.NotEmpty(t, privKey)
+
+	doc := []byte("test doc")
+
+	signature := ed25519.Sign(privKey, doc)
+	require.NotEmpty(t, signature)
+
+	err = Ed25519Verifier()(pubKey, doc, signature)
+	require.Nil(t, err)
+
+	// test different message
+	err = Ed25519Verifier()(pubKey, []byte("different doc"), signature)
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "signature doesn't match")
+
+	// test different signature
+	err = Ed25519Verifier()(pubKey, doc, []byte("signature"))
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "signature doesn't match")
+
+	// test wrong public key size
+	err = Ed25519Verifier()([]byte("key"), doc, signature)
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "ed25519: bad public key length")
+}
+*/
 func getDefaultDoc() map[string]interface{} {
 	// this JSON-LD document was taken from http://json-ld.org/test-suite/tests/toRdf-0028-in.jsonld
 	doc := map[string]interface{}{
@@ -107,6 +153,19 @@ func getDefaultDoc() map[string]interface{} {
 	}
 
 	return doc
+}
+
+type mockSigner struct {
+	signature []byte
+	err       error
+}
+
+func (s *mockSigner) Sign(_ []byte) ([]byte, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+
+	return s.signature, nil
 }
 
 // taken from test 28 report https://json-ld.org/test-suite/reports/#test_30bc80ba056257df8a196e8f65c097fc

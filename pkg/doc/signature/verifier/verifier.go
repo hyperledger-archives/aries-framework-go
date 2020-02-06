@@ -43,9 +43,10 @@ type DocumentVerifier struct {
 }
 
 // New returns new instance of document verifier
-func New(resolver keyResolver) *DocumentVerifier {
-	var signatureSuites []signatureSuite
-	signatureSuites = append(signatureSuites, &ed25519signature2018.SignatureSuite{})
+func New(resolver keyResolver, signatureSuites ...signatureSuite) *DocumentVerifier {
+	if len(signatureSuites) == 0 {
+		signatureSuites = []signatureSuite{ed25519signature2018.New()}
+	}
 
 	return &DocumentVerifier{signatureSuites: signatureSuites, pkResolver: resolver}
 }
