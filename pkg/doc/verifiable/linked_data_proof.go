@@ -59,7 +59,7 @@ func (k *keyResolverAdapter) Resolve(id string) ([]byte, error) {
 	}
 	// idSplit[0] is didID
 	// idSplit[1] is keyID
-	fetcher, err := k.pubKeyFetcher(idSplit[0], idSplit[1])
+	fetcher, err := k.pubKeyFetcher(idSplit[0], fmt.Sprintf("#%s", idSplit[1]))
 	if err != nil {
 		return nil, err
 	}
