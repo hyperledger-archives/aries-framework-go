@@ -1,11 +1,8 @@
 /*
- *
- * Copyright SecureKey Technologies Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- * /
- *
- */
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 package didexchange
 
@@ -137,7 +134,7 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(CreateInvitationErrorCode, err)
 	}
 
-	c.writeResponse(rw, &CreateInvitationResponse{
+	writeResponse(rw, &CreateInvitationResponse{
 		Invitation: invitation,
 		Alias:      request.Alias})
 
@@ -160,7 +157,7 @@ func (c *Command) ReceiveInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(ReceiveInvitationErrorCode, err)
 	}
 
-	c.writeResponse(rw, ReceiveInvitationResponse{
+	writeResponse(rw, ReceiveInvitationResponse{
 		ConnectionID: connectionID,
 	})
 
@@ -190,7 +187,7 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(AcceptInvitationErrorCode, err)
 	}
 
-	c.writeResponse(rw, &AcceptInvitationResponse{
+	writeResponse(rw, &AcceptInvitationResponse{
 		ConnectionID: request.ID,
 	})
 
@@ -229,7 +226,7 @@ func (c *Command) CreateImplicitInvitation(rw io.Writer, req io.Reader) command.
 		return command.NewExecuteError(CreateImplicitInvitationErrorCode, err)
 	}
 
-	c.writeResponse(rw, &ImplicitInvitationResponse{
+	writeResponse(rw, &ImplicitInvitationResponse{
 		ConnectionID: id,
 	})
 
@@ -257,7 +254,7 @@ func (c *Command) AcceptExchangeRequest(rw io.Writer, req io.Reader) command.Err
 		return command.NewExecuteError(AcceptExchangeRequestErrorCode, err)
 	}
 
-	c.writeResponse(rw, &ExchangeResponse{
+	writeResponse(rw, &ExchangeResponse{
 		ConnectionID: request.ID,
 	})
 
@@ -280,7 +277,7 @@ func (c *Command) QueryConnections(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(QueryConnectionsErrorCode, err)
 	}
 
-	c.writeResponse(rw, &QueryConnectionsResponse{
+	writeResponse(rw, &QueryConnectionsResponse{
 		Results: results,
 	})
 
@@ -289,7 +286,7 @@ func (c *Command) QueryConnections(rw io.Writer, req io.Reader) command.Error {
 
 // QueryConnectionByID fetches a single connection record by connection ID.
 func (c *Command) QueryConnectionByID(rw io.Writer, req io.Reader) command.Error {
-	var request QueryConnectionByIDArgs
+	var request ConnectionIDArg
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
@@ -307,7 +304,7 @@ func (c *Command) QueryConnectionByID(rw io.Writer, req io.Reader) command.Error
 		return command.NewExecuteError(QueryConnectionsErrorCode, err)
 	}
 
-	c.writeResponse(rw, &QueryConnectionResponse{
+	writeResponse(rw, &QueryConnectionResponse{
 		Result: result,
 	})
 
@@ -316,7 +313,7 @@ func (c *Command) QueryConnectionByID(rw io.Writer, req io.Reader) command.Error
 
 // RemoveConnection removes given connection record.
 func (c *Command) RemoveConnection(rw io.Writer, req io.Reader) command.Error {
-	var request QueryConnectionByIDArgs
+	var request ConnectionIDArg
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
@@ -338,7 +335,7 @@ func (c *Command) RemoveConnection(rw io.Writer, req io.Reader) command.Error {
 }
 
 // writeResponse writes interface value to response
-func (c *Command) writeResponse(rw io.Writer, v interface{}) {
+func writeResponse(rw io.Writer, v interface{}) {
 	err := json.NewEncoder(rw).Encode(v)
 	// as of now, just log errors for writing response
 	if err != nil {

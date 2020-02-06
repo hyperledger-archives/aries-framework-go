@@ -23,7 +23,7 @@ import (
 func TestNew_Failure(t *testing.T) {
 	controller, err := New(&context.Provider{})
 	require.Error(t, err)
-	require.Equal(t, err, api.ErrSvcNotFound)
+	require.Contains(t, err.Error(), api.ErrSvcNotFound.Error())
 	require.Nil(t, controller)
 }
 

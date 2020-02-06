@@ -18,6 +18,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
@@ -25,8 +27,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 )
 
@@ -124,7 +124,7 @@ type agentParameters struct {
 	webhookURLs, httpResolvers, outboundTransports   []string
 	inboundHostInternals, inboundHostExternals       []string
 	autoAccept                                       bool
-	msgHandler                                       operation.MessageHandler
+	msgHandler                                       command.MessageHandler
 }
 
 type server interface {

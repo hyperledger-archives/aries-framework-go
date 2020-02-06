@@ -1,11 +1,8 @@
 /*
- *
- * Copyright SecureKey Technologies Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- * /
- *
- */
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 package vdri
 
@@ -23,9 +20,9 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {

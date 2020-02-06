@@ -1,11 +1,8 @@
 /*
- *
- * Copyright SecureKey Technologies Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- * /
- *
- */
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 package messaging
 
@@ -624,10 +621,7 @@ func TestOperation_SendReplyMessage(t *testing.T) {
 }
 
 func TestOperation_WriteResponse(t *testing.T) {
-	cmd, err := New(&protocol.MockProvider{}, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
-	require.NotNil(t, cmd)
-	require.NoError(t, err)
-	cmd.writeResponse(&mockWriter{}, struct{}{})
+	writeResponse(&mockWriter{}, struct{}{})
 }
 
 type mockWriter struct {

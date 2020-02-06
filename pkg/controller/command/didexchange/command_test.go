@@ -1,11 +1,8 @@
 /*
- *
- * Copyright SecureKey Technologies Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- * /
- *
- */
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 package didexchange
 
@@ -38,7 +35,6 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
@@ -184,7 +180,7 @@ func TestCommand_ReceiveInvitation(t *testing.T) {
 		cmdErr := cmd.ReceiveInvitation(&b, bytes.NewBufferString(jsonStr))
 		require.NoError(t, cmdErr)
 
-		response := models.ReceiveInvitationResponse{}
+		response := ReceiveInvitationResponse{}
 		err = json.NewDecoder(&b).Decode(&response)
 		require.NoError(t, err)
 
@@ -262,7 +258,7 @@ func TestCommand_QueryConnectionByID(t *testing.T) {
 		cmdErr := cmd.QueryConnectionByID(&b, bytes.NewBufferString(jsoStr))
 		require.NoError(t, cmdErr)
 
-		response := models.QueryConnectionResponse{}
+		response := QueryConnectionResponse{}
 		err = json.NewDecoder(&b).Decode(&response)
 		require.NoError(t, err)
 
@@ -342,7 +338,7 @@ func TestCommand_QueryConnections(t *testing.T) {
 		cmdErr := cmd.QueryConnections(&b, bytes.NewBufferString(jsoStr))
 		require.NoError(t, cmdErr)
 
-		response := models.QueryConnectionsResponse{}
+		response := QueryConnectionsResponse{}
 		err = json.NewDecoder(&b).Decode(&response)
 		require.NoError(t, err)
 
@@ -358,7 +354,7 @@ func TestCommand_QueryConnections(t *testing.T) {
 		cmdErr = cmd.QueryConnections(&b, bytes.NewBufferString(`{"state":"completed"}`))
 		require.NoError(t, cmdErr)
 
-		response = models.QueryConnectionsResponse{}
+		response = QueryConnectionsResponse{}
 		err = json.NewDecoder(&b).Decode(&response)
 		require.NoError(t, err)
 
@@ -773,7 +769,7 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 		cmdErr := cmd.AcceptExchangeRequest(&b, bytes.NewBufferString(jsonStr))
 		require.NoError(t, cmdErr)
 
-		response := models.AcceptExchangeResult{}
+		response := ExchangeResponse{}
 		err = json.NewDecoder(&b).Decode(&response)
 		require.NoError(t, err)
 
@@ -818,10 +814,7 @@ func TestCommand_RemoveConnection(t *testing.T) {
 }
 
 func TestCommand_WriteResponse(t *testing.T) {
-	cmd, err := New(mockProvider(), nil, "", false)
-	require.NoError(t, err)
-	require.NotNil(t, cmd)
-	cmd.writeResponse(&mockWriter{}, CreateInvitationResponse{})
+	writeResponse(&mockWriter{}, CreateInvitationResponse{})
 }
 
 func TestOperationEventError(t *testing.T) {

@@ -1,11 +1,8 @@
 /*
- *
- * Copyright SecureKey Technologies Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- * /
- *
- */
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 package vdri
 
@@ -121,9 +118,7 @@ func TestBuildSideTreeRequest(t *testing.T) {
 }
 
 func TestOperation_WriteResponse(t *testing.T) {
-	cmd := New(&protocol.MockProvider{})
-	require.NotNil(t, cmd)
-	cmd.writeResponse(&mockWriter{}, CreatePublicDIDResponse{})
+	writeResponse(&mockWriter{}, CreatePublicDIDResponse{})
 }
 
 type mockWriter struct {

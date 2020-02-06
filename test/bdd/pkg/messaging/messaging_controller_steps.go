@@ -22,10 +22,10 @@ import (
 	"github.com/DATA-DOG/godog"
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/basic"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -187,7 +187,7 @@ func (d *ControllerSteps) findConnection(agentID string) (string, error) {
 	}
 
 	// call controller
-	var response models.QueryConnectionsResponse
+	var response didexchange.QueryConnectionsResponse
 
 	err := sendHTTP(http.MethodGet, destination+queryConnections+"?state=completed", nil, &response)
 	if err != nil {

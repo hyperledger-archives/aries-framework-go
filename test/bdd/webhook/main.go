@@ -17,7 +17,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 )
 
 var logger = log.New("aries-framework/webhook")

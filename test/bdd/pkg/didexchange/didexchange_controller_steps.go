@@ -18,12 +18,10 @@ import (
 
 	"github.com/DATA-DOG/godog"
 
-	vdricmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
-
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	didexchrsapi "github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange/models"
+	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
+	vdricmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -103,7 +101,7 @@ func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, erro
 
 	// try to pull recently pushed topics from webhook
 	for i := 0; i < pullTopicsAttemptsBeforeFail; i++ {
-		var connectionMsg didexchrsapi.ConnectionMsg
+		var connectionMsg didexcmd.ConnectionMsg
 
 		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &connectionMsg)
 		if err != nil {
@@ -159,7 +157,7 @@ func (a *ControllerSteps) performCreateInvitation(inviterAgentID, label string, 
 	// call controller
 	path := fmt.Sprintf("%s%s?alias=%s&public=%s", destination, createInvitationPath, label, publicDID)
 
-	var result models.CreateInvitationResponse
+	var result didexcmd.CreateInvitationResponse
 
 	err := sendHTTP(http.MethodPost, path, nil, &result)
 	if err != nil {
@@ -206,7 +204,7 @@ func (a *ControllerSteps) performCreateImplicitInvitation(inviteeAgentID, invite
 	path := fmt.Sprintf("%s%s?their_did=%s&their_label=%s&my_did=%s&my_label=%s",
 		destination, createImplicitInvitationPath, inviterDID, inviterAgentID, inviteeDID, inviteeAgentID)
 
-	var result models.ImplicitInvitationResponse
+	var result didexcmd.ImplicitInvitationResponse
 
 	err := sendHTTP(http.MethodPost, path, nil, &result)
 	if err != nil {
@@ -225,7 +223,7 @@ func (a *ControllerSteps) performCreateImplicitInvitation(inviteeAgentID, invite
 	return nil
 }
 
-func (a *ControllerSteps) verifyCreateInvitationResult(result *models.CreateInvitationResponse,
+func (a *ControllerSteps) verifyCreateInvitationResult(result *didexcmd.CreateInvitationResponse,
 	label string, useDID bool) error {
 	// validate payload
 	if result.Invitation == nil {
@@ -266,7 +264,7 @@ func (a *ControllerSteps) receiveInvitation(inviteeAgentID, inviterAgentID strin
 	}
 
 	// call controller
-	var result models.ReceiveInvitationResponse
+	var result didexcmd.ReceiveInvitationResponse
 
 	err = sendHTTP(http.MethodPost, destination+receiveInvtiationPath, message, &result)
 	if err != nil {
@@ -302,35 +300,16 @@ func (a *ControllerSteps) performApproveInvitation(agentID string, useDID bool) 
 	// invitee connectionID
 	a.connectionIDs[agentID] = connectionID
 
-	destination, ok := a.bddContext.GetControllerURL(agentID)
-	if !ok {
-		return fmt.Errorf("unable to find contoller URL for agent [%s]", destination)
-	}
+	var response didexcmd.AcceptInvitationResponse
 
-	var publicDID string
-	if useDID {
-		publicDID, ok = a.publicDIDs[agentID]
-		if !ok {
-			return fmt.Errorf("unable to find public DID for agent [%s]", agentID)
-		}
-	}
-
-	logger.Debugf("Accepting invitation from controller for agent[%s], did[%s]",
-		agentID, publicDID)
-
-	var response models.AcceptInvitationResponse
-
-	path := destination + fmt.Sprintf(acceptInvitationPath, connectionID, publicDID)
-
-	err = sendHTTP(http.MethodPost, path, nil, &response)
+	err = a.performApprove(agentID, useDID, connectionID, acceptInvitationPath, &response)
 	if err != nil {
-		logger.Errorf("Failed to perform accept invitation, cause : %s", err)
-		return fmt.Errorf("failed to perform accept inviation : %w", err)
+		return err
 	}
 
 	if response.ConnectionID == "" {
-		logger.Errorf("Failed to perform accept invitation, cause : %s", err)
-		return fmt.Errorf("failed to perform accept inviation, invalid response")
+		logger.Errorf("Failed to perform approve invitation, cause : %s", err)
+		return fmt.Errorf("failed to perform approve invitation, invalid response")
 	}
 
 	return nil
@@ -344,15 +323,8 @@ func (a *ControllerSteps) approveRequestWithPublicDID(agentID string) error {
 	return a.performApproveRequest(agentID, true)
 }
 
-func (a *ControllerSteps) performApproveRequest(agentID string, useDID bool) error {
-	connectionID, err := a.pullWebhookEvents(agentID, "requested")
-	if err != nil {
-		return fmt.Errorf("failed to get connection ID from webhook, %w", err)
-	}
-
-	// inviter connectionID
-	a.connectionIDs[agentID] = connectionID
-
+func (a *ControllerSteps) performApprove(agentID string, useDID bool, connectionID, operationPath string,
+	response interface{}) error {
 	controllerURL, ok := a.bddContext.GetControllerURL(agentID)
 	if !ok {
 		return fmt.Errorf("unable to find contoller URL for agent [%s]", controllerURL)
@@ -369,17 +341,34 @@ func (a *ControllerSteps) performApproveRequest(agentID string, useDID bool) err
 	logger.Debugf("Accepting invitation from controller for agent[%s], did[%s]",
 		agentID, publicDID)
 
-	var response models.AcceptExchangeResult
+	path := controllerURL + fmt.Sprintf(operationPath, connectionID, publicDID)
 
-	path := controllerURL + fmt.Sprintf(acceptRequestPath, connectionID, publicDID)
-
-	err = sendHTTP(http.MethodPost, path, nil, &response)
+	err := sendHTTP(http.MethodPost, path, nil, &response)
 	if err != nil {
 		logger.Errorf("Failed to perform approve request, cause : %s", err)
 		return fmt.Errorf("failed to perform approve request : %w", err)
 	}
 
-	if response.Result == nil || response.Result.ConnectionID == "" {
+	return nil
+}
+
+func (a *ControllerSteps) performApproveRequest(agentID string, useDID bool) error {
+	connectionID, err := a.pullWebhookEvents(agentID, "requested")
+	if err != nil {
+		return fmt.Errorf("failed to get connection ID from webhook, %w", err)
+	}
+
+	// inviter connectionID
+	a.connectionIDs[agentID] = connectionID
+
+	var response didexcmd.ExchangeResponse
+
+	err = a.performApprove(agentID, useDID, connectionID, acceptRequestPath, &response)
+	if err != nil {
+		return err
+	}
+
+	if response.ConnectionID == "" {
 		logger.Errorf("Failed to perform approve request, cause : %s", err)
 		return fmt.Errorf("failed to perform approve request, invalid response")
 	}
@@ -410,7 +399,7 @@ func (a *ControllerSteps) validateConnection(agentID, stateValue string) error {
 	logger.Debugf(" Getting connection by ID %s from %s", connectionID, destination)
 
 	// call controller
-	var response models.QueryConnectionResponse
+	var response didexcmd.QueryConnectionResponse
 
 	err := sendHTTP(http.MethodGet, destination+strings.Replace(connectionsByID, "{id}", connectionID, 1), nil, &response)
 	if err != nil {
@@ -438,7 +427,7 @@ func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID str
 	logger.Debugf("Getting connections by state %s from %s", queryState, destination)
 
 	// call controller
-	var response models.QueryConnectionsResponse
+	var response didexcmd.QueryConnectionsResponse
 
 	err := sendHTTP(http.MethodGet, destination+connOperationID+"?state="+queryState, nil, &response)
 	if err != nil {

@@ -1,11 +1,8 @@
 /*
- *
- * Copyright SecureKey Technologies Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- * /
- *
- */
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 package messaging
 
@@ -134,7 +131,7 @@ func (o *Command) RegisteredServices(rw io.Writer, req io.Reader) command.Error 
 		names = append(names, svc.Name())
 	}
 
-	o.writeResponse(rw, RegisteredServicesResponse{Names: names})
+	writeResponse(rw, RegisteredServicesResponse{Names: names})
 
 	return nil
 }
@@ -301,7 +298,7 @@ func (o *Command) sendMessageToDestination(msg json.RawMessage, dest *ServiceEnd
 }
 
 // writeResponse writes interface value to response
-func (o *Command) writeResponse(rw io.Writer, v interface{}) {
+func writeResponse(rw io.Writer, v interface{}) {
 	err := json.NewEncoder(rw).Encode(v)
 	// as of now, just log errors for writing response
 	if err != nil {

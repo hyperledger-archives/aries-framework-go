@@ -1,11 +1,8 @@
 /*
- *
- * Copyright SecureKey Technologies Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- * /
- *
- */
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 package messaging
 
@@ -15,12 +12,12 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
-	resterrors "github.com/hyperledger/aries-framework-go/pkg/controller/restapi/errors"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/internal/exec"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
-	"github.com/hyperledger/aries-framework-go/pkg/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -54,7 +51,7 @@ type Operation struct {
 }
 
 // New returns new common operations rest client instance
-func New(ctx provider, registrar operation.MessageHandler, notifier webhook.Notifier) (*Operation, error) {
+func New(ctx provider, registrar command.MessageHandler, notifier webhook.Notifier) (*Operation, error) {
 	msgcmd, err := messaging.New(ctx, registrar, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create messaging controller command: %w", err)
@@ -91,7 +88,7 @@ func (o *Operation) registerHandler() {
 // Responses:
 //    default: genericError
 func (o *Operation) RegisterMessageService(rw http.ResponseWriter, req *http.Request) {
-	executeCommand(o.command.RegisterMessageService, rw, req)
+	exec.Command(o.command.RegisterMessageService, rw, req.Body)
 }
 
 // UnregisterMessageService swagger:route POST /message/unregister-service message http-over-didcomm unregisterMsgSvc
@@ -101,7 +98,7 @@ func (o *Operation) RegisterMessageService(rw http.ResponseWriter, req *http.Req
 // Responses:
 //    default: genericError
 func (o *Operation) UnregisterMessageService(rw http.ResponseWriter, req *http.Request) {
-	executeCommand(o.command.UnregisterMessageService, rw, req)
+	exec.Command(o.command.UnregisterMessageService, rw, req.Body)
 }
 
 // RegisteredServices swagger:route GET /message/services message http-over-didcomm services
@@ -112,7 +109,7 @@ func (o *Operation) UnregisterMessageService(rw http.ResponseWriter, req *http.R
 //    default: genericError
 //    200: registeredServicesResponse
 func (o *Operation) RegisteredServices(rw http.ResponseWriter, req *http.Request) {
-	executeCommand(o.command.RegisteredServices, rw, req)
+	exec.Command(o.command.RegisteredServices, rw, req.Body)
 }
 
 // SendNewMessage swagger:route POST /message/send message sendNewMessage
@@ -122,7 +119,7 @@ func (o *Operation) RegisteredServices(rw http.ResponseWriter, req *http.Request
 // Responses:
 //    default: genericError
 func (o *Operation) SendNewMessage(rw http.ResponseWriter, req *http.Request) {
-	executeCommand(o.command.SendNewMessage, rw, req)
+	exec.Command(o.command.SendNewMessage, rw, req.Body)
 }
 
 // SendReplyMessage swagger:route POST /message/reply message sendReplyMessage
@@ -132,7 +129,7 @@ func (o *Operation) SendNewMessage(rw http.ResponseWriter, req *http.Request) {
 // Responses:
 //    default: genericError
 func (o *Operation) SendReplyMessage(rw http.ResponseWriter, req *http.Request) {
-	executeCommand(o.command.SendReplyMessage, rw, req)
+	exec.Command(o.command.SendReplyMessage, rw, req.Body)
 }
 
 // RegisterHTTPMessageService swagger:route POST /http-over-didcomm/register http-over-didcomm registerHttpMsgSvc
@@ -142,13 +139,5 @@ func (o *Operation) SendReplyMessage(rw http.ResponseWriter, req *http.Request) 
 // Responses:
 //    default: genericError
 func (o *Operation) RegisterHTTPMessageService(rw http.ResponseWriter, req *http.Request) {
-	executeCommand(o.command.RegisterHTTPMessageService, rw, req)
-}
-
-// executeCommand executes given command with args provided
-func executeCommand(exec command.Exec, rw http.ResponseWriter, req *http.Request) {
-	err := exec(rw, req.Body)
-	if err != nil {
-		resterrors.SendError(rw, err)
-	}
+	exec.Command(o.command.RegisterHTTPMessageService, rw, req.Body)
 }
