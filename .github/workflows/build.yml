@@ -89,7 +89,7 @@ jobs:
         run: make checks
 
   publish:
-    name: Publish images
+    name: Publish images and npm packages
     if: github.event_name == 'push'
     needs: [checks, unitTest, unitTestWasm, bddTest]
     runs-on: ubuntu-18.04
@@ -101,9 +101,15 @@ jobs:
           go-version: 1.13
         id: go
 
+      - name: Setup Node.js
+        uses: actions/setup-node@1.4.0
+        with:
+          node-version: 12.14.x
+          registry-url: "https://npm.pkg.github.com"
+
       - uses: actions/checkout@v1
 
-      - name: Run script
+      - name: Publish docker images
         run: |
               function logout {
                 docker logout docker.pkg.github.com
@@ -114,3 +120,13 @@ jobs:
               make agent-rest-docker
               docker tag aries-framework-go/agent-rest:latest  docker.pkg.github.com/hyperledger/aries-framework-go/agent-rest:$AGENT_IMAGE_TAG
               docker push docker.pkg.github.com/hyperledger/aries-framework-go/agent-rest:$AGENT_IMAGE_TAG
+
+      - name: Publish npm packages
+        working-directory: ./cmd/aries-js-worker
+        run: |
+          source ../../ci/version_var.sh
+          sed -i 's/"version": "0.0.1"/"version": "'$AGENT_IMAGE_TAG'"/g' package.json
+          npm install
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

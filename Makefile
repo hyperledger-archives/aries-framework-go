@@ -100,15 +100,6 @@ agent-wasm:
 	@cp ${ARIES_AGENT_WASM_PATH}/index.html  ./build/bin/wasm
 	@cd ${ARIES_AGENT_WASM_PATH} && GOOS=js GOARCH=wasm go build -o ../../build/bin/wasm/aries-agent.wasm main.go
 
-.PHONY: agent-js-worker-wasm
-agent-js-worker-wasm:
-	@echo "Building aries-js-worker.wasm"
-	@mkdir -p ./build/bin/aries_js_worker_wasm
-	@cp $(WASM_EXEC) ./build/bin/aries_js_worker_wasm
-	@cp ${ARIES_JS_WORKER_WASM_PATH}/aries.js ./build/bin/aries_js_worker_wasm
-	@cp ${ARIES_JS_WORKER_WASM_PATH}/aries-worker.js ./build/bin/aries_js_worker_wasm
-	@cd ${ARIES_JS_WORKER_WASM_PATH} && GOOS=js GOARCH=wasm go build -o ../../build/bin/aries_js_worker_wasm/aries-js-worker.wasm main.go
-
 .PHONY: agent-rest-docker
 agent-rest-docker:
 	@echo "Building aries agent rest docker image"

@@ -1,20 +1,20 @@
 {
   "name": "@hyperledger/aries-framework-go",
   "version": "0.0.1",
-  "main": "dist/aries.js",
-  "module": "src/aries.js",
+  "main": "dist/node/aries.js",
+  "browser": "dist/web/aries.js",
   "description": "APIs for building DIDComm and Hyperledger Aries applications.",
   "scripts": {
     "build:node": "webpack --config ./webpack.config.node.js --mode=production",
     "build:web": "webpack --config ./webpack.config.web.js --mode=production",
-    "build:wasm": "bash scripts/build_wasm.sh",
-    "build": "npm run build:wasm && npm run build:node && npm run build:web",
+    "build:assets": "bash scripts/build_assets.sh",
+    "build": "rm -rf dist/* && cp -p ../../LICENSE . && npm run build:assets && npm run build:node && npm run build:web",
     "prepare": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/hyperledger/aries-framework-go.git"
+    "url": "git://github.com/hyperledger/aries-framework-go.git"
   },
   "keywords": [
     "aries",
@@ -24,11 +24,7 @@
     "hyperledger"
   ],
   "files": [
-    "src/aries.js",
-    "src/aries-worker.js",
-    "src/aries-worker-node.js",
-    "src/wasm_exec.js",
-    "dist/web/aries-js-worker.wasm"
+    "dist"
   ],
   "author": "hyperledger/aries",
   "license": "Apache-2.0",
@@ -38,12 +34,15 @@
   "homepage": "https://github.com/hyperledger/aries-framework-go#readme",
   "devDependencies": {
     "clean-webpack-plugin": "3.0.0",
-    "compression-webpack-plugin": "3.1.0",
     "copy-webpack-plugin": "5.1.1",
     "file-loader": "5.0.2",
     "webpack": "4.41.5",
     "webpack-cli": "3.3.10",
     "webpack-merge": "4.2.2",
     "webpack-shell-plugin": "0.5.0"
+  },
+  "engines": {
+    "node": ">=12.14",
+    "npm": ">=6.13"
   }
 }
