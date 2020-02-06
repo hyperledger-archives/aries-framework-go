@@ -271,7 +271,7 @@ func TestRequestedState_Execute(t *testing.T) {
 		}
 	})
 	t.Run("handle inbound invitations", func(t *testing.T) {
-		ctx := getContext(t, prov)
+		ctx := getContext(t, &prov)
 		msg, err := service.ParseDIDCommMsgMap(invitationPayloadBytes)
 		require.NoError(t, err)
 		// nolint: govet
@@ -330,7 +330,7 @@ func TestRequestedState_Execute(t *testing.T) {
 }
 func TestRespondedState_Execute(t *testing.T) {
 	prov := getProvider()
-	ctx := getContext(t, prov)
+	ctx := getContext(t, &prov)
 	request, err := createRequest(ctx)
 	require.NoError(t, err)
 	requestPayloadBytes, err := json.Marshal(request)
@@ -644,7 +644,7 @@ func TestVerifySignature(t *testing.T) {
 
 func TestPrepareConnectionSignature(t *testing.T) {
 	prov := getProvider()
-	ctx := getContext(t, prov)
+	ctx := getContext(t, &prov)
 	pubKey, privKey := generateKeyPair()
 	invitation, err := createMockInvitation(pubKey, ctx)
 	require.NoError(t, err)
@@ -752,7 +752,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 
 	t.Run("successful new request from invitation", func(t *testing.T) {
 		prov := getProvider()
-		ctx := getContext(t, prov)
+		ctx := getContext(t, &prov)
 		invitationBytes, err := json.Marshal(invitation)
 		require.NoError(t, err)
 		thid, err := threadID(bytesToDIDCommMsg(t, invitationBytes))
@@ -798,7 +798,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 	prov := getProvider()
 
 	t.Run("successful new response from request", func(t *testing.T) {
-		ctx := getContext(t, prov)
+		ctx := getContext(t, &prov)
 		request, err := createRequest(ctx)
 		require.NoError(t, err)
 		_, connRec, err := ctx.handleInboundRequest(request, &options{}, &connection.Record{})
@@ -850,7 +850,7 @@ func TestNewResponseFromRequest(t *testing.T) {
 func TestHandleInboundResponse(t *testing.T) {
 	pubKey, _ := generateKeyPair()
 	prov := getProvider()
-	ctx := getContext(t, prov)
+	ctx := getContext(t, &prov)
 	_, err := createMockInvitation(pubKey, ctx)
 	require.NoError(t, err)
 	request, err := createRequest(ctx)
@@ -882,7 +882,7 @@ func TestHandleInboundResponse(t *testing.T) {
 }
 func TestGetInvitationRecipientKey(t *testing.T) {
 	prov := getProvider()
-	ctx := getContext(t, prov)
+	ctx := getContext(t, &prov)
 
 	t.Run("successfully getting invitation recipient key", func(t *testing.T) {
 		invitation := &Invitation{
@@ -923,7 +923,7 @@ func TestGetInvitationRecipientKey(t *testing.T) {
 func TestGetPublicKey(t *testing.T) {
 	t.Run("successfully getting public key by id", func(t *testing.T) {
 		prov := protocol.MockProvider{}
-		ctx := getContext(t, prov)
+		ctx := getContext(t, &prov)
 		newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 		require.NoError(t, err)
 		pubkey, ok := diddoc.LookupPublicKey(newDidDoc.PublicKey[0].ID, newDidDoc)
@@ -932,7 +932,7 @@ func TestGetPublicKey(t *testing.T) {
 	})
 	t.Run("failed to get public key", func(t *testing.T) {
 		prov := protocol.MockProvider{}
-		ctx := getContext(t, prov)
+		ctx := getContext(t, &prov)
 		newDidDoc, err := ctx.vdriRegistry.Create(testMethod)
 		require.NoError(t, err)
 		pubkey, ok := diddoc.LookupPublicKey("invalid-key", newDidDoc)
@@ -1131,9 +1131,9 @@ func getProvider() protocol.MockProvider {
 	}
 }
 
-func getContext(t *testing.T, prov protocol.MockProvider) *context {
+func getContext(t *testing.T, prov *protocol.MockProvider) *context {
 	pubKey, privKey := generateKeyPair()
-	connStore, err := newConnectionStore(&prov)
+	connStore, err := newConnectionStore(prov)
 	require.NoError(t, err)
 
 	return &context{outboundDispatcher: prov.OutboundDispatcher(),
