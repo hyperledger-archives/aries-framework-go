@@ -25,7 +25,7 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 	suite := ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey)))
 
 	ldpContext := &LinkedDataProofContext{
-		Creator:       "John",
+		Creator:       "didID#keyID",
 		SignatureType: "Ed25519Signature2018",
 		Suite:         suite,
 	}

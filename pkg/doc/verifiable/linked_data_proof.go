@@ -9,10 +9,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+)
+
+const (
+	resolveIDParts = 2
 )
 
 // signatureSuite encapsulates signature suite methods required for signing documents
@@ -47,7 +52,14 @@ type keyResolverAdapter struct {
 }
 
 func (k *keyResolverAdapter) Resolve(id string) ([]byte, error) {
-	fetcher, err := k.pubKeyFetcher("", id)
+	// id will contain didID#keyID
+	idSplit := strings.Split(id, "#")
+	if len(idSplit) != resolveIDParts {
+		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
+	}
+	// idSplit[0] is didID
+	// idSplit[1] is keyID
+	fetcher, err := k.pubKeyFetcher(idSplit[0], idSplit[1])
 	if err != nil {
 		return nil, err
 	}
