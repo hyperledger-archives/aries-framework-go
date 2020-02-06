@@ -46,6 +46,9 @@ const (
 
 	// VDRI error group for VDRI command errors
 	VDRI Group = 4000
+
+	// ROUTE error group for Route command errors
+	ROUTE Group = 5000
 )
 
 // Error is the  interface for representing an command error condition, with the nil value representing no error.
