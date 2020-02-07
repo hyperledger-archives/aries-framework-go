@@ -11,6 +11,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/messaging"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/route"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -81,11 +82,18 @@ func New(ctx *context.Provider, opts ...Opt) (*Controller, error) {
 		return nil, err
 	}
 
+	// route REST operation
+	routeOp, err := route.New(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// creat handlers from all operations
 	var allHandlers []operation.Handler
 	allHandlers = append(allHandlers, exchangeOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, vdriOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, messagingOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, routeOp.GetRESTHandlers()...)
 
 	return &Controller{handlers: allHandlers}, nil
 }
