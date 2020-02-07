@@ -5,6 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package did
 
+import (
+	"github.com/btcsuite/btcutil/base58"
+)
+
 // LookupService returns the service from the given DIDDoc matching the given service type.
 func LookupService(didDoc *Doc, serviceType string) (*Service, bool) {
 	const notFound = -1
@@ -45,7 +49,8 @@ func LookupRecipientKeys(didDoc *Doc, serviceType, keyType string) ([]string, bo
 		}
 
 		if key.Type == keyType {
-			recipientKeys = append(recipientKeys, string(key.Value))
+			// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
+			recipientKeys = append(recipientKeys, base58.Encode(key.Value))
 		}
 	}
 

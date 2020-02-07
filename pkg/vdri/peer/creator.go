@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
@@ -35,7 +37,8 @@ func build(pubKey *vdriapi.PubKey, docOpts *vdriapi.CreateDIDOpts) (*did.Doc, er
 		ID:         pubKey.Value[0:7],
 		Type:       pubKey.Type,
 		Controller: "#id",
-		Value:      []byte(pubKey.Value),
+		// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
+		Value: base58.Decode(pubKey.Value),
 	}
 
 	// Service model to be included only if service type is provided through opts

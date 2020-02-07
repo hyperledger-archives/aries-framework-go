@@ -16,6 +16,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -73,7 +75,6 @@ func (v *VDRI) Store(doc *did.Doc, by *[]vdriapi.ModifiedBy) error {
 // TODO separate this public DID create from httpbinding
 //  and remove with request builder option [Issue #860]
 func (v *VDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc, error) {
-	// Apply options
 	docOpts := &vdriapi.CreateDIDOpts{}
 
 	for _, opt := range opts {
@@ -84,7 +85,8 @@ func (v *VDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc,
 		ID:         pubKeyIndex1,
 		Type:       pubKey.Type,
 		Controller: pubKeyController,
-		Value:      []byte(pubKey.Value),
+		// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
+		Value: base58.Decode(pubKey.Value),
 	}
 
 	t := time.Now()
