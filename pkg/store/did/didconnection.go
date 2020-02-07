@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/btcsuite/btcutil/base58"
+
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -74,7 +76,8 @@ func (c *Store) SaveDID(did string, keys ...string) error {
 func (c *Store) SaveDIDFromDoc(doc *diddoc.Doc) error {
 	var keys []string
 	for i := range doc.PublicKey {
-		keys = append(keys, string(doc.PublicKey[i].Value))
+		// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
+		keys = append(keys, base58.Encode(doc.PublicKey[i].Value))
 	}
 
 	return c.SaveDID(doc.ID, keys...)

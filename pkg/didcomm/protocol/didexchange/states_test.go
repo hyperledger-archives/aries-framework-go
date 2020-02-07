@@ -906,7 +906,8 @@ func TestGetInvitationRecipientKey(t *testing.T) {
 		}
 		recKey, err := ctx.getInvitationRecipientKey(invitation)
 		require.NoError(t, err)
-		require.Equal(t, string(doc.PublicKey[0].Value), recKey)
+		// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
+		require.Equal(t, base58.Encode(doc.PublicKey[0].Value), recKey)
 	})
 	t.Run("failed to get invitation recipient key", func(t *testing.T) {
 		invitation := &Invitation{
