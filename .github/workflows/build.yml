@@ -30,7 +30,7 @@ jobs:
     - name: Upload coverage to Codecov
       timeout-minutes: 10
       # GitHub Actions currently only allow secret usage access during push events
-      if: github.event_name == 'push' && matrix.os == 'ubuntu-18.04'
+      if: github.event_name == 'push' && matrix.os == 'ubuntu-18.04' && github.repository == 'hyperledger/aries-framework-go'
       uses: codecov/codecov-action@v1.0.2
       with:
         token: ${{secrets.CODECOV_TOKEN}}
@@ -90,7 +90,7 @@ jobs:
 
   publish:
     name: Publish images and npm packages
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.repository == 'hyperledger/aries-framework-go'
     needs: [checks, unitTest, unitTestWasm, bddTest]
     runs-on: ubuntu-18.04
     timeout-minutes: 10
@@ -102,7 +102,7 @@ jobs:
         id: go
 
       - name: Setup Node.js
-        uses: actions/setup-node@1.4.0
+        uses: actions/setup-node@v1.4.0
         with:
           node-version: 12.14.x
           registry-url: "https://npm.pkg.github.com"
@@ -125,7 +125,7 @@ jobs:
         working-directory: ./cmd/aries-js-worker
         run: |
           source ../../ci/version_var.sh
-          sed -i 's/"version": "0.0.1"/"version": "'$AGENT_IMAGE_TAG'"/g' package.json
+          sed -i 's/"version": "0.0.1"/"version": "'$NPM_PKG_TAG'"/g' package.json
           npm install
           npm publish
         env:
