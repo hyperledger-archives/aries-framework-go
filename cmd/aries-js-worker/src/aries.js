@@ -6,7 +6,24 @@ SPDX-License-Identifier: Apache-2.0
 
 'use strict'
 
-import { _getWorker } from 'worker_loader'
+const inNode = typeof process !== 'undefined' && process.versions != null && process.versions.node != null
+const inBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+
+// base path to load assets from at runtime
+const __publicPath = _ => {
+    if (inNode) {
+        // TODO determine module_path at runtime
+        return process.cwd() + "/node_modules/@hyperledger/aries-framework-go/"
+    } else if (inBrowser) {
+        return "/aries-framework-go/"
+    } else {
+        // TODO #1127 - throw error or use default?
+    }
+}
+
+__webpack_public_path__ = __publicPath()
+
+const { _getWorker } = require("worker_loader")
 
 // TODO not all browsers support private members of classes
 /* @class Aries provides Aries SSI-agent functions. */

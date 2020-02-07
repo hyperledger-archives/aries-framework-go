@@ -15,11 +15,15 @@ Run `npm install` from this directory. The output bundles will be placed in `dis
 
 ## Usage
 
-**Node.js**
+### Node.js
 
 View [`App.js`](./App.js) for examples.
 
-**Browser**
+### Vue.js
+
+Go to [`vue-framework-go`](./vue-aries-framework-go) for a sample agent built with Vue.js.
+
+### Browser
 
 View [`index.html`](./index.html) for examples.
 
