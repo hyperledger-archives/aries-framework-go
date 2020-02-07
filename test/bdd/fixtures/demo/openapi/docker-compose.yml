@@ -33,6 +33,32 @@ services:
     networks:
       - agent-rest_bdd_net
 
+  carl.openapi.demo.com:
+    container_name: carl.openpi.demo.com
+    image: swaggerapi/swagger-ui
+    environment:
+      - SWAGGER_JSON=/specs/openapi-${CARL_API_HOST}.yml
+      - BASE_URL=/openapi
+    ports:
+      - 10089:8080
+    volumes:
+      - ./specs:/specs
+    networks:
+      - agent-rest_bdd_net
+
+  carl.router.openapi.demo.com:
+    container_name: carl.router.openpi.demo.com
+    image: swaggerapi/swagger-ui
+    environment:
+      - SWAGGER_JSON=/specs/openapi-${CARL_ROUTER_API_HOST}.yml
+      - BASE_URL=/openapi
+    ports:
+      - 10099:8080
+    volumes:
+      - ./specs:/specs
+    networks:
+      - agent-rest_bdd_net
+
 networks:
   agent-rest_bdd_net:
     external: true
