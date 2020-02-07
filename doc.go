@@ -16,8 +16,8 @@ SPDX-License-Identifier: Apache-2.0
 // pkg/client/didexchange: Provides did exchange protocol through SDK.
 // Reference: https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/client/didexchange
 //
-// pkg/restapi/operation/didexchange: Provides did exchange protocol through restapi.
-// Reference: https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/restapi/operation/didexchange
+// pkg/controller/restapi/operation/didexchange: Provides did exchange protocol through restapi.
+// Reference: https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/didexchange
 //
 // Basic workflow
 //
