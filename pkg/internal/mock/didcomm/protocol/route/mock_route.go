@@ -24,6 +24,7 @@ type MockRouteSvc struct {
 	RoutingKeys        []string
 	ConfigErr          error
 	AddKeyErr          error
+	UnregisterErr      error
 }
 
 // HandleInbound msg
@@ -69,6 +70,11 @@ func (m *MockRouteSvc) Register(connectionID string) error {
 	}
 
 	return nil
+}
+
+// Unregister unregisters the router
+func (m *MockRouteSvc) Unregister() error {
+	return m.UnregisterErr
 }
 
 // AddKey adds agents recKey to the router

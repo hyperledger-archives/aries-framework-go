@@ -30,6 +30,9 @@ const (
 
 	// RegisterRouterErrorCode for register router error
 	RegisterRouterErrorCode
+
+	// UnregisterRouterErrorCode for unregister router error
+	UnregisterRouterErrorCode
 )
 
 const (
@@ -84,6 +87,18 @@ func (o *Command) Register(rw io.Writer, req io.Reader) command.Error {
 	err = o.routeClient.Register(request.ConnectionID)
 	if err != nil {
 		return command.NewExecuteError(RegisterRouterErrorCode, err)
+	}
+
+	writeResponse(rw, nil)
+
+	return nil
+}
+
+// Unregister unregisters the agent with the router.
+func (o *Command) Unregister(rw io.Writer, req io.Reader) command.Error {
+	err := o.routeClient.Unregister()
+	if err != nil {
+		return command.NewExecuteError(UnregisterRouterErrorCode, err)
 	}
 
 	writeResponse(rw, nil)
