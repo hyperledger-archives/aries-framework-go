@@ -16,11 +16,9 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
-	resterrors "github.com/hyperledger/aries-framework-go/pkg/controller/restapi/errors"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/internal/exec"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -62,26 +60,26 @@ func New(ctx provider, notifier webhook.Notifier, defaultLabel string, autoAccep
 // Operation is controller REST service controller for DID Exchange
 type Operation struct {
 	command  *didexchange.Command
-	handlers []operation.Handler
+	handlers []rest.Handler
 }
 
 // GetRESTHandlers get all controller API handler available for this protocol service
-func (c *Operation) GetRESTHandlers() []operation.Handler {
+func (c *Operation) GetRESTHandlers() []rest.Handler {
 	return c.handlers
 }
 
 // registerHandler register handlers to be exposed from this protocol service as REST API endpoints
 func (c *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
-	c.handlers = []operation.Handler{
-		support.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
-		support.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
-		support.NewHTTPHandler(createInvitationPath, http.MethodPost, c.CreateInvitation),
-		support.NewHTTPHandler(createImplicitInvitationPath, http.MethodPost, c.CreateImplicitInvitation),
-		support.NewHTTPHandler(receiveInvitationPath, http.MethodPost, c.ReceiveInvitation),
-		support.NewHTTPHandler(acceptInvitationPath, http.MethodPost, c.AcceptInvitation),
-		support.NewHTTPHandler(acceptExchangeRequest, http.MethodPost, c.AcceptExchangeRequest),
-		support.NewHTTPHandler(removeConnection, http.MethodPost, c.RemoveConnection),
+	c.handlers = []rest.Handler{
+		cmdutil.NewHTTPHandler(connections, http.MethodGet, c.QueryConnections),
+		cmdutil.NewHTTPHandler(connectionsByID, http.MethodGet, c.QueryConnectionByID),
+		cmdutil.NewHTTPHandler(createInvitationPath, http.MethodPost, c.CreateInvitation),
+		cmdutil.NewHTTPHandler(createImplicitInvitationPath, http.MethodPost, c.CreateImplicitInvitation),
+		cmdutil.NewHTTPHandler(receiveInvitationPath, http.MethodPost, c.ReceiveInvitation),
+		cmdutil.NewHTTPHandler(acceptInvitationPath, http.MethodPost, c.AcceptInvitation),
+		cmdutil.NewHTTPHandler(acceptExchangeRequest, http.MethodPost, c.AcceptExchangeRequest),
+		cmdutil.NewHTTPHandler(removeConnection, http.MethodPost, c.RemoveConnection),
 	}
 }
 
@@ -95,11 +93,11 @@ func (c *Operation) registerHandler() {
 func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) {
 	reqBytes, err := queryValuesAsJSON(req.URL.Query())
 	if err != nil {
-		resterrors.SendHTTPStatusError(rw, http.StatusBadRequest, didexchange.InvalidRequestErrorCode, err)
+		rest.SendHTTPStatusError(rw, http.StatusBadRequest, didexchange.InvalidRequestErrorCode, err)
 		return
 	}
 
-	exec.Command(c.command.CreateInvitation, rw, bytes.NewReader(reqBytes))
+	rest.Execute(c.command.CreateInvitation, rw, bytes.NewReader(reqBytes))
 }
 
 // ReceiveInvitation swagger:route POST /connections/receive-invitation did-exchange receiveInvitation
@@ -110,7 +108,7 @@ func (c *Operation) CreateInvitation(rw http.ResponseWriter, req *http.Request) 
 //    default: genericError
 //        200: receiveInvitationResponse
 func (c *Operation) ReceiveInvitation(rw http.ResponseWriter, req *http.Request) {
-	exec.Command(c.command.ReceiveInvitation, rw, req.Body)
+	rest.Execute(c.command.ReceiveInvitation, rw, req.Body)
 }
 
 // AcceptInvitation swagger:route POST /connections/{id}/accept-invitation did-exchange acceptInvitation
@@ -128,7 +126,7 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 
 	request := fmt.Sprintf(`{"id":"%s", "public":"%s"}`, id, req.URL.Query().Get("public"))
 
-	exec.Command(c.command.AcceptInvitation, rw, bytes.NewBufferString(request))
+	rest.Execute(c.command.AcceptInvitation, rw, bytes.NewBufferString(request))
 }
 
 // CreateImplicitInvitation swagger:route POST /connections/create-implicit-invitation did-exchange implicitInvitation
@@ -141,11 +139,11 @@ func (c *Operation) AcceptInvitation(rw http.ResponseWriter, req *http.Request) 
 func (c *Operation) CreateImplicitInvitation(rw http.ResponseWriter, req *http.Request) {
 	reqBytes, err := queryValuesAsJSON(req.URL.Query())
 	if err != nil {
-		resterrors.SendHTTPStatusError(rw, http.StatusBadRequest, didexchange.InvalidRequestErrorCode, err)
+		rest.SendHTTPStatusError(rw, http.StatusBadRequest, didexchange.InvalidRequestErrorCode, err)
 		return
 	}
 
-	exec.Command(c.command.CreateImplicitInvitation, rw, bytes.NewReader(reqBytes))
+	rest.Execute(c.command.CreateImplicitInvitation, rw, bytes.NewReader(reqBytes))
 }
 
 // AcceptExchangeRequest swagger:route POST /connections/{id}/accept-request did-exchange acceptRequest
@@ -163,7 +161,7 @@ func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Requ
 
 	request := fmt.Sprintf(`{"id":"%s", "public":"%s"}`, id, req.URL.Query().Get("public"))
 
-	exec.Command(c.command.AcceptExchangeRequest, rw, bytes.NewBufferString(request))
+	rest.Execute(c.command.AcceptExchangeRequest, rw, bytes.NewBufferString(request))
 }
 
 // QueryConnections swagger:route GET /connections did-exchange queryConnections
@@ -176,11 +174,11 @@ func (c *Operation) AcceptExchangeRequest(rw http.ResponseWriter, req *http.Requ
 func (c *Operation) QueryConnections(rw http.ResponseWriter, req *http.Request) {
 	reqBytes, err := queryValuesAsJSON(req.URL.Query())
 	if err != nil {
-		resterrors.SendHTTPStatusError(rw, http.StatusBadRequest, didexchange.InvalidRequestErrorCode, err)
+		rest.SendHTTPStatusError(rw, http.StatusBadRequest, didexchange.InvalidRequestErrorCode, err)
 		return
 	}
 
-	exec.Command(c.command.QueryConnections, rw, bytes.NewReader(reqBytes))
+	rest.Execute(c.command.QueryConnections, rw, bytes.NewReader(reqBytes))
 }
 
 // QueryConnectionByID swagger:route GET /connections/{id} did-exchange getConnection
@@ -198,7 +196,7 @@ func (c *Operation) QueryConnectionByID(rw http.ResponseWriter, req *http.Reques
 
 	request := fmt.Sprintf(`{"id":"%s"}`, id)
 
-	exec.Command(c.command.QueryConnectionByID, rw, bytes.NewBufferString(request))
+	rest.Execute(c.command.QueryConnectionByID, rw, bytes.NewBufferString(request))
 }
 
 // RemoveConnection swagger:route POST /connections/{id}/remove did-exchange removeConnection
@@ -216,7 +214,7 @@ func (c *Operation) RemoveConnection(rw http.ResponseWriter, req *http.Request) 
 
 	request := fmt.Sprintf(`{"id":"%s"}`, id)
 
-	exec.Command(c.command.RemoveConnection, rw, bytes.NewBufferString(request))
+	rest.Execute(c.command.RemoveConnection, rw, bytes.NewBufferString(request))
 }
 
 // queryValuesAsJSON converts query strings to `map[string]string`
@@ -238,7 +236,7 @@ func queryValuesAsJSON(vals url.Values) ([]byte, error) {
 func getIDFromRequest(rw http.ResponseWriter, req *http.Request) (string, bool) {
 	id := mux.Vars(req)["id"]
 	if id == "" {
-		resterrors.SendHTTPStatusError(rw, http.StatusBadRequest, didexchange.InvalidRequestErrorCode,
+		rest.SendHTTPStatusError(rw, http.StatusBadRequest, didexchange.InvalidRequestErrorCode,
 			fmt.Errorf("empty connection ID"))
 		return "", false
 	}

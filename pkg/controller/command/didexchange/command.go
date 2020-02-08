@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -24,6 +25,9 @@ import (
 var logger = log.New("aries-framework/controller/did-exchange")
 
 const (
+	// command name
+	commandName = "didexchange"
+
 	// webhook notifier topic
 	connectionsWebhookTopic = "connections"
 
@@ -86,7 +90,7 @@ func New(ctx provider, notifier webhook.Notifier, defaultLabel string, autoAccep
 		go service.AutoExecuteActionEvent(actionCh)
 	}
 
-	svc := &Command{
+	cmd := &Command{
 		ctx:          ctx,
 		client:       didExchange,
 		msgCh:        make(chan service.StateMsg),
@@ -94,12 +98,12 @@ func New(ctx provider, notifier webhook.Notifier, defaultLabel string, autoAccep
 		defaultLabel: defaultLabel,
 	}
 
-	err = svc.startClientEventListener()
+	err = cmd.startClientEventListener()
 	if err != nil {
 		return nil, fmt.Errorf("event listener startup failed: %w", err)
 	}
 
-	return svc, nil
+	return cmd, nil
 }
 
 // Command is controller command for DID Exchange
@@ -109,6 +113,20 @@ type Command struct {
 	msgCh        chan service.StateMsg
 	notifier     webhook.Notifier
 	defaultLabel string
+}
+
+// GetHandlers returns list of all commands supported by this controller command
+func (c *Command) GetHandlers() []command.Handler {
+	return []command.Handler{
+		cmdutil.NewCommandHandler(commandName, "CreateInvitation", c.CreateInvitation),
+		cmdutil.NewCommandHandler(commandName, "ReceiveInvitation", c.ReceiveInvitation),
+		cmdutil.NewCommandHandler(commandName, "AcceptInvitation", c.AcceptInvitation),
+		cmdutil.NewCommandHandler(commandName, "RemoveConnection", c.RemoveConnection),
+		cmdutil.NewCommandHandler(commandName, "QueryConnectionByID", c.QueryConnectionByID),
+		cmdutil.NewCommandHandler(commandName, "QueryConnectionByID", c.QueryConnectionByID),
+		cmdutil.NewCommandHandler(commandName, "AcceptExchangeRequest", c.AcceptExchangeRequest),
+		cmdutil.NewCommandHandler(commandName, "CreateImplicitInvitation", c.CreateImplicitInvitation),
+	}
 }
 
 // CreateInvitation Creates a new connection invitation.

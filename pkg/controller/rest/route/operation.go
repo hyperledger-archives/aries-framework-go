@@ -12,9 +12,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
-	resterrors "github.com/hyperledger/aries-framework-go/pkg/controller/restapi/errors"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/common/support"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
 const (
@@ -29,7 +28,7 @@ type provider interface {
 
 // Operation contains basic common operations provided by controller REST API
 type Operation struct {
-	handlers []operation.Handler
+	handlers []rest.Handler
 	command  *route.Command
 }
 
@@ -48,15 +47,15 @@ func New(ctx provider) (*Operation, error) {
 }
 
 // GetRESTHandlers get all controller API handler available for this service
-func (o *Operation) GetRESTHandlers() []operation.Handler {
+func (o *Operation) GetRESTHandlers() []rest.Handler {
 	return o.handlers
 }
 
 // registerHandler register handlers to be exposed from this protocol service as REST API endpoints.
 func (o *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
-	o.handlers = []operation.Handler{
-		support.NewHTTPHandler(registerPath, http.MethodPost, o.Register),
+	o.handlers = []rest.Handler{
+		cmdutil.NewHTTPHandler(registerPath, http.MethodPost, o.Register),
 	}
 }
 
@@ -74,6 +73,6 @@ func (o *Operation) Register(rw http.ResponseWriter, req *http.Request) {
 func executeCommand(exec command.Exec, rw http.ResponseWriter, req *http.Request) {
 	err := exec(rw, req.Body)
 	if err != nil {
-		resterrors.SendError(rw, err)
+		rest.SendError(rw, err)
 	}
 }

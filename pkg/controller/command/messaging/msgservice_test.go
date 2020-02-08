@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/controller/mocks/webhook"
+	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 

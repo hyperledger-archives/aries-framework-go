@@ -24,6 +24,9 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 		cmd := New(&protocol.MockProvider{})
 		require.NotNil(t, cmd)
 
+		handlers := cmd.GetHandlers()
+		require.NotEmpty(t, handlers)
+
 		var b bytes.Buffer
 		req := []byte(`{"method":"sidetree"}`)
 		cmdErr := cmd.CreatePublicDID(&b, bytes.NewBuffer(req))

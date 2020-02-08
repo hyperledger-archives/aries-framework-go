@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/mocks/webhook"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/http"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
@@ -32,6 +32,9 @@ func TestNew(t *testing.T) {
 		cmd, err := New(&protocol.MockProvider{}, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
+
+		handlers := cmd.GetHandlers()
+		require.NotEmpty(t, handlers)
 	})
 
 	t.Run("Test create new command success failure", func(t *testing.T) {

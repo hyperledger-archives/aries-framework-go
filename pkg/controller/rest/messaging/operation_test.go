@@ -20,8 +20,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/mocks/webhook"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	svchttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/http"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
@@ -654,7 +654,7 @@ func TestOperation_SendReplyMessage(t *testing.T) {
 	})
 }
 
-func lookupCreatePublicDIDHandler(t *testing.T, op *Operation, path string) operation.Handler {
+func lookupCreatePublicDIDHandler(t *testing.T, op *Operation, path string) rest.Handler {
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
@@ -671,7 +671,7 @@ func lookupCreatePublicDIDHandler(t *testing.T, op *Operation, path string) oper
 
 // getSuccessResponseFromHandler reads response from given http handle func.
 // expects http status OK.
-func getSuccessResponseFromHandler(handler operation.Handler, requestBody io.Reader,
+func getSuccessResponseFromHandler(handler rest.Handler, requestBody io.Reader,
 	path string) (*bytes.Buffer, error) {
 	response, status, err := sendRequestToHandler(handler, requestBody, path)
 	if status != http.StatusOK {
@@ -683,7 +683,7 @@ func getSuccessResponseFromHandler(handler operation.Handler, requestBody io.Rea
 }
 
 // sendRequestToHandler reads response from given http handle func.
-func sendRequestToHandler(handler operation.Handler, requestBody io.Reader, path string) (*bytes.Buffer, int, error) {
+func sendRequestToHandler(handler rest.Handler, requestBody io.Reader, path string) (*bytes.Buffer, int, error) {
 	// prepare request
 	req, err := http.NewRequest(handler.Method(), path, requestBody)
 	if err != nil {

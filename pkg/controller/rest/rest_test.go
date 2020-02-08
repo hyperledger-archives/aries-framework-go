@@ -4,11 +4,12 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package errors
+package rest
 
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -95,6 +96,16 @@ func TestSendError(t *testing.T) {
 func TestSendErrorFailures(t *testing.T) {
 	rw := &mockRWriter{}
 	SendHTTPStatusError(rw, http.StatusBadRequest, command.UnknownStatus, fmt.Errorf("sample error"))
+}
+
+func TestExecute(t *testing.T) {
+	cmd := func(rw io.Writer, req io.Reader) command.Error {
+		return command.NewValidationError(1, fmt.Errorf("sample"))
+	}
+
+	rw := httptest.NewRecorder()
+	Execute(cmd, rw, nil)
+	require.Contains(t, rw.Body.String(), `{"code":1,"message":"sample"}`)
 }
 
 // mockRWriter to recreate response writer error scenario

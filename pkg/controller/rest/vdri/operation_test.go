@@ -20,14 +20,13 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
-	svc, err := New(&protocol.MockProvider{})
-	require.NoError(t, err)
+	svc := New(&protocol.MockProvider{})
 	require.NotNil(t, svc)
 
 	handlers := svc.GetRESTHandlers()
@@ -36,8 +35,7 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 
 func TestOperation_CreatePublicDID(t *testing.T) {
 	t.Run("Successful Create public DID", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
-		require.NoError(t, err)
+		svc := New(&protocol.MockProvider{})
 		require.NotNil(t, svc)
 
 		handler := lookupCreatePublicDIDHandler(t, svc)
@@ -57,8 +55,7 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 	})
 
 	t.Run("Failed Create public DID", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
-		require.NoError(t, err)
+		svc := New(&protocol.MockProvider{})
 		require.NotNil(t, svc)
 
 		handler := lookupCreatePublicDIDHandler(t, svc)
@@ -75,8 +72,7 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 	})
 
 	t.Run("Failed Create public DID, VDRI error", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{CustomVDRI: &mockvdri.MockVDRIRegistry{CreateErr: fmt.Errorf("just-fail-it")}})
-		require.NoError(t, err)
+		svc := New(&protocol.MockProvider{CustomVDRI: &mockvdri.MockVDRIRegistry{CreateErr: fmt.Errorf("just-fail-it")}})
 		require.NotNil(t, svc)
 
 		handler := lookupCreatePublicDIDHandler(t, svc)
@@ -87,7 +83,7 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 	})
 }
 
-func lookupCreatePublicDIDHandler(t *testing.T, op *Operation) operation.Handler {
+func lookupCreatePublicDIDHandler(t *testing.T, op *Operation) rest.Handler {
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
@@ -104,7 +100,7 @@ func lookupCreatePublicDIDHandler(t *testing.T, op *Operation) operation.Handler
 
 // getSuccessResponseFromHandler reads response from given http handle func.
 // expects http status OK.
-func getSuccessResponseFromHandler(handler operation.Handler, requestBody io.Reader,
+func getSuccessResponseFromHandler(handler rest.Handler, requestBody io.Reader,
 	path string) (*bytes.Buffer, error) {
 	response, status, err := sendRequestToHandler(handler, requestBody, path)
 	if status != http.StatusOK {
@@ -116,7 +112,7 @@ func getSuccessResponseFromHandler(handler operation.Handler, requestBody io.Rea
 }
 
 // sendRequestToHandler reads response from given http handle func.
-func sendRequestToHandler(handler operation.Handler, requestBody io.Reader, path string) (*bytes.Buffer, int, error) {
+func sendRequestToHandler(handler rest.Handler, requestBody io.Reader, path string) (*bytes.Buffer, int, error) {
 	// prepare request
 	req, err := http.NewRequest(handler.Method(), path, requestBody)
 	if err != nil {

@@ -22,7 +22,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
-	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/controller/mocks/webhook"
+	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -47,6 +47,9 @@ func TestNew(t *testing.T) {
 		cmd, err := New(mockProvider(), webhook.NewHTTPNotifier(nil), "", false)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
+
+		handlers := cmd.GetHandlers()
+		require.NotEmpty(t, handlers)
 	})
 
 	t.Run("Successfully create new DID exchange command with auto accept", func(t *testing.T) {

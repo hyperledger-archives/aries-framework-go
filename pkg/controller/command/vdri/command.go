@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
@@ -31,6 +32,10 @@ const (
 )
 
 const (
+	// command name
+	commandName = "vdri"
+
+	// error messages
 	errDIDMethodMandatory = "invalid method name"
 )
 
@@ -49,6 +54,13 @@ type Command struct {
 func New(ctx provider) *Command {
 	return &Command{
 		ctx: ctx,
+	}
+}
+
+// GetHandlers returns list of all commands supported by this controller command
+func (o *Command) GetHandlers() []command.Handler {
+	return []command.Handler{
+		cmdutil.NewCommandHandler(commandName, "CreatePublicDID", o.CreatePublicDID),
 	}
 }
 

@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package restapi
+package controller
 
 import (
 	"io/ioutil"
@@ -20,14 +20,21 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
 )
 
-func TestNew_Failure(t *testing.T) {
-	controller, err := New(&context.Provider{})
+func TestGetRESTHandlers(t *testing.T) {
+	controller, err := GetRESTHandlers(&context.Provider{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), api.ErrSvcNotFound.Error())
 	require.Nil(t, controller)
 }
 
-func TestNew_Success(t *testing.T) {
+func TestGetCommandHandlers(t *testing.T) {
+	controller, err := GetCommandHandlers(&context.Provider{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), api.ErrSvcNotFound.Error())
+	require.Nil(t, controller)
+}
+
+func TestGetCommandHandlers_Success(t *testing.T) {
 	path, cleanup := generateTempDir(t)
 	defer cleanup()
 
@@ -46,62 +53,89 @@ func TestNew_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ctx)
 
-	controller, err := New(ctx)
+	handlers, err := GetCommandHandlers(ctx)
 	require.NoError(t, err)
-	require.NotNil(t, controller)
-
-	require.NotEmpty(t, controller.GetOperations())
+	require.NotEmpty(t, handlers)
 
 	// test with options
-	controller, err = New(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
+	handlers, err = GetCommandHandlers(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
 		WithAutoAccept(true), WithDefaultLabel("sample-label"),
 		WithWebhookURLs("sample-wh-url"))
 	require.NoError(t, err)
-	require.NotNil(t, controller)
+	require.NotEmpty(t, handlers)
+}
 
-	require.NotEmpty(t, controller.GetOperations())
+func TestGetRESTHandlers_Success(t *testing.T) {
+	path, cleanup := generateTempDir(t)
+	defer cleanup()
+
+	framework, err := aries.New(defaults.WithStorePath(path), defaults.WithInboundHTTPAddr(":26508", ""))
+	require.NoError(t, err)
+	require.NotNil(t, framework)
+
+	defer func() {
+		e := framework.Close()
+		if e != nil {
+			t.Fatal(e)
+		}
+	}()
+
+	ctx, err := framework.Context()
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+
+	handlers, err := GetRESTHandlers(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, handlers)
+
+	// test with options
+	handlers, err = GetRESTHandlers(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
+		WithAutoAccept(true), WithDefaultLabel("sample-label"),
+		WithWebhookURLs("sample-wh-url"))
+	require.NoError(t, err)
+	require.NotEmpty(t, handlers)
 }
 
 func TestWithWebhookNotifierOption(t *testing.T) {
-	restAPIOpts := &allOpts{}
+	controllerOpts := &allOpts{}
 
 	webhookURLs := []string{"localhost:8080"}
 	webhookNotifierOpt := WithWebhookURLs(webhookURLs...)
 
-	webhookNotifierOpt(restAPIOpts)
+	webhookNotifierOpt(controllerOpts)
 
-	require.Equal(t, webhookURLs, restAPIOpts.webhookURLs)
+	require.Equal(t, webhookURLs, controllerOpts.webhookURLs)
 }
 
 func TestWithDefaultLabelOption(t *testing.T) {
-	restAPIOpts := &allOpts{}
+	controllerOpts := &allOpts{}
 
 	label := "testLabel"
 	webhookNotifierOpt := WithDefaultLabel(label)
 
-	webhookNotifierOpt(restAPIOpts)
+	webhookNotifierOpt(controllerOpts)
 
-	require.Equal(t, label, restAPIOpts.defaultLabel)
+	require.Equal(t, label, controllerOpts.defaultLabel)
 }
 
 func TestWithAutoAcceptOption(t *testing.T) {
-	restAPIOpts := &allOpts{}
+	controllerOpts := &allOpts{}
 
 	opt := WithAutoAccept(true)
 
-	opt(restAPIOpts)
+	opt(controllerOpts)
 
-	require.Equal(t, true, restAPIOpts.autoAccept)
+	require.Equal(t, true, controllerOpts.autoAccept)
 }
 
 func TestWithMessageHandler(t *testing.T) {
-	restAPIOpts := &allOpts{}
+	controllerOpts := &allOpts{}
 
 	opt := WithMessageHandler(msghandler.NewMockMsgServiceProvider())
 
-	opt(restAPIOpts)
+	opt(controllerOpts)
 
-	require.NotNil(t, restAPIOpts.msgHandler)
+	require.NotNil(t, controllerOpts.msgHandler)
 }
 
 func generateTempDir(t testing.TB) (string, func()) {
