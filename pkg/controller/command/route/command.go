@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/route"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 )
 
 var logger = log.New("aries-framework/command/route")
@@ -29,6 +30,11 @@ const (
 
 	// RegisterRouterErrorCode for register router error
 	RegisterRouterErrorCode
+)
+
+const (
+	// command name
+	commandName = "router"
 )
 
 // provider contains dependencies for the route protocol and is typically created by using aries.Context().
@@ -51,6 +57,13 @@ func New(ctx provider) (*Command, error) {
 	return &Command{
 		routeClient: routeClient,
 	}, nil
+}
+
+// GetHandlers returns list of all commands supported by this controller command
+func (o *Command) GetHandlers() []command.Handler {
+	return []command.Handler{
+		cmdutil.NewCommandHandler(commandName, "Register", o.Register),
+	}
 }
 
 // Register registers the agent with the router.

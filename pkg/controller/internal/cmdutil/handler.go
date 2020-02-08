@@ -4,10 +4,12 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package support
+package cmdutil
 
 import (
 	"net/http"
+
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 )
 
 // NewHTTPHandler returns instance of HTTPHandler which can be used handle
@@ -37,4 +39,33 @@ func (h *HTTPHandler) Method() string {
 // Handle returns http request handle func
 func (h *HTTPHandler) Handle() http.HandlerFunc {
 	return h.handle
+}
+
+// NewCommandHandler returns instance of CommandHandler which can be used handle
+// controller commands
+func NewCommandHandler(name, method string, exec command.Exec) *CommandHandler {
+	return &CommandHandler{name: name, method: method, handle: exec}
+}
+
+// CommandHandler contains command handling details which can be used to build controller
+// commands
+type CommandHandler struct {
+	name   string
+	method string
+	handle command.Exec
+}
+
+// Name of the command.
+func (c *CommandHandler) Name() string {
+	return c.name
+}
+
+// Method name of the command.
+func (c *CommandHandler) Method() string {
+	return c.method
+}
+
+// Handle returns execute function of the this command handler.
+func (c *CommandHandler) Handle() command.Exec {
+	return c.handle
 }

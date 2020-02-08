@@ -20,7 +20,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 )
@@ -107,7 +107,7 @@ func TestRegisterRoute(t *testing.T) {
 	})
 }
 
-func lookupCreatePublicDIDHandler(t *testing.T, op *Operation) operation.Handler {
+func lookupCreatePublicDIDHandler(t *testing.T, op *Operation) rest.Handler {
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
@@ -124,7 +124,7 @@ func lookupCreatePublicDIDHandler(t *testing.T, op *Operation) operation.Handler
 
 // getSuccessResponseFromHandler reads response from given http handle func.
 // expects http status OK.
-func getSuccessResponseFromHandler(handler operation.Handler, requestBody io.Reader,
+func getSuccessResponseFromHandler(handler rest.Handler, requestBody io.Reader,
 	path string) (*bytes.Buffer, error) {
 	response, status, err := sendRequestToHandler(handler, requestBody, path)
 	if status != http.StatusOK {
@@ -136,7 +136,7 @@ func getSuccessResponseFromHandler(handler operation.Handler, requestBody io.Rea
 }
 
 // sendRequestToHandler reads response from given http handle func.
-func sendRequestToHandler(handler operation.Handler, requestBody io.Reader, path string) (*bytes.Buffer, int, error) {
+func sendRequestToHandler(handler rest.Handler, requestBody io.Reader, path string) (*bytes.Buffer, int, error) {
 	// prepare request
 	req, err := http.NewRequest(handler.Method(), path, requestBody)
 	if err != nil {

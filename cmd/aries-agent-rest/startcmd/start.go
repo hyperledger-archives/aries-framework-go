@@ -18,8 +18,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/controller"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
@@ -435,15 +435,14 @@ func startAgent(parameters *agentParameters) error {
 	}
 
 	// get all HTTP REST API handlers available for controller API
-	restService, err := restapi.New(ctx, restapi.WithWebhookURLs(parameters.webhookURLs...),
-		restapi.WithDefaultLabel(parameters.defaultLabel), restapi.WithAutoAccept(parameters.autoAccept),
-		restapi.WithMessageHandler(parameters.msgHandler))
+	handlers, err := controller.GetRESTHandlers(ctx, controller.WithWebhookURLs(parameters.webhookURLs...),
+		controller.WithDefaultLabel(parameters.defaultLabel), controller.WithAutoAccept(parameters.autoAccept),
+		controller.WithMessageHandler(parameters.msgHandler))
 	if err != nil {
 		return fmt.Errorf("failed to start aries agent rest on port [%s], failed to get rest service api :  %w",
 			parameters.host, err)
 	}
 
-	handlers := restService.GetOperations()
 	router := mux.NewRouter()
 
 	for _, handler := range handlers {

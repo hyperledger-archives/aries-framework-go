@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
@@ -25,6 +26,9 @@ import (
 var logger = log.New("aries-framework/controller/common")
 
 const (
+	// command name
+	commandName = "messaging"
+
 	// states
 	stateNameCompleted = "completed"
 
@@ -89,6 +93,18 @@ func New(ctx provider, registrar command.MessageHandler, notifier webhook.Notifi
 	}
 
 	return o, nil
+}
+
+// GetHandlers returns list of all commands supported by this controller command
+func (o *Command) GetHandlers() []command.Handler {
+	return []command.Handler{
+		cmdutil.NewCommandHandler(commandName, "RegisteredServices", o.RegisteredServices),
+		cmdutil.NewCommandHandler(commandName, "RegisterMessageService", o.RegisterMessageService),
+		cmdutil.NewCommandHandler(commandName, "UnregisterMessageService", o.UnregisterMessageService),
+		cmdutil.NewCommandHandler(commandName, "RegisterHTTPMessageService", o.RegisterHTTPMessageService),
+		cmdutil.NewCommandHandler(commandName, "SendNewMessage", o.SendNewMessage),
+		cmdutil.NewCommandHandler(commandName, "SendReplyMessage", o.SendReplyMessage),
+	}
 }
 
 // RegisterMessageService registers new message service to message handler registrar

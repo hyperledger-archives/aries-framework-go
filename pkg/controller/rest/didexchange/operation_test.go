@@ -23,7 +23,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -402,7 +402,7 @@ func TestEmptyID(t *testing.T) {
 }
 
 // sendRequestToHandler reads response from given http handle func.
-func sendRequestToHandler(handler operation.Handler, requestBody io.Reader, path string) (*bytes.Buffer, int, error) {
+func sendRequestToHandler(handler rest.Handler, requestBody io.Reader, path string) (*bytes.Buffer, int, error) {
 	// prepare request
 	req, err := http.NewRequest(handler.Method(), path, requestBody)
 	if err != nil {
@@ -425,7 +425,7 @@ func sendRequestToHandler(handler operation.Handler, requestBody io.Reader, path
 
 // getSuccessResponseFromHandler reads response from given http handle func.
 // expects http status OK.
-func getSuccessResponseFromHandler(handler operation.Handler, requestBody io.Reader,
+func getSuccessResponseFromHandler(handler rest.Handler, requestBody io.Reader,
 	path string) (*bytes.Buffer, error) {
 	response, status, err := sendRequestToHandler(handler, requestBody, path)
 	if status != http.StatusOK {
@@ -436,7 +436,7 @@ func getSuccessResponseFromHandler(handler operation.Handler, requestBody io.Rea
 	return response, err
 }
 
-func getHandler(t *testing.T, lookup string) operation.Handler {
+func getHandler(t *testing.T, lookup string) rest.Handler {
 	return getHandlerWithError(t, lookup, &fails{})
 }
 
@@ -444,7 +444,7 @@ type fails struct {
 	handleErr, acceptErr, implicitErr, storePutErr, storeGetErr error
 }
 
-func getHandlerWithError(t *testing.T, lookup string, f *fails) operation.Handler {
+func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
 	transientStore := mockstore.MockStore{Store: make(map[string][]byte)}
 	store := mockstore.MockStore{Store: make(map[string][]byte)}
 	connRec := &connection.Record{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
@@ -489,7 +489,7 @@ func getHandlerWithError(t *testing.T, lookup string, f *fails) operation.Handle
 	return handlerLookup(t, svc, lookup)
 }
 
-func handlerLookup(t *testing.T, op *Operation, lookup string) operation.Handler {
+func handlerLookup(t *testing.T, op *Operation, lookup string) rest.Handler {
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 

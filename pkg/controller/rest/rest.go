@@ -4,10 +4,11 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package errors
+package rest
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -15,6 +16,22 @@ import (
 )
 
 var logger = log.New("aries-framework/rest")
+
+// Handler http handler for each controller API endpoint
+type Handler interface {
+	Path() string
+	Method() string
+	Handle() http.HandlerFunc
+}
+
+// Execute executes given command with args provided and writes error to
+// response writer
+func Execute(exec command.Exec, rw http.ResponseWriter, req io.Reader) {
+	err := exec(rw, req)
+	if err != nil {
+		SendError(rw, err)
+	}
+}
 
 // genericError is aries rest api error response
 // swagger:response genericError
