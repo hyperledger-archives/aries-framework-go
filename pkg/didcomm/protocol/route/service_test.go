@@ -546,6 +546,58 @@ func TestRegister(t *testing.T) {
 	})
 }
 
+func TestUnregister(t *testing.T) {
+	t.Run("test unregister route - success", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(
+			&mockprovider.Provider{
+				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			},
+		)
+		require.NoError(t, err)
+
+		s[routeConnIDDataKey] = []byte("conn-abc-xyz")
+
+		err = svc.Unregister()
+		require.NoError(t, err)
+	})
+
+	t.Run("test unregister route - router not registered", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(
+			&mockprovider.Provider{
+				StorageProviderValue: &mockstore.MockStoreProvider{
+					Store: &mockstore.MockStore{Store: s},
+				},
+				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			},
+		)
+		require.NoError(t, err)
+
+		err = svc.Unregister()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "router not registered")
+	})
+
+	t.Run("test unregister route - db error", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(
+			&mockprovider.Provider{
+				StorageProviderValue: &mockstore.MockStoreProvider{
+					Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
+				},
+				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			},
+		)
+		require.NoError(t, err)
+
+		err = svc.Unregister()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "fetch router connection id")
+	})
+}
+
 func TestKeylistUpdate(t *testing.T) {
 	t.Run("test keylist update - success", func(t *testing.T) {
 		keyUpdateMsg := make(chan KeylistUpdate)

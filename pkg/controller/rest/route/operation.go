@@ -19,6 +19,7 @@ import (
 const (
 	routeOperationID = "/route"
 	registerPath     = routeOperationID + "/register"
+	unregisterPath   = routeOperationID + "/unregister"
 )
 
 // provider contains dependencies for the route protocol and is typically created by using aries.Context().
@@ -56,6 +57,7 @@ func (o *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(registerPath, http.MethodPost, o.Register),
+		cmdutil.NewHTTPHandler(unregisterPath, http.MethodDelete, o.Unregister),
 	}
 }
 
@@ -67,6 +69,16 @@ func (o *Operation) registerHandler() {
 //    default: genericError
 func (o *Operation) Register(rw http.ResponseWriter, req *http.Request) {
 	executeCommand(o.command.Register, rw, req)
+}
+
+// Unregister swagger:route DELETE /route/unregister route
+//
+// Unregisters the agent with the router.
+//
+// Responses:
+//    default: genericError
+func (o *Operation) Unregister(rw http.ResponseWriter, req *http.Request) {
+	executeCommand(o.command.Unregister, rw, req)
 }
 
 // executeCommand executes given command with args provided.

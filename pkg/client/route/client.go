@@ -31,6 +31,9 @@ type protocolService interface {
 
 	// Register registers the agent with the router
 	Register(connectionID string) error
+
+	// Unregister unregisters the agent with the router
+	Unregister() error
 }
 
 // New return new instance of route client.
@@ -55,6 +58,15 @@ func New(ctx provider) (*Client, error) {
 func (c *Client) Register(connectionID string) error {
 	if err := c.routeSvc.Register(connectionID); err != nil {
 		return fmt.Errorf("router registration : %w", err)
+	}
+
+	return nil
+}
+
+// Unregister unregisters the agent with the router.
+func (c *Client) Unregister() error {
+	if err := c.routeSvc.Unregister(); err != nil {
+		return fmt.Errorf("router unregister : %w", err)
 	}
 
 	return nil

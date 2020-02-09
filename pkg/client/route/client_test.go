@@ -63,3 +63,28 @@ func TestRegister(t *testing.T) {
 		require.Contains(t, err.Error(), "router registration")
 	})
 }
+
+func TestUnregister(t *testing.T) {
+	t.Run("test unregister - success", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{
+			ServiceValue: &mockroute.MockRouteSvc{},
+		})
+		require.NoError(t, err)
+
+		err = c.Unregister()
+		require.NoError(t, err)
+	})
+
+	t.Run("test unregister - error", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{
+			ServiceValue: &mockroute.MockRouteSvc{
+				UnregisterErr: errors.New("unregister error"),
+			},
+		})
+		require.NoError(t, err)
+
+		err = c.Unregister()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "router unregister")
+	})
+}

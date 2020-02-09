@@ -393,6 +393,23 @@ func (s *Service) Register(connectionID string) error {
 	return s.saveRouterConnectionID(connectionID)
 }
 
+// Unregister unregisters the agent with the router.
+func (s *Service) Unregister() error {
+	// check if router is already registered
+	_, err := s.getRouterConnectionID()
+	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
+		return fmt.Errorf("fetch router connection id : %w", err)
+	} else if errors.Is(err, storage.ErrDataNotFound) {
+		return ErrRouterNotRegistered
+	}
+
+	// TODO Remove all the recKeys from the router
+	//  https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination#keylist-update-response
+
+	// reset the connectionID
+	return s.saveRouterConnectionID("")
+}
+
 // AddKey adds a recKey of the agent to the registered router. This method blocks until a response is
 // received from the router or it times out.
 // TODO https://github.com/hyperledger/aries-framework-go/issues/1076 Support for multiple routers
