@@ -34,6 +34,70 @@ export const Aries = new function() {
         }
     }
 
+    this.didexchange = {
+        pkgname : "didexchange",
+        CreateInvitation: async function(text) {
+            return Aries._invoke(this.pkgname, "CreateInvitation", text, "timeout while creating invitation")
+        },
+        ReceiveInvitation: async function(text) {
+            return Aries._invoke(this.pkgname, "ReceiveInvitation", text, "timeout while receiving invitation")
+        },
+        AcceptInvitation: async function(text) {
+            return Aries._invoke(this.pkgname, "AcceptInvitation", text, "timeout while accepting invitation")
+        },
+        AcceptExchangeRequest: async function(text) {
+            return Aries._invoke(this.pkgname, "AcceptExchangeRequest", text, "timeout while accepting exchange request")
+        },
+        CreateImplicitInvitation: async function(text) {
+            return Aries._invoke(this.pkgname, "CreateImplicitInvitation", text, "timeout while creating implicit invitation")
+        },
+        RemoveConnection: async function(text) {
+            return Aries._invoke(this.pkgname, "RemoveConnection", text, "timeout while removing invitation")
+        },
+        QueryConnectionByID: async function(text) {
+            return Aries._invoke(this.pkgname, "QueryConnectionByID", text, "timeout while querying connection by ID")
+        },
+        QueryConnections: async function(text) {
+            return Aries._invoke(this.pkgname, "QueryConnections", text, "timeout while querying connections")
+        }
+    }
+
+    this.messaging = {
+        pkgname : "messaging",
+        RegisteredServices: async function(text) {
+            return Aries._invoke(this.pkgname, "RegisteredServices", text, "timeout while getting list of registered services")
+        },
+        RegisterMessageService: async function(text) {
+            return Aries._invoke(this.pkgname, "RegisterMessageService", text, "timeout while registering service")
+        },
+        RegisterHTTPMessageService: async function(text) {
+            return Aries._invoke(this.pkgname, "RegisterHTTPMessageService", text, "timeout while registering HTTP service")
+        },
+        UnregisterMessageService: async function(text) {
+            return Aries._invoke(this.pkgname, "UnregisterMessageService", text, "timeout while unregistering service")
+        },
+        SendNewMessage: async function(text) {
+            return Aries._invoke(this.pkgname, "SendNewMessage", text, "timeout while sending new message")
+        },
+        SendReplyMessage: async function(text) {
+            return Aries._invoke(this.pkgname, "SendReplyMessage", text, "timeout while sending reply message")
+        }
+    }
+
+    this.vdri = {
+        pkgname : "vdri",
+        CreatePublicDID: async function(text) {
+            return Aries._invoke(this.pkgname, "CreatePublicDID", text, "timeout while creating public DID")
+        },
+    }
+
+    this.router = {
+        pkgname : "router",
+        Register: async function(text) {
+            return Aries._invoke(this.pkgname, "Register", text, "timeout while registering router")
+        },
+    }
+
     this._newMsg = function(pkg, fn, payload) {
         return {
             // TODO there are several approaches to generate random strings:
