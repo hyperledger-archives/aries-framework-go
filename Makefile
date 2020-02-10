@@ -143,7 +143,7 @@ depend:
 .PHONY: mocks
 mocks: depend
 	$(call create_mock,pkg/client/introduce,Provider)
-	$(call create_mock,pkg/didcomm/protocol/introduce,Provider;InvitationEnvelope)
+	$(call create_mock,pkg/didcomm/protocol/introduce,Provider)
 	$(call create_mock,pkg/didcomm/common/service,DIDComm;Event;Messenger;MessengerHandler)
 	$(call create_mock,pkg/didcomm/dispatcher,Outbound)
 	$(call create_mock,pkg/storage,Provider;Store)

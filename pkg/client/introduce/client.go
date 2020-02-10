@@ -7,40 +7,29 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
-
-const invitationEnvelopePrefix = "invitation_envelope_"
-
-var logger = log.New("aries-framework/introduce/client")
 
 // Provider contains dependencies for the introduce protocol and is typically created by using aries.Context()
 type Provider interface {
 	Service(id string) (interface{}, error)
-	StorageProvider() storage.Provider
 }
 
 // Client enable access to introduce API
 type Client struct {
 	service.Event
-	service    service.DIDComm
-	store      storage.Store
-	defaultInv *didexchange.Invitation
-	newUUID    func() string
+	service service.DIDComm
 }
 
 // New return new instance of introduce client
-func New(ctx Provider, inv *didexchange.Invitation) (*Client, error) {
+func New(ctx Provider) (*Client, error) {
 	svc, err := ctx.Service(introduce.Introduce)
 	if err != nil {
 		return nil, err
@@ -51,176 +40,66 @@ func New(ctx Provider, inv *didexchange.Invitation) (*Client, error) {
 		return nil, errors.New("cast service to Introduce Service failed")
 	}
 
-	store, err := ctx.StorageProvider().OpenStore(introduce.Introduce)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Client{
-		Event:      introduceSvc,
-		service:    introduceSvc,
-		store:      store,
-		defaultInv: inv,
-		newUUID:    func() string { return uuid.New().String() },
+		Event:   introduceSvc,
+		service: introduceSvc,
 	}, nil
-}
-
-// InvitationEnvelope is a helper function that returns the dependency needed for the
-// service to proceed with the protocol. Dependency should be passed to the service through `Continue` function.
-// The function should never return an error. Instead of an error we provide a callable interface
-// and a state machine that will act according to the provided data.
-// Dependency is populated after executing the following functions:
-//  - SendProposal
-//  - SendProposalWithInvitation
-//  - HandleRequest
-//  - HandleRequestWithInvitation
-// usage: e.Continue(c.InvitationEnvelope(threadID))
-func (c *Client) InvitationEnvelope(thID string) *InvitationEnvelope {
-	opts, err := c.getInvitationEnvelope(thID)
-
-	if errors.Is(err, storage.ErrDataNotFound) {
-		return &InvitationEnvelope{Inv: c.defaultInv}
-	}
-
-	if err != nil {
-		logger.Errorf("invitation envelope: %v", err)
-		return &InvitationEnvelope{}
-	}
-
-	return opts
 }
 
 // SendProposal sends a proposal to the introducees (the client does not have a public Invitation).
 func (c *Client) SendProposal(recipient1, recipient2 *introduce.Recipient) error {
-	return c.sendProposal(InvitationEnvelope{
-		Recps: []*introduce.Recipient{recipient1, recipient2},
-	})
+	ctxID := uuid.New().String()
+
+	err := c.service.HandleOutbound(
+		introduce.WrapWithMetadataContextID(
+			introduce.CreateProposal(recipient1.To), ctxID,
+		),
+		recipient1.MyDID, recipient1.TheirDID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("handle outbound: %w", err)
+	}
+
+	return c.service.HandleOutbound(
+		introduce.WrapWithMetadataContextID(
+			introduce.CreateProposal(recipient2.To), ctxID,
+		),
+		recipient2.MyDID, recipient2.TheirDID,
+	)
 }
 
 // SendProposalWithInvitation sends a proposal to the introducee (the client has a public Invitation).
 func (c *Client) SendProposalWithInvitation(inv *didexchange.Invitation, recipient *introduce.Recipient) error {
-	return c.sendProposal(InvitationEnvelope{
-		Inv:   inv,
-		Recps: []*introduce.Recipient{recipient},
-	})
+	return c.service.HandleOutbound(
+		introduce.WrapWithMetadataPublicInvitation(
+			introduce.CreateProposal(recipient.To), inv,
+		),
+		recipient.MyDID, recipient.TheirDID,
+	)
 }
 
 // SendRequest sends a request.
 // Sending a request means that the introducee is willing to share its invitation.
 func (c *Client) SendRequest(to *introduce.PleaseIntroduceTo, myDID, theirDID string) error {
-	return c.handleOutbound(&introduce.Request{
+	return c.service.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type:              introduce.RequestMsgType,
-		ID:                c.newUUID(),
 		PleaseIntroduceTo: to,
-	}, InvitationEnvelope{
-		Recps: []*introduce.Recipient{{MyDID: myDID, TheirDID: theirDID}},
-	})
+	}), myDID, theirDID)
 }
 
-// HandleRequest is a helper function to prepare the right protocol dependency interface.
-// It can be executed after receiving a Request action message (the client does not have a public Invitation)
-func (c *Client) HandleRequest(msg service.DIDCommMsg, to *introduce.To, recipient *introduce.Recipient) error {
-	thID, err := msg.ThreadID()
-	if err != nil {
-		return fmt.Errorf("handle request threadID: %w", err)
-	}
+// WithRecipients is used when the introducer does not have a public invitation
+// but he is willing to introduce agents to each other.
+// NOTE: Introducer can provide recipients only after receiving RequestMsgType.
+// USAGE: event.Continue(WithRecipients(to, recipient))
+var WithRecipients = introduce.WithRecipients // nolint: gochecknoglobals
 
-	return c.saveInvitationEnvelope(thID, InvitationEnvelope{
-		Recps: []*introduce.Recipient{{To: to}, recipient},
-	})
-}
+// WithPublicInvitation is used when introducer wants to provide public invitation.
+// NOTE: Introducer can provide invitation only after receiving RequestMsgType
+// USAGE: event.Continue(WithPublicInvitation(inv, to))
+var WithPublicInvitation = introduce.WithPublicInvitation // nolint: gochecknoglobals
 
-// HandleRequestWithInvitation is a helper function to prepare the right protocol dependency interface.
-// It can be executed after receiving a Request action message (the client has a public Invitation)
-func (c *Client) HandleRequestWithInvitation(msg service.DIDCommMsg,
-	inv *didexchange.Invitation, to *introduce.To) error {
-	thID, err := msg.ThreadID()
-	if err != nil {
-		return fmt.Errorf("handle request with invitation threadID: %w", err)
-	}
-
-	return c.saveInvitationEnvelope(thID, InvitationEnvelope{
-		Inv:   inv,
-		Recps: []*introduce.Recipient{{To: to}},
-	})
-}
-
-func (c *Client) handleOutbound(msg interface{}, o InvitationEnvelope) error {
-	payload, err := json.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("marshal outbound msg: %w", err)
-	}
-
-	didMsg, err := service.ParseDIDCommMsgMap(payload)
-	if err != nil {
-		return fmt.Errorf("new outbound DIDCommMsg msg: %w", err)
-	}
-
-	thID, err := didMsg.ThreadID()
-	if err != nil {
-		return fmt.Errorf("outbound threadID: %w", err)
-	}
-
-	if _, ok := msg.(*introduce.Request); !ok {
-		if err := c.saveInvitationEnvelope(thID, o); err != nil {
-			return err
-		}
-	}
-
-	return c.service.HandleOutbound(didMsg, o.Recps[0].MyDID, o.Recps[0].TheirDID)
-}
-
-// InvitationEnvelope keeps the information needed for sending a proposal
-type InvitationEnvelope struct {
-	// Invitation must be set when we have a public Invitation
-	Inv *didexchange.Invitation `json:"invitation,omitempty"`
-	// Recipients contain one or two elements
-	// one element - for the public Invitation, otherwise two elements
-	Recps []*introduce.Recipient `json:"recipients,omitempty"`
-}
-
-// Invitation returns an Invitation needed for the service (state machine depends on it)
-func (o *InvitationEnvelope) Invitation() *didexchange.Invitation {
-	return o.Inv
-}
-
-// Recipients returns data needed for the service (state machine depends on it)
-func (o *InvitationEnvelope) Recipients() []*introduce.Recipient {
-	return o.Recps
-}
-
-// sendProposal sends proposal
-func (c *Client) sendProposal(o InvitationEnvelope) error {
-	return c.handleOutbound(&introduce.Proposal{
-		Type: introduce.ProposalMsgType,
-		ID:   c.newUUID(),
-		To:   o.Recps[0].To,
-	}, o)
-}
-
-func (c *Client) saveInvitationEnvelope(thID string, o InvitationEnvelope) error {
-	data, err := json.Marshal(o)
-	if err != nil {
-		return fmt.Errorf("marshal invitation envelope: %w", err)
-	}
-
-	return c.store.Put(invitationEnvelopeKey(thID), data)
-}
-
-func (c *Client) getInvitationEnvelope(thID string) (*InvitationEnvelope, error) {
-	data, err := c.store.Get(invitationEnvelopeKey(thID))
-	if err != nil {
-		return nil, fmt.Errorf("get invitation envelope: %w", err)
-	}
-
-	var o *InvitationEnvelope
-	if err := json.Unmarshal(data, &o); err != nil {
-		return nil, fmt.Errorf("unmarshal invitation envelope: %w", err)
-	}
-
-	return o, nil
-}
-
-func invitationEnvelopeKey(thID string) string {
-	return invitationEnvelopePrefix + thID
-}
+// WithInvitation is used when introducee wants to provide invitation.
+// NOTE: Introducee can provide invitation only after receiving ProposalMsgType
+// USAGE: event.Continue(WithInvitation(inv))
+var WithInvitation = introduce.WithInvitation // nolint: gochecknoglobals

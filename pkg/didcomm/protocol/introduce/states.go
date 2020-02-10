@@ -10,10 +10,17 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+)
+
+const (
+	codeNotApproved     = "not approved"
+	codeRequestDeclined = "request declined"
+	codeNoInvitation    = "no invitation"
+	codeInternalError   = "internal error"
 )
 
 const (
@@ -34,6 +41,9 @@ const (
 	stateNameWaiting    = "waiting"
 )
 
+// state action for network call
+type stateAction func() error
+
 // The introduce protocol's state.
 type state interface {
 	// Name of this state.
@@ -42,8 +52,8 @@ type state interface {
 	CanTransitionTo(next state) bool
 	// Executes this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	ExecuteInbound(messenger service.Messenger, msg *metaData) (followup state, err error)
-	ExecuteOutbound(messenger service.Messenger, msg *metaData) (followup state, err error)
+	ExecuteInbound(messenger service.Messenger, msg *metaData) (state, stateAction, error)
+	ExecuteOutbound(messenger service.Messenger, msg *metaData) (state, stateAction, error)
 }
 
 // noOp state
@@ -58,12 +68,12 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) ExecuteInbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("cannot execute no-op")
+func (s *noOp) ExecuteInbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return nil, nil, errors.New("cannot execute no-op")
 }
 
-func (s *noOp) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("cannot execute no-op")
+func (s *noOp) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return nil, nil, errors.New("cannot execute no-op")
 }
 
 // start state
@@ -85,12 +95,12 @@ func (s *start) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *start) ExecuteInbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("start: ExecuteInbound function is not supposed to be used")
+func (s *start) ExecuteInbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return nil, nil, errors.New("start: ExecuteInbound function is not supposed to be used")
 }
 
-func (s *start) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("start: ExecuteOutbound function is not supposed to be used")
+func (s *start) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return nil, nil, errors.New("start: ExecuteOutbound function is not supposed to be used")
 }
 
 // done state
@@ -106,12 +116,12 @@ func (s *done) CanTransitionTo(next state) bool {
 	return false
 }
 
-func (s *done) ExecuteInbound(_ service.Messenger, _ *metaData) (state, error) {
-	return &noOp{}, nil
+func (s *done) ExecuteInbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return &noOp{}, nil, nil
 }
 
-func (s *done) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("done: ExecuteOutbound function is not supposed to be used")
+func (s *done) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return nil, nil, errors.New("done: ExecuteOutbound function is not supposed to be used")
 }
 
 // arranging state
@@ -127,41 +137,103 @@ func (s *arranging) CanTransitionTo(next state) bool {
 		next.Name() == stateNameAbandoning || next.Name() == stateNameDelivering
 }
 
-func (s *arranging) ExecuteInbound(messenger service.Messenger, m *metaData) (state, error) {
-	// after receiving a response we need to determine whether it is skip proposal or no
-	// if this is skip proposal we do not need to send a proposal to another introducee
-	// we just simply go to Delivering state
-	if m.Msg.Type() == ResponseMsgType && isSkipProposal(m) {
-		return &delivering{}, nil
+func isApproved(md *metaData) bool {
+	for _, p := range md.participants {
+		if !p.Approve {
+			return false
+		}
 	}
 
-	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
-		return &abandoning{}, nil
-	}
-
-	var recipient *Recipient
-
-	// sends Proposal according to the WaitCount
-	if m.WaitCount == initialWaitCount {
-		recipient = m.Recipients[0]
-	} else {
-		recipient = m.Recipients[1]
-	}
-
-	// TODO: Send should be replaced with ReplyTo. [Issue #1159]
-	return &noOp{}, messenger.Send(service.NewDIDCommMsgMap(Proposal{
-		Type:   ProposalMsgType,
-		To:     recipient.To,
-		Thread: &decorator.Thread{ID: m.ThreadID},
-	}), recipient.MyDID, recipient.TheirDID)
+	return true
 }
 
-func (s *arranging) ExecuteOutbound(messenger service.Messenger, m *metaData) (state, error) {
-	if err := messenger.Send(m.Msg.(service.DIDCommMsgMap), m.myDID, m.theirDID); err != nil {
-		return nil, fmt.Errorf("arranging: Send: %w", err)
+func hasInvitation(md *metaData) bool {
+	for _, p := range md.participants {
+		if p.Invitation != nil {
+			return true
+		}
 	}
 
-	return &noOp{}, nil
+	return false
+}
+
+func getMetaRecipients(md *metaData) []*Recipient {
+	_recipients, ok := md.msg.Metadata()[metaRecipients].([]interface{})
+	if !ok {
+		return nil
+	}
+
+	var recipients = make([]*Recipient, len(_recipients))
+
+	for i, _recipient := range _recipients {
+		recipient, ok := _recipient.(*Recipient)
+		if !ok {
+			// should never happen, otherwise, the protocol logic is broken
+			panic("recipient type is wrong")
+		}
+
+		recipients[i] = recipient
+	}
+
+	return recipients
+}
+
+// CreateProposal creates a DIDCommMsgMap proposal
+func CreateProposal(to *To) service.DIDCommMsgMap {
+	return service.NewDIDCommMsgMap(Proposal{
+		Type: ProposalMsgType,
+		To:   to,
+	})
+}
+
+func sendProposals(messenger service.Messenger, md *metaData) error {
+	for _, recipient := range getMetaRecipients(md) {
+		proposal := WrapWithMetadataContextID(CreateProposal(recipient.To), contextID(md.msg))
+		copyMetadata(md.msg, proposal)
+
+		var err error
+		if recipient.MyDID == "" && recipient.TheirDID == "" {
+			err = messenger.ReplyTo(md.msg.ID(), proposal)
+		} else {
+			err = messenger.Send(proposal, recipient.MyDID, recipient.TheirDID)
+		}
+
+		if err != nil {
+			return fmt.Errorf("send proposals: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (s *arranging) ExecuteInbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
+	if md.msg.Type() == RequestMsgType {
+		return &noOp{}, func() error {
+			return sendProposals(messenger, md)
+		}, nil
+	}
+
+	if isSkipProposal(md) {
+		if !isApproved(md) {
+			return &abandoning{Code: codeNotApproved}, nil, nil
+		}
+
+		return &delivering{}, nil, nil
+	}
+
+	if len(md.participants) != maxIntroducees {
+		return &noOp{}, nil, nil
+	}
+
+	if !isApproved(md) {
+		return &abandoning{Code: codeNotApproved}, nil, nil
+	}
+
+	return &delivering{}, nil, nil
+}
+
+func (s *arranging) ExecuteOutbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
+	return &noOp{}, func() error { return messenger.Send(md.msg.(service.DIDCommMsgMap), md.myDID, md.theirDID) }, nil
 }
 
 // delivering state
@@ -176,82 +248,56 @@ func (s *delivering) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameConfirming || next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-// toDestIDx returns destination index based on introducee index
-func toDestIDx(idx int) int {
-	if idx == 0 {
-		return 1
-	}
-
-	return 0
-}
-
-func getApproveFromMsg(msg service.DIDCommMsg) (bool, bool) {
-	if msg.Type() != ResponseMsgType {
-		return false, false
-	}
-
-	r := Response{}
-
-	if err := msg.Decode(&r); err != nil {
-		return false, false
-	}
-
-	return r.Approve, true
-}
-
-func sendProblemReport(messenger service.Messenger, m *metaData, recipients []*Recipient) (state, error) {
-	for _, recipient := range recipients {
-		// TODO: add description code to the ProblemReport message [Issues #1160]
-		problem := service.NewDIDCommMsgMap(model.ProblemReport{Type: ProblemReportMsgType})
-
-		if err := messenger.ReplyToNested(m.ThreadID, problem, recipient.MyDID, recipient.TheirDID); err != nil {
-			return nil, fmt.Errorf("send problem-report: %w", err)
-		}
-	}
-
-	return &done{}, nil
-}
-
-func deliveringSkipInvitation(messenger service.Messenger, m *metaData, recipients []*Recipient) (state, error) {
-	// for skip proposal, we always have only one recipient e.g recipients[0]
-	err := messenger.ReplyToNested(m.ThreadID,
-		service.NewDIDCommMsgMap(m.dependency.Invitation()),
-		recipients[0].MyDID, recipients[0].TheirDID,
-	)
+func deliveringSkipInvitation(messenger service.Messenger, md *metaData) (state, stateAction, error) {
+	thID, err := md.msg.ThreadID()
 	if err != nil {
-		return nil, fmt.Errorf("send inbound invitation (skip): %w", err)
+		panic(err)
 	}
 
-	return &done{}, nil
+	return &done{}, func() error {
+		return messenger.ReplyToNested(thID,
+			service.NewDIDCommMsgMap(contextInvitation(md.msg)),
+			md.myDID, md.theirDID,
+		)
+	}, nil
 }
 
-func (s *delivering) ExecuteInbound(messenger service.Messenger, m *metaData) (state, error) {
-	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
-		return &abandoning{}, nil
-	}
-
-	if isSkipProposal(m) {
-		return deliveringSkipInvitation(messenger, m, m.Recipients)
+func (s *delivering) ExecuteInbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
+	if isSkipProposal(md) {
+		return deliveringSkipInvitation(messenger, md)
 	}
 
 	// edge case: no one shared the invitation
-	if m.Invitation == nil {
-		return &abandoning{}, nil
+	if !hasInvitation(md) {
+		return &abandoning{Code: codeNoInvitation}, nil, nil
 	}
 
-	recipient := m.Recipients[toDestIDx(m.IntroduceeIndex)]
+	var inv *didexchange.Invitation
 
-	msgMap := service.NewDIDCommMsgMap(m.Invitation)
+	var participants []participant
 
-	if err := messenger.ReplyToNested(m.ThreadID, msgMap, recipient.MyDID, recipient.TheirDID); err != nil {
-		return nil, fmt.Errorf("send inbound invitation: %w", err)
+	for _, participant := range md.participants {
+		if participant.Invitation != nil && inv == nil {
+			inv = participant.Invitation
+		} else {
+			participants = append(participants, participant)
+		}
 	}
 
-	return &confirming{}, nil
+	return &confirming{}, func() error {
+		for _, p := range participants {
+			err := messenger.ReplyToNested(p.ThreadID, service.NewDIDCommMsgMap(inv), p.MyDID, p.TheirDID)
+			if err != nil {
+				return fmt.Errorf("reply to nested: %w", err)
+			}
+		}
+
+		return nil
+	}, nil
 }
 
-func (s *delivering) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("delivering: ExecuteOutbound function is not supposed to be used")
+func (s *delivering) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return nil, nil, errors.New("delivering: ExecuteOutbound function is not supposed to be used")
 }
 
 // confirming state
@@ -266,28 +312,33 @@ func (s *confirming) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-func (s *confirming) ExecuteInbound(messenger service.Messenger, m *metaData) (state, error) {
-	recipient := m.Recipients[m.IntroduceeIndex]
-
+func (s *confirming) ExecuteInbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
 	msgMap := service.NewDIDCommMsgMap(model.Ack{
-		Type:   AckMsgType,
-		Thread: &decorator.Thread{ID: m.ThreadID},
+		Type: AckMsgType,
 	})
 
-	// TODO: Send should be replaced with ReplyTo. [Issue #1159]
-	if err := messenger.Send(msgMap, recipient.MyDID, recipient.TheirDID); err != nil {
-		return nil, fmt.Errorf("send ack: %w", err)
+	var p participant
+
+	for _, participant := range md.participants {
+		if participant.Invitation == nil {
+			continue
+		}
+
+		p = participant
+
+		break
 	}
 
-	return &done{}, nil
+	return &done{}, func() error { return messenger.ReplyTo(p.MessageID, msgMap) }, nil
 }
 
-func (s *confirming) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("confirming: ExecuteOutbound function is not supposed to be used")
+func (s *confirming) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return nil, nil, errors.New("confirming: ExecuteOutbound function is not supposed to be used")
 }
 
 // abandoning state
 type abandoning struct {
+	Code string
 }
 
 func (s *abandoning) Name() string {
@@ -298,53 +349,71 @@ func (s *abandoning) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone
 }
 
-func fillRecipient(recipients []*Recipient, m *metaData) []*Recipient {
-	// for the first recipient, we may do not have a destination
-	// in that case, we need to get destination from the inbound message
-	// NOTE: it happens after receiving the Request message.
-	if len(recipients) == 0 {
-		return append(recipients, &Recipient{
-			MyDID:    m.myDID,
-			TheirDID: m.theirDID,
-		})
+func (s *abandoning) ExecuteInbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
+	// if code is not provided it means we do not need to notify participants about it
+	if s.Code == "" {
+		return &done{}, nil, nil
 	}
 
-	if recipients[0].MyDID == "" {
-		recipients[0].MyDID = m.myDID
-	}
-
-	if recipients[0].TheirDID == "" {
-		recipients[0].TheirDID = m.theirDID
-	}
-
-	return recipients
-}
-
-func (s *abandoning) ExecuteInbound(messenger service.Messenger, m *metaData) (state, error) {
-	var recipients []*Recipient
-
-	if m.Msg.Type() == RequestMsgType {
-		recipients = fillRecipient(nil, m)
-	}
-
-	if m.Msg.Type() == ResponseMsgType {
-		recipients = fillRecipient(m.Recipients, m)
-	}
-
-	if approve, ok := getApproveFromMsg(m.Msg); ok && !approve {
-		if m.WaitCount == 1 {
-			return &done{}, nil
+	// In the protocol we might have a custom error.
+	// 1. The introducer stop the protocol after receiving a request
+	// 2. The introducee stop the protocol after receiving a proposal
+	// When introducee stops the protocol we already send a Response with Approve=false. Code is "". Was ignore above.
+	// Otherwise, we need to send a ProblemReport message.
+	if errors.As(md.err, &customError{}) {
+		// It is not possible to receive message without ID or threadID.
+		// This error should never happen. If it happens it means that logic is broken.
+		thID, err := md.msg.ThreadID()
+		if err != nil {
+			return nil, nil, fmt.Errorf("threadID: %w", err)
 		}
-		// if we receive the second Response with Approve=false
-		// report-problem should be sent only to the first introducee
-		recipients = recipients[:1]
+
+		// Sends a ProblemReport to the introducee.
+		return &done{}, func() error {
+			return messenger.ReplyToNested(thID, service.NewDIDCommMsgMap(model.ProblemReport{
+				Type: ProblemReportMsgType,
+				Description: model.Code{
+					Code: codeRequestDeclined,
+				}},
+			), md.myDID, md.theirDID)
+		}, nil
 	}
 
-	return sendProblemReport(messenger, m, recipients)
+	if len(md.participants) == 0 {
+		md.participants = []participant{{
+			MyDID:    md.myDID,
+			TheirDID: md.theirDID,
+		}}
+	}
+
+	return &done{}, func() error {
+		// notifies participants about error
+		for _, recipient := range md.participants {
+			// if code is codeNotApproved we need to ignore sending a ProblemReport
+			// to the participant who rejected the introduction
+			if s.Code == codeNotApproved && !recipient.Approve {
+				continue
+			}
+
+			// sends a ProblemReport to the participant
+			problem := service.NewDIDCommMsgMap(model.ProblemReport{
+				Type: ProblemReportMsgType,
+				Description: model.Code{
+					Code: s.Code,
+				},
+			})
+
+			if err := messenger.ReplyToNested(recipient.ThreadID, problem, recipient.MyDID, recipient.TheirDID); err != nil {
+				return fmt.Errorf("send problem-report: %w", err)
+			}
+		}
+
+		return nil
+	}, nil
 }
 
-func (s *abandoning) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("abandoning: ExecuteOutbound function is not supposed to be used")
+func (s *abandoning) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return nil, nil, errors.New("abandoning: ExecuteOutbound function is not supposed to be used")
 }
 
 // deciding state
@@ -359,29 +428,23 @@ func (s *deciding) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameWaiting || next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-func (s *deciding) ExecuteInbound(messenger service.Messenger, m *metaData) (state, error) {
-	var inv *didexchange.Invitation
-
-	if m.dependency != nil {
-		inv = m.dependency.Invitation()
-	}
-
+func (s *deciding) ExecuteInbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
 	var st state = &waiting{}
-	if m.disapprove {
+	if md.disapprove {
 		st = &abandoning{}
 	}
 
-	msgMap := service.NewDIDCommMsgMap(Response{
-		Type:       ResponseMsgType,
-		Invitation: inv,
-		Approve:    !m.disapprove,
-	})
-
-	return st, messenger.ReplyTo(m.Msg.ID(), msgMap)
+	return st, func() error {
+		return messenger.ReplyTo(md.msg.ID(), service.NewDIDCommMsgMap(Response{
+			Type:       ResponseMsgType,
+			Invitation: contextInvitation(md.msg),
+			Approve:    !md.disapprove,
+		}))
+	}, nil
 }
 
-func (s *deciding) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("deciding: ExecuteOutbound function is not supposed to be used")
+func (s *deciding) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return nil, nil, errors.New("deciding: ExecuteOutbound function is not supposed to be used")
 }
 
 // waiting state
@@ -396,12 +459,12 @@ func (s *waiting) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDone || next.Name() == stateNameAbandoning
 }
 
-func (s *waiting) ExecuteInbound(_ service.Messenger, _ *metaData) (state, error) {
-	return &noOp{}, nil
+func (s *waiting) ExecuteInbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return &noOp{}, nil, nil
 }
 
-func (s *waiting) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("waiting: ExecuteOutbound function is not supposed to be used")
+func (s *waiting) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return nil, nil, errors.New("waiting: ExecuteOutbound function is not supposed to be used")
 }
 
 // requesting state
@@ -416,10 +479,12 @@ func (s *requesting) CanTransitionTo(next state) bool {
 	return next.Name() == stateNameDeciding || next.Name() == stateNameAbandoning || next.Name() == stateNameDone
 }
 
-func (s *requesting) ExecuteInbound(_ service.Messenger, _ *metaData) (state, error) {
-	return nil, errors.New("requesting: ExecuteInbound function is not supposed to be used")
+func (s *requesting) ExecuteInbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
+	return nil, nil, errors.New("requesting: ExecuteInbound function is not supposed to be used")
 }
 
-func (s *requesting) ExecuteOutbound(messenger service.Messenger, m *metaData) (state, error) {
-	return &noOp{}, messenger.Send(m.Msg.(service.DIDCommMsgMap), m.myDID, m.theirDID)
+func (s *requesting) ExecuteOutbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
+	return &noOp{}, func() error {
+		return messenger.Send(md.msg.(service.DIDCommMsgMap), md.myDID, md.theirDID)
+	}, nil
 }

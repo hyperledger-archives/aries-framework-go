@@ -24,6 +24,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
 )
 
+const timeout = time.Second * 2
+
 // SDKSteps is steps for introduce using client SDK
 type SDKSteps struct {
 	bddContext      *context.BDDContext
@@ -45,20 +47,19 @@ func NewIntroduceSDKSteps(ctx *context.BDDContext) *SDKSteps {
 
 // RegisterSteps registers agent steps
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^"([^"]*)" creates introduce client with an invitation$`, a.createIntroduceClientWithInvitation)
 	s.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" and "([^"]*)"$`, a.sendProposal)
 	s.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" with "([^"]*)" invitation$`, a.sendProposalWithInvitation)
 	s.Step(`^"([^"]*)" sends introduce request to the "([^"]*)" asking about "([^"]*)"$`, a.sendRequest)
 	s.Step(`^"([^"]*)" sends introduce proposal back to the "([^"]*)" and requested introduce$`, a.handleRequest)
 	s.Step(`^"([^"]*)" sends introduce proposal back to the requester with pub invitation$`, a.handleRequestWithInvitation)
 	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve$`, a.checkAndContinue)
+	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve and provides invitation$`,
+		a.checkAndContinueWithInvitation)
 	s.Step(`^"([^"]*)" doesn't want to know "([^"]*)" and sends introduce response$`, a.checkAndStop)
-	s.Step(`^"([^"]*)" continue with the introduce protocol$`, a.continueWithProtocol)
-	s.Step(`^"([^"]*)" forwards`, a.continueWithProtocol)
 	s.Step(`^"([^"]*)" stops the introduce protocol$`, a.stopProtocol)
-	s.Step(`^"([^"]*)" checks the history of introduce protocol events "([^"]*)"`, a.checkHistoryEvents)
+	s.Step(`^"([^"]*)" checks the history of introduce protocol events "([^"]*)"$`, a.checkHistoryEvents)
+	s.Step(`^"([^"]*)" checks the history of introduce protocol events "([^"]*)" and stop$`, a.checkHistoryEventsAndStop)
 	s.Step(`^"([^"]*)" exchange DIDs with "([^"]*)"$`, a.createConnections)
-	s.Step(`^"([^"]*)" and "([^"]*)" exchange DIDs$`, a.connectionEstablished)
 }
 
 func (a *SDKSteps) connectionEstablished(agent1, agent2 string) error {
@@ -126,7 +127,7 @@ func (a *SDKSteps) createConnections(introducees, introducer string) error {
 
 func (a *SDKSteps) createIntroduceClient(agents string) error {
 	for _, agent := range strings.Split(agents, ",") {
-		if err := a.createClient(agent, &didexchange.Invitation{}); err != nil {
+		if err := a.createClient(agent); err != nil {
 			return err
 		}
 	}
@@ -134,19 +135,10 @@ func (a *SDKSteps) createIntroduceClient(agents string) error {
 	return nil
 }
 
-func (a *SDKSteps) createIntroduceClientWithInvitation(agentID string) error {
-	inv, err := a.bddContext.DIDExchangeClients[agentID].CreateInvitation(agentID)
-	if err != nil {
-		return err
-	}
-
-	return a.createClient(agentID, inv)
-}
-
-func (a *SDKSteps) createClient(agentID string, inv *didexchange.Invitation) error {
+func (a *SDKSteps) createClient(agentID string) error {
 	const stateMsgChanSize = 10
 
-	client, err := introduce.New(a.bddContext.AgentCtx[agentID], inv.Invitation)
+	client, err := introduce.New(a.bddContext.AgentCtx[agentID])
 	if err != nil {
 		return err
 	}
@@ -179,7 +171,22 @@ func (a *SDKSteps) checkHistoryEvents(agentID, events string) error {
 			if stateID != e.StateID {
 				return fmt.Errorf("history of events doesn't meet the expectation %q != %q", stateID, e.StateID)
 			}
-		case <-time.After(time.Second * 1):
+		case <-time.After(timeout):
+			return fmt.Errorf("waited for %s: history of events doesn't meet the expectation", stateID)
+		}
+	}
+
+	return nil
+}
+
+func (a *SDKSteps) checkHistoryEventsAndStop(agentID, events string) error {
+	for _, stateID := range strings.Split(events, ",") {
+		select {
+		case e := <-a.events[agentID]:
+			if stateID != e.StateID {
+				return fmt.Errorf("history of events doesn't meet the expectation %q != %q", stateID, e.StateID)
+			}
+		case <-time.After(timeout):
 			return fmt.Errorf("waited for %s: history of events doesn't meet the expectation", stateID)
 		}
 	}
@@ -188,19 +195,8 @@ func (a *SDKSteps) checkHistoryEvents(agentID, events string) error {
 }
 
 func (a *SDKSteps) stopServices() error {
-	for agent := range a.bddContext.AgentCtx {
-		svc, err := a.bddContext.AgentCtx[agent].Service(introduceService.Introduce)
-		if err != nil {
-			return err
-		}
-
-		if err := svc.(interface{ Stop() error }).Stop(); err != nil {
-			if !errors.Is(err, introduceService.ErrServerWasStopped) {
-				return err
-			}
-		}
-
-		if err := a.bddContext.AgentCtx[agent].StorageProvider().Close(); err != nil {
+	for _, ctx := range a.bddContext.AgentCtx {
+		if err := ctx.StorageProvider().Close(); err != nil {
 			return err
 		}
 	}
@@ -221,8 +217,8 @@ func (a *SDKSteps) checkAndStop(agentID, introduceeID string) error {
 		}
 
 		e.Stop(errors.New("stop the protocol"))
-	case <-time.After(time.Second * 1):
-		return fmt.Errorf("timeout continueWithProtocol %s", agentID)
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout checkAndStop %s", agentID)
 	}
 
 	return nil
@@ -248,18 +244,9 @@ func (a *SDKSteps) handleRequest(agentID, introducee string) error {
 		}
 
 		to := &introduceService.To{Name: request.PleaseIntroduceTo.Name}
-		// nolint: govet
-		if err := a.clients[agentID].HandleRequest(e.Message, to, recipient); err != nil {
-			return err
-		}
 
-		thID, err := e.Message.ThreadID()
-		if err != nil {
-			return err
-		}
-
-		e.Continue(a.clients[agentID].InvitationEnvelope(thID))
-	case <-time.After(time.Second * 1):
+		e.Continue(introduce.WithRecipients(to, recipient))
+	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
 
@@ -282,18 +269,9 @@ func (a *SDKSteps) handleRequestWithInvitation(agentID string) error {
 		}
 
 		to := &introduceService.To{Name: inv.Label}
-		// nolint: govet
-		if err := a.clients[agentID].HandleRequestWithInvitation(e.Message, inv.Invitation, to); err != nil {
-			return err
-		}
 
-		thID, err := e.Message.ThreadID()
-		if err != nil {
-			return err
-		}
-
-		e.Continue(a.clients[agentID].InvitationEnvelope(thID))
-	case <-time.After(time.Second * 1):
+		e.Continue(introduce.WithPublicInvitation(inv.Invitation, to))
+	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
 
@@ -303,11 +281,6 @@ func (a *SDKSteps) handleRequestWithInvitation(agentID string) error {
 func (a *SDKSteps) checkAndContinue(agentID, introduceeID string) error {
 	select {
 	case e := <-a.actions[agentID]:
-		thID, err := e.Message.ThreadID()
-		if err != nil {
-			return err
-		}
-
 		proposal := &introduceService.Proposal{}
 		if err := e.Message.Decode(proposal); err != nil {
 			return err
@@ -317,25 +290,34 @@ func (a *SDKSteps) checkAndContinue(agentID, introduceeID string) error {
 			return fmt.Errorf("%q wants to know %q but got %q", agentID, introduceeID, proposal.To.Name)
 		}
 
-		e.Continue(a.clients[agentID].InvitationEnvelope(thID))
-	case <-time.After(time.Second * 1):
+		e.Continue(nil)
+	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
 
 	return nil
 }
 
-func (a *SDKSteps) continueWithProtocol(agentID string) error {
+func (a *SDKSteps) checkAndContinueWithInvitation(agentID, introduceeID string) error {
 	select {
 	case e := <-a.actions[agentID]:
-		thID, err := e.Message.ThreadID()
+		proposal := &introduceService.Proposal{}
+		if err := e.Message.Decode(proposal); err != nil {
+			return err
+		}
+
+		if proposal.To.Name != introduceeID {
+			return fmt.Errorf("%q wants to know %q but got %q", agentID, introduceeID, proposal.To.Name)
+		}
+
+		inv, err := a.bddContext.DIDExchangeClients[agentID].CreateInvitation(agentID)
 		if err != nil {
 			return err
 		}
 
-		e.Continue(a.clients[agentID].InvitationEnvelope(thID))
-	case <-time.After(time.Second * 1):
-		return fmt.Errorf("timeout continueWithProtocol %s", agentID)
+		e.Continue(introduce.WithInvitation(inv.Invitation))
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
 
 	return nil
@@ -345,7 +327,7 @@ func (a *SDKSteps) stopProtocol(agentID string) error {
 	select {
 	case e := <-a.actions[agentID]:
 		e.Stop(errors.New("stop the protocol"))
-	case <-time.After(time.Second * 1):
+	case <-time.After(timeout):
 		return fmt.Errorf("timeout stopProtocol %s", agentID)
 	}
 

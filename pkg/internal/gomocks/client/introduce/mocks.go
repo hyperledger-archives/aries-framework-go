@@ -6,7 +6,6 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	storage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	reflect "reflect"
 )
 
@@ -46,18 +45,4 @@ func (m *MockProvider) Service(arg0 string) (interface{}, error) {
 func (mr *MockProviderMockRecorder) Service(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Service", reflect.TypeOf((*MockProvider)(nil).Service), arg0)
-}
-
-// StorageProvider mocks base method
-func (m *MockProvider) StorageProvider() storage.Provider {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StorageProvider")
-	ret0, _ := ret[0].(storage.Provider)
-	return ret0
-}
-
-// StorageProvider indicates an expected call of StorageProvider
-func (mr *MockProviderMockRecorder) StorageProvider() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageProvider", reflect.TypeOf((*MockProvider)(nil).StorageProvider))
 }

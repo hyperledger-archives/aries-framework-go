@@ -21,18 +21,15 @@ func TestDIDCommMsgMap_ID(t *testing.T) {
 		msg      DIDCommMsgMap
 	}{
 		{
-			name:     "Empty (nil msg)",
-			expected: "",
+			name: "Empty (nil msg)",
 		},
 		{
-			name:     "Empty",
-			msg:      DIDCommMsgMap{},
-			expected: "",
+			name: "Empty",
+			msg:  DIDCommMsgMap{},
 		},
 		{
-			name:     "Bad type ID",
-			msg:      DIDCommMsgMap{jsonID: map[int]int{}},
-			expected: "",
+			name: "Bad type ID",
+			msg:  DIDCommMsgMap{jsonID: map[int]int{}},
 		},
 		{
 			name:     "Success",
@@ -53,12 +50,14 @@ func TestDIDCommMsgMap_MetaData(t *testing.T) {
 		msg      DIDCommMsgMap
 	}{
 		{
-			name: "Empty (nil msg)",
-			msg:  DIDCommMsgMap{},
+			name:     "Empty (nil msg)",
+			msg:      DIDCommMsgMap{},
+			expected: map[string]interface{}{},
 		},
 		{
-			name: "Bad type Type",
-			msg:  DIDCommMsgMap{jsonMetadata: map[int]int{}},
+			name:     "Bad type Type",
+			msg:      DIDCommMsgMap{jsonMetadata: map[int]int{}},
+			expected: map[string]interface{}{},
 		},
 		{
 			name:     "Success",
@@ -79,18 +78,15 @@ func TestDIDCommMsgMap_Type(t *testing.T) {
 		msg      DIDCommMsgMap
 	}{
 		{
-			name:     "Empty (nil msg)",
-			expected: "",
+			name: "Empty (nil msg)",
 		},
 		{
-			name:     "Empty",
-			msg:      DIDCommMsgMap{},
-			expected: "",
+			name: "Empty",
+			msg:  DIDCommMsgMap{},
 		},
 		{
-			name:     "Bad type Type",
-			msg:      DIDCommMsgMap{jsonType: map[int]int{}},
-			expected: "",
+			name: "Bad type Type",
+			msg:  DIDCommMsgMap{jsonType: map[int]int{}},
 		},
 		{
 			name:     "Success",
@@ -101,6 +97,66 @@ func TestDIDCommMsgMap_Type(t *testing.T) {
 
 	for i := range tests {
 		require.Equal(t, tests[i].expected, tests[i].msg.Type())
+	}
+}
+
+func TestDIDCommMsgMap_Clone(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected DIDCommMsgMap
+		msg      DIDCommMsgMap
+	}{
+		{
+			name: "Empty (nil msg)",
+		},
+		{
+			name:     "Empty",
+			msg:      DIDCommMsgMap{},
+			expected: DIDCommMsgMap{},
+		},
+		{
+			name:     "Success",
+			msg:      DIDCommMsgMap{jsonThread: map[string]int{}},
+			expected: DIDCommMsgMap{jsonThread: map[string]int{}},
+		},
+		{
+			name:     "Success with parent thread",
+			msg:      DIDCommMsgMap{jsonThread: map[string]interface{}{jsonParentThreadID: "pthID"}},
+			expected: DIDCommMsgMap{jsonThread: map[string]interface{}{jsonParentThreadID: "pthID"}},
+		},
+	}
+
+	for i := range tests {
+		require.Equal(t, tests[i].expected, tests[i].msg.Clone())
+	}
+}
+
+func TestDIDCommMsgMap_ParentThreadID(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected string
+		msg      DIDCommMsgMap
+	}{
+		{
+			name: "Empty (nil msg)",
+		},
+		{
+			name: "Empty",
+			msg:  DIDCommMsgMap{},
+		},
+		{
+			name: "Success",
+			msg:  DIDCommMsgMap{jsonThread: map[string]int{}},
+		},
+		{
+			name:     "Success",
+			msg:      DIDCommMsgMap{jsonThread: map[string]interface{}{jsonParentThreadID: "pthID"}},
+			expected: "pthID",
+		},
+	}
+
+	for i := range tests {
+		require.Equal(t, tests[i].expected, tests[i].msg.ParentThreadID())
 	}
 }
 

@@ -19,11 +19,12 @@ import (
 )
 
 const (
-	jsonID       = "@id"
-	jsonType     = "@type"
-	jsonThread   = "~thread"
-	jsonThreadID = "thid"
-	jsonMetadata = "_internal_metadata"
+	jsonID             = "@id"
+	jsonType           = "@type"
+	jsonThread         = "~thread"
+	jsonThreadID       = "thid"
+	jsonParentThreadID = "pthid"
+	jsonMetadata       = "_internal_metadata"
 )
 
 // Metadata may contain additional payload for the protocol. It might be populated by the client/protocol
@@ -107,12 +108,14 @@ func (m DIDCommMsgMap) ThreadID() (string, error) {
 // Metadata returns message metadata
 func (m DIDCommMsgMap) Metadata() map[string]interface{} {
 	if m[jsonMetadata] == nil {
-		return nil
+		m[jsonMetadata] = map[string]interface{}{}
+		return m[jsonMetadata].(map[string]interface{})
 	}
 
 	metadata, ok := m[jsonMetadata].(map[string]interface{})
 	if !ok {
-		return nil
+		m[jsonMetadata] = map[string]interface{}{}
+		return m[jsonMetadata].(map[string]interface{})
 	}
 
 	return metadata
@@ -130,6 +133,21 @@ func (m DIDCommMsgMap) Type() string {
 	}
 
 	return res
+}
+
+// ParentThreadID returns the message parentT hreadID
+func (m DIDCommMsgMap) ParentThreadID() string {
+	if m == nil || m[jsonThread] == nil {
+		return ""
+	}
+
+	if thread, ok := m[jsonThread].(map[string]interface{}); ok && thread != nil {
+		if pthID, ok := thread[jsonParentThreadID].(string); ok && pthID != "" {
+			return pthID
+		}
+	}
+
+	return ""
 }
 
 // ID returns the message id
@@ -169,6 +187,20 @@ func (m DIDCommMsgMap) Decode(v interface{}) error {
 	}
 
 	return decoder.Decode(m)
+}
+
+// Clone copies first level keys-values into another map (DIDCommMsgMap).
+func (m DIDCommMsgMap) Clone() DIDCommMsgMap {
+	if m == nil {
+		return nil
+	}
+
+	msg := DIDCommMsgMap{}
+	for k, v := range m {
+		msg[k] = v
+	}
+
+	return msg
 }
 
 func toMap(v interface{}) map[string]interface{} {
