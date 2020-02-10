@@ -234,6 +234,20 @@ func TestOutboundDispatcherTransportReturnRoute(t *testing.T) {
 
 		require.NoError(t, o.Send(req, "", &service.Destination{ServiceEndpoint: "url"}))
 	})
+
+	t.Run("transport route option - forward message", func(t *testing.T) {
+		transportReturnRoute := "thread"
+		o := NewOutbound(&mockProvider{
+			packagerValue:        &mockPackager{},
+			transportReturnRoute: transportReturnRoute,
+		})
+
+		testData := []byte("testData")
+
+		data, err := o.addTransportRouteOptions(testData, &service.Destination{RoutingKeys: []string{"abc"}})
+		require.NoError(t, err)
+		require.Equal(t, testData, data)
+	})
 }
 
 func TestOutboundDispatcher_Forward(t *testing.T) {

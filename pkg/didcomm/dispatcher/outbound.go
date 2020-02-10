@@ -93,7 +93,7 @@ func (o *OutboundDispatcher) Send(msg interface{}, senderVerKey string, des *ser
 		}
 
 		// update the outbound message with transport return route option [all or thread]
-		req, err = o.addTransportRouteOptions(req)
+		req, err = o.addTransportRouteOptions(req, des)
 		if err != nil {
 			return fmt.Errorf("add transport route options : %w", err)
 		}
@@ -191,7 +191,12 @@ func (o *OutboundDispatcher) createForwardMessage(msg []byte, des *service.Desti
 	return packedMsg, nil
 }
 
-func (o *OutboundDispatcher) addTransportRouteOptions(req []byte) ([]byte, error) {
+func (o *OutboundDispatcher) addTransportRouteOptions(req []byte, des *service.Destination) ([]byte, error) {
+	// dont add transport route options for forward messages
+	if len(des.RoutingKeys) != 0 {
+		return req, nil
+	}
+
 	if o.transportReturnRoute == decorator.TransportReturnRouteAll ||
 		o.transportReturnRoute == decorator.TransportReturnRouteThread {
 		// create the decorator with the option set in the framework
