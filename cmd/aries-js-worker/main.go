@@ -9,10 +9,16 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"syscall/js"
 	"time"
+
+	"github.com/hyperledger/aries-framework-go/pkg/controller"
+	cmdctrl "github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 )
 
 // TODO Signal JS when WASM is loaded and ready.
@@ -38,13 +44,25 @@ type result struct {
 
 // All supported command handlers.
 func handlers() map[string]map[string]func(*command) *result {
-	return map[string]map[string]func(*command) *result{
-		"test": {
-			"echo":       echo,
-			"throwError": throwError,
-			"timeout":    timeout,
-		},
+	pkgMap := defaultHandlers()
+
+	if isTest {
+		return pkgMap
 	}
+
+	commands := getAllCommands()
+
+	for _, cmd := range commands {
+		fnMap, ok := pkgMap[cmd.Name()]
+		if !ok {
+			fnMap = make(map[string]func(*command) *result)
+		}
+
+		fnMap[cmd.Method()] = cmdExecToFn(cmd.Handle())
+		pkgMap[cmd.Name()] = fnMap
+	}
+
+	return pkgMap
 }
 
 // main registers the 'handleMsg' function in the JS context's global scope to receive commands.
@@ -64,6 +82,41 @@ func main() {
 	}
 
 	select {}
+}
+
+// initAries creates aries agent instance
+// TODO currently running on default opts, should be able pass custom framework opts
+func getAllCommands() []cmdctrl.Handler {
+	msgHandler := msghandler.NewRegistrar()
+
+	a, err := aries.New(aries.WithMessageServiceProvider(msgHandler))
+	if err != nil {
+		js.Global().Get("console").Call("error",
+			fmt.Sprintf("aries wasm: failed to aries framework : %s", err),
+		)
+
+		return nil
+	}
+
+	ctx, err := a.Context()
+	if err != nil {
+		js.Global().Get("console").Call("error",
+			fmt.Sprintf("aries wasm: failed to get aries framework context: %s", err),
+		)
+
+		return nil
+	}
+
+	commands, err := controller.GetCommandHandlers(ctx, controller.WithMessageHandler(msgHandler))
+	if err != nil {
+		js.Global().Get("console").Call("error",
+			fmt.Sprintf("aries wasm: failed to get command list: %s", err),
+		)
+
+		return nil
+	}
+
+	return commands
 }
 
 func takeFrom(in chan *command) func(js.Value, []js.Value) interface{} {
@@ -126,28 +179,54 @@ func sendTo(out chan *result) {
 	}
 }
 
-// test handler
-func echo(c *command) *result {
-	return &result{
-		ID:      c.ID,
-		Payload: "echo: " + c.Payload,
+func cmdExecToFn(exec cmdctrl.Exec) func(*command) *result {
+	return func(c *command) *result {
+		req := bytes.NewBufferString(c.Payload)
+
+		var buf bytes.Buffer
+
+		err := exec(&buf, req)
+		if err != nil {
+			return &result{
+				ID:     c.ID,
+				IsErr:  true,
+				ErrMsg: fmt.Sprintf("code: %+v, message: %s", err.Code(), err.Error()),
+			}
+		}
+
+		return &result{
+			ID:      c.ID,
+			Payload: buf.String(),
+		}
 	}
 }
 
-// test handler
-func throwError(c *command) *result {
-	return &result{
-		ID:     c.ID,
-		IsErr:  true,
-		ErrMsg: "an error!",
+func defaultHandlers() map[string]map[string]func(*command) *result {
+	return map[string]map[string]func(*command) *result{
+		"test": {
+			"echo": func(c *command) *result {
+				return &result{
+					ID:      c.ID,
+					Payload: "echo: ->" + c.Payload,
+				}
+			},
+			"throwError": func(c *command) *result {
+				return &result{
+					ID:     c.ID,
+					IsErr:  true,
+					ErrMsg: "an error!",
+				}
+			},
+			"timeout": func(c *command) *result {
+				const echoTimeout = 10 * time.Second
+
+				time.Sleep(echoTimeout)
+
+				return &result{
+					ID:      c.ID,
+					Payload: "echo: ->" + c.Payload,
+				}
+			},
+		},
 	}
-}
-
-// test handler
-func timeout(c *command) *result {
-	const echoTimeout = 10 * time.Second
-
-	time.Sleep(echoTimeout)
-
-	return echo(c)
 }

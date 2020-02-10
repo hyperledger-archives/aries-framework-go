@@ -123,7 +123,7 @@ func (c *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, "AcceptInvitation", c.AcceptInvitation),
 		cmdutil.NewCommandHandler(commandName, "RemoveConnection", c.RemoveConnection),
 		cmdutil.NewCommandHandler(commandName, "QueryConnectionByID", c.QueryConnectionByID),
-		cmdutil.NewCommandHandler(commandName, "QueryConnectionByID", c.QueryConnectionByID),
+		cmdutil.NewCommandHandler(commandName, "QueryConnections", c.QueryConnections),
 		cmdutil.NewCommandHandler(commandName, "AcceptExchangeRequest", c.AcceptExchangeRequest),
 		cmdutil.NewCommandHandler(commandName, "CreateImplicitInvitation", c.CreateImplicitInvitation),
 	}
