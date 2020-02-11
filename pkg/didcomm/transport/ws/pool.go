@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
+	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"nhooyr.io/websocket"
@@ -16,6 +17,11 @@ import (
 	commtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+)
+
+const (
+	// TODO configure ping request frequency
+	pingFrequency = 30 * time.Second
 )
 
 type connPool struct {
@@ -63,10 +69,12 @@ func (d *connPool) remove(verKey string) {
 	delete(d.connMap, verKey)
 }
 
-func (d *connPool) listener(conn *websocket.Conn) {
+func (d *connPool) listener(conn *websocket.Conn, outbound bool) {
 	verKeys := []string{}
 
 	defer d.close(conn, verKeys)
+
+	go keepConnAlive(conn, outbound, pingFrequency)
 
 	for {
 		_, message, err := conn.Read(context.Background())

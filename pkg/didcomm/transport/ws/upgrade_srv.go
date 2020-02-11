@@ -11,6 +11,7 @@ package ws
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"nhooyr.io/websocket"
 )
@@ -41,4 +42,28 @@ func acceptRecipient(pool *connPool, keys []string) bool {
 	}
 
 	return false
+}
+
+// keepConnAlive sends the pings the server based on time frequency. The web server, load balancer, network routers
+// between the client and server closes the TCP keepalives connection. This function calls websocket ping request
+// directly to the server and keeps the connection active.
+func keepConnAlive(conn *websocket.Conn, outbound bool, frequency time.Duration) {
+	if outbound {
+		ticker := time.NewTicker(frequency)
+		done := make(chan struct{})
+
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if err := conn.Ping(context.Background()); err != nil {
+					logger.Errorf("websocket ping error : %v", err)
+
+					ticker.Stop()
+					done <- struct{}{}
+				}
+			}
+		}
+	}
 }

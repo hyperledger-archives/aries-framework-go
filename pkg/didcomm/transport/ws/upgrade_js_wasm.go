@@ -9,6 +9,7 @@ package ws
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"nhooyr.io/websocket"
 )
@@ -29,4 +30,8 @@ func acceptRecipient(pool *connPool, keys []string) bool {
 	}
 
 	return false
+}
+
+func keepConnAlive(conn *websocket.Conn, outbound bool, frequency time.Duration) {
+	// TODO make sure connection is alive (conn.Ping() doesn't work with JS/WASM build)
 }

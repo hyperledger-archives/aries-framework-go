@@ -82,7 +82,7 @@ func (i *Inbound) processRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	i.pool.listener(c)
+	i.pool.listener(c, false)
 }
 
 func upgradeConnection(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
