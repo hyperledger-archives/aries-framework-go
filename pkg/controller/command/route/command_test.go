@@ -26,6 +26,9 @@ func TestNew(t *testing.T) {
 		)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
+
+		handlers := cmd.GetHandlers()
+		require.Equal(t, 2, len(handlers))
 	})
 
 	t.Run("test new command - client creation fail", func(t *testing.T) {

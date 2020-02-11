@@ -66,6 +66,7 @@ func New(ctx provider) (*Command, error) {
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, "Register", o.Register),
+		cmdutil.NewCommandHandler(commandName, "Unregister", o.Unregister),
 	}
 }
 

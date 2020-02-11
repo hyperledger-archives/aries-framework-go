@@ -113,6 +113,9 @@ export const Aries = new function() {
         Register: async function(text) {
             return Aries._invoke(this.pkgname, "Register", text, "timeout while registering router")
         },
+        Unregister: async function(text) {
+            return Aries._invoke(this.pkgname, "Unregister", text, "timeout while unregistering router")
+        },
     }
 
     this._newMsg = function(pkg, fn, payload) {
