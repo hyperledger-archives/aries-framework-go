@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DATA-DOG/godog"
+	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/test/bdd/agent"

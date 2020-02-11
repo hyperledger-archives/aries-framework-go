@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DATA-DOG/godog"
+	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/introduce"

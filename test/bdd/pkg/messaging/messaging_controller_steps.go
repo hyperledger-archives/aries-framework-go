@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DATA-DOG/godog"
+	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
