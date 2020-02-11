@@ -99,7 +99,7 @@ func (cs *OutboundClient) getConnection(destination *service.Destination) (*webs
 				cs.pool.add(v, conn)
 			}
 
-			go cs.pool.listener(conn)
+			go cs.pool.listener(conn, true)
 		} else {
 			cleanup = func() {
 				err = conn.Close(websocket.StatusNormalClosure, "closing the connection")
