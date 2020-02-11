@@ -67,11 +67,12 @@ func (o *Operation) registerHandler() {
 //
 // Responses:
 //    default: genericError
+//    200: registerRouteRes
 func (o *Operation) Register(rw http.ResponseWriter, req *http.Request) {
 	executeCommand(o.command.Register, rw, req)
 }
 
-// Unregister swagger:route DELETE /route/unregister route
+// Unregister swagger:route DELETE /route/unregister route unregisterRouter
 //
 // Unregisters the agent with the router.
 //
