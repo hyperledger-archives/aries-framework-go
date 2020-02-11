@@ -11,7 +11,7 @@ const { Aries } = require('./dist/node/aries.js')
 // TODO add a 'ready' signal from the wasm to let users know when it's loaded
 
 setTimeout(() => {
-    Aries._test._echo("test").then(
+    new Aries({})._test._echo("test").then(
         response => console.log(response),
         err => console.error(err)
     )

@@ -22,8 +22,6 @@ SPDX-License-Identifier: Apache-2.0
 </template>
 
 <script>
-  import { Aries } from "@hyperledger/aries-framework-go"
-
   export default {
     name: 'HelloFrameworkGo',
     props: {
@@ -32,7 +30,7 @@ SPDX-License-Identifier: Apache-2.0
     methods: {
       async handleInput () {
         const invite = document.querySelector("#test-input").value
-        const connID = await Aries._test._echo(invite)
+        const connID = await this.$aries._test._echo(invite)
         document.querySelector("#test-output").value = connID
       }
     }
