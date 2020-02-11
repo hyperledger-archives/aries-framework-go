@@ -13,13 +13,14 @@ This is a test page for developers to test WASM integration.
     <meta charset="utf-8"/>
     <script src="dist/web/aries.js"></script>
     <script>
+        // TODO fix the stutter in the API's exports ("Aries.Aries....")
+        const aries = Aries.Aries({})
         async function handleInput() {
             document.querySelector("#output").value = "{}"
             const request = document.querySelector("#input").value
             const operation = document.querySelector("#operation").value
             const method = document.querySelector("#method").value
-            // TODO fix the stutter in the API's exports ("Aries.Aries....")
-            const response = await window["Aries"]["Aries"][operation][method](request)
+            const response = await aries[operation][method](request)
             document.querySelector("#output").value = response
         }
     </script>
@@ -28,48 +29,48 @@ This is a test page for developers to test WASM integration.
 <div>
     <fieldset style="width: 100px">
         <legend><b>Aries Agent Command Controller</b></legend>
-    <table cellspacing="10px">
-        <tr>
-            <td>
-                <label for="operation">Operation: </label>
-            </td>
-            <td>
-                <input type="text" id="operation" value="didexchange" size="75"></input>
-            </td>
-        </tr>
-        <tr>
-            <td>
-                <label for="method">Method: </label>
-            </td>
-            <td>
-                <input type="text" id="method" value="CreateInvitation" size="50"></input>
-            </td>
-        </tr>
+        <table cellspacing="10px">
+            <tr>
+                <td>
+                    <label for="operation">Operation: </label>
+                </td>
+                <td>
+                    <input type="text" id="operation" value="didexchange" size="75"></input>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="method">Method: </label>
+                </td>
+                <td>
+                    <input type="text" id="method" value="createInvitation" size="50"></input>
+                </td>
+            </tr>
 
-        <tr>
-            <td>
-                <label for="input">Request: </label>
-            </td>
-            <td>
-                <textarea id="input" rows="15" cols="100">{}</textarea>
-            </td>
-        </tr>
+            <tr>
+                <td>
+                    <label for="input">Request: </label>
+                </td>
+                <td>
+                    <textarea id="input" rows="15" cols="100">{}</textarea>
+                </td>
+            </tr>
 
-        <tr>
-            <td>
-                &nbsp;
-            </td>
-            <td>
-                <button onClick="handleInput()">Execute</button>
-            </td>
-        </tr>
-    </table>
+            <tr>
+                <td>
+                    &nbsp;
+                </td>
+                <td>
+                    <button onClick="handleInput()">Execute</button>
+                </td>
+            </tr>
+        </table>
     </fieldset>
 </div>
 <hr/>
 <div>
-     <label for="output">Response: </label>
-     <output id="output"></output>
+    <label for="output">Response: </label>
+    <output id="output"></output>
 </div>
 </body>
 </html>
