@@ -20,6 +20,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 )
 
 type mockServer struct{}
@@ -313,6 +315,80 @@ func TestStartCmdWithoutWebhookURL(t *testing.T) {
 	err = startCmd.Execute()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "webhook-url not set")
+}
+
+func TestStartCmdWithLogLevel(t *testing.T) {
+	t.Run("start with log level - success", func(t *testing.T) {
+		startCmd, err := Cmd(&mockServer{})
+		require.NoError(t, err)
+
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+
+		args := []string{
+			"--" + agentHostFlagName,
+			randomURL(),
+			"--" + agentInboundHostFlagName,
+			httpProtocol + "@" + randomURL(),
+			"--" + agentInboundHostExternalFlagName,
+			httpProtocol + "@" + randomURL(),
+			"--" + agentDBPathFlagName,
+			path,
+			"--" + agentAutoAcceptFlagName,
+			"true",
+			"--" + agentLogLevelFlagName,
+			"DEBUG",
+		}
+		startCmd.SetArgs(args)
+
+		err = startCmd.Execute()
+		require.NoError(t, err)
+	})
+
+	t.Run("start with log level - invalid", func(t *testing.T) {
+		startCmd, err := Cmd(&mockServer{})
+		require.NoError(t, err)
+
+		args := []string{
+			"--" + agentLogLevelFlagName,
+			"INVALID",
+		}
+		startCmd.SetArgs(args)
+
+		err = startCmd.Execute()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid log level")
+	})
+
+	t.Run("validate log level", func(t *testing.T) {
+		err := setLogLevel("DEBUG")
+		require.NoError(t, err)
+		require.Equal(t, log.DEBUG, log.GetLevel(""))
+
+		err = setLogLevel("WARNING")
+		require.NoError(t, err)
+		require.Equal(t, log.WARNING, log.GetLevel(""))
+
+		err = setLogLevel("CRITICAL")
+		require.NoError(t, err)
+		require.Equal(t, log.CRITICAL, log.GetLevel(""))
+
+		err = setLogLevel("ERROR")
+		require.NoError(t, err)
+		require.Equal(t, log.ERROR, log.GetLevel(""))
+
+		err = setLogLevel("INFO")
+		require.NoError(t, err)
+		require.Equal(t, log.INFO, log.GetLevel(""))
+
+		err = setLogLevel("")
+		require.NoError(t, err)
+		require.Equal(t, log.INFO, log.GetLevel(""))
+
+		err = setLogLevel("INVALID")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid log level")
+	})
 }
 
 func TestStartCmdWithoutWebhookURLAndAutoAccept(t *testing.T) {
