@@ -60,6 +60,13 @@ const (
 	agentDefaultLabelFlagUsage     = "Default Label for this agent. Defaults to blank if not set." +
 		" Alternatively, this can be set with the following environment variable: " + agentDefaultLabelEnvKey
 
+	// log level
+	agentLogLevelFlagName  = "log-level"
+	agentLogLevelEnvKey    = "ARIESD_LOG_LEVEL"
+	agentLogLevelFlagUsage = "Log Level." +
+		" Possible values [INFO] [DEBUG] [ERROR] [WARNING] [CRITICAL] . Defaults to INFO if not set." +
+		" Alternatively, this can be set with the following environment variable (in CSV format): " + agentLogLevelEnvKey
+
 	// http resolver url flag
 	agentHTTPResolverFlagName      = "http-resolver-url"
 	agentHTTPResolverEnvKey        = "ARIESD_HTTP_RESOLVER"
@@ -154,6 +161,17 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 		Short: "Start an agent",
 		Long:  `Start an Aries agent controller`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// log level
+			logLevel, err := getUserSetVar(cmd, agentLogLevelFlagName, agentLogLevelEnvKey, true)
+			if err != nil {
+				return err
+			}
+
+			err = setLogLevel(logLevel)
+			if err != nil {
+				return err
+			}
+
 			host, err := getUserSetVar(cmd, agentHostFlagName, agentHostEnvKey, false)
 			if err != nil {
 				return err
@@ -256,6 +274,9 @@ func createFlags(startCmd *cobra.Command) {
 
 	// webhook url flag
 	startCmd.Flags().StringSliceP(agentWebhookFlagName, agentWebhookFlagShorthand, []string{}, agentWebhookFlagUsage)
+
+	// log level
+	startCmd.Flags().StringP(agentLogLevelFlagName, "", "", agentLogLevelFlagUsage)
 
 	// http resolver url flag
 	startCmd.Flags().StringSliceP(agentHTTPResolverFlagName, agentHTTPResolverFlagShorthand, []string{},
@@ -419,6 +440,31 @@ func getInboundSchemeToURLMap(schemeHostStr []string) (map[string]string, error)
 	}
 
 	return schemeHostMap, nil
+}
+
+func setLogLevel(logLevel string) error {
+	var level log.Level
+
+	switch logLevel {
+	case "INFO", "":
+		level = log.INFO
+	case "CRITICAL":
+		level = log.CRITICAL
+	case "ERROR":
+		level = log.ERROR
+	case "WARNING":
+		level = log.WARNING
+	case "DEBUG":
+		level = log.DEBUG
+	default:
+		return errors.New("invalid log level")
+	}
+
+	log.SetLevel("", level)
+
+	logger.Infof("logger level set to %s", logLevel)
+
+	return nil
 }
 
 func startAgent(parameters *agentParameters) error {
