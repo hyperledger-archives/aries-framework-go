@@ -9,7 +9,7 @@ package route
 import (
 	"fmt"
 
-	"github.com/DATA-DOG/godog"
+	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/route"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"

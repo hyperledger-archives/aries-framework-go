@@ -13,7 +13,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DATA-DOG/godog"
+	"github.com/cucumber/godog"
 	"nhooyr.io/websocket"
 
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
