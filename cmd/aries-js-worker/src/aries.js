@@ -25,12 +25,22 @@ __webpack_public_path__ = __publicPath()
 
 const { _getWorker } = require("worker_loader")
 
+// TODO synchronize access on this map?
+const PENDING = new Map()
+const WORKER = _getWorker(PENDING)
+
+// TODO Aries should be a singleton
+
+// TODO implement Aries options
+
 // TODO not all browsers support private members of classes
 /* @class Aries provides Aries SSI-agent functions. */
-export const Aries = new function() {
-    // TODO synchronize access on this map?
-    this._pending = new Map()
-
+/**
+ * Aries provides Aries SSI-agent functions.
+ * @param opts initialization options.
+ * @constructor
+ */
+export const Aries = function(opts) {
     /**
      * Test methods.
      * TODO - remove. Used for testing.
@@ -53,69 +63,69 @@ export const Aries = new function() {
 
     this.didexchange = {
         pkgname : "didexchange",
-        CreateInvitation: async function(text) {
+        createInvitation: async function(text) {
             return Aries._invoke(this.pkgname, "CreateInvitation", text, "timeout while creating invitation")
         },
-        ReceiveInvitation: async function(text) {
+        receiveInvitation: async function(text) {
             return Aries._invoke(this.pkgname, "ReceiveInvitation", text, "timeout while receiving invitation")
         },
-        AcceptInvitation: async function(text) {
+        acceptInvitation: async function(text) {
             return Aries._invoke(this.pkgname, "AcceptInvitation", text, "timeout while accepting invitation")
         },
-        AcceptExchangeRequest: async function(text) {
+        acceptExchangeRequest: async function(text) {
             return Aries._invoke(this.pkgname, "AcceptExchangeRequest", text, "timeout while accepting exchange request")
         },
-        CreateImplicitInvitation: async function(text) {
+        createImplicitInvitation: async function(text) {
             return Aries._invoke(this.pkgname, "CreateImplicitInvitation", text, "timeout while creating implicit invitation")
         },
-        RemoveConnection: async function(text) {
+        removeConnection: async function(text) {
             return Aries._invoke(this.pkgname, "RemoveConnection", text, "timeout while removing invitation")
         },
-        QueryConnectionByID: async function(text) {
+        queryConnectionByID: async function(text) {
             return Aries._invoke(this.pkgname, "QueryConnectionByID", text, "timeout while querying connection by ID")
         },
-        QueryConnections: async function(text) {
+        queryConnections: async function(text) {
             return Aries._invoke(this.pkgname, "QueryConnections", text, "timeout while querying connections")
         }
     }
 
     this.messaging = {
         pkgname : "messaging",
-        RegisteredServices: async function(text) {
+        registeredServices: async function(text) {
             return Aries._invoke(this.pkgname, "RegisteredServices", text, "timeout while getting list of registered services")
         },
-        RegisterMessageService: async function(text) {
+        registerMessageService: async function(text) {
             return Aries._invoke(this.pkgname, "RegisterMessageService", text, "timeout while registering service")
         },
-        RegisterHTTPMessageService: async function(text) {
+        registerHTTPMessageService: async function(text) {
             return Aries._invoke(this.pkgname, "RegisterHTTPMessageService", text, "timeout while registering HTTP service")
         },
-        UnregisterMessageService: async function(text) {
+        unregisterMessageService: async function(text) {
             return Aries._invoke(this.pkgname, "UnregisterMessageService", text, "timeout while unregistering service")
         },
-        SendNewMessage: async function(text) {
+        sendNewMessage: async function(text) {
             return Aries._invoke(this.pkgname, "SendNewMessage", text, "timeout while sending new message")
         },
-        SendReplyMessage: async function(text) {
+        sendReplyMessage: async function(text) {
             return Aries._invoke(this.pkgname, "SendReplyMessage", text, "timeout while sending reply message")
         }
     }
 
     this.vdri = {
         pkgname : "vdri",
-        CreatePublicDID: async function(text) {
+        createPublicDID: async function(text) {
             return Aries._invoke(this.pkgname, "CreatePublicDID", text, "timeout while creating public DID")
         },
     }
 
     this.router = {
         pkgname : "router",
-        Register: async function(text) {
+        register: async function(text) {
             return Aries._invoke(this.pkgname, "Register", text, "timeout while registering router")
         },
-        Unregister: async function(text) {
-            return Aries._invoke(this.pkgname, "Unregister", text, "timeout while unregistering router")
-        },
+        unregister: async function(text) {
+            return Aries._invoke(this.pkgname, "Unregister", text, "timeout while registering router")
+        }
     }
 
     this._newMsg = function(pkg, fn, payload) {
@@ -134,21 +144,15 @@ export const Aries = new function() {
         return new Promise((resolve, reject) => {
             const timer = setTimeout(_ => reject(new Error(msgTimeout)), 5000)
             const msg = Aries._newMsg(pkg, fn, arg)
-            Aries._pending.set(msg.id, result => {
+            PENDING.set(msg.id, result => {
                 clearTimeout(timer)
                 if (result.isErr) {
                     reject(new Error(result.errMsg))
                 }
                 resolve(result.payload)
             })
-            Aries._worker.postMessage(msg)
+            WORKER.postMessage(msg)
         })
     }
-
-    this.getWorker = () => {
-        return _getWorker(this._pending)
-    }
-
-    this._worker = this.getWorker()
 }
 
