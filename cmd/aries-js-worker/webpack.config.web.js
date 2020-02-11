@@ -18,8 +18,8 @@ module.exports = {
     target: 'web',
     output: {
         path: OUTPUT,
-        publicPath: OUTPUT,
-        libraryTarget: "assign",
+        publicPath: "dist/web",
+        libraryTarget: "umd",
         filename: 'aries.js',
         // TODO fix client usage: currently have to call like this: Aries.Aries.<pkg>.<fn>
         library: 'Aries'
@@ -39,7 +39,7 @@ module.exports = {
                 loader: "file-loader",
                 options: {
                     name: "[name].[ext]",
-                    publicPath: "dist/web/"
+                    postTransformPublicPath: _ => `__webpack_public_path__ + "dist/web/worker-impl-web.js"`
                 }
             },
             {
@@ -48,7 +48,7 @@ module.exports = {
                 options: {
                     name: "[name].[ext]",
                     emitFile: false,
-                    publicPath: PATHS.assetsDir
+                    postTransformPublicPath: _ => `__webpack_public_path__ + "dist/assets/wasm_exec.js"`
                 }
             },
             {
@@ -58,7 +58,8 @@ module.exports = {
                 options: {
                     name: "[name].[ext]",
                     emitFile: false,
-                    publicPath: PATHS.assetsDir
+                    publicPath: PATHS.assetsDir,
+                    postTransformPublicPath: _ => `__webpack_public_path__ + "dist/assets/aries-js-worker.wasm"`
                 }
             }
         ]

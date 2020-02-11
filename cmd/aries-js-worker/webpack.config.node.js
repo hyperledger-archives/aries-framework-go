@@ -18,7 +18,7 @@ module.exports = {
     target: 'node',
     output: {
         path: OUTPUT,
-        publicPath: OUTPUT,
+        publicPath: "dist/node/",
         libraryTarget: 'umd',
         filename: 'aries.js',
         library: 'Aries'
@@ -37,7 +37,8 @@ module.exports = {
                 test: /worker-impl-node\.js/,
                 loader: "file-loader",
                 options: {
-                    name: "[name].[ext]"
+                    name: "[name].[ext]",
+                    postTransformPublicPath: _ => `__webpack_public_path__ + "/dist/node/worker-impl-node.js"`
                 }
             },
             {
@@ -46,7 +47,7 @@ module.exports = {
                 options: {
                     name: "[name].[ext]",
                     emitFile: false,
-                    publicPath: PATHS.assetsDir
+                    postTransformPublicPath: _ => `__webpack_public_path__ + "/dist/assets/wasm_exec.js"`
                 }
             },
             {
@@ -56,7 +57,8 @@ module.exports = {
                 options: {
                     name: "[name].[ext]",
                     emitFile: false,
-                    publicPath: PATHS.assetsDir
+                    publicPath: PATHS.assetsDir,
+                    postTransformPublicPath: _ => `__webpack_public_path__ + "/dist/assets/aries-js-worker.wasm.gz"`
                 }
             }
         ]

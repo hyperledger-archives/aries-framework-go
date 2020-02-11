@@ -17,7 +17,7 @@ export function _getWorker(pending) {
         cb(result)
     }
     worker.onerror = e => {
-        throw new Error(e.message)
+        throw new Error("aries: failed to load worker: " + e.message)
     }
     return worker
 }
