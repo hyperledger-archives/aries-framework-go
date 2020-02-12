@@ -122,6 +122,8 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 		frameworkOpts.msgSvcProvider = &noOpMessageServiceProvider{}
 	}
 
+	// TODO add SecretLock creation here.. #1150
+
 	return nil
 }
 

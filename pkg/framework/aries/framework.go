@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
@@ -50,6 +51,7 @@ type Aries struct {
 	inboundTransports      []transport.InboundTransport
 	kmsCreator             api.KMSCreator
 	kms                    api.CloseableKMS
+	secretLock             secretlock.Service
 	crypto                 crypto.Crypto
 	packagerCreator        packager.Creator
 	packager               commontransport.Packager
@@ -211,6 +213,14 @@ func WithLegacyKMS(k api.KMSCreator) Option {
 	}
 }
 
+// WithSecretLock injects a SecretLock service to the Aries framework
+func WithSecretLock(s secretlock.Service) Option {
+	return func(opts *Aries) error {
+		opts.secretLock = s
+		return nil
+	}
+}
+
 // WithCrypto injects a crypto service to the Aries framework
 func WithCrypto(c crypto.Crypto) Option {
 	return func(opts *Aries) error {
@@ -257,6 +267,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithOutboundTransports(a.outboundTransports...),
 		context.WithProtocolServices(a.services...),
 		context.WithLegacyKMS(a.kms),
+		context.WithSecretLock(a.secretLock),
 		context.WithCrypto(a.crypto),
 		context.WithServiceEndpoint(serviceEndpoint(a)),
 		context.WithRouterEndpoint(routingEndpoint(a)),
