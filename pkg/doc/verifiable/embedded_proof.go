@@ -56,7 +56,7 @@ func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error)
 
 	proofMap, ok := proofElement.(map[string]interface{})
 	if !ok {
-		return nil, errors.New("check embedded proof: expecting [string]interface{}, got something else")
+		return nil, errors.New("check embedded proof: expecting [string]interface{}")
 	}
 
 	proofType, err := parseEmbeddedProof(proofMap)

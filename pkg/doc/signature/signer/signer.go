@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package signer
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,11 +38,12 @@ type DocumentSigner struct {
 
 // Context holds signing options and private key
 type Context struct {
-	SignatureType string     // required
-	Creator       string     // required
-	Created       *time.Time // optional
-	Domain        string     // optional
-	Nonce         []byte     // optional
+	SignatureType           string                        // required
+	Creator                 string                        // required
+	SignatureRepresentation proof.SignatureRepresentation // optional
+	Created                 *time.Time                    // optional
+	Domain                  string                        // optional
+	Nonce                   []byte                        // optional
 }
 
 // New returns new instance of document verifier
@@ -88,15 +90,20 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		created = &now
 	}
 
-	p := proof.Proof{
-		Type:    context.SignatureType,
-		Creator: context.Creator,
-		Created: created,
-		Domain:  context.Domain,
-		Nonce:   context.Nonce,
+	p := &proof.Proof{
+		Type:                    context.SignatureType,
+		SignatureRepresentation: context.SignatureRepresentation,
+		Creator:                 context.Creator,
+		Created:                 created,
+		Domain:                  context.Domain,
+		Nonce:                   context.Nonce,
 	}
 
-	message, err := proof.CreateVerifyHash(suite, jsonLdObject, p.JSONLdObject())
+	if context.SignatureRepresentation == proof.SignatureJWS {
+		p.JWS = proof.CreateDetachedJWTHeader(p) + ".."
+	}
+
+	message, err := proof.CreateVerifyData(suite, jsonLdObject, p)
 	if err != nil {
 		return err
 	}
@@ -106,9 +113,18 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		return err
 	}
 
-	p.ProofValue = s
+	signer.applySignatureValue(context, p, s)
 
-	return proof.AddProof(jsonLdObject, &p)
+	return proof.AddProof(jsonLdObject, p)
+}
+
+func (signer *DocumentSigner) applySignatureValue(context *Context, p *proof.Proof, s []byte) {
+	switch context.SignatureRepresentation {
+	case proof.SignatureProofValue:
+		p.ProofValue = s
+	case proof.SignatureJWS:
+		p.JWS += base64.RawURLEncoding.EncodeToString(s)
+	}
 }
 
 // getSignatureSuite returns signature suite based on signature type
@@ -124,11 +140,6 @@ func (signer *DocumentSigner) getSignatureSuite(signatureType string) (signature
 
 // isValidContext checks required parameters (for signing)
 func isValidContext(context *Context) error {
-	// we need creator, signatureType and signer
-	if context.Creator == "" {
-		return errors.New("creator is missing")
-	}
-
 	if context.SignatureType == "" {
 		return errors.New("signature type is missing")
 	}

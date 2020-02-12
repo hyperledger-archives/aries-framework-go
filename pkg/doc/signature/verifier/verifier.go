@@ -81,12 +81,17 @@ func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}) er
 			return err
 		}
 
-		message, err := proof.CreateVerifyHash(suite, jsonLdObject, p.JSONLdObject())
+		message, err := proof.CreateVerifyData(suite, jsonLdObject, p)
 		if err != nil {
 			return err
 		}
 
-		err = suite.Verify(publicKey, message, p.ProofValue)
+		signature, err := getProofVerifyValue(p)
+		if err != nil {
+			return err
+		}
+
+		err = suite.Verify(publicKey, message, signature)
 		if err != nil {
 			return err
 		}
@@ -104,4 +109,15 @@ func (dv *DocumentVerifier) getSignatureSuite(signatureType string) (signatureSu
 	}
 
 	return nil, fmt.Errorf("signature type %s not supported", signatureType)
+}
+
+func getProofVerifyValue(p *proof.Proof) ([]byte, error) {
+	switch p.SignatureRepresentation {
+	case proof.SignatureProofValue:
+		return p.ProofValue, nil
+	case proof.SignatureJWS:
+		return proof.GetJWTSignature(p.JWS)
+	}
+
+	return nil, fmt.Errorf("unsupported signature representation: %v", p.SignatureRepresentation)
 }

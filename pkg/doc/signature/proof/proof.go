@@ -7,6 +7,7 @@ package proof
 
 import (
 	"encoding/base64"
+	"errors"
 	"time"
 )
 
@@ -23,16 +24,23 @@ const (
 	jsonldNonce = "nonce"
 	// jsonldProofValue is key for proof value
 	jsonldProofValue = "proofValue"
+	// jsonldProofPurpose is a purpose of proof
+	jsonldProofPurpose = "proofPurpose"
+	// jsonldJWSProof is key for JWS proof
+	jsonldJWS = "jws"
 )
 
 // Proof is cryptographic proof of the integrity of the DID Document
 type Proof struct {
-	Type       string
-	Created    *time.Time
-	Creator    string
-	ProofValue []byte
-	Domain     string
-	Nonce      []byte
+	Type                    string
+	Created                 *time.Time
+	Creator                 string
+	ProofValue              []byte
+	JWS                     string
+	ProofPurpose            string
+	Domain                  string
+	Nonce                   []byte
+	SignatureRepresentation SignatureRepresentation
 }
 
 // NewProof creates new proof
@@ -44,9 +52,26 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 		return nil, err
 	}
 
-	proofValue, err := base64.RawURLEncoding.DecodeString(stringEntry(emap[jsonldProofValue]))
-	if err != nil {
-		return nil, err
+	var (
+		proofValue  []byte
+		proofHolder SignatureRepresentation
+		jws         string
+	)
+
+	if generalProof, ok := emap[jsonldProofValue]; ok {
+		proofValue, err = base64.RawURLEncoding.DecodeString(stringEntry(generalProof))
+		if err != nil {
+			return nil, err
+		}
+
+		proofHolder = SignatureProofValue
+	} else if jwsProof, ok := emap[jsonldJWS]; ok {
+		jws = stringEntry(jwsProof)
+		proofHolder = SignatureJWS
+	}
+
+	if len(proofValue) == 0 && jws == "" {
+		return nil, errors.New("signature is not defined")
 	}
 
 	nonce, err := base64.RawURLEncoding.DecodeString(stringEntry(emap[jsonldNonce]))
@@ -55,12 +80,15 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 	}
 
 	return &Proof{
-		Type:       stringEntry(emap[jsonldType]),
-		Created:    &timeValue,
-		Creator:    stringEntry(emap[jsonldCreator]),
-		ProofValue: proofValue,
-		Domain:     stringEntry(emap[jsonldDomain]),
-		Nonce:      nonce,
+		Type:                    stringEntry(emap[jsonldType]),
+		Created:                 &timeValue,
+		Creator:                 stringEntry(emap[jsonldCreator]),
+		ProofValue:              proofValue,
+		SignatureRepresentation: proofHolder,
+		JWS:                     jws,
+		ProofPurpose:            stringEntry(emap[jsonldProofPurpose]),
+		Domain:                  stringEntry(emap[jsonldDomain]),
+		Nonce:                   nonce,
 	}, nil
 }
 
@@ -77,15 +105,34 @@ func stringEntry(entry interface{}) string {
 func (p *Proof) JSONLdObject() map[string]interface{} {
 	emap := make(map[string]interface{})
 	emap[jsonldType] = p.Type
-	emap[jsonldCreator] = p.Creator
+
+	if p.Creator != "" {
+		emap[jsonldCreator] = p.Creator
+	}
 
 	if p.Created != nil {
 		emap[jsonldCreated] = p.Created.Format(time.RFC3339)
 	}
 
-	emap[jsonldProofValue] = base64.RawURLEncoding.EncodeToString(p.ProofValue)
-	emap[jsonldDomain] = p.Domain
-	emap[jsonldNonce] = base64.RawURLEncoding.EncodeToString(p.Nonce)
+	if len(p.ProofValue) > 0 {
+		emap[jsonldProofValue] = base64.RawURLEncoding.EncodeToString(p.ProofValue)
+	}
+
+	if len(p.JWS) > 0 {
+		emap[jsonldJWS] = p.JWS
+	}
+
+	if p.Domain != "" {
+		emap[jsonldDomain] = p.Domain
+	}
+
+	if len(p.Nonce) > 0 {
+		emap[jsonldNonce] = base64.RawURLEncoding.EncodeToString(p.Nonce)
+	}
+
+	if p.ProofPurpose != "" {
+		emap[jsonldProofPurpose] = p.ProofPurpose
+	}
 
 	return emap
 }

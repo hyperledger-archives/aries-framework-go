@@ -258,7 +258,11 @@ const vcJSONLD = `
 func CachingJSONLDLoader() *ld.CachingDocumentLoader {
 	loader := ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
 
-	reader, _ := ld.DocumentFromReader(strings.NewReader(vcJSONLD)) // nolint:errcheck
+	reader, err := ld.DocumentFromReader(strings.NewReader(vcJSONLD))
+	if err != nil {
+		panic(err)
+	}
+
 	loader.AddDocument("https://www.w3.org/2018/credentials/v1", reader)
 
 	return loader

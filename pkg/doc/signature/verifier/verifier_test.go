@@ -8,6 +8,7 @@ package verifier
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -24,7 +25,7 @@ func TestNew(t *testing.T) {
 	require.NoError(t, err)
 
 	// default ed25519signature2018 signature suite is created
-	_, testKeyResolver := getDefaultSignedDoc(privKey, pubKey)
+	_, testKeyResolver := getDefaultSignedDoc(proof.SignatureProofValue, privKey, pubKey)
 	verifier := New(testKeyResolver)
 	require.Len(t, verifier.signatureSuites, 1)
 }
@@ -33,27 +34,37 @@ func TestVerify(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	signedDocBytes, testKeyResolver := getDefaultSignedDoc(privKey, pubKey)
+	signedDocBytes, testKeyResolver := getDefaultSignedDoc(proof.SignatureProofValue, privKey, pubKey)
 	v := New(testKeyResolver, ed25519signature2018.New())
 	err = v.Verify(signedDocBytes)
 	require.Nil(t, err)
 
 	// test invalid json
 	err = v.Verify([]byte("not json"))
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to unmarshal json ld document")
 
 	// test proof not found
 	err = v.Verify([]byte(validDoc))
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Contains(t, err.Error(), "proof not found")
+}
+
+func TestVerifyJWSProof(t *testing.T) {
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	signedDocBytes, testKeyResolver := getDefaultSignedDoc(proof.SignatureJWS, privKey, pubKey)
+	v := New(testKeyResolver)
+	err = v.Verify(signedDocBytes)
+	require.NoError(t, err)
 }
 
 func TestVerifyObject(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	jsonLdObject, tkr := getDefaultSignedDocObject(privKey, pubKey)
+	jsonLdObject, tkr := getDefaultSignedDocObject(proof.SignatureProofValue, privKey, pubKey)
 
 	suite := ed25519signature2018.New()
 
@@ -81,7 +92,7 @@ func TestVerifyObject(t *testing.T) {
 	require.Contains(t, err.Error(), "key not found")
 
 	// test signature error - pass in invalid proof value
-	jsonLdObject, tkr = getDefaultSignedDocObject(privKey, pubKey)
+	jsonLdObject, tkr = getDefaultSignedDocObject(proof.SignatureProofValue, privKey, pubKey)
 	proofs, err = proof.GetProofs(jsonLdObject)
 	require.NoError(t, err)
 
@@ -95,14 +106,67 @@ func TestVerifyObject(t *testing.T) {
 	require.Contains(t, err.Error(), "signature doesn't match")
 }
 
-func getDefaultSignedDoc(privKey, pubKey []byte) ([]byte, keyResolver) {
+func TestVerifyJWSObject(t *testing.T) {
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	jsonLdObject, tkr := getDefaultSignedDocObject(proof.SignatureJWS, privKey, pubKey)
+
+	// happy path
+	v := New(tkr)
+	err = v.verifyObject(jsonLdObject)
+	require.Nil(t, err)
+
+	// test invalid signature suite
+	proofs, err := proof.GetProofs(jsonLdObject)
+	require.NoError(t, err)
+
+	proofs[0].JWS = "invalid JWT.."
+
+	err = proof.AddProof(jsonLdObject, proofs[0])
+	require.NoError(t, err)
+
+	err = v.verifyObject(jsonLdObject)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid JWT")
+}
+
+func Test_getProofVerifyValue(t *testing.T) {
+	jwsSignature := base64.RawURLEncoding.EncodeToString([]byte("signature"))
+
+	// signatureValue
+	p := &proof.Proof{
+		SignatureRepresentation: proof.SignatureProofValue,
+		ProofValue:              []byte("proof value"),
+		JWS:                     "j.w." + jwsSignature,
+	}
+	proofVerifyValue, err := getProofVerifyValue(p)
+	require.NoError(t, err)
+	require.Equal(t, []byte("proof value"), proofVerifyValue)
+
+	// JWS
+	p.SignatureRepresentation = proof.SignatureJWS
+	proofVerifyValue, err = getProofVerifyValue(p)
+	require.NoError(t, err)
+	require.Equal(t, []byte("signature"), proofVerifyValue)
+
+	// unsupported signature holding
+	p.SignatureRepresentation = proof.SignatureRepresentation(-1)
+	proofVerifyValue, err = getProofVerifyValue(p)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported signature representation")
+	require.Nil(t, proofVerifyValue)
+}
+
+func getDefaultSignedDoc(signatureRepr proof.SignatureRepresentation, privKey, pubKey []byte) ([]byte, keyResolver) {
 	const creator = "key-1"
 
 	keys := make(map[string][]byte)
 	keys[creator] = pubKey
 
 	context := signer.Context{Creator: creator,
-		SignatureType: "Ed25519Signature2018"}
+		SignatureType:           "Ed25519Signature2018",
+		SignatureRepresentation: signatureRepr}
 
 	doc := getDefaultDoc()
 
@@ -123,8 +187,9 @@ func getDefaultSignedDoc(privKey, pubKey []byte) ([]byte, keyResolver) {
 	return signedDocBytes, &testKeyResolver{Keys: keys}
 }
 
-func getDefaultSignedDocObject(privKey, pubKey []byte) (map[string]interface{}, keyResolver) {
-	signedDocBytes, testKeyResolver := getDefaultSignedDoc(privKey, pubKey)
+func getDefaultSignedDocObject(signatureRepr proof.SignatureRepresentation, privKey, pubKey []byte) (
+	map[string]interface{}, keyResolver) {
+	signedDocBytes, testKeyResolver := getDefaultSignedDoc(signatureRepr, privKey, pubKey)
 
 	var jsonLdObject map[string]interface{}
 

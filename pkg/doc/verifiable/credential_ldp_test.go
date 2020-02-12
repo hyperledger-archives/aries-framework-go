@@ -25,9 +25,9 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 	suite := ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey)))
 
 	ldpContext := &LinkedDataProofContext{
-		Creator:       "didID#keyID",
-		SignatureType: "Ed25519Signature2018",
-		Suite:         suite,
+		SignatureType:           "Ed25519Signature2018",
+		SignatureRepresentation: SignatureProofValue,
+		Suite:                   suite,
 	}
 
 	vc, _, err := NewCredential([]byte(validCredential))
@@ -36,7 +36,10 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 	err = vc.AddLinkedDataProof(ldpContext)
 	r.NoError(err)
 
-	vcBytes, err := json.Marshal(vc)
+	// TODO disable "creator" hack https://github.com/hyperledger/aries-framework-go/issues/1156
+	vcMap := addDummyCreatorToProof(vc, r)
+
+	vcBytes, err := json.Marshal(vcMap)
 	r.NoError(err)
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
@@ -44,8 +47,23 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 		WithPublicKeyFetcher(SingleKey([]byte(pubKey))))
 	r.NoError(err)
 
+	vcWithLdpMap, err := toMap(vcWithLdp)
 	r.NoError(err)
-	r.Equal(vc, vcWithLdp)
+
+	r.NoError(err)
+	r.Equal(vcMap, vcWithLdpMap)
+}
+
+func addDummyCreatorToProof(vc *Credential, r *require.Assertions) map[string]interface{} {
+	vcMap, err := toMap(vc)
+	r.NoError(err)
+
+	proofMap, ok := vcMap["proof"].(map[string]interface{})
+	r.True(ok)
+
+	proofMap["creator"] = "didID#keyID"
+
+	return vcMap
 }
 
 func TestCredential_AddLinkedDataProof(t *testing.T) {
@@ -54,26 +72,21 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 	_, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	ldpContext := &LinkedDataProofContext{
-		Creator:       "John",
-		SignatureType: "Ed25519Signature2018",
-		Suite:         ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
-	}
-
-	t.Run("Add a valid Linked Data proof to VC", func(t *testing.T) {
+	t.Run("Add a valid JWS Linked Data proof to VC", func(t *testing.T) {
 		vc, _, err := NewCredential([]byte(validCredential))
 		r.NoError(err)
 
 		originalVCMap, err := toMap(vc)
 		r.NoError(err)
 
-		err = vc.AddLinkedDataProof(ldpContext)
+		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
+			SignatureType:           "Ed25519Signature2018",
+			SignatureRepresentation: SignatureJWS,
+			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+		})
 		r.NoError(err)
 
-		vcJSON, err := vc.MarshalJSON()
-		r.NoError(err)
-
-		vcMap, err := toMap(vcJSON)
+		vcMap, err := toMap(vc)
 		r.NoError(err)
 
 		r.Contains(vcMap, "proof")
@@ -81,7 +94,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		vcProofMap, ok := vcProof.(map[string]interface{})
 		r.True(ok)
 		r.Contains(vcProofMap, "created")
-		r.Contains(vcProofMap, "proofValue")
+		r.Contains(vcProofMap, "jws")
 		r.Equal("Ed25519Signature2018", vcProofMap["type"])
 
 		// check that only "proof" element was added as a result of AddLinkedDataProof().
@@ -97,13 +110,17 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 			"invalidField": make(chan int),
 		}
 
-		err = vc.AddLinkedDataProof(ldpContext)
+		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
+			SignatureType:           "Ed25519Signature2018",
+			SignatureRepresentation: SignatureProofValue,
+			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+		})
 		r.Error(err)
 
 		vc.CustomFields = nil
 		ldpContextWithMissingSignatureType := &LinkedDataProofContext{
-			Creator: "John",
-			Suite:   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+			SignatureRepresentation: SignatureProofValue,
 		}
 
 		err = vc.AddLinkedDataProof(ldpContextWithMissingSignatureType)

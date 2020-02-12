@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
@@ -66,18 +67,29 @@ func (k *keyResolverAdapter) Resolve(id string) ([]byte, error) {
 
 	pubKeyBytes, ok := fetcher.([]byte)
 	if !ok {
-		return nil, errors.New("expecting []byte public key, got something else")
+		return nil, errors.New("expecting []byte public key")
 	}
 
 	return pubKeyBytes, nil
 }
 
+// SignatureRepresentation is a signature value holder type (e.g. "proofValue" or "jws").
+type SignatureRepresentation int
+
+const (
+	// SignatureProofValue uses "proofValue" field in a Proof to put/read a digital signature.
+	SignatureProofValue SignatureRepresentation = iota
+
+	// SignatureJWS uses "jws" field in a Proof as an element for representation of detached JSON Web Signatures.
+	SignatureJWS
+)
+
 // LinkedDataProofContext holds options needed to build a Linked Data Proof.
 type LinkedDataProofContext struct {
-	SignatureType string               // required
-	Suite         signerSignatureSuite // required
-	Creator       string               // required
-	Created       *time.Time           // optional
+	SignatureType           string                  // required
+	Suite                   signerSignatureSuite    // required
+	SignatureRepresentation SignatureRepresentation // required
+	Created                 *time.Time              // optional
 }
 
 func checkLinkedDataProof(jsonldBytes []byte, suite verifierSignatureSuite, pubKeyFetcher PublicKeyFetcher) error {
@@ -97,6 +109,8 @@ type rawProof struct {
 	Proof json.RawMessage `json:"proof,omitempty"`
 }
 
+// addLinkedDataProof adds a new proof to the JSON-LD document (VC or VP). It returns a slice
+// of the proofs which were already present appended with a newly created proof.
 func addLinkedDataProof(context *LinkedDataProofContext, jsonldBytes []byte) ([]Proof, error) {
 	documentSigner := signer.New(context.Suite)
 
@@ -123,8 +137,8 @@ func addLinkedDataProof(context *LinkedDataProofContext, jsonldBytes []byte) ([]
 
 func mapContext(context *LinkedDataProofContext) *signer.Context {
 	return &signer.Context{
-		SignatureType: context.SignatureType,
-		Created:       context.Created,
-		Creator:       context.Creator,
+		SignatureType:           context.SignatureType,
+		SignatureRepresentation: proof.SignatureRepresentation(context.SignatureRepresentation),
+		Created:                 context.Created,
 	}
 }

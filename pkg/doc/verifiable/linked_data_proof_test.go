@@ -11,8 +11,13 @@ import (
 	"crypto/rsa"
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 func Test_keyResolverAdapter_Resolve(t *testing.T) {
@@ -51,7 +56,104 @@ func Test_keyResolverAdapter_Resolve(t *testing.T) {
 		kra := &keyResolverAdapter{pubKeyFetcher: SingleKey(privateKey.Public())}
 		resolvedPubKey, err := kra.Resolve("any#key1")
 		require.Error(t, err)
-		require.EqualError(t, err, "expecting []byte public key, got something else")
+		require.EqualError(t, err, "expecting []byte public key")
 		require.Nil(t, resolvedPubKey)
 	})
+}
+
+type dummyKeyResolver []byte
+
+func (kr dummyKeyResolver) Resolve(string) ([]byte, error) {
+	return kr, nil
+}
+
+// This example is generated using https://transmute-industries.github.io/vc-greeting-card
+func TestLinkedDataProofVerifier(t *testing.T) {
+	pubKeyBytes := base58.Decode("HwdpMh3e6hGDueMJJZBzjWDgCAwQhF6CRz4E43RDdJ9M")
+	pubKey := ed25519.PublicKey(pubKeyBytes)
+
+	//nolint:lll
+	vcStr := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "id": "https://example.com/credentials/1872",
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ],
+  "issuer": "did:key:z6Mkj7of2aaooXhTJvJ5oCL9ZVcAS472ZBuSjYyXDa4bWT32",
+  "issuanceDate": "2020-01-17T15:14:09.724Z",
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "degree": {
+      "type": "BachelorDegree"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "created": "2018-03-15T00:00:00Z",
+    "jws": "eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..jKb9yKsse4ufBRVs8Ffq0wA3U9LEfKql2CAtRNGIeA8KN5BkhPgaMYUAe4drVkFCgyvW754YBnZw0wDNIklLDQ"
+  }
+}
+`
+
+	documentVerifier := verifier.New(dummyKeyResolver(pubKey))
+	err := documentVerifier.Verify([]byte(vcStr))
+	require.NoError(t, err)
+}
+
+func TestLinkedDataProofSigner(t *testing.T) {
+	privKeyBytes := base58.Decode("2XYB4TtEgPZxTuRocH8DGoZjjnnPwpwUW9acH1kTCTC8SM9177XHNhzMZu2DNxHdFhi7DACECdieY9D2yngmXZcj") //nolint:lll
+	privKey := ed25519.PrivateKey(privKeyBytes)
+
+	vcJSON := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "id": "https://example.com/credentials/1872",
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ],
+  "issuer": "did:key:z6Mkj7of2aaooXhTJvJ5oCL9ZVcAS472ZBuSjYyXDa4bWT32",
+  "issuanceDate": "2020-01-17T15:14:09.724Z",
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "degree": {
+      "type": "BachelorDegree"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  }
+}
+`
+
+	vc, _, err := NewCredential([]byte(vcJSON))
+	require.NoError(t, err)
+
+	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
+	require.NoError(t, err)
+
+	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+		SignatureRepresentation: SignatureJWS,
+		Created:                 &created,
+	})
+	require.NoError(t, err)
+
+	require.Len(t, vc.Proofs, 1)
+
+	p := vc.Proofs[0]
+
+	require.Equal(t, "Ed25519Signature2018", p["type"])
+	require.Equal(t, "2018-03-15T00:00:00Z", p["created"])
+	require.Equal(t, "eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..jKb9yKsse4ufBRVs8Ffq0wA3U9LEfKql2CAtRNGIeA8KN5BkhPgaMYUAe4drVkFCgyvW754YBnZw0wDNIklLDQ", p["jws"]) //nolint:lll
 }
