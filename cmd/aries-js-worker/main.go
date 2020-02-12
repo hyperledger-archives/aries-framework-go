@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
 	cmdctrl "github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
@@ -28,6 +29,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 )
+
+var logger = log.New("aries-js-worker")
 
 // TODO Signal JS when WASM is loaded and ready.
 //      This is being used in tests for now.
@@ -59,6 +62,7 @@ type ariesStartOpts struct {
 	OutboundTransport    []string `json:"outbound-transport"`
 	TransportReturnRoute string   `json:"transport-return-route"`
 	Notifier             string   `json:"notifier-func-name"`
+	LogLevel             string   `json:"log-level"`
 }
 
 // main registers the 'handleMsg' function in the JS context's global scope to receive commands.
@@ -116,7 +120,12 @@ func pipe(input chan *command, output chan *result) {
 
 		if !started {
 			var rs *result
-			rs, started = startAries(c, handlers)
+
+			if isStartCommand(c) {
+				rs, started = startAries(c, handlers)
+			} else {
+				rs = newErrResult(c.ID, "aries is not started")
+			}
 			output <- rs
 
 			continue
@@ -125,15 +134,16 @@ func pipe(input chan *command, output chan *result) {
 		if pkg, found := handlers[c.Pkg]; found {
 			if fn, found := pkg[c.Fn]; found {
 				output <- fn(c)
-				// support restart by resetting flag
-				if c.Pkg == "aries" && c.Fn == "Stop" {
-					started = false
-				}
 			} else {
 				output <- newErrResult(c.ID, "invalid fn: "+c.Pkg)
 			}
 		} else {
 			output <- newErrResult(c.ID, "invalid pkg: "+c.Pkg)
+		}
+
+		// support restart by resetting flag
+		if isStopCommand(c) {
+			started = false
 		}
 	}
 }
@@ -216,14 +226,21 @@ func testHandlers() map[string]map[string]func(*command) *result {
 	}
 }
 
+func isStartCommand(c *command) bool {
+	return c.Pkg == "aries" && c.Fn == "Start"
+}
+
+func isStopCommand(c *command) bool {
+	return c.Pkg == "aries" && c.Fn == "Stop"
+}
+
 func startAries(c *command, pkgMap map[string]map[string]func(*command) *result) (*result, bool) {
-	if c.Pkg != "aries" && c.Fn != "Start" {
-		return newErrResult(c.ID, "start aries before running any command"), false
-	} else if c.Fn == "Stop" {
-		return newErrResult(c.ID, "stop already called, start again to run any command"), false
+	cOpts, err := startOpts(c.Payload)
+	if err != nil {
+		return newErrResult(c.ID, err.Error()), false
 	}
 
-	cOpts, err := startOpts(c.Payload)
+	err = setLogLevel(cOpts.LogLevel)
 	if err != nil {
 		return newErrResult(c.ID, err.Error()), false
 	}
@@ -356,6 +373,20 @@ func ariesOpts(opts *ariesStartOpts) ([]aries.Option, error) {
 	}
 
 	return options, nil
+}
+
+func setLogLevel(logLevel string) error {
+	if logLevel != "" {
+		level, err := log.ParseLevel(logLevel)
+		if err != nil {
+			return err
+		}
+
+		log.SetLevel("", level)
+		logger.Infof("log level set to `%s`", logLevel)
+	}
+
+	return nil
 }
 
 // jsNotifier notifies incoming events once registered

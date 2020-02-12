@@ -443,26 +443,16 @@ func getInboundSchemeToURLMap(schemeHostStr []string) (map[string]string, error)
 }
 
 func setLogLevel(logLevel string) error {
-	var level log.Level
+	if logLevel != "" {
+		level, err := log.ParseLevel(logLevel)
+		if err != nil {
+			return fmt.Errorf("failed to parse log level '%s' : %w", logLevel, err)
+		}
 
-	switch logLevel {
-	case "INFO", "":
-		level = log.INFO
-	case "CRITICAL":
-		level = log.CRITICAL
-	case "ERROR":
-		level = log.ERROR
-	case "WARNING":
-		level = log.WARNING
-	case "DEBUG":
-		level = log.DEBUG
-	default:
-		return errors.New("invalid log level")
+		log.SetLevel("", level)
+
+		logger.Infof("logger level set to %s", logLevel)
 	}
-
-	log.SetLevel("", level)
-
-	logger.Infof("logger level set to %s", logLevel)
 
 	return nil
 }

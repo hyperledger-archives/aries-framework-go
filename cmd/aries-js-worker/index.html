@@ -22,7 +22,7 @@ This is a test page for developers to test WASM integration.
         }
 
         async function handleStop() {
-            const response = await aries.stop("")
+            const response = await aries.stop()
             document.querySelector("#output").value = response
         }
 
@@ -64,7 +64,7 @@ This is a test page for developers to test WASM integration.
             <tr>
                 <td colspan="2">
                     <div>Start Options :</div>
-                    <textarea id="opts" rows="5" cols="100">{"agent-default-label":"dem-js-agent","http-resolver-url":"","auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","notifier-func-name":"sample-topic"}
+                    <textarea id="opts" rows="5" cols="100">{"agent-default-label":"dem-js-agent","http-resolver-url":"","auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","notifier-func-name":"sample-topic","log-level":"debug"}
                     </textarea>
                 </td>
             </tr>
