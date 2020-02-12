@@ -44,33 +44,33 @@ func TestMain(m *testing.M) {
 }
 
 func TestEchoCmd(t *testing.T) {
-	echo := newCommand("test", "echo")
+	echo := newCommand("test", "echo", map[string]interface{}{"id": uuid.New().String()})
 	result := make(chan *result)
 
 	callbacks[echo.ID] = result
 	defer delete(callbacks, echo.ID)
 
-	js.Global().Call("handleMsg", toString(t, echo))
+	js.Global().Call("handleMsg", toString(echo))
 
 	select {
 	case r := <-result:
 		assert.Equal(t, echo.ID, r.ID)
 		assert.False(t, r.IsErr)
 		assert.Empty(t, r.ErrMsg)
-		assert.Contains(t, r.Payload, echo.Payload)
+		assert.Equal(t, r.Payload["echo"], echo.Payload)
 	case <-time.After(5 * time.Second):
 		t.Error("test timeout")
 	}
 }
 
 func TestErrorCmd(t *testing.T) {
-	errCmd := newCommand("test", "throwError")
+	errCmd := newCommand("test", "throwError", map[string]interface{}{})
 	result := make(chan *result)
 	callbacks[errCmd.ID] = result
 
 	defer delete(callbacks, errCmd.ID)
 
-	js.Global().Call("handleMsg", toString(t, errCmd))
+	js.Global().Call("handleMsg", toString(errCmd))
 
 	select {
 	case r := <-result:
@@ -105,19 +105,19 @@ func dispatchResults(in chan *result) {
 	}
 }
 
-func newCommand(pkg, fn string) *command {
+func newCommand(pkg, fn string, payload map[string]interface{}) *command {
 	return &command{
 		ID:      uuid.New().String(),
 		Pkg:     pkg,
 		Fn:      fn,
-		Payload: uuid.New().String(),
+		Payload: payload,
 	}
 }
 
-func toString(t *testing.T, c *command) string {
+func toString(c *command) string {
 	s, err := json.Marshal(c)
 	if err != nil {
-		t.Errorf("failed to marshal: %v", c)
+		panic(fmt.Errorf("failed to marshal: %+v", c))
 	}
 
 	return string(s)

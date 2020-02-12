@@ -119,14 +119,3 @@ func TestBuildSideTreeRequest(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, r)
 }
-
-func TestOperation_WriteResponse(t *testing.T) {
-	writeResponse(&mockWriter{}, CreatePublicDIDResponse{})
-}
-
-type mockWriter struct {
-}
-
-func (m *mockWriter) Write(p []byte) (n int, err error) {
-	return 0, fmt.Errorf("sample-error")
-}

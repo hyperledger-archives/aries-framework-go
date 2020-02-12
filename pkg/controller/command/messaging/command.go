@@ -147,7 +147,7 @@ func (o *Command) RegisteredServices(rw io.Writer, req io.Reader) command.Error 
 		names = append(names, svc.Name())
 	}
 
-	writeResponse(rw, RegisteredServicesResponse{Names: names})
+	command.WriteNillableResponse(rw, RegisteredServicesResponse{Names: names}, logger)
 
 	return nil
 }
@@ -311,13 +311,4 @@ func (o *Command) sendMessageToDestination(msg json.RawMessage, dest *ServiceEnd
 	}
 
 	return nil
-}
-
-// writeResponse writes interface value to response
-func writeResponse(rw io.Writer, v interface{}) {
-	err := json.NewEncoder(rw).Encode(v)
-	// as of now, just log errors for writing response
-	if err != nil {
-		logger.Errorf("Unable to send error response, %s", err)
-	}
 }

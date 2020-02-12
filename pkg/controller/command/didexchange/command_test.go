@@ -816,10 +816,6 @@ func TestCommand_RemoveConnection(t *testing.T) {
 	})
 }
 
-func TestCommand_WriteResponse(t *testing.T) {
-	writeResponse(&mockWriter{}, CreateInvitationResponse{})
-}
-
 func TestOperationEventError(t *testing.T) {
 	const errMsg = "channel is already registered for the action event"
 
@@ -949,13 +945,6 @@ func TestSendConnectionNotification(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "connection notification webhook : webhook error")
 	})
-}
-
-type mockWriter struct {
-}
-
-func (m *mockWriter) Write(p []byte) (n int, err error) {
-	return 0, fmt.Errorf("sample-error")
 }
 
 func mockProvider() *mockprovider.Provider {

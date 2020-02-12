@@ -16,6 +16,8 @@ import (
 	"syscall/js"
 	"time"
 
+	"github.com/mitchellh/mapstructure"
+
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
@@ -34,19 +36,19 @@ var isTest = false              //nolint:gochecknoglobals
 
 // command is received from JS
 type command struct {
-	ID      string `json:"id"`
-	Pkg     string `json:"pkg"`
-	Fn      string `json:"fn"`
-	Payload string `json:"payload"`
+	ID      string                 `json:"id"`
+	Pkg     string                 `json:"pkg"`
+	Fn      string                 `json:"fn"`
+	Payload map[string]interface{} `json:"payload"`
 }
 
 // result is sent back to JS
 type result struct {
-	ID      string `json:"id"`
-	IsErr   bool   `json:"isErr"`
-	ErrMsg  string `json:"errMsg"`
-	Payload string `json:"payload"`
-	Topic   string `json:"topic"`
+	ID      string                 `json:"id"`
+	IsErr   bool                   `json:"isErr"`
+	ErrMsg  string                 `json:"errMsg"`
+	Payload map[string]interface{} `json:"payload"`
+	Topic   string                 `json:"topic"`
 }
 
 // ariesStartOpts contains opts for starting aries
@@ -86,6 +88,8 @@ func takeFrom(in chan *command) func(js.Value, []js.Value) interface{} {
 				"log",
 				fmt.Sprintf("aries wasm: unable to unmarshal input=%s. err=%s", args[0].String(), err),
 			)
+
+			return nil
 		}
 		in <- cmd
 
@@ -94,7 +98,7 @@ func takeFrom(in chan *command) func(js.Value, []js.Value) interface{} {
 }
 
 func pipe(input chan *command, output chan *result) {
-	handlers := defaultHandlers()
+	handlers := testHandlers()
 
 	var started bool
 
@@ -150,7 +154,16 @@ func sendTo(out chan *result) {
 
 func cmdExecToFn(exec cmdctrl.Exec) func(*command) *result {
 	return func(c *command) *result {
-		req := bytes.NewBufferString(c.Payload)
+		b, er := json.Marshal(c.Payload)
+		if er != nil {
+			return &result{
+				ID:     c.ID,
+				IsErr:  true,
+				ErrMsg: fmt.Sprintf("aries wasm: failed to unmarshal payload. err=%s", er),
+			}
+		}
+
+		req := bytes.NewBuffer(b)
 
 		var buf bytes.Buffer
 
@@ -159,20 +172,31 @@ func cmdExecToFn(exec cmdctrl.Exec) func(*command) *result {
 			return newErrResult(c.ID, fmt.Sprintf("code: %+v, message: %s", err.Code(), err.Error()))
 		}
 
+		payload := make(map[string]interface{})
+		if err := json.Unmarshal(buf.Bytes(), &payload); err != nil {
+			return &result{
+				ID:    c.ID,
+				IsErr: true,
+				ErrMsg: fmt.Sprintf(
+					"aries wasm: failed to unmarshal command result=%+v err=%s",
+					buf.String(), err),
+			}
+		}
+
 		return &result{
 			ID:      c.ID,
-			Payload: buf.String(),
+			Payload: payload,
 		}
 	}
 }
 
-func defaultHandlers() map[string]map[string]func(*command) *result {
+func testHandlers() map[string]map[string]func(*command) *result {
 	return map[string]map[string]func(*command) *result{
 		"test": {
 			"echo": func(c *command) *result {
 				return &result{
 					ID:      c.ID,
-					Payload: "echo: ->" + c.Payload,
+					Payload: map[string]interface{}{"echo": c.Payload},
 				}
 			},
 			"throwError": func(c *command) *result {
@@ -185,7 +209,7 @@ func defaultHandlers() map[string]map[string]func(*command) *result {
 
 				return &result{
 					ID:      c.ID,
-					Payload: "echo: ->" + c.Payload,
+					Payload: map[string]interface{}{"echo": c.Payload},
 				}
 			},
 		},
@@ -241,7 +265,7 @@ func startAries(c *command, pkgMap map[string]map[string]func(*command) *result)
 
 	return &result{
 		ID:      c.ID,
-		Payload: "aries started",
+		Payload: map[string]interface{}{"msg": "aries started"},
 	}, true
 }
 
@@ -272,7 +296,7 @@ func addStopAriesHandler(a *aries.Aries, pkgMap map[string]map[string]func(*comm
 
 		return &result{
 			ID:      c.ID,
-			Payload: "aries stoppped",
+			Payload: map[string]interface{}{"msg": "aries stoppped"},
 		}
 	}
 	pkgMap["aries"] = fnMap
@@ -286,15 +310,15 @@ func newErrResult(id, msg string) *result {
 	}
 }
 
-func startOpts(str string) (*ariesStartOpts, error) {
-	opts := ariesStartOpts{}
+func startOpts(payload map[string]interface{}) (*ariesStartOpts, error) {
+	opts := &ariesStartOpts{}
 
-	err := json.Unmarshal([]byte(str), &opts)
+	err := mapstructure.Decode(payload, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	return &opts, nil
+	return opts, nil
 }
 
 func ariesOpts(opts *ariesStartOpts) ([]aries.Option, error) {
@@ -336,7 +360,7 @@ func (n *jsNotifier) Notify(topic string, message []byte) error {
 	out, err := json.Marshal(&result{
 		ID:      uuid.New().String(),
 		Topic:   n.topic,
-		Payload: string(message),
+		Payload: map[string]interface{}{"notification": string(message)},
 	})
 
 	if err != nil {

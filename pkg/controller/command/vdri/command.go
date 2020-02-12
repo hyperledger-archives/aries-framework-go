@@ -85,18 +85,9 @@ func (o *Command) CreatePublicDID(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(CreatePublicDIDError, err)
 	}
 
-	writeResponse(rw, CreatePublicDIDResponse{DID: doc})
+	command.WriteNillableResponse(rw, CreatePublicDIDResponse{DID: doc}, logger)
 
 	return nil
-}
-
-// writeResponse writes interface value to response
-func writeResponse(rw io.Writer, v interface{}) {
-	err := json.NewEncoder(rw).Encode(v)
-	// as of now, just log errors for writing response
-	if err != nil {
-		logger.Errorf("Unable to send error response, %s", err)
-	}
 }
 
 // prepareBasicRequestBuilder is basic request builder for public DID creation
