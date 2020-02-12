@@ -72,6 +72,7 @@ func (c *mockDBProvider) OpenStore(name string) (storage.Store, error) {
 func (c *mockDBProvider) CloseStore(name string) error {
 	return nil
 }
+
 func (c *mockDBProvider) Close() error {
 	return nil
 }

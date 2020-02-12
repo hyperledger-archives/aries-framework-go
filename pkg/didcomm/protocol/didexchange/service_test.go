@@ -609,8 +609,9 @@ func TestService_Update(t *testing.T) {
 }
 
 type mockStore struct {
-	put func(string, []byte) error
-	get func(string) ([]byte, error)
+	put    func(string, []byte) error
+	get    func(string) ([]byte, error)
+	delete func(string) error
 }
 
 // Put stores the key and the record
@@ -621,6 +622,11 @@ func (m *mockStore) Put(k string, v []byte) error {
 // Get fetches the record based on key
 func (m *mockStore) Get(k string) ([]byte, error) {
 	return m.get(k)
+}
+
+// Delete the record based on key
+func (m *mockStore) Delete(k string) error {
+	return m.delete(k)
 }
 
 // Search returns storage iterator

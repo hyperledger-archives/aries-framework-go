@@ -143,6 +143,19 @@ func (s *memStore) Iterator(start, limit string) storage.StoreIterator {
 	return newMemIterator(batch)
 }
 
+// Delete will delete record with k key
+func (s *memStore) Delete(k string) error {
+	if k == "" {
+		return errors.New("key is mandatory")
+	}
+
+	s.Lock()
+	delete(s.db, k)
+	s.Unlock()
+
+	return nil
+}
+
 type memIterator struct {
 	currentIndex int
 	currentItem  []string

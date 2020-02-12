@@ -67,6 +67,11 @@ type MockStore struct {
 	ErrItr error
 }
 
+// MockStoreWithDelete mock store with delete capability
+type MockStoreWithDelete struct {
+	MockStore
+}
+
 // Put stores the key and the record
 func (s *MockStore) Put(k string, v []byte) error {
 	if k == "" {
@@ -119,6 +124,15 @@ func (s *MockStore) Iterator(start, limit string) storage.StoreIterator {
 	}
 
 	return NewMockIterator(batch)
+}
+
+// Delete will delete record with k key
+func (s *MockStore) Delete(k string) error {
+	s.lock.Lock()
+	delete(s.Store, k)
+	s.lock.Unlock()
+
+	return nil
 }
 
 // NewMockIterator returns new mock iterator for given batch
