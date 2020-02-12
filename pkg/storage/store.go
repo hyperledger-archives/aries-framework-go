@@ -43,6 +43,9 @@ type Store interface {
 	//
 	// StoreIterator: iterator for result range
 	Iterator(start, limit string) StoreIterator
+
+	// Delete will delete a record with k key
+	Delete(k string) error
 }
 
 // StoreIterator is the iterator for the latest snapshot of the underlying store.

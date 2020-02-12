@@ -127,6 +127,22 @@ func (s *store) Iterator(start, limit string) storage.StoreIterator {
 	return newIterator(batch, err)
 }
 
+// Delete will delete record with k key
+func (s *store) Delete(k string) error {
+	if k == "" {
+		return errors.New("key is mandatory")
+	}
+
+	req := s.db.Call("transaction", s.name, "readwrite").Call("objectStore", s.name).Call("delete", k)
+
+	_, err := getResult(req)
+	if err != nil {
+		return fmt.Errorf("failed to delete data with key: %s - error: %w", k, err)
+	}
+
+	return nil
+}
+
 type iterator struct {
 	batch *js.Value
 	err   error
