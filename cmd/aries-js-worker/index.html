@@ -31,7 +31,7 @@ This is a test page for developers to test WASM integration.
             const operation = document.querySelector("#operation").value
             const method = document.querySelector("#method").value
             const response = await aries[operation][method](request)
-            document.querySelector("#output").value = response
+            document.querySelector("#output").value = JSON.stringify(response)
         }
 
         function startNotifier() {
@@ -98,7 +98,7 @@ This is a test page for developers to test WASM integration.
                     <label for="operation">Operation: </label>
                 </td>
                 <td>
-                    <input type="text" id="operation" value="didexchange" size="75"></input>
+                    <input type="text" id="operation" value="_test" size="75"></input>
                 </td>
             </tr>
             <tr>
@@ -106,7 +106,7 @@ This is a test page for developers to test WASM integration.
                     <label for="method">Method: </label>
                 </td>
                 <td>
-                    <input type="text" id="method" value="createInvitation" size="50"></input>
+                    <input type="text" id="method" value="_echo" size="50"></input>
                 </td>
             </tr>
 
@@ -115,7 +115,7 @@ This is a test page for developers to test WASM integration.
                     <label for="input">Request: </label>
                 </td>
                 <td>
-                    <textarea id="input" rows="15" cols="100">{}</textarea>
+                    <textarea id="input" rows="15" cols="100">{"id": "hello!"}</textarea>
                 </td>
             </tr>
 

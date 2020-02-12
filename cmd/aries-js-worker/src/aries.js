@@ -37,7 +37,11 @@ let INSTANCE = null
 async function invoke(pkg, fn, arg, msgTimeout) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(_ => reject(new Error(msgTimeout)), 5000)
-        const msg = newMsg(pkg, fn, arg)
+        let payload = arg
+        if (typeof arg === "string") {
+            payload = JSON.parse(arg)
+        }
+        const msg = newMsg(pkg, fn, payload)
         PENDING.set(msg.id, result => {
             clearTimeout(timer)
             if (result.isErr) {
@@ -82,7 +86,6 @@ export const Aries = function(opts) {
          * @private
          */
         _test: {
-
             /**
              * Returns the input text prepended with "echo: ".
              * TODO - remove.

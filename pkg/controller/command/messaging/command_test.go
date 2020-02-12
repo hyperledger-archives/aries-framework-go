@@ -622,14 +622,3 @@ func TestOperation_SendReplyMessage(t *testing.T) {
 		require.Contains(t, cmdErr.Error(), "to be implemented")
 	})
 }
-
-func TestOperation_WriteResponse(t *testing.T) {
-	writeResponse(&mockWriter{}, struct{}{})
-}
-
-type mockWriter struct {
-}
-
-func (m *mockWriter) Write(p []byte) (n int, err error) {
-	return 0, fmt.Errorf("sample-error")
-}

@@ -152,9 +152,10 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(CreateInvitationErrorCode, err)
 	}
 
-	writeResponse(rw, &CreateInvitationResponse{
+	command.WriteNillableResponse(rw, &CreateInvitationResponse{
 		Invitation: invitation,
-		Alias:      request.Alias})
+		Alias:      request.Alias},
+		logger)
 
 	return nil
 }
@@ -175,9 +176,9 @@ func (c *Command) ReceiveInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(ReceiveInvitationErrorCode, err)
 	}
 
-	writeResponse(rw, ReceiveInvitationResponse{
+	command.WriteNillableResponse(rw, ReceiveInvitationResponse{
 		ConnectionID: connectionID,
-	})
+	}, logger)
 
 	return nil
 }
@@ -205,9 +206,9 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(AcceptInvitationErrorCode, err)
 	}
 
-	writeResponse(rw, &AcceptInvitationResponse{
+	command.WriteNillableResponse(rw, &AcceptInvitationResponse{
 		ConnectionID: request.ID,
-	})
+	}, logger)
 
 	return nil
 }
@@ -244,9 +245,9 @@ func (c *Command) CreateImplicitInvitation(rw io.Writer, req io.Reader) command.
 		return command.NewExecuteError(CreateImplicitInvitationErrorCode, err)
 	}
 
-	writeResponse(rw, &ImplicitInvitationResponse{
+	command.WriteNillableResponse(rw, &ImplicitInvitationResponse{
 		ConnectionID: id,
-	})
+	}, logger)
 
 	return nil
 }
@@ -272,9 +273,9 @@ func (c *Command) AcceptExchangeRequest(rw io.Writer, req io.Reader) command.Err
 		return command.NewExecuteError(AcceptExchangeRequestErrorCode, err)
 	}
 
-	writeResponse(rw, &ExchangeResponse{
+	command.WriteNillableResponse(rw, &ExchangeResponse{
 		ConnectionID: request.ID,
-	})
+	}, logger)
 
 	return nil
 }
@@ -295,9 +296,9 @@ func (c *Command) QueryConnections(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(QueryConnectionsErrorCode, err)
 	}
 
-	writeResponse(rw, &QueryConnectionsResponse{
+	command.WriteNillableResponse(rw, &QueryConnectionsResponse{
 		Results: results,
-	})
+	}, logger)
 
 	return nil
 }
@@ -322,9 +323,9 @@ func (c *Command) QueryConnectionByID(rw io.Writer, req io.Reader) command.Error
 		return command.NewExecuteError(QueryConnectionsErrorCode, err)
 	}
 
-	writeResponse(rw, &QueryConnectionResponse{
+	command.WriteNillableResponse(rw, &QueryConnectionResponse{
 		Result: result,
-	})
+	}, logger)
 
 	return nil
 }
@@ -350,15 +351,6 @@ func (c *Command) RemoveConnection(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	return nil
-}
-
-// writeResponse writes interface value to response
-func writeResponse(rw io.Writer, v interface{}) {
-	err := json.NewEncoder(rw).Encode(v)
-	// as of now, just log errors for writing response
-	if err != nil {
-		logger.Errorf("Unable to send error response, %s", err)
-	}
 }
 
 // startClientEventListener listens to action and message events from DID Exchange service.

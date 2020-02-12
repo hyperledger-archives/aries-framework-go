@@ -90,7 +90,7 @@ func (o *Command) Register(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(RegisterRouterErrorCode, err)
 	}
 
-	writeResponse(rw, nil)
+	command.WriteNillableResponse(rw, nil, logger)
 
 	return nil
 }
@@ -102,14 +102,7 @@ func (o *Command) Unregister(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(UnregisterRouterErrorCode, err)
 	}
 
-	writeResponse(rw, nil)
+	command.WriteNillableResponse(rw, nil, logger)
 
 	return nil
-}
-
-// writeResponse writes interface value to response
-func writeResponse(rw io.Writer, v interface{}) {
-	if err := json.NewEncoder(rw).Encode(v); err != nil {
-		logger.Errorf("Unable to send error response, %s", err)
-	}
 }
