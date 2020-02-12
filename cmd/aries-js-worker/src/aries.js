@@ -27,7 +27,8 @@ const { _getWorker } = require("worker_loader")
 
 // TODO synchronize access on this map?
 const PENDING = new Map()
-const WORKER = _getWorker(PENDING)
+const NOTIFICATIONS = new Map()
+const WORKER = _getWorker(PENDING, NOTIFICATIONS)
 
 // Singleton
 let INSTANCE = null
@@ -92,6 +93,27 @@ export const Aries = function(opts) {
             _echo: async function (text) {
                 return invoke("test", "echo", text, "timeout while accepting invitation")
             }
+
+        },
+
+        start: async function(opts) {
+            return invoke("aries", "Start", opts, "timeout while starting aries")
+        },
+
+        stop: async function(opts) {
+            return invoke("aries", "Stop", opts, "timeout while stopping aries")
+        },
+
+        waitForNotification : async function waitForNotification(topic) {
+            return new Promise((resolve, reject) => {
+                const timer = setTimeout(_ => resolve(), 10000)
+                NOTIFICATIONS.set(topic, result => {
+                    if (result.isErr) {
+                        reject(new Error(result.errMsg))
+                    }
+                    resolve(result.payload)
+                })
+            });
         },
 
         didexchange: {
@@ -163,4 +185,5 @@ export const Aries = function(opts) {
     }
 
     return INSTANCE
+
 }

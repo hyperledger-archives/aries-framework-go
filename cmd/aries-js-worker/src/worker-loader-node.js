@@ -10,7 +10,7 @@ import wasmJS from "./wasm_exec.js"
 import wasm from "./aries-js-worker.wasm.gz"
 import workerJS from "./worker-impl-node"
 
-export function _getWorker(pending) {
+export function _getWorker(pending, notifications) {
     const worker = new Worker(workerJS, { workerData: {wasmJS: wasmJS, wasmPath: wasm} })
     worker.on("message", result => {
         const cb = pending.get(result.id)

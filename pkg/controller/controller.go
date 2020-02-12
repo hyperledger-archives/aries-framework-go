@@ -28,6 +28,7 @@ type allOpts struct {
 	defaultLabel string
 	autoAccept   bool
 	msgHandler   command.MessageHandler
+	notifier     webhook.Notifier
 }
 
 // Opt represents a controller option.
@@ -37,6 +38,13 @@ type Opt func(opts *allOpts)
 func WithWebhookURLs(webhookURLs ...string) Opt {
 	return func(opts *allOpts) {
 		opts.webhookURLs = webhookURLs
+	}
+}
+
+// WithNotifier is an option for setting up a notifier which will notify clients of events
+func WithNotifier(notifier webhook.Notifier) Opt {
+	return func(opts *allOpts) {
+		opts.notifier = notifier
 	}
 }
 
@@ -109,8 +117,13 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 		opt(cmdOpts)
 	}
 
+	notifier := cmdOpts.notifier
+	if notifier == nil {
+		notifier = webhook.NewHTTPNotifier(cmdOpts.webhookURLs)
+	}
+
 	// did exchange command operation
-	didexcmd, err := didexchangecmd.New(ctx, webhook.NewHTTPNotifier(cmdOpts.webhookURLs), cmdOpts.defaultLabel,
+	didexcmd, err := didexchangecmd.New(ctx, notifier, cmdOpts.defaultLabel,
 		cmdOpts.autoAccept)
 	if err != nil {
 		return nil, fmt.Errorf("failed initialized didexchange command: %w", err)
@@ -120,7 +133,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	vcmd := vdricmd.New(ctx)
 
 	// messaging command operation
-	msgcmd, err := messagingcmd.New(ctx, cmdOpts.msgHandler, webhook.NewHTTPNotifier(cmdOpts.webhookURLs))
+	msgcmd, err := messagingcmd.New(ctx, cmdOpts.msgHandler, notifier)
 	if err != nil {
 		return nil, err
 	}

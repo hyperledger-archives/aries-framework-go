@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
@@ -60,7 +61,7 @@ func TestGetCommandHandlers_Success(t *testing.T) {
 	// test with options
 	handlers, err = GetCommandHandlers(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
 		WithAutoAccept(true), WithDefaultLabel("sample-label"),
-		WithWebhookURLs("sample-wh-url"))
+		WithWebhookURLs("sample-wh-url"), WithNotifier(webhook.NewMockWebhookNotifier()))
 	require.NoError(t, err)
 	require.NotEmpty(t, handlers)
 }

@@ -15,20 +15,83 @@ This is a test page for developers to test WASM integration.
     <script>
         // TODO fix the stutter in the API's exports ("Aries.Aries....")
         const aries = Aries.Aries({})
-        async function handleInput() {
-            document.querySelector("#output").value = "{}"
+        async function handleStart() {
+            const request = document.querySelector("#opts").value
+            const response = await aries.start(request)
+            document.querySelector("#output").value = response
+        }
+
+        async function handleStop() {
+            const response = await aries.stop("")
+            document.querySelector("#output").value = response
+        }
+
+        async function handleOperationInput() {
             const request = document.querySelector("#input").value
             const operation = document.querySelector("#operation").value
             const method = document.querySelector("#method").value
             const response = await aries[operation][method](request)
             document.querySelector("#output").value = response
         }
+
+        function startNotifier() {
+           const topic = document.querySelector("#notifier").value
+           async function* run() {
+                while (true)
+                    yield await aries.waitForNotification(topic)
+            }
+
+            const asyncIterator = run();
+
+            (async () => {
+                for await (const val of asyncIterator) {
+                    if (val) {
+                        // TODO display messages in this page
+                        alert(val)
+                    }
+                }
+            })();
+        }
+
     </script>
 </head>
 <body>
-<div>
+<div style="padding: 10px">
+
     <fieldset style="width: 100px">
-        <legend><b>Aries Agent Command Controller</b></legend>
+        <legend style="font-size: x-large;font-weight: bold">Aries Agent</legend>
+        <table>
+            <tr>
+                <td colspan="2">
+                    <div>Start Options :</div>
+                    <textarea id="opts" rows="5" cols="100">{"agent-default-label":"dem-js-agent","http-resolver-url":"","auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","notifier-func-name":"sample-topic"}
+                    </textarea>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <button onClick="handleStart()">StartAgent</button>
+                    <button onClick="handleStop()">StopAgent</button>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <hr>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <input type="text" id="notifier" value="sample-topic" size="50"></input>
+                    <button onClick="startNotifier()">Start Notifier</button>
+                </td>
+            </tr>
+        </table>
+    </fieldset>
+
+    <br><br>
+
+    <fieldset style="width: 100px">
+        <legend style="font-size: x-large;font-weight: bold">Aries Agent Command Controller</legend>
         <table cellspacing="10px">
             <tr>
                 <td>
@@ -61,16 +124,24 @@ This is a test page for developers to test WASM integration.
                     &nbsp;
                 </td>
                 <td>
-                    <button onClick="handleInput()">Execute</button>
+                    <button onClick="handleOperationInput()">Execute</button>
                 </td>
             </tr>
         </table>
+
     </fieldset>
+
+    <br><br>
 </div>
 <hr/>
 <div>
-    <label for="output">Response: </label>
-    <output id="output"></output>
+    <label for="output" style="font-size: large;font-weight: bold">Response: </label>
+    <output id="output" style="color: green;"></output>
+</div>
+<br>
+<div id="error-div" style="visibility: hidden;color:red;font-size: x-large;">
+    <label for="error">Error: </label>
+    <output id="error" ></output>
 </div>
 </body>
 </html>
