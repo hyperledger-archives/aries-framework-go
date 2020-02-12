@@ -103,8 +103,8 @@ export const Aries = function(opts) {
             return invoke("aries", "Start", opts, "timeout while starting aries")
         },
 
-        stop: async function(opts) {
-            return invoke("aries", "Stop", opts, "timeout while stopping aries")
+        stop: async function() {
+            return invoke("aries", "Stop", "{}", "timeout while stopping aries")
         },
 
         waitForNotification : async function waitForNotification(topic) {
