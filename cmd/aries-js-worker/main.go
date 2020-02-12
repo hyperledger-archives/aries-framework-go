@@ -313,7 +313,15 @@ func newErrResult(id, msg string) *result {
 func startOpts(payload map[string]interface{}) (*ariesStartOpts, error) {
 	opts := &ariesStartOpts{}
 
-	err := mapstructure.Decode(payload, opts)
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		TagName: "json",
+		Result:  opts,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = decoder.Decode(payload)
 	if err != nil {
 		return nil, err
 	}
