@@ -13,6 +13,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/rs/cors"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 )
@@ -33,9 +35,11 @@ func NewInboundHandler(prov transport.Provider) (http.Handler, error) {
 		return nil, errors.New("creation of inbound handler failed")
 	}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		processPOSTRequest(w, r, prov)
-	}), nil
+	})
+
+	return cors.Default().Handler(handler), nil
 }
 
 func processPOSTRequest(w http.ResponseWriter, r *http.Request, prov transport.Provider) {
