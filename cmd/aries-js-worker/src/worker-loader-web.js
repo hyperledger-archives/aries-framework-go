@@ -13,10 +13,10 @@ export function _getWorker(pending, notifications) {
     worker.onmessage = e => {
         const result = e.data
         if (result.topic ){
-            const notify = notifications.get(result.topic)
-            if (notify) {
-                console.log("sending incoming message on topic", result.topic, result)
-                notify(result)
+            if (notifications.get(result.topic)) {
+                notifications.get(result.topic)(result)
+            }  else if (notifications.get("all")){
+                notifications.get("all")(result)
             } else {
                 console.log("no subscribers found for this topic", result.topic)
             }

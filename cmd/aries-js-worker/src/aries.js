@@ -107,15 +107,21 @@ export const Aries = function(opts) {
             return invoke("aries", "Stop", "{}", "timeout while stopping aries")
         },
 
-        waitForNotification : async function waitForNotification(topic) {
+        waitForNotification : async function waitForNotification(topics) {
             return new Promise((resolve, reject) => {
                 const timer = setTimeout(_ => resolve(), 10000)
-                NOTIFICATIONS.set(topic, result => {
-                    if (result.isErr) {
-                        reject(new Error(result.errMsg))
-                    }
-                    resolve(result.payload)
-                })
+                // subscribe for all by default if topics not provided
+                if (topics.length == 0){
+                    topics = ["all"]
+                }
+                topics.forEach(function (topic, index) {
+                    NOTIFICATIONS.set(topic, result => {
+                        if (result.isErr) {
+                            reject(new Error(result.errMsg))
+                        }
+                        resolve(result.payload)
+                    })
+                });
             });
         },
 
@@ -181,8 +187,8 @@ export const Aries = function(opts) {
             register: async function (text) {
                 return invoke(this.pkgname, "Register", text, "timeout while registering router")
             },
-            unregister: async function (text) {
-                return invoke(this.pkgname, "Unregister", text, "timeout while registering router")
+            unregister: async function () {
+                return invoke(this.pkgname, "Unregister", "{}", "timeout while registering router")
             }
         }
     }

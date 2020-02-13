@@ -35,10 +35,18 @@ This is a test page for developers to test WASM integration.
         }
 
         function startNotifier() {
-           const topic = document.querySelector("#notifier").value
+            var topics
+            if (document.querySelector("#notifier").value) {
+                topics = document.querySelector("#notifier").value.split(",")
+            } else {
+                topics = []
+            }
+
+            // pass array of topics to notifier or pass ["all"] to subscribe for all
+            // TODO whole generator logic below to be moved inside js package (aries.js)
            async function* run() {
                 while (true)
-                    yield await aries.waitForNotification(topic)
+                    yield await aries.waitForNotification(topics)
             }
 
             const asyncIterator = run();
@@ -64,7 +72,7 @@ This is a test page for developers to test WASM integration.
             <tr>
                 <td colspan="2">
                     <div>Start Options :</div>
-                    <textarea id="opts" rows="5" cols="100">{"agent-default-label":"dem-js-agent","http-resolver-url":"","auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","notifier-func-name":"sample-topic","log-level":"debug"}
+                    <textarea id="opts" rows="5" cols="100">{"agent-default-label":"dem-js-agent","http-resolver-url":"","auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug"}
                     </textarea>
                 </td>
             </tr>
@@ -81,7 +89,8 @@ This is a test page for developers to test WASM integration.
             </tr>
             <tr>
                 <td>
-                    <input type="text" id="notifier" value="sample-topic" size="50"></input>
+                    <div style="font-size: small;">(Enter comma separated topics below, leave it empty to subscribe to all topics.)</div>
+                    <input type="text" id="notifier" value="" size="50"></input>
                     <button onClick="startNotifier()">Start Notifier</button>
                 </td>
             </tr>
@@ -134,10 +143,11 @@ This is a test page for developers to test WASM integration.
     <br><br>
 </div>
 <hr/>
-<div>
+<div style="height: 10%">
     <label for="output" style="font-size: large;font-weight: bold">Response: </label>
     <output id="output" style="color: green;"></output>
 </div>
+<hr/>
 <br>
 <div id="error-div" style="visibility: hidden;color:red;font-size: x-large;">
     <label for="error">Error: </label>
