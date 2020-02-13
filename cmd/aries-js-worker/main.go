@@ -30,6 +30,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 )
 
+const (
+	handleResultFn  = "handleResult"
+	ariesCommandPkg = "aries"
+	ariesStartFn    = "Start"
+	ariesStopFn     = "Stop"
+)
+
 var logger = log.New("aries-js-worker")
 
 // TODO Signal JS when WASM is loaded and ready.
@@ -88,10 +95,7 @@ func takeFrom(in chan *command) func(js.Value, []js.Value) interface{} {
 	return func(_ js.Value, args []js.Value) interface{} {
 		cmd := &command{}
 		if err := json.Unmarshal([]byte(args[0].String()), cmd); err != nil {
-			js.Global().Get("console").Call(
-				"log",
-				fmt.Sprintf("aries wasm: unable to unmarshal input=%s. err=%s", args[0].String(), err),
-			)
+			logger.Errorf("aries wasm: unable to unmarshal input=%s. err=%s", args[0].String(), err)
 
 			return nil
 		}
@@ -104,47 +108,21 @@ func takeFrom(in chan *command) func(js.Value, []js.Value) interface{} {
 func pipe(input chan *command, output chan *result) {
 	handlers := testHandlers()
 
-	var started bool
-
-	if isTest {
-		started = true
-	}
+	addAriesHandlers(handlers)
 
 	for c := range input {
 		if c.ID == "" {
-			js.Global().Get("console").Call(
-				"log",
-				fmt.Sprintf("aries wasm: missing ID for input: %v", c),
-			)
-		}
-
-		if !started {
-			var rs *result
-
-			if isStartCommand(c) {
-				rs, started = startAries(c, handlers)
-			} else {
-				rs = newErrResult(c.ID, "aries is not started")
-			}
-			output <- rs
-
-			continue
+			logger.Warnf("aries wasm: missing ID for input: %v", c)
 		}
 
 		if pkg, found := handlers[c.Pkg]; found {
 			if fn, found := pkg[c.Fn]; found {
 				output <- fn(c)
-			} else {
-				output <- newErrResult(c.ID, "invalid fn: "+c.Pkg)
+				continue
 			}
-		} else {
-			output <- newErrResult(c.ID, "invalid pkg: "+c.Pkg)
 		}
 
-		// support restart by resetting flag
-		if isStopCommand(c) {
-			started = false
-		}
+		output <- handlerNotFoundErr(c)
 	}
 }
 
@@ -152,13 +130,10 @@ func sendTo(out chan *result) {
 	for r := range out {
 		out, err := json.Marshal(r)
 		if err != nil {
-			js.Global().Get("console").Call(
-				"log",
-				fmt.Sprintf("aries wasm: failed to marshal response for id=%s err=%s ", r.ID, err),
-			)
+			logger.Errorf("aries wasm: failed to marshal response for id=%s err=%s ", r.ID, err)
 		}
 
-		js.Global().Call("handleResult", string(out))
+		js.Global().Call(handleResultFn, string(out))
 	}
 }
 
@@ -183,13 +158,16 @@ func cmdExecToFn(exec cmdctrl.Exec) func(*command) *result {
 		}
 
 		payload := make(map[string]interface{})
-		if err := json.Unmarshal(buf.Bytes(), &payload); err != nil {
-			return &result{
-				ID:    c.ID,
-				IsErr: true,
-				ErrMsg: fmt.Sprintf(
-					"aries wasm: failed to unmarshal command result=%+v err=%s",
-					buf.String(), err),
+
+		if len(buf.Bytes()) > 0 {
+			if err := json.Unmarshal(buf.Bytes(), &payload); err != nil {
+				return &result{
+					ID:    c.ID,
+					IsErr: true,
+					ErrMsg: fmt.Sprintf(
+						"aries wasm: failed to unmarshal command result=%+v err=%s",
+						buf.String(), err),
+				}
 			}
 		}
 
@@ -227,63 +205,78 @@ func testHandlers() map[string]map[string]func(*command) *result {
 }
 
 func isStartCommand(c *command) bool {
-	return c.Pkg == "aries" && c.Fn == "Start"
+	return c.Pkg == ariesCommandPkg && c.Fn == ariesStartFn
 }
 
 func isStopCommand(c *command) bool {
-	return c.Pkg == "aries" && c.Fn == "Stop"
+	return c.Pkg == ariesCommandPkg && c.Fn == ariesStopFn
 }
 
-func startAries(c *command, pkgMap map[string]map[string]func(*command) *result) (*result, bool) {
-	cOpts, err := startOpts(c.Payload)
-	if err != nil {
-		return newErrResult(c.ID, err.Error()), false
+func handlerNotFoundErr(c *command) *result {
+	if isStartCommand(c) {
+		return newErrResult(c.ID, "Aries agent already started")
+	} else if isStopCommand(c) {
+		return newErrResult(c.ID, "Aries agent not running")
 	}
 
-	err = setLogLevel(cOpts.LogLevel)
-	if err != nil {
-		return newErrResult(c.ID, err.Error()), false
+	return newErrResult(c.ID, fmt.Sprintf("invalid pkg/fn: %s/%s", c.Pkg, c.Fn))
+}
+
+func addAriesHandlers(pkgMap map[string]map[string]func(*command) *result) {
+	fnMap := make(map[string]func(*command) *result)
+	fnMap[ariesStartFn] = func(c *command) *result {
+		cOpts, err := startOpts(c.Payload)
+		if err != nil {
+			return newErrResult(c.ID, err.Error())
+		}
+
+		err = setLogLevel(cOpts.LogLevel)
+		if err != nil {
+			return newErrResult(c.ID, err.Error())
+		}
+
+		options, err := ariesOpts(cOpts)
+		if err != nil {
+			return newErrResult(c.ID, err.Error())
+		}
+
+		msgHandler := msghandler.NewRegistrar()
+		options = append(options, aries.WithMessageServiceProvider(msgHandler))
+
+		a, err := aries.New(options...)
+		if err != nil {
+			return newErrResult(c.ID, err.Error())
+		}
+
+		ctx, err := a.Context()
+		if err != nil {
+			return newErrResult(c.ID, err.Error())
+		}
+
+		var notifier webhook.Notifier
+		if cOpts.Notifier != "" {
+			notifier = &jsNotifier{topic: cOpts.Notifier}
+		}
+
+		commands, err := controller.GetCommandHandlers(ctx, controller.WithMessageHandler(msgHandler),
+			controller.WithDefaultLabel(cOpts.Label), controller.WithNotifier(notifier))
+		if err != nil {
+			return newErrResult(c.ID, err.Error())
+		}
+
+		// add command handlers
+		addCommandHandlers(commands, pkgMap)
+
+		// add stop aries handler
+		addStopAriesHandler(a, pkgMap)
+
+		return &result{
+			ID:      c.ID,
+			Payload: map[string]interface{}{"message": "aries agent started successfully"},
+		}
 	}
 
-	options, err := ariesOpts(cOpts)
-	if err != nil {
-		return newErrResult(c.ID, err.Error()), false
-	}
-
-	msgHandler := msghandler.NewRegistrar()
-	options = append(options, aries.WithMessageServiceProvider(msgHandler))
-
-	a, err := aries.New(options...)
-	if err != nil {
-		return newErrResult(c.ID, err.Error()), false
-	}
-
-	ctx, err := a.Context()
-	if err != nil {
-		return newErrResult(c.ID, err.Error()), false
-	}
-
-	var notifier webhook.Notifier
-	if cOpts.Notifier != "" {
-		notifier = &jsNotifier{topic: cOpts.Notifier}
-	}
-
-	commands, err := controller.GetCommandHandlers(ctx, controller.WithMessageHandler(msgHandler),
-		controller.WithDefaultLabel(cOpts.Label), controller.WithNotifier(notifier))
-	if err != nil {
-		return newErrResult(c.ID, err.Error()), false
-	}
-
-	// add command handlers
-	addCommandHandlers(commands, pkgMap)
-
-	// add stop aries handler
-	addStopAriesHandler(a, pkgMap)
-
-	return &result{
-		ID:      c.ID,
-		Payload: map[string]interface{}{"msg": "aries started"},
-	}, true
+	pkgMap[ariesCommandPkg] = fnMap
 }
 
 func addCommandHandlers(commands []cmdctrl.Handler, pkgMap map[string]map[string]func(*command) *result) {
@@ -300,7 +293,7 @@ func addCommandHandlers(commands []cmdctrl.Handler, pkgMap map[string]map[string
 
 func addStopAriesHandler(a *aries.Aries, pkgMap map[string]map[string]func(*command) *result) {
 	fnMap := make(map[string]func(*command) *result)
-	fnMap["Stop"] = func(c *command) *result {
+	fnMap[ariesStopFn] = func(c *command) *result {
 		err := a.Close()
 		if err != nil {
 			return newErrResult(c.ID, err.Error())
@@ -311,12 +304,15 @@ func addStopAriesHandler(a *aries.Aries, pkgMap map[string]map[string]func(*comm
 			delete(pkgMap, k)
 		}
 
+		// put back start command once stopped
+		addAriesHandlers(pkgMap)
+
 		return &result{
 			ID:      c.ID,
-			Payload: map[string]interface{}{"msg": "aries stoppped"},
+			Payload: map[string]interface{}{"message": "aries agent stopped"},
 		}
 	}
-	pkgMap["aries"] = fnMap
+	pkgMap[ariesCommandPkg] = fnMap
 }
 
 func newErrResult(id, msg string) *result {
@@ -396,17 +392,22 @@ type jsNotifier struct {
 
 // Notify is mock implementation of webhook notifier Notify()
 func (n *jsNotifier) Notify(topic string, message []byte) error {
+	payload := make(map[string]interface{})
+	if err := json.Unmarshal(message, &payload); err != nil {
+		return err
+	}
+
 	out, err := json.Marshal(&result{
 		ID:      uuid.New().String(),
 		Topic:   n.topic,
-		Payload: map[string]interface{}{"notification": string(message)},
+		Payload: payload,
 	})
 
 	if err != nil {
 		return err
 	}
 
-	js.Global().Call("handleResult", string(out))
+	js.Global().Call(handleResultFn, string(out))
 
 	return nil
 }
