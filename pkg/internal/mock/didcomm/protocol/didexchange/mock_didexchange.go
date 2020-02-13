@@ -27,7 +27,7 @@ import (
 type MockDIDExchangeSvc struct {
 	ProtocolName             string
 	HandleFunc               func(service.DIDCommMsg) (string, error)
-	HandleOutboundFunc       func(msg service.DIDCommMsg, myDID, theirDID string) error
+	HandleOutboundFunc       func(msg service.DIDCommMsg, myDID, theirDID string) (string, error)
 	AcceptFunc               func(string) bool
 	RegisterActionEventErr   error
 	UnregisterActionEventErr error
@@ -47,12 +47,12 @@ func (m *MockDIDExchangeSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirD
 }
 
 // HandleOutbound msg
-func (m *MockDIDExchangeSvc) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
+func (m *MockDIDExchangeSvc) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if m.HandleOutboundFunc != nil {
 		return m.HandleOutboundFunc(msg, myDID, theirDID)
 	}
 
-	return nil
+	return "", nil
 }
 
 // Accept msg checks the msg type

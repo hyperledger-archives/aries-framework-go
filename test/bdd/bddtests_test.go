@@ -23,7 +23,6 @@ import (
 	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
-	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/introduce"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/messaging"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/route"
 )
@@ -154,9 +153,6 @@ func FeatureContext(s *godog.Suite) {
 	// Register did exchange tests
 	didexchange.NewDIDExchangeSDKSteps(bddContext).RegisterSteps(s)
 	didexchange.NewDIDExchangeControllerSteps(bddContext).RegisterSteps(s)
-
-	// Register introduce tests
-	introduce.NewIntroduceSDKSteps(bddContext).RegisterSteps(s)
 
 	// Register did resolver tests
 	didresolver.NewDIDResolverSteps(bddContext).RegisterSteps(s)

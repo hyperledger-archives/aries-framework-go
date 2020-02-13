@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -41,13 +40,13 @@ func TestNoOp_CanTransitionTo(t *testing.T) {
 }
 
 func TestNoOp_ExecuteInbound(t *testing.T) {
-	followup, err := (&noOp{}).ExecuteInbound(nil, &metaData{})
+	followup, _, err := (&noOp{}).ExecuteInbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
 
 func TestNoOp_ExecuteOutbound(t *testing.T) {
-	followup, err := (&noOp{}).ExecuteOutbound(nil, &metaData{})
+	followup, _, err := (&noOp{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -70,13 +69,13 @@ func TestStart_CanTransitionTo(t *testing.T) {
 }
 
 func TestStart_ExecuteInbound(t *testing.T) {
-	followup, err := (&start{}).ExecuteInbound(nil, &metaData{})
+	followup, _, err := (&start{}).ExecuteInbound(nil, &metaData{})
 	require.EqualError(t, err, "start: ExecuteInbound function is not supposed to be used")
 	require.Nil(t, followup)
 }
 
 func TestStart_ExecuteOutbound(t *testing.T) {
-	followup, err := (&start{}).ExecuteOutbound(nil, &metaData{})
+	followup, _, err := (&start{}).ExecuteOutbound(nil, &metaData{})
 	require.EqualError(t, err, "start: ExecuteOutbound function is not supposed to be used")
 	require.Nil(t, followup)
 }
@@ -88,13 +87,13 @@ func TestDone_CanTransitionTo(t *testing.T) {
 }
 
 func TestDone_ExecuteInbound(t *testing.T) {
-	followup, err := (&done{}).ExecuteInbound(nil, &metaData{})
+	followup, _, err := (&done{}).ExecuteInbound(nil, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 }
 
 func TestDone_ExecuteOutbound(t *testing.T) {
-	followup, err := (&done{}).ExecuteOutbound(nil, &metaData{})
+	followup, _, err := (&done{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -117,7 +116,7 @@ func TestArranging_CanTransitionTo(t *testing.T) {
 }
 
 func TestArranging_ExecuteOutbound(t *testing.T) {
-	const errMsg = "outbound unmarshal"
+	const errMsg = "test error"
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -126,21 +125,20 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
-	didmsg, err := service.ParseDIDCommMsgMap(toBytes(t, struct{}{}))
-	require.NoError(t, err)
-
-	followup, err := (&arranging{}).ExecuteOutbound(messenger, &metaData{
-		Msg: didmsg,
+	followup, action, err := (&arranging{}).ExecuteOutbound(messenger, &metaData{
+		TransitionalPayload: TransitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
 	})
 	require.NoError(t, err)
+	require.NoError(t, action())
 	require.Equal(t, &noOp{}, followup)
 
 	// Send an error
-	followup, err = (&arranging{}).ExecuteOutbound(messenger, &metaData{
-		Msg: service.DIDCommMsgMap{},
+	followup, action, err = (&arranging{}).ExecuteOutbound(messenger, &metaData{
+		TransitionalPayload: TransitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
 	})
-	require.Contains(t, fmt.Sprintf("%v", err), errMsg)
-	require.Nil(t, followup)
+	require.NoError(t, err)
+	require.Contains(t, fmt.Sprintf("%v", action()), errMsg)
+	require.Equal(t, &noOp{}, followup)
 }
 
 func TestDelivering_CanTransitionTo(t *testing.T) {
@@ -161,7 +159,7 @@ func TestDelivering_CanTransitionTo(t *testing.T) {
 }
 
 func TestDelivering_ExecuteOutbound(t *testing.T) {
-	followup, err := (&delivering{}).ExecuteOutbound(nil, &metaData{})
+	followup, _, err := (&delivering{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -184,7 +182,7 @@ func TestConfirming_CanTransitionTo(t *testing.T) {
 }
 
 func TestConfirming_ExecuteOutbound(t *testing.T) {
-	followup, err := (&confirming{}).ExecuteOutbound(nil, &metaData{})
+	followup, _, err := (&confirming{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -206,29 +204,8 @@ func TestAbandoning_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&requesting{}))
 }
 
-func TestAbandoning_ExecuteInbound(t *testing.T) {
-	t.Run("Error send problem-report", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().
-			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(errors.New("test error"))
-
-		didmsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{Type: RequestMsgType}))
-		require.NoError(t, err)
-
-		followup, err := (&abandoning{}).ExecuteInbound(messenger, &metaData{
-			Msg: didmsg,
-		})
-		require.Nil(t, followup)
-		require.EqualError(t, err, "send problem-report: test error")
-	})
-}
-
 func TestAbandoning_ExecuteOutbound(t *testing.T) {
-	followup, err := (&abandoning{}).ExecuteOutbound(nil, &metaData{})
+	followup, _, err := (&abandoning{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -257,15 +234,17 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 	messenger := serviceMocks.NewMockMessenger(ctrl)
 	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).Return(nil)
 
-	followup, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
-		Msg: service.DIDCommMsgMap(map[string]interface{}{}),
+	followup, action, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
+		TransitionalPayload: TransitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
 	})
+
 	require.NoError(t, err)
+	require.NoError(t, action())
 	require.Equal(t, &waiting{}, followup)
 }
 
 func TestDeciding_ExecuteOutbound(t *testing.T) {
-	followup, err := (&deciding{}).ExecuteOutbound(nil, &metaData{})
+	followup, _, err := (&deciding{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -288,13 +267,13 @@ func TestWaiting_CanTransitionTo(t *testing.T) {
 }
 
 func TestWaiting_ExecuteInbound(t *testing.T) {
-	followup, err := (&waiting{}).ExecuteInbound(nil, &metaData{})
+	followup, _, err := (&waiting{}).ExecuteInbound(nil, &metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 }
 
 func TestWaiting_ExecuteOutbound(t *testing.T) {
-	followup, err := (&waiting{}).ExecuteOutbound(nil, &metaData{})
+	followup, _, err := (&waiting{}).ExecuteOutbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
 }
@@ -317,20 +296,9 @@ func TestRequesting_CanTransitionTo(t *testing.T) {
 }
 
 func TestRequesting_ExecuteInbound(t *testing.T) {
-	followup, err := (&requesting{}).ExecuteInbound(nil, &metaData{})
+	followup, _, err := (&requesting{}).ExecuteInbound(nil, &metaData{})
 	require.Error(t, err)
 	require.Nil(t, followup)
-}
-
-func Test_getApproveFromMsg(t *testing.T) {
-	t.Run("Unmarshal error", func(t *testing.T) {
-		approve, ok := getApproveFromMsg(service.DIDCommMsgMap{
-			"@type":   ResponseMsgType,
-			"~thread": map[int]int{1: 1},
-		})
-		require.False(t, approve)
-		require.False(t, ok)
-	})
 }
 
 func Test_stateFromName(t *testing.T) {
@@ -368,17 +336,24 @@ func Test_stateFromName(t *testing.T) {
 	require.Equal(t, &noOp{}, st)
 }
 
-func Test_save(t *testing.T) {
-	const errMsg = "service save: json: unsupported type: chan struct {}"
+func Test_sendProposals(t *testing.T) {
+	const errMsg = "test error"
 
-	require.EqualError(t, (&Service{}).save("ID", make(chan struct{})), errMsg)
-}
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-func toBytes(t *testing.T, data interface{}) []byte {
-	t.Helper()
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
-	src, err := json.Marshal(data)
-	require.NoError(t, err)
+	msg := service.NewDIDCommMsgMap(struct{}{})
+	msg.Metadata()[metaRecipients] = map[string]int{}
 
-	return src
+	require.NoError(t, sendProposals(messenger, &metaData{
+		TransitionalPayload: TransitionalPayload{Msg: msg},
+	}))
+
+	msg.Metadata()[metaRecipients] = []interface{}{&Recipient{}}
+	require.Contains(t, fmt.Sprintf("%v", sendProposals(messenger, &metaData{
+		TransitionalPayload: TransitionalPayload{Msg: msg},
+	})), errMsg)
 }

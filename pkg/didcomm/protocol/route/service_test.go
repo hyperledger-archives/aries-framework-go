@@ -94,7 +94,7 @@ func TestServiceHandleOutbound(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = svc.HandleOutbound(nil, "", "")
+		_, err = svc.HandleOutbound(nil, "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not implemented")
 	})
