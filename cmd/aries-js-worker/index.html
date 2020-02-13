@@ -18,12 +18,12 @@ This is a test page for developers to test WASM integration.
         async function handleStart() {
             const request = document.querySelector("#opts").value
             const response = await aries.start(request)
-            document.querySelector("#output").value = response
+            document.querySelector("#output").value = JSON.stringify(response)
         }
 
         async function handleStop() {
             const response = await aries.stop()
-            document.querySelector("#output").value = response
+            document.querySelector("#output").value = JSON.stringify(response)
         }
 
         async function handleOperationInput() {
@@ -47,7 +47,7 @@ This is a test page for developers to test WASM integration.
                 for await (const val of asyncIterator) {
                     if (val) {
                         // TODO display messages in this page
-                        alert(val)
+                        alert(JSON.stringify(val))
                     }
                 }
             })();
