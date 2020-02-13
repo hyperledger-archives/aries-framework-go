@@ -60,16 +60,12 @@ func (s *MockStoreProvider) CloseStore(name string) error {
 
 // MockStore mock store.
 type MockStore struct {
-	Store  map[string][]byte
-	lock   sync.RWMutex
-	ErrPut error
-	ErrGet error
-	ErrItr error
-}
-
-// MockStoreWithDelete mock store with delete capability
-type MockStoreWithDelete struct {
-	MockStore
+	Store     map[string][]byte
+	lock      sync.RWMutex
+	ErrPut    error
+	ErrGet    error
+	ErrItr    error
+	ErrDelete error
 }
 
 // Put stores the key and the record
@@ -132,7 +128,7 @@ func (s *MockStore) Delete(k string) error {
 	delete(s.Store, k)
 	s.lock.Unlock()
 
-	return nil
+	return s.ErrDelete
 }
 
 // NewMockIterator returns new mock iterator for given batch
