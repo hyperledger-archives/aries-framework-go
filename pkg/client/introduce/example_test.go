@@ -1,5 +1,3 @@
-// +build ignore
-
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
 
@@ -9,483 +7,475 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
+	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	protocolDidexchange "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
-	clientIntroduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/introduce"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	messengerMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
-	protocolIntroduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/introduce"
-	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	introduceServiceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/introduce"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
-// TODO: remove init function [Issue #1158]
-// nolint: gochecknoinits
-func init() {
-	// turns warnings off
-	log.SetLevel("aries-framework/didcomm/messenger", log.ERROR)
-}
-
 const (
+	// Alice always plays introducer role
 	Alice = "Alice"
-	Bob   = "Bob"
+	// Bob always plays introducee (first) role
+	Bob = "Bob"
+	// Bob always plays introducee (second) role
 	Carol = "Carol"
 )
 
-type transportMsg struct {
-	msg      service.DIDCommMsg
+// payload represents a transport message structure
+type payload struct {
+	msg      []byte
 	myDID    string
 	theirDID string
 }
 
-func fakeStore(ctrl *gomock.Controller) storage.Store {
-	mu := sync.Mutex{}
-	store := storageMocks.NewMockStore(ctrl)
-	data := make(map[string][]byte)
-
-	store.EXPECT().Put(gomock.Any(), gomock.Any()).DoAndReturn(func(k string, v []byte) error {
-		mu.Lock()
-		data[k] = v
-		mu.Unlock()
-		return nil
-	}).AnyTimes()
-	store.EXPECT().Get(gomock.Any()).DoAndReturn(func(k string) ([]byte, error) {
-		mu.Lock()
-		defer mu.Unlock()
-
-		v, ok := data[k]
-		if !ok {
-			return nil, storage.ErrDataNotFound
-		}
-
-		return v, nil
-	}).AnyTimes()
-
-	return store
-}
-
-func stateMsg(msg service.DIDCommMsg) service.StateMsg {
-	return service.StateMsg{
-		Type:    1,
-		StateID: "invited",
-		Msg:     msg,
-	}
-}
-
 // nolint: gocyclo, gocognit
-func provider(agent string, transport map[string]chan transportMsg) (Provider, chan struct{}) {
+func mockContext(agent string, tr map[string]chan payload, done chan struct{}) Provider {
 	ctrl := gomock.NewController(nil)
 
-	// creates storage provider
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().
-		OpenStore(introduce.Introduce).
-		Return(fakeStore(ctrl), nil).
-		AnyTimes()
+	// NOTE: two fakeStore stores should be provided to prevent collision
+	storageProvider := mem.NewProvider()
 
-	storageProvider.EXPECT().OpenStore(gomock.Any()).Return(fakeStore(ctrl), nil)
-	dispatcherOutbound := dispatcherMocks.NewMockOutbound(ctrl)
-	messengerProvider := messengerMocks.NewMockProvider(ctrl)
-	messengerProvider.EXPECT().StorageProvider().Return(storageProvider)
-	messengerProvider.EXPECT().OutboundDispatcher().Return(dispatcherOutbound)
-	// use real messenger
-	msgr, err := messenger.NewMessenger(messengerProvider)
-	if err != nil {
-		fmt.Println("messenger.NewMessenger", err)
-	}
+	didSvc := serviceMocks.NewMockEvent(ctrl)
+	didSvc.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 
-	dispatcherOutbound.EXPECT().
+	outbound := dispatcherMocks.NewMockOutbound(ctrl)
+	outbound.EXPECT().
 		SendToDID(gomock.Any(), gomock.Any(), gomock.Any()).
-		Do(func(msg service.DIDCommMsg, myDID string, theirDID string) error {
-			// sends a message
-			transport[theirDID] <- transportMsg{
-				msg:      msg.(service.DIDCommMsgMap),
-				myDID:    myDID,
-				theirDID: theirDID,
+		DoAndReturn(func(msg interface{}, myDID, theirDID string) error {
+			src, err := json.Marshal(msg)
+			if err != nil {
+				fmt.Println(err)
 			}
+
+			// this Sleep is necessary to make our examples works as expected
+			switch theirDID {
+			case Carol:
+				time.Sleep(time.Millisecond * 20)
+			case Bob:
+				time.Sleep(time.Millisecond * 10)
+			}
+
+			tr[theirDID] <- payload{
+				msg:      src,
+				myDID:    theirDID,
+				theirDID: myDID,
+			}
+
 			return nil
 		}).AnyTimes()
 
-	// creates didexchange service
-	didexchangeService := serviceMocks.NewMockDIDComm(ctrl)
-	didexchangeService.EXPECT().
-		RegisterMsgEvent(gomock.Any()).
-		Return(nil)
+	mProvider := messengerMocks.NewMockProvider(ctrl)
+	mProvider.EXPECT().StorageProvider().Return(storageProvider)
+	mProvider.EXPECT().OutboundDispatcher().Return(outbound)
 
-	// creates provider for the introduce
-	introduceProvider := protocolIntroduceMocks.NewMockProvider(ctrl)
-	introduceProvider.EXPECT().
-		StorageProvider().
-		Return(storageProvider)
-	introduceProvider.EXPECT().
-		Messenger().
-		Return(msgr)
-	introduceProvider.EXPECT().
-		Service(didexchange.DIDExchange).
-		Return(didexchangeService, nil)
+	provider := introduceServiceMocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().Service(gomock.Any()).Return(didSvc, nil)
 
-	// creates introduce service
-	svc, err := introduce.New(introduceProvider)
+	msgSvc, err := messenger.NewMessenger(mProvider)
 	if err != nil {
-		fmt.Println("introduce.New", err)
-		return nil, nil
+		fmt.Println(err)
 	}
 
-	done := make(chan struct{})
+	provider.EXPECT().Messenger().Return(msgSvc)
 
-	stateMsgCh := make(chan service.StateMsg)
-
-	err = svc.RegisterMsgEvent(stateMsgCh)
+	svc, err := introduce.New(provider)
 	if err != nil {
-		fmt.Println("svc.RegisterMsgEvent", err)
-		return nil, nil
+		fmt.Println(err)
 	}
-
-	go func() {
-		for state := range stateMsgCh {
-			if state.StateID == "done" && state.Type == service.PostState {
-				close(done)
-			}
-		}
-	}()
 
 	go func() {
 		for {
 			select {
 			case <-done:
 				return
-			case <-time.After(time.Second * 3):
-				fmt.Println("timeout")
-				close(done)
-			case inboundMsg := <-transport[agent]:
-				err = msgr.HandleInbound(inboundMsg.msg.(service.DIDCommMsgMap), inboundMsg.theirDID, inboundMsg.myDID)
+			case msg := <-tr[agent]:
+				didMap, err := service.ParseDIDCommMsgMap(msg.msg)
 				if err != nil {
-					fmt.Println("HandleInbound", err)
+					fmt.Println(err)
 				}
 
-				if inboundMsg.msg.Type() != didexchange.InvitationMsgType {
-					if _, err := svc.HandleInbound(inboundMsg.msg, inboundMsg.theirDID, inboundMsg.myDID); err != nil {
-						fmt.Println("svc.HandleInbound", err)
-						return
+				fmt.Println(agent, "received", didMap.Type(), "from", msg.theirDID)
+
+				if didMap.Type() == didexchange.InvitationMsgType {
+					err = svc.InvitationReceived(service.StateMsg{
+						Type:    service.PostState,
+						StateID: "invited",
+						Msg:     didMap,
+					})
+
+					if err != nil {
+						fmt.Println(err)
 					}
+
+					close(done)
+
+					continue
 				}
 
-				// mocks didexchange logic by calling directly InvitationReceived function from the introduce service
-				if err := svc.InvitationReceived(stateMsg(inboundMsg.msg)); err != nil {
-					fmt.Println("InvitationReceived", err)
-					return
+				if err = msgSvc.HandleInbound(didMap, msg.myDID, msg.theirDID); err != nil {
+					fmt.Println(err)
 				}
+
+				_, err = svc.HandleInbound(didMap, msg.myDID, msg.theirDID)
+				if err != nil {
+					fmt.Println(err)
+				}
+			case <-time.After(time.Second):
+				return
 			}
 		}
 	}()
 
-	clientStorageProvider := storageMocks.NewMockProvider(ctrl)
-	clientStorageProvider.EXPECT().
-		OpenStore(introduce.Introduce).
-		Return(fakeStore(ctrl), nil).
-		AnyTimes()
+	provider = introduceServiceMocks.NewMockProvider(ctrl)
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 
-	introduceClientProvider := clientIntroduceMocks.NewMockProvider(ctrl)
-	introduceClientProvider.EXPECT().
-		Service(introduce.Introduce).
-		Return(svc, nil)
-	introduceClientProvider.EXPECT().
-		StorageProvider().
-		Return(clientStorageProvider)
-
-	return introduceClientProvider, done
+	return provider
 }
 
 // nolint: gocyclo, govet
-func ExampleTwoParticipants() {
-	wg := sync.WaitGroup{}
-	defer wg.Wait()
-
-	var transport = map[string]chan transportMsg{
-		Alice: make(chan transportMsg),
-		Bob:   make(chan transportMsg),
+func ExampleSendProposal() {
+	transport := map[string]chan payload{
+		Alice: make(chan payload),
+		Bob:   make(chan payload),
+		Carol: make(chan payload),
 	}
 
-	// prepare the clients contexts
-	aliceCtx, aliceDone := provider(Alice, transport)
-	bobCtx, bobDone := provider(Bob, transport)
+	var done = make(chan struct{})
 
-	// create client
-	alice, err := New(aliceCtx, nil)
+	// Alice creates client
+	clientAlice, err := New(mockContext(Alice, transport, done))
 	if err != nil {
-		fmt.Println("Alice client:", err)
+		panic(err)
 	}
 
-	// register for action events
-	aliceActions := make(chan service.DIDCommAction)
+	// Alice registers channel for actions
+	actionsAlice := make(chan service.DIDCommAction)
 
-	err = alice.RegisterActionEvent(aliceActions)
+	err = clientAlice.RegisterActionEvent(actionsAlice)
 	if err != nil {
-		fmt.Println("Alice RegisterActionEvent:", err)
+		panic(err)
 	}
 
-	// create client
-	bob, err := New(bobCtx, nil)
+	// Bob creates client
+	clientBob, err := New(mockContext(Bob, transport, done))
 	if err != nil {
-		fmt.Println("Bob client:", err)
+		panic(err)
 	}
 
-	// register for action events
-	bobActions := make(chan service.DIDCommAction)
+	// Bob registers channel for actions
+	actionsBob := make(chan service.DIDCommAction)
 
-	err = bob.RegisterActionEvent(bobActions)
+	err = clientBob.RegisterActionEvent(actionsBob)
 	if err != nil {
-		fmt.Println("Bob RegisterActionEvent:", err)
+		panic(err)
 	}
 
-	// Handle actions
-	wg.Add(1)
+	// Bob creates client
+	clientCarol, err := New(mockContext(Carol, transport, done))
+	if err != nil {
+		panic(err)
+	}
+
+	// Carol registers channel for actions
+	actionsCarol := make(chan service.DIDCommAction)
+
+	err = clientCarol.RegisterActionEvent(actionsCarol)
+	if err != nil {
+		panic(err)
+	}
 
 	go func() {
-		defer wg.Done()
-
 		for {
 			select {
-			case <-aliceDone:
-				return
-			case action := <-aliceActions:
-				var (
-					thID string
-					// nolint: govet
-					err error
-				)
-
-				thID, err = action.Message.ThreadID()
-				if err != nil {
-					fmt.Println("Message.ThreadID", err)
-				}
-
-				action.Continue(alice.InvitationEnvelope(thID))
-				fmt.Println("alice received", action.Message.Type())
+			case e := <-actionsAlice:
+				e.Continue(nil)
+			case e := <-actionsBob:
+				e.Continue(nil)
+			case e := <-actionsCarol:
+				e.Continue(WithInvitation(&didexchange.Invitation{
+					Invitation: &protocolDidexchange.Invitation{
+						Type: didexchange.InvitationMsgType,
+					},
+				}))
 			}
 		}
 	}()
 
-	// Handle actions
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		for {
-			select {
-			case <-bobDone:
-				return
-			case action := <-bobActions:
-				var (
-					thID string
-					// nolint: govet
-					err error
-				)
-
-				thID, err = action.Message.ThreadID()
-				if err != nil {
-					fmt.Println("Message.ThreadID", err)
-				}
-
-				fmt.Println("bob received", action.Message.Type())
-				action.Continue(bob.InvitationEnvelope(thID))
-			}
-		}
-	}()
-
-	// Send proposal
-	err = alice.SendProposalWithInvitation(&didexchange.Invitation{
-		Type: didexchange.InvitationMsgType},
+	err = clientAlice.SendProposal(
 		&introduce.Recipient{
-			To: &introduce.To{
-				Name: "Carol",
-			},
 			MyDID:    Alice,
 			TheirDID: Bob,
-		})
+		},
+		&introduce.Recipient{
+			MyDID:    Alice,
+			TheirDID: Carol,
+		},
+	)
+
 	if err != nil {
-		fmt.Println("SendProposalWithInvitation", err)
+		fmt.Println(err)
 	}
 
+	<-done
+
 	// Output:
-	// bob received https://didcomm.org/introduce/1.0/proposal
-	// alice received https://didcomm.org/introduce/1.0/response
+	// Bob received https://didcomm.org/introduce/1.0/proposal from Alice
+	// Alice received https://didcomm.org/introduce/1.0/response from Bob
+	// Carol received https://didcomm.org/introduce/1.0/proposal from Alice
+	// Alice received https://didcomm.org/introduce/1.0/response from Carol
+	// Bob received https://didcomm.org/didexchange/1.0/invitation from Alice
 }
 
-// nolint: gocyclo, gocognit, govet
-func ExampleThreeParticipants() {
-	wg := sync.WaitGroup{}
-	defer wg.Wait()
-
-	var transport = map[string]chan transportMsg{
-		Alice: make(chan transportMsg),
-		Bob:   make(chan transportMsg),
-		Carol: make(chan transportMsg),
+// nolint: gocyclo, govet
+func ExampleSendProposalWithInvitation() {
+	transport := map[string]chan payload{
+		Alice: make(chan payload),
+		Bob:   make(chan payload),
 	}
 
-	// prepare the clients contexts
-	aliceCtx, aliceDone := provider(Alice, transport)
-	bobCtx, bobDone := provider(Bob, transport)
-	carolCtx, carolDone := provider(Carol, transport)
+	var done = make(chan struct{})
 
-	// create client
-	alice, err := New(aliceCtx, nil)
+	// Alice creates client
+	clientAlice, err := New(mockContext(Alice, transport, done))
 	if err != nil {
-		fmt.Println("Alice client:", err)
+		panic(err)
 	}
 
-	// register for action events
-	aliceActions := make(chan service.DIDCommAction)
+	// Alice registers channel for actions
+	actionsAlice := make(chan service.DIDCommAction)
 
-	err = alice.RegisterActionEvent(aliceActions)
+	err = clientAlice.RegisterActionEvent(actionsAlice)
 	if err != nil {
-		fmt.Println("Alice RegisterActionEvent:", err)
+		panic(err)
 	}
 
-	// create client
-	bob, err := New(bobCtx, nil)
+	// Bob creates client
+	clientBob, err := New(mockContext(Bob, transport, done))
 	if err != nil {
-		fmt.Println("Bob client:", err)
+		panic(err)
 	}
 
-	// register for action events
-	bobActions := make(chan service.DIDCommAction)
+	// Bob registers channel for actions
+	actionsBob := make(chan service.DIDCommAction)
 
-	err = bob.RegisterActionEvent(bobActions)
+	err = clientBob.RegisterActionEvent(actionsBob)
 	if err != nil {
-		fmt.Println("Bob RegisterActionEvent:", err)
+		panic(err)
 	}
-
-	// create client
-	carol, err := New(carolCtx, &didexchange.Invitation{Type: didexchange.InvitationMsgType})
-	if err != nil {
-		fmt.Println("Carol client:", err)
-	}
-
-	// register for action events
-	carolActions := make(chan service.DIDCommAction)
-
-	err = carol.RegisterActionEvent(carolActions)
-	if err != nil {
-		fmt.Println("Carol  RegisterActionEvent:", err)
-	}
-
-	// Handle actions
-	wg.Add(1)
 
 	go func() {
-		defer wg.Done()
-
 		for {
 			select {
-			case <-aliceDone:
-				return
-			case action := <-aliceActions:
-				var (
-					thID string
-					// nolint: govet
-					err error
-				)
-
-				thID, err = action.Message.ThreadID()
-				if err != nil {
-					fmt.Println("Message.ThreadID", err)
-				}
-
-				action.Continue(alice.InvitationEnvelope(thID))
-				fmt.Println("alice received", action.Message.Type())
+			case e := <-actionsAlice:
+				e.Continue(nil)
+			case e := <-actionsBob:
+				e.Continue(nil)
 			}
 		}
 	}()
 
-	// Handle actions
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		for {
-			select {
-			case <-bobDone:
-				return
-			case action := <-bobActions:
-				var (
-					thID string
-					// nolint: govet
-					err error
-				)
-
-				thID, err = action.Message.ThreadID()
-				if err != nil {
-					fmt.Println("Message.ThreadID", err)
-				}
-
-				fmt.Println("bob received", action.Message.Type())
-				action.Continue(bob.InvitationEnvelope(thID))
-			}
-		}
-	}()
-
-	// Handle actions
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		for {
-			select {
-			case <-carolDone:
-				return
-			case action := <-carolActions:
-				var (
-					thID string
-					// nolint: govet
-					err error
-				)
-
-				thID, err = action.Message.ThreadID()
-				if err != nil {
-					fmt.Println("Message.ThreadID", err)
-				}
-
-				fmt.Println("carol received", action.Message.Type())
-				action.Continue(carol.InvitationEnvelope(thID))
-			}
-		}
-	}()
-
-	// Send proposal
-	err = alice.SendProposal(&introduce.Recipient{
-		To: &introduce.To{
-			Name: "Carol",
+	err = clientAlice.SendProposalWithInvitation(
+		&didexchange.Invitation{
+			Invitation: &protocolDidexchange.Invitation{
+				Type: didexchange.InvitationMsgType,
+			},
 		},
-		MyDID:    Alice,
-		TheirDID: Bob,
-	}, &introduce.Recipient{
-		To: &introduce.To{
-			Name: "Bob",
+		&introduce.Recipient{
+			MyDID:    Alice,
+			TheirDID: Bob,
 		},
-		MyDID:    Alice,
-		TheirDID: Carol,
-	})
+	)
+
 	if err != nil {
-		fmt.Println("SendProposalWithInvitation", err)
+		fmt.Println(err)
 	}
+
+	<-done
 
 	// Output:
-	// bob received https://didcomm.org/introduce/1.0/proposal
-	// alice received https://didcomm.org/introduce/1.0/response
-	// carol received https://didcomm.org/introduce/1.0/proposal
-	// alice received https://didcomm.org/introduce/1.0/response
+	// Bob received https://didcomm.org/introduce/1.0/proposal from Alice
+	// Alice received https://didcomm.org/introduce/1.0/response from Bob
+	// Bob received https://didcomm.org/didexchange/1.0/invitation from Alice
+}
+
+// nolint: gocyclo, govet
+func ExampleSendRequest() {
+	transport := map[string]chan payload{
+		Alice: make(chan payload),
+		Bob:   make(chan payload),
+		Carol: make(chan payload),
+	}
+
+	var done = make(chan struct{})
+
+	// Alice creates client
+	clientAlice, err := New(mockContext(Alice, transport, done))
+	if err != nil {
+		panic(err)
+	}
+
+	// Alice registers channel for actions
+	actionsAlice := make(chan service.DIDCommAction)
+
+	err = clientAlice.RegisterActionEvent(actionsAlice)
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob creates client
+	clientBob, err := New(mockContext(Bob, transport, done))
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob registers channel for actions
+	actionsBob := make(chan service.DIDCommAction)
+
+	err = clientBob.RegisterActionEvent(actionsBob)
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob creates client
+	clientCarol, err := New(mockContext(Carol, transport, done))
+	if err != nil {
+		panic(err)
+	}
+
+	// Carol registers channel for actions
+	actionsCarol := make(chan service.DIDCommAction)
+
+	err = clientCarol.RegisterActionEvent(actionsCarol)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			select {
+			case e := <-actionsAlice:
+				e.Continue(WithRecipients(&introduce.To{Name: Carol}, &introduce.Recipient{
+					To:       &introduce.To{Name: Bob},
+					MyDID:    Alice,
+					TheirDID: Carol,
+				}))
+			case e := <-actionsBob:
+				e.Continue(nil)
+			case e := <-actionsCarol:
+				e.Continue(WithInvitation(&didexchange.Invitation{
+					Invitation: &protocolDidexchange.Invitation{
+						Type: didexchange.InvitationMsgType,
+					},
+				}))
+			}
+		}
+	}()
+
+	err = clientBob.SendRequest(
+		&introduce.PleaseIntroduceTo{
+			To: introduce.To{Name: Carol},
+		},
+		Bob, Alice,
+	)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	<-done
+
+	// Output:
+	// Alice received https://didcomm.org/introduce/1.0/request from Bob
+	// Bob received https://didcomm.org/introduce/1.0/proposal from Alice
+	// Alice received https://didcomm.org/introduce/1.0/response from Bob
+	// Carol received https://didcomm.org/introduce/1.0/proposal from Alice
+	// Alice received https://didcomm.org/introduce/1.0/response from Carol
+	// Bob received https://didcomm.org/didexchange/1.0/invitation from Alice
+}
+
+// nolint: gocyclo, govet
+func ExampleSendRequestWithPublicInvitation() {
+	transport := map[string]chan payload{
+		Alice: make(chan payload),
+		Bob:   make(chan payload),
+		Carol: make(chan payload),
+	}
+
+	var done = make(chan struct{})
+
+	// Alice creates client
+	clientAlice, err := New(mockContext(Alice, transport, done))
+	if err != nil {
+		panic(err)
+	}
+
+	// Alice registers channel for actions
+	actionsAlice := make(chan service.DIDCommAction)
+
+	err = clientAlice.RegisterActionEvent(actionsAlice)
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob creates client
+	clientBob, err := New(mockContext(Bob, transport, done))
+	if err != nil {
+		panic(err)
+	}
+
+	// Bob registers channel for actions
+	actionsBob := make(chan service.DIDCommAction)
+
+	err = clientBob.RegisterActionEvent(actionsBob)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			select {
+			case e := <-actionsAlice:
+				e.Continue(WithPublicInvitation(&didexchange.Invitation{
+					Invitation: &protocolDidexchange.Invitation{
+						Type: didexchange.InvitationMsgType,
+					},
+				}, &introduce.To{Name: Carol}))
+			case e := <-actionsBob:
+				e.Continue(nil)
+			}
+		}
+	}()
+
+	err = clientBob.SendRequest(
+		&introduce.PleaseIntroduceTo{
+			To: introduce.To{Name: Carol},
+		},
+		Bob, Alice,
+	)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	<-done
+
+	// Output:
+	// Alice received https://didcomm.org/introduce/1.0/request from Bob
+	// Bob received https://didcomm.org/introduce/1.0/proposal from Alice
+	// Alice received https://didcomm.org/introduce/1.0/response from Bob
+	// Bob received https://didcomm.org/didexchange/1.0/invitation from Alice
 }

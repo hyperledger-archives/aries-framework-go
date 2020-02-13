@@ -55,6 +55,8 @@ type state interface {
 	ExecuteOutbound(messenger service.Messenger, msg *metaData) (state, stateAction, error)
 }
 
+func zeroAction() error { return nil }
+
 // noOp state
 type noOp struct {
 }
@@ -116,7 +118,7 @@ func (s *done) CanTransitionTo(next state) bool {
 }
 
 func (s *done) ExecuteInbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
-	return &noOp{}, nil, nil
+	return &noOp{}, zeroAction, nil
 }
 
 func (s *done) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
@@ -188,7 +190,7 @@ func CreateProposal(to *To) service.DIDCommMsgMap {
 func sendProposals(messenger service.Messenger, md *metaData) error {
 	for _, recipient := range getMetaRecipients(md) {
 		proposal := CreateProposal(recipient.To)
-		proposal.Metadata()[metaPIID] = md.piID
+		proposal.Metadata()[metaPIID] = md.PIID
 		copyMetadata(md.Msg, proposal)
 
 		var err error
@@ -215,21 +217,22 @@ func (s *arranging) ExecuteInbound(messenger service.Messenger, md *metaData) (s
 
 	if isSkipProposal(md) {
 		if !isApproved(md) {
-			return &abandoning{Code: codeNotApproved}, nil, nil
+			return &abandoning{Code: codeNotApproved}, zeroAction, nil
 		}
 
-		return &delivering{}, nil, nil
+		return &delivering{}, zeroAction, nil
 	}
 
-	if len(md.participants) != maxIntroducees {
-		return &noOp{}, nil, nil
+	count := len(md.participants)
+	if count != maxIntroducees || md.participants[count-1].TheirDID != md.TheirDID {
+		return &noOp{}, zeroAction, nil
 	}
 
 	if !isApproved(md) {
-		return &abandoning{Code: codeNotApproved}, nil, nil
+		return &abandoning{Code: codeNotApproved}, zeroAction, nil
 	}
 
-	return &delivering{}, nil, nil
+	return &delivering{}, zeroAction, nil
 }
 
 func (s *arranging) ExecuteOutbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
@@ -271,12 +274,12 @@ func (s *delivering) ExecuteInbound(messenger service.Messenger, md *metaData) (
 
 	// edge case: no one shared the invitation
 	if !hasInvitation(md) {
-		return &abandoning{Code: codeNoInvitation}, nil, nil
+		return &abandoning{Code: codeNoInvitation}, zeroAction, nil
 	}
 
 	var inv *didexchange.Invitation
 
-	var participants []participant
+	var participants []*participant
 
 	for _, participant := range md.participants {
 		if participant.Invitation != nil && inv == nil {
@@ -319,7 +322,7 @@ func (s *confirming) ExecuteInbound(messenger service.Messenger, md *metaData) (
 		Type: AckMsgType,
 	})
 
-	var p participant
+	var p *participant
 
 	for _, participant := range md.participants {
 		if participant.Invitation == nil {
@@ -354,7 +357,7 @@ func (s *abandoning) CanTransitionTo(next state) bool {
 func (s *abandoning) ExecuteInbound(messenger service.Messenger, md *metaData) (state, stateAction, error) {
 	// if code is not provided it means we do not need to notify participants about it
 	if s.Code == "" {
-		return &done{}, nil, nil
+		return &done{}, zeroAction, nil
 	}
 
 	// In the protocol we might have a custom error.
@@ -382,7 +385,7 @@ func (s *abandoning) ExecuteInbound(messenger service.Messenger, md *metaData) (
 	}
 
 	if len(md.participants) == 0 {
-		md.participants = []participant{{
+		md.participants = []*participant{{
 			MyDID:    md.MyDID,
 			TheirDID: md.TheirDID,
 		}}
@@ -467,7 +470,7 @@ func (s *waiting) CanTransitionTo(next state) bool {
 }
 
 func (s *waiting) ExecuteInbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {
-	return &noOp{}, nil, nil
+	return &noOp{}, zeroAction, nil
 }
 
 func (s *waiting) ExecuteOutbound(_ service.Messenger, _ *metaData) (state, stateAction, error) {

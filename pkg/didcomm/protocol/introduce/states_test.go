@@ -126,7 +126,7 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
 	followup, action, err := (&arranging{}).ExecuteOutbound(messenger, &metaData{
-		TransitionalPayload: TransitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
+		transitionalPayload: transitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
 	})
 	require.NoError(t, err)
 	require.NoError(t, action())
@@ -134,7 +134,7 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 
 	// Send an error
 	followup, action, err = (&arranging{}).ExecuteOutbound(messenger, &metaData{
-		TransitionalPayload: TransitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
+		transitionalPayload: transitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
 	})
 	require.NoError(t, err)
 	require.Contains(t, fmt.Sprintf("%v", action()), errMsg)
@@ -235,7 +235,7 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).Return(nil)
 
 	followup, action, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
-		TransitionalPayload: TransitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
+		transitionalPayload: transitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
 	})
 
 	require.NoError(t, err)
@@ -349,11 +349,11 @@ func Test_sendProposals(t *testing.T) {
 	msg.Metadata()[metaRecipients] = map[string]int{}
 
 	require.NoError(t, sendProposals(messenger, &metaData{
-		TransitionalPayload: TransitionalPayload{Msg: msg},
+		transitionalPayload: transitionalPayload{Msg: msg},
 	}))
 
 	msg.Metadata()[metaRecipients] = []interface{}{&Recipient{}}
 	require.Contains(t, fmt.Sprintf("%v", sendProposals(messenger, &metaData{
-		TransitionalPayload: TransitionalPayload{Msg: msg},
+		transitionalPayload: transitionalPayload{Msg: msg},
 	})), errMsg)
 }

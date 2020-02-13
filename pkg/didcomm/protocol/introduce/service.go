@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -42,9 +44,9 @@ const (
 
 const (
 	maxIntroducees         = 2
-	participantsKey        = "participants_"
+	participantsKey        = "participants_%s_%s"
 	stateNameKey           = "state_name_"
-	transitionalPayloadKey = "transitionalPayload_"
+	transitionalPayloadKey = "transitionalPayload_%s"
 )
 
 var logger = log.New("aries-framework/introduce/service")
@@ -61,8 +63,17 @@ type Recipient struct {
 	TheirDID string `json:"their_did,omitempty"`
 }
 
-// TransitionalPayload keeps payload needed for Continue function to proceed with the action
-type TransitionalPayload struct {
+// Action contains helpful information about action
+type Action struct {
+	// protocol state machine identifier
+	PIID string
+	Msg  service.DIDCommMsgMap
+}
+
+// transitionalPayload keeps payload needed for Continue function to proceed with the action
+type transitionalPayload struct {
+	// protocol state machine identifier
+	PIID      string
 	StateName string
 	Msg       service.DIDCommMsgMap
 	MyDID     string
@@ -71,14 +82,12 @@ type TransitionalPayload struct {
 
 // metaData type to store data for internal usage
 type metaData struct {
-	TransitionalPayload
+	transitionalPayload
 	state        state
 	msgClone     service.DIDCommMsg
-	participants []participant
-	// protocol state machine identifier
-	piID     string
-	rejected bool
-	inbound  bool
+	participants []*participant
+	rejected     bool
+	inbound      bool
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -220,13 +229,13 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 	}
 
 	return &metaData{
-		TransitionalPayload: TransitionalPayload{
+		transitionalPayload: transitionalPayload{
 			StateName: next.Name(),
 			Msg:       msg.(service.DIDCommMsgMap),
+			PIID:      piID,
 		},
 		state:    next,
 		msgClone: msg.Clone(),
-		piID:     piID,
 	}, nil
 }
 
@@ -269,18 +278,18 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 
 	// trigger action event based on message type for inbound messages
 	if canTriggerActionEvents(msg) {
-		err = s.saveTransitionalPayload(md.piID, md.TransitionalPayload)
+		err = s.saveTransitionalPayload(md.PIID, md.transitionalPayload)
 		if err != nil {
 			return "", fmt.Errorf("save transitional payload: %w", err)
 		}
 
 		aEvent <- s.newDIDCommActionMsg(md)
 
-		return md.piID, nil
+		return md.PIID, nil
 	}
 
 	// if no action event is triggered, continue the execution
-	return md.piID, s.handle(md)
+	return md.PIID, s.handle(md)
 }
 
 // HandleOutbound handles outbound message (introduce protocol)
@@ -294,7 +303,7 @@ func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string)
 	md.MyDID = myDID
 	md.TheirDID = theirDID
 
-	return md.piID, s.handle(md)
+	return md.PIID, s.handle(md)
 }
 
 // sendMsgEvents triggers the message events.
@@ -333,6 +342,10 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 				}
 			}
 
+			if err := s.deleteTransitionalPayload(md.PIID); err != nil {
+				logger.Errorf("delete transitional payload", err)
+			}
+
 			s.processCallback(md)
 		},
 		Stop: func(err error) { actionStop(customError{error: err}) },
@@ -341,16 +354,15 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 
 // Continue allows proceeding with the action by the piID
 func (s *Service) Continue(piID string, opt Opt) error {
-	transitionalPayload, err := s.getTransitionalPayload(piID)
+	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
 		return fmt.Errorf("get transitional payload: %w", err)
 	}
 
 	md := &metaData{
-		TransitionalPayload: *transitionalPayload,
-		state:               stateFromName(transitionalPayload.StateName),
-		msgClone:            transitionalPayload.Msg.Clone(),
-		piID:                piID,
+		transitionalPayload: *tPayload,
+		state:               stateFromName(tPayload.StateName),
+		msgClone:            tPayload.Msg.Clone(),
 		inbound:             true,
 	}
 
@@ -362,6 +374,10 @@ func (s *Service) Continue(piID string, opt Opt) error {
 		if md.Msg.Metadata()[metaRecipients] == nil {
 			return errors.New("no recipients")
 		}
+	}
+
+	if err := s.deleteTransitionalPayload(md.PIID); err != nil {
+		logger.Errorf("delete transitional payload", err)
 	}
 
 	s.processCallback(md)
@@ -409,22 +425,52 @@ func (s *Service) currentStateName(piID string) (string, error) {
 	return string(src), err
 }
 
-func (s *Service) saveTransitionalPayload(id string, data TransitionalPayload) error {
+// Actions returns actions for the async usage
+func (s *Service) Actions() ([]Action, error) {
+	records := s.store.Iterator(
+		fmt.Sprintf(transitionalPayloadKey, ""),
+		fmt.Sprintf(transitionalPayloadKey, "~"),
+	)
+	defer records.Release()
+
+	var actions []Action
+
+	for records.Next() {
+		if records.Error() != nil {
+			return nil, records.Error()
+		}
+
+		var action Action
+		if err := json.Unmarshal(records.Value(), &action); err != nil {
+			return nil, fmt.Errorf("unmarshal: %w", err)
+		}
+
+		actions = append(actions, action)
+	}
+
+	return actions, nil
+}
+
+func (s *Service) deleteTransitionalPayload(id string) error {
+	return s.store.Delete(fmt.Sprintf(transitionalPayloadKey, id))
+}
+
+func (s *Service) saveTransitionalPayload(id string, data transitionalPayload) error {
 	src, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("marshal transitional payload: %w", err)
 	}
 
-	return s.store.Put(transitionalPayloadKey+id, src)
+	return s.store.Put(fmt.Sprintf(transitionalPayloadKey, id), src)
 }
 
-func (s *Service) getTransitionalPayload(id string) (*TransitionalPayload, error) {
-	src, err := s.store.Get(transitionalPayloadKey + id)
+func (s *Service) getTransitionalPayload(id string) (*transitionalPayload, error) {
+	src, err := s.store.Get(fmt.Sprintf(transitionalPayloadKey, id))
 	if err != nil {
 		return nil, fmt.Errorf("store get: %w", err)
 	}
 
-	t := &TransitionalPayload{}
+	t := &transitionalPayload{}
 
 	err = json.Unmarshal(src, t)
 	if err != nil {
@@ -519,15 +565,11 @@ func (s *Service) handle(md *metaData) error {
 		current = next
 	}
 
-	if err := s.saveStateName(md.piID, stateName); err != nil {
+	if err := s.saveStateName(md.PIID, stateName); err != nil {
 		return fmt.Errorf("failed to persist state %s: %w", stateName, err)
 	}
 
 	for _, action := range actions {
-		if action == nil {
-			continue
-		}
-
 		if err := action(); err != nil {
 			return err
 		}
@@ -560,6 +602,7 @@ type participant struct {
 	MyDID      string
 	TheirDID   string
 	ThreadID   string
+	CreatedAt  time.Time
 }
 
 func (s *Service) saveResponse(md *metaData) error {
@@ -585,56 +628,55 @@ func (s *Service) saveResponse(md *metaData) error {
 		return fmt.Errorf("threadID: %w", err)
 	}
 
-	// TODO: code below might cause an issue! [ issues-1284 ]
-	//  Since the protocol support handling messages simultaneously,
-	//  there is a possibility when two requests might be executed at the same time.
-	//  It might cause a data race. As a result, some of the participants might be lost.
-	//  Possible solutions:
-	//  1. Get and save participants must be done under the lock or in the same transaction.
-	//  2. If the protocol did not receive the answer (e.g Ack) another message should be sent.
-	//  NOTE: The issue might happen when two parallel executions (with the same piID)
-	//  are trying to execute saveParticipants function.
-	md.participants, err = s.getParticipants(md.piID)
-	if err != nil {
-		return fmt.Errorf("getParticipants: %w", err)
-	}
-
-	md.participants = append(md.participants, participant{
+	err = s.saveParticipant(md.PIID, &participant{
 		Invitation: r.Invitation,
 		Approve:    r.Approve,
 		MessageID:  md.Msg.ID(),
 		MyDID:      md.MyDID,
 		TheirDID:   md.TheirDID,
 		ThreadID:   thID,
+		CreatedAt:  time.Now(),
 	})
+	if err != nil {
+		return fmt.Errorf("save participant: %w", err)
+	}
 
-	return s.saveParticipants(md.piID, md.participants)
+	md.participants, err = s.getParticipants(md.PIID)
+
+	return err
 }
 
-func (s *Service) saveParticipants(piID string, participants []participant) error {
-	src, err := json.Marshal(participants)
+func (s *Service) saveParticipant(piID string, p *participant) error {
+	src, err := json.Marshal(p)
 	if err != nil {
 		return fmt.Errorf("marshal: %w", err)
 	}
 
-	return s.store.Put(participantsKey+piID, src)
+	return s.store.Put(fmt.Sprintf(participantsKey, piID, uuid.New().String()), src)
 }
 
-func (s *Service) getParticipants(piID string) ([]participant, error) {
-	src, err := s.store.Get(participantsKey + piID)
-	if errors.Is(err, storage.ErrDataNotFound) {
-		return nil, nil
+func (s *Service) getParticipants(piID string) ([]*participant, error) {
+	records := s.store.Iterator(fmt.Sprintf(participantsKey, piID, ""), fmt.Sprintf(participantsKey, piID, "~"))
+	defer records.Release()
+
+	var participants []*participant
+
+	for records.Next() {
+		if records.Error() != nil {
+			return nil, records.Error()
+		}
+
+		var participant *participant
+		if err := json.Unmarshal(records.Value(), &participant); err != nil {
+			return nil, fmt.Errorf("unmarshal: %w", err)
+		}
+
+		participants = append(participants, participant)
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("store get: %w", err)
-	}
-
-	var participants []participant
-
-	if err := json.Unmarshal(src, &participants); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
+	sort.Slice(participants, func(i, j int) bool {
+		return participants[i].CreatedAt.Nanosecond() < participants[j].CreatedAt.Nanosecond()
+	})
 
 	return participants, nil
 }
