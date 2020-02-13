@@ -91,6 +91,7 @@ type Recipient struct {
 type metaData struct {
 	record
 	Msg      service.DIDCommMsg
+	copyMsg  service.DIDCommMsg
 	ThreadID string
 	// keeps a dependency for the protocol injected by Continue() function
 	dependency InvitationEnvelope
@@ -263,6 +264,7 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 	return &metaData{
 		record:   *rec,
 		Msg:      msg,
+		copyMsg:  msg.Clone(),
 		ThreadID: thID,
 	}, nil
 }
@@ -361,7 +363,7 @@ func (s *Service) newDIDCommActionMsg(msg *metaData) service.DIDCommAction {
 
 	return service.DIDCommAction{
 		ProtocolName: Introduce,
-		Message:      msg.Msg,
+		Message:      msg.copyMsg,
 		Continue: func(args interface{}) {
 			// there is no way to receive another interface
 			if dep, ok := args.(InvitationEnvelope); ok {
@@ -553,7 +555,7 @@ func (s *Service) execute(next state, msg *metaData) (state, error) {
 	s.sendMsgEvents(&service.StateMsg{
 		ProtocolName: Introduce,
 		Type:         service.PreState,
-		Msg:          msg.Msg,
+		Msg:          msg.copyMsg,
 		StateID:      next.Name(),
 	})
 
@@ -590,7 +592,7 @@ func (s *Service) execute(next state, msg *metaData) (state, error) {
 	s.sendMsgEvents(&service.StateMsg{
 		ProtocolName: Introduce,
 		Type:         service.PostState,
-		Msg:          msg.Msg,
+		Msg:          msg.copyMsg,
 		StateID:      next.Name(),
 	})
 

@@ -78,6 +78,7 @@ func TestNewDIDCommMsgMap(t *testing.T) {
 				},
 			},
 			expected: DIDCommMsgMap{
+				jsonMetadata: map[string]interface{}{},
 				"Thread": map[string]interface{}{
 					"received_orders": map[string]interface{}{"order": 1},
 					"thid":            "test",
@@ -96,7 +97,9 @@ func TestNewDIDCommMsgMap(t *testing.T) {
 			}{
 				Ignore: "Ignore",
 			},
-			expected: DIDCommMsgMap{},
+			expected: DIDCommMsgMap{
+				jsonMetadata: map[string]interface{}{},
+			},
 		},
 		{
 			name: "Build-in",
@@ -109,6 +112,7 @@ func TestNewDIDCommMsgMap(t *testing.T) {
 				},
 			},
 			expected: DIDCommMsgMap{
+				jsonMetadata:      map[string]interface{}{},
 				"received_orders": map[string]interface{}{"order": 1},
 				"thid":            "test",
 			},
@@ -124,6 +128,7 @@ func TestNewDIDCommMsgMap(t *testing.T) {
 				},
 			},
 			expected: DIDCommMsgMap{
+				jsonMetadata:      map[string]interface{}{},
 				"received_orders": map[string]interface{}{"order": 1},
 				"thid":            "test",
 			},
@@ -139,6 +144,7 @@ func TestNewDIDCommMsgMap(t *testing.T) {
 				},
 			},
 			expected: DIDCommMsgMap{
+				jsonMetadata: map[string]interface{}{},
 				"~thread": map[string]interface{}{
 					"received_orders": map[string]interface{}{"order": 1},
 					"thid":            "test",
@@ -160,6 +166,7 @@ func TestNewDIDCommMsgMap(t *testing.T) {
 			require.NoError(t, err)
 
 			eResMap := make(map[string]interface{})
+			eResMap[jsonMetadata] = map[string]interface{}{}
 			require.NoError(t, json.Unmarshal(eRes, &eResMap))
 
 			vResMap := make(map[string]interface{})
