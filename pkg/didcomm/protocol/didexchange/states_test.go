@@ -7,14 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
-	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
@@ -601,9 +600,9 @@ func TestVerifySignature(t *testing.T) {
 		connAttributeBytes := []byte("{hello world}")
 
 		now := getEpochTime()
-		timestamp := strconv.FormatInt(now, 10)
-		prefix := append([]byte(timestamp), signatureDataDelimiter)
-		concatenateSignData := append(prefix, connAttributeBytes...)
+		timestampBuf := make([]byte, timestamplen)
+		binary.BigEndian.PutUint64(timestampBuf, uint64(now))
+		concatenateSignData := append(timestampBuf, connAttributeBytes...)
 
 		signature, err := ctx.signer.SignMessage(concatenateSignData, pubKey)
 		require.NoError(t, err)
@@ -622,15 +621,15 @@ func TestVerifySignature(t *testing.T) {
 	})
 	t.Run("missing connection attribute bytes", func(t *testing.T) {
 		now := getEpochTime()
-		timestamp := strconv.FormatInt(now, 10)
-		prefix := append([]byte(timestamp), signatureDataDelimiter)
+		timestampBuf := make([]byte, timestamplen)
+		binary.BigEndian.PutUint64(timestampBuf, uint64(now))
 
-		signature, err := ctx.signer.SignMessage(prefix, pubKey)
+		signature, err := ctx.signer.SignMessage(timestampBuf, pubKey)
 		require.NoError(t, err)
 
 		cs := &ConnectionSignature{
 			Type:       "https://didcomm.org/signature/1.0/ed25519Sha512_single",
-			SignedData: base64.URLEncoding.EncodeToString(prefix),
+			SignedData: base64.URLEncoding.EncodeToString(timestampBuf),
 			SignVerKey: base64.URLEncoding.EncodeToString(base58.Decode(pubKey)),
 			Signature:  base64.URLEncoding.EncodeToString(signature),
 		}
@@ -662,9 +661,9 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		require.NotNil(t, connectionSignature)
 		sigData, err := base64.URLEncoding.DecodeString(connectionSignature.SignedData)
 		require.NoError(t, err)
-		connBytes := bytes.SplitAfter(sigData, []byte(string(signatureDataDelimiter)))
+		connBytes := sigData[timestamplen:]
 		sigDataConnection := &Connection{}
-		err = json.Unmarshal(connBytes[1], sigDataConnection)
+		err = json.Unmarshal(connBytes, sigDataConnection)
 		require.NoError(t, err)
 		require.Equal(t, c.DID, sigDataConnection.DID)
 	})
@@ -683,9 +682,9 @@ func TestPrepareConnectionSignature(t *testing.T) {
 		require.NotNil(t, connectionSignature)
 		sigData, err := base64.URLEncoding.DecodeString(connectionSignature.SignedData)
 		require.NoError(t, err)
-		connBytes := bytes.SplitAfter(sigData, []byte(string(signatureDataDelimiter)))
+		connBytes := sigData[timestamplen:]
 		sigDataConnection := &Connection{}
-		err = json.Unmarshal(connBytes[1], sigDataConnection)
+		err = json.Unmarshal(connBytes, sigDataConnection)
 		require.NoError(t, err)
 		require.Equal(t, c.DID, sigDataConnection.DID)
 	})

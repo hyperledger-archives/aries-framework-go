@@ -7,12 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
-	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -30,18 +29,18 @@ import (
 )
 
 const (
-	stateNameNoop          = "noop"
-	stateNameNull          = "null"
-	stateNameInvited       = "invited"
-	stateNameRequested     = "requested"
-	stateNameResponded     = "responded"
-	stateNameCompleted     = "completed"
-	stateNameAbandoned     = "abandoned"
-	ackStatusOK            = "ok"
-	ed25519KeyType         = "Ed25519VerificationKey2018"
-	didCommServiceType     = "did-communication"
-	didMethod              = "peer"
-	signatureDataDelimiter = '|'
+	stateNameNoop      = "noop"
+	stateNameNull      = "null"
+	stateNameInvited   = "invited"
+	stateNameRequested = "requested"
+	stateNameResponded = "responded"
+	stateNameCompleted = "completed"
+	stateNameAbandoned = "abandoned"
+	ackStatusOK        = "ok"
+	ed25519KeyType     = "Ed25519VerificationKey2018"
+	didCommServiceType = "did-communication"
+	didMethod          = "peer"
+	timestamplen       = 8
 )
 
 // state action for network call
@@ -484,9 +483,9 @@ func (ctx *context) prepareConnectionSignature(connection *Connection,
 	}
 
 	now := getEpochTime()
-	timestamp := strconv.FormatInt(now, 10)
-	prefix := append([]byte(timestamp), signatureDataDelimiter)
-	concatenateSignData := append(prefix, connAttributeBytes...)
+	timestampBuf := make([]byte, timestamplen)
+	binary.BigEndian.PutUint64(timestampBuf, uint64(now))
+	concatenateSignData := append(timestampBuf, connAttributeBytes...)
 
 	var invitation Invitation
 	if isDID(invitationID) {
@@ -577,7 +576,7 @@ func verifySignature(connSignature *ConnectionSignature, recipientKeys string) (
 		return nil, fmt.Errorf("decode signature data: %w", err)
 	}
 
-	if len(sigData) == 0 || !bytes.ContainsRune(sigData, signatureDataDelimiter) {
+	if len(sigData) == 0 {
 		return nil, fmt.Errorf("missing or invalid signature data")
 	}
 
@@ -598,12 +597,11 @@ func verifySignature(connSignature *ConnectionSignature, recipientKeys string) (
 	}
 
 	// trimming the timestamp and delimiter - only taking out connection attribute bytes
-	connectionIndex := bytes.IndexRune(sigData, signatureDataDelimiter) + 1
-	if connectionIndex >= len(sigData) {
+	if len(sigData) <= timestamplen {
 		return nil, fmt.Errorf("missing connection attribute bytes")
 	}
 
-	connBytes := sigData[connectionIndex:]
+	connBytes := sigData[timestamplen:]
 	conn := &Connection{}
 
 	err = json.Unmarshal(connBytes, conn)
