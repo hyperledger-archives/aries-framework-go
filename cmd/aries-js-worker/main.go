@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
 	cmdctrl "github.com/hyperledger/aries-framework-go/pkg/controller/command"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
@@ -68,7 +67,6 @@ type ariesStartOpts struct {
 	AutoAccept           bool     `json:"auto-accept"`
 	OutboundTransport    []string `json:"outbound-transport"`
 	TransportReturnRoute string   `json:"transport-return-route"`
-	Notifier             string   `json:"notifier-func-name"`
 	LogLevel             string   `json:"log-level"`
 }
 
@@ -219,7 +217,7 @@ func handlerNotFoundErr(c *command) *result {
 		return newErrResult(c.ID, "Aries agent not running")
 	}
 
-	return newErrResult(c.ID, fmt.Sprintf("invalid pkg/fn: %s/%s", c.Pkg, c.Fn))
+	return newErrResult(c.ID, fmt.Sprintf("invalid pkg/fn: %s/%s, make sure aries is started", c.Pkg, c.Fn))
 }
 
 func addAriesHandlers(pkgMap map[string]map[string]func(*command) *result) {
@@ -253,13 +251,8 @@ func addAriesHandlers(pkgMap map[string]map[string]func(*command) *result) {
 			return newErrResult(c.ID, err.Error())
 		}
 
-		var notifier webhook.Notifier
-		if cOpts.Notifier != "" {
-			notifier = &jsNotifier{topic: cOpts.Notifier}
-		}
-
 		commands, err := controller.GetCommandHandlers(ctx, controller.WithMessageHandler(msgHandler),
-			controller.WithDefaultLabel(cOpts.Label), controller.WithNotifier(notifier))
+			controller.WithDefaultLabel(cOpts.Label), controller.WithNotifier(&jsNotifier{}))
 		if err != nil {
 			return newErrResult(c.ID, err.Error())
 		}
@@ -385,9 +378,8 @@ func setLogLevel(logLevel string) error {
 	return nil
 }
 
-// jsNotifier notifies incoming events once registered
+// jsNotifier notifies about all incoming events
 type jsNotifier struct {
-	topic string
 }
 
 // Notify is mock implementation of webhook notifier Notify()
@@ -399,7 +391,7 @@ func (n *jsNotifier) Notify(topic string, message []byte) error {
 
 	out, err := json.Marshal(&result{
 		ID:      uuid.New().String(),
-		Topic:   n.topic,
+		Topic:   topic,
 		Payload: payload,
 	})
 
