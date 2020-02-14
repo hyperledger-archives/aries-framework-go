@@ -12,7 +12,15 @@ Run all bdd tests using the following make target from project root directory.
 
 `make bdd-test`
 
-## Run specific bdd test
+## Run aries-js-worker BDD tests
+
+Run tests for [`aries-js-worker`](../../cmd/aries-js-worker) in the headless browser with:
+
+```
+make bdd-test-js
+```
+
+## Run specific aries-framework-go bdd tests
 `make clean generate-test-keys agent-rest-docker sample-webhook-docker`
 
 Execute the following command inside test/bdd
@@ -26,7 +34,7 @@ cd test/bdd
 AGENT_LOG_LEVEL=info go test -v -run didexchange_e2e_sdk
 ```
 
-## Run tests in detached mode
+### Run tests in detached mode
 
 If you're interested to start the docker containers manually and run parts of the bdd tests on your own as opposed
 via the make target mentioned above, then do the following:

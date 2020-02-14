@@ -126,7 +126,12 @@ const Aries = function(opts) {
              * @private
              */
             _echo: async function (text) {
-                return invoke(aw, pending, "test","echo", text, "timeout while accepting invitation")
+                return new Promise((resolve, reject) => {
+                    invoke(aw, pending, "test", "echo", {"echo": text}, "_echo() timed out").then(
+                        resp => resolve(resp.echo),
+                        err => reject(new Error("aries: _echo() failed. error: " + err.message))
+                    )
+                })
             }
 
         },
@@ -260,7 +265,10 @@ const Aries = function(opts) {
         const timer = setTimeout(_ => reject(new Error("timout waiting for aries to initialize")), 10000)
         notifications.set("wasm-ready", async (result) => {
             clearTimeout(timer)
-            await invoke(aw, pending, "aries", "Start", opts, "timeout while starting aries")
+            invoke(aw, pending, "aries", "Start", opts, "timeout while starting aries").then(
+                resp => resolve(),
+                err => reject(new Error(err.message))
+            )
             resolve(instance)
         })
     })
