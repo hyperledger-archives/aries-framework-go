@@ -94,12 +94,26 @@ func (o *Command) CreatePublicDID(rw io.Writer, req io.Reader) command.Error {
 // request body format is : {"header": {raw header}, "payload": "payload"}
 func getBasicRequestBuilder(header string) func(payload []byte) (io.Reader, error) {
 	return func(payload []byte) (io.Reader, error) {
+		encodedDoc := base64.URLEncoding.EncodeToString(payload)
+
+		schema := &createPayloadSchema{
+			Operation:           "create",
+			DidDocument:         encodedDoc,
+			NextUpdateOTPHash:   "",
+			NextRecoveryOTPHash: "",
+		}
+
+		payload, err := json.Marshal(schema)
+		if err != nil {
+			return nil, err
+		}
+
 		request := struct {
-			Header  json.RawMessage `json:"header"`
-			Payload string          `json:"payload"`
+			Protected json.RawMessage `json:"protected"`
+			Payload   string          `json:"payload"`
 		}{
-			Header:  json.RawMessage(header),
-			Payload: base64.URLEncoding.EncodeToString(payload),
+			Protected: json.RawMessage(header),
+			Payload:   base64.URLEncoding.EncodeToString(payload),
 		}
 
 		b, err := json.Marshal(request)
@@ -109,4 +123,20 @@ func getBasicRequestBuilder(header string) func(payload []byte) (io.Reader, erro
 
 		return bytes.NewReader(b), nil
 	}
+}
+
+// createPayloadSchema is the struct for create payload
+type createPayloadSchema struct {
+
+	// operation
+	Operation string `json:"type"`
+
+	// Encoded original DID document
+	DidDocument string `json:"didDocument"`
+
+	// Hash of the one-time password for the next update operation
+	NextUpdateOTPHash string `json:"nextUpdateOtpHash"`
+
+	// Hash of the one-time password for this recovery/checkpoint/revoke operation.
+	NextRecoveryOTPHash string `json:"nextRecoveryOtpHash"`
 }
