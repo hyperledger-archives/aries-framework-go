@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -167,9 +168,22 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 
 	go func(msg *message, aEvent chan<- service.DIDCommAction) {
 		if err = s.handle(msg, aEvent); err != nil {
-			logger.Errorf("didexchange processing error : %s", err)
+			logutil.LogError(logger, DIDExchange, "processMessage", err.Error(),
+				logutil.CreateKeyValueString("msgType", msg.Msg.Type()),
+				logutil.CreateKeyValueString("msgID", msg.Msg.ID()),
+				logutil.CreateKeyValueString("connectionID", msg.ConnRecord.ConnectionID))
 		}
+
+		logutil.LogDebug(logger, DIDExchange, "processMessage", "success",
+			logutil.CreateKeyValueString("msgType", msg.Msg.Type()),
+			logutil.CreateKeyValueString("msgID", msg.Msg.ID()),
+			logutil.CreateKeyValueString("connectionID", msg.ConnRecord.ConnectionID))
 	}(internalMsg, s.ActionEvent())
+
+	logutil.LogDebug(logger, DIDExchange, "handleInbound", "success",
+		logutil.CreateKeyValueString("msgType", internalMsg.Msg.Type()),
+		logutil.CreateKeyValueString("msgID", internalMsg.Msg.ID()),
+		logutil.CreateKeyValueString("connectionID", internalMsg.ConnRecord.ConnectionID))
 
 	return connRecord.ConnectionID, nil
 }

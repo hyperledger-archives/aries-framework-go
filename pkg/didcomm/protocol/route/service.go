@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -137,27 +138,36 @@ func New(prov provider) (*Service, error) {
 func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) { // nolint gocyclo (5 switch cases)
 	// perform action on inbound message asynchronously
 	go func() {
+		var err error
+
 		switch msg.Type() {
 		case RequestMsgType:
-			if err := s.handleRequest(msg, myDID, theirDID); err != nil {
-				logger.Errorf("handle route request error : %s", err)
-			}
+			err = s.handleRequest(msg, myDID, theirDID)
 		case GrantMsgType:
-			if err := s.handleGrant(msg); err != nil {
-				logger.Errorf("handle route grant error : %s", err)
-			}
+			err = s.handleGrant(msg)
 		case KeylistUpdateMsgType:
-			if err := s.handleKeylistUpdate(msg, myDID, theirDID); err != nil {
-				logger.Errorf("handle route keylist update error : %s", err)
-			}
+			err = s.handleKeylistUpdate(msg, myDID, theirDID)
 		case KeylistUpdateResponseMsgType:
-			if err := s.handleKeylistUpdateResponse(msg); err != nil {
-				logger.Errorf("handle route keylist update response error : %s", err)
-			}
+			err = s.handleKeylistUpdateResponse(msg)
 		case service.ForwardMsgType:
-			if err := s.handleForward(msg); err != nil {
-				logger.Errorf("handle forward error : %s", err)
-			}
+			err = s.handleForward(msg)
+		}
+
+		connectionID, connErr := s.connectionLookup.GetConnectionIDByDIDs(myDID, theirDID)
+		if connErr != nil {
+			logutil.LogError(logger, Coordination, "connectionID lookup using DIDs", connErr.Error())
+		}
+
+		if err != nil {
+			logutil.LogError(logger, Coordination, "processMessage", err.Error(),
+				logutil.CreateKeyValueString("msgType", msg.Type()),
+				logutil.CreateKeyValueString("msgID", msg.ID()),
+				logutil.CreateKeyValueString("connectionID", connectionID))
+		} else {
+			logutil.LogDebug(logger, Coordination, "processMessage", "success",
+				logutil.CreateKeyValueString("msgType", msg.Type()),
+				logutil.CreateKeyValueString("msgID", msg.ID()),
+				logutil.CreateKeyValueString("connectionID", connectionID))
 		}
 	}()
 

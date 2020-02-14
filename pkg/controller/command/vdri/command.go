@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 )
 
 var logger = log.New("aries-framework/command/vdri")
@@ -37,6 +38,9 @@ const (
 
 	// error messages
 	errDIDMethodMandatory = "invalid method name"
+
+	// command methods
+	createPublicDIDCommandMethod = "CreatePublicDID"
 )
 
 // provider contains dependencies for the vdri controller command operations
@@ -60,7 +64,7 @@ func New(ctx provider) *Command {
 // GetHandlers returns list of all commands supported by this controller command
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(commandName, "CreatePublicDID", o.CreatePublicDID),
+		cmdutil.NewCommandHandler(commandName, createPublicDIDCommandMethod, o.CreatePublicDID),
 	}
 }
 
@@ -70,10 +74,12 @@ func (o *Command) CreatePublicDID(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
+		logutil.LogInfo(logger, commandName, createPublicDIDCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.Method == "" {
+		logutil.LogDebug(logger, commandName, createPublicDIDCommandMethod, errDIDMethodMandatory)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errDIDMethodMandatory))
 	}
 
@@ -82,10 +88,15 @@ func (o *Command) CreatePublicDID(rw io.Writer, req io.Reader) command.Error {
 	doc, err := o.ctx.VDRIRegistry().Create(strings.ToLower(request.Method),
 		vdriapi.WithRequestBuilder(getBasicRequestBuilder(request.RequestHeader)))
 	if err != nil {
+		logutil.LogError(logger, commandName, createPublicDIDCommandMethod, err.Error(),
+			logutil.CreateKeyValueString("method", request.Method))
 		return command.NewExecuteError(CreatePublicDIDError, err)
 	}
 
 	command.WriteNillableResponse(rw, CreatePublicDIDResponse{DID: doc}, logger)
+
+	logutil.LogDebug(logger, commandName, createPublicDIDCommandMethod, "success",
+		logutil.CreateKeyValueString("method", request.Method))
 
 	return nil
 }

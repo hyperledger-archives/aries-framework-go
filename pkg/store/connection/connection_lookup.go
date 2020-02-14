@@ -19,12 +19,13 @@ import (
 )
 
 const (
-	nameSpace          = "didexchange"
-	keyPattern         = "%s_%s"
-	connIDKeyPrefix    = "conn"
-	connStateKeyPrefix = "connstate"
-	invKeyPrefix       = "inv"
-	eventDataKeyprefix = "connevent"
+	nameSpace           = "didexchange"
+	keyPattern          = "%s_%s"
+	connIDKeyPrefix     = "conn"
+	connStateKeyPrefix  = "connstate"
+	invKeyPrefix        = "inv"
+	eventDataKeyprefix  = "connevent"
+	didConnMapKeyprefix = "didconn_%s,%s"
 	// limitPattern with `~` at the end for lte of given prefix (less than or equal)
 	limitPattern    = "%s~"
 	keySeparator    = "_"
@@ -176,6 +177,16 @@ func (c *Lookup) GetConnectionRecordByNSThreadID(nsThreadID string) (*Record, er
 	return &rec, nil
 }
 
+// GetConnectionIDByDIDs return connection id based on dids (my or their did) metadata.
+func (c *Lookup) GetConnectionIDByDIDs(myDID, theirDID string) (string, error) {
+	connectionIDBytes, err := c.store.Get(getDIDConnMapKeyPrefix()(myDID, theirDID))
+	if err != nil {
+		return "", fmt.Errorf("get did-connection map : %w", err)
+	}
+
+	return string(connectionIDBytes), nil
+}
+
 // GetInvitation finds and parses stored invitation to target type
 // TODO should avoid using target of type `interface{}` [Issue #1030]
 func (c *Lookup) GetInvitation(id string, target interface{}) error {
@@ -242,6 +253,13 @@ func getNamespaceKeyPrefix(prefix string) KeyPrefix {
 func getEventDataKeyPrefix() KeyPrefix {
 	return func(key ...string) string {
 		return fmt.Sprintf(keyPattern, eventDataKeyprefix, strings.Join(key, keySeparator))
+	}
+}
+
+// getDIDConnMapKeyPrefix key prefix for saving mapping between DID and ConnectionID
+func getDIDConnMapKeyPrefix() KeyPrefix {
+	return func(key ...string) string {
+		return fmt.Sprintf(keyPattern, didConnMapKeyprefix, strings.Join(key, keySeparator))
 	}
 }
 
