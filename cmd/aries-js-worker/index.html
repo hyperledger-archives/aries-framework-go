@@ -15,6 +15,7 @@ This is a test page for developers to test WASM integration.
     <script>
         // TODO fix the stutter in the API's exports ("Aries.Aries....")
         const aries = Aries.Aries({})
+
         async function handleStart() {
             const request = document.querySelector("#opts").value
             const response = await aries.start(request)
@@ -42,105 +43,133 @@ This is a test page for developers to test WASM integration.
                 topics = []
             }
 
-            // pass array of topics to notifier or pass ["all"] to subscribe for all
-            // TODO whole generator logic below to be moved inside js package (aries.js)
-           async function* run() {
-                while (true)
-                    yield await aries.waitForNotification(topics)
-            }
+            aries.startNotifier(pushToMsgPanel, topics)
+        }
 
-            const asyncIterator = run();
+        function pushToMsgPanel(val) {
+            console.log("incomoing msg", val.id, val.topic, val.payload)
 
-            (async () => {
-                for await (const val of asyncIterator) {
-                    if (val) {
-                        // TODO display messages in this page
-                        alert(JSON.stringify(val))
-                    }
-                }
-            })();
+            var table = document.getElementById("msg-table");
+            var row = table.insertRow(1);
+
+            var cell1 = row.insertCell(0);
+            var cell2 = row.insertCell(1);
+            var cell3 = row.insertCell(2);
+
+            cell1.innerHTML = val.id;
+            cell2.innerHTML =  val.topic;
+            cell3.innerHTML = JSON.stringify(val.payload);
         }
 
     </script>
 </head>
 <body>
-<div style="padding: 10px">
-
-    <fieldset style="width: 100px">
-        <legend style="font-size: x-large;font-weight: bold">Aries Agent</legend>
-        <table>
-            <tr>
-                <td colspan="2">
-                    <div>Start Options :</div>
-                    <textarea id="opts" rows="5" cols="100">{"agent-default-label":"dem-js-agent","http-resolver-url":"","auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug"}
+<div>
+    <table>
+        <tr>
+            <td width="50%" valign="top">
+                <fieldset>
+                    <legend style="font-size: x-large;font-weight: bold">Aries Agent</legend>
+                    <table>
+                        <tr>
+                            <td colspan="2">
+                                <div>Start Options :</div>
+                                <textarea id="opts" rows="5" cols="100">{"agent-default-label":"dem-js-agent","http-resolver-url":"","auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug"}
                     </textarea>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <button onClick="handleStart()">StartAgent</button>
-                    <button onClick="handleStop()">StopAgent</button>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <hr>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <div style="font-size: small;">(Enter comma separated topics below, leave it empty to subscribe to all topics.)</div>
-                    <input type="text" id="notifier" value="" size="50"></input>
-                    <button onClick="startNotifier()">Start Notifier</button>
-                </td>
-            </tr>
-        </table>
-    </fieldset>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <button onClick="handleStart()">StartAgent</button>
+                                <button onClick="handleStop()">StopAgent</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <hr>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div style="font-size: small;">(Enter comma separated topics below, leave it empty to
+                                    subscribe to all topics.)
+                                </div>
+                                <input type="text" id="notifier" value="" size="50"></input>
+                                <button onClick="startNotifier()">Start Notifier</button>
+                            </td>
+                        </tr>
+                    </table>
+                </fieldset>
+            </td>
+            <td rowspan="2" valign="top">
 
-    <br><br>
-
-    <fieldset style="width: 100px">
-        <legend style="font-size: x-large;font-weight: bold">Aries Agent Command Controller</legend>
-        <table cellspacing="10px">
-            <tr>
-                <td>
-                    <label for="operation">Operation: </label>
-                </td>
-                <td>
-                    <input type="text" id="operation" value="_test" size="75"></input>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <label for="method">Method: </label>
-                </td>
-                <td>
-                    <input type="text" id="method" value="_echo" size="50"></input>
-                </td>
-            </tr>
-
-            <tr>
-                <td>
-                    <label for="input">Request: </label>
-                </td>
-                <td>
-                    <textarea id="input" rows="15" cols="100">{"id": "hello!"}</textarea>
-                </td>
+                <fieldset style="width: 100%;height: 100%;">
+                    <legend style="font-size: x-large;font-weight: bold">Message Center</legend>
+                    <div style="overflow:scroll; height:600px">
+                    <table width="100%" id="msg-table" cellspacing="5px" style="table-layout: fixed;word-wrap: break-word;text-align:left;">
+                        <tr>
+                            <th>
+                                ID
+                            </th>
+                            <th>
+                                Topic
+                            </th>
+                            <th>
+                                Message
+                            </th>
+                        </tr>
+                    </table>
+                    </div>
+                </fieldset>
+            </td>
             </tr>
 
-            <tr>
-                <td>
-                    &nbsp;
-                </td>
-                <td>
-                    <button onClick="handleOperationInput()">Execute</button>
-                </td>
-            </tr>
-        </table>
+        <tr>
+            <td>
+                <fieldset>
+                    <legend style="font-size: x-large;font-weight: bold">Aries Agent Command Controller</legend>
+                    <table cellspacing="10px">
+                        <tr>
+                            <td>
+                                <label for="operation">Operation: </label>
+                            </td>
+                            <td>
+                                <input type="text" id="operation" value="didexchange" size="75"></input>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <label for="method">Method: </label>
+                            </td>
+                            <td>
+                                <input type="text" id="method" value="createInvitation" size="50"></input>
+                            </td>
+                        </tr>
 
-    </fieldset>
+                        <tr>
+                            <td>
+                                <label for="input">Request: </label>
+                            </td>
+                            <td>
+                                <textarea id="input" rows="15" cols="100">{}</textarea>
+                            </td>
+                        </tr>
 
-    <br><br>
+                        <tr>
+                            <td>
+                            </td>
+                            <td>
+                                <button onClick="handleOperationInput()">Execute</button>
+                            </td>
+                        </tr>
+                    </table>
+
+                </fieldset>
+            </td>
+
+        </tr>
+
+    </table>
 </div>
 <hr/>
 <div style="height: 10%">
@@ -151,7 +180,7 @@ This is a test page for developers to test WASM integration.
 <br>
 <div id="error-div" style="visibility: hidden;color:red;font-size: x-large;">
     <label for="error">Error: </label>
-    <output id="error" ></output>
+    <output id="error"></output>
 </div>
 </body>
 </html>

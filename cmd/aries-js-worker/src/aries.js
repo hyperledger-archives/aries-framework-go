@@ -53,6 +53,24 @@ async function invoke(pkg, fn, arg, msgTimeout) {
     })
 }
 
+async function waitForNotification(topics) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(_ => resolve(), 10000)
+        // subscribe for all by default if topics not provided
+        if (topics.length == 0){
+            topics = ["all"]
+        }
+        topics.forEach(function (topic, index) {
+            NOTIFICATIONS.set(topic, result => {
+                if (result.isErr) {
+                    reject(new Error(result.errMsg))
+                }
+                resolve(result)
+            })
+        });
+    });
+}
+
 function newMsg(pkg, fn, payload) {
     return {
         // TODO there are several approaches to generate random strings:
@@ -107,22 +125,27 @@ export const Aries = function(opts) {
             return invoke("aries", "Stop", "{}", "timeout while stopping aries")
         },
 
-        waitForNotification : async function waitForNotification(topics) {
-            return new Promise((resolve, reject) => {
-                const timer = setTimeout(_ => resolve(), 10000)
-                // subscribe for all by default if topics not provided
-                if (topics.length == 0){
-                    topics = ["all"]
+        startNotifier : function(callback, topics) {
+            if (!callback){
+                console.error("callback is required to start notifier")
+                return
+            }
+
+            async function* run() {
+                while (true)
+                    yield await waitForNotification(topics)
+            }
+
+            const cb = callback
+            const asyncIterator = run();
+
+            (async () => {
+                for await (const val of asyncIterator) {
+                    if (val) {
+                        cb(val)
+                    }
                 }
-                topics.forEach(function (topic, index) {
-                    NOTIFICATIONS.set(topic, result => {
-                        if (result.isErr) {
-                            reject(new Error(result.errMsg))
-                        }
-                        resolve(result.payload)
-                    })
-                });
-            });
+            })();
         },
 
         didexchange: {
