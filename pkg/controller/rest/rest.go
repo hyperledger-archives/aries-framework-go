@@ -31,6 +31,8 @@ func Execute(exec command.Exec, rw http.ResponseWriter, req io.Reader) {
 	if err != nil {
 		SendError(rw, err)
 	}
+
+	rw.Header().Set("Content-Type", "application/json")
 }
 
 // genericError is aries rest api error response
@@ -59,7 +61,6 @@ func SendError(rw http.ResponseWriter, err command.Error) {
 // SendHTTPStatusError sends given http status code to response with error body
 func SendHTTPStatusError(rw http.ResponseWriter, httpStatus int, code command.Code, err error) {
 	rw.WriteHeader(httpStatus)
-	rw.Header().Set("Content-Type", "application/json")
 
 	e := json.NewEncoder(rw).Encode(genericError{
 		Code:    code,

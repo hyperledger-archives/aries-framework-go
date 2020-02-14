@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
@@ -69,7 +68,7 @@ func (o *Operation) registerHandler() {
 //    default: genericError
 //    200: registerRouteRes
 func (o *Operation) Register(rw http.ResponseWriter, req *http.Request) {
-	executeCommand(o.command.Register, rw, req)
+	rest.Execute(o.command.Register, rw, req.Body)
 }
 
 // Unregister swagger:route DELETE /route/unregister route unregisterRouter
@@ -79,13 +78,5 @@ func (o *Operation) Register(rw http.ResponseWriter, req *http.Request) {
 // Responses:
 //    default: genericError
 func (o *Operation) Unregister(rw http.ResponseWriter, req *http.Request) {
-	executeCommand(o.command.Unregister, rw, req)
-}
-
-// executeCommand executes given command with args provided.
-func executeCommand(exec command.Exec, rw http.ResponseWriter, req *http.Request) {
-	err := exec(rw, req.Body)
-	if err != nil {
-		rest.SendError(rw, err)
-	}
+	rest.Execute(o.command.Unregister, rw, req.Body)
 }
