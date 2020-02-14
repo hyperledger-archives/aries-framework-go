@@ -70,7 +70,13 @@ jobs:
 
       - name: Run BDD test
         timeout-minutes: 10
-        run: make bdd-test
+        run: |
+          function logout {
+            docker logout docker.pkg.github.com
+          }
+          trap logout EXIT
+          echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username $GITHUB_ACTOR --password-stdin
+          make bdd-test
 
   checks:
     name: Checks
