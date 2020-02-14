@@ -9,6 +9,9 @@ SPDX-License-Identifier: Apache-2.0
 const inNode = typeof process !== 'undefined' && process.versions != null && process.versions.node != null
 const inBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
+// wait for 'notifierWait' milliseconds before retrying to check for incoming notifications
+const notifierWait = 10000
+
 // base path to load assets from at runtime
 const __publicPath = _ => {
     if (inNode) {
@@ -55,7 +58,7 @@ async function invoke(pkg, fn, arg, msgTimeout) {
 
 async function waitForNotification(topics) {
     return new Promise((resolve, reject) => {
-        const timer = setTimeout(_ => resolve(), 10000)
+        const timer = setTimeout(_ => resolve(), notifierWait)
         // subscribe for all by default if topics not provided
         if (topics.length == 0){
             topics = ["all"]
@@ -131,9 +134,19 @@ export const Aries = function(opts) {
                 return
             }
 
+            var quit = false
             async function* run() {
-                while (true)
+                while (true) {
+                    if (quit) {
+                        //before stop, remove all topics
+                        topics.forEach(function (item, index) {
+                            NOTIFICATIONS.delete(item)
+                        });
+                        console.log("stopped notifier for topics:", topics)
+                        return
+                    }
                     yield await waitForNotification(topics)
+                }
             }
 
             const cb = callback
@@ -146,6 +159,8 @@ export const Aries = function(opts) {
                     }
                 }
             })();
+
+            return () => {quit = true}
         },
 
         didexchange: {
