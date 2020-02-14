@@ -19,11 +19,12 @@ import (
 )
 
 const (
-	jsonID       = "@id"
-	jsonType     = "@type"
-	jsonThread   = "~thread"
-	jsonThreadID = "thid"
-	jsonMetadata = "_internal_metadata"
+	jsonID             = "@id"
+	jsonType           = "@type"
+	jsonThread         = "~thread"
+	jsonThreadID       = "thid"
+	jsonParentThreadID = "pthid"
+	jsonMetadata       = "_internal_metadata"
 )
 
 // Metadata may contain additional payload for the protocol. It might be populated by the client/protocol
@@ -60,6 +61,9 @@ func ParseDIDCommMsgMap(payload []byte) (DIDCommMsgMap, error) {
 		return nil, fmt.Errorf("invalid payload data format: %w", err)
 	}
 
+	// sets empty metadata
+	msg[jsonMetadata] = map[string]interface{}{}
+
 	return msg, nil
 }
 
@@ -67,7 +71,12 @@ func ParseDIDCommMsgMap(payload []byte) (DIDCommMsgMap, error) {
 func NewDIDCommMsgMap(v interface{}) DIDCommMsgMap {
 	// NOTE: do not try to replace it with mapstructure pkg
 	// it doesn't work as expected, at least time.Time won't be converted
-	return toMap(v)
+	msg := toMap(v)
+
+	// sets empty metadata
+	msg[jsonMetadata] = map[string]interface{}{}
+
+	return msg
 }
 
 // ThreadID returns msg ~thread.thid if there is no ~thread.thid returns msg @id
@@ -132,6 +141,21 @@ func (m DIDCommMsgMap) Type() string {
 	return res
 }
 
+// ParentThreadID returns the message parent threadID
+func (m DIDCommMsgMap) ParentThreadID() string {
+	if m == nil || m[jsonThread] == nil {
+		return ""
+	}
+
+	if thread, ok := m[jsonThread].(map[string]interface{}); ok && thread != nil {
+		if pthID, ok := thread[jsonParentThreadID].(string); ok && pthID != "" {
+			return pthID
+		}
+	}
+
+	return ""
+}
+
 // ID returns the message id
 func (m DIDCommMsgMap) ID() string {
 	if m == nil || m[jsonID] == nil {
@@ -169,6 +193,20 @@ func (m DIDCommMsgMap) Decode(v interface{}) error {
 	}
 
 	return decoder.Decode(m)
+}
+
+// Clone copies first level keys-values into another map (DIDCommMsgMap).
+func (m DIDCommMsgMap) Clone() DIDCommMsgMap {
+	if m == nil {
+		return nil
+	}
+
+	msg := DIDCommMsgMap{}
+	for k, v := range m {
+		msg[k] = v
+	}
+
+	return msg
 }
 
 func toMap(v interface{}) map[string]interface{} {

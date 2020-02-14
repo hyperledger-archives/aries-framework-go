@@ -161,14 +161,7 @@ func TestMessenger_HandleInbound(t *testing.T) {
 			jsonParentThreadID: "pthID",
 		}}
 		require.NoError(t, msgr.HandleInbound(msg, myDID, theirDID))
-
-		v := struct {
-			service.Metadata `json:",squash"` // nolint: staticcheck
-			Thread           decorator.Thread `json:"~thread"`
-		}{}
-
-		require.NoError(t, msg.Decode(&v))
-		require.Equal(t, "val", v.Payload["key"])
+		require.Equal(t, "val", msg.Metadata()["key"])
 	})
 
 	t.Run("success with metadata (thread is nil)", func(t *testing.T) {
@@ -189,23 +182,15 @@ func TestMessenger_HandleInbound(t *testing.T) {
 
 		msg := service.DIDCommMsgMap{jsonID: ID}
 		require.NoError(t, msgr.HandleInbound(msg, myDID, theirDID))
-
-		v := struct {
-			service.Metadata `json:",squash"` // nolint: staticcheck
-			Thread           decorator.Thread `json:"~thread"`
-		}{}
-
-		require.NoError(t, msg.Decode(&v))
-		require.Equal(t, "val", v.Payload["key"])
+		require.Equal(t, "val", msg.Metadata()["key"])
 	})
 }
 
 func sendToDIDCheck(t *testing.T, checks ...string) func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
 	return func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
 		v := struct {
-			service.Metadata `json:",squash"` // nolint: staticcheck
-			ID               string           `json:"@id"`
-			Thread           decorator.Thread `json:"~thread"`
+			ID     string           `json:"@id"`
+			Thread decorator.Thread `json:"~thread"`
 		}{}
 
 		require.NoError(t, msg.Decode(&v))
@@ -214,7 +199,7 @@ func sendToDIDCheck(t *testing.T, checks ...string) func(msg service.DIDCommMsgM
 			switch check {
 			case jsonMetadata:
 				// metadata always should be absent
-				require.Nil(t, v.Payload)
+				require.Empty(t, msg.Metadata())
 			case jsonID:
 				// ID always should be in the message
 				require.NotEmpty(t, v.ID)
@@ -268,8 +253,7 @@ func TestMessenger_Send(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
 
-		// ~thread in the message causes a warning
-		require.NoError(t, msgr.Send(service.DIDCommMsgMap{jsonThread: map[string]interface{}{}}, myDID, theirDID))
+		require.NoError(t, msgr.Send(service.DIDCommMsgMap{}, myDID, theirDID))
 	})
 
 	t.Run("save metadata error", func(t *testing.T) {
@@ -287,7 +271,6 @@ func TestMessenger_Send(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
 
-		// ~thread in the message causes a warning
 		err = msgr.Send(service.DIDCommMsgMap{
 			jsonMetadata: map[string]interface{}{"key": "val"},
 		}, myDID, theirDID)
@@ -357,8 +340,8 @@ func TestMessenger_ReplyTo(t *testing.T) {
 		msgr, err := NewMessenger(provider)
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
-		// ~thread in the message causes a warning
-		require.NoError(t, msgr.ReplyTo(ID, service.DIDCommMsgMap{jsonThread: map[string]interface{}{}}))
+
+		require.NoError(t, msgr.ReplyTo(ID, service.DIDCommMsgMap{}))
 	})
 
 	t.Run("save metadata error", func(t *testing.T) {
@@ -377,7 +360,6 @@ func TestMessenger_ReplyTo(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
 
-		// ~thread in the message causes a warning
 		err = msgr.ReplyTo(ID, service.DIDCommMsgMap{
 			jsonMetadata: map[string]interface{}{"key": "val"},
 		})
@@ -424,10 +406,8 @@ func TestMessenger_ReplyToNested(t *testing.T) {
 		msgr, err := NewMessenger(provider)
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
-		// ~thread in the message causes a warning
-		require.NoError(t, msgr.ReplyToNested(thID, service.DIDCommMsgMap{
-			jsonThread: map[string]interface{}{},
-		}, myDID, theirDID))
+
+		require.NoError(t, msgr.ReplyToNested(thID, service.DIDCommMsgMap{}, myDID, theirDID))
 	})
 
 	t.Run("save metadata error", func(t *testing.T) {
@@ -445,7 +425,6 @@ func TestMessenger_ReplyToNested(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msgr)
 
-		// ~thread in the message causes a warning
 		err = msgr.ReplyToNested("thID", service.DIDCommMsgMap{
 			jsonMetadata: map[string]interface{}{"key": "val"},
 		}, myDID, theirDID)

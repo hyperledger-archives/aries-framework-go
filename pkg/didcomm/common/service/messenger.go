@@ -10,8 +10,10 @@ package service
 type DIDCommMsg interface {
 	ID() string
 	Type() string
-
 	ThreadID() (string, error)
+	ParentThreadID() string
+	Clone() DIDCommMsgMap
+	Metadata() map[string]interface{}
 	Decode(v interface{}) error
 }
 
