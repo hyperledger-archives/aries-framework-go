@@ -26,12 +26,12 @@ const __publicPath = _ => {
 
 __webpack_public_path__ = __publicPath()
 
-const { _getWorker } = require("worker_loader")
+const { loadWorker } = require("worker_loader")
 
 // TODO synchronize access on this map?
 const PENDING = new Map()
 const NOTIFICATIONS = new Map()
-const WORKER = _getWorker(PENDING, NOTIFICATIONS)
+var WORKER
 
 // Singleton
 let INSTANCE = null
@@ -98,6 +98,24 @@ export const Aries = function(opts) {
     if (INSTANCE) {
         return INSTANCE
     }
+
+    if (!opts) {
+        throw new Error("aries: missing options")
+    }
+
+    if (!opts.assetsPath) {
+        throw new Error("aries: missing assets path")
+    }
+
+    WORKER = loadWorker(
+        PENDING,
+        NOTIFICATIONS,
+        {
+            dir: opts.assetsPath,
+            wasm: opts.assetsPath + "/aries-js-worker.wasm.gz",
+            wasmJS: opts.assetsPath + "/wasm_exec.js"
+        }
+    )
 
     INSTANCE = {
         /**

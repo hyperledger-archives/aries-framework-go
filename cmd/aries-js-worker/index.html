@@ -14,7 +14,7 @@ This is a test page for developers to test WASM integration.
     <script src="dist/web/aries.js"></script>
     <script>
         // TODO fix the stutter in the API's exports ("Aries.Aries....")
-        const aries = Aries.Aries({})
+        const aries = Aries.Aries({assetsPath: "/dist/assets"})
         var stopNotifier
 
         async function handleStart() {
