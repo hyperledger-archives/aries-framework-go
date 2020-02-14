@@ -32,7 +32,7 @@ import (
 
 const (
 	sha2_256        = 18
-	didDocNamespace = "did:sidetree:"
+	didDocNamespace = "did:sidetree"
 	maxRetry        = 10
 )
 
@@ -40,9 +40,9 @@ var logger = log.New("aries-framework/didresolver-tests")
 
 // Steps for DID resolver tests
 type Steps struct {
-	bddContext       *bddctx.BDDContext
-	reqEncodedDIDDoc string
-	resp             *httpRespone
+	bddContext    *bddctx.BDDContext
+	createPayload string
+	resp          *httpRespone
 }
 
 // NewDIDResolverSteps returns new steps for DID resolver tests
@@ -70,10 +70,16 @@ func CreateDIDDocument(ctx *bddctx.BDDContext, agents, method string) error {
 }
 
 func (d *Steps) createDIDDocumentFromFile(sideTreeURL, didDocumentPath string) error {
-	req := newCreateRequest(d.didDocFromFile(didDocumentPath))
-	d.reqEncodedDIDDoc = req.Payload
+	encodedDoc := encodeDidDocument(d.didDocFromFile(didDocumentPath))
 
-	var err error
+	encodedPayload, err := getCreatePayload(encodedDoc)
+	if err != nil {
+		return err
+	}
+
+	d.createPayload = encodedPayload
+
+	req := newCreateRequest(encodedPayload)
 	d.resp, err = sendRequest(d.bddContext.Args[sideTreeURL], req)
 
 	return err
@@ -85,7 +91,7 @@ func (d *Steps) checkSuccessResp(msg string) error {
 	}
 
 	if msg == "#didID" {
-		didID, err := docutil.CalculateID(didDocNamespace, d.reqEncodedDIDDoc, sha2_256)
+		didID, err := docutil.CalculateID(didDocNamespace, d.createPayload, sha2_256)
 		if err != nil {
 			return err
 		}
@@ -103,7 +109,7 @@ func (d *Steps) checkSuccessResp(msg string) error {
 }
 
 func (d *Steps) resolveDID(agentID string) error {
-	didID, err := docutil.CalculateID(didDocNamespace, d.reqEncodedDIDDoc, sha2_256)
+	didID, err := docutil.CalculateID(didDocNamespace, d.createPayload, sha2_256)
 	if err != nil {
 		return err
 	}
@@ -142,14 +148,27 @@ func (d *Steps) didDocFromFile(didDocumentPath string) *document.Document {
 	return &doc
 }
 
-func newCreateRequest(doc *document.Document) *model.Request {
-	payload := encodeDidDocument(doc)
-
+func newCreateRequest(payload string) *model.Request {
 	return &model.Request{
-		Header: &model.Header{
-			Operation: model.OperationTypeCreate, Alg: "", Kid: ""},
+		Protected: &model.Header{Alg: "", Kid: ""},
 		Payload:   payload,
 		Signature: ""}
+}
+
+func getCreatePayload(encodedDoc string) (string, error) {
+	schema := createPayloadSchema{
+		Operation:           model.OperationTypeCreate,
+		DidDocument:         encodedDoc,
+		NextUpdateOTPHash:   "",
+		NextRecoveryOTPHash: "",
+	}
+
+	payload, err := json.Marshal(schema)
+	if err != nil {
+		return "", err
+	}
+
+	return base64.URLEncoding.EncodeToString(payload), nil
 }
 
 func encodeDidDocument(doc *document.Document) string {
@@ -233,10 +252,23 @@ func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddo
 
 // buildSideTreeRequest request builder for sidetree public DID creation
 func buildSideTreeRequest(docBytes []byte) (io.Reader, error) {
+	encodeDidDocument := base64.URLEncoding.EncodeToString(docBytes)
+
+	schema := createPayloadSchema{
+		Operation:           model.OperationTypeCreate,
+		DidDocument:         encodeDidDocument,
+		NextUpdateOTPHash:   "",
+		NextRecoveryOTPHash: "",
+	}
+
+	payload, err := json.Marshal(schema)
+	if err != nil {
+		return nil, err
+	}
+
 	request := &model.Request{
-		Header: &model.Header{
-			Operation: model.OperationTypeCreate, Alg: "", Kid: ""},
-		Payload:   base64.URLEncoding.EncodeToString(docBytes),
+		Protected: &model.Header{Alg: "", Kid: ""},
+		Payload:   base64.URLEncoding.EncodeToString(payload),
 		Signature: ""}
 
 	b, err := json.Marshal(request)
@@ -245,6 +277,22 @@ func buildSideTreeRequest(docBytes []byte) (io.Reader, error) {
 	}
 
 	return bytes.NewReader(b), nil
+}
+
+// createPayloadSchema is the struct for create payload
+type createPayloadSchema struct {
+
+	// operation
+	Operation model.OperationType `json:"type"`
+
+	// Encoded original DID document
+	DidDocument string `json:"didDocument"`
+
+	// Hash of the one-time password for the next update operation
+	NextUpdateOTPHash string `json:"nextUpdateOtpHash"`
+
+	// Hash of the one-time password for this recovery/checkpoint/revoke operation.
+	NextRecoveryOTPHash string `json:"nextRecoveryOtpHash"`
 }
 
 // RegisterSteps registers did exchange steps
