@@ -4,15 +4,14 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-import wasmJS from "./wasm_exec.js"
-import wasm from "./aries-js-worker.wasm.gz"
-import workerJS from "./worker-impl-web"
-
-export function _getWorker(pending, notifications) {
+export function loadWorker(pending, notifications, paths) {
+    const wasmJS = paths.wasmJS
+    const wasm = paths.wasm
+    const workerJS = paths.dir + "/worker-impl-web.js"
     const worker = new Worker(workerJS + "?wasmJS=" + wasmJS + "&wasm=" + wasm)
     worker.onmessage = e => {
         const result = e.data
-        if (result.topic ){
+        if (result.topic){
             if (notifications.get(result.topic)) {
                 notifications.get(result.topic)(result)
             }  else if (notifications.get("all")){

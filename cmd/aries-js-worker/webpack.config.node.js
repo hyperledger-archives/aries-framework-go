@@ -27,42 +27,11 @@ module.exports = {
         new CleanWebpackPlugin(),
         new WebpackShellPlugin({
             onBuildStart: [
-                "mkdir -p " + OUTPUT
+                "mkdir -p " + OUTPUT,
+                "cp -p src/worker-impl-node.js dist/assets",
             ]
         })
     ],
-    module: {
-        rules: [
-            {
-                test: /worker-impl-node\.js/,
-                loader: "file-loader",
-                options: {
-                    name: "[name].[ext]",
-                    postTransformPublicPath: _ => `__webpack_public_path__ + "/dist/node/worker-impl-node.js"`
-                }
-            },
-            {
-                test: /wasm_exec\.js/,
-                loader: "file-loader",
-                options: {
-                    name: "[name].[ext]",
-                    emitFile: false,
-                    postTransformPublicPath: _ => `__webpack_public_path__ + "/dist/assets/wasm_exec.js"`
-                }
-            },
-            {
-                type: "javascript/auto",
-                test: /aries-js-worker.wasm.gz/,
-                loader: "file-loader",
-                options: {
-                    name: "[name].[ext]",
-                    emitFile: false,
-                    publicPath: PATHS.assetsDir,
-                    postTransformPublicPath: _ => `__webpack_public_path__ + "/dist/assets/aries-js-worker.wasm.gz"`
-                }
-            }
-        ]
-    },
     resolve: {
         alias: {
             worker_loader$: path.join(PATHS.srcDir, "worker-loader-node.js")
