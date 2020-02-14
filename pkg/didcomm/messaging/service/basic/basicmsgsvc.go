@@ -21,7 +21,9 @@ package basic
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 )
 
 const (
@@ -31,7 +33,11 @@ const (
 	// error messages
 	errNameAndHandleMandatory = "service name and basic message handle is mandatory"
 	errFailedToDecodeMsg      = "unable to decode incoming DID comm message: %w"
+
+	basicMessage = "basicMessage"
 )
+
+var logger = log.New("aries-framework/basicmsg")
 
 // MessageHandle is handle function for basic message service which gets called by
 // `basic.MessageService` to handle incoming messages.
@@ -97,6 +103,10 @@ func (m *MessageService) HandleInbound(msg service.DIDCommMsg, myDID, theirDID s
 	if err != nil {
 		return "", fmt.Errorf(errFailedToDecodeMsg, err)
 	}
+
+	logutil.LogDebug(logger, basicMessage, "handleInbound", "received",
+		logutil.CreateKeyValueString("msgType", msg.Type()),
+		logutil.CreateKeyValueString("msgID", msg.ID()))
 
 	return "", m.handle(basicMsg, myDID, theirDID)
 }

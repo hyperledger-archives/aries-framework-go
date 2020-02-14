@@ -25,7 +25,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 )
 
 const (
@@ -40,7 +42,11 @@ const (
 	errFailedToDecodeMsg        = "unable to decode DID comm message: %w"
 	errFailedToDecodeBody       = "unable to decode message body: %w"
 	errFailedToCreateNewRequest = "failed to create http request from incoming message: %w"
+
+	httpMessage = "httpMessage"
 )
+
+var logger = log.New("aries-framework/httpmsg")
 
 // RequestHandle handle function for http over did comm message service which gets called by
 // `OverDIDComm` message service to handle matching incoming request.
@@ -152,6 +158,10 @@ func (m *OverDIDComm) HandleInbound(msg service.DIDCommMsg, myDID, theirDID stri
 	for _, header := range svcMsg.Headers {
 		request.Header.Add(header.Name, header.Value)
 	}
+
+	logutil.LogDebug(logger, httpMessage, "handleInbound", "received",
+		logutil.CreateKeyValueString("msgType", msg.Type()),
+		logutil.CreateKeyValueString("msgID", msg.ID()))
 
 	// TODO implement http version switch based on `msg.Version` [Issue:#1110]
 

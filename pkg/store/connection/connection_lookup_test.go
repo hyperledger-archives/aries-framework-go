@@ -16,6 +16,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
@@ -340,6 +341,42 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 		result, err := recorder.QueryConnectionRecords()
 		require.Error(t, err)
 		require.Empty(t, result)
+	})
+}
+
+func TestGetConnectionIDByDIDs(t *testing.T) {
+	myDID := "did:mydid:123"
+	theirDID := "did:theirdid:789"
+
+	t.Run("get connection record by did - success", func(t *testing.T) {
+		recorder, err := NewRecorder(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		require.NotNil(t, recorder)
+		connRec := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: sampleConnID,
+			State:        stateNameCompleted,
+			Namespace:    myNSPrefix,
+			MyDID:        myDID,
+			TheirDID:     theirDID,
+		}
+		err = recorder.SaveConnectionRecord(connRec)
+		require.NoError(t, err)
+
+		connectionID, err := recorder.GetConnectionIDByDIDs(myDID, theirDID)
+		require.NoError(t, err)
+		require.Equal(t, sampleConnID, connectionID)
+	})
+
+	t.Run("get connection record by did - no mapping found", func(t *testing.T) {
+		recorder, err := NewRecorder(&protocol.MockProvider{})
+		require.NoError(t, err)
+
+		connectionID, err := recorder.GetConnectionIDByDIDs(myDID, theirDID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get did-connection map")
+		require.Empty(t, connectionID)
 	})
 }
 

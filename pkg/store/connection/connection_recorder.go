@@ -74,6 +74,12 @@ func (c *Recorder) SaveConnectionRecord(record *Record) error {
 			record, c.store); err != nil {
 			return fmt.Errorf("save connection record in permanent store: %w", err)
 		}
+
+		// create map between DIDs and ConnectionID
+		if err := c.store.Put(getDIDConnMapKeyPrefix()(record.MyDID, record.TheirDID),
+			[]byte(record.ConnectionID)); err != nil {
+			return fmt.Errorf("save did and connection map in store: %w", err)
+		}
 	}
 
 	return nil

@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -34,6 +35,23 @@ const (
 	// error messages
 	errEmptyInviterDID = "empty inviter DID"
 	errEmptyConnID     = "empty connection ID"
+
+	// command methods
+	acceptExchangeRequestCommandMethod    = "AcceptExchangeRequest"
+	acceptInvitationCommandMethod         = "AcceptInvitation"
+	createImplicitInvitationCommandMethod = "CreateImplicitInvitation"
+	createInvitationCommandMethod         = "CreateInvitation"
+	queryConnectionByIDCommandMethod      = "QueryConnectionByID"
+	queryConnectionsCommandMethod         = "QueryConnections"
+	receiveInvitationCommandMethod        = "ReceiveInvitation"
+	removeConnectionCommandMethod         = "RemoveConnection"
+
+	// log constants
+	connectionIDString         = "connectionID"
+	stateIDString              = "stateID"
+	successString              = "success"
+	invitationIDString         = "invitationID"
+	sendConnectionNotification = "sendConnectionNotification"
 )
 
 const (
@@ -118,25 +136,24 @@ type Command struct {
 // GetHandlers returns list of all commands supported by this controller command
 func (c *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(commandName, "CreateInvitation", c.CreateInvitation),
-		cmdutil.NewCommandHandler(commandName, "ReceiveInvitation", c.ReceiveInvitation),
-		cmdutil.NewCommandHandler(commandName, "AcceptInvitation", c.AcceptInvitation),
-		cmdutil.NewCommandHandler(commandName, "RemoveConnection", c.RemoveConnection),
-		cmdutil.NewCommandHandler(commandName, "QueryConnectionByID", c.QueryConnectionByID),
-		cmdutil.NewCommandHandler(commandName, "QueryConnections", c.QueryConnections),
-		cmdutil.NewCommandHandler(commandName, "AcceptExchangeRequest", c.AcceptExchangeRequest),
-		cmdutil.NewCommandHandler(commandName, "CreateImplicitInvitation", c.CreateImplicitInvitation),
+		cmdutil.NewCommandHandler(commandName, createInvitationCommandMethod, c.CreateInvitation),
+		cmdutil.NewCommandHandler(commandName, receiveInvitationCommandMethod, c.ReceiveInvitation),
+		cmdutil.NewCommandHandler(commandName, acceptInvitationCommandMethod, c.AcceptInvitation),
+		cmdutil.NewCommandHandler(commandName, removeConnectionCommandMethod, c.RemoveConnection),
+		cmdutil.NewCommandHandler(commandName, queryConnectionByIDCommandMethod, c.QueryConnectionByID),
+		cmdutil.NewCommandHandler(commandName, queryConnectionsCommandMethod, c.QueryConnections),
+		cmdutil.NewCommandHandler(commandName, acceptExchangeRequestCommandMethod, c.AcceptExchangeRequest),
+		cmdutil.NewCommandHandler(commandName, createImplicitInvitationCommandMethod, c.CreateImplicitInvitation),
 	}
 }
 
 // CreateInvitation Creates a new connection invitation.
 func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
-	logger.Debugf("Creating connection invitation ")
-
 	var request CreateInvitationArgs
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
+		logutil.LogInfo(logger, commandName, createInvitationCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -149,6 +166,7 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	if err != nil {
+		logutil.LogError(logger, commandName, createInvitationCommandMethod, err.Error())
 		return command.NewExecuteError(CreateInvitationErrorCode, err)
 	}
 
@@ -157,28 +175,40 @@ func (c *Command) CreateInvitation(rw io.Writer, req io.Reader) command.Error {
 		Alias:      request.Alias},
 		logger)
 
+	logutil.LogDebug(logger, commandName, createInvitationCommandMethod, successString,
+		logutil.CreateKeyValueString(invitationIDString, invitation.ID))
+
 	return nil
 }
 
 // ReceiveInvitation receives a new connection invitation.
 func (c *Command) ReceiveInvitation(rw io.Writer, req io.Reader) command.Error {
-	logger.Debugf("Receiving connection invitation ")
-
 	var request didexchange.Invitation
 
 	err := json.NewDecoder(req).Decode(&request.Invitation)
 	if err != nil {
+		logutil.LogInfo(logger, commandName, receiveInvitationCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	connectionID, err := c.client.HandleInvitation(&request)
 	if err != nil {
+		logutil.LogError(logger, commandName, receiveInvitationCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(invitationIDString, request.ID),
+			logutil.CreateKeyValueString("label", request.Label),
+			logutil.CreateKeyValueString(connectionIDString, connectionID))
+
 		return command.NewExecuteError(ReceiveInvitationErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, ReceiveInvitationResponse{
 		ConnectionID: connectionID,
 	}, logger)
+
+	logutil.LogDebug(logger, commandName, receiveInvitationCommandMethod, successString,
+		logutil.CreateKeyValueString(invitationIDString, request.ID),
+		logutil.CreateKeyValueString("label", request.Label),
+		logutil.CreateKeyValueString(connectionIDString, connectionID))
 
 	return nil
 }
@@ -189,26 +219,28 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
+		logutil.LogInfo(logger, commandName, acceptInvitationCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.ID == "" {
+		logutil.LogDebug(logger, commandName, acceptInvitationCommandMethod, errEmptyConnID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
-	logger.Debugf("Accepting connection invitation for id[%s], label[%s], publicDID[%s]",
-		request.ID, c.defaultLabel, request.Public)
-
 	err = c.client.AcceptInvitation(request.ID, request.Public, c.defaultLabel)
 	if err != nil {
-		logger.Errorf("accept invitation api failed for id %s with error %s", request.ID, err)
-
+		logutil.LogError(logger, commandName, acceptInvitationCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(connectionIDString, request.ID))
 		return command.NewExecuteError(AcceptInvitationErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &AcceptInvitationResponse{
 		ConnectionID: request.ID,
 	}, logger)
+
+	logutil.LogDebug(logger, commandName, acceptInvitationCommandMethod, successString,
+		logutil.CreateKeyValueString(connectionIDString, request.ID))
 
 	return nil
 }
@@ -219,10 +251,12 @@ func (c *Command) CreateImplicitInvitation(rw io.Writer, req io.Reader) command.
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
+		logutil.LogInfo(logger, commandName, createImplicitInvitationCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.InviterDID == "" {
+		logutil.LogDebug(logger, commandName, createImplicitInvitationCommandMethod, errEmptyInviterDID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyInviterDID))
 	}
 
@@ -241,7 +275,7 @@ func (c *Command) CreateImplicitInvitation(rw io.Writer, req io.Reader) command.
 	}
 
 	if err != nil {
-		logger.Errorf("create implicit invitation api failed for id %s with error %s", id, err)
+		logutil.LogError(logger, commandName, createImplicitInvitationCommandMethod, err.Error())
 		return command.NewExecuteError(CreateImplicitInvitationErrorCode, err)
 	}
 
@@ -249,15 +283,18 @@ func (c *Command) CreateImplicitInvitation(rw io.Writer, req io.Reader) command.
 		ConnectionID: id,
 	}, logger)
 
+	logutil.LogDebug(logger, commandName, createImplicitInvitationCommandMethod, successString)
+
 	return nil
 }
 
 // AcceptExchangeRequest accepts a stored connection request.
 func (c *Command) AcceptExchangeRequest(rw io.Writer, req io.Reader) command.Error {
-	var request AcceptInvitationArgs
+	var request AcceptExchangeRequestArgs
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
+		logutil.LogInfo(logger, commandName, acceptExchangeRequestCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
@@ -265,11 +302,10 @@ func (c *Command) AcceptExchangeRequest(rw io.Writer, req io.Reader) command.Err
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
-	logger.Debugf("Accepting connection request for id [%s]", request.ID)
-
 	err = c.client.AcceptExchangeRequest(request.ID, request.Public, c.defaultLabel)
 	if err != nil {
-		logger.Errorf("accepting connection request failed for id %s with error %s", request.ID, err)
+		logutil.LogError(logger, commandName, acceptExchangeRequestCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(connectionIDString, request.ID))
 		return command.NewExecuteError(AcceptExchangeRequestErrorCode, err)
 	}
 
@@ -277,28 +313,33 @@ func (c *Command) AcceptExchangeRequest(rw io.Writer, req io.Reader) command.Err
 		ConnectionID: request.ID,
 	}, logger)
 
+	logutil.LogDebug(logger, commandName, acceptExchangeRequestCommandMethod, successString,
+		logutil.CreateKeyValueString(connectionIDString, request.ID))
+
 	return nil
 }
 
 // QueryConnections queries agent to agent connections.
 func (c *Command) QueryConnections(rw io.Writer, req io.Reader) command.Error {
-	logger.Debugf("Querying connection invitations ")
-
 	var request QueryConnectionsArgs
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
+		logutil.LogInfo(logger, commandName, queryConnectionsCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	results, err := c.client.QueryConnections(&request.QueryConnectionsParams)
 	if err != nil {
+		logutil.LogError(logger, commandName, queryConnectionsCommandMethod, err.Error())
 		return command.NewExecuteError(QueryConnectionsErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &QueryConnectionsResponse{
 		Results: results,
 	}, logger)
+
+	logutil.LogDebug(logger, commandName, queryConnectionsCommandMethod, successString)
 
 	return nil
 }
@@ -309,23 +350,28 @@ func (c *Command) QueryConnectionByID(rw io.Writer, req io.Reader) command.Error
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
+		logutil.LogInfo(logger, commandName, queryConnectionByIDCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.ID == "" {
+		logutil.LogDebug(logger, commandName, queryConnectionByIDCommandMethod, errEmptyConnID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
-	logger.Debugf("Querying connection invitation for id [%s]", request.ID)
-
 	result, err := c.client.GetConnection(request.ID)
 	if err != nil {
+		logutil.LogError(logger, commandName, queryConnectionByIDCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(connectionIDString, request.ID))
 		return command.NewExecuteError(QueryConnectionsErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, &QueryConnectionResponse{
 		Result: result,
 	}, logger)
+
+	logutil.LogDebug(logger, commandName, queryConnectionByIDCommandMethod, successString,
+		logutil.CreateKeyValueString(connectionIDString, request.ID))
 
 	return nil
 }
@@ -336,10 +382,12 @@ func (c *Command) RemoveConnection(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
+		logutil.LogInfo(logger, commandName, removeConnectionCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, err)
 	}
 
 	if request.ID == "" {
+		logutil.LogDebug(logger, commandName, removeConnectionCommandMethod, errEmptyConnID)
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyConnID))
 	}
 
@@ -347,8 +395,13 @@ func (c *Command) RemoveConnection(rw io.Writer, req io.Reader) command.Error {
 
 	err = c.client.RemoveConnection(request.ID)
 	if err != nil {
+		logutil.LogError(logger, commandName, removeConnectionCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(connectionIDString, request.ID))
 		return command.NewExecuteError(RemoveConnectionErrorCode, err)
 	}
+
+	logutil.LogDebug(logger, commandName, removeConnectionCommandMethod, successString,
+		logutil.CreateKeyValueString(connectionIDString, request.ID))
 
 	return nil
 }
@@ -397,7 +450,10 @@ func (c *Command) handleMessageEvents(e service.StateMsg) error {
 func (c *Command) sendConnectionNotification(connectionID, stateID string) error {
 	conn, err := c.client.GetConnectionAtState(connectionID, stateID)
 	if err != nil {
-		logger.Errorf("Send notification failed, topic[%s], connectionID[%s]", connectionsWebhookTopic, connectionID)
+		logutil.LogError(logger, commandName, sendConnectionNotification, err.Error(),
+			logutil.CreateKeyValueString(connectionIDString, connectionID),
+			logutil.CreateKeyValueString(stateIDString, stateID))
+
 		return fmt.Errorf("connection notification webhook : %w", err)
 	}
 
@@ -412,6 +468,10 @@ func (c *Command) sendConnectionNotification(connectionID, stateID string) error
 
 	jsonMessage, err := json.Marshal(connMsg)
 	if err != nil {
+		logutil.LogError(logger, commandName, sendConnectionNotification, err.Error(),
+			logutil.CreateKeyValueString(connectionIDString, connectionID),
+			logutil.CreateKeyValueString(stateIDString, stateID))
+
 		return fmt.Errorf("connection notification json marshal : %w", err)
 	}
 
@@ -419,8 +479,16 @@ func (c *Command) sendConnectionNotification(connectionID, stateID string) error
 
 	err = c.notifier.Notify(connectionsWebhookTopic, jsonMessage)
 	if err != nil {
+		logutil.LogError(logger, commandName, "sendConnectionNotification", err.Error(),
+			logutil.CreateKeyValueString(connectionIDString, connectionID),
+			logutil.CreateKeyValueString(stateIDString, stateID))
+
 		return fmt.Errorf("connection notification webhook : %w", err)
 	}
+
+	logutil.LogDebug(logger, commandName, sendConnectionNotification, successString,
+		logutil.CreateKeyValueString(connectionIDString, connectionID),
+		logutil.CreateKeyValueString(stateIDString, stateID))
 
 	return nil
 }

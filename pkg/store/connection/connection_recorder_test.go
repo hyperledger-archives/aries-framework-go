@@ -276,8 +276,14 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 
-		record := &Record{ThreadID: threadIDValue,
-			ConnectionID: uuid.New().String(), State: stateNameCompleted, Namespace: theirNSPrefix}
+		record := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: uuid.New().String(),
+			State:        stateNameCompleted,
+			Namespace:    theirNSPrefix,
+			MyDID:        "did:mydid:123",
+			TheirDID:     "did:theirdid:123",
+		}
 		err = recorder.SaveConnectionRecord(record)
 		require.NoError(t, err)
 

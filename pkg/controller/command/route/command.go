@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
+	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 )
 
 var logger = log.New("aries-framework/command/route")
@@ -38,6 +39,14 @@ const (
 const (
 	// command name
 	commandName = "router"
+
+	// command methods
+	registerCommandMethod   = "Register"
+	unregisterCommandMethod = "Unregister"
+
+	// log constants
+	connectionID  = "connectionID"
+	successString = "success"
 )
 
 // provider contains dependencies for the route protocol and is typically created by using aries.Context().
@@ -65,8 +74,8 @@ func New(ctx provider) (*Command, error) {
 // GetHandlers returns list of all commands supported by this controller command
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(commandName, "Register", o.Register),
-		cmdutil.NewCommandHandler(commandName, "Unregister", o.Unregister),
+		cmdutil.NewCommandHandler(commandName, registerCommandMethod, o.Register),
+		cmdutil.NewCommandHandler(commandName, unregisterCommandMethod, o.Unregister),
 	}
 }
 
@@ -76,21 +85,27 @@ func (o *Command) Register(rw io.Writer, req io.Reader) command.Error {
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
+		logutil.LogInfo(logger, commandName, registerCommandMethod, err.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
 	if request.ConnectionID == "" {
+		logutil.LogDebug(logger, commandName, registerCommandMethod, "missing connectionID",
+			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 		return command.NewValidationError(RegisterMissingConnIDCode, errors.New("connectionID is mandatory"))
 	}
 
-	logger.Debugf("registering agent with router : connectionID=[%s]", request.ConnectionID)
-
 	err = o.routeClient.Register(request.ConnectionID)
 	if err != nil {
+		logutil.LogError(logger, commandName, registerCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 		return command.NewExecuteError(RegisterRouterErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, nil, logger)
+
+	logutil.LogDebug(logger, commandName, registerCommandMethod, successString,
+		logutil.CreateKeyValueString(connectionID, request.ConnectionID))
 
 	return nil
 }
@@ -99,10 +114,13 @@ func (o *Command) Register(rw io.Writer, req io.Reader) command.Error {
 func (o *Command) Unregister(rw io.Writer, req io.Reader) command.Error {
 	err := o.routeClient.Unregister()
 	if err != nil {
+		logutil.LogError(logger, commandName, registerCommandMethod, err.Error())
 		return command.NewExecuteError(UnregisterRouterErrorCode, err)
 	}
 
 	command.WriteNillableResponse(rw, nil, logger)
+
+	logutil.LogDebug(logger, commandName, registerCommandMethod, successString)
 
 	return nil
 }
