@@ -5,8 +5,8 @@
 #
 
 @all
-@aries_router
-Feature: DIDComm Transport between two Agents through DIDComm Routers
+@aries_router_sdk
+Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
 
   # https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter
   Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers
