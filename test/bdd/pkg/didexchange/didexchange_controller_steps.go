@@ -9,6 +9,7 @@ package didexchange
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -91,6 +92,9 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 		a.createImplicitInvitationWithDID)
 	s.Step(`^"([^"]*)" has established connection with "([^"]*)" through did exchange using controller$`,
 		a.performDIDExchange)
+	s.Step(`^"([^"]*)" validates that the invitation service endpoint of type "([^"]*)"$`,
+		a.validateInvitationEndpointScheme)
+	s.Step(`^"([^"]*)" saves the connectionID to variable "([^"]*)"$`, a.saveConnectionID)
 }
 
 func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, error) {
@@ -246,6 +250,16 @@ func (a *ControllerSteps) verifyCreateInvitationResult(result *didexcmd.CreateIn
 	return nil
 }
 
+func (a *ControllerSteps) validateInvitationEndpointScheme(inviterAgentID, scheme string) error {
+	invitation := a.invitations[inviterAgentID]
+
+	if !strings.HasPrefix(invitation.ServiceEndpoint, scheme) {
+		return errors.New("invitation service endpoint - invalid transport type")
+	}
+
+	return nil
+}
+
 func (a *ControllerSteps) receiveInvitation(inviteeAgentID, inviterAgentID string) error {
 	destination, ok := a.bddContext.GetControllerURL(inviteeAgentID)
 	if !ok {
@@ -279,6 +293,12 @@ func (a *ControllerSteps) receiveInvitation(inviteeAgentID, inviterAgentID strin
 
 	// invitee connectionID
 	a.connectionIDs[inviteeAgentID] = result.ConnectionID
+
+	return nil
+}
+
+func (a *ControllerSteps) saveConnectionID(agentID, varName string) error {
+	a.bddContext.Args[varName] = a.connectionIDs[agentID]
 
 	return nil
 }

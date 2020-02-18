@@ -167,4 +167,5 @@ func FeatureContext(s *godog.Suite) {
 
 	// Register router tests
 	route.NewRouteSDKSteps(bddContext).RegisterSteps(s)
+	route.NewRouteRESTSteps(bddContext).RegisterSteps(s)
 }

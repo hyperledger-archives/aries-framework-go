@@ -119,6 +119,62 @@ services:
     networks:
       - bdd_net
 
+  dave.agent.example.com:
+    container_name: dave.aries.example.com
+    image: ${AGENT_REST_IMAGE}:${AGENT_REST_IMAGE_TAG}
+    environment:
+      - ARIESD_API_HOST=${DAVE_HOST}:${DAVE_API_PORT}
+      - ARIESD_WEBHOOK_URL=http://${DAVE_WEBHOOK_CONTAINER_NAME}:${DAVE_WEBHOOK_PORT}
+      - ARIESD_DEFAULT_LABEL=dave-agent
+      - ARIESD_DB_PATH=${DAVE_DB_PATH}
+      - ARIESD_OUTBOUND_TRANSPORT=${HTTP_SCHEME},${WS_SCHEME}
+      - ARIESD_TRANSPORT_RETURN_ROUTE=${TRANSPORT_RETURN_OPTION_ALL}
+    ports:
+      - ${DAVE_API_PORT}:${DAVE_API_PORT}
+    command: start
+    networks:
+      - bdd_net
+
+  dave.webhook.example.com:
+    container_name: ${DAVE_WEBHOOK_CONTAINER_NAME}
+    image: ${SAMPLE_WEBHOOK_IMAGE}:${SAMPLE_WEBHOOK_IMAGE_TAG}
+    environment:
+      - WEBHOOK_PORT=${DAVE_WEBHOOK_PORT}
+    ports:
+      - ${DAVE_WEBHOOK_PORT}:${DAVE_WEBHOOK_PORT}
+    networks:
+      - bdd_net
+
+  dave.router.agent.example.com:
+    container_name: dave.router.aries.example.com
+    image: ${AGENT_REST_IMAGE}:${AGENT_REST_IMAGE_TAG}
+    environment:
+      - ARIESD_API_HOST=${DAVE_ROUTER_HOST}:${DAVE_ROUTER_API_PORT}
+      - ARIESD_INBOUND_HOST=${HTTP_SCHEME}@${DAVE_ROUTER_HOST}:${DAVE_ROUTER_HTTP_INBOUND_PORT},${WS_SCHEME}@${DAVE_ROUTER_HOST}:${DAVE_ROUTER_WS_INBOUND_PORT}
+      - ARIESD_INBOUND_HOST_EXTERNAL=${HTTP_SCHEME}@http://dave.router.aries.example.com:${DAVE_ROUTER_HTTP_INBOUND_PORT},${WS_SCHEME}@ws://dave.router.aries.example.com:${DAVE_ROUTER_WS_INBOUND_PORT}
+      - ARIESD_WEBHOOK_URL=http://${DAVE_ROUTER_WEBHOOK_CONTAINER_NAME}:${DAVE_ROUTER_WEBHOOK_PORT}
+      - ARIESD_DB_PATH=${DAVE_ROUTER_DB_PATH}
+      - ARIESD_DEFAULT_LABEL=dave-router-agent
+      - ARIESD_OUTBOUND_TRANSPORT=${HTTP_SCHEME},${WS_SCHEME}
+      - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+    ports:
+      - ${DAVE_ROUTER_HTTP_INBOUND_PORT}:${DAVE_ROUTER_HTTP_INBOUND_PORT}
+      - ${DAVE_ROUTER_WS_INBOUND_PORT}:${DAVE_ROUTER_WS_INBOUND_PORT}
+      - ${DAVE_ROUTER_API_PORT}:${DAVE_ROUTER_API_PORT}
+    command: start
+    networks:
+      - bdd_net
+
+  dave.router.webhook.example.com:
+    container_name: ${DAVE_ROUTER_WEBHOOK_CONTAINER_NAME}
+    image: ${SAMPLE_WEBHOOK_IMAGE}:${SAMPLE_WEBHOOK_IMAGE_TAG}
+    environment:
+      - WEBHOOK_PORT=${DAVE_ROUTER_WEBHOOK_PORT}
+    ports:
+      - ${DAVE_ROUTER_WEBHOOK_PORT}:${DAVE_ROUTER_WEBHOOK_PORT}
+    networks:
+      - bdd_net
+
 networks:
   bdd_net:
     driver: bridge
