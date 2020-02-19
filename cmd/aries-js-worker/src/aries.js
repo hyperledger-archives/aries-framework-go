@@ -97,7 +97,7 @@ export const Framework = class {
  * @param opts initialization options.
  * @constructor
  */
-export const Aries = function(opts) {
+const Aries = function(opts) {
     if (!opts) {
         throw new Error("aries: missing options")
     }
@@ -250,7 +250,7 @@ export const Aries = function(opts) {
         notifications,
         {
             dir: opts.assetsPath,
-            wasm: opts.assetsPath + "/aries-js-worker.wasm.gz",
+            wasm: opts.assetsPath + "/aries-js-worker.wasm",
             wasmJS: opts.assetsPath + "/wasm_exec.js"
         }
     )
