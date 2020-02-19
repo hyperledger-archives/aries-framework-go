@@ -8,6 +8,7 @@ package route
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -28,7 +29,7 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 2, len(handlers))
+		require.Equal(t, 3, len(handlers))
 	})
 
 	t.Run("test new command - client creation fail", func(t *testing.T) {
@@ -139,5 +140,47 @@ func TestUnregisterRoute(t *testing.T) {
 		err = cmd.Unregister(&b, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "router unregister")
+	})
+}
+
+func TestGetConnectionID(t *testing.T) {
+	t.Run("test get connection - success", func(t *testing.T) {
+		routerConnectionID := "conn-abc"
+
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceValue: &mockroute.MockRouteSvc{
+					ConnectionID: routerConnectionID,
+				},
+			},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.GetConnection(&b, nil)
+		require.NoError(t, err)
+
+		response := RegisterRoute{}
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.Equal(t, routerConnectionID, response.ConnectionID)
+	})
+
+	t.Run("test get connection - error", func(t *testing.T) {
+		cmd, err := New(
+			&mockprovider.Provider{
+				ServiceValue: &mockroute.MockRouteSvc{
+					GetConnectionIDErr: errors.New("get connectionID error"),
+				},
+			},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err = cmd.GetConnection(&b, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get router connectionID")
 	})
 }

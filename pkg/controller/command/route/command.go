@@ -34,6 +34,9 @@ const (
 
 	// UnregisterRouterErrorCode for unregister router error
 	UnregisterRouterErrorCode
+
+	// GetConnection for get connection id error
+	GetConnectionIDErrorCode
 )
 
 const (
@@ -41,8 +44,9 @@ const (
 	commandName = "router"
 
 	// command methods
-	registerCommandMethod   = "Register"
-	unregisterCommandMethod = "Unregister"
+	registerCommandMethod        = "Register"
+	unregisterCommandMethod      = "Unregister"
+	getConnectionIDCommandMethod = "GetConnection"
 
 	// log constants
 	connectionID  = "connectionID"
@@ -76,12 +80,13 @@ func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, registerCommandMethod, o.Register),
 		cmdutil.NewCommandHandler(commandName, unregisterCommandMethod, o.Unregister),
+		cmdutil.NewCommandHandler(commandName, getConnectionIDCommandMethod, o.GetConnection),
 	}
 }
 
 // Register registers the agent with the router.
 func (o *Command) Register(rw io.Writer, req io.Reader) command.Error {
-	var request RegisterRouteReq
+	var request RegisterRoute
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
@@ -121,6 +126,23 @@ func (o *Command) Unregister(rw io.Writer, req io.Reader) command.Error {
 	command.WriteNillableResponse(rw, nil, logger)
 
 	logutil.LogDebug(logger, commandName, registerCommandMethod, successString)
+
+	return nil
+}
+
+// GetConnection returns the connectionID of the router.
+func (o *Command) GetConnection(rw io.Writer, req io.Reader) command.Error {
+	connectionID, err := o.routeClient.GetConnection()
+	if err != nil {
+		logutil.LogError(logger, commandName, getConnectionIDCommandMethod, err.Error())
+		return command.NewExecuteError(GetConnectionIDErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &RegisterRoute{
+		ConnectionID: connectionID,
+	}, logger)
+
+	logutil.LogDebug(logger, commandName, getConnectionIDCommandMethod, successString)
 
 	return nil
 }

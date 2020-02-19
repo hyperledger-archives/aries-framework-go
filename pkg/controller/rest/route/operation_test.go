@@ -57,7 +57,7 @@ func TestGetAPIHandlers(t *testing.T) {
 	require.NotNil(t, svc)
 
 	handlers := svc.GetRESTHandlers()
-	require.Equal(t, len(handlers), 2)
+	require.Equal(t, len(handlers), 3)
 }
 
 func TestRegisterRoute(t *testing.T) {
@@ -109,6 +109,45 @@ func TestRegisterRoute(t *testing.T) {
 }
 
 func TestUnregisterRoute(t *testing.T) {
+	t.Run("test unregister route - success", func(t *testing.T) {
+		svc, err := New(
+			&mockprovider.Provider{
+				ServiceValue: &mockroute.MockRouteSvc{},
+			},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		handler := lookupHandler(t, svc, unregisterPath)
+		_, err = getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("")), handler.Path())
+		require.NoError(t, err)
+	})
+
+	t.Run("test unregister route - missing connectionID", func(t *testing.T) {
+		svc, err := New(
+			&mockprovider.Provider{
+				ServiceValue: &mockroute.MockRouteSvc{
+					UnregisterErr: errors.New("unregister error"),
+				},
+			},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+
+		var jsonStr = []byte(`{
+		}`)
+
+		handler := lookupHandler(t, svc, unregisterPath)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusInternalServerError, code)
+		verifyError(t, route.UnregisterRouterErrorCode, "router unregister", buf.Bytes())
+	})
+}
+
+func TestGetConnection(t *testing.T) {
 	t.Run("test unregister route - success", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{

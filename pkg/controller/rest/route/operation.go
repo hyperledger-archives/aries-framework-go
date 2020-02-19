@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	routeOperationID = "/route"
-	registerPath     = routeOperationID + "/register"
-	unregisterPath   = routeOperationID + "/unregister"
+	routeOperationID  = "/route"
+	registerPath      = routeOperationID + "/register"
+	unregisterPath    = routeOperationID + "/unregister"
+	getConnectionPath = routeOperationID + "/connection"
 )
 
 // provider contains dependencies for the route protocol and is typically created by using aries.Context().
@@ -57,6 +58,7 @@ func (o *Operation) registerHandler() {
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(registerPath, http.MethodPost, o.Register),
 		cmdutil.NewHTTPHandler(unregisterPath, http.MethodDelete, o.Unregister),
+		cmdutil.NewHTTPHandler(getConnectionPath, http.MethodGet, o.GetConnection),
 	}
 }
 
@@ -79,4 +81,15 @@ func (o *Operation) Register(rw http.ResponseWriter, req *http.Request) {
 //    default: genericError
 func (o *Operation) Unregister(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.Unregister, rw, req.Body)
+}
+
+// GetConnection swagger:route GET /route/connection route routerConnection
+//
+// Retrieves the router connection id.
+//
+// Responses:
+//    default: genericError
+//    200: getConnectionResponse
+func (o *Operation) GetConnection(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.GetConnection, rw, req.Body)
 }

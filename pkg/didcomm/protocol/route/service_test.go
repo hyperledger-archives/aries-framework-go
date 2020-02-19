@@ -843,6 +843,81 @@ func TestConfig(t *testing.T) {
 	})
 }
 
+func TestGetConnection(t *testing.T) {
+	routerConnectionID := "conn-abc-xyz"
+
+	t.Run("test get connection - success", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(
+			&mockprovider.Provider{
+				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			},
+		)
+		require.NoError(t, err)
+
+		s[routeConnIDDataKey] = []byte(routerConnectionID)
+
+		connID, err := svc.GetConnection()
+		require.NoError(t, err)
+		require.Equal(t, routerConnectionID, connID)
+	})
+
+	t.Run("test get connection - no data found", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(
+			&mockprovider.Provider{
+				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			},
+		)
+		require.NoError(t, err)
+
+		connID, err := svc.GetConnection()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "router not registered")
+		require.Empty(t, connID)
+	})
+
+	t.Run("test get connection - empty data", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(
+			&mockprovider.Provider{
+				StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			},
+		)
+		require.NoError(t, err)
+
+		s[routeConnIDDataKey] = []byte("")
+
+		connID, err := svc.GetConnection()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "router not registered")
+		require.Empty(t, connID)
+	})
+
+	t.Run("test get connection - db error", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(
+			&mockprovider.Provider{
+				StorageProviderValue: &mockstore.MockStoreProvider{
+					Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
+				},
+				TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			},
+		)
+		require.NoError(t, err)
+
+		s[routeConnIDDataKey] = []byte(routerConnectionID)
+
+		connID, err := svc.GetConnection()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "fetch router connection id")
+		require.Empty(t, connID)
+	})
+}
+
 func generateRequestMsgPayload(t *testing.T, id string) service.DIDCommMsg {
 	requestBytes, err := json.Marshal(&Request{
 		Type: RequestMsgType,

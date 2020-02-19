@@ -18,6 +18,7 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -78,10 +79,33 @@ func (d *RESTSteps) UnregisterRoute(agentID string) error {
 	return nil
 }
 
+// VerifyConnection verifies the router connection id has been set to the provided connection id.
+func (d *RESTSteps) VerifyConnection(agentID, varName string) error {
+	destination, ok := d.bddContext.GetControllerURL(agentID)
+	if !ok {
+		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
+	}
+
+	resp := &route.RegisterRoute{}
+
+	err := sendHTTP(http.MethodGet, destination+"/route/connection", nil, resp)
+	if err != nil {
+		return fmt.Errorf("fetch route connection : %w", err)
+	}
+
+	if resp.ConnectionID != d.bddContext.Args[varName] {
+		return fmt.Errorf("router connection id does not match : routerConnID=%s newConnID=%s",
+			resp.ConnectionID, d.bddContext.Args[varName])
+	}
+
+	return nil
+}
+
 // RegisterSteps registers router steps
 func (d *RESTSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sets connection "([^"]*)" as the router$`, d.RegisterRoute)
 	s.Step(`^"([^"]*)" unregisters the router$`, d.UnregisterRoute)
+	s.Step(`^"([^"]*)" verifies that the router connection is set to "([^"]*)"$`, d.VerifyConnection)
 }
 
 func sendHTTP(method, destination string, reqMsg, respMsg interface{}) error {
