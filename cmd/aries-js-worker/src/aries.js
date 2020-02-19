@@ -78,7 +78,19 @@ function newMsg(pkg, fn, payload) {
     }
 }
 
-// TODO implement Aries options
+/**
+ * Aries framework class provides Aries SSI-agent features.
+ * @param opts are framework initialization options.
+ * @class
+ */
+export const Framework = class {
+    constructor(opts) {
+        return (async () => {
+            return await Aries(opts);
+        })();
+    }
+};
+
 
 /**
  * Aries provides Aries SSI-agent functions.
@@ -114,7 +126,7 @@ export const Aries = function(opts) {
              * @private
              */
             _echo: async function (text) {
-                return invoke(aw, pending, "test", pending,"echo", text, "timeout while accepting invitation")
+                return invoke(aw, pending, "test","echo", text, "timeout while accepting invitation")
             }
 
         },
