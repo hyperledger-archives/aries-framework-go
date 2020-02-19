@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"syscall/js"
 	"time"
 
@@ -27,13 +28,15 @@ import (
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/ws"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 )
 
 const (
-	handleResultFn  = "handleResult"
-	ariesCommandPkg = "aries"
-	ariesStartFn    = "Start"
-	ariesStopFn     = "Stop"
+	wasmStartupTopic = "wasm-ready"
+	handleResultFn   = "handleResult"
+	ariesCommandPkg  = "aries"
+	ariesStartFn     = "Start"
+	ariesStopFn      = "Stop"
 )
 
 var logger = log.New("aries-js-worker")
@@ -63,7 +66,7 @@ type result struct {
 // ariesStartOpts contains opts for starting aries
 type ariesStartOpts struct {
 	Label                string   `json:"agent-default-label"`
-	HTTPResolver         string   `json:"http-resolver-url"`
+	HTTPResolvers        []string `json:"http-resolver-url"`
 	AutoAccept           bool     `json:"auto-accept"`
 	OutboundTransport    []string `json:"outbound-transport"`
 	TransportReturnRoute string   `json:"transport-return-route"`
@@ -81,6 +84,8 @@ func main() {
 	go sendTo(output)
 
 	js.Global().Set("handleMsg", js.FuncOf(takeFrom(input)))
+
+	postInitMsg()
 
 	if isTest {
 		ready <- struct{}{}
@@ -361,7 +366,42 @@ func ariesOpts(opts *ariesStartOpts) ([]aries.Option, error) {
 		}
 	}
 
+	if len(opts.HTTPResolvers) > 0 {
+		rsopts, err := getResolverOpts(opts.HTTPResolvers)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare http resolver opts : %w", err)
+		}
+
+		options = append(options, rsopts...)
+	}
+
 	return options, nil
+}
+
+func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
+	var opts []aries.Option
+
+	const numPartsResolverOption = 2
+
+	if len(httpResolvers) > 0 {
+		for _, httpResolver := range httpResolvers {
+			r := strings.Split(httpResolver, "@")
+			if len(r) != numPartsResolverOption {
+				return nil, fmt.Errorf("invalid http resolver options found")
+			}
+
+			httpVDRI, err := httpbinding.New(r[1],
+				httpbinding.WithAccept(func(method string) bool { return method == r[0] }))
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to setup http resolver :  %w", err)
+			}
+
+			opts = append(opts, aries.WithVDRI(httpVDRI))
+		}
+	}
+
+	return opts, nil
 }
 
 func setLogLevel(logLevel string) error {
@@ -402,4 +442,21 @@ func (n *jsNotifier) Notify(topic string, message []byte) error {
 	js.Global().Call(handleResultFn, string(out))
 
 	return nil
+}
+
+func postInitMsg() {
+	if isTest {
+		return
+	}
+
+	out, err := json.Marshal(&result{
+		ID:    uuid.New().String(),
+		Topic: wasmStartupTopic,
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	js.Global().Call(handleResultFn, string(out))
 }

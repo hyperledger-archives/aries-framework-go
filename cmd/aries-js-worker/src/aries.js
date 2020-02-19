@@ -28,16 +28,8 @@ __webpack_public_path__ = __publicPath()
 
 const { loadWorker } = require("worker_loader")
 
-// TODO synchronize access on this map?
-const PENDING = new Map()
-const NOTIFICATIONS = new Map()
-var WORKER
-
-// Singleton
-let INSTANCE = null
-
-// registers messages in PENDING and posts them to the worker
-async function invoke(pkg, fn, arg, msgTimeout) {
+// registers messages in pending and posts them to the worker
+async function invoke(w, pending, pkg, fn, arg, msgTimeout) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(_ => reject(new Error(msgTimeout)), 5000)
         let payload = arg
@@ -45,18 +37,18 @@ async function invoke(pkg, fn, arg, msgTimeout) {
             payload = JSON.parse(arg)
         }
         const msg = newMsg(pkg, fn, payload)
-        PENDING.set(msg.id, result => {
+        pending.set(msg.id, result => {
             clearTimeout(timer)
             if (result.isErr) {
                 reject(new Error(result.errMsg))
             }
             resolve(result.payload)
         })
-        WORKER.postMessage(msg)
+        w.postMessage(msg)
     })
 }
 
-async function waitForNotification(topics) {
+async function waitForNotification(notifications, topics) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(_ => resolve(), notifierWait)
         // subscribe for all by default if topics not provided
@@ -64,7 +56,7 @@ async function waitForNotification(topics) {
             topics = ["all"]
         }
         topics.forEach(function (topic, index) {
-            NOTIFICATIONS.set(topic, result => {
+            notifications.set(topic, result => {
                 if (result.isErr) {
                     reject(new Error(result.errMsg))
                 }
@@ -94,11 +86,6 @@ function newMsg(pkg, fn, payload) {
  * @constructor
  */
 export const Aries = function(opts) {
-    // TODO a constructor that returns a singleton is weird
-    if (INSTANCE) {
-        return INSTANCE
-    }
-
     if (!opts) {
         throw new Error("aries: missing options")
     }
@@ -107,17 +94,11 @@ export const Aries = function(opts) {
         throw new Error("aries: missing assets path")
     }
 
-    WORKER = loadWorker(
-        PENDING,
-        NOTIFICATIONS,
-        {
-            dir: opts.assetsPath,
-            wasm: opts.assetsPath + "/aries-js-worker.wasm.gz",
-            wasmJS: opts.assetsPath + "/wasm_exec.js"
-        }
-    )
+    // TODO synchronized access
+    const notifications = new Map()
+    const pending = new Map()
 
-    INSTANCE = {
+    const instance = {
         /**
          * Test methods.
          * TODO - remove. Used for testing.
@@ -133,17 +114,16 @@ export const Aries = function(opts) {
              * @private
              */
             _echo: async function (text) {
-                return invoke("test", "echo", text, "timeout while accepting invitation")
+                return invoke(aw, pending, "test", pending,"echo", text, "timeout while accepting invitation")
             }
 
         },
 
-        start: async function(opts) {
-            return invoke("aries", "Start", opts, "timeout while starting aries")
-        },
-
-        stop: async function() {
-            return invoke("aries", "Stop", "{}", "timeout while stopping aries")
+        destroy: async function() {
+            var response = await invoke(aw, pending,  "aries", "Stop", "{}", "timeout while stopping aries")
+            aw.terminate()
+            aw = null
+            return response
         },
 
         startNotifier : function(callback, topics) {
@@ -158,12 +138,12 @@ export const Aries = function(opts) {
                     if (quit) {
                         //before stop, remove all topics
                         topics.forEach(function (item, index) {
-                            NOTIFICATIONS.delete(item)
+                            notifications.delete(item)
                         });
                         console.log("stopped notifier for topics:", topics)
                         return
                     }
-                    yield await waitForNotification(topics)
+                    yield await waitForNotification(notifications, topics)
                 }
             }
 
@@ -184,71 +164,89 @@ export const Aries = function(opts) {
         didexchange: {
             pkgname: "didexchange",
             createInvitation: async function (text) {
-                return invoke(this.pkgname, "CreateInvitation", text, "timeout while creating invitation")
+                return invoke(aw, pending,  this.pkgname, "CreateInvitation", text, "timeout while creating invitation")
             },
             receiveInvitation: async function (text) {
-                return invoke(this.pkgname, "ReceiveInvitation", text, "timeout while receiving invitation")
+                return invoke(aw, pending,  this.pkgname, "ReceiveInvitation", text, "timeout while receiving invitation")
             },
             acceptInvitation: async function (text) {
-                return invoke(this.pkgname, "AcceptInvitation", text, "timeout while accepting invitation")
+                return invoke(aw, pending,  this.pkgname, "AcceptInvitation", text, "timeout while accepting invitation")
             },
             acceptExchangeRequest: async function (text) {
-                return invoke(this.pkgname, "AcceptExchangeRequest", text, "timeout while accepting exchange request")
+                return invoke(aw, pending,  this.pkgname, "AcceptExchangeRequest", text, "timeout while accepting exchange request")
             },
             createImplicitInvitation: async function (text) {
-                return invoke(this.pkgname, "CreateImplicitInvitation", text, "timeout while creating implicit invitation")
+                return invoke(aw, pending,  this.pkgname, "CreateImplicitInvitation", text, "timeout while creating implicit invitation")
             },
             removeConnection: async function (text) {
-                return invoke(this.pkgname, "RemoveConnection", text, "timeout while removing invitation")
+                return invoke(aw, pending,  this.pkgname, "RemoveConnection", text, "timeout while removing invitation")
             },
             queryConnectionByID: async function (text) {
-                return invoke(this.pkgname, "QueryConnectionByID", text, "timeout while querying connection by ID")
+                return invoke(aw, pending,  this.pkgname, "QueryConnectionByID", text, "timeout while querying connection by ID")
             },
             queryConnections: async function (text) {
-                return invoke(this.pkgname, "QueryConnections", text, "timeout while querying connections")
+                return invoke(aw, pending,  this.pkgname, "QueryConnections", text, "timeout while querying connections")
             }
         },
 
         messaging: {
             pkgname: "messaging",
             registeredServices: async function (text) {
-                return invoke(this.pkgname, "RegisteredServices", text, "timeout while getting list of registered services")
+                return invoke(aw, pending,  this.pkgname, "RegisteredServices", text, "timeout while getting list of registered services")
             },
             registerMessageService: async function (text) {
-                return invoke(this.pkgname, "RegisterMessageService", text, "timeout while registering service")
+                return invoke(aw, pending,  this.pkgname, "RegisterMessageService", text, "timeout while registering service")
             },
             registerHTTPMessageService: async function (text) {
-                return invoke(this.pkgname, "RegisterHTTPMessageService", text, "timeout while registering HTTP service")
+                return invoke(aw, pending,  this.pkgname, "RegisterHTTPMessageService", text, "timeout while registering HTTP service")
             },
             unregisterMessageService: async function (text) {
-                return invoke(this.pkgname, "UnregisterMessageService", text, "timeout while unregistering service")
+                return invoke(aw, pending,  this.pkgname, "UnregisterMessageService", text, "timeout while unregistering service")
             },
             sendNewMessage: async function (text) {
-                return invoke(this.pkgname, "SendNewMessage", text, "timeout while sending new message")
+                return invoke(aw, pending,  this.pkgname, "SendNewMessage", text, "timeout while sending new message")
             },
             sendReplyMessage: async function (text) {
-                return invoke(this.pkgname, "SendReplyMessage", text, "timeout while sending reply message")
+                return invoke(aw, pending,  this.pkgname, "SendReplyMessage", text, "timeout while sending reply message")
             }
         },
 
         vdri: {
             pkgname: "vdri",
             createPublicDID: async function (text) {
-                return invoke(this.pkgname, "CreatePublicDID", text, "timeout while creating public DID")
+                return invoke(aw, pending,  this.pkgname, "CreatePublicDID", text, "timeout while creating public DID")
             },
         },
 
         router: {
             pkgname: "router",
             register: async function (text) {
-                return invoke(this.pkgname, "Register", text, "timeout while registering router")
+                return invoke(aw, pending,  this.pkgname, "Register", text, "timeout while registering router")
             },
             unregister: async function () {
-                return invoke(this.pkgname, "Unregister", "{}", "timeout while registering router")
+                return invoke(aw, pending,  this.pkgname, "Unregister", "{}", "timeout while registering router")
             }
         }
     }
 
-    return INSTANCE
+    // start aries worker
+    var aw = loadWorker(
+        pending,
+        notifications,
+        {
+            dir: opts.assetsPath,
+            wasm: opts.assetsPath + "/aries-js-worker.wasm.gz",
+            wasmJS: opts.assetsPath + "/wasm_exec.js"
+        }
+    )
 
+    // return promise which waits for worker to load and aries to start.
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(_ => reject(new Error("timout waiting for aries to initialize")), 10000)
+        notifications.set("wasm-ready", async (result) => {
+            clearTimeout(timer)
+            await invoke(aw, pending, "aries", "Start", opts, "timeout while starting aries")
+            resolve(instance)
+        })
+    })
 }
