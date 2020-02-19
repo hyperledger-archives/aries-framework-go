@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -1541,5 +1543,89 @@ func TestCredential_raw(t *testing.T) {
 		vcRaw, err := vc.raw()
 		require.Error(t, err)
 		require.Nil(t, vcRaw)
+	})
+}
+
+func TestNewUnverifiedCredential(t *testing.T) {
+	_, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	t.Run("NewUnverifiedCredential() for JWS", func(t *testing.T) {
+		// Prepare JWS.
+		vc, _, err := NewCredential([]byte(validCredential))
+		require.NoError(t, err)
+
+		credClaims, err := vc.JWTClaims(true)
+		require.NoError(t, err)
+
+		jws, err := credClaims.MarshalJWS(EdDSA, privKey, "any")
+		require.NoError(t, err)
+
+		// Parse VC with JWS proof.
+		vcUnverified, err := NewUnverifiedCredential([]byte(jws))
+		require.NoError(t, err)
+		require.NotNil(t, vcUnverified)
+		require.Equal(t, vc, vcUnverified)
+	})
+
+	t.Run("NewUnverifiedCredential() for Linked Data proof", func(t *testing.T) {
+		// Prepare JWS.
+		vc, _, err := NewCredential([]byte(validCredential))
+		require.NoError(t, err)
+
+		created := time.Now()
+		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
+			SignatureType:           "Ed25519Signature2018",
+			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+			SignatureRepresentation: SignatureJWS,
+			Created:                 &created,
+		})
+		require.NoError(t, err)
+
+		vcBytes, err := json.Marshal(vc)
+		require.NoError(t, err)
+
+		// Parse VC with linked data proof.
+		vcUnverified, err := NewUnverifiedCredential(vcBytes)
+		require.NoError(t, err)
+		require.NotNil(t, vcUnverified)
+		require.Equal(t, vc, vcUnverified)
+	})
+
+	t.Run("NewUnverifiedCredential() error cases", func(t *testing.T) {
+		invalidClaims := map[string]interface{}{
+			"iss": 33, // JWT issuer must be a string
+		}
+
+		headers := map[string]string{
+			"alg": "none",
+			"typ": "JWT",
+		}
+
+		invalidUnsecuredJWT, err := marshalUnsecuredJWT(headers, invalidClaims)
+		require.NoError(t, err)
+
+		vc, err := NewUnverifiedCredential([]byte(invalidUnsecuredJWT))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "decode new credential")
+		require.Nil(t, vc)
+
+		vc, err = NewUnverifiedCredential([]byte("invalid VC JSON"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unmarshal new credential")
+		require.Nil(t, vc)
+
+		var rawVCMap map[string]interface{}
+
+		require.NoError(t, json.Unmarshal([]byte(validCredential), &rawVCMap))
+		rawVCMap["@context"] = 55 // should be string or slice of strings
+
+		rawVCMapBytes, err := json.Marshal(rawVCMap)
+		require.NoError(t, err)
+
+		vc, err = NewUnverifiedCredential(rawVCMapBytes)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "build new credential")
+		require.Nil(t, vc)
 	})
 }
