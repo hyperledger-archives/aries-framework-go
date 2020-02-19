@@ -4,7 +4,6 @@
 
 GO_CMD ?= go
 ARIES_AGENT_REST_PATH=cmd/aries-agent-rest
-ARIES_AGENT_WASM_PATH=cmd/aries-agent-wasm
 ARIES_JS_WORKER_WASM_PATH=cmd/aries-js-worker
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
 OPENAPI_SPEC_PATH=build/rest/openapi/spec
@@ -22,7 +21,6 @@ ALPINE_VER ?= 3.10
 GO_TAGS    ?=
 GO_VER ?= 1.13.1
 PROJECT_ROOT = github.com/hyperledger/aries-framework-go
-WASM_EXEC = $(shell go env GOROOT)/misc/wasm/wasm_exec.js
 GOBIN_PATH=$(abspath .)/build/bin
 MOCKGEN = $(GOBIN_PATH)/gobin -run github.com/golang/mock/mockgen@1.3.1
 GOMOCKS=pkg/internal/gomocks
@@ -91,14 +89,6 @@ agent-rest:
 	@echo "Building aries-agent-rest"
 	@mkdir -p ./build/bin
 	@cd ${ARIES_AGENT_REST_PATH} && go build -o ../../build/bin/aries-agent-rest main.go
-
-.PHONY: agent-wasm
-agent-wasm:
-	@echo "Building aries-agent-wasm"
-	@mkdir -p ./build/bin/wasm
-	@cp $(WASM_EXEC)  ./build/bin/wasm
-	@cp ${ARIES_AGENT_WASM_PATH}/index.html  ./build/bin/wasm
-	@cd ${ARIES_AGENT_WASM_PATH} && GOOS=js GOARCH=wasm go build -o ../../build/bin/wasm/aries-agent.wasm main.go
 
 .PHONY: agent-rest-docker
 agent-rest-docker:
