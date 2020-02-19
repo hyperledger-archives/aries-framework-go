@@ -13,25 +13,49 @@ This is a test page for developers to test WASM integration.
     <meta charset="utf-8"/>
     <script src="dist/web/aries.js"></script>
     <script>
-        // TODO fix the stutter in the API's exports ("Aries.Aries....")
-        const aries = Aries.Aries({assetsPath: "/dist/assets"})
+        var aries
         var stopNotifier
 
-        async function handleStart() {
+        async function startAries() {
+            if (aries) {
+                console.error("aries is already initialized")
+                document.querySelector("#output").value = "aries is already initialized"
+                return
+            }
+
             const request = document.querySelector("#opts").value
-            const response = await aries.start(request)
-            document.querySelector("#output").value = JSON.stringify(response)
+
+            // TODO fix the stutter in the API's exports ("Aries.Aries....")
+            aries = await Aries.Aries(JSON.parse(request))
+
+            //TODO wait for event/callback to confirm if aries is started
+            document.querySelector("#output").value = "aries started"
         }
 
-        async function handleStop() {
-            const response = await aries.stop()
+        function destroyAries() {
+            if (!aries) {
+                console.error("aries not initialized")
+                document.querySelector("#output").value = "aries not initialized"
+                return
+            }
+
+            const response = aries.destroy()
+            aries = null
+
             document.querySelector("#output").value = JSON.stringify(response)
         }
 
         async function handleOperationInput() {
+            if (!aries) {
+                console.error("aries not initialized")
+                document.querySelector("#output").value = "aries not initialized"
+                return
+            }
+
             const request = document.querySelector("#input").value
             const operation = document.querySelector("#operation").value
             const method = document.querySelector("#method").value
+
             const response = await aries[operation][method](request)
             document.querySelector("#output").value = JSON.stringify(response)
         }
@@ -45,6 +69,7 @@ This is a test page for developers to test WASM integration.
             }
 
             stopNotifier =  aries.startNotifier(pushToMsgPanel, topics)
+            document.querySelector("#output").value = "notifier started"
         }
 
         function pushToMsgPanel(val) {
@@ -81,14 +106,14 @@ This is a test page for developers to test WASM integration.
                         <tr>
                             <td colspan="2">
                                 <div>Start Options :</div>
-                                <textarea id="opts" rows="5" cols="100">{"agent-default-label":"dem-js-agent","http-resolver-url":"","auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug"}
+                                <textarea id="opts" rows="5" cols="100">{"assetsPath": "/dist/assets", "agent-default-label":"dem-js-agent","http-resolver-url":[],"auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug"}
                     </textarea>
                             </td>
                         </tr>
                         <tr>
                             <td>
-                                <button onClick="handleStart()">StartAgent</button>
-                                <button onClick="handleStop()">StopAgent</button>
+                                <button id="start-button" onClick="startAries()">StartAgent</button>
+                                <button id="stop-button" onClick="destroyAries()">StopAgent</button>
                             </td>
                         </tr>
                         <tr>

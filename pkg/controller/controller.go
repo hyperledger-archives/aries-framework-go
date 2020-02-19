@@ -77,8 +77,13 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		opt(restAPIOpts)
 	}
 
+	notifier := restAPIOpts.notifier
+	if notifier == nil {
+		notifier = webhook.NewHTTPNotifier(restAPIOpts.webhookURLs)
+	}
+
 	// DID Exchange REST operation
-	exchangeOp, err := didexchangerest.New(ctx, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs), restAPIOpts.defaultLabel,
+	exchangeOp, err := didexchangerest.New(ctx, notifier, restAPIOpts.defaultLabel,
 		restAPIOpts.autoAccept)
 	if err != nil {
 		return nil, err
@@ -88,7 +93,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	vdriOp := vdrirest.New(ctx)
 
 	// messaging REST operation
-	messagingOp, err := messagingrest.New(ctx, restAPIOpts.msgHandler, webhook.NewHTTPNotifier(restAPIOpts.webhookURLs))
+	messagingOp, err := messagingrest.New(ctx, restAPIOpts.msgHandler, notifier)
 	if err != nil {
 		return nil, err
 	}
