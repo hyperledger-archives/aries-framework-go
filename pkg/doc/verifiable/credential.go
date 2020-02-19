@@ -697,6 +697,34 @@ func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, e
 	return vc, vcDataDecoded, nil
 }
 
+// NewUnverifiedCredential decodes Verifiable Credential from bytes which could be marshalled JSON or serialized JWT.
+// It does not make a proof check though. Can be used for purposes of decoding of VC stored in a wallet.
+// Please use this function with caution.
+func NewUnverifiedCredential(vcBytes []byte) (*Credential, error) {
+	vcDataDecoded, err := decodeRaw(vcBytes, &credentialOpts{
+		disabledProofCheck: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("decode new credential: %w", err)
+	}
+
+	// Unmarshal raw credential from JSON.
+	var raw rawCredential
+
+	err = json.Unmarshal(vcDataDecoded, &raw)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal new credential: %w", err)
+	}
+
+	// Create credential from raw.
+	vc, err := newCredential(&raw)
+	if err != nil {
+		return nil, fmt.Errorf("build new credential: %w", err)
+	}
+
+	return vc, nil
+}
+
 func validateCredential(vc *Credential, vcBytes []byte, vcOpts *credentialOpts) error {
 	// Credential and type constraint.
 	switch vcOpts.modelValidationMode {
@@ -891,7 +919,7 @@ func decodeTypedID(bytes json.RawMessage) ([]TypedID, error) {
 
 func decodeRaw(vcData []byte, vcOpts *credentialOpts) ([]byte, error) {
 	if isJWS(vcData) { // External proof, is checked by JWS.
-		if vcOpts.publicKeyFetcher == nil {
+		if vcOpts.publicKeyFetcher == nil && !vcOpts.disabledProofCheck {
 			return nil, errors.New("public key fetcher is not defined")
 		}
 
