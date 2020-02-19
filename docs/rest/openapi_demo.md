@@ -21,6 +21,29 @@ Once both agents are up, click on the agent specific urls to launch the OpenAPI 
 7. On Alice agent, accept the Bob's request with `HTTP POST /connections/{id}/accept-request` API. 
 8. Calling `HTTP GET /connections/{id}` on both agents should show the connections with state `completed`. Alice and Bob are now connected.
 
+## Steps for DIDExchange through DIDComm Routers 
+[Carl OpenAPI Interface](http://localhost:10089/openapi/)
+
+[Carl's Router OpenAPI Interface](http://localhost:10099/openapi/)
+
+[Dave OpenAPI Interface](http://localhost:10069/openapi/)
+
+[Dave's Router OpenAPI Interface](http://localhost:10079/openapi/)
+
+1. Create connection between Carl and his router through [DIDExchange](#Steps-for-DIDExchange) (substitute Carl with Bob and Carl's router with Alice while going through the steps). 
+2. Create connection between Dave and his router through [DIDExchange](#Steps-for-DIDExchange) (substitute Dave with Bob and Dave's router with Alice while going through the steps). 
+3. On Carl's agent, register the router with `HTTP POST /route/register` API by passing the his router's connection ID.
+4. On Carl's agent, using `HTTP GET /route/connection` verify that the connectionID matches with previously set connection ID. 
+5. On Carl's agent, generate an invitation using `HTTP POST /connections/create-invitation` API. Observe that the service endpoint in the invitation is `http://carl.router.aries.example.com:10091`, which is the endpoint of Carl's router.
+6. On Dave's agent, register the router with `HTTP POST /route/register` API by passing the his router's connection ID.
+7. On Dave's agent, using `HTTP GET /route/connection` verify that the connectionID matches with previously set connection ID. 
+8. On Dave's agent, generate an invitation using `HTTP POST /connections/create-invitation` API. Observe that the service endpoint in the invitation is `http://dave.router.aries.example.com:10091`, which is the endpoint of Dave's router.
+9. Create connection between Carl and Dave through [DIDExchange](#Steps-for-DIDExchange) (substitute Carl with Bob and Dave with Alice while going through the steps).
+  
+Notes:
+1. The invitation needs to be created by the router when the edge agent has no inbound support like mobile agents.
+2. To unregister the router, use `HTTP DELETE /route/unregister` API.
+
 ## Steps for custom message handling
 Prerequisite - There should be a [connection](#Steps-for-DIDExchange) between Alice and Bob.
 1. On Alice agent, go to `HTTP POST /message/register-service` and register a "generic-invite" message service for type "https://didcomm.org/generic/1.0/message"
