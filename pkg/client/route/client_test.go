@@ -88,3 +88,34 @@ func TestUnregister(t *testing.T) {
 		require.Contains(t, err.Error(), "router unregister")
 	})
 }
+
+func TestGetConnection(t *testing.T) {
+	t.Run("test get connection - success", func(t *testing.T) {
+		routerConnectionID := "conn-abc"
+
+		c, err := New(&mockprovider.Provider{
+			ServiceValue: &mockroute.MockRouteSvc{
+				ConnectionID: routerConnectionID,
+			},
+		})
+		require.NoError(t, err)
+
+		connID, err := c.GetConnection()
+		require.NoError(t, err)
+		require.Equal(t, routerConnectionID, connID)
+	})
+
+	t.Run("test get connection - error", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{
+			ServiceValue: &mockroute.MockRouteSvc{
+				GetConnectionIDErr: errors.New("get connection id error"),
+			},
+		})
+		require.NoError(t, err)
+
+		connID, err := c.GetConnection()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get router connectionID")
+		require.Empty(t, connID)
+	})
+}

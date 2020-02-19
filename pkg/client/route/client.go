@@ -34,6 +34,9 @@ type protocolService interface {
 
 	// Unregister unregisters the agent with the router
 	Unregister() error
+
+	// GetConnection returns the connectionID of the router.
+	GetConnection() (string, error)
 }
 
 // New return new instance of route client.
@@ -70,4 +73,15 @@ func (c *Client) Unregister() error {
 	}
 
 	return nil
+}
+
+// GetConnection returns the connectionID of the router.
+func (c *Client) GetConnection() (string, error) {
+	connectionID, err := c.routeSvc.GetConnection()
+
+	if err != nil {
+		return "", fmt.Errorf("get router connectionID : %w", err)
+	}
+
+	return connectionID, nil
 }

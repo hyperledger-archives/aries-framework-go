@@ -420,6 +420,18 @@ func (s *Service) Unregister() error {
 	return s.saveRouterConnectionID("")
 }
 
+// GetConnection returns the connectionID of the router.
+func (s *Service) GetConnection() (string, error) {
+	routerConnID, err := s.getRouterConnectionID()
+	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
+		return "", fmt.Errorf("fetch router connection id : %w", err)
+	} else if errors.Is(err, storage.ErrDataNotFound) || routerConnID == "" {
+		return "", ErrRouterNotRegistered
+	}
+
+	return routerConnID, nil
+}
+
 // AddKey adds a recKey of the agent to the registered router. This method blocks until a response is
 // received from the router or it times out.
 // TODO https://github.com/hyperledger/aries-framework-go/issues/1076 Support for multiple routers

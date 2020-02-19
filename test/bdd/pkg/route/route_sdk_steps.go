@@ -44,7 +44,22 @@ func (d *SDKSteps) CreateRouteClient(agentID string) error {
 func (d *SDKSteps) RegisterRoute(agentID, varName string) error {
 	err := d.bddContext.RouteClients[agentID].Register(d.bddContext.Args[varName])
 	if err != nil {
-		return fmt.Errorf("failed to handle invitation: %w", err)
+		return fmt.Errorf("register route : %w", err)
+	}
+
+	return nil
+}
+
+// VerifyConnection verifies the router connection id has been set to the provided connection id.
+func (d *SDKSteps) VerifyConnection(agentID, varName string) error {
+	connectionID, err := d.bddContext.RouteClients[agentID].GetConnection()
+	if err != nil {
+		return fmt.Errorf("fetch router connection id : %w", err)
+	}
+
+	if connectionID != d.bddContext.Args[varName] {
+		return fmt.Errorf("router connection id does not match : routerConnID=%s newConnID=%s",
+			connectionID, d.bddContext.Args[varName])
 	}
 
 	return nil
@@ -54,4 +69,5 @@ func (d *SDKSteps) RegisterRoute(agentID, varName string) error {
 func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates a route exchange client$`, d.CreateRouteClient)
 	s.Step(`^"([^"]*)" sets "([^"]*)" as the router$`, d.RegisterRoute)
+	s.Step(`^"([^"]*)" verifies that the router connection id is set to "([^"]*)"$`, d.VerifyConnection)
 }

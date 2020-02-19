@@ -225,6 +225,9 @@ export const Aries = function(opts) {
             },
             unregister: async function () {
                 return invoke(aw, pending,  this.pkgname, "Unregister", "{}", "timeout while registering router")
+            },
+            getConnection: async function () {
+                return invoke(aw, pending,  this.pkgname, "GetConnection", "{}", "timeout while fetching router connection id")
             }
         }
     }

@@ -19,11 +19,21 @@ type registerRouteReq struct { // nolint: unused,deadcode
 	// Params for registering the route
 	//
 	// in: body
-	Params route.RegisterRouteReq
+	Params route.RegisterRoute
 }
 
 // registerRouteRes model
 //
 // swagger:response registerRouteRes
 type registerRouteRes struct { // nolint: unused,deadcode
+}
+
+// ConnectionRes model
+//
+// response of get connection action
+//
+// swagger:response getConnectionResponse
+type ConnectionRes struct { // nolint: unused,deadcode
+	// in: body
+	Params route.RegisterRoute
 }

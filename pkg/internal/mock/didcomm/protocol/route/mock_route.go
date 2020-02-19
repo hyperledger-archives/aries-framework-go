@@ -25,6 +25,8 @@ type MockRouteSvc struct {
 	ConfigErr          error
 	AddKeyErr          error
 	UnregisterErr      error
+	ConnectionID       string
+	GetConnectionIDErr error
 }
 
 // HandleInbound msg
@@ -94,4 +96,13 @@ func (m *MockRouteSvc) Config() (*route.Config, error) {
 	}
 
 	return route.NewConfig(m.RouterEndpoint, m.RoutingKeys), nil
+}
+
+// GetConnection returns the connectionID of the router.
+func (m *MockRouteSvc) GetConnection() (string, error) {
+	if m.GetConnectionIDErr != nil {
+		return "", m.GetConnectionIDErr
+	}
+
+	return m.ConnectionID, nil
 }

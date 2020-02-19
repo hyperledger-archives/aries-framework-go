@@ -25,7 +25,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
 
     Then   "Carl-Router" retrieves connection record through controller and validates that connection state is "completed"
     And   "Carl" retrieves connection record through controller and validates that connection state is "completed"
-    And   "Carl" saves the connectionID to variable "xyz"
+    And   "Carl" saves the connectionID to variable "carl-router-connID"
 
      # DID Exchange between Dave and his Router
     Given "Dave" agent is running with controller "http://localhost:10061" and webhook "http://localhost:10062" and "all" as the transport return route option
@@ -42,15 +42,17 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
 
     Then   "Dave-Router" retrieves connection record through controller and validates that connection state is "completed"
     And   "Dave" retrieves connection record through controller and validates that connection state is "completed"
-    And   "Dave" saves the connectionID to variable "abc"
+    And   "Dave" saves the connectionID to variable "dave-router-connID"
 
        # Carl registers her Router
     And   "Carl" unregisters the router
-    And   "Carl" sets connection "xyz" as the router
+    And   "Carl" sets connection "carl-router-connID" as the router
+    And   "Carl" verifies that the router connection is set to "carl-router-connID"
 
        # Dave registers his Router
     And   "Dave" unregisters the router
-    And   "Dave" sets connection "abc" as the router
+    And   "Dave" sets connection "dave-router-connID" as the router
+    And   "Dave" verifies that the router connection is set to "dave-router-connID"
 
      # DIDExchange between Alice and Bob through routers
     When   "Carl" creates invitation through controller with label "carl-agent"

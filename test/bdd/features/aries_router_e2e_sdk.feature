@@ -29,7 +29,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
 
     Then   "Alice-Router" retrieves connection record and validates that connection state is "completed"
       And   "Alice" retrieves connection record and validates that connection state is "completed"
-      And   "Alice" saves connectionID to variable "xyz"
+      And   "Alice" saves connectionID to variable "alice-router-connID"
 
      # DID Exchange between Bob and his Router
     Given "Bob" edge agent is running with "websocket" as the outbound transport provider and "all" as the transport return route option
@@ -50,15 +50,17 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
 
     Then   "Bob-Router" retrieves connection record and validates that connection state is "completed"
       And   "Bob" retrieves connection record and validates that connection state is "completed"
-      And   "Bob" saves connectionID to variable "abc"
+      And   "Bob" saves connectionID to variable "bob-router-connID"
 
        # Alice registers her Router
       And   "Alice" creates a route exchange client
-      And   "Alice" sets "xyz" as the router
+      And   "Alice" sets "alice-router-connID" as the router
+      And   "Alice" verifies that the router connection id is set to "alice-router-connID"
 
        # Bob registers his Router
       And   "Bob" creates a route exchange client
-      And   "Bob" sets "abc" as the router
+      And   "Bob" sets "bob-router-connID" as the router
+      And   "Bob" verifies that the router connection id is set to "bob-router-connID"
 
      # DIDExchange between Alice and Bob through routers
     When   "Alice" creates invitation
@@ -92,7 +94,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
 
     Then   "Alice-Router" retrieves connection record and validates that connection state is "completed"
       And   "Alice" retrieves connection record and validates that connection state is "completed"
-      And   "Alice" saves connectionID to variable "xyz"
+      And   "Alice" saves connectionID to variable "alice-router-connID"
 
      # DID Exchange between Bob and his Router
     Given "Bob" agent is running on "localhost" port "random" with "http" as the transport provider
@@ -113,15 +115,17 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
 
     Then   "Bob-Router" retrieves connection record and validates that connection state is "completed"
       And   "Bob" retrieves connection record and validates that connection state is "completed"
-      And   "Bob" saves connectionID to variable "abc"
+      And   "Bob" saves connectionID to variable "bob-router-connID"
 
        # Alice registers her Router
       And   "Alice" creates a route exchange client
-      And   "Alice" sets "xyz" as the router
+      And   "Alice" sets "alice-router-connID" as the router
+      And   "Alice" verifies that the router connection id is set to "alice-router-connID"
 
        # Bob registers his Router
       And   "Bob" creates a route exchange client
-      And   "Bob" sets "abc" as the router
+      And   "Bob" sets "bob-router-connID" as the router
+      And   "Bob" verifies that the router connection id is set to "bob-router-connID"
 
      # DIDExchange between Alice and Bob through routers
     When   "Alice" creates invitation
@@ -156,7 +160,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
 
     Then   "Alice-Router" retrieves connection record and validates that connection state is "completed"
       And   "Alice" retrieves connection record and validates that connection state is "completed"
-      And   "Alice" saves connectionID to variable "xyz"
+      And   "Alice" saves connectionID to variable "alice-router-connID"
 
      # DID Exchange between Bob and his Router
     Given "Bob" edge agent is running with "http,websocket" as the outbound transport provider and "all" as the transport return route option
@@ -177,15 +181,17 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
 
     Then   "Bob-Router" retrieves connection record and validates that connection state is "completed"
       And   "Bob" retrieves connection record and validates that connection state is "completed"
-      And   "Bob" saves connectionID to variable "abc"
+      And   "Bob" saves connectionID to variable "bob-router-connID"
 
        # Alice registers her Router
       And   "Alice" creates a route exchange client
-      And   "Alice" sets "xyz" as the router
+      And   "Alice" sets "alice-router-connID" as the router
+      And   "Alice" verifies that the router connection id is set to "alice-router-connID"
 
        # Bob registers his Router
       And   "Bob" creates a route exchange client
-      And   "Bob" sets "abc" as the router
+      And   "Bob" sets "bob-router-connID" as the router
+      And   "Bob" verifies that the router connection id is set to "bob-router-connID"
 
      # DIDExchange between Alice and Bob through routers
     When   "Alice" creates invitation
