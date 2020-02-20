@@ -8,6 +8,8 @@
 - Docker
 - Docker-Compose
 - Make
+- Configure Docker to use GitHub Packages - [Authenticate](https://help.github.com/en/packages/using-github-packages-with-your-projects-ecosystem/configuring-docker-for-use-with-github-packages#authenticating-to-github-packages) 
+using [GitHub token](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line#creating-a-token) 
 
 ## Targets
 ```
