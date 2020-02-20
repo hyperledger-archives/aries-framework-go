@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 const CopyPlugin = require("copy-webpack-plugin")
 
 module.exports = {
+    chainWebpack: config => config.resolve.symlinks(false),
     configureWebpack: {
         plugins: [
             new CopyPlugin([{

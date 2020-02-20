@@ -16,6 +16,7 @@ require(workerData.wasmJS)
 const go = new Go();
 go.env = Object.assign({ TMPDIR: require("os").tmpdir() }, process.env);
 go.exit = process.exit;
+// TODO we shouldn't always assume the wasm will be gzipped
 WebAssembly.instantiate(zlib.gunzipSync(fs.readFileSync(workerData.wasmPath)), go.importObject).then((result) => {
     return go.run(result.instance);
 }).catch((err) => {

@@ -9,13 +9,11 @@ SPDX-License-Identifier: Apache-2.0
     <h1>{{ msg }}</h1>
 
     <div>
-      <label for="test-input">Input: </label>
-      <input type="text" id="test-input"/>
-      <button @click="handleInput()">echo</button>
+      <button @click="createInvitation()">Create Invitation</button>
     </div>
     <div>
-      <label for="test-output">Output: </label>
-      <output id="test-output"></output>
+      <label for="test-output">Invitation: </label>
+      <textarea id="test-output" rows="15" cols="70"></textarea>
     </div>
 
   </div>
@@ -28,10 +26,9 @@ SPDX-License-Identifier: Apache-2.0
       msg: String
     },
     methods: {
-      async handleInput () {
-        const invite = document.querySelector("#test-input").value
-        const connID = await this.$aries._test._echo(invite)
-        document.querySelector("#test-output").value = connID
+      async createInvitation () {
+        const invitation = await this.$aries.didexchange.createInvitation("{}")
+        document.querySelector("#test-output").value = JSON.stringify(invitation, undefined, 4)
       }
     }
   }
