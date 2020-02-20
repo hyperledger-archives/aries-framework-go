@@ -138,6 +138,8 @@ func (m *Messenger) Send(msg service.DIDCommMsgMap, myDID, theirDID string) erro
 		return fmt.Errorf("save metadata: %w", err)
 	}
 
+	delete(msg, jsonThread)
+
 	return m.dispatcher.SendToDID(msg, myDID, theirDID)
 }
 

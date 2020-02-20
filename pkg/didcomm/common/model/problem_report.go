@@ -11,7 +11,10 @@ package model
 type ProblemReport struct {
 	Type        string `json:"@type"`
 	ID          string `json:"@id"`
-	Description struct {
-		Code string `json:"code"`
-	} `json:"description"`
+	Description Code   `json:"description"`
+}
+
+// Code represents a problem report code
+type Code struct {
+	Code string `json:"code"`
 }
