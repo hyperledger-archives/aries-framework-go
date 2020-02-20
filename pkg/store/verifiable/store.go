@@ -61,7 +61,7 @@ func (s *Store) GetVC(vcID string) (*verifiable.Credential, error) {
 		return nil, fmt.Errorf("failed to get vc: %w", err)
 	}
 
-	vc, _, err := verifiable.NewCredential(vcBytes)
+	vc, err := verifiable.NewUnverifiedCredential(vcBytes)
 	if err != nil {
 		return nil, fmt.Errorf("new credential failed: %w", err)
 	}
