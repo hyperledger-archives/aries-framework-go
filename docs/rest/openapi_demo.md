@@ -1,7 +1,7 @@
 # Run OpenAPI demo
 
 ## Setup
-Launch the demo by running the following make target from project root directory.
+Please go through the [prerequisites](../test/build.md#Prerequisites-(for-running-tests-and-demos)) and launch the demo by running the following make target from project root directory.
 
 `make run-openapi-demo`
 
@@ -32,10 +32,10 @@ Once both agents are up, click on the agent specific urls to launch the OpenAPI 
 
 1. Create connection between Carl and his router through [DIDExchange](#Steps-for-DIDExchange) (substitute Carl with Bob and Carl's router with Alice while going through the steps). 
 2. Create connection between Dave and his router through [DIDExchange](#Steps-for-DIDExchange) (substitute Dave with Bob and Dave's router with Alice while going through the steps). 
-3. On Carl's agent, register the router with `HTTP POST /route/register` API by passing the his router's connection ID.
+3. On Carl's agent, register the router with `HTTP POST /route/register` API by passing his router's connection ID.
 4. On Carl's agent, using `HTTP GET /route/connection` verify that the connectionID matches with previously set connection ID. 
 5. On Carl's agent, generate an invitation using `HTTP POST /connections/create-invitation` API. Observe that the service endpoint in the invitation is `http://carl.router.aries.example.com:10091`, which is the endpoint of Carl's router.
-6. On Dave's agent, register the router with `HTTP POST /route/register` API by passing the his router's connection ID.
+6. On Dave's agent, register the router with `HTTP POST /route/register` API by passing his router's connection ID.
 7. On Dave's agent, using `HTTP GET /route/connection` verify that the connectionID matches with previously set connection ID. 
 8. On Dave's agent, generate an invitation using `HTTP POST /connections/create-invitation` API. Observe that the service endpoint in the invitation is `http://dave.router.aries.example.com:10091`, which is the endpoint of Dave's router.
 9. Create connection between Carl and Dave through [DIDExchange](#Steps-for-DIDExchange) (substitute Carl with Bob and Dave with Alice while going through the steps).
