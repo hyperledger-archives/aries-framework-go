@@ -46,6 +46,9 @@ const (
 
 	// ROUTE error group for Route command errors
 	ROUTE Group = 5000
+
+	// VC error group for Verifiable Credential command errors
+	VC Group = 6000
 )
 
 // Error is the  interface for representing an command error condition, with the nil value representing no error.

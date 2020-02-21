@@ -246,6 +246,13 @@ const Aries = function(opts) {
             getConnection: async function () {
                 return invoke(aw, pending,  this.pkgname, "GetConnection", "{}", "timeout while fetching router connection id")
             }
+        },
+
+        verifiable: {
+            pkgname: "verifiable",
+            validateCredential: async function (text) {
+                return invoke(aw, pending,  this.pkgname, "ValidateCredential", text, "timeout while validating verifiable credential")
+            },
         }
     }
 
