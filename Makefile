@@ -4,7 +4,6 @@
 
 GO_CMD ?= go
 ARIES_AGENT_REST_PATH=cmd/aries-agent-rest
-ARIES_JS_WORKER_WASM_PATH=cmd/aries-js-worker
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
 OPENAPI_SPEC_PATH=build/rest/openapi/spec
 OPENAPI_DOCKER_IMG_VERSION=v0.21.0
@@ -49,8 +48,15 @@ unit-test-wasm: depend
 	@scripts/check_unit_wasm.sh
 
 .PHONY: bdd-test
-bdd-test: clean generate-test-keys agent-rest-docker sample-webhook-docker
-	@scripts/check_integration.sh
+bdd-test: clean generate-test-keys agent-rest-docker sample-webhook-docker bdd-test-js bdd-test-go
+
+.PHONY: bdd-test-go
+bdd-test-go:
+	@scripts/check_go_integration.sh
+
+.PHONY: bdd-test-js
+bdd-test-js:
+	@scripts/check_js_integration.sh
 
 .PHONY: vc-test-suite
 vc-test-suite: clean
