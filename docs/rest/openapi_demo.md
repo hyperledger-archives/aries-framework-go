@@ -52,7 +52,7 @@ Prerequisite - There should be a [connection](#Steps-for-DIDExchange) between Al
    {
      "name": "generic-invite",
      "purpose": [
-       "meeting,appointment,event"
+       "meeting","appointment","event"
      ],
      "type": "https://didcomm.org/generic/1.0/message"
    }
