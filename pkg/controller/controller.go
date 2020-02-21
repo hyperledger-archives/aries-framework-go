@@ -14,11 +14,13 @@ import (
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
 	vdricmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	didexchangerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/route"
 	vdrirest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
+	verifiablerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 )
@@ -104,12 +106,16 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		return nil, err
 	}
 
+	// verifiable command operation
+	verifiablecmd := verifiablerest.New()
+
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
 	allHandlers = append(allHandlers, exchangeOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, vdriOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, messagingOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, routeOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, verifiablecmd.GetRESTHandlers()...)
 
 	return allHandlers, nil
 }
@@ -149,11 +155,15 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 		return nil, err
 	}
 
+	// verifiable command operation
+	verifiablecmd := verifiable.New()
+
 	var allHandlers []command.Handler
 	allHandlers = append(allHandlers, didexcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, vcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, msgcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, routecmd.GetHandlers()...)
+	allHandlers = append(allHandlers, verifiablecmd.GetHandlers()...)
 
 	return allHandlers, nil
 }
