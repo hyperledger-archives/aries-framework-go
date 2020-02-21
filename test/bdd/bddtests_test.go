@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/introduce"
+
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -153,6 +155,9 @@ func FeatureContext(s *godog.Suite) {
 	// Register did exchange tests
 	didexchange.NewDIDExchangeSDKSteps(bddContext).RegisterSteps(s)
 	didexchange.NewDIDExchangeControllerSteps(bddContext).RegisterSteps(s)
+
+	// Register introduce tests
+	introduce.NewIntroduceSDKSteps(bddContext).RegisterSteps(s)
 
 	// Register did resolver tests
 	didresolver.NewDIDResolverSteps(bddContext).RegisterSteps(s)

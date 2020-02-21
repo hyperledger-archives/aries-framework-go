@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"sync"
 	"testing"
 	"time"
 
@@ -28,6 +27,7 @@ import (
 	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/introduce"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
 const (
@@ -46,48 +46,10 @@ type payload struct {
 	theirDID string
 }
 
-// fakeStore almost like real one
-func fakeStore(ctrl *gomock.Controller) storage.Store {
-	mu := sync.Mutex{}
-	data := make(map[string][]byte)
-
-	store := storageMocks.NewMockStore(ctrl)
-	store.EXPECT().Put(gomock.Any(), gomock.Any()).DoAndReturn(func(k string, v []byte) error {
-		mu.Lock()
-		defer mu.Unlock()
-
-		data[k] = v
-
-		return nil
-	}).AnyTimes()
-
-	store.EXPECT().Get(gomock.Any()).DoAndReturn(func(k string) ([]byte, error) {
-		mu.Lock()
-		defer mu.Unlock()
-
-		v, ok := data[k]
-		if !ok {
-			return nil, storage.ErrDataNotFound
-		}
-
-		return v, nil
-	}).AnyTimes()
-
-	return store
-}
-
 func agentSetup(agent string, t *testing.T, ctrl *gomock.Controller, tr map[string]chan payload) *introduce.Service {
 	t.Helper()
 
-	// NOTE: two fakeStore stores should be provided to prevent collision
-	storageProvider := storageMocks.NewMockProvider(ctrl)
-	storageProvider.EXPECT().
-		OpenStore(gomock.Any()).
-		Return(fakeStore(ctrl), nil)
-	storageProvider.EXPECT().
-		OpenStore(gomock.Any()).
-		Return(fakeStore(ctrl), nil)
-
+	storageProvider := mem.NewProvider()
 	didSvc := serviceMocks.NewMockEvent(ctrl)
 	didSvc.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 
@@ -171,7 +133,7 @@ func handle(t *testing.T, agent string, done chan struct{}, svc *introduce.Servi
 			case event := <-events:
 				ce(event)
 			case <-time.After(time.Second):
-				t.Errorf("[%s] timeout waiting for StateMsg", agent)
+				t.Errorf("[%s] timeout waiting for state msg", agent)
 				return
 			}
 		}
@@ -389,11 +351,12 @@ func TestService_ProposalContinue(t *testing.T) {
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
-	), func(commAction service.DIDCommAction) {
-		thID, err := commAction.Message.ThreadID()
+	), func(_ service.DIDCommAction) {
+		actions, err := bob.Actions()
 		require.NoError(t, err)
+		require.Equal(t, 1, len(actions))
 
-		require.NoError(t, bob.Continue(thID, introduce.WithInvitation(&didexchange.Invitation{
+		require.NoError(t, bob.Continue(actions[0].PIID, introduce.WithInvitation(&didexchange.Invitation{
 			Type: didexchange.InvitationMsgType,
 		})))
 
@@ -522,11 +485,12 @@ func TestService_ProposalSecondContinue(t *testing.T) {
 		"deciding", "deciding",
 		"waiting", "waiting",
 		"done", "done",
-	), func(commAction service.DIDCommAction) {
-		thID, err := commAction.Message.ThreadID()
+	), func(_ service.DIDCommAction) {
+		actions, err := carol.Actions()
 		require.NoError(t, err)
+		require.Equal(t, 1, len(actions))
 
-		require.NoError(t, carol.Continue(thID, introduce.WithInvitation(&didexchange.Invitation{
+		require.NoError(t, carol.Continue(actions[0].PIID, introduce.WithInvitation(&didexchange.Invitation{
 			Type: didexchange.InvitationMsgType,
 		})))
 
@@ -858,11 +822,12 @@ func TestService_ProposalWithRequestContinue(t *testing.T) {
 		"delivering", "delivering",
 		"confirming", "confirming",
 		"done", "done",
-	), func(commAction service.DIDCommAction) {
-		thID, err := commAction.Message.ThreadID()
+	), func(_ service.DIDCommAction) {
+		actions, err := alice.Actions()
 		require.NoError(t, err)
+		require.Equal(t, 1, len(actions))
 
-		require.NoError(t, alice.Continue(thID, introduce.WithRecipients(&introduce.To{
+		require.NoError(t, alice.Continue(actions[0].PIID, introduce.WithRecipients(&introduce.To{
 			Name: Carol,
 		}, &introduce.Recipient{
 			To: &introduce.To{
@@ -883,10 +848,11 @@ func TestService_ProposalWithRequestContinue(t *testing.T) {
 		"waiting", "waiting",
 		"done", "done",
 	), func(commAction service.DIDCommAction) {
-		thID, err := commAction.Message.ThreadID()
+		actions, err := bob.Actions()
 		require.NoError(t, err)
+		require.Equal(t, 1, len(actions))
 
-		require.NoError(t, bob.Continue(thID, introduce.WithInvitation(&didexchange.Invitation{
+		require.NoError(t, bob.Continue(actions[0].PIID, introduce.WithInvitation(&didexchange.Invitation{
 			Type: didexchange.InvitationMsgType,
 		})))
 
