@@ -675,7 +675,7 @@ func (s *Service) getParticipants(piID string) ([]*participant, error) {
 	}
 
 	sort.Slice(participants, func(i, j int) bool {
-		return participants[i].CreatedAt.Nanosecond() < participants[j].CreatedAt.Nanosecond()
+		return participants[i].CreatedAt.UnixNano() < participants[j].CreatedAt.UnixNano()
 	})
 
 	return participants, nil
