@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	wasmStartupTopic = "wasm-ready"
+	wasmStartupTopic = "asset-ready"
 	handleResultFn   = "handleResult"
 	ariesCommandPkg  = "aries"
 	ariesStartFn     = "Start"

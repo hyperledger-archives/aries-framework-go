@@ -91,9 +91,38 @@ This is a test page for developers to test WASM integration.
             }
         }
 
+        function changeSource(src) {
+            //stop existing worker before switching
+            if (aries) {
+                destroyAries()
+            }
+
+            var head= document.getElementsByTagName('head')[0];
+            var script= document.createElement('script');
+            script.src= `dist/${src}/aries.js`;
+            head.appendChild(script);
+
+            const mode = (src == "rest") ? "REST" : "WASM"
+            document.getElementById("mode-label").innerHTML = `Running in ${mode} mode`
+
+            if (src == "rest"){
+                document.getElementById("opts").innerHTML = `{"assetsPath": "/dist/assets", "agent-rest-url": "http://localhost:8082"}`
+            } else {
+                document.getElementById("opts").innerHTML = `{"assetsPath": "/dist/assets", "agent-default-label":"dem-js-agent","http-resolver-url":[],"auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug"}`
+            }
+        }
+
+
     </script>
 </head>
 <body>
+<div>
+    <fieldset>
+        <legend id="mode-label" style="font-size: medium;font-weight: bold">Running in WASM Mode...</legend>
+    <button onClick="changeSource('rest')" style="font-size: large">Switch to REST version</button>
+    <button onClick="changeSource('web')" style="font-size: large">Switch to WASM version</button>
+    </fieldset>
+</div>
 <div>
     <table>
         <tr>

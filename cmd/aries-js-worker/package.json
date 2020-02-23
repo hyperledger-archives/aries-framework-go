@@ -7,8 +7,9 @@
   "scripts": {
     "build:node": "webpack --config ./webpack.config.node.js --mode=production",
     "build:web": "webpack --config ./webpack.config.web.js --mode=production",
+    "build:rest": "webpack --config ./webpack.config.rest.js --mode=production",
     "build:assets": "bash scripts/build_assets.sh",
-    "build": "rm -rf dist/* && cp -p ../../LICENSE . && npm run build:assets && npm run build:node && npm run build:web",
+    "build": "rm -rf dist/* && cp -p ../../LICENSE . && npm run build:assets && npm run build:node && npm run build:web && npm run build:rest",
     "prepare": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -44,5 +45,8 @@
   "engines": {
     "node": ">=12.14",
     "npm": ">=6.13"
+  },
+  "dependencies": {
+    "axios": "0.19.2"
   }
 }

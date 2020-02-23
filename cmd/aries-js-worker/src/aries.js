@@ -270,7 +270,7 @@ const Aries = function(opts) {
     // return promise which waits for worker to load and aries to start.
     return new Promise((resolve, reject) => {
         const timer = setTimeout(_ => reject(new Error("timout waiting for aries to initialize")), 10000)
-        notifications.set("wasm-ready", async (result) => {
+        notifications.set("asset-ready", async (result) => {
             clearTimeout(timer)
             invoke(aw, pending, "aries", "Start", opts, "timeout while starting aries").then(
                 resp => resolve(),
