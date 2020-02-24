@@ -21,6 +21,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
 const vc = `
@@ -45,14 +47,33 @@ const vc = `
 }`
 
 func TestNew(t *testing.T) {
-	cmd := New()
-	require.NotNil(t, cmd)
-	require.Equal(t, 1, len(cmd.GetRESTHandlers()))
+	t.Run("test new command - success", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+		require.Equal(t, 2, len(cmd.GetRESTHandlers()))
+	})
+
+	t.Run("test new command - error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				ErrOpenStoreHandle: fmt.Errorf("error opening the store"),
+			},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "new vc store")
+		require.Nil(t, cmd)
+	})
 }
 
 func TestValidateVC(t *testing.T) {
 	t.Run("test validate vc - success", func(t *testing.T) {
-		cmd := New()
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
 		vcReq := verifiable.Credential{VC: vc}
@@ -63,7 +84,7 @@ func TestValidateVC(t *testing.T) {
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 
-		response := validateCredentialRes{}
+		response := emptyRes{}
 		err = json.Unmarshal(buf.Bytes(), &response)
 		require.NoError(t, err)
 
@@ -72,7 +93,10 @@ func TestValidateVC(t *testing.T) {
 	})
 
 	t.Run("test validate vc - error", func(t *testing.T) {
-		cmd := New()
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
 		var jsonStr = []byte(`{
@@ -84,7 +108,7 @@ func TestValidateVC(t *testing.T) {
 		require.NotEmpty(t, buf)
 
 		require.Equal(t, http.StatusBadRequest, code)
-		verifyError(t, verifiable.ValidateCredentialErrorCode, "new credential : decode new credential", buf.Bytes())
+		verifyError(t, verifiable.ValidateCredentialErrorCode, "validate vc : decode new credential", buf.Bytes())
 	})
 }
 

@@ -16,6 +16,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	vcstore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 var logger = log.New("aries-framework/command/verifiable")
@@ -27,6 +29,9 @@ const (
 
 	// ValidateCredential for validate vc error
 	ValidateCredentialErrorCode
+
+	// SaveCredentialErrorCode for save vc error
+	SaveCredentialErrorCode
 )
 
 const (
@@ -35,21 +40,36 @@ const (
 
 	// command methods
 	validateCredentialCommandMethod = "ValidateCredential"
+	saveCredentialCommandMethod     = "SaveCredential"
 )
+
+// provider contains dependencies for the verifiable command and is typically created by using aries.Context().
+type provider interface {
+	StorageProvider() storage.Provider
+}
 
 // Command contains command operations provided by verifiable credential controller.
 type Command struct {
+	vcStore *vcstore.Store
 }
 
 // New returns new verifiable credential controller command instance.
-func New() *Command {
-	return &Command{}
+func New(p provider) (*Command, error) {
+	vcStore, err := vcstore.New(p)
+	if err != nil {
+		return nil, fmt.Errorf("new vc store : %w", err)
+	}
+
+	return &Command{
+		vcStore: vcStore,
+	}, nil
 }
 
 // GetHandlers returns list of all commands supported by this controller command.
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, validateCredentialCommandMethod, o.ValidateCredential),
+		cmdutil.NewCommandHandler(commandName, saveCredentialCommandMethod, o.SaveCredential),
 	}
 }
 
@@ -69,14 +89,46 @@ func (o *Command) ValidateCredential(rw io.Writer, req io.Reader) command.Error 
 	//  verification as options to the function.
 	_, _, err = verifiable.NewCredential([]byte(request.VC))
 	if err != nil {
-		logutil.LogInfo(logger, commandName, validateCredentialCommandMethod, "new credential : "+err.Error())
+		logutil.LogInfo(logger, commandName, validateCredentialCommandMethod, "validate vc : "+err.Error())
 
-		return command.NewValidationError(ValidateCredentialErrorCode, fmt.Errorf("new credential : %w", err))
+		return command.NewValidationError(ValidateCredentialErrorCode, fmt.Errorf("validate vc : %w", err))
 	}
 
 	command.WriteNillableResponse(rw, nil, logger)
 
 	logutil.LogDebug(logger, commandName, validateCredentialCommandMethod, "success")
+
+	return nil
+}
+
+// SaveCredential saves the verifiable credential to the store.
+func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
+	request := &Credential{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, commandName, saveCredentialCommandMethod, "request decode : "+err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	vc, _, err := verifiable.NewCredential([]byte(request.VC))
+	if err != nil {
+		logutil.LogInfo(logger, commandName, saveCredentialCommandMethod, "parse vc : "+err.Error())
+
+		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf("parse vc : %w", err))
+	}
+
+	err = o.vcStore.SaveVC(vc)
+	if err != nil {
+		logutil.LogInfo(logger, commandName, saveCredentialCommandMethod, "save vc : "+err.Error())
+
+		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf("save vc : %w", err))
+	}
+
+	command.WriteNillableResponse(rw, nil, logger)
+
+	logutil.LogDebug(logger, commandName, saveCredentialCommandMethod, "success")
 
 	return nil
 }
