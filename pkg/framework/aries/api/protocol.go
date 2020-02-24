@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -29,6 +30,7 @@ type Provider interface {
 	Service(id string) (interface{}, error)
 	StorageProvider() storage.Provider
 	LegacyKMS() legacykms.KeyManager
+	KMS() kms.KeyManager
 	SecretLock() secretlock.Service
 	Crypto() crypto.Crypto
 	Packager() transport.Packager

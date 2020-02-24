@@ -269,7 +269,7 @@ func createMasterKeyAndSecretLock(t *testing.T) secretlock.Service {
 
 	// first create a master lock to use in our secret lock and encrypt the master key
 	passphrase := "secretPassphrase"
-	keySize := sha256.New().Size()
+	keySize := sha256.Size
 	// salt is optional, it can be nil
 	salt := make([]byte, keySize)
 	_, err = rand.Read(salt)

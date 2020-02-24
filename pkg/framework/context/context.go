@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -28,7 +29,8 @@ type Provider struct {
 	msgSvcProvider         api.MessageServiceProvider
 	storeProvider          storage.Provider
 	transientStoreProvider storage.Provider
-	kms                    legacykms.KMS
+	legacyKMS              legacykms.KMS
+	kms                    kms.KeyManager
 	secretLock             secretlock.Service
 	crypto                 crypto.Crypto
 	packager               commontransport.Packager
@@ -79,8 +81,13 @@ func (p *Provider) Service(id string) (interface{}, error) {
 	return nil, api.ErrSvcNotFound
 }
 
-// LegacyKMS returns a kms service.
+// LegacyKMS returns a legacyKMS service.
 func (p *Provider) LegacyKMS() legacykms.KeyManager {
+	return p.legacyKMS
+}
+
+// KMS returns a Key Management Service
+func (p *Provider) KMS() kms.KeyManager {
 	return p.kms
 }
 
@@ -114,9 +121,9 @@ func (p *Provider) PrimaryPacker() packer.Packer {
 	return p.primaryPacker
 }
 
-// Signer returns a kms signing service.
+// Signer returns a legacyKMS signing service.
 func (p *Provider) Signer() legacykms.Signer {
-	return p.kms
+	return p.legacyKMS
 }
 
 // ServiceEndpoint returns an service endpoint. This endpoint is used in DID
@@ -247,10 +254,18 @@ func WithProtocolServices(services ...dispatcher.ProtocolService) ProviderOption
 	}
 }
 
-// WithLegacyKMS injects a legacy kms service into the context.
+// WithLegacyKMS injects a legacy KMS service into the context.
 func WithLegacyKMS(w legacykms.KMS) ProviderOption {
 	return func(opts *Provider) error {
-		opts.kms = w
+		opts.legacyKMS = w
+		return nil
+	}
+}
+
+// WithKMS injects a kms service into the context
+func WithKMS(k kms.KeyManager) ProviderOption {
+	return func(opts *Provider) error {
+		opts.kms = k
 		return nil
 	}
 }

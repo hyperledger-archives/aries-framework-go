@@ -21,7 +21,6 @@ func TestDefaultFramework(t *testing.T) {
 		dbPath = path
 
 		aries := &Aries{}
-
 		err := defFrameworkOpts(aries)
 		require.NoError(t, err)
 	})

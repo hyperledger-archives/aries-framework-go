@@ -11,6 +11,7 @@ package aries
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -21,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -32,11 +32,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/generic"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -44,6 +47,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	locallock "github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local/masterlock/hkdf"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
@@ -297,12 +301,12 @@ func TestFramework(t *testing.T) {
 		require.Contains(t, err.Error(), "inbound transport close failed")
 	})
 
-	t.Run("test kms svc - with user provided kms", func(t *testing.T) {
+	t.Run("test legacyKMS svc - with user provided instance", func(t *testing.T) {
 		path, cleanup := generateTempDir(t)
 		defer cleanup()
 		dbPath = path
 
-		// with custom kms
+		// with custom legacyKMS
 		aries, err := New(WithInboundTransport(&mockInboundTransport{}),
 			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
 				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
@@ -391,13 +395,70 @@ func TestFramework(t *testing.T) {
 		// with custom legacy kms
 		_, err := New(WithInboundTransport(&mockInboundTransport{}),
 			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
-				return nil, fmt.Errorf("error from kms")
+				return nil, fmt.Errorf("error from legacyKMS")
 			}))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "error from kms")
+		require.Contains(t, err.Error(), "error from legacyKMS")
 	})
 
-	t.Run("test new with custom kms svc and secret lock svc", func(t *testing.T) {
+	t.Run("test new with explicitly passing noop secret lock svc as an option", func(t *testing.T) {
+		// create noop secret lock service
+		s := &noop.NoLock{}
+
+		// final step, create the Aries agent with this secret lock
+		a, err := New(WithSecretLock(s))
+		require.NoError(t, err)
+		require.NotEmpty(t, a)
+		require.Equal(t, s, a.secretLock)
+
+		err = a.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test new with custom (unprotected master key) secret lock svc and with custom KMS", func(t *testing.T) {
+		masterKeyFilePath := "masterKey_aries.txt"
+		tmpfile, err := ioutil.TempFile("", masterKeyFilePath)
+		require.NoError(t, err)
+
+		defer func() {
+			// close file
+			require.NoError(t, tmpfile.Close())
+			// clean up
+			require.NoError(t, os.Remove(tmpfile.Name()))
+		}()
+
+		keySize := sha256.Size
+
+		// generate a random master key
+		masterKeyContent := make([]byte, keySize)
+		_, err = rand.Read(masterKeyContent)
+		require.NoError(t, err)
+		require.NotEmpty(t, masterKeyContent)
+
+		// store masterKeyContent to file
+		n, err := tmpfile.Write([]byte(base64.URLEncoding.EncodeToString(masterKeyContent)))
+		require.NoError(t, err)
+		require.Equal(t, base64.URLEncoding.EncodedLen(keySize), n)
+
+		r, err := locallock.MasterKeyFromPath(tmpfile.Name())
+		require.NoError(t, err)
+		require.NotEmpty(t, r)
+
+		s, err := locallock.NewService(r, nil)
+		require.NoError(t, err)
+		require.NotEmpty(t, s)
+
+		// final step, create the Aries agent with this secret lock
+		a, err := New(WithSecretLock(s))
+		require.NoError(t, err)
+		require.NotEmpty(t, a)
+		require.Equal(t, s, a.secretLock)
+
+		err = a.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("test new with custom (protected) secret lock svc and with custom KMS", func(t *testing.T) {
 		// pre steps (preparation), create a protected master key and store it in a local file
 		masterKeyFilePath := "masterKey_aries.txt"
 		tmpfile, err := ioutil.TempFile("", masterKeyFilePath)
@@ -411,7 +472,7 @@ func TestFramework(t *testing.T) {
 		}()
 
 		passphrase := "testPassword"
-		keySize := sha256.New().Size()
+		keySize := sha256.Size
 
 		salt := make([]byte, keySize)
 		_, err = rand.Read(salt)
@@ -423,7 +484,9 @@ func TestFramework(t *testing.T) {
 		require.NotEmpty(t, masterLock)
 
 		// generate a random master key
-		masterKeyContent := random.GetRandomBytes(uint32(keySize))
+		masterKeyContent := make([]byte, keySize)
+		_, err = rand.Read(masterKeyContent)
+		require.NoError(t, err)
 		require.NotEmpty(t, masterKeyContent)
 
 		// encrypt it
@@ -437,14 +500,10 @@ func TestFramework(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, len(masterKeyEnc.Ciphertext), n)
 
-		// create a reader for this file
 		r, err := locallock.MasterKeyFromPath(tmpfile.Name())
 		require.NoError(t, err)
 		require.NotEmpty(t, r)
 
-		// normal steps - once a protected master key is stored in a local path (or env variable)
-		// 		a user will first create a secretLock using a masterLock (same as above) and
-		//		a reader to the local path (or env using locallock.MasterKeyFromEnv())
 		s, err := locallock.NewService(r, masterLock)
 		require.NoError(t, err)
 		require.NotEmpty(t, s)
@@ -453,6 +512,35 @@ func TestFramework(t *testing.T) {
 		a, err := New(WithSecretLock(s))
 		require.NoError(t, err)
 		require.NotEmpty(t, a)
+		require.Equal(t, s, a.secretLock)
+
+		err = a.Close()
+		require.NoError(t, err)
+
+		// now test New with a custom kms using the same secretlock created above
+		// create the kms provider first..
+		p, err := context.New(
+			context.WithSecretLock(s),
+			context.WithStorageProvider(storage.NewMockStoreProvider()),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, p)
+
+		// create a custom KMS instance with this provider
+		customKMS, err := localkms.New("local-lock://custom/master/key/", p)
+		require.NoError(t, err)
+		require.NotEmpty(t, customKMS)
+
+		// finally test New using a KMSCreator function returning the above customKMS
+		a, err = New(WithKMS(func(ctx kms.Provider) (kms.KeyManager, error) {
+			return customKMS, nil
+		}))
+		require.NoError(t, err)
+		require.NotEmpty(t, a)
+		require.Equal(t, customKMS, a.kms)
+
+		err = a.Close()
+		require.NoError(t, err)
 	})
 
 	t.Run("test transient store - with user provided transient store", func(t *testing.T) {
