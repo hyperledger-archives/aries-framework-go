@@ -35,7 +35,7 @@ const (
 	// UnregisterRouterErrorCode for unregister router error
 	UnregisterRouterErrorCode
 
-	// GetConnection for get connection id error
+	// Connection for get connection id error
 	GetConnectionIDErrorCode
 )
 
@@ -46,7 +46,7 @@ const (
 	// command methods
 	registerCommandMethod        = "Register"
 	unregisterCommandMethod      = "Unregister"
-	getConnectionIDCommandMethod = "GetConnection"
+	getConnectionIDCommandMethod = "Connection"
 
 	// log constants
 	connectionID  = "connectionID"
@@ -80,7 +80,7 @@ func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, registerCommandMethod, o.Register),
 		cmdutil.NewCommandHandler(commandName, unregisterCommandMethod, o.Unregister),
-		cmdutil.NewCommandHandler(commandName, getConnectionIDCommandMethod, o.GetConnection),
+		cmdutil.NewCommandHandler(commandName, getConnectionIDCommandMethod, o.Connection),
 	}
 }
 
@@ -130,8 +130,8 @@ func (o *Command) Unregister(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// GetConnection returns the connectionID of the router.
-func (o *Command) GetConnection(rw io.Writer, req io.Reader) command.Error {
+// Connection returns the connectionID of the router.
+func (o *Command) Connection(rw io.Writer, req io.Reader) command.Error {
 	connectionID, err := o.routeClient.GetConnection()
 	if err != nil {
 		logutil.LogError(logger, commandName, getConnectionIDCommandMethod, err.Error())

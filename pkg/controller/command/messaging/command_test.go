@@ -50,7 +50,7 @@ func TestNew(t *testing.T) {
 	})
 }
 
-func TestCommand_RegisterMessageService(t *testing.T) {
+func TestCommand_RegisterService(t *testing.T) {
 	t.Run("Successful Register Message Service", func(t *testing.T) {
 		msgRegistrar := msghandler.NewMockMsgServiceProvider()
 		cmd, err := New(&protocol.MockProvider{}, msgRegistrar, webhook.NewMockWebhookNotifier())
@@ -64,7 +64,7 @@ func TestCommand_RegisterMessageService(t *testing.T) {
   	}`
 
 		var b bytes.Buffer
-		cmdErr := cmd.RegisterMessageService(&b, bytes.NewBufferString(jsonStr))
+		cmdErr := cmd.RegisterService(&b, bytes.NewBufferString(jsonStr))
 		require.NoError(t, cmdErr)
 		require.Empty(t, b.String())
 
@@ -114,7 +114,7 @@ func TestCommand_RegisterMessageService(t *testing.T) {
 				require.NotNil(t, cmd)
 
 				var b bytes.Buffer
-				cmdErr := cmd.RegisterMessageService(&b, bytes.NewBufferString(tc.json))
+				cmdErr := cmd.RegisterService(&b, bytes.NewBufferString(tc.json))
 				require.Error(t, cmdErr)
 				require.Empty(t, b.String())
 				require.Equal(t, cmdErr.Type(), command.ValidationError)
@@ -140,7 +140,7 @@ func TestCommand_RegisterMessageService(t *testing.T) {
 	  	}`
 
 		var b bytes.Buffer
-		cmdErr := cmd.RegisterMessageService(&b, bytes.NewBufferString(jsonStr))
+		cmdErr := cmd.RegisterService(&b, bytes.NewBufferString(jsonStr))
 		require.Error(t, cmdErr)
 		require.Empty(t, b.String())
 		require.Equal(t, cmdErr.Type(), command.ExecuteError)
@@ -149,7 +149,7 @@ func TestCommand_RegisterMessageService(t *testing.T) {
 	})
 }
 
-func TestCommand_RegisterHTTPMessageService(t *testing.T) {
+func TestCommand_RegisterHTTPService(t *testing.T) {
 	t.Run("Successful Register HTTP Message Service", func(t *testing.T) {
 		msgRegistrar := msghandler.NewMockMsgServiceProvider()
 		cmd, err := New(&protocol.MockProvider{}, msgRegistrar, webhook.NewMockWebhookNotifier())
@@ -162,7 +162,7 @@ func TestCommand_RegisterHTTPMessageService(t *testing.T) {
 	  	}`
 
 		var b bytes.Buffer
-		cmdErr := cmd.RegisterHTTPMessageService(&b, bytes.NewBufferString(jsonStr))
+		cmdErr := cmd.RegisterHTTPService(&b, bytes.NewBufferString(jsonStr))
 		require.NoError(t, cmdErr)
 
 		// verify if new service is registered
@@ -205,7 +205,7 @@ func TestCommand_RegisterHTTPMessageService(t *testing.T) {
 				require.NotNil(t, cmd)
 
 				var b bytes.Buffer
-				cmdErr := cmd.RegisterHTTPMessageService(&b, bytes.NewBufferString(tc.json))
+				cmdErr := cmd.RegisterHTTPService(&b, bytes.NewBufferString(tc.json))
 				require.Error(t, cmdErr)
 				require.Empty(t, b.String())
 				require.Equal(t, cmdErr.Type(), command.ValidationError)
@@ -230,7 +230,7 @@ func TestCommand_RegisterHTTPMessageService(t *testing.T) {
 	  	}`
 
 		var b bytes.Buffer
-		cmdErr := cmd.RegisterHTTPMessageService(&b, bytes.NewBufferString(jsonStr))
+		cmdErr := cmd.RegisterHTTPService(&b, bytes.NewBufferString(jsonStr))
 		require.Error(t, cmdErr)
 		require.Empty(t, b.String())
 		require.Equal(t, cmdErr.Type(), command.ExecuteError)
@@ -239,7 +239,7 @@ func TestCommand_RegisterHTTPMessageService(t *testing.T) {
 	})
 }
 
-func TestCommand_UnregisterMessageService(t *testing.T) {
+func TestCommand_UnregisterService(t *testing.T) {
 	t.Run("Unregistering non existing message service", func(t *testing.T) {
 		cmd, err := New(&protocol.MockProvider{}, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
 		require.NoError(t, err)
@@ -248,7 +248,7 @@ func TestCommand_UnregisterMessageService(t *testing.T) {
 		var jsonStr = `{"name":"json-msg-01"}`
 
 		var b bytes.Buffer
-		cmdErr := cmd.UnregisterMessageService(&b, bytes.NewBufferString(jsonStr))
+		cmdErr := cmd.UnregisterService(&b, bytes.NewBufferString(jsonStr))
 		require.Error(t, cmdErr)
 		require.Empty(t, b.String())
 		require.Equal(t, cmdErr.Type(), command.ExecuteError)
@@ -262,7 +262,7 @@ func TestCommand_UnregisterMessageService(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.UnregisterMessageService(&b, bytes.NewBufferString(`{"name":""}`))
+		cmdErr := cmd.UnregisterService(&b, bytes.NewBufferString(`{"name":""}`))
 		require.Error(t, cmdErr)
 		require.Empty(t, b.String())
 		require.Equal(t, cmdErr.Type(), command.ValidationError)
@@ -287,7 +287,7 @@ func TestCommand_UnregisterMessageService(t *testing.T) {
 		const jsonStr = `{"name":"%s"}`
 		for _, svcName := range svcNames {
 			var b bytes.Buffer
-			cmdErr := cmd.UnregisterMessageService(&b, bytes.NewBufferString(fmt.Sprintf(jsonStr, svcName)))
+			cmdErr := cmd.UnregisterService(&b, bytes.NewBufferString(fmt.Sprintf(jsonStr, svcName)))
 			require.NoError(t, cmdErr)
 			require.Empty(t, b.String())
 		}
@@ -301,7 +301,7 @@ func TestCommand_UnregisterMessageService(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.UnregisterMessageService(&b, bytes.NewBufferString(`{--`))
+		cmdErr := cmd.UnregisterService(&b, bytes.NewBufferString(`{--`))
 		require.Error(t, cmdErr)
 		require.Empty(t, b.String())
 		require.Equal(t, cmdErr.Type(), command.ValidationError)
@@ -310,7 +310,7 @@ func TestCommand_UnregisterMessageService(t *testing.T) {
 	})
 }
 
-func TestCommand_RegisteredServices(t *testing.T) {
+func TestCommand_Services(t *testing.T) {
 	msgRegistrar := msghandler.NewMockMsgServiceProvider()
 	cmd, err := New(&protocol.MockProvider{}, msgRegistrar, webhook.NewMockWebhookNotifier())
 	require.NoError(t, err)
@@ -326,7 +326,7 @@ func TestCommand_RegisteredServices(t *testing.T) {
 	}
 
 	var b bytes.Buffer
-	cmdErr := cmd.RegisteredServices(&b, bytes.NewBufferString(``))
+	cmdErr := cmd.Services(&b, bytes.NewBufferString(``))
 	require.NoError(t, cmdErr)
 	verifyResponse(&b, 0)
 
@@ -341,12 +341,12 @@ func TestCommand_RegisteredServices(t *testing.T) {
 	require.NoError(t, err)
 
 	b.Reset()
-	cmdErr = cmd.RegisteredServices(&b, bytes.NewBufferString(``))
+	cmdErr = cmd.Services(&b, bytes.NewBufferString(``))
 	require.NoError(t, cmdErr)
 	verifyResponse(&b, len(testMsgSvcs))
 }
 
-func TestCommand_SendNewMessage(t *testing.T) {
+func TestCommand_Send(t *testing.T) {
 	t.Run("Test input args validation", func(t *testing.T) {
 		tests := []struct {
 			name        string
@@ -402,7 +402,7 @@ func TestCommand_SendNewMessage(t *testing.T) {
 				require.NotNil(t, cmd)
 
 				var b bytes.Buffer
-				cmdErr := cmd.SendNewMessage(&b, bytes.NewBufferString(tc.requestJSON))
+				cmdErr := cmd.Send(&b, bytes.NewBufferString(tc.requestJSON))
 				require.Error(t, cmdErr)
 				require.Empty(t, b.String())
 				require.Equal(t, cmdErr.Type(), command.ValidationError)
@@ -455,7 +455,7 @@ func TestCommand_SendNewMessage(t *testing.T) {
 				require.NotNil(t, cmd)
 
 				var b bytes.Buffer
-				cmdErr := cmd.SendNewMessage(&b, bytes.NewBufferString(tc.requestJSON))
+				cmdErr := cmd.Send(&b, bytes.NewBufferString(tc.requestJSON))
 				require.NoError(t, cmdErr)
 				require.Empty(t, b.String())
 			})
@@ -542,7 +542,7 @@ func TestCommand_SendNewMessage(t *testing.T) {
 				require.NotNil(t, cmd)
 
 				var b bytes.Buffer
-				cmdErr := cmd.SendNewMessage(&b, bytes.NewBufferString(tc.requestJSON))
+				cmdErr := cmd.Send(&b, bytes.NewBufferString(tc.requestJSON))
 				require.Error(t, cmdErr)
 				require.Empty(t, b.String())
 				require.Equal(t, cmdErr.Type(), command.ExecuteError)
@@ -553,7 +553,7 @@ func TestCommand_SendNewMessage(t *testing.T) {
 	})
 }
 
-func TestOperation_SendReplyMessage(t *testing.T) {
+func TestOperation_Reply(t *testing.T) {
 	t.Run("Test input args validation", func(t *testing.T) {
 		tests := []struct {
 			name        string
@@ -597,7 +597,7 @@ func TestOperation_SendReplyMessage(t *testing.T) {
 				require.NotNil(t, cmd)
 
 				var b bytes.Buffer
-				cmdErr := cmd.SendReplyMessage(&b, bytes.NewBufferString(tc.requestJSON))
+				cmdErr := cmd.Reply(&b, bytes.NewBufferString(tc.requestJSON))
 				require.Error(t, cmdErr)
 				require.Empty(t, b.String())
 				require.Equal(t, cmdErr.Type(), command.ValidationError)
@@ -614,7 +614,7 @@ func TestOperation_SendReplyMessage(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		cmdErr := cmd.SendReplyMessage(&b, bytes.NewBufferString(jsonMsg))
+		cmdErr := cmd.Reply(&b, bytes.NewBufferString(jsonMsg))
 		require.Error(t, cmdErr)
 		require.Empty(t, b.String())
 		require.Equal(t, cmdErr.Type(), command.ExecuteError)
