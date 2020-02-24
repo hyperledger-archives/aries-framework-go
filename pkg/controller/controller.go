@@ -107,7 +107,10 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	}
 
 	// verifiable command operation
-	verifiablecmd := verifiablerest.New()
+	verifiablecmd, err := verifiablerest.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create verifiable rest command : %w", err)
+	}
 
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
@@ -156,7 +159,10 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	}
 
 	// verifiable command operation
-	verifiablecmd := verifiable.New()
+	verifiablecmd, err := verifiable.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create verifiable command : %w", err)
+	}
 
 	var allHandlers []command.Handler
 	allHandlers = append(allHandlers, didexcmd.GetHandlers()...)

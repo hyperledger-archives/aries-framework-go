@@ -253,6 +253,9 @@ const Aries = function(opts) {
             validateCredential: async function (text) {
                 return invoke(aw, pending,  this.pkgname, "ValidateCredential", text, "timeout while validating verifiable credential")
             },
+            saveCredential: async function (text) {
+                return invoke(aw, pending,  this.pkgname, "SaveCredential", text, "timeout while saving verifiable credential")
+            },
         }
     }
 
