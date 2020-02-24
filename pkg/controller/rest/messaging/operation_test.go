@@ -68,7 +68,7 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 	})
 }
 
-func TestOperation_RegisterMessageService(t *testing.T) {
+func TestOperation_RegisterService(t *testing.T) {
 	t.Run("Successful Register Message Service", func(t *testing.T) {
 		mhandler := msghandler.NewMockMsgServiceProvider()
 		svc, err := New(&protocol.MockProvider{}, mhandler, webhook.NewMockWebhookNotifier())
@@ -165,7 +165,7 @@ func TestOperation_RegisterMessageService(t *testing.T) {
 	})
 }
 
-func TestOperation_RegisterHTTPMessageService(t *testing.T) {
+func TestOperation_RegisterHTTPService(t *testing.T) {
 	t.Run("Successful Register HTTP Message Service", func(t *testing.T) {
 		mhandler := msghandler.NewMockMsgServiceProvider()
 		svc, err := New(&protocol.MockProvider{}, mhandler, webhook.NewMockWebhookNotifier())
@@ -254,7 +254,7 @@ func TestOperation_RegisterHTTPMessageService(t *testing.T) {
 	})
 }
 
-func TestOperation_UnregisterMessageService(t *testing.T) {
+func TestOperation_UnregisterService(t *testing.T) {
 	t.Run("Unregistering non existing message service", func(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{}, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
 		require.NoError(t, err)
@@ -328,7 +328,7 @@ func TestOperation_UnregisterMessageService(t *testing.T) {
 	})
 }
 
-func TestOperation_RegisteredServices(t *testing.T) {
+func TestOperation_Services(t *testing.T) {
 	msgRegistrar := msghandler.NewMockMsgServiceProvider()
 	svc, err := New(&protocol.MockProvider{}, msgRegistrar, webhook.NewMockWebhookNotifier())
 	require.NoError(t, err)
@@ -363,7 +363,7 @@ func TestOperation_RegisteredServices(t *testing.T) {
 	verifyResponse(buf, len(testMsgSvcs))
 }
 
-func TestOperation_SendNewMessage(t *testing.T) {
+func TestOperation_Send(t *testing.T) {
 	t.Run("Test request param validation", func(t *testing.T) {
 		tests := []struct {
 			name        string
@@ -581,7 +581,7 @@ func TestOperation_SendNewMessage(t *testing.T) {
 	})
 }
 
-func TestOperation_SendReplyMessage(t *testing.T) {
+func TestOperation_Reply(t *testing.T) {
 	t.Run("Test request param validation", func(t *testing.T) {
 		tests := []struct {
 			name        string

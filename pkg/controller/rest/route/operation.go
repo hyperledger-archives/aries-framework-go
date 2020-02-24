@@ -58,7 +58,7 @@ func (o *Operation) registerHandler() {
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(registerPath, http.MethodPost, o.Register),
 		cmdutil.NewHTTPHandler(unregisterPath, http.MethodDelete, o.Unregister),
-		cmdutil.NewHTTPHandler(getConnectionPath, http.MethodGet, o.GetConnection),
+		cmdutil.NewHTTPHandler(getConnectionPath, http.MethodGet, o.Connection),
 	}
 }
 
@@ -83,13 +83,13 @@ func (o *Operation) Unregister(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.Unregister, rw, req.Body)
 }
 
-// GetConnection swagger:route GET /route/connection route routerConnection
+// Connection swagger:route GET /route/connection route routerConnection
 //
 // Retrieves the router connection id.
 //
 // Responses:
 //    default: genericError
 //    200: getConnectionResponse
-func (o *Operation) GetConnection(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(o.command.GetConnection, rw, req.Body)
+func (o *Operation) Connection(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.Connection, rw, req.Body)
 }

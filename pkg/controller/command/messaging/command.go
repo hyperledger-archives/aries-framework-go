@@ -45,12 +45,12 @@ const (
 	errMsgIDEmpty                       = "empty message ID"
 
 	// command methods
-	registeredServicesCommandMethod         = "RegisteredServices"
-	registerMessageServiceCommandMethod     = "RegisterMessageService"
-	unregisterMessageServiceCommandMethod   = "UnregisterMessageService"
-	registerHTTPMessageServiceCommandMethod = "RegisterHTTPMessageService"
-	sendNewMessageCommandMethod             = "SendNewMessage"
-	sendReplyMessageCommandMethod           = "SendReplyMessage"
+	registeredServicesCommandMethod         = "Services"
+	registerMessageServiceCommandMethod     = "RegisterService"
+	unregisterMessageServiceCommandMethod   = "UnregisterService"
+	registerHTTPMessageServiceCommandMethod = "RegisterHTTPService"
+	sendNewMessageCommandMethod             = "Send"
+	sendReplyMessageCommandMethod           = "Reply"
 
 	// log constants
 	connectionIDString = "connectionID"
@@ -113,17 +113,17 @@ func New(ctx provider, registrar command.MessageHandler, notifier webhook.Notifi
 // GetHandlers returns list of all commands supported by this controller command
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
-		cmdutil.NewCommandHandler(commandName, registeredServicesCommandMethod, o.RegisteredServices),
-		cmdutil.NewCommandHandler(commandName, registerMessageServiceCommandMethod, o.RegisterMessageService),
-		cmdutil.NewCommandHandler(commandName, unregisterMessageServiceCommandMethod, o.UnregisterMessageService),
-		cmdutil.NewCommandHandler(commandName, registerHTTPMessageServiceCommandMethod, o.RegisterHTTPMessageService),
-		cmdutil.NewCommandHandler(commandName, sendNewMessageCommandMethod, o.SendNewMessage),
-		cmdutil.NewCommandHandler(commandName, sendReplyMessageCommandMethod, o.SendReplyMessage),
+		cmdutil.NewCommandHandler(commandName, registeredServicesCommandMethod, o.Services),
+		cmdutil.NewCommandHandler(commandName, registerMessageServiceCommandMethod, o.RegisterService),
+		cmdutil.NewCommandHandler(commandName, unregisterMessageServiceCommandMethod, o.UnregisterService),
+		cmdutil.NewCommandHandler(commandName, registerHTTPMessageServiceCommandMethod, o.RegisterHTTPService),
+		cmdutil.NewCommandHandler(commandName, sendNewMessageCommandMethod, o.Send),
+		cmdutil.NewCommandHandler(commandName, sendReplyMessageCommandMethod, o.Reply),
 	}
 }
 
-// RegisterMessageService registers new message service to message handler registrar
-func (o *Command) RegisterMessageService(rw io.Writer, req io.Reader) command.Error {
+// RegisterService registers new message service to message handler registrar
+func (o *Command) RegisterService(rw io.Writer, req io.Reader) command.Error {
 	var request RegisterMsgSvcArgs
 
 	err := json.NewDecoder(req).Decode(&request)
@@ -135,8 +135,8 @@ func (o *Command) RegisterMessageService(rw io.Writer, req io.Reader) command.Er
 	return o.registerMessageService(&request)
 }
 
-// UnregisterMessageService unregisters given message service handler registrar
-func (o *Command) UnregisterMessageService(rw io.Writer, req io.Reader) command.Error {
+// UnregisterService unregisters given message service handler registrar
+func (o *Command) UnregisterService(rw io.Writer, req io.Reader) command.Error {
 	var request UnregisterMsgSvcArgs
 
 	err := json.NewDecoder(req).Decode(&request)
@@ -164,8 +164,8 @@ func (o *Command) UnregisterMessageService(rw io.Writer, req io.Reader) command.
 	return nil
 }
 
-// RegisteredServices returns list of registered service names
-func (o *Command) RegisteredServices(rw io.Writer, req io.Reader) command.Error {
+// Services returns list of registered service names
+func (o *Command) Services(rw io.Writer, req io.Reader) command.Error {
 	names := []string{}
 	for _, svc := range o.msgRegistrar.Services() {
 		names = append(names, svc.Name())
@@ -178,8 +178,8 @@ func (o *Command) RegisteredServices(rw io.Writer, req io.Reader) command.Error 
 	return nil
 }
 
-// SendNewMessage sends new message to destination provided
-func (o *Command) SendNewMessage(rw io.Writer, req io.Reader) command.Error {
+// Send sends new message to destination provided
+func (o *Command) Send(rw io.Writer, req io.Reader) command.Error {
 	var request SendNewMessageArgs
 
 	err := json.NewDecoder(req).Decode(&request)
@@ -224,8 +224,8 @@ func (o *Command) SendNewMessage(rw io.Writer, req io.Reader) command.Error {
 	return o.sendMessageToDestination(request.MessageBody, request.ServiceEndpointDestination)
 }
 
-// SendReplyMessage sends reply to existing message
-func (o *Command) SendReplyMessage(rw io.Writer, req io.Reader) command.Error {
+// Reply sends reply to existing message
+func (o *Command) Reply(rw io.Writer, req io.Reader) command.Error {
 	var request SendReplyMessageArgs
 
 	err := json.NewDecoder(req).Decode(&request)
@@ -249,8 +249,8 @@ func (o *Command) SendReplyMessage(rw io.Writer, req io.Reader) command.Error {
 	return command.NewExecuteError(SendMsgReplyError, fmt.Errorf("to be implemented"))
 }
 
-// RegisterHTTPMessageService registers new http over didcomm service to message handler registrar
-func (o *Command) RegisterHTTPMessageService(rw io.Writer, req io.Reader) command.Error {
+// RegisterHTTPService registers new http over didcomm service to message handler registrar
+func (o *Command) RegisterHTTPService(rw io.Writer, req io.Reader) command.Error {
 	var request RegisterHTTPMsgSvcArgs
 
 	err := json.NewDecoder(req).Decode(&request)

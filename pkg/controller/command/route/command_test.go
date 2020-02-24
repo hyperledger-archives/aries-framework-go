@@ -158,7 +158,7 @@ func TestGetConnectionID(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		err = cmd.GetConnection(&b, nil)
+		err = cmd.Connection(&b, nil)
 		require.NoError(t, err)
 
 		response := RegisterRoute{}
@@ -179,7 +179,7 @@ func TestGetConnectionID(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
-		err = cmd.GetConnection(&b, nil)
+		err = cmd.Connection(&b, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get router connectionID")
 	})

@@ -71,72 +71,72 @@ func (o *Operation) GetRESTHandlers() []rest.Handler {
 func (o *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	o.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(registerMsgService, http.MethodPost, o.RegisterMessageService),
-		cmdutil.NewHTTPHandler(unregisterMsgService, http.MethodPost, o.UnregisterMessageService),
-		cmdutil.NewHTTPHandler(msgServiceList, http.MethodGet, o.RegisteredServices),
-		cmdutil.NewHTTPHandler(sendNewMsg, http.MethodPost, o.SendNewMessage),
-		cmdutil.NewHTTPHandler(sendReplyMsg, http.MethodPost, o.SendReplyMessage),
-		cmdutil.NewHTTPHandler(registerHTTPOverDIDCommService, http.MethodPost, o.RegisterHTTPMessageService),
+		cmdutil.NewHTTPHandler(registerMsgService, http.MethodPost, o.RegisterService),
+		cmdutil.NewHTTPHandler(unregisterMsgService, http.MethodPost, o.UnregisterService),
+		cmdutil.NewHTTPHandler(msgServiceList, http.MethodGet, o.Services),
+		cmdutil.NewHTTPHandler(sendNewMsg, http.MethodPost, o.Send),
+		cmdutil.NewHTTPHandler(sendReplyMsg, http.MethodPost, o.Reply),
+		cmdutil.NewHTTPHandler(registerHTTPOverDIDCommService, http.MethodPost, o.RegisterHTTPService),
 	}
 }
 
-// RegisterMessageService swagger:route POST /message/register-service message registerMsgSvc
+// RegisterService swagger:route POST /message/register-service message registerMsgSvc
 //
 // registers new message service to message handler registrar
 //
 // Responses:
 //    default: genericError
-func (o *Operation) RegisterMessageService(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(o.command.RegisterMessageService, rw, req.Body)
+func (o *Operation) RegisterService(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.RegisterService, rw, req.Body)
 }
 
-// UnregisterMessageService swagger:route POST /message/unregister-service message http-over-didcomm unregisterMsgSvc
+// UnregisterService swagger:route POST /message/unregister-service message http-over-didcomm unregisterMsgSvc
 //
 // unregisters given message service handler registrar
 //
 // Responses:
 //    default: genericError
-func (o *Operation) UnregisterMessageService(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(o.command.UnregisterMessageService, rw, req.Body)
+func (o *Operation) UnregisterService(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.UnregisterService, rw, req.Body)
 }
 
-// RegisteredServices swagger:route GET /message/services message http-over-didcomm services
+// Services swagger:route GET /message/services message http-over-didcomm services
 //
 // returns list of registered service names
 //
 // Responses:
 //    default: genericError
 //    200: registeredServicesResponse
-func (o *Operation) RegisteredServices(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(o.command.RegisteredServices, rw, req.Body)
+func (o *Operation) Services(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.Services, rw, req.Body)
 }
 
-// SendNewMessage swagger:route POST /message/send message sendNewMessage
+// Send swagger:route POST /message/send message sendNewMessage
 //
 // sends new message to destination provided
 //
 // Responses:
 //    default: genericError
-func (o *Operation) SendNewMessage(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(o.command.SendNewMessage, rw, req.Body)
+func (o *Operation) Send(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.Send, rw, req.Body)
 }
 
-// SendReplyMessage swagger:route POST /message/reply message sendReplyMessage
+// Reply swagger:route POST /message/reply message sendReplyMessage
 //
 // sends reply to existing message
 //
 // Responses:
 //    default: genericError
-func (o *Operation) SendReplyMessage(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(o.command.SendReplyMessage, rw, req.Body)
+func (o *Operation) Reply(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.Reply, rw, req.Body)
 }
 
-// RegisterHTTPMessageService swagger:route POST /http-over-didcomm/register http-over-didcomm registerHttpMsgSvc
+// RegisterHTTPService swagger:route POST /http-over-didcomm/register http-over-didcomm registerHttpMsgSvc
 //
 // registers new http over didcomm service to message handler registrar
 //
 // Responses:
 //    default: genericError
-func (o *Operation) RegisterHTTPMessageService(rw http.ResponseWriter, req *http.Request) {
-	rest.Execute(o.command.RegisterHTTPMessageService, rw, req.Body)
+func (o *Operation) RegisterHTTPService(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.RegisterHTTPService, rw, req.Body)
 }
