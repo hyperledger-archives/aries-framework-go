@@ -85,9 +85,7 @@ function newMsg(pkg, fn, payload) {
  */
 export const Framework = class {
     constructor(opts) {
-        return (async () => {
-            return await Aries(opts);
-        })();
+        return Aries(opts)
     }
 };
 
@@ -183,11 +181,16 @@ const Aries = function(opts) {
             createInvitation: async function (text) {
                 return invoke(aw, pending,  this.pkgname, "CreateInvitation", text, "timeout while creating invitation")
             },
-            receiveInvitation: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "ReceiveInvitation", text, "timeout while receiving invitation")
+            receiveInvitation: async function (invitation) {
+                return invoke(aw, pending,  this.pkgname, "ReceiveInvitation", invitation, "timeout while receiving invitation")
             },
-            acceptInvitation: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "AcceptInvitation", text, "timeout while accepting invitation")
+            acceptInvitation: async function (connectionID, publicDID="") {
+                return new Promise((resolve, reject) => {
+                    invoke(aw, pending,  this.pkgname, "AcceptInvitation", {id: connectionID, public: publicDID}, "timeout while accepting invitation").then(
+                        resp => resolve(resp),
+                        err => reject(new Error("failed to accept invitation: " + err.message))
+                    )
+                })
             },
             acceptExchangeRequest: async function (text) {
                 return invoke(aw, pending,  this.pkgname, "AcceptExchangeRequest", text, "timeout while accepting exchange request")
@@ -198,8 +201,8 @@ const Aries = function(opts) {
             removeConnection: async function (text) {
                 return invoke(aw, pending,  this.pkgname, "RemoveConnection", text, "timeout while removing invitation")
             },
-            queryConnectionByID: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "QueryConnectionByID", text, "timeout while querying connection by ID")
+            queryConnectionByID: async function (connectionID) {
+                return invoke(aw, pending,  this.pkgname, "QueryConnectionByID", {id: connectionID}, "timeout while querying connection by ID")
             },
             queryConnections: async function (text) {
                 return invoke(aw, pending,  this.pkgname, "QueryConnections", text, "timeout while querying connections")
@@ -279,10 +282,9 @@ const Aries = function(opts) {
         notifications.set("asset-ready", async (result) => {
             clearTimeout(timer)
             invoke(aw, pending, "aries", "Start", opts, "timeout while starting aries").then(
-                resp => resolve(),
+                resp => resolve(instance),
                 err => reject(new Error(err.message))
             )
-            resolve(instance)
         })
     })
 }

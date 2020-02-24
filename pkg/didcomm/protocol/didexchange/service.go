@@ -418,7 +418,7 @@ func (s *Service) AcceptExchangeRequest(connectionID, publicDID, label string) e
 func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string) error {
 	msg, err := s.getEventTransientData(connectionID)
 	if err != nil {
-		return fmt.Errorf("%s : %w", errMsg, err)
+		return fmt.Errorf("failed to accept invitation for connectionID=%s : %s : %w", connectionID, errMsg, err)
 	}
 
 	connRecord, err := s.connectionStore.GetConnectionRecord(connectionID)
