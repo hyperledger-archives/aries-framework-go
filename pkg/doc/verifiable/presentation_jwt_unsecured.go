@@ -6,32 +6,25 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
 // MarshalUnsecuredJWT serializes JWT presentation claims into unsecured JWT.
-func (jpc *JWTPresClaims) MarshalUnsecuredJWT() (string, error) { //nolint:lll
-	headers := map[string]string{
-		"alg": "none",
-	}
-
-	return marshalUnsecuredJWT(headers, jpc)
+func (jpc *JWTPresClaims) MarshalUnsecuredJWT() (string, error) {
+	return marshalUnsecuredJWT(nil, jpc)
 }
 
-func decodeVPFromUnsecuredJWT(vpJWTBytes []byte) ([]byte, *rawPresentation, error) {
-	return decodePresJWT(vpJWTBytes, func(vpJWTBytes []byte) (*JWTPresClaims, error) {
-		_, bytesClaim, err := unmarshalUnsecuredJWT(vpJWTBytes)
-		if err != nil {
-			return nil, fmt.Errorf("decode unsecured JWT: %w", err)
-		}
+func unmarshalUnsecuredJWTPresClaims(vpJWT string) (*JWTPresClaims, error) {
+	var claims JWTPresClaims
 
-		vpClaims := new(JWTPresClaims)
-		err = json.Unmarshal(bytesClaim, vpClaims)
-		if err != nil {
-			return nil, fmt.Errorf("parse JWT claims: %w", err)
-		}
+	err := unmarshalUnsecuredJWT(vpJWT, &claims)
+	if err != nil {
+		return nil, fmt.Errorf("parse VP in JWT Unsecured form: %w", err)
+	}
 
-		return vpClaims, nil
-	})
+	return &claims, nil
+}
+
+func decodeVPFromUnsecuredJWT(vpJWT string) ([]byte, *rawPresentation, error) {
+	return decodePresJWT(vpJWT, unmarshalUnsecuredJWTPresClaims)
 }

@@ -10,12 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/square/go-jose/v3/jwt"
+	josejwt "github.com/square/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 )
 
 func TestDecodeJWT(t *testing.T) {
-	vcBytes, err := decodeCredJWT([]byte{}, func(vcJWTBytes []byte) (*JWTCredClaims, error) {
+	vcBytes, err := decodeCredJWT("", func(string) (*JWTCredClaims, error) {
 		return nil, errors.New("cannot parse JWT claims")
 	})
 	require.Error(t, err)
@@ -34,10 +36,10 @@ func TestRefineVcFromJwtClaims(t *testing.T) {
 	}
 	credClaims := &jwt.Claims{
 		Issuer:    issuerID,
-		NotBefore: jwt.NewNumericDate(issued),
+		NotBefore: josejwt.NewNumericDate(issued),
 		ID:        vcID,
-		IssuedAt:  jwt.NewNumericDate(issued),
-		Expiry:    jwt.NewNumericDate(expired),
+		IssuedAt:  josejwt.NewNumericDate(issued),
+		Expiry:    josejwt.NewNumericDate(expired),
 	}
 
 	jwtCredClaims := &JWTCredClaims{

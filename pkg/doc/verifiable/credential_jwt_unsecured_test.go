@@ -11,6 +11,8 @@ import (
 
 	"github.com/square/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
 
 func TestCredentialJWTClaimsMarshallingToUnsecuredJWT(t *testing.T) {
@@ -24,7 +26,7 @@ func TestCredentialJWTClaimsMarshallingToUnsecuredJWT(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, sJWT)
 
-	vcBytes, err := decodeCredJWTUnsecured([]byte(sJWT))
+	vcBytes, err := decodeCredJWTUnsecured(sJWT)
 	require.NoError(t, err)
 
 	vcRaw := new(rawCredential)
@@ -46,15 +48,15 @@ func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
 		sJWT, err := jwtClaims.MarshalUnsecuredJWT()
 		require.NoError(t, err)
 
-		decodedCred, err := decodeCredJWTUnsecured([]byte(sJWT))
+		decodedCred, err := decodeCredJWTUnsecured(sJWT)
 		require.NoError(t, err)
 		require.NotNil(t, decodedCred)
 	})
 
 	t.Run("Invalid serialized unsecured JWT", func(t *testing.T) {
-		vcBytes, err := decodeCredJWTUnsecured([]byte("invalid JWS"))
+		vcBytes, err := decodeCredJWTUnsecured("invalid JWS")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal VC JWT claims: decode unsecured JWT")
+		require.Contains(t, err.Error(), "parse VC in JWT Unsecured form")
 		require.Nil(t, vcBytes)
 	})
 
@@ -64,12 +66,12 @@ func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
 			Credential: 55, // "vc" claim of invalid format
 		}
 
-		rawJWT, err := marshalUnsecuredJWT(map[string]string{}, claims)
+		rawJWT, err := marshalUnsecuredJWT(jose.Headers{}, claims)
 		require.NoError(t, err)
 
-		vcBytes, err := decodeCredJWTUnsecured([]byte(rawJWT))
+		vcBytes, err := decodeCredJWTUnsecured(rawJWT)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal VC JWT claims: parse JWT claims")
+		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
 		require.Nil(t, vcBytes)
 	})
 }

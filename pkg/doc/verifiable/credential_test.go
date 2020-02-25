@@ -14,12 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
-
 	"github.com/piprate/json-gold/ld"
+	"github.com/stretchr/testify/require"
 	"github.com/xeipuuv/gojsonschema"
 
-	"github.com/stretchr/testify/require"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 )
 
 const singleCredentialSubject = `
@@ -1565,7 +1565,7 @@ func TestNewUnverifiedCredential(t *testing.T) {
 		credClaims, err := vc.JWTClaims(true)
 		require.NoError(t, err)
 
-		jws, err := credClaims.MarshalJWS(EdDSA, privKey, "any")
+		jws, err := credClaims.MarshalJWS(EdDSA, getEd25519TestSigner(privKey), "any")
 		require.NoError(t, err)
 
 		// Parse VC with JWS proof.
@@ -1583,7 +1583,7 @@ func TestNewUnverifiedCredential(t *testing.T) {
 		created := time.Now()
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 			SignatureType:           "Ed25519Signature2018",
-			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
 			SignatureRepresentation: SignatureJWS,
 			Created:                 &created,
 		})
@@ -1604,7 +1604,7 @@ func TestNewUnverifiedCredential(t *testing.T) {
 			"iss": 33, // JWT issuer must be a string
 		}
 
-		headers := map[string]string{
+		headers := jose.Headers{
 			"alg": "none",
 			"typ": "JWT",
 		}

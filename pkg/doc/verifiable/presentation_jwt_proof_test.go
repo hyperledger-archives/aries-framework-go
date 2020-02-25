@@ -70,7 +70,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 			}))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get public key for JWT signature verification")
+		require.Contains(t, err.Error(), "test: public key is not found")
 		require.Nil(t, vp)
 	})
 
@@ -96,7 +96,7 @@ func TestNewPresentationFromJWS_EdDSA(t *testing.T) {
 	jwtClaims, err := vp.JWTClaims([]string{}, false)
 	require.NoError(t, err)
 
-	vpJWSStr, err := jwtClaims.MarshalJWS(EdDSA, privKey, vp.Holder+"#keys-"+keyID)
+	vpJWSStr, err := jwtClaims.MarshalJWS(EdDSA, getEd25519TestSigner(privKey), vp.Holder+"#keys-"+keyID)
 	require.NoError(t, err)
 
 	// unmarshal presentation from JWS
@@ -174,7 +174,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 	issuerPrivKey, e := readPrivateKey(filepath.Join(certPrefix, "issuer_private.pem"))
 	r.NoError(e)
 
-	vcJWS, e := vcJWTClaims.MarshalJWS(RS256, issuerPrivKey, "issuer-key")
+	vcJWS, e := vcJWTClaims.MarshalJWS(RS256, getRS256TestSigner(issuerPrivKey), "issuer-key")
 	r.NoError(e)
 	r.NotNil(vcJWS)
 
@@ -196,8 +196,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
 		require.NoError(t, err)
 
-		vpJWS, err := jwtClaims.MarshalJWS(
-			EdDSA, holderPrivKey, "holder-key")
+		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, getEd25519TestSigner(holderPrivKey), "holder-key")
 		r.NoError(err)
 
 		// Decode VP
@@ -241,8 +240,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
 		require.NoError(t, err)
 
-		vpJWS, err := jwtClaims.MarshalJWS(
-			EdDSA, holderPrivKey, "holder-key")
+		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, getEd25519TestSigner(holderPrivKey), "holder-key")
 		r.NoError(err)
 
 		// Decode VP
@@ -276,8 +274,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		jwtClaims, err := vp.JWTClaims([]string{}, true)
 		require.NoError(t, err)
 
-		vpJWS, err := jwtClaims.MarshalJWS(
-			EdDSA, holderPrivKey, "holder-key")
+		vpJWS, err := jwtClaims.MarshalJWS(EdDSA, getEd25519TestSigner(holderPrivKey), "holder-key")
 		r.NoError(err)
 
 		// Decode VP
@@ -313,7 +310,7 @@ func createPresJWS(t *testing.T, vpBytes []byte, minimize bool) []byte {
 	jwtClaims, err := vp.JWTClaims([]string{}, minimize)
 	require.NoError(t, err)
 
-	vpJWT, err := jwtClaims.MarshalJWS(RS256, privateKey, vp.Holder+"#keys-"+keyID)
+	vpJWT, err := jwtClaims.MarshalJWS(RS256, getRS256TestSigner(privateKey), vp.Holder+"#keys-"+keyID)
 	require.NoError(t, err)
 
 	return []byte(vpJWT)

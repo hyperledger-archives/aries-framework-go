@@ -6,35 +6,25 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
 // MarshalUnsecuredJWT serialized JWT into unsecured JWT.
 func (jcc *JWTCredClaims) MarshalUnsecuredJWT() (string, error) {
-	headers := map[string]string{
-		"alg": "none",
-	}
-
-	return marshalUnsecuredJWT(headers, jcc)
+	return marshalUnsecuredJWT(nil, jcc)
 }
 
-func unmarshalUnsecuredJWTClaims(rawJwt []byte) (*JWTCredClaims, error) {
-	_, bytesClaim, err := unmarshalUnsecuredJWT(rawJwt)
+func unmarshalUnsecuredJWTClaims(rawJWT string) (*JWTCredClaims, error) {
+	var claims JWTCredClaims
+
+	err := unmarshalUnsecuredJWT(rawJWT, &claims)
 	if err != nil {
-		return nil, fmt.Errorf("decode unsecured JWT: %w", err)
+		return nil, fmt.Errorf("parse VC in JWT Unsecured form: %w", err)
 	}
 
-	credClaims := new(JWTCredClaims)
-
-	err = json.Unmarshal(bytesClaim, credClaims)
-	if err != nil {
-		return nil, fmt.Errorf("parse JWT claims: %w", err)
-	}
-
-	return credClaims, nil
+	return &claims, nil
 }
 
-func decodeCredJWTUnsecured(rawJwt []byte) ([]byte, error) {
+func decodeCredJWTUnsecured(rawJwt string) ([]byte, error) {
 	return decodeCredJWT(rawJwt, unmarshalUnsecuredJWTClaims)
 }

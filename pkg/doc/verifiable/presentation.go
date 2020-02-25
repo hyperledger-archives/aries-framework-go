@@ -11,6 +11,8 @@ import (
 	"fmt"
 
 	"github.com/xeipuuv/gojsonschema"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 )
 
 const basePresentationSchema = `
@@ -414,12 +416,14 @@ func validatePresentation(data []byte) error {
 }
 
 func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *rawPresentation, error) {
-	if isJWS(vpData) {
+	vpStr := string(vpData)
+
+	if jwt.IsJWS(vpStr) {
 		if vpOpts.publicKeyFetcher == nil {
 			return nil, nil, errors.New("public key fetcher is not defined")
 		}
 
-		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpData, !vpOpts.disabledProofCheck, vpOpts.publicKeyFetcher)
+		vcDataFromJwt, rawCred, err := decodeVPFromJWS(vpStr, !vpOpts.disabledProofCheck, vpOpts.publicKeyFetcher)
 		if err != nil {
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from JWS: %w", err)
 		}
@@ -427,8 +431,8 @@ func decodeRawPresentation(vpData []byte, vpOpts *presentationOpts) ([]byte, *ra
 		return vcDataFromJwt, rawCred, nil
 	}
 
-	if isJWTUnsecured(vpData) {
-		rawBytes, rawCred, err := decodeVPFromUnsecuredJWT(vpData)
+	if jwt.IsJWTUnsecured(vpStr) {
+		rawBytes, rawCred, err := decodeVPFromUnsecuredJWT(vpStr)
 		if err != nil {
 			return nil, nil, fmt.Errorf("decoding of Verifiable Presentation from unsecured JWT: %w", err)
 		}

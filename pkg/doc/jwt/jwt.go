@@ -8,9 +8,11 @@ package jwt
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/square/go-jose/v3/json"
 	"github.com/square/go-jose/v3/jwt"
@@ -81,7 +83,6 @@ func UnsecuredJWTVerifier() jose.SignatureVerifier {
 }
 
 type unsecuredJWTSigner struct {
-	extraHeaders map[string]interface{}
 }
 
 func (s unsecuredJWTSigner) Sign(_ []byte) ([]byte, error) {
@@ -89,18 +90,10 @@ func (s unsecuredJWTSigner) Sign(_ []byte) ([]byte, error) {
 }
 
 func (s unsecuredJWTSigner) Headers() jose.Headers {
-	jHeaders := map[string]interface{}{
+	return map[string]interface{}{
 		jose.HeaderAlgorithm: AlgorithmNone,
 		jose.HeaderType:      TypeJWT,
 	}
-
-	for k, v := range s.extraHeaders {
-		if _, ok := jHeaders[k]; !ok {
-			jHeaders[k] = v
-		}
-	}
-
-	return jHeaders
 }
 
 // JSONWebToken defines JSON Web Token (https://tools.ietf.org/html/rfc7519)
@@ -109,7 +102,7 @@ type JSONWebToken struct {
 
 	Payload map[string]interface{}
 
-	signature []byte
+	jws *jose.JSONWebSignature
 }
 
 // Parse parses input JWT in serialized form into JSON Web Token.
@@ -149,35 +142,13 @@ func (j *JSONWebToken) LookupStringHeader(name string) string {
 	return ""
 }
 
-// SerializeSigned makes (compact) serialization of token.
-func (j *JSONWebToken) SerializeSigned(signer jose.Signer, detached bool) (string, error) {
-	return j.serialize(signer, detached)
-}
-
-// SerializeUnsecured build unsecured JWT.
-func (j *JSONWebToken) SerializeUnsecured(extraHeaders map[string]interface{}, detached bool) (string, error) {
-	return j.serialize(&unsecuredJWTSigner{extraHeaders}, detached)
-}
-
-func (j *JSONWebToken) serialize(signer jose.Signer, detached bool) (string, error) {
-	payloadBytes, err := j.marshalPayload()
-	if err != nil {
-		return "", fmt.Errorf("marshal JWT claims: %w", err)
+// Serialize makes (compact) serialization of token.
+func (j *JSONWebToken) Serialize(detached bool) (string, error) {
+	if j.jws == nil {
+		return "", errors.New("JWS serialization is supported only")
 	}
 
-	// JWS compact serialization uses only protected headers (https://tools.ietf.org/html/rfc7515#section-3.1).
-	jws, err := jose.NewJWS(j.Headers, nil, payloadBytes, signer)
-	if err != nil {
-		return "", err
-	}
-
-	j.signature = jws.Signature()
-
-	return jws.SerializeCompact(detached)
-}
-
-func (j *JSONWebToken) marshalPayload() ([]byte, error) {
-	return json.Marshal(j.Payload)
+	return j.jws.SerializeCompact(detached)
 }
 
 func parseJWS(jwtSerialized string, opts *parseOpts) (*JSONWebToken, error) {
@@ -209,22 +180,76 @@ func mapJWSToJWT(jws *jose.JSONWebSignature) (*JSONWebToken, error) {
 	}
 
 	return &JSONWebToken{
-		Headers:   headers,
-		Payload:   claims,
-		signature: jws.Signature(),
+		Headers: headers,
+		Payload: claims,
+		jws:     jws,
 	}, nil
 }
 
-// New creates new JSON Web Token based on input claims.
-func New(claims interface{}) (*JSONWebToken, error) {
-	m, err := toMap(claims)
+// NewSigned creates new signed JSON Web Token based on input claims.
+func NewSigned(claims interface{}, headers jose.Headers, signer jose.Signer) (*JSONWebToken, error) {
+	return newSigned(claims, headers, signer)
+}
+
+// NewUnsecured creates new unsecured JSON Web Token based on input claims.
+func NewUnsecured(claims interface{}, headers jose.Headers) (*JSONWebToken, error) {
+	return newSigned(claims, headers, &unsecuredJWTSigner{})
+}
+
+func newSigned(claims interface{}, headers jose.Headers, signer jose.Signer) (*JSONWebToken, error) {
+	payloadMap, err := toMap(claims)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshallable claims: %w", err)
 	}
 
+	payloadBytes, err := json.Marshal(payloadMap)
+	if err != nil {
+		return nil, fmt.Errorf("marshal JWT claims: %w", err)
+	}
+
+	// JWS compact serialization uses only protected headers (https://tools.ietf.org/html/rfc7515#section-3.1).
+	jws, err := jose.NewJWS(headers, nil, payloadBytes, signer)
+	if err != nil {
+		return nil, fmt.Errorf("create JWS: %w", err)
+	}
+
 	return &JSONWebToken{
-		Payload: m,
+		Headers: jws.ProtectedHeaders,
+		Payload: payloadMap,
+		jws:     jws,
 	}, nil
+}
+
+// IsJWS checks if JWT is a JWS of valid structure.
+func IsJWS(s string) bool {
+	parts := strings.Split(s, ".")
+
+	return len(parts) == 3 &&
+		isValidJSON(parts[0]) &&
+		isValidJSON(parts[1]) &&
+		parts[2] != ""
+}
+
+// IsJWTUnsecured checks if JWT is an unsecured JWT of valid structure.
+func IsJWTUnsecured(s string) bool {
+	parts := strings.Split(s, ".")
+
+	return len(parts) == 3 &&
+		isValidJSON(parts[0]) &&
+		isValidJSON(parts[1]) &&
+		parts[2] == ""
+}
+
+func isValidJSON(s string) bool {
+	b, err := base64.RawURLEncoding.DecodeString(s)
+	if err != nil {
+		return false
+	}
+
+	var j map[string]interface{}
+	err = json.Unmarshal(b, &j)
+
+	return err == nil
 }
 
 func checkHeaders(headers map[string]interface{}) error {

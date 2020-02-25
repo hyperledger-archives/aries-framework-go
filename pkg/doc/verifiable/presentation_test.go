@@ -11,9 +11,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 )
 
 //nolint:lll
@@ -363,7 +363,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 	jwtClaims, err := vc.JWTClaims(false)
 	r.NoError(err)
 
-	jws, err := jwtClaims.MarshalJWS(EdDSA, privKey, "k1")
+	jws, err := jwtClaims.MarshalJWS(EdDSA, getEd25519TestSigner(privKey), "k1")
 	r.NoError(err)
 
 	// single credential - JWS

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -24,17 +23,17 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdri"
 )
 
-func TestJwtAlgorithm_Jose(t *testing.T) {
-	joseAlg, err := RS256.jose()
+func TestJwtAlgorithm_Name(t *testing.T) {
+	alg, err := RS256.name()
 	require.NoError(t, err)
-	require.Equal(t, jose.RS256, joseAlg)
+	require.Equal(t, "RS256", alg)
 
-	joseAlg, err = EdDSA.jose()
+	alg, err = EdDSA.name()
 	require.NoError(t, err)
-	require.Equal(t, jose.EdDSA, joseAlg)
+	require.Equal(t, "EdDSA", alg)
 
 	// not supported alg
-	sa, err := JWSAlgorithm(-1).jose()
+	sa, err := JWSAlgorithm(-1).name()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported algorithm")
 	require.Empty(t, sa)

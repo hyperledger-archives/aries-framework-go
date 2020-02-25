@@ -287,7 +287,7 @@ func createRS256JWS(t *testing.T, cred []byte, minimize bool) []byte {
 
 	jwtClaims, err := vc.JWTClaims(minimize)
 	require.NoError(t, err)
-	vcJWT, err := jwtClaims.MarshalJWS(RS256, privateKey, vc.Issuer.ID+"#keys-"+keyID)
+	vcJWT, err := jwtClaims.MarshalJWS(RS256, getRS256TestSigner(privateKey), vc.Issuer.ID+"#keys-"+keyID)
 	require.NoError(t, err)
 
 	return []byte(vcJWT)
@@ -299,7 +299,7 @@ func createEdDSAJWS(t *testing.T, cred, privateKey ed25519.PrivateKey, minimize 
 
 	jwtClaims, err := vc.JWTClaims(minimize)
 	require.NoError(t, err)
-	vcJWT, err := jwtClaims.MarshalJWS(EdDSA, privateKey, vc.Issuer.ID+"#keys-"+keyID)
+	vcJWT, err := jwtClaims.MarshalJWS(EdDSA, getEd25519TestSigner(privateKey), vc.Issuer.ID+"#keys-"+keyID)
 	require.NoError(t, err)
 
 	return []byte(vcJWT)

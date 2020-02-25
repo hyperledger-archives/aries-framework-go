@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/square/go-jose/v3"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -38,13 +37,13 @@ const (
 	EdDSA
 )
 
-// jose converts JWSAlgorithm to JOSE one.
-func (ja JWSAlgorithm) jose() (jose.SignatureAlgorithm, error) {
+// name return the name of the signature algorithm.
+func (ja JWSAlgorithm) name() (string, error) {
 	switch ja {
 	case RS256:
-		return jose.RS256, nil
+		return "RS256", nil
 	case EdDSA:
-		return jose.EdDSA, nil
+		return "EdDSA", nil
 	default:
 		return "", fmt.Errorf("unsupported algorithm: %v", ja)
 	}

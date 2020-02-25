@@ -6,86 +6,86 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/square/go-jose/v3"
-	"github.com/square/go-jose/v3/jwt"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 )
 
+// Signer defines signer interface which is used to sign VC JWT.
+type Signer interface {
+	Sign(data []byte) ([]byte, error)
+}
+
+// jwtSigner implement jose.Signer interface
+type jwtSigner struct {
+	signer  Signer
+	headers map[string]interface{}
+}
+
+func getJWTSigner(signer Signer, algorithm string) *jwtSigner {
+	headers := map[string]interface{}{
+		jose.HeaderAlgorithm: algorithm,
+		jose.HeaderType:      jwt.TypeJWT,
+	}
+
+	return &jwtSigner{signer: signer, headers: headers}
+}
+
+func (s jwtSigner) Sign(data []byte) ([]byte, error) {
+	return s.signer.Sign(data)
+}
+
+func (s jwtSigner) Headers() jose.Headers {
+	return s.headers
+}
+
+// noVerifier is used when no JWT signature verification is needed.
+// To be used with precaution.
+type noVerifier struct {
+}
+
+func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
+	return nil
+}
+
 // MarshalJWS serializes JWT presentation claims into signed form (JWS)
-// todo refactor, do not pass privateKey (https://github.com/hyperledger/aries-framework-go/issues/339)
-func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, privateKey interface{}, keyID string) (string, error) { //nolint:lll
-	joseAlg, err := signatureAlg.jose()
+func marshalJWS(jwtClaims interface{}, signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, error) {
+	algName, err := signatureAlg.name()
 	if err != nil {
 		return "", err
 	}
 
-	key := jose.SigningKey{Algorithm: joseAlg, Key: privateKey}
-
-	var signerOpts = &jose.SignerOptions{}
-
-	signerOpts.WithType("JWT")
-	signerOpts.WithHeader("kid", keyID)
-
-	signer, err := jose.NewSigner(key, signerOpts)
-	if err != nil {
-		return "", fmt.Errorf("create signer: %w", err)
+	headers := map[string]interface{}{
+		jose.HeaderKeyID: keyID,
 	}
 
-	// create an instance of Builder that uses the signer
-	builder := jwt.Signed(signer).Claims(jwtClaims)
-
-	// validate all ok, sign with the key, and return a compact JWT
-	jws, err := builder.CompactSerialize()
+	token, err := jwt.NewSigned(jwtClaims, headers, getJWTSigner(signer, algName))
 	if err != nil {
-		return "", fmt.Errorf("sign and serialize JWT: %w", err)
+		return "", err
 	}
 
-	return jws, nil
+	return token.Serialize(false)
 }
 
-func verifyJWTSignature(token *jwt.JSONWebToken, fetcher PublicKeyFetcher, issuer string, jwtClaims interface{}) error {
-	var keyID string
+func unmarshalJWS(rawJwt string, checkProof bool, fetcher PublicKeyFetcher, claims interface{}) error {
+	var verifier jose.SignatureVerifier
 
-	for _, h := range token.Headers {
-		if h.KeyID != "" {
-			keyID = h.KeyID
-			break
-		}
+	if checkProof {
+		verifier = jwt.NewVerifier(jwt.KeyResolverFunc(fetcher))
+	} else {
+		verifier = &noVerifier{}
 	}
 
-	publicKey, err := fetcher(issuer, keyID)
+	jsonWebToken, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
 	if err != nil {
-		return fmt.Errorf("get public key for JWT signature verification: %w", err)
+		return fmt.Errorf("parse JWT: %w", err)
 	}
 
-	if err = token.Claims(publicKey, jwtClaims); err != nil {
-		return fmt.Errorf("verify JWT signature: %w", err)
+	err = jsonWebToken.DecodeClaims(claims)
+	if err != nil {
+		return err
 	}
 
 	return nil
-}
-
-func isJWS(data []byte) bool {
-	parts := strings.Split(string(data), ".")
-
-	isValidJSON := func(s string) bool {
-		b, err := base64.RawURLEncoding.DecodeString(s)
-		if err != nil {
-			return false
-		}
-
-		var j map[string]interface{}
-		err = json.Unmarshal(b, &j)
-
-		return err == nil
-	}
-
-	return len(parts) == 3 &&
-		isValidJSON(parts[0]) &&
-		isValidJSON(parts[1]) &&
-		parts[2] != ""
 }

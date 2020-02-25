@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/square/go-jose/v3/jwt"
+	josejwt "github.com/square/go-jose/v3/jwt"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 )
 
 const (
@@ -39,14 +41,14 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 
 	// currently jwt encoding supports only single subject (by the spec)
 	jwtClaims := &jwt.Claims{
-		Issuer:    vc.Issuer.ID,                   // iss
-		NotBefore: jwt.NewNumericDate(*vc.Issued), // nbf
-		ID:        vc.ID,                          // jti
-		Subject:   subjectID,                      // sub
-		IssuedAt:  jwt.NewNumericDate(*vc.Issued), // iat (not in spec, follow the interop project approach)
+		Issuer:    vc.Issuer.ID,                       // iss
+		NotBefore: josejwt.NewNumericDate(*vc.Issued), // nbf
+		ID:        vc.ID,                              // jti
+		Subject:   subjectID,                          // sub
+		IssuedAt:  josejwt.NewNumericDate(*vc.Issued), // iat (not in spec, follow the interop project approach)
 	}
 	if vc.Expired != nil {
-		jwtClaims.Expiry = jwt.NewNumericDate(*vc.Expired) // exp
+		jwtClaims.Expiry = josejwt.NewNumericDate(*vc.Expired) // exp
 	}
 
 	var raw *rawCredential
@@ -81,11 +83,11 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 }
 
 // JWTCredClaimsUnmarshaller unmarshals verifiable credential bytes into JWT claims with extra "vc" claim.
-type JWTCredClaimsUnmarshaller func(vcJWTBytes []byte) (*JWTCredClaims, error)
+type JWTCredClaimsUnmarshaller func(vcJWTBytes string) (*JWTCredClaims, error)
 
 // decodeCredJWT parses JWT from the specified bytes array in compact format using unmarshaller.
 // It returns decoded Verifiable Credential refined by JWT Claims in raw byte array form.
-func decodeCredJWT(rawJWT []byte, unmarshaller JWTCredClaimsUnmarshaller) ([]byte, error) {
+func decodeCredJWT(rawJWT string, unmarshaller JWTCredClaimsUnmarshaller) ([]byte, error) {
 	credClaims, err := unmarshaller(rawJWT)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal VC JWT claims: %w", err)

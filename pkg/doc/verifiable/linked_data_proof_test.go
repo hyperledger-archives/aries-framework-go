@@ -144,7 +144,7 @@ func TestLinkedDataProofSigner(t *testing.T) {
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:example:123456#key1",

@@ -100,7 +100,7 @@ func ExampleCredential_embedding() {
 		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, privIssuerKey, "")
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getSigner(privIssuerKey), "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}
@@ -168,7 +168,7 @@ func ExampleCredential_extraFields() {
 		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, privIssuerKey, "")
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getSigner(privIssuerKey), "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}
@@ -229,7 +229,7 @@ func ExampleNewCredential() {
 		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, privIssuerKey, "")
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getSigner(privIssuerKey), "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}
@@ -293,7 +293,7 @@ func ExampleCredential_JWTClaims() {
 		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, privIssuerKey, "")
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getSigner(privIssuerKey), "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}

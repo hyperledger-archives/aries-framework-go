@@ -22,7 +22,7 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	suite := ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey)))
+	suite := ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey)))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
@@ -63,7 +63,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 			SignatureType:           "Ed25519Signature2018",
 			SignatureRepresentation: SignatureJWS,
-			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
 		})
 		r.NoError(err)
 
@@ -94,13 +94,13 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 			SignatureType:           "Ed25519Signature2018",
 			SignatureRepresentation: SignatureProofValue,
-			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
 		})
 		r.Error(err)
 
 		vc.CustomFields = nil
 		ldpContextWithMissingSignatureType := &LinkedDataProofContext{
-			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
 			SignatureRepresentation: SignatureProofValue,
 		}
 

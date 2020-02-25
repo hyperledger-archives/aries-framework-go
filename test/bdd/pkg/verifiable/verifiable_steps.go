@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"errors"
 	"time"
 
@@ -20,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
 )
 
@@ -27,8 +26,6 @@ import (
 type SDKSteps struct {
 	bddContext    *context.BDDContext
 	issuedVCBytes []byte
-	proofType     string
-	pubKey        ed25519.PublicKey
 }
 
 // NewVerifiableCredentialSDKSteps creates steps for verifiable credential with SDK
@@ -103,14 +100,17 @@ func (s *SDKSteps) addVCProof(vc *verifiable.Credential, issuer, proofType strin
 	pubKey := doc.PublicKey[0]
 
 	kms := s.bddContext.AgentCtx[issuer].Signer()
-
-	s.proofType = proofType
+	signer := newSigner(kms, base58.Encode(pubKey.Value))
 
 	switch proofType {
 	case jwsLinkedDataProof:
-		verificationMethod := doc.ID + pubKey.ID
-
-		err := addJWSLinkedDataProof(vc, newSigner(kms, base58.Encode(pubKey.Value)), verificationMethod)
+		err := vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+			SignatureType:           "Ed25519Signature2018",
+			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(signer)),
+			SignatureRepresentation: verifiable.SignatureJWS,
+			Created:                 vc.Issued,
+			VerificationMethod:      doc.ID + pubKey.ID,
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -118,23 +118,12 @@ func (s *SDKSteps) addVCProof(vc *verifiable.Credential, issuer, proofType strin
 		return vc.MarshalJSON()
 
 	case jwsProof:
-		// TODO to be improved at https://github.com/hyperledger/aries-framework-go/issues/339:
-		//  1) use KMS for signing
-		//  2) do not keep public key, should be resolved by sidetree
 		jwtClaims, err := vc.JWTClaims(false)
 		if err != nil {
 			return nil, err
 		}
 
-		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			return nil, err
-		}
-
-		// keep pubKey to be used later for verification by a Holder
-		s.pubKey = pubKey
-
-		jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, privKey, "key-1")
+		jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, signer, pubKey.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -147,16 +136,21 @@ func (s *SDKSteps) addVCProof(vc *verifiable.Credential, issuer, proofType strin
 }
 
 func (s *SDKSteps) verifyCredential(holder string) error {
-	switch s.proofType {
-	case jwsLinkedDataProof:
-		return s.verifyCredentialWithLinkedDataProof(holder)
+	vdriRegistry := s.bddContext.AgentCtx[holder].VDRIRegistry()
+	pKeyFetcher := verifiable.NewDIDKeyResolver(vdriRegistry).PublicKeyFetcher()
 
-	case jwsProof:
-		return s.verifyCredentialWithJWSProof()
-
-	default:
-		return errors.New("unsupported proof type: " + s.proofType)
+	parsedVC, _, err := verifiable.NewCredential(s.issuedVCBytes,
+		verifiable.WithPublicKeyFetcher(pKeyFetcher),
+		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()))
+	if err != nil {
+		return err
 	}
+
+	if parsedVC == nil {
+		return errors.New("received nil credential")
+	}
+
+	return nil
 }
 
 func (s *SDKSteps) getPublicDID(agentName string) *did.Doc {
@@ -179,49 +173,11 @@ func (s *SDKSteps) createDID(issuer, holder string) error {
 		return err
 	}
 
-	return didresolver.CreateDIDDocument(s.bddContext, participants, acceptDidMethod)
-}
-
-func (s *SDKSteps) verifyCredentialWithLinkedDataProof(holder string) error {
-	vdriRegistry := s.bddContext.AgentCtx[holder].VDRIRegistry()
-	pKeyFetcher := verifiable.NewDIDKeyResolver(vdriRegistry).PublicKeyFetcher()
-
-	parsedVC, _, err := verifiable.NewCredential(s.issuedVCBytes,
-		verifiable.WithPublicKeyFetcher(pKeyFetcher),
-		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()))
-	if err != nil {
+	if err := didresolver.CreateDIDDocument(s.bddContext, participants, acceptDidMethod); err != nil {
 		return err
 	}
 
-	if parsedVC == nil {
-		return errors.New("received nil credential")
-	}
+	didExchangeSDK := bddDIDExchange.NewDIDExchangeSDKSteps(s.bddContext)
 
-	return nil
-}
-
-func (s *SDKSteps) verifyCredentialWithJWSProof() error {
-	parsedVC, _, err := verifiable.NewCredential(s.issuedVCBytes,
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(s.pubKey)))
-	if err != nil {
-		return err
-	}
-
-	if parsedVC == nil {
-		return errors.New("received nil credential")
-	}
-
-	return nil
-}
-
-func addJWSLinkedDataProof(vc *verifiable.Credential, signer *signer, verificationMethod string) error {
-	suite := ed25519signature2018.New(ed25519signature2018.WithSigner(signer))
-
-	return vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
-		SignatureType:           "Ed25519Signature2018",
-		Suite:                   suite,
-		SignatureRepresentation: verifiable.SignatureJWS,
-		Created:                 vc.Issued,
-		VerificationMethod:      verificationMethod,
-	})
+	return didExchangeSDK.WaitForPublicDID(participants, 10)
 }
