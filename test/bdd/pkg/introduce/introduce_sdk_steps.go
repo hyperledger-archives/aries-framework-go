@@ -60,6 +60,7 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" checks the history of introduce protocol events "([^"]*)"$`, a.checkHistoryEvents)
 	s.Step(`^"([^"]*)" checks the history of introduce protocol events "([^"]*)" and stop$`, a.checkHistoryEventsAndStop)
 	s.Step(`^"([^"]*)" exchange DIDs with "([^"]*)"$`, a.createConnections)
+	s.Step(`^"([^"]*)" has did exchange connection with "([^"]*)"$`, a.connectionEstablished)
 }
 
 func (a *SDKSteps) connectionEstablished(agent1, agent2 string) error {
