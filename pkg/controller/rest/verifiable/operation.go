@@ -7,8 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"net/http"
+
+	"github.com/gorilla/mux"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -21,6 +25,7 @@ const (
 	varifiableCredentialPath = verifiableOperationID + "/credential"
 	validateCredentialPath   = varifiableCredentialPath + "/validate"
 	saveCredentialPath       = varifiableCredentialPath
+	getCredentialPath        = varifiableCredentialPath + "/{id}"
 )
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -56,7 +61,8 @@ func (o *Operation) GetRESTHandlers() []rest.Handler {
 func (o *Operation) registerHandler() {
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(validateCredentialPath, http.MethodPost, o.ValidateCredential),
-		cmdutil.NewHTTPHandler(saveCredentialPath, http.MethodPost, o.ValidateCredential),
+		cmdutil.NewHTTPHandler(saveCredentialPath, http.MethodPost, o.SaveCredential),
+		cmdutil.NewHTTPHandler(getCredentialPath, http.MethodGet, o.GetCredential),
 	}
 }
 
@@ -80,4 +86,25 @@ func (o *Operation) ValidateCredential(rw http.ResponseWriter, req *http.Request
 //        200: emptyRes
 func (o *Operation) SaveCredential(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.SaveCredential, rw, req.Body)
+}
+
+// GetCredential swagger:route GET /verifiable/credential/{id} verifiable getCredentialReq
+//
+// Retrieves the verifiable credential.
+//
+// Responses:
+//    default: genericError
+//        200: credentialRes
+func (o *Operation) GetCredential(rw http.ResponseWriter, req *http.Request) {
+	id := mux.Vars(req)["id"]
+
+	decodedID, err := base64.StdEncoding.DecodeString(id)
+	if err != nil {
+		rest.SendHTTPStatusError(rw, http.StatusBadRequest, verifiable.InvalidRequestErrorCode, err)
+		return
+	}
+
+	request := fmt.Sprintf(`{"id":"%s"}`, string(decodedID))
+
+	rest.Execute(o.command.GetCredential, rw, bytes.NewBufferString(request))
 }

@@ -39,3 +39,27 @@ type saveCredentialReq struct { // nolint: unused,deadcode
 	// in: body
 	Params verifiable.Credential
 }
+
+// getCredentialReq model
+//
+// This is used to retrieve the verifiable credential.
+//
+// swagger:parameters getCredentialReq
+type getCredentialReq struct { // nolint: unused,deadcode
+	// VC ID - pass base64 version of the ID
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
+// credentialRes model
+//
+// This is used for returning query connection result for single record search
+//
+// swagger:response credentialRes
+type credentialRes struct { // nolint: unused,deadcode
+
+	// in: body
+	verifiable.Credential
+}

@@ -8,6 +8,7 @@ package verifiable
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -53,7 +54,7 @@ func TestNew(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
-		require.Equal(t, 2, len(cmd.GetRESTHandlers()))
+		require.Equal(t, 3, len(cmd.GetRESTHandlers()))
 	})
 
 	t.Run("test new command - error", func(t *testing.T) {
@@ -80,7 +81,7 @@ func TestValidateVC(t *testing.T) {
 		jsonStr, err := json.Marshal(vcReq)
 		require.NoError(t, err)
 
-		handler := lookupHandler(t, cmd, validateCredentialPath)
+		handler := lookupHandler(t, cmd, validateCredentialPath, http.MethodPost)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 
@@ -102,7 +103,7 @@ func TestValidateVC(t *testing.T) {
 		var jsonStr = []byte(`{
 		}`)
 
-		handler := lookupHandler(t, cmd, validateCredentialPath)
+		handler := lookupHandler(t, cmd, validateCredentialPath, http.MethodPost)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
@@ -112,12 +113,101 @@ func TestValidateVC(t *testing.T) {
 	})
 }
 
-func lookupHandler(t *testing.T, op *Operation, path string) rest.Handler {
+func TestSaveVC(t *testing.T) {
+	t.Run("test save vc - success", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		vcReq := verifiable.Credential{VC: vc}
+		jsonStr, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, saveCredentialPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+
+		response := emptyRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.Empty(t, response)
+	})
+
+	t.Run("test save vc - error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var jsonStr = []byte(`{
+		}`)
+
+		handler := lookupHandler(t, cmd, saveCredentialPath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.SaveCredentialErrorCode, "parse vc : decode new credential", buf.Bytes())
+	})
+}
+
+func TestGetVC(t *testing.T) {
+	t.Run("test get vc - success", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s["http://example.edu/credentials/1989"] = []byte(vc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+		fmt.Println(base64.StdEncoding.EncodeToString([]byte("http://example.edu/credentials/1989")))
+
+		handler := lookupHandler(t, cmd, getCredentialPath, http.MethodGet)
+		buf, err := getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/%s`,
+			varifiableCredentialPath, base64.StdEncoding.EncodeToString([]byte("http://example.edu/credentials/1989"))))
+		require.NoError(t, err)
+
+		response := credentialRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+	})
+
+	t.Run("test get vc - error", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s["http://example.edu/credentials/1989"] = []byte(vc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		handler := lookupHandler(t, cmd, getCredentialPath, http.MethodGet)
+		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/%s`, varifiableCredentialPath, "abc"))
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.InvalidRequestErrorCode, "illegal base64 data", buf.Bytes())
+	})
+}
+
+func lookupHandler(t *testing.T, op *Operation, path, method string) rest.Handler {
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
 	for _, h := range handlers {
-		if h.Path() == path {
+		if h.Path() == path && h.Method() == method {
 			return h
 		}
 	}
