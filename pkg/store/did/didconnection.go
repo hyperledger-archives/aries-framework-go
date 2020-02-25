@@ -18,6 +18,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+// StoreName DID connection store name
+const StoreName = "didconnection"
+
 // ErrNotFound signals that the entry for the given DID and key is not present in the store.
 var ErrNotFound = errors.New("did not found under given key")
 
@@ -38,7 +41,7 @@ type provider interface {
 
 // New returns a new did lookup Store
 func New(ctx provider) (*Store, error) {
-	store, err := ctx.StorageProvider().OpenStore("didconnection")
+	store, err := ctx.StorageProvider().OpenStore(StoreName)
 	if err != nil {
 		return nil, err
 	}

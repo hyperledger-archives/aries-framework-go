@@ -11,22 +11,44 @@ package jsindexeddb
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"syscall/js"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
+)
+
+const (
+	dbName    = "aries"
+	newdbName = "aries-%s"
 )
 
 var dbVersion = 1 //nolint:gochecknoglobals
 
 // Provider jsindexeddb implementation of storage.Provider interface
 type Provider struct {
+	sync.RWMutex
+	stores map[string]*js.Value
 }
 
 // NewProvider instantiates Provider
+// TODO Add unit test for IndexedDB https://github.com/hyperledger/aries-framework-go/issues/834
 func NewProvider() (*Provider, error) {
-	// TODO Add unit test for IndexedDB https://github.com/hyperledger/aries-framework-go/issues/834
-	return &Provider{}, nil
+	p := &Provider{stores: make(map[string]*js.Value)}
+
+	err := p.openDB(dbName, getStoreNames()...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open IndexDB : %w", err)
+	}
+
+	return p, nil
 }
 
 // Close closes all stores created under this store provider
@@ -36,31 +58,48 @@ func (p *Provider) Close() error {
 
 // OpenStore open store
 func (p *Provider) OpenStore(name string) (storage.Store, error) {
-	db, err := openDB(name)
+	p.RLock()
+	db, ok := p.stores[name]
+	p.RUnlock()
+
+	if ok {
+		return &store{name: name, db: db}, nil
+	}
+
+	p.Lock()
+	defer p.Unlock()
+
+	// create new if not found in list of object stores (not the predefined ones)
+	err := p.openDB(fmt.Sprintf(newdbName, name), name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &store{name: name, db: db}, nil
+	return &store{name: name, db: p.stores[name]}, nil
 }
 
-func openDB(name string) (*js.Value, error) {
-	dbName := "aries-" + name
-	req := js.Global().Get("indexedDB").Call("open", dbName, dbVersion)
+func (p *Provider) openDB(db string, names ...string) error {
+	req := js.Global().Get("indexedDB").Call("open", db, dbVersion)
 	req.Set("onupgradeneeded", js.FuncOf(func(this js.Value, inputs []js.Value) interface{} {
-		fmt.Printf("indexedDB create object store %s\n", name)
 		m := make(map[string]interface{})
 		m["keyPath"] = "key"
-		this.Get("result").Call("createObjectStore", name, m)
+		for _, name := range names {
+			fmt.Printf("indexedDB create object store %s\n", name)
+			this.Get("result").Call("createObjectStore", name, m)
+		}
 		return nil
 	}))
 
 	v, err := getResult(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open indexedDB: %w", err)
+		return fmt.Errorf("failed to open indexedDB: %w", err)
 	}
 
-	return v, nil
+	for _, name := range names {
+		p.stores[name] = v
+	}
+
+	return nil
 }
 
 // CloseStore closes level db store of given name
@@ -215,5 +254,20 @@ func getResult(req js.Value) (*js.Value, error) {
 			value.Get("message").String())
 	case <-time.After(timeout * time.Second):
 		return nil, errors.New("timeout waiting for eve")
+	}
+}
+
+// since jsindexdb doesn't support adding object stores on fly, using predefined object store names to
+//  create object store in advance instead of creating a database per store.
+// TODO pass store names from higher level packages during initialization [Issue #1347]
+func getStoreNames() []string {
+	return []string{
+		messenger.MessengerStore,
+		route.Coordination,
+		connection.Namespace,
+		introduce.Introduce,
+		legacykms.KeyStoreNamespace,
+		peer.StoreNamespace,
+		did.StoreName,
 	}
 }

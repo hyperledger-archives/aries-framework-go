@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	keyStoreNamespace = "keystore"
+	// KeyStoreNamespace is keystore namespace
+	KeyStoreNamespace = "keystore"
 )
 
 // provider contains dependencies for the base LegacyKMS and is typically created by using aries.Context()
@@ -37,9 +38,9 @@ type BaseKMS struct {
 
 // New return new instance of LegacyKMS implementation
 func New(ctx provider) (*BaseKMS, error) {
-	ks, err := ctx.StorageProvider().OpenStore(keyStoreNamespace)
+	ks, err := ctx.StorageProvider().OpenStore(KeyStoreNamespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to OpenStore for '%s', cause: %w", keyStoreNamespace, err)
+		return nil, fmt.Errorf("failed to OpenStore for '%s', cause: %w", KeyStoreNamespace, err)
 	}
 
 	return &BaseKMS{keystore: ks}, nil

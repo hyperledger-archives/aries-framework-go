@@ -61,13 +61,17 @@ func TestStore(t *testing.T) {
 	})
 
 	t.Run("Test error from open db", func(t *testing.T) {
-		dbVersion = 3
-		defer func() { dbVersion = 1 }()
 		prov, err := NewProvider()
 		require.NoError(t, err)
+
+		dbVersion = 3
+		defer func() { dbVersion = 1 }()
 		_, err = prov.OpenStore("test1")
 		require.NoError(t, err)
+
 		dbVersion = 2
+		delete(prov.stores, "test1")
+
 		_, err = prov.OpenStore("test1")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open indexedDB: VersionError")

@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	nameSpace           = "didexchange"
+	// Namespace is namespace of connection store name
+	Namespace           = "didexchange"
 	keyPattern          = "%s_%s"
 	connIDKeyPrefix     = "conn"
 	connStateKeyPrefix  = "connstate"
@@ -59,12 +60,12 @@ type Record struct {
 // NewLookup returns new connection lookup instance.
 // Lookup is read only connection store. It provides connection record related query features.
 func NewLookup(p provider) (*Lookup, error) {
-	store, err := p.StorageProvider().OpenStore(nameSpace)
+	store, err := p.StorageProvider().OpenStore(Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open permanent store to create new connection recorder: %w", err)
 	}
 
-	transientStore, err := p.TransientStorageProvider().OpenStore(nameSpace)
+	transientStore, err := p.TransientStorageProvider().OpenStore(Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open transient store to create new connection recorder: %w", err)
 	}

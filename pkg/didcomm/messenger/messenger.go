@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	messengerStore = "messenger_store"
+	// MessengerStore is messenger store name
+	MessengerStore = "messenger_store"
 
 	metadataKey = "metadata_%s"
 
@@ -53,7 +54,7 @@ type Messenger struct {
 
 // NewMessenger returns a new instance of the Messenger
 func NewMessenger(ctx Provider) (*Messenger, error) {
-	store, err := ctx.StorageProvider().OpenStore(messengerStore)
+	store, err := ctx.StorageProvider().OpenStore(MessengerStore)
 	if err != nil {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
