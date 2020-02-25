@@ -294,7 +294,7 @@ func TestConnectionRecorder_QueryConnectionRecord(t *testing.T) {
 	t.Run("test query connection record", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
 
-		transientStore, err := mem.NewProvider().OpenStore(nameSpace)
+		transientStore, err := mem.NewProvider().OpenStore(Namespace)
 		require.NoError(t, err)
 
 		const (
