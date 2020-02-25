@@ -11,13 +11,13 @@ SPDX-License-Identifier: Apache-2.0
 //
 // pkg/framework/aries: The main package of the Aries Framework. This package enables creation of context based on
 // provider options. This context is used by the client packages listed below.
-// Reference: https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/framework/aries
+// Reference: https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/framework/aries
 //
 // pkg/client/didexchange: Provides did exchange protocol through SDK.
-// Reference: https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/client/didexchange
+// Reference: https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/client/didexchange
 //
 // pkg/controller/restapi/operation/didexchange: Provides did exchange protocol through restapi.
-// Reference: https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/didexchange
+// Reference: https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/controller/restapi/operation/didexchange
 //
 // Basic workflow
 //

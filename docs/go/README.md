@@ -4,9 +4,9 @@ The project can be used as a framework to build Aries agents using Go programmin
 
 ## Steps
 Start writing Aries agents in few simple steps.
-1. Create a [framework](https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/framework/aries#New)
-2. Get the [Context](https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/framework/aries#Aries.Context) from the framework
-3. Create the [client](https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/client) by passing the context
+1. Create a [framework](https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/framework/aries#New)
+2. Get the [Context](https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/framework/aries#Aries.Context) from the framework
+3. Create the [client](https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/client) by passing the context
 
 ## Example
 ```
@@ -21,8 +21,8 @@ didexchangeClient, err := didexchange.New(ctx)
 ```
 
 ## References
-[Project GoDoc](https://godoc.org/github.com/hyperledger/aries-framework-go)
+[Project GoDoc](https://pkg.go.dev/github.com/hyperledger/aries-framework-go)
 
-[Framework Example](https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/framework/aries#pkg-examples)
+[Framework Example](https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/framework/aries#pkg-examples)
 
-[Aries Client Example](https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/client/didexchange#pkg-examples)
+[Aries Client Example](https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/client/didexchange#pkg-examples)
