@@ -28,9 +28,9 @@ API bindings are supplied to enable these environments including:
 We implement demonstrations and test cases, that require a ledger system, using [DIF Sidetree protocol](https://github.com/decentralized-identity/sidetree/blob/master/docs/protocol.md) as this protocol enables generic decentralized ledger systems to operate as a DID network.
 
 ## Documentation
-Aries Framework Go documentation can be viewed at [GoDoc](https://godoc.org/github.com/hyperledger/aries-framework-go). The project structure is described [here](docs/project_structure.md).
+Aries Framework Go documentation can be viewed at [GoDoc](https://pkg.go.dev/github.com/hyperledger/aries-framework-go). The project structure is described [here](docs/project_structure.md).
 
-The packages intended for end developer usage are within the [pkg/client](https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/client) folder along with the main agent package ([pkg/framework/aries](https://godoc.org/github.com/hyperledger/aries-framework-go/pkg/framework/aries)).
+The packages intended for end developer usage are within the [pkg/client](https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/client) folder along with the main agent package ([pkg/framework/aries](https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/framework/aries)).
 
 The project can also be used as a [DIDComm Router/Mediator](docs/didcomm_router.md).
 
