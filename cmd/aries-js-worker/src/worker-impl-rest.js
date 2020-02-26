@@ -22,7 +22,7 @@ const ariesHandle = {
                 return newResponse(data.id, null, "'agent-rest-url' is required");
             }
 
-            controller = new RESTAgent.Client(data.payload["agent-rest-url"]);
+            controller = new RESTAgent.Client(data.payload["agent-rest-url"], data.payload["agent-rest-token"]);
             return newResponse(data.id, "aries is started");
         },
         Stop: (data) => {

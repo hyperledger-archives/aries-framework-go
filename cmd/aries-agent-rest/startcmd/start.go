@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"net/http"
@@ -37,6 +38,13 @@ const (
 	agentHostFlagShorthand = "a"
 	agentHostFlagUsage     = "Host Name:Port." +
 		" Alternatively, this can be set with the following environment variable: " + agentHostEnvKey
+
+	// api token flag
+	agentTokenFlagName      = "api-token"
+	agentTokenEnvKey        = "ARIESD_API_TOKEN" // nolint:gosec
+	agentTokenFlagShorthand = "t"
+	agentTokenFlagUsage     = "Check for bearer token in the authorization header (optional)." +
+		" Alternatively, this can be set with the following environment variable: " + agentTokenEnvKey
 
 	// db path flag
 	agentDBPathFlagName      = "db-path"
@@ -128,6 +136,7 @@ var logger = log.New("aries-framework/agent-rest")
 type agentParameters struct {
 	server                                           server
 	host, dbPath, defaultLabel, transportReturnRoute string
+	token                                            string
 	webhookURLs, httpResolvers, outboundTransports   []string
 	inboundHostInternals, inboundHostExternals       []string
 	autoAccept                                       bool
@@ -173,6 +182,11 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 			}
 
 			host, err := getUserSetVar(cmd, agentHostFlagName, agentHostEnvKey, false)
+			if err != nil {
+				return err
+			}
+
+			token, err := getUserSetVar(cmd, agentTokenFlagName, agentTokenEnvKey, true)
 			if err != nil {
 				return err
 			}
@@ -228,6 +242,7 @@ func createStartCMD(server server) *cobra.Command { //nolint funlen gocyclo
 			parameters := &agentParameters{
 				server:               server,
 				host:                 host,
+				token:                token,
 				inboundHostInternals: inboundHosts,
 				inboundHostExternals: inboundHostExternals,
 				dbPath:               dbPath,
@@ -260,6 +275,9 @@ func getAutoAcceptValue(cmd *cobra.Command) (bool, error) {
 func createFlags(startCmd *cobra.Command) {
 	// agent host flag
 	startCmd.Flags().StringP(agentHostFlagName, agentHostFlagShorthand, "", agentHostFlagUsage)
+
+	// agent token flag
+	startCmd.Flags().StringP(agentTokenFlagName, agentTokenFlagShorthand, "", agentTokenFlagUsage)
 
 	// inbound host flag
 	startCmd.Flags().StringSliceP(agentInboundHostFlagName, agentInboundHostFlagShorthand, []string{},
@@ -457,6 +475,32 @@ func setLogLevel(logLevel string) error {
 	return nil
 }
 
+func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, token string) bool {
+	actHdr := r.Header.Get("Authorization")
+	expHdr := "Bearer " + token
+
+	if subtle.ConstantTimeCompare([]byte(actHdr), []byte(expHdr)) != 1 {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Unauthorised.\n")) // nolint:gosec,errcheck
+
+		return false
+	}
+
+	return true
+}
+
+func authorizationMiddleware(token string) mux.MiddlewareFunc {
+	middleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if validateAuthorizationBearerToken(w, r, token) {
+				next.ServeHTTP(w, r)
+			}
+		})
+	}
+
+	return middleware
+}
+
 func startAgent(parameters *agentParameters) error {
 	if parameters.host == "" {
 		return errMissingHost
@@ -481,6 +525,10 @@ func startAgent(parameters *agentParameters) error {
 
 	router := mux.NewRouter()
 
+	if parameters.token != "" {
+		router.Use(authorizationMiddleware(parameters.token))
+	}
+
 	for _, handler := range handlers {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
@@ -490,6 +538,7 @@ func startAgent(parameters *agentParameters) error {
 	handler := cors.New(
 		cors.Options{
 			AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodDelete, http.MethodHead},
+			AllowedHeaders: []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "Authorization"},
 		},
 	).Handler(router)
 
