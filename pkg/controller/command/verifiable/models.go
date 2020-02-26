@@ -10,3 +10,12 @@ package verifiable
 type Credential struct {
 	VC string `json:"vc,omitempty"`
 }
+
+// IDArg model
+//
+// This is used for querying/removing by ID from input json.
+//
+type IDArg struct {
+	// Connection ID
+	ID string `json:"id"`
+}

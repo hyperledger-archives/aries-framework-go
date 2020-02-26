@@ -32,6 +32,9 @@ const (
 
 	// SaveCredentialErrorCode for save vc error
 	SaveCredentialErrorCode
+
+	// GetCredentialErrorCode for get vc error
+	GetCredentialErrorCode
 )
 
 const (
@@ -41,6 +44,13 @@ const (
 	// command methods
 	validateCredentialCommandMethod = "ValidateCredential"
 	saveCredentialCommandMethod     = "SaveCredential"
+	getCredentialCommandMethod      = "GetCredential"
+
+	// error messages
+	errEmptyCredentialID = "credential id is mandatory"
+
+	// log constants
+	vcID = "vcID"
 )
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -70,6 +80,7 @@ func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, validateCredentialCommandMethod, o.ValidateCredential),
 		cmdutil.NewCommandHandler(commandName, saveCredentialCommandMethod, o.SaveCredential),
+		cmdutil.NewCommandHandler(commandName, getCredentialCommandMethod, o.GetCredential),
 	}
 }
 
@@ -114,14 +125,14 @@ func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
 
 	vc, _, err := verifiable.NewCredential([]byte(request.VC))
 	if err != nil {
-		logutil.LogInfo(logger, commandName, saveCredentialCommandMethod, "parse vc : "+err.Error())
+		logutil.LogError(logger, commandName, saveCredentialCommandMethod, "parse vc : "+err.Error())
 
 		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf("parse vc : %w", err))
 	}
 
 	err = o.vcStore.SaveVC(vc)
 	if err != nil {
-		logutil.LogInfo(logger, commandName, saveCredentialCommandMethod, "save vc : "+err.Error())
+		logutil.LogError(logger, commandName, saveCredentialCommandMethod, "save vc : "+err.Error())
 
 		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf("save vc : %w", err))
 	}
@@ -129,6 +140,47 @@ func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
 	command.WriteNillableResponse(rw, nil, logger)
 
 	logutil.LogDebug(logger, commandName, saveCredentialCommandMethod, "success")
+
+	return nil
+}
+
+// GetCredential retrives the verifiable credential from the store.
+func (o *Command) GetCredential(rw io.Writer, req io.Reader) command.Error {
+	var request IDArg
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, commandName, getCredentialCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.ID == "" {
+		logutil.LogDebug(logger, commandName, getCredentialCommandMethod, errEmptyCredentialID)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredentialID))
+	}
+
+	vc, err := o.vcStore.GetVC(request.ID)
+	if err != nil {
+		logutil.LogError(logger, commandName, getCredentialCommandMethod, "get vc : "+err.Error(),
+			logutil.CreateKeyValueString(vcID, request.ID))
+
+		return command.NewValidationError(GetCredentialErrorCode, fmt.Errorf("get vc : %w", err))
+	}
+
+	vcBytes, err := vc.MarshalJSON()
+	if err != nil {
+		logutil.LogError(logger, commandName, getCredentialCommandMethod, "marshal vc : "+err.Error(),
+			logutil.CreateKeyValueString(vcID, request.ID))
+
+		return command.NewValidationError(GetCredentialErrorCode, fmt.Errorf("marshal vc : %w", err))
+	}
+
+	command.WriteNillableResponse(rw, &Credential{
+		VC: string(vcBytes),
+	}, logger)
+
+	logutil.LogDebug(logger, commandName, getCredentialCommandMethod, "success",
+		logutil.CreateKeyValueString(vcID, request.ID))
 
 	return nil
 }
