@@ -122,11 +122,16 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, routeOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, verifiablecmd.GetRESTHandlers()...)
 
+	nhp, ok := notifier.(handlerProvider)
+	if ok {
+		allHandlers = append(allHandlers, nhp.GetRESTHandlers()...)
+	}
+
 	return allHandlers, nil
 }
 
 type handlerProvider interface {
-	GetHandlers() []command.Handler
+	GetRESTHandlers() []rest.Handler
 }
 
 // GetCommandHandlers returns all command handlers provided by controller.
@@ -176,11 +181,6 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, msgcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, routecmd.GetHandlers()...)
 	allHandlers = append(allHandlers, verifiablecmd.GetHandlers()...)
-
-	nhp, ok := notifier.(handlerProvider)
-	if ok {
-		allHandlers = append(allHandlers, nhp.GetHandlers()...)
-	}
 
 	return allHandlers, nil
 }
