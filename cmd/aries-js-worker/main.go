@@ -317,7 +317,7 @@ func newErrResult(id, msg string) *result {
 	return &result{
 		ID:     id,
 		IsErr:  true,
-		ErrMsg: msg,
+		ErrMsg: "aries wasm: " + msg,
 	}
 }
 
