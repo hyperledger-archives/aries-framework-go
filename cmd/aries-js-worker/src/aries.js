@@ -91,7 +91,8 @@ function newMsg(pkg, fn, payload) {
  *      "outbound-transport": ["ws", "http"],
  *      "transport-return-route": "all",
  *      "log-level": "debug",
- *      "agent-rest-url": "http://controller.api.example.com"
+ *      "agent-rest-url": "http://controller.api.example.com",
+ *      "agent-rest-wshook": "ws://controller.api.example.com"
  * }
  *
  * @param opts framework initialization options.
