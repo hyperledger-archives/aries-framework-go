@@ -146,7 +146,7 @@ const aries = await new Framework({
 
 ### Important - Serving the Assets
 
-Note: this applies if you are running in the browser and not using the REST entrypoint.
+Note: this applies if you are running in the browser.
 
 `aries-js-worker` loads some assets at runtime: the web assembly binary and a couple of JS scripts. These assets are
 located in the `dist/assets` directory (if you `npm install` it, you'll find them in

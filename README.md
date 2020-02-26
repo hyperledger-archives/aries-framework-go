@@ -38,6 +38,7 @@ The project can also be used as a [DIDComm Router/Mediator](docs/didcomm_router.
 - [Go](docs/go/README.md)
 - [REST](docs/rest/README.md)
   - [Run OpenAPI Demo](docs/rest/openapi_demo.md)
+  - Get the Docker image from [GitHub Packages](https://github.com/hyperledger/aries-framework-go/packages/69982)
 - [JavaScript](cmd/aries-js-worker/README.md)
   - Get it from [GitHub Packages](https://github.com/hyperledger/aries-framework-go/packages/123279)
 
