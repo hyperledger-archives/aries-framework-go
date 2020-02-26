@@ -56,7 +56,9 @@ describe("DID-Exchange between an Edge Agent and a router", function() {
                 assert.property(notice, "payload")
                 const connection = notice.payload
                 assert.property(connection, "connection_id")
-                aries.didexchange.acceptInvitation(connection.connection_id)
+                aries.didexchange.acceptInvitation({
+                    id : connection.connection_id
+                })
             } catch (err) {
                 done(err)
             }

@@ -120,7 +120,7 @@ const Aries = function(opts) {
              * Returns the input text prepended with "echo: ".
              * TODO - remove.
              * @param text
-             * @returns {Promise<String>}
+             * @returns {Promise<Object>}
              * @private
              */
             _echo: async function (text) {
@@ -176,91 +176,256 @@ const Aries = function(opts) {
             return () => {quit = true}
         },
 
+        /**
+         * DIDExchange methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
         didexchange: {
             pkgname: "didexchange",
-            createInvitation: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "CreateInvitation", text, "timeout while creating invitation")
+
+            /**
+             * Creates a DID Exchange Invitation.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            createInvitation: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "CreateInvitation", req, "timeout while creating invitation")
             },
+
+            /**
+             * Receives a DID Exchange invitation.
+             *
+             * @param invitation - json document
+             * @returns {Promise<Object>}
+             */
             receiveInvitation: async function (invitation) {
                 return invoke(aw, pending,  this.pkgname, "ReceiveInvitation", invitation, "timeout while receiving invitation")
             },
-            acceptInvitation: async function (connectionID, publicDID="") {
+
+            /**
+             * Accepts a DID Exchange invitation.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptInvitation: async function (req) {
                 return new Promise((resolve, reject) => {
-                    invoke(aw, pending,  this.pkgname, "AcceptInvitation", {id: connectionID, public: publicDID}, "timeout while accepting invitation").then(
+                    invoke(aw, pending,  this.pkgname, "AcceptInvitation", req, "timeout while accepting invitation").then(
                         resp => resolve(resp),
                         err => reject(new Error("failed to accept invitation: " + err.message))
                     )
                 })
             },
-            acceptExchangeRequest: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "AcceptExchangeRequest", text, "timeout while accepting exchange request")
+
+            /**
+             * Accepts a DID Exchange request.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptExchangeRequest: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "AcceptExchangeRequest", req, "timeout while accepting exchange request")
             },
-            createImplicitInvitation: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "CreateImplicitInvitation", text, "timeout while creating implicit invitation")
+
+            /**
+             * Creates an implicit invitation using inviter DID.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            createImplicitInvitation: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "CreateImplicitInvitation", req, "timeout while creating implicit invitation")
             },
-            removeConnection: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "RemoveConnection", text, "timeout while removing invitation")
+
+            /**
+             * Removes a connection.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            removeConnection: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "RemoveConnection", req, "timeout while removing invitation")
             },
-            queryConnectionByID: async function (connectionID) {
-                return invoke(aw, pending,  this.pkgname, "QueryConnectionByID", {id: connectionID}, "timeout while querying connection by ID")
+
+            /**
+             * Retrieves a connection by ID.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            queryConnectionByID: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "QueryConnectionByID", req, "timeout while querying connection by ID")
             },
-            queryConnections: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "QueryConnections", text, "timeout while querying connections")
+
+            /**
+             * Retrieves connections based on search params.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            queryConnections: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "QueryConnections", req, "timeout while querying connections")
             }
         },
 
+        /**
+         * DIDComm Messaging methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
         messaging: {
             pkgname: "messaging",
-            registeredServices: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "RegisteredServices", text, "timeout while getting list of registered services")
+
+            /**
+             * Retrieves the list of registered service names.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            registeredServices: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "RegisteredServices", req, "timeout while getting list of registered services")
             },
-            registerMessageService: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "RegisterMessageService", text, "timeout while registering service")
+
+            /**
+             * Registers a message service.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            registerMessageService: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "RegisterMessageService", req, "timeout while registering service")
             },
-            registerHTTPMessageService: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "RegisterHTTPMessageService", text, "timeout while registering HTTP service")
+
+            /**
+             * Registers a http-over-didcomm service.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            registerHTTPMessageService: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "RegisterHTTPMessageService", req, "timeout while registering HTTP service")
             },
-            unregisterMessageService: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "UnregisterMessageService", text, "timeout while unregistering service")
+
+            /**
+             * Unregisters a message service.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            unregisterMessageService: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "UnregisterMessageService", req, "timeout while unregistering service")
             },
-            sendNewMessage: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "SendNewMessage", text, "timeout while sending new message")
+
+            /**
+             * Sends a message to destination.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendNewMessage: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "SendNewMessage", req, "timeout while sending new message")
             },
-            sendReplyMessage: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "SendReplyMessage", text, "timeout while sending reply message")
+
+            /**
+             * Sends a reply to an existing message.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendReplyMessage: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "SendReplyMessage", req, "timeout while sending reply message")
             }
         },
 
+        /**
+         * VDRI methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
         vdri: {
             pkgname: "vdri",
-            createPublicDID: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "CreatePublicDID", text, "timeout while creating public DID")
+
+            /**
+             * Creates a new Public DID.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            createPublicDID: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "CreatePublicDID", req, "timeout while creating public DID")
             },
         },
 
+        /**
+         * Router methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
         router: {
             pkgname: "router",
-            register: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "Register", text, "timeout while registering router")
+
+            /**
+             * Registers an agent with the router.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            register: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "Register", req, "timeout while registering router")
             },
+
+            /**
+             * Unregisters an agent with the router.
+             *
+             * @returns {Promise<Object>}
+             */
             unregister: async function () {
                 return invoke(aw, pending,  this.pkgname, "Unregister", "{}", "timeout while registering router")
             },
+
+            /**
+             * Retrieves the router connection id.
+             *
+             * @returns {Promise<Object>}
+             */
             getConnection: async function () {
                 return invoke(aw, pending,  this.pkgname, "GetConnection", "{}", "timeout while fetching router connection id")
             }
         },
 
+        /**
+         * Verifiable methods related to credentials and presentations - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
         verifiable: {
             pkgname: "verifiable",
-            validateCredential: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "ValidateCredential", text, "timeout while validating verifiable credential")
+
+            /**
+             * Validates a verifiable credential.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            validateCredential: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "ValidateCredential", req, "timeout while validating verifiable credential")
             },
-            saveCredential: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "SaveCredential", text, "timeout while saving verifiable credential")
+
+            /**
+             * Saves a verifiable credential.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            saveCredential: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "SaveCredential", req, "timeout while saving verifiable credential")
             },
-            getCredential: async function (text) {
-                return invoke(aw, pending,  this.pkgname, "GetCredential", text, "timeout while retrieving verifiable credential")
+
+            /**
+             * Retrieves a verifiable credential.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            getCredential: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "GetCredential", req, "timeout while retrieving verifiable credential")
             },
         }
     }
