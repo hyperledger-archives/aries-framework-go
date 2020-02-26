@@ -44,7 +44,7 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 			didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
 			route.Coordination:   &mockroute.MockRouteSvc{},
 		}},
-		webhook.NewHTTPNotifier(nil), "", false)
+		webhook.NewWebNotifier(nil), "", false)
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -54,7 +54,7 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 
 func TestNew_Fail(t *testing.T) {
 	svc, err := New(&mockprovider.Provider{ServiceErr: errors.New("test-error")},
-		webhook.NewHTTPNotifier(nil), "", false)
+		webhook.NewWebNotifier(nil), "", false)
 	require.Error(t, err)
 	require.Nil(t, svc)
 }
@@ -387,7 +387,7 @@ func TestEmptyID(t *testing.T) {
 		ServiceEndpointValue: "endppint",
 	}
 
-	op, err := New(prov, webhook.NewHTTPNotifier(nil), "", false)
+	op, err := New(prov, webhook.NewWebNotifier(nil), "", false)
 	require.NoError(t, err)
 	require.NotNil(t, op)
 
@@ -480,7 +480,7 @@ func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
 		ServiceEndpointValue:          "endpoint",
 		TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: &transientStore},
 		StorageProviderValue:          &mockstore.MockStoreProvider{Store: &store}},
-		webhook.NewHTTPNotifier(nil),
+		webhook.NewWebNotifier(nil),
 		"", true,
 	)
 	require.NoError(t, err)

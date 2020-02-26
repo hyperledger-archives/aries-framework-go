@@ -140,14 +140,24 @@ func (a *ControllerSteps) healthCheck(url string) error {
 
 		return nil
 	} else if strings.HasPrefix(url, "ws") {
-		_, resp, err := websocket.Dial(goctx.Background(), url, nil)
+		c, rs, err := websocket.Dial(goctx.Background(), url, nil)
 		if err != nil {
 			return err
 		}
 
-		if err := resp.Body.Close(); err != nil {
-			return err
-		}
+		defer func() {
+			e := c.Close(websocket.StatusNormalClosure, "closing connection")
+			if e != nil {
+				logger.Errorf("Failed to close websocket connection : %s", err)
+			}
+
+			if rs != nil && rs.Body != nil {
+				err = rs.Body.Close()
+				if err != nil {
+					logger.Errorf("Failed to close response body : %s", err)
+				}
+			}
+		}()
 
 		return nil
 	}

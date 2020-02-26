@@ -81,7 +81,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 
 	notifier := restAPIOpts.notifier
 	if notifier == nil {
-		notifier = webhook.NewHTTPNotifier(restAPIOpts.webhookURLs)
+		notifier = webhook.NewWebNotifier(restAPIOpts.webhookURLs)
 	}
 
 	// DID Exchange REST operation
@@ -133,7 +133,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 
 	notifier := cmdOpts.notifier
 	if notifier == nil {
-		notifier = webhook.NewHTTPNotifier(cmdOpts.webhookURLs)
+		notifier = webhook.NewWebNotifier(cmdOpts.webhookURLs)
 	}
 
 	// did exchange command operation

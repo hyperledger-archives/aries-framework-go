@@ -10,12 +10,16 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/square/go-jose/v3/json"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/time/rate"
+	"nhooyr.io/websocket"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
 )
@@ -36,6 +40,45 @@ type msg struct {
 	State        string `json:"state"`
 }
 
+func TestNewWebNotifier(t *testing.T) {
+	tests := []struct {
+		testName  string
+		urls      []string
+		httpCount int
+		wsCount   int
+	}{{
+		testName: "empty urls",
+	}, {
+		testName:  "http urls only",
+		urls:      []string{"http://www.example.com", "https://www.example.com/abc"},
+		httpCount: 2,
+	},
+		{
+			testName: "websocket urls only",
+			urls:     []string{"ws://www.example.com", "ws://www.example.com/abc", "wss://www.example.com/abc"},
+			wsCount:  3,
+		},
+		{
+			testName: "both http and websocket urls",
+			urls: []string{"ws://www.example.com", "http://www.example.com/abc", "wss://www.example.com/abc",
+				"https://www.example.com", "http://www.example.com/abc", "ws://www.example.com/abc"},
+			httpCount: 3,
+			wsCount:   3,
+		},
+	}
+
+	for _, test := range tests {
+		tc := test
+
+		t.Run(tc.testName, func(t *testing.T) {
+			w := NewWebNotifier(tc.urls)
+
+			require.Len(t, w.httpURLs, tc.httpCount)
+			require.Len(t, w.wsURLS, tc.wsCount)
+		})
+	}
+}
+
 func TestNotifyOneWebhook(t *testing.T) {
 	testClientData := clientData{
 		clientHost:                     randomURL(),
@@ -53,7 +96,7 @@ func TestNotifyOneWebhook(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testNotifier := NewHTTPNotifier([]string{fmt.Sprintf("http://%s", testClientData.clientHost)})
+	testNotifier := NewWebNotifier([]string{fmt.Sprintf("http://%s", testClientData.clientHost)})
 
 	err := testNotifier.Notify(topic, getTestBasicMessageJSON())
 
@@ -92,7 +135,7 @@ func TestNotifyMultipleWebhooks(t *testing.T) {
 		}
 	}
 
-	testNotifier := NewHTTPNotifier([]string{fmt.Sprintf("http://%s", allTestClientData[0].clientHost),
+	testNotifier := NewWebNotifier([]string{fmt.Sprintf("http://%s", allTestClientData[0].clientHost),
 		fmt.Sprintf("http://%s", allTestClientData[1].clientHost)})
 
 	err := testNotifier.Notify(topic, getTestBasicMessageJSON())
@@ -113,7 +156,7 @@ func TestNotifyMultipleWebhooks(t *testing.T) {
 }
 
 func TestNotifyUnsupportedProtocol(t *testing.T) {
-	testNotifier := NewHTTPNotifier([]string{"badURL"})
+	testNotifier := NewWebNotifier([]string{"badURL"})
 
 	err := testNotifier.Notify(topic, getTestBasicMessageJSON())
 
@@ -134,7 +177,7 @@ func TestNotifyCorrectJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := notify(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), getTestBasicMessageJSON())
+	err := notifyHTTP(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), getTestBasicMessageJSON())
 	require.NoError(t, err)
 }
 
@@ -158,22 +201,22 @@ func TestNotifyMalformedJSON(t *testing.T) {
 		"state": "SomeState"
    }
 		`)
-	err := notify(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), malformedBasicMessage)
+	err := notifyHTTP(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), malformedBasicMessage)
 	require.Contains(t, err.Error(), "400 Bad Request")
 }
 
 func TestWebhookNotificationMalformedURL(t *testing.T) {
-	err := notify("%", nil)
+	err := notifyHTTP("%", nil)
 	require.Contains(t, err.Error(), `invalid URL escape "%"`)
 }
 
 func TestWebhookNotificationNoResponse(t *testing.T) {
-	err := notify(localhost8080URL, nil)
+	err := notifyHTTP(localhost8080URL, nil)
 	require.Contains(t, err.Error(), "connection refused")
 }
 
 func TestNotifyEmptyTopic(t *testing.T) {
-	testNotifier := NewHTTPNotifier([]string{localhost8080URL})
+	testNotifier := NewWebNotifier([]string{localhost8080URL})
 
 	err := testNotifier.Notify("", getTestBasicMessageJSON())
 
@@ -181,7 +224,7 @@ func TestNotifyEmptyTopic(t *testing.T) {
 }
 
 func TestNotifyEmptyMessage(t *testing.T) {
-	testNotifier := NewHTTPNotifier([]string{localhost8080URL})
+	testNotifier := NewWebNotifier([]string{localhost8080URL})
 
 	err := testNotifier.Notify("someTopic", nil)
 
@@ -189,7 +232,7 @@ func TestNotifyEmptyMessage(t *testing.T) {
 }
 
 func TestNotifyMultipleErrors(t *testing.T) {
-	testNotifier := NewHTTPNotifier([]string{"badURL1", "badURL2"})
+	testNotifier := NewWebNotifier([]string{"badURL1", "badURL2"})
 
 	err := testNotifier.Notify("someTopic", []byte(`someMessage`))
 
@@ -217,8 +260,75 @@ func TestWebhookNotificationClient500Response(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := notify(fmt.Sprintf("http://%s%s", clientHost, clientHandlerPattern), nil)
+	err := notifyHTTP(fmt.Sprintf("http://%s%s", clientHost, clientHandlerPattern), nil)
 	require.Contains(t, err.Error(), "500 Internal Server Error", err.Error())
+}
+
+func TestWebsocketNotifier(t *testing.T) {
+	topics := make(chan []byte, 1)
+
+	l, err := net.Listen("tcp", "localhost:0")
+	require.NoError(t, err)
+
+	defer func() {
+		e := l.Close()
+		if e != nil {
+			t.Log("failed to close listener", e)
+		}
+	}()
+
+	s := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			e := topicHandle(w, r, topics)
+			if err != nil {
+				t.Fatal(e)
+			}
+		}),
+	}
+
+	defer func() {
+		e := s.Close()
+		if e != nil {
+			t.Log("failed to close server", e)
+		}
+	}()
+
+	go func() {
+		e := s.Serve(l)
+		if e != http.ErrServerClosed {
+			t.Log(err)
+		}
+	}()
+
+	w := NewWebNotifier([]string{"ws://" + l.Addr().String()})
+
+	msg := struct {
+		ID      string
+		Message string
+	}{
+		ID:      uuid.New().String(),
+		Message: "Hello",
+	}
+
+	msgBytes, err := json.Marshal(&msg)
+	require.NotEmpty(t, msgBytes)
+	require.NoError(t, err)
+
+	err = w.Notify("test-topic", msgBytes)
+	require.NoError(t, err)
+
+	select {
+	case m := <-topics:
+		rm := struct {
+			ID      string
+			Message string
+		}{}
+		err = json.Unmarshal(m, &rm)
+		require.NoError(t, err)
+		require.Equal(t, rm, msg)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timeout waiting for topic")
+	}
 }
 
 func getTestBasicMessageJSON() []byte {
@@ -296,4 +406,49 @@ func listenAndStopAfterReceivingNotification(addr string) error {
 
 func randomURL() string {
 	return fmt.Sprintf("localhost:%d", transportutil.GetRandomPort(3))
+}
+
+func topicHandle(w http.ResponseWriter, r *http.Request, topics chan []byte) error {
+	c, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		return err
+	}
+
+	l := rate.NewLimiter(rate.Every(time.Millisecond*100), 10)
+
+	for {
+		err := watchForTopics(r.Context(), c, l, topics)
+
+		if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+			continue
+		}
+
+		if err != nil {
+			return fmt.Errorf("failed to test with %v: %w", r.RemoteAddr, err)
+		}
+	}
+}
+
+func watchForTopics(ctx context.Context, c *websocket.Conn, l *rate.Limiter, topics chan []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+
+	err := l.Wait(ctx)
+	if err != nil {
+		return err
+	}
+
+	_, r, err := c.Reader(ctx)
+	if err != nil {
+		return err
+	}
+
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	topics <- b
+
+	return nil
 }
