@@ -37,6 +37,44 @@ const doc = `{
   ]
 }`
 
+//nolint:lll
+const didResolutionData = `{
+  "@context": "https://www.w3.org/ns/did-resolution/v1",
+  "didDocument": ` + doc + `,
+  "resolverMetadata": {
+    "driverId": "did:example",
+    "driver": "HttpDriver",
+    "retrieved": "2019-06-01T19:73:24Z",
+    "duration": 1015
+  },
+  "methodMetadata": {
+    "nymResponse": {
+      "result": {
+        "type": "105",
+        "txnTime": 1524055264,
+        "seqNo": 11,
+        "reqId": 1527256870802314800,
+        "identifier": "HixkhyA4dXGz9yxmLQC4PU",
+        "dest": "WRfXPg8dantKVubE3HX8pw"
+      },
+      "op": "REPLY"
+    },
+    "attrResponse": {
+      "result": {
+        "identifier": "HixkhyA4dXGz9yxmLQC4PU",
+        "seqNo": 12,
+        "raw": "endpoint",
+        "dest": "WRfXPg8dantKVubE3HX8pw",
+        "data": "{\"endpoint\":{\"xdi\":\"http://127.0.0.1:8080/xdi\"}}",
+        "txnTime": 1524055265,
+        "type": "104",
+        "reqId": 1527256870925570600
+      },
+      "op": "REPLY"
+    }
+  }
+}`
+
 func TestWithOutboundOpts(t *testing.T) {
 	opt := WithTimeout(1 * time.Second)
 	require.NotNil(t, opt)
@@ -91,12 +129,32 @@ func TestNew(t *testing.T) {
 }
 
 func TestRead_DIDDoc(t *testing.T) {
-	t.Run("test success", func(t *testing.T) {
+	t.Run("test success return did doc", func(t *testing.T) {
 		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			require.Equal(t, "/did:example:334455", req.URL.String())
 			res.Header().Add("Content-type", "application/did+ld+json")
 			res.WriteHeader(http.StatusOK)
 			_, err := res.Write([]byte(doc))
+			require.NoError(t, err)
+		}))
+
+		defer func() { testServer.Close() }()
+
+		resolver, err := New(testServer.URL)
+		require.NoError(t, err)
+		gotDocument, err := resolver.Read("did:example:334455")
+		require.NoError(t, err)
+		didDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+		require.Equal(t, didDoc.ID, gotDocument.ID)
+	})
+
+	t.Run("test success return did resolution", func(t *testing.T) {
+		testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			require.Equal(t, "/did:example:334455", req.URL.String())
+			res.Header().Add("Content-type", "application/did+ld+json")
+			res.WriteHeader(http.StatusOK)
+			_, err := res.Write([]byte(didResolutionData))
 			require.NoError(t, err)
 		}))
 
