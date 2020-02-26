@@ -140,12 +140,8 @@ func (a *ControllerSteps) healthCheck(url string) error {
 
 		return nil
 	} else if strings.HasPrefix(url, "ws") {
-		_, resp, err := websocket.Dial(goctx.Background(), url, nil)
+		_, _, err := websocket.Dial(goctx.Background(), url, nil) //nolint:bodyclose
 		if err != nil {
-			return err
-		}
-
-		if err := resp.Body.Close(); err != nil {
 			return err
 		}
 

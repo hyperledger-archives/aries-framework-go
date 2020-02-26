@@ -152,7 +152,7 @@ func TestInboundDataProcessing(t *testing.T) {
 		// create ws client
 		client, _ := websocketClient(t, port)
 
-		err = client.Close(websocket.StatusAbnormalClosure, "abnormal closure")
+		err = client.Close(websocket.StatusInternalError, "abnormal closure")
 		require.NoError(t, err)
 	})
 }

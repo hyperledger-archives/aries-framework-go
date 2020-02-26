@@ -35,3 +35,8 @@ type MessageHandler interface {
 	// Unregister unregisters message service with given name from this message handler
 	Unregister(name string) error
 }
+
+// Notifier represents a notification dispatcher.
+type Notifier interface {
+	Notify(topic string, message []byte) error
+}

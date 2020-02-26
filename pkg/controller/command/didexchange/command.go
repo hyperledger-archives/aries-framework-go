@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -91,7 +90,7 @@ type provider interface {
 }
 
 // New returns new DID Exchange controller command instance
-func New(ctx provider, notifier webhook.Notifier, defaultLabel string, autoAccept bool) (*Command, error) {
+func New(ctx provider, notifier command.Notifier, defaultLabel string, autoAccept bool) (*Command, error) {
 	didExchange, err := didexchange.New(ctx)
 	if err != nil {
 		return nil, err
@@ -129,7 +128,7 @@ type Command struct {
 	ctx          provider
 	client       *didexchange.Client
 	msgCh        chan service.StateMsg
-	notifier     webhook.Notifier
+	notifier     command.Notifier
 	defaultLabel string
 }
 

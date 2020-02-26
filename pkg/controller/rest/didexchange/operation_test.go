@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
@@ -44,7 +44,7 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 			didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
 			route.Coordination:   &mockroute.MockRouteSvc{},
 		}},
-		webhook.NewHTTPNotifier(nil), "", false)
+		webnotifier.NewHTTPNotifier(nil), "", false)
 	require.NoError(t, err)
 	require.NotNil(t, svc)
 
@@ -54,7 +54,7 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 
 func TestNew_Fail(t *testing.T) {
 	svc, err := New(&mockprovider.Provider{ServiceErr: errors.New("test-error")},
-		webhook.NewHTTPNotifier(nil), "", false)
+		webnotifier.NewHTTPNotifier(nil), "", false)
 	require.Error(t, err)
 	require.Nil(t, svc)
 }
@@ -387,7 +387,7 @@ func TestEmptyID(t *testing.T) {
 		ServiceEndpointValue: "endppint",
 	}
 
-	op, err := New(prov, webhook.NewHTTPNotifier(nil), "", false)
+	op, err := New(prov, webnotifier.NewHTTPNotifier(nil), "", false)
 	require.NoError(t, err)
 	require.NotNil(t, op)
 
@@ -480,7 +480,7 @@ func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
 		ServiceEndpointValue:          "endpoint",
 		TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: &transientStore},
 		StorageProviderValue:          &mockstore.MockStoreProvider{Store: &store}},
-		webhook.NewHTTPNotifier(nil),
+		webnotifier.NewHTTPNotifier(nil),
 		"", true,
 	)
 	require.NoError(t, err)

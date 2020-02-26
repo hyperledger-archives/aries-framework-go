@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/route"
 	vdrirest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 	verifiablerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 )
 
@@ -30,8 +30,10 @@ type allOpts struct {
 	defaultLabel string
 	autoAccept   bool
 	msgHandler   command.MessageHandler
-	notifier     webhook.Notifier
+	notifier     command.Notifier
 }
+
+const wsPath = "/ws"
 
 // Opt represents a controller option.
 type Opt func(opts *allOpts)
@@ -44,7 +46,7 @@ func WithWebhookURLs(webhookURLs ...string) Opt {
 }
 
 // WithNotifier is an option for setting up a notifier which will notify clients of events
-func WithNotifier(notifier webhook.Notifier) Opt {
+func WithNotifier(notifier command.Notifier) Opt {
 	return func(opts *allOpts) {
 		opts.notifier = notifier
 	}
@@ -81,7 +83,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 
 	notifier := restAPIOpts.notifier
 	if notifier == nil {
-		notifier = webhook.NewHTTPNotifier(restAPIOpts.webhookURLs)
+		notifier = webnotifier.New(wsPath, restAPIOpts.webhookURLs)
 	}
 
 	// DID Exchange REST operation
@@ -123,6 +125,10 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	return allHandlers, nil
 }
 
+type handlerProvider interface {
+	GetHandlers() []command.Handler
+}
+
 // GetCommandHandlers returns all command handlers provided by controller.
 func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, error) {
 	cmdOpts := &allOpts{}
@@ -133,7 +139,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 
 	notifier := cmdOpts.notifier
 	if notifier == nil {
-		notifier = webhook.NewHTTPNotifier(cmdOpts.webhookURLs)
+		notifier = webnotifier.New(wsPath, cmdOpts.webhookURLs)
 	}
 
 	// did exchange command operation
@@ -170,6 +176,11 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, msgcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, routecmd.GetHandlers()...)
 	allHandlers = append(allHandlers, verifiablecmd.GetHandlers()...)
+
+	nhp, ok := notifier.(handlerProvider)
+	if ok {
+		allHandlers = append(allHandlers, nhp.GetHandlers()...)
+	}
 
 	return allHandlers, nil
 }
