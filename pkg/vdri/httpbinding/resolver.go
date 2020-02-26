@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package httpbinding
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +17,13 @@ import (
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
+type didResolution struct {
+	Context          interface{}            `json:"@context"`
+	DIDDocument      map[string]interface{} `json:"didDocument"`
+	ResolverMetadata map[string]interface{} `json:"resolverMetadata"`
+	MethodMetadata   map[string]interface{} `json:"methodMetadata"`
+}
+
 // resolveDID makes DID resolution via HTTP
 func (v *VDRI) resolveDID(uri string) ([]byte, error) {
 	resp, err := v.client.Get(uri)
@@ -25,7 +33,7 @@ func (v *VDRI) resolveDID(uri string) ([]byte, error) {
 
 	defer closeResponseBody(resp.Body)
 
-	if containsDIDDocument(resp) {
+	if resp.StatusCode == http.StatusOK {
 		var gotBody []byte
 
 		gotBody, err = ioutil.ReadAll(resp.Body)
@@ -34,22 +42,12 @@ func (v *VDRI) resolveDID(uri string) ([]byte, error) {
 		}
 
 		return gotBody, nil
-	} else if notExistentDID(resp) {
+	} else if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("DID does not exist for request: %s", uri)
 	}
 
 	return nil, fmt.Errorf("unsupported response from DID resolver [%v] header [%s]",
 		resp.StatusCode, resp.Header.Get("Content-type"))
-}
-
-// notExistentDID checks if requested DID is not found on remote DID resolver
-func notExistentDID(resp *http.Response) bool {
-	return resp.StatusCode == http.StatusNotFound
-}
-
-// containsDIDDocument checks weather reply from remote DID resolver contains DID document
-func containsDIDDocument(resp *http.Response) bool {
-	return resp.StatusCode == http.StatusOK && resp.Header.Get("Content-type") == "application/did+ld+json"
 }
 
 // Read implements didresolver.DidMethod.Read interface (https://w3c-ccg.github.io/did-resolution/#resolving-input)
@@ -70,5 +68,21 @@ func (v *VDRI) Read(didID string, _ ...vdriapi.ResolveOpts) (*did.Doc, error) {
 		return nil, vdriapi.ErrNotFound
 	}
 
-	return did.ParseDocument(data)
+	var r didResolution
+	if err := json.Unmarshal(data, &r); err != nil {
+		return nil, fmt.Errorf("unmarshal data return from http binding resolver %w", err)
+	}
+
+	didDocBytes := data
+	// check if data is did resolution
+	if len(r.DIDDocument) != 0 {
+		var err error
+
+		didDocBytes, err = json.Marshal(r.DIDDocument)
+		if err != nil {
+			return nil, fmt.Errorf("marshal data from did resolution did doc %w", err)
+		}
+	}
+
+	return did.ParseDocument(didDocBytes)
 }
