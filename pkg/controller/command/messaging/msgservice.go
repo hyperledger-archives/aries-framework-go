@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 
@@ -23,13 +23,13 @@ const (
 type handleFunc func(msg service.DIDCommMsg, myDID, theirDID string) ([]byte, error)
 
 // newMessageService returns new message service instance.
-func newMessageService(params *RegisterMsgSvcArgs, notifier webhook.Notifier) *msgService {
+func newMessageService(params *RegisterMsgSvcArgs, notifier command.Notifier) *msgService {
 	return newCustomMessageService(params.Name, params.Type, params.Purpose, notifier, genericHandleFunc())
 }
 
 // newCustomMessageService returns new message service instance with custom topic handle for
 // handling incoming messages.
-func newCustomMessageService(name, msgType string, purpose []string, notifier webhook.Notifier,
+func newCustomMessageService(name, msgType string, purpose []string, notifier command.Notifier,
 	handle handleFunc) *msgService {
 	svc := &msgService{
 		name:        name,
@@ -48,7 +48,7 @@ type msgService struct {
 	name        string
 	purpose     []string
 	msgType     string
-	notifier    webhook.Notifier
+	notifier    command.Notifier
 	topicHandle handleFunc
 }
 

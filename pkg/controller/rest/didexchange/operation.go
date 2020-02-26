@@ -15,10 +15,10 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -45,7 +45,7 @@ type provider interface {
 }
 
 // New returns new DID Exchange rest client protocol instance
-func New(ctx provider, notifier webhook.Notifier, defaultLabel string, autoAccept bool) (*Operation, error) {
+func New(ctx provider, notifier command.Notifier, defaultLabel string, autoAccept bool) (*Operation, error) {
 	dxcmd, err := didexchange.New(ctx, notifier, defaultLabel, autoAccept)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize did-exchange command : %w", err)

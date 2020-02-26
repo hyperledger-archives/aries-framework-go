@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package webhook
+package webnotifier
 
 import (
 	"context"
@@ -134,7 +134,7 @@ func TestNotifyCorrectJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := notify(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), getTestBasicMessageJSON())
+	err := notifyWH(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), getTestBasicMessageJSON())
 	require.NoError(t, err)
 }
 
@@ -158,17 +158,17 @@ func TestNotifyMalformedJSON(t *testing.T) {
 		"state": "SomeState"
    }
 		`)
-	err := notify(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), malformedBasicMessage)
+	err := notifyWH(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), malformedBasicMessage)
 	require.Contains(t, err.Error(), "400 Bad Request")
 }
 
 func TestWebhookNotificationMalformedURL(t *testing.T) {
-	err := notify("%", nil)
+	err := notifyWH("%", nil)
 	require.Contains(t, err.Error(), `invalid URL escape "%"`)
 }
 
 func TestWebhookNotificationNoResponse(t *testing.T) {
-	err := notify(localhost8080URL, nil)
+	err := notifyWH(localhost8080URL, nil)
 	require.Contains(t, err.Error(), "connection refused")
 }
 
@@ -217,7 +217,7 @@ func TestWebhookNotificationClient500Response(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := notify(fmt.Sprintf("http://%s%s", clientHost, clientHandlerPattern), nil)
+	err := notifyWH(fmt.Sprintf("http://%s%s", clientHost, clientHandlerPattern), nil)
 	require.Contains(t, err.Error(), "500 Internal Server Error", err.Error())
 }
 

@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
@@ -44,7 +44,7 @@ const (
 
 func TestNew(t *testing.T) {
 	t.Run("Successfully create new DID exchange command", func(t *testing.T) {
-		cmd, err := New(mockProvider(), webhook.NewHTTPNotifier(nil), "", false)
+		cmd, err := New(mockProvider(), webnotifier.NewHTTPNotifier(nil), "", false)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -53,14 +53,14 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("Successfully create new DID exchange command with auto accept", func(t *testing.T) {
-		cmd, err := New(mockProvider(), webhook.NewHTTPNotifier(nil), "", true)
+		cmd, err := New(mockProvider(), webnotifier.NewHTTPNotifier(nil), "", true)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 	})
 
 	t.Run("Test create new DID exchange command failure", func(t *testing.T) {
 		cmd, err := New(&mockprovider.Provider{ServiceErr: errors.New("test-error")},
-			webhook.NewHTTPNotifier(nil), "", false)
+			webnotifier.NewHTTPNotifier(nil), "", false)
 		require.Error(t, err)
 		require.Nil(t, cmd)
 	})
@@ -848,7 +848,7 @@ func TestHandleMessageEvent(t *testing.T) {
 			didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
 			route.Coordination:   &mockroute.MockRouteSvc{},
 		}},
-		webhook.NewHTTPNotifier(nil), "", false)
+		webnotifier.NewHTTPNotifier(nil), "", false)
 	require.NoError(t, err)
 	require.NotNil(t, op)
 
@@ -900,7 +900,7 @@ func TestSendConnectionNotification(t *testing.T) {
 				didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
 				route.Coordination:   &mockroute.MockRouteSvc{},
 			}},
-			webhook.NewHTTPNotifier(nil), "", false)
+			webnotifier.NewHTTPNotifier(nil), "", false)
 		require.NoError(t, err)
 		err = op.sendConnectionNotification(connID, "completed")
 		require.NoError(t, err)
@@ -914,7 +914,7 @@ func TestSendConnectionNotification(t *testing.T) {
 				didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
 				route.Coordination:   &mockroute.MockRouteSvc{},
 			}},
-			webhook.NewHTTPNotifier(nil), "", false)
+			webnotifier.NewHTTPNotifier(nil), "", false)
 		require.NoError(t, err)
 		err = op.sendConnectionNotification("id2", "")
 		require.Error(t, err)

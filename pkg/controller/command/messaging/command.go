@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/http"
@@ -89,12 +88,12 @@ type provider interface {
 type Command struct {
 	ctx              provider
 	msgRegistrar     command.MessageHandler
-	notifier         webhook.Notifier
+	notifier         command.Notifier
 	connectionLookup *connection.Lookup
 }
 
 // New returns new command instance for messaging controller API
-func New(ctx provider, registrar command.MessageHandler, notifier webhook.Notifier) (*Command, error) {
+func New(ctx provider, registrar command.MessageHandler, notifier command.Notifier) (*Command, error) {
 	connectionLookup, err := connection.NewLookup(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize connection lookup : %w", err)

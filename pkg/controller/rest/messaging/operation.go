@@ -14,7 +14,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -50,7 +49,7 @@ type Operation struct {
 }
 
 // New returns new common operations rest client instance
-func New(ctx provider, registrar command.MessageHandler, notifier webhook.Notifier) (*Operation, error) {
+func New(ctx provider, registrar command.MessageHandler, notifier command.Notifier) (*Operation, error) {
 	msgcmd, err := messaging.New(ctx, registrar, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create messaging controller command: %w", err)

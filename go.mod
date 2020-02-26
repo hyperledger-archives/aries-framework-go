@@ -9,10 +9,10 @@ require (
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/golang/mock v1.4.0
-	github.com/golang/protobuf v1.3.3 // indirect
 	github.com/google/tink v1.3.0-rc4
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
+	github.com/kr/pretty v0.1.0 // indirect
 	github.com/minio/sha256-simd v0.1.1 // indirect
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/multiformats/go-multibase v0.0.1
@@ -27,8 +27,9 @@ require (
 	golang.org/x/crypto v0.0.0-20200210222208-86ce3cb69678
 	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980 // indirect
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5 // indirect
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
-	nhooyr.io/websocket v1.7.4
+	nhooyr.io/websocket v1.8.3
 )
 
 go 1.13

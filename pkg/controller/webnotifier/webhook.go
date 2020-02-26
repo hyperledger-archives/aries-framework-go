@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package webhook
+package webnotifier
 
 import (
 	"bytes"
@@ -12,38 +12,22 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
-
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 )
-
-const (
-	notificationSendTimeout = 10 * time.Second
-	emptyTopicErrMsg        = "cannot notify with an empty topic"
-	emptyMessageErrMsg      = "cannot notify with an empty message"
-)
-
-var logger = log.New("aries-framework/webhook")
-
-// Notifier represents a webhook dispatcher.
-type Notifier interface {
-	Notify(topic string, message []byte) error
-}
 
 // HTTPNotifier is a webhook dispatcher capable of notifying multiple subscribers via HTTP.
 type HTTPNotifier struct {
-	WebhookURLs []string
+	urls []string
 }
 
 // NewHTTPNotifier returns a new instance of an HTTPNotifier.
-func NewHTTPNotifier(webhookURLs []string) HTTPNotifier {
-	return HTTPNotifier{WebhookURLs: webhookURLs}
+func NewHTTPNotifier(webhookURLs []string) *HTTPNotifier {
+	return &HTTPNotifier{urls: webhookURLs}
 }
 
-// Notify sends the given message to all of the WebhookURLs.
+// Notify sends the given message to all of the urls.
 // Topic is appended to the end of the webhook (subscriber) URL. E.g. localhost:8080/topic
 // If multiple errors are encountered, then the first one is returned.
-func (n HTTPNotifier) Notify(topic string, message []byte) error {
+func (n *HTTPNotifier) Notify(topic string, message []byte) error {
 	if topic == "" {
 		return fmt.Errorf(emptyTopicErrMsg)
 	}
@@ -54,15 +38,15 @@ func (n HTTPNotifier) Notify(topic string, message []byte) error {
 
 	var allErrs error
 
-	for _, webhookURL := range n.WebhookURLs {
-		err := notify(fmt.Sprintf("%s%s%s", webhookURL, "/", topic), message)
+	for _, webhookURL := range n.urls {
+		err := notifyWH(fmt.Sprintf("%s/%s", webhookURL, topic), message)
 		allErrs = appendError(allErrs, err)
 	}
 
 	return allErrs
 }
 
-func notify(destination string, message []byte) error {
+func notifyWH(destination string, message []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), notificationSendTimeout)
 	defer cancel()
 
@@ -94,12 +78,4 @@ func closeResponse(c io.Closer) {
 	if err != nil {
 		logger.Errorf("Failed to close response body")
 	}
-}
-
-func appendError(errToAppendTo, err error) error {
-	if errToAppendTo == nil {
-		return err
-	}
-
-	return fmt.Errorf("%v;%v", errToAppendTo, err)
 }
