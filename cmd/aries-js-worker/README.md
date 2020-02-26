@@ -113,7 +113,8 @@ Then initialize your aries instance:
 ```js
 const aries = await new Aries.Framework({
     assetsPath: "/path/serving/the/assets", // still required for assets other than the wasm
-    "agent-rest-url": "http://controller.api.example.com"
+    "agent-rest-url": "http://controller.api.example.com", // REST controller URL of the agent
+    "agent-rest-wshook": "ws://controller.api.example.com" // Optional REST controller websocket URL from which you can listen to notifications
 })
 ```
 

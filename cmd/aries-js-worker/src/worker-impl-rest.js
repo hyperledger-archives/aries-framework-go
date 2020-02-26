@@ -9,7 +9,9 @@ self.importScripts("./agent-rest-client.js")
 postMessage({topic: "asset-ready"})
 
 // TODO synchronized access to controller
-let handler, controller
+let handler, controller, notifier
+
+const wsNormalClosureCode = 1000
 
 const ariesHandle = {
     aries: {
@@ -21,6 +23,13 @@ const ariesHandle = {
             if (!data.payload["agent-rest-url"]) {
                 return newResponse(data.id, null, "'agent-rest-url' is required");
             }
+
+            if (data.payload["agent-rest-wshook"]){
+                notifier = new wsnotifier(data.payload["agent-rest-wshook"], (msg) => {
+                    postMessage(msg)
+                });
+            }
+
 
             controller = new RESTAgent.Client(data.payload["agent-rest-url"], data.payload["agent-rest-token"]);
             return newResponse(data.id, "aries is started");
@@ -68,3 +77,17 @@ function newResponse(id, payload, errMsg, topic) {
         topic: topic
     };
 }
+
+const wsnotifier = class {
+    constructor(url, postMsg) {
+        this.socket = new WebSocket(url);
+        this.socket.addEventListener('message', function (event) {
+            // TODO REST agents are not currently revealing topic information on incoming messages,
+            //  Once REST supports this feature, topic value will be dynamic. [Issue #1323]
+            postMsg(newResponse(Math.random().toString(36).slice(2),  event.data, "", "all"));
+        });
+    }
+    stop(){
+        this.socket.close(wsNormalClosureCode, "stopped notifier in aries-js-worker")
+    }
+};
