@@ -15,7 +15,7 @@ We aim to provide Go implementations of:
 
 - Decentralized identity standards including [W3C decentralized identifiers](https://w3c.github.io/did-core/) (DIDs), [W3C DID resolution](https://w3c-ccg.github.io/did-resolution/), and [W3C verifiable credentials](https://w3c.github.io/vc-data-model/).
 - Decentralized data communication protocols anchored in DIDs: [DIDComm](https://github.com/hyperledger/aries-rfcs/blob/master/concepts/0005-didcomm).
-- A pluggable dependency framework, where implementors can customize primitives via Service Provider Interfaces (SPIs). We have a "batteries included" model where default primitives are included -- such as a key management system (KMS), crypto, data storage, digital hub integration, etc.
+- A pluggable dependency framework, where implementors can customize primitives via Service Provider Interfaces (SPIs). We have a "batteries included" model where default primitives are included -- such as a [key management system (KMS)](docs/kms_secretlock.md), crypto, data storage, digital hub integration, etc.
 
 We aim to enable usage of our protocol implementations in a wide variety of edge and cloud environments including servers, browsers, mobile, and devices.
 API bindings are supplied to enable these environments including:
