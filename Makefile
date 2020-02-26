@@ -16,9 +16,9 @@ WEBHOOK_IMAGE_NAME ?= sample-webhook
 # Tool commands (overridable)
 DOCKER_CMD ?= docker
 GO_CMD     ?= go
-ALPINE_VER ?= 3.10
+ALPINE_VER ?= 3.11
 GO_TAGS    ?=
-GO_VER ?= 1.13.1
+GO_VER ?= 1.14
 PROJECT_ROOT = github.com/hyperledger/aries-framework-go
 GOBIN_PATH=$(abspath .)/build/bin
 MOCKGEN = $(GOBIN_PATH)/gobin -run github.com/golang/mock/mockgen@1.3.1

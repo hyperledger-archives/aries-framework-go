@@ -5,13 +5,13 @@
 name: $(SourceBranchName)-$(Date:yyyyMMdd).$(Rev:r)
 #trigger: none
 variables:
-  GO_VERSION: 1.13
+  GO_VERSION: 1.14
   GOPATH: $(Agent.BuildDirectory)/go
 
 jobs:
   - job: UnitTest
     pool:
-      vmImage: ubuntu-16.04
+      vmImage: ubuntu-18.04
     timeoutInMinutes: 30
     steps:
     - template: azp-dependencies.yml

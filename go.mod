@@ -32,4 +32,4 @@ require (
 	nhooyr.io/websocket v1.8.3
 )
 
-go 1.13
+go 1.14

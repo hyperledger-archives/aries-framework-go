@@ -1,10 +1,10 @@
 # Aries Framework Go - Build
 
 ## Prerequisites (General)
-- Go 1.13
+- Go 1.14
 
 ## Prerequisites (for running tests and demos)
-- Go 1.13
+- Go 1.14
 - Docker
 - Docker-Compose
 - Make
