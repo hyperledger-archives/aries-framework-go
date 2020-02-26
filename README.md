@@ -39,6 +39,7 @@ The project can also be used as a [DIDComm Router/Mediator](docs/didcomm_router.
 - [REST](docs/rest/README.md)
   - [Run OpenAPI Demo](docs/rest/openapi_demo.md)
 - [JavaScript](cmd/aries-js-worker/README.md)
+  - Get it from [GitHub Packages](https://github.com/hyperledger/aries-framework-go/packages/123279)
 
 ## Testing
 - [Build](docs/test/build.md)
