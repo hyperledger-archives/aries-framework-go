@@ -11,33 +11,147 @@ To build you will need:
 * Node.JS 12.14.x
 * bash
 
-Run `npm install` from this directory. The output bundles will be placed in `dist/`.
+Run `npm install` in this directory. The output bundles will be placed in `dist/`.
 
 ## Usage
 
-### Node.js
+> Note: the API is in the very early stages of development and is still subject to a few changes.
 
-View [`App.js`](./App.js) for examples.
+### Entrypoints
 
-### Vue.js
+`aries-js-worker` has several entrypoints tailored to the environment and needs:
 
-Go to [`vue-framework-go`](./vue-aries-framework-go) for a sample agent built with Vue.js.
+* `dist/node/aries.js`: for use in node.js
+* `dist/web/aries.js`: for use in the browser
+* `dist/rest/aries.js`: for use in any environment but relying on an external
+  [REST controller API server](https://github.com/hyperledger/aries-framework-go/blob/master/docs/rest/README.md)
+  instead of the bundled webassembly module.
 
-Note: is the webpack devserver (`npm run serve`) not working for you? Note the points about
-[serving the assets](#important---serving-the-assets) below. See how `vue-aries-framework-go`
-[fixes this](vue-aries-framework-go/scripts/serve.sh).
+### Snippet
+
+**Example:** accept a did-exchange invitation:
+
+```js
+// in the browser
+
+const aries = await new Aries.Framework({
+    assetsPath: "/public/dist/assets",
+    "agent-default-label": "dem-js-agent",
+    "http-resolver-url": [],
+    "auto-accept": true,
+    "outbound-transport": ["ws", "http"],
+    "transport-return-route": "all",
+    "log-level": "debug"
+})
+
+// sample invitation
+const invitation = {
+    "@id":"4d26ad47-c71b-4e2e-9358-0a76f7fa77e4",
+    "@type":"https://didcomm.org/didexchange/1.0/invitation",
+    "label":"demo-js-agent",
+    "recipientKeys":["7rADm5sA9FHB4enuYXj6PJZDAm1JcesKmbtx7Qh8YZrg"],
+    "serviceEndpoint":"routing:endpoint"
+};
+
+// listen for connection 'received' notification
+aries.startNotifier(notice => {
+    const connection = notice.payload
+    // accept invitation
+    aries.didexchange.acceptInvitation(connection.connection_id)
+}, ["connections"])
+// receive invitation
+aries.didexchange.receiveInvitation(invitation)
+
+// listen for connection 'completed' notification
+aries.startNotifier(notice => {
+    const connection = notice.payload
+    if (connection.state === "completed") {
+        console.log("connection completed!")
+    }
+}, ["connections"])
+
+// release resources
+aries.destroy()
+```
 
 ### Browser
 
-View [`index.html`](./index.html) for examples.
+Note: make sure the assets are [served correctly](#important---serving-the-assets).
+
+Source `aries.js` in your `<script>` tag:
+
+```html
+<script src="dist/web/aries.js"></script>
+```
+
+Then initialize your aries instance:
+
+```js
+const aries = await new Aries.Framework({
+    assetsPath: "/path/serving/the/assets",
+    "agent-default-label": "dem-js-agent",
+    "http-resolver-url": [],
+    "auto-accept": true,
+    "outbound-transport": ["ws", "http"],
+    "transport-return-route": "all",
+    "log-level": "debug"
+})
+```
+
+### REST
+
+Note: make sure the assets are [served correctly](#important---serving-the-assets) if you're running aries in the browser.
+
+Assuming you're in the browser, source `aries.js` in your `<script>` tag:
+
+```html
+<script src="dist/rest/aries.js"></script>
+```
+
+Then initialize your aries instance:
+
+```js
+const aries = await new Aries.Framework({
+    assetsPath: "/path/serving/the/assets", // still required for assets other than the wasm
+    "agent-rest-url": "http://controller.api.example.com"
+})
+```
+
+### Vue.js
+
+See [`vue-framework-go`](https://github.com/hyperledger/aries-framework-go/tree/master/cmd/aries-js-worker/vue-aries-framework-go) for a sample agent built with Vue.js.
+
+Note: is the webpack devserver (`npm run serve`) not working for you? Note the points about
+[serving the assets](#important---serving-the-assets) below. See how `vue-aries-framework-go`
+[fixes this](https://github.com/hyperledger/aries-framework-go/blob/master/cmd/aries-js-worker/vue-aries-framework-go/scripts/serve.sh).
+
+### Node.js
+
+> **Note:** currently broken, see [#1237](https://github.com/hyperledger/aries-framework-go/issues/1237)
+
+```js
+const { Framework } = require('./node_modules/@hyperledger/aries-framework-go/dist/node/aries.js');
+
+const aries = await new Framework({
+    assetsPath: process.cwd() + "/node_modules/@hyperledger/aries-framework-go/dist/assets",
+    "agent-default-label": "dem-js-agent",
+    "http-resolver-url": [],
+    "auto-accept": true,
+    "outbound-transport": ["ws", "http"],
+    "transport-return-route": "all",
+    "log-level": "debug"
+})
+```
 
 ### Important - Serving the Assets
+
+Note: this applies if you are running in the browser and not using the REST entrypoint.
 
 `aries-js-worker` loads some assets at runtime: the web assembly binary and a couple of JS scripts. These assets are
 located in the `dist/assets` directory (if you `npm install` it, you'll find them in
 `./node_modules/@hyperledger/aries-framework-go/dist/assets`).
 
-Things that need to work if you are to use `aries-js-worker` on the client side.
+Things that need to work if you are to use `aries-js-worker` on the client side:
 
 #### Headers
 

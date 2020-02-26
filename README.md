@@ -22,8 +22,8 @@ API bindings are supplied to enable these environments including:
 
 - Go
 - REST
+- JavaScript / WebAssembly
 - C (future)
-- WebAssembly (future)
 
 We implement demonstrations and test cases, that require a ledger system, using [DIF Sidetree protocol](https://github.com/decentralized-identity/sidetree/blob/master/docs/protocol.md) as this protocol enables generic decentralized ledger systems to operate as a DID network.
 
@@ -38,6 +38,7 @@ The project can also be used as a [DIDComm Router/Mediator](docs/didcomm_router.
 - [Go](docs/go/README.md)
 - [REST](docs/rest/README.md)
   - [Run OpenAPI Demo](docs/rest/openapi_demo.md)
+- [JavaScript](cmd/aries-js-worker/README.md)
 
 ## Testing
 - [Build](docs/test/build.md)

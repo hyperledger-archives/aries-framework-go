@@ -80,7 +80,21 @@ function newMsg(pkg, fn, payload) {
 
 /**
  * Aries framework class provides Aries SSI-agent features.
- * @param opts are framework initialization options.
+ *
+ * `opts` is an object with the framework's initialization options:
+ *
+ * {
+ *      assetsPath: "/path/serving/the/framework/assets",
+ *      "agent-default-label": "demo-js-agent",
+ *      "http-resolver-url": ["https://uniresolver.io/1.0/identifiers"],
+ *      "auto-accept": true,
+ *      "outbound-transport": ["ws", "http"],
+ *      "transport-return-route": "all",
+ *      "log-level": "debug",
+ *      "agent-rest-url": "http://controller.api.example.com"
+ * }
+ *
+ * @param opts framework initialization options.
  * @class
  */
 export const Framework = class {
