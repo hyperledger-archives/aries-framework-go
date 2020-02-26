@@ -15,19 +15,16 @@ import (
 	"github.com/google/tink/go/signature"
 	tinkpb "github.com/google/tink/proto/tink_go_proto"
 
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const (
-	namespace = "kmsdb"
+	// Namespace is the keystore's DB storage namespace
+	Namespace = "kmsdb"
 )
-
-type provider interface {
-	StorageProvider() storage.Provider
-	SecretLock() secretlock.Service
-}
 
 // LocalKMS implements kms.KeyManager to provide key management capabilities using a local db.
 // It uses an underlying secret lock service (default local secretLock) to wrap (encrypt) keys
@@ -40,8 +37,8 @@ type LocalKMS struct {
 }
 
 // New will create a new (local) KMS service
-func New(masterKeyURI string, p provider) (*LocalKMS, error) {
-	store, err := p.StorageProvider().OpenStore(namespace)
+func New(masterKeyURI string, p kms.Provider) (*LocalKMS, error) {
+	store, err := p.StorageProvider().OpenStore(Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ceate local kms: %w", err)
 	}

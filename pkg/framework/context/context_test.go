@@ -27,7 +27,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/generic"
 	mocklock "github.com/hyperledger/aries-framework-go/pkg/internal/mock/secretlock"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
@@ -214,9 +215,9 @@ func TestNewProvider(t *testing.T) {
 		}
 	})
 
-	t.Run("test new with kms and packager service", func(t *testing.T) {
+	t.Run("test new with legacyKMS and packager service", func(t *testing.T) {
 		prov, err := New(
-			WithLegacyKMS(&mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}),
+			WithLegacyKMS(&mocklegacykms.CloseableKMS{SignMessageValue: []byte("mockValue")}),
 			WithPackager(&mockpackager.Packager{PackValue: []byte("data")}),
 			WithPacker(
 				&mockdidcomm.MockAuthCrypt{
@@ -265,6 +266,13 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithSecretLock(mSecLck))
 		require.NoError(t, err)
 		require.Equal(t, mSecLck, prov.SecretLock())
+	})
+
+	t.Run("test new with kms service", func(t *testing.T) {
+		mKMS := &mockkms.KeyManager{}
+		prov, err := New(WithKMS(mKMS))
+		require.NoError(t, err)
+		require.Equal(t, mKMS, prov.KMS())
 	})
 
 	t.Run("test new with inbound transport endpoint", func(t *testing.T) {
@@ -325,5 +333,13 @@ func TestNewProvider(t *testing.T) {
 		prov, err := New(WithAriesFrameworkID(frameworkID))
 		require.NoError(t, err)
 		require.Equal(t, frameworkID, prov.AriesFrameworkID())
+	})
+
+	t.Run("test new with bad (fake) option", func(t *testing.T) {
+		prov, err := New(func(opts *Provider) error {
+			return fmt.Errorf("bad option")
+		})
+		require.EqualError(t, err, "option failed: bad option")
+		require.Empty(t, prov)
 	})
 }

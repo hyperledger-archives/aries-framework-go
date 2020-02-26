@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri"
@@ -34,7 +35,8 @@ import (
 const (
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/837 - If inbound not present, the endpoint
 	//  should be of routing agent
-	defaultEndpoint = "routing:endpoint"
+	defaultEndpoint     = "routing:endpoint"
+	defaultMasterKeyURI = "local-lock://default/master/key/"
 )
 
 // Aries provides access to the context being managed by the framework. The context can be used to create aries clients.
@@ -49,8 +51,10 @@ type Aries struct {
 	messenger              service.MessengerHandler
 	outboundTransports     []transport.OutboundTransport
 	inboundTransports      []transport.InboundTransport
-	kmsCreator             api.KMSCreator
-	kms                    api.CloseableKMS
+	legacyKMSCreator       api.KMSCreator
+	legacyKMS              api.CloseableKMS
+	kms                    kms.KeyManager
+	kmsCreator             kms.Creator
 	secretLock             secretlock.Service
 	crypto                 crypto.Crypto
 	packagerCreator        packager.Creator
@@ -102,7 +106,11 @@ func New(opts ...Option) (*Aries, error) {
 
 func initializeServices(frameworkOpts *Aries) (*Aries, error) {
 	// Order of initializing service is important
-	// Create kms
+	// Create legacyKMS
+	if e := createLegacyKMS(frameworkOpts); e != nil {
+		return nil, e
+	}
+
 	if e := createKMS(frameworkOpts); e != nil {
 		return nil, e
 	}
@@ -208,7 +216,7 @@ func WithProtocols(protocolSvcCreator ...api.ProtocolSvcCreator) Option {
 // WithLegacyKMS injects a LegacyKMS service to the Aries framework.
 func WithLegacyKMS(k api.KMSCreator) Option {
 	return func(opts *Aries) error {
-		opts.kmsCreator = k
+		opts.legacyKMSCreator = k
 		return nil
 	}
 }
@@ -217,6 +225,14 @@ func WithLegacyKMS(k api.KMSCreator) Option {
 func WithSecretLock(s secretlock.Service) Option {
 	return func(opts *Aries) error {
 		opts.secretLock = s
+		return nil
+	}
+}
+
+// WithKMS injects a KMS service to the Aries framework.
+func WithKMS(k kms.Creator) Option {
+	return func(opts *Aries) error {
+		opts.kmsCreator = k
 		return nil
 	}
 }
@@ -266,7 +282,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithMessengerHandler(a.messenger),
 		context.WithOutboundTransports(a.outboundTransports...),
 		context.WithProtocolServices(a.services...),
-		context.WithLegacyKMS(a.kms),
+		context.WithLegacyKMS(a.legacyKMS),
 		context.WithSecretLock(a.secretLock),
 		context.WithCrypto(a.crypto),
 		context.WithServiceEndpoint(serviceEndpoint(a)),
@@ -290,10 +306,10 @@ func (a *Aries) Messenger() service.Messenger {
 
 // Close frees resources being maintained by the framework.
 func (a *Aries) Close() error {
-	if a.kms != nil {
-		err := a.kms.Close()
+	if a.legacyKMS != nil {
+		err := a.legacyKMS.Close()
 		if err != nil {
-			return fmt.Errorf("failed to close the kms: %w", err)
+			return fmt.Errorf("failed to close the legacyKMS: %w", err)
 		}
 	}
 
@@ -330,7 +346,7 @@ func (a *Aries) closeVDRI() error {
 	return nil
 }
 
-func createKMS(frameworkOpts *Aries) error {
+func createLegacyKMS(frameworkOpts *Aries) error {
 	ctx, err := context.New(
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 	)
@@ -338,9 +354,26 @@ func createKMS(frameworkOpts *Aries) error {
 		return fmt.Errorf("create context failed: %w", err)
 	}
 
+	frameworkOpts.legacyKMS, err = frameworkOpts.legacyKMSCreator(ctx)
+	if err != nil {
+		return fmt.Errorf("create legacyKMS failed: %w", err)
+	}
+
+	return nil
+}
+
+func createKMS(frameworkOpts *Aries) error {
+	ctx, err := context.New(
+		context.WithStorageProvider(frameworkOpts.storeProvider),
+		context.WithSecretLock(frameworkOpts.secretLock),
+	)
+	if err != nil {
+		return fmt.Errorf("create context failed: %w", err)
+	}
+
 	frameworkOpts.kms, err = frameworkOpts.kmsCreator(ctx)
 	if err != nil {
-		return fmt.Errorf("create kms failed: %w", err)
+		return fmt.Errorf("create KMS failed: %w", err)
 	}
 
 	return nil
@@ -348,7 +381,7 @@ func createKMS(frameworkOpts *Aries) error {
 
 func createVDRI(frameworkOpts *Aries) error {
 	ctx, err := context.New(
-		context.WithLegacyKMS(frameworkOpts.kms),
+		context.WithLegacyKMS(frameworkOpts.legacyKMS),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithServiceEndpoint(serviceEndpoint(frameworkOpts)),
@@ -398,7 +431,7 @@ func createMessengerHandler(frameworkOpts *Aries) error {
 
 func createOutboundDispatcher(frameworkOpts *Aries) error {
 	ctx, err := context.New(
-		context.WithLegacyKMS(frameworkOpts.kms),
+		context.WithLegacyKMS(frameworkOpts.legacyKMS),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithOutboundTransports(frameworkOpts.outboundTransports...),
 		context.WithPackager(frameworkOpts.packager),
@@ -416,7 +449,7 @@ func createOutboundDispatcher(frameworkOpts *Aries) error {
 
 func startTransports(frameworkOpts *Aries) error {
 	ctx, err := context.New(
-		context.WithLegacyKMS(frameworkOpts.kms),
+		context.WithLegacyKMS(frameworkOpts.legacyKMS),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithProtocolServices(frameworkOpts.services...),
@@ -451,7 +484,7 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithMessengerHandler(frameworkOpts.messenger),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithTransientStorageProvider(frameworkOpts.transientStoreProvider),
-		context.WithLegacyKMS(frameworkOpts.kms),
+		context.WithLegacyKMS(frameworkOpts.legacyKMS),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithPackager(frameworkOpts.packager),
 		context.WithServiceEndpoint(serviceEndpoint(frameworkOpts)),
@@ -482,7 +515,7 @@ func loadServices(frameworkOpts *Aries) error {
 
 func createPackersAndPackager(frameworkOpts *Aries) error {
 	ctx, err := context.New(
-		context.WithLegacyKMS(frameworkOpts.kms),
+		context.WithLegacyKMS(frameworkOpts.legacyKMS),
 		context.WithCrypto(frameworkOpts.crypto),
 	)
 	if err != nil {

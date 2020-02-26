@@ -6,6 +6,11 @@
 
 package kms
 
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+)
+
 // KeyManager manages keys and their storage for the aries framework
 type KeyManager interface {
 	// Create a new key/keyset/key handle for the type kt
@@ -16,3 +21,12 @@ type KeyManager interface {
 	// new key with type kt. It also returns the updated keyID as the first return value
 	Rotate(kt, keyID string) (string, interface{}, error)
 }
+
+// Provider for KeyManager builder/constructor
+type Provider interface {
+	StorageProvider() storage.Provider
+	SecretLock() secretlock.Service
+}
+
+// Creator method to create new key management service
+type Creator func(provider Provider) (KeyManager, error)

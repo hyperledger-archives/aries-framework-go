@@ -22,7 +22,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 // defFrameworkOpts provides default framework options
@@ -50,6 +53,19 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators,
 		newRouteSvc(), newExchangeSvc(), newIntroduceSvc())
 
+	if frameworkOpts.secretLock == nil && frameworkOpts.kmsCreator == nil {
+		err := createDefSecretLock(frameworkOpts)
+		if err != nil {
+			return err
+		}
+	}
+
+	if frameworkOpts.kmsCreator == nil {
+		frameworkOpts.kmsCreator = func(provider kms.Provider) (kms.KeyManager, error) {
+			return localkms.New(defaultMasterKeyURI, provider)
+		}
+	}
+
 	return setAdditionalDefaultOpts(frameworkOpts)
 }
 
@@ -72,8 +88,8 @@ func newRouteSvc() api.ProtocolSvcCreator {
 }
 
 func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
-	if frameworkOpts.kmsCreator == nil {
-		frameworkOpts.kmsCreator = func(provider api.Provider) (api.CloseableKMS, error) {
+	if frameworkOpts.legacyKMSCreator == nil {
+		frameworkOpts.legacyKMSCreator = func(provider api.Provider) (api.CloseableKMS, error) {
 			return legacykms.New(provider)
 		}
 	}
@@ -122,7 +138,13 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 		frameworkOpts.msgSvcProvider = &noOpMessageServiceProvider{}
 	}
 
-	// TODO add SecretLock creation here.. #1150
+	return nil
+}
+
+func createDefSecretLock(opts *Aries) error {
+	// default lock is noop, ie keys are not secure by default.
+	// users of the framework must pre-build a secure lock and pass it in as an option
+	opts.secretLock = &noop.NoLock{}
 
 	return nil
 }
