@@ -120,7 +120,7 @@ func TestStartAriesDRequests(t *testing.T) {
 
 	waitForServerToStart(t, testHostURL, testInboundHostURL)
 
-	validateRequests(t, testHostURL, testInboundHostURL)
+	validateRequests(t, testHostURL, "", testInboundHostURL)
 }
 
 func listenFor(host string) error {
@@ -141,51 +141,14 @@ func listenFor(host string) error {
 	}
 }
 
-//nolint:funlen
-func validateRequests(t *testing.T, testHostURL, testInboundHostURL string) {
-	newreq := func(method, url string, body io.Reader, contentType string) *http.Request {
-		r, err := http.NewRequest(method, url, body)
+type requestTestParams struct {
+	name               string //nolint:structcheck
+	r                  *http.Request
+	expectedStatus     int
+	expectResponseData bool
+}
 
-		if contentType != "" {
-			r.Header.Add("Content-Type", contentType)
-		}
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		return r
-	}
-
-	tests := []struct {
-		name               string
-		r                  *http.Request
-		expectedStatus     int
-		expectResponseData bool
-	}{
-		// controller API test
-		{
-			name:               "1: testing get",
-			r:                  newreq("GET", fmt.Sprintf("http://%s/connections", testHostURL), nil, ""),
-			expectedStatus:     http.StatusOK,
-			expectResponseData: true,
-		},
-
-		// DIDComm inbound API test
-		{
-			name: "200: testing didcomm inbound",
-			r: newreq(http.MethodPost,
-				fmt.Sprintf("http://%s", testInboundHostURL),
-				strings.NewReader(`
-							{
-								"@id": "5678876542345",
-								"@type": "https://didcomm.org/didexchange/1.0/invitation"
-							}`),
-				"application/didcomm-envelope-enc"),
-			expectedStatus:     http.StatusInternalServerError,
-			expectResponseData: false,
-		},
-	}
+func runRequestTests(t *testing.T, tests []requestTestParams) {
 	for _, tt := range tests {
 		resp, err := http.DefaultClient.Do(tt.r)
 		if err != nil {
@@ -213,6 +176,86 @@ func validateRequests(t *testing.T, testHostURL, testInboundHostURL string) {
 			require.True(t, isJSON(response))
 		}
 	}
+}
+
+//nolint:funlen
+func validateRequests(t *testing.T, testHostURL, authorizationHdr, testInboundHostURL string) {
+	newreq := func(method, url string, body io.Reader, contentType string) *http.Request {
+		r, err := http.NewRequest(method, url, body)
+
+		if contentType != "" {
+			r.Header.Add("Content-Type", contentType)
+		}
+
+		if authorizationHdr != "" {
+			r.Header.Add("Authorization", authorizationHdr)
+		}
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return r
+	}
+
+	tests := []requestTestParams{
+		// controller API test
+		{
+			name:               "1: testing get",
+			r:                  newreq("GET", fmt.Sprintf("http://%s/connections", testHostURL), nil, ""),
+			expectedStatus:     http.StatusOK,
+			expectResponseData: true,
+		},
+
+		// DIDComm inbound API test
+		{
+			name: "200: testing didcomm inbound",
+			r: newreq(http.MethodPost,
+				fmt.Sprintf("http://%s", testInboundHostURL),
+				strings.NewReader(`
+							{
+								"@id": "5678876542345",
+								"@type": "https://didcomm.org/didexchange/1.0/invitation"
+							}`),
+				"application/didcomm-envelope-enc"),
+			expectedStatus:     http.StatusInternalServerError,
+			expectResponseData: false,
+		},
+	}
+
+	runRequestTests(t, tests)
+}
+
+func validateUnauthorized(t *testing.T, testHostURL, authorizationHdr string) {
+	newreq := func(method, url string, body io.Reader, contentType string) *http.Request {
+		r, err := http.NewRequest(method, url, body)
+
+		if contentType != "" {
+			r.Header.Add("Content-Type", contentType)
+		}
+
+		if authorizationHdr != "" {
+			r.Header.Add("Authorization", authorizationHdr)
+		}
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return r
+	}
+
+	tests := []requestTestParams{
+		// controller API test
+		{
+			name:               "1: testing get",
+			r:                  newreq("GET", fmt.Sprintf("http://%s/connections", testHostURL), nil, ""),
+			expectedStatus:     http.StatusUnauthorized,
+			expectResponseData: false,
+		},
+	}
+
+	runRequestTests(t, tests)
 }
 
 // isJSON checks if response is json
@@ -702,6 +745,56 @@ func TestStartAriesWithAutoAccept(t *testing.T) {
 		}()
 
 		waitForServerToStart(t, testHostURL, testInboundHostURL)
+	})
+}
+
+func TestStartAriesWithAuthorization(t *testing.T) {
+	const (
+		goodToken = "ABCD"
+		badToken  = "BCDE"
+	)
+
+	path, cleanup := generateTempDir(t)
+	defer cleanup()
+
+	testHostURL := randomURL()
+	testInboundHostURL := randomURL()
+
+	go func() {
+		parameters := &agentParameters{
+			server:               &HTTPServer{},
+			host:                 testHostURL,
+			token:                goodToken,
+			inboundHostInternals: []string{httpProtocol + "@" + testInboundHostURL},
+			dbPath:               path,
+			defaultLabel:         "x",
+		}
+
+		err := startAgent(parameters)
+		require.NoError(t, err)
+		require.FailNow(t, agentUnexpectedExitErrMsg+": "+err.Error())
+	}()
+
+	waitForServerToStart(t, testHostURL, testInboundHostURL)
+
+	t.Run("use good authorization token", func(t *testing.T) {
+		authorizationHdr := "Bearer " + goodToken
+		validateRequests(t, testHostURL, authorizationHdr, testInboundHostURL)
+	})
+
+	t.Run("use bad authorization token", func(t *testing.T) {
+		authorizationHdr := "Bearer " + badToken
+		validateUnauthorized(t, testHostURL, authorizationHdr)
+	})
+
+	t.Run("use no authorization token", func(t *testing.T) {
+		authorizationHdr := "Bearer"
+		validateUnauthorized(t, testHostURL, authorizationHdr)
+	})
+
+	t.Run("use no authorization header", func(t *testing.T) {
+		authorizationHdr := ""
+		validateUnauthorized(t, testHostURL, authorizationHdr)
 	})
 }
 

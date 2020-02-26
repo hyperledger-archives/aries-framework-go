@@ -101,8 +101,9 @@ const pkgs = {
  * @class
  */
 export const Client = class {
-    constructor(url) {
+    constructor(url, token) {
         this.url = url
+        this.token = token
     }
 
     async handle(request) {
@@ -119,9 +120,17 @@ export const Client = class {
 
         console.debug(`[${r.method}] ${url}, request ${JSON.stringify(request.payload)}`)
 
+        let headers = {}
+        if (this.token) {
+            headers = {
+                "Authorization": `Bearer ${this.token}`
+            }
+        }
+
         const resp = await axios({
                 method: r.method,
                 url: url,
+                headers: headers,
                 data: request.payload
             });
 
