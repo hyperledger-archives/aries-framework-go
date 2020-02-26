@@ -93,6 +93,21 @@ const pkgs = {
             method: "GET"
         },
     },
+    verifiable: {
+        ValidateCredential: {
+            path: "/verifiable/credential/validate",
+            method: "POST"
+        },
+        SaveCredential: {
+            path: "/verifiable/credential",
+            method: "POST"
+        },
+        GetCredential: {
+            path: "/verifiable/credential/{id}",
+            method: "GET",
+            pathParam:"id"
+        },
+    },
 }
 
 /**
