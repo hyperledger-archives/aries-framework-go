@@ -402,7 +402,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             getConnection: async function () {
-                return invoke(aw, pending,  this.pkgname, "GetConnection", "{}", "timeout while fetching router connection id")
+                return invoke(aw, pending,  this.pkgname, "Connection", "{}", "timeout while fetching router connection id")
             }
         },
 
