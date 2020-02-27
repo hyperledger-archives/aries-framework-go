@@ -142,7 +142,7 @@ const aries = await new Framework({
     "outbound-transport": ["ws", "http"],
     "transport-return-route": "all",
     "log-level": "debug",
-    "db-path":"demoagent"
+    "db-namespace":"demoagent"
 })
 ```
 

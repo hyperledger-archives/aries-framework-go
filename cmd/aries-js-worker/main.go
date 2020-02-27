@@ -72,7 +72,7 @@ type ariesStartOpts struct {
 	OutboundTransport    []string `json:"outbound-transport"`
 	TransportReturnRoute string   `json:"transport-return-route"`
 	LogLevel             string   `json:"log-level"`
-	DBPath               string   `json:"db-path"`
+	DBNamespace          string   `json:"db-namespace"`
 }
 
 // main registers the 'handleMsg' function in the JS context's global scope to receive commands.
@@ -352,8 +352,8 @@ func ariesOpts(opts *ariesStartOpts) ([]aries.Option, error) {
 		options = append(options, aries.WithTransportReturnRoute(opts.TransportReturnRoute))
 	}
 
-	if opts.DBPath != "" {
-		options = append(options, defaults.WithStorePath(opts.DBPath))
+	if opts.DBNamespace != "" {
+		options = append(options, defaults.WithStorePath(opts.DBNamespace))
 	}
 
 	for _, transport := range opts.OutboundTransport {

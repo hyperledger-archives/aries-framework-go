@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 	"github.com/hyperledger/aries-framework-go/pkg/store/did"
+	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
 
@@ -41,12 +42,12 @@ type Provider struct {
 
 // NewProvider instantiates Provider
 // TODO Add unit test for IndexedDB https://github.com/hyperledger/aries-framework-go/issues/834
-func NewProvider(dbName string) (*Provider, error) {
+func NewProvider(name string) (*Provider, error) {
 	p := &Provider{stores: make(map[string]*js.Value)}
 
 	db := defDbName
-	if dbName != "" {
-		db = fmt.Sprintf(dbName, db)
+	if name != "" {
+		db = fmt.Sprintf(dbName, name)
 	}
 
 	err := p.openDB(db, getStoreNames()...)
@@ -276,5 +277,6 @@ func getStoreNames() []string {
 		peer.StoreNamespace,
 		did.StoreName,
 		localkms.Namespace,
+		verifiable.NameSpace,
 	}
 }
