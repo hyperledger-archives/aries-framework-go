@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -51,7 +52,7 @@ func (v *VDRI) resolveDID(uri string) ([]byte, error) {
 		return nil, fmt.Errorf("reading response body failed: %w", err)
 	}
 
-	if resp.StatusCode == http.StatusOK && resp.Header.Get("Content-type") == didLDJson {
+	if resp.StatusCode == http.StatusOK && strings.Contains(resp.Header.Get("Content-type"), didLDJson) {
 		return gotBody, nil
 	} else if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("DID does not exist for request: %s", uri)
