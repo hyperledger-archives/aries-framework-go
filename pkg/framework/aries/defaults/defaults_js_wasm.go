@@ -14,7 +14,7 @@ import (
 // WithStorePath return new default store provider instantiate with db path
 func WithStorePath(storePath string) aries.Option {
 	return func(opts *aries.Aries) error {
-		store, err := jsindexeddb.NewProvider()
+		store, err := jsindexeddb.NewProvider(storePath)
 		if err != nil {
 			return err
 		}

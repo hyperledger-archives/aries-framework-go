@@ -108,7 +108,7 @@ This is a test page for developers to test WASM integration.
             if (src == "rest"){
                 document.getElementById("opts").innerHTML = `{"assetsPath": "/dist/assets", "agent-rest-url": "http://localhost:8082", "agent-rest-wshook":"ws://localhost:8082/ws", "agent-rest-token":"arjswrkr001"}`
             } else {
-                document.getElementById("opts").innerHTML = `{"assetsPath": "/dist/assets", "agent-default-label":"dem-js-agent","http-resolver-url":[],"auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug"}`
+                document.getElementById("opts").innerHTML = `{"assetsPath": "/dist/assets", "agent-default-label":"dem-js-agent","http-resolver-url":[],"auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug", "db-path":"demoagent"}`
             }
         }
 
@@ -133,7 +133,7 @@ This is a test page for developers to test WASM integration.
                         <tr>
                             <td colspan="2">
                                 <div>Start Options :</div>
-                                <textarea id="opts" rows="5" cols="100">{"assetsPath": "/dist/assets", "agent-default-label":"dem-js-agent","http-resolver-url":[],"auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug"}
+                                <textarea id="opts" rows="5" cols="100">{"assetsPath": "/dist/assets", "agent-default-label":"dem-js-agent","http-resolver-url":[],"auto-accept":true,"outbound-transport":["ws","http"],"transport-return-route":"all","log-level":"debug", "db-path":"demoagent"}
                     </textarea>
                             </td>
                         </tr>
