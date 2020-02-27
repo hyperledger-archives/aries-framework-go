@@ -75,7 +75,16 @@ func (s *start) Name() string {
 }
 
 func (s *start) CanTransitionTo(st state) bool {
-	return st.Name() == stateNameProposalSent || st.Name() == stateNameProposalReceived
+	switch st.Name() {
+	// Issuer
+	case stateNameProposalReceived, stateNameOfferSent, stateNameRequestReceived:
+		return true
+	// Holder
+	case stateNameProposalSent, stateNameOfferReceived, stateNameRequestSent:
+		return true
+	}
+
+	return false
 }
 
 func (s *start) ExecuteInbound(_ *metaData) (state, stateAction, error) {
@@ -93,8 +102,8 @@ func (s *abandoning) Name() string {
 	return stateNameAbandoning
 }
 
-func (s *abandoning) CanTransitionTo(_ state) bool {
-	return false
+func (s *abandoning) CanTransitionTo(st state) bool {
+	return st.Name() == stateNameDone
 }
 
 func (s *abandoning) ExecuteInbound(_ *metaData) (state, stateAction, error) {
@@ -124,15 +133,15 @@ func (s *done) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// proposalReceived state
+// proposalReceived the Issuer's state
 type proposalReceived struct{}
 
 func (s *proposalReceived) Name() string {
 	return stateNameProposalReceived
 }
 
-func (s *proposalReceived) CanTransitionTo(_ state) bool {
-	return false
+func (s *proposalReceived) CanTransitionTo(st state) bool {
+	return st.Name() == stateNameOfferSent || st.Name() == stateNameAbandoning
 }
 
 func (s *proposalReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
@@ -143,15 +152,17 @@ func (s *proposalReceived) ExecuteOutbound(_ *metaData) (state, stateAction, err
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// offerSent state
+// offerSent the Issuer's state
 type offerSent struct{}
 
 func (s *offerSent) Name() string {
 	return stateNameOfferSent
 }
 
-func (s *offerSent) CanTransitionTo(_ state) bool {
-	return false
+func (s *offerSent) CanTransitionTo(st state) bool {
+	return st.Name() == stateNameProposalReceived ||
+		st.Name() == stateNameRequestReceived ||
+		st.Name() == stateNameAbandoning
 }
 
 func (s *offerSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
@@ -162,15 +173,15 @@ func (s *offerSent) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// requestReceived state
+// requestReceived the Issuer's state
 type requestReceived struct{}
 
 func (s *requestReceived) Name() string {
 	return stateNameRequestReceived
 }
 
-func (s *requestReceived) CanTransitionTo(_ state) bool {
-	return false
+func (s *requestReceived) CanTransitionTo(st state) bool {
+	return st.Name() == stateNameCredentialIssued || st.Name() == stateNameAbandoning
 }
 
 func (s *requestReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
@@ -181,15 +192,15 @@ func (s *requestReceived) ExecuteOutbound(_ *metaData) (state, stateAction, erro
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// credentialIssued state
+// credentialIssued the Issuer's state
 type credentialIssued struct{}
 
 func (s *credentialIssued) Name() string {
 	return stateNameCredentialIssued
 }
 
-func (s *credentialIssued) CanTransitionTo(_ state) bool {
-	return false
+func (s *credentialIssued) CanTransitionTo(st state) bool {
+	return st.Name() == stateNameDone || st.Name() == stateNameAbandoning
 }
 
 func (s *credentialIssued) ExecuteInbound(_ *metaData) (state, stateAction, error) {
@@ -200,15 +211,15 @@ func (s *credentialIssued) ExecuteOutbound(_ *metaData) (state, stateAction, err
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// proposalSent state
+// proposalSent the Holder's state
 type proposalSent struct{}
 
 func (s *proposalSent) Name() string {
 	return stateNameProposalSent
 }
 
-func (s *proposalSent) CanTransitionTo(_ state) bool {
-	return false
+func (s *proposalSent) CanTransitionTo(st state) bool {
+	return st.Name() == stateNameOfferReceived || st.Name() == stateNameAbandoning
 }
 
 func (s *proposalSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
@@ -219,15 +230,17 @@ func (s *proposalSent) ExecuteOutbound(_ *metaData) (state, stateAction, error) 
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// offerReceived state
+// offerReceived the Holder's state
 type offerReceived struct{}
 
 func (s *offerReceived) Name() string {
 	return stateNameOfferReceived
 }
 
-func (s *offerReceived) CanTransitionTo(_ state) bool {
-	return false
+func (s *offerReceived) CanTransitionTo(st state) bool {
+	return st.Name() == stateNameProposalSent ||
+		st.Name() == stateNameRequestSent ||
+		st.Name() == stateNameAbandoning
 }
 
 func (s *offerReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
@@ -238,15 +251,15 @@ func (s *offerReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error)
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// requestSent state
+// requestSent the Holder's state
 type requestSent struct{}
 
 func (s *requestSent) Name() string {
 	return stateNameRequestSent
 }
 
-func (s *requestSent) CanTransitionTo(_ state) bool {
-	return false
+func (s *requestSent) CanTransitionTo(st state) bool {
+	return st.Name() == stateNameCredentialReceived || st.Name() == stateNameAbandoning
 }
 
 func (s *requestSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
@@ -264,8 +277,8 @@ func (s *credentialReceived) Name() string {
 	return stateNameCredentialReceived
 }
 
-func (s *credentialReceived) CanTransitionTo(_ state) bool {
-	return false
+func (s *credentialReceived) CanTransitionTo(st state) bool {
+	return st.Name() == stateNameDone || st.Name() == stateNameAbandoning
 }
 
 func (s *credentialReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
