@@ -18,9 +18,24 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+const sampleDBName = "testdb"
+
+func TestProvider(t *testing.T) {
+	t.Run("Test provider with empty db name", func(t *testing.T) {
+		prov, err := NewProvider("")
+		require.NoError(t, err)
+		require.NotNil(t, prov)
+	})
+	t.Run("Test provider with db name", func(t *testing.T) {
+		prov, err := NewProvider(sampleDBName)
+		require.NoError(t, err)
+		require.NotNil(t, prov)
+	})
+}
+
 func TestStore(t *testing.T) {
 	t.Run("Test store put and get", func(t *testing.T) {
-		prov, err := NewProvider()
+		prov, err := NewProvider(sampleDBName)
 		require.NoError(t, err)
 		store, err := prov.OpenStore("test")
 		require.NoError(t, err)
@@ -61,7 +76,7 @@ func TestStore(t *testing.T) {
 	})
 
 	t.Run("Test error from open db", func(t *testing.T) {
-		prov, err := NewProvider()
+		prov, err := NewProvider(sampleDBName)
 		require.NoError(t, err)
 
 		dbVersion = 3
@@ -78,7 +93,7 @@ func TestStore(t *testing.T) {
 	})
 
 	t.Run("Test store iterator", func(t *testing.T) {
-		prov, err := NewProvider()
+		prov, err := NewProvider(sampleDBName)
 		require.NoError(t, err)
 		store, err := prov.OpenStore("test-iterator")
 		require.NoError(t, err)
@@ -127,7 +142,7 @@ func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string
 }
 
 func TestIndexDBStoreDelete(t *testing.T) {
-	prov, err := NewProvider()
+	prov, err := NewProvider("sampledb")
 	require.NoError(t, err)
 
 	const commonKey = "did:example:1"

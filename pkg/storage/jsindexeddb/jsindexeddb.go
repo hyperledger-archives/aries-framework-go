@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	dbName    = "aries"
-	newdbName = "aries-%s"
+	dbName    = "aries-%s"
+	defDbName = "aries"
 )
 
 var dbVersion = 1 //nolint:gochecknoglobals
@@ -41,10 +41,15 @@ type Provider struct {
 
 // NewProvider instantiates Provider
 // TODO Add unit test for IndexedDB https://github.com/hyperledger/aries-framework-go/issues/834
-func NewProvider() (*Provider, error) {
+func NewProvider(dbName string) (*Provider, error) {
 	p := &Provider{stores: make(map[string]*js.Value)}
 
-	err := p.openDB(dbName, getStoreNames()...)
+	db := defDbName
+	if dbName != "" {
+		db = fmt.Sprintf(dbName, db)
+	}
+
+	err := p.openDB(db, getStoreNames()...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open IndexDB : %w", err)
 	}
@@ -71,7 +76,7 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	defer p.Unlock()
 
 	// create new if not found in list of object stores (not the predefined ones)
-	err := p.openDB(fmt.Sprintf(newdbName, name), name)
+	err := p.openDB(fmt.Sprintf(dbName, name), name)
 	if err != nil {
 		return nil, err
 	}
