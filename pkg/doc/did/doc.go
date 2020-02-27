@@ -23,25 +23,29 @@ import (
 const (
 	// Context of the DID document
 	Context             = "https://w3id.org/did/v1"
+	contextV011         = "https://w3id.org/did/v0.11"
 	jsonldType          = "type"
 	jsonldID            = "id"
+	jsonldPublicKey     = "publicKey"
 	jsonldServicePoint  = "serviceEndpoint"
 	jsonldRecipientKeys = "recipientKeys"
 	jsonldRoutingKeys   = "routingKeys"
 	jsonldPriority      = "priority"
 	jsonldController    = "controller"
+	jsonldOwner         = "owner"
 
-	jsonldCreator    = "creator"
-	jsonldCreated    = "created"
-	jsonldProofValue = "proofValue"
-	jsonldDomain     = "domain"
-	jsonldNonce      = "nonce"
+	jsonldCreator        = "creator"
+	jsonldCreated        = "created"
+	jsonldProofValue     = "proofValue"
+	jsonldSignatureValue = "signatureValue"
+	jsonldDomain         = "domain"
+	jsonldNonce          = "nonce"
 
 	// various public key encodings
 	jsonldPublicKeyBase58 = "publicKeyBase58"
 	jsonldPublicKeyHex    = "publicKeyHex"
 	jsonldPublicKeyPem    = "publicKeyPem"
-	schema                = `{
+	schemaV1              = `{
   "required": [
     "@context",
     "id"
@@ -171,9 +175,157 @@ const (
     }
   }
 }`
+
+	schemaV011 = `{
+  "required": [
+    "@context",
+    "id"
+  ],
+  "properties": {
+    "@context": {
+      "type": "array",
+      "items": [
+        {
+          "type": "string",
+          "pattern": "^https://w3id.org/did/v0.11$"
+        }
+      ],
+      "additionalItems": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "id": {
+      "type": "string"
+    },
+    "publicKey": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/publicKey"
+      }
+    },
+    "authentication": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/definitions/publicKey"
+          },
+          {
+            "$ref": "#/definitions/publicKeyReferenced"
+          }
+        ]
+      }
+    },
+    "service": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/service"
+      }
+    },
+    "created": {
+      "type": "string"
+    },
+    "updated": {
+      "type": "string"
+    },
+    "proof": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/proof"
+      }
+    }
+  },
+  "definitions": {
+	"proof": {
+      "type": "object",
+      "required": [ "type", "creator", "created", "signatureValue"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "format": "uri-reference"
+        },
+        "creator": {
+          "type": "string",
+          "format": "uri-reference"
+        },
+        "created": {
+          "type": "string"
+        },
+        "signatureValue": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "nonce": {
+          "type": "string"
+        }
+	  }
+    },
+    "publicKey": {
+      "required": [
+        "id",
+        "type"
+      ],
+      "type": "object",
+      "minProperties": 3,
+      "maxProperties": 4,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        }
+      }
+    },
+    "publicKeyReferenced": {
+      "required": [
+        "type",
+        "publicKey"
+      ],
+      "type": "object",
+      "minProperties": 2,
+      "maxProperties": 2,
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "publicKey": {
+          "type": "string"
+        }
+      }
+    },
+    "service": {
+      "required": [
+        "id",
+        "type",
+        "serviceEndpoint"
+      ],
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "serviceEndpoint": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    }
+  }
+}`
 )
 
-var schemaLoader = gojsonschema.NewStringLoader(schema) //nolint:gochecknoglobals
+var schemaLoaderV1 = gojsonschema.NewStringLoader(schemaV1)     //nolint:gochecknoglobals
+var schemaLoaderV011 = gojsonschema.NewStringLoader(schemaV011) //nolint:gochecknoglobals
 
 // Doc DID Document definition
 type Doc struct {
@@ -246,17 +398,17 @@ func ParseDocument(data []byte) (*Doc, error) {
 		return nil, fmt.Errorf("JSON marshalling of did doc bytes bytes failed: %w", err)
 	}
 
-	publicKeys, err := populatePublicKeys(raw.PublicKey)
+	publicKeys, err := populatePublicKeys(raw.Context[0], raw.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("populate public keys failed: %w", err)
 	}
 
-	authPKs, err := populateAuthentications(raw.Authentication, publicKeys)
+	authPKs, err := populateAuthentications(raw.Context[0], raw.Authentication, publicKeys)
 	if err != nil {
 		return nil, fmt.Errorf("populate authentications failed: %w", err)
 	}
 
-	proofs, err := populateProofs(raw.Proof)
+	proofs, err := populateProofs(raw.Context[0], raw.Proof)
 	if err != nil {
 		return nil, fmt.Errorf("populate proofs failed: %w", err)
 	}
@@ -272,7 +424,7 @@ func ParseDocument(data []byte) (*Doc, error) {
 	}, nil
 }
 
-func populateProofs(rawProofs []interface{}) ([]Proof, error) {
+func populateProofs(context string, rawProofs []interface{}) ([]Proof, error) {
 	proofs := make([]Proof, 0, len(rawProofs))
 
 	for _, rawProof := range rawProofs {
@@ -288,7 +440,13 @@ func populateProofs(rawProofs []interface{}) ([]Proof, error) {
 			return nil, err
 		}
 
-		proofValue, err := base64.RawURLEncoding.DecodeString(stringEntry(emap[jsonldProofValue]))
+		proofKey := jsonldProofValue
+
+		if context == contextV011 {
+			proofKey = jsonldSignatureValue
+		}
+
+		proofValue, err := base64.RawURLEncoding.DecodeString(stringEntry(emap[proofKey]))
 		if err != nil {
 			return nil, err
 		}
@@ -338,16 +496,27 @@ func populateServices(rawServices []map[string]interface{}) []Service {
 	return services
 }
 
-func populateAuthentications(rawAuthentications []interface{}, pks []PublicKey) ([]VerificationMethod, error) {
+func populateAuthentications(context string, rawAuthentications []interface{},
+	pks []PublicKey) ([]VerificationMethod, error) {
 	var vms []VerificationMethod
 
 	for _, rawAuthentication := range rawAuthentications {
-		valueString, ok := rawAuthentication.(string)
-		if ok {
+		keyID, keyIDExist := rawAuthentication.(string)
+
+		if context == contextV011 {
+			m, ok := rawAuthentication.(map[string]interface{})
+			if !ok {
+				return nil, errors.New("rawAuthentication is not map[string]interface{}")
+			}
+
+			keyID, keyIDExist = m[jsonldPublicKey].(string)
+		}
+
+		if keyIDExist {
 			keyExist := false
 
 			for _, pk := range pks {
-				if pk.ID == valueString {
+				if pk.ID == keyID {
 					vms = append(vms, VerificationMethod{pk})
 					keyExist = true
 
@@ -356,7 +525,7 @@ func populateAuthentications(rawAuthentications []interface{}, pks []PublicKey) 
 			}
 
 			if !keyExist {
-				return nil, fmt.Errorf("authentication key %s not exist in did doc public key", valueString)
+				return nil, fmt.Errorf("authentication key %s not exist in did doc public key", keyID)
 			}
 
 			continue
@@ -367,7 +536,7 @@ func populateAuthentications(rawAuthentications []interface{}, pks []PublicKey) 
 			return nil, errors.New("rawAuthentication is not map[string]interface{}")
 		}
 
-		pk, err := populatePublicKeys([]map[string]interface{}{valuePK})
+		pk, err := populatePublicKeys(context, []map[string]interface{}{valuePK})
 		if err != nil {
 			return nil, err
 		}
@@ -378,7 +547,7 @@ func populateAuthentications(rawAuthentications []interface{}, pks []PublicKey) 
 	return vms, nil
 }
 
-func populatePublicKeys(rawPKs []map[string]interface{}) ([]PublicKey, error) {
+func populatePublicKeys(context string, rawPKs []map[string]interface{}) ([]PublicKey, error) {
 	var publicKeys []PublicKey
 
 	for _, rawPK := range rawPKs {
@@ -387,8 +556,14 @@ func populatePublicKeys(rawPKs []map[string]interface{}) ([]PublicKey, error) {
 			return nil, err
 		}
 
+		controllerKey := jsonldController
+
+		if context == contextV011 {
+			controllerKey = jsonldOwner
+		}
+
 		publicKeys = append(publicKeys, PublicKey{ID: stringEntry(rawPK[jsonldID]), Type: stringEntry(rawPK[jsonldType]),
-			Controller: stringEntry(rawPK[jsonldController]), Value: decodeValue})
+			Controller: stringEntry(rawPK[controllerKey]), Value: decodeValue})
 	}
 
 	return publicKeys, nil
@@ -423,6 +598,17 @@ func decodePK(rawPK map[string]interface{}) ([]byte, error) {
 func validate(data []byte) error {
 	// Validate that the DID Document conforms to the serialization of the DID Document data model.
 	// Reference: https://w3c-ccg.github.io/did-spec/#did-documents)
+	schemaLoader := schemaLoaderV1
+
+	var r rawDoc
+	if err := json.Unmarshal(data, &r); err != nil {
+		return fmt.Errorf("unmarshal failed: %w", err)
+	}
+
+	if len(r.Context) > 0 && r.Context[0] == contextV011 {
+		schemaLoader = schemaLoaderV011
+	}
+
 	documentLoader := gojsonschema.NewStringLoader(string(data))
 
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
@@ -487,11 +673,11 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 	raw := &rawDoc{
 		Context:        doc.Context,
 		ID:             doc.ID,
-		PublicKey:      populateRawPublicKeys(doc.PublicKey),
-		Authentication: populateRawAuthentications(doc.Authentication),
+		PublicKey:      populateRawPublicKeys(doc.Context[0], doc.PublicKey),
+		Authentication: populateRawAuthentications(doc.Context[0], doc.Authentication),
 		Service:        populateRawServices(doc.Service),
 		Created:        doc.Created,
-		Proof:          populateRawProofs(doc.Proof),
+		Proof:          populateRawProofs(doc.Context[0], doc.Proof),
 		Updated:        doc.Updated,
 	}
 
@@ -579,20 +765,25 @@ func populateRawServices(services []Service) []map[string]interface{} {
 	return rawServices
 }
 
-func populateRawPublicKeys(pks []PublicKey) []map[string]interface{} {
+func populateRawPublicKeys(context string, pks []PublicKey) []map[string]interface{} {
 	var rawPKs []map[string]interface{}
 	for _, pk := range pks {
-		rawPKs = append(rawPKs, populateRawPublicKey(pk))
+		rawPKs = append(rawPKs, populateRawPublicKey(context, pk))
 	}
 
 	return rawPKs
 }
 
-func populateRawPublicKey(pk PublicKey) map[string]interface{} {
+func populateRawPublicKey(context string, pk PublicKey) map[string]interface{} {
 	rawPK := make(map[string]interface{})
 	rawPK[jsonldID] = pk.ID
 	rawPK[jsonldType] = pk.Type
-	rawPK[jsonldController] = pk.Controller
+
+	if context == contextV011 {
+		rawPK[jsonldOwner] = pk.Controller
+	} else {
+		rawPK[jsonldController] = pk.Controller
+	}
 
 	if pk.Value != nil {
 		rawPK[jsonldPublicKeyBase58] = base58.Encode(pk.Value)
@@ -601,26 +792,33 @@ func populateRawPublicKey(pk PublicKey) map[string]interface{} {
 	return rawPK
 }
 
-func populateRawAuthentications(vms []VerificationMethod) []interface{} {
+func populateRawAuthentications(context string, vms []VerificationMethod) []interface{} {
 	var rawAuthentications []interface{}
 
 	for _, vm := range vms {
-		rawAuthentications = append(rawAuthentications, populateRawPublicKey(vm.PublicKey))
+		rawAuthentications = append(rawAuthentications, populateRawPublicKey(context, vm.PublicKey))
 	}
 
 	return rawAuthentications
 }
 
-func populateRawProofs(proofs []Proof) []interface{} {
+func populateRawProofs(context string, proofs []Proof) []interface{} {
 	rawProofs := make([]interface{}, 0, len(proofs))
+
+	k := jsonldProofValue
+
+	if context == contextV011 {
+		k = jsonldSignatureValue
+	}
+
 	for _, p := range proofs {
 		rawProofs = append(rawProofs, map[string]interface{}{
-			jsonldType:       p.Type,
-			jsonldCreated:    p.Created,
-			jsonldCreator:    p.Creator,
-			jsonldProofValue: base64.RawURLEncoding.EncodeToString(p.ProofValue),
-			jsonldDomain:     p.Domain,
-			jsonldNonce:      base64.RawURLEncoding.EncodeToString(p.Nonce),
+			jsonldType:    p.Type,
+			jsonldCreated: p.Created,
+			jsonldCreator: p.Creator,
+			k:             base64.RawURLEncoding.EncodeToString(p.ProofValue),
+			jsonldDomain:  p.Domain,
+			jsonldNonce:   base64.RawURLEncoding.EncodeToString(p.Nonce),
 		})
 	}
 

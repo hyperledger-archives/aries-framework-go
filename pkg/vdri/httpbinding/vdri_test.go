@@ -125,7 +125,7 @@ func TestVDRI_Build(t *testing.T) {
 			errMsg string
 		}{
 			{"/status400", "got unexpected response status"},
-			{"/ss", " validation of DID doc failed"},
+			{"/ss", "failed to parse public DID document"},
 		}
 
 		for _, test := range allTests {
