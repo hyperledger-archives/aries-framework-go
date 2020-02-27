@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/messaging"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/route"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 )
 
 const (
@@ -169,4 +170,7 @@ func FeatureContext(s *godog.Suite) {
 	// Register router tests
 	route.NewRouteSDKSteps(bddContext).RegisterSteps(s)
 	route.NewRouteRESTSteps(bddContext).RegisterSteps(s)
+
+	// Register verifiable credential tests
+	verifiable.NewVerifiableCredentialSDKSteps(bddContext).RegisterSteps(s)
 }

@@ -101,35 +101,6 @@ func TestWithSigner(t *testing.T) {
 	require.NotNil(t, opts.signer)
 }
 
-/*func TestEd25519Verifier(t *testing.T) {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-	require.NotEmpty(t, privKey)
-
-	doc := []byte("test doc")
-
-	signature := ed25519.Sign(privKey, doc)
-	require.NotEmpty(t, signature)
-
-	err = Ed25519Verifier()(pubKey, doc, signature)
-	require.Nil(t, err)
-
-	// test different message
-	err = Ed25519Verifier()(pubKey, []byte("different doc"), signature)
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "signature doesn't match")
-
-	// test different signature
-	err = Ed25519Verifier()(pubKey, doc, []byte("signature"))
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "signature doesn't match")
-
-	// test wrong public key size
-	err = Ed25519Verifier()([]byte("key"), doc, signature)
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "ed25519: bad public key length")
-}
-*/
 func getDefaultDoc() map[string]interface{} {
 	// this JSON-LD document was taken from http://json-ld.org/test-suite/tests/toRdf-0028-in.jsonld
 	doc := map[string]interface{}{
