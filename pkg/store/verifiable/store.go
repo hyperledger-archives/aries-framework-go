@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	nameSpace = "verifiable"
+	// NameSpace for vc store
+	NameSpace = "verifiable"
 )
 
 // ErrNotFound signals that the entry for the given DID and key is not present in the store.
@@ -32,7 +33,7 @@ type provider interface {
 
 // New returns a new vc store
 func New(ctx provider) (*Store, error) {
-	store, err := ctx.StorageProvider().OpenStore(nameSpace)
+	store, err := ctx.StorageProvider().OpenStore(NameSpace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open vc store: %w", err)
 	}
