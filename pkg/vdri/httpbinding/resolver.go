@@ -17,6 +17,10 @@ import (
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
+const (
+	didLDJson = "application/did+ld+json"
+)
+
 type didResolution struct {
 	Context          interface{}            `json:"@context"`
 	DIDDocument      map[string]interface{} `json:"didDocument"`
@@ -26,28 +30,35 @@ type didResolution struct {
 
 // resolveDID makes DID resolution via HTTP
 func (v *VDRI) resolveDID(uri string) ([]byte, error) {
-	resp, err := v.client.Get(uri)
+	req, err := http.NewRequest(http.MethodGet, uri, nil)
+	if err != nil {
+		return nil, fmt.Errorf("HTTP create get request failed: %w", err)
+	}
+
+	req.Header.Add("Accept", didLDJson)
+
+	resp, err := v.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP Get request failed: %w", err)
 	}
 
 	defer closeResponseBody(resp.Body)
 
-	if resp.StatusCode == http.StatusOK {
-		var gotBody []byte
+	var gotBody []byte
 
-		gotBody, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("reading response body failed: %w", err)
-		}
+	gotBody, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body failed: %w", err)
+	}
 
+	if resp.StatusCode == http.StatusOK && resp.Header.Get("Content-type") == didLDJson {
 		return gotBody, nil
 	} else if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("DID does not exist for request: %s", uri)
 	}
 
-	return nil, fmt.Errorf("unsupported response from DID resolver [%v] header [%s]",
-		resp.StatusCode, resp.Header.Get("Content-type"))
+	return nil, fmt.Errorf("unsupported response from DID resolver [%v] header [%s] body [%s]",
+		resp.StatusCode, resp.Header.Get("Content-type"), gotBody)
 }
 
 // Read implements didresolver.DidMethod.Read interface (https://w3c-ccg.github.io/did-resolution/#resolving-input)
