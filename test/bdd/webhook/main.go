@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -17,37 +16,26 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 )
 
 var logger = log.New("aries-framework/webhook")
 
 const (
-	addressPattern    = ":%s"
-	connectionsPath   = "/connections"
-	checkTopicsPath   = "/checktopics"
-	genericInvitePath = "/generic-invite"
-	basicMsgPath      = "/basic-message"
-	topicsSize        = 50
-	topicTimeout      = 100 * time.Millisecond
+	addressPattern  = ":%s"
+	checkTopicsPath = "/checktopics"
+	topicsSize      = 50
+	topicTimeout    = 100 * time.Millisecond
 )
 
 var topics = make(chan []byte, topicsSize) //nolint:gochecknoglobals
 
-func connections(w http.ResponseWriter, r *http.Request) {
+func receiveTopics(w http.ResponseWriter, r *http.Request) {
 	msg, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	connMsg := didexchange.ConnectionMsg{}
-
-	err = json.Unmarshal(msg, &connMsg)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-	}
-
-	logger.Infof("received state transition event :: connID=%s state=%s", connMsg.ConnectionID, connMsg.State)
+	logger.Infof("received topic message: %s", string(msg))
 
 	topics <- msg
 }
@@ -64,17 +52,6 @@ func checkTopics(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func messages(w http.ResponseWriter, r *http.Request) {
-	msg, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-	}
-
-	logger.Infof("received generic msg event")
-
-	topics <- msg
-}
-
 func main() {
 	port := os.Getenv("WEBHOOK_PORT")
 	if port == "" {
@@ -82,9 +59,7 @@ func main() {
 	}
 
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc(connectionsPath, connections).Methods(http.MethodPost)
+	router.HandleFunc("/", receiveTopics).Methods(http.MethodPost)
 	router.HandleFunc(checkTopicsPath, checkTopics).Methods(http.MethodGet)
-	router.HandleFunc(genericInvitePath, messages).Methods(http.MethodPost)
-	router.HandleFunc(basicMsgPath, messages).Methods(http.MethodPost)
 	logger.Fatalf("webhook server start error %s", http.ListenAndServe(fmt.Sprintf(addressPattern, port), router))
 }

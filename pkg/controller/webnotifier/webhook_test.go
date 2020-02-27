@@ -134,7 +134,10 @@ func TestNotifyCorrectJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := notifyWH(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), getTestBasicMessageJSON())
+	msg, err := prepareTopicMessage("test-topic", getTestBasicMessageJSON())
+	require.NoError(t, err)
+
+	err = notifyWH(fmt.Sprintf("http://%s%s", clientHost, topicWithLeadingSlash), msg)
 	require.NoError(t, err)
 }
 
@@ -191,12 +194,9 @@ func TestNotifyEmptyMessage(t *testing.T) {
 func TestNotifyMultipleErrors(t *testing.T) {
 	testNotifier := NewHTTPNotifier([]string{"badURL1", "badURL2"})
 
-	err := testNotifier.Notify("someTopic", []byte(`someMessage`))
+	err := testNotifier.Notify("someTopic", []byte(`{}`))
 
-	require.Contains(t, err.Error(), `failed to post notification to badURL1/someTopic: `+
-		`Post "badURL1/someTopic": unsupported protocol scheme ""`)
-	require.Contains(t, err.Error(), `failed to post notification to badURL2/someTopic: `+
-		`Post "badURL2/someTopic": unsupported protocol scheme ""`)
+	require.Contains(t, err.Error(), `unsupported protocol scheme`)
 }
 
 func TestWebhookNotificationClient500Response(t *testing.T) {
@@ -251,18 +251,24 @@ func listenAndStopAfterReceivingNotification(addr string) error {
 	m.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {
 		response, err := ioutil.ReadAll(req.Body)
 		if err == nil {
-			var receivedMessage msg
+			var receivedMessage struct {
+				ID      string `json:"id"`
+				Topic   string `json:"topic"`
+				Message msg    `json:"message"`
+			}
 			err = json.Unmarshal(response, &receivedMessage)
 			if err != nil {
 				resp.WriteHeader(http.StatusBadRequest)
 			}
+
 			expectedTestBasicMessage := msg{
 				ConnectionID: "SomeConnectionID",
 				MessageID:    "SomeMessageId",
 				Content:      "SomeContent",
 				State:        "SomeState",
 			}
-			if receivedMessage != expectedTestBasicMessage {
+
+			if receivedMessage.Message != expectedTestBasicMessage {
 				resp.WriteHeader(http.StatusBadRequest)
 			}
 		} else {

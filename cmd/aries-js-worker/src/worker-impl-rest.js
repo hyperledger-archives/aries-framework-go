@@ -82,9 +82,8 @@ const wsnotifier = class {
     constructor(url, postMsg) {
         this.socket = new WebSocket(url);
         this.socket.addEventListener('message', function (event) {
-            // TODO REST agents are not currently revealing topic information on incoming messages,
-            //  Once REST supports this feature, topic value will be dynamic. [Issue #1323]
-            postMsg(newResponse(Math.random().toString(36).slice(2),  JSON.parse(event.data), "", "all"));
+            const incoming = JSON.parse(event.data)
+            postMsg(newResponse(incoming.id,  incoming.message, "", incoming.topic));
         });
     }
     stop(){
