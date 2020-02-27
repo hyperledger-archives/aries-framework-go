@@ -242,6 +242,7 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 
 	didDoc := createDIDDoc()
 	publicKey := didDoc.PublicKey[0]
+	authentication := didDoc.Authentication[0]
 
 	v := &mockvdri.MockVDRIRegistry{
 		ResolveValue: didDoc,
@@ -253,6 +254,10 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 	pubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, publicKey.ID)
 	r.NoError(err)
 	r.Equal(publicKey.Value, pubKey)
+
+	authPubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, authentication.PublicKey.ID)
+	r.NoError(err)
+	r.Equal(authentication.PublicKey.Value, authPubKey)
 
 	pubKey, err = resolver.PublicKeyFetcher()(didDoc.ID, "invalid key")
 	r.Error(err)
@@ -267,20 +272,19 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 }
 
 func createDIDDoc() *did.Doc {
-	pubKey, _ := generateKeyPair()
-	return createDIDDocWithKey(pubKey)
+	return createDIDDocWithKey()
 }
 
-func generateKeyPair() (string, []byte) {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+func generateKeyPair() string {
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		panic(err)
 	}
 
-	return base58.Encode(pubKey[:]), privKey
+	return base58.Encode(pubKey[:])
 }
 
-func createDIDDocWithKey(pub string) *did.Doc {
+func createDIDDocWithKey() *did.Doc {
 	const (
 		didFormat    = "did:%s:%s"
 		didPKID      = "%s#keys-%d"
@@ -288,6 +292,7 @@ func createDIDDocWithKey(pub string) *did.Doc {
 		method       = "test"
 	)
 
+	pub := generateKeyPair()
 	id := fmt.Sprintf(didFormat, method, pub[:16])
 	pubKeyID := fmt.Sprintf(didPKID, id, 1)
 	pubKey := did.PublicKey{
@@ -305,14 +310,30 @@ func createDIDDocWithKey(pub string) *did.Doc {
 			RecipientKeys:   []string{pubKeyID},
 		},
 	}
+
+	pub = generateKeyPair()
+	id = fmt.Sprintf(didFormat, method, pub[:16])
+	pubKeyID = fmt.Sprintf(didPKID, id, 1)
+	auth := []did.VerificationMethod{
+		{
+			PublicKey: did.PublicKey{
+				ID:         pubKeyID,
+				Type:       "Ed25519VerificationKey2018",
+				Controller: id,
+				Value:      []byte(pub),
+			},
+		},
+	}
+
 	createdTime := time.Now()
 	didDoc := &did.Doc{
-		Context:   []string{did.Context},
-		ID:        id,
-		PublicKey: []did.PublicKey{pubKey},
-		Service:   services,
-		Created:   &createdTime,
-		Updated:   &createdTime,
+		Context:        []string{did.Context},
+		ID:             id,
+		PublicKey:      []did.PublicKey{pubKey},
+		Service:        services,
+		Authentication: auth,
+		Created:        &createdTime,
+		Updated:        &createdTime,
 	}
 
 	return didDoc

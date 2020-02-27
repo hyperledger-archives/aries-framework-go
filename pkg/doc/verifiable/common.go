@@ -85,6 +85,13 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (interface{},
 		}
 	}
 
+	// if key not found in PublicKey try to find it in authentication
+	for _, auth := range doc.Authentication {
+		if auth.PublicKey.ID == keyID {
+			return auth.PublicKey.Value, nil
+		}
+	}
+
 	return nil, fmt.Errorf("public key with KID %s is not found for DID %s", keyID, issuerDID)
 }
 
