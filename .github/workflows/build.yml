@@ -15,10 +15,10 @@ jobs:
         os: [ubuntu-18.04, macOS-10.15]
     steps:
 
-    - name: Setup Go 1.13
+    - name: Setup Go 1.14
       uses: actions/setup-go@v1
       with:
-        go-version: 1.13
+        go-version: 1.14
       id: go
 
     - uses: actions/checkout@v1
@@ -42,10 +42,10 @@ jobs:
     timeout-minutes: 10
     steps:
 
-      - name: Setup Go 1.13
+      - name: Setup Go 1.14
         uses: actions/setup-go@v1
         with:
-          go-version: 1.13
+          go-version: 1.14
         id: go
 
       - uses: actions/checkout@v1
@@ -60,10 +60,10 @@ jobs:
     timeout-minutes: 10
     steps:
 
-      - name: Setup Go 1.13
+      - name: Setup Go 1.14
         uses: actions/setup-go@v1
         with:
-          go-version: 1.13
+          go-version: 1.14
         id: go
 
       - name: Setup Node.js
@@ -89,10 +89,10 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-18.04
     steps:
-      - name: Setup Go 1.13
+      - name: Setup Go 1.14
         uses: actions/setup-go@v1
         with:
-          go-version: 1.13
+          go-version: 1.14
 
       - uses: actions/checkout@v1
 
@@ -107,10 +107,10 @@ jobs:
     runs-on: ubuntu-18.04
     timeout-minutes: 10
     steps:
-      - name: Setup Go 1.13
+      - name: Setup Go 1.14
         uses: actions/setup-go@v1
         with:
-          go-version: 1.13
+          go-version: 1.14
         id: go
 
       - name: Setup Node.js

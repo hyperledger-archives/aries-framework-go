@@ -194,9 +194,9 @@ func TestNotifyMultipleErrors(t *testing.T) {
 	err := testNotifier.Notify("someTopic", []byte(`someMessage`))
 
 	require.Contains(t, err.Error(), `failed to post notification to badURL1/someTopic: `+
-		`Post badURL1/someTopic: unsupported protocol scheme ""`)
+		`Post "badURL1/someTopic": unsupported protocol scheme ""`)
 	require.Contains(t, err.Error(), `failed to post notification to badURL2/someTopic: `+
-		`Post badURL2/someTopic: unsupported protocol scheme ""`)
+		`Post "badURL2/someTopic": unsupported protocol scheme ""`)
 }
 
 func TestWebhookNotificationClient500Response(t *testing.T) {
