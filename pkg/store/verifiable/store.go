@@ -41,8 +41,21 @@ func New(ctx provider) (*Store, error) {
 	return &Store{store: store}, nil
 }
 
-// SaveVC save verifiable credential
-func (s *Store) SaveVC(vc *verifiable.Credential) error {
+// SaveCredential saves a verifiable credential.
+func (s *Store) SaveCredential(name string, vc *verifiable.Credential) error {
+	if name == "" {
+		return errors.New("credential name is mandatory")
+	}
+
+	id, err := s.GetCredentialIDByName(name)
+	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
+		return fmt.Errorf("get credential id using name : %w", err)
+	}
+
+	if id != "" {
+		return errors.New("credential name already exists")
+	}
+
 	vcBytes, err := vc.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("failed to marshal vc: %w", err)
@@ -52,12 +65,16 @@ func (s *Store) SaveVC(vc *verifiable.Credential) error {
 		return fmt.Errorf("failed to put vc: %w", err)
 	}
 
+	if err := s.store.Put(name, []byte(vc.ID)); err != nil {
+		return fmt.Errorf("store vc name to id map : %w", err)
+	}
+
 	return nil
 }
 
-// GetVC get verifiable credential
-func (s *Store) GetVC(vcID string) (*verifiable.Credential, error) {
-	vcBytes, err := s.store.Get(vcID)
+// GetCredential retrieves a verifiable credential based on ID.
+func (s *Store) GetCredential(id string) (*verifiable.Credential, error) {
+	vcBytes, err := s.store.Get(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vc: %w", err)
 	}
@@ -68,4 +85,14 @@ func (s *Store) GetVC(vcID string) (*verifiable.Credential, error) {
 	}
 
 	return vc, nil
+}
+
+// GetCredentialIDByName retrieves verifiable credential id based on name.
+func (s *Store) GetCredentialIDByName(name string) (string, error) {
+	idBytes, err := s.store.Get(name)
+	if err != nil {
+		return "", fmt.Errorf("fetch credential id based on name : %w", err)
+	}
+
+	return string(idBytes), nil
 }

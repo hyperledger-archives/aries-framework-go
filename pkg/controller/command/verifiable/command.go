@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	vcstore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 var logger = log.New("aries-framework/command/verifiable")
@@ -47,7 +47,8 @@ const (
 	getCredentialCommandMethod      = "GetCredential"
 
 	// error messages
-	errEmptyCredentialID = "credential id is mandatory"
+	errEmptyCredentialName = "credential name is mandatory"
+	errEmptyCredentialID   = "credential id is mandatory"
 
 	// log constants
 	vcID = "vcID"
@@ -60,18 +61,18 @@ type provider interface {
 
 // Command contains command operations provided by verifiable credential controller.
 type Command struct {
-	vcStore *vcstore.Store
+	verifiableStore *verifiablestore.Store
 }
 
 // New returns new verifiable credential controller command instance.
 func New(p provider) (*Command, error) {
-	vcStore, err := vcstore.New(p)
+	verifiableStore, err := verifiablestore.New(p)
 	if err != nil {
 		return nil, fmt.Errorf("new vc store : %w", err)
 	}
 
 	return &Command{
-		vcStore: vcStore,
+		verifiableStore: verifiableStore,
 	}, nil
 }
 
@@ -114,13 +115,18 @@ func (o *Command) ValidateCredential(rw io.Writer, req io.Reader) command.Error 
 
 // SaveCredential saves the verifiable credential to the store.
 func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
-	request := &Credential{}
+	request := &CredentialExt{}
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
 		logutil.LogInfo(logger, commandName, saveCredentialCommandMethod, "request decode : "+err.Error())
 
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.Name == "" {
+		logutil.LogDebug(logger, commandName, saveCredentialCommandMethod, errEmptyCredentialName)
+		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf(errEmptyCredentialName))
 	}
 
 	vc, _, err := verifiable.NewCredential([]byte(request.VC))
@@ -130,7 +136,7 @@ func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf("parse vc : %w", err))
 	}
 
-	err = o.vcStore.SaveVC(vc)
+	err = o.verifiableStore.SaveCredential(request.Name, vc)
 	if err != nil {
 		logutil.LogError(logger, commandName, saveCredentialCommandMethod, "save vc : "+err.Error())
 
@@ -144,7 +150,7 @@ func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
 	return nil
 }
 
-// GetCredential retrives the verifiable credential from the store.
+// GetCredential retrieves the verifiable credential from the store.
 func (o *Command) GetCredential(rw io.Writer, req io.Reader) command.Error {
 	var request IDArg
 
@@ -159,7 +165,7 @@ func (o *Command) GetCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredentialID))
 	}
 
-	vc, err := o.vcStore.GetVC(request.ID)
+	vc, err := o.verifiableStore.GetCredential(request.ID)
 	if err != nil {
 		logutil.LogError(logger, commandName, getCredentialCommandMethod, "get vc : "+err.Error(),
 			logutil.CreateKeyValueString(vcID, request.ID))

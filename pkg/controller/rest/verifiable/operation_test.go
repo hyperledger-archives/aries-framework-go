@@ -26,6 +26,8 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
+const sampleCredentialName = "sampleVCName"
+
 const vc = `
 { 
    "@context":[ 
@@ -121,7 +123,10 @@ func TestSaveVC(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		vcReq := verifiable.Credential{VC: vc}
+		vcReq := verifiable.CredentialExt{
+			Credential: verifiable.Credential{VC: vc},
+			Name:       sampleCredentialName,
+		}
 		jsonStr, err := json.Marshal(vcReq)
 		require.NoError(t, err)
 
@@ -145,6 +150,7 @@ func TestSaveVC(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		var jsonStr = []byte(`{
+			"name" : "sample"
 		}`)
 
 		handler := lookupHandler(t, cmd, saveCredentialPath, http.MethodPost)
