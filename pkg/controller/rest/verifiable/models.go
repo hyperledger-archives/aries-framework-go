@@ -37,7 +37,7 @@ type saveCredentialReq struct { // nolint: unused,deadcode
 	// Params for saving the verifiable credential (pass the vc document as a string)
 	//
 	// in: body
-	Params verifiable.Credential
+	Params verifiable.CredentialExt
 }
 
 // getCredentialReq model

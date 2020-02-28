@@ -11,6 +11,12 @@ type Credential struct {
 	VC string `json:"vc,omitempty"`
 }
 
+// CredentialExt is model for verifiable credential with fields related to command features.
+type CredentialExt struct {
+	Credential
+	Name string `json:"name,omitempty"`
+}
+
 // IDArg model
 //
 // This is used for querying/removing by ID from input json.

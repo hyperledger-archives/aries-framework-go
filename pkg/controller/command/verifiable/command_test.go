@@ -18,6 +18,8 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
+const sampleCredentialName = "sampleVCName"
+
 const vc = `
 { 
    "@context":[ 
@@ -122,7 +124,10 @@ func TestSaveVC(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		vcReq := Credential{VC: vc}
+		vcReq := CredentialExt{
+			Credential: Credential{VC: vc},
+			Name:       sampleCredentialName,
+		}
 		vcReqBytes, err := json.Marshal(vcReq)
 		require.NoError(t, err)
 
@@ -152,7 +157,10 @@ func TestSaveVC(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		vcReq := Credential{VC: ""}
+		vcReq := CredentialExt{
+			Credential: Credential{VC: ""},
+			Name:       sampleCredentialName,
+		}
 		vcReqBytes, err := json.Marshal(vcReq)
 		require.NoError(t, err)
 
@@ -174,7 +182,10 @@ func TestSaveVC(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		vcReq := Credential{VC: vc}
+		vcReq := CredentialExt{
+			Credential: Credential{VC: vc},
+			Name:       sampleCredentialName,
+		}
 		vcReqBytes, err := json.Marshal(vcReq)
 		require.NoError(t, err)
 
