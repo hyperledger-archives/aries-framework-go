@@ -146,8 +146,8 @@ func mockContext(agent string, tr map[string]chan payload, done chan struct{}) P
 	return provider
 }
 
-// nolint: gocyclo, govet
-func ExampleSendProposal() {
+// nolint: gocyclo
+func ExampleClient_SendProposal() {
 	transport := map[string]chan payload{
 		Alice: make(chan payload),
 		Bob:   make(chan payload),
@@ -240,8 +240,7 @@ func ExampleSendProposal() {
 	// Bob received https://didcomm.org/didexchange/1.0/invitation from Alice
 }
 
-// nolint: gocyclo, govet
-func ExampleSendProposalWithInvitation() {
+func ExampleClient_SendProposalWithInvitation() {
 	transport := map[string]chan payload{
 		Alice: make(chan payload),
 		Bob:   make(chan payload),
@@ -312,8 +311,8 @@ func ExampleSendProposalWithInvitation() {
 	// Bob received https://didcomm.org/didexchange/1.0/invitation from Alice
 }
 
-// nolint: gocyclo, govet
-func ExampleSendRequest() {
+// nolint: gocyclo
+func ExampleClient_SendRequest() {
 	transport := map[string]chan payload{
 		Alice: make(chan payload),
 		Bob:   make(chan payload),
@@ -407,8 +406,7 @@ func ExampleSendRequest() {
 	// Bob received https://didcomm.org/didexchange/1.0/invitation from Alice
 }
 
-// nolint: gocyclo, govet
-func ExampleSendRequestWithPublicInvitation() {
+func ExampleClient_SendRequest_second() {
 	transport := map[string]chan payload{
 		Alice: make(chan payload),
 		Bob:   make(chan payload),
