@@ -135,23 +135,13 @@ describe("DID-Exchange between two Edge Agents using the router", function () {
     var invitation, connectionID
 
     before(async () => {
-        return new Promise((resolve, reject) => {
-            newAries('alice').then(
-                a => {
-                    aliceAgent = a;
-                    resolve()
-                },
-                err => reject(new Error(err.message))
-            )
+        await newAries('alice')
+            .then(a => {aliceAgent = a})
+            .catch(err => new Error(err.message));
 
-            newAries('bob').then(
-                a => {
-                    bobAgent = a;
-                    resolve()
-                },
-                err => reject(new Error(err.message))
-            )
-        })
+        await newAries('bob')
+            .then(a => { bobAgent = a})
+            .catch(err => new Error(err.message));
     })
 
     after(() => {
