@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/square/go-jose/v3"
 	"github.com/xeipuuv/gojsonschema"
@@ -80,14 +81,18 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (interface{},
 	}
 
 	for _, key := range doc.PublicKey {
-		if key.ID == keyID {
+		// TODO remove string contains after sidetree create public key with this format DID#KEYID
+		// sidetree now return #KEYID
+		if strings.Contains(key.ID, keyID) {
 			return key.Value, nil
 		}
 	}
 
 	// if key not found in PublicKey try to find it in authentication
 	for _, auth := range doc.Authentication {
-		if auth.PublicKey.ID == keyID {
+		// TODO remove string contains after sidetree create public key with this format DID#KEYID
+		// sidetree now return #KEYID
+		if strings.Contains(auth.PublicKey.ID, keyID) {
 			return auth.PublicKey.Value, nil
 		}
 	}
@@ -170,7 +175,7 @@ func describeSchemaValidationError(result *gojsonschema.Result, what string) str
 }
 
 func stringSlice(values []interface{}) ([]string, error) {
-	strings := make([]string, len(values))
+	s := make([]string, len(values))
 
 	for i := range values {
 		t, valid := values[i].(string)
@@ -178,10 +183,10 @@ func stringSlice(values []interface{}) ([]string, error) {
 			return nil, errors.New("array element is not a string")
 		}
 
-		strings[i] = t
+		s[i] = t
 	}
 
-	return strings, nil
+	return s, nil
 }
 
 // decodeType decodes raw type(s).
@@ -214,19 +219,19 @@ func decodeContext(c interface{}) ([]string, []interface{}, error) {
 	case string:
 		return []string{rContext}, nil, nil
 	case []interface{}:
-		strings := make([]string, 0)
+		s := make([]string, 0)
 
 		for i := range rContext {
 			c, valid := rContext[i].(string)
 			if !valid {
 				// the remaining contexts are of custom type
-				return strings, rContext[i:], nil
+				return s, rContext[i:], nil
 			}
 
-			strings = append(strings, c)
+			s = append(s, c)
 		}
 		// no contexts of custom type, just string contexts found
-		return strings, nil, nil
+		return s, nil, nil
 	default:
 		return nil, nil, errors.New("credential context of unknown type")
 	}
