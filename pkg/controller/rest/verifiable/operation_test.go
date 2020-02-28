@@ -27,6 +27,7 @@ import (
 )
 
 const sampleCredentialName = "sampleVCName"
+const sampleVCID = "http://example.edu/credentials/1989"
 
 const vc = `
 { 
@@ -56,7 +57,7 @@ func TestNew(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
-		require.Equal(t, 3, len(cmd.GetRESTHandlers()))
+		require.Equal(t, 5, len(cmd.GetRESTHandlers()))
 	})
 
 	t.Run("test new command - error", func(t *testing.T) {
@@ -205,6 +206,93 @@ func TestGetVC(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, code)
 		verifyError(t, verifiable.InvalidRequestErrorCode, "illegal base64 data", buf.Bytes())
+	})
+}
+
+func TestGetCredentialByName(t *testing.T) {
+	t.Run("test get vc by name - success", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		vcReq := verifiable.CredentialExt{
+			Credential: verifiable.Credential{VC: vc},
+			Name:       sampleCredentialName,
+		}
+		jsonStr, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, saveCredentialPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		handler = lookupHandler(t, cmd, getCredentialByNamePath, http.MethodGet)
+		buf, err = getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/name/%s`,
+			varifiableCredentialPath, sampleCredentialName))
+		require.NoError(t, err)
+
+		response := credentialRecord{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.Equal(t, sampleCredentialName, response.Name)
+		require.Equal(t, sampleVCID, response.ID)
+	})
+
+	t.Run("test get vc by name - error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		handler := lookupHandler(t, cmd, getCredentialByNamePath, http.MethodGet)
+		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/name/%s`,
+			varifiableCredentialPath, sampleCredentialName))
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.GetCredentialByNameErrorCode, "get vc by name", buf.Bytes())
+	})
+}
+
+func TestGetCredentials(t *testing.T) {
+	t.Run("test get credentials", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		vcReq := verifiable.CredentialExt{
+			Credential: verifiable.Credential{VC: vc},
+			Name:       sampleCredentialName,
+		}
+		jsonStr, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, saveCredentialPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		handler = lookupHandler(t, cmd, getCredentialsPath, http.MethodGet)
+		buf, err = getSuccessResponseFromHandler(handler, nil, getCredentialsPath)
+		require.NoError(t, err)
+
+		var response credentialRecordResult
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.Equal(t, 1, len(response.Result))
 	})
 }
 

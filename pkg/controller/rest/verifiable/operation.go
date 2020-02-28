@@ -26,6 +26,8 @@ const (
 	validateCredentialPath   = varifiableCredentialPath + "/validate"
 	saveCredentialPath       = varifiableCredentialPath
 	getCredentialPath        = varifiableCredentialPath + "/{id}"
+	getCredentialByNamePath  = varifiableCredentialPath + "/name" + "/{name}"
+	getCredentialsPath       = verifiableOperationID + "/credentials"
 )
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -63,6 +65,8 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(validateCredentialPath, http.MethodPost, o.ValidateCredential),
 		cmdutil.NewHTTPHandler(saveCredentialPath, http.MethodPost, o.SaveCredential),
 		cmdutil.NewHTTPHandler(getCredentialPath, http.MethodGet, o.GetCredential),
+		cmdutil.NewHTTPHandler(getCredentialByNamePath, http.MethodGet, o.GetCredentialByName),
+		cmdutil.NewHTTPHandler(getCredentialsPath, http.MethodGet, o.GetCredentials),
 	}
 }
 
@@ -107,4 +111,30 @@ func (o *Operation) GetCredential(rw http.ResponseWriter, req *http.Request) {
 	request := fmt.Sprintf(`{"id":"%s"}`, string(decodedID))
 
 	rest.Execute(o.command.GetCredential, rw, bytes.NewBufferString(request))
+}
+
+// GetCredentialByName swagger:route GET /verifiable/credential/name/{name} verifiable getCredentialByNameReq
+//
+// Retrieves the verifiable credential by name.
+//
+// Responses:
+//    default: genericError
+//        200: credentialRecord
+func (o *Operation) GetCredentialByName(rw http.ResponseWriter, req *http.Request) {
+	name := mux.Vars(req)["name"]
+
+	request := fmt.Sprintf(`{"name":"%s"}`, name)
+
+	rest.Execute(o.command.GetCredentialByName, rw, bytes.NewBufferString(request))
+}
+
+// GetCredentials swagger:route GET /verifiable/credentials verifiable getCredentials
+//
+// Retrieves the verifiable credentials.
+//
+// Responses:
+//    default: genericError
+//        200: credentialRecordResult
+func (o *Operation) GetCredentials(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.GetCredentials, rw, req.Body)
 }

@@ -17,6 +17,12 @@ import (
 const (
 	// NameSpace for vc store
 	NameSpace = "verifiable"
+
+	credentialNameKey            = "vcname_"
+	credentialNameDataKeyPattern = credentialNameKey + "%s"
+
+	// limitPattern for the iterator
+	limitPattern = "%s~"
 )
 
 // ErrNotFound signals that the entry for the given DID and key is not present in the store.
@@ -65,7 +71,7 @@ func (s *Store) SaveCredential(name string, vc *verifiable.Credential) error {
 		return fmt.Errorf("failed to put vc: %w", err)
 	}
 
-	if err := s.store.Put(name, []byte(vc.ID)); err != nil {
+	if err := s.store.Put(credentialNameDataKey(name), []byte(vc.ID)); err != nil {
 		return fmt.Errorf("store vc name to id map : %w", err)
 	}
 
@@ -89,10 +95,39 @@ func (s *Store) GetCredential(id string) (*verifiable.Credential, error) {
 
 // GetCredentialIDByName retrieves verifiable credential id based on name.
 func (s *Store) GetCredentialIDByName(name string) (string, error) {
-	idBytes, err := s.store.Get(name)
+	idBytes, err := s.store.Get(credentialNameDataKey(name))
 	if err != nil {
 		return "", fmt.Errorf("fetch credential id based on name : %w", err)
 	}
 
 	return string(idBytes), nil
+}
+
+// GetCredentials retrieves the verifiable credential records containing name and vcID.
+func (s *Store) GetCredentials() []*CredentialRecord {
+	searchKey := credentialNameDataKey("")
+
+	itr := s.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
+	defer itr.Release()
+
+	var records []*CredentialRecord
+
+	for itr.Next() {
+		record := &CredentialRecord{
+			Name: getCredentialName(string(itr.Key())),
+			ID:   string(itr.Value()),
+		}
+
+		records = append(records, record)
+	}
+
+	return records
+}
+
+func credentialNameDataKey(name string) string {
+	return fmt.Sprintf(credentialNameDataKeyPattern, name)
+}
+
+func getCredentialName(dataKey string) string {
+	return dataKey[len(credentialNameKey):]
 }

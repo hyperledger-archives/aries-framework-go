@@ -107,6 +107,15 @@ const pkgs = {
             method: "GET",
             pathParam:"id"
         },
+        GetCredentialByName: {
+            path: "/verifiable/credential/name/{name}",
+            method: "GET",
+            pathParam:"name"
+        },
+        GetCredentials: {
+            path: "/verifiable/credentials",
+            method: "GET",
+        },
     },
 }
 

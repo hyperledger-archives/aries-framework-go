@@ -35,6 +35,9 @@ const (
 
 	// GetCredentialErrorCode for get vc error
 	GetCredentialErrorCode
+
+	// GetCredentialErrorCode for get vc by name error
+	GetCredentialByNameErrorCode
 )
 
 const (
@@ -42,16 +45,19 @@ const (
 	commandName = "verifiable"
 
 	// command methods
-	validateCredentialCommandMethod = "ValidateCredential"
-	saveCredentialCommandMethod     = "SaveCredential"
-	getCredentialCommandMethod      = "GetCredential"
+	validateCredentialCommandMethod  = "ValidateCredential"
+	saveCredentialCommandMethod      = "SaveCredential"
+	getCredentialCommandMethod       = "GetCredential"
+	getCredentialByNameCommandMethod = "GetCredentialByName"
+	getCredentialsCommandMethod      = "GetCredentials"
 
 	// error messages
 	errEmptyCredentialName = "credential name is mandatory"
 	errEmptyCredentialID   = "credential id is mandatory"
 
 	// log constants
-	vcID = "vcID"
+	vcID   = "vcID"
+	vcName = "vcName"
 )
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -82,6 +88,8 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, validateCredentialCommandMethod, o.ValidateCredential),
 		cmdutil.NewCommandHandler(commandName, saveCredentialCommandMethod, o.SaveCredential),
 		cmdutil.NewCommandHandler(commandName, getCredentialCommandMethod, o.GetCredential),
+		cmdutil.NewCommandHandler(commandName, getCredentialByNameCommandMethod, o.GetCredentialByName),
+		cmdutil.NewCommandHandler(commandName, getCredentialsCommandMethod, o.GetCredentials),
 	}
 }
 
@@ -187,6 +195,53 @@ func (o *Command) GetCredential(rw io.Writer, req io.Reader) command.Error {
 
 	logutil.LogDebug(logger, commandName, getCredentialCommandMethod, "success",
 		logutil.CreateKeyValueString(vcID, request.ID))
+
+	return nil
+}
+
+// GetCredentialByName retrieves the verifiable credential by name from the store.
+func (o *Command) GetCredentialByName(rw io.Writer, req io.Reader) command.Error {
+	var request NameArg
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, commandName, getCredentialByNameCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.Name == "" {
+		logutil.LogDebug(logger, commandName, getCredentialByNameCommandMethod, errEmptyCredentialName)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredentialName))
+	}
+
+	id, err := o.verifiableStore.GetCredentialIDByName(request.Name)
+	if err != nil {
+		logutil.LogError(logger, commandName, getCredentialByNameCommandMethod, "get vc by name : "+err.Error(),
+			logutil.CreateKeyValueString(vcName, request.Name))
+
+		return command.NewValidationError(GetCredentialByNameErrorCode, fmt.Errorf("get vc by name : %w", err))
+	}
+
+	command.WriteNillableResponse(rw, &verifiablestore.CredentialRecord{
+		Name: request.Name,
+		ID:   id,
+	}, logger)
+
+	logutil.LogDebug(logger, commandName, getCredentialByNameCommandMethod, "success",
+		logutil.CreateKeyValueString(vcName, request.Name))
+
+	return nil
+}
+
+// GetCredentials retrieves the verifiable credential records containing name and vcID.
+func (o *Command) GetCredentials(rw io.Writer, req io.Reader) command.Error {
+	vcRecords := o.verifiableStore.GetCredentials()
+
+	command.WriteNillableResponse(rw, &CredentialRecordResult{
+		Result: vcRecords,
+	}, logger)
+
+	logutil.LogDebug(logger, commandName, getCredentialsCommandMethod, "success")
 
 	return nil
 }
