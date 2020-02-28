@@ -8,6 +8,7 @@ package verifiable
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -224,7 +225,7 @@ func TestGetVC(t *testing.T) {
 func TestGetCredentialIDBasedOnName(t *testing.T) {
 	t.Run("test get credential based on name - success", func(t *testing.T) {
 		store := make(map[string][]byte)
-		store[sampleCredentialName] = []byte(sampleCredentialID)
+		store[credentialNameDataKey(sampleCredentialName)] = []byte(sampleCredentialID)
 
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
@@ -249,5 +250,42 @@ func TestGetCredentialIDBasedOnName(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "fetch credential id based on name")
 		require.Equal(t, "", id)
+	})
+}
+
+func TestGetCredentials(t *testing.T) {
+	t.Run("test get credentials", func(t *testing.T) {
+		store := make(map[string][]byte)
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
+		})
+		require.NoError(t, err)
+
+		records := s.GetCredentials()
+		require.Equal(t, 0, len(records))
+
+		err = s.SaveCredential(sampleCredentialName, &verifiable.Credential{ID: sampleCredentialID})
+		require.NoError(t, err)
+
+		records = s.GetCredentials()
+		require.Equal(t, 1, len(records))
+		require.Equal(t, records[0].Name, sampleCredentialName)
+		require.Equal(t, records[0].ID, sampleCredentialID)
+
+		// add some other values and make sure the GetCredential returns records as before
+		store["dummy-value"] = []byte("dummy-key")
+
+		records = s.GetCredentials()
+		require.Equal(t, 1, len(records))
+
+		n := 10
+		for i := 0; i < n; i++ {
+			err = s.SaveCredential(sampleCredentialName+strconv.Itoa(i),
+				&verifiable.Credential{ID: sampleCredentialID + strconv.Itoa(i)})
+			require.NoError(t, err)
+		}
+
+		records = s.GetCredentials()
+		require.Equal(t, 1+n, len(records))
 	})
 }

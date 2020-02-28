@@ -16,9 +16,11 @@ import (
 
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 const sampleCredentialName = "sampleVCName"
+const sampleVCID = "http://example.edu/credentials/1989"
 
 const vc = `
 { 
@@ -50,7 +52,7 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 3, len(handlers))
+		require.Equal(t, 5, len(handlers))
 	})
 
 	t.Run("test new command - vc store error", func(t *testing.T) {
@@ -268,5 +270,123 @@ func TestGetVC(t *testing.T) {
 		err = cmd.GetCredential(&b, bytes.NewBufferString(jsoStr))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get vc")
+	})
+}
+
+func TestGetCredentialByName(t *testing.T) {
+	t.Run("test get vc by name - success", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		// save vc with name
+		vcReq := CredentialExt{
+			Credential: Credential{VC: vc},
+			Name:       sampleCredentialName,
+		}
+		vcReqBytes, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SaveCredential(&b, bytes.NewBuffer(vcReqBytes))
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"name":"%s"}`, sampleCredentialName)
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.GetCredentialByName(&getRW, bytes.NewBufferString(jsoStr))
+		require.NoError(t, cmdErr)
+
+		var response verifiable.CredentialRecord
+		err = json.NewDecoder(&getRW).Decode(&response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.Equal(t, sampleCredentialName, response.Name)
+		require.Equal(t, sampleVCID, response.ID)
+	})
+
+	t.Run("test get vc - invalid request", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GetCredentialByName(&b, bytes.NewBufferString("--"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "request decode")
+	})
+
+	t.Run("test get vc - no name in the request", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{}`)
+
+		var b bytes.Buffer
+		err = cmd.GetCredentialByName(&b, bytes.NewBufferString(jsoStr))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "credential name is mandatory")
+	})
+
+	t.Run("test get vc - store error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				Store: &mockstore.MockStore{
+					ErrGet: fmt.Errorf("get error"),
+				},
+			},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"name":"%s"}`, sampleCredentialName)
+
+		var b bytes.Buffer
+		err = cmd.GetCredentialByName(&b, bytes.NewBufferString(jsoStr))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get vc by name")
+	})
+}
+
+func TestGetCredentials(t *testing.T) {
+	t.Run("test get credentials", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		// save vc with name
+		vcReq := CredentialExt{
+			Credential: Credential{VC: vc},
+			Name:       sampleCredentialName,
+		}
+		vcReqBytes, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SaveCredential(&b, bytes.NewBuffer(vcReqBytes))
+		require.NoError(t, err)
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.GetCredentials(&getRW, nil)
+		require.NoError(t, cmdErr)
+
+		var response CredentialRecordResult
+		err = json.NewDecoder(&getRW).Decode(&response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.Equal(t, 1, len(response.Result))
 	})
 }

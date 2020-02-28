@@ -8,6 +8,7 @@ package verifiable
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
+	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 // validateCredentialReq model
@@ -62,4 +63,37 @@ type credentialRes struct { // nolint: unused,deadcode
 
 	// in: body
 	verifiable.Credential
+}
+
+// getCredentialByNameReq model
+//
+// This is used to retrieve the verifiable credential by name.
+//
+// swagger:parameters getCredentialByNameReq
+type getCredentialByNameReq struct { // nolint: unused,deadcode
+	// VC Name
+	//
+	// in: path
+	// required: true
+	Name string `json:"name"`
+}
+
+// credentialRecord model
+//
+// This is used to return credential record.
+//
+// swagger:response credentialRecord
+type credentialRecord struct {
+	// in: body
+	verifiablestore.CredentialRecord
+}
+
+// credentialRecordResult model
+//
+// This is used to return credential records.
+//
+// swagger:response credentialRecordResult
+type credentialRecordResult struct {
+	// in: body
+	Result []*verifiablestore.CredentialRecord `json:"result,omitempty"`
 }

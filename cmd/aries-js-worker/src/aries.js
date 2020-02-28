@@ -442,6 +442,25 @@ const Aries = function(opts) {
             getCredential: async function (req) {
                 return invoke(aw, pending,  this.pkgname, "GetCredential", req, "timeout while retrieving verifiable credential")
             },
+
+            /**
+             * Retrieves a verifiable credential by name.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            getCredentialByName: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "GetCredentialByName", req, "timeout while retrieving verifiable credential by name")
+            },
+
+            /**
+             * Retrieves verifiable credential records containing name and id.
+             *
+             * @returns {Promise<Object>}
+             */
+            getCredentials: async function () {
+                return invoke(aw, pending,  this.pkgname, "GetCredentials", req, "timeout while retrieving verifiable credentials")
+            },
         }
     }
 
