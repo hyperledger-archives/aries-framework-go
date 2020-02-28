@@ -33,23 +33,20 @@ func notTransition(t *testing.T, st state) {
 func TestStart_CanTransitionTo(t *testing.T) {
 	st := &start{}
 	require.Equal(t, stateNameStart, st.Name())
-
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
 	require.False(t, st.CanTransitionTo(&abandoning{}))
 	require.False(t, st.CanTransitionTo(&done{}))
 	require.False(t, st.CanTransitionTo(&noOp{}))
-
 	// states for Issuer
 	require.True(t, st.CanTransitionTo(&proposalReceived{}))
-	require.False(t, st.CanTransitionTo(&offerSent{}))
-	require.False(t, st.CanTransitionTo(&requestReceived{}))
+	require.True(t, st.CanTransitionTo(&offerSent{}))
+	require.True(t, st.CanTransitionTo(&requestReceived{}))
 	require.False(t, st.CanTransitionTo(&credentialIssued{}))
-
 	// states for Holder
 	require.True(t, st.CanTransitionTo(&proposalSent{}))
-	require.False(t, st.CanTransitionTo(&offerReceived{}))
-	require.False(t, st.CanTransitionTo(&requestSent{}))
+	require.True(t, st.CanTransitionTo(&offerReceived{}))
+	require.True(t, st.CanTransitionTo(&requestSent{}))
 	require.False(t, st.CanTransitionTo(&credentialReceived{}))
 }
 
@@ -70,7 +67,21 @@ func TestStart_ExecuteOutbound(t *testing.T) {
 func TestAbandoning_CanTransitionTo(t *testing.T) {
 	st := &abandoning{}
 	require.Equal(t, stateNameAbandoning, st.Name())
-	notTransition(t, st)
+	// common states
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.False(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&done{}))
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	// states for Issuer
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
+	require.False(t, st.CanTransitionTo(&offerSent{}))
+	require.False(t, st.CanTransitionTo(&requestReceived{}))
+	require.False(t, st.CanTransitionTo(&credentialIssued{}))
+	// states for Holder
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
+	require.False(t, st.CanTransitionTo(&offerReceived{}))
+	require.False(t, st.CanTransitionTo(&requestSent{}))
+	require.False(t, st.CanTransitionTo(&credentialReceived{}))
 }
 
 func TestAbandoning_ExecuteInbound(t *testing.T) {
@@ -130,7 +141,21 @@ func TestNoOp_ExecuteOutbound(t *testing.T) {
 func TestProposalReceived_CanTransitionTo(t *testing.T) {
 	st := &proposalReceived{}
 	require.Equal(t, stateNameProposalReceived, st.Name())
-	notTransition(t, st)
+	// common states
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.False(t, st.CanTransitionTo(&done{}))
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	// states for Issuer
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
+	require.True(t, st.CanTransitionTo(&offerSent{}))
+	require.False(t, st.CanTransitionTo(&requestReceived{}))
+	require.False(t, st.CanTransitionTo(&credentialIssued{}))
+	// states for Holder
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
+	require.False(t, st.CanTransitionTo(&offerReceived{}))
+	require.False(t, st.CanTransitionTo(&requestSent{}))
+	require.False(t, st.CanTransitionTo(&credentialReceived{}))
 }
 
 func TestProposalReceived_ExecuteInbound(t *testing.T) {
@@ -150,7 +175,21 @@ func TestProposalReceived_ExecuteOutbound(t *testing.T) {
 func TestOfferSent_CanTransitionTo(t *testing.T) {
 	st := &offerSent{}
 	require.Equal(t, stateNameOfferSent, st.Name())
-	notTransition(t, st)
+	// common states
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.False(t, st.CanTransitionTo(&done{}))
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	// states for Issuer
+	require.True(t, st.CanTransitionTo(&proposalReceived{}))
+	require.False(t, st.CanTransitionTo(&offerSent{}))
+	require.True(t, st.CanTransitionTo(&requestReceived{}))
+	require.False(t, st.CanTransitionTo(&credentialIssued{}))
+	// states for Holder
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
+	require.False(t, st.CanTransitionTo(&offerReceived{}))
+	require.False(t, st.CanTransitionTo(&requestSent{}))
+	require.False(t, st.CanTransitionTo(&credentialReceived{}))
 }
 
 func TestOfferSent_ExecuteInbound(t *testing.T) {
@@ -170,7 +209,21 @@ func TestOfferSent_ExecuteOutbound(t *testing.T) {
 func TestRequestReceived_CanTransitionTo(t *testing.T) {
 	st := &requestReceived{}
 	require.Equal(t, stateNameRequestReceived, st.Name())
-	notTransition(t, st)
+	// common states
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.False(t, st.CanTransitionTo(&done{}))
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	// states for Issuer
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
+	require.False(t, st.CanTransitionTo(&offerSent{}))
+	require.False(t, st.CanTransitionTo(&requestReceived{}))
+	require.True(t, st.CanTransitionTo(&credentialIssued{}))
+	// states for Holder
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
+	require.False(t, st.CanTransitionTo(&offerReceived{}))
+	require.False(t, st.CanTransitionTo(&requestSent{}))
+	require.False(t, st.CanTransitionTo(&credentialReceived{}))
 }
 
 func TestRequestReceived_ExecuteInbound(t *testing.T) {
@@ -190,7 +243,21 @@ func TestRequestReceived_ExecuteOutbound(t *testing.T) {
 func TestCredentialIssued_CanTransitionTo(t *testing.T) {
 	st := &credentialIssued{}
 	require.Equal(t, stateNameCredentialIssued, st.Name())
-	notTransition(t, st)
+	// common states
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&done{}))
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	// states for Issuer
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
+	require.False(t, st.CanTransitionTo(&offerSent{}))
+	require.False(t, st.CanTransitionTo(&requestReceived{}))
+	require.False(t, st.CanTransitionTo(&credentialIssued{}))
+	// states for Holder
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
+	require.False(t, st.CanTransitionTo(&offerReceived{}))
+	require.False(t, st.CanTransitionTo(&requestSent{}))
+	require.False(t, st.CanTransitionTo(&credentialReceived{}))
 }
 
 func TestCredentialIssued_ExecuteInbound(t *testing.T) {
@@ -210,7 +277,21 @@ func TestCredentialIssued_ExecuteOutbound(t *testing.T) {
 func TestProposalSent_CanTransitionTo(t *testing.T) {
 	st := &proposalSent{}
 	require.Equal(t, stateNameProposalSent, st.Name())
-	notTransition(t, st)
+	// common states
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.False(t, st.CanTransitionTo(&done{}))
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	// states for Issuer
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
+	require.False(t, st.CanTransitionTo(&offerSent{}))
+	require.False(t, st.CanTransitionTo(&requestReceived{}))
+	require.False(t, st.CanTransitionTo(&credentialIssued{}))
+	// states for Holder
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
+	require.True(t, st.CanTransitionTo(&offerReceived{}))
+	require.False(t, st.CanTransitionTo(&requestSent{}))
+	require.False(t, st.CanTransitionTo(&credentialReceived{}))
 }
 
 func TestProposalSent_ExecuteInbound(t *testing.T) {
@@ -230,7 +311,21 @@ func TestProposalSent_ExecuteOutbound(t *testing.T) {
 func TestOfferReceived_CanTransitionTo(t *testing.T) {
 	st := &offerReceived{}
 	require.Equal(t, stateNameOfferReceived, st.Name())
-	notTransition(t, st)
+	// common states
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.False(t, st.CanTransitionTo(&done{}))
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	// states for Issuer
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
+	require.False(t, st.CanTransitionTo(&offerSent{}))
+	require.False(t, st.CanTransitionTo(&requestReceived{}))
+	require.False(t, st.CanTransitionTo(&credentialIssued{}))
+	// states for Holder
+	require.True(t, st.CanTransitionTo(&proposalSent{}))
+	require.False(t, st.CanTransitionTo(&offerReceived{}))
+	require.True(t, st.CanTransitionTo(&requestSent{}))
+	require.False(t, st.CanTransitionTo(&credentialReceived{}))
 }
 
 func TestOfferReceived_ExecuteInbound(t *testing.T) {
@@ -250,7 +345,21 @@ func TestOfferReceived_ExecuteOutbound(t *testing.T) {
 func TestRequestSent_CanTransitionTo(t *testing.T) {
 	st := &requestSent{}
 	require.Equal(t, stateNameRequestSent, st.Name())
-	notTransition(t, st)
+	// common states
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.False(t, st.CanTransitionTo(&done{}))
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	// states for Issuer
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
+	require.False(t, st.CanTransitionTo(&offerSent{}))
+	require.False(t, st.CanTransitionTo(&requestReceived{}))
+	require.False(t, st.CanTransitionTo(&credentialIssued{}))
+	// states for Holder
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
+	require.False(t, st.CanTransitionTo(&offerReceived{}))
+	require.False(t, st.CanTransitionTo(&requestSent{}))
+	require.True(t, st.CanTransitionTo(&credentialReceived{}))
 }
 
 func TestRequestSent_ExecuteInbound(t *testing.T) {
@@ -270,7 +379,21 @@ func TestRequestSent_ExecuteOutbound(t *testing.T) {
 func TestCredentialReceived_CanTransitionTo(t *testing.T) {
 	st := &credentialReceived{}
 	require.Equal(t, stateNameCredentialReceived, st.Name())
-	notTransition(t, st)
+	// common states
+	require.False(t, st.CanTransitionTo(&start{}))
+	require.True(t, st.CanTransitionTo(&abandoning{}))
+	require.True(t, st.CanTransitionTo(&done{}))
+	require.False(t, st.CanTransitionTo(&noOp{}))
+	// states for Issuer
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
+	require.False(t, st.CanTransitionTo(&offerSent{}))
+	require.False(t, st.CanTransitionTo(&requestReceived{}))
+	require.False(t, st.CanTransitionTo(&credentialIssued{}))
+	// states for Holder
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
+	require.False(t, st.CanTransitionTo(&offerReceived{}))
+	require.False(t, st.CanTransitionTo(&requestSent{}))
+	require.False(t, st.CanTransitionTo(&credentialReceived{}))
 }
 
 func TestCredentialReceived_ExecuteInbound(t *testing.T) {

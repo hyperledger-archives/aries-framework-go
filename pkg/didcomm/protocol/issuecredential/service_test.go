@@ -300,9 +300,5 @@ func TestService_canTriggerActionEvents(t *testing.T) {
 		Type: RequestCredentialMsgType,
 	})))
 
-	require.True(t, canTriggerActionEvents(service.NewDIDCommMsgMap(IssueCredential{
-		Type: IssueCredentialMsgType,
-	})))
-
 	require.False(t, canTriggerActionEvents(service.NewDIDCommMsgMap(struct{}{})))
 }

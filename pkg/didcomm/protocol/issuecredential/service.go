@@ -346,12 +346,9 @@ func nextState(msg service.DIDCommMsg, outbound bool) (state, error) {
 
 // canTriggerActionEvents checks if the incoming message can trigger an action event
 func canTriggerActionEvents(msg service.DIDCommMsg) bool {
-	switch msg.Type() {
-	case ProposeCredentialMsgType, OfferCredentialMsgType, RequestCredentialMsgType, IssueCredentialMsgType:
-		return true
-	}
-
-	return false
+	return msg.Type() == ProposeCredentialMsgType ||
+		msg.Type() == OfferCredentialMsgType ||
+		msg.Type() == RequestCredentialMsgType
 }
 
 func (s *Service) processCallback(msg *metaData) {
