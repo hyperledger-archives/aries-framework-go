@@ -9,6 +9,7 @@ package service
 // DIDCommMsg describes message interface
 type DIDCommMsg interface {
 	ID() string
+	SetID(id string) error
 	Type() string
 	ThreadID() (string, error)
 	ParentThreadID() string

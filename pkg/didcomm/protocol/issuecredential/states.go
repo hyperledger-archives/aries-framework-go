@@ -36,8 +36,6 @@ const (
 // state action for network call
 type stateAction func(messenger service.Messenger) error
 
-type metaData struct{}
-
 // the protocol's state.
 type state interface {
 	// Name of this state.

@@ -13,6 +13,7 @@ const (
 	ErrInvalidChannel    = serviceError("invalid channel passed to unregister the action event")
 	ErrThreadIDNotFound  = serviceError("threadID not found")
 	ErrInvalidMessage    = serviceError("invalid message")
+	ErrNilMessage        = serviceError("message is nil")
 )
 
 // serviceError defines service error

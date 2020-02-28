@@ -47,6 +47,17 @@ func TestDIDCommMsgMap_ID(t *testing.T) {
 	}
 }
 
+func TestDIDCommMsgMap_SetID(t *testing.T) {
+	const ID = "ID"
+
+	require.EqualError(t, DIDCommMsgMap.SetID(nil, ID), ErrNilMessage.Error())
+
+	var m = DIDCommMsgMap{}
+
+	require.NoError(t, m.SetID(ID))
+	require.Equal(t, ID, m.ID())
+}
+
 func TestDIDCommMsgMap_MetaData(t *testing.T) {
 	tests := []struct {
 		name     string

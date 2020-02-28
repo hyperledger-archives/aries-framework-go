@@ -170,6 +170,17 @@ func (m DIDCommMsgMap) ID() string {
 	return res
 }
 
+// SetID sets the message id
+func (m DIDCommMsgMap) SetID(id string) error {
+	if m == nil {
+		return ErrNilMessage
+	}
+
+	m[jsonID] = id
+
+	return nil
+}
+
 // Decode converts message to  struct
 func (m DIDCommMsgMap) Decode(v interface{}) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
