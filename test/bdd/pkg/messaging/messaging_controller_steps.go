@@ -233,17 +233,21 @@ func (d *ControllerSteps) pullMsgFromWebhook(agentID string) (*service.DIDCommMs
 		return nil, fmt.Errorf("unable to find webhook URL for agent [%s]", agentID)
 	}
 
-	msg := service.DIDCommMsgMap{}
+	var incoming struct {
+		ID      string                `json:"id"`
+		Topic   string                `json:"topic"`
+		Message service.DIDCommMsgMap `json:"message"`
+	}
 
 	// try to pull recently pushed topics from webhook
 	for i := 0; i < pullTopicsAttemptsBeforeFail; i++ {
-		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &msg)
+		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &incoming)
 		if err != nil {
 			return nil, fmt.Errorf("failed pull topics from webhook, cause : %w", err)
 		}
 
-		if len(msg) > 0 {
-			return &msg, nil
+		if len(incoming.Message) > 0 {
+			return &incoming.Message, nil
 		}
 
 		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)

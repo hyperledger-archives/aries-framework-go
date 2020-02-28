@@ -36,10 +36,15 @@ func (n *HTTPNotifier) Notify(topic string, message []byte) error {
 		return fmt.Errorf(emptyMessageErrMsg)
 	}
 
+	topicMsg, err := prepareTopicMessage(topic, message)
+	if err != nil {
+		return fmt.Errorf(failedToCreateErrMsg, err)
+	}
+
 	var allErrs error
 
 	for _, webhookURL := range n.urls {
-		err := notifyWH(fmt.Sprintf("%s/%s", webhookURL, topic), message)
+		err := notifyWH(webhookURL, topicMsg)
 		allErrs = appendError(allErrs, err)
 	}
 

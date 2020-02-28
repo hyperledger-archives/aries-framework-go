@@ -8,6 +8,7 @@ package webnotifier
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -95,7 +96,8 @@ func TestNotifyWS(t *testing.T) {
 		expTopic = "example"
 	)
 
-	payloads := []string{"payload1", "payload2", "payload3", "payload4", "payload5"}
+	payloads := []string{`{"msg":"payload1"}`, `{"msg":"payload2"}`, `{"msg":"payload3"}`,
+		`{"msg":"payload4"}`, `{"msg":"payload5"}`}
 
 	n := NewWSNotifier(path)
 	clientHost := randomURL()
@@ -120,10 +122,21 @@ func TestNotifyWS(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			msgType, payload, err := conn.Read(ctx)
 			cancel()
-
 			require.NoError(t, err)
+
+			var topic struct {
+				ID      string          `json:"id"`
+				Topic   string          `json:"topic"`
+				Message json.RawMessage `json:"message"`
+			}
+			err = json.Unmarshal(payload, &topic)
+			require.NoError(t, err)
+
+			b, err := topic.Message.MarshalJSON()
+			require.NoError(t, err)
+
 			require.Equal(t, websocket.MessageText, msgType)
-			require.Equal(t, []byte(expPayload), payload)
+			require.Equal(t, []byte(expPayload), b)
 		}
 
 		err := conn.Close(websocket.StatusNormalClosure, "")
@@ -148,10 +161,21 @@ func TestNotifyWS(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			msgType, payload, err := conn.Read(ctx)
 			cancel()
-
 			require.NoError(t, err)
+
+			var topic struct {
+				ID      string          `json:"id"`
+				Topic   string          `json:"topic"`
+				Message json.RawMessage `json:"message"`
+			}
+			err = json.Unmarshal(payload, &topic)
+			require.NoError(t, err)
+
+			b, err := topic.Message.MarshalJSON()
+			require.NoError(t, err)
+
 			require.Equal(t, websocket.MessageText, msgType)
-			require.Equal(t, []byte(expPayload), payload)
+			require.Equal(t, []byte(expPayload), b)
 		}
 
 		err := conn.Close(websocket.StatusNormalClosure, "")

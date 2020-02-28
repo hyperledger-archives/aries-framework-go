@@ -103,19 +103,25 @@ func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, erro
 		return "", fmt.Errorf("unable to find webhook URL for agent [%s]", agentID)
 	}
 
+	var incoming struct {
+		ID      string                 `json:"id"`
+		Topic   string                 `json:"topic"`
+		Message didexcmd.ConnectionMsg `json:"message"`
+	}
+
 	// try to pull recently pushed topics from webhook
 	for i := 0; i < pullTopicsAttemptsBeforeFail; i++ {
-		var connectionMsg didexcmd.ConnectionMsg
-
-		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &connectionMsg)
+		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &incoming)
 		if err != nil {
 			return "", fmt.Errorf("failed pull topics from webhook, cause : %s", err)
 		}
 
-		if strings.EqualFold(state, connectionMsg.State) {
-			logger.Debugf("Able to find webhook topic with expected state[%s] for agent[%s] and connection[%s]",
-				connectionMsg.State, agentID, connectionMsg.ConnectionID)
-			return connectionMsg.ConnectionID, nil
+		if incoming.Topic == "connections" {
+			if strings.EqualFold(state, incoming.Message.State) {
+				logger.Debugf("Able to find webhook topic with expected state[%s] for agent[%s] and connection[%s]",
+					incoming.Message.State, agentID, incoming.Message.ConnectionID)
+				return incoming.Message.ConnectionID, nil
+			}
 		}
 
 		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)

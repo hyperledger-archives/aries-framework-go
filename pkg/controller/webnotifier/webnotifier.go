@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package webnotifier
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
@@ -19,6 +22,7 @@ const (
 	notificationSendTimeout = 10 * time.Second
 	emptyTopicErrMsg        = "cannot notify with an empty topic"
 	emptyMessageErrMsg      = "cannot notify with an empty message"
+	failedToCreateErrMsg    = "failed to create topic message : %w"
 )
 
 var logger = log.New("aries-framework/webnotifier")
@@ -66,4 +70,18 @@ func appendError(errToAppendTo, err error) error {
 	}
 
 	return fmt.Errorf("%v;%v", errToAppendTo, err)
+}
+
+func prepareTopicMessage(topic string, message []byte) ([]byte, error) {
+	topicMsg := struct {
+		ID      string          `json:"id"`
+		Topic   string          `json:"topic"`
+		Message json.RawMessage `json:"message"`
+	}{
+		ID:      uuid.New().String(),
+		Topic:   topic,
+		Message: message,
+	}
+
+	return json.Marshal(topicMsg)
 }

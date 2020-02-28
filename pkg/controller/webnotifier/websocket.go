@@ -52,18 +52,23 @@ func (n *WSNotifier) Notify(topic string, message []byte) error {
 	copy(conns, n.conns)
 	n.connsLock.RUnlock()
 
+	topicMsg, err := prepareTopicMessage(topic, message)
+	if err != nil {
+		return fmt.Errorf(failedToCreateErrMsg, err)
+	}
+
 	var allErrs error
 
 	for _, conn := range conns {
 		// TODO parent ctx should be an argument to Notify https://github.com/hyperledger/aries-framework-go/issues/1355
-		err := notifyWS(context.Background(), conn, topic, message)
+		err := notifyWS(context.Background(), conn, topicMsg)
 		allErrs = appendError(allErrs, err)
 	}
 
 	return nil
 }
 
-func notifyWS(parent context.Context, conn *websocket.Conn, _ string, message []byte) error {
+func notifyWS(parent context.Context, conn *websocket.Conn, message []byte) error {
 	ctx, cancel := context.WithTimeout(parent, notificationSendTimeout)
 	defer cancel()
 
