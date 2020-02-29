@@ -23,7 +23,7 @@ var logger = log.New("aries-framework/webhook")
 const (
 	addressPattern  = ":%s"
 	checkTopicsPath = "/checktopics"
-	topicsSize      = 50
+	topicsSize      = 5000
 	topicTimeout    = 100 * time.Millisecond
 )
 

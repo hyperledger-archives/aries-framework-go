@@ -11,8 +11,8 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
   # https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter
   Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers
     # DID Exchange between Carl and his Router
-    Given "Carl" agent is running with controller "http://localhost:10081" and webhook "http://localhost:10082" and "all" as the transport return route option
-    And   "Carl-Router" agent is running on "http://localhost:10091,ws://localhost:10092" with controller "http://localhost:10093" and webhook "http://localhost:10094"
+    Given "Carl" agent is running with controller "http://localhost:10081" and "all" as the transport return route option
+    And   "Carl-Router" agent is running on "http://localhost:10091,ws://localhost:10092" with controller "http://localhost:10093"
 
     When   "Carl-Router" creates invitation through controller with label "carl-router-agent"
     And   "Carl" receives invitation from "Carl-Router" through controller
@@ -20,16 +20,16 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
     Then   "Carl" approves exchange invitation through controller
     And   "Carl-Router" approves exchange request through controller
 
-    Then   "Carl-Router" waits for post state event "completed" to webhook
-    And   "Carl" waits for post state event "completed" to webhook
+    Then   "Carl-Router" waits for post state event "completed" to web notifier
+    And   "Carl" waits for post state event "completed" to web notifier
 
     Then   "Carl-Router" retrieves connection record through controller and validates that connection state is "completed"
     And   "Carl" retrieves connection record through controller and validates that connection state is "completed"
     And   "Carl" saves the connectionID to variable "carl-router-connID"
 
      # DID Exchange between Dave and his Router
-    Given "Dave" agent is running with controller "http://localhost:10061" and webhook "http://localhost:10062" and "all" as the transport return route option
-    And   "Dave-Router" agent is running on "http://localhost:10071,ws://localhost:10092" with controller "http://localhost:10073" and webhook "http://localhost:10074"
+    Given "Dave" agent is running with controller "http://localhost:10061" and "all" as the transport return route option
+    And   "Dave-Router" agent is running on "http://localhost:10071,ws://localhost:10092" with controller "http://localhost:10073"
 
     When   "Dave-Router" creates invitation through controller with label "Dave-router-agent"
     And   "Dave" receives invitation from "Dave-Router" through controller
@@ -37,8 +37,8 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
     Then   "Dave" approves exchange invitation through controller
     And   "Dave-Router" approves exchange request through controller
 
-    Then   "Dave-Router" waits for post state event "completed" to webhook
-    And   "Dave" waits for post state event "completed" to webhook
+    Then   "Dave-Router" waits for post state event "completed" to web notifier
+    And   "Dave" waits for post state event "completed" to web notifier
 
     Then   "Dave-Router" retrieves connection record through controller and validates that connection state is "completed"
     And   "Dave" retrieves connection record through controller and validates that connection state is "completed"
@@ -61,8 +61,8 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [REST Bind
     Then   "Dave" approves exchange invitation through controller
     And   "Carl" approves exchange request through controller
 
-    Then   "Carl" waits for post state event "completed" to webhook
-    And   "Dave" waits for post state event "completed" to webhook
+    Then   "Carl" waits for post state event "completed" to web notifier
+    And   "Dave" waits for post state event "completed" to web notifier
 
     Then   "Carl" retrieves connection record through controller and validates that connection state is "completed"
     And   "Dave" retrieves connection record through controller and validates that connection state is "completed"

@@ -8,6 +8,7 @@ package didexchange
 
 import (
 	"bytes"
+	rqCtx "context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
+	"nhooyr.io/websocket/wsjson"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -36,17 +38,10 @@ const (
 	acceptRequestPath            = connOperationID + "/%s/accept-request?public=%s"
 	connectionsByID              = connOperationID + "/{id}"
 	createPublicDIDPath          = vdriOperationID + "/create-public-did"
-	checkForTopics               = "/checktopics"
 	publicDIDCreateHeader        = `{"alg":"","kid":"","operation":"create"}`
 	sideTreeURL                  = "${SIDETREE_URL}"
 	timeoutWaitForDID            = 10 * time.Second
-
-	// retry options to pull topics from webhook
-	// pullTopicsWaitInMilliSec is time in milliseconds to wait before retry
-	pullTopicsWaitInMilliSec = 200
-	// pullTopicsAttemptsBeforeFail total number of retries where
-	// total time shouldn't exceed 5 seconds
-	pullTopicsAttemptsBeforeFail = 5000 / pullTopicsWaitInMilliSec
+	timeoutPullTopics            = 5 * time.Second
 )
 
 var logger = log.New("aries-framework/didexchange-tests")
@@ -75,7 +70,7 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
 	s.Step(`^"([^"]*)" approves exchange invitation through controller`, a.approveInvitation)
 	s.Step(`^"([^"]*)" approves exchange request through controller`, a.approveRequest)
-	s.Step(`^"([^"]*)" waits for post state event "([^"]*)" to webhook`, a.waitForPostEvent)
+	s.Step(`^"([^"]*)" waits for post state event "([^"]*)" to web notifier`, a.waitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`,
 		a.validateConnection)
 	// public DID steps
@@ -97,11 +92,14 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" saves the connectionID to variable "([^"]*)"$`, a.saveConnectionID)
 }
 
-func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, error) {
-	webhookURL, ok := a.bddContext.GetWebhookURL(agentID)
+func (a *ControllerSteps) pullEventsFromWebSocket(agentID, state string) (string, error) {
+	conn, ok := a.bddContext.GetWebSocketConn(agentID)
 	if !ok {
-		return "", fmt.Errorf("unable to find webhook URL for agent [%s]", agentID)
+		return "", fmt.Errorf("unable to get websocket conn for agent [%s]", agentID)
 	}
+
+	ctx, cancel := rqCtx.WithTimeout(rqCtx.Background(), timeoutPullTopics)
+	defer cancel()
 
 	var incoming struct {
 		ID      string                 `json:"id"`
@@ -109,25 +107,21 @@ func (a *ControllerSteps) pullWebhookEvents(agentID, state string) (string, erro
 		Message didexcmd.ConnectionMsg `json:"message"`
 	}
 
-	// try to pull recently pushed topics from webhook
-	for i := 0; i < pullTopicsAttemptsBeforeFail; i++ {
-		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &incoming)
+	for {
+		err := wsjson.Read(ctx, conn, &incoming)
 		if err != nil {
-			return "", fmt.Errorf("failed pull topics from webhook, cause : %s", err)
+			return "", fmt.Errorf("failed to get topics for agent '%s' : %w", agentID, err)
 		}
 
 		if incoming.Topic == "connections" {
 			if strings.EqualFold(state, incoming.Message.State) {
 				logger.Debugf("Able to find webhook topic with expected state[%s] for agent[%s] and connection[%s]",
 					incoming.Message.State, agentID, incoming.Message.ConnectionID)
+
 				return incoming.Message.ConnectionID, nil
 			}
 		}
-
-		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)
 	}
-
-	return "", fmt.Errorf("exhausted all [%d] attempts to pull topics from webhook", pullTopicsAttemptsBeforeFail)
 }
 
 func (a *ControllerSteps) createInvitation(inviterAgentID, label string) error {
@@ -318,9 +312,9 @@ func (a *ControllerSteps) approveInvitationWithPublicDID(agentID string) error {
 }
 
 func (a *ControllerSteps) performApproveInvitation(agentID string, useDID bool) error {
-	connectionID, err := a.pullWebhookEvents(agentID, "invited")
+	connectionID, err := a.pullEventsFromWebSocket(agentID, "invited")
 	if err != nil {
-		return fmt.Errorf("aprove exchange invitation : %w", err)
+		return fmt.Errorf("approve exchange invitation : %w", err)
 	}
 
 	// invitee connectionID
@@ -379,7 +373,7 @@ func (a *ControllerSteps) performApprove(agentID string, useDID bool, connection
 }
 
 func (a *ControllerSteps) performApproveRequest(agentID string, useDID bool) error {
-	connectionID, err := a.pullWebhookEvents(agentID, "requested")
+	connectionID, err := a.pullEventsFromWebSocket(agentID, "requested")
 	if err != nil {
 		return fmt.Errorf("failed to get connection ID from webhook, %w", err)
 	}
@@ -403,7 +397,7 @@ func (a *ControllerSteps) performApproveRequest(agentID string, useDID bool) err
 }
 
 func (a *ControllerSteps) waitForPostEvent(agentID, statesValue string) error {
-	_, err := a.pullWebhookEvents(agentID, statesValue)
+	_, err := a.pullEventsFromWebSocket(agentID, statesValue)
 	if err != nil {
 		return fmt.Errorf("failed to get notification from webhook, %w", err)
 	}

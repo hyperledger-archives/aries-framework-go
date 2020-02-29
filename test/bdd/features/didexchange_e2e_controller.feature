@@ -10,15 +10,15 @@
 Feature: Decentralized Identifier(DID) exchange between the agents using controller API
 
   Scenario: did exchange e2e flow using controller api
-    Given "Alice" agent is running on "localhost" port "8081" with controller "http://localhost:8082" and webhook "http://localhost:8083"
-      And   "Bob" agent is running on "localhost" port "9081" with controller "http://localhost:9082" and webhook "http://localhost:9083"
+    Given "Alice" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
+      And   "Bob" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
 
     When   "Alice" creates invitation through controller with label "alice-agent"
       And   "Bob" receives invitation from "Alice" through controller
       And   "Bob" approves exchange invitation through controller
       And   "Alice" approves exchange request through controller
-      And   "Alice" waits for post state event "completed" to webhook
-      And   "Bob" waits for post state event "completed" to webhook
+      And   "Alice" waits for post state event "completed" to web notifier
+      And   "Bob" waits for post state event "completed" to web notifier
 
     Then   "Alice" retrieves connection record through controller and validates that connection state is "completed"
       And   "Bob" retrieves connection record through controller and validates that connection state is "completed"

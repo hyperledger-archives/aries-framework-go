@@ -11,6 +11,7 @@ package messaging
 
 import (
 	"bytes"
+	rqCtx "context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+	"nhooyr.io/websocket/wsjson"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
@@ -38,8 +40,9 @@ const (
 	sendNewMsg            = msgServiceOperationID + "/send"
 	// query connections endpoint
 	queryConnections = "/connections"
-	// webhook checktopis
-	checkForTopics = "/checktopics"
+	// webhook checktopics
+	checkForTopics    = "/checktopics"
+	timeoutPullTopics = 5 * time.Second
 	// retry options to pull topics from webhook
 	// pullTopicsWaitInMilliSec is time in milliseconds to wait before retry
 	pullTopicsWaitInMilliSec = 200
@@ -201,33 +204,38 @@ func (d *ControllerSteps) findConnection(agentID string) (string, error) {
 	return response.Results[0].ConnectionID, nil
 }
 
-func (d *ControllerSteps) receiveMessage(
-	agentID, expectedMsgType string) (*service.DIDCommMsgMap, error) {
-	msg, err := d.pullMsgFromWebhook(agentID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to pull incoming message from webhook : %w", err)
+func (d *ControllerSteps) pullMsgFromWebhookSocket(agentID, topic string) (*service.DIDCommMsgMap, error) {
+	conn, ok := d.bddContext.GetWebSocketConn(agentID)
+	if !ok {
+		return nil, fmt.Errorf("unable to get websocket conn for agent [%s]", agentID)
 	}
 
-	incomingMsg := struct {
-		Message  service.DIDCommMsgMap `json:"message"`
-		MyDID    string                `json:"mydid"`
-		TheirDID string                `json:"theirdid"`
-	}{}
+	ctx, cancel := rqCtx.WithTimeout(rqCtx.Background(), timeoutPullTopics)
+	defer cancel()
 
-	err = msg.Decode(&incomingMsg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read message: %w", err)
+	var incoming struct {
+		ID      string                `json:"id"`
+		Topic   string                `json:"topic"`
+		Message service.DIDCommMsgMap `json:"message"`
 	}
 
-	if incomingMsg.Message.Type() != expectedMsgType {
-		return nil, fmt.Errorf("expected incoming message of type [%s], but got [%s]", expectedMsgType,
-			incomingMsg.Message.Type())
-	}
+	for {
+		err := wsjson.Read(ctx, conn, &incoming)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get topics for agent '%s' : %w", agentID, err)
+		}
 
-	return &incomingMsg.Message, nil
+		if topic != incoming.Topic {
+			continue
+		}
+
+		if len(incoming.Message) > 0 {
+			return &incoming.Message, nil
+		}
+	}
 }
 
-func (d *ControllerSteps) pullMsgFromWebhook(agentID string) (*service.DIDCommMsgMap, error) {
+func (d *ControllerSteps) pullMsgFromWebhookURL(agentID, topic string) (*service.DIDCommMsgMap, error) {
 	webhookURL, ok := d.bddContext.GetWebhookURL(agentID)
 	if !ok {
 		return nil, fmt.Errorf("unable to find webhook URL for agent [%s]", agentID)
@@ -240,15 +248,21 @@ func (d *ControllerSteps) pullMsgFromWebhook(agentID string) (*service.DIDCommMs
 	}
 
 	// try to pull recently pushed topics from webhook
-	for i := 0; i < pullTopicsAttemptsBeforeFail; i++ {
+	for i := 0; i < pullTopicsAttemptsBeforeFail; {
 		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &incoming)
 		if err != nil {
 			return nil, fmt.Errorf("failed pull topics from webhook, cause : %w", err)
 		}
 
+		if incoming.Topic != topic {
+			continue
+		}
+
 		if len(incoming.Message) > 0 {
 			return &incoming.Message, nil
 		}
+
+		i++
 
 		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)
 	}
@@ -330,15 +344,31 @@ func (d *ControllerSteps) sendBasicMessage(fromAgentID, msg, toAgentID string) e
 	return d.sendMessage(fromAgentID, toAgentID, basicMsg)
 }
 
-func (d *ControllerSteps) receiveInviteMessage(agentID, expectedMsg, expectedMsgType, from string) error {
-	msg, err := d.receiveMessage(agentID, expectedMsgType)
+func (d *ControllerSteps) receiveInviteMessage(agentID, expectedMsg, expectedMsgType, topic, from string) error {
+	msg, err := d.pullMsgFromWebhookURL(agentID, topic)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to pull incoming message from webhook : %w", err)
+	}
+
+	incomingMsg := struct {
+		Message  service.DIDCommMsgMap `json:"message"`
+		MyDID    string                `json:"mydid"`
+		TheirDID string                `json:"theirdid"`
+	}{}
+
+	err = msg.Decode(&incomingMsg)
+	if err != nil {
+		return fmt.Errorf("failed to read message: %w", err)
+	}
+
+	if incomingMsg.Message.Type() != expectedMsgType {
+		return fmt.Errorf("expected incoming message of type [%s], but got [%s]", expectedMsgType,
+			incomingMsg.Message.Type())
 	}
 
 	invite := genericInviteMsg{}
 
-	err = msg.Decode(&invite)
+	err = incomingMsg.Message.Decode(&invite)
 	if err != nil {
 		return fmt.Errorf("failed to read incoming invite message: %w", err)
 	}
@@ -354,15 +384,31 @@ func (d *ControllerSteps) receiveInviteMessage(agentID, expectedMsg, expectedMsg
 	return nil
 }
 
-func (d *ControllerSteps) receiveBasicMessage(agentID, expectedMsg, from string) error {
-	msg, err := d.receiveMessage(agentID, basic.MessageRequestType)
+func (d *ControllerSteps) receiveBasicMessage(agentID, expectedMsg, topic, from string) error {
+	msg, err := d.pullMsgFromWebhookSocket(agentID, topic)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to pull incoming message from webhook : %w", err)
+	}
+
+	incomingMsg := struct {
+		Message  service.DIDCommMsgMap `json:"message"`
+		MyDID    string                `json:"mydid"`
+		TheirDID string                `json:"theirdid"`
+	}{}
+
+	err = msg.Decode(&incomingMsg)
+	if err != nil {
+		return fmt.Errorf("failed to read message: %w", err)
+	}
+
+	if incomingMsg.Message.Type() != basic.MessageRequestType {
+		return fmt.Errorf("expected incoming message of type [%s], but got [%s]", basic.MessageRequestType,
+			incomingMsg.Message.Type())
 	}
 
 	basicMsg := basic.Message{}
 
-	err = msg.Decode(&basicMsg)
+	err = incomingMsg.Message.Decode(&basicMsg)
 	if err != nil {
 		return fmt.Errorf("failed to read incoming basic message: %w", err)
 	}
@@ -392,12 +438,12 @@ func (d *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 		` and purpose "([^"]*)"$`, d.registerMsgService)
 	s.Step(`^"([^"]*)" sends meeting invite message "([^"]*)" through controller with type "([^"]*)" `+
 		`and purpose "([^"]*)" to "([^"]*)"$`, d.sendInviteMessage)
-	s.Step(`^"([^"]*)" message service receives meeting invite message to webhook "([^"]*)" with type "([^"]*)"`+
-		` from "([^"]*)"$`, d.receiveInviteMessage)
+	s.Step(`^"([^"]*)" receives invite message "([^"]*)" with type "([^"]*)" to webhook`+
+		` for topic "([^"]*)" from "([^"]*)"$`, d.receiveInviteMessage)
 
 	// basic messaging
 	s.Step(`^"([^"]*)" registers a message service through controller with name "([^"]*)" for basic message type$`,
 		d.registerBasicMsgService)
 	s.Step(`^"([^"]*)" sends basic message "([^"]*)" through controller to "([^"]*)"$`, d.sendBasicMessage)
-	s.Step(`^"([^"]*)" receives basic message to webhook "([^"]*)" from "([^"]*)"$`, d.receiveBasicMessage)
+	s.Step(`^"([^"]*)" receives basic message "([^"]*)" for topic "([^"]*)" from "([^"]*)"$`, d.receiveBasicMessage)
 }
