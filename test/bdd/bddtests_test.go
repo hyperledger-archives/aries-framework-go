@@ -145,6 +145,8 @@ func FeatureContext(s *godog.Suite) {
 		panic(fmt.Sprintf("Error returned from NewBDDContext: %s", err))
 	}
 
+	defer bddContext.Destroy()
+
 	// set dynamic args
 	bddContext.Args[SideTreeURL] = "http://localhost:48326/document"
 	bddContext.Args[DIDDocPath] = "fixtures/sidetree-mock/config/didDocument.json"

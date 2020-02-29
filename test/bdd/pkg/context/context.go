@@ -9,13 +9,18 @@ package context
 import (
 	"sync"
 
+	"nhooyr.io/websocket"
+
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/route"
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 )
+
+var logger = log.New("aries-framework/tests/context")
 
 // BDDContext is a global context shared between different test suites in bddtests
 type BDDContext struct {
@@ -28,6 +33,7 @@ type BDDContext struct {
 	Args               map[string]string
 	controllerURLs     map[string]string
 	webhookURLs        map[string]string
+	webSocketConns     map[string]*websocket.Conn
 	lock               sync.RWMutex
 }
 
@@ -43,6 +49,7 @@ func NewBDDContext() (*BDDContext, error) {
 		Args:               make(map[string]string),
 		controllerURLs:     make(map[string]string),
 		webhookURLs:        make(map[string]string),
+		webSocketConns:     make(map[string]*websocket.Conn),
 	}
 
 	return &instance, nil
@@ -54,6 +61,17 @@ func (b *BDDContext) BeforeScenario(scenarioOrScenarioOutline interface{}) {
 
 // AfterScenario execute code after bdd scenario
 func (b *BDDContext) AfterScenario(interface{}, error) {
+}
+
+// Destroy BDD context
+func (b *BDDContext) Destroy() {
+	// close all websocket connections
+	for agentID, conn := range b.webSocketConns {
+		err := conn.Close(websocket.StatusNormalClosure, "bddtests destroy context")
+		if err != nil {
+			logger.Debugf("failed to close websocket connection for [%s] : %w", agentID, err)
+		}
+	}
 }
 
 // RegisterWebhookURL registers given url to agent id for webhook
@@ -90,4 +108,22 @@ func (b *BDDContext) GetControllerURL(agentID string) (string, bool) {
 	url, ok := b.controllerURLs[agentID]
 
 	return url, ok
+}
+
+// RegisterWebSocketConn registers given websocket connection to agent id for web notifications
+func (b *BDDContext) RegisterWebSocketConn(agentID string, conn *websocket.Conn) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	b.webSocketConns[agentID] = conn
+}
+
+// GetWebSocketConn returns websocket connection for given agent ID for web notifications.
+func (b *BDDContext) GetWebSocketConn(agentID string) (*websocket.Conn, bool) {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+
+	conn, ok := b.webSocketConns[agentID]
+
+	return conn, ok
 }
