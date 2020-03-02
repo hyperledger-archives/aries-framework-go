@@ -78,8 +78,8 @@ function validateRouterConnection(agent, connectionID, done) {
 
 // scenarios
 describe("DID-Exchange between an Edge Agent and a router", function () {
-    var aries
-    var invitation
+    let aries
+    let invitation
 
     before(async () => {
         return new Promise((resolve, reject) => {
@@ -131,16 +131,20 @@ describe("DID-Exchange between an Edge Agent and a router", function () {
 })
 
 describe("DID-Exchange between two Edge Agents using the router", function () {
-    var aliceAgent, bobAgent
-    var invitation, connectionID
+    let aliceAgent, bobAgent
+    let invitation, connectionID
 
     before(async () => {
         await newAries('alice')
-            .then(a => {aliceAgent = a})
+            .then(a => {
+                aliceAgent = a
+            })
             .catch(err => new Error(err.message));
 
         await newAries('bob')
-            .then(a => { bobAgent = a})
+            .then(a => {
+                bobAgent = a
+            })
             .catch(err => new Error(err.message));
     })
 

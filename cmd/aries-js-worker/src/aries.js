@@ -459,7 +459,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             getCredentials: async function () {
-                return invoke(aw, pending,  this.pkgname, "GetCredentials", req, "timeout while retrieving verifiable credentials")
+                return invoke(aw, pending,  this.pkgname, "GetCredentials", {}, "timeout while retrieving verifiable credentials")
             },
         }
     }
