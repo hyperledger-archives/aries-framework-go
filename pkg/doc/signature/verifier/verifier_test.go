@@ -104,6 +104,22 @@ func TestVerifyObject(t *testing.T) {
 	err = v.verifyObject(jsonLdObject)
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "signature doesn't match")
+
+	// test get public key ID error
+	jsonLdObject, _ = getDefaultSignedDocObject(proof.SignatureProofValue, privKey, pubKey)
+
+	proofs, err = proof.GetProofs(jsonLdObject)
+	require.NoError(t, err)
+
+	proofs[0].VerificationMethod = ""
+	proofs[0].Creator = ""
+
+	err = proof.AddProof(jsonLdObject, proofs[0])
+	require.NoError(t, err)
+
+	err = v.verifyObject(jsonLdObject)
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "no public key ID")
 }
 
 func TestVerifyJWSObject(t *testing.T) {

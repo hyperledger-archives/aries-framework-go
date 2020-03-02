@@ -103,9 +103,9 @@ func (s *SDKSteps) addVCProof(vc *verifiable.Credential, issuer, proofType strin
 
 	switch proofType {
 	case jwsLinkedDataProof:
-		creator := doc.ID + pubKey.ID
+		verificationMethod := doc.ID + pubKey.ID
 
-		err := addJWSLinkedDataProof(vc, newSigner(kms, base58.Encode(pubKey.Value)), creator)
+		err := addJWSLinkedDataProof(vc, newSigner(kms, base58.Encode(pubKey.Value)), verificationMethod)
 		if err != nil {
 			return err
 		}
@@ -158,7 +158,7 @@ func (s *SDKSteps) createDID(issuer, holder string) error {
 	return didresolver.CreateDIDDocument(s.bddContext, participants, acceptDidMethod)
 }
 
-func addJWSLinkedDataProof(vc *verifiable.Credential, signer *signer, creator string) error {
+func addJWSLinkedDataProof(vc *verifiable.Credential, signer *signer, verificationMethod string) error {
 	suite := ed25519signature2018.New(ed25519signature2018.WithSigner(signer))
 
 	return vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
@@ -166,7 +166,6 @@ func addJWSLinkedDataProof(vc *verifiable.Credential, signer *signer, creator st
 		Suite:                   suite,
 		SignatureRepresentation: verifiable.SignatureJWS,
 		Created:                 vc.Issued,
-		// todo substitute with verificationMethod (https://github.com/hyperledger/aries-framework-go/issues/1156)
-		Creator: creator,
+		VerificationMethod:      verificationMethod,
 	})
 }

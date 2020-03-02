@@ -44,6 +44,7 @@ type Context struct {
 	Created                 *time.Time                    // optional
 	Domain                  string                        // optional
 	Nonce                   []byte                        // optional
+	VerificationMethod      string                        // optional
 }
 
 // New returns new instance of document verifier
@@ -97,6 +98,7 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		Created:                 created,
 		Domain:                  context.Domain,
 		Nonce:                   context.Nonce,
+		VerificationMethod:      context.VerificationMethod,
 	}
 
 	if context.SignatureRepresentation == proof.SignatureJWS {

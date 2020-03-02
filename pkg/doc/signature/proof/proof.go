@@ -28,6 +28,8 @@ const (
 	jsonldProofPurpose = "proofPurpose"
 	// jsonldJWSProof is key for JWS proof
 	jsonldJWS = "jws"
+	// jsonldVerificationMethod is a key for verification method
+	jsonldVerificationMethod = "verificationMethod"
 )
 
 // Proof is cryptographic proof of the integrity of the DID Document
@@ -35,6 +37,7 @@ type Proof struct {
 	Type                    string
 	Created                 *time.Time
 	Creator                 string
+	VerificationMethod      string
 	ProofValue              []byte
 	JWS                     string
 	ProofPurpose            string
@@ -83,6 +86,7 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 		Type:                    stringEntry(emap[jsonldType]),
 		Created:                 &timeValue,
 		Creator:                 stringEntry(emap[jsonldCreator]),
+		VerificationMethod:      stringEntry(emap[jsonldVerificationMethod]),
 		ProofValue:              proofValue,
 		SignatureRepresentation: proofHolder,
 		JWS:                     jws,
@@ -110,6 +114,10 @@ func (p *Proof) JSONLdObject() map[string]interface{} {
 		emap[jsonldCreator] = p.Creator
 	}
 
+	if p.VerificationMethod != "" {
+		emap[jsonldVerificationMethod] = p.VerificationMethod
+	}
+
 	if p.Created != nil {
 		emap[jsonldCreated] = p.Created.Format(time.RFC3339)
 	}
@@ -135,4 +143,19 @@ func (p *Proof) JSONLdObject() map[string]interface{} {
 	}
 
 	return emap
+}
+
+// PublicKeyID provides ID of public key to be used to independently verify the proof.
+// "verificationMethod" field is checked first. If not empty, its value is returned.
+// Otherwise, "creator" field is returned if not empty. Otherwise, error is returned.
+func (p *Proof) PublicKeyID() (string, error) {
+	if p.VerificationMethod != "" {
+		return p.VerificationMethod, nil
+	}
+
+	if p.Creator != "" {
+		return p.Creator, nil
+	}
+
+	return "", errors.New("no public key ID")
 }
