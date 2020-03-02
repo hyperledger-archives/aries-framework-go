@@ -11,3 +11,8 @@ Feature: Issue Verifiable Credential
   Scenario: Issue University Degree Credential with JWS Linked Data proof
     When "Stanford University" issues credential at "2018-03-15" regarding "Bachelor Degree" to "Alice" with "JWS Linked data" proof
     Then "Alice" receives the credential and verifies it
+
+  @issue_vc_jws
+  Scenario: Issue University Degree Credential with JWS proof
+    When "Stanford University" issues credential at "2018-03-15" regarding "Bachelor Degree" to "Alice" with "JWS" proof
+    Then "Alice" receives the credential and verifies it

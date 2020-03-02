@@ -1011,6 +1011,13 @@ func TestDownloadCustomSchema(t *testing.T) {
 }
 
 func TestCredentialSubjectId(t *testing.T) {
+	t.Run("With string subject", func(t *testing.T) {
+		vcWithStringSubject := &Credential{Subject: "did:example:ebfeb1f712ebc6f1c276e12ecaa"}
+		subjectID, err := subjectID(vcWithStringSubject.Subject)
+		require.NoError(t, err)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ecaa", subjectID)
+	})
+
 	t.Run("With single Subject", func(t *testing.T) {
 		vcWithSingleSubject := &Credential{Subject: map[string]interface{}{
 			"id": "did:example:ebfeb1f712ebc6f1c276e12ecaa",

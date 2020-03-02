@@ -1123,6 +1123,9 @@ func subjectID(subject interface{}) (string, error) {
 
 		return subjectIDFn(subject[0])
 
+	case string:
+		return subject, nil
+
 	default:
 		// convert to map and try once again
 		sMap, err := toMap(subject)
