@@ -8,6 +8,7 @@ go 1.14
 
 require (
 	github.com/Microsoft/hcsshim v0.8.7 // indirect
+	github.com/btcsuite/btcutil v1.0.1
 	github.com/containerd/containerd v1.3.3 // indirect
 	github.com/containerd/continuity v0.0.0-20200107194136-26c1120b8d41 // indirect
 	github.com/cucumber/godog v0.8.1

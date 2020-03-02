@@ -18,8 +18,15 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	issuecredentialMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/issuecredential"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+)
+
+const (
+	Alice = "Alice"
+	Bob   = "Bob"
 )
 
 func TestNew(t *testing.T) {
@@ -65,8 +72,10 @@ func TestService_HandleInbound(t *testing.T) {
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
 
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+
 	provider := issuecredentialMocks.NewMockProvider(ctrl)
-	provider.EXPECT().Messenger().Return(nil).AnyTimes()
+	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
 	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 
 	t.Run("No clients", func(t *testing.T) {
@@ -101,38 +110,87 @@ func TestService_HandleInbound(t *testing.T) {
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: nextState: unrecognized msgType: ")
 	})
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("Receive Propose Credential Stop", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		messenger.EXPECT().
+			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				r := &model.ProblemReport{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, codeRejectedError, r.Description.Code)
+				require.Equal(t, ProblemReportMsgType, r.Type)
+
+				return nil
+			})
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "done", string(name))
+			defer close(done)
+
+			return nil
+		})
+
 		svc, err := New(provider)
 		require.NoError(t, err)
 
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		chState := make(chan service.StateMsg, 2)
-		require.NoError(t, svc.RegisterMsgEvent(chState))
-
-		_, err = svc.HandleInbound(service.NewDIDCommMsgMap(ProposeCredential{
+		msg := service.NewDIDCommMsgMap(ProposeCredential{
 			Type: ProposeCredentialMsgType,
-		}), "", "")
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
-		require.Len(t, ch, 1)
 
 		(<-ch).Stop(nil)
 
-		var counter int
-		for {
-			select {
-			case msg := <-chState:
-				counter++
-				require.Equal(t, "abandoning", msg.StateID)
-				if counter == 2 {
-					return
-				}
-			case <-time.After(time.Millisecond * 100):
-				t.Error("timeout")
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
 
-				return
-			}
+	t.Run("Receive Propose Credential Continue", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "proposal-received", string(name))
+			defer close(done)
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		msg := service.NewDIDCommMsgMap(ProposeCredential{
+			Type: ProposeCredentialMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		(<-ch).Continue(nil)
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
 		}
 	})
 
@@ -164,8 +222,10 @@ func TestService_HandleOutbound(t *testing.T) {
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
 
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+
 	provider := issuecredentialMocks.NewMockProvider(ctrl)
-	provider.EXPECT().Messenger().Return(nil).AnyTimes()
+	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
 	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 
 	t.Run("DB error", func(t *testing.T) {
@@ -186,9 +246,61 @@ func TestService_HandleOutbound(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = svc.HandleOutbound(service.NewDIDCommMsgMap(ProposeCredential{
-			Type: ProposeCredentialMsgType,
+			Type: "none",
 		}), "", "")
-		require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
+		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: nextState: unrecognized msgType: none")
+	})
+
+	t.Run("Send Propose Credential", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "proposal-sent", string(name))
+			defer close(done)
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		msg := service.NewDIDCommMsgMap(ProposeCredential{
+			Type: ProposeCredentialMsgType,
+		})
+
+		messenger.EXPECT().Send(msg, Alice, Bob)
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleOutbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Send Propose Credential with error", func(t *testing.T) {
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		msg := service.NewDIDCommMsgMap(ProposeCredential{
+			Type: ProposeCredentialMsgType,
+		})
+
+		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleOutbound(msg, Alice, Bob)
+		require.Contains(t, fmt.Sprintf("%v", err), "action proposal-sent: "+errMsg)
 	})
 }
 
