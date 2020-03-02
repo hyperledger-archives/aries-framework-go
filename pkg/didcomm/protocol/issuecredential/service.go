@@ -61,6 +61,9 @@ type metaData struct {
 	state    state
 	msgClone service.DIDCommMsg
 	inbound  bool
+	// keeps offer credential payload,
+	// allows filling the message by providing an option function
+	offerCredential OfferCredential
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -206,7 +209,7 @@ func (s *Service) startInternalListener() {
 			continue
 		}
 
-		msg.state = &abandoning{}
+		msg.state = &abandoning{Code: codeInternalError}
 
 		if err := s.handle(msg); err != nil {
 			logger.Errorf("listener handle: %s", err)
@@ -249,7 +252,7 @@ func (s *Service) handle(md *metaData) error {
 
 	for _, action := range actions {
 		if err := action(s.messenger); err != nil {
-			return err
+			return fmt.Errorf("action %s: %w", stateName, err)
 		}
 	}
 

@@ -7,10 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package issuecredential
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 )
 
 func notTransition(t *testing.T, st state) {
@@ -85,10 +92,86 @@ func TestAbandoning_CanTransitionTo(t *testing.T) {
 }
 
 func TestAbandoning_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&abandoning{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	t.Run("With code", func(t *testing.T) {
+		md := &metaData{}
+		md.Msg = service.NewDIDCommMsgMap(struct{}{})
+
+		thID := uuid.New().String()
+		require.NoError(t, md.Msg.SetID(thID))
+
+		followup, action, err := (&abandoning{Code: codeInternalError}).ExecuteInbound(md)
+		require.NoError(t, err)
+		require.Equal(t, &done{}, followup)
+		require.NotNil(t, action)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().
+			ReplyToNested(thID, gomock.Any(), "", "").
+			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				r := &model.ProblemReport{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, codeInternalError, r.Description.Code)
+				require.Equal(t, ProblemReportMsgType, r.Type)
+
+				return nil
+			})
+
+		require.NoError(t, action(messenger))
+	})
+
+	t.Run("With invalid message", func(t *testing.T) {
+		followup, action, err := (&abandoning{Code: codeInternalError}).ExecuteInbound(&metaData{})
+		require.EqualError(t, errors.Unwrap(err), service.ErrInvalidMessage.Error())
+		require.Nil(t, followup)
+		require.Nil(t, action)
+	})
+
+	t.Run("With custom error", func(t *testing.T) {
+		md := &metaData{err: customError{error: errors.New("error")}}
+		md.Msg = service.NewDIDCommMsgMap(struct{}{})
+
+		thID := uuid.New().String()
+		require.NoError(t, md.Msg.SetID(thID))
+
+		followup, action, err := (&abandoning{Code: codeInternalError}).ExecuteInbound(md)
+		require.NoError(t, err)
+		require.Equal(t, &done{}, followup)
+		require.NotNil(t, action)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().
+			ReplyToNested(thID, gomock.Any(), "", "").
+			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				r := &model.ProblemReport{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, codeRejectedError, r.Description.Code)
+				require.Equal(t, ProblemReportMsgType, r.Type)
+
+				return nil
+			})
+
+		require.NoError(t, action(messenger))
+	})
+
+	t.Run("Without code", func(t *testing.T) {
+		md := &metaData{}
+		md.Msg = service.NewDIDCommMsgMap(struct{}{})
+
+		require.NoError(t, md.Msg.SetID(uuid.New().String()))
+
+		followup, action, err := (&abandoning{}).ExecuteInbound(md)
+		require.NoError(t, err)
+		require.Equal(t, &done{}, followup)
+		require.NotNil(t, action)
+
+		require.NoError(t, action(nil))
+	})
 }
 
 func TestAbandoning_ExecuteOutbound(t *testing.T) {
@@ -106,9 +189,9 @@ func TestDone_CanTransitionTo(t *testing.T) {
 
 func TestDone_ExecuteInbound(t *testing.T) {
 	followup, action, err := (&done{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
+	require.NoError(t, action(nil))
 }
 
 func TestDone_ExecuteOutbound(t *testing.T) {
@@ -160,9 +243,17 @@ func TestProposalReceived_CanTransitionTo(t *testing.T) {
 
 func TestProposalReceived_ExecuteInbound(t *testing.T) {
 	followup, action, err := (&proposalReceived{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
+	require.NotNil(t, action)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+
+	require.NoError(t, action(messenger))
 }
 
 func TestProposalReceived_ExecuteOutbound(t *testing.T) {
@@ -303,9 +394,17 @@ func TestProposalSent_ExecuteInbound(t *testing.T) {
 
 func TestProposalSent_ExecuteOutbound(t *testing.T) {
 	followup, action, err := (&proposalSent{}).ExecuteOutbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
+	require.NotNil(t, action)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any())
+
+	require.NoError(t, action(messenger))
 }
 
 func TestOfferReceived_CanTransitionTo(t *testing.T) {

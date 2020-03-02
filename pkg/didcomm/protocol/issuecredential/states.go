@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 
@@ -33,6 +34,11 @@ const (
 	stateNameCredentialReceived = "credential-received"
 )
 
+const (
+	codeRejectedError = "rejected"
+	codeInternalError = "internal"
+)
+
 // state action for network call
 type stateAction func(messenger service.Messenger) error
 
@@ -47,6 +53,9 @@ type state interface {
 	ExecuteInbound(msg *metaData) (state, stateAction, error)
 	ExecuteOutbound(msg *metaData) (state, stateAction, error)
 }
+
+// represents zero state's action
+func zeroAction(service.Messenger) error { return nil }
 
 // noOp state
 type noOp struct{}
@@ -96,7 +105,9 @@ func (s *start) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
 }
 
 // abandoning state
-type abandoning struct{}
+type abandoning struct {
+	Code string
+}
 
 func (s *abandoning) Name() string {
 	return stateNameAbandoning
@@ -106,8 +117,30 @@ func (s *abandoning) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameDone
 }
 
-func (s *abandoning) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+func (s *abandoning) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	// if code is not provided it means we do not need to notify the another agent
+	if s.Code == "" {
+		return &done{}, zeroAction, nil
+	}
+
+	var code = model.Code{Code: s.Code}
+
+	// if the protocol was stopped by the user we will set the rejected error code
+	if errors.As(md.err, &customError{}) {
+		code = model.Code{Code: codeRejectedError}
+	}
+
+	thID, err := md.Msg.ThreadID()
+	if err != nil {
+		return nil, nil, fmt.Errorf("threadID: %w", err)
+	}
+
+	return &done{}, func(messenger service.Messenger) error {
+		return messenger.ReplyToNested(thID, service.NewDIDCommMsgMap(&model.ProblemReport{
+			Type:        ProblemReportMsgType,
+			Description: code,
+		}), md.MyDID, md.TheirDID)
+	}, nil
 }
 
 func (s *abandoning) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
@@ -126,7 +159,7 @@ func (s *done) CanTransitionTo(_ state) bool {
 }
 
 func (s *done) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+	return &noOp{}, zeroAction, nil
 }
 
 func (s *done) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
@@ -144,8 +177,15 @@ func (s *proposalReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameOfferSent || st.Name() == stateNameAbandoning
 }
 
-func (s *proposalReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+func (s *proposalReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		// sets message type
+		md.offerCredential.Type = OfferCredentialMsgType
+		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.offerCredential))
+	}
+
+	return &noOp{}, action, nil
 }
 
 func (s *proposalReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
@@ -226,8 +266,13 @@ func (s *proposalSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
 }
 
-func (s *proposalSent) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
+func (s *proposalSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
+	}
+
+	return &noOp{}, action, nil
 }
 
 // offerReceived the Holder's state
