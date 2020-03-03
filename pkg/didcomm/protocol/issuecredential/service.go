@@ -63,7 +63,8 @@ type metaData struct {
 	inbound  bool
 	// keeps offer credential payload,
 	// allows filling the message by providing an option function
-	offerCredential OfferCredential
+	offerCredential   OfferCredential
+	proposeCredential ProposeCredential
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -347,10 +348,15 @@ func nextState(msg service.DIDCommMsg, outbound bool) (state, error) {
 	}
 }
 
+// TODO: need to figure out what this function should check
+func isDataCorrect(msg service.DIDCommMsg) bool {
+	return msg.ID() != "00000000-0000-0000-0000-000000000000"
+}
+
 // canTriggerActionEvents checks if the incoming message can trigger an action event
 func canTriggerActionEvents(msg service.DIDCommMsg) bool {
 	return msg.Type() == ProposeCredentialMsgType ||
-		msg.Type() == OfferCredentialMsgType ||
+		(msg.Type() == OfferCredentialMsgType && !isDataCorrect(msg)) ||
 		msg.Type() == RequestCredentialMsgType
 }
 

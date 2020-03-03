@@ -209,8 +209,13 @@ func (s *offerSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
 }
 
-func (s *offerSent) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
+func (s *offerSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
+	}
+
+	return &noOp{}, action, nil
 }
 
 // requestReceived the Issuer's state
@@ -262,8 +267,15 @@ func (s *proposalSent) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameOfferReceived || st.Name() == stateNameAbandoning
 }
 
-func (s *proposalSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+func (s *proposalSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		// sets message type
+		md.proposeCredential.Type = ProposeCredentialMsgType
+		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.proposeCredential))
+	}
+
+	return &noOp{}, action, nil
 }
 
 func (s *proposalSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
@@ -288,8 +300,19 @@ func (s *offerReceived) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoning
 }
 
-func (s *offerReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+func (s *offerReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	if !isDataCorrect(md.Msg) {
+		return &proposalSent{}, zeroAction, nil
+	}
+
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(RequestCredential{
+			Type: RequestCredentialMsgType,
+		}))
+	}
+
+	return &noOp{}, action, nil
 }
 
 func (s *offerReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
