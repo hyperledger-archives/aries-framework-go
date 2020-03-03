@@ -44,7 +44,7 @@ func Test_keyResolverAdapter_Resolve(t *testing.T) {
 		kra := &keyResolverAdapter{pubKeyFetcher: func(issuerID, keyID string) (interface{}, error) {
 			return nil, errors.New("no key found")
 		}}
-		resolvedPubKey, err := kra.Resolve("any#key1")
+		resolvedPubKey, err := kra.Resolve("did1#key1")
 		require.Error(t, err)
 		require.EqualError(t, err, "no key found")
 		require.Nil(t, resolvedPubKey)
@@ -54,7 +54,7 @@ func Test_keyResolverAdapter_Resolve(t *testing.T) {
 		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 		require.NoError(t, err)
 		kra := &keyResolverAdapter{pubKeyFetcher: SingleKey(privateKey.Public())}
-		resolvedPubKey, err := kra.Resolve("any#key1")
+		resolvedPubKey, err := kra.Resolve("did1#key1")
 		require.Error(t, err)
 		require.EqualError(t, err, "expecting []byte public key")
 		require.Nil(t, resolvedPubKey)
@@ -69,7 +69,7 @@ func (kr dummyKeyResolver) Resolve(string) ([]byte, error) {
 
 // This example is generated using https://transmute-industries.github.io/vc-greeting-card
 func TestLinkedDataProofVerifier(t *testing.T) {
-	pubKeyBytes := base58.Decode("HwdpMh3e6hGDueMJJZBzjWDgCAwQhF6CRz4E43RDdJ9M")
+	pubKeyBytes := base58.Decode("BoLcfbmL1yXgfCvc1MDAQg4xsR7D8Wo9zYLCu2vvCwgn")
 	pubKey := ed25519.PublicKey(pubKeyBytes)
 
 	//nolint:lll
@@ -97,7 +97,8 @@ func TestLinkedDataProofVerifier(t *testing.T) {
   "proof": {
     "type": "Ed25519Signature2018",
     "created": "2018-03-15T00:00:00Z",
-    "jws": "eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..jKb9yKsse4ufBRVs8Ffq0wA3U9LEfKql2CAtRNGIeA8KN5BkhPgaMYUAe4drVkFCgyvW754YBnZw0wDNIklLDQ"
+    "jws": "eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..vc5PCbRaTId2IRptkqJwNDlzZqW-wfGdcl0MWcNrrNCFxZgmgiNU7ZYUtz7ui9yVrVl-NL84F8KrCra7pyruDw",
+    "verificationMethod": "did:example:123456#key1"
   }
 }
 `
@@ -146,6 +147,7 @@ func TestLinkedDataProofSigner(t *testing.T) {
 		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
+		VerificationMethod:      "did:example:123456#key1",
 	})
 	require.NoError(t, err)
 
@@ -155,5 +157,6 @@ func TestLinkedDataProofSigner(t *testing.T) {
 
 	require.Equal(t, "Ed25519Signature2018", p["type"])
 	require.Equal(t, "2018-03-15T00:00:00Z", p["created"])
-	require.Equal(t, "eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..jKb9yKsse4ufBRVs8Ffq0wA3U9LEfKql2CAtRNGIeA8KN5BkhPgaMYUAe4drVkFCgyvW754YBnZw0wDNIklLDQ", p["jws"]) //nolint:lll
+	require.Equal(t, "did:example:123456#key1", p["verificationMethod"])
+	require.Equal(t, "eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..quV5KM2HNIEe4qldY3CwAm8o266UEWWFqVuvJ4P7nYC7bWkQhtH8py5uZanrTkEFjIn0ly1TQgpR3nuC9q2ZCQ", p["jws"]) //nolint:lll
 }

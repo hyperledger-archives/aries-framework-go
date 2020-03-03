@@ -28,6 +28,7 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 		SignatureType:           "Ed25519Signature2018",
 		SignatureRepresentation: SignatureProofValue,
 		Suite:                   suite,
+		VerificationMethod:      "did:example:123456#key1",
 	}
 
 	vc, _, err := NewCredential([]byte(validCredential))
@@ -36,34 +37,14 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 	err = vc.AddLinkedDataProof(ldpContext)
 	r.NoError(err)
 
-	// TODO disable "creator" hack https://github.com/hyperledger/aries-framework-go/issues/1156
-	vcMap := addDummyCreatorToProof(vc, r)
-
-	vcBytes, err := json.Marshal(vcMap)
+	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
 		WithEmbeddedSignatureSuites(suite),
 		WithPublicKeyFetcher(SingleKey([]byte(pubKey))))
 	r.NoError(err)
-
-	vcWithLdpMap, err := toMap(vcWithLdp)
-	r.NoError(err)
-
-	r.NoError(err)
-	r.Equal(vcMap, vcWithLdpMap)
-}
-
-func addDummyCreatorToProof(vc *Credential, r *require.Assertions) map[string]interface{} {
-	vcMap, err := toMap(vc)
-	r.NoError(err)
-
-	proofMap, ok := vcMap["proof"].(map[string]interface{})
-	r.True(ok)
-
-	proofMap["creator"] = "didID#keyID"
-
-	return vcMap
+	r.Equal(vc, vcWithLdp)
 }
 
 func TestCredential_AddLinkedDataProof(t *testing.T) {

@@ -71,7 +71,12 @@ func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}) er
 	}
 
 	for _, p := range proofs {
-		publicKey, err := dv.pkResolver.Resolve(p.Creator)
+		publicKeyID, err := p.PublicKeyID()
+		if err != nil {
+			return err
+		}
+
+		publicKey, err := dv.pkResolver.Resolve(publicKeyID)
 		if err != nil {
 			return err
 		}

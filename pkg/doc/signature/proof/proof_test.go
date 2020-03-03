@@ -17,12 +17,13 @@ const proofValueBase64 = "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUS
 
 func TestProof(t *testing.T) {
 	p, err := NewProof(map[string]interface{}{
-		"type":       "type",
-		"creator":    "didID",
-		"created":    "2018-03-15T00:00:00Z",
-		"domain":     "abc.com",
-		"nonce":      "",
-		"proofValue": proofValueBase64,
+		"type":               "type",
+		"creator":            "didID",
+		"verificationMethod": "did:example:123456#key1",
+		"created":            "2018-03-15T00:00:00Z",
+		"domain":             "abc.com",
+		"nonce":              "",
+		"proofValue":         proofValueBase64,
 	})
 	require.NoError(t, err)
 
@@ -35,6 +36,7 @@ func TestProof(t *testing.T) {
 
 	require.Equal(t, "type", p.Type)
 	require.Equal(t, "didID", p.Creator)
+	require.Equal(t, "did:example:123456#key1", p.VerificationMethod)
 	require.Equal(t, &created, p.Created)
 	require.Equal(t, "abc.com", p.Domain)
 	require.Equal(t, []byte(""), p.Nonce)
@@ -110,4 +112,25 @@ func TestProof_JSONLdObject(t *testing.T) {
 	r.Equal("assertionMethod", pJSONLd["proofPurpose"])
 	r.Equal("internal", pJSONLd["domain"])
 	r.Equal("abc", pJSONLd["nonce"])
+}
+
+func TestProof_PublicKeyID(t *testing.T) {
+	p := Proof{
+		Creator:            "creator",
+		VerificationMethod: "verification method",
+	}
+
+	publicKeyID, err := p.PublicKeyID()
+	require.NoError(t, err)
+	require.Equal(t, "verification method", publicKeyID)
+
+	p.VerificationMethod = ""
+	publicKeyID, err = p.PublicKeyID()
+	require.NoError(t, err)
+	require.Equal(t, "creator", publicKeyID)
+
+	p.Creator = ""
+	publicKeyID, err = p.PublicKeyID()
+	require.Error(t, err)
+	require.Empty(t, publicKeyID)
 }

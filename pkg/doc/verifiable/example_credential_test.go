@@ -347,6 +347,7 @@ func ExampleCredential_AddLinkedDataProof() {
 		SignatureType:           "Ed25519Signature2018",
 		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privIssuerKey))),
 		SignatureRepresentation: verifiable.SignatureJWS,
+		VerificationMethod:      "did:example:123456#key1",
 	})
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to add linked data proof: %w", err))
