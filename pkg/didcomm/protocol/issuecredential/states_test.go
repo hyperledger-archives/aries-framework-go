@@ -292,9 +292,17 @@ func TestOfferSent_ExecuteInbound(t *testing.T) {
 
 func TestOfferSent_ExecuteOutbound(t *testing.T) {
 	followup, action, err := (&offerSent{}).ExecuteOutbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
+	require.NotNil(t, action)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any())
+
+	require.NoError(t, action(messenger))
 }
 
 func TestRequestReceived_CanTransitionTo(t *testing.T) {
@@ -387,9 +395,17 @@ func TestProposalSent_CanTransitionTo(t *testing.T) {
 
 func TestProposalSent_ExecuteInbound(t *testing.T) {
 	followup, action, err := (&proposalSent{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
+	require.NotNil(t, action)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+
+	require.NoError(t, action(messenger))
 }
 
 func TestProposalSent_ExecuteOutbound(t *testing.T) {
@@ -428,10 +444,32 @@ func TestOfferReceived_CanTransitionTo(t *testing.T) {
 }
 
 func TestOfferReceived_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	t.Run("incorrect data", func(t *testing.T) {
+		msg := service.NewDIDCommMsgMap(struct{}{})
+		require.NoError(t, msg.SetID("00000000-0000-0000-0000-000000000000"))
+
+		followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{
+			transitionalPayload: transitionalPayload{Msg: msg},
+		})
+		require.NoError(t, err)
+		require.Equal(t, &proposalSent{}, followup)
+		require.NotNil(t, action)
+	})
+
+	t.Run("correct data", func(t *testing.T) {
+		followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{})
+		require.NoError(t, err)
+		require.Equal(t, &noOp{}, followup)
+		require.NotNil(t, action)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+
+		require.NoError(t, action(messenger))
+	})
 }
 
 func TestOfferReceived_ExecuteOutbound(t *testing.T) {
