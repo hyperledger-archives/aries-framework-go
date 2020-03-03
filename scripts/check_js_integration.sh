@@ -26,7 +26,7 @@ echo ""
 echo "----> starting fixtures"
 echo ""
 cd $ROOT/test/aries-js-worker/fixtures
-docker-compose up -d
+docker-compose down --remove-orphans && docker-compose up -d
 echo ""
 echo "----> executing aries-js-worker tests"
 echo ""
