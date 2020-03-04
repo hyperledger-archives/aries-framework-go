@@ -4,7 +4,10 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-import {newAries} from "../common.js"
+import {newAries, newAriesREST} from "../common.js"
+import {environment} from "../environment";
+
+const agentControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.USER_HOST}:${environment.USER_API_PORT}`
 
 // verifiable credential
 const vcName = "faber-college-credentials"
@@ -30,12 +33,20 @@ const vc = `
    }
 }`
 
-// scenarios
-describe("Verifiable Store", function () {
+const restMode = 'rest'
+const wasmMode = 'wasm'
+
+describe("Verifiable Store Test", async function () {
+    await verifiableStore(newAriesREST(agentControllerApiUrl), restMode)
+    await verifiableStore(newAries())
+})
+
+async function verifiableStore(newAries, mode = wasmMode) {
     let aries
+    let modePrefix = '[' + mode + '] '
 
     before(async () => {
-        await newAries()
+        await newAries
             .then(a => {
                 aries = a
             })
@@ -46,7 +57,7 @@ describe("Verifiable Store", function () {
         aries.destroy()
     })
 
-    it("Alice stores the verifiable credential received from the college", function (done) {
+    it(modePrefix + "Alice stores the verifiable credential received from the college", function (done) {
         aries.verifiable.validateCredential({
             "vc": vc
         }).then(
@@ -63,7 +74,7 @@ describe("Verifiable Store", function () {
         )
     })
 
-    it("Alice verifies that the verifiable credential stored with correct name", function (done) {
+    it(modePrefix + "Alice verifies that the verifiable credential stored with correct name", function (done) {
         var id = ''
         aries.verifiable.getCredentialByName({
             "name": vcName
@@ -73,6 +84,11 @@ describe("Verifiable Store", function () {
 
                 try {
                     assert.equal(vcID, id)
+
+                    if (mode == restMode) {
+                        // TODO https://github.com/hyperledger/aries-framework-go/issues/1411 rest api expects base64
+                        id = window.btoa(id)
+                    }
 
                     aries.verifiable.getCredential({
                         "id": id
@@ -89,7 +105,7 @@ describe("Verifiable Store", function () {
         )
     })
 
-    it("Alice validates that she has only one verifiable credential", function (done) {
+    it(modePrefix + "Alice validates that she has only one verifiable credential", function (done) {
         aries.verifiable.getCredentials().then(
             resp => {
                 try {
@@ -105,4 +121,4 @@ describe("Verifiable Store", function () {
             err => done(err)
         )
     })
-})
+}

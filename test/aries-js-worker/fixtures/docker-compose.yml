@@ -7,7 +7,7 @@ version: '2'
 
 services:
 
-  carl.router.agent.example.com:
+  router.agent.example.com:
     container_name: aries-js-worker-router.com
     image: ${E2E_AGENT_REST_IMAGE}:${E2E_AGENT_REST_IMAGE_TAG}
     environment:
@@ -23,4 +23,20 @@ services:
       - ${E2E_ROUTER_HTTP_INBOUND_PORT}:${E2E_ROUTER_HTTP_INBOUND_PORT}
       - ${E2E_ROUTER_WS_INBOUND_PORT}:${E2E_ROUTER_WS_INBOUND_PORT}
       - ${E2E_ROUTER_API_PORT}:${E2E_ROUTER_API_PORT}
+    command: start
+
+  user.agent.example.com:
+    container_name: aries-js-worker-user.com
+    image: ${E2E_AGENT_REST_IMAGE}:${E2E_AGENT_REST_IMAGE_TAG}
+    environment:
+      - ARIESD_API_HOST=${E2E_USER_HOST}:${E2E_USER_API_PORT}
+      - ARIESD_INBOUND_HOST=${E2E_HTTP_SCHEME}@${E2E_USER_HOST}:${E2E_USER_INBOUND_PORT}
+      - ARIESD_INBOUND_HOST_EXTERNAL=${E2E_HTTP_SCHEME}@http://localhost:${E2E_USER_INBOUND_PORT}
+      - ARIESD_DEFAULT_LABEL=user-agent
+      - ARIESD_DB_PATH=${E2E_USER_DB_PATH}
+      - ARIESD_AUTO_ACCEPT=${E2E_ROUTER_AUTOACCEPT}
+      - ARIESD_LOG_LEVEL=DEBUG
+    ports:
+      - ${E2E_USER_INBOUND_PORT}:${E2E_USER_INBOUND_PORT}
+      - ${E2E_USER_API_PORT}:${E2E_USER_API_PORT}
     command: start

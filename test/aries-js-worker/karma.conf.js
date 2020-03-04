@@ -32,6 +32,7 @@ module.exports = function(config) {
             {pattern: "test/**/*.js", type: "module"},
             {pattern: "public/aries-framework-go/assets/*", included: false},
             {pattern: "node_modules/@hyperledger/aries-framework-go/dist/web/*", type: "module"},
+            {pattern: "node_modules/@hyperledger/aries-framework-go/dist/rest/*", type: "module"},
             "node_modules/axios/dist/axios.min.js",
             {pattern: "test/common.js", included: false},
             {pattern: "test/environment.js", included: false},

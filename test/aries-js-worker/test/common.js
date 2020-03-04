@@ -5,6 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 export async function newAries(dbNS = '') {
+    await import('/base/node_modules/@hyperledger/aries-framework-go/dist/web/aries.js')
+
     return new Aries.Framework({
         assetsPath: "/base/public/aries-framework-go/assets",
         "agent-default-label": "dem-js-agent",
@@ -14,6 +16,15 @@ export async function newAries(dbNS = '') {
         "transport-return-route": "all",
         "log-level": "debug",
         "db-namespace": dbNS
+    })
+}
+
+export async function newAriesREST(controllerUrl) {
+    await import('/base/node_modules/@hyperledger/aries-framework-go/dist/rest/aries.js')
+
+    return new Aries.Framework({
+        assetsPath: "/base/public/aries-framework-go/assets",
+        "agent-rest-url": controllerUrl
     })
 }
 
