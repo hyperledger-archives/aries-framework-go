@@ -327,9 +327,17 @@ func TestRequestReceived_CanTransitionTo(t *testing.T) {
 
 func TestRequestReceived_ExecuteInbound(t *testing.T) {
 	followup, action, err := (&requestReceived{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &credentialIssued{}, followup)
+	require.NotNil(t, action)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+
+	require.NoError(t, action(messenger))
 }
 
 func TestRequestReceived_ExecuteOutbound(t *testing.T) {
@@ -361,9 +369,9 @@ func TestCredentialIssued_CanTransitionTo(t *testing.T) {
 
 func TestCredentialIssued_ExecuteInbound(t *testing.T) {
 	followup, action, err := (&credentialIssued{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
+	require.NoError(t, action(nil))
 }
 
 func TestCredentialIssued_ExecuteOutbound(t *testing.T) {
@@ -459,7 +467,7 @@ func TestOfferReceived_ExecuteInbound(t *testing.T) {
 	t.Run("correct data", func(t *testing.T) {
 		followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{})
 		require.NoError(t, err)
-		require.Equal(t, &noOp{}, followup)
+		require.Equal(t, &requestSent{}, followup)
 		require.NotNil(t, action)
 
 		ctrl := gomock.NewController(t)
@@ -501,16 +509,24 @@ func TestRequestSent_CanTransitionTo(t *testing.T) {
 
 func TestRequestSent_ExecuteInbound(t *testing.T) {
 	followup, action, err := (&requestSent{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
+	require.NoError(t, action(nil))
 }
 
 func TestRequestSent_ExecuteOutbound(t *testing.T) {
 	followup, action, err := (&requestSent{}).ExecuteOutbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
+	require.NotNil(t, action)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any())
+
+	require.NoError(t, action(messenger))
 }
 
 func TestCredentialReceived_CanTransitionTo(t *testing.T) {
@@ -535,9 +551,17 @@ func TestCredentialReceived_CanTransitionTo(t *testing.T) {
 
 func TestCredentialReceived_ExecuteInbound(t *testing.T) {
 	followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &done{}, followup)
+	require.NotNil(t, action)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+
+	require.NoError(t, action(messenger))
 }
 
 func TestCredentialReceived_ExecuteOutbound(t *testing.T) {

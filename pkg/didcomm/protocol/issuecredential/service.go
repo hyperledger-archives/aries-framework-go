@@ -334,10 +334,6 @@ func nextState(msg service.DIDCommMsg, outbound bool) (state, error) {
 
 		return &requestReceived{}, nil
 	case IssueCredentialMsgType:
-		if outbound {
-			return &credentialIssued{}, nil
-		}
-
 		return &credentialReceived{}, nil
 	case ProblemReportMsgType:
 		return &abandoning{}, nil

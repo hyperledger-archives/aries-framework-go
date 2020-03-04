@@ -117,6 +117,8 @@ func TestService_HandleInbound(t *testing.T) {
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
 				r := &model.ProblemReport{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, codeRejectedError, r.Description.Code)
@@ -128,7 +130,6 @@ func TestService_HandleInbound(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
-			defer close(done)
 
 			return nil
 		})
@@ -161,11 +162,20 @@ func TestService_HandleInbound(t *testing.T) {
 	t.Run("Receive Propose Credential Continue", func(t *testing.T) {
 		var done = make(chan struct{})
 
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
+				r := &OfferCredential{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, OfferCredentialMsgType, r.Type)
+
+				return nil
+			})
+
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "proposal-received", string(name))
-			defer close(done)
 
 			return nil
 		})
@@ -201,6 +211,8 @@ func TestService_HandleInbound(t *testing.T) {
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
 				r := &model.ProblemReport{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, codeRejectedError, r.Description.Code)
@@ -212,7 +224,6 @@ func TestService_HandleInbound(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
-			defer close(done)
 
 			return nil
 		})
@@ -247,6 +258,8 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
 				r := &ProposeCredential{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, ProposeCredentialMsgType, r.Type)
@@ -257,7 +270,6 @@ func TestService_HandleInbound(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "proposal-sent", string(name))
-			defer close(done)
 
 			return nil
 		})
@@ -292,6 +304,8 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
 				r := &ProposeCredential{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, RequestCredentialMsgType, r.Type)
@@ -301,8 +315,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
-			require.Equal(t, "offer-received", string(name))
-			defer close(done)
+			require.Equal(t, "request-sent", string(name))
 
 			return nil
 		})
@@ -315,6 +328,177 @@ func TestService_HandleInbound(t *testing.T) {
 
 		msg := service.NewDIDCommMsgMap(OfferCredential{
 			Type: OfferCredentialMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Request Credential Stop", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		messenger.EXPECT().
+			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
+				r := &model.ProblemReport{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, codeRejectedError, r.Description.Code)
+				require.Equal(t, ProblemReportMsgType, r.Type)
+
+				return nil
+			})
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "done", string(name))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		msg := service.NewDIDCommMsgMap(RequestCredential{
+			Type: RequestCredentialMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		(<-ch).Stop(nil)
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Request Credential Continue", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
+				r := &IssueCredential{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, IssueCredentialMsgType, r.Type)
+
+				return nil
+			})
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "credential-issued", string(name))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		msg := service.NewDIDCommMsgMap(RequestCredential{
+			Type: RequestCredentialMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		(<-ch).Continue(nil)
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Issue Credential", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
+				r := &model.Ack{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, AckMsgType, r.Type)
+
+				return nil
+			})
+
+		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "done", string(name))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		require.NoError(t, svc.RegisterActionEvent(make(chan service.DIDCommAction)))
+
+		msg := service.NewDIDCommMsgMap(IssueCredential{
+			Type: IssueCredentialMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Ack message", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		store.EXPECT().Get(gomock.Any()).Return([]byte("credential-issued"), nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			defer close(done)
+
+			require.Equal(t, "done", string(name))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		require.NoError(t, svc.RegisterActionEvent(make(chan service.DIDCommAction)))
+
+		msg := service.NewDIDCommMsgMap(model.Ack{
+			Type: AckMsgType,
 		})
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
@@ -392,7 +576,6 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "proposal-sent", string(name))
-			defer close(done)
 
 			return nil
 		})
@@ -404,7 +587,12 @@ func TestService_HandleOutbound(t *testing.T) {
 			Type: ProposeCredentialMsgType,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob)
+		messenger.EXPECT().Send(msg, Alice, Bob).
+			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
+				return nil
+			})
 
 		_, err = svc.HandleOutbound(msg, Alice, Bob)
 		require.NoError(t, err)
@@ -438,7 +626,6 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "offer-sent", string(name))
-			defer close(done)
 
 			return nil
 		})
@@ -450,7 +637,12 @@ func TestService_HandleOutbound(t *testing.T) {
 			Type: OfferCredentialMsgType,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob)
+		messenger.EXPECT().Send(msg, Alice, Bob).
+			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
+				return nil
+			})
 
 		_, err = svc.HandleOutbound(msg, Alice, Bob)
 		require.NoError(t, err)
@@ -477,6 +669,56 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		_, err = svc.HandleOutbound(msg, Alice, Bob)
 		require.Contains(t, fmt.Sprintf("%v", err), "action offer-sent: "+errMsg)
+	})
+
+	t.Run("Send Request Credential", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "request-sent", string(name))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		msg := service.NewDIDCommMsgMap(RequestCredential{
+			Type: RequestCredentialMsgType,
+		})
+
+		messenger.EXPECT().Send(msg, Alice, Bob).
+			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
+				return nil
+			})
+
+		_, err = svc.HandleOutbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Send Request with error", func(t *testing.T) {
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		msg := service.NewDIDCommMsgMap(RequestCredential{
+			Type: RequestCredentialMsgType,
+		})
+
+		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
+
+		_, err = svc.HandleOutbound(msg, Alice, Bob)
+		require.Contains(t, fmt.Sprintf("%v", err), "action request-sent: "+errMsg)
 	})
 }
 
@@ -531,12 +773,6 @@ func Test_nextState(t *testing.T) {
 	}), false)
 	require.NoError(t, err)
 	require.Equal(t, next, &requestReceived{})
-
-	next, err = nextState(service.NewDIDCommMsgMap(IssueCredential{
-		Type: IssueCredentialMsgType,
-	}), true)
-	require.NoError(t, err)
-	require.Equal(t, next, &credentialIssued{})
 
 	next, err = nextState(service.NewDIDCommMsgMap(IssueCredential{
 		Type: IssueCredentialMsgType,
