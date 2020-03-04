@@ -229,8 +229,16 @@ func (s *requestReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameCredentialIssued || st.Name() == stateNameAbandoning
 }
 
-func (s *requestReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+func (s *requestReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		// sets message type
+		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(IssueCredential{
+			Type: IssueCredentialMsgType,
+		}))
+	}
+
+	return &credentialIssued{}, action, nil
 }
 
 func (s *requestReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
@@ -249,7 +257,7 @@ func (s *credentialIssued) CanTransitionTo(st state) bool {
 }
 
 func (s *credentialIssued) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+	return &noOp{}, zeroAction, nil
 }
 
 func (s *credentialIssued) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
@@ -312,7 +320,7 @@ func (s *offerReceived) ExecuteInbound(md *metaData) (state, stateAction, error)
 		}))
 	}
 
-	return &noOp{}, action, nil
+	return &requestSent{}, action, nil
 }
 
 func (s *offerReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
@@ -331,11 +339,16 @@ func (s *requestSent) CanTransitionTo(st state) bool {
 }
 
 func (s *requestSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+	return &noOp{}, zeroAction, nil
 }
 
-func (s *requestSent) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
+func (s *requestSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
+	}
+
+	return &noOp{}, action, nil
 }
 
 // credentialReceived state
@@ -349,8 +362,15 @@ func (s *credentialReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameDone || st.Name() == stateNameAbandoning
 }
 
-func (s *credentialReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+func (s *credentialReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(model.Ack{
+			Type: AckMsgType,
+		}))
+	}
+
+	return &done{}, action, nil
 }
 
 func (s *credentialReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
