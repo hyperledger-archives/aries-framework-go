@@ -22,7 +22,7 @@ func TestNewPresentationFromLinkedDataProof(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	suite := ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey)))
+	suite := ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey)))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
@@ -57,7 +57,7 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		SignatureRepresentation: SignatureProofValue,
-		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
 	}
 
 	t.Run("Add a valid Linked Data proof to VC", func(t *testing.T) {
@@ -100,7 +100,7 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 
 		vp.RefreshService = nil
 		ldpContextWithMissingSignatureType := &LinkedDataProofContext{
-			Suite: ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privKey))),
+			Suite: ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
 		}
 
 		err = vp.AddLinkedDataProof(ldpContextWithMissingSignatureType)

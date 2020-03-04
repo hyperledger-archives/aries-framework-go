@@ -5,43 +5,24 @@ SPDX-License-Identifier: Apache-2.0
 
 package verifiable
 
-import (
-	"fmt"
-
-	"github.com/square/go-jose/v3/jwt"
-)
-
 // MarshalJWS serializes JWT presentation claims into signed form (JWS)
-// todo refactor, do not pass privateKey (https://github.com/hyperledger/aries-framework-go/issues/339)
-func (jpc *JWTPresClaims) MarshalJWS(signatureAlg JWSAlgorithm, privateKey interface{}, keyID string) (string, error) { //nolint:lll
-	return marshalJWS(jpc, signatureAlg, privateKey, keyID)
+func (jpc *JWTPresClaims) MarshalJWS(signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, error) {
+	return marshalJWS(jpc, signatureAlg, signer, keyID)
 }
 
-func decodeVPFromJWS(vpJWTBytes []byte, checkProof bool, fetcher PublicKeyFetcher) ([]byte, *rawPresentation, error) {
-	return decodePresJWT(vpJWTBytes, func(vpJWTBytes []byte) (*JWTPresClaims, error) {
-		return unmarshalPresJWSClaims(vpJWTBytes, checkProof, fetcher)
+func unmarshalPresJWSClaims(vpJWT string, checkProof bool, fetcher PublicKeyFetcher) (*JWTPresClaims, error) {
+	var claims JWTPresClaims
+
+	err := unmarshalJWS(vpJWT, checkProof, fetcher, &claims)
+	if err != nil {
+		return nil, err
+	}
+
+	return &claims, err
+}
+
+func decodeVPFromJWS(vpJWT string, checkProof bool, fetcher PublicKeyFetcher) ([]byte, *rawPresentation, error) {
+	return decodePresJWT(vpJWT, func(vpJWT string) (*JWTPresClaims, error) {
+		return unmarshalPresJWSClaims(vpJWT, checkProof, fetcher)
 	})
-}
-
-func unmarshalPresJWSClaims(jwtBytes []byte, checkProof bool, fetcher PublicKeyFetcher) (claims *JWTPresClaims, e error) { //nolint:lll
-	parsedJwt, err := jwt.ParseSigned(string(jwtBytes))
-	if err != nil {
-		return nil, fmt.Errorf("VP is not valid serialized JWS: %w", err)
-	}
-
-	credClaims := new(JWTPresClaims)
-
-	err = parsedJwt.UnsafeClaimsWithoutVerification(credClaims)
-	if err != nil {
-		return nil, fmt.Errorf("parse JWT claims: %w", err)
-	}
-
-	if checkProof {
-		err = verifyJWTSignature(parsedJwt, fetcher, credClaims.Issuer, credClaims)
-		if err != nil {
-			return nil, fmt.Errorf("JWT signature verification: %w", err)
-		}
-	}
-
-	return credClaims, nil
 }

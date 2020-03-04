@@ -6,7 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto"
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
@@ -164,18 +166,39 @@ func (vp *Presentation) stringJSON(t *testing.T) string {
 	return string(bytes)
 }
 
-func getSigner(privKey []byte) *testSigner {
-	return &testSigner{privateKey: privKey}
+func getEd25519TestSigner(privKey []byte) *ed25519TestSigner {
+	return &ed25519TestSigner{privateKey: privKey}
 }
 
-type testSigner struct {
+type ed25519TestSigner struct {
 	privateKey []byte
 }
 
-func (s *testSigner) Sign(doc []byte) ([]byte, error) {
+func (s *ed25519TestSigner) Sign(doc []byte) ([]byte, error) {
 	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
 		return nil, errors.New("ed25519: bad private key length")
 	}
 
 	return ed25519.Sign(s.privateKey, doc), nil
+}
+
+func getRS256TestSigner(privKey *rsa.PrivateKey) *rs256TestSigner {
+	return &rs256TestSigner{privKey: privKey}
+}
+
+type rs256TestSigner struct {
+	privKey *rsa.PrivateKey
+}
+
+func (s rs256TestSigner) Sign(data []byte) ([]byte, error) {
+	hash := crypto.SHA256.New()
+
+	_, err := hash.Write(data)
+	if err != nil {
+		return nil, err
+	}
+
+	hashed := hash.Sum(nil)
+
+	return rsa.SignPKCS1v15(rand.Reader, s.privKey, crypto.SHA256, hashed)
 }

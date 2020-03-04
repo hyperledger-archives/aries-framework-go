@@ -12,6 +12,8 @@ To run VC Test Suite, execute `make vc-test-suite`.
 package main
 
 import (
+	"crypto"
+	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
@@ -55,7 +57,7 @@ func main() {
 		return
 	}
 
-	privateKey, publicKey := parseKeys(*jwt)
+	privateKey, publicKey := parseRsaKeys(*jwt)
 
 	if *jwtDecode {
 		decodeVCJWTToJSON(vcBytes, publicKey)
@@ -74,7 +76,7 @@ func main() {
 	}
 }
 
-func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
+func encodeVCToJWS(vcBytes []byte, privateKey *rsa.PrivateKey) {
 	credential, _, err := verifiable.NewCredential(vcBytes, verifiable.WithNoProofCheck())
 	if err != nil {
 		abort("failed to decode credential: %v", err)
@@ -85,7 +87,7 @@ func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
 		abort("verifiable credential encoding to JWS failed: %v", err)
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, privateKey, "any")
+	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, getRsaSigner(privateKey), "any")
 	if err != nil {
 		abort("failed to serialize JWS: %v", err)
 	}
@@ -93,7 +95,7 @@ func encodeVCToJWS(vcBytes []byte, privateKey interface{}) {
 	fmt.Println(jws)
 }
 
-func encodeVPToJWS(vpBytes []byte, audience string, privateKey, publicKey interface{}) {
+func encodeVPToJWS(vpBytes []byte, audience string, privateKey *rsa.PrivateKey, publicKey *rsa.PublicKey) {
 	vp, err := verifiable.NewPresentation(vpBytes,
 		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
 		verifiable.WithPresNoProofCheck(),
@@ -108,7 +110,7 @@ func encodeVPToJWS(vpBytes []byte, audience string, privateKey, publicKey interf
 		abort("failed to build JWT claims: %v", err)
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, privateKey, "any")
+	jws, err := jwtClaims.MarshalJWS(verifiable.RS256, getRsaSigner(privateKey), "any")
 	if err != nil {
 		abort("failed to serialize JWS: %v", err)
 	}
@@ -153,7 +155,7 @@ func decodeVCJWTToJSON(vcBytes []byte, publicKey interface{}) {
 	fmt.Println(string(jsonBytes))
 }
 
-func parseKeys(packedKeys string) (private, public interface{}) {
+func parseRsaKeys(packedKeys string) (private *rsa.PrivateKey, public *rsa.PublicKey) {
 	// there are several JWKs which are based64
 	decodedJwt, err := base64.StdEncoding.DecodeString(packedKeys)
 	if err != nil {
@@ -230,6 +232,27 @@ func encodeVPToJSON(vcBytes []byte) {
 	}
 
 	fmt.Println(string(encoded))
+}
+
+func getRsaSigner(privKey *rsa.PrivateKey) *rsaSigner {
+	return &rsaSigner{privateKey: privKey}
+}
+
+type rsaSigner struct {
+	privateKey *rsa.PrivateKey
+}
+
+func (s *rsaSigner) Sign(data []byte) ([]byte, error) {
+	hash := crypto.SHA256.New()
+
+	_, err := hash.Write(data)
+	if err != nil {
+		return nil, err
+	}
+
+	hashed := hash.Sum(nil)
+
+	return rsa.SignPKCS1v15(rand.Reader, s.privateKey, crypto.SHA256, hashed)
 }
 
 func abort(msg string, args ...interface{}) {

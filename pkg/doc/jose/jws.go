@@ -143,11 +143,12 @@ type Signer interface {
 
 // NewJWS creates JSON Web Signature.
 func NewJWS(protectedHeaders, unprotectedHeaders Headers, payload []byte, signer Signer) (*JSONWebSignature, error) {
+	headers := mergeHeaders(protectedHeaders, signer.Headers())
 	jws := &JSONWebSignature{
-		ProtectedHeaders:   protectedHeaders,
+		ProtectedHeaders:   headers,
 		UnprotectedHeaders: unprotectedHeaders,
 		Payload:            payload,
-		joseHeaders:        mergeHeaders(protectedHeaders, signer.Headers()),
+		joseHeaders:        headers,
 	}
 
 	signature, err := sign(jws.joseHeaders, payload, signer)

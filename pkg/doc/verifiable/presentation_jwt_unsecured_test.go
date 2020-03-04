@@ -10,6 +10,8 @@ import (
 
 	"github.com/square/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
 
 func TestJWTPresClaims_MarshalUnsecuredJWT(t *testing.T) {
@@ -18,7 +20,7 @@ func TestJWTPresClaims_MarshalUnsecuredJWT(t *testing.T) {
 
 	jws := createCredUnsecuredJWT(t, vp)
 
-	_, rawVC, err := decodeVPFromUnsecuredJWT([]byte(jws))
+	_, rawVC, err := decodeVPFromUnsecuredJWT(jws)
 
 	require.NoError(t, err)
 	require.Equal(t, vp.stringJSON(t), rawVC.stringJSON(t))
@@ -31,14 +33,14 @@ func TestDecodeVPFromUnsecuredJWT(t *testing.T) {
 
 		jws := createCredUnsecuredJWT(t, vp)
 
-		vpDecodedBytes, vpRaw, err := decodeVPFromUnsecuredJWT([]byte(jws))
+		vpDecodedBytes, vpRaw, err := decodeVPFromUnsecuredJWT(jws)
 		require.NoError(t, err)
 		require.NotNil(t, vpDecodedBytes)
 		require.Equal(t, vp.stringJSON(t), vpRaw.stringJSON(t))
 	})
 
 	t.Run("Invalid serialized unsecured JWT", func(t *testing.T) {
-		vpBytes, vpRaw, err := decodeVPFromUnsecuredJWT([]byte("invalid JWS"))
+		vpBytes, vpRaw, err := decodeVPFromUnsecuredJWT("invalid JWS")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "decode Verifiable Presentation JWT claims")
 		require.Nil(t, vpBytes)
@@ -51,12 +53,12 @@ func TestDecodeVPFromUnsecuredJWT(t *testing.T) {
 			Presentation: 55, // "vp" claim of invalid format
 		}
 
-		rawJWT, err := marshalUnsecuredJWT(map[string]string{}, claims)
+		rawJWT, err := marshalUnsecuredJWT(jose.Headers{}, claims)
 		require.NoError(t, err)
 
-		vpBytes, vpRaw, err := decodeVPFromUnsecuredJWT([]byte(rawJWT))
+		vpBytes, vpRaw, err := decodeVPFromUnsecuredJWT(rawJWT)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "decode Verifiable Presentation JWT claims: parse JWT claims")
+		require.Contains(t, err.Error(), "decode Verifiable Presentation JWT claims")
 		require.Nil(t, vpBytes)
 		require.Nil(t, vpRaw)
 	})

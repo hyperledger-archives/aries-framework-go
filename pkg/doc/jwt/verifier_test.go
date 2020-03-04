@@ -20,13 +20,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
 
-type testKeyResolver struct {
-	pubKey interface{}
-	err    error
-}
-
-func (r testKeyResolver) Resolve(_, _ string) (interface{}, error) {
-	return r.pubKey, r.err
+func getTestKeyResolver(pubKey interface{}, err error) KeyResolver {
+	return KeyResolverFunc(func(string, string) (interface{}, error) {
+		return pubKey, err
+	})
 }
 
 func TestNewVerifier(t *testing.T) {
@@ -38,12 +35,12 @@ func TestNewVerifier(t *testing.T) {
 
 		signer := newEd25519Signer(privKey)
 
-		token, err := New(&Claims{Issuer: "Mike"})
+		token, err := NewSigned(&Claims{Issuer: "Mike"}, nil, signer)
 		r.NoError(err)
-		jws, err := token.SerializeSigned(signer, false)
+		jws, err := token.Serialize(false)
 		r.NoError(err)
 
-		verifier := NewVerifier(&testKeyResolver{pubKey: pubKey})
+		verifier := NewVerifier(getTestKeyResolver(pubKey, nil))
 		_, err = jose.ParseJWS(jws, verifier)
 		r.NoError(err)
 	})
@@ -56,12 +53,12 @@ func TestNewVerifier(t *testing.T) {
 
 		signer := newRS256Signer(privKey, nil)
 
-		token, err := New(&Claims{Issuer: "Mike"})
+		token, err := NewSigned(&Claims{Issuer: "Mike"}, nil, signer)
 		r.NoError(err)
-		jws, err := token.SerializeSigned(signer, false)
+		jws, err := token.Serialize(false)
 		r.NoError(err)
 
-		verifier := NewVerifier(&testKeyResolver{pubKey: pubKey})
+		verifier := NewVerifier(getTestKeyResolver(pubKey, nil))
 		_, err = jose.ParseJWS(jws, verifier)
 		r.NoError(err)
 	})
@@ -73,7 +70,7 @@ func TestBasicVerifier_Verify(t *testing.T) { // error corner cases
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	verifier := NewVerifier(&testKeyResolver{pubKey: pubKey})
+	verifier := NewVerifier(getTestKeyResolver(pubKey, nil))
 
 	validHeaders := map[string]interface{}{
 		"alg": "EdDSA",
@@ -102,7 +99,7 @@ func TestBasicVerifier_Verify(t *testing.T) { // error corner cases
 	r.NoError(err)
 
 	// key resolver error
-	verifier = NewVerifier(&testKeyResolver{err: errors.New("failed to resolve public key")})
+	verifier = NewVerifier(getTestKeyResolver(nil, errors.New("failed to resolve public key")))
 	err = verifier.Verify(validHeaders, validClaims, nil, nil)
 	r.Error(err)
 	r.Contains(err.Error(), "failed to resolve public key")

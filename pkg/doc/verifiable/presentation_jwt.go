@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/square/go-jose/v3/jwt"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 )
 
 // JWTPresClaims is JWT Claims extension by Verifiable Presentation (with custom "vp" claim).
@@ -69,12 +69,12 @@ func newJWTPresClaims(vp *Presentation, audience []string, minimizeVP bool) (*JW
 }
 
 // JWTPresClaimsUnmarshaller parses JWT of certain type to JWT Claims containing "vp" (Presentation) claim.
-type JWTPresClaimsUnmarshaller func(vpJWTBytes []byte) (*JWTPresClaims, error)
+type JWTPresClaimsUnmarshaller func(vpJWT string) (*JWTPresClaims, error)
 
 // decodePresJWT parses JWT from the specified bytes array in compact format using the unmarshaller.
 // It returns decoded Verifiable Presentation refined by JWT Claims in raw byte array and rawPresentation form.
-func decodePresJWT(vpJWTBytes []byte, unmarshaller JWTPresClaimsUnmarshaller) ([]byte, *rawPresentation, error) {
-	presClaims, err := unmarshaller(vpJWTBytes)
+func decodePresJWT(vpJWT string, unmarshaller JWTPresClaimsUnmarshaller) ([]byte, *rawPresentation, error) {
+	presClaims, err := unmarshaller(vpJWT)
 	if err != nil {
 		return nil, nil, fmt.Errorf("decode Verifiable Presentation JWT claims: %w", err)
 	}

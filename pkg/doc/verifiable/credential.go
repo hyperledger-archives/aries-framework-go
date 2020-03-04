@@ -18,6 +18,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 )
 
 //go:generate testdata/scripts/openssl_env.sh testdata/scripts/generate_test_keys.sh
@@ -918,12 +919,14 @@ func decodeTypedID(bytes json.RawMessage) ([]TypedID, error) {
 }
 
 func decodeRaw(vcData []byte, vcOpts *credentialOpts) ([]byte, error) {
-	if isJWS(vcData) { // External proof, is checked by JWS.
+	vcStr := string(vcData)
+
+	if jwt.IsJWS(vcStr) { // External proof, is checked by JWS.
 		if vcOpts.publicKeyFetcher == nil && !vcOpts.disabledProofCheck {
 			return nil, errors.New("public key fetcher is not defined")
 		}
 
-		vcDecodedBytes, err := decodeCredJWS(vcData, !vcOpts.disabledProofCheck, vcOpts.publicKeyFetcher)
+		vcDecodedBytes, err := decodeCredJWS(vcStr, !vcOpts.disabledProofCheck, vcOpts.publicKeyFetcher)
 		if err != nil {
 			return nil, fmt.Errorf("JWS decoding: %w", err)
 		}
@@ -931,8 +934,8 @@ func decodeRaw(vcData []byte, vcOpts *credentialOpts) ([]byte, error) {
 		return vcDecodedBytes, nil
 	}
 
-	if isJWTUnsecured(vcData) { // Embedded proof.
-		vcDecodedBytes, err := decodeCredJWTUnsecured(vcData)
+	if jwt.IsJWTUnsecured(vcStr) { // Embedded proof.
+		vcDecodedBytes, err := decodeCredJWTUnsecured(vcStr)
 		if err != nil {
 			return nil, fmt.Errorf("unsecured JWT decoding: %w", err)
 		}

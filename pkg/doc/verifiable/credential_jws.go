@@ -5,43 +5,24 @@ SPDX-License-Identifier: Apache-2.0
 
 package verifiable
 
-import (
-	"fmt"
-
-	"github.com/square/go-jose/v3/jwt"
-)
-
 // MarshalJWS serializes JWT into signed form (JWS)
-// todo refactor, do not pass privateKey (https://github.com/hyperledger/aries-framework-go/issues/339)
-func (jcc *JWTCredClaims) MarshalJWS(signatureAlg JWSAlgorithm, privateKey interface{}, keyID string) (string, error) { //nolint:lll
-	return marshalJWS(jcc, signatureAlg, privateKey, keyID)
+func (jcc *JWTCredClaims) MarshalJWS(signatureAlg JWSAlgorithm, signer Signer, keyID string) (string, error) {
+	return marshalJWS(jcc, signatureAlg, signer, keyID)
 }
 
-func unmarshalJWSClaims(rawJwt []byte, checkProof bool, fetcher PublicKeyFetcher) (*JWTCredClaims, error) {
-	parsedJwt, err := jwt.ParseSigned(string(rawJwt))
+func unmarshalJWSClaims(rawJwt string, checkProof bool, fetcher PublicKeyFetcher) (*JWTCredClaims, error) {
+	var claims JWTCredClaims
+
+	err := unmarshalJWS(rawJwt, checkProof, fetcher, &claims)
 	if err != nil {
-		return nil, fmt.Errorf("parse VC from signed JWS: %w", err)
+		return nil, err
 	}
 
-	credClaims := new(JWTCredClaims)
-
-	err = parsedJwt.UnsafeClaimsWithoutVerification(credClaims)
-	if err != nil {
-		return nil, fmt.Errorf("parse VC JWT claims: %w", err)
-	}
-
-	if checkProof {
-		err = verifyJWTSignature(parsedJwt, fetcher, credClaims.Issuer, credClaims)
-		if err != nil {
-			return nil, fmt.Errorf("VC JWT signature verification: %w", err)
-		}
-	}
-
-	return credClaims, nil
+	return &claims, err
 }
 
-func decodeCredJWS(rawJwt []byte, checkProof bool, fetcher PublicKeyFetcher) ([]byte, error) {
-	return decodeCredJWT(rawJwt, func(vcJWTBytes []byte) (*JWTCredClaims, error) {
+func decodeCredJWS(rawJwt string, checkProof bool, fetcher PublicKeyFetcher) ([]byte, error) {
+	return decodeCredJWT(rawJwt, func(vcJWTBytes string) (*JWTCredClaims, error) {
 		return unmarshalJWSClaims(rawJwt, checkProof, fetcher)
 	})
 }

@@ -12,8 +12,9 @@ To run VC Test Suite, execute `make vc-test-suite`.
 package verifiable
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestWithNoProofCheck(t *testing.T) {

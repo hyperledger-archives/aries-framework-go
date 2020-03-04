@@ -6,159 +6,37 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
 
-// nolint:gochecknoglobals
-var (
-	joseHeaders   = map[string]string{"alg": "none"}
-	jwtClaims     = map[string]interface{}{"sub": "user123", "productIds": []int{1, 2}}
-	jwtSerialized = "eyJhbGciOiJub25lIn0.eyJwcm9kdWN0SWRzIjpbMSwyXSwic3ViIjoidXNlcjEyMyJ9."
-)
+func TestUnsecuredJWT(t *testing.T) {
+	headers := jose.Headers{"alg": "none"}
+	claims := map[string]interface{}{"sub": "user123", "productIds": []interface{}{1., 2.}}
 
-func TestMarshalUnsecuredJWT(t *testing.T) {
-	t.Run("serialize unsecured JWT", func(t *testing.T) {
-		unsecuredJWT, err := marshalUnsecuredJWT(joseHeaders, jwtClaims)
-		require.NoError(t, err)
-		require.Equal(t, jwtSerialized, unsecuredJWT)
-	})
+	serializedJWT, err := marshalUnsecuredJWT(headers, claims)
+	require.NoError(t, err)
+	require.NotEmpty(t, serializedJWT)
 
-	t.Run("incorrect JWT payload", func(t *testing.T) {
-		unmarshallable := make(chan bool)
-
-		jwt, err := marshalUnsecuredJWT(joseHeaders, unmarshallable)
-		require.Error(t, err)
-		require.Empty(t, jwt)
-	})
-}
-
-func TestUnmarshalUnsecuredJWT(t *testing.T) {
-	jwtClaimsBytes, serError := json.Marshal(jwtClaims)
-	require.NoError(t, serError)
-
-	notBase64 := "[not base64]"
-	notJSON := base64.RawURLEncoding.EncodeToString([]byte("Not JSON!"))
-
-	t.Run("decodes unsecured JWT", func(t *testing.T) {
-		decodedHeaders, decodedClaims, err := unmarshalUnsecuredJWT([]byte(jwtSerialized))
-		require.NoError(t, err)
-		require.Equal(t, joseHeaders, decodedHeaders)
-		require.Equal(t, jwtClaimsBytes, decodedClaims)
-	})
-
-	t.Run("rejects serialized JWT of invalid format", func(t *testing.T) {
-		headers, claims, err := unmarshalUnsecuredJWT([]byte("invalid JWT"))
-		require.EqualError(t, err, "JWT format must have three parts")
-		require.Nil(t, headers)
-		require.Nil(t, claims)
-	})
-
-	t.Run("rejects signed JWT", func(t *testing.T) {
-		headers, claims, err := unmarshalUnsecuredJWT([]byte("headers.payload.signature"))
-		require.EqualError(t, err, "unsecured JWT must have empty signature part")
-		require.Nil(t, headers)
-		require.Nil(t, claims)
-	})
-
-	t.Run("rejects serialized JWT headers not in base64 format", func(t *testing.T) {
-		invalidJWT := fmt.Sprintf("%s.eyJwcm9kdWN0SWRzIjpbMSwyXSwic3ViIjoidXNlcjEyMyJ9.", notBase64)
-		headers, claims, err := unmarshalUnsecuredJWT([]byte(invalidJWT))
-		require.Error(t, err)
-		require.Nil(t, headers)
-		require.Nil(t, claims)
-	})
-
-	t.Run("rejects JWT headers which are not JSON", func(t *testing.T) {
-		invalidJWT := fmt.Sprintf("%s.eyJwcm9kdWN0SWRzIjpbMSwyXSwic3ViIjoidXNlcjEyMyJ9.", notJSON)
-		headers, claims, err := unmarshalUnsecuredJWT([]byte(invalidJWT))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal JSON-based JOSE headers")
-		require.Nil(t, headers)
-		require.Nil(t, claims)
-	})
-
-	t.Run("rejects serialized JWT claims not in base64 format", func(t *testing.T) {
-		invalidJWT := fmt.Sprintf("eyJhbGciOiJub25lIn0.%s.", notBase64)
-		headers, claims, err := unmarshalUnsecuredJWT([]byte(invalidJWT))
-		require.Error(t, err)
-		require.Nil(t, headers)
-		require.Nil(t, claims)
-	})
-
-	t.Run("rejects JWT claims which are not JSON", func(t *testing.T) {
-		invalidJWT := fmt.Sprintf("eyJhbGciOiJub25lIn0.%s.", notJSON)
-		headers, claims, err := unmarshalUnsecuredJWT([]byte(invalidJWT))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal JSON-based JWT claims")
-		require.Nil(t, headers)
-		require.Nil(t, claims)
-	})
-}
-
-func Test_isJWTUnsecured(t *testing.T) {
-	b64 := base64.RawURLEncoding.EncodeToString([]byte("not json"))
-	j, err := json.Marshal(map[string]string{"alg": "none"})
+	var claimsParsed map[string]interface{}
+	err = unmarshalUnsecuredJWT(serializedJWT, &claimsParsed)
 	require.NoError(t, err)
 
-	jb64 := base64.RawURLEncoding.EncodeToString(j)
+	require.Equal(t, claims, claimsParsed)
 
-	type args struct {
-		data []byte
-	}
+	// marshal with invalid claims
+	invalidClaims := map[string]interface{}{"error": map[chan int]interface{}{make(chan int): 6}}
+	serializedJWT, err = marshalUnsecuredJWT(headers, invalidClaims)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "marshal unsecured JWT")
+	require.Empty(t, serializedJWT)
 
-	tests := []struct {
-		name string
-		args args
-		want bool
-	}{
-		{
-			name: "two parts only",
-			args: args{[]byte("two parts.only")},
-			want: false,
-		},
-		{
-			name: "not empty third part",
-			args: args{[]byte("third.part.not-empty")},
-			want: false,
-		},
-		{
-			name: "part 1 is not base64 decoded",
-			args: args{[]byte("not base64.part2.part3")},
-			want: false,
-		},
-		{
-			name: "part 1 is not JSON",
-			args: args{[]byte(fmt.Sprintf("%s.part2.part3", b64))},
-			want: false,
-		},
-		{
-			name: "part 2 is not base64 decoded",
-			args: args{[]byte(fmt.Sprintf("%s.not base64.part3", jb64))},
-			want: false,
-		},
-		{
-			name: "part 2 is not JSON",
-			args: args{[]byte(fmt.Sprintf("%s.%s.part3", jb64, b64))},
-			want: false,
-		},
-		{
-			name: "is JWT unsecured",
-			args: args{[]byte(fmt.Sprintf("%s.%s.", jb64, jb64))},
-			want: true,
-		},
-	}
-
-	for i := range tests {
-		tt := tests[i]
-		t.Run(tt.name, func(t *testing.T) {
-			if got := isJWTUnsecured(tt.args.data); got != tt.want {
-				t.Errorf("isJWTUnsecured() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	// unmarshal invalid JWT
+	err = unmarshalUnsecuredJWT("not a valid compact serialized JWT", &claimsParsed)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "marshal unsecured JWT")
+	require.Empty(t, serializedJWT)
 }

@@ -14,5 +14,5 @@ Feature: Issue Verifiable Credential
 
   @issue_vc_jws
   Scenario: Issue University Degree Credential with JWS proof
-    When "Stanford University" issues credential at "2018-03-15" regarding "Bachelor Degree" to "Alice" with "JWS" proof
-    Then "Alice" receives the credential and verifies it
+    When "Berkley" issues credential at "2019-03-15" regarding "Master Degree" to "Bob" with "JWS" proof
+    Then "Bob" receives the credential and verifies it

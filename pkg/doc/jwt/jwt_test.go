@@ -29,24 +29,8 @@ type CustomClaim struct {
 	PrivateClaim1 string `json:"privateClaim1,omitempty"`
 }
 
-func TestNew(t *testing.T) {
-	issued := time.Date(2020, time.January, 1, 0, 0, 0, 0, time.UTC)
-	expiry := time.Date(2022, time.January, 1, 0, 0, 0, 0, time.UTC)
-	notBefore := time.Date(2021, time.January, 1, 0, 0, 0, 0, time.UTC)
-
-	claims := &CustomClaim{
-		Claims: &Claims{
-			Issuer:    "iss",
-			Subject:   "sub",
-			Audience:  []string{"aud"},
-			Expiry:    jwt.NewNumericDate(expiry),
-			NotBefore: jwt.NewNumericDate(notBefore),
-			IssuedAt:  jwt.NewNumericDate(issued),
-			ID:        "id",
-		},
-
-		PrivateClaim1: "private claim",
-	}
+func TestNewSigned(t *testing.T) {
+	claims := createClaims()
 
 	t.Run("Create JWS signed by EdDSA", func(t *testing.T) {
 		r := require.New(t)
@@ -54,9 +38,9 @@ func TestNew(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		r.NoError(err)
 
-		token, err := New(claims)
+		token, err := NewSigned(claims, nil, newEd25519Signer(privKey))
 		r.NoError(err)
-		jws, err := token.SerializeSigned(newEd25519Signer(privKey), false)
+		jws, err := token.Serialize(false)
 		require.NoError(t, err)
 
 		var parsedClaims CustomClaim
@@ -76,9 +60,9 @@ func TestNew(t *testing.T) {
 
 		pubKey := &privKey.PublicKey
 
-		token, err := New(claims)
+		token, err := NewSigned(claims, nil, newRS256Signer(privKey, nil))
 		r.NoError(err)
-		jws, err := token.SerializeSigned(newRS256Signer(privKey, nil), false)
+		jws, err := token.Serialize(false)
 		require.NoError(t, err)
 
 		var parsedClaims CustomClaim
@@ -89,13 +73,17 @@ func TestNew(t *testing.T) {
 		err = verifyRS256(jws, pubKey)
 		r.NoError(err)
 	})
+}
+
+func TestNewUnsecured(t *testing.T) {
+	claims := createClaims()
 
 	t.Run("Create unsecured JWT", func(t *testing.T) {
 		r := require.New(t)
 
-		token, err := New(claims)
+		token, err := NewUnsecured(claims, map[string]interface{}{"custom": "ok"})
 		r.NoError(err)
-		jwtUnsecured, err := token.SerializeUnsecured(map[string]interface{}{"custom": "ok"}, false)
+		jwtUnsecured, err := token.Serialize(false)
 		r.NoError(err)
 		r.NotEmpty(jwtUnsecured)
 
@@ -110,9 +98,20 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("Invalid claims", func(t *testing.T) {
-		token, err := New("not JSON claims")
+		token, err := NewUnsecured("not JSON claims", nil)
 		require.Error(t, err)
 		require.Nil(t, token)
+		require.Contains(t, err.Error(), "unmarshallable claims")
+
+		token, err = NewUnsecured(getUnmarshallableMap(), nil)
+		require.Error(t, err)
+		require.Nil(t, token)
+		require.Contains(t, err.Error(), "marshal JWT claims")
+
+		token, err = NewUnsecured(claims, getUnmarshallableMap())
+		require.Error(t, err)
+		require.Nil(t, token)
+		require.Contains(t, err.Error(), "create JWS")
 	})
 }
 
@@ -134,9 +133,9 @@ func TestParse(t *testing.T) {
 	signer := newEd25519Signer(privKey)
 	claims := map[string]interface{}{"iss": "Albert"}
 
-	token, err := New(claims)
+	token, err := NewSigned(claims, nil, signer)
 	r.NoError(err)
-	jws, err := token.SerializeSigned(signer, false)
+	jws, err := token.Serialize(false)
 	r.NoError(err)
 
 	verifier, err := newEd25519Verifier(pubKey)
@@ -217,11 +216,12 @@ func buildJWS(signer jose.Signer, claims interface{}) (string, error) {
 }
 
 func TestJSONWebToken_DecodeClaims(t *testing.T) {
-	token := getValidJSONWebToken()
+	token, err := getValidJSONWebToken()
+	require.NoError(t, err)
 
 	var tokensMap map[string]interface{}
 
-	err := token.DecodeClaims(&tokensMap)
+	err = token.DecodeClaims(&tokensMap)
 	require.NoError(t, err)
 	require.Equal(t, map[string]interface{}{"iss": "Albert"}, tokensMap)
 
@@ -231,12 +231,16 @@ func TestJSONWebToken_DecodeClaims(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, Claims{Issuer: "Albert"}, claims)
 
-	err = getJSONWebTokenWithInvalidPayload().DecodeClaims(&claims)
+	token, err = getJSONWebTokenWithInvalidPayload()
+	require.NoError(t, err)
+
+	err = token.DecodeClaims(&claims)
 	require.Error(t, err)
 }
 
 func TestJSONWebToken_LookupStringHeader(t *testing.T) {
-	token := getValidJSONWebToken()
+	token, err := getValidJSONWebToken()
+	require.NoError(t, err)
 
 	require.Equal(t, "JWT", token.LookupStringHeader("typ"))
 
@@ -246,39 +250,20 @@ func TestJSONWebToken_LookupStringHeader(t *testing.T) {
 	require.Empty(t, token.LookupStringHeader("not_str"))
 }
 
-func TestJSONWebToken_SerializeSigned(t *testing.T) {
-	token := getValidJSONWebToken()
-
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
+func TestJSONWebToken_Serialize(t *testing.T) {
+	token, err := getValidJSONWebToken()
 	require.NoError(t, err)
 
-	signer := newEd25519Signer(privKey)
-
-	jws, err := token.SerializeSigned(signer, false)
+	tokenSerialized, err := token.Serialize(false)
 	require.NoError(t, err)
-	require.NotEmpty(t, jws)
+	require.NotEmpty(t, tokenSerialized)
 
-	// unmarshallable claims case
-	token = getJSONWebTokenWithInvalidPayload()
-	jws, err = token.SerializeSigned(signer, false)
+	// cannot serialize without signature
+	token.jws = nil
+	tokenSerialized, err = token.Serialize(false)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "marshal JWT claims")
-	require.Empty(t, jws)
-}
-
-func TestJSONWebToken_SerializeUnsecured(t *testing.T) {
-	token := getValidJSONWebToken()
-
-	jws, err := token.SerializeUnsecured(nil, false)
-	require.NoError(t, err)
-	require.NotEmpty(t, jws)
-
-	// unmarshallable claims case
-	token = getJSONWebTokenWithInvalidPayload()
-	jws, err = token.SerializeUnsecured(nil, false)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "marshal JWT claims")
-	require.Empty(t, jws)
+	require.EqualError(t, err, "JWS serialization is supported only")
+	require.Empty(t, tokenSerialized)
 }
 
 func TestUnsecuredJWTVerifier(t *testing.T) {
@@ -298,6 +283,132 @@ func TestUnsecuredJWTVerifier(t *testing.T) {
 	err = verifier.Verify(map[string]interface{}{"alg": "none"}, nil, nil, []byte("unexpected signature"))
 	require.Error(t, err)
 	require.EqualError(t, err, "not empty signature")
+}
+
+func Test_IsJWS(t *testing.T) {
+	b64 := base64.RawURLEncoding.EncodeToString([]byte("not json"))
+	j, err := json.Marshal(map[string]string{"alg": "none"})
+	require.NoError(t, err)
+
+	jb64 := base64.RawURLEncoding.EncodeToString(j)
+
+	type args struct {
+		data string
+	}
+
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "two parts only",
+			args: args{"two parts.only"},
+			want: false,
+		},
+		{
+			name: "empty third part",
+			args: args{"empty third.part."},
+			want: false,
+		},
+		{
+			name: "part 1 is not base64 decoded",
+			args: args{"not base64.part2.part3"},
+			want: false,
+		},
+		{
+			name: "part 1 is not JSON",
+			args: args{fmt.Sprintf("%s.part2.part3", b64)},
+			want: false,
+		},
+		{
+			name: "part 2 is not base64 decoded",
+			args: args{fmt.Sprintf("%s.not base64.part3", jb64)},
+			want: false,
+		},
+		{
+			name: "part 2 is not JSON",
+			args: args{fmt.Sprintf("%s.%s.part3", jb64, b64)},
+			want: false,
+		},
+		{
+			name: "is JWS",
+			args: args{fmt.Sprintf("%s.%s.signature", jb64, jb64)},
+			want: true,
+		},
+	}
+
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsJWS(tt.args.data); got != tt.want {
+				t.Errorf("isJWS() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_IsJWTUnsecured(t *testing.T) {
+	b64 := base64.RawURLEncoding.EncodeToString([]byte("not json"))
+	j, err := json.Marshal(map[string]string{"alg": "none"})
+	require.NoError(t, err)
+
+	jb64 := base64.RawURLEncoding.EncodeToString(j)
+
+	type args struct {
+		data string
+	}
+
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "two parts only",
+			args: args{"two parts.only"},
+			want: false,
+		},
+		{
+			name: "not empty third part",
+			args: args{"third.part.not-empty"},
+			want: false,
+		},
+		{
+			name: "part 1 is not base64 decoded",
+			args: args{"not base64.part2.part3"},
+			want: false,
+		},
+		{
+			name: "part 1 is not JSON",
+			args: args{fmt.Sprintf("%s.part2.part3", b64)},
+			want: false,
+		},
+		{
+			name: "part 2 is not base64 decoded",
+			args: args{fmt.Sprintf("%s.not base64.part3", jb64)},
+			want: false,
+		},
+		{
+			name: "part 2 is not JSON",
+			args: args{fmt.Sprintf("%s.%s.part3", jb64, b64)},
+			want: false,
+		},
+		{
+			name: "is JWT unsecured",
+			args: args{fmt.Sprintf("%s.%s.", jb64, jb64)},
+			want: true,
+		},
+	}
+
+	for i := range tests {
+		tt := tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsJWTUnsecured(tt.args.data); got != tt.want {
+				t.Errorf("isJWTUnsecured() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 type testToMapStruct struct {
@@ -346,19 +457,30 @@ func Test_toMap(t *testing.T) {
 	r.Nil(resultMap)
 }
 
-func getValidJSONWebToken() *JSONWebToken {
-	return &JSONWebToken{
-		Headers:   map[string]interface{}{"typ": "JWT", "alg": "EdDSA"},
-		Payload:   map[string]interface{}{"iss": "Albert"},
-		signature: []byte("signature"),
+func getValidJSONWebToken() (*JSONWebToken, error) {
+	headers := map[string]interface{}{"typ": "JWT", "alg": "EdDSA"}
+	claims := map[string]interface{}{"iss": "Albert"}
+
+	_, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
 	}
+
+	signer := newEd25519Signer(privKey)
+
+	return NewSigned(claims, headers, signer)
 }
 
-func getJSONWebTokenWithInvalidPayload() *JSONWebToken {
-	return &JSONWebToken{
-		Headers:   map[string]interface{}{"typ": "JWT", "alg": "EdDSA"},
-		Payload:   getUnmarshallableMap(),
-		signature: []byte("signature")}
+func getJSONWebTokenWithInvalidPayload() (*JSONWebToken, error) {
+	token, err := getValidJSONWebToken()
+	if err != nil {
+		return nil, err
+	}
+
+	// hack the token
+	token.Payload = getUnmarshallableMap()
+
+	return token, nil
 }
 
 func verifyEd25519ViaGoJose(jws string, pubKey ed25519.PublicKey, claims interface{}) error {
@@ -389,4 +511,24 @@ func verifyRS256ViaGoJose(jws string, pubKey *rsa.PublicKey, claims interface{})
 
 func getUnmarshallableMap() map[string]interface{} {
 	return map[string]interface{}{"error": map[chan int]interface{}{make(chan int): 6}}
+}
+
+func createClaims() *CustomClaim {
+	issued := time.Date(2020, time.January, 1, 0, 0, 0, 0, time.UTC)
+	expiry := time.Date(2022, time.January, 1, 0, 0, 0, 0, time.UTC)
+	notBefore := time.Date(2021, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+	return &CustomClaim{
+		Claims: &Claims{
+			Issuer:    "iss",
+			Subject:   "sub",
+			Audience:  []string{"aud"},
+			Expiry:    jwt.NewNumericDate(expiry),
+			NotBefore: jwt.NewNumericDate(notBefore),
+			IssuedAt:  jwt.NewNumericDate(issued),
+			ID:        "id",
+		},
+
+		PrivateClaim1: "private claim",
+	}
 }

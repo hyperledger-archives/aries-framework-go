@@ -12,7 +12,6 @@ import (
 
 	"github.com/square/go-jose/v3"
 	"github.com/square/go-jose/v3/jwt"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,10 +26,10 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Marshal signed JWT", func(t *testing.T) {
-		jws, err := jwtClaims.MarshalJWS(RS256, privateKey, "any")
+		jws, err := jwtClaims.MarshalJWS(RS256, getRS256TestSigner(privateKey), "any")
 		require.NoError(t, err)
 
-		vcBytes, err := decodeCredJWS([]byte(jws), true, func(issuerID, keyID string) (i interface{}, e error) {
+		vcBytes, err := decodeCredJWS(jws, true, func(issuerID, keyID string) (i interface{}, e error) {
 			publicKey, pcErr := readPublicKey(filepath.Join(certPrefix, "issuer_public.pem"))
 			require.NoError(t, pcErr)
 			require.NotNil(t, publicKey)
@@ -45,13 +44,6 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, vc.stringJSON(t), vcRaw.stringJSON(t))
-	})
-
-	t.Run("Marshal signed JWT failed with invalid private key", func(t *testing.T) {
-		jws, err := jwtClaims.MarshalJWS(RS256, "invalid private key", "any")
-		require.Error(t, err)
-		require.EqualError(t, err, "create signer: square/go-jose: unsupported key type/format")
-		require.Empty(t, jws)
 	})
 }
 
@@ -76,7 +68,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	validJWS := createRS256JWS(t, []byte(jwtTestCredential), false)
 
 	t.Run("Successful JWS decoding", func(t *testing.T) {
-		vcBytes, err := decodeCredJWS(validJWS, true, pkFetcher)
+		vcBytes, err := decodeCredJWS(string(validJWS), true, pkFetcher)
 		require.NoError(t, err)
 
 		vcRaw := new(rawCredential)
@@ -89,9 +81,9 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	})
 
 	t.Run("Invalid serialized JWS", func(t *testing.T) {
-		jws, err := decodeCredJWS([]byte("invalid JWS"), true, pkFetcher)
+		jws, err := decodeCredJWS("invalid JWS", true, pkFetcher)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal VC JWT claims: parse VC from signed JWS")
+		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
 		require.Nil(t, jws)
 	})
 
@@ -106,12 +98,12 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 			Credential: 55, // "vc" claim of invalid format
 		}
 
-		rawJWT, err := jwt.Signed(signer).Claims(claims).CompactSerialize()
+		jwtCompact, err := jwt.Signed(signer).Claims(claims).CompactSerialize()
 		require.NoError(t, err)
 
-		jws, err := decodeCredJWS([]byte(rawJWT), true, pkFetcher)
+		jws, err := decodeCredJWS(jwtCompact, true, pkFetcher)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal VC JWT claims: parse VC JWT claims")
+		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
 		require.Nil(t, jws)
 	})
 
@@ -125,9 +117,9 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 			return publicKey, nil
 		}
 
-		jws, err := decodeCredJWS(validJWS, true, pkFetcherOther)
+		jws, err := decodeCredJWS(string(validJWS), true, pkFetcherOther)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "unmarshal VC JWT claims: VC JWT signature verification")
+		require.Contains(t, err.Error(), "unmarshal VC JWT claims")
 		require.Nil(t, jws)
 	})
 }

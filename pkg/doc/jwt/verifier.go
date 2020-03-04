@@ -35,6 +35,14 @@ type KeyResolver interface {
 	Resolve(what, kid string) (interface{}, error)
 }
 
+// KeyResolverFunc defines function
+type KeyResolverFunc func(what, kid string) (interface{}, error)
+
+// Resolve resolves public key.
+func (k KeyResolverFunc) Resolve(what, kid string) (interface{}, error) {
+	return k(what, kid)
+}
+
 // BasicVerifier defines basic Signed JWT verifier based on Issuer Claim and Key ID JOSE Header.
 type BasicVerifier struct {
 	resolver          KeyResolver
