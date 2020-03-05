@@ -21,13 +21,16 @@ import (
 )
 
 const (
-	verifiableOperationID    = "/verifiable"
-	varifiableCredentialPath = verifiableOperationID + "/credential"
-	validateCredentialPath   = varifiableCredentialPath + "/validate"
-	saveCredentialPath       = varifiableCredentialPath
-	getCredentialPath        = varifiableCredentialPath + "/{id}"
-	getCredentialByNamePath  = varifiableCredentialPath + "/name" + "/{name}"
-	getCredentialsPath       = verifiableOperationID + "/credentials"
+	verifiableOperationID        = "/verifiable"
+	varifiableCredentialPath     = verifiableOperationID + "/credential"
+	validateCredentialPath       = varifiableCredentialPath + "/validate"
+	saveCredentialPath           = varifiableCredentialPath
+	getCredentialPath            = varifiableCredentialPath + "/{id}"
+	getCredentialByNamePath      = varifiableCredentialPath + "/name" + "/{name}"
+	getCredentialsPath           = verifiableOperationID + "/credentials"
+	varifiablePresentationPath   = verifiableOperationID + "/presentation"
+	generatePresentationPath     = varifiablePresentationPath + "/generate"
+	generatePresentationByIDPath = varifiableCredentialPath + "/{id}" + "/presentation"
 )
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -67,6 +70,8 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(getCredentialPath, http.MethodGet, o.GetCredential),
 		cmdutil.NewHTTPHandler(getCredentialByNamePath, http.MethodGet, o.GetCredentialByName),
 		cmdutil.NewHTTPHandler(getCredentialsPath, http.MethodGet, o.GetCredentials),
+		cmdutil.NewHTTPHandler(generatePresentationPath, http.MethodPost, o.GeneratePresentation),
+		cmdutil.NewHTTPHandler(generatePresentationByIDPath, http.MethodGet, o.GeneratePresentationByID),
 	}
 }
 
@@ -137,4 +142,36 @@ func (o *Operation) GetCredentialByName(rw http.ResponseWriter, req *http.Reques
 //        200: credentialRecordResult
 func (o *Operation) GetCredentials(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.GetCredentials, rw, req.Body)
+}
+
+// GeneratePresentation swagger:route POST /verifiable/presentation/generate verifiable generatePresentationReq
+//
+// Generates the verifiable presentation from a verifiable credential.
+//
+// Responses:
+//    default: genericError
+//        200: presentationRes
+func (o *Operation) GeneratePresentation(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.GeneratePresentation, rw, req.Body)
+}
+
+// GeneratePresentationByID swagger:route GET /verifiable/credential/{id}/presentation verifiable presentationByIDReq
+//
+// Generates the verifiable presentation from a stored verifiable credential.
+//
+// Responses:
+//    default: genericError
+//        200: presentationRes
+func (o *Operation) GeneratePresentationByID(rw http.ResponseWriter, req *http.Request) {
+	id := mux.Vars(req)["id"]
+
+	decodedID, err := base64.StdEncoding.DecodeString(id)
+	if err != nil {
+		rest.SendHTTPStatusError(rw, http.StatusBadRequest, verifiable.InvalidRequestErrorCode, err)
+		return
+	}
+
+	request := fmt.Sprintf(`{"id":"%s"}`, string(decodedID))
+
+	rest.Execute(o.command.GeneratePresentationByID, rw, bytes.NewBufferString(request))
 }

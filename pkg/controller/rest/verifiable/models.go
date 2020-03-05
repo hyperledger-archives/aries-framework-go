@@ -97,3 +97,39 @@ type credentialRecordResult struct {
 	// in: body
 	Result []*verifiablestore.CredentialRecord `json:"result,omitempty"`
 }
+
+// generatePresentationReq model
+//
+// This is used to generate the verifiable presentation.
+//
+// swagger:parameters generatePresentationReq
+type generatePresentationReq struct { // nolint: unused,deadcode
+	// Params for generating the verifiable presentation (pass the vc document as a string)
+	//
+	// in: body
+	Params verifiable.Credential
+}
+
+// presentationByIDReq model
+//
+// This is used to generate the verifiable presentation from stored verifiable credential.
+//
+// swagger:parameters presentationByIDReq
+type presentationByIDReq struct { // nolint: unused,deadcode
+	// VC ID - pass base64 version of the ID
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
+// presentationRes model
+//
+// This is used for returning the verifiable presentation
+//
+// swagger:response presentationRes
+type presentationRes struct {
+
+	// in: body
+	verifiable.Presentation
+}

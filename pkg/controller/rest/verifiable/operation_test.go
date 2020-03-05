@@ -48,7 +48,8 @@ const vc = `
       "id":"https://example.gov/status/65",
       "type":"CredentialStatusList2017"
    }
-}`
+}
+`
 
 func TestNew(t *testing.T) {
 	t.Run("test new command - success", func(t *testing.T) {
@@ -57,7 +58,7 @@ func TestNew(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
-		require.Equal(t, 5, len(cmd.GetRESTHandlers()))
+		require.Equal(t, 7, len(cmd.GetRESTHandlers()))
 	})
 
 	t.Run("test new command - error", func(t *testing.T) {
@@ -80,7 +81,7 @@ func TestValidateVC(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
-		vcReq := verifiable.Credential{VC: vc}
+		vcReq := verifiable.Credential{VerifiableCredential: vc}
 		jsonStr, err := json.Marshal(vcReq)
 		require.NoError(t, err)
 
@@ -125,7 +126,7 @@ func TestSaveVC(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		vcReq := verifiable.CredentialExt{
-			Credential: verifiable.Credential{VC: vc},
+			Credential: verifiable.Credential{VerifiableCredential: vc},
 			Name:       sampleCredentialName,
 		}
 		jsonStr, err := json.Marshal(vcReq)
@@ -218,7 +219,7 @@ func TestGetCredentialByName(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		vcReq := verifiable.CredentialExt{
-			Credential: verifiable.Credential{VC: vc},
+			Credential: verifiable.Credential{VerifiableCredential: vc},
 			Name:       sampleCredentialName,
 		}
 		jsonStr, err := json.Marshal(vcReq)
@@ -271,7 +272,7 @@ func TestGetCredentials(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		vcReq := verifiable.CredentialExt{
-			Credential: verifiable.Credential{VC: vc},
+			Credential: verifiable.Credential{VerifiableCredential: vc},
 			Name:       sampleCredentialName,
 		}
 		jsonStr, err := json.Marshal(vcReq)
@@ -293,6 +294,87 @@ func TestGetCredentials(t *testing.T) {
 		// verify response
 		require.NotEmpty(t, response)
 		require.Equal(t, 1, len(response.Result))
+	})
+}
+
+func TestGeneratePresentation(t *testing.T) {
+	cmd, err := New(&mockprovider.Provider{
+		StorageProviderValue: mockstore.NewMockStoreProvider(),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
+
+	t.Run("test generate presentation - success", func(t *testing.T) {
+		vcReq := verifiable.Credential{VerifiableCredential: vc}
+		jsonStr, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, generatePresentationPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+
+		response := presentationRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiablePresentation)
+	})
+
+	t.Run("test generate presentation - error", func(t *testing.T) {
+		var jsonStr = []byte(`{
+			"name" : "sample"
+		}`)
+
+		handler := lookupHandler(t, cmd, generatePresentationPath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.GeneratePresentationErrorCode, "parse vc : decode new credential", buf.Bytes())
+	})
+}
+
+func TestGeneratePresentationByID(t *testing.T) {
+	s := make(map[string][]byte)
+
+	cmd, err := New(&mockprovider.Provider{
+		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
+
+	t.Run("test generate presentation by id - success", func(t *testing.T) {
+		s["http://example.edu/credentials/1989"] = []byte(vc)
+
+		handler := lookupHandler(t, cmd, generatePresentationByIDPath, http.MethodGet)
+		url := fmt.Sprintf(`%s/%s/%s`,
+			varifiableCredentialPath, base64.StdEncoding.EncodeToString([]byte("http://example.edu/credentials/1989")),
+			"presentation")
+		buf, err := getSuccessResponseFromHandler(handler, nil, url)
+		require.NoError(t, err)
+
+		response := presentationRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiablePresentation)
+	})
+
+	t.Run("test generate presentation by id - error", func(t *testing.T) {
+		handler := lookupHandler(t, cmd, generatePresentationByIDPath, http.MethodGet)
+		url := fmt.Sprintf(`%s/%s/%s`, varifiableCredentialPath, "abc",
+			"presentation")
+		buf, code, err := sendRequestToHandler(handler, nil, url)
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.InvalidRequestErrorCode, "illegal base64 data", buf.Bytes())
 	})
 }
 

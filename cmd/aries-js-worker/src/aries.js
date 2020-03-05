@@ -461,6 +461,26 @@ const Aries = function(opts) {
             getCredentials: async function () {
                 return invoke(aw, pending,  this.pkgname, "GetCredentials", {}, "timeout while retrieving verifiable credentials")
             },
+
+            /**
+             * Generates a verifiable presentation from a verifiable credential.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            generatePresentation: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "GeneratePresentation", req, "timeout while generating verifiable presentation")
+            },
+
+            /**
+             * Generates a verifiable presentation from a stored verifiable credential.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            generatePresentationByID: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "GeneratePresentationByID", req, "timeout while generating verifiable presentation by id")
+            },
         }
     }
 

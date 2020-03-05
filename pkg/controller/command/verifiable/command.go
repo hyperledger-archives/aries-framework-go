@@ -38,6 +38,12 @@ const (
 
 	// GetCredentialErrorCode for get vc by name error
 	GetCredentialByNameErrorCode
+
+	// GeneratePresentationErrorCode for get generate vp error
+	GeneratePresentationErrorCode
+
+	// GeneratePresentationByIDErrorCode for get generate vp by vc id error
+	GeneratePresentationByIDErrorCode
 )
 
 const (
@@ -45,11 +51,13 @@ const (
 	commandName = "verifiable"
 
 	// command methods
-	validateCredentialCommandMethod  = "ValidateCredential"
-	saveCredentialCommandMethod      = "SaveCredential"
-	getCredentialCommandMethod       = "GetCredential"
-	getCredentialByNameCommandMethod = "GetCredentialByName"
-	getCredentialsCommandMethod      = "GetCredentials"
+	validateCredentialCommandMethod       = "ValidateCredential"
+	saveCredentialCommandMethod           = "SaveCredential"
+	getCredentialCommandMethod            = "GetCredential"
+	getCredentialByNameCommandMethod      = "GetCredentialByName"
+	getCredentialsCommandMethod           = "GetCredentials"
+	generatePresentationCommandMethod     = "GeneratePresentation"
+	generatePresentationByIDCommandMethod = "GeneratePresentationByID"
 
 	// error messages
 	errEmptyCredentialName = "credential name is mandatory"
@@ -90,6 +98,8 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, getCredentialCommandMethod, o.GetCredential),
 		cmdutil.NewCommandHandler(commandName, getCredentialByNameCommandMethod, o.GetCredentialByName),
 		cmdutil.NewCommandHandler(commandName, getCredentialsCommandMethod, o.GetCredentials),
+		cmdutil.NewCommandHandler(commandName, generatePresentationCommandMethod, o.GeneratePresentation),
+		cmdutil.NewCommandHandler(commandName, generatePresentationByIDCommandMethod, o.GeneratePresentationByID),
 	}
 }
 
@@ -104,10 +114,10 @@ func (o *Command) ValidateCredential(rw io.Writer, req io.Reader) command.Error 
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
-	// we are only validating the VC here, hence ignoring other return values
+	// we are only validating the VerifiableCredential here, hence ignoring other return values
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/1316 VC Validate Command - Add keys for proof
 	//  verification as options to the function.
-	_, _, err = verifiable.NewCredential([]byte(request.VC))
+	_, _, err = verifiable.NewCredential([]byte(request.VerifiableCredential))
 	if err != nil {
 		logutil.LogInfo(logger, commandName, validateCredentialCommandMethod, "validate vc : "+err.Error())
 
@@ -137,7 +147,7 @@ func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf(errEmptyCredentialName))
 	}
 
-	vc, _, err := verifiable.NewCredential([]byte(request.VC))
+	vc, _, err := verifiable.NewCredential([]byte(request.VerifiableCredential))
 	if err != nil {
 		logutil.LogError(logger, commandName, saveCredentialCommandMethod, "parse vc : "+err.Error())
 
@@ -190,7 +200,7 @@ func (o *Command) GetCredential(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	command.WriteNillableResponse(rw, &Credential{
-		VC: string(vcBytes),
+		VerifiableCredential: string(vcBytes),
 	}, logger)
 
 	logutil.LogDebug(logger, commandName, getCredentialCommandMethod, "success",
@@ -242,6 +252,83 @@ func (o *Command) GetCredentials(rw io.Writer, req io.Reader) command.Error {
 	}, logger)
 
 	logutil.LogDebug(logger, commandName, getCredentialsCommandMethod, "success")
+
+	return nil
+}
+
+// GeneratePresentation generates verifiable presentation from a verifiable credential.
+func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Error {
+	request := &Credential{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, commandName, generatePresentationCommandMethod, "request decode : "+err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/1316 Add keys for proof
+	//  verification as options to the function.
+	vc, _, err := verifiable.NewCredential([]byte(request.VerifiableCredential))
+	if err != nil {
+		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "generate vp - parse vc : "+err.Error())
+
+		return command.NewValidationError(GeneratePresentationErrorCode, fmt.Errorf("generate vp - parse vc : %w", err))
+	}
+
+	return o.generatePresentation(rw, vc, generatePresentationCommandMethod, GeneratePresentationErrorCode)
+}
+
+// GeneratePresentationByID generates verifiable presentation from a stored verifiable credential.
+func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.Error {
+	request := &IDArg{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, commandName, generatePresentationCommandMethod, "request decode : "+err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.ID == "" {
+		logutil.LogDebug(logger, commandName, getCredentialByNameCommandMethod, errEmptyCredentialID)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredentialID))
+	}
+
+	vc, err := o.verifiableStore.GetCredential(request.ID)
+	if err != nil {
+		logutil.LogError(logger, commandName, getCredentialByNameCommandMethod, "get vc by id : "+err.Error(),
+			logutil.CreateKeyValueString(vcID, request.ID))
+
+		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("get vc by id : %w", err))
+	}
+
+	return o.generatePresentation(rw, vc, getCredentialByNameCommandMethod, GeneratePresentationByIDErrorCode)
+}
+
+func (o *Command) generatePresentation(rw io.Writer, vc *verifiable.Credential,
+	commandMethodName string, errCode command.Code) command.Error {
+	vp, err := vc.Presentation()
+	if err != nil {
+		logutil.LogError(logger, commandName, commandMethodName, "generate vp : "+err.Error())
+
+		return command.NewValidationError(errCode, fmt.Errorf("generate vp : %w", err))
+	}
+
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/1422 - add proof
+
+	vpBytes, err := vp.MarshalJSON()
+	if err != nil {
+		logutil.LogError(logger, commandName, commandMethodName, "generate vp : "+err.Error())
+
+		return command.NewValidationError(errCode, fmt.Errorf("generate vp : %w", err))
+	}
+
+	command.WriteNillableResponse(rw, &Presentation{
+		VerifiablePresentation: string(vpBytes),
+	}, logger)
+
+	logutil.LogDebug(logger, commandName, commandMethodName, "success")
 
 	return nil
 }
