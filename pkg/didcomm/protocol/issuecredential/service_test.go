@@ -22,6 +22,7 @@ import (
 	issuecredentialMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/issuecredential"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
 const (
@@ -101,6 +102,23 @@ func TestService_HandleInbound(t *testing.T) {
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: getCurrentStateNameAndPIID: currentStateName: "+errMsg)
 	})
 
+	t.Run("DB error (saveTransitionalPayload)", func(t *testing.T) {
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		require.NoError(t, svc.RegisterActionEvent(make(chan<- service.DIDCommAction)))
+
+		msg := service.NewDIDCommMsgMap(ProposeCredential{
+			Type: ProposeCredentialMsgType,
+		})
+		require.NoError(t, msg.SetID(uuid.New().String()))
+		_, err = svc.HandleInbound(msg, "", "")
+		require.Contains(t, fmt.Sprintf("%v", err), "save transitional payload: "+errMsg)
+	})
+
 	t.Run("Unrecognized msgType", func(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -128,6 +146,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
 
@@ -174,6 +194,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "proposal-received", string(name))
 
@@ -195,7 +217,103 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(nil)
+		(<-ch).Continue(WithOfferCredential(&OfferCredential{}))
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Propose Credential Continue (async)", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		newProvider := issuecredentialMocks.NewMockProvider(ctrl)
+		newProvider.EXPECT().Messenger().Return(messenger).AnyTimes()
+		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider()).AnyTimes()
+
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
+				r := &OfferCredential{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, OfferCredentialMsgType, r.Type)
+
+				return nil
+			})
+
+		svc, err := New(newProvider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		msg := service.NewDIDCommMsgMap(ProposeCredential{
+			Type: ProposeCredentialMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		actions, err := svc.Actions()
+		require.NoError(t, err)
+		for _, action := range actions {
+			require.NoError(t, svc.ActionContinue(action.PIID, WithOfferCredential(&OfferCredential{})))
+		}
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Propose Credential Stop (async)", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		newProvider := issuecredentialMocks.NewMockProvider(ctrl)
+		newProvider.EXPECT().Messenger().Return(messenger).AnyTimes()
+		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider()).AnyTimes()
+
+		messenger.EXPECT().
+			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
+				r := &model.ProblemReport{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, codeRejectedError, r.Description.Code)
+				require.Equal(t, ProblemReportMsgType, r.Type)
+
+				return nil
+			})
+
+		svc, err := New(newProvider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		msg := service.NewDIDCommMsgMap(ProposeCredential{
+			Type: ProposeCredentialMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		actions, err := svc.Actions()
+		require.NoError(t, err)
+		for _, action := range actions {
+			require.NoError(t, svc.ActionStop(action.PIID, nil))
+		}
 
 		select {
 		case <-done:
@@ -222,6 +340,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
 
@@ -238,7 +358,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: OfferCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID("00000000-0000-0000-0000-000000000000"))
+		require.NoError(t, msg.SetID(uuid.New().String()))
 
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
@@ -268,6 +388,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "proposal-sent", string(name))
 
@@ -284,12 +406,12 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: OfferCredentialMsgType,
 		})
 
-		require.NoError(t, msg.SetID("00000000-0000-0000-0000-000000000000"))
+		require.NoError(t, msg.SetID(uuid.New().String()))
 
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(nil)
+		(<-ch).Continue(WithProposeCredential(&ProposeCredential{}))
 
 		select {
 		case <-done:
@@ -314,6 +436,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "request-sent", string(name))
 
@@ -323,7 +447,7 @@ func TestService_HandleInbound(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		ch := make(chan service.DIDCommAction)
+		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
 		msg := service.NewDIDCommMsgMap(OfferCredential{
@@ -334,6 +458,8 @@ func TestService_HandleInbound(t *testing.T) {
 
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
+
+		(<-ch).Continue(nil)
 
 		select {
 		case <-done:
@@ -360,6 +486,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
 
@@ -406,6 +534,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "credential-issued", string(name))
 
@@ -722,6 +852,112 @@ func TestService_HandleOutbound(t *testing.T) {
 	})
 }
 
+func TestService_ActionContinue(t *testing.T) {
+	t.Run("Error transitional payload (get)", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		const errMsg = "error"
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
+
+		storeProvider := storageMocks.NewMockProvider(ctrl)
+		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+
+		provider := issuecredentialMocks.NewMockProvider(ctrl)
+		provider.EXPECT().Messenger().Return(messenger)
+		provider.EXPECT().StorageProvider().Return(storeProvider)
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		err = svc.ActionContinue("piID", nil)
+		require.Contains(t, fmt.Sprintf("%v", err), "get transitional payload: store get: "+errMsg)
+	})
+
+	t.Run("Error transitional payload (delete)", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		const errMsg = "error"
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{}`), nil)
+		store.EXPECT().Delete(gomock.Any()).Return(errors.New(errMsg))
+
+		storeProvider := storageMocks.NewMockProvider(ctrl)
+		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+
+		provider := issuecredentialMocks.NewMockProvider(ctrl)
+		provider.EXPECT().Messenger().Return(messenger)
+		provider.EXPECT().StorageProvider().Return(storeProvider)
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		err = svc.ActionContinue("piID", nil)
+		require.Contains(t, fmt.Sprintf("%v", err), "delete transitional payload: "+errMsg)
+	})
+}
+
+func TestService_ActionStop(t *testing.T) {
+	t.Run("Error transitional payload (get)", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		const errMsg = "error"
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
+
+		storeProvider := storageMocks.NewMockProvider(ctrl)
+		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+
+		provider := issuecredentialMocks.NewMockProvider(ctrl)
+		provider.EXPECT().Messenger().Return(messenger)
+		provider.EXPECT().StorageProvider().Return(storeProvider)
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		err = svc.ActionStop("piID", nil)
+		require.Contains(t, fmt.Sprintf("%v", err), "get transitional payload: store get: "+errMsg)
+	})
+
+	t.Run("Error transitional payload (delete)", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		const errMsg = "error"
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{}`), nil)
+		store.EXPECT().Delete(gomock.Any()).Return(errors.New(errMsg))
+
+		storeProvider := storageMocks.NewMockProvider(ctrl)
+		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+
+		provider := issuecredentialMocks.NewMockProvider(ctrl)
+		provider.EXPECT().Messenger().Return(messenger)
+		provider.EXPECT().StorageProvider().Return(storeProvider)
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		err = svc.ActionStop("piID", nil)
+		require.Contains(t, fmt.Sprintf("%v", err), "delete transitional payload: "+errMsg)
+	})
+}
+
 func Test_stateFromName(t *testing.T) {
 	require.Equal(t, stateFromName(stateNameStart), &start{})
 	require.Equal(t, stateFromName(stateNameAbandoning), &abandoning{})
@@ -816,13 +1052,9 @@ func TestService_canTriggerActionEvents(t *testing.T) {
 		Type: ProposeCredentialMsgType,
 	})))
 
-	msg := service.NewDIDCommMsgMap(OfferCredential{
+	require.True(t, canTriggerActionEvents(service.NewDIDCommMsgMap(OfferCredential{
 		Type: OfferCredentialMsgType,
-	})
-
-	require.NoError(t, msg.SetID("00000000-0000-0000-0000-000000000000"))
-
-	require.True(t, canTriggerActionEvents(msg))
+	})))
 
 	require.True(t, canTriggerActionEvents(service.NewDIDCommMsgMap(RequestCredential{
 		Type: RequestCredentialMsgType,
