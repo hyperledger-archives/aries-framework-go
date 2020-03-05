@@ -3,13 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: $(SourceBranchName)-$(Date:yyyyMMdd).$(Rev:r)
-#trigger: none
+trigger: none
 variables:
   GO_VERSION: 1.14
   GOPATH: $(Agent.BuildDirectory)/go
 
 jobs:
   - job: UnitTest
+    condition: eq(1,2) # disable job.
     pool:
       vmImage: ubuntu-18.04
     timeoutInMinutes: 30

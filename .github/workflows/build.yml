@@ -27,14 +27,33 @@ jobs:
       timeout-minutes: 10
       run: make unit-test
 
-    - name: Upload coverage to Codecov
-      timeout-minutes: 10
-      # GitHub Actions currently only allow secret usage access during push events
-      if: github.event_name == 'push' && matrix.os == 'ubuntu-18.04' && github.repository == 'hyperledger/aries-framework-go'
-      uses: codecov/codecov-action@v1.0.2
+    - name: Archive test results
+      if: matrix.os == 'ubuntu-18.04' && github.repository == 'hyperledger/aries-framework-go'
+      uses: actions/upload-artifact@v1
       with:
-        token: ${{secrets.CODECOV_TOKEN}}
-        file: ./coverage.txt
+        name: unit-test-report
+        path: coverage.txt
+
+  publishUnitTest:
+    name: Publish unit test
+    runs-on: ubuntu-18.04
+    needs: unitTest
+    if: github.repository == 'hyperledger/aries-framework-go'
+    timeout-minutes: 10
+    steps:
+
+      - name: Download test results
+        uses: actions/download-artifact@v1
+        with:
+          name: unit-test-report
+          path: ./
+
+      - name: Upload coverage to Codecov
+        timeout-minutes: 10
+        uses: codecov/codecov-action@v1.0.6
+        with:
+          file: ./coverage.txt
+          fail_ci_if_error: true
 
   unitTestWasm:
     name: Unit test wasm
