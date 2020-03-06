@@ -249,7 +249,7 @@ func TestService_SkipProposal(t *testing.T) {
 		Type: didexchange.InvitationMsgType,
 	})
 
-	_, err := alice.HandleOutbound(proposal, Alice, Bob)
+	err := alice.HandleOutbound(proposal, Alice, Bob)
 	require.NoError(t, err)
 }
 
@@ -308,10 +308,10 @@ func TestService_Proposal(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
+	err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
+	err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -374,10 +374,10 @@ func TestService_ProposalContinue(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
+	err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
+	err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -436,10 +436,10 @@ func TestService_ProposalSecond(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
+	err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
+	err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -502,10 +502,10 @@ func TestService_ProposalSecondContinue(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
+	err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
+	err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -559,10 +559,10 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
+	err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
+	err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -603,7 +603,7 @@ func TestService_SkipProposalStopIntroducee(t *testing.T) {
 		Type: didexchange.InvitationMsgType,
 	})
 
-	_, err := alice.HandleOutbound(proposal, Alice, Bob)
+	err := alice.HandleOutbound(proposal, Alice, Bob)
 	require.NoError(t, err)
 }
 
@@ -657,10 +657,10 @@ func TestService_ProposalStopIntroduceeFirst(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
+	err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
+	err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -714,10 +714,10 @@ func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
+	err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
+	err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -785,7 +785,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
 
-	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -865,7 +865,7 @@ func TestService_ProposalWithRequestContinue(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
 
-	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -938,7 +938,7 @@ func TestService_ProposalWithRequestSecond(t *testing.T) {
 		},
 	))
 
-	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1006,7 +1006,7 @@ func TestService_ProposalWithRequestStopIntroduceeFirst(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
 
-	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1074,7 +1074,7 @@ func TestService_ProposalWithRequestStopIntroduceeSecond(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1113,7 +1113,7 @@ func TestService_ProposalWithRequestIntroducerStop(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1163,7 +1163,7 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
 
-	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1215,7 +1215,7 @@ func TestService_SkipProposalWithRequestStopIntroducee(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1253,7 +1253,7 @@ func TestService_ProposalWithRequestNoRecipients(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1351,7 +1351,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 		const errMsg = "doHandle: invalid state transition: noop -> arranging"
-		_, err = svc.HandleOutbound(msg, "", "")
+		err = svc.HandleOutbound(msg, "", "")
 		require.EqualError(t, err, errMsg)
 	})
 }
