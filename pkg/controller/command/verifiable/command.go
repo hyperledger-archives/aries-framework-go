@@ -147,7 +147,7 @@ func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf(errEmptyCredentialName))
 	}
 
-	vc, _, err := verifiable.NewCredential([]byte(request.VerifiableCredential))
+	vc, err := verifiable.NewUnverifiedCredential([]byte(request.VerifiableCredential))
 	if err != nil {
 		logutil.LogError(logger, commandName, saveCredentialCommandMethod, "parse vc : "+err.Error())
 
