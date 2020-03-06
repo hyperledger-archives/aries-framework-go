@@ -234,12 +234,15 @@ func (s *requestReceived) CanTransitionTo(st state) bool {
 }
 
 func (s *requestReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	if md.issueCredential == nil {
+		return nil, nil, errors.New("issue credential was not provided")
+	}
+
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		// sets message type
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(IssueCredential{
-			Type: IssueCredentialMsgType,
-		}))
+		md.issueCredential.Type = IssueCredentialMsgType
+		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.issueCredential))
 	}
 
 	return &credentialIssued{}, action, nil
@@ -322,10 +325,16 @@ func (s *offerReceived) ExecuteInbound(md *metaData) (state, stateAction, error)
 		return &proposalSent{}, zeroAction, nil
 	}
 
+	var offer = OfferCredential{}
+	if err := md.Msg.Decode(&offer); err != nil {
+		return nil, nil, fmt.Errorf("decode: %w", err)
+	}
+
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(RequestCredential{
-			Type: RequestCredentialMsgType,
+			Type:           RequestCredentialMsgType,
+			RequestsAttach: offer.OffersAttach,
 		}))
 	}
 
