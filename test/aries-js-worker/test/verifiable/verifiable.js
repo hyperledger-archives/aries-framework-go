@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 import {newAries, newAriesREST} from "../common.js"
-import {environment} from "../environment";
+import {environment} from "../environment.js";
 
 const agentControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.USER_HOST}:${environment.USER_API_PORT}`
 
@@ -59,12 +59,12 @@ async function verifiableStore(newAries, mode = wasmMode) {
 
     it(modePrefix + "Alice stores the verifiable credential received from the college", function (done) {
         aries.verifiable.validateCredential({
-            "vc": vc
+            "verifiableCredential": vc
         }).then(
             resp => {
                 aries.verifiable.saveCredential({
                     "name": vcName,
-                    "vc": vc
+                    "verifiableCredential": vc
                 }).then(
                     resp => done(),
                     err => done(err)
@@ -85,13 +85,8 @@ async function verifiableStore(newAries, mode = wasmMode) {
                 try {
                     assert.equal(vcID, id)
 
-                    if (mode == restMode) {
-                        // TODO https://github.com/hyperledger/aries-framework-go/issues/1411 rest api expects base64
-                        id = window.btoa(id)
-                    }
-
                     aries.verifiable.getCredential({
-                        "id": id
+                        "id": getCredentialID(mode, id)
                     }).then(
                         resp => done(),
                         err => done(err)
@@ -121,4 +116,47 @@ async function verifiableStore(newAries, mode = wasmMode) {
             err => done(err)
         )
     })
+
+    it(modePrefix + "Alice generates the verifiable presentation from the previously saved verifiable credential", function (done) {
+        aries.verifiable.generatePresentationByID({
+            "id": getCredentialID(mode, vcID)
+        }).then(
+            resp => {
+                try {
+                    assert.isTrue(JSON.parse(resp.verifiablePresentation).type.includes("VerifiablePresentation"))
+                } catch (err) {
+                    done(err)
+                }
+
+                done()
+            },
+            err => done(err)
+        )
+    })
+
+    it(modePrefix + "Alice generates the verifiable presentation to pass it to the employer", function (done) {
+        aries.verifiable.generatePresentation({
+            "verifiableCredential": vc
+        }).then(
+            resp => {
+                try {
+                    assert.isTrue(JSON.parse(resp.verifiablePresentation).type.includes("VerifiablePresentation"))
+                } catch (err) {
+                    done(err)
+                }
+
+                done()
+            },
+            err => done(err)
+        )
+    })
+}
+
+// TODO https://github.com/hyperledger/aries-framework-go/issues/1411 rest api expects base64
+function getCredentialID(mode, id) {
+    if (mode == restMode) {
+        return window.btoa(id)
+    }
+
+    return id
 }

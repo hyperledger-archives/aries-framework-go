@@ -116,6 +116,15 @@ const pkgs = {
             path: "/verifiable/credentials",
             method: "GET",
         },
+        GeneratePresentation: {
+            path: "/verifiable/presentation/generate",
+            method: "POST"
+        },
+        GeneratePresentationByID: {
+            path: "/verifiable/credential/{id}/presentation",
+            method: "GET",
+            pathParam:"id"
+        },
     },
 }
 

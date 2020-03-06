@@ -10,7 +10,7 @@ import "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 
 // Credential is model for verifiable credential.
 type Credential struct {
-	VC string `json:"vc,omitempty"`
+	VerifiableCredential string `json:"verifiableCredential,omitempty"`
 }
 
 // CredentialExt is model for verifiable credential with fields related to command features.
@@ -41,4 +41,9 @@ type NameArg struct {
 type CredentialRecordResult struct {
 	// Result
 	Result []*verifiable.CredentialRecord `json:"result,omitempty"`
+}
+
+// Presentation is model for verifiable presentation.
+type Presentation struct {
+	VerifiablePresentation string `json:"verifiablePresentation,omitempty"`
 }
