@@ -36,7 +36,21 @@ services:
       - ARIESD_DB_PATH=${E2E_USER_DB_PATH}
       - ARIESD_AUTO_ACCEPT=${E2E_ROUTER_AUTOACCEPT}
       - ARIESD_LOG_LEVEL=DEBUG
+      - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
     ports:
       - ${E2E_USER_INBOUND_PORT}:${E2E_USER_INBOUND_PORT}
       - ${E2E_USER_API_PORT}:${E2E_USER_API_PORT}
     command: start
+
+  sidetree.js.com:
+    container_name: sidetree-jsmock
+    image: ${SIDETREE_MOCK_FIXTURE_IMAGE}:${ARCH}-${SIDETREE_MOCK_FIXTURE_IMAGE_TAG}
+    environment:
+      - SIDETREE_MOCK_TLS_CERTIFICATE=/etc/sidetree/tls/ec-pubCert.pem
+      - SIDETREE_MOCK_TLS_KEY=/etc/sidetree/tls/ec-key.pem
+      - SIDETREE_MOCK_HOST=0.0.0.0
+      - SIDETREE_MOCK_PORT=48326
+    ports:
+      - 48326:48326
+    volumes:
+      - ../keys/tls:/etc/sidetree/tls
