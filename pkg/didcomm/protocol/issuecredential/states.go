@@ -178,6 +178,10 @@ func (s *proposalReceived) CanTransitionTo(st state) bool {
 }
 
 func (s *proposalReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	if md.offerCredential == nil {
+		return nil, nil, errors.New("offer credential was not provided")
+	}
+
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		// sets message type
@@ -276,6 +280,10 @@ func (s *proposalSent) CanTransitionTo(st state) bool {
 }
 
 func (s *proposalSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	if md.proposeCredential == nil {
+		return nil, nil, errors.New("propose credential was not provided")
+	}
+
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		// sets message type
@@ -309,7 +317,8 @@ func (s *offerReceived) CanTransitionTo(st state) bool {
 }
 
 func (s *offerReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
-	if !isDataCorrect(md.Msg) {
+	// sends propose credential if it was provided
+	if md.proposeCredential != nil {
 		return &proposalSent{}, zeroAction, nil
 	}
 

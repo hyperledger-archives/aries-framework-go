@@ -242,18 +242,27 @@ func TestProposalReceived_CanTransitionTo(t *testing.T) {
 }
 
 func TestProposalReceived_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&proposalReceived{}).ExecuteInbound(&metaData{})
-	require.NoError(t, err)
-	require.Equal(t, &noOp{}, followup)
-	require.NotNil(t, action)
+	t.Run("Success", func(t *testing.T) {
+		followup, action, err := (&proposalReceived{}).ExecuteInbound(&metaData{offerCredential: &OfferCredential{}})
+		require.NoError(t, err)
+		require.Equal(t, &noOp{}, followup)
+		require.NotNil(t, action)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-	messenger := serviceMocks.NewMockMessenger(ctrl)
-	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
 
-	require.NoError(t, action(messenger))
+		require.NoError(t, action(messenger))
+	})
+
+	t.Run("OfferCredential is absent", func(t *testing.T) {
+		followup, action, err := (&proposalReceived{}).ExecuteInbound(&metaData{})
+		require.Contains(t, fmt.Sprintf("%v", err), "offer credential was not provided")
+		require.Nil(t, followup)
+		require.Nil(t, action)
+	})
 }
 
 func TestProposalReceived_ExecuteOutbound(t *testing.T) {
@@ -402,18 +411,27 @@ func TestProposalSent_CanTransitionTo(t *testing.T) {
 }
 
 func TestProposalSent_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&proposalSent{}).ExecuteInbound(&metaData{})
-	require.NoError(t, err)
-	require.Equal(t, &noOp{}, followup)
-	require.NotNil(t, action)
+	t.Run("Successes", func(t *testing.T) {
+		followup, action, err := (&proposalSent{}).ExecuteInbound(&metaData{proposeCredential: &ProposeCredential{}})
+		require.NoError(t, err)
+		require.Equal(t, &noOp{}, followup)
+		require.NotNil(t, action)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-	messenger := serviceMocks.NewMockMessenger(ctrl)
-	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
 
-	require.NoError(t, action(messenger))
+		require.NoError(t, action(messenger))
+	})
+
+	t.Run("ProposeCredential is absent", func(t *testing.T) {
+		followup, action, err := (&proposalSent{}).ExecuteInbound(&metaData{})
+		require.Contains(t, fmt.Sprintf("%v", err), "propose credential was not provided")
+		require.Nil(t, followup)
+		require.Nil(t, action)
+	})
 }
 
 func TestProposalSent_ExecuteOutbound(t *testing.T) {
@@ -452,11 +470,11 @@ func TestOfferReceived_CanTransitionTo(t *testing.T) {
 }
 
 func TestOfferReceived_ExecuteInbound(t *testing.T) {
-	t.Run("incorrect data", func(t *testing.T) {
+	t.Run("incorrect data (with ProposeCredential)", func(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(struct{}{})
-		require.NoError(t, msg.SetID("00000000-0000-0000-0000-000000000000"))
 
 		followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{
+			proposeCredential:   &ProposeCredential{},
 			transitionalPayload: transitionalPayload{Msg: msg},
 		})
 		require.NoError(t, err)
@@ -464,7 +482,7 @@ func TestOfferReceived_ExecuteInbound(t *testing.T) {
 		require.NotNil(t, action)
 	})
 
-	t.Run("correct data", func(t *testing.T) {
+	t.Run("correct data (without ProposeCredential)", func(t *testing.T) {
 		followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{})
 		require.NoError(t, err)
 		require.Equal(t, &requestSent{}, followup)
