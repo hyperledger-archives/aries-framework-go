@@ -27,7 +27,6 @@ var logger = log.New("aries-framework/vdri/httpbinding")
 
 const (
 	pubKeyIndex1      = "#key-1"
-	pubKeyController  = "controller"
 	svcEndpointIndex1 = "#endpoint-1"
 )
 
@@ -82,9 +81,8 @@ func (v *VDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc,
 	}
 
 	publicKey := did.PublicKey{
-		ID:         pubKeyIndex1,
-		Type:       pubKey.Type,
-		Controller: pubKeyController,
+		ID:   pubKeyIndex1,
+		Type: pubKey.Type,
 		// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
 		Value: base58.Decode(pubKey.Value),
 	}
