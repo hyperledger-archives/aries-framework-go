@@ -161,7 +161,7 @@ func TestSaveVC(t *testing.T) {
 		require.NotEmpty(t, buf)
 
 		require.Equal(t, http.StatusBadRequest, code)
-		verifyError(t, verifiable.SaveCredentialErrorCode, "parse vc : decode new credential", buf.Bytes())
+		verifyError(t, verifiable.SaveCredentialErrorCode, "parse vc : unmarshal new credential", buf.Bytes())
 	})
 }
 
