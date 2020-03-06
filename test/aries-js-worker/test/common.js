@@ -4,13 +4,13 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-export async function newAries(dbNS = '', label= "dem-js-agent") {
+export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = []) {
     await import('/base/node_modules/@hyperledger/aries-framework-go/dist/web/aries.js')
 
     return new Aries.Framework({
         assetsPath: "/base/public/aries-framework-go/assets",
         "agent-default-label": label,
-        "http-resolver-url": [],
+        "http-resolver-url": httpResolver,
         "auto-accept": true,
         "outbound-transport": ["ws", "http"],
         "transport-return-route": "all",

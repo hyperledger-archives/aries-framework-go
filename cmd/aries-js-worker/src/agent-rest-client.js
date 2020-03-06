@@ -49,8 +49,10 @@ const pkgs = {
     },
     vdri: {
         CreatePublicDID: {
-            path: "/vdri/create-public-did",
-            method: "POST"
+            path: "/vdri/create-public-did?method={method}&header={header}",
+            method: "POST",
+            pathParam:"id",
+            queryStrings: ["method","header"]
         },
     },
     messaging: {
@@ -149,6 +151,12 @@ export const Client = class {
         if (r.pathParam){
             const p = ((request.payload[r.pathParam])) ? (request.payload[r.pathParam]) : "";
             url = this.url + r.path.replace("{"+r.pathParam+"}", p);
+        }
+
+        if (r.queryStrings){
+            r.queryStrings.forEach(p => {
+                url = url.replace("{"+ p +"}", (request.payload[p]) ? request.payload[p] : "");
+            })
         }
 
         console.debug(`[${r.method}] ${url}, request ${JSON.stringify(request.payload)}`)
