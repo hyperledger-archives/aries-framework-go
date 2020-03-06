@@ -192,8 +192,8 @@ func getDidMethod(didID string) (string, error) {
 	// For now we do simple validation
 	const numPartsDID = 3
 
-	didParts := strings.SplitN(didID, ":", numPartsDID)
-	if len(didParts) != numPartsDID {
+	didParts := strings.Split(didID, ":")
+	if len(didParts) < numPartsDID {
 		return "", fmt.Errorf("wrong format did input: %s", didID)
 	}
 

@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/xeipuuv/gojsonschema"
 
@@ -79,14 +80,18 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (interface{},
 	}
 
 	for _, key := range doc.PublicKey {
-		if key.ID == keyID {
+		// TODO remove string contains after sidetree create public key with this format DID#KEYID
+		// sidetree now return #KEYID
+		if strings.Contains(key.ID, keyID) {
 			return key.Value, nil
 		}
 	}
 
 	// if key not found in PublicKey try to find it in authentication
 	for _, auth := range doc.Authentication {
-		if auth.PublicKey.ID == keyID {
+		// TODO remove string contains after sidetree create public key with this format DID#KEYID
+		// sidetree now return #KEYID
+		if strings.Contains(auth.PublicKey.ID, keyID) {
 			return auth.PublicKey.Value, nil
 		}
 	}
