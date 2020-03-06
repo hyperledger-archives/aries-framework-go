@@ -26,7 +26,7 @@ const __publicPath = _ => {
 
 __webpack_public_path__ = __publicPath()
 
-const { loadWorker } = require("worker_loader")
+const {loadWorker} = require("worker_loader")
 
 // registers messages in pending and posts them to the worker
 async function invoke(w, pending, pkg, fn, arg, msgTimeout) {
@@ -52,7 +52,7 @@ async function waitForNotification(notifications, topics) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(_ => resolve(), notifierWait)
         // subscribe for all by default if topics not provided
-        if (topics.length == 0){
+        if (topics.length == 0) {
             topics = ["all"]
         }
         topics.forEach(function (topic, index) {
@@ -110,7 +110,7 @@ export const Framework = class {
  * @param opts initialization options.
  * @constructor
  */
-const Aries = function(opts) {
+const Aries = function (opts) {
     if (!opts) {
         throw new Error("aries: missing options")
     }
@@ -149,20 +149,21 @@ const Aries = function(opts) {
 
         },
 
-        destroy: async function() {
-            var response = await invoke(aw, pending,  "aries", "Stop", "{}", "timeout while stopping aries")
+        destroy: async function () {
+            var response = await invoke(aw, pending, "aries", "Stop", "{}", "timeout while stopping aries")
             aw.terminate()
             aw = null
             return response
         },
 
-        startNotifier : function(callback, topics) {
-            if (!callback){
+        startNotifier: function (callback, topics) {
+            if (!callback) {
                 console.error("callback is required to start notifier")
                 return
             }
 
             var quit = false
+
             async function* run() {
                 while (true) {
                     if (quit) {
@@ -170,7 +171,6 @@ const Aries = function(opts) {
                         topics.forEach(function (item, index) {
                             notifications.delete(item)
                         });
-                        console.log("stopped notifier for topics:", topics)
                         return
                     }
                     yield await waitForNotification(notifications, topics)
@@ -188,7 +188,9 @@ const Aries = function(opts) {
                 }
             })();
 
-            return () => {quit = true}
+            return () => {
+                quit = true
+            }
         },
 
         /**
@@ -205,7 +207,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             createInvitation: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "CreateInvitation", req, "timeout while creating invitation")
+                return invoke(aw, pending, this.pkgname, "CreateInvitation", req, "timeout while creating invitation")
             },
 
             /**
@@ -215,7 +217,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             receiveInvitation: async function (invitation) {
-                return invoke(aw, pending,  this.pkgname, "ReceiveInvitation", invitation, "timeout while receiving invitation")
+                return invoke(aw, pending, this.pkgname, "ReceiveInvitation", invitation, "timeout while receiving invitation")
             },
 
             /**
@@ -226,7 +228,7 @@ const Aries = function(opts) {
              */
             acceptInvitation: async function (req) {
                 return new Promise((resolve, reject) => {
-                    invoke(aw, pending,  this.pkgname, "AcceptInvitation", req, "timeout while accepting invitation").then(
+                    invoke(aw, pending, this.pkgname, "AcceptInvitation", req, "timeout while accepting invitation").then(
                         resp => resolve(resp),
                         err => reject(new Error("failed to accept invitation: " + err.message))
                     )
@@ -240,7 +242,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             acceptExchangeRequest: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "AcceptExchangeRequest", req, "timeout while accepting exchange request")
+                return invoke(aw, pending, this.pkgname, "AcceptExchangeRequest", req, "timeout while accepting exchange request")
             },
 
             /**
@@ -250,7 +252,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             createImplicitInvitation: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "CreateImplicitInvitation", req, "timeout while creating implicit invitation")
+                return invoke(aw, pending, this.pkgname, "CreateImplicitInvitation", req, "timeout while creating implicit invitation")
             },
 
             /**
@@ -260,7 +262,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             removeConnection: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "RemoveConnection", req, "timeout while removing invitation")
+                return invoke(aw, pending, this.pkgname, "RemoveConnection", req, "timeout while removing invitation")
             },
 
             /**
@@ -270,7 +272,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             queryConnectionByID: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "QueryConnectionByID", req, "timeout while querying connection by ID")
+                return invoke(aw, pending, this.pkgname, "QueryConnectionByID", req, "timeout while querying connection by ID")
             },
 
             /**
@@ -280,7 +282,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             queryConnections: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "QueryConnections", req, "timeout while querying connections")
+                return invoke(aw, pending, this.pkgname, "QueryConnections", req, "timeout while querying connections")
             }
         },
 
@@ -297,8 +299,8 @@ const Aries = function(opts) {
              * @param req - json document
              * @returns {Promise<Object>}
              */
-            registeredServices: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "RegisteredServices", req, "timeout while getting list of registered services")
+            services: async function () {
+                return invoke(aw, pending, this.pkgname, "Services", {}, "timeout while getting list of registered services")
             },
 
             /**
@@ -307,8 +309,8 @@ const Aries = function(opts) {
              * @param req - json document
              * @returns {Promise<Object>}
              */
-            registerMessageService: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "RegisterMessageService", req, "timeout while registering service")
+            registerService: async function (req) {
+                return invoke(aw, pending, this.pkgname, "RegisterService", req, "timeout while registering service")
             },
 
             /**
@@ -317,8 +319,8 @@ const Aries = function(opts) {
              * @param req - json document
              * @returns {Promise<Object>}
              */
-            registerHTTPMessageService: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "RegisterHTTPMessageService", req, "timeout while registering HTTP service")
+            registerHTTPService: async function (req) {
+                return invoke(aw, pending, this.pkgname, "RegisterHTTPService", req, "timeout while registering HTTP service")
             },
 
             /**
@@ -327,8 +329,8 @@ const Aries = function(opts) {
              * @param req - json document
              * @returns {Promise<Object>}
              */
-            unregisterMessageService: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "UnregisterMessageService", req, "timeout while unregistering service")
+            unregisterService: async function (req) {
+                return invoke(aw, pending, this.pkgname, "UnregisterService", req, "timeout while unregistering service")
             },
 
             /**
@@ -337,8 +339,8 @@ const Aries = function(opts) {
              * @param req - json document
              * @returns {Promise<Object>}
              */
-            sendNewMessage: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "SendNewMessage", req, "timeout while sending new message")
+            send: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Send", req, "timeout while sending new message")
             },
 
             /**
@@ -347,8 +349,8 @@ const Aries = function(opts) {
              * @param req - json document
              * @returns {Promise<Object>}
              */
-            sendReplyMessage: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "SendReplyMessage", req, "timeout while sending reply message")
+            reply: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Reply", req, "timeout while sending reply message")
             }
         },
 
@@ -366,7 +368,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             createPublicDID: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "CreatePublicDID", req, "timeout while creating public DID")
+                return invoke(aw, pending, this.pkgname, "CreatePublicDID", req, "timeout while creating public DID")
             },
         },
 
@@ -384,7 +386,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             register: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "Register", req, "timeout while registering router")
+                return invoke(aw, pending, this.pkgname, "Register", req, "timeout while registering router")
             },
 
             /**
@@ -393,7 +395,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             unregister: async function () {
-                return invoke(aw, pending,  this.pkgname, "Unregister", "{}", "timeout while registering router")
+                return invoke(aw, pending, this.pkgname, "Unregister", "{}", "timeout while registering router")
             },
 
             /**
@@ -402,7 +404,8 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             getConnection: async function () {
-                return invoke(aw, pending,  this.pkgname, "Connection", "{}", "timeout while fetching router connection id")
+                // console.log("router get connection")
+                return invoke(aw, pending, this.pkgname, "Connection", "{}", "timeout while fetching router connection id")
             }
         },
 
@@ -420,7 +423,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             validateCredential: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "ValidateCredential", req, "timeout while validating verifiable credential")
+                return invoke(aw, pending, this.pkgname, "ValidateCredential", req, "timeout while validating verifiable credential")
             },
 
             /**
@@ -430,7 +433,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             saveCredential: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "SaveCredential", req, "timeout while saving verifiable credential")
+                return invoke(aw, pending, this.pkgname, "SaveCredential", req, "timeout while saving verifiable credential")
             },
 
             /**
@@ -440,7 +443,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             getCredential: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "GetCredential", req, "timeout while retrieving verifiable credential")
+                return invoke(aw, pending, this.pkgname, "GetCredential", req, "timeout while retrieving verifiable credential")
             },
 
             /**
@@ -450,7 +453,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             getCredentialByName: async function (req) {
-                return invoke(aw, pending,  this.pkgname, "GetCredentialByName", req, "timeout while retrieving verifiable credential by name")
+                return invoke(aw, pending, this.pkgname, "GetCredentialByName", req, "timeout while retrieving verifiable credential by name")
             },
 
             /**
@@ -459,7 +462,7 @@ const Aries = function(opts) {
              * @returns {Promise<Object>}
              */
             getCredentials: async function () {
-                return invoke(aw, pending,  this.pkgname, "GetCredentials", {}, "timeout while retrieving verifiable credentials")
+                return invoke(aw, pending, this.pkgname, "GetCredentials", {}, "timeout while retrieving verifiable credentials")
             },
 
             /**
