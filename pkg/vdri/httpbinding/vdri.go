@@ -153,13 +153,13 @@ func (v *VDRI) sendCreateRequest(req io.Reader) (*did.Doc, error) {
 
 	defer closeResponseBody(resp.Body)
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("got unexpected response status '%d'", resp.StatusCode)
-	}
-
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response : %s", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("got unexpected response status '%d' body %s", resp.StatusCode, responseBytes)
 	}
 
 	didDoc, err := did.ParseDocument(responseBytes)
