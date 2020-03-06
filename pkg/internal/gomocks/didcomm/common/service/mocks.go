@@ -262,6 +262,20 @@ func (mr *MockMessengerMockRecorder) Send(arg0, arg1, arg2 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockMessenger)(nil).Send), arg0, arg1, arg2)
 }
 
+// SendToDestination mocks base method
+func (m *MockMessenger) SendToDestination(arg0 service.DIDCommMsgMap, arg1 string, arg2 *service.Destination) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendToDestination", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendToDestination indicates an expected call of SendToDestination
+func (mr *MockMessengerMockRecorder) SendToDestination(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendToDestination", reflect.TypeOf((*MockMessenger)(nil).SendToDestination), arg0, arg1, arg2)
+}
+
 // MockMessengerHandler is a mock of MessengerHandler interface
 type MockMessengerHandler struct {
 	ctrl     *gomock.Controller
@@ -339,4 +353,18 @@ func (m *MockMessengerHandler) Send(arg0 service.DIDCommMsgMap, arg1, arg2 strin
 func (mr *MockMessengerHandlerMockRecorder) Send(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockMessengerHandler)(nil).Send), arg0, arg1, arg2)
+}
+
+// SendToDestination mocks base method
+func (m *MockMessengerHandler) SendToDestination(arg0 service.DIDCommMsgMap, arg1 string, arg2 *service.Destination) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendToDestination", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SendToDestination indicates an expected call of SendToDestination
+func (mr *MockMessengerHandlerMockRecorder) SendToDestination(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendToDestination", reflect.TypeOf((*MockMessengerHandler)(nil).SendToDestination), arg0, arg1, arg2)
 }

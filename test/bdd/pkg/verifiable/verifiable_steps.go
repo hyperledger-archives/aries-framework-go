@@ -154,7 +154,7 @@ func (s *SDKSteps) verifyCredential(holder string) error {
 }
 
 func (s *SDKSteps) getPublicDID(agentName string) *did.Doc {
-	return s.bddContext.PublicDIDs[agentName]
+	return s.bddContext.PublicDIDDocs[agentName]
 }
 
 func (s *SDKSteps) createDID(issuer, holder string) error {

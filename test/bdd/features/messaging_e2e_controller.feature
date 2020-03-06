@@ -30,3 +30,14 @@ Feature: Messaging between the agents using REST/controller binding
 
     When  "Tal" sends basic message "Your hovercraft is full of eels." through controller to "Baha"
     Then   "Baha" receives basic message "Your hovercraft is full of eels." for topic "basic-message" from "Tal"
+
+  # Reference : https://github.com/hyperledger/aries-rfcs/tree/master/features/0095-basic-message
+  Scenario: sending out of band message from one agent to another using message service controller through "Basic Message Protocol 1.0"
+    Given "Baha" agent is running on "localhost" port "8081" with controller "http://localhost:8082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+    And   "Baha" registers a message service through controller with name "basic-message" for basic message type
+    And   "Baha" creates "sidetree" public DID through controller
+
+    Given "Tal" agent is running on "localhost" port "9081" with controller "http://localhost:9082" with http-binding did resolver url "${SIDETREE_URL}" which accepts did method "sidetree"
+
+    When  "Tal" sends out of band basic message "Your hovercraft is full of eels, careful !!" through controller to "Baha"
+    Then   "Baha" receives basic message "Your hovercraft is full of eels, careful !!" for topic "basic-message" from "Tal"

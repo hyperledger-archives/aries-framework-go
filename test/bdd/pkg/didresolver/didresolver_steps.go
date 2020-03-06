@@ -58,7 +58,7 @@ func (d *Steps) createDIDDocument(agents, method string) error {
 			return fmt.Errorf("[%s] %v", agents, err)
 		}
 
-		d.bddContext.PublicDIDs[agentID] = doc
+		d.bddContext.PublicDIDDocs[agentID] = doc
 	}
 
 	return nil

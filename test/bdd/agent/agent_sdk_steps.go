@@ -66,6 +66,23 @@ func (a *SDKSteps) createAgentWithRegistrar(agentID, inboundHost, inboundPort, s
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
 }
 
+func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHost, inboundPort,
+	scheme, endpointURL, acceptDidMethod string) error {
+	msgRegistrar := msghandler.NewRegistrar()
+	a.bddContext.MessageRegistrar[agentID] = msgRegistrar
+
+	httpVDRI, err := httpbinding.New(a.bddContext.Args[endpointURL],
+		httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
+	if err != nil {
+		return fmt.Errorf("failed from httpbinding new ")
+	}
+
+	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)),
+		aries.WithMessageServiceProvider(msgRegistrar), aries.WithVDRI(httpVDRI))
+
+	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
+}
+
 // CreateAgentWithHTTPDIDResolver creates agent with HTTP DID resolver
 func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 	agents, inboundHost, inboundPort, endpointURL, acceptDidMethod string) error {
@@ -218,6 +235,9 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 		`with http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`, a.CreateAgentWithHTTPDIDResolver)
 	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" `+
 		`with "([^"]*)" as the transport provider$`, a.createAgentWithRegistrar)
+	s.Step(`^"([^"]*)" agent with message registrar is running on "([^"]*)" port "([^"]*)" with "([^"]*)" `+
+		`as the transport provider and http-binding did resolver url "([^"]*)" which accepts did method "([^"]*)"$`,
+		a.createAgentWithRegistrarAndHTTPDIDResolver)
 }
 
 func mustGetRandomPort(n int) int {

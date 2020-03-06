@@ -87,3 +87,38 @@ func (d *messagingSDKSteps) sendMessage(fromAgentID, toAgentID string, msg servi
 
 	return nil
 }
+
+func (d *messagingSDKSteps) sendMessageToPublicDID(fromAgentID, toAgentID string, msg service.DIDCommMsgMap) error {
+	messenger, ok := d.bddContext.Messengers[fromAgentID]
+	if !ok {
+		return fmt.Errorf("unable to find messenger for agent `%s`", fromAgentID)
+	}
+
+	publicDID, ok := d.bddContext.PublicDIDDocs[toAgentID]
+	if !ok {
+		return fmt.Errorf("unable to find destination public DID `%s`", fromAgentID)
+	}
+
+	ctx, ok := d.bddContext.AgentCtx[fromAgentID]
+	if !ok {
+		return fmt.Errorf("unable to find context for agent `%s`", fromAgentID)
+	}
+
+	dest, err := service.GetDestination(publicDID.ID, ctx.VDRIRegistry())
+	if err != nil {
+		return fmt.Errorf("unable to get destination from public DID `%s` : %w", publicDID.ID, err)
+	}
+
+	_, sigPubKey, err := ctx.LegacyKMS().CreateKeySet()
+	if err != nil {
+		return fmt.Errorf("unable to create sender verkey : %w", err)
+	}
+
+	// send message
+	err = messenger.SendToDestination(msg, sigPubKey, dest)
+	if err != nil {
+		return fmt.Errorf("failed to send message to agent[%s] : %w", toAgentID, err)
+	}
+
+	return nil
+}

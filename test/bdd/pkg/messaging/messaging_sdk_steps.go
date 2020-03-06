@@ -66,6 +66,18 @@ func (d *SDKSteps) sendGenericMessage(fromAgentID, msg, msgType, purpose, toAgen
 	return d.steps.sendMessage(fromAgentID, toAgentID, msgMap)
 }
 
+func (d *SDKSteps) sendGenericMessageToDID(fromAgentID, msg, msgType, purpose, toAgentID string) error {
+	msgMap := service.NewDIDCommMsgMap(&genericInviteMsg{
+		ID:      uuid.New().String(),
+		Type:    msgType,
+		Purpose: strings.Split(purpose, ","),
+		Message: msg,
+		From:    fromAgentID,
+	})
+
+	return d.steps.sendMessageToPublicDID(fromAgentID, toAgentID, msgMap)
+}
+
 func (d *SDKSteps) receiveGenericMessage(agentID, expectedMsg, expectedMsgType, from string) error {
 	msgSvc, ok := d.genericMessages[agentID]
 	if !ok {
@@ -84,7 +96,7 @@ func (d *SDKSteps) receiveGenericMessage(agentID, expectedMsg, expectedMsgType, 
 
 	if invite.Message != expectedMsg {
 		return fmt.Errorf("incorrect message received, expected msg body `%s` but got `%s`",
-			invite.Type, expectedMsgType)
+			invite.Message, expectedMsg)
 	}
 
 	if invite.From != from {
@@ -154,6 +166,8 @@ func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 		d.registerGenericMsgService)
 	s.Step(`^"([^"]*)" sends meeting invite message "([^"]*)" with type "([^"]*)" and purpose "([^"]*)" to "([^"]*)"$`,
 		d.sendGenericMessage)
+	s.Step(`^"([^"]*)" sends out of band meeting invite message "([^"]*)" with type "([^"]*)" `+
+		`and purpose "([^"]*)" to "([^"]*)"$`, d.sendGenericMessageToDID)
 	s.Step(`^"([^"]*)" message service receives meeting invite message "([^"]*)" with type "([^"]*)" from "([^"]*)"$`,
 		d.receiveGenericMessage)
 

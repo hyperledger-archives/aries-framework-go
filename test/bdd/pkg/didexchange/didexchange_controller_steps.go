@@ -51,7 +51,6 @@ type ControllerSteps struct {
 	bddContext    *context.BDDContext
 	invitations   map[string]*didexchange.Invitation
 	connectionIDs map[string]string
-	publicDIDs    map[string]string
 }
 
 // NewDIDExchangeControllerSteps creates steps for didexchange with controller
@@ -60,7 +59,6 @@ func NewDIDExchangeControllerSteps(ctx *context.BDDContext) *ControllerSteps {
 		bddContext:    ctx,
 		invitations:   make(map[string]*didexchange.Invitation),
 		connectionIDs: make(map[string]string),
-		publicDIDs:    make(map[string]string),
 	}
 }
 
@@ -149,7 +147,7 @@ func (a *ControllerSteps) performCreateInvitation(inviterAgentID, label string, 
 
 	var publicDID string
 	if useDID {
-		publicDID, ok = a.publicDIDs[inviterAgentID]
+		publicDID, ok = a.bddContext.PublicDIDs[inviterAgentID]
 		if !ok {
 			return fmt.Errorf("unable to find public DID for agent [%s]", inviterAgentID)
 		}
@@ -188,14 +186,14 @@ func (a *ControllerSteps) performCreateImplicitInvitation(inviteeAgentID, invite
 			inviterAgentID)
 	}
 
-	inviterDID, ok := a.publicDIDs[inviterAgentID]
+	inviterDID, ok := a.bddContext.PublicDIDs[inviterAgentID]
 	if !ok {
 		return fmt.Errorf("unable to find public DID for agent [%s]", inviterAgentID)
 	}
 
 	var inviteeDID string
 	if usePublic {
-		inviteeDID, ok = a.publicDIDs[inviteeAgentID]
+		inviteeDID, ok = a.bddContext.PublicDIDs[inviteeAgentID]
 		if !ok {
 			return fmt.Errorf("unable to find public DID for agent [%s]", inviteeAgentID)
 		}
@@ -352,7 +350,7 @@ func (a *ControllerSteps) performApprove(agentID string, useDID bool, connection
 
 	var publicDID string
 	if useDID {
-		publicDID, ok = a.publicDIDs[agentID]
+		publicDID, ok = a.bddContext.PublicDIDs[agentID]
 		if !ok {
 			return fmt.Errorf("unable to find public DID for agent [%s]", agentID)
 		}
@@ -511,7 +509,7 @@ func (a *ControllerSteps) createPublicDID(agentID, didMethod string) error {
 	}
 
 	// save public DID for later use
-	a.publicDIDs[agentID] = result.DID.ID
+	a.bddContext.PublicDIDs[agentID] = result.DID.ID
 
 	return nil
 }

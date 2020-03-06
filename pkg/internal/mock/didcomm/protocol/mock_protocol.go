@@ -7,9 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package protocol
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	mockservice "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/service"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -23,6 +25,7 @@ type MockProvider struct {
 	TransientStoreProvider *mockstore.MockStoreProvider
 	CustomVDRI             vdriapi.Registry
 	CustomOutbound         *mockdispatcher.MockOutbound
+	CustomMessenger        *mockservice.MockMessenger
 	CustomKMS              *mockkms.CloseableKMS
 	ServiceErr             error
 	ServiceMap             map[string]interface{}
@@ -85,4 +88,13 @@ func (p *MockProvider) Service(id string) (interface{}, error) {
 	}
 
 	return p.ServiceMap[id], nil
+}
+
+// Messenger return mock messenger
+func (p *MockProvider) Messenger() service.Messenger {
+	if p.CustomMessenger != nil {
+		return p.CustomMessenger
+	}
+
+	return &mockservice.MockMessenger{}
 }
