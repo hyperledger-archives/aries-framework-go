@@ -15,7 +15,7 @@ type InboundHandler interface {
 // OutboundHandler is handler for outbound messages
 type OutboundHandler interface {
 	// HandleOutbound handles outbound messages.
-	HandleOutbound(msg DIDCommMsg, myDID, theirDID string) (string, error)
+	HandleOutbound(msg DIDCommMsg, myDID, theirDID string) error
 }
 
 // Handler provides protocol service handle api.

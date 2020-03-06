@@ -49,12 +49,11 @@ func (mr *MockDIDCommMockRecorder) HandleInbound(arg0, arg1, arg2 interface{}) *
 }
 
 // HandleOutbound mocks base method
-func (m *MockDIDComm) HandleOutbound(arg0 service.DIDCommMsg, arg1, arg2 string) (string, error) {
+func (m *MockDIDComm) HandleOutbound(arg0 service.DIDCommMsg, arg1, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleOutbound", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // HandleOutbound indicates an expected call of HandleOutbound

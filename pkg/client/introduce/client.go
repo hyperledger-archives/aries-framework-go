@@ -58,12 +58,12 @@ func (c *Client) SendProposal(recipient1, recipient2 *introduce.Recipient) error
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	_, err := c.service.HandleOutbound(proposal1, recipient1.MyDID, recipient1.TheirDID)
+	err := c.service.HandleOutbound(proposal1, recipient1.MyDID, recipient1.TheirDID)
 	if err != nil {
 		return fmt.Errorf("handle outbound: %w", err)
 	}
 
-	_, err = c.service.HandleOutbound(proposal2, recipient2.MyDID, recipient2.TheirDID)
+	err = c.service.HandleOutbound(proposal2, recipient2.MyDID, recipient2.TheirDID)
 
 	return err
 }
@@ -74,7 +74,7 @@ func (c *Client) SendProposalWithInvitation(inv *didexchange.Invitation, recipie
 
 	introduce.WrapWithMetadataPublicInvitation(proposal, inv.Invitation)
 
-	_, err := c.service.HandleOutbound(proposal, recipient.MyDID, recipient.TheirDID)
+	err := c.service.HandleOutbound(proposal, recipient.MyDID, recipient.TheirDID)
 
 	return err
 }
@@ -82,7 +82,7 @@ func (c *Client) SendProposalWithInvitation(inv *didexchange.Invitation, recipie
 // SendRequest sends a request.
 // Sending a request means that the introducee is willing to share its invitation.
 func (c *Client) SendRequest(to *introduce.PleaseIntroduceTo, myDID, theirDID string) error {
-	_, err := c.service.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	err := c.service.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type:              introduce.RequestMsgType,
 		PleaseIntroduceTo: to,
 	}), myDID, theirDID)
