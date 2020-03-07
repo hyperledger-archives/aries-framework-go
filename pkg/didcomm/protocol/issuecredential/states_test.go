@@ -335,18 +335,27 @@ func TestRequestReceived_CanTransitionTo(t *testing.T) {
 }
 
 func TestRequestReceived_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&requestReceived{}).ExecuteInbound(&metaData{})
-	require.NoError(t, err)
-	require.Equal(t, &credentialIssued{}, followup)
-	require.NotNil(t, action)
+	t.Run("Successes", func(t *testing.T) {
+		followup, action, err := (&requestReceived{}).ExecuteInbound(&metaData{issueCredential: &IssueCredential{}})
+		require.NoError(t, err)
+		require.Equal(t, &credentialIssued{}, followup)
+		require.NotNil(t, action)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-	messenger := serviceMocks.NewMockMessenger(ctrl)
-	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
 
-	require.NoError(t, action(messenger))
+		require.NoError(t, action(messenger))
+	})
+
+	t.Run("IssueCredential is absent", func(t *testing.T) {
+		followup, action, err := (&requestReceived{}).ExecuteInbound(&metaData{})
+		require.Contains(t, fmt.Sprintf("%v", err), "issue credential was not provided")
+		require.Nil(t, followup)
+		require.Nil(t, action)
+	})
 }
 
 func TestRequestReceived_ExecuteOutbound(t *testing.T) {
@@ -495,6 +504,18 @@ func TestOfferReceived_ExecuteInbound(t *testing.T) {
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
 
 		require.NoError(t, action(messenger))
+	})
+
+	t.Run("Decode error", func(t *testing.T) {
+		followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{
+			transitionalPayload: transitionalPayload{
+				Msg: service.DIDCommMsgMap{"@type": map[int]int{}},
+			},
+		})
+
+		require.Contains(t, fmt.Sprintf("%v", err), "got unconvertible type")
+		require.Nil(t, followup)
+		require.Nil(t, action)
 	})
 }
 

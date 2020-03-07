@@ -18,6 +18,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	issuecredentialMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/issuecredential"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
@@ -423,14 +424,16 @@ func TestService_HandleInbound(t *testing.T) {
 
 	t.Run("Receive Offer Credential", func(t *testing.T) {
 		var done = make(chan struct{})
+		var attachment = []decorator.Attachment{{ID: "ID1"}, {ID: "ID2"}}
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
 				defer close(done)
 
-				r := &ProposeCredential{}
+				r := &RequestCredential{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, RequestCredentialMsgType, r.Type)
+				require.Equal(t, attachment, r.RequestsAttach)
 
 				return nil
 			})
@@ -451,7 +454,8 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
 		msg := service.NewDIDCommMsgMap(OfferCredential{
-			Type: OfferCredentialMsgType,
+			Type:         OfferCredentialMsgType,
+			OffersAttach: attachment,
 		})
 
 		require.NoError(t, msg.SetID(uuid.New().String()))
@@ -557,7 +561,7 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(nil)
+		(<-ch).Continue(WithIssueCredential(&IssueCredential{}))
 
 		select {
 		case <-done:

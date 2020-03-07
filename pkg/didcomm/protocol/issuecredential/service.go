@@ -69,6 +69,7 @@ type metaData struct {
 	// allows filling the message by providing an option function
 	offerCredential   *OfferCredential
 	proposeCredential *ProposeCredential
+	issueCredential   *IssueCredential
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -98,6 +99,14 @@ func WithProposeCredential(msg *ProposeCredential) Opt {
 func WithOfferCredential(msg *OfferCredential) Opt {
 	return func(md *metaData) {
 		md.offerCredential = msg
+	}
+}
+
+// WithIssueCredential allows providing IssueCredential message
+// USAGE: This message should be provided after receiving a RequestCredential message
+func WithIssueCredential(msg *IssueCredential) Opt {
+	return func(md *metaData) {
+		md.issueCredential = msg
 	}
 }
 
