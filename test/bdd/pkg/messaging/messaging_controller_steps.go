@@ -167,11 +167,45 @@ func (d *ControllerSteps) sendMessage(fromAgentID, toAgentID string, msg interfa
 		return fmt.Errorf("failed to get raw message bytes:  %w", err)
 	}
 
-	logger.Debugf("Sending message to agent[%s], message:[%s]", toAgentID, string(rawBytes))
+	logger.Debugf("Sending message to agent[%s], connection ID[%s], message:[%s]", toAgentID, connID, string(rawBytes))
 
 	request := &messaging.SendNewMessageArgs{
 		ConnectionID: connID,
 		MessageBody:  rawBytes,
+	}
+
+	// call controller to send message
+	err = sendHTTP(http.MethodPost, destination+sendNewMsg, request, nil)
+	if err != nil {
+		return fmt.Errorf("failed to send message : %w", err)
+	}
+
+	return nil
+}
+
+func (d *ControllerSteps) sendMessageToDID(fromAgentID, toAgentID string, msg interface{}) error {
+	destination, ok := d.bddContext.GetControllerURL(fromAgentID)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", fromAgentID)
+	}
+
+	// get public DID
+	did, ok := d.bddContext.PublicDIDs[toAgentID]
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", fromAgentID)
+	}
+
+	// prepare message
+	rawBytes, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to get raw message bytes:  %w", err)
+	}
+
+	logger.Debugf("Sending message to agent[%s],  DID[%s], message:[%s]", toAgentID, did, string(rawBytes))
+
+	request := &messaging.SendNewMessageArgs{
+		TheirDID:    did,
+		MessageBody: rawBytes,
 	}
 
 	// call controller to send message
@@ -343,6 +377,21 @@ func (d *ControllerSteps) sendBasicMessage(fromAgentID, msg, toAgentID string) e
 
 	return d.sendMessage(fromAgentID, toAgentID, basicMsg)
 }
+func (d *ControllerSteps) sendBasicMessageToDID(fromAgentID, msg, toAgentID string) error {
+	basicMsg := &basic.Message{
+		ID:      uuid.New().String(),
+		Type:    basic.MessageRequestType,
+		Content: msg,
+		I10n: struct {
+			Locale string `json:"locale"`
+		}{
+			Locale: "en",
+		},
+		SentTime: time.Now(),
+	}
+
+	return d.sendMessageToDID(fromAgentID, toAgentID, basicMsg)
+}
 
 func (d *ControllerSteps) receiveInviteMessage(agentID, expectedMsg, expectedMsgType, topic, from string) error {
 	msg, err := d.pullMsgFromWebhookURL(agentID, topic)
@@ -445,5 +494,7 @@ func (d *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" registers a message service through controller with name "([^"]*)" for basic message type$`,
 		d.registerBasicMsgService)
 	s.Step(`^"([^"]*)" sends basic message "([^"]*)" through controller to "([^"]*)"$`, d.sendBasicMessage)
+	s.Step(`^"([^"]*)" sends out of band basic message "([^"]*)" through controller to "([^"]*)"$`,
+		d.sendBasicMessageToDID)
 	s.Step(`^"([^"]*)" receives basic message "([^"]*)" for topic "([^"]*)" from "([^"]*)"$`, d.receiveBasicMessage)
 }

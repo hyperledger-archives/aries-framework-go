@@ -144,6 +144,23 @@ func (m *Messenger) Send(msg service.DIDCommMsgMap, myDID, theirDID string) erro
 	return m.dispatcher.SendToDID(msg, myDID, theirDID)
 }
 
+// SendToDestination sends the message to given destination by starting a new thread.
+// Do not provide a message with ~thread decorator. It will be removed.
+// Use ReplyTo function instead. It will keep ~thread decorator automatically.
+func (m *Messenger) SendToDestination(msg service.DIDCommMsgMap, sender string,
+	destination *service.Destination) error {
+	// fills missing fields
+	fillIfMissing(msg)
+
+	if err := m.saveMetadata(msg); err != nil {
+		return fmt.Errorf("save metadata: %w", err)
+	}
+
+	delete(msg, jsonThread)
+
+	return m.dispatcher.Send(msg, sender, destination)
+}
+
 // ReplyTo replies to the message by given msgID.
 // The function adds ~thread decorator to the message according to the given msgID.
 // Do not provide a message with ~thread decorator. It will be rewritten.

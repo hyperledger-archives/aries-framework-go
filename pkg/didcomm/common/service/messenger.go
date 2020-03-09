@@ -36,6 +36,9 @@ type Messenger interface {
 	// Send sends the message by starting a new thread.
 	Send(msg DIDCommMsgMap, myDID, theirDID string) error
 
+	// SendToDestination sends the message to given destination by starting a new thread.
+	SendToDestination(msg DIDCommMsgMap, sender string, destination *Destination) error
+
 	// ReplyToNested sends the message by starting a new thread.
 	// Keeps parent threadID in the *decorator.Thread
 	ReplyToNested(threadID string, msg DIDCommMsgMap, myDID, theirDID string) error

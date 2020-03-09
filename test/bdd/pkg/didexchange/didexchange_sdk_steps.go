@@ -73,7 +73,7 @@ func (d *SDKSteps) validateInvitationEndpointScheme(inviterAgentID, scheme strin
 // CreateInvitationWithDID creates invitation with DID
 func (d *SDKSteps) CreateInvitationWithDID(inviterAgentID string) error {
 	invitation, err := d.bddContext.DIDExchangeClients[inviterAgentID].CreateInvitationWithDID(inviterAgentID,
-		d.bddContext.PublicDIDs[inviterAgentID].ID)
+		d.bddContext.PublicDIDDocs[inviterAgentID].ID)
 	if err != nil {
 		return fmt.Errorf("failed to create invitation: %w", err)
 	}
@@ -92,7 +92,7 @@ func (d *SDKSteps) CreateInvitationWithDID(inviterAgentID string) error {
 
 func (d *SDKSteps) createImplicitInvitation(inviteeAgentID, inviterAgentID string) error {
 	connectionID, err := d.bddContext.DIDExchangeClients[inviteeAgentID].CreateImplicitInvitation(inviterAgentID,
-		d.bddContext.PublicDIDs[inviterAgentID].ID)
+		d.bddContext.PublicDIDDocs[inviterAgentID].ID)
 	if err != nil {
 		return fmt.Errorf("failed to create invitation: %w", err)
 	}
@@ -104,12 +104,12 @@ func (d *SDKSteps) createImplicitInvitation(inviteeAgentID, inviterAgentID strin
 
 func (d *SDKSteps) createImplicitInvitationWithDID(inviteeAgentID, inviterAgentID string) error {
 	inviter := &didexchange.DIDInfo{
-		DID:   d.bddContext.PublicDIDs[inviterAgentID].ID,
+		DID:   d.bddContext.PublicDIDDocs[inviterAgentID].ID,
 		Label: inviterAgentID,
 	}
 
 	invitee := &didexchange.DIDInfo{
-		DID:   d.bddContext.PublicDIDs[inviteeAgentID].ID,
+		DID:   d.bddContext.PublicDIDDocs[inviteeAgentID].ID,
 		Label: inviteeAgentID,
 	}
 
@@ -127,7 +127,7 @@ func (d *SDKSteps) createImplicitInvitationWithDID(inviteeAgentID, inviterAgentI
 func (d *SDKSteps) WaitForPublicDID(agents string, maxSeconds int) error {
 	for _, agentID := range strings.Split(agents, ",") {
 		vdri := d.bddContext.AgentCtx[agentID].VDRIRegistry()
-		if _, err := resolveDID(vdri, d.bddContext.PublicDIDs[agentID].ID, maxSeconds); err != nil {
+		if _, err := resolveDID(vdri, d.bddContext.PublicDIDDocs[agentID].ID, maxSeconds); err != nil {
 			return err
 		}
 	}
@@ -212,7 +212,7 @@ func (d *SDKSteps) ApproveRequest(agentID string) error {
 func (d *SDKSteps) getClientOptions(agentID string) interface{} {
 	clientOpts := &clientOptions{label: agentID}
 
-	pubDID, ok := d.bddContext.PublicDIDs[agentID]
+	pubDID, ok := d.bddContext.PublicDIDDocs[agentID]
 	if ok {
 		clientOpts.publicDID = pubDID.ID
 
@@ -353,7 +353,7 @@ func (d *SDKSteps) eventListener(statusCh chan service.StateMsg, agentID string,
 	for e := range statusCh {
 		err, ok := e.Properties.(error)
 		if ok {
-			panic(fmt.Sprintf("Service processing failed: %s", err))
+			panic(fmt.Sprintf("Service processing failed: %s : %s", agentID, err))
 		}
 
 		if e.Type == service.PostState {

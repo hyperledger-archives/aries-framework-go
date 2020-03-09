@@ -24,12 +24,16 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	svchttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/http"
-	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/generic"
+	mocksvc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/service"
+	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
@@ -489,8 +493,9 @@ func TestOperation_Send(t *testing.T) {
 		tests := []struct {
 			name           string
 			testConnection *connection.Record
-			messenger      *mockdispatcher.MockOutbound
+			messenger      *mocksvc.MockMessenger
 			kms            *mockkms.CloseableKMS
+			vdri           *mockvdri.MockVDRIRegistry
 			requestJSON    string
 			httpErrCode    int
 			errorCode      command.Code
@@ -509,7 +514,7 @@ func TestOperation_Send(t *testing.T) {
 				testConnection: &connection.Record{ConnectionID: "sample-conn-ID-001",
 					State: "completed", MyDID: "mydid", TheirDID: "theirDID-001"},
 				requestJSON: `{"message_body": {"text":"sample"}, "connection_id": "sample-conn-ID-001"}`,
-				messenger:   &mockdispatcher.MockOutbound{SendErr: fmt.Errorf("sample-err-01")},
+				messenger:   &mocksvc.MockMessenger{ErrSend: fmt.Errorf("sample-err-01")},
 				httpErrCode: http.StatusInternalServerError,
 				errorCode:   messaging.SendMsgError,
 				errorMsg:    "sample-err-01",
@@ -521,13 +526,13 @@ func TestOperation_Send(t *testing.T) {
 				requestJSON: `{"message_body": {"text":"sample"}, "their_did": "theirDID-001"}`,
 				httpErrCode: http.StatusInternalServerError,
 				errorCode:   messaging.SendMsgError,
-				errorMsg:    "unable to find connection matching theirDID",
+				errorMsg:    "DID not found",
 			},
 			{
 				name: "send message to destination",
 				requestJSON: `{"message_body": {"text":"sample"},"service_endpoint": {"serviceEndpoint": "sdfsdf", 
 "recipientKeys":["test"]}}`,
-				messenger:   &mockdispatcher.MockOutbound{SendErr: fmt.Errorf("sample-err-01")},
+				messenger:   &mocksvc.MockMessenger{ErrSendToDestination: fmt.Errorf("sample-err-01")},
 				httpErrCode: http.StatusInternalServerError,
 				errorCode:   messaging.SendMsgError,
 				errorMsg:    "sample-err-01",
@@ -540,6 +545,35 @@ func TestOperation_Send(t *testing.T) {
 				httpErrCode: http.StatusInternalServerError,
 				errorCode:   messaging.SendMsgError,
 				errorMsg:    "sample-kmserr-01",
+			},
+			{
+				name:        "failed to resolve destination from DID",
+				requestJSON: `{"message_body": {"text":"sample"}, "their_did": "theirDID-001"}`,
+				vdri:        &mockvdri.MockVDRIRegistry{ResolveErr: fmt.Errorf("sample-err-01")},
+				httpErrCode: http.StatusInternalServerError,
+				errorCode:   messaging.SendMsgError,
+				errorMsg:    "sample-err-01",
+			},
+			{
+				name:        "invalid message body - scenario 1",
+				requestJSON: `{"message_body": "sample-input", "their_did": "theirDID-001"}`,
+				vdri: &mockvdri.MockVDRIRegistry{
+					ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+						return mockdiddoc.GetMockDIDDoc(), nil
+					},
+				},
+				httpErrCode: http.StatusInternalServerError,
+				errorCode:   messaging.SendMsgError,
+				errorMsg:    "invalid payload data format",
+			},
+			{
+				name: "invalid message body - scenario 2",
+				testConnection: &connection.Record{ConnectionID: "sample-conn-ID-001",
+					State: "completed", MyDID: "mydid", TheirDID: "theirDID-001"},
+				requestJSON: `{"message_body": "sample-input", "connection_id": "sample-conn-ID-001"}`,
+				httpErrCode: http.StatusInternalServerError,
+				errorCode:   messaging.SendMsgError,
+				errorMsg:    "invalid payload data format",
 			},
 		}
 
@@ -559,11 +593,15 @@ func TestOperation_Send(t *testing.T) {
 				}
 
 				if tc.messenger != nil {
-					provider.CustomOutbound = tc.messenger
+					provider.CustomMessenger = tc.messenger
 				}
 
 				if tc.kms != nil {
 					provider.CustomKMS = tc.kms
+				}
+
+				if tc.vdri != nil {
+					provider.CustomVDRI = tc.vdri
 				}
 
 				svc, err := New(provider, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())

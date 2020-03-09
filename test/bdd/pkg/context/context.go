@@ -26,7 +26,8 @@ var logger = log.New("aries-framework/tests/context")
 type BDDContext struct {
 	DIDExchangeClients map[string]*didexchange.Client
 	RouteClients       map[string]*route.Client
-	PublicDIDs         map[string]*did.Doc
+	PublicDIDDocs      map[string]*did.Doc
+	PublicDIDs         map[string]string
 	AgentCtx           map[string]*context.Provider
 	MessageRegistrar   map[string]*msghandler.Registrar
 	Messengers         map[string]service.Messenger
@@ -42,7 +43,8 @@ func NewBDDContext() (*BDDContext, error) {
 	instance := BDDContext{
 		DIDExchangeClients: make(map[string]*didexchange.Client),
 		RouteClients:       make(map[string]*route.Client),
-		PublicDIDs:         make(map[string]*did.Doc),
+		PublicDIDDocs:      make(map[string]*did.Doc),
+		PublicDIDs:         make(map[string]string),
 		AgentCtx:           make(map[string]*context.Provider),
 		MessageRegistrar:   make(map[string]*msghandler.Registrar),
 		Messengers:         make(map[string]service.Messenger),

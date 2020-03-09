@@ -218,7 +218,7 @@ func TestMessenger_Send(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("success", func(t *testing.T) {
+	t.Run("send success", func(t *testing.T) {
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil)
 
@@ -235,6 +235,25 @@ func TestMessenger_Send(t *testing.T) {
 		require.NotNil(t, msgr)
 
 		require.NoError(t, msgr.Send(service.DIDCommMsgMap{jsonID: ID}, myDID, theirDID))
+	})
+
+	t.Run("send to destination success", func(t *testing.T) {
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil)
+
+		outbound := dispatcherMocks.NewMockOutbound(ctrl)
+		outbound.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
+
+		provider := messengerMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().OutboundDispatcher().Return(outbound)
+
+		msgr, err := NewMessenger(provider)
+		require.NoError(t, err)
+		require.NotNil(t, msgr)
+
+		require.NoError(t, msgr.SendToDestination(service.DIDCommMsgMap{jsonID: ID}, "", &service.Destination{}))
 	})
 
 	t.Run("success msg without id", func(t *testing.T) {
@@ -258,7 +277,7 @@ func TestMessenger_Send(t *testing.T) {
 
 	t.Run("save metadata error", func(t *testing.T) {
 		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(errors.New(errMsg)).AnyTimes()
 
 		storageProvider := storageMocks.NewMockProvider(ctrl)
 		storageProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
@@ -274,6 +293,11 @@ func TestMessenger_Send(t *testing.T) {
 		err = msgr.Send(service.DIDCommMsgMap{
 			jsonMetadata: map[string]interface{}{"key": "val"},
 		}, myDID, theirDID)
+		require.Contains(t, fmt.Sprintf("%v", err), errMsg)
+
+		err = msgr.SendToDestination(service.DIDCommMsgMap{
+			jsonMetadata: map[string]interface{}{"key": "val"},
+		}, "", nil)
 		require.Contains(t, fmt.Sprintf("%v", err), errMsg)
 	})
 }

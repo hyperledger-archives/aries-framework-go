@@ -14,7 +14,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -36,7 +37,8 @@ const (
 // provider contains dependencies for the common controller operations
 // and is typically created by using aries.Context()
 type provider interface {
-	OutboundDispatcher() dispatcher.Outbound
+	VDRIRegistry() vdri.Registry
+	Messenger() service.Messenger
 	TransientStorageProvider() storage.Provider
 	StorageProvider() storage.Provider
 	LegacyKMS() legacykms.KeyManager
