@@ -401,6 +401,7 @@ func (s *Service) saveTransitionalPayload(id string, data transitionalPayload) e
 func canTriggerActionEvents(msg service.DIDCommMsg) bool {
 	return msg.Type() == ProposeCredentialMsgType ||
 		msg.Type() == OfferCredentialMsgType ||
+		msg.Type() == IssueCredentialMsgType ||
 		msg.Type() == RequestCredentialMsgType
 }
 
