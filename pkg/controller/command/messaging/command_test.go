@@ -589,36 +589,57 @@ func TestCommand_Send(t *testing.T) {
 }
 
 func TestCommand_Reply(t *testing.T) {
-	t.Run("Test input args validation", func(t *testing.T) {
+	t.Run("Test reply validation and failures", func(t *testing.T) {
 		tests := []struct {
 			name        string
 			requestJSON string
+			messenger   *mocksvc.MockMessenger
 			errorCode   command.Code
 			errorMsg    string
+			errType     command.Type
 		}{
 			{
 				name:        "missing all params",
 				requestJSON: `{}`,
 				errorCode:   InvalidRequestErrorCode,
 				errorMsg:    errMsgBodyEmpty,
+				errType:     command.ValidationError,
 			},
 			{
 				name:        "missing message body",
 				requestJSON: `{"message_ID": "1234"}`,
 				errorCode:   InvalidRequestErrorCode,
 				errorMsg:    errMsgBodyEmpty,
+				errType:     command.ValidationError,
 			},
 			{
 				name:        "missing message id",
 				requestJSON: `{"message_body": "sample"}`,
 				errorCode:   InvalidRequestErrorCode,
 				errorMsg:    errMsgIDEmpty,
+				errType:     command.ValidationError,
 			},
 			{
-				name:        "invalid input",
+				name:        "invalid request",
 				requestJSON: `----`,
 				errorCode:   InvalidRequestErrorCode,
 				errorMsg:    "invalid character",
+				errType:     command.ValidationError,
+			},
+			{
+				name:        "invalid message format",
+				requestJSON: `{"message_ID": "1234","message_body": "sample-msg"}`,
+				errorCode:   SendMsgReplyError,
+				errorMsg:    "invalid payload data format",
+				errType:     command.ExecuteError,
+			},
+			{
+				name:        "invalid message format",
+				requestJSON: `{"message_ID": "1234","message_body": {"msg":"Hello !!"}}`,
+				messenger:   &mocksvc.MockMessenger{ErrReplyTo: fmt.Errorf("sample-err-01")},
+				errorCode:   SendMsgReplyError,
+				errorMsg:    "sample-err-01",
+				errType:     command.ExecuteError,
 			},
 		}
 
@@ -627,7 +648,13 @@ func TestCommand_Reply(t *testing.T) {
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
-				cmd, err := New(&protocol.MockProvider{}, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
+				provider := &protocol.MockProvider{}
+
+				if tc.messenger != nil {
+					provider.CustomMessenger = tc.messenger
+				}
+
+				cmd, err := New(provider, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
 				require.NoError(t, err)
 				require.NotNil(t, cmd)
 
@@ -635,7 +662,7 @@ func TestCommand_Reply(t *testing.T) {
 				cmdErr := cmd.Reply(&b, bytes.NewBufferString(tc.requestJSON))
 				require.Error(t, cmdErr)
 				require.Empty(t, b.String())
-				require.Equal(t, cmdErr.Type(), command.ValidationError)
+				require.Equal(t, cmdErr.Type(), tc.errType)
 				require.Equal(t, cmdErr.Code(), tc.errorCode)
 				require.Contains(t, cmdErr.Error(), tc.errorMsg)
 			})
@@ -643,18 +670,14 @@ func TestCommand_Reply(t *testing.T) {
 	})
 
 	t.Run("Test send message reply", func(t *testing.T) {
-		const jsonMsg = `{"message_ID": "1234","message_body": "sample"}`
+		const jsonMsg = `{"message_ID": "1234","message_body": {"msg":"Hello !!"}}`
 		cmd, err := New(&protocol.MockProvider{}, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
 		cmdErr := cmd.Reply(&b, bytes.NewBufferString(jsonMsg))
-		require.Error(t, cmdErr)
-		require.Empty(t, b.String())
-		require.Equal(t, cmdErr.Type(), command.ExecuteError)
-		require.Equal(t, cmdErr.Code(), SendMsgReplyError)
-		require.Contains(t, cmdErr.Error(), "to be implemented")
+		require.NoError(t, cmdErr)
 	})
 }
 

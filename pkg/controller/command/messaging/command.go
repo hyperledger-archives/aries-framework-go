@@ -54,6 +54,7 @@ const (
 	connectionIDString = "connectionID"
 	destinationString  = "destination"
 	destinationDID     = "destinationDID"
+	replyTo            = "replyTo"
 	successString      = "success"
 )
 
@@ -249,9 +250,21 @@ func (o *Command) Reply(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errMsgIDEmpty))
 	}
 
-	// TODO this operation will be supported once messenger API [Issue #1039] is available
-	// TODO implementation for SendReply to be added as part of [Issue #1089]
-	return command.NewExecuteError(SendMsgReplyError, fmt.Errorf("to be implemented"))
+	msg, err := service.ParseDIDCommMsgMap(request.MessageBody)
+	if err != nil {
+		logutil.LogError(logger, commandName, sendReplyMessageCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(replyTo, request.MessageID))
+		return command.NewExecuteError(SendMsgReplyError, err)
+	}
+
+	err = o.ctx.Messenger().ReplyTo(request.MessageID, msg)
+	if err != nil {
+		logutil.LogError(logger, commandName, sendReplyMessageCommandMethod, err.Error(),
+			logutil.CreateKeyValueString(replyTo, request.MessageID))
+		return command.NewExecuteError(SendMsgReplyError, err)
+	}
+
+	return nil
 }
 
 // RegisterHTTPService registers new http over didcomm service to message handler registrar

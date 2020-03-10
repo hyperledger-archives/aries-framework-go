@@ -36,6 +36,7 @@ type SDKSteps struct {
 	steps           *messagingSDKSteps
 	genericMessages map[string]*msgService
 	basicMessages   map[string]basic.Message
+	msgIDsBySender  map[string]string
 }
 
 // NewMessagingSDKSteps return new steps for messaging using client SDK
@@ -44,6 +45,7 @@ func NewMessagingSDKSteps(ctx *context.BDDContext) *SDKSteps {
 		steps:           newMessagingSDKSteps(ctx),
 		genericMessages: make(map[string]*msgService),
 		basicMessages:   make(map[string]basic.Message),
+		msgIDsBySender:  make(map[string]string),
 	}
 }
 
@@ -109,7 +111,26 @@ func (d *SDKSteps) receiveGenericMessage(agentID, expectedMsg, expectedMsgType, 
 		return fmt.Errorf("expected only one incoming message for agent [%s]", agentID)
 	}
 
+	d.msgIDsBySender[from] = invite.ID
+
 	return nil
+}
+
+func (d *SDKSteps) sendGenericMessageReply(fromAgentID, toAgentID, msg, msgType, purpose string) error {
+	msgMap := service.NewDIDCommMsgMap(&genericInviteMsg{
+		ID:      uuid.New().String(),
+		Type:    msgType,
+		Purpose: strings.Split(purpose, ","),
+		Message: msg,
+		From:    fromAgentID,
+	})
+
+	msgID, ok := d.msgIDsBySender[toAgentID]
+	if !ok {
+		return fmt.Errorf("unable to find message ID for agent `%s`", toAgentID)
+	}
+
+	return d.steps.sendMessageReply(fromAgentID, toAgentID, msgID, msgMap)
 }
 
 func (d *SDKSteps) registerBasicMsgService(agentID, name string) error {
@@ -170,6 +191,8 @@ func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 		`and purpose "([^"]*)" to "([^"]*)"$`, d.sendGenericMessageToDID)
 	s.Step(`^"([^"]*)" message service receives meeting invite message "([^"]*)" with type "([^"]*)" from "([^"]*)"$`,
 		d.receiveGenericMessage)
+	s.Step(`^"([^"]*)" replies to "([^"]*)" with message "([^"]*)" with type "([^"]*)" and purpose "([^"]*)"$`,
+		d.sendGenericMessageReply)
 
 	// basic message
 	s.Step(`^"([^"]*)" registers a message service with name "([^"]*)" for basic message type$`,

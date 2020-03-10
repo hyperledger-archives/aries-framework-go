@@ -88,6 +88,23 @@ func (d *messagingSDKSteps) sendMessage(fromAgentID, toAgentID string, msg servi
 	return nil
 }
 
+func (d *messagingSDKSteps) sendMessageReply(fromAgentID, toAgentID, msgID string, msg service.DIDCommMsgMap) error {
+	messenger, ok := d.bddContext.Messengers[fromAgentID]
+	if !ok {
+		return fmt.Errorf("unable to find messenger for agent `%s`", fromAgentID)
+	}
+
+	logger.Debugf("Sending message from [%s] to [%s], message ID[%s], message:[%v]", fromAgentID, toAgentID, msgID, msg)
+
+	// send message
+	err := messenger.ReplyTo(msgID, msg)
+	if err != nil {
+		return fmt.Errorf("failed to send message to agent[%s] : %w", toAgentID, err)
+	}
+
+	return nil
+}
+
 func (d *messagingSDKSteps) sendMessageToPublicDID(fromAgentID, toAgentID string, msg service.DIDCommMsgMap) error {
 	messenger, ok := d.bddContext.Messengers[fromAgentID]
 	if !ok {

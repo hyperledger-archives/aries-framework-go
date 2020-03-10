@@ -38,6 +38,7 @@ const (
 	unregisterMsgService  = msgServiceOperationID + "/unregister-service"
 	msgServiceList        = msgServiceOperationID + "/services"
 	sendNewMsg            = msgServiceOperationID + "/send"
+	sendReplyMsg          = msgServiceOperationID + "/reply"
 	// query connections endpoint
 	queryConnections = "/connections"
 	// webhook checktopics
@@ -53,13 +54,15 @@ const (
 
 // ControllerSteps is steps for messaging using controller/REST binding
 type ControllerSteps struct {
-	bddContext *context.BDDContext
+	bddContext     *context.BDDContext
+	msgIDsBySender map[string]string
 }
 
 // NewMessagingControllerSteps return new steps for messaging using controller/REST binding
 func NewMessagingControllerSteps(ctx *context.BDDContext) *ControllerSteps {
 	return &ControllerSteps{
-		bddContext: ctx,
+		bddContext:     ctx,
+		msgIDsBySender: make(map[string]string),
 	}
 }
 
@@ -176,6 +179,35 @@ func (d *ControllerSteps) sendMessage(fromAgentID, toAgentID string, msg interfa
 
 	// call controller to send message
 	err = sendHTTP(http.MethodPost, destination+sendNewMsg, request, nil)
+	if err != nil {
+		return fmt.Errorf("failed to send message : %w", err)
+	}
+
+	return nil
+}
+
+func (d *ControllerSteps) sendMessageReply(fromAgentID, toAgentID, msgID string, msg interface{}) error {
+	destination, ok := d.bddContext.GetControllerURL(fromAgentID)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", fromAgentID)
+	}
+
+	// prepare message
+	rawBytes, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to get raw message bytes:  %w", err)
+	}
+
+	logger.Debugf("Sending message from [%s] to [%s], message ID[%s], message:[%s]",
+		fromAgentID, toAgentID, msgID, string(rawBytes))
+
+	request := &messaging.SendReplyMessageArgs{
+		MessageID:   msgID,
+		MessageBody: rawBytes,
+	}
+
+	// call controller to send message
+	err = sendHTTP(http.MethodPost, destination+sendReplyMsg, request, nil)
 	if err != nil {
 		return fmt.Errorf("failed to send message : %w", err)
 	}
@@ -362,6 +394,23 @@ func (d *ControllerSteps) sendInviteMessage(fromAgentID, msg, msgType, purpose, 
 	return d.sendMessage(fromAgentID, toAgentID, genericMsg)
 }
 
+func (d *ControllerSteps) sendInviteMessageReply(fromAgentID, toAgentID, msg, msgType, purpose string) error {
+	genericMsg := &genericInviteMsg{
+		ID:      uuid.New().String(),
+		Type:    msgType,
+		Purpose: strings.Split(purpose, ","),
+		Message: msg,
+		From:    fromAgentID,
+	}
+
+	msgID, ok := d.msgIDsBySender[toAgentID]
+	if !ok {
+		return fmt.Errorf("unable to find message ID for agent `%s`", toAgentID)
+	}
+
+	return d.sendMessageReply(fromAgentID, toAgentID, msgID, genericMsg)
+}
+
 func (d *ControllerSteps) sendBasicMessage(fromAgentID, msg, toAgentID string) error {
 	basicMsg := &basic.Message{
 		ID:      uuid.New().String(),
@@ -430,6 +479,8 @@ func (d *ControllerSteps) receiveInviteMessage(agentID, expectedMsg, expectedMsg
 		return fmt.Errorf("expected message from [%s], but got from[%s]", from, invite.From)
 	}
 
+	d.msgIDsBySender[from] = invite.ID
+
 	return nil
 }
 
@@ -489,6 +540,8 @@ func (d *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 		`and purpose "([^"]*)" to "([^"]*)"$`, d.sendInviteMessage)
 	s.Step(`^"([^"]*)" receives invite message "([^"]*)" with type "([^"]*)" to webhook`+
 		` for topic "([^"]*)" from "([^"]*)"$`, d.receiveInviteMessage)
+	s.Step(`^"([^"]*)" replies to "([^"]*)" with message "([^"]*)" through controller with type "([^"]*)" `+
+		`and purpose "([^"]*)"$`, d.sendInviteMessageReply)
 
 	// basic messaging
 	s.Step(`^"([^"]*)" registers a message service through controller with name "([^"]*)" for basic message type$`,

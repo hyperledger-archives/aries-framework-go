@@ -624,6 +624,7 @@ func TestOperation_Reply(t *testing.T) {
 		tests := []struct {
 			name        string
 			requestJSON string
+			messenger   *mocksvc.MockMessenger
 			httpErrCode int
 			errorCode   command.Code
 			errorMsg    string
@@ -656,6 +657,14 @@ func TestOperation_Reply(t *testing.T) {
 				errorCode:   messaging.InvalidRequestErrorCode,
 				errorMsg:    "invalid character",
 			},
+			{
+				name:        "invalid message format",
+				requestJSON: `{"message_ID": "1234","message_body": {"msg":"Hello !!"}}`,
+				messenger:   &mocksvc.MockMessenger{ErrReplyTo: fmt.Errorf("sample-err-01")},
+				httpErrCode: http.StatusInternalServerError,
+				errorCode:   messaging.SendMsgReplyError,
+				errorMsg:    "sample-err-01",
+			},
 		}
 
 		t.Parallel()
@@ -663,7 +672,13 @@ func TestOperation_Reply(t *testing.T) {
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
-				svc, err := New(&protocol.MockProvider{}, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
+				provider := &protocol.MockProvider{}
+
+				if tc.messenger != nil {
+					provider.CustomMessenger = tc.messenger
+				}
+
+				svc, err := New(provider, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
 				require.NoError(t, err)
 				require.NotNil(t, svc)
 
@@ -678,7 +693,7 @@ func TestOperation_Reply(t *testing.T) {
 	})
 
 	t.Run("Test send message reply", func(t *testing.T) {
-		const jsonMsg = `{"message_ID": "1234","message_body": "sample"}`
+		const jsonMsg = `{"message_ID": "1234","message_body": {"msg":"hello !!"}}`
 		svc, err := New(&protocol.MockProvider{}, msghandler.NewMockMsgServiceProvider(), webhook.NewMockWebhookNotifier())
 		require.NoError(t, err)
 		require.NotNil(t, svc)
@@ -686,9 +701,8 @@ func TestOperation_Reply(t *testing.T) {
 		handler := lookupCreatePublicDIDHandler(t, svc, sendReplyMsg)
 		buf, code, err := sendRequestToHandler(handler, bytes.NewBufferString(jsonMsg), handler.Path())
 		require.NoError(t, err)
-		require.NotEmpty(t, buf)
-		require.Equal(t, http.StatusInternalServerError, code)
-		verifyError(t, messaging.SendMsgReplyError, "to be implemented", buf.Bytes())
+		require.Empty(t, buf)
+		require.Equal(t, http.StatusOK, code)
 	})
 }
 
