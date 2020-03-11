@@ -386,16 +386,18 @@ type Proof struct {
 
 // ParseDocument creates an instance of DIDDocument by reading a JSON document from bytes
 func ParseDocument(data []byte) (*Doc, error) {
-	// validate did document
-	if err := validate(data); err != nil {
-		return nil, err
-	}
-
 	raw := &rawDoc{}
 
 	err := json.Unmarshal(data, &raw)
 	if err != nil {
 		return nil, fmt.Errorf("JSON marshalling of did doc bytes bytes failed: %w", err)
+	} else if raw == nil {
+		return nil, errors.New("document payload is not provided")
+	}
+	// validate did document
+	err = validate(data, raw.schemaLoader())
+	if err != nil {
+		return nil, err
 	}
 
 	publicKeys, err := populatePublicKeys(raw.Context[0], raw.PublicKey)
@@ -595,20 +597,18 @@ func decodePK(rawPK map[string]interface{}) ([]byte, error) {
 	return nil, errors.New("public key encoding not supported")
 }
 
-func validate(data []byte) error {
-	// Validate that the DID Document conforms to the serialization of the DID Document data model.
-	// Reference: https://w3c-ccg.github.io/did-spec/#did-documents)
+func (r *rawDoc) schemaLoader() gojsonschema.JSONLoader {
 	schemaLoader := schemaLoaderV1
-
-	var r rawDoc
-	if err := json.Unmarshal(data, &r); err != nil {
-		return fmt.Errorf("unmarshal failed: %w", err)
-	}
-
 	if len(r.Context) > 0 && r.Context[0] == contextV011 {
 		schemaLoader = schemaLoaderV011
 	}
 
+	return schemaLoader
+}
+
+func validate(data []byte, schemaLoader gojsonschema.JSONLoader) error {
+	// Validate that the DID Document conforms to the serialization of the DID Document data model.
+	// Reference: https://w3c-ccg.github.io/did-spec/#did-documents)
 	documentLoader := gojsonschema.NewStringLoader(string(data))
 
 	result, err := gojsonschema.Validate(schemaLoader, documentLoader)

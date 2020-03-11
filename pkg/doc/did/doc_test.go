@@ -140,6 +140,13 @@ const creator = did + "#key-1"
 const keyType = "Ed25519VerificationKey2018"
 const signatureType = "Ed25519Signature2018"
 
+func TestParseOfNull(t *testing.T) {
+	doc, err := ParseDocument([]byte("null"))
+	require.Error(t, err)
+	require.Nil(t, doc)
+	require.Contains(t, err.Error(), "document payload is not provided")
+}
+
 func TestValid(t *testing.T) {
 	docs := []string{validDoc, validDocV011}
 	for _, d := range docs {
@@ -346,7 +353,7 @@ func TestParseDocument(t *testing.T) {
 	// test error from Unmarshal
 	_, err := ParseDocument([]byte("wrongData"))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "unmarshal failed")
+	require.Contains(t, err.Error(), "JSON marshalling of did doc bytes bytes failed")
 }
 
 func TestValidateDidDocContext(t *testing.T) {
@@ -358,7 +365,7 @@ func TestValidateDidDocContext(t *testing.T) {
 			raw.Context = nil
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "@context is required")
 		}
@@ -370,7 +377,7 @@ func TestValidateDidDocContext(t *testing.T) {
 		raw.Context = []string{"https://w3id.org/did/v2", "https://w3id.org/did/v1"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes)
+		err = validate(bytes, raw.schemaLoader())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Does not match pattern '^https://w3id.org/did/v1$'")
 	})
@@ -385,7 +392,7 @@ func TestValidateDidDocID(t *testing.T) {
 			raw.ID = ""
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "id is required")
 		}
@@ -401,7 +408,7 @@ func TestValidateDidDocPublicKey(t *testing.T) {
 			raw.PublicKey = nil
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.NoError(t, err)
 		}
 	})
@@ -414,7 +421,7 @@ func TestValidateDidDocPublicKey(t *testing.T) {
 			delete(raw.PublicKey[0], jsonldID)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "id is required")
 		}
@@ -428,7 +435,7 @@ func TestValidateDidDocPublicKey(t *testing.T) {
 			delete(raw.PublicKey[0], jsonldType)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "type is required")
 		}
@@ -440,7 +447,7 @@ func TestValidateDidDocPublicKey(t *testing.T) {
 		delete(raw.PublicKey[0], jsonldController)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes)
+		err = validate(bytes, raw.schemaLoader())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "controller is required")
 	})
@@ -451,7 +458,7 @@ func TestValidateDidDocPublicKey(t *testing.T) {
 		delete(raw.PublicKey[0], jsonldOwner)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes)
+		err = validate(bytes, raw.schemaLoader())
 		require.NoError(t, err)
 	})
 
@@ -463,7 +470,7 @@ func TestValidateDidDocPublicKey(t *testing.T) {
 			raw.PublicKey[0]["key1"] = ""
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "Must have at most 4 properties")
 		}
@@ -479,7 +486,7 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 			raw.Authentication = nil
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.NoError(t, err)
 		}
 	})
@@ -492,7 +499,7 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 			raw.Authentication[0] = 1
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "Invalid type. Expected: object, given: integer")
 		}
@@ -508,7 +515,7 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 			delete(pk, jsonldID)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "id is required")
 		}
@@ -524,7 +531,7 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 			delete(pk, jsonldType)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "type is required")
 		}
@@ -538,7 +545,7 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 		delete(pk, jsonldController)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes)
+		err = validate(bytes, raw.schemaLoader())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "controller is required")
 	})
@@ -551,7 +558,7 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 		delete(pk, jsonldOwner)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes)
+		err = validate(bytes, raw.schemaLoader())
 		require.NoError(t, err)
 	})
 
@@ -565,7 +572,7 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 			pk["key1"] = ""
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "Must have at most 4 properties")
 		}
@@ -581,7 +588,7 @@ func TestValidateDidDocService(t *testing.T) {
 			raw.Service = nil
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.NoError(t, err)
 		}
 	})
@@ -594,7 +601,7 @@ func TestValidateDidDocService(t *testing.T) {
 			delete(raw.Service[0], jsonldID)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "id is required")
 		}
@@ -608,7 +615,7 @@ func TestValidateDidDocService(t *testing.T) {
 			delete(raw.Service[0], jsonldType)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "type is required")
 		}
@@ -622,7 +629,7 @@ func TestValidateDidDocService(t *testing.T) {
 			delete(raw.Service[0], jsonldServicePoint)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "serviceEndpoint is required")
 		}
@@ -638,7 +645,7 @@ func TestValidateDidDocCreated(t *testing.T) {
 			raw.Created = nil
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.NoError(t, err)
 		}
 	})
@@ -662,7 +669,7 @@ func TestValidateDidDocUpdated(t *testing.T) {
 			raw.Updated = nil
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.NoError(t, err)
 		}
 	})
@@ -686,7 +693,7 @@ func TestValidateDidDocProof(t *testing.T) {
 			raw.Proof = nil
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.NoError(t, err)
 		}
 	})
@@ -701,7 +708,7 @@ func TestValidateDidDocProof(t *testing.T) {
 			delete(proof, jsonldType)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "type is required")
 		}
@@ -717,7 +724,7 @@ func TestValidateDidDocProof(t *testing.T) {
 			delete(proof, jsonldCreated)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "created is required")
 		}
@@ -733,7 +740,7 @@ func TestValidateDidDocProof(t *testing.T) {
 			delete(proof, jsonldCreator)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "creator is required")
 		}
@@ -747,7 +754,7 @@ func TestValidateDidDocProof(t *testing.T) {
 		delete(proof, jsonldProofValue)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes)
+		err = validate(bytes, raw.schemaLoader())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "proofValue is required")
 	})
@@ -760,7 +767,7 @@ func TestValidateDidDocProof(t *testing.T) {
 		delete(proof, jsonldSignatureValue)
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		err = validate(bytes)
+		err = validate(bytes, raw.schemaLoader())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "signatureValue is required")
 	})
@@ -775,7 +782,7 @@ func TestValidateDidDocProof(t *testing.T) {
 			delete(proof, jsonldDomain)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.NoError(t, err)
 		}
 	})
@@ -790,7 +797,7 @@ func TestValidateDidDocProof(t *testing.T) {
 			delete(proof, jsonldNonce)
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			err = validate(bytes)
+			err = validate(bytes, raw.schemaLoader())
 			require.NoError(t, err)
 		}
 	})
