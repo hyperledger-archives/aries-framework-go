@@ -13,6 +13,8 @@ import (
 	"github.com/google/tink/go/testkeyset"
 	"github.com/google/tink/go/testutil"
 	tinkpb "github.com/google/tink/proto/tink_go_proto"
+
+	kmsservice "github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // KeyManager mocks a local Key Management Service
@@ -28,7 +30,7 @@ type KeyManager struct {
 }
 
 // Create a new mock ey/keyset/key handle for the type kt
-func (k *KeyManager) Create(kt string) (string, interface{}, error) {
+func (k *KeyManager) Create(kt kmsservice.KeyType) (string, interface{}, error) {
 	if k.CreateKeyErr != nil {
 		return "", nil, k.CreateKeyErr
 	}
@@ -46,7 +48,7 @@ func (k *KeyManager) Get(keyID string) (interface{}, error) {
 }
 
 // Rotate returns a mocked rotated keyset handle and its ID
-func (k *KeyManager) Rotate(kt, keyID string) (string, interface{}, error) {
+func (k *KeyManager) Rotate(kt kmsservice.KeyType, keyID string) (string, interface{}, error) {
 	if k.RotateKeyErr != nil {
 		return "", nil, k.RotateKeyErr
 	}

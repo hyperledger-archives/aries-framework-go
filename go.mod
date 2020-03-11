@@ -9,7 +9,8 @@ require (
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/golang/mock v1.4.0
-	github.com/google/tink v1.3.0-rc4
+	github.com/golang/protobuf v1.3.3
+	github.com/google/tink v1.3.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/kr/pretty v0.1.0 // indirect
