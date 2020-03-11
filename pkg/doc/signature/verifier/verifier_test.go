@@ -6,8 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package verifier
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -15,136 +13,79 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-func TestNew(t *testing.T) {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-
-	// default ed25519signature2018 signature suite is created
-	_, testKeyResolver := getDefaultSignedDoc(proof.SignatureProofValue, privKey, pubKey)
-	verifier := New(testKeyResolver)
-	require.Len(t, verifier.signatureSuites, 1)
-}
-
 func TestVerify(t *testing.T) {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	// happy path
+	okKeyResolver := &testKeyResolver{
+		publicKey: &PublicKey{
+			Type:  kms.Ed25519Type,
+			Value: []byte("signature"),
+		},
+	}
+	v := New(okKeyResolver, &testSignatureSuite{accept: true})
+	err := v.Verify([]byte(validDoc))
 	require.NoError(t, err)
 
-	signedDocBytes, testKeyResolver := getDefaultSignedDoc(proof.SignatureProofValue, privKey, pubKey)
-	v := New(testKeyResolver, ed25519signature2018.New())
-	err = v.Verify(signedDocBytes)
-	require.Nil(t, err)
-
-	// test invalid json
+	// invalid json passed
 	err = v.Verify([]byte("not json"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to unmarshal json ld document")
 
-	// test proof not found
-	err = v.Verify([]byte(validDoc))
+	// proof not found
+	err = v.Verify([]byte("{}"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "proof not found")
-}
 
-func TestVerifyJWSProof(t *testing.T) {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	// public key ID is not found
+	var doc map[string]interface{}
+	err = json.Unmarshal([]byte(validDoc), &doc)
 	require.NoError(t, err)
 
-	signedDocBytes, testKeyResolver := getDefaultSignedDoc(proof.SignatureJWS, privKey, pubKey)
-	v := New(testKeyResolver)
-	err = v.Verify(signedDocBytes)
-	require.NoError(t, err)
-}
+	p, ok := doc["proof"].(map[string]interface{})
+	require.True(t, ok)
+	delete(p, "verificationMethod")
 
-func TestVerifyObject(t *testing.T) {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	docWithoutProofValue, err := json.Marshal(doc)
 	require.NoError(t, err)
 
-	jsonLdObject, tkr := getDefaultSignedDocObject(proof.SignatureProofValue, privKey, pubKey)
-
-	suite := ed25519signature2018.New()
-
-	// happy path
-	v := New(tkr, suite)
-	err = v.verifyObject(jsonLdObject)
-	require.Nil(t, err)
-
-	// test invalid signature suite
-	proofs, err := proof.GetProofs(jsonLdObject)
-	require.NoError(t, err)
-
-	proofs[0].Type = "non-existent"
-	err = proof.AddProof(jsonLdObject, proofs[0])
-	require.NoError(t, err)
-
-	err = v.verifyObject(jsonLdObject)
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "signature type non-existent not supported")
-
-	// test key resolver error - key not found
-	v = New(&testKeyResolver{}, suite)
-	err = v.verifyObject(jsonLdObject)
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "key not found")
-
-	// test signature error - pass in invalid proof value
-	jsonLdObject, tkr = getDefaultSignedDocObject(proof.SignatureProofValue, privKey, pubKey)
-	proofs, err = proof.GetProofs(jsonLdObject)
-	require.NoError(t, err)
-
-	proofs[0].ProofValue = []byte("invalid")
-	err = proof.AddProof(jsonLdObject, proofs[0])
-	require.NoError(t, err)
-
-	v = New(tkr, suite)
-	err = v.verifyObject(jsonLdObject)
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "signature doesn't match")
-
-	// test get public key ID error
-	jsonLdObject, _ = getDefaultSignedDocObject(proof.SignatureProofValue, privKey, pubKey)
-
-	proofs, err = proof.GetProofs(jsonLdObject)
-	require.NoError(t, err)
-
-	proofs[0].VerificationMethod = ""
-	proofs[0].Creator = ""
-
-	err = proof.AddProof(jsonLdObject, proofs[0])
-	require.NoError(t, err)
-
-	err = v.verifyObject(jsonLdObject)
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "no public key ID")
-}
-
-func TestVerifyJWSObject(t *testing.T) {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-
-	jsonLdObject, tkr := getDefaultSignedDocObject(proof.SignatureJWS, privKey, pubKey)
-
-	// happy path
-	v := New(tkr)
-	err = v.verifyObject(jsonLdObject)
-	require.Nil(t, err)
-
-	// test invalid signature suite
-	proofs, err := proof.GetProofs(jsonLdObject)
-	require.NoError(t, err)
-
-	proofs[0].JWS = "invalid JWT.."
-
-	err = proof.AddProof(jsonLdObject, proofs[0])
-	require.NoError(t, err)
-
-	err = v.verifyObject(jsonLdObject)
+	err = v.Verify(docWithoutProofValue)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid JWT")
+	require.EqualError(t, err, "no public key ID")
+
+	// public key is not resolved
+	v = New(&testKeyResolver{
+		err: errors.New("public key is not resolved"),
+	}, &testSignatureSuite{accept: true})
+	err = v.Verify([]byte(validDoc))
+	require.Error(t, err)
+	require.EqualError(t, err, "public key is not resolved")
+
+	// signature suite is not found
+	v = New(okKeyResolver, &testSignatureSuite{accept: false})
+	err = v.Verify([]byte(validDoc))
+	require.Error(t, err)
+	require.EqualError(t, err, "signature type Ed25519Signature2018 not supported")
+
+	// verify data creation error
+	v = New(okKeyResolver, &testSignatureSuite{
+		canonicalDocumentError: errors.New("get canonical document error"),
+		accept:                 true,
+	})
+	err = v.Verify([]byte(validDoc))
+	require.Error(t, err)
+	require.EqualError(t, err, "get canonical document error")
+
+	// verification error
+	v = New(okKeyResolver, &testSignatureSuite{
+		verifyError: errors.New("verify data error"),
+		accept:      true,
+	})
+	err = v.Verify([]byte(validDoc))
+	require.Error(t, err)
+	require.EqualError(t, err, "verify data error")
 }
 
 func Test_getProofVerifyValue(t *testing.T) {
@@ -174,92 +115,21 @@ func Test_getProofVerifyValue(t *testing.T) {
 	require.Nil(t, proofVerifyValue)
 }
 
-func getDefaultSignedDoc(signatureRepr proof.SignatureRepresentation, privKey, pubKey []byte) ([]byte, keyResolver) {
-	const creator = "key-1"
-
-	keys := make(map[string][]byte)
-	keys[creator] = pubKey
-
-	context := signer.Context{Creator: creator,
-		SignatureType:           "Ed25519Signature2018",
-		SignatureRepresentation: signatureRepr}
-
-	doc := getDefaultDoc()
-
-	docBytes, err := json.Marshal(doc)
-	if err != nil {
-		panic(err)
-	}
-
-	s := signer.New(ed25519signature2018.New(
-		ed25519signature2018.WithSigner(
-			getSigner(privKey))))
-
-	signedDocBytes, err := s.Sign(&context, docBytes)
-	if err != nil {
-		panic(err)
-	}
-
-	return signedDocBytes, &testKeyResolver{Keys: keys}
-}
-
-func getDefaultSignedDocObject(signatureRepr proof.SignatureRepresentation, privKey, pubKey []byte) (
-	map[string]interface{}, keyResolver) {
-	signedDocBytes, testKeyResolver := getDefaultSignedDoc(signatureRepr, privKey, pubKey)
-
-	var jsonLdObject map[string]interface{}
-
-	err := json.Unmarshal(signedDocBytes, &jsonLdObject)
-	if err != nil {
-		panic(err)
-	}
-
-	return jsonLdObject, testKeyResolver
-}
-
-func getDefaultDoc() map[string]interface{} {
-	var doc map[string]interface{}
-
-	err := json.Unmarshal([]byte(validDoc), &doc)
-	if err != nil {
-		panic(err)
-	}
-
-	return doc
-}
-
-func getSigner(privKey []byte) *testSigner {
-	return &testSigner{privateKey: privKey}
-}
-
-type testSigner struct {
-	privateKey []byte
-}
-
-func (s *testSigner) Sign(doc []byte) ([]byte, error) {
-	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
-		return nil, errors.New("ed25519: bad private key length")
-	}
-
-	return ed25519.Sign(s.privateKey, doc), nil
-}
-
 type testKeyResolver struct {
-	Keys map[string][]byte
+	publicKey *PublicKey
+	err       error
 }
 
-func (r *testKeyResolver) Resolve(id string) ([]byte, error) {
-	key, ok := r.Keys[id]
-	if !ok {
-		return nil, errors.New("key not found")
-	}
-
-	return key, nil
+func (r *testKeyResolver) Resolve(id string) (*PublicKey, error) {
+	return r.publicKey, r.err
 }
 
 //nolint:lll
-const validDoc = `{
-  "@context": ["https://w3id.org/did/v1"],
+const validDoc = `
+{
+  "@context": [
+    "https://w3id.org/did/v1"
+  ],
   "id": "did:example:123456789abcdefghi",
   "publicKey": [
     {
@@ -269,5 +139,39 @@ const validDoc = `{
       "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
     }
   ],
-  "created": "2002-10-10T17:00:00Z"
-}`
+  "created": "2002-10-10T17:00:00Z",
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "verificationMethod": "did:example:123456#key1",
+    "created": "2011-09-23T20:21:34Z",
+    "proofValue": "ABC"
+  }
+}
+`
+
+type testSignatureSuite struct {
+	canonicalDocument      []byte
+	canonicalDocumentError error
+
+	digest []byte
+
+	verifyError error
+
+	accept bool
+}
+
+func (s *testSignatureSuite) GetCanonicalDocument(doc map[string]interface{}) ([]byte, error) {
+	return s.canonicalDocument, s.canonicalDocumentError
+}
+
+func (s *testSignatureSuite) GetDigest(doc []byte) []byte {
+	return s.digest
+}
+
+func (s *testSignatureSuite) Verify(pubKey *PublicKey, doc, signature []byte) error {
+	return s.verifyError
+}
+
+func (s *testSignatureSuite) Accept(signatureType string) bool {
+	return s.accept
+}

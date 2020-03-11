@@ -51,6 +51,8 @@ const (
 	ECDSAP384Type = KeyType("ECDSAP384")
 	// ECDSAP521Type key type value
 	ECDSAP521Type = KeyType("ECDSAP521")
-	// Ed25519Type key type values
+	// Ed25519Type key type value
 	Ed25519Type = KeyType("ED25519")
+	// RSAType key type value
+	RSAType = KeyType("RSA")
 )

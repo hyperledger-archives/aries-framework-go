@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 func TestSignatureSuite_Sign(t *testing.T) {
@@ -51,22 +53,24 @@ func TestSignatureSuite_Verify(t *testing.T) {
 	require.NotEmpty(t, signature)
 
 	ss := New()
+	publicKey := &verifier.PublicKey{Value: pubKey}
 
-	err = ss.Verify(pubKey, doc, signature)
+	err = ss.Verify(publicKey, doc, signature)
 	require.Nil(t, err)
 
 	// test different message
-	err = ss.Verify(pubKey, []byte("different doc"), signature)
+	err = ss.Verify(publicKey, []byte("different doc"), signature)
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "signature doesn't match")
 
 	// test different signature
-	err = ss.Verify(pubKey, doc, []byte("signature"))
+	err = ss.Verify(publicKey, doc, []byte("signature"))
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "signature doesn't match")
 
 	// test wrong public key size
-	err = ss.Verify([]byte("key"), doc, signature)
+	publicKey.Value = []byte("key")
+	err = ss.Verify(publicKey, doc, signature)
 	require.NotNil(t, err)
 	require.Contains(t, err.Error(), "ed25519: bad public key length")
 }

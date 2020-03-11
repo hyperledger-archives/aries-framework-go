@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestNewCredentialFromLinkedDataProof(t *testing.T) {
@@ -42,7 +43,7 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
 		WithEmbeddedSignatureSuites(suite),
-		WithPublicKeyFetcher(SingleKey([]byte(pubKey))))
+		WithPublicKeyFetcher(SingleKey(pubKey, kms.Ed25519Type)))
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
 }

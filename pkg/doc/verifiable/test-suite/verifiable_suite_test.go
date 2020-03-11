@@ -15,6 +15,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -100,7 +101,7 @@ func encodeVPToJWS(vpBytes []byte, audience string, privateKey *rsa.PrivateKey, 
 		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
 		verifiable.WithPresNoProofCheck(),
 		// the public key is used to decode verifiable credentials passed as JWS to the presentation
-		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(publicKey)))
+		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), "RSA")))
 	if err != nil {
 		abort("failed to decode presentation: %v", err)
 	}
@@ -137,10 +138,10 @@ func encodeVCToJWTUnsecured(vcBytes []byte) {
 	fmt.Println(jwtUnsecured)
 }
 
-func decodeVCJWTToJSON(vcBytes []byte, publicKey interface{}) {
+func decodeVCJWTToJSON(vcBytes []byte, publicKey *rsa.PublicKey) {
 	// Asked to decode JWT
 	credential, _, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKey)),
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), "RSA")),
 		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
 		verifiable.WithNoProofCheck())
 	if err != nil {
@@ -258,4 +259,8 @@ func (s *rsaSigner) Sign(data []byte) ([]byte, error) {
 func abort(msg string, args ...interface{}) {
 	logger.Errorf(msg, args...)
 	os.Exit(1)
+}
+
+func publicKeyPemToBytes(key *rsa.PublicKey) []byte {
+	return x509.MarshalPKCS1PublicKey(key)
 }

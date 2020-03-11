@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
@@ -83,12 +85,15 @@ func TestNewCredentialFromJWS(t *testing.T) {
 		vc, vcBytes, err := NewCredential(
 			createRS256JWS(t, testCred, true),
 			// passing holder's key, while expecting issuer one
-			WithPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
+			WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				publicKey, err := readPublicKey(filepath.Join(certPrefix, "holder_public.pem"))
 				require.NoError(t, err)
 				require.NotNil(t, publicKey)
 
-				return publicKey, nil
+				return &verifier.PublicKey{
+					Type:  kms.RSAType,
+					Value: publicKeyPemToBytes(publicKey),
+				}, nil
 			}))
 
 		require.Error(t, err)
@@ -101,7 +106,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 		vc, vcBytes, err := NewCredential(
 			createRS256JWS(t, testCred, true),
 
-			WithPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
+			WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				return nil, errors.New("test: public key is not found")
 			}))
 
@@ -134,7 +139,7 @@ func TestNewCredentialFromJWS_EdDSA(t *testing.T) {
 	// unmarshal credential from JWS
 	vcFromJWS, _, err := NewCredential(
 		vcJWSStr,
-		WithPublicKeyFetcher(SingleKey(pubKey)))
+		WithPublicKeyFetcher(SingleKey(pubKey, kms.Ed25519Type)))
 	require.NoError(t, err)
 
 	// unmarshalled credential must be the same as original one
@@ -214,7 +219,7 @@ func TestRefineVcIssuerFromJwtClaims(t *testing.T) {
 }
 
 func createMockKeyFetcher(t *testing.T) PublicKeyFetcher {
-	return func(issuerID, keyID string) (interface{}, error) {
+	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuerID)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f#keys-1", keyID)
 
@@ -222,7 +227,10 @@ func createMockKeyFetcher(t *testing.T) PublicKeyFetcher {
 		require.NoError(t, err)
 		require.NotNil(t, publicKey)
 
-		return publicKey, nil
+		return &verifier.PublicKey{
+			Type:  kms.RSAType,
+			Value: publicKeyPemToBytes(publicKey),
+		}, nil
 	}
 }
 
@@ -268,14 +276,7 @@ func createDIDKeyFetcher(t *testing.T, pub ed25519.PublicKey, didID string) Publ
 	resolver := NewDIDKeyResolver(v)
 	require.NotNil(t, resolver)
 
-	return func(issuerID, keyID string) (i interface{}, err error) {
-		pKey, keyErr := resolver.resolvePublicKey(issuerID, keyID)
-		if keyErr != nil {
-			return nil, keyErr
-		}
-
-		return ed25519.PublicKey(pKey.([]byte)), nil
-	}
+	return resolver.resolvePublicKey
 }
 
 func createRS256JWS(t *testing.T, cred []byte, minimize bool) []byte {

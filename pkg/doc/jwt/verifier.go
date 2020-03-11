@@ -9,6 +9,7 @@ package jwt
 import (
 	"crypto"
 	"crypto/rsa"
+	"crypto/x509"
 	"errors"
 	"fmt"
 
@@ -16,6 +17,7 @@ import (
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 const (
@@ -32,14 +34,14 @@ const issuerClaim = "iss"
 type KeyResolver interface {
 
 	// Resolve resolves public key.
-	Resolve(what, kid string) (interface{}, error)
+	Resolve(what, kid string) (*verifier.PublicKey, error)
 }
 
 // KeyResolverFunc defines function
-type KeyResolverFunc func(what, kid string) (interface{}, error)
+type KeyResolverFunc func(what, kid string) (*verifier.PublicKey, error)
 
 // Resolve resolves public key.
-func (k KeyResolverFunc) Resolve(what, kid string) (interface{}, error) {
+func (k KeyResolverFunc) Resolve(what, kid string) (*verifier.PublicKey, error) {
 	return k(what, kid)
 }
 
@@ -67,15 +69,15 @@ func NewVerifier(resolver KeyResolver) *BasicVerifier {
 	return &BasicVerifier{resolver: resolver, compositeVerifier: compositeVerifier}
 }
 
-type verifier func(pubKey interface{}, message, signature []byte) error
+type signatureVerifier func(pubKey *verifier.PublicKey, message, signature []byte) error
 
-func getVerifier(resolver KeyResolver, verifier verifier) jose.SignatureVerifier {
+func getVerifier(resolver KeyResolver, signatureVerifier signatureVerifier) jose.SignatureVerifier {
 	return jose.SignatureVerifierFunc(func(joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
-		return verifySignature(resolver, verifier, joseHeaders, payload, signingInput, signature)
+		return verifySignature(resolver, signatureVerifier, joseHeaders, payload, signingInput, signature)
 	})
 }
 
-func verifySignature(resolver KeyResolver, verifier verifier,
+func verifySignature(resolver KeyResolver, signatureVerifier signatureVerifier,
 	joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
 	claims := make(map[string]interface{})
 
@@ -96,7 +98,7 @@ func verifySignature(resolver KeyResolver, verifier verifier,
 		return err
 	}
 
-	return verifier(pubKey, signingInput, signature)
+	return signatureVerifier(pubKey, signingInput, signature)
 }
 
 // Verify verifies JSON Web Token. Public key is fetched using Issuer Claim and Key ID JOSE Header.
@@ -105,22 +107,14 @@ func (v BasicVerifier) Verify(joseHeaders jose.Headers, payload, signingInput, s
 }
 
 // VerifyEdDSA verifies EdDSA signature.
-func VerifyEdDSA(pubKey interface{}, message, signature []byte) error {
+func VerifyEdDSA(pubKey *verifier.PublicKey, message, signature []byte) error {
 	// TODO Use crypto for signing/verification logic
 	//  https://github.com/hyperledger/aries-framework-go/issues/1278
-	pubKeyEdDSA, ok := pubKey.([]byte)
-	if !ok {
-		pubKeyEdDSA, ok = pubKey.(ed25519.PublicKey)
-		if !ok {
-			return errors.New("not []byte or ed25519.PublicKey public key")
-		}
-	}
-
-	if l := len(pubKeyEdDSA); l != ed25519.PublicKeySize {
+	if l := len(pubKey.Value); l != ed25519.PublicKeySize {
 		return errors.New("bad ed25519 public key length")
 	}
 
-	if ok := ed25519.Verify(pubKeyEdDSA, message, signature); !ok {
+	if ok := ed25519.Verify(pubKey.Value, message, signature); !ok {
 		return errors.New("signature doesn't match")
 	}
 
@@ -128,17 +122,17 @@ func VerifyEdDSA(pubKey interface{}, message, signature []byte) error {
 }
 
 // VerifyRS256 verifies RS256 signature.
-func VerifyRS256(pubKey interface{}, message, signature []byte) error {
+func VerifyRS256(pubKey *verifier.PublicKey, message, signature []byte) error {
 	// TODO Use crypto for signing/verification logic
 	//  https://github.com/hyperledger/aries-framework-go/issues/1278
-	pubKeyRsa, ok := pubKey.(*rsa.PublicKey)
-	if !ok {
+	pubKeyRsa, err := x509.ParsePKCS1PublicKey(pubKey.Value)
+	if err != nil {
 		return errors.New("not *rsa.PublicKey public key")
 	}
 
 	hash := crypto.SHA256.New()
 
-	_, err := hash.Write(message)
+	_, err = hash.Write(message)
 	if err != nil {
 		return err
 	}

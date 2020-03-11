@@ -8,7 +8,6 @@ package verifiable
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/rsa"
 	"errors"
 	"testing"
 	"time"
@@ -18,20 +17,21 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func Test_keyResolverAdapter_Resolve(t *testing.T) {
 	t.Run("successful public key resolving", func(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
-		kra := &keyResolverAdapter{pubKeyFetcher: SingleKey([]byte(pubKey))}
+		kra := &keyResolverAdapter{pubKeyFetcher: SingleKey(pubKey, kms.Ed25519Type)}
 		resolvedPubKey, err := kra.Resolve("did1#key1")
 		require.NoError(t, err)
-		require.Equal(t, []byte(pubKey), resolvedPubKey)
+		require.Equal(t, []byte(pubKey), resolvedPubKey.Value)
 	})
 
 	t.Run("error wrong key format", func(t *testing.T) {
-		kra := &keyResolverAdapter{pubKeyFetcher: func(issuerID, keyID string) (interface{}, error) {
+		kra := &keyResolverAdapter{pubKeyFetcher: func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			return nil, nil
 		}}
 		resolvedPubKey, err := kra.Resolve("any")
@@ -41,7 +41,7 @@ func Test_keyResolverAdapter_Resolve(t *testing.T) {
 	})
 
 	t.Run("error at public key resolving (e.g. not found)", func(t *testing.T) {
-		kra := &keyResolverAdapter{pubKeyFetcher: func(issuerID, keyID string) (interface{}, error) {
+		kra := &keyResolverAdapter{pubKeyFetcher: func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			return nil, errors.New("no key found")
 		}}
 		resolvedPubKey, err := kra.Resolve("did1#key1")
@@ -49,22 +49,12 @@ func Test_keyResolverAdapter_Resolve(t *testing.T) {
 		require.EqualError(t, err, "no key found")
 		require.Nil(t, resolvedPubKey)
 	})
-
-	t.Run("returned public key is not []byte", func(t *testing.T) {
-		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-		require.NoError(t, err)
-		kra := &keyResolverAdapter{pubKeyFetcher: SingleKey(privateKey.Public())}
-		resolvedPubKey, err := kra.Resolve("did1#key1")
-		require.Error(t, err)
-		require.EqualError(t, err, "expecting []byte public key")
-		require.Nil(t, resolvedPubKey)
-	})
 }
 
 type dummyKeyResolver []byte
 
-func (kr dummyKeyResolver) Resolve(string) ([]byte, error) {
-	return kr, nil
+func (kr dummyKeyResolver) Resolve(string) (*verifier.PublicKey, error) {
+	return &verifier.PublicKey{Value: kr, Type: "type"}, nil
 }
 
 // This example is generated using https://transmute-industries.github.io/vc-greeting-card
@@ -103,7 +93,7 @@ func TestLinkedDataProofVerifier(t *testing.T) {
 }
 `
 
-	documentVerifier := verifier.New(dummyKeyResolver(pubKey))
+	documentVerifier := verifier.New(dummyKeyResolver(pubKey), ed25519signature2018.New())
 	err := documentVerifier.Verify([]byte(vcStr))
 	require.NoError(t, err)
 }

@@ -7,7 +7,6 @@ package verifiable
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -38,7 +37,7 @@ type verifierSignatureSuite interface {
 	signatureSuite
 
 	// Verify will verify signature against public key
-	Verify(pubKey []byte, doc []byte, signature []byte) error
+	Verify(pubKey *verifier.PublicKey, doc []byte, signature []byte) error
 }
 
 type signerSignatureSuite interface {
@@ -52,7 +51,7 @@ type keyResolverAdapter struct {
 	pubKeyFetcher PublicKeyFetcher
 }
 
-func (k *keyResolverAdapter) Resolve(id string) ([]byte, error) {
+func (k *keyResolverAdapter) Resolve(id string) (*verifier.PublicKey, error) {
 	// id will contain didID#keyID
 	idSplit := strings.Split(id, "#")
 	if len(idSplit) != resolveIDParts {
@@ -60,17 +59,12 @@ func (k *keyResolverAdapter) Resolve(id string) ([]byte, error) {
 	}
 	// idSplit[0] is didID
 	// idSplit[1] is keyID
-	fetcher, err := k.pubKeyFetcher(idSplit[0], fmt.Sprintf("#%s", idSplit[1]))
+	pubKey, err := k.pubKeyFetcher(idSplit[0], fmt.Sprintf("#%s", idSplit[1]))
 	if err != nil {
 		return nil, err
 	}
 
-	pubKeyBytes, ok := fetcher.([]byte)
-	if !ok {
-		return nil, errors.New("expecting []byte public key")
-	}
-
-	return pubKeyBytes, nil
+	return pubKey, nil
 }
 
 // SignatureRepresentation is a signature value holder type (e.g. "proofValue" or "jws").

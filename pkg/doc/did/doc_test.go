@@ -878,7 +878,7 @@ func TestDidKeyResolver_Resolve(t *testing.T) {
 	keyResolver = didKeyResolver{PubKeys: pubKeys}
 	key, err = keyResolver.Resolve("id")
 	require.NoError(t, err)
-	require.Equal(t, testKeyVal, key)
+	require.Equal(t, testKeyVal, key.Value)
 }
 
 func TestBuildDoc(t *testing.T) {

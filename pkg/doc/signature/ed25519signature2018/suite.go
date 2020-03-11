@@ -17,6 +17,8 @@ import (
 	"errors"
 
 	"github.com/piprate/json-gold/ld"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 // SignatureSuite implements ed25519 signature suite
@@ -79,13 +81,13 @@ func (s *SignatureSuite) GetDigest(doc []byte) []byte {
 }
 
 // Verify will verify a signature.
-func (s *SignatureSuite) Verify(pubKey, doc, signature []byte) error {
+func (s *SignatureSuite) Verify(pubKey *verifier.PublicKey, doc, signature []byte) error {
 	// ed25519 panics if key size is wrong
-	if l := len(pubKey); l != ed25519.PublicKeySize {
+	if l := len(pubKey.Value); l != ed25519.PublicKeySize {
 		return errors.New("ed25519: bad public key length")
 	}
 
-	verified := ed25519.Verify(pubKey, doc, signature)
+	verified := ed25519.Verify(pubKey.Value, doc, signature)
 	if !verified {
 		return errors.New("signature doesn't match")
 	}

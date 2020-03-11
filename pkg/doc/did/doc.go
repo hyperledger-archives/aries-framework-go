@@ -18,6 +18,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const (
@@ -705,7 +706,7 @@ type signatureSuite interface {
 	GetDigest(doc []byte) []byte
 
 	// Verify will verify signature against public key
-	Verify(pubKey []byte, doc []byte, signature []byte) error
+	Verify(pubKey *verifier.PublicKey, doc []byte, signature []byte) error
 
 	// Accept registers this signature suite with the given signature type
 	Accept(signatureType string) bool
@@ -735,10 +736,13 @@ type didKeyResolver struct {
 	PubKeys []PublicKey
 }
 
-func (r *didKeyResolver) Resolve(id string) ([]byte, error) {
+func (r *didKeyResolver) Resolve(id string) (*verifier.PublicKey, error) {
 	for _, key := range r.PubKeys {
 		if key.ID == id {
-			return key.Value, nil
+			return &verifier.PublicKey{
+				Type:  kms.KeyType(key.Type),
+				Value: key.Value,
+			}, nil
 		}
 	}
 

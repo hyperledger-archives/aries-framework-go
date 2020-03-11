@@ -12,6 +12,9 @@ import (
 	"github.com/square/go-jose/v3"
 	"github.com/square/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestJWTPresClaims_MarshalJWS(t *testing.T) {
@@ -82,13 +85,16 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 
 		jws := createCredJWS(t, vp)
 
-		uc, err := unmarshalPresJWSClaims(jws, true, func(issuerID, keyID string) (interface{}, error) {
+		uc, err := unmarshalPresJWSClaims(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			// use public key of VC Issuer (while expecting to use the ones of VP Holder)
 			publicKey, pkErr := readPublicKey(filepath.Join(certPrefix, "issuer_public.pem"))
 			require.NoError(t, pkErr)
 			require.NotNil(t, publicKey)
 
-			return publicKey, nil
+			return &verifier.PublicKey{
+				Type:  kms.RSAType,
+				Value: publicKeyPemToBytes(publicKey),
+			}, nil
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "parse JWT")
@@ -111,11 +117,14 @@ func createCredJWS(t *testing.T, vp *Presentation) string {
 }
 
 func holderPublicKeyFetcher(t *testing.T) PublicKeyFetcher {
-	return func(issuerID, keyID string) (i interface{}, e error) {
+	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
 		publicKey, pcErr := readPublicKey(filepath.Join(certPrefix, "holder_public.pem"))
 		require.NoError(t, pcErr)
 		require.NotNil(t, publicKey)
 
-		return publicKey, nil
+		return &verifier.PublicKey{
+			Type:  kms.RSAType,
+			Value: publicKeyPemToBytes(publicKey),
+		}, nil
 	}
 }
