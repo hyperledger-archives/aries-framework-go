@@ -670,14 +670,20 @@ func stringArray(entry interface{}) []string {
 
 // JSONBytes converts document to json bytes
 func (doc *Doc) JSONBytes() ([]byte, error) {
+	context := Context
+
+	if len(doc.Context) > 0 {
+		context = doc.Context[0]
+	}
+
 	raw := &rawDoc{
 		Context:        doc.Context,
 		ID:             doc.ID,
-		PublicKey:      populateRawPublicKeys(doc.Context[0], doc.PublicKey),
-		Authentication: populateRawAuthentications(doc.Context[0], doc.Authentication),
+		PublicKey:      populateRawPublicKeys(context, doc.PublicKey),
+		Authentication: populateRawAuthentications(context, doc.Authentication),
 		Service:        populateRawServices(doc.Service),
 		Created:        doc.Created,
-		Proof:          populateRawProofs(doc.Context[0], doc.Proof),
+		Proof:          populateRawProofs(context, doc.Proof),
 		Updated:        doc.Updated,
 	}
 
