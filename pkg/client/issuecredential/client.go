@@ -93,3 +93,74 @@ func (c *Client) SendRequest(request *issuecredential.RequestCredential, myDID, 
 
 	return c.service.HandleOutbound(service.NewDIDCommMsgMap(request), myDID, theirDID)
 }
+
+// AcceptProposal is used when the Issuer is willing to accept the proposal.
+// NOTE: For async usage.
+func (c *Client) AcceptProposal(piID string, msg *issuecredential.OfferCredential) error {
+	return c.service.ActionContinue(piID, WithOfferCredential(msg))
+}
+
+// DeclineProposal is used when the Issuer does not want to accept the proposal.
+// NOTE: For async usage.
+func (c *Client) DeclineProposal(piID, reason string) error {
+	return c.service.ActionStop(piID, errors.New(reason))
+}
+
+// AcceptOffer is used when the Holder is willing to accept the offer.
+func (c *Client) AcceptOffer(piID string) error {
+	return c.service.ActionContinue(piID, nil)
+}
+
+// DeclineOffer is used when the Holder does not want to accept the offer.
+// NOTE: For async usage.
+func (c *Client) DeclineOffer(piID, reason string) error {
+	return c.service.ActionStop(piID, errors.New(reason))
+}
+
+// NegotiateProposal is used when the Holder wants to negotiate about an offer he received.
+// NOTE: For async usage. This function can be used only after receiving OfferCredential
+func (c *Client) NegotiateProposal(piID string, msg *issuecredential.ProposeCredential) error {
+	return c.service.ActionContinue(piID, WithProposeCredential(msg))
+}
+
+// AcceptRequest is used when the Issuer is willing to accept the request.
+// NOTE: For async usage.
+func (c *Client) AcceptRequest(piID string, msg *issuecredential.IssueCredential) error {
+	return c.service.ActionContinue(piID, WithIssueCredential(msg))
+}
+
+// DeclineRequest is used when the Issuer does not want to accept the request.
+// NOTE: For async usage.
+func (c *Client) DeclineRequest(piID, reason string) error {
+	return c.service.ActionStop(piID, errors.New(reason))
+}
+
+// AcceptCredential is used when the Holder is willing to accept the IssueCredential.
+// NOTE: For async usage.
+func (c *Client) AcceptCredential(piID string) error {
+	return c.service.ActionContinue(piID, nil)
+}
+
+// DeclineCredential is used when the Holder does not want to accept the IssueCredential.
+// NOTE: For async usage.
+func (c *Client) DeclineCredential(piID, reason string) error {
+	return c.service.ActionStop(piID, errors.New(reason))
+}
+
+// WithProposeCredential allows providing ProposeCredential message
+// USAGE: This message should be provided after receiving an OfferCredential message
+func WithProposeCredential(msg *issuecredential.ProposeCredential) issuecredential.Opt {
+	return issuecredential.WithProposeCredential(msg)
+}
+
+// WithOfferCredential allows providing OfferCredential message
+// USAGE: This message should be provided after receiving a ProposeCredential message
+func WithOfferCredential(msg *issuecredential.OfferCredential) issuecredential.Opt {
+	return issuecredential.WithOfferCredential(msg)
+}
+
+// WithIssueCredential allows providing IssueCredential message
+// USAGE: This message should be provided after receiving a RequestCredential message
+func WithIssueCredential(msg *issuecredential.IssueCredential) issuecredential.Opt {
+	return issuecredential.WithIssueCredential(msg)
+}
