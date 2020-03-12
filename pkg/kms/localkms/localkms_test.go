@@ -12,12 +12,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
 	mocksecretlock "github.com/hyperledger/aries-framework-go/pkg/mock/secretlock"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -181,7 +183,7 @@ func TestLocalKMS_Success(t *testing.T) {
 
 	storeDB := make(map[string][]byte)
 	// test New()
-	kmsStorage, err := New(testMasterKeyURI, &mockProvider{
+	kmsService, err := New(testMasterKeyURI, &mockProvider{
 		storage: mockstorage.NewCustomMockStoreProvider(
 			&mockstorage.MockStore{
 				Store: storeDB,
@@ -189,23 +191,23 @@ func TestLocalKMS_Success(t *testing.T) {
 		secretLock: sl,
 	})
 	require.NoError(t, err)
-	require.NotEmpty(t, kmsStorage)
+	require.NotEmpty(t, kmsService)
 
-	keyTemplates := []string{
-		"AES128GCM",
-		"AES256GCMNoPrefix",
-		"AES256GCM",
-		"ChaCha20Poly1305",
-		"XChaCha20Poly1305",
-		"ECDSAP256",
-		"ECDSAP384",
-		"ECDSAP521",
-		"ED25519",
+	keyTemplates := []kms.KeyType{
+		kms.AES128GCMType,
+		kms.AES256GCMNoPrefixType,
+		kms.AES256GCMType,
+		kms.ChaCha20Poly1305Type,
+		kms.XChaCha20Poly1305Type,
+		kms.ECDSAP256Type,
+		kms.ECDSAP384Type,
+		kms.ECDSAP521Type,
+		kms.Ed25519Type,
 	}
 
 	for _, v := range keyTemplates {
 		// test Create() a new key
-		keyID, newKeyHandle, e := kmsStorage.Create(v)
+		keyID, newKeyHandle, e := kmsService.Create(v)
 		require.NoError(t, e)
 		require.NotEmpty(t, newKeyHandle)
 		require.NotEmpty(t, keyID)
@@ -219,7 +221,7 @@ func TestLocalKMS_Success(t *testing.T) {
 		require.NotEmpty(t, newKHPrimitives)
 
 		// test Get() an existing keyhandle (it should match newKeyHandle above)
-		loadedKeyHandle, e := kmsStorage.Get(keyID)
+		loadedKeyHandle, e := kmsService.Get(keyID)
 		require.NoError(t, e)
 		require.NotEmpty(t, loadedKeyHandle)
 
@@ -231,13 +233,13 @@ func TestLocalKMS_Success(t *testing.T) {
 
 		// finally test Rotate()
 		// with unsupported key type - should fail
-		newKeyID, rotatedKeyHandle, e := kmsStorage.Rotate("unsupported", keyID)
+		newKeyID, rotatedKeyHandle, e := kmsService.Rotate("unsupported", keyID)
 		require.Error(t, e)
 		require.Empty(t, rotatedKeyHandle)
 		require.Empty(t, newKeyID)
 
 		// with valid key type - should succeed
-		newKeyID, rotatedKeyHandle, e = kmsStorage.Rotate(v, keyID)
+		newKeyID, rotatedKeyHandle, e = kmsService.Rotate(v, keyID)
 		require.NoError(t, e)
 		require.NotEmpty(t, rotatedKeyHandle)
 		require.NotEqual(t, newKeyID, keyID)
@@ -247,6 +249,20 @@ func TestLocalKMS_Success(t *testing.T) {
 		require.NotEmpty(t, newKHPrimitives)
 		require.Equal(t, len(newKHPrimitives.Entries), len(rotatedKHPrimitives.Entries))
 		require.Equal(t, len(readKHPrimitives.Entries), len(rotatedKHPrimitives.Entries))
+
+		if strings.Contains(string(v), "ECDSA") || v == kms.Ed25519Type {
+			pubKeyBytes, e := kmsService.ExportPubKeyBytes(keyID)
+			require.Errorf(t, e, "KeyID has been rotated. An error must be returned")
+			require.Empty(t, pubKeyBytes)
+
+			pubKeyBytes, e = kmsService.ExportPubKeyBytes(newKeyID)
+			require.NoError(t, e)
+			require.NotEmpty(t, pubKeyBytes)
+
+			kh, e := kmsService.PubKeyBytesToHandle(pubKeyBytes, v)
+			require.NoError(t, e)
+			require.NotEmpty(t, kh)
+		}
 	}
 }
 
