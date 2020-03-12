@@ -140,6 +140,7 @@ depend:
 mocks: depend
 	$(call create_mock,pkg/didcomm/protocol/issuecredential,Provider)
 	$(call create_mock,pkg/client/introduce,Provider;ProtocolService)
+	$(call create_mock,pkg/client/issuecredential,Provider;ProtocolService)
 	$(call create_mock,pkg/didcomm/protocol/introduce,Provider)
 	$(call create_mock,pkg/didcomm/common/service,DIDComm;Event;Messenger;MessengerHandler)
 	$(call create_mock,pkg/didcomm/dispatcher,Outbound)
