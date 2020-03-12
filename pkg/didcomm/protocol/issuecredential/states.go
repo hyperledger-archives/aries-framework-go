@@ -7,11 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package issuecredential
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
 const (
@@ -380,7 +383,44 @@ func (s *credentialReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameDone || st.Name() == stateNameAbandoning
 }
 
+func toVerifiableCredentials(attachments []decorator.Attachment) ([]*verifiable.Credential, error) {
+	var credentials []*verifiable.Credential
+
+	// TODO: Currently, it supports only JSON payload. We need to add support for links and base64 as well. [Issue 1455]
+	for i := range attachments {
+		rawVC, err := json.Marshal(attachments[i].Data.JSON)
+		if err != nil {
+			return nil, fmt.Errorf("marshal: %w", err)
+		}
+
+		vc, _, err := verifiable.NewCredential(rawVC)
+		if err != nil {
+			return nil, fmt.Errorf("new credential: %w", err)
+		}
+
+		credentials = append(credentials, vc)
+	}
+
+	return credentials, nil
+}
+
 func (s *credentialReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	var credential = IssueCredential{}
+
+	err := md.Msg.Decode(&credential)
+	if err != nil {
+		return nil, nil, fmt.Errorf("decode: %w", err)
+	}
+
+	md.credentials, err = toVerifiableCredentials(credential.CredentialsAttach)
+	if err != nil {
+		return nil, nil, fmt.Errorf("to verifiable credentials: %w", err)
+	}
+
+	if len(md.credentials) == 0 {
+		return nil, nil, errors.New("credentials were not provided")
+	}
+
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(model.Ack{
