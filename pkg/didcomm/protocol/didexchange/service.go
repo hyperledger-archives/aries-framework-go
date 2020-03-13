@@ -487,7 +487,7 @@ func (s *Service) abandon(thID string, msg service.DIDCommMsg, processErr error)
 		Type:         service.PostState,
 		Msg:          msg,
 		StateID:      stateNameAbandoned,
-		Properties:   createErrorEventProperties(thID, "", processErr),
+		Properties:   createErrorEventProperties(connRec.ConnectionID, "", processErr),
 	})
 
 	return nil
