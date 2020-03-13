@@ -142,3 +142,147 @@ func TestClient_SendRequest(t *testing.T) {
 		require.EqualError(t, client.SendRequest(nil, Alice, Bob), errEmptyRequest.Error())
 	})
 }
+
+func TestClient_AcceptProposal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.AcceptProposal("PIID", &issuecredential.OfferCredential{}))
+}
+
+func TestClient_DeclineProposal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionStop("PIID", errors.New("the reason")).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.DeclineProposal("PIID", "the reason"))
+}
+
+func TestClient_AcceptOffer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.AcceptOffer("PIID"))
+}
+
+func TestClient_DeclineOffer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionStop("PIID", errors.New("the reason")).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.DeclineOffer("PIID", "the reason"))
+}
+
+func TestClient_AcceptRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.AcceptRequest("PIID", &issuecredential.IssueCredential{}))
+}
+
+func TestClient_DeclineRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionStop("PIID", errors.New("the reason")).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.DeclineRequest("PIID", "the reason"))
+}
+
+func TestClient_NegotiateProposal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.NegotiateProposal("PIID", &issuecredential.ProposeCredential{}))
+}
+
+func TestClient_AcceptCredential(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionContinue("PIID", gomock.Any()).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.AcceptCredential("PIID"))
+}
+
+func TestClient_DeclineCredential(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocks.NewMockProvider(ctrl)
+
+	svc := mocks.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionStop("PIID", errors.New("the reason")).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.DeclineCredential("PIID", "the reason"))
+}
