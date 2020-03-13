@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestNewPresentationFromLinkedDataProof(t *testing.T) {
@@ -41,7 +42,7 @@ func TestNewPresentationFromLinkedDataProof(t *testing.T) {
 
 	vcWithLdp, err := NewPresentation(vcBytes,
 		WithPresEmbeddedSignatureSuites(suite),
-		WithPresPublicKeyFetcher(SingleKey([]byte(pubKey))))
+		WithPresPublicKeyFetcher(SingleKey(pubKey, kms.Ed25519Type)))
 	r.NoError(err)
 
 	r.NoError(err)

@@ -24,7 +24,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	connectionstore "github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
@@ -591,7 +593,10 @@ func verifySignature(connSignature *ConnectionSignature, recipientKeys string) (
 	// TODO: Replace with signed attachments issue-626
 	signatureSuite := ed25519signature2018.New()
 
-	err = signatureSuite.Verify(pubKey, sigData, signature)
+	err = signatureSuite.Verify(&verifier.PublicKey{
+		Type:  kms.Ed25519Type,
+		Value: pubKey},
+		sigData, signature)
 	if err != nil {
 		return nil, fmt.Errorf("verify signature: %w", err)
 	}

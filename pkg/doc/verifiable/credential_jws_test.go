@@ -13,6 +13,9 @@ import (
 	"github.com/square/go-jose/v3"
 	"github.com/square/go-jose/v3/jwt"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestJWTCredClaimsMarshalJWS(t *testing.T) {
@@ -29,12 +32,15 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 		jws, err := jwtClaims.MarshalJWS(RS256, getRS256TestSigner(privateKey), "any")
 		require.NoError(t, err)
 
-		vcBytes, err := decodeCredJWS(jws, true, func(issuerID, keyID string) (i interface{}, e error) {
+		vcBytes, err := decodeCredJWS(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			publicKey, pcErr := readPublicKey(filepath.Join(certPrefix, "issuer_public.pem"))
 			require.NoError(t, pcErr)
 			require.NotNil(t, publicKey)
 
-			return publicKey, nil
+			return &verifier.PublicKey{
+				Type:  kms.RSAType,
+				Value: publicKeyPemToBytes(publicKey),
+			}, nil
 		})
 		require.NoError(t, err)
 
@@ -57,12 +63,15 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	privateKey, err := readPrivateKey(filepath.Join(certPrefix, "issuer_private.pem"))
 	require.NoError(t, err)
 
-	pkFetcher := func(_, _ string) (interface{}, error) {
+	pkFetcher := func(_, _ string) (*verifier.PublicKey, error) { //nolint:unparam
 		publicKey, err := readPublicKey(filepath.Join(certPrefix, "issuer_public.pem"))
 		require.NoError(t, err)
 		require.NotNil(t, publicKey)
 
-		return publicKey, err
+		return &verifier.PublicKey{
+			Type:  kms.RSAType,
+			Value: publicKeyPemToBytes(publicKey),
+		}, nil
 	}
 
 	validJWS := createRS256JWS(t, []byte(jwtTestCredential), false)
@@ -108,13 +117,16 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	})
 
 	t.Run("Invalid signature of JWS", func(t *testing.T) {
-		pkFetcherOther := func(issuerID, keyID string) (interface{}, error) {
+		pkFetcherOther := func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			// use public key of VC Holder (while expecting to use the ones of Issuer)
 			publicKey, err := readPublicKey(filepath.Join(certPrefix, "holder_public.pem"))
 			require.NoError(t, err)
 			require.NotNil(t, publicKey)
 
-			return publicKey, nil
+			return &verifier.PublicKey{
+				Type:  kms.RSAType,
+				Value: publicKeyPemToBytes(publicKey),
+			}, nil
 		}
 
 		jws, err := decodeCredJWS(string(validJWS), true, pkFetcherOther)

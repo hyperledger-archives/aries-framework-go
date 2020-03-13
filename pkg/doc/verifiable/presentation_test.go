@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 //nolint:lll
@@ -368,7 +369,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 
 	// single credential - JWS
 	opts := defaultPresentationOpts()
-	opts.publicKeyFetcher = SingleKey(pubKey)
+	opts.publicKeyFetcher = SingleKey(pubKey, kms.Ed25519Type)
 	dCreds, err := decodeCredentials(jws, opts)
 	r.NoError(err)
 	r.Len(dCreds, 1)
@@ -380,7 +381,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 }
 
 func TestWithPresPublicKeyFetcher(t *testing.T) {
-	vpOpt := WithPresPublicKeyFetcher(SingleKey("test pubKey"))
+	vpOpt := WithPresPublicKeyFetcher(SingleKey([]byte("test pubKey"), kms.Ed25519Type))
 	require.NotNil(t, vpOpt)
 
 	opts := &presentationOpts{}
@@ -397,4 +398,30 @@ func TestWithPresEmbeddedSignatureSuites(t *testing.T) {
 	opts := &presentationOpts{}
 	vpOpt(opts)
 	require.Equal(t, suite, opts.ldpSuite)
+}
+
+func TestNewUnverifiedPresentation(t *testing.T) {
+	// happy path
+	vp, err := NewUnverifiedPresentation([]byte(validPresentation))
+	require.NoError(t, err)
+	require.NotNil(t, vp)
+
+	// delete the embedded proof and check the VP decoding once again
+	var vpJSON map[string]interface{}
+
+	err = json.Unmarshal([]byte(validPresentation), &vpJSON)
+	require.NoError(t, err)
+	delete(vpJSON, "proof")
+
+	vpWithoutProofBytes, err := json.Marshal(vpJSON)
+	require.NoError(t, err)
+
+	vp, err = NewUnverifiedPresentation(vpWithoutProofBytes)
+	require.NoError(t, err)
+	require.NotNil(t, vp)
+
+	// VP decoding error
+	vp, err = NewUnverifiedPresentation([]byte("invalid"))
+	require.Error(t, err)
+	require.Nil(t, vp)
 }

@@ -21,7 +21,9 @@ import (
 
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // TODO https://github.com/square/go-jose/issues/263 support ES256K
@@ -52,12 +54,15 @@ func (ja JWSAlgorithm) name() (string, error) {
 // PublicKeyFetcher fetches public key for JWT signing verification based on Issuer ID (possibly DID)
 // and Key ID.
 // If not defined, JWT encoding is not tested.
-type PublicKeyFetcher func(issuerID, keyID string) (interface{}, error)
+type PublicKeyFetcher func(issuerID, keyID string) (*verifier.PublicKey, error)
 
 // SingleKey defines the case when only one verification key is used and we don't need to pick the one.
-func SingleKey(pubKey interface{}) PublicKeyFetcher {
-	return func(issuerID, keyID string) (interface{}, error) {
-		return pubKey, nil
+func SingleKey(pubKey []byte, pubKeyType kms.KeyType) PublicKeyFetcher {
+	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
+		return &verifier.PublicKey{
+			Type:  pubKeyType,
+			Value: pubKey,
+		}, nil
 	}
 }
 
@@ -73,7 +78,7 @@ func NewDIDKeyResolver(vdriRegistry vdri.Registry) *DIDKeyResolver {
 	return &DIDKeyResolver{vdriRegistry: vdriRegistry}
 }
 
-func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (interface{}, error) {
+func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.PublicKey, error) {
 	doc, err := r.vdriRegistry.Resolve(issuerDID)
 	if err != nil {
 		return nil, fmt.Errorf("resolve DID %s: %w", issuerDID, err)
@@ -83,7 +88,10 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (interface{},
 		// TODO remove string contains after sidetree create public key with this format DID#KEYID
 		// sidetree now return #KEYID
 		if strings.Contains(key.ID, keyID) {
-			return key.Value, nil
+			return &verifier.PublicKey{
+				Type:  kms.KeyType(key.Type),
+				Value: key.Value,
+			}, nil
 		}
 	}
 
@@ -92,7 +100,10 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (interface{},
 		// TODO remove string contains after sidetree create public key with this format DID#KEYID
 		// sidetree now return #KEYID
 		if strings.Contains(auth.PublicKey.ID, keyID) {
-			return auth.PublicKey.Value, nil
+			return &verifier.PublicKey{
+				Type:  kms.KeyType(auth.PublicKey.Type),
+				Value: auth.PublicKey.Value,
+			}, nil
 		}
 	}
 

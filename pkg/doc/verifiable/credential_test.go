@@ -20,6 +20,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const singleCredentialSubject = `
@@ -680,7 +681,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 }
 
 func TestWithPublicKeyFetcher(t *testing.T) {
-	credentialOpt := WithPublicKeyFetcher(SingleKey("test pubKey"))
+	credentialOpt := WithPublicKeyFetcher(SingleKey([]byte("test pubKey"), kms.Ed25519Type))
 	require.NotNil(t, credentialOpt)
 
 	opts := &credentialOpts{}

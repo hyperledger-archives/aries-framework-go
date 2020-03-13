@@ -14,6 +14,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestNewPresentationFromJWS(t *testing.T) {
@@ -48,12 +51,15 @@ func TestNewPresentationFromJWS(t *testing.T) {
 		vp, err := NewPresentation(
 			jws,
 			// passing issuers's key, while expecting issuer one
-			WithPresPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
+			WithPresPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				publicKey, err := readPublicKey(filepath.Join(certPrefix, "issuer_public.pem"))
 				require.NoError(t, err)
 				require.NotNil(t, publicKey)
 
-				return publicKey, nil
+				return &verifier.PublicKey{
+					Type:  kms.RSAType,
+					Value: publicKeyPemToBytes(publicKey),
+				}, nil
 			}))
 
 		require.Error(t, err)
@@ -65,7 +71,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, true)
 		vp, err := NewPresentation(
 			jws,
-			WithPresPublicKeyFetcher(func(issuerID, keyID string) (interface{}, error) {
+			WithPresPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				return nil, errors.New("test: public key is not found")
 			}))
 
@@ -102,7 +108,7 @@ func TestNewPresentationFromJWS_EdDSA(t *testing.T) {
 	// unmarshal presentation from JWS
 	vpFromJWS, err := NewPresentation(
 		[]byte(vpJWSStr),
-		WithPresPublicKeyFetcher(SingleKey(pubKey)))
+		WithPresPublicKeyFetcher(SingleKey(pubKey, kms.Ed25519Type)))
 	require.NoError(t, err)
 
 	// unmarshalled presentation must be the same as original one
@@ -201,12 +207,18 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 
 		// Decode VP
 		vpDecoded, err := NewPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
-			func(issuerID, keyID string) (interface{}, error) {
+			func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				switch keyID {
 				case "holder-key":
-					return holderPubKey, nil
+					return &verifier.PublicKey{
+						Type:  kms.Ed25519Type,
+						Value: holderPubKey,
+					}, nil
 				case "issuer-key":
-					return issuerPrivKey.Public(), nil
+					return &verifier.PublicKey{
+						Type:  kms.RSAType,
+						Value: publicKeyPemToBytes(&issuerPrivKey.PublicKey),
+					}, nil
 				default:
 					return nil, errors.New("unexpected key")
 				}
@@ -244,7 +256,8 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		r.NoError(err)
 
 		// Decode VP
-		vpDecoded, err := NewPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(SingleKey(holderPubKey)))
+		vpDecoded, err := NewPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
+			SingleKey(holderPubKey, kms.Ed25519Type)))
 		r.NoError(err)
 		vpCreds, err := vpDecoded.MarshalledCredentials()
 		r.NoError(err)
@@ -279,15 +292,22 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 
 		// Decode VP
 		vp, err = NewPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
-			func(issuerID, keyID string) (interface{}, error) {
+			func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				switch keyID {
 				case "holder-key":
-					return holderPubKey, nil
+					return &verifier.PublicKey{
+						Type:  kms.Ed25519Type,
+						Value: holderPubKey,
+					}, nil
 				case "issuer-key":
 					// here we return invalid public key
 					anotherPubKey, _, gerr := ed25519.GenerateKey(rand.Reader)
 					r.NoError(gerr)
-					return anotherPubKey, nil
+
+					return &verifier.PublicKey{
+						Type:  kms.Ed25519Type,
+						Value: anotherPubKey,
+					}, nil
 				default:
 					r.NoError(err)
 					return nil, errors.New("unexpected key")
@@ -316,8 +336,8 @@ func createPresJWS(t *testing.T, vpBytes []byte, minimize bool) []byte {
 	return []byte(vpJWT)
 }
 
-func createPresKeyFetcher(t *testing.T) func(issuerID string, keyID string) (interface{}, error) {
-	return func(issuerID, keyID string) (interface{}, error) {
+func createPresKeyFetcher(t *testing.T) func(issuerID string, keyID string) (*verifier.PublicKey, error) {
+	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", issuerID)
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21#keys-1", keyID)
 
@@ -325,7 +345,10 @@ func createPresKeyFetcher(t *testing.T) func(issuerID string, keyID string) (int
 		require.NoError(t, err)
 		require.NotNil(t, publicKey)
 
-		return publicKey, nil
+		return &verifier.PublicKey{
+			Type:  kms.RSAType,
+			Value: publicKeyPemToBytes(publicKey),
+		}, nil
 	}
 }
 

@@ -306,6 +306,27 @@ func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, err
 		return nil, err
 	}
 
+	return newPresentation(vpRaw, vpOpts)
+}
+
+// NewUnverifiedPresentation decodes Verifiable Presentation from bytes which could be marshalled JSON or
+// serialized JWT. It does not make a proof check though. Can be used for purposes of decoding of VP stored in a wallet.
+// Please use this function with caution.
+func NewUnverifiedPresentation(vpBytes []byte) (*Presentation, error) {
+	// Apply options
+	vpOpts := &presentationOpts{
+		disabledProofCheck: true,
+	}
+
+	_, vpRaw, err := decodeRawPresentation(vpBytes, vpOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	return newPresentation(vpRaw, vpOpts)
+}
+
+func newPresentation(vpRaw *rawPresentation, vpOpts *presentationOpts) (*Presentation, error) {
 	types, err := decodeType(vpRaw.Type)
 	if err != nil {
 		return nil, fmt.Errorf("fill presentation types from raw: %w", err)
@@ -326,7 +347,7 @@ func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, err
 		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
 	}
 
-	vp := &Presentation{
+	return &Presentation{
 		Context:        context,
 		CustomContext:  customContext,
 		ID:             vpRaw.ID,
@@ -335,9 +356,7 @@ func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, err
 		Holder:         vpRaw.Holder,
 		Proofs:         proofs,
 		RefreshService: vpRaw.RefreshService,
-	}
-
-	return vp, nil
+	}, nil
 }
 
 // decodeCredentials decodes credential(s) embedded into presentation.

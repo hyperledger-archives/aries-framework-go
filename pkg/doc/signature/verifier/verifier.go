@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // signatureSuite encapsulates signature suite methods required for signature verification
@@ -23,17 +23,24 @@ type signatureSuite interface {
 	GetDigest(doc []byte) []byte
 
 	// Verify will verify signature against public key
-	Verify(pubKey []byte, doc []byte, signature []byte) error
+	// TODO change pubKey type to interface{} (https://github.com/hyperledger/aries-framework-go/issues/1458)
+	Verify(pubKey *PublicKey, doc []byte, signature []byte) error
 
 	// Accept registers this signature suite with the given signature type
 	Accept(signatureType string) bool
 }
 
+// PublicKey contains a result of public key resolution.
+type PublicKey struct {
+	Type  kms.KeyType
+	Value []byte
+}
+
 // keyResolver encapsulates key resolution
 type keyResolver interface {
 
-	// Resolve will return public key bytes
-	Resolve(id string) ([]byte, error)
+	// Resolve will return public key bytes and the type of public key
+	Resolve(id string) (*PublicKey, error)
 }
 
 // DocumentVerifier implements JSON LD document proof verification
@@ -43,12 +50,10 @@ type DocumentVerifier struct {
 }
 
 // New returns new instance of document verifier
-func New(resolver keyResolver, signatureSuites ...signatureSuite) *DocumentVerifier {
-	if len(signatureSuites) == 0 {
-		signatureSuites = []signatureSuite{ed25519signature2018.New()}
-	}
-
-	return &DocumentVerifier{signatureSuites: signatureSuites, pkResolver: resolver}
+func New(resolver keyResolver, mainSuite signatureSuite, extraSuites ...signatureSuite) *DocumentVerifier {
+	return &DocumentVerifier{
+		signatureSuites: append([]signatureSuite{mainSuite}, extraSuites...),
+		pkResolver:      resolver}
 }
 
 // Verify will verify document proofs

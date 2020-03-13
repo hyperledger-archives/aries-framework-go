@@ -202,3 +202,7 @@ func (s rs256TestSigner) Sign(data []byte) ([]byte, error) {
 
 	return rsa.SignPKCS1v15(rand.Reader, s.privKey, crypto.SHA256, hashed)
 }
+
+func publicKeyPemToBytes(publicKey *rsa.PublicKey) []byte {
+	return x509.MarshalPKCS1PublicKey(publicKey)
+}
