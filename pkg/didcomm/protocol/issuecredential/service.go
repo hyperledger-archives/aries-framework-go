@@ -15,7 +15,9 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	storeverifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 const (
@@ -62,9 +64,11 @@ type transitionalPayload struct {
 // metaData type to store data for internal usage
 type metaData struct {
 	transitionalPayload
-	state    state
-	msgClone service.DIDCommMsg
-	inbound  bool
+	state           state
+	msgClone        service.DIDCommMsg
+	inbound         bool
+	credentials     []*verifiable.Credential
+	credentialNames []string
 	// keeps offer credential payload,
 	// allows filling the message by providing an option function
 	offerCredential   *OfferCredential
@@ -110,6 +114,14 @@ func WithIssueCredential(msg *IssueCredential) Opt {
 	}
 }
 
+// WithFriendlyNames allows providing names for the credentials.
+// USAGE: This function should be used when the Holder receives IssueCredential message
+func WithFriendlyNames(names ...string) Opt {
+	return func(md *metaData) {
+		md.credentialNames = names
+	}
+}
+
 // Provider contains dependencies for the protocol and is typically created by using aries.Context()
 type Provider interface {
 	Messenger() service.Messenger
@@ -120,9 +132,10 @@ type Provider interface {
 type Service struct {
 	service.Action
 	service.Message
-	store     storage.Store
-	callbacks chan *metaData
-	messenger service.Messenger
+	store      storage.Store
+	callbacks  chan *metaData
+	messenger  service.Messenger
+	verifiable *storeverifiable.Store
 }
 
 // New returns the issuecredential service
@@ -132,10 +145,16 @@ func New(p Provider) (*Service, error) {
 		return nil, err
 	}
 
+	vStore, err := storeverifiable.New(p)
+	if err != nil {
+		return nil, err
+	}
+
 	svc := &Service{
-		messenger: p.Messenger(),
-		store:     store,
-		callbacks: make(chan *metaData),
+		messenger:  p.Messenger(),
+		store:      store,
+		verifiable: vStore,
+		callbacks:  make(chan *metaData),
 	}
 
 	// start the listener
@@ -295,9 +314,28 @@ func (s *Service) handle(md *metaData) error {
 		return fmt.Errorf("failed to persist state %s: %w", stateName, err)
 	}
 
+	if err := s.saveCredentials(md); err != nil {
+		return fmt.Errorf("save сredentials %s: %w", stateName, err)
+	}
+
 	for _, action := range actions {
 		if err := action(s.messenger); err != nil {
 			return fmt.Errorf("action %s: %w", stateName, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) saveCredentials(md *metaData) error {
+	for i, credential := range md.credentials {
+		var name = credential.ID
+		if len(md.credentialNames) > i {
+			name = md.credentialNames[i]
+		}
+
+		if err := s.verifiable.SaveCredential(name, credential); err != nil {
+			return fmt.Errorf("save credential: %w", err)
 		}
 	}
 

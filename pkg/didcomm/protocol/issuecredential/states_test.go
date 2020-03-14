@@ -10,6 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
+
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -589,18 +593,107 @@ func TestCredentialReceived_CanTransitionTo(t *testing.T) {
 }
 
 func TestCredentialReceived_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{})
-	require.NoError(t, err)
-	require.Equal(t, &done{}, followup)
-	require.NotNil(t, action)
+	t.Run("Credentials not provided", func(t *testing.T) {
+		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{})
+		require.EqualError(t, err, "credentials were not provided")
+		require.Nil(t, followup)
+		require.Nil(t, action)
+	})
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	t.Run("Decode error", func(t *testing.T) {
+		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{
+			transitionalPayload: transitionalPayload{
+				Msg: service.DIDCommMsgMap{"@type": map[int]int{}},
+			},
+		})
 
-	messenger := serviceMocks.NewMockMessenger(ctrl)
-	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+		require.Contains(t, fmt.Sprintf("%v", err), "got unconvertible type")
+		require.Nil(t, followup)
+		require.Nil(t, action)
+	})
 
-	require.NoError(t, action(messenger))
+	t.Run("Marshal credentials error", func(t *testing.T) {
+		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{
+			transitionalPayload: transitionalPayload{
+				Msg: service.NewDIDCommMsgMap(IssueCredential{
+					Type: IssueCredentialMsgType,
+					CredentialsAttach: []decorator.Attachment{
+						{Data: decorator.AttachmentData{JSON: struct{ C chan int }{}}},
+					},
+				}),
+			},
+		})
+
+		require.Contains(t, fmt.Sprintf("%v", err), "json: unsupported type")
+		require.Nil(t, followup)
+		require.Nil(t, action)
+	})
+
+	t.Run("Invalid credentials", func(t *testing.T) {
+		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{
+			transitionalPayload: transitionalPayload{
+				Msg: service.NewDIDCommMsgMap(IssueCredential{
+					Type: IssueCredentialMsgType,
+					CredentialsAttach: []decorator.Attachment{
+						{Data: decorator.AttachmentData{JSON: &verifiable.Credential{
+							Context: []string{"https://www.w3.org/2018/credentials/v1"},
+						}}},
+					},
+				}),
+			},
+		})
+
+		require.Contains(t, fmt.Sprintf("%v", err), "to verifiable credentials")
+		require.Nil(t, followup)
+		require.Nil(t, action)
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
+
+		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{
+			transitionalPayload: transitionalPayload{
+				Msg: service.NewDIDCommMsgMap(IssueCredential{
+					Type: IssueCredentialMsgType,
+					CredentialsAttach: []decorator.Attachment{
+						{Data: decorator.AttachmentData{JSON: &verifiable.Credential{
+							Context: []string{
+								"https://www.w3.org/2018/credentials/v1",
+								"https://www.w3.org/2018/credentials/examples/v1"},
+							ID: "http://example.edu/credentials/1872",
+							Types: []string{
+								"VerifiableCredential",
+								"UniversityDegreeCredential"},
+							Subject: struct {
+								ID string
+							}{ID: "SubjectID"},
+							Issuer: verifiable.Issuer{
+								ID:   "did:example:76e12ec712ebc6f1c221ebfeb1f",
+								Name: "Example University",
+							},
+							Issued:  &issued,
+							Schemas: []verifiable.TypedID{},
+							CustomFields: map[string]interface{}{
+								"referenceNumber": 83294847,
+							},
+						}}},
+					},
+				}),
+			},
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, &done{}, followup)
+		require.NotNil(t, action)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+
+		require.NoError(t, action(messenger))
+	})
 }
 
 func TestCredentialReceived_ExecuteOutbound(t *testing.T) {

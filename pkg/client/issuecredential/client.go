@@ -137,8 +137,8 @@ func (c *Client) DeclineRequest(piID, reason string) error {
 
 // AcceptCredential is used when the Holder is willing to accept the IssueCredential.
 // NOTE: For async usage.
-func (c *Client) AcceptCredential(piID string) error {
-	return c.service.ActionContinue(piID, nil)
+func (c *Client) AcceptCredential(piID string, names ...string) error {
+	return c.service.ActionContinue(piID, WithFriendlyNames(names...))
 }
 
 // DeclineCredential is used when the Holder does not want to accept the IssueCredential.
@@ -163,4 +163,10 @@ func WithOfferCredential(msg *issuecredential.OfferCredential) issuecredential.O
 // USAGE: This message should be provided after receiving a RequestCredential message
 func WithIssueCredential(msg *issuecredential.IssueCredential) issuecredential.Opt {
 	return issuecredential.WithIssueCredential(msg)
+}
+
+// WithFriendlyNames allows providing names for the credentials.
+// USAGE: This function should be used when the Holder receives IssueCredential message
+func WithFriendlyNames(names ...string) issuecredential.Opt {
+	return issuecredential.WithFriendlyNames(names...)
 }
