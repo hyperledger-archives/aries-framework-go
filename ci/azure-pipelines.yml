@@ -4,6 +4,7 @@
 
 name: $(SourceBranchName)-$(Date:yyyyMMdd).$(Rev:r)
 trigger: none
+pr: none
 variables:
   GO_VERSION: 1.14
   GOPATH: $(Agent.BuildDirectory)/go
