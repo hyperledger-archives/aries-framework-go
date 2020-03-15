@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // signatureSuite encapsulates signature suite methods required for signature verification
@@ -23,7 +22,6 @@ type signatureSuite interface {
 	GetDigest(doc []byte) []byte
 
 	// Verify will verify signature against public key
-	// TODO change pubKey type to interface{} (https://github.com/hyperledger/aries-framework-go/issues/1458)
 	Verify(pubKey *PublicKey, doc []byte, signature []byte) error
 
 	// Accept registers this signature suite with the given signature type
@@ -32,7 +30,7 @@ type signatureSuite interface {
 
 // PublicKey contains a result of public key resolution.
 type PublicKey struct {
-	Type  kms.KeyType
+	Type  string
 	Value []byte
 }
 

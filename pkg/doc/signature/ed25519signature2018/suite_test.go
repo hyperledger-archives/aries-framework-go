@@ -6,14 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 package ed25519signature2018
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 func TestSignatureSuite_Sign(t *testing.T) {
@@ -42,37 +40,27 @@ func TestSignatureSuite_Sign(t *testing.T) {
 }
 
 func TestSignatureSuite_Verify(t *testing.T) {
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	pubKey := &sigverifier.PublicKey{
+		Type:  signatureType,
+		Value: []byte("any key"),
+	}
+	ss := New(WithVerifier(&mockVerifier{}))
+
+	// happy path
+	err := ss.Verify(pubKey, []byte("any doc"), []byte("any signature"))
 	require.NoError(t, err)
-	require.NotEmpty(t, pubKey)
-	require.NotEmpty(t, privKey)
 
-	doc := []byte("hello world")
+	// no verifier defined
+	ss = New()
+	err = ss.Verify(pubKey, []byte("any doc"), []byte("any signature"))
+	require.Error(t, err)
+	require.Equal(t, ErrVerifierNotDefined, err)
 
-	signature := ed25519.Sign(privKey, doc)
-	require.NotEmpty(t, signature)
-
-	ss := New()
-	publicKey := &verifier.PublicKey{Value: pubKey}
-
-	err = ss.Verify(publicKey, doc, signature)
-	require.Nil(t, err)
-
-	// test different message
-	err = ss.Verify(publicKey, []byte("different doc"), signature)
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "signature doesn't match")
-
-	// test different signature
-	err = ss.Verify(publicKey, doc, []byte("signature"))
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "signature doesn't match")
-
-	// test wrong public key size
-	publicKey.Value = []byte("key")
-	err = ss.Verify(publicKey, doc, signature)
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "ed25519: bad public key length")
+	// verification error
+	ss = New(WithVerifier(&mockVerifier{verifyError: errors.New("verify error")}))
+	err = ss.Verify(pubKey, []byte("any doc"), []byte("any signature"))
+	require.Error(t, err)
+	require.EqualError(t, err, "verify error")
 }
 
 func TestSignatureSuite_GetCanonicalDocument(t *testing.T) {
@@ -141,6 +129,14 @@ func (s *mockSigner) Sign(_ []byte) ([]byte, error) {
 	}
 
 	return s.signature, nil
+}
+
+type mockVerifier struct {
+	verifyError error
+}
+
+func (v *mockVerifier) Verify(_ *sigverifier.PublicKey, _, _ []byte) error {
+	return v.verifyError
 }
 
 // taken from test 28 report https://json-ld.org/test-suite/reports/#test_30bc80ba056257df8a196e8f65c097fc

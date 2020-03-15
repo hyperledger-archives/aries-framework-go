@@ -92,7 +92,7 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 			require.NotNil(t, publicKey)
 
 			return &verifier.PublicKey{
-				Type:  kms.RSAType,
+				Type:  kms.RSA,
 				Value: publicKeyPemToBytes(publicKey),
 			}, nil
 		})
@@ -123,7 +123,7 @@ func holderPublicKeyFetcher(t *testing.T) PublicKeyFetcher {
 		require.NotNil(t, publicKey)
 
 		return &verifier.PublicKey{
-			Type:  kms.RSAType,
+			Type:  kms.RSA,
 			Value: publicKeyPemToBytes(publicKey),
 		}, nil
 	}

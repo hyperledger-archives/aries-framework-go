@@ -57,7 +57,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 				require.NotNil(t, publicKey)
 
 				return &verifier.PublicKey{
-					Type:  kms.RSAType,
+					Type:  kms.RSA,
 					Value: publicKeyPemToBytes(publicKey),
 				}, nil
 			}))
@@ -108,7 +108,7 @@ func TestNewPresentationFromJWS_EdDSA(t *testing.T) {
 	// unmarshal presentation from JWS
 	vpFromJWS, err := NewPresentation(
 		[]byte(vpJWSStr),
-		WithPresPublicKeyFetcher(SingleKey(pubKey, kms.Ed25519Type)))
+		WithPresPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	require.NoError(t, err)
 
 	// unmarshalled presentation must be the same as original one
@@ -211,12 +211,12 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 				switch keyID {
 				case "holder-key":
 					return &verifier.PublicKey{
-						Type:  kms.Ed25519Type,
+						Type:  kms.ED25519,
 						Value: holderPubKey,
 					}, nil
 				case "issuer-key":
 					return &verifier.PublicKey{
-						Type:  kms.RSAType,
+						Type:  kms.RSA,
 						Value: publicKeyPemToBytes(&issuerPrivKey.PublicKey),
 					}, nil
 				default:
@@ -257,7 +257,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 
 		// Decode VP
 		vpDecoded, err := NewPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
-			SingleKey(holderPubKey, kms.Ed25519Type)))
+			SingleKey(holderPubKey, kms.ED25519)))
 		r.NoError(err)
 		vpCreds, err := vpDecoded.MarshalledCredentials()
 		r.NoError(err)
@@ -296,7 +296,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 				switch keyID {
 				case "holder-key":
 					return &verifier.PublicKey{
-						Type:  kms.Ed25519Type,
+						Type:  kms.ED25519,
 						Value: holderPubKey,
 					}, nil
 				case "issuer-key":
@@ -305,7 +305,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 					r.NoError(gerr)
 
 					return &verifier.PublicKey{
-						Type:  kms.Ed25519Type,
+						Type:  kms.ED25519,
 						Value: anotherPubKey,
 					}, nil
 				default:
@@ -346,7 +346,7 @@ func createPresKeyFetcher(t *testing.T) func(issuerID string, keyID string) (*ve
 		require.NotNil(t, publicKey)
 
 		return &verifier.PublicKey{
-			Type:  kms.RSAType,
+			Type:  kms.RSA,
 			Value: publicKeyPemToBytes(publicKey),
 		}, nil
 	}

@@ -253,12 +253,12 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 	pubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, publicKey.ID)
 	r.NoError(err)
 	r.Equal(publicKey.Value, pubKey.Value)
-	r.EqualValues(publicKey.Type, pubKey.Type)
+	r.Equal("Ed25519VerificationKey2018", pubKey.Type)
 
 	authPubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, authentication.PublicKey.ID)
 	r.NoError(err)
 	r.Equal(authentication.PublicKey.Value, authPubKey.Value)
-	r.EqualValues(authentication.PublicKey.Type, authPubKey.Type)
+	r.Equal("Ed25519VerificationKey2018", authPubKey.Type)
 
 	pubKey, err = resolver.PublicKeyFetcher()(didDoc.ID, "invalid key")
 	r.Error(err)

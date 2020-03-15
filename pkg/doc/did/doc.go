@@ -20,7 +20,6 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const (
@@ -781,7 +780,7 @@ func (r *didKeyResolver) Resolve(id string) (*verifier.PublicKey, error) {
 	for _, key := range r.PubKeys {
 		if key.ID == id {
 			return &verifier.PublicKey{
-				Type:  kms.KeyType(key.Type),
+				Type:  key.Type,
 				Value: key.Value,
 			}, nil
 		}

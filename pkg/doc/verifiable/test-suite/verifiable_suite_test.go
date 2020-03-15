@@ -28,6 +28,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 var logger = log.New("aries-framework/doc/verifiable/test-suite")
@@ -101,7 +102,7 @@ func encodeVPToJWS(vpBytes []byte, audience string, privateKey *rsa.PrivateKey, 
 		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
 		verifiable.WithPresNoProofCheck(),
 		// the public key is used to decode verifiable credentials passed as JWS to the presentation
-		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), "RSA")))
+		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), kms.RSA)))
 	if err != nil {
 		abort("failed to decode presentation: %v", err)
 	}
@@ -141,7 +142,7 @@ func encodeVCToJWTUnsecured(vcBytes []byte) {
 func decodeVCJWTToJSON(vcBytes []byte, publicKey *rsa.PublicKey) {
 	// Asked to decode JWT
 	credential, _, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), "RSA")),
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), kms.RSA)),
 		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
 		verifiable.WithNoProofCheck())
 	if err != nil {

@@ -23,7 +23,9 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	suite := ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey)))
+	suite := ed25519signature2018.New(
+		ed25519signature2018.WithSigner(getEd25519TestSigner(privKey)),
+		ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
@@ -43,7 +45,7 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
 		WithEmbeddedSignatureSuites(suite),
-		WithPublicKeyFetcher(SingleKey(pubKey, kms.Ed25519Type)))
+		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
 }

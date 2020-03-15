@@ -12,18 +12,18 @@ SPDX-License-Identifier: Apache-2.0
 package ed25519signature2018
 
 import (
-	"crypto/ed25519"
 	"crypto/sha256"
 	"errors"
 
 	"github.com/piprate/json-gold/ld"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 // SignatureSuite implements ed25519 signature suite
 type SignatureSuite struct {
-	signer signer
+	signer   signer
+	verifier verifier
 }
 
 const (
@@ -36,6 +36,11 @@ type signer interface {
 	Sign(data []byte) ([]byte, error)
 }
 
+type verifier interface {
+	// Verify will verify a signature.
+	Verify(pubKeyValue *sigverifier.PublicKey, doc, signature []byte) error
+}
+
 // SuiteOpt is the SignatureSuite option.
 type SuiteOpt func(opts *SignatureSuite)
 
@@ -43,6 +48,13 @@ type SuiteOpt func(opts *SignatureSuite)
 func WithSigner(s signer) SuiteOpt {
 	return func(opts *SignatureSuite) {
 		opts.signer = s
+	}
+}
+
+// WithVerifier defines a verifier for the Signature Suite.
+func WithVerifier(v verifier) SuiteOpt {
+	return func(opts *SignatureSuite) {
+		opts.verifier = v
 	}
 }
 
@@ -81,18 +93,12 @@ func (s *SignatureSuite) GetDigest(doc []byte) []byte {
 }
 
 // Verify will verify a signature.
-func (s *SignatureSuite) Verify(pubKey *verifier.PublicKey, doc, signature []byte) error {
-	// ed25519 panics if key size is wrong
-	if l := len(pubKey.Value); l != ed25519.PublicKeySize {
-		return errors.New("ed25519: bad public key length")
+func (s *SignatureSuite) Verify(pubKeyValue *sigverifier.PublicKey, doc, signature []byte) error {
+	if s.verifier == nil {
+		return ErrVerifierNotDefined
 	}
 
-	verified := ed25519.Verify(pubKey.Value, doc, signature)
-	if !verified {
-		return errors.New("signature doesn't match")
-	}
-
-	return nil
+	return s.verifier.Verify(pubKeyValue, doc, signature)
 }
 
 // Sign will sign input data.
@@ -111,3 +117,6 @@ func (s *SignatureSuite) Accept(t string) bool {
 
 // ErrSignerNotDefined is returned when Sign() is called but signer option is not defined.
 var ErrSignerNotDefined = errors.New("signer is not defined")
+
+// ErrVerifierNotDefined is returned when Verify() is called but verifier option is not defined.
+var ErrVerifierNotDefined = errors.New("verifier is not defined")

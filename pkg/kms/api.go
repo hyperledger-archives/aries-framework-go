@@ -31,28 +31,51 @@ type Provider interface {
 // Creator method to create new key management service
 type Creator func(provider Provider) (KeyManager, error)
 
+const (
+	// AES128GCM key type value
+	AES128GCM = "AES128GCM"
+	// AES256GCMNoPrefix key type value
+	AES256GCMNoPrefix = "AES256GCMNoPrefix"
+	// AES256GCM key type value
+	AES256GCM = "AES256GCM"
+	// ChaCha20Poly1305 key type value
+	ChaCha20Poly1305 = "ChaCha20Poly1305"
+	// XChaCha20Poly1305 key type value
+	XChaCha20Poly1305 = "XChaCha20Poly1305"
+	// ECDSAP256 key type value
+	ECDSAP256 = "ECDSAP256"
+	// ECDSAP384 key type value
+	ECDSAP384 = "ECDSAP384"
+	// ECDSAP521 key type value
+	ECDSAP521 = "ECDSAP521"
+	// ED25519 key type value
+	ED25519 = "ED25519"
+	// RSA key type value
+	RSA = "RSA"
+)
+
 // KeyType represents a key type supported by the KMS
 type KeyType string
 
 const (
 	// AES128GCMType key type value
-	AES128GCMType = KeyType("AES128GCM")
+	AES128GCMType = KeyType(AES128GCM)
 	// AES256GCMNoPrefixType key type value
-	AES256GCMNoPrefixType = KeyType("AES256GCMNoPrefix")
+	AES256GCMNoPrefixType = KeyType(AES256GCMNoPrefix)
 	// AES256GCMType key type value
-	AES256GCMType = KeyType("AES256GCM")
+	AES256GCMType = KeyType(AES256GCM)
 	// ChaCha20Poly1305Type key type value
-	ChaCha20Poly1305Type = KeyType("ChaCha20Poly1305")
+	ChaCha20Poly1305Type = KeyType(ChaCha20Poly1305)
 	// XChaCha20Poly1305Type key type value
-	XChaCha20Poly1305Type = KeyType("XChaCha20Poly1305")
+	XChaCha20Poly1305Type = KeyType(XChaCha20Poly1305)
 	// ECDSAP256Type key type value
-	ECDSAP256Type = KeyType("ECDSAP256")
+	ECDSAP256Type = KeyType(ECDSAP256)
 	// ECDSAP384Type key type value
-	ECDSAP384Type = KeyType("ECDSAP384")
+	ECDSAP384Type = KeyType(ECDSAP384)
 	// ECDSAP521Type key type value
-	ECDSAP521Type = KeyType("ECDSAP521")
-	// Ed25519Type key type value
-	Ed25519Type = KeyType("ED25519")
+	ECDSAP521Type = KeyType(ECDSAP521)
+	// ED25519Type key type value
+	ED25519Type = KeyType(ED25519)
 	// RSAType key type value
-	RSAType = KeyType("RSA")
+	RSAType = KeyType(RSA)
 )

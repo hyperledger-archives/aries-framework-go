@@ -45,7 +45,7 @@ func TestNewVerifier(t *testing.T) {
 
 		v := NewVerifier(getTestKeyResolver(
 			&verifier.PublicKey{
-				Type:  kms.Ed25519Type,
+				Type:  kms.ED25519,
 				Value: pubKey,
 			}, nil))
 		_, err = jose.ParseJWS(jws, v)
@@ -67,7 +67,7 @@ func TestNewVerifier(t *testing.T) {
 
 		v := NewVerifier(getTestKeyResolver(
 			&verifier.PublicKey{
-				Type:  "RSA",
+				Type:  kms.RSA,
 				Value: x509.MarshalPKCS1PublicKey(pubKey),
 			}, nil))
 		_, err = jose.ParseJWS(jws, v)
@@ -82,7 +82,7 @@ func TestBasicVerifier_Verify(t *testing.T) { // error corner cases
 	r.NoError(err)
 
 	v := NewVerifier(getTestKeyResolver(&verifier.PublicKey{
-		Type:  "RSA",
+		Type:  kms.RSA,
 		Value: pubKey,
 	}, nil))
 
@@ -128,13 +128,13 @@ func TestVerifyEdDSA(t *testing.T) {
 	signature := ed25519.Sign(privKey, []byte("test message"))
 
 	err = VerifyEdDSA(&verifier.PublicKey{
-		Type:  kms.Ed25519Type,
+		Type:  kms.ED25519,
 		Value: pubKey,
 	}, []byte("test message"), signature)
 	r.NoError(err)
 
 	err = VerifyEdDSA(&verifier.PublicKey{
-		Type:  kms.Ed25519Type,
+		Type:  kms.ED25519,
 		Value: []byte("invalid pub key"),
 	}, []byte("test message"), signature)
 	r.Error(err)
@@ -144,7 +144,7 @@ func TestVerifyEdDSA(t *testing.T) {
 	r.NoError(err)
 
 	err = VerifyEdDSA(&verifier.PublicKey{
-		Type:  kms.Ed25519Type,
+		Type:  kms.ED25519,
 		Value: anotherPubKey,
 	}, []byte("test message"), signature)
 	r.Error(err)
@@ -168,7 +168,7 @@ func TestVerifyRS256(t *testing.T) {
 	r.NoError(err)
 
 	err = VerifyRS256(&verifier.PublicKey{
-		Type:  "RSA",
+		Type:  kms.RSA,
 		Value: x509.MarshalPKCS1PublicKey(&privKey.PublicKey),
 	}, []byte("test message"), signature)
 	r.NoError(err)
@@ -177,7 +177,7 @@ func TestVerifyRS256(t *testing.T) {
 	r.NoError(err)
 
 	err = VerifyRS256(&verifier.PublicKey{
-		Type:  "RSA",
+		Type:  kms.RSA,
 		Value: x509.MarshalPKCS1PublicKey(&anotherPrivKey.PublicKey),
 	}, []byte("test message"), signature)
 	r.Error(err)

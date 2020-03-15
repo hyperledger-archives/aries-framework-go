@@ -591,10 +591,11 @@ func verifySignature(connSignature *ConnectionSignature, recipientKeys string) (
 	pubKey := base58.Decode(recipientKeys)
 
 	// TODO: Replace with signed attachments issue-626
-	signatureSuite := ed25519signature2018.New()
+	suiteVerifier := &ed25519signature2018.PublicKeyVerifier{}
+	signatureSuite := ed25519signature2018.New(ed25519signature2018.WithVerifier(suiteVerifier))
 
 	err = signatureSuite.Verify(&verifier.PublicKey{
-		Type:  kms.Ed25519Type,
+		Type:  kms.ED25519,
 		Value: pubKey},
 		sigData, signature)
 	if err != nil {

@@ -681,7 +681,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 }
 
 func TestWithPublicKeyFetcher(t *testing.T) {
-	credentialOpt := WithPublicKeyFetcher(SingleKey([]byte("test pubKey"), kms.Ed25519Type))
+	credentialOpt := WithPublicKeyFetcher(SingleKey([]byte("test pubKey"), kms.ED25519))
 	require.NotNil(t, credentialOpt)
 
 	opts := &credentialOpts{}
