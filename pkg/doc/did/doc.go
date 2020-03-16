@@ -12,6 +12,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -327,6 +329,45 @@ const (
 
 var schemaLoaderV1 = gojsonschema.NewStringLoader(schemaV1)     //nolint:gochecknoglobals
 var schemaLoaderV011 = gojsonschema.NewStringLoader(schemaV011) //nolint:gochecknoglobals
+
+// DID is parsed according to the generic syntax: https://w3c.github.io/did-core/#generic-did-syntax
+type DID struct {
+	Scheme           string // Scheme is always "did"
+	Method           string // Method is the specific DID methods
+	MethodSpecificID string // MethodSpecificID is the unique ID computed or assigned by the DID method
+}
+
+// String returns a string representation of this DID
+func (d *DID) String() string {
+	return fmt.Sprintf("%s:%s:%s", d.Scheme, d.Method, d.MethodSpecificID)
+}
+
+// Parse parses the string according to the generic DID syntax.
+// See https://w3c.github.io/did-core/#generic-did-syntax.
+func Parse(did string) (*DID, error) {
+	// I could not find a good ABNF parser :(
+	const idchar = `a-zA-Z0-9-_\.`
+	regex := fmt.Sprintf(`^did:[a-z0-9]+:(:+|[:%s]+)*[%s]+$`, idchar, idchar)
+
+	r, err := regexp.Compile(regex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile regex=%s (this should not have happened!). %w", regex, err)
+	}
+
+	if !r.MatchString(did) {
+		return nil, fmt.Errorf(
+			"invalid did: %s. Make sure it conforms to the generic DID syntax: https://w3c.github.io/did-core/#generic-did-syntax", //nolint:lll
+			did)
+	}
+
+	parts := strings.SplitN(did, ":", 3)
+
+	return &DID{
+		Scheme:           "did",
+		Method:           parts[1],
+		MethodSpecificID: parts[2],
+	}, nil
+}
 
 // Doc DID Document definition
 type Doc struct {
