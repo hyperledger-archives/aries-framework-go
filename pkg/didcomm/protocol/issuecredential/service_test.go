@@ -199,7 +199,7 @@ func TestService_HandleInbound(t *testing.T) {
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
-			require.Equal(t, "proposal-received", string(name))
+			require.Equal(t, "offer-sent", string(name))
 
 			return nil
 		})
@@ -590,14 +590,14 @@ func TestService_HandleInbound(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
-			require.Equal(t, "done", string(name))
-
-			return nil
-		})
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(key string, name []byte) error {
 			require.Contains(t, key, "UniversityDegree")
+
+			return nil
+		})
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "done", string(name))
 
 			return nil
 		})
@@ -645,7 +645,7 @@ func TestService_HandleInbound(t *testing.T) {
 		select {
 		case <-done:
 			return
-		case <-time.After(time.Second * 2):
+		case <-time.After(time.Second * 5):
 			t.Error("timeout")
 		}
 	})
@@ -776,7 +776,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(struct{}{})
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		_, err = svc.HandleOutbound(msg, "", "")
+		err = svc.HandleOutbound(msg, "", "")
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: getCurrentStateNameAndPIID: currentStateName: "+errMsg)
 	})
 
@@ -784,7 +784,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		_, err = svc.HandleOutbound(service.NewDIDCommMsgMap(ProposeCredential{
+		err = svc.HandleOutbound(service.NewDIDCommMsgMap(ProposeCredential{
 			Type: "none",
 		}), "", "")
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: nextState: unrecognized msgType: none")
@@ -813,7 +813,7 @@ func TestService_HandleOutbound(t *testing.T) {
 				return nil
 			})
 
-		_, err = svc.HandleOutbound(msg, Alice, Bob)
+		err = svc.HandleOutbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
 		select {
@@ -836,7 +836,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
 
-		_, err = svc.HandleOutbound(msg, Alice, Bob)
+		err = svc.HandleOutbound(msg, Alice, Bob)
 		require.Contains(t, fmt.Sprintf("%v", err), "action proposal-sent: "+errMsg)
 	})
 
@@ -863,7 +863,7 @@ func TestService_HandleOutbound(t *testing.T) {
 				return nil
 			})
 
-		_, err = svc.HandleOutbound(msg, Alice, Bob)
+		err = svc.HandleOutbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
 		select {
@@ -886,7 +886,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
 
-		_, err = svc.HandleOutbound(msg, Alice, Bob)
+		err = svc.HandleOutbound(msg, Alice, Bob)
 		require.Contains(t, fmt.Sprintf("%v", err), "action offer-sent: "+errMsg)
 	})
 
@@ -913,7 +913,7 @@ func TestService_HandleOutbound(t *testing.T) {
 				return nil
 			})
 
-		_, err = svc.HandleOutbound(msg, Alice, Bob)
+		err = svc.HandleOutbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
 		select {
@@ -936,7 +936,7 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
 
-		_, err = svc.HandleOutbound(msg, Alice, Bob)
+		err = svc.HandleOutbound(msg, Alice, Bob)
 		require.Contains(t, fmt.Sprintf("%v", err), "action request-sent: "+errMsg)
 	})
 }

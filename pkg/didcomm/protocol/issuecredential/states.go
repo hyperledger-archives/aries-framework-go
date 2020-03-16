@@ -180,19 +180,8 @@ func (s *proposalReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameOfferSent || st.Name() == stateNameAbandoning
 }
 
-func (s *proposalReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
-	if md.offerCredential == nil {
-		return nil, nil, errors.New("offer credential was not provided")
-	}
-
-	// creates the state's action
-	action := func(messenger service.Messenger) error {
-		// sets message type
-		md.offerCredential.Type = OfferCredentialMsgType
-		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.offerCredential))
-	}
-
-	return &noOp{}, action, nil
+func (s *proposalReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
+	return &offerSent{}, zeroAction, nil
 }
 
 func (s *proposalReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
@@ -212,8 +201,19 @@ func (s *offerSent) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoning
 }
 
-func (s *offerSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+func (s *offerSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	if md.offerCredential == nil {
+		return nil, nil, errors.New("offer credential was not provided")
+	}
+
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		// sets message type
+		md.offerCredential.Type = OfferCredentialMsgType
+		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.offerCredential))
+	}
+
+	return &noOp{}, action, nil
 }
 
 func (s *offerSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
@@ -412,13 +412,24 @@ func (s *credentialReceived) ExecuteInbound(md *metaData) (state, stateAction, e
 		return nil, nil, fmt.Errorf("decode: %w", err)
 	}
 
-	md.credentials, err = toVerifiableCredentials(credential.CredentialsAttach)
+	credentials, err := toVerifiableCredentials(credential.CredentialsAttach)
 	if err != nil {
 		return nil, nil, fmt.Errorf("to verifiable credentials: %w", err)
 	}
 
-	if len(md.credentials) == 0 {
+	if len(credentials) == 0 {
 		return nil, nil, errors.New("credentials were not provided")
+	}
+
+	for i, credential := range credentials {
+		var name = credential.ID
+		if len(md.credentialNames) > i {
+			name = md.credentialNames[i]
+		}
+
+		if err := md.verifiable.SaveCredential(name, credential); err != nil {
+			return nil, nil, fmt.Errorf("save credential: %w", err)
+		}
 	}
 
 	// creates the state's action

@@ -15,8 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/introduce"
-
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -25,6 +23,8 @@ import (
 	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/introduce"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/issuecredential"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/messaging"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/route"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
@@ -161,6 +161,9 @@ func FeatureContext(s *godog.Suite) {
 
 	// Register introduce tests
 	introduce.NewIntroduceSDKSteps(bddContext).RegisterSteps(s)
+
+	// Register issuecredential tests
+	issuecredential.NewIssueCredentialSDKSteps(bddContext).RegisterSteps(s)
 
 	// Register did resolver tests
 	didresolver.NewDIDResolverSteps(bddContext).RegisterSteps(s)

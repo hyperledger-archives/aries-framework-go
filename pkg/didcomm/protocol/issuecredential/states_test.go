@@ -12,16 +12,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
+	issuecredentialMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/issuecredential"
+	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
+	storeVerifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 func notTransition(t *testing.T, st state) {
@@ -246,27 +248,10 @@ func TestProposalReceived_CanTransitionTo(t *testing.T) {
 }
 
 func TestProposalReceived_ExecuteInbound(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		followup, action, err := (&proposalReceived{}).ExecuteInbound(&metaData{offerCredential: &OfferCredential{}})
-		require.NoError(t, err)
-		require.Equal(t, &noOp{}, followup)
-		require.NotNil(t, action)
-
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
-
-		require.NoError(t, action(messenger))
-	})
-
-	t.Run("OfferCredential is absent", func(t *testing.T) {
-		followup, action, err := (&proposalReceived{}).ExecuteInbound(&metaData{})
-		require.Contains(t, fmt.Sprintf("%v", err), "offer credential was not provided")
-		require.Nil(t, followup)
-		require.Nil(t, action)
-	})
+	followup, action, err := (&proposalReceived{}).ExecuteInbound(&metaData{})
+	require.NoError(t, err)
+	require.Equal(t, &offerSent{}, followup)
+	require.NotNil(t, action)
 }
 
 func TestProposalReceived_ExecuteOutbound(t *testing.T) {
@@ -297,10 +282,27 @@ func TestOfferSent_CanTransitionTo(t *testing.T) {
 }
 
 func TestOfferSent_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&offerSent{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	t.Run("Success", func(t *testing.T) {
+		followup, action, err := (&offerSent{}).ExecuteInbound(&metaData{offerCredential: &OfferCredential{}})
+		require.NoError(t, err)
+		require.Equal(t, &noOp{}, followup)
+		require.NotNil(t, action)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+
+		require.NoError(t, action(messenger))
+	})
+
+	t.Run("OfferCredential is absent", func(t *testing.T) {
+		followup, action, err := (&offerSent{}).ExecuteInbound(&metaData{})
+		require.Contains(t, fmt.Sprintf("%v", err), "offer credential was not provided")
+		require.Nil(t, followup)
+		require.Nil(t, action)
+	})
 }
 
 func TestOfferSent_ExecuteOutbound(t *testing.T) {
@@ -649,9 +651,25 @@ func TestCredentialReceived_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+
+		storeProvider := storageMocks.NewMockProvider(ctrl)
+		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
+
+		provider := issuecredentialMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storeProvider)
+
 		var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
+		vStore, err := storeVerifiable.New(provider)
+		require.NoError(t, err)
 
 		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{
+			verifiable: vStore,
 			transitionalPayload: transitionalPayload{
 				Msg: service.NewDIDCommMsgMap(IssueCredential{
 					Type: IssueCredentialMsgType,
@@ -685,9 +703,6 @@ func TestCredentialReceived_ExecuteInbound(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, &done{}, followup)
 		require.NotNil(t, action)
-
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
