@@ -5,6 +5,7 @@
   "description": "Tests",
   "main": "index.js",
   "scripts": {
+    "preinstall": "npx npm-force-resolutions",
     "test": "bash scripts/setup_assets.sh && karma start"
   },
   "author": "hyperledger/aries",
@@ -21,5 +22,8 @@
     "mocha": "7.0.1",
     "puppeteer": "2.1.1"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "resolutions": {
+    "minimist": "1.2.2"
+  }
 }
