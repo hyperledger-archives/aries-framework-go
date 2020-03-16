@@ -5,6 +5,7 @@
   "browser": "dist/web/aries.js",
   "description": "APIs for building DIDComm and Hyperledger Aries applications.",
   "scripts": {
+    "preinstall": "npx npm-force-resolutions",
     "build:node": "webpack --config ./webpack.config.node.js --mode=production",
     "build:web": "webpack --config ./webpack.config.web.js --mode=production",
     "build:rest": "webpack --config ./webpack.config.rest.js --mode=production",
@@ -48,5 +49,8 @@
   },
   "dependencies": {
     "axios": "0.19.2"
+  },
+  "resolutions": {
+    "minimist": "1.2.2"
   }
 }
