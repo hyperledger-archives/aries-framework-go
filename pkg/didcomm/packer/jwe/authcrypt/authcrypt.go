@@ -14,6 +14,7 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
@@ -48,12 +49,12 @@ type Packer struct {
 
 // Envelope represents a JWE envelope as per the Aries Encryption envelope specs
 type Envelope struct {
-	Protected  string      `json:"protected,omitempty"`
-	Recipients []Recipient `json:"recipients,omitempty"`
-	AAD        string      `json:"aad,omitempty"`
-	IV         string      `json:"iv,omitempty"`
-	Tag        string      `json:"tag,omitempty"`
-	CipherText string      `json:"ciphertext,omitempty"`
+	Protected  string           `json:"protected,omitempty"`
+	Recipients []jose.Recipient `json:"recipients,omitempty"`
+	AAD        string           `json:"aad,omitempty"`
+	IV         string           `json:"iv,omitempty"`
+	Tag        string           `json:"tag,omitempty"`
+	CipherText string           `json:"ciphertext,omitempty"`
 }
 
 // jweHeaders are the Protected JWE headers in a map format
@@ -61,21 +62,6 @@ type jweHeaders struct {
 	Typ string `json:"typ,omitempty"`
 	Alg string `json:"alg,omitempty"`
 	Enc string `json:"enc,omitempty"`
-}
-
-// Recipient is a recipient of an envelope including the shared encryption key
-type Recipient struct {
-	EncryptedKey string           `json:"encrypted_key,omitempty"`
-	Header       RecipientHeaders `json:"header,omitempty"`
-}
-
-// RecipientHeaders are the recipient headers
-type RecipientHeaders struct {
-	APU string `json:"apu,omitempty"`
-	IV  string `json:"iv,omitempty"`
-	Tag string `json:"tag,omitempty"`
-	KID string `json:"kid,omitempty"`
-	SPK string `json:"spk,omitempty"`
 }
 
 // recipientSPKJWEHeaders are the Protected JWE headers of a recipient's SPK field (which is a JWE with a JWK payload)

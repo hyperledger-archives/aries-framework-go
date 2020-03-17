@@ -18,6 +18,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 )
@@ -569,9 +570,9 @@ func TestEncrypt(t *testing.T) {
 
 func deepCopy(envelope, envelope2 *Envelope) {
 	for _, r := range envelope2.Recipients {
-		newRe := Recipient{
+		newRe := jose.Recipient{
 			EncryptedKey: r.EncryptedKey,
-			Header: RecipientHeaders{
+			Header: jose.RecipientHeaders{
 				APU: r.Header.APU,
 				KID: r.Header.KID,
 				IV:  r.Header.IV,

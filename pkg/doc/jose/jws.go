@@ -23,9 +23,6 @@ const (
 	jwsSignaturePart = 2
 )
 
-// Headers represents JOSE headers.
-type Headers map[string]interface{}
-
 // JWK (JSON Web Key) is a JSON data structure that represents a cryptographic key.
 type JWK jose.JSONWebKey
 
@@ -44,27 +41,6 @@ func (h Headers) JWK() (*JWK, bool) {
 	}
 
 	return &jwk, true
-}
-
-// KeyID gets Key ID from JOSE headers.
-func (h Headers) KeyID() (string, bool) {
-	return h.stringValue(HeaderKeyID)
-}
-
-// Algorithm gets Key ID from JOSE headers.
-func (h Headers) Algorithm() (string, bool) {
-	return h.stringValue(HeaderAlgorithm)
-}
-
-func (h Headers) stringValue(key string) (string, bool) {
-	kRaw, ok := h[key]
-	if !ok {
-		return "", false
-	}
-
-	kStr, ok := kRaw.(string)
-
-	return kStr, ok
 }
 
 // JSONWebSignature defines JSON Web Signature (https://tools.ietf.org/html/rfc7515)
