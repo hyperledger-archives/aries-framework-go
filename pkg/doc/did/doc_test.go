@@ -893,6 +893,62 @@ func TestBuildDoc(t *testing.T) {
 	require.Equal(t, ti, *doc.Updated)
 }
 
+func TestParseDID(t *testing.T) {
+	t.Run("scheme is always 'did'", func(t *testing.T) {
+		did, err := Parse("did:example:123")
+		require.NoError(t, err)
+		require.Equal(t, "did", did.Scheme)
+	})
+	t.Run("parse method", func(t *testing.T) {
+		did, err := Parse("did:example:123")
+		require.NoError(t, err)
+		require.Equal(t, "example", did.Method)
+	})
+	t.Run("parse method-specific-id", func(t *testing.T) {
+		id := "123456789abcdefghi"
+		did, err := Parse("did:test:" + id)
+		require.NoError(t, err)
+		require.Equal(t, id, did.MethodSpecificID)
+	})
+	t.Run("disallow less than 3 parts", func(t *testing.T) {
+		_, err := Parse("did:test")
+		require.Error(t, err)
+		_, err = Parse("did")
+		require.Error(t, err)
+	})
+	t.Run("disallow empty method-specific-id", func(t *testing.T) {
+		_, err := Parse("did:test:")
+		require.Error(t, err)
+	})
+	t.Run("allow more than 2 colons in method-specific-id", func(t *testing.T) {
+		const id = "a:b:c:d:e:f:g"
+		did, err := Parse("did:test:" + id)
+		require.NoError(t, err)
+		require.Equal(t, id, did.MethodSpecificID)
+	})
+	t.Run("allow leading colon in method-specific-id", func(t *testing.T) {
+		const id = ":a:b:c:d:e:f"
+		did, err := Parse("did:test:" + id)
+		require.NoError(t, err)
+		require.Equal(t, id, did.MethodSpecificID)
+	})
+	t.Run("disallow trailing colon in method-specific-id", func(t *testing.T) {
+		_, err := Parse("did:test:a:b:c:d:e:f:")
+		require.Error(t, err)
+	})
+	t.Run("disallow scheme other than 'did'", func(t *testing.T) {
+		_, err := Parse("invalid:test:abcdefg123")
+		require.Error(t, err)
+	})
+}
+
+func Test_DID_String(t *testing.T) {
+	const expected = "did:example:123456"
+	did, err := Parse(expected)
+	require.NoError(t, err)
+	require.Equal(t, expected, did.String())
+}
+
 func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
 	const didContext = "https://w3id.org/did/v1"
 
