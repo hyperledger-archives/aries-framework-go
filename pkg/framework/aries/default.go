@@ -19,6 +19,7 @@ import (
 	legacy "github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
@@ -51,7 +52,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 
 	// order is important as DIDExchange service depends on Route service and Introduce depends on DIDExchange
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators,
-		newRouteSvc(), newExchangeSvc(), newIntroduceSvc())
+		newRouteSvc(), newExchangeSvc(), newIntroduceSvc(), newIssueCredentialSvc())
 
 	if frameworkOpts.secretLock == nil && frameworkOpts.kmsCreator == nil {
 		err := createDefSecretLock(frameworkOpts)
@@ -78,6 +79,12 @@ func newExchangeSvc() api.ProtocolSvcCreator {
 func newIntroduceSvc() api.ProtocolSvcCreator {
 	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
 		return introduce.New(prv)
+	}
+}
+
+func newIssueCredentialSvc() api.ProtocolSvcCreator {
+	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
+		return issuecredential.New(prv)
 	}
 }
 

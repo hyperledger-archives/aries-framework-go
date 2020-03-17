@@ -15,7 +15,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	storeverifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
@@ -67,7 +66,7 @@ type metaData struct {
 	state           state
 	msgClone        service.DIDCommMsg
 	inbound         bool
-	credentials     []*verifiable.Credential
+	verifiable      *storeverifiable.Store
 	credentialNames []string
 	// keeps offer credential payload,
 	// allows filling the message by providing an option function
@@ -199,17 +198,17 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 }
 
 // HandleOutbound handles outbound message (issuecredential protocol)
-func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
 	md, err := s.doHandle(msg, true)
 	if err != nil {
-		return "", fmt.Errorf("doHandle: %w", err)
+		return fmt.Errorf("doHandle: %w", err)
 	}
 
 	// sets outbound payload
 	md.MyDID = myDID
 	md.TheirDID = theirDID
 
-	return "", s.handle(md)
+	return s.handle(md)
 }
 
 func (s *Service) getCurrentStateNameAndPIID(msg service.DIDCommMsg) (string, string, error) {
@@ -255,8 +254,9 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 			Msg:       msg.(service.DIDCommMsgMap),
 			PIID:      piID,
 		},
-		state:    next,
-		msgClone: msg.Clone(),
+		state:      next,
+		verifiable: s.verifiable,
+		msgClone:   msg.Clone(),
 	}, nil
 }
 
@@ -314,28 +314,9 @@ func (s *Service) handle(md *metaData) error {
 		return fmt.Errorf("failed to persist state %s: %w", stateName, err)
 	}
 
-	if err := s.saveCredentials(md); err != nil {
-		return fmt.Errorf("save сredentials %s: %w", stateName, err)
-	}
-
 	for _, action := range actions {
 		if err := action(s.messenger); err != nil {
 			return fmt.Errorf("action %s: %w", stateName, err)
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) saveCredentials(md *metaData) error {
-	for i, credential := range md.credentials {
-		var name = credential.ID
-		if len(md.credentialNames) > i {
-			name = md.credentialNames[i]
-		}
-
-		if err := s.verifiable.SaveCredential(name, credential); err != nil {
-			return fmt.Errorf("save credential: %w", err)
 		}
 	}
 
@@ -474,6 +455,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
+		verifiable:          s.verifiable,
 		inbound:             true,
 	}
 
@@ -501,6 +483,7 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
+		verifiable:          s.verifiable,
 		inbound:             true,
 	}
 
