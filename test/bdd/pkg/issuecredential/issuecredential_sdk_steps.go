@@ -72,18 +72,24 @@ func NewIssueCredentialSDKSteps(ctx *context.BDDContext) *SDKSteps {
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" requests credential from "([^"]*)"$`, a.sendsRequest)
 	s.Step(`^"([^"]*)" accepts request and sends credential to the Holder$`, a.acceptRequest)
+	s.Step(`^"([^"]*)" declines a request$`, a.declineRequest)
+	s.Step(`^"([^"]*)" declines a proposal$`, a.declineProposal)
+	s.Step(`^"([^"]*)" declines an offer$`, a.declineOffer)
+	s.Step(`^"([^"]*)" declines the credential`, a.declineCredential)
+	s.Step(`^"([^"]*)" waits for state "([^"]*)"$`, a.waitFor)
 	s.Step(`^"([^"]*)" sends proposal credential to the "([^"]*)"`, a.sendsProposal)
 	s.Step(`^"([^"]*)" accepts a proposal and sends an offer to the Holder`, a.acceptProposal)
 	s.Step(`^"([^"]*)" sends an offer to the "([^"]*)"$`, a.sendsOffer)
 	s.Step(`^"([^"]*)" accepts an offer and sends a request to the Issuer`, a.acceptOffer)
+	s.Step(`^"([^"]*)" does not like the offer and sends a new proposal to the Issuer`, a.negotiateProposal)
 	s.Step(`^"([^"]*)" accepts credential with name "([^"]*)"$`, a.acceptCredential)
 	s.Step(`^"([^"]*)" checks that credential is being stored under "([^"]*)" name$`, a.checkCredential)
 }
 
-func waitFor(ch chan service.StateMsg, name string) error {
+func (a *SDKSteps) waitFor(agent, name string) error {
 	for {
 		select {
-		case e := <-ch:
+		case e := <-a.events[agent]:
 			if e.StateID == name {
 				return nil
 			}
@@ -94,7 +100,7 @@ func waitFor(ch chan service.StateMsg, name string) error {
 }
 
 func (a *SDKSteps) checkCredential(agent, name string) error {
-	if err := waitFor(a.events[agent], "done"); err != nil {
+	if err := a.waitFor(agent, "done"); err != nil {
 		return err
 	}
 
@@ -149,6 +155,42 @@ func (a *SDKSteps) acceptProposal(agent string) error {
 	return a.clients[agent].AcceptProposal(PIID, &protocol.OfferCredential{})
 }
 
+func (a *SDKSteps) declineCredential(agent string) error {
+	PIID, err := a.getActionID(agent)
+	if err != nil {
+		return err
+	}
+
+	return a.clients[agent].DeclineCredential(PIID, "decline")
+}
+
+func (a *SDKSteps) declineOffer(agent string) error {
+	PIID, err := a.getActionID(agent)
+	if err != nil {
+		return err
+	}
+
+	return a.clients[agent].DeclineOffer(PIID, "decline")
+}
+
+func (a *SDKSteps) declineProposal(agent string) error {
+	PIID, err := a.getActionID(agent)
+	if err != nil {
+		return err
+	}
+
+	return a.clients[agent].DeclineProposal(PIID, "decline")
+}
+
+func (a *SDKSteps) declineRequest(agent string) error {
+	PIID, err := a.getActionID(agent)
+	if err != nil {
+		return err
+	}
+
+	return a.clients[agent].DeclineRequest(PIID, "decline")
+}
+
 func (a *SDKSteps) acceptRequest(agent string) error {
 	PIID, err := a.getActionID(agent)
 	if err != nil {
@@ -169,6 +211,15 @@ func (a *SDKSteps) getActionID(agent string) (string, error) {
 	case <-time.After(time.Second):
 		return "", errors.New("timeout")
 	}
+}
+
+func (a *SDKSteps) negotiateProposal(agent string) error {
+	PIID, err := a.getActionID(agent)
+	if err != nil {
+		return err
+	}
+
+	return a.clients[agent].NegotiateProposal(PIID, &protocol.ProposeCredential{})
 }
 
 func (a *SDKSteps) acceptOffer(agent string) error {
@@ -194,7 +245,7 @@ func (a *SDKSteps) createClient(agentID string) error {
 		return nil
 	}
 
-	const stateMsgChanSize = 10
+	const stateMsgChanSize = 12
 
 	client, err := issuecredential.New(a.bddContext.AgentCtx[agentID])
 	if err != nil {
