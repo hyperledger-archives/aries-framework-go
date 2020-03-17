@@ -10,6 +10,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
+
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -25,31 +30,37 @@ const (
 type RequestOptions func(*Request) error
 
 // ConnectionRecorder records connection records produced as byproducts of creation of messages.
-type ConnectionRecorder interface {
+type connectionRecorder interface {
 	SaveInvitation(id string, i interface{}) error
 }
 
 // Provider provides the dependencies for the client.
 type Provider interface {
-	// DidDocServiceFunc returns a function that returns a DID doc `service` entry.
-	// Used when no service entries are specified when creating messages.
-	DidDocServiceFunc() func() (*did.Service, error)
-	ConnRecorder() ConnectionRecorder
+	StorageProvider() storage.Provider
+	TransientStorageProvider() storage.Provider
+	ServiceEndpoint() string
+	Service(id string) (interface{}, error)
+	LegacyKMS() legacykms.KeyManager
 }
 
 // Client for the Out-Of-Band protocol:
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0434-outofband/README.md
 type Client struct {
 	didDocSvcFunc func() (*did.Service, error)
-	connRecorder  ConnectionRecorder
+	connRecorder  connectionRecorder
 }
 
 // New returns a new Client for the Out-Of-Band protocol.
-func New(p Provider) *Client {
-	return &Client{
-		didDocSvcFunc: p.DidDocServiceFunc(),
-		connRecorder:  p.ConnRecorder(),
+func New(p Provider) (*Client, error) {
+	r, err := connection.NewRecorder(p)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize outofband client : %w", err)
 	}
+
+	return &Client{
+		didDocSvcFunc: didServiceBlockFunc(p),
+		connRecorder:  r,
+	}, nil
 }
 
 // CreateRequest creates and saves an Out-Of-Band request message.
@@ -141,5 +152,49 @@ func WithServices(svcs ...interface{}) RequestOptions {
 		r.Service = all
 
 		return nil
+	}
+}
+
+// DidDocServiceFunc returns a function that returns a DID doc `service` entry.
+// Used when no service entries are specified when creating messages.
+func didServiceBlockFunc(p Provider) func() (*did.Service, error) {
+	return func() (*did.Service, error) {
+		// TODO https://github.com/hyperledger/aries-framework-go/issues/623 'alias' should be passed as arg and persisted
+		//  with connection record
+		_, verKey, err := p.LegacyKMS().CreateKeySet()
+		if err != nil {
+			return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
+		}
+
+		s, err := p.Service(route.Coordination)
+		if err != nil {
+			return nil, err
+		}
+
+		routeSvc, ok := s.(route.ProtocolService)
+		if !ok {
+			return nil, errors.New("cast service to Route Service failed")
+		}
+
+		// get the route configs
+		serviceEndpoint, routingKeys, err := route.GetRouterConfig(routeSvc, p.ServiceEndpoint())
+		if err != nil {
+			return nil, fmt.Errorf("create invitation - fetch router config : %w", err)
+		}
+
+		svc := &did.Service{
+			ID:              uuid.New().String(),
+			Type:            "did-communication",
+			Priority:        0,
+			RecipientKeys:   []string{verKey},
+			RoutingKeys:     routingKeys,
+			ServiceEndpoint: serviceEndpoint,
+		}
+
+		if err = route.AddKeyToRouter(routeSvc, verKey); err != nil {
+			return nil, fmt.Errorf("create invitation - add key to the router : %w", err)
+		}
+
+		return svc, nil
 	}
 }
