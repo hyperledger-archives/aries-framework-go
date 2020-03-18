@@ -216,10 +216,14 @@ func TestNullState_Execute(t *testing.T) {
 
 func TestInvitedState_Execute(t *testing.T) {
 	t.Run("rejects msgs other than invitations", func(t *testing.T) {
-		others := []string{RequestMsgType, ResponseMsgType, AckMsgType}
-		for _, o := range others {
+		others := []service.DIDCommMsg{
+			service.NewDIDCommMsgMap(Request{Type: RequestMsgType}),
+			service.NewDIDCommMsgMap(Response{Type: ResponseMsgType}),
+			service.NewDIDCommMsgMap(model.Ack{Type: AckMsgType}),
+		}
+		for _, msg := range others {
 			_, _, _, err := (&invited{}).ExecuteInbound(&stateMachineMsg{
-				DIDCommMsg: toDIDCommMsg(t, &service.Header{Type: o}),
+				DIDCommMsg: msg,
 			}, "", &context{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "illegal msg type")
@@ -260,10 +264,13 @@ func TestRequestedState_Execute(t *testing.T) {
 	})
 	require.NoError(t, err)
 	t.Run("rejects messages other than invitations or requests", func(t *testing.T) {
-		others := []string{ResponseMsgType, AckMsgType}
-		for _, o := range others {
+		others := []service.DIDCommMsg{
+			service.NewDIDCommMsgMap(Response{Type: ResponseMsgType}),
+			service.NewDIDCommMsgMap(model.Ack{Type: AckMsgType}),
+		}
+		for _, msg := range others {
 			_, _, _, e := (&requested{}).ExecuteInbound(&stateMachineMsg{
-				DIDCommMsg: toDIDCommMsg(t, &service.Header{Type: o}),
+				DIDCommMsg: msg,
 			}, "", &context{})
 			require.Error(t, e)
 			require.Contains(t, e.Error(), "illegal msg type")
@@ -340,10 +347,13 @@ func TestRespondedState_Execute(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("rejects messages other than requests and responses", func(t *testing.T) {
-		others := []string{InvitationMsgType, AckMsgType}
-		for _, o := range others {
+		others := []service.DIDCommMsg{
+			service.NewDIDCommMsgMap(Invitation{Type: InvitationMsgType}),
+			service.NewDIDCommMsgMap(model.Ack{Type: AckMsgType}),
+		}
+		for _, msg := range others {
 			_, _, _, e := (&responded{}).ExecuteInbound(&stateMachineMsg{
-				DIDCommMsg: toDIDCommMsg(t, &service.Header{Type: o}),
+				DIDCommMsg: msg,
 			}, "", &context{})
 			require.Error(t, e)
 			require.Contains(t, e.Error(), "illegal msg type")
@@ -407,7 +417,7 @@ func TestRespondedState_Execute(t *testing.T) {
 func TestAbandonedState_Execute(t *testing.T) {
 	t.Run("execute abandon state", func(t *testing.T) {
 		connRec, _, _, err := (&abandoned{}).ExecuteInbound(&stateMachineMsg{
-			DIDCommMsg: toDIDCommMsg(t, &service.Header{Type: ResponseMsgType}),
+			DIDCommMsg: service.NewDIDCommMsgMap(Response{Type: ResponseMsgType}),
 		}, "", &context{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not implemented")
@@ -495,10 +505,14 @@ func TestCompletedState_Execute(t *testing.T) {
 		require.IsType(t, &noOp{}, followup)
 	})
 	t.Run("rejects messages other than responses and acks", func(t *testing.T) {
-		others := []string{InvitationMsgType, RequestMsgType}
-		for _, o := range others {
+		others := []service.DIDCommMsg{
+			service.NewDIDCommMsgMap(Invitation{Type: InvitationMsgType}),
+			service.NewDIDCommMsgMap(Request{Type: RequestMsgType}),
+		}
+
+		for _, msg := range others {
 			_, _, _, err = (&completed{}).ExecuteInbound(&stateMachineMsg{
-				DIDCommMsg: toDIDCommMsg(t, &service.Header{Type: o})}, "", &context{})
+				DIDCommMsg: msg}, "", &context{})
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "illegal msg type")
 		}
