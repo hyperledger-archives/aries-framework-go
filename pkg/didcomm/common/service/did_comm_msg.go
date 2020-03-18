@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/mitchellh/mapstructure"
-
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 )
 
 const (
@@ -38,15 +36,6 @@ const (
 // 	}
 type Metadata struct {
 	Payload map[string]interface{} `json:"_internal_metadata,omitempty"`
-}
-
-// Header helper structure which keeps reusable fields
-// Deprecated: Use DIDCommMsg instead of Header
-// TODO: Remove deprecated Header structure https://github.com/hyperledger/aries-framework-go/issues/1075
-type Header struct {
-	ID     string           `json:"@id"`
-	Thread decorator.Thread `json:"~thread"`
-	Type   string           `json:"@type"`
 }
 
 // DIDCommMsgMap did comm msg

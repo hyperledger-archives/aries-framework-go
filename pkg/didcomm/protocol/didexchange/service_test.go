@@ -497,17 +497,15 @@ func TestService_Accept(t *testing.T) {
 
 func TestService_threadID(t *testing.T) {
 	t.Run("returns new thid for ", func(t *testing.T) {
-		didMsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{Type: InvitationMsgType}))
-		require.NoError(t, err)
+		didMsg := service.NewDIDCommMsgMap(Invitation{Type: InvitationMsgType})
 		thid, err := threadID(didMsg)
 		require.NoError(t, err)
 		require.NotNil(t, thid)
 	})
 
 	t.Run("returns unmarshall error", func(t *testing.T) {
-		didMsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{Type: RequestMsgType}))
-		require.NoError(t, err)
-		_, err = threadID(didMsg)
+		didMsg := service.NewDIDCommMsgMap(Request{Type: RequestMsgType})
+		_, err := threadID(didMsg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "threadID not found")
 	})
@@ -810,7 +808,7 @@ func TestEventStoreError(t *testing.T) {
 	go func() {
 		for e := range actionCh {
 			e.Continue = func(args interface{}) {
-				svc.processCallback(&message{Msg: toDIDCommMsg(t, &service.Header{})})
+				svc.processCallback(&message{Msg: service.NewDIDCommMsgMap(struct{}{})})
 			}
 			e.Continue(&service.Empty{})
 		}
@@ -829,12 +827,9 @@ func TestEventProcessCallback(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	didMsg, err := service.ParseDIDCommMsgMap(toBytes(t, &service.Header{Type: AckMsgType}))
-	require.NoError(t, err)
-
 	msg := &message{
 		ThreadID: threadIDValue,
-		Msg:      didMsg,
+		Msg:      service.NewDIDCommMsgMap(model.Ack{Type: AckMsgType}),
 	}
 
 	err = svc.handleWithoutAction(msg)
