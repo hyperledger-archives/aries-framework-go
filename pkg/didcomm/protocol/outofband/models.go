@@ -8,7 +8,7 @@ package outofband
 
 import "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 
-// Request embeds the sender's request.
+// Request is this protocol's 'request' message.
 type Request struct {
 	ID       string                  `json:"@id"`
 	Type     string                  `json:"@type"`
