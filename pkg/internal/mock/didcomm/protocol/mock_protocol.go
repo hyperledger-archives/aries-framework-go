@@ -9,6 +9,7 @@ package protocol
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	mockservice "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/service"
@@ -29,6 +30,7 @@ type MockProvider struct {
 	CustomKMS              *mockkms.CloseableKMS
 	ServiceErr             error
 	ServiceMap             map[string]interface{}
+	InboundMsgHandler      transport.InboundMessageHandler
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service
@@ -97,4 +99,9 @@ func (p *MockProvider) Messenger() service.Messenger {
 	}
 
 	return &mockservice.MockMessenger{}
+}
+
+// InboundMessageHandler handles an unpacked inbound message.
+func (p *MockProvider) InboundMessageHandler() transport.InboundMessageHandler {
+	return p.InboundMsgHandler
 }

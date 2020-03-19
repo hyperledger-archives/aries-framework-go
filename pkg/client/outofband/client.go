@@ -10,20 +10,20 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
-
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 const (
-	protocolURI    = "https://didcomm.org/oob-request/1.0"
-	requestMsgType = protocolURI + "/request"
+	// RequestMsgType is the request message's '@type'.
+	RequestMsgType = outofband.RequestMsgType
 )
 
 // RequestOptions allow you to customize the way request messages are built.
@@ -68,7 +68,7 @@ func New(p Provider) (*Client, error) {
 // Service entries can be optionally provided. If none are provided then a new one will be automatically created for
 // you.
 func (c *Client) CreateRequest(opts ...RequestOptions) (*Request, error) {
-	req := &Request{}
+	req := &Request{&outofband.Request{}}
 
 	for _, opt := range opts {
 		if err := opt(req); err != nil {
@@ -90,7 +90,7 @@ func (c *Client) CreateRequest(opts ...RequestOptions) (*Request, error) {
 	}
 
 	req.ID = uuid.New().String()
-	req.Type = requestMsgType
+	req.Type = RequestMsgType
 
 	err := c.connRecorder.SaveInvitation(req.ID, req)
 	if err != nil {
