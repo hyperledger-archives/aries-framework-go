@@ -142,14 +142,37 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 		return aead.ChaCha20Poly1305KeyTemplate(), nil
 	case kms.XChaCha20Poly1305Type:
 		return aead.XChaCha20Poly1305KeyTemplate(), nil
+
+	// TODO: Uncomment below when key template functions are available in Tink
+	//       and remove temporary cases below  - issue #1489
+	// case kms.ECDSAP256Type:
+	//	return signature.ECDSAP256KeyWithoutPrefixTemplate(), nil
+	// case kms.ECDSAP384Type:
+	//	return signature.ECDSAP384KeyWithoutPrefixTemplate(), nil
+	// case kms.ECDSAP521Type:
+	//	return signature.ECDSAP521KeyWithoutPrefixTemplate(), nil
+	// case kms.Ed25519Type:
+	//	return signature.ED25519KeyWithoutPrefixTemplate(), nil
 	case kms.ECDSAP256Type:
-		return signature.ECDSAP256KeyTemplate(), nil
+		keyTemplate := signature.ECDSAP256KeyTemplate()
+		keyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
+
+		return keyTemplate, nil
 	case kms.ECDSAP384Type:
-		return signature.ECDSAP384KeyTemplate(), nil
+		keyTemplate := signature.ECDSAP384KeyTemplate()
+		keyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
+
+		return keyTemplate, nil
 	case kms.ECDSAP521Type:
-		return signature.ECDSAP521KeyTemplate(), nil
+		keyTemplate := signature.ECDSAP521KeyTemplate()
+		keyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
+
+		return keyTemplate, nil
 	case kms.Ed25519Type:
-		return signature.ED25519KeyTemplate(), nil
+		keyTemplate := signature.ED25519KeyTemplate()
+		keyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
+
+		return keyTemplate, nil
 	default:
 		return nil, fmt.Errorf("key type unrecognized")
 	}

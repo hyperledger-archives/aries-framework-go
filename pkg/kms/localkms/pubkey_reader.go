@@ -44,8 +44,8 @@ func publicKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (*keyset.Handle, erro
 				KeyData: keyData,
 				Status:  tinkpb.KeyStatusType_ENABLED,
 				KeyId:   1,
-				// for now, assumption is raw bytes always come from keys created by TINK
-				OutputPrefixType: tinkpb.OutputPrefixType_TINK,
+				// since we're building the key from raw key bytes, then must use raw key prefix type
+				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
 			}},
 		PrimaryKeyId: 1,
 	}
