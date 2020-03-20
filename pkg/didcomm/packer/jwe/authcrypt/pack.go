@@ -18,6 +18,7 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 )
 
@@ -163,7 +164,7 @@ func extractCipherText(symOutput []byte) string {
 
 // buildJWE builds the JSON object representing the JWE output of the encryption
 // and returns its marshaled []byte representation
-func (p *Packer) buildJWE(headers string, recipients []Recipient, aad, iv, tag, cipherText string) ([]byte, error) { //nolint:lll
+func (p *Packer) buildJWE(headers string, recipients []jose.Recipient, aad, iv, tag, cipherText string) ([]byte, error) { //nolint:lll
 	jwe := Envelope{
 		Protected:  headers,
 		Recipients: recipients,
@@ -204,8 +205,8 @@ func hashAAD(keys []string) []byte {
 
 // encodeRecipients is a utility function that will encrypt the cek (content encryption key) for each recipient
 // and return a list of encoded recipient keys in a JWE compliant format ([]Recipient)
-func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderPubKey *[chacha.KeySize]byte) ([]Recipient, error) { //nolint:lll
-	var encodedRecipients []Recipient
+func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderPubKey *[chacha.KeySize]byte) ([]jose.Recipient, error) { //nolint:lll
+	var encodedRecipients []jose.Recipient
 
 	for _, e := range recipients {
 		rec, err := p.encodeRecipient(cek, e, senderPubKey)
@@ -222,7 +223,7 @@ func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chac
 // encodeRecipient will encrypt the cek (content encryption key) with a recipientKey
 // by generating a new ephemeral key to be used by the recipient to later decrypt it
 // it returns a JWE compliant Recipient
-func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
+func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*jose.Recipient, error) { //nolint:lll
 	// generate a random APU value (Agreement PartyUInfo: https://tools.ietf.org/html/rfc7518#section-4.6.1.2)
 	apu := make([]byte, 64)
 
@@ -251,8 +252,8 @@ func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.Key
 }
 
 // buildRecipient will build a proper JSON formatted and JWE compliant Recipient
-func (p *Packer) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded, tagEncoded string, recipientKey *[chacha.KeySize]byte) (*Recipient, error) { //nolint:lll
-	recipientHeaders := RecipientHeaders{
+func (p *Packer) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded, tagEncoded string, recipientKey *[chacha.KeySize]byte) (*jose.Recipient, error) { //nolint:lll
+	recipientHeaders := jose.RecipientHeaders{
 		APU: base64.RawURLEncoding.EncodeToString(apu),
 		IV:  nonceEncoded,
 		Tag: tagEncoded,
@@ -260,7 +261,7 @@ func (p *Packer) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded
 		SPK: spkEncoded,
 	}
 
-	recipient := &Recipient{
+	recipient := &jose.Recipient{
 		EncryptedKey: key,
 		Header:       recipientHeaders,
 	}

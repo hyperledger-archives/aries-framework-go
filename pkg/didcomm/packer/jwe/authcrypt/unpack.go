@@ -16,6 +16,7 @@ import (
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
 
 // Unpack will JWE decode the envelope argument for the recipientPrivKey and validates
@@ -96,7 +97,7 @@ func (p *Packer) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
 }
 
 // findRecipient will loop through jweRecipients and returns the first matching key from the legacyKMS
-func (p *Packer) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byte, *Recipient, error) {
+func (p *Packer) findRecipient(jweRecipients []jose.Recipient) (*[chacha.KeySize]byte, *jose.Recipient, error) {
 	var recipientsKeys []string
 	for _, recipient := range jweRecipients {
 		recipientsKeys = append(recipientsKeys, recipient.Header.KID)
@@ -114,7 +115,7 @@ func (p *Packer) findRecipient(jweRecipients []Recipient) (*[chacha.KeySize]byte
 }
 
 // decryptCEK will decrypt the CEK found in recipient using recipientKp's private key and senderPubKey
-func (p *Packer) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte, recipient *Recipient) ([]byte, error) { //nolint:lll
+func (p *Packer) decryptCEK(recipientPubKey, senderPubKey *[chacha.KeySize]byte, recipient *jose.Recipient) ([]byte, error) { //nolint:lll
 	apu, err := base64.RawURLEncoding.DecodeString(recipient.Header.APU)
 	if err != nil {
 		return nil, err
