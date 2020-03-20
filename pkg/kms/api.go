@@ -78,4 +78,6 @@ const (
 	ED25519Type = KeyType(ED25519)
 	// RSAType key type value
 	RSAType = KeyType(RSA)
+	// HMACSHA256Tag256Type key type value
+	HMACSHA256Tag256Type = KeyType("HMACSHA256Tag256")
 )

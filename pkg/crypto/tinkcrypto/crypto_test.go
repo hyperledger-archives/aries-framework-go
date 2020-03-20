@@ -9,6 +9,8 @@ package tinkcrypto
 import (
 	"testing"
 
+	"github.com/google/tink/go/mac"
+
 	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/signature"
@@ -18,6 +20,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 )
+
+const testMessage = "test message"
 
 // Assert that Crypto implements the Crypto interface.
 var _ crypto.Crypto = (*Crypto)(nil)
@@ -36,7 +40,7 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		require.NoError(t, err)
 
 		c := Crypto{}
-		msg := []byte("test message")
+		msg := []byte(testMessage)
 		aad := []byte("some additional data")
 		cipherText, nonce, err := c.Encrypt(msg, aad, kh)
 		require.NoError(t, err)
@@ -71,7 +75,7 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		require.NoError(t, err)
 
 		c := Crypto{}
-		msg := []byte("test message")
+		msg := []byte(testMessage)
 		aad := []byte("some additional data")
 		cipherText, nonce, err := c.Encrypt(msg, aad, kh)
 		require.NoError(t, err)
@@ -81,7 +85,7 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		// encrypt with nil key handle - should fail
 		_, _, err = c.Encrypt(msg, aad, nil)
 		require.Error(t, err)
-		require.EqualError(t, err, "bad key handle format")
+		require.Equal(t, errBadKeyHandleFormat, err)
 
 		plainText, err := c.Decrypt(cipherText, nonce, aad, kh)
 		require.NoError(t, err)
@@ -100,7 +104,7 @@ func TestCrypto_EncryptDecrypt(t *testing.T) {
 		// decrypt with nil key handle - should fail
 		_, err = c.Decrypt(cipherText, nonce, aad, nil)
 		require.Error(t, err)
-		require.EqualError(t, err, "bad key handle format")
+		require.Equal(t, errBadKeyHandleFormat, err)
 	})
 }
 
@@ -113,14 +117,14 @@ func TestCrypto_SignVerify(t *testing.T) {
 		require.NoError(t, err)
 
 		c := Crypto{}
-		msg := []byte("test message")
+		msg := []byte(testMessage)
 		s, err := c.Sign(msg, kh)
 		require.NoError(t, err)
 
 		// sign with nil key handle - should fail
 		_, err = c.Sign(msg, nil)
 		require.Error(t, err)
-		require.EqualError(t, err, "bad key handle format")
+		require.Equal(t, errBadKeyHandleFormat, err)
 
 		// sign with bad key handle - should fail
 		_, err = c.Sign(msg, badKH)
@@ -142,7 +146,7 @@ func TestCrypto_SignVerify(t *testing.T) {
 		require.NoError(t, err)
 
 		c := Crypto{}
-		msg := []byte("test message")
+		msg := []byte(testMessage)
 		s, err := c.Sign(msg, kh)
 		require.NoError(t, err)
 
@@ -156,10 +160,62 @@ func TestCrypto_SignVerify(t *testing.T) {
 		// verify with nil key handle - should fail
 		err = c.Verify(s, msg, nil)
 		require.Error(t, err)
-		require.EqualError(t, err, "bad key handle format")
+		require.Equal(t, errBadKeyHandleFormat, err)
 
 		// verify with bad key handle - should fail
 		err = c.Verify(s, msg, badKH)
 		require.Error(t, err)
+	})
+}
+
+func TestCrypto_ComputeMAC(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+		require.NoError(t, err)
+		require.NotNil(t, kh)
+
+		c := Crypto{}
+		msg := []byte(testMessage)
+		macBytes, err := c.ComputeMAC(msg, kh)
+		require.NoError(t, err)
+		require.NotEmpty(t, macBytes)
+	})
+	t.Run("fail - message to compute MAC for is empty", func(t *testing.T) {
+		kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+		require.NoError(t, err)
+		require.NotNil(t, kh)
+
+		c := Crypto{}
+		macBytes, err := c.ComputeMAC(nil, kh)
+		require.EqualError(t, err, "HMAC: invalid input")
+		require.Empty(t, macBytes)
+	})
+	t.Run("invalid key handle", func(t *testing.T) {
+		c := Crypto{}
+		macBytes, err := c.ComputeMAC(nil, nil)
+		require.Equal(t, errBadKeyHandleFormat, err)
+		require.Empty(t, macBytes)
+	})
+}
+
+func TestCrypto_VerifyMAC(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+		require.NoError(t, err)
+		require.NotNil(t, kh)
+
+		c := Crypto{}
+		msg := []byte(testMessage)
+		macBytes, err := c.ComputeMAC(msg, kh)
+		require.NoError(t, err)
+		require.NotEmpty(t, macBytes)
+
+		err = c.VerifyMAC(macBytes, msg, kh)
+		require.NoError(t, err)
+	})
+	t.Run("bad key handle format", func(t *testing.T) {
+		c := Crypto{}
+		err := c.VerifyMAC(nil, nil, nil)
+		require.Equal(t, errBadKeyHandleFormat, err)
 	})
 }
