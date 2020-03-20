@@ -1,3 +1,9 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package presentproof
 
 import (
@@ -25,7 +31,7 @@ const (
 	stateNameProposePresentationSent = "propose-presentation-sent"
 )
 
-type metaData struct{}
+const codeInternalError = "internal"
 
 // state action for network call
 type stateAction func(messenger service.Messenger) error
