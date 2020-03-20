@@ -272,7 +272,11 @@ func (c *Client) GetConnectionAtState(connectionID, stateID string) (*Connection
 }
 
 // RemoveConnection removes connection record for given id
-func (c *Client) RemoveConnection(id string) error {
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/553 RemoveConnection from did exchange service
+func (c *Client) RemoveConnection(connectionID string) error {
+	err := c.connectionStore.RemoveConnection(connectionID)
+	if err != nil {
+		return fmt.Errorf("cannot remove connection from the store: err=%w", err)
+	}
+
 	return nil
 }

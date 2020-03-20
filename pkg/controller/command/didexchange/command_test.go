@@ -786,14 +786,35 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 
 func TestCommand_RemoveConnection(t *testing.T) {
 	t.Run("test remove connection", func(t *testing.T) {
-		cmd, err := New(mockProvider(), mockwebhook.NewMockWebhookNotifier(), "", false)
+		// prepare data
+		const connID = "1234"
+		prov := mockProvider()
+		store := mockstore.MockStore{Store: make(map[string][]byte)}
+		connRec := &connection.Record{State: "complete", ConnectionID: "1234", ThreadID: "th1234"}
+
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+		require.NoError(t, store.Put("conn_"+connID, connBytes))
+		prov.StorageProviderValue = &mockstore.MockStoreProvider{Store: &store}
+
+		cmd, err := New(prov, mockwebhook.NewMockWebhookNotifier(), "", false)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
 		var b bytes.Buffer
 
-		cmdErr := cmd.RemoveConnection(&b, bytes.NewBufferString(`{"id":"1234"}`))
+		cmdErr := cmd.QueryConnectionByID(&b, bytes.NewBufferString(`{"id":"1234"}`))
 		require.NoError(t, cmdErr)
+
+		b.Reset()
+
+		cmdErr = cmd.RemoveConnection(&b, bytes.NewBufferString(`{"id":"1234", "myDid": "myDid", "theirDid": "theirDid"}`))
+		require.NoError(t, cmdErr)
+
+		b.Reset()
+
+		cmdErr = cmd.QueryConnectionByID(&b, bytes.NewBufferString(`{"id":"1234"}`))
+		require.Error(t, cmdErr)
 	})
 
 	t.Run("test remove connection validation error", func(t *testing.T) {
