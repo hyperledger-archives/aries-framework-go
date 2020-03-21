@@ -168,7 +168,7 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 		keyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
 
 		return keyTemplate, nil
-	case kms.Ed25519Type:
+	case kms.ED25519Type:
 		keyTemplate := signature.ED25519KeyTemplate()
 		keyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
 

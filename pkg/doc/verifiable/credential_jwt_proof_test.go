@@ -91,7 +91,7 @@ func TestNewCredentialFromJWS(t *testing.T) {
 				require.NotNil(t, publicKey)
 
 				return &verifier.PublicKey{
-					Type:  kms.RSAType,
+					Type:  kms.RSA,
 					Value: publicKeyPemToBytes(publicKey),
 				}, nil
 			}))
@@ -139,7 +139,7 @@ func TestNewCredentialFromJWS_EdDSA(t *testing.T) {
 	// unmarshal credential from JWS
 	vcFromJWS, _, err := NewCredential(
 		vcJWSStr,
-		WithPublicKeyFetcher(SingleKey(pubKey, kms.Ed25519Type)))
+		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	require.NoError(t, err)
 
 	// unmarshalled credential must be the same as original one
@@ -228,7 +228,7 @@ func createMockKeyFetcher(t *testing.T) PublicKeyFetcher {
 		require.NotNil(t, publicKey)
 
 		return &verifier.PublicKey{
-			Type:  kms.RSAType,
+			Type:  kms.RSA,
 			Value: publicKeyPemToBytes(publicKey),
 		}, nil
 	}

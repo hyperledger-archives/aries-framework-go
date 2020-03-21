@@ -101,7 +101,7 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 		if err != nil {
 			return nil, "", err
 		}
-	case kms.Ed25519Type:
+	case kms.ED25519Type:
 		tURL = ed25519VerifierTypeURL
 		pubKeyProto := new(ed25519pb.Ed25519PublicKey)
 		pubKeyProto.Version = 0

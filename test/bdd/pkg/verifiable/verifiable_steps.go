@@ -139,9 +139,11 @@ func (s *SDKSteps) verifyCredential(holder string) error {
 	vdriRegistry := s.bddContext.AgentCtx[holder].VDRIRegistry()
 	pKeyFetcher := verifiable.NewDIDKeyResolver(vdriRegistry).PublicKeyFetcher()
 
+	suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+
 	parsedVC, _, err := verifiable.NewCredential(s.issuedVCBytes,
 		verifiable.WithPublicKeyFetcher(pKeyFetcher),
-		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()))
+		verifiable.WithEmbeddedSignatureSuites(suite))
 	if err != nil {
 		return err
 	}

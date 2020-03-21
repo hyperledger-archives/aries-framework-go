@@ -15,6 +15,8 @@ import (
 	tinkpb "github.com/google/tink/proto/tink_go_proto"
 
 	kmsservice "github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 // KeyManager mocks a local Key Management Service
@@ -66,4 +68,28 @@ func CreateMockKeyHandle() (*keyset.Handle, error) {
 	}
 
 	return testkeyset.NewHandle(ks)
+}
+
+// Provider provides mock Provider implementation.
+type Provider struct {
+	storeProvider storage.Provider
+	secretLock    secretlock.Service
+}
+
+// StorageProvider return a storage provider.
+func (p *Provider) StorageProvider() storage.Provider {
+	return p.storeProvider
+}
+
+// SecretLock returns a secret lock service
+func (p *Provider) SecretLock() secretlock.Service {
+	return p.secretLock
+}
+
+// NewProvider creates a new mock Provider.
+func NewProvider(storeProvider storage.Provider, secretLock secretlock.Service) *Provider {
+	return &Provider{
+		storeProvider: storeProvider,
+		secretLock:    secretLock,
+	}
 }

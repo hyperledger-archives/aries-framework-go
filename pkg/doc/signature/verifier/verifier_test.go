@@ -21,7 +21,7 @@ func TestVerify(t *testing.T) {
 	// happy path
 	okKeyResolver := &testKeyResolver{
 		publicKey: &PublicKey{
-			Type:  kms.Ed25519Type,
+			Type:  kms.ED25519,
 			Value: []byte("signature"),
 		},
 	}
@@ -120,7 +120,7 @@ type testKeyResolver struct {
 	err       error
 }
 
-func (r *testKeyResolver) Resolve(id string) (*PublicKey, error) {
+func (r *testKeyResolver) Resolve(string) (*PublicKey, error) {
 	return r.publicKey, r.err
 }
 
@@ -160,18 +160,18 @@ type testSignatureSuite struct {
 	accept bool
 }
 
-func (s *testSignatureSuite) GetCanonicalDocument(doc map[string]interface{}) ([]byte, error) {
+func (s *testSignatureSuite) GetCanonicalDocument(map[string]interface{}) ([]byte, error) {
 	return s.canonicalDocument, s.canonicalDocumentError
 }
 
-func (s *testSignatureSuite) GetDigest(doc []byte) []byte {
+func (s *testSignatureSuite) GetDigest([]byte) []byte {
 	return s.digest
 }
 
-func (s *testSignatureSuite) Verify(pubKey *PublicKey, doc, signature []byte) error {
+func (s *testSignatureSuite) Verify(*PublicKey, []byte, []byte) error {
 	return s.verifyError
 }
 
-func (s *testSignatureSuite) Accept(signatureType string) bool {
+func (s *testSignatureSuite) Accept(string) bool {
 	return s.accept
 }

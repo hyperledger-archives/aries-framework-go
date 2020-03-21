@@ -596,7 +596,7 @@ func TestVerifySignature(t *testing.T) {
 
 		con, err := verifySignature(connectionSignature, "invalid-key")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "verify signature: ed25519: bad public key length")
+		require.Contains(t, err.Error(), "verify signature: ed25519: invalid key")
 		require.Nil(t, con)
 	})
 	t.Run("verify signature error", func(t *testing.T) {
@@ -607,7 +607,7 @@ func TestVerifySignature(t *testing.T) {
 		pubKey2, _ := generateKeyPair()
 		con, err := verifySignature(connectionSignature, pubKey2)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "signature doesn't match")
+		require.Contains(t, err.Error(), "ed25519: invalid signature")
 		require.Nil(t, con)
 	})
 	t.Run("connection unmarshal error", func(t *testing.T) {

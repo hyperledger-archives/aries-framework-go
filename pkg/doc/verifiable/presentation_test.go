@@ -369,7 +369,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 
 	// single credential - JWS
 	opts := defaultPresentationOpts()
-	opts.publicKeyFetcher = SingleKey(pubKey, kms.Ed25519Type)
+	opts.publicKeyFetcher = SingleKey(pubKey, kms.ED25519)
 	dCreds, err := decodeCredentials(jws, opts)
 	r.NoError(err)
 	r.Len(dCreds, 1)
@@ -381,7 +381,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 }
 
 func TestWithPresPublicKeyFetcher(t *testing.T) {
-	vpOpt := WithPresPublicKeyFetcher(SingleKey([]byte("test pubKey"), kms.Ed25519Type))
+	vpOpt := WithPresPublicKeyFetcher(SingleKey([]byte("test pubKey"), kms.ED25519))
 	require.NotNil(t, vpOpt)
 
 	opts := &presentationOpts{}

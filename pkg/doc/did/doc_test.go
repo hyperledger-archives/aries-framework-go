@@ -836,7 +836,7 @@ func TestVerifyProof(t *testing.T) {
 
 		signedDoc := createSignedDidDocument(privKey, pubKey)
 
-		suite := ed25519signature2018.New()
+		suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 
 		// happy path - valid signed document
 		doc, err := ParseDocument(signedDoc)
@@ -849,7 +849,7 @@ func TestVerifyProof(t *testing.T) {
 		doc.Proof[0].ProofValue = []byte("invalid")
 		err = doc.VerifyProof(suite)
 		require.NotNil(t, err)
-		require.Contains(t, err.Error(), "signature doesn't match")
+		require.Contains(t, err.Error(), "ed25519: invalid signature")
 
 		// error - doc with no proof
 		doc, err = ParseDocument([]byte(d))
@@ -872,6 +872,7 @@ func TestDidKeyResolver_Resolve(t *testing.T) {
 	pubKeys := []PublicKey{{
 		ID:    "id",
 		Value: testKeyVal,
+		Type:  keyType,
 	}}
 
 	// happy path - key found

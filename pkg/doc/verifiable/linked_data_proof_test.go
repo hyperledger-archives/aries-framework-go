@@ -24,7 +24,7 @@ func Test_keyResolverAdapter_Resolve(t *testing.T) {
 	t.Run("successful public key resolving", func(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
-		kra := &keyResolverAdapter{pubKeyFetcher: SingleKey(pubKey, kms.Ed25519Type)}
+		kra := &keyResolverAdapter{pubKeyFetcher: SingleKey(pubKey, kms.ED25519)}
 		resolvedPubKey, err := kra.Resolve("did1#key1")
 		require.NoError(t, err)
 		require.Equal(t, []byte(pubKey), resolvedPubKey.Value)
@@ -54,7 +54,7 @@ func Test_keyResolverAdapter_Resolve(t *testing.T) {
 type dummyKeyResolver []byte
 
 func (kr dummyKeyResolver) Resolve(string) (*verifier.PublicKey, error) {
-	return &verifier.PublicKey{Value: kr, Type: "type"}, nil
+	return &verifier.PublicKey{Value: kr, Type: kms.ED25519}, nil
 }
 
 // This example is generated using https://transmute-industries.github.io/vc-greeting-card
@@ -93,7 +93,8 @@ func TestLinkedDataProofVerifier(t *testing.T) {
 }
 `
 
-	documentVerifier := verifier.New(dummyKeyResolver(pubKey), ed25519signature2018.New())
+	documentVerifier := verifier.New(dummyKeyResolver(pubKey),
+		ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{})))
 	err := documentVerifier.Verify([]byte(vcStr))
 	require.NoError(t, err)
 }

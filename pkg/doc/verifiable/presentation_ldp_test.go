@@ -42,7 +42,7 @@ func TestNewPresentationFromLinkedDataProof(t *testing.T) {
 
 	vcWithLdp, err := NewPresentation(vcBytes,
 		WithPresEmbeddedSignatureSuites(suite),
-		WithPresPublicKeyFetcher(SingleKey(pubKey, kms.Ed25519Type)))
+		WithPresPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	r.NoError(err)
 
 	r.NoError(err)

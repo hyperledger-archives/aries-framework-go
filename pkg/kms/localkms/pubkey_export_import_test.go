@@ -63,7 +63,7 @@ func TestPubKeyExportAndRead(t *testing.T) {
 		},
 		{
 			tcName:      "export then read ED25519 public key",
-			keyType:     kms.Ed25519Type,
+			keyType:     kms.ED25519Type,
 			keyTemplate: ed25519KeyTemplate,
 			// TODO remove above line then uncomment below line when key template is available in Tink - issue #1489
 			// keyTemplate: signature.ED25519KeyWithoutPrefixTemplate()

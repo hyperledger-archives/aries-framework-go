@@ -23,7 +23,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 // TODO https://github.com/square/go-jose/issues/263 support ES256K
@@ -57,7 +56,7 @@ func (ja JWSAlgorithm) name() (string, error) {
 type PublicKeyFetcher func(issuerID, keyID string) (*verifier.PublicKey, error)
 
 // SingleKey defines the case when only one verification key is used and we don't need to pick the one.
-func SingleKey(pubKey []byte, pubKeyType kms.KeyType) PublicKeyFetcher {
+func SingleKey(pubKey []byte, pubKeyType string) PublicKeyFetcher {
 	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
 		return &verifier.PublicKey{
 			Type:  pubKeyType,
@@ -89,7 +88,7 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.Pu
 		// sidetree now return #KEYID
 		if strings.Contains(key.ID, keyID) {
 			return &verifier.PublicKey{
-				Type:  kms.KeyType(key.Type),
+				Type:  key.Type,
 				Value: key.Value,
 			}, nil
 		}
@@ -101,7 +100,7 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.Pu
 		// sidetree now return #KEYID
 		if strings.Contains(auth.PublicKey.ID, keyID) {
 			return &verifier.PublicKey{
-				Type:  kms.KeyType(auth.PublicKey.Type),
+				Type:  auth.PublicKey.Type,
 				Value: auth.PublicKey.Value,
 			}, nil
 		}

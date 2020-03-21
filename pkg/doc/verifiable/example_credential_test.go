@@ -112,7 +112,7 @@ func ExampleCredential_embedding() {
 	// Decode JWS and make sure it's coincide with JSON.
 	_, vcBytesFromJWS, err := verifiable.NewCredential(
 		[]byte(jws),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.Ed25519Type)))
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to encode VC from JWS: %w", err))
 	}
@@ -181,7 +181,7 @@ func ExampleCredential_extraFields() {
 	// Decode JWS and make sure it's coincide with JSON.
 	_, vcBytesFromJWS, err := verifiable.NewCredential(
 		[]byte(jws),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.Ed25519Type)))
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to encode VC from JWS: %w", err))
 	}
@@ -240,7 +240,7 @@ func ExampleNewCredential() {
 	// The Holder receives JWS and decodes it.
 	_, vcDecodedBytes, err := verifiable.NewCredential(
 		[]byte(jws),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.Ed25519Type)))
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to decode VC JWS: %w", err))
 	}

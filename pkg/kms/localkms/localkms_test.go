@@ -202,7 +202,7 @@ func TestLocalKMS_Success(t *testing.T) {
 		kms.ECDSAP256Type,
 		kms.ECDSAP384Type,
 		kms.ECDSAP521Type,
-		kms.Ed25519Type,
+		kms.ED25519Type,
 	}
 
 	for _, v := range keyTemplates {
@@ -250,7 +250,7 @@ func TestLocalKMS_Success(t *testing.T) {
 		require.Equal(t, len(newKHPrimitives.Entries), len(rotatedKHPrimitives.Entries))
 		require.Equal(t, len(readKHPrimitives.Entries), len(rotatedKHPrimitives.Entries))
 
-		if strings.Contains(string(v), "ECDSA") || v == kms.Ed25519Type {
+		if strings.Contains(string(v), "ECDSA") || v == kms.ED25519Type {
 			pubKeyBytes, e := kmsService.ExportPubKeyBytes(keyID)
 			require.Errorf(t, e, "KeyID has been rotated. An error must be returned")
 			require.Empty(t, pubKeyBytes)

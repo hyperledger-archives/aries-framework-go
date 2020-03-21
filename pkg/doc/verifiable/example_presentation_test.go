@@ -32,7 +32,7 @@ func ExampleNewPresentation() {
 	vp, err := verifiable.NewPresentation(
 		[]byte(vpJWS),
 
-		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(holderPubKey, kms.Ed25519Type)))
+		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(holderPubKey, kms.ED25519)))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to decode VP JWS: %w", err))
 	}
@@ -401,12 +401,12 @@ func ExamplePresentation_MarshalledCredentials() {
 			switch issuerID {
 			case "did:example:76e12ec712ebc6f1c221ebfeb1f":
 				return &verifier.PublicKey{
-					Type:  kms.Ed25519Type,
+					Type:  kms.ED25519,
 					Value: issuerPubKey,
 				}, nil
 			case "did:example:ebfeb1f712ebc6f1c276e12ec21":
 				return &verifier.PublicKey{
-					Type:  kms.Ed25519Type,
+					Type:  kms.ED25519,
 					Value: holderPubKey,
 				}, nil
 			default:
