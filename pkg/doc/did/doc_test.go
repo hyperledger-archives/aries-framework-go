@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -148,7 +149,13 @@ func TestParseOfNull(t *testing.T) {
 }
 
 func TestValid(t *testing.T) {
-	docs := []string{validDoc, validDocV011}
+	// use single value string type context
+	singleCtxValidDoc := strings.ReplaceAll(validDoc, `"@context": ["https://w3id.org/did/v1"]`,
+		`"@context": "https://w3id.org/did/v1"`)
+	singleCtxValidDocV011 := strings.ReplaceAll(validDocV011, `"@context": ["https://w3id.org/did/v0.11"]`,
+		`"@context": "https://w3id.org/did/v0.11"`)
+
+	docs := []string{validDoc, validDocV011, singleCtxValidDoc, singleCtxValidDocV011}
 	for _, d := range docs {
 		doc, err := ParseDocument([]byte(d))
 		require.NoError(t, err)
