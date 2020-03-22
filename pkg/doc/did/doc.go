@@ -54,7 +54,7 @@ const (
   ],
   "properties": {
     "@context": {
-      "type": "array",
+      "type": ["array","string"],
       "items": [
         {
           "type": "string",
@@ -185,7 +185,7 @@ const (
   ],
   "properties": {
     "@context": {
-      "type": "array",
+      "type": ["array","string"],
       "items": [
         {
           "type": "string",
@@ -405,7 +405,7 @@ type VerificationMethod struct {
 }
 
 type rawDoc struct {
-	Context        []string                 `json:"@context,omitempty"`
+	Context        interface{}              `json:"@context,omitempty"`
 	ID             string                   `json:"id,omitempty"`
 	PublicKey      []map[string]interface{} `json:"publicKey,omitempty"`
 	Service        []map[string]interface{} `json:"service,omitempty"`
@@ -441,22 +441,24 @@ func ParseDocument(data []byte) (*Doc, error) {
 		return nil, err
 	}
 
-	publicKeys, err := populatePublicKeys(raw.Context[0], raw.PublicKey)
+	context := raw.ParseContext()
+
+	publicKeys, err := populatePublicKeys(context[0], raw.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("populate public keys failed: %w", err)
 	}
 
-	authPKs, err := populateAuthentications(raw.Context[0], raw.Authentication, publicKeys)
+	authPKs, err := populateAuthentications(context[0], raw.Authentication, publicKeys)
 	if err != nil {
 		return nil, fmt.Errorf("populate authentications failed: %w", err)
 	}
 
-	proofs, err := populateProofs(raw.Context[0], raw.Proof)
+	proofs, err := populateProofs(context[0], raw.Proof)
 	if err != nil {
 		return nil, fmt.Errorf("populate proofs failed: %w", err)
 	}
 
-	return &Doc{Context: raw.Context,
+	return &Doc{Context: context,
 		ID:             raw.ID,
 		PublicKey:      publicKeys,
 		Service:        populateServices(raw.Service),
@@ -638,9 +640,29 @@ func decodePK(rawPK map[string]interface{}) ([]byte, error) {
 	return nil, errors.New("public key encoding not supported")
 }
 
+func (r *rawDoc) ParseContext() []string {
+	switch ctx := r.Context.(type) {
+	case []interface{}:
+		var context []string
+		for _, v := range ctx {
+			context = append(context, v.(string))
+		}
+
+		return context
+	case []string:
+		return ctx
+	case interface{}:
+		return []string{r.Context.(string)}
+	}
+
+	return []string{""}
+}
+
 func (r *rawDoc) schemaLoader() gojsonschema.JSONLoader {
 	schemaLoader := schemaLoaderV1
-	if len(r.Context) > 0 && r.Context[0] == contextV011 {
+
+	context := r.ParseContext()
+	if len(context) > 0 && context[0] == contextV011 {
 		schemaLoader = schemaLoaderV011
 	}
 
