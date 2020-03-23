@@ -335,12 +335,11 @@ func getUserSetVar(cmd *cobra.Command, hostFlagName, envKey string, isOptional b
 		" (environment variable) have been set.")
 }
 
-func getUserSetVars(cmd *cobra.Command, hostFlagName,
-	envKey string, isOptional bool) ([]string, error) {
-	if cmd.Flags().Changed(hostFlagName) {
-		value, err := cmd.Flags().GetStringSlice(hostFlagName)
+func getUserSetVars(cmd *cobra.Command, flagName, envKey string, isOptional bool) ([]string, error) {
+	if cmd.Flags().Changed(flagName) {
+		value, err := cmd.Flags().GetStringSlice(flagName)
 		if err != nil {
-			return nil, fmt.Errorf(hostFlagName+" flag not found: %s", err)
+			return nil, fmt.Errorf(flagName+" flag not found: %s", err)
 		}
 
 		return value, nil
@@ -359,7 +358,7 @@ func getUserSetVars(cmd *cobra.Command, hostFlagName,
 	}
 
 	return nil, fmt.Errorf(" %s not set. "+
-		"It must be set via either command line or environment variable", hostFlagName)
+		"It must be set via either command line or environment variable", flagName)
 }
 
 func getResolverOpts(httpResolvers []string) ([]aries.Option, error) {
