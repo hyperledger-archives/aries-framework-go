@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/square/go-jose/v3"
 	"github.com/square/go-jose/v3/json"
 )
 
@@ -22,26 +21,6 @@ const (
 	jwsPayloadPart   = 1
 	jwsSignaturePart = 2
 )
-
-// JWK (JSON Web Key) is a JSON data structure that represents a cryptographic key.
-type JWK jose.JSONWebKey
-
-// JWK gets JWK from JOSE headers.
-func (h Headers) JWK() (*JWK, bool) {
-	jwkRaw, ok := h[HeaderJSONWebKey]
-	if !ok {
-		return nil, false
-	}
-
-	var jwk JWK
-
-	err := convertMapToValue(jwkRaw, &jwk)
-	if err != nil {
-		return nil, false
-	}
-
-	return &jwk, true
-}
 
 // JSONWebSignature defines JSON Web Signature (https://tools.ietf.org/html/rfc7515)
 type JSONWebSignature struct {

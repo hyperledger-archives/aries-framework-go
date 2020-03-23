@@ -8,6 +8,8 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412
 	github.com/btcsuite/btcutil v1.0.1
+	github.com/decred/dcrd/dcrec v1.0.0 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v2 v2.0.0
 	github.com/golang/mock v1.4.0
 	github.com/golang/protobuf v1.3.3
 	github.com/google/tink v1.3.0

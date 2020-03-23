@@ -19,6 +19,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
@@ -47,6 +48,7 @@ const (
 	jsonldPublicKeyBase58 = "publicKeyBase58"
 	jsonldPublicKeyHex    = "publicKeyHex"
 	jsonldPublicKeyPem    = "publicKeyPem"
+	jsonldPublicKeyjwk    = "publicKeyJwk"
 	schemaV1              = `{
   "required": [
     "@context",
@@ -58,7 +60,7 @@ const (
       "items": [
         {
           "type": "string",
-          "pattern": "^https://w3id.org/did/v1$"
+          "pattern": "^https://(w3id.org|www.w3.org/ns)/did/v1$"
         }
       ],
       "additionalItems": {
@@ -142,7 +144,6 @@ const (
       ],
       "type": "object",
       "minProperties": 4,
-      "maxProperties": 4,
       "properties": {
         "id": {
           "type": "string"
@@ -189,7 +190,7 @@ const (
       "items": [
         {
           "type": "string",
-          "pattern": "^https://w3id.org/did/v0.11$"
+          "pattern": "^https://(w3id.org|www.w3.org/ns)/did/v0.11$"
         }
       ],
       "additionalItems": {
@@ -272,7 +273,6 @@ const (
       ],
       "type": "object",
       "minProperties": 3,
-      "maxProperties": 4,
       "properties": {
         "id": {
           "type": "string"
@@ -637,6 +637,15 @@ func decodePK(rawPK map[string]interface{}) ([]byte, error) {
 		return block.Bytes, nil
 	}
 
+	if jwkMap := mapEntry(rawPK[jsonldPublicKeyjwk]); jwkMap != nil {
+		jwkBytes, err := json.Marshal(jwkMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal '%s', cause: %w ", jsonldPublicKeyjwk, err)
+		}
+
+		return jose.DecodePublicKey(jwkBytes)
+	}
+
 	return nil, errors.New("public key encoding not supported")
 }
 
@@ -726,6 +735,19 @@ func stringArray(entry interface{}) []string {
 		if e != nil {
 			result = append(result, stringEntry(e))
 		}
+	}
+
+	return result
+}
+
+func mapEntry(entry interface{}) map[string]interface{} {
+	if entry == nil {
+		return nil
+	}
+
+	result, ok := entry.(map[string]interface{})
+	if !ok {
+		return nil
 	}
 
 	return result

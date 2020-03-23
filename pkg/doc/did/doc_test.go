@@ -386,7 +386,7 @@ func TestValidateDidDocContext(t *testing.T) {
 		require.NoError(t, err)
 		err = validate(bytes, raw.schemaLoader())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Does not match pattern '^https://w3id.org/did/v1$'")
+		require.Contains(t, err.Error(), "Does not match pattern '^https://")
 	})
 }
 
@@ -467,20 +467,6 @@ func TestValidateDidDocPublicKey(t *testing.T) {
 		require.NoError(t, err)
 		err = validate(bytes, raw.schemaLoader())
 		require.NoError(t, err)
-	})
-
-	t.Run("test did doc public key with extra key", func(t *testing.T) {
-		docs := []string{validDoc, validDocV011}
-		for _, d := range docs {
-			raw := &rawDoc{}
-			require.NoError(t, json.Unmarshal([]byte(d), &raw))
-			raw.PublicKey[0]["key1"] = ""
-			bytes, err := json.Marshal(raw)
-			require.NoError(t, err)
-			err = validate(bytes, raw.schemaLoader())
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "Must have at most 4 properties")
-		}
 	})
 }
 
@@ -567,22 +553,6 @@ func TestValidateDidDocAuthentication(t *testing.T) {
 		require.NoError(t, err)
 		err = validate(bytes, raw.schemaLoader())
 		require.NoError(t, err)
-	})
-
-	t.Run("test did doc auth public key with extra key", func(t *testing.T) {
-		docs := []string{validDoc, validDocV011}
-		for _, d := range docs {
-			raw := &rawDoc{}
-			require.NoError(t, json.Unmarshal([]byte(d), &raw))
-			pk, ok := raw.Authentication[1].(map[string]interface{})
-			require.True(t, ok)
-			pk["key1"] = ""
-			bytes, err := json.Marshal(raw)
-			require.NoError(t, err)
-			err = validate(bytes, raw.schemaLoader())
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "Must have at most 4 properties")
-		}
 	})
 }
 
@@ -955,6 +925,133 @@ func Test_DID_String(t *testing.T) {
 	did, err := Parse(expected)
 	require.NoError(t, err)
 	require.Equal(t, expected, did.String())
+}
+
+func TestDIDSchemas(t *testing.T) {
+	t.Run("Test decode public key", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			didStr string
+		}{
+			{
+				name: "DID with JWK & multiple contexts & extra public Key properties",
+				didStr: `{
+				"authentication": ["#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA", "#primary", "#recovery",
+				"#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s"],
+				"capabilityDelegation": ["#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA", "#primary", "#recovery",
+				"#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s"],
+				"keyAgreement": [{
+				"type": "X25519KeyAgreementKey2019",
+				"publicKeyBase58": "HFJE99F2iCaxCTKJdNPU8fML3N5jemVXksxcXvozRJu1",
+				"id": "#keyAgreement",
+				"usage": "signing",
+				"controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}],
+				"assertionMethod": ["#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA", "#primary", "#recovery",
+				"#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s"],
+				"@context": ["https://www.w3.org/ns/did/v1", "https://docs.example.com/contexts/sample/sample-v0.1.jsonld"],
+				"publicKey": [{
+				"id": "#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA",
+				"usage": "signing",
+				"publicKeyJwk": {
+				"x": "DSE4CfCVKNgxNMDV6dK_DbcwshievbxwHJwOsGoSpaw",
+				"kty": "EC",
+				"crv": "secp256k1",
+				"y": "xzrnm-VHA22nfGrNGGaLL9aPHRN26qyJNli3jByQSfQ",
+				"kid": "5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA"
+			},
+				"type": "EcdsaSecp256k1VerificationKey2019",
+				"controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}, {
+				"publicKeyHex": "020d213809f09528d83134c0d5e9d2bf0db730b2189ebdbc701c9c0eb06a12a5ac",
+				"type": "EcdsaSecp256k1VerificationKey2019",
+				"id": "#primary",
+				"usage": "signing",
+				"controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}, {
+				"publicKeyHex": "02d5a045f28c14b3d5971b0df9aabd8ee44a3e3af52a1a14a206327991c6e54a80",
+				"type": "EcdsaSecp256k1VerificationKey2019",
+				"id": "#recovery",
+				"usage": "recovery",
+				"controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}, {
+				"type": "Ed25519VerificationKey2018",
+				"publicKeyBase58": "GUXiqNHCdirb6NKpH6wYG4px3YfMjiCh6dQhU3zxQVQ7",
+				"id": "#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s",
+				"usage": "signing",
+				"controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}],
+				"capabilityInvocation": ["#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA", "#primary", "#recovery",
+				"#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s"],
+				"id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}`,
+			},
+			{
+				name: "DID with JWK & single context & extra public Key properties",
+				didStr: `{
+				"authentication": ["#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA", "#primary", "#recovery",
+				"#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s"],
+				"capabilityDelegation": ["#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA", "#primary", "#recovery",
+				"#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s"],
+				"keyAgreement": [{
+				"type": "X25519KeyAgreementKey2019",
+				"publicKeyBase58": "HFJE99F2iCaxCTKJdNPU8fML3N5jemVXksxcXvozRJu1",
+				"id": "#keyAgreement",
+				"usage": "signing",
+				"controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}],
+				"assertionMethod": ["#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA", "#primary", "#recovery",
+				"#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s"],
+				"@context": "https://w3id.org/did/v1",
+				"publicKey": [{
+				"id": "#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA",
+				"usage": "signing",
+				"publicKeyJwk": {
+				"x": "DSE4CfCVKNgxNMDV6dK_DbcwshievbxwHJwOsGoSpaw",
+				"kty": "EC",
+				"crv": "secp256k1",
+				"y": "xzrnm-VHA22nfGrNGGaLL9aPHRN26qyJNli3jByQSfQ",
+				"kid": "5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA"
+			},
+				"type": "EcdsaSecp256k1VerificationKey2019",
+				"controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}, {
+				"publicKeyHex": "020d213809f09528d83134c0d5e9d2bf0db730b2189ebdbc701c9c0eb06a12a5ac",
+				"type": "EcdsaSecp256k1VerificationKey2019",
+				"id": "#primary",
+				"usage": "signing",
+				"controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}, {
+				"publicKeyHex": "02d5a045f28c14b3d5971b0df9aabd8ee44a3e3af52a1a14a206327991c6e54a80",
+				"type": "EcdsaSecp256k1VerificationKey2019",
+				"id": "#recovery",
+				"usage": "recovery",
+				"controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}, {
+				"type": "Ed25519VerificationKey2018",
+				"publicKeyBase58": "GUXiqNHCdirb6NKpH6wYG4px3YfMjiCh6dQhU3zxQVQ7",
+				"id": "#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s",
+				"usage": "signing",
+				"controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}],
+				"capabilityInvocation": ["#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA", "#primary", "#recovery",
+				"#aBpRoPAbz0yw0evvPM1aEot39hAkG-XHgxFptPYAd6s"],
+				"id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+			}`,
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.name, func(t *testing.T) {
+				doc, err := ParseDocument([]byte(tc.didStr))
+				require.NoError(t, err)
+				require.NotNil(t, doc)
+			})
+		}
+	})
 }
 
 func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
