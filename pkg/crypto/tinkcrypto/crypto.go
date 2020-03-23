@@ -17,10 +17,13 @@ import (
 	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/core/primitiveset"
 	"github.com/google/tink/go/keyset"
+	"github.com/google/tink/go/mac"
 	"github.com/google/tink/go/signature"
 	aeadsubtle "github.com/google/tink/go/subtle/aead"
 	"golang.org/x/crypto/chacha20poly1305"
 )
+
+var errBadKeyHandleFormat = errors.New("bad key handle format")
 
 // Package provider/tinkcrypto includes implementation of spi/crypto. SPI implementation will be built
 // as a Framework option and fed into pkg/common/crypto implementation that includes a combined crypto
@@ -39,7 +42,7 @@ func New() (*Crypto, error) {
 func (t *Crypto) Encrypt(msg, aad []byte, kh interface{}) ([]byte, []byte, error) {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
-		return nil, nil, errors.New("bad key handle format")
+		return nil, nil, errBadKeyHandleFormat
 	}
 
 	a, err := aead.New(keyHandle)
@@ -85,7 +88,7 @@ func nonceSize(ps *primitiveset.PrimitiveSet) int {
 func (t *Crypto) Decrypt(cipher, nonce, aad []byte, kh interface{}) ([]byte, error) {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
-		return nil, errors.New("bad key handle format")
+		return nil, errBadKeyHandleFormat
 	}
 
 	a, err := aead.New(keyHandle)
@@ -116,7 +119,7 @@ func (t *Crypto) Decrypt(cipher, nonce, aad []byte, kh interface{}) ([]byte, err
 func (t *Crypto) Sign(msg []byte, kh interface{}) ([]byte, error) {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
-		return nil, errors.New("bad key handle format")
+		return nil, errBadKeyHandleFormat
 	}
 
 	signer, err := signature.NewSigner(keyHandle)
@@ -136,7 +139,7 @@ func (t *Crypto) Sign(msg []byte, kh interface{}) ([]byte, error) {
 func (t *Crypto) Verify(sig, msg []byte, kh interface{}) error {
 	keyHandle, ok := kh.(*keyset.Handle)
 	if !ok {
-		return errors.New("bad key handle format")
+		return errBadKeyHandleFormat
 	}
 
 	verifier, err := signature.NewVerifier(keyHandle)
@@ -150,4 +153,36 @@ func (t *Crypto) Verify(sig, msg []byte, kh interface{}) error {
 	}
 
 	return err
+}
+
+// ComputeMAC computes message authentication code (MAC) for code data
+// using a matching MAC primitive in kh key handle
+func (t *Crypto) ComputeMAC(data []byte, kh interface{}) ([]byte, error) {
+	keyHandle, ok := kh.(*keyset.Handle)
+	if !ok {
+		return nil, errBadKeyHandleFormat
+	}
+
+	macPrimitive, err := mac.New(keyHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	return macPrimitive.ComputeMAC(data)
+}
+
+// VerifyMAC determines if mac is a correct authentication code (MAC) for data
+// using a matching MAC primitive in kh key handle and returns nil if so, otherwise it returns an error.
+func (t *Crypto) VerifyMAC(macBytes, data []byte, kh interface{}) error {
+	keyHandle, ok := kh.(*keyset.Handle)
+	if !ok {
+		return errBadKeyHandleFormat
+	}
+
+	macPrimitive, err := mac.New(keyHandle)
+	if err != nil {
+		return err
+	}
+
+	return macPrimitive.VerifyMAC(macBytes, data)
 }

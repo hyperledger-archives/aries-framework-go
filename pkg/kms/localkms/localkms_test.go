@@ -266,6 +266,13 @@ func TestLocalKMS_Success(t *testing.T) {
 	}
 }
 
+func TestLocalKMS_getKeyTemplate(t *testing.T) {
+	keyTemplate, err := getKeyTemplate(kms.HMACSHA256Tag256Type)
+	require.NoError(t, err)
+	require.NotNil(t, keyTemplate)
+	require.Equal(t, "type.googleapis.com/google.crypto.tink.HmacKey", keyTemplate.TypeUrl)
+}
+
 func createMasterKeyAndSecretLock(t *testing.T) secretlock.Service {
 	t.Helper()
 

@@ -32,4 +32,10 @@ type Crypto interface {
 	// returns:
 	// 		error in case of errors or nil if signature verification was successful
 	Verify(signature, msg []byte, kh interface{}) error
+	// ComputeMAC computes message authentication code (MAC) for code data
+	// using a matching MAC primitive in kh key handle
+	ComputeMAC(data []byte, kh interface{}) ([]byte, error)
+	// VerifyMAC determines if mac is a correct authentication code (MAC) for data
+	// using a matching MAC primitive in kh key handle and returns nil if so, otherwise it returns an error.
+	VerifyMAC(mac, data []byte, kh interface{}) error
 }

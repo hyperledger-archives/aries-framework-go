@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/keyset"
+	"github.com/google/tink/go/mac"
 	"github.com/google/tink/go/signature"
 	tinkpb "github.com/google/tink/proto/tink_go_proto"
 
@@ -173,6 +174,8 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 		keyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
 
 		return keyTemplate, nil
+	case kms.HMACSHA256Tag256Type:
+		return mac.HMACSHA256Tag256KeyTemplate(), nil
 	default:
 		return nil, fmt.Errorf("key type unrecognized")
 	}
