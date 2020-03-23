@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
@@ -182,6 +183,43 @@ func TestHandleRequestCallback(t *testing.T) {
 		case <-time.After(1 * time.Second):
 			t.Error("timeout")
 		}
+	})
+	t.Run("passes a didexchange.Invitation to the didexchange service", func(t *testing.T) {
+		provider := testProvider()
+		provider.ServiceMap = map[string]interface{}{
+			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
+				HandleFunc: func(msg service.DIDCommMsg) (string, error) {
+					require.Equal(t, didexchange.InvitationMsgType, msg.Type())
+					return "", nil
+				},
+			},
+		}
+		s := newAutoService(t, provider)
+		err := s.handleRequestCallback(newReqCallback())
+		require.NoError(t, err)
+	})
+	t.Run("rejects requests without a public DID", func(t *testing.T) {
+		req := newRequest()
+		req.Service = []interface{}{&did.Service{
+			ID:              uuid.New().String(),
+			Type:            "did-communication",
+			Priority:        0,
+			RecipientKeys:   []string{"did:key:example"},
+			RoutingKeys:     []string{"did:key:example"},
+			ServiceEndpoint: "https://router-r-us.com",
+		}}
+		s := newAutoService(t, testProvider())
+		err := s.handleRequestCallback(&callback{
+			msg: service.NewDIDCommMsgMap(req),
+		})
+		require.Error(t, err)
+	})
+	t.Run("wraps error thrown when decoding the message", func(t *testing.T) {
+		expected := errors.New("test")
+		s := newAutoService(t, testProvider())
+		err := s.handleRequestCallback(&callback{msg: &testDIDCommMsg{errDecode: expected}})
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
 	})
 	t.Run("wraps error returned by the didexchange service", func(t *testing.T) {
 		expected := errors.New("test")
@@ -501,6 +539,47 @@ func TestListener(t *testing.T) {
 	})
 }
 
+func TestDecodeInvitationAndRequest(t *testing.T) {
+	t.Run("returns invitation with a public DID and request", func(t *testing.T) {
+		id := "did:example:myPublicDID123"
+		expected := newRequest()
+		expected.Service = []interface{}{id}
+		inv, req, err := decodeInvitationAndRequest(service.NewDIDCommMsgMap(expected))
+		require.NoError(t, err)
+		require.NotNil(t, req)
+		require.Equal(t, expected, req)
+		require.NotNil(t, inv)
+		require.NotEmpty(t, inv.ID)
+		require.Equal(t, didexchange.InvitationMsgType, inv.Type)
+		require.Equal(t, req.Label, inv.Label)
+		require.Equal(t, id, inv.DID)
+		require.Empty(t, inv.RecipientKeys)
+		require.Empty(t, inv.RoutingKeys)
+		require.Empty(t, inv.ServiceEndpoint)
+		require.Empty(t, inv.ImageURL)
+	})
+	t.Run("rejects requests without a public DID", func(t *testing.T) {
+		expected := newRequest()
+		expected.Service = []interface{}{&did.Service{
+			ID:              uuid.New().String(),
+			Type:            "did-communication",
+			Priority:        0,
+			RecipientKeys:   []string{"did:key:example"},
+			RoutingKeys:     []string{"did:key:example"},
+			ServiceEndpoint: "https://router-r-us.com",
+		}}
+		_, _, err := decodeInvitationAndRequest(service.NewDIDCommMsgMap(expected))
+		require.Error(t, err)
+	})
+	t.Run("wraps error thrown when decoding the message", func(t *testing.T) {
+		expected := errors.New("test")
+		msg := &testDIDCommMsg{errDecode: expected}
+		_, _, err := decodeInvitationAndRequest(msg)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+}
+
 func testProvider() *protocol.MockProvider {
 	return &protocol.MockProvider{
 		StoreProvider:          mockstore.NewMockStoreProvider(),
@@ -584,4 +663,40 @@ func newAck(pthid ...string) *model.Ack {
 	}
 
 	return a
+}
+
+type testDIDCommMsg struct {
+	errDecode error
+}
+
+func (t *testDIDCommMsg) ID() string {
+	panic("implement me")
+}
+
+func (t *testDIDCommMsg) SetID(id string) error {
+	panic("implement me")
+}
+
+func (t *testDIDCommMsg) Type() string {
+	panic("implement me")
+}
+
+func (t *testDIDCommMsg) ThreadID() (string, error) {
+	panic("implement me")
+}
+
+func (t *testDIDCommMsg) ParentThreadID() string {
+	panic("implement me")
+}
+
+func (t *testDIDCommMsg) Clone() service.DIDCommMsgMap {
+	panic("implement me")
+}
+
+func (t *testDIDCommMsg) Metadata() map[string]interface{} {
+	panic("implement me")
+}
+
+func (t *testDIDCommMsg) Decode(v interface{}) error {
+	return t.errDecode
 }

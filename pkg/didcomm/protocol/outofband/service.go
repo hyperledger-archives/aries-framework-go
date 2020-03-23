@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
@@ -22,8 +24,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 )
 
-var logger = log.New("aries-framework/did-exchange/service")
-
 const (
 	// Name of this protocol service.
 	Name = "out-of-band"
@@ -33,6 +33,8 @@ const (
 	// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 	callbackChannelSize = 10
 )
+
+var logger = log.New(fmt.Sprintf("aries-framework/%s/service", Name))
 
 var errIgnoredDidEvent = errors.New("ignored")
 
@@ -209,23 +211,24 @@ func listener(
 }
 
 func (s *Service) handleRequestCallback(c *callback) error {
-	// TODO either transform to a didexchange.invitation object or refactor didexchange.Service to accept this object
-	connID, err := s.didSvc.HandleInbound(c.msg, c.myDID, c.theirDID)
+	// TODO refactor didexchange.Service to accept an object other than didexchange.Invitation
+	//  https://github.com/hyperledger/aries-framework-go/issues/1501
+	invitation, req, err := decodeInvitationAndRequest(c.msg)
+	if err != nil {
+		return fmt.Errorf("failed to decode didexchange invitation and out-of-band request : %w", err)
+	}
+
+	connID, err := s.didSvc.HandleInbound(service.NewDIDCommMsgMap(invitation), c.myDID, c.theirDID)
 	if err != nil {
 		return fmt.Errorf("didexchange service failed to handle inbound request : %w", err)
 	}
 
-	req := &Request{}
-
-	err = c.msg.Decode(req)
-	if err != nil {
-		return fmt.Errorf("failed to decode request message : %w", err)
-	}
-
 	// TODO if we want to implement retries then we should be saving state before invoking
 	//  the didexchange service
+
 	err = s.save(&myState{
-		ID:           c.msg.ID(),
+		// the pthid of the didexchange thread will equal this invitation's ID as per the RFC
+		ID:           invitation.ID,
 		ConnectionID: connID,
 		Request:      req,
 	})
@@ -334,4 +337,34 @@ func getNextRequest(state *myState) (*decorator.Attachment, bool) {
 func extractDIDCommMsgBytes(_ *decorator.Attachment) ([]byte, error) {
 	// TODO implement
 	return nil, nil
+}
+
+func decodeInvitationAndRequest(msg service.DIDCommMsg) (*didexchange.Invitation, *Request, error) {
+	req := &Request{}
+
+	err := msg.Decode(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decode out-of-band request message : %w", err)
+	}
+
+	invitation := &didexchange.Invitation{
+		ID:    uuid.New().String(),
+		Label: req.Label,
+		Type:  didexchange.InvitationMsgType,
+	}
+
+	for _, svc := range req.Service {
+		did, ok := svc.(string)
+		if ok {
+			invitation.DID = did
+			break
+		}
+	}
+
+	if invitation.DID == "" {
+		return nil, nil, errors.New("ouf-of-band protocol only supports invitations with public DIDs for now")
+	}
+
+	// TODO support explicit invitations : https://github.com/hyperledger/aries-framework-go/issues/1502
+	return invitation, req, nil
 }
