@@ -21,14 +21,14 @@ const (
 	stateNameNoop       = "noop"
 
 	// states for Verifier
-	stateNameRequestSent                 = "request-sent"
-	stateNamePresentationReceived        = "presentation-received"
-	stateNameProposePresentationReceived = "propose-presentation-received"
+	stateNameRequestSent          = "request-sent"
+	stateNamePresentationReceived = "presentation-received"
+	stateNameProposalReceived     = "proposal-received"
 
 	// states for Prover
-	stateNameRequestReceived         = "request-received"
-	stateNamePresentationSent        = "presentation-sent"
-	stateNameProposePresentationSent = "propose-presentation-sent"
+	stateNameRequestReceived  = "request-received"
+	stateNamePresentationSent = "presentation-sent"
+	stateNameProposalSent     = "proposal-sent"
 )
 
 const codeInternalError = "internal"
@@ -61,10 +61,10 @@ func (s *start) Name() string {
 func (s *start) CanTransitionTo(st state) bool {
 	switch st.Name() {
 	// Verifier
-	case stateNameRequestSent, stateNameProposePresentationReceived:
+	case stateNameRequestSent, stateNameProposalReceived:
 		return true
 	// Prover
-	case stateNameProposePresentationSent, stateNameRequestReceived:
+	case stateNameProposalSent, stateNameRequestReceived:
 		return true
 	}
 
@@ -147,7 +147,7 @@ func (s *requestReceived) Name() string {
 
 func (s *requestReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNamePresentationSent ||
-		st.Name() == stateNameProposePresentationSent ||
+		st.Name() == stateNameProposalSent ||
 		st.Name() == stateNameAbandoning
 }
 
@@ -168,7 +168,7 @@ func (s *requestSent) Name() string {
 
 func (s *requestSent) CanTransitionTo(st state) bool {
 	return st.Name() == stateNamePresentationReceived ||
-		st.Name() == stateNameProposePresentationReceived ||
+		st.Name() == stateNameProposalReceived ||
 		st.Name() == stateNameAbandoning
 }
 
@@ -220,42 +220,42 @@ func (s *presentationReceived) ExecuteOutbound(_ *metaData) (state, stateAction,
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// proposePresentationSent the Prover's state
-type proposePresentationSent struct{}
+// proposalSent the Prover's state
+type proposalSent struct{}
 
-func (s *proposePresentationSent) Name() string {
-	return stateNameProposePresentationSent
+func (s *proposalSent) Name() string {
+	return stateNameProposalSent
 }
 
-func (s *proposePresentationSent) CanTransitionTo(st state) bool {
+func (s *proposalSent) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameRequestReceived ||
 		st.Name() == stateNameAbandoning
 }
 
-func (s *proposePresentationSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
+func (s *proposalSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
 }
 
-func (s *proposePresentationSent) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *proposalSent) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
-// proposePresentationReceived the Verifier's state
-type proposePresentationReceived struct{}
+// proposalReceived the Verifier's state
+type proposalReceived struct{}
 
-func (s *proposePresentationReceived) Name() string {
-	return stateNameProposePresentationReceived
+func (s *proposalReceived) Name() string {
+	return stateNameProposalReceived
 }
 
-func (s *proposePresentationReceived) CanTransitionTo(st state) bool {
+func (s *proposalReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameRequestSent ||
 		st.Name() == stateNameAbandoning
 }
 
-func (s *proposePresentationReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
+func (s *proposalReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
 }
 
-func (s *proposePresentationReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *proposalReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
