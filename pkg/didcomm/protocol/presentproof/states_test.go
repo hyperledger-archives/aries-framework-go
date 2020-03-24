@@ -24,11 +24,11 @@ func TestStart_CanTransitionTo(t *testing.T) {
 	// states for Verifier
 	require.True(t, st.CanTransitionTo(&requestSent{}))
 	require.False(t, st.CanTransitionTo(&presentationReceived{}))
-	require.True(t, st.CanTransitionTo(&proposePresentationReceived{}))
+	require.True(t, st.CanTransitionTo(&proposalReceived{}))
 	// states for Prover
 	require.True(t, st.CanTransitionTo(&requestReceived{}))
 	require.False(t, st.CanTransitionTo(&presentationSent{}))
-	require.True(t, st.CanTransitionTo(&proposePresentationSent{}))
+	require.True(t, st.CanTransitionTo(&proposalSent{}))
 }
 
 func TestStart_ExecuteInbound(t *testing.T) {
@@ -56,11 +56,11 @@ func TestAbandoning_CanTransitionTo(t *testing.T) {
 	// states for Verifier
 	require.False(t, st.CanTransitionTo(&requestSent{}))
 	require.False(t, st.CanTransitionTo(&presentationReceived{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationReceived{}))
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
 	// states for Prover
 	require.False(t, st.CanTransitionTo(&requestReceived{}))
 	require.False(t, st.CanTransitionTo(&presentationSent{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationSent{}))
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
 func TestAbandoning_ExecuteInbound(t *testing.T) {
@@ -128,11 +128,11 @@ func TestRequestReceived_CanTransitionTo(t *testing.T) {
 	// states for Verifier
 	require.False(t, st.CanTransitionTo(&requestSent{}))
 	require.False(t, st.CanTransitionTo(&presentationReceived{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationReceived{}))
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
 	// states for Prover
 	require.False(t, st.CanTransitionTo(&requestReceived{}))
 	require.True(t, st.CanTransitionTo(&presentationSent{}))
-	require.True(t, st.CanTransitionTo(&proposePresentationSent{}))
+	require.True(t, st.CanTransitionTo(&proposalSent{}))
 }
 
 func TestRequestReceived_ExecuteInbound(t *testing.T) {
@@ -160,11 +160,11 @@ func TestRequestSent_CanTransitionTo(t *testing.T) {
 	// states for Verifier
 	require.False(t, st.CanTransitionTo(&requestSent{}))
 	require.True(t, st.CanTransitionTo(&presentationReceived{}))
-	require.True(t, st.CanTransitionTo(&proposePresentationReceived{}))
+	require.True(t, st.CanTransitionTo(&proposalReceived{}))
 	// states for Prover
 	require.False(t, st.CanTransitionTo(&requestReceived{}))
 	require.False(t, st.CanTransitionTo(&presentationSent{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationSent{}))
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
 func TestRequestSent_ExecuteInbound(t *testing.T) {
@@ -192,11 +192,11 @@ func TestPresentationSent_CanTransitionTo(t *testing.T) {
 	// states for Verifier
 	require.False(t, st.CanTransitionTo(&requestSent{}))
 	require.False(t, st.CanTransitionTo(&presentationReceived{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationReceived{}))
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
 	// states for Prover
 	require.False(t, st.CanTransitionTo(&requestReceived{}))
 	require.False(t, st.CanTransitionTo(&presentationSent{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationSent{}))
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
 func TestPresentationSent_ExecuteInbound(t *testing.T) {
@@ -224,11 +224,11 @@ func TestPresentationReceived_CanTransitionTo(t *testing.T) {
 	// states for Verifier
 	require.False(t, st.CanTransitionTo(&requestSent{}))
 	require.False(t, st.CanTransitionTo(&presentationReceived{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationReceived{}))
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
 	// states for Prover
 	require.False(t, st.CanTransitionTo(&requestReceived{}))
 	require.False(t, st.CanTransitionTo(&presentationSent{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationSent{}))
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
 func TestPresentationReceived_ExecuteInbound(t *testing.T) {
@@ -246,8 +246,8 @@ func TestPresentationReceived_ExecuteOutbound(t *testing.T) {
 }
 
 func TestProposePresentationSent_CanTransitionTo(t *testing.T) {
-	st := &proposePresentationSent{}
-	require.Equal(t, stateNameProposePresentationSent, st.Name())
+	st := &proposalSent{}
+	require.Equal(t, stateNameProposalSent, st.Name())
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
 	require.True(t, st.CanTransitionTo(&abandoning{}))
@@ -256,30 +256,30 @@ func TestProposePresentationSent_CanTransitionTo(t *testing.T) {
 	// states for Verifier
 	require.False(t, st.CanTransitionTo(&requestSent{}))
 	require.False(t, st.CanTransitionTo(&presentationReceived{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationReceived{}))
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
 	// states for Prover
 	require.True(t, st.CanTransitionTo(&requestReceived{}))
 	require.False(t, st.CanTransitionTo(&presentationSent{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationSent{}))
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
 func TestProposePresentationSent_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&proposePresentationSent{}).ExecuteInbound(&metaData{})
+	followup, action, err := (&proposalSent{}).ExecuteInbound(&metaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
 }
 
 func TestProposePresentationSent_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&proposePresentationSent{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&proposalSent{}).ExecuteOutbound(&metaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
 }
 
 func TestProposePresentationReceived_CanTransitionTo(t *testing.T) {
-	st := &proposePresentationReceived{}
-	require.Equal(t, stateNameProposePresentationReceived, st.Name())
+	st := &proposalReceived{}
+	require.Equal(t, stateNameProposalReceived, st.Name())
 	// common states
 	require.False(t, st.CanTransitionTo(&start{}))
 	require.True(t, st.CanTransitionTo(&abandoning{}))
@@ -288,22 +288,22 @@ func TestProposePresentationReceived_CanTransitionTo(t *testing.T) {
 	// states for Verifier
 	require.True(t, st.CanTransitionTo(&requestSent{}))
 	require.False(t, st.CanTransitionTo(&presentationReceived{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationReceived{}))
+	require.False(t, st.CanTransitionTo(&proposalReceived{}))
 	// states for Prover
 	require.False(t, st.CanTransitionTo(&requestReceived{}))
 	require.False(t, st.CanTransitionTo(&presentationSent{}))
-	require.False(t, st.CanTransitionTo(&proposePresentationSent{}))
+	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
 func TestProposePresentationReceived_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&proposePresentationReceived{}).ExecuteInbound(&metaData{})
+	followup, action, err := (&proposalReceived{}).ExecuteInbound(&metaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
 }
 
 func TestProposePresentationReceived_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&proposePresentationReceived{}).ExecuteOutbound(&metaData{})
+	followup, action, err := (&proposalReceived{}).ExecuteOutbound(&metaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
@@ -316,9 +316,9 @@ func notTransition(t *testing.T, st state) {
 		// common states
 		&start{}, &abandoning{}, &done{}, &noOp{},
 		// states for Verifier
-		&requestSent{}, &presentationReceived{}, &proposePresentationReceived{},
+		&requestSent{}, &presentationReceived{}, &proposalReceived{},
 		// states for Prover
-		&requestReceived{}, &presentationSent{}, &proposePresentationSent{},
+		&requestReceived{}, &presentationSent{}, &proposalSent{},
 	}
 
 	for _, s := range allState {

@@ -279,14 +279,14 @@ func stateFromName(name string) state {
 		return &requestSent{}
 	case stateNamePresentationReceived:
 		return &presentationReceived{}
-	case stateNameProposePresentationReceived:
-		return &proposePresentationReceived{}
+	case stateNameProposalReceived:
+		return &proposalReceived{}
 	case stateNameRequestReceived:
 		return &requestReceived{}
 	case stateNamePresentationSent:
 		return &presentationSent{}
-	case stateNameProposePresentationSent:
-		return &proposePresentationSent{}
+	case stateNameProposalSent:
+		return &proposalSent{}
 	default:
 		return &noOp{}
 	}
@@ -303,10 +303,10 @@ func nextState(msg service.DIDCommMsg, outbound bool) (state, error) {
 		return &requestReceived{}, nil
 	case ProposePresentationMsgType:
 		if outbound {
-			return &proposePresentationSent{}, nil
+			return &proposalSent{}, nil
 		}
 
-		return &proposePresentationReceived{}, nil
+		return &proposalReceived{}, nil
 	case PresentationMsgType:
 		return &presentationReceived{}, nil
 	case ProblemReportMsgType:

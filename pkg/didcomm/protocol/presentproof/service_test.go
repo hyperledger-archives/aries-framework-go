@@ -205,10 +205,10 @@ func Test_stateFromName(t *testing.T) {
 	require.Equal(t, stateFromName(stateNameDone), &done{})
 	require.Equal(t, stateFromName(stateNameRequestSent), &requestSent{})
 	require.Equal(t, stateFromName(stateNamePresentationReceived), &presentationReceived{})
-	require.Equal(t, stateFromName(stateNameProposePresentationReceived), &proposePresentationReceived{})
+	require.Equal(t, stateFromName(stateNameProposalReceived), &proposalReceived{})
 	require.Equal(t, stateFromName(stateNameRequestReceived), &requestReceived{})
 	require.Equal(t, stateFromName(stateNamePresentationSent), &presentationSent{})
-	require.Equal(t, stateFromName(stateNameProposePresentationSent), &proposePresentationSent{})
+	require.Equal(t, stateFromName(stateNameProposalSent), &proposalSent{})
 	require.Equal(t, stateFromName("unknown"), &noOp{})
 }
 
@@ -258,13 +258,13 @@ func Test_nextState(t *testing.T) {
 		Type: ProposePresentationMsgType,
 	}), true)
 	require.NoError(t, err)
-	require.Equal(t, next, &proposePresentationSent{})
+	require.Equal(t, next, &proposalSent{})
 
 	next, err = nextState(service.NewDIDCommMsgMap(ProposePresentation{
 		Type: ProposePresentationMsgType,
 	}), false)
 	require.NoError(t, err)
-	require.Equal(t, next, &proposePresentationReceived{})
+	require.Equal(t, next, &proposalReceived{})
 
 	next, err = nextState(service.NewDIDCommMsgMap(Presentation{
 		Type: PresentationMsgType,
