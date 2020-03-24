@@ -56,13 +56,34 @@ type transitionalPayload struct {
 // metaData type to store data for internal usage
 type metaData struct {
 	transitionalPayload
-	state    state
-	msgClone service.DIDCommMsg
-	inbound  bool
+	state               state
+	msgClone            service.DIDCommMsg
+	inbound             bool
+	presentation        *Presentation
+	proposePresentation *ProposePresentation
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
 	err error
+}
+
+// Opt describes option signature for the Continue function
+type Opt func(md *metaData)
+
+// WithPresentation allows providing Presentation message
+// USAGE: This message can be provided after receiving a Request message
+func WithPresentation(msg *Presentation) Opt {
+	return func(md *metaData) {
+		md.presentation = msg
+	}
+}
+
+// WithProposePresentation allows providing ProposePresentation message
+// USAGE: This message can be provided after receiving a Request message
+func WithProposePresentation(msg *ProposePresentation) Opt {
+	return func(md *metaData) {
+		md.proposePresentation = msg
+	}
 }
 
 // Provider contains dependencies for the protocol and is typically created by using aries.Context()
@@ -230,8 +251,6 @@ func (s *Service) handle(md *metaData) error {
 			return fmt.Errorf("invalid state transition: %s --> %s", current.Name(), next.Name())
 		}
 
-		current = next
-
 		if err := s.saveStateName(md.PIID, current.Name()); err != nil {
 			return fmt.Errorf("failed to persist state %s: %w", current.Name(), err)
 		}
@@ -239,6 +258,8 @@ func (s *Service) handle(md *metaData) error {
 		if err := action(s.messenger); err != nil {
 			return fmt.Errorf("action %s: %w", md.state.Name(), err)
 		}
+
+		current = next
 	}
 
 	return nil
@@ -339,6 +360,10 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 		ProtocolName: Name,
 		Message:      md.msgClone,
 		Continue: func(opt interface{}) {
+			if fn, ok := opt.(Opt); ok {
+				fn(md)
+			}
+
 			s.processCallback(md)
 		},
 		Stop: func(cErr error) {
