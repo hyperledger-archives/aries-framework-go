@@ -520,26 +520,65 @@ func TestClientGetConnectionAtState(t *testing.T) {
 }
 
 func TestClient_RemoveConnection(t *testing.T) {
-	svc, err := didexchange.New(&mockprotocol.MockProvider{
-		ServiceMap: map[string]interface{}{
-			route.Coordination: &mockroute.MockRouteSvc{},
-		},
-	})
-	require.NoError(t, err)
-	require.NotNil(t, svc)
+	t.Run("test success", func(t *testing.T) {
+		connID := "id1"
+		threadID := "thid1"
 
-	c, err := New(&mockprovider.Provider{
-		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-		StorageProviderValue:          mockstore.NewMockStoreProvider(),
-		ServiceMap: map[string]interface{}{
-			didexchange.DIDExchange: svc,
-			route.Coordination:      &mockroute.MockRouteSvc{},
-		},
-	})
-	require.NoError(t, err)
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
 
-	err = c.RemoveConnection("sample-id")
-	require.NoError(t, err)
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+		})
+		require.NoError(t, err)
+
+		connRec := &connection.Record{ConnectionID: connID, ThreadID: threadID, State: "complete"}
+
+		require.NoError(t, err)
+		require.NoError(t, c.connectionStore.SaveConnectionRecord(connRec))
+
+		_, err = c.GetConnection(connID)
+		require.NoError(t, err)
+
+		err = c.RemoveConnection(connID)
+		require.NoError(t, err)
+
+		_, err = c.GetConnection(connID)
+		require.Error(t, err)
+		require.Equal(t, err.Error(), ErrConnectionNotFound.Error())
+	})
+	t.Run("test error data not found", func(t *testing.T) {
+		svc, err := didexchange.New(&mockprotocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				route.Coordination: &mockroute.MockRouteSvc{},
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: svc,
+				route.Coordination:      &mockroute.MockRouteSvc{},
+			},
+		})
+		require.NoError(t, err)
+
+		err = c.RemoveConnection("sample-id")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "data not found")
+	})
 }
 
 func TestClient_HandleInvitation(t *testing.T) {

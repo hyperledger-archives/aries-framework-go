@@ -131,6 +131,44 @@ func (c *Recorder) SaveNamespaceThreadID(threadID, namespace, connectionID strin
 	return c.transientStore.Put(getNamespaceKeyPrefix(prefix)(key), []byte(connectionID))
 }
 
+// RemoveConnection removes connection record from the store for given id
+func (c *Recorder) RemoveConnection(connectionID string) error {
+	record, err := c.GetConnectionRecord(connectionID)
+	if err != nil {
+		return fmt.Errorf("unable to get connection record: connectionid=%s err=%w", connectionID, err)
+	}
+
+	if err = c.transientStore.Delete(getConnectionKeyPrefix()(connectionID)); err != nil {
+		return fmt.Errorf("unable to delete connection record from the transient store: connectionid=%s err=%w",
+			connectionID, err)
+	}
+
+	// remove connection records for different states from transient store
+	err = removeConnectionsForStates(c, connectionID)
+	if err != nil {
+		return fmt.Errorf("remove records for different connections states error: %w", err)
+	}
+
+	err = c.store.Delete(getConnectionKeyPrefix()(connectionID))
+	if err != nil {
+		return fmt.Errorf("unable to delete connection record from the store: connectionid=%s err=%w", connectionID, err)
+	}
+
+	err = c.store.Delete(getDIDConnMapKeyPrefix()(record.MyDID, record.TheirDID))
+	if err != nil {
+		return fmt.Errorf("unable to delete did mapping connection record from the store: connectionid=%s err=%w",
+			connectionID, err)
+	}
+
+	// remove namespace, threadID and connection ID mapping from transient store
+	err = removeMappings(c, record)
+	if err != nil {
+		return fmt.Errorf("unable to delete connection record with namespace mappings: %w", err)
+	}
+
+	return nil
+}
+
 func marshalAndSave(k string, v interface{}, store storage.Store) error {
 	bytes, err := json.Marshal(v)
 	if err != nil {
@@ -160,4 +198,34 @@ func computeHash(bytes []byte) (string, error) {
 	hash := h.Sum(bytes)
 
 	return fmt.Sprintf("%x", hash), nil
+}
+
+func removeConnectionsForStates(c *Recorder, connectionID string) error {
+	itr := c.transientStore.Iterator(getConnectionStateKeyPrefix()(
+		connectionID),
+		getConnectionStateKeyPrefix()(connectionID)+"~",
+	)
+	defer itr.Release()
+
+	for itr.Next() {
+		key := string(itr.Key())
+		err := c.transientStore.Delete(key)
+
+		if err != nil {
+			return fmt.Errorf(
+				"unable to delete connection state record from the transient store: key=%s connectionid=%s err=%w",
+				key, connectionID, err)
+		}
+	}
+
+	return itr.Error()
+}
+
+func removeMappings(c *Recorder, record *Record) error {
+	key, err := computeHash([]byte(record.ThreadID))
+	if err != nil {
+		return fmt.Errorf("compute hash: %w", err)
+	}
+
+	return c.store.Delete(getNamespaceKeyPrefix(record.Namespace)(key))
 }

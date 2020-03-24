@@ -361,7 +361,7 @@ func TestOperation_RemoveConnection(t *testing.T) {
 	t.Run("test remove connection success", func(t *testing.T) {
 		handler := getHandler(t, removeConnection)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("test-id")),
-			operationID+"/5555/remove")
+			operationID+"/1234/remove")
 		require.NoError(t, err)
 		require.Empty(t, buf.Bytes())
 	})

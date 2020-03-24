@@ -71,6 +71,131 @@ func Test_ComputeHash(t *testing.T) {
 	require.Empty(t, h4)
 }
 
+func Test_RemoveMappings(t *testing.T) {
+	t.Run("test success", func(t *testing.T) {
+		recorder, err := NewRecorder(&protocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		record := &Record{
+			ThreadID: threadIDValue,
+		}
+
+		err = removeMappings(recorder, record)
+		require.NoError(t, err)
+	})
+	t.Run("test failed - empty bytes", func(t *testing.T) {
+		recorder, err := NewRecorder(&protocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		record := &Record{
+			ThreadID: "",
+		}
+
+		err = removeMappings(recorder, record)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "empty bytes")
+	})
+	t.Run("test failed to delete the record", func(t *testing.T) {
+		const errMsg = "get error"
+		recorder, err := NewRecorder(&protocol.MockProvider{
+			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+				Store:     make(map[string][]byte),
+				ErrDelete: fmt.Errorf(errMsg),
+			}),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		record := &Record{
+			ThreadID: threadIDValue,
+		}
+
+		err = removeMappings(recorder, record)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), errMsg)
+	})
+}
+
+func Test_RemoveConnectionRecordsForStates(t *testing.T) {
+	t.Run("test success", func(t *testing.T) {
+		record := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: uuid.New().String(),
+			State:        stateNameCompleted,
+			Namespace:    theirNSPrefix,
+			MyDID:        "did:mydid:123",
+			TheirDID:     "did:theirdid:123",
+		}
+
+		store := &mockstorage.MockStore{
+			Store: make(map[string][]byte),
+		}
+
+		err := marshalAndSave(getConnectionStateKeyPrefix()(record.ConnectionID, record.State),
+			record, store)
+		require.NoError(t, err)
+
+		recorder, err := NewRecorder(&protocol.MockProvider{
+			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(store),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		err = removeConnectionsForStates(recorder, record.ConnectionID)
+		require.NoError(t, err)
+	})
+	t.Run("test failed to iterate connection state records", func(t *testing.T) {
+		const errMsg = "get error"
+
+		store := &mockstorage.MockStore{
+			Store:  make(map[string][]byte),
+			ErrItr: fmt.Errorf(errMsg),
+		}
+
+		recorder, err := NewRecorder(&protocol.MockProvider{
+			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(store),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		err = removeConnectionsForStates(recorder, "anyID")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), errMsg)
+	})
+	t.Run("test failed to delete connection state record from the store", func(t *testing.T) {
+		const errMsg = "get error"
+		record := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: uuid.New().String(),
+			State:        stateNameCompleted,
+			Namespace:    theirNSPrefix,
+			MyDID:        "did:mydid:123",
+			TheirDID:     "did:theirdid:123",
+		}
+
+		store := &mockstorage.MockStore{
+			Store:     make(map[string][]byte),
+			ErrDelete: fmt.Errorf(errMsg),
+		}
+
+		err := marshalAndSave(getConnectionStateKeyPrefix()(record.ConnectionID, record.State),
+			record, store)
+		require.NoError(t, err)
+
+		recorder, err := NewRecorder(&protocol.MockProvider{
+			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(store),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		err = removeConnectionsForStates(recorder, record.ConnectionID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), errMsg)
+	})
+}
+
 func TestConnectionStore_SaveInvitation(t *testing.T) {
 	const id = "sample-inv-id"
 
@@ -332,6 +457,175 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 			ConnectionID: "test", State: stateNameCompleted, Namespace: theirNSPrefix}
 		err = record.SaveConnectionRecord(connRec)
 		require.Contains(t, err.Error(), errMsg)
+	})
+}
+
+func TestConnectionRecorder_RemoveConnection(t *testing.T) {
+	t.Run("save and remove connection record with invited state - completed", func(t *testing.T) {
+		recorder, err := NewRecorder(&protocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		record := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: uuid.New().String(),
+			State:        stateNameCompleted,
+			Namespace:    theirNSPrefix,
+			MyDID:        "did:mydid:123",
+			TheirDID:     "did:theirdid:123",
+		}
+		err = recorder.SaveConnectionRecord(record)
+		require.NoError(t, err)
+
+		recordFound, err := recorder.GetConnectionRecord(record.ConnectionID)
+		require.NoError(t, err)
+		require.NotNil(t, recordFound)
+		require.Equal(t, record, recordFound)
+
+		err = recorder.RemoveConnection(record.ConnectionID)
+		require.NoError(t, err)
+
+		// make sure no records exist in both permanent and transient store
+		var r1 Record
+		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r1, recorder.transientStore)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "data not found")
+
+		var r2 Record
+		err = getAndUnmarshal(getConnectionKeyPrefix()(record.ConnectionID), &r2, recorder.store)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "data not found")
+
+		itr := recorder.transientStore.Iterator(
+			getConnectionStateKeyPrefix()(record.ConnectionID),
+			getConnectionStateKeyPrefix()(record.ConnectionID)+"~",
+		)
+		defer itr.Release()
+
+		for itr.Next() {
+			t.Errorf("transient store still has connection state records: key=%s", itr.Key())
+		}
+
+		var r3 Record
+		err = getAndUnmarshal(getDIDConnMapKeyPrefix()(record.MyDID, record.TheirDID), &r3, recorder.store)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "data not found")
+	})
+	t.Run("try to remove unexisting connection record", func(t *testing.T) {
+		recorder, err := NewRecorder(&protocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		record := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: uuid.New().String(),
+			State:        stateNameCompleted,
+			Namespace:    theirNSPrefix,
+			MyDID:        "did:mydid:123",
+			TheirDID:     "did:theirdid:123",
+		}
+
+		err = recorder.RemoveConnection(record.ConnectionID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "data not found")
+	})
+	t.Run("save and remove connection record - failed to delete from the store", func(t *testing.T) {
+		const errMsg = "get error"
+		recorder, err := NewRecorder(&protocol.MockProvider{
+			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+				Store:     make(map[string][]byte),
+				ErrDelete: fmt.Errorf(errMsg),
+			}),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		record := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: uuid.New().String(),
+			State:        stateNameCompleted,
+			Namespace:    theirNSPrefix,
+			MyDID:        "did:mydid:123",
+			TheirDID:     "did:theirdid:123",
+		}
+		err = recorder.SaveConnectionRecord(record)
+		require.NoError(t, err)
+
+		err = recorder.RemoveConnection(record.ConnectionID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), errMsg)
+	})
+	t.Run("save and remove connection record - failed to delete from the transient store", func(t *testing.T) {
+		const errMsg = "get error"
+		recorder, err := NewRecorder(&protocol.MockProvider{
+			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+				Store:     make(map[string][]byte),
+				ErrDelete: fmt.Errorf(errMsg),
+			}),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		record := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: uuid.New().String(),
+			State:        stateNameCompleted,
+			Namespace:    theirNSPrefix,
+			MyDID:        "did:mydid:123",
+			TheirDID:     "did:theirdid:123",
+		}
+		err = recorder.SaveConnectionRecord(record)
+		require.NoError(t, err)
+
+		err = recorder.RemoveConnection(record.ConnectionID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), errMsg)
+	})
+	t.Run("save and remove connection record - failed to iterate connection states records", func(t *testing.T) {
+		const errMsg = "get error"
+		recorder, err := NewRecorder(&protocol.MockProvider{
+			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
+				Store:  make(map[string][]byte),
+				ErrItr: fmt.Errorf(errMsg),
+			}),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		record := &Record{
+			ThreadID:     threadIDValue,
+			ConnectionID: uuid.New().String(),
+			State:        stateNameCompleted,
+			Namespace:    theirNSPrefix,
+			MyDID:        "did:mydid:123",
+			TheirDID:     "did:theirdid:123",
+		}
+		err = recorder.SaveConnectionRecord(record)
+		require.NoError(t, err)
+
+		err = recorder.RemoveConnection(record.ConnectionID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), errMsg)
+	})
+	t.Run("save and remove connection record - failed to delete connection mapping record", func(t *testing.T) {
+		recorder, err := NewRecorder(&protocol.MockProvider{})
+		require.NoError(t, err)
+		require.NotNil(t, recorder)
+
+		record := &Record{
+			ThreadID:     "",
+			ConnectionID: uuid.New().String(),
+			State:        stateNameCompleted,
+			Namespace:    theirNSPrefix,
+			MyDID:        "did:mydid:123",
+			TheirDID:     "did:theirdid:123",
+		}
+		err = recorder.SaveConnectionRecord(record)
+		require.NoError(t, err)
+
+		err = recorder.RemoveConnection(record.ConnectionID)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "empty bytes")
 	})
 }
 
