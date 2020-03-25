@@ -44,7 +44,7 @@ func TestSignatureSuite_Verify(t *testing.T) {
 		Type:  signatureType,
 		Value: []byte("any key"),
 	}
-	ss := New(WithVerifier(&mockVerifier{}))
+	ss := New(WithVerifier(&mockVerifier{}), WithCompactProof())
 
 	// happy path
 	err := ss.Verify(pubKey, []byte("any doc"), []byte("any signature"))
@@ -61,6 +61,11 @@ func TestSignatureSuite_Verify(t *testing.T) {
 	err = ss.Verify(pubKey, []byte("any doc"), []byte("any signature"))
 	require.Error(t, err)
 	require.EqualError(t, err, "verify error")
+}
+
+func TestWithCompactProof(t *testing.T) {
+	suite := New(WithCompactProof())
+	require.True(t, suite.CompactProof())
 }
 
 func TestSignatureSuite_GetCanonicalDocument(t *testing.T) {

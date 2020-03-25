@@ -101,21 +101,26 @@ func prepareJWSProof(suite signatureSuite, proofOptions map[string]interface{}) 
 
 	delete(proofOptionsCopy, jsonldJWS)
 	delete(proofOptionsCopy, jsonldProofValue)
+	delete(proofOptionsCopy, jsonldType)
 
 	return suite.GetCanonicalDocument(proofOptionsCopy)
 }
 
 func prepareDocumentForJWS(suite signatureSuite, jsonldObject map[string]interface{}) ([]byte, error) {
 	// copy document object without proof
-	docCopy := GetCopyWithoutProof(jsonldObject)
+	doc := GetCopyWithoutProof(jsonldObject)
 
-	docCompacted, err := getCompactedWithSecuritySchema(docCopy)
-	if err != nil {
-		return nil, err
+	if suite.CompactProof() {
+		docCompacted, err := getCompactedWithSecuritySchema(doc)
+		if err != nil {
+			return nil, err
+		}
+
+		doc = docCompacted
 	}
 
 	// build canonical document
-	return suite.GetCanonicalDocument(docCompacted)
+	return suite.GetCanonicalDocument(doc)
 }
 
 func getCompactedWithSecuritySchema(docMap map[string]interface{}) (map[string]interface{}, error) {

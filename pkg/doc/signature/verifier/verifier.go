@@ -26,6 +26,9 @@ type signatureSuite interface {
 
 	// Accept registers this signature suite with the given signature type
 	Accept(signatureType string) bool
+
+	// CompactProof indicates weather to compact the proof doc before canonization
+	CompactProof() bool
 }
 
 // PublicKey contains a result of public key resolution.

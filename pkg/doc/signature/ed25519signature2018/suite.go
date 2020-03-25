@@ -22,8 +22,9 @@ import (
 
 // SignatureSuite implements ed25519 signature suite
 type SignatureSuite struct {
-	signer   signer
-	verifier verifier
+	signer       signer
+	verifier     verifier
+	compactProof bool
 }
 
 const (
@@ -55,6 +56,13 @@ func WithSigner(s signer) SuiteOpt {
 func WithVerifier(v verifier) SuiteOpt {
 	return func(opts *SignatureSuite) {
 		opts.verifier = v
+	}
+}
+
+// WithCompactProof indicates that proof compaction is needed, by default it is not done.
+func WithCompactProof() SuiteOpt {
+	return func(opts *SignatureSuite) {
+		opts.compactProof = true
 	}
 }
 
@@ -113,6 +121,11 @@ func (s *SignatureSuite) Sign(data []byte) ([]byte, error) {
 // Accept will accept only ed25519 signature type
 func (s *SignatureSuite) Accept(t string) bool {
 	return t == signatureType
+}
+
+// CompactProof indicates weather to compact the proof doc before canonization
+func (s *SignatureSuite) CompactProof() bool {
+	return s.compactProof
 }
 
 // ErrSignerNotDefined is returned when Sign() is called but signer option is not defined.

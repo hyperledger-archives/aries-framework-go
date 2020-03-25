@@ -11,29 +11,18 @@ import (
 	"fmt"
 )
 
-type embeddedProofType int
-
-const (
-	linkedDataProof embeddedProofType = iota
-)
-
-// nolint:gochecknoglobals
-var proofTypesMapping = map[string]embeddedProofType{
-	"Ed25519Signature2018": linkedDataProof,
-}
-
-func parseEmbeddedProof(proofMap map[string]interface{}) (embeddedProofType, error) {
+func mustBeLinkedDataProof(proofMap map[string]interface{}) error {
 	proofType, ok := proofMap["type"]
 	if !ok {
-		return -1, errors.New("proof type is missing")
+		return errors.New("proof type is missing")
 	}
 
-	embeddedProofType, ok := proofTypesMapping[safeStringValue(proofType)]
-	if !ok {
-		return -1, fmt.Errorf("unsupported proof type: %s", proofType)
+	proofTypeStr := safeStringValue(proofType)
+	if proofTypeStr != "Ed25519Signature2018" {
+		return fmt.Errorf("unsupported proof type: %s", proofType)
 	}
 
-	return embeddedProofType, nil
+	return nil
 }
 
 func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error) {
@@ -59,18 +48,16 @@ func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error)
 		return nil, errors.New("check embedded proof: expecting [string]interface{}")
 	}
 
-	proofType, err := parseEmbeddedProof(proofMap)
+	err = mustBeLinkedDataProof(proofMap)
 	if err != nil {
 		return nil, err
 	}
 
-	switch proofType {
-	case linkedDataProof:
-		err = checkLinkedDataProof(docBytes, vcOpts.ldpSuite, vcOpts.publicKeyFetcher)
-	default:
-		err = fmt.Errorf("unsupported proof type: %v", proofType)
+	if vcOpts.publicKeyFetcher == nil {
+		return nil, errors.New("public key fetcher is not defined")
 	}
 
+	err = checkLinkedDataProof(docBytes, vcOpts.ldpSuite, vcOpts.publicKeyFetcher)
 	if err != nil {
 		return nil, fmt.Errorf("check embedded proof: %w", err)
 	}

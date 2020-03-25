@@ -158,6 +158,8 @@ type testSignatureSuite struct {
 	verifyError error
 
 	accept bool
+
+	compactProof bool
 }
 
 func (s *testSignatureSuite) GetCanonicalDocument(map[string]interface{}) ([]byte, error) {
@@ -174,4 +176,8 @@ func (s *testSignatureSuite) Verify(*PublicKey, []byte, []byte) error {
 
 func (s *testSignatureSuite) Accept(string) bool {
 	return s.accept
+}
+
+func (s *testSignatureSuite) CompactProof() bool {
+	return s.compactProof
 }

@@ -20,6 +20,9 @@ type signatureSuite interface {
 
 	// GetDigest returns document digest
 	GetDigest(doc []byte) []byte
+
+	// CompactProof indicates weather to compact the proof doc before canonization
+	CompactProof() bool
 }
 
 // SignatureRepresentation defines a representation of signature value.

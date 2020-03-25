@@ -29,6 +29,9 @@ type signatureSuite interface {
 
 	// Sign will sign document and return signature
 	Sign(doc []byte) ([]byte, error)
+
+	// CompactProof indicates weather to compact the proof doc before canonization
+	CompactProof() bool
 }
 
 // DocumentSigner implements signing of JSONLD documents

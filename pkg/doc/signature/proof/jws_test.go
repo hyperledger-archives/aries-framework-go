@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package proof
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"testing"
 	"time"
@@ -39,7 +40,13 @@ func Test_createVerifyJWS(t *testing.T) {
 	err = json.Unmarshal([]byte(validDoc), &doc)
 	require.NoError(t, err)
 
+	// happy path - no proof compaction
 	proofVerifyData, err := createVerifyJWS(&mockSignatureSuite{}, doc, p)
+	require.NoError(t, err)
+	require.NotEmpty(t, proofVerifyData)
+
+	// happy path - with proof compaction
+	proofVerifyData, err = createVerifyJWS(&mockSignatureSuite{compactProof: true}, doc, p)
 	require.NoError(t, err)
 	require.NotEmpty(t, proofVerifyData)
 
@@ -57,4 +64,33 @@ func Test_createVerifyJWS(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid JWT")
 	require.Empty(t, proofVerifyData)
+}
+
+func TestCreateDetachedJWTHeader(t *testing.T) {
+	jwtHeader := CreateDetachedJWTHeader(&Proof{
+		Type: "Ed25519Signature2018",
+	})
+	require.NotEmpty(t, jwtHeader)
+}
+
+func TestGetJWTSignature(t *testing.T) {
+	jwtSignature := base64.RawURLEncoding.EncodeToString([]byte("test signature"))
+	jws := "header.payload." + jwtSignature
+
+	// happy path
+	signature, err := GetJWTSignature(jws)
+	require.NoError(t, err)
+	require.Equal(t, []byte("test signature"), signature)
+
+	// not JWS
+	signature, err = GetJWTSignature("incorrect JWS structure")
+	require.Error(t, err)
+	require.EqualError(t, err, "invalid JWT")
+	require.Empty(t, signature)
+
+	// empty signature (unsecured JWT)
+	signature, err = GetJWTSignature("header.payload.")
+	require.Error(t, err)
+	require.EqualError(t, err, "invalid JWT")
+	require.Empty(t, signature)
 }

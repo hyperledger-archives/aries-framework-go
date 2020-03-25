@@ -106,6 +106,7 @@ func TestCreateVerifyData(t *testing.T) {
 }
 
 type mockSignatureSuite struct {
+	compactProof bool
 }
 
 // GetCanonicalDocument will return normalized/canonical version of the document
@@ -128,6 +129,10 @@ func (s *mockSignatureSuite) GetCanonicalDocument(doc map[string]interface{}) ([
 func (s *mockSignatureSuite) GetDigest(doc []byte) []byte {
 	digest := sha512.Sum512(doc)
 	return digest[:]
+}
+
+func (s *mockSignatureSuite) CompactProof() bool {
+	return s.compactProof
 }
 
 //nolint:lll
