@@ -128,6 +128,12 @@ const pkgs = {
             pathParam:"id"
         },
     },
+    kms: {
+        CreateKeySet: {
+            path: "/kms/keyset",
+            method: "POST",
+        },
+    },
 }
 
 /**

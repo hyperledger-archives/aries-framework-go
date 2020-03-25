@@ -49,6 +49,9 @@ const (
 
 	// VC error group for Verifiable Credential command errors
 	VC Group = 6000
+
+	// KMS error group for key management service errors
+	KMS Group = 7000
 )
 
 // Error is the  interface for representing an command error condition, with the nil value representing no error.

@@ -484,6 +484,23 @@ const Aries = function (opts) {
             generatePresentationByID: async function (req) {
                 return invoke(aw, pending,  this.pkgname, "GeneratePresentationByID", req, "timeout while generating verifiable presentation by id")
             },
+        },
+
+        /**
+         * Key Management Service - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
+        kms: {
+            pkgname: "kms",
+
+            /**
+             * Create key set.
+             *
+             * @returns {Promise<Object>}
+             */
+            createKeySet: async function () {
+                return invoke(aw, pending, this.pkgname, "CreateKeySet", {}, "timeout while creating key set")
+            },
         }
     }
 

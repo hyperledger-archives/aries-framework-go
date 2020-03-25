@@ -137,7 +137,7 @@ depend:
 	@GO111MODULE=off GOBIN=$(GOBIN_PATH) go get github.com/agnivade/wasmbrowsertest
 
 .PHONY: mocks
-mocks: depend
+mocks: depend clean-mocks
 	$(call create_mock,pkg/didcomm/protocol/issuecredential,Provider)
 	$(call create_mock,pkg/didcomm/protocol/presentproof,Provider)
 	$(call create_mock,pkg/client/introduce,Provider;ProtocolService)
@@ -153,7 +153,7 @@ clean-mocks:
 	@if [ -d $(GOMOCKS) ]; then rm -r $(GOMOCKS); echo "Folder $(GOMOCKS) was removed!"; fi
 
 .PHONY: clean
-clean: clean-fixtures clean-build clean-images clean-mocks
+clean: clean-fixtures clean-build clean-images
 
 .PHONY: clean-images
 clean-images: clean-fixtures
