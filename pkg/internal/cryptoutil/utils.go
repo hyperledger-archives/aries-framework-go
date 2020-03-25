@@ -13,8 +13,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/agl/ed25519/extra25519"
 	josecipher "github.com/square/go-jose/v3/cipher"
+	"github.com/teserakt-io/golang-ed25519/extra25519"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/curve25519"
 )
@@ -211,7 +211,8 @@ const Curve25519KeySize = 32
 const NonceSize = 24
 
 // PublicEd25519toCurve25519 takes an Ed25519 public key and provides the corresponding Curve25519 public key
-//  This function wraps PublicKeyToCurve25519 from Adam Langley's ed25519 repo: https://github.com/agl/ed25519
+// This function wraps PublicKeyToCurve25519 from Adam Langley's ed25519 repo: https://github.com/agl/ed25519 now
+// moved to https://github.com/teserakt-io/golang-ed25519
 func PublicEd25519toCurve25519(pub []byte) ([]byte, error) {
 	if len(pub) == 0 {
 		return nil, errors.New("key is nil")
@@ -234,7 +235,8 @@ func PublicEd25519toCurve25519(pub []byte) ([]byte, error) {
 }
 
 // SecretEd25519toCurve25519 converts a secret key from Ed25519 to curve25519 format
-//  This function wraps PrivateKeyToCurve25519 from Adam Langley's ed25519 repo: https://github.com/agl/ed25519
+// This function wraps PrivateKeyToCurve25519 from Adam Langley's ed25519 repo: https://github.com/agl/ed25519 now
+// moved to https://github.com/teserakt-io/golang-ed25519
 func SecretEd25519toCurve25519(priv []byte) ([]byte, error) {
 	if len(priv) == 0 {
 		return nil, errors.New("key is nil")
