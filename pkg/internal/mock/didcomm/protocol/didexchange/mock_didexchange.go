@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -35,6 +36,7 @@ type MockDIDExchangeSvc struct {
 	UnregisterMsgEventErr    error
 	AcceptError              error
 	ImplicitInvitationErr    error
+	RespondToFunc            func(*didexchange.OOBInvitation) (string, error)
 }
 
 // HandleInbound msg
@@ -134,6 +136,15 @@ func (m *MockDIDExchangeSvc) CreateImplicitInvitation(inviterLabel, inviterDID, 
 	}
 
 	return "connection-id", nil
+}
+
+// RespondTo this invitation.
+func (m *MockDIDExchangeSvc) RespondTo(i *didexchange.OOBInvitation) (string, error) {
+	if m.RespondToFunc != nil {
+		return m.RespondToFunc(i)
+	}
+
+	return "", nil
 }
 
 // MockProvider is provider for DIDExchange Service

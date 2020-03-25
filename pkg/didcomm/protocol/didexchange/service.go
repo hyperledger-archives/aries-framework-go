@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -40,6 +41,8 @@ const (
 	ResponseMsgType = DIDExchangeSpec + "response"
 	// AckMsgType defines the did-exchange ack message type.
 	AckMsgType = DIDExchangeSpec + "ack"
+
+	oobMsgType = "oob-invitation"
 )
 
 // message type to store data for eventing. This is retrieved during callback.
@@ -413,6 +416,90 @@ func (s *Service) AcceptInvitation(connectionID, publicDID, label string) error 
 // AcceptExchangeRequest accepts/approves connection request.
 func (s *Service) AcceptExchangeRequest(connectionID, publicDID, label string) error {
 	return s.accept(connectionID, publicDID, label, stateNameRequested, "accept exchange request")
+}
+
+// RespondTo this inbound invitation and return with the new connection record's ID.
+func (s *Service) RespondTo(i *OOBInvitation) (string, error) {
+	i.Type = oobMsgType
+
+	record, err := s.createConnectionRecord(i)
+	if err != nil {
+		return "", fmt.Errorf("failed to create connection record for oobinvitation : %w", err)
+	}
+
+	msg := &message{
+		Msg:           service.NewDIDCommMsgMap(i),
+		ThreadID:      i.ThreadID,
+		Options:       &options{},
+		NextStateName: stateNameInvited,
+		ConnRecord:    record,
+	}
+
+	err = s.storeEventTransientData(msg)
+	if err != nil {
+		return "", fmt.Errorf("failed to store transient event data : %w", err)
+	}
+
+	err = s.AcceptInvitation(record.ConnectionID, record.InvitationDID, record.TheirLabel)
+	if err != nil {
+		return "", fmt.Errorf("failed to accept oobinvitation : %w", err)
+	}
+
+	return record.ConnectionID, nil
+}
+
+func (s *Service) createConnectionRecord(i *OOBInvitation) (*connection.Record, error) {
+	if i.ThreadID == "" {
+		return nil, errors.New("missing thread ID in invitation")
+	}
+
+	if i.Target == nil {
+		return nil, errors.New("missing target in invitation")
+	}
+
+	record := &connection.Record{
+		ConnectionID: generateRandomID(),
+		ThreadID:     i.ThreadID,
+		State:        stateNameInvited, // TODO
+		InvitationID: i.ID,
+		TheirLabel:   i.Label,
+		Namespace:    myNSPrefix, // TODO
+	}
+
+	var svc *did.Service
+
+	switch target := i.Target.(type) {
+	case string:
+		doc, err := s.ctx.vdriRegistry.Resolve(target)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve did=%s : %w", target, err)
+		}
+
+		var ok bool
+
+		svc, ok = did.LookupService(doc, didCommServiceType)
+		if !ok {
+			return nil, fmt.Errorf("no service type=%s found for did doc=%+v", didCommServiceType, doc)
+		}
+
+		record.InvitationDID = doc.ID
+		record.Implicit = true
+	case *did.Service:
+		svc = target
+	default:
+		return nil, fmt.Errorf("unsupported target type: %+v", target)
+	}
+
+	record.RecipientKeys = svc.RecipientKeys
+	record.RoutingKeys = svc.RoutingKeys
+	record.ServiceEndPoint = svc.ServiceEndpoint
+
+	err := s.connectionStore.saveConnectionRecord(record)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save connection record : %w", err)
+	}
+
+	return record, nil
 }
 
 func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string) error {

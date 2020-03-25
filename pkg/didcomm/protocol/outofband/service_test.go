@@ -169,7 +169,7 @@ func TestHandleRequestCallback(t *testing.T) {
 		provider := testProvider()
 		provider.ServiceMap = map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-				HandleFunc: func(msg service.DIDCommMsg) (string, error) {
+				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
 					invoked <- struct{}{}
 					return "", nil
 				},
@@ -184,12 +184,12 @@ func TestHandleRequestCallback(t *testing.T) {
 			t.Error("timeout")
 		}
 	})
-	t.Run("passes a didexchange.Invitation to the didexchange service", func(t *testing.T) {
+	t.Run("passes a didexchange.OOBInvitation to the didexchange service", func(t *testing.T) {
 		provider := testProvider()
 		provider.ServiceMap = map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-				HandleFunc: func(msg service.DIDCommMsg) (string, error) {
-					require.Equal(t, didexchange.InvitationMsgType, msg.Type())
+				RespondToFunc: func(i *didexchange.OOBInvitation) (string, error) {
+					require.NotNil(t, i)
 					return "", nil
 				},
 			},
@@ -197,22 +197,6 @@ func TestHandleRequestCallback(t *testing.T) {
 		s := newAutoService(t, provider)
 		err := s.handleRequestCallback(newReqCallback())
 		require.NoError(t, err)
-	})
-	t.Run("rejects requests without a public DID", func(t *testing.T) {
-		req := newRequest()
-		req.Service = []interface{}{&did.Service{
-			ID:              uuid.New().String(),
-			Type:            "did-communication",
-			Priority:        0,
-			RecipientKeys:   []string{"did:key:example"},
-			RoutingKeys:     []string{"did:key:example"},
-			ServiceEndpoint: "https://router-r-us.com",
-		}}
-		s := newAutoService(t, testProvider())
-		err := s.handleRequestCallback(&callback{
-			msg: service.NewDIDCommMsgMap(req),
-		})
-		require.Error(t, err)
 	})
 	t.Run("wraps error thrown when decoding the message", func(t *testing.T) {
 		expected := errors.New("test")
@@ -226,7 +210,7 @@ func TestHandleRequestCallback(t *testing.T) {
 		provider := testProvider()
 		provider.ServiceMap = map[string]interface{}{
 			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-				HandleFunc: func(msg service.DIDCommMsg) (string, error) {
+				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
 					return "", expected
 				},
 			},
@@ -550,25 +534,34 @@ func TestDecodeInvitationAndRequest(t *testing.T) {
 		require.Equal(t, expected, req)
 		require.NotNil(t, inv)
 		require.NotEmpty(t, inv.ID)
-		require.Equal(t, didexchange.InvitationMsgType, inv.Type)
+		require.Equal(t, req.ID, inv.ID)
+		require.Equal(t, req.ID, inv.ThreadID)
 		require.Equal(t, req.Label, inv.Label)
-		require.Equal(t, id, inv.DID)
-		require.Empty(t, inv.RecipientKeys)
-		require.Empty(t, inv.RoutingKeys)
-		require.Empty(t, inv.ServiceEndpoint)
-		require.Empty(t, inv.ImageURL)
+		require.NotNil(t, inv.Target)
+		require.Equal(t, id, inv.Target)
 	})
-	t.Run("rejects requests without a public DID", func(t *testing.T) {
-		expected := newRequest()
-		expected.Service = []interface{}{&did.Service{
+	t.Run("returns invitation with a service block and request", func(t *testing.T) {
+		expected := &did.Service{
 			ID:              uuid.New().String(),
 			Type:            "did-communication",
 			Priority:        0,
-			RecipientKeys:   []string{"did:key:example"},
-			RoutingKeys:     []string{"did:key:example"},
-			ServiceEndpoint: "https://router-r-us.com",
-		}}
-		_, _, err := decodeInvitationAndRequest(service.NewDIDCommMsgMap(expected))
+			RecipientKeys:   []string{"did:example:123#key-1"},
+			ServiceEndpoint: "http://my.test.endpoint.com",
+		}
+		req := newRequest()
+		req.Service = []interface{}{expected}
+		inv, req, err := decodeInvitationAndRequest(service.NewDIDCommMsgMap(req))
+		require.NoError(t, err)
+		require.NotNil(t, inv)
+		require.Equal(t, expected, inv.Target)
+		require.Equal(t, req.ID, inv.ID)
+		require.Equal(t, req.ID, inv.ThreadID)
+		require.Equal(t, req.Label, inv.Label)
+	})
+	t.Run("fails if request has no service targets", func(t *testing.T) {
+		req := newRequest()
+		req.Service = nil
+		_, _, err := decodeInvitationAndRequest(service.NewDIDCommMsgMap(req))
 		require.Error(t, err)
 	})
 	t.Run("wraps error thrown when decoding the message", func(t *testing.T) {

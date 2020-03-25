@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
@@ -250,6 +251,20 @@ func TestInvitedState_Execute(t *testing.T) {
 		require.Equal(t, &requested{}, followup)
 		require.NotNil(t, connRec)
 	})
+	t.Run("followup to 'requested' on inbound oobinvitations", func(t *testing.T) {
+		connRec, followup, action, err := (&invited{}).ExecuteInbound(
+			&stateMachineMsg{
+				DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{Type: oobMsgType}),
+				connRecord: &connection.Record{},
+			},
+			"",
+			&context{},
+		)
+		require.NoError(t, err)
+		require.Equal(t, &requested{}, followup)
+		require.NotNil(t, connRec)
+		require.NotNil(t, action)
+	})
 }
 func TestRequestedState_Execute(t *testing.T) {
 	prov := getProvider()
@@ -289,6 +304,23 @@ func TestRequestedState_Execute(t *testing.T) {
 		}, thid, ctx)
 		require.NoError(t, e)
 		require.NotNil(t, connRec.MyDID)
+	})
+	t.Run("handle inbound oob invitations", func(t *testing.T) {
+		ctx := getContext(t, &prov)
+		connRec, followup, action, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+			DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{
+				ID:       uuid.New().String(),
+				Type:     oobMsgType,
+				ThreadID: uuid.New().String(),
+				Label:    "test",
+				Target:   "did:example:123",
+			}),
+			connRecord: &connection.Record{},
+		}, "", ctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, connRec.MyDID)
+		require.Equal(t, &noOp{}, followup)
+		require.NotNil(t, action)
 	})
 	t.Run("inbound request unmarshalling error", func(t *testing.T) {
 		_, followup, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{

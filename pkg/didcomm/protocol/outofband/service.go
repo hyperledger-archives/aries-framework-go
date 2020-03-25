@@ -11,10 +11,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/uuid"
-
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -38,12 +37,16 @@ var logger = log.New(fmt.Sprintf("aries-framework/%s/service", Name))
 
 var errIgnoredDidEvent = errors.New("ignored")
 
+type didExchSvc interface {
+	RespondTo(*didexchange.OOBInvitation) (string, error)
+}
+
 // Service implements the Out-Of-Band protocol.
 type Service struct {
 	service.Action
 	service.Message
 	callbackChannel            chan *callback
-	didSvc                     service.InboundHandler
+	didSvc                     didExchSvc
 	didEvents                  chan service.StateMsg
 	store                      storage.Store
 	connections                *connection.Lookup
@@ -81,9 +84,9 @@ func New(p Provider) (*Service, error) {
 		return nil, fmt.Errorf("failed to initialize outofband service : %w", err)
 	}
 
-	didSvc, ok := svc.(service.InboundHandler)
+	didSvc, ok := svc.(didExchSvc)
 	if !ok {
-		return nil, errors.New("failed to cast the didexchange service to service.InboundHandler")
+		return nil, errors.New("failed to cast the didexchange service to satisfy our dependency")
 	}
 
 	store, err := p.TransientStorageProvider().OpenStore(Name)
@@ -218,7 +221,7 @@ func (s *Service) handleRequestCallback(c *callback) error {
 		return fmt.Errorf("failed to decode didexchange invitation and out-of-band request : %w", err)
 	}
 
-	connID, err := s.didSvc.HandleInbound(service.NewDIDCommMsgMap(invitation), c.myDID, c.theirDID)
+	connID, err := s.didSvc.RespondTo(invitation)
 	if err != nil {
 		return fmt.Errorf("didexchange service failed to handle inbound request : %w", err)
 	}
@@ -339,7 +342,7 @@ func extractDIDCommMsgBytes(_ *decorator.Attachment) ([]byte, error) {
 	return nil, nil
 }
 
-func decodeInvitationAndRequest(msg service.DIDCommMsg) (*didexchange.Invitation, *Request, error) {
+func decodeInvitationAndRequest(msg service.DIDCommMsg) (*didexchange.OOBInvitation, *Request, error) {
 	req := &Request{}
 
 	err := msg.Decode(req)
@@ -347,24 +350,30 @@ func decodeInvitationAndRequest(msg service.DIDCommMsg) (*didexchange.Invitation
 		return nil, nil, fmt.Errorf("failed to decode out-of-band request message : %w", err)
 	}
 
-	invitation := &didexchange.Invitation{
-		ID:    uuid.New().String(),
-		Label: req.Label,
-		Type:  didexchange.InvitationMsgType,
+	invitation := &didexchange.OOBInvitation{
+		ID:       req.ID,
+		ThreadID: req.ID,
+		Label:    req.Label,
 	}
 
-	for _, svc := range req.Service {
-		did, ok := svc.(string)
-		if ok {
-			invitation.DID = did
-			break
-		}
+	target, err := chooseTarget(req.Service)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to choose a target to perform did-exchange against : %w", err)
 	}
 
-	if invitation.DID == "" {
-		return nil, nil, errors.New("ouf-of-band protocol only supports invitations with public DIDs for now")
-	}
+	invitation.Target = target
 
 	// TODO support explicit invitations : https://github.com/hyperledger/aries-framework-go/issues/1502
 	return invitation, req, nil
+}
+
+func chooseTarget(svcs []interface{}) (interface{}, error) {
+	for i := range svcs {
+		switch svc := svcs[i].(type) {
+		case string, *did.Service:
+			return svc, nil
+		}
+	}
+
+	return nil, fmt.Errorf("invalid or no targets to choose from")
 }

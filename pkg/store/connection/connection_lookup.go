@@ -51,6 +51,7 @@ type Record struct {
 	MyDID           string
 	ServiceEndPoint string
 	RecipientKeys   []string
+	RoutingKeys     []string
 	InvitationID    string
 	InvitationDID   string
 	Implicit        bool
