@@ -61,6 +61,7 @@ type metaData struct {
 	inbound             bool
 	presentation        *Presentation
 	proposePresentation *ProposePresentation
+	request             *RequestPresentation
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -83,6 +84,14 @@ func WithPresentation(msg *Presentation) Opt {
 func WithProposePresentation(msg *ProposePresentation) Opt {
 	return func(md *metaData) {
 		md.proposePresentation = msg
+	}
+}
+
+// WithRequestPresentation allows providing RequestPresentation message
+// USAGE: This message can be provided after receiving a propose message
+func WithRequestPresentation(msg *RequestPresentation) Opt {
+	return func(md *metaData) {
+		md.request = msg
 	}
 }
 

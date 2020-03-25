@@ -262,10 +262,29 @@ func TestRequestSent_CanTransitionTo(t *testing.T) {
 }
 
 func TestRequestSent_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&requestSent{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	t.Run("Success", func(t *testing.T) {
+		followup, action, err := (&requestSent{}).ExecuteInbound(&metaData{
+			request: &RequestPresentation{},
+		})
+		require.NoError(t, err)
+		require.Equal(t, &noOp{}, followup)
+		require.NotNil(t, action)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+
+		require.NoError(t, action(messenger))
+	})
+
+	t.Run("Request presentation is absent", func(t *testing.T) {
+		followup, action, err := (&requestSent{}).ExecuteInbound(&metaData{})
+		require.EqualError(t, err, "request was not provided")
+		require.Nil(t, followup)
+		require.Nil(t, action)
+	})
 }
 
 func TestRequestSent_ExecuteOutbound(t *testing.T) {
@@ -352,9 +371,17 @@ func TestPresentationReceived_CanTransitionTo(t *testing.T) {
 
 func TestPresentationReceived_ExecuteInbound(t *testing.T) {
 	followup, action, err := (&presentationReceived{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &done{}, followup)
+	require.NotNil(t, action)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
+
+	require.NoError(t, action(messenger))
 }
 
 func TestPresentationReceived_ExecuteOutbound(t *testing.T) {
@@ -410,9 +437,17 @@ func TestProposePresentationSent_ExecuteInbound(t *testing.T) {
 
 func TestProposePresentationSent_ExecuteOutbound(t *testing.T) {
 	followup, action, err := (&proposalSent{}).ExecuteOutbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &noOp{}, followup)
+	require.NotNil(t, action)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any())
+
+	require.NoError(t, action(messenger))
 }
 
 func TestProposePresentationReceived_CanTransitionTo(t *testing.T) {
@@ -435,9 +470,9 @@ func TestProposePresentationReceived_CanTransitionTo(t *testing.T) {
 
 func TestProposePresentationReceived_ExecuteInbound(t *testing.T) {
 	followup, action, err := (&proposalReceived{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
+	require.NoError(t, err)
+	require.Equal(t, &requestSent{}, followup)
+	require.NoError(t, action(nil))
 }
 
 func TestProposePresentationReceived_ExecuteOutbound(t *testing.T) {
