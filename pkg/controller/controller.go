@@ -11,12 +11,14 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	didexchangecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
 	vdricmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	didexchangerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
+	kmsrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/route"
 	vdrirest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
@@ -114,6 +116,9 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		return nil, fmt.Errorf("create verifiable rest command : %w", err)
 	}
 
+	// kms command operation
+	kmscmd := kmsrest.New(ctx)
+
 	// creat handlers from all operations
 	var allHandlers []rest.Handler
 	allHandlers = append(allHandlers, exchangeOp.GetRESTHandlers()...)
@@ -121,6 +126,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, messagingOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, routeOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, verifiablecmd.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, kmscmd.GetRESTHandlers()...)
 
 	nhp, ok := notifier.(handlerProvider)
 	if ok {
@@ -175,12 +181,16 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 		return nil, fmt.Errorf("create verifiable command : %w", err)
 	}
 
+	// kms command operation
+	kmscmd := kms.New(ctx)
+
 	var allHandlers []command.Handler
 	allHandlers = append(allHandlers, didexcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, vcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, msgcmd.GetHandlers()...)
 	allHandlers = append(allHandlers, routecmd.GetHandlers()...)
 	allHandlers = append(allHandlers, verifiablecmd.GetHandlers()...)
+	allHandlers = append(allHandlers, kmscmd.GetHandlers()...)
 
 	return allHandlers, nil
 }
