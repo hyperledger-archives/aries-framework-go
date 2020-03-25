@@ -9,25 +9,27 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func Test_parseEmbeddedProof(t *testing.T) {
 	t.Run("parse linked data proof with \"Ed25519Signature2018\" proof type", func(t *testing.T) {
-		proofType, err := parseEmbeddedProof(map[string]interface{}{
+		err := mustBeLinkedDataProof(map[string]interface{}{
 			"type": "Ed25519Signature2018",
 		})
 		require.NoError(t, err)
-		require.Equal(t, linkedDataProof, proofType)
 	})
 
 	t.Run("parse embedded proof without \"type\" element", func(t *testing.T) {
-		_, err := parseEmbeddedProof(map[string]interface{}{})
+		err := mustBeLinkedDataProof(map[string]interface{}{})
 		require.Error(t, err)
 		require.EqualError(t, err, "proof type is missing")
 	})
 
 	t.Run("parse embedded proof with unsupported type", func(t *testing.T) {
-		_, err := parseEmbeddedProof(map[string]interface{}{
+		err := mustBeLinkedDataProof(map[string]interface{}{
 			"type": "SomethingUnsupported",
 		})
 		require.Error(t, err)
@@ -39,6 +41,20 @@ func Test_checkEmbeddedProof(t *testing.T) {
 	r := require.New(t)
 	nonJSONBytes := []byte("not JSON")
 	defaultVCOpts := &credentialOpts{}
+
+	t.Run("Happy path", func(t *testing.T) {
+		vc, publicKeyFetcher := createVCWithLinkedDataProof()
+		vcBytes := vc.byteJSON(t)
+
+		vSuite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+		proof, err := checkEmbeddedProof(vcBytes, &credentialOpts{
+			publicKeyFetcher: publicKeyFetcher,
+			ldpSuite:         vSuite,
+		})
+
+		require.NoError(t, err)
+		require.NotEmpty(t, proof)
+	})
 
 	t.Run("Does not check the embedded proof if credentialOpts.disabledProofCheck", func(t *testing.T) {
 		docBytes, err := checkEmbeddedProof(nonJSONBytes, &credentialOpts{disabledProofCheck: true})
@@ -96,9 +112,26 @@ func Test_checkEmbeddedProof(t *testing.T) {
     "proofValue": "invalid value"
   }
 }`
-		docBytes, err := checkEmbeddedProof([]byte(docWithNotSupportedProof), defaultVCOpts)
+		docBytes, err := checkEmbeddedProof([]byte(docWithNotSupportedProof),
+			&credentialOpts{publicKeyFetcher: SingleKey([]byte("pub key bytes"), kms.ED25519)})
 		r.Error(err)
 		r.Contains(err.Error(), "check embedded proof")
+		r.Nil(docBytes)
+	})
+
+	t.Run("no public key fetcher defined", func(t *testing.T) {
+		docWithNotSupportedProof := `{
+  "@context": "https://www.w3.org/2018/credentials/v1",
+  "proof": {
+	"type": "Ed25519Signature2018",
+    "created": "2020-01-21T12:59:31+02:00",
+    "creator": "John",
+    "proofValue": "invalid value"
+  }
+}`
+		docBytes, err := checkEmbeddedProof([]byte(docWithNotSupportedProof), defaultVCOpts)
+		r.Error(err)
+		r.EqualError(err, "public key fetcher is not defined")
 		r.Nil(docBytes)
 	})
 }

@@ -18,6 +18,10 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	"github.com/stretchr/testify/require"
 )
@@ -205,4 +209,31 @@ func (s rs256TestSigner) Sign(data []byte) ([]byte, error) {
 
 func publicKeyPemToBytes(publicKey *rsa.PublicKey) []byte {
 	return x509.MarshalPKCS1PublicKey(publicKey)
+}
+
+func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
+	vc, err := NewUnverifiedCredential([]byte(validCredential))
+	if err != nil {
+		panic(err)
+	}
+
+	created := time.Now()
+
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
+		SignatureRepresentation: SignatureJWS,
+		Created:                 &created,
+		VerificationMethod:      "did:123#any",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return vc, SingleKey(pubKey, kmsapi.ED25519)
 }
