@@ -77,7 +77,7 @@ function validateRouterConnection(agent, connectionID, done) {
 }
 
 // scenarios
-describe("DID-Exchange between an Edge Agent and a router", function () {
+describe.skip("DID-Exchange between an Edge Agent and a router", function () {
     let aries
     let invitation
 
@@ -130,7 +130,7 @@ describe("DID-Exchange between an Edge Agent and a router", function () {
     })
 })
 
-describe("DID-Exchange between two Edge Agents using the router", function () {
+describe.skip("DID-Exchange between two Edge Agents using the router", function () {
     let aliceAgent, bobAgent
     let invitation, connectionID
 
