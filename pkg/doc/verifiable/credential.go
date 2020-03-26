@@ -409,7 +409,7 @@ type Credential struct {
 	Proofs         []Proof
 	Status         *TypedID
 	Schemas        []TypedID
-	Evidence       *Evidence
+	Evidence       Evidence
 	TermsOfUse     []TypedID
 	RefreshService []TypedID
 
@@ -428,7 +428,7 @@ type rawCredential struct {
 	Status         *TypedID        `json:"credentialStatus,omitempty"`
 	Issuer         interface{}     `json:"issuer,omitempty"`
 	Schema         interface{}     `json:"credentialSchema,omitempty"`
-	Evidence       *Evidence       `json:"evidence,omitempty"`
+	Evidence       Evidence        `json:"evidence,omitempty"`
 	TermsOfUse     json.RawMessage `json:"termsOfUse,omitempty"`
 	RefreshService json.RawMessage `json:"refreshService,omitempty"`
 
