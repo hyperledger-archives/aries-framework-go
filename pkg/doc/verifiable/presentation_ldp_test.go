@@ -13,7 +13,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -23,12 +24,12 @@ func TestNewPresentationFromLinkedDataProof(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	suite := ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey)))
+	ss := ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey)))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		SignatureRepresentation: SignatureJWS,
-		Suite:                   suite,
+		Suite:                   ss,
 	}
 
 	vc, err := NewPresentation([]byte(validPresentation))
@@ -41,7 +42,7 @@ func TestNewPresentationFromLinkedDataProof(t *testing.T) {
 	r.NoError(err)
 
 	vcWithLdp, err := NewPresentation(vcBytes,
-		WithPresEmbeddedSignatureSuites(suite),
+		WithPresEmbeddedSignatureSuites(ss),
 		WithPresPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	r.NoError(err)
 
@@ -58,7 +59,7 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		SignatureRepresentation: SignatureProofValue,
-		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
+		Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
 	}
 
 	t.Run("Add a valid Linked Data proof to VC", func(t *testing.T) {
@@ -101,7 +102,7 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 
 		vp.RefreshService = nil
 		ldpContextWithMissingSignatureType := &LinkedDataProofContext{
-			Suite: ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
+			Suite: ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
 		}
 
 		err = vp.AddLinkedDataProof(ldpContextWithMissingSignatureType)

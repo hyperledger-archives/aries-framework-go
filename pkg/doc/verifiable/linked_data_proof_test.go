@@ -14,7 +14,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -87,8 +88,8 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 	require.NoError(t, err)
 
 	signerSuite := ed25519signature2018.New(
-		ed25519signature2018.WithSigner(getEd25519TestSigner(privKey)),
-		ed25519signature2018.WithCompactProof())
+		suite.WithSigner(getEd25519TestSigner(privKey)),
+		suite.WithCompactProof())
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		Suite:                   signerSuite,
@@ -104,8 +105,8 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 	require.NoError(t, err)
 
 	verifierSuite := ed25519signature2018.New(
-		ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}),
-		ed25519signature2018.WithCompactProof())
+		suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}),
+		suite.WithCompactProof())
 	vcDecoded, _, err := NewCredential(vcWithProofBytes,
 		WithEmbeddedSignatureSuites(verifierSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))

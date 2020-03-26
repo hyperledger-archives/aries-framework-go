@@ -9,28 +9,40 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
+	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
-func TestNewCredentialFromLinkedDataProof(t *testing.T) {
+func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 	r := require.New(t)
 
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	suite := ed25519signature2018.New(
-		ed25519signature2018.WithSigner(getEd25519TestSigner(privKey)),
-		ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+	sigSuite := ed25519signature2018.New(
+		suite.WithSigner(getEd25519TestSigner(privKey)),
+		suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		SignatureRepresentation: SignatureProofValue,
-		Suite:                   suite,
+		Suite:                   sigSuite,
 		VerificationMethod:      "did:example:123456#key1",
 	}
 
@@ -44,10 +56,71 @@ func TestNewCredentialFromLinkedDataProof(t *testing.T) {
 	r.NoError(err)
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
-		WithEmbeddedSignatureSuites(suite),
+		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
+}
+
+func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {
+	r := require.New(t)
+
+	//nolint:lll
+	vcFromTransmute := `
+ {
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1"
+      ],
+      "id": "http://example.gov/credentials/3732",
+      "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+      ],
+      "issuer": "did:web:vc.transmute.world",
+      "issuanceDate": "2020-03-10T04:24:12.164Z",
+      "credentialSubject": {
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "degree": {
+          "type": "BachelorDegree",
+          "name": "Bachelor of Science and Arts"
+        }
+      },
+      "proof": {
+        "type": "JsonWebSignature2020",
+        "created": "2020-03-23T10:06:49Z",
+        "verificationMethod": "did:example:123#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+        "proofPurpose": "assertionMethod",
+        "jws": "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJFZERTQSJ9..oWfz-jYc_pb5sLmh_2tpDJoLm9uCvUfbuN2yA40MgZcfuFqyhTi0fQj785c0GXPwT4yaZAEQY8rQJacM2MSzBg"
+      }
+    }
+`
+	key := `
+{
+      "crv": "Ed25519",
+      "x": "VCpo2LMLhn6iWku8MKvSLg2ZAoC-nlOyPVQaO3FxVeQ",
+      "d": "tP7VWE16yMQWUO2G250yvoevfbfxY25GjHglTP3ZOyU",
+      "kty": "OKP",
+      "kid": "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A"
+    }
+`
+
+	var jsonWebKey jose.JSONWebKey
+	err := json.Unmarshal([]byte(key), &jsonWebKey)
+	r.NoError(err)
+
+	pubKeyBytes, ok := jsonWebKey.Public().Key.(ed25519.PublicKey)
+	r.True(ok)
+
+	sigSuite := jsonwebsignature2020.New(
+		suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())),
+		suite.WithCompactProof())
+
+	vcWithLdp, _, err := NewCredential([]byte(vcFromTransmute),
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(SingleKey(pubKeyBytes, kms.ED25519)))
+	r.NoError(err)
+	r.NotNil(t, vcWithLdp)
 }
 
 func TestCredential_AddLinkedDataProof(t *testing.T) {
@@ -66,7 +139,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 			SignatureType:           "Ed25519Signature2018",
 			SignatureRepresentation: SignatureJWS,
-			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
+			Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
 		})
 		r.NoError(err)
 
@@ -97,17 +170,79 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 			SignatureType:           "Ed25519Signature2018",
 			SignatureRepresentation: SignatureProofValue,
-			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
+			Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
 		})
 		r.Error(err)
 
 		vc.CustomFields = nil
 		ldpContextWithMissingSignatureType := &LinkedDataProofContext{
-			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
+			Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
 			SignatureRepresentation: SignatureProofValue,
 		}
 
 		err = vc.AddLinkedDataProof(ldpContextWithMissingSignatureType)
 		r.Error(err)
 	})
+}
+
+func createLocalCrypto() crypto.Crypto {
+	lKMS := createKMS()
+
+	tinkCrypto, err := tinkcrypto.New()
+	if err != nil {
+		panic("failed to create tinkcrypto")
+	}
+
+	return &LocalCrypto{
+		Crypto:   tinkCrypto,
+		localKMS: lKMS,
+	}
+}
+
+// LocalCrypto defines a verifier which is based on Local KMS and Crypto
+// which uses keyset.Handle as input for verification.
+type LocalCrypto struct {
+	*tinkcrypto.Crypto
+	localKMS *localkms.LocalKMS
+}
+
+func (t *LocalCrypto) Verify(sig, msg []byte, kh interface{}) error {
+	pubKey, ok := kh.(*sigverifier.PublicKey)
+	if !ok {
+		return errors.New("bad key handle format")
+	}
+
+	kmsKeyType, err := mapKeyTypeToKMS(pubKey.Type)
+	if err != nil {
+		return err
+	}
+
+	handle, err := t.localKMS.PubKeyBytesToHandle(pubKey.Value, kmsKeyType)
+	if err != nil {
+		return err
+	}
+
+	return t.Crypto.Verify(sig, msg, handle)
+}
+
+func mapKeyTypeToKMS(t string) (kms.KeyType, error) {
+	switch t {
+	case kms.ECDSAP256:
+		return kms.ECDSAP256Type, nil
+	case kms.ED25519:
+		return kms.ED25519Type, nil
+	default:
+		return "", fmt.Errorf("unsupported key type: %s", t)
+	}
+}
+
+func createKMS() *localkms.LocalKMS {
+	p := mockkms.NewProvider(storage.NewMockStoreProvider(), &noop.NoLock{})
+
+	k, err := localkms.New("local-lock://custom/master/key/", p)
+	if err != nil {
+		panic(err)
+	}
+
+	return k
 }

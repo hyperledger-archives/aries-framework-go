@@ -16,7 +16,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	chacha "golang.org/x/crypto/chacha20poly1305"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -169,7 +170,7 @@ func (w *BaseKMS) SignMessage(message []byte, fromVerKey string) ([]byte, error)
 
 	signer := &ed25519Signer{kpc: kpc}
 
-	return ed25519signature2018.New(ed25519signature2018.WithSigner(signer)).Sign(message)
+	return ed25519signature2018.New(suite.WithSigner(signer)).Sign(message)
 }
 
 // Close the LegacyKMS

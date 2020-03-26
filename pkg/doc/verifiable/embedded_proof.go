@@ -18,7 +18,7 @@ func mustBeLinkedDataProof(proofMap map[string]interface{}) error {
 	}
 
 	proofTypeStr := safeStringValue(proofType)
-	if proofTypeStr != "Ed25519Signature2018" {
+	if proofTypeStr != "Ed25519Signature2018" && proofTypeStr != "JsonWebSignature2020" {
 		return fmt.Errorf("unsupported proof type: %s", proofType)
 	}
 

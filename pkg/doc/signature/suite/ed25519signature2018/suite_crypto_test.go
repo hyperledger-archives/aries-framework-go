@@ -1,6 +1,5 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
-
 SPDX-License-Identifier: Apache-2.0
 */
 
@@ -14,6 +13,7 @@ import (
 	"github.com/google/tink/go/keyset"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -34,13 +34,13 @@ func TestNewCryptoSignerAndVerifier(t *testing.T) {
 
 	doc := []byte("test doc")
 
-	suiteSigner := NewCryptoSigner(tinkCrypto, kh)
-	suiteVerifier := NewCryptoVerifier(&Crypto{
+	suiteSigner := suite.NewCryptoSigner(tinkCrypto, kh)
+	suiteVerifier := suite.NewCryptoVerifier(&Crypto{
 		Crypto:   tinkCrypto,
 		localKMS: lKMS,
 	})
 
-	ss := New(WithSigner(suiteSigner), WithVerifier(suiteVerifier))
+	ss := New(suite.WithSigner(suiteSigner), suite.WithVerifier(suiteVerifier))
 
 	docSig, err := ss.Sign(doc)
 	if err != nil {
