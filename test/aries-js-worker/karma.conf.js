@@ -43,6 +43,11 @@ module.exports = function(config) {
                 base: "ChromeHeadless",
                 flags: ["--disable-web-security"]
             }
+        },
+        client: {
+            mocha: {
+                timeout : 15000
+            }
         }
     })
 }
