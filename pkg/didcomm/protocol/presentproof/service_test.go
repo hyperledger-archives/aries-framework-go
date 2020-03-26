@@ -19,9 +19,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	presentproofMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/presentproof"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+)
+
+const (
+	Alice = "Alice"
+	Bob   = "Bob"
 )
 
 func TestNew(t *testing.T) {
@@ -67,8 +73,10 @@ func TestService_HandleInbound(t *testing.T) {
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
 
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+
 	provider := presentproofMocks.NewMockProvider(ctrl)
-	provider.EXPECT().Messenger().Return(nil).AnyTimes()
+	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
 	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 
 	t.Run("No clients", func(t *testing.T) {
@@ -112,37 +120,6 @@ func TestService_HandleInbound(t *testing.T) {
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: nextState: unrecognized msgType: ")
 	})
 
-	t.Run("Success", func(t *testing.T) {
-		svc, err := New(provider)
-		require.NoError(t, err)
-
-		ch := make(chan service.DIDCommAction, 1)
-		require.NoError(t, svc.RegisterActionEvent(ch))
-
-		chState := make(chan service.StateMsg, 2)
-		require.NoError(t, svc.RegisterMsgEvent(chState))
-
-		_, err = svc.HandleInbound(service.NewDIDCommMsgMap(ProposePresentation{
-			Type: ProposePresentationMsgType,
-		}), "", "")
-		require.NoError(t, err)
-		require.Len(t, ch, 1)
-
-		(<-ch).Stop(nil)
-
-		for {
-			select {
-			case msg := <-chState:
-				require.Equal(t, "abandoning", msg.StateID)
-				return
-			case <-time.After(time.Millisecond * 100):
-				t.Error("timeout")
-
-				return
-			}
-		}
-	})
-
 	t.Run("Invalid state transition", func(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -158,6 +135,149 @@ func TestService_HandleInbound(t *testing.T) {
 		}), "", "")
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: invalid state transition")
 	})
+
+	t.Run("Receive Request Presentation (Stop)", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		messenger.EXPECT().
+			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
+				r := &model.ProblemReport{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, codeRejectedError, r.Description.Code)
+				require.Equal(t, ProblemReportMsgType, r.Type)
+
+				return nil
+			})
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "done", string(name))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		msg := service.NewDIDCommMsgMap(RequestPresentation{
+			Type: RequestPresentationMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		(<-ch).Stop(nil)
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Request Presentation (continue with presentation)", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
+				r := &Presentation{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, PresentationMsgType, r.Type)
+
+				return nil
+			})
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "presentation-sent", string(name))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		msg := service.NewDIDCommMsgMap(RequestPresentation{
+			Type: RequestPresentationMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		(<-ch).Continue(WithPresentation(&Presentation{}))
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Request Presentation (continue with proposal)", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
+				r := &ProposePresentation{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, ProposePresentationMsgType, r.Type)
+
+				return nil
+			})
+
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "proposal-sent", string(name))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		msg := service.NewDIDCommMsgMap(RequestPresentation{
+			Type: RequestPresentationMsgType,
+		})
+
+		require.NoError(t, msg.SetID(uuid.New().String()))
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		(<-ch).Continue(WithProposePresentation(&ProposePresentation{}))
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
 }
 
 func TestService_HandleOutbound(t *testing.T) {
@@ -171,8 +291,10 @@ func TestService_HandleOutbound(t *testing.T) {
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
 
+	messenger := serviceMocks.NewMockMessenger(ctrl)
+
 	provider := presentproofMocks.NewMockProvider(ctrl)
-	provider.EXPECT().Messenger().Return(nil).AnyTimes()
+	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
 	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 
 	t.Run("DB error", func(t *testing.T) {
@@ -196,6 +318,56 @@ func TestService_HandleOutbound(t *testing.T) {
 			Type: ProposePresentationMsgType,
 		}), "", "")
 		require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
+	})
+
+	t.Run("Send Request Presentation", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "request-sent", string(name))
+
+			return nil
+		})
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		msg := service.NewDIDCommMsgMap(RequestPresentation{
+			Type: RequestPresentationMsgType,
+		})
+
+		messenger.EXPECT().Send(msg, Alice, Bob).
+			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
+				return nil
+			})
+
+		err = svc.HandleOutbound(msg, Alice, Bob)
+		require.NoError(t, err)
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Send Request Presentation with error", func(t *testing.T) {
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		msg := service.NewDIDCommMsgMap(RequestPresentation{
+			Type: RequestPresentationMsgType,
+		})
+
+		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
+
+		err = svc.HandleOutbound(msg, Alice, Bob)
+		require.Contains(t, fmt.Sprintf("%v", err), "action request-sent: "+errMsg)
 	})
 }
 

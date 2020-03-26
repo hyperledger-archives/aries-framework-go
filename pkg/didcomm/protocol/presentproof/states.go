@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 )
 
@@ -31,7 +32,10 @@ const (
 	stateNameProposalSent     = "proposal-sent"
 )
 
-const codeInternalError = "internal"
+const (
+	codeInternalError = "internal"
+	codeRejectedError = "rejected"
+)
 
 // state action for network call
 type stateAction func(messenger service.Messenger) error
@@ -92,8 +96,30 @@ func (s *abandoning) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameDone
 }
 
-func (s *abandoning) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+func (s *abandoning) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	// if code is not provided it means we do not need to notify the another agent
+	if s.Code == "" {
+		return &done{}, zeroAction, nil
+	}
+
+	var code = model.Code{Code: s.Code}
+
+	// if the protocol was stopped by the user we will set the rejected error code
+	if errors.As(md.err, &customError{}) {
+		code = model.Code{Code: codeRejectedError}
+	}
+
+	thID, err := md.Msg.ThreadID()
+	if err != nil {
+		return nil, nil, fmt.Errorf("threadID: %w", err)
+	}
+
+	return &done{}, func(messenger service.Messenger) error {
+		return messenger.ReplyToNested(thID, service.NewDIDCommMsgMap(&model.ProblemReport{
+			Type:        ProblemReportMsgType,
+			Description: code,
+		}), md.MyDID, md.TheirDID)
+	}, nil
 }
 
 func (s *abandoning) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
@@ -151,8 +177,12 @@ func (s *requestReceived) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoning
 }
 
-func (s *requestReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+func (s *requestReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	if md.presentation != nil {
+		return &presentationSent{}, zeroAction, nil
+	}
+
+	return &proposalSent{}, zeroAction, nil
 }
 
 func (s *requestReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
@@ -176,8 +206,13 @@ func (s *requestSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
 	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
 }
 
-func (s *requestSent) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
+func (s *requestSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
+	}
+
+	return &noOp{}, action, nil
 }
 
 // presentationSent the Prover's state
@@ -192,8 +227,19 @@ func (s *presentationSent) CanTransitionTo(st state) bool {
 		st.Name() == stateNameDone
 }
 
-func (s *presentationSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+func (s *presentationSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	if md.presentation == nil {
+		return nil, nil, errors.New("presentation was not provided")
+	}
+
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		// sets message type
+		md.presentation.Type = PresentationMsgType
+		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.presentation))
+	}
+
+	return &noOp{}, action, nil
 }
 
 func (s *presentationSent) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
@@ -232,8 +278,19 @@ func (s *proposalSent) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoning
 }
 
-func (s *proposalSent) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
+func (s *proposalSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
+	if md.proposePresentation == nil {
+		return nil, nil, errors.New("propose-presentation was not provided")
+	}
+
+	// creates the state's action
+	action := func(messenger service.Messenger) error {
+		// sets message type
+		md.proposePresentation.Type = ProposePresentationMsgType
+		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.proposePresentation))
+	}
+
+	return &noOp{}, action, nil
 }
 
 func (s *proposalSent) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
