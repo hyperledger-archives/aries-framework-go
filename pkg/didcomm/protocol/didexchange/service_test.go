@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
@@ -1697,4 +1698,192 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 		require.Contains(t, err.Error(), "store put error")
 		require.Empty(t, connID)
 	})
+}
+
+func TestCreateConnectionRecord(t *testing.T) {
+	t.Run("creates a connection record from a public DID", func(t *testing.T) {
+		publicDoc := createDIDDoc()
+		publicDoc.Service = []did.Service{{
+			ID:              uuid.New().String(),
+			Type:            "did-communication",
+			Priority:        0,
+			RecipientKeys:   []string{"did:example:123456"},
+			ServiceEndpoint: "http://example.com",
+		}}
+		invitation := newInvitation(publicDoc.ID)
+		provider := testProvider()
+		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{ResolveValue: publicDoc}
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		record, err := svc.createConnectionRecord(invitation)
+		require.NoError(t, err)
+		require.Equal(t, invitation.ID, record.InvitationID)
+		require.Equal(t, invitation.ThreadID, record.ThreadID)
+		require.Equal(t, invitation.Label, record.TheirLabel)
+		require.Equal(t, publicDoc.ID, record.InvitationDID)
+		require.Equal(t, publicDoc.Service[0].RecipientKeys, record.RecipientKeys)
+		require.Equal(t, publicDoc.Service[0].ServiceEndpoint, record.ServiceEndPoint)
+	})
+	t.Run("creates a connection record from a did doc service block", func(t *testing.T) {
+		svc := createDIDDoc().Service[0]
+		invitation := newInvitation(&svc)
+		s, err := New(testProvider())
+		require.NoError(t, err)
+		record, err := s.createConnectionRecord(invitation)
+		require.NoError(t, err)
+		require.Equal(t, invitation.ID, record.InvitationID)
+		require.Equal(t, invitation.ThreadID, record.ThreadID)
+		require.Equal(t, invitation.Label, record.TheirLabel)
+		require.Equal(t, svc.ServiceEndpoint, record.ServiceEndPoint)
+		require.Equal(t, svc.RecipientKeys, record.RecipientKeys)
+		require.Empty(t, record.InvitationDID)
+	})
+	t.Run("fails if threadID is missing", func(t *testing.T) {
+		s, err := New(testProvider())
+		require.NoError(t, err)
+		invitation := newInvitation("did:example:public")
+		invitation.ThreadID = ""
+		_, err = s.createConnectionRecord(invitation)
+		require.Error(t, err)
+	})
+	t.Run("fails if target is missing", func(t *testing.T) {
+		s, err := New(testProvider())
+		require.NoError(t, err)
+		invitation := newInvitation("did:example:public")
+		invitation.Target = nil
+		_, err = s.createConnectionRecord(invitation)
+		require.Error(t, err)
+	})
+	t.Run("wraps did resolution error", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := testProvider()
+		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{ResolveErr: expected}
+		s, err := New(provider)
+		require.NoError(t, err)
+		_, err = s.createConnectionRecord(newInvitation("did:example:ignored"))
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+	t.Run("fails if public DID does not have service of type 'did-communication'", func(t *testing.T) {
+		doc := createDIDDoc()
+		doc.Service = []did.Service{{
+			ID:              uuid.New().String(),
+			Type:            "invalid",
+			RecipientKeys:   []string{"test"},
+			ServiceEndpoint: "http://test.com",
+		}}
+		provider := testProvider()
+		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{ResolveValue: doc}
+
+		s, err := New(provider)
+		require.NoError(t, err)
+		_, err = s.createConnectionRecord(newInvitation(doc.ID))
+		require.Error(t, err)
+	})
+}
+
+func TestRespondTo(t *testing.T) {
+	t.Run("responds to an explicit invitation", func(t *testing.T) {
+		s, err := New(testProvider())
+		require.NoError(t, err)
+		connID, err := s.RespondTo(newInvitation(&did.Service{
+			ID:              uuid.New().String(),
+			Type:            "did-communication",
+			RecipientKeys:   []string{"did:key:1234567"},
+			ServiceEndpoint: "http://example.com",
+		}))
+		require.NoError(t, err)
+		require.NotEmpty(t, connID)
+	})
+	t.Run("responds to an implicit invitation", func(t *testing.T) {
+		publicDID := createDIDDoc()
+		provider := testProvider()
+		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{ResolveValue: publicDID}
+		s, err := New(provider)
+		require.NoError(t, err)
+		connID, err := s.RespondTo(newInvitation(publicDID.ID))
+		require.NoError(t, err)
+		require.NotEmpty(t, connID)
+	})
+	t.Run("fails if invitation is missing a threadID", func(t *testing.T) {
+		s, err := New(testProvider())
+		require.NoError(t, err)
+		_, err = s.RespondTo(&OOBInvitation{
+			ID:       uuid.New().String(),
+			ThreadID: "",
+			Label:    "test",
+			Target:   "did:example:123",
+		})
+		require.Error(t, err)
+	})
+	t.Run("fails if invitation is missing a target", func(t *testing.T) {
+		s, err := New(testProvider())
+		require.NoError(t, err)
+		_, err = s.RespondTo(&OOBInvitation{
+			ID:       uuid.New().String(),
+			ThreadID: uuid.New().String(),
+			Label:    "test",
+			Target:   nil,
+		})
+		require.Error(t, err)
+	})
+	t.Run("fails if invitation has an invalid target type", func(t *testing.T) {
+		invalid := &struct{}{}
+		s, err := New(testProvider())
+		require.NoError(t, err)
+		_, err = s.RespondTo(newInvitation(invalid))
+		require.Error(t, err)
+	})
+	t.Run("wraps error from transient store when fetching events", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := testProvider()
+		provider.TransientStoreProvider = &mockstorage.MockStoreProvider{
+			Custom: &mockstorage.MockStore{
+				Store:  make(map[string][]byte),
+				ErrGet: expected,
+			},
+		}
+		s, err := New(provider)
+		require.NoError(t, err)
+		_, err = s.RespondTo(newInvitation(&did.Service{
+			ID:              uuid.New().String(),
+			Type:            "did-communication",
+			RecipientKeys:   []string{"did:key:1234567"},
+			ServiceEndpoint: "http://example.com",
+		}))
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+	t.Run("wraps error from vdri registry when resolving DID", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := testProvider()
+		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{
+			ResolveErr: expected,
+		}
+		s, err := New(provider)
+		require.NoError(t, err)
+		_, err = s.RespondTo(newInvitation("did:example:123"))
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+}
+
+func newInvitation(target interface{}) *OOBInvitation {
+	return &OOBInvitation{
+		ID:       uuid.New().String(),
+		ThreadID: uuid.New().String(),
+		Label:    "test",
+		Target:   target,
+	}
+}
+
+func testProvider() *protocol.MockProvider {
+	return &protocol.MockProvider{
+		StoreProvider: mockstorage.NewMockStoreProvider(),
+		ServiceMap: map[string]interface{}{
+			route.Coordination: &mockroute.MockRouteSvc{},
+		},
+	}
 }

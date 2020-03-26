@@ -147,7 +147,7 @@ func (s *invited) CanTransitionTo(next state) bool {
 
 func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
 	state, stateAction, error) {
-	if msg.Type() != InvitationMsgType {
+	if msg.Type() != InvitationMsgType && msg.Type() != oobMsgType {
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type(), s.Name())
 	}
 
@@ -171,6 +171,13 @@ func (s *requested) CanTransitionTo(next state) bool {
 func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
 	state, stateAction, error) {
 	switch msg.Type() {
+	case oobMsgType:
+		action, record, err := ctx.sendRequest(msg.connRecord)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to handle inbound oob invitation : %w", err)
+		}
+
+		return record, &noOp{}, action, nil
 	case InvitationMsgType:
 		invitation := &Invitation{}
 
@@ -280,6 +287,51 @@ func (s *abandoned) CanTransitionTo(next state) bool {
 func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
 	state, stateAction, error) {
 	return nil, nil, nil, errors.New("not implemented")
+}
+
+func (ctx *context) sendRequest(connRec *connectionstore.Record) (stateAction, *connectionstore.Record, error) {
+	// get the route configs (pass empty service endpoint, as default service endpoint added in VDRI)
+	myEndpoint, myRoutingKeys, err := route.GetRouterConfig(ctx.routeSvc, "")
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch my routing configuration : %w", err)
+	}
+
+	myDID, err := ctx.vdriRegistry.Create(
+		didMethod,
+		vdri.WithServiceEndpoint(myEndpoint),
+		vdri.WithRoutingKeys(myRoutingKeys),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create myDID : %w", err)
+	}
+
+	connRec.MyDID = myDID.ID
+
+	request := &Request{
+		Type: RequestMsgType,
+		ID:   uuid.New().String(),
+		Connection: &Connection{
+			DID:    myDID.ID,
+			DIDDoc: myDID,
+		},
+		Thread: &decorator.Thread{
+			PID: connRec.ThreadID,
+		},
+	}
+	dest := &service.Destination{
+		RecipientKeys:   connRec.RecipientKeys,
+		ServiceEndpoint: connRec.ServiceEndPoint,
+		RoutingKeys:     connRec.RoutingKeys,
+	}
+
+	senderVerKeys, ok := did.LookupRecipientKeys(myDID, didCommServiceType, ed25519KeyType)
+	if !ok {
+		return nil, nil, fmt.Errorf("failed to lookup sender verification keys")
+	}
+
+	return func() error {
+		return ctx.outboundDispatcher.Send(request, senderVerKeys[0], dest)
+	}, connRec, nil
 }
 
 func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string, options *options,
