@@ -6,7 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -119,6 +121,73 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testin
 	vcWithLdp, _, err := NewCredential([]byte(vcFromTransmute),
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKeyBytes, kms.ED25519)))
+	r.NoError(err)
+	r.NotNil(t, vcWithLdp)
+}
+
+func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *testing.T) {
+	r := require.New(t)
+	//nolint:lll
+	vcFromTransmute := `
+{
+  "@context": [
+	"https://www.w3.org/2018/credentials/v1",
+	"https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "id": "http://example.gov/credentials/3732",
+  "type": [
+	"VerifiableCredential",
+	"UniversityDegreeCredential"
+  ],
+  "issuer": "did:web:vc.transmute.world",
+  "issuanceDate": "2020-03-10T04:24:12.164Z",
+  "credentialSubject": {
+	"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	"degree": {
+	  "type": "BachelorDegree",
+	  "name": "Bachelor of Science and Arts"
+	}
+  },
+  "proof": {
+	"type": "JsonWebSignature2020",
+	"created": "2020-03-27T16:12:55Z",
+	"verificationMethod": "did:example:123#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
+	"proofPurpose": "assertionMethod",
+	"jws": "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJFUzI1NiJ9..rxj1M_yPYhn5Eo9IGGdQKVmF8dgzhaxaForvuGc6lllrSZ_VIUPcK57Odq2KPHtUAra4_1LtbCihSbaLogyACA"
+  }
+}
+`
+
+	ecdsaP256Key := `
+{
+  "crv": "P-256",
+  "x": "38M1FDts7Oea7urmseiugGW7tWc3mLpJh6rKe7xINZ8",
+  "y": "nDQW6XZ7b_u2Sy9slofYLlG03sOEoug3I0aAPQ0exs4",
+  "d": "jo3AJc3hrH_Ms39W_4dAl2Qm3gAs9JrNijO6n30sIWc",
+  "kty": "EC",
+  "kid": "_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw"
+}
+`
+
+	var jsonWebKey jose.JSONWebKey
+
+	err := json.Unmarshal([]byte(ecdsaP256Key), &jsonWebKey)
+	r.NoError(err)
+
+	pubKey, ok := jsonWebKey.Public().Key.(*ecdsa.PublicKey)
+	r.True(ok)
+
+	pubKeyBytes := elliptic.Marshal(pubKey, pubKey.X, pubKey.Y)
+
+	sigSuite := jsonwebsignature2020.New(
+		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier (as it's done in Ed25519 test above)
+		//   (https://github.com/hyperledger/aries-framework-go/issues/1534)
+		suite.WithVerifier(&jsonwebsignature2020.PublicKeyVerifierP256{}),
+		suite.WithCompactProof())
+
+	vcWithLdp, _, err := NewCredential([]byte(vcFromTransmute),
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(SingleKey(pubKeyBytes, kms.ECDSAP256)))
 	r.NoError(err)
 	r.NotNil(t, vcWithLdp)
 }
