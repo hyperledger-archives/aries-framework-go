@@ -14,8 +14,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 )
 
 const signatureType = "Ed25519Signature2018"
@@ -24,7 +25,7 @@ func TestDocumentSigner_Sign(t *testing.T) {
 	context := getSignatureContext()
 
 	s := New(ed25519signature2018.New(
-		ed25519signature2018.WithSigner(
+		suite.WithSigner(
 			getSigner(generatePrivateKey()))))
 	signedDoc, err := s.Sign(context, []byte(validDoc))
 	require.NoError(t, err)
@@ -39,7 +40,7 @@ func TestDocumentSigner_Sign(t *testing.T) {
 func TestDocumentSigner_SignErrors(t *testing.T) {
 	context := getSignatureContext()
 	s := New(ed25519signature2018.New(
-		ed25519signature2018.WithSigner(
+		suite.WithSigner(
 			getSigner(generatePrivateKey()))))
 
 	// test invalid json
@@ -75,7 +76,7 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 	// test signing error
 	context = getSignatureContext()
 	s = New(ed25519signature2018.New(
-		ed25519signature2018.WithSigner(
+		suite.WithSigner(
 			getSigner([]byte("invalid")))))
 	signedDoc, err = s.Sign(context, []byte(validDoc))
 	require.NotNil(t, err)

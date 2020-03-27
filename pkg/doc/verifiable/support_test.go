@@ -20,10 +20,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
-	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const certPrefix = "testdata/crypto"
@@ -226,7 +227,7 @@ func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
+		Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:123#any",

@@ -13,7 +13,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -348,7 +349,7 @@ func ExampleCredential_AddLinkedDataProof() {
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &issued,
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(issuerPrivKey))),
+		Suite:                   ed25519signature2018.New(suite.WithSigner(getSigner(issuerPrivKey))),
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      "did:example:123456#key1",
 	})

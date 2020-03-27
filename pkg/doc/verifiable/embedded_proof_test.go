@@ -10,7 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -46,7 +47,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
 		vc, publicKeyFetcher := createVCWithLinkedDataProof()
 		vcBytes := vc.byteJSON(t)
 
-		vSuite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+		vSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 		proof, err := checkEmbeddedProof(vcBytes, &credentialOpts{
 			publicKeyFetcher: publicKeyFetcher,
 			ldpSuite:         vSuite,

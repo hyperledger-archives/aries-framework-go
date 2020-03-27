@@ -1,72 +1,16 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+
 SPDX-License-Identifier: Apache-2.0
 */
 
-package ed25519signature2018
+package jsonwebsignature2020
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
-
-func TestSignatureSuite_Sign(t *testing.T) {
-	doc := []byte("test doc")
-
-	ss := New(WithSigner(&mockSigner{
-		signature: []byte("test signature"),
-	}))
-	bytes, err := ss.Sign(doc)
-	require.NoError(t, err)
-	require.NotEmpty(t, bytes)
-
-	ss = New(WithSigner(&mockSigner{
-		err: errors.New("signature error"),
-	}))
-	bytes, err = ss.Sign(doc)
-	require.Error(t, err)
-	require.EqualError(t, err, "signature error")
-	require.Empty(t, bytes)
-
-	ss = New()
-	bytes, err = ss.Sign(doc)
-	require.Error(t, err)
-	require.Equal(t, ErrSignerNotDefined, err)
-	require.Empty(t, bytes)
-}
-
-func TestSignatureSuite_Verify(t *testing.T) {
-	pubKey := &sigverifier.PublicKey{
-		Type:  signatureType,
-		Value: []byte("any key"),
-	}
-	ss := New(WithVerifier(&mockVerifier{}), WithCompactProof())
-
-	// happy path
-	err := ss.Verify(pubKey, []byte("any doc"), []byte("any signature"))
-	require.NoError(t, err)
-
-	// no verifier defined
-	ss = New()
-	err = ss.Verify(pubKey, []byte("any doc"), []byte("any signature"))
-	require.Error(t, err)
-	require.Equal(t, ErrVerifierNotDefined, err)
-
-	// verification error
-	ss = New(WithVerifier(&mockVerifier{verifyError: errors.New("verify error")}))
-	err = ss.Verify(pubKey, []byte("any doc"), []byte("any signature"))
-	require.Error(t, err)
-	require.EqualError(t, err, "verify error")
-}
-
-func TestWithCompactProof(t *testing.T) {
-	suite := New(WithCompactProof())
-	require.True(t, suite.CompactProof())
-}
 
 func TestSignatureSuite_GetCanonicalDocument(t *testing.T) {
 	doc, err := New().GetCanonicalDocument(getDefaultDoc())
@@ -82,20 +26,11 @@ func TestSignatureSuite_GetDigest(t *testing.T) {
 
 func TestSignatureSuite_Accept(t *testing.T) {
 	ss := New()
-	accepted := ss.Accept("Ed25519Signature2018")
+	accepted := ss.Accept("JsonWebSignature2020")
 	require.True(t, accepted)
 
 	accepted = ss.Accept("RsaSignature2018")
 	require.False(t, accepted)
-}
-
-func TestWithSigner(t *testing.T) {
-	suiteOpt := WithSigner(&mockSigner{})
-	require.NotNil(t, suiteOpt)
-
-	opts := &SignatureSuite{}
-	suiteOpt(opts)
-	require.NotNil(t, opts.signer)
 }
 
 func getDefaultDoc() map[string]interface{} {
@@ -121,27 +56,6 @@ func getDefaultDoc() map[string]interface{} {
 	}
 
 	return doc
-}
-
-type mockSigner struct {
-	signature []byte
-	err       error
-}
-
-func (s *mockSigner) Sign(_ []byte) ([]byte, error) {
-	if s.err != nil {
-		return nil, s.err
-	}
-
-	return s.signature, nil
-}
-
-type mockVerifier struct {
-	verifyError error
-}
-
-func (v *mockVerifier) Verify(_ *sigverifier.PublicKey, _, _ []byte) error {
-	return v.verifyError
 }
 
 // taken from test 28 report https://json-ld.org/test-suite/reports/#test_30bc80ba056257df8a196e8f65c097fc

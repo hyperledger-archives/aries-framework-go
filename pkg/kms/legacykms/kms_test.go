@@ -16,7 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -135,7 +136,7 @@ func TestBaseKMS_SignMessage(t *testing.T) {
 
 		// verify signature
 		suiteVerifier := &ed25519signature2018.PublicKeyVerifier{}
-		err = ed25519signature2018.New(ed25519signature2018.WithVerifier(suiteVerifier)).Verify(
+		err = ed25519signature2018.New(suite.WithVerifier(suiteVerifier)).Verify(
 			&verifier.PublicKey{Type: "ED25519", Value: base58.Decode(fromVerKey)},
 			testMsg, signature)
 		require.NoError(t, err)

@@ -21,8 +21,9 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 )
 
 const pemPK = `-----BEGIN PUBLIC KEY-----
@@ -813,18 +814,18 @@ func TestVerifyProof(t *testing.T) {
 
 		signedDoc := createSignedDidDocument(privKey, pubKey)
 
-		suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+		s := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 
 		// happy path - valid signed document
 		doc, err := ParseDocument(signedDoc)
 		require.Nil(t, err)
 		require.NotNil(t, doc)
-		err = doc.VerifyProof(suite)
+		err = doc.VerifyProof(s)
 		require.NoError(t, err)
 
 		// error - doc with invalid proof value
 		doc.Proof[0].ProofValue = []byte("invalid")
-		err = doc.VerifyProof(suite)
+		err = doc.VerifyProof(s)
 		require.NotNil(t, err)
 		require.Contains(t, err.Error(), "ed25519: invalid signature")
 
@@ -832,7 +833,7 @@ func TestVerifyProof(t *testing.T) {
 		doc, err = ParseDocument([]byte(d))
 		require.NoError(t, err)
 		require.NotNil(t, doc)
-		err = doc.VerifyProof(suite)
+		err = doc.VerifyProof(s)
 		require.Equal(t, ErrProofNotFound, err)
 		require.Contains(t, err.Error(), "proof not found")
 	}
@@ -1089,7 +1090,7 @@ func createSignedDidDocument(privKey, pubKey []byte) []byte {
 		SignatureType: signatureType}
 
 	s := signer.New(ed25519signature2018.New(
-		ed25519signature2018.WithSigner(getSigner(privKey))))
+		suite.WithSigner(getSigner(privKey))))
 
 	signedDoc, err := s.Sign(context, jsonDoc)
 	if err != nil {

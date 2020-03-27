@@ -23,7 +23,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -644,7 +645,7 @@ func verifySignature(connSignature *ConnectionSignature, recipientKeys string) (
 
 	// TODO: Replace with signed attachments issue-626
 	suiteVerifier := &ed25519signature2018.PublicKeyVerifier{}
-	signatureSuite := ed25519signature2018.New(ed25519signature2018.WithVerifier(suiteVerifier))
+	signatureSuite := ed25519signature2018.New(suite.WithVerifier(suiteVerifier))
 
 	err = signatureSuite.Verify(&verifier.PublicKey{
 		Type:  kms.ED25519,

@@ -19,7 +19,8 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -796,14 +797,14 @@ func TestWithStrictValidation(t *testing.T) {
 }
 
 func TestWithEmbeddedSignatureSuites(t *testing.T) {
-	suite := ed25519signature2018.New()
+	ss := ed25519signature2018.New()
 
-	credentialOpt := WithEmbeddedSignatureSuites(suite)
+	credentialOpt := WithEmbeddedSignatureSuites(ss)
 	require.NotNil(t, credentialOpt)
 
 	opts := &credentialOpts{}
 	credentialOpt(opts)
-	require.Equal(t, suite, opts.ldpSuite)
+	require.Equal(t, ss, opts.ldpSuite)
 }
 
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
@@ -1584,7 +1585,7 @@ func TestNewUnverifiedCredential(t *testing.T) {
 		created := time.Now()
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 			SignatureType:           "Ed25519Signature2018",
-			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getEd25519TestSigner(privKey))),
+			Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
 			SignatureRepresentation: SignatureJWS,
 			Created:                 &created,
 		})

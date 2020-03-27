@@ -14,7 +14,8 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
@@ -42,9 +43,9 @@ const (
 )
 
 // RegisterSteps registers Verifiable Credential steps.
-func (s *SDKSteps) RegisterSteps(suite *godog.Suite) {
-	suite.Step(`^"([^"]*)" issues credential at "([^"]*)" regarding "([^"]*)" to "([^"]*)" with "([^"]*)" proof$`, s.issueCredential) //nolint:lll
-	suite.Step(`^"([^"]*)" receives the credential and verifies it$`, s.verifyCredential)
+func (s *SDKSteps) RegisterSteps(gs *godog.Suite) {
+	gs.Step(`^"([^"]*)" issues credential at "([^"]*)" regarding "([^"]*)" to "([^"]*)" with "([^"]*)" proof$`, s.issueCredential) //nolint:lll
+	gs.Step(`^"([^"]*)" receives the credential and verifies it$`, s.verifyCredential)
 }
 
 func (s *SDKSteps) issueCredential(issuer, issuedAt, subject, holder, proofType string) error {
@@ -106,7 +107,7 @@ func (s *SDKSteps) addVCProof(vc *verifiable.Credential, issuer, proofType strin
 	case jwsLinkedDataProof:
 		err := vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 			SignatureType:           "Ed25519Signature2018",
-			Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(signer)),
+			Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
 			SignatureRepresentation: verifiable.SignatureJWS,
 			Created:                 vc.Issued,
 			VerificationMethod:      doc.ID + pubKey.ID,
@@ -139,11 +140,11 @@ func (s *SDKSteps) verifyCredential(holder string) error {
 	vdriRegistry := s.bddContext.AgentCtx[holder].VDRIRegistry()
 	pKeyFetcher := verifiable.NewDIDKeyResolver(vdriRegistry).PublicKeyFetcher()
 
-	suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+	sigSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 
 	parsedVC, _, err := verifiable.NewCredential(s.issuedVCBytes,
 		verifiable.WithPublicKeyFetcher(pKeyFetcher),
-		verifiable.WithEmbeddedSignatureSuites(suite))
+		verifiable.WithEmbeddedSignatureSuites(sigSuite))
 	if err != nil {
 		return err
 	}
