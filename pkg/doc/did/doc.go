@@ -27,6 +27,7 @@ const (
 	// Context of the DID document
 	Context             = "https://w3id.org/did/v1"
 	contextV011         = "https://w3id.org/did/v0.11"
+	contextV12019       = "https://www.w3.org/2019/did/v1"
 	jsonldType          = "type"
 	jsonldID            = "id"
 	jsonldPublicKey     = "publicKey"
@@ -49,285 +50,11 @@ const (
 	jsonldPublicKeyHex    = "publicKeyHex"
 	jsonldPublicKeyPem    = "publicKeyPem"
 	jsonldPublicKeyjwk    = "publicKeyJwk"
-	schemaV1              = `{
-  "required": [
-    "@context",
-    "id"
-  ],
-  "properties": {
-    "@context": {
-      "type": ["array","string"],
-      "items": [
-        {
-          "type": "string",
-          "pattern": "^https://(w3id.org|www.w3.org/ns)/did/v1$"
-        }
-      ],
-      "additionalItems": {
-        "type": "string",
-        "format": "uri"
-      }
-    },
-    "id": {
-      "type": "string"
-    },
-    "publicKey": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/publicKey"
-      }
-    },
-    "authentication": {
-      "type": "array",
-      "items": {
-        "oneOf": [
-          {
-            "$ref": "#/definitions/publicKey"
-          },
-          {
-            "type": "string"
-          }
-        ]
-      }
-    },
-    "service": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/service"
-      }
-    },
-    "created": {
-      "type": "string"
-    },
-    "updated": {
-      "type": "string"
-    },
-    "proof": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/proof"
-      }
-    }
-  },
-  "definitions": {
-	"proof": {
-      "type": "object",
-      "required": [ "type", "creator", "created", "proofValue"],
-      "properties": {
-        "type": {
-          "type": "string",
-          "format": "uri-reference"
-        },
-        "creator": {
-          "type": "string",
-          "format": "uri-reference"
-        },
-        "created": {
-          "type": "string"
-        },
-        "proofValue": {
-          "type": "string"
-        },
-        "domain": {
-          "type": "string"
-        },
-        "nonce": {
-          "type": "string"
-        }
-	  }
-    },
-    "publicKey": {
-      "required": [
-        "id",
-        "type",
-        "controller"
-      ],
-      "type": "object",
-      "minProperties": 4,
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string"
-        },
-        "controller": {
-          "type": "string"
-        }
-      }
-    },
-    "service": {
-      "required": [
-        "id",
-        "type",
-        "serviceEndpoint"
-      ],
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string"
-        },
-        "serviceEndpoint": {
-          "type": "string",
-          "format": "uri"
-        }
-      }
-    }
-  }
-}`
-
-	schemaV011 = `{
-  "required": [
-    "@context",
-    "id"
-  ],
-  "properties": {
-    "@context": {
-      "type": ["array","string"],
-      "items": [
-        {
-          "type": "string",
-          "pattern": "^https://(w3id.org|www.w3.org/ns)/did/v0.11$"
-        }
-      ],
-      "additionalItems": {
-        "type": "string",
-        "format": "uri"
-      }
-    },
-    "id": {
-      "type": "string"
-    },
-    "publicKey": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/publicKey"
-      }
-    },
-    "authentication": {
-      "type": "array",
-      "items": {
-        "oneOf": [
-          {
-            "$ref": "#/definitions/publicKey"
-          },
-          {
-            "$ref": "#/definitions/publicKeyReferenced"
-          }
-        ]
-      }
-    },
-    "service": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/service"
-      }
-    },
-    "created": {
-      "type": "string"
-    },
-    "updated": {
-      "type": "string"
-    },
-    "proof": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/proof"
-      }
-    }
-  },
-  "definitions": {
-	"proof": {
-      "type": "object",
-      "required": [ "type", "creator", "created", "signatureValue"],
-      "properties": {
-        "type": {
-          "type": "string",
-          "format": "uri-reference"
-        },
-        "creator": {
-          "type": "string",
-          "format": "uri-reference"
-        },
-        "created": {
-          "type": "string"
-        },
-        "signatureValue": {
-          "type": "string"
-        },
-        "domain": {
-          "type": "string"
-        },
-        "nonce": {
-          "type": "string"
-        }
-	  }
-    },
-    "publicKey": {
-      "required": [
-        "id",
-        "type"
-      ],
-      "type": "object",
-      "minProperties": 3,
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string"
-        },
-        "owner": {
-          "type": "string"
-        }
-      }
-    },
-    "publicKeyReferenced": {
-      "required": [
-        "type",
-        "publicKey"
-      ],
-      "type": "object",
-      "minProperties": 2,
-      "maxProperties": 2,
-      "properties": {
-        "type": {
-          "type": "string"
-        },
-        "publicKey": {
-          "type": "string"
-        }
-      }
-    },
-    "service": {
-      "required": [
-        "id",
-        "type",
-        "serviceEndpoint"
-      ],
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string"
-        },
-        "serviceEndpoint": {
-          "type": "string",
-          "format": "uri"
-        }
-      }
-    }
-  }
-}`
 )
 
-var schemaLoaderV1 = gojsonschema.NewStringLoader(schemaV1)     //nolint:gochecknoglobals
-var schemaLoaderV011 = gojsonschema.NewStringLoader(schemaV011) //nolint:gochecknoglobals
+var schemaLoaderV1 = gojsonschema.NewStringLoader(schemaV1)         //nolint:gochecknoglobals
+var schemaLoaderV011 = gojsonschema.NewStringLoader(schemaV011)     //nolint:gochecknoglobals
+var schemaLoaderV12019 = gojsonschema.NewStringLoader(schemaV12019) //nolint:gochecknoglobals
 
 // DID is parsed according to the generic syntax: https://w3c.github.io/did-core/#generic-did-syntax
 type DID struct {
@@ -546,47 +273,71 @@ func populateAuthentications(context string, rawAuthentications []interface{},
 	var vms []VerificationMethod
 
 	for _, rawAuthentication := range rawAuthentications {
-		keyID, keyIDExist := rawAuthentication.(string)
-
-		if context == contextV011 {
-			m, ok := rawAuthentication.(map[string]interface{})
-			if !ok {
-				return nil, errors.New("rawAuthentication is not map[string]interface{}")
-			}
-
-			keyID, keyIDExist = m[jsonldPublicKey].(string)
-		}
-
-		if keyIDExist {
-			keyExist := false
-
-			for _, pk := range pks {
-				if pk.ID == keyID {
-					vms = append(vms, VerificationMethod{pk})
-					keyExist = true
-
-					break
-				}
-			}
-
-			if !keyExist {
-				return nil, fmt.Errorf("authentication key %s not exist in did doc public key", keyID)
-			}
-
-			continue
-		}
-
-		valuePK, ok := rawAuthentication.(map[string]interface{})
-		if !ok {
-			return nil, errors.New("rawAuthentication is not map[string]interface{}")
-		}
-
-		pk, err := populatePublicKeys(context, []map[string]interface{}{valuePK})
+		v, err := getVerificationMethods(context, rawAuthentication, pks)
 		if err != nil {
 			return nil, err
 		}
 
-		vms = append(vms, VerificationMethod{pk[0]})
+		vms = append(vms, v...)
+	}
+
+	return vms, nil
+}
+
+// getVerificationMethods get verification methods by authentication
+func getVerificationMethods(context string,
+	rawAuthentication interface{}, pks []PublicKey) ([]VerificationMethod, error) {
+	keyID, keyIDExist := rawAuthentication.(string)
+	if keyIDExist {
+		return getVerifcationMethodsByKeyID(pks, keyID)
+	}
+
+	m, ok := rawAuthentication.(map[string]interface{})
+	if !ok {
+		return nil, errors.New("rawAuthentication is not map[string]interface{}")
+	}
+
+	if context == contextV011 {
+		keyID, keyIDExist = m[jsonldPublicKey].(string)
+		if keyIDExist {
+			return getVerifcationMethodsByKeyID(pks, keyID)
+		}
+	}
+
+	if context == contextV12019 {
+		keyIDs, keyIDsExist := m[jsonldPublicKey].([]interface{})
+		if keyIDsExist {
+			return getVerifcationMethodsByKeyID(pks, keyIDs...)
+		}
+	}
+
+	pk, err := populatePublicKeys(context, []map[string]interface{}{m})
+	if err != nil {
+		return nil, err
+	}
+
+	return []VerificationMethod{{pk[0]}}, nil
+}
+
+// getVerifcationMethodsByKeyID get verification methods by key IDs
+func getVerifcationMethodsByKeyID(pks []PublicKey, keyIDs ...interface{}) ([]VerificationMethod, error) {
+	var vms []VerificationMethod
+
+	for _, keyID := range keyIDs {
+		keyExist := false
+
+		for _, pk := range pks {
+			if pk.ID == keyID {
+				vms = append(vms, VerificationMethod{pk})
+				keyExist = true
+
+				break
+			}
+		}
+
+		if !keyExist {
+			return nil, fmt.Errorf("authentication key %s not exist in did doc public key", keyID)
+		}
 	}
 
 	return vms, nil
@@ -668,14 +419,19 @@ func (r *rawDoc) ParseContext() []string {
 }
 
 func (r *rawDoc) schemaLoader() gojsonschema.JSONLoader {
-	schemaLoader := schemaLoaderV1
-
 	context := r.ParseContext()
-	if len(context) > 0 && context[0] == contextV011 {
-		schemaLoader = schemaLoaderV011
+	if len(context) == 0 {
+		return schemaLoaderV1
 	}
 
-	return schemaLoader
+	switch context[0] {
+	case contextV011:
+		return schemaLoaderV011
+	case contextV12019:
+		return schemaLoaderV12019
+	default:
+		return schemaLoaderV1
+	}
 }
 
 func validate(data []byte, schemaLoader gojsonschema.JSONLoader) error {
