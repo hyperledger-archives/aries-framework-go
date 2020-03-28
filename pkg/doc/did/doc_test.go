@@ -1040,6 +1040,23 @@ func TestDIDSchemas(t *testing.T) {
 				"id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
 			}`,
 			},
+			{
+				name: "DID with old context, minimal authentication & publicKey properties",
+				didStr: `{
+        "@context": "https://www.w3.org/2019/did/v1",
+        "id": "did:sov:danube:CDEabPCipwE51bg7KF9yXt",
+        "service": [],
+        "authentication": [{
+            "type": "Ed25519SignatureAuthentication2018",
+            "publicKey": ["did:sov:danube:CDEabPCipwE51bg7KF9yXt#key-1"]
+        }],
+        "publicKey": [{
+            "id": "did:sov:danube:CDEabPCipwE51bg7KF9yXt#key-1",
+            "type": "Ed25519VerificationKey2018",
+            "publicKeyBase58": "77QBazin3A2k3aVrHowUn2HDsq6HxxdFtY1LiDrTrL4m"
+        }]
+    }`,
+			},
 		}
 
 		t.Parallel()
