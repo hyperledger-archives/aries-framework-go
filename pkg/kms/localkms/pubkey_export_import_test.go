@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/hybrid"
 	"github.com/google/tink/go/keyset"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
@@ -53,8 +54,8 @@ func TestPubKeyExportAndRead(t *testing.T) {
 		},
 	}
 
-	// nolint:scopelint
-	for _, tt := range flagTests {
+	for _, tc := range flagTests {
+		tt := tc
 		t.Run(tt.tcName, func(t *testing.T) {
 			exportedKeyBytes, origKH := exportRawPublicKeyBytes(t, tt.keyTemplate, false)
 
@@ -156,4 +157,33 @@ func TestNegativeCases(t *testing.T) {
 		exportedKeyBytes, _ := exportRawPublicKeyBytes(t, hybrid.ECIESHKDFAES128GCMKeyTemplate(), true)
 		require.Empty(t, exportedKeyBytes)
 	})
+
+	t.Run("test export with symmetric key should fail", func(t *testing.T) {
+		kt := aead.AES256GCMKeyTemplate()
+		kh, err := keyset.NewHandle(kt)
+		require.NoError(t, err)
+		require.NotEmpty(t, kh)
+
+		buf := new(bytes.Buffer)
+		pubKeyWriter := NewWriter(buf)
+		require.NotEmpty(t, pubKeyWriter)
+
+		err = kh.Write(pubKeyWriter, &NoLockMock{})
+		require.Error(t, err)
+		require.Empty(t, buf.Bytes())
+	})
+}
+
+// NoLockMock is a mock lock service that does no encryption/decryption of plaintext and implements tink.AEAD interface
+type NoLockMock struct {
+}
+
+// Encrypt is a mock function of AEAD.Encrypt()
+func (s *NoLockMock) Encrypt(pt, aad []byte) ([]byte, error) {
+	return pt, nil
+}
+
+// Decrypt is a mock function of AEAD.Decrypt()
+func (s *NoLockMock) Decrypt(req, aad []byte) ([]byte, error) {
+	return req, nil
 }

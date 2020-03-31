@@ -52,6 +52,10 @@ const (
 	ED25519 = "ED25519"
 	// RSA key type value
 	RSA = "RSA"
+	// HMACSHA256Tag256 key type value
+	HMACSHA256Tag256 = "HMACSHA256Tag256"
+	// ECDHES256AES256GCM key type value
+	ECDHES256AES256GCM = "ECDHES256AES256GCM"
 )
 
 // KeyType represents a key type supported by the KMS
@@ -79,5 +83,7 @@ const (
 	// RSAType key type value
 	RSAType = KeyType(RSA)
 	// HMACSHA256Tag256Type key type value
-	HMACSHA256Tag256Type = KeyType("HMACSHA256Tag256")
+	HMACSHA256Tag256Type = KeyType(HMACSHA256Tag256)
+	// ECDHES256AES256GCMType key type value
+	ECDHES256AES256GCMType = KeyType(ECDHES256AES256GCM)
 )
