@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 )
 
@@ -35,6 +36,7 @@ type signatureSuite interface {
 type PublicKey struct {
 	Type  string
 	Value []byte
+	JWK   *jose.JWK
 }
 
 // keyResolver encapsulates key resolution

@@ -97,7 +97,7 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
     }
 `
 
-	var jsonWebKey jose.JSONWebKey
+	var jsonWebKey *jose.JWK
 	err := json.Unmarshal([]byte(key), &jsonWebKey)
 	r.NoError(err)
 
@@ -158,7 +158,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
             }
 `
 
-	var jsonWebKey jose.JSONWebKey
+	var jsonWebKey jose.JWK
 
 	err := json.Unmarshal([]byte(ecdsaP256Key), &jsonWebKey)
 	r.NoError(err)
@@ -171,12 +171,21 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 	sigSuite := jsonwebsignature2020.New(
 		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier (as it's done in Ed25519 test above)
 		//   (https://github.com/hyperledger/aries-framework-go/issues/1534)
-		suite.WithVerifier(&jsonwebsignature2020.PublicKeyVerifierP256{}),
+		suite.WithVerifier(&jsonwebsignature2020.PublicKeyVerifierEC{}),
 		suite.WithCompactProof())
 
 	vcWithLdp, _, err := NewCredential([]byte(vcFromTransmute),
 		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKeyBytes, kms.ECDSAP256)))
+		WithPublicKeyFetcher(
+			func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
+				return &sigverifier.PublicKey{
+					Type:    kms.ECDSAP256,
+					Value:   pubKeyBytes,
+					Curve:   "P-256",
+					Alg:     "ES256",
+					KeyType: "EC",
+				}, nil
+			}))
 	r.NoError(err)
 	r.NotNil(t, vcWithLdp)
 }
