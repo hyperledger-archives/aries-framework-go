@@ -21,10 +21,8 @@ type SDKSteps struct {
 }
 
 // NewRouteSDKSteps return steps for router using client SDK
-func NewRouteSDKSteps(ctx *context.BDDContext) *SDKSteps {
-	return &SDKSteps{
-		bddContext: ctx,
-	}
+func NewRouteSDKSteps() *SDKSteps {
+	return &SDKSteps{}
 }
 
 // CreateRouteClient creates route client
@@ -63,6 +61,11 @@ func (d *SDKSteps) VerifyConnection(agentID, varName string) error {
 	}
 
 	return nil
+}
+
+// SetContext is called before every scenario is run with a fresh new context
+func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
+	d.bddContext = ctx
 }
 
 // RegisterSteps registers router steps

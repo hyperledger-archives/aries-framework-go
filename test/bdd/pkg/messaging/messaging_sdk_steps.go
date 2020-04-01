@@ -40,9 +40,8 @@ type SDKSteps struct {
 }
 
 // NewMessagingSDKSteps return new steps for messaging using client SDK
-func NewMessagingSDKSteps(ctx *context.BDDContext) *SDKSteps {
+func NewMessagingSDKSteps() *SDKSteps {
 	return &SDKSteps{
-		steps:           newMessagingSDKSteps(ctx),
 		genericMessages: make(map[string]*msgService),
 		basicMessages:   make(map[string]basic.Message),
 		msgIDsBySender:  make(map[string]string),
@@ -178,6 +177,13 @@ func (d *SDKSteps) receiveBasicMsg(agentID, msg, from string) error {
 	}
 
 	return nil
+}
+
+// SetContext is called before every scenario is run with a fresh new context
+func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
+	d.steps = &messagingSDKSteps{
+		bddContext: ctx,
+	}
 }
 
 // RegisterSteps registers messaging steps

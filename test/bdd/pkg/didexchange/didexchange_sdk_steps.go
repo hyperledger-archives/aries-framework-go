@@ -32,9 +32,8 @@ type SDKSteps struct {
 }
 
 // NewDIDExchangeSDKSteps return new steps for didexchange using client SDK
-func NewDIDExchangeSDKSteps(ctx *context.BDDContext) *SDKSteps {
+func NewDIDExchangeSDKSteps() *SDKSteps {
 	return &SDKSteps{
-		bddContext:     ctx,
 		nextAction:     make(map[string]chan struct{}),
 		connectionID:   make(map[string]string),
 		invitations:    make(map[string]*didexchange.Invitation),
@@ -164,7 +163,8 @@ func (d *SDKSteps) WaitForPostEvent(agents, statesValue string) error {
 	return nil
 }
 
-func (d *SDKSteps) validateConnection(agentID, stateValue string) error {
+// ValidateConnection checks the agents connection status against the given value.
+func (d *SDKSteps) ValidateConnection(agentID, stateValue string) error {
 	conn, err := d.bddContext.DIDExchangeClients[agentID].GetConnection(d.connectionID[agentID])
 	if err != nil {
 		return fmt.Errorf("failed to query connection by id: %w", err)
@@ -333,7 +333,7 @@ func (d *SDKSteps) performDIDExchange(inviter, invitee string) error {
 			return err
 		}
 
-		err = d.validateConnection(agentID, completedStateValue)
+		err = d.ValidateConnection(agentID, completedStateValue)
 		if err != nil {
 			return err
 		}
@@ -394,6 +394,11 @@ func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*diddo
 	return doc, err
 }
 
+// SetContext is called before every scenario is run with a fresh new context
+func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
+	d.bddContext = ctx
+}
+
 // RegisterSteps registers did exchange steps
 func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" creates invitation$`, d.createInvitation)
@@ -406,7 +411,7 @@ func (d *SDKSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" initiates connection with "([^"]*)" using public DID$`, d.createImplicitInvitationWithDID)
 	s.Step(`^"([^"]*)" waits for post state event "([^"]*)"$`, d.WaitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record and validates that connection state is "([^"]*)"$`,
-		d.validateConnection)
+		d.ValidateConnection)
 	s.Step(`^"([^"]*)" creates did exchange client$`, d.CreateDIDExchangeClient)
 	s.Step(`^"([^"]*)" approves did exchange request`, d.ApproveRequest)
 	s.Step(`^"([^"]*)" approves invitation request`, d.ApproveRequest)

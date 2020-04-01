@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/introduce"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/issuecredential"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/messaging"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/route"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 )
@@ -37,6 +38,14 @@ const (
 
 var composition []*dockerutil.Composition
 var composeFiles = []string{"./fixtures/agent-rest", "./fixtures/sidetree-mock"}
+
+// Feature of the aries framework under test.
+type feature interface {
+	// SetContext is called before every scenario is run with a fresh new context
+	SetContext(*bddctx.BDDContext)
+	// invoked once to register the steps on the suite
+	RegisterSteps(*godog.Suite)
+}
 
 func TestMain(m *testing.M) {
 	// default is to run all tests with tag @all
@@ -140,42 +149,43 @@ func generateUUID() string {
 }
 
 func FeatureContext(s *godog.Suite) {
-	bddContext, err := bddctx.NewBDDContext()
-	if err != nil {
-		panic(fmt.Sprintf("Error returned from NewBDDContext: %s", err))
+	features := features()
+
+	for _, f := range features {
+		f.RegisterSteps(s)
 	}
 
-	defer bddContext.Destroy()
+	var bddContext *bddctx.BDDContext
 
-	// set dynamic args
-	bddContext.Args[SideTreeURL] = "http://localhost:48326/document"
-	bddContext.Args[DIDDocPath] = "fixtures/sidetree-mock/config/didDocument.json"
+	s.BeforeScenario(func(interface{}) {
+		bddContext = bddctx.NewBDDContext()
+		// set dynamic args
+		bddContext.Args[SideTreeURL] = "http://localhost:48326/document"
+		bddContext.Args[DIDDocPath] = "fixtures/sidetree-mock/config/didDocument.json"
 
-	// Context is shared between tests
-	agent.NewSDKSteps(bddContext).RegisterSteps(s)
-	agent.NewControllerSteps(bddContext).RegisterSteps(s)
+		for _, f := range features {
+			f.SetContext(bddContext)
+		}
+	})
+	s.AfterScenario(func(_ interface{}, _ error) {
+		bddContext.Destroy()
+	})
+}
 
-	// Register did exchange tests
-	didexchange.NewDIDExchangeSDKSteps(bddContext).RegisterSteps(s)
-	didexchange.NewDIDExchangeControllerSteps(bddContext).RegisterSteps(s)
-
-	// Register introduce tests
-	introduce.NewIntroduceSDKSteps(bddContext).RegisterSteps(s)
-
-	// Register issuecredential tests
-	issuecredential.NewIssueCredentialSDKSteps(bddContext).RegisterSteps(s)
-
-	// Register did resolver tests
-	didresolver.NewDIDResolverSteps(bddContext).RegisterSteps(s)
-
-	// Register messaging tests
-	messaging.NewMessagingSDKSteps(bddContext).RegisterSteps(s)
-	messaging.NewMessagingControllerSteps(bddContext).RegisterSteps(s)
-
-	// Register router tests
-	route.NewRouteSDKSteps(bddContext).RegisterSteps(s)
-	route.NewRouteRESTSteps(bddContext).RegisterSteps(s)
-
-	// Register verifiable credential tests
-	verifiable.NewVerifiableCredentialSDKSteps(bddContext).RegisterSteps(s)
+func features() []feature {
+	return []feature{
+		agent.NewSDKSteps(),
+		agent.NewControllerSteps(),
+		didexchange.NewDIDExchangeSDKSteps(),
+		didexchange.NewDIDExchangeControllerSteps(),
+		introduce.NewIntroduceSDKSteps(),
+		issuecredential.NewIssueCredentialSDKSteps(),
+		didresolver.NewDIDResolverSteps(),
+		messaging.NewMessagingSDKSteps(),
+		messaging.NewMessagingControllerSteps(),
+		route.NewRouteSDKSteps(),
+		route.NewRouteRESTSteps(),
+		verifiable.NewVerifiableCredentialSDKSteps(),
+		outofband.NewOutOfBandSDKSteps(),
+	}
 }

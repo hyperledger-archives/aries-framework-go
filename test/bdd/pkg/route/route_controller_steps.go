@@ -34,10 +34,8 @@ type RESTSteps struct {
 }
 
 // NewRouteRESTSteps return steps for route using REST APIs
-func NewRouteRESTSteps(ctx *context.BDDContext) *RESTSteps {
-	return &RESTSteps{
-		bddContext: ctx,
-	}
+func NewRouteRESTSteps() *RESTSteps {
+	return &RESTSteps{}
 }
 
 // RegisterRoute registers the router for the agent.
@@ -99,6 +97,11 @@ func (d *RESTSteps) VerifyConnection(agentID, varName string) error {
 	}
 
 	return nil
+}
+
+// SetContext is called before every scenario is run with a fresh new context
+func (d *RESTSteps) SetContext(ctx *context.BDDContext) {
+	d.bddContext = ctx
 }
 
 // RegisterSteps registers router steps

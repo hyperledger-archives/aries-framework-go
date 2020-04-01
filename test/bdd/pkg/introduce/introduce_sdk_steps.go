@@ -36,13 +36,17 @@ type SDKSteps struct {
 }
 
 // NewIntroduceSDKSteps creates steps for introduce with SDK
-func NewIntroduceSDKSteps(ctx *context.BDDContext) *SDKSteps {
+func NewIntroduceSDKSteps() *SDKSteps {
 	return &SDKSteps{
-		bddContext: ctx,
-		clients:    make(map[string]*introduce.Client),
-		actions:    make(map[string]chan service.DIDCommAction),
-		events:     make(map[string]chan service.StateMsg),
+		clients: make(map[string]*introduce.Client),
+		actions: make(map[string]chan service.DIDCommAction),
+		events:  make(map[string]chan service.StateMsg),
 	}
+}
+
+// SetContext is called before every scenario is run with a fresh new context
+func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
+	a.bddContext = ctx
 }
 
 // RegisterSteps registers agent steps
@@ -84,7 +88,8 @@ func (a *SDKSteps) createConnections(introducees, introducer string) error {
 	)
 
 	participants := introducees + "," + introducer
-	agentSDK := agent.NewSDKSteps(a.bddContext)
+	agentSDK := agent.NewSDKSteps()
+	agentSDK.SetContext(a.bddContext)
 
 	err := agentSDK.CreateAgentWithHTTPDIDResolver(participants, inboundHost, inboundPort, endpointURL, acceptDidMethod)
 	if err != nil {
@@ -95,7 +100,8 @@ func (a *SDKSteps) createConnections(introducees, introducer string) error {
 		return err
 	}
 
-	a.didExchangeSDKS = bddDIDExchange.NewDIDExchangeSDKSteps(a.bddContext)
+	a.didExchangeSDKS = bddDIDExchange.NewDIDExchangeSDKSteps()
+	a.didExchangeSDKS.SetContext(a.bddContext)
 
 	if err := a.didExchangeSDKS.WaitForPublicDID(participants, 10); err != nil {
 		return err
@@ -189,16 +195,6 @@ func (a *SDKSteps) checkHistoryEventsAndStop(agentID, events string) error {
 			}
 		case <-time.After(timeout):
 			return fmt.Errorf("waited for %s: history of events doesn't meet the expectation", stateID)
-		}
-	}
-
-	return a.stopServices()
-}
-
-func (a *SDKSteps) stopServices() error {
-	for _, ctx := range a.bddContext.AgentCtx {
-		if err := ctx.StorageProvider().Close(); err != nil {
-			return err
 		}
 	}
 
