@@ -313,7 +313,13 @@ func TestRequestedState_Execute(t *testing.T) {
 				Type:     oobMsgType,
 				ThreadID: uuid.New().String(),
 				Label:    "test",
-				Target:   "did:example:123",
+				Target: &diddoc.Service{
+					ID:              uuid.New().String(),
+					Type:            "did-communication",
+					Priority:        0,
+					RecipientKeys:   []string{"key"},
+					ServiceEndpoint: "http://test.com",
+				},
 			}),
 			connRecord: &connection.Record{},
 		}, "", ctx)
@@ -1113,6 +1119,111 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 	})
 }
 
+func TestGetVerKey(t *testing.T) {
+	t.Run("returns verkey from explicit oob invitation", func(t *testing.T) {
+		expected := newServiceBlock()
+		invitation := newOOBInvite(expected)
+		ctx := &context{
+			connectionStore: connStore(t, testProvider()),
+		}
+		err := ctx.connectionStore.SaveInvitation(invitation.ThreadID, invitation)
+		require.NoError(t, err)
+
+		result, err := ctx.getVerKey(invitation.ThreadID)
+		require.NoError(t, err)
+		require.Equal(t, expected.RecipientKeys[0], result)
+	})
+	t.Run("returns verkey from implicit oob invitation", func(t *testing.T) {
+		publicDID := createDIDDoc()
+		invitation := newOOBInvite(publicDID.ID)
+		ctx := &context{
+			connectionStore: connStore(t, testProvider()),
+			vdriRegistry: &mockvdri.MockVDRIRegistry{
+				ResolveValue: publicDID,
+			},
+		}
+		err := ctx.connectionStore.SaveInvitation(invitation.ThreadID, invitation)
+		require.NoError(t, err)
+
+		result, err := ctx.getVerKey(invitation.ThreadID)
+		require.NoError(t, err)
+		require.Equal(t, publicDID.Service[0].RecipientKeys[0], result)
+	})
+	t.Run("returns verkey from explicit didexchange invitation", func(t *testing.T) {
+		expected := newServiceBlock()
+		invitation := newDidExchangeInvite("", expected)
+		ctx := &context{
+			connectionStore: connStore(t, testProvider()),
+		}
+		err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
+		require.NoError(t, err)
+
+		result, err := ctx.getVerKey(invitation.ID)
+		require.NoError(t, err)
+		require.Equal(t, expected.RecipientKeys[0], result)
+	})
+	t.Run("returns verkey from implicit didexchange invitation", func(t *testing.T) {
+		publicDID := createDIDDoc()
+		ctx := &context{
+			connectionStore: connStore(t, testProvider()),
+			vdriRegistry: &mockvdri.MockVDRIRegistry{
+				ResolveValue: publicDID,
+			},
+		}
+
+		keys, found := diddoc.LookupRecipientKeys(publicDID, didCommServiceType, ed25519KeyType)
+		require.True(t, found)
+
+		result, err := ctx.getVerKey(publicDID.ID)
+		require.NoError(t, err)
+		require.Equal(t, keys[0], result)
+	})
+	t.Run("fails for oob invitation with no target", func(t *testing.T) {
+		invalid := newOOBInvite(nil)
+		ctx := &context{
+			connectionStore: connStore(t, testProvider()),
+		}
+		err := ctx.connectionStore.SaveInvitation(invalid.ThreadID, invalid)
+		require.NoError(t, err)
+
+		_, err = ctx.getVerKey(invalid.ThreadID)
+		require.Error(t, err)
+	})
+	t.Run("wraps error from store", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := testProvider()
+		provider.StoreProvider = &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{
+				Store:  make(map[string][]byte),
+				ErrGet: expected,
+			},
+		}
+		ctx := &context{
+			connectionStore: connStore(t, provider),
+		}
+
+		invitation := newOOBInvite(newServiceBlock())
+		err := ctx.connectionStore.SaveInvitation(invitation.ID, invitation)
+		require.NoError(t, err)
+
+		_, err = ctx.getVerKey(invitation.ID)
+		require.Error(t, err)
+	})
+	t.Run("wraps error from vdri resolution", func(t *testing.T) {
+		expected := errors.New("test")
+		ctx := &context{
+			connectionStore: connStore(t, testProvider()),
+			vdriRegistry: &mockvdri.MockVDRIRegistry{
+				ResolveErr: expected,
+			},
+		}
+
+		_, err := ctx.getVerKey("did:example:123")
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+}
+
 type mockSigner struct {
 	privateKey []byte
 	err        error
@@ -1322,4 +1433,47 @@ func toBytes(t *testing.T, data interface{}) []byte {
 	require.NoError(t, err)
 
 	return src
+}
+
+func newDidExchangeInvite(publicDID string, svc *diddoc.Service) *Invitation {
+	i := &Invitation{
+		ID:   uuid.New().String(),
+		Type: InvitationMsgType,
+		DID:  publicDID,
+	}
+
+	if svc != nil {
+		i.RecipientKeys = svc.RecipientKeys
+		i.ServiceEndpoint = svc.ServiceEndpoint
+		i.RoutingKeys = svc.RoutingKeys
+	}
+
+	return i
+}
+
+func newOOBInvite(target interface{}) *OOBInvitation {
+	return &OOBInvitation{
+		ID:       uuid.New().String(),
+		Type:     oobMsgType,
+		ThreadID: uuid.New().String(),
+		Label:    "test",
+		Target:   target,
+	}
+}
+
+func newServiceBlock() *diddoc.Service {
+	return &diddoc.Service{
+		ID:              uuid.New().String(),
+		Type:            didCommServiceType,
+		RecipientKeys:   []string{uuid.New().String()},
+		RoutingKeys:     []string{uuid.New().String()},
+		ServiceEndpoint: "http://test.com",
+	}
+}
+
+func connStore(t *testing.T, p provider) *connectionStore {
+	s, err := newConnectionStore(p)
+	require.NoError(t, err)
+
+	return s
 }

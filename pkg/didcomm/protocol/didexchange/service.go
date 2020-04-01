@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -158,7 +157,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	// connection record
 	connRecord, err := s.connectionRecord(msg)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to fetch connection record : %w", err)
 	}
 
 	// TODO: get rid of this  msg.(service.DIDCommMsgMap)
@@ -198,7 +197,7 @@ func (s *Service) Name() string {
 
 func findNamespace(msgType string) string {
 	namespace := theirNSPrefix
-	if msgType == InvitationMsgType || msgType == ResponseMsgType {
+	if msgType == InvitationMsgType || msgType == ResponseMsgType || msgType == oobMsgType {
 		namespace = myNSPrefix
 	}
 
@@ -219,6 +218,8 @@ func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string)
 }
 
 func (s *Service) nextState(msgType, thID string) (state, error) {
+	logger.Debugf("msgType=%s thID=%s", msgType, thID)
+
 	nsThID, err := connection.CreateNamespaceKey(findNamespace(msgType), thID)
 	if err != nil {
 		return nil, err
@@ -246,6 +247,8 @@ func (s *Service) nextState(msgType, thID string) (state, error) {
 }
 
 func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) error { //nolint funlen
+	logger.Debugf("handling msg: %+v", msg)
+
 	next, err := stateFromName(msg.NextStateName)
 	if err != nil {
 		return fmt.Errorf("invalid state name: %w", err)
@@ -287,7 +290,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 			return fmt.Errorf("failed to persist state %s %w", next.Name(), err)
 		}
 
-		logger.Debugf("persisted the connection record using connection id %s", connectionRecord.ConnectionID)
+		logger.Debugf("updated connection record %+v", connectionRecord)
 
 		if err = action(); err != nil {
 			return fmt.Errorf("failed to execute state action %s %w", next.Name(), err)
@@ -319,6 +322,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		logger.Debugf("sent post event for state %s", prev.Name())
 
 		if haltExecution {
+			logger.Debugf("halted execution before state=%s", msg.NextStateName)
 			break
 		}
 	}
@@ -422,84 +426,19 @@ func (s *Service) AcceptExchangeRequest(connectionID, publicDID, label string) e
 func (s *Service) RespondTo(i *OOBInvitation) (string, error) {
 	i.Type = oobMsgType
 
-	record, err := s.createConnectionRecord(i)
-	if err != nil {
-		return "", fmt.Errorf("failed to create connection record for oobinvitation : %w", err)
-	}
-
-	msg := &message{
-		Msg:           service.NewDIDCommMsgMap(i),
-		ThreadID:      i.ThreadID,
-		Options:       &options{},
-		NextStateName: stateNameInvited,
-		ConnRecord:    record,
-	}
-
-	err = s.storeEventTransientData(msg)
-	if err != nil {
-		return "", fmt.Errorf("failed to store transient event data : %w", err)
-	}
-
-	err = s.AcceptInvitation(record.ConnectionID, record.InvitationDID, record.TheirLabel)
-	if err != nil {
-		return "", fmt.Errorf("failed to accept oobinvitation : %w", err)
-	}
-
-	return record.ConnectionID, nil
+	return s.HandleInbound(service.NewDIDCommMsgMap(i), "", "")
 }
 
-func (s *Service) createConnectionRecord(i *OOBInvitation) (*connection.Record, error) {
-	if i.ThreadID == "" {
-		return nil, errors.New("missing thread ID in invitation")
-	}
+// SaveInvitation saves this invitation created by you.
+func (s *Service) SaveInvitation(i *OOBInvitation) error {
+	i.Type = oobMsgType
 
-	if i.Target == nil {
-		return nil, errors.New("missing target in invitation")
-	}
-
-	record := &connection.Record{
-		ConnectionID: generateRandomID(),
-		ThreadID:     i.ThreadID,
-		State:        stateNameInvited, // TODO
-		InvitationID: i.ID,
-		TheirLabel:   i.Label,
-		Namespace:    myNSPrefix, // TODO
-	}
-
-	var svc *did.Service
-
-	switch target := i.Target.(type) {
-	case string:
-		doc, err := s.ctx.vdriRegistry.Resolve(target)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve did=%s : %w", target, err)
-		}
-
-		var ok bool
-
-		svc, ok = did.LookupService(doc, didCommServiceType)
-		if !ok {
-			return nil, fmt.Errorf("no service type=%s found for did doc=%+v", didCommServiceType, doc)
-		}
-
-		record.InvitationDID = doc.ID
-		record.Implicit = true
-	case *did.Service:
-		svc = target
-	default:
-		return nil, fmt.Errorf("unsupported target type: %+v", target)
-	}
-
-	record.RecipientKeys = svc.RecipientKeys
-	record.RoutingKeys = svc.RoutingKeys
-	record.ServiceEndPoint = svc.ServiceEndpoint
-
-	err := s.connectionStore.saveConnectionRecord(record)
+	err := s.connectionStore.SaveInvitation(i.ThreadID, i)
 	if err != nil {
-		return nil, fmt.Errorf("failed to save connection record : %w", err)
+		return fmt.Errorf("failed to save oob invitation : %w", err)
 	}
 
-	return record, nil
+	return nil
 }
 
 func (s *Service) accept(connectionID, publicDID, label, stateID, errMsg string) error {
@@ -592,7 +531,7 @@ func isNoOp(s state) bool {
 }
 
 func threadID(didCommMsg service.DIDCommMsg) (string, error) {
-	if didCommMsg.Type() == InvitationMsgType {
+	if didCommMsg.Type() == InvitationMsgType || didCommMsg.Type() == oobMsgType {
 		return generateRandomID(), nil
 	}
 
@@ -614,7 +553,8 @@ func (s *Service) currentState(nsThID string) (state, error) {
 
 func (s *Service) update(msgType string, connectionRecord *connection.Record) error {
 	if (msgType == RequestMsgType && connectionRecord.State == stateNameRequested) ||
-		(msgType == InvitationMsgType && connectionRecord.State == stateNameInvited) {
+		(msgType == InvitationMsgType && connectionRecord.State == stateNameInvited) ||
+		(msgType == oobMsgType && connectionRecord.State == stateNameInvited) {
 		return s.connectionStore.saveConnectionRecordWithMapping(connectionRecord)
 	}
 
@@ -623,6 +563,8 @@ func (s *Service) update(msgType string, connectionRecord *connection.Record) er
 
 func (s *Service) connectionRecord(msg service.DIDCommMsg) (*connection.Record, error) {
 	switch msg.Type() {
+	case oobMsgType:
+		return s.oobInvitationMsgRecord(msg)
 	case InvitationMsgType:
 		return s.invitationMsgRecord(msg)
 	case RequestMsgType:
@@ -634,6 +576,49 @@ func (s *Service) connectionRecord(msg service.DIDCommMsg) (*connection.Record, 
 	}
 
 	return nil, errors.New("invalid message type")
+}
+
+func (s *Service) oobInvitationMsgRecord(msg service.DIDCommMsg) (*connection.Record, error) {
+	thID, err := msg.ThreadID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the oobinvitation threadID : %w", err)
+	}
+
+	var oobInvitation OOBInvitation
+
+	err = msg.Decode(&oobInvitation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode the oob invitation : %w", err)
+	}
+
+	svc, err := s.ctx.getServiceBlock(&oobInvitation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the did service block from oob invitation : %w", err)
+	}
+
+	connRecord := &connection.Record{
+		ConnectionID:    generateRandomID(),
+		ThreadID:        thID,
+		ParentThreadID:  oobInvitation.ThreadID,
+		State:           stateNameNull,
+		InvitationID:    oobInvitation.ID,
+		ServiceEndPoint: svc.ServiceEndpoint,
+		RecipientKeys:   svc.RecipientKeys,
+		TheirLabel:      oobInvitation.Label,
+		Namespace:       findNamespace(msg.Type()),
+	}
+
+	publicDID, ok := oobInvitation.Target.(string)
+	if ok {
+		connRecord.Implicit = true
+		connRecord.InvitationDID = publicDID
+	}
+
+	if err := s.connectionStore.saveConnectionRecord(connRecord); err != nil {
+		return nil, err
+	}
+
+	return connRecord, nil
 }
 
 func (s *Service) invitationMsgRecord(msg service.DIDCommMsg) (*connection.Record, error) {

@@ -15,7 +15,7 @@ import (
 type OOBInvitation struct {
 	// ID of this invitation (for record-keeping purposes).
 	// TODO can we remove this?
-	ID string
+	ID string `json:"@id"`
 	// TODO remove this
 	Type string `json:"@type"`
 	// ID of the thread from which this invitation originated.

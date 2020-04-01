@@ -40,7 +40,7 @@ func Example() {
 	// Register agent with the router
 	err = client.Register(routerConnID)
 	if err != nil {
-		fmt.Println("failed to register the agent with router")
+		fmt.Printf("failed to register the agent with router : %s\n", err.Error())
 	}
 
 	fmt.Println("successfully registered with router")
@@ -117,7 +117,7 @@ func didClientMockContext() *mockprovider.Provider {
 	}
 
 	context := &mockprovider.Provider{
-		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+		KMSValue:                      &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"},
 		TransientStorageProviderValue: transientStoreProvider,
 		StorageProviderValue:          storeProvider,
 		ServiceMap: map[string]interface{}{

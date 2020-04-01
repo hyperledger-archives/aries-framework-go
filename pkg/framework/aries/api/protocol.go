@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	didcommtransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -39,6 +40,7 @@ type Provider interface {
 	VDRIRegistry() vdriapi.Registry
 	Signer() legacykms.Signer
 	TransientStorageProvider() storage.Provider
+	InboundMessageHandler() didcommtransport.InboundMessageHandler
 }
 
 // ProtocolSvcCreator method to create new protocol service

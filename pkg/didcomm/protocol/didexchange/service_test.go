@@ -1700,90 +1700,6 @@ func TestService_CreateImplicitInvitation(t *testing.T) {
 	})
 }
 
-func TestCreateConnectionRecord(t *testing.T) {
-	t.Run("creates a connection record from a public DID", func(t *testing.T) {
-		publicDoc := createDIDDoc()
-		publicDoc.Service = []did.Service{{
-			ID:              uuid.New().String(),
-			Type:            "did-communication",
-			Priority:        0,
-			RecipientKeys:   []string{"did:example:123456"},
-			ServiceEndpoint: "http://example.com",
-		}}
-		invitation := newInvitation(publicDoc.ID)
-		provider := testProvider()
-		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{ResolveValue: publicDoc}
-
-		svc, err := New(provider)
-		require.NoError(t, err)
-
-		record, err := svc.createConnectionRecord(invitation)
-		require.NoError(t, err)
-		require.Equal(t, invitation.ID, record.InvitationID)
-		require.Equal(t, invitation.ThreadID, record.ThreadID)
-		require.Equal(t, invitation.Label, record.TheirLabel)
-		require.Equal(t, publicDoc.ID, record.InvitationDID)
-		require.Equal(t, publicDoc.Service[0].RecipientKeys, record.RecipientKeys)
-		require.Equal(t, publicDoc.Service[0].ServiceEndpoint, record.ServiceEndPoint)
-	})
-	t.Run("creates a connection record from a did doc service block", func(t *testing.T) {
-		svc := createDIDDoc().Service[0]
-		invitation := newInvitation(&svc)
-		s, err := New(testProvider())
-		require.NoError(t, err)
-		record, err := s.createConnectionRecord(invitation)
-		require.NoError(t, err)
-		require.Equal(t, invitation.ID, record.InvitationID)
-		require.Equal(t, invitation.ThreadID, record.ThreadID)
-		require.Equal(t, invitation.Label, record.TheirLabel)
-		require.Equal(t, svc.ServiceEndpoint, record.ServiceEndPoint)
-		require.Equal(t, svc.RecipientKeys, record.RecipientKeys)
-		require.Empty(t, record.InvitationDID)
-	})
-	t.Run("fails if threadID is missing", func(t *testing.T) {
-		s, err := New(testProvider())
-		require.NoError(t, err)
-		invitation := newInvitation("did:example:public")
-		invitation.ThreadID = ""
-		_, err = s.createConnectionRecord(invitation)
-		require.Error(t, err)
-	})
-	t.Run("fails if target is missing", func(t *testing.T) {
-		s, err := New(testProvider())
-		require.NoError(t, err)
-		invitation := newInvitation("did:example:public")
-		invitation.Target = nil
-		_, err = s.createConnectionRecord(invitation)
-		require.Error(t, err)
-	})
-	t.Run("wraps did resolution error", func(t *testing.T) {
-		expected := errors.New("test")
-		provider := testProvider()
-		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{ResolveErr: expected}
-		s, err := New(provider)
-		require.NoError(t, err)
-		_, err = s.createConnectionRecord(newInvitation("did:example:ignored"))
-		require.Error(t, err)
-		require.True(t, errors.Is(err, expected))
-	})
-	t.Run("fails if public DID does not have service of type 'did-communication'", func(t *testing.T) {
-		doc := createDIDDoc()
-		doc.Service = []did.Service{{
-			ID:              uuid.New().String(),
-			Type:            "invalid",
-			RecipientKeys:   []string{"test"},
-			ServiceEndpoint: "http://test.com",
-		}}
-		provider := testProvider()
-		provider.CustomVDRI = &mockvdri.MockVDRIRegistry{ResolveValue: doc}
-
-		s, err := New(provider)
-		require.NoError(t, err)
-		_, err = s.createConnectionRecord(newInvitation(doc.ID))
-		require.Error(t, err)
-	})
-}
-
 func TestRespondTo(t *testing.T) {
 	t.Run("responds to an explicit invitation", func(t *testing.T) {
 		s, err := New(testProvider())
@@ -1836,26 +1752,6 @@ func TestRespondTo(t *testing.T) {
 		_, err = s.RespondTo(newInvitation(invalid))
 		require.Error(t, err)
 	})
-	t.Run("wraps error from transient store when fetching events", func(t *testing.T) {
-		expected := errors.New("test")
-		provider := testProvider()
-		provider.TransientStoreProvider = &mockstorage.MockStoreProvider{
-			Custom: &mockstorage.MockStore{
-				Store:  make(map[string][]byte),
-				ErrGet: expected,
-			},
-		}
-		s, err := New(provider)
-		require.NoError(t, err)
-		_, err = s.RespondTo(newInvitation(&did.Service{
-			ID:              uuid.New().String(),
-			Type:            "did-communication",
-			RecipientKeys:   []string{"did:key:1234567"},
-			ServiceEndpoint: "http://example.com",
-		}))
-		require.Error(t, err)
-		require.True(t, errors.Is(err, expected))
-	})
 	t.Run("wraps error from vdri registry when resolving DID", func(t *testing.T) {
 		expected := errors.New("test")
 		provider := testProvider()
@@ -1865,6 +1761,42 @@ func TestRespondTo(t *testing.T) {
 		s, err := New(provider)
 		require.NoError(t, err)
 		_, err = s.RespondTo(newInvitation("did:example:123"))
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+}
+
+func TestSave(t *testing.T) {
+	t.Run("saves invitation", func(t *testing.T) {
+		expected := newOOBInvite("did:example:public")
+		provider := testProvider()
+		provider.StoreProvider = &mockstorage.MockStoreProvider{
+			Custom: &mockStore{
+				put: func(k string, v []byte) error {
+					result := &OOBInvitation{}
+					err := json.Unmarshal(v, result)
+					require.NoError(t, err)
+					require.Equal(t, expected, result)
+					return nil
+				},
+			},
+		}
+		s, err := New(provider)
+		require.NoError(t, err)
+		err = s.SaveInvitation(expected)
+		require.NoError(t, err)
+	})
+	t.Run("wraps error returned by store", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := testProvider()
+		provider.StoreProvider = &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{
+				ErrPut: expected,
+			},
+		}
+		s, err := New(provider)
+		require.NoError(t, err)
+		err = s.SaveInvitation(newOOBInvite("did:example:public"))
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})

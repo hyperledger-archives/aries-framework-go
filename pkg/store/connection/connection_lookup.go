@@ -46,6 +46,7 @@ type Record struct {
 	ConnectionID    string
 	State           string
 	ThreadID        string
+	ParentThreadID  string
 	TheirLabel      string
 	TheirDID        string
 	MyDID           string

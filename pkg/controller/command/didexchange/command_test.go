@@ -709,7 +709,7 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 				didexsvc.DIDExchange: didExSvc,
 				route.Coordination:   &mockroute.MockRouteSvc{},
 			},
-			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}},
+			KMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}},
 			&mockwebhook.Notifier{
 				NotifyFunc: func(topic string, message []byte) error {
 					require.Equal(t, connectionsWebhookTopic, topic)

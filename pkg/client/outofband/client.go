@@ -17,8 +17,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 const (
@@ -29,15 +27,13 @@ const (
 // RequestOptions allow you to customize the way request messages are built.
 type RequestOptions func(*Request) error
 
-// ConnectionRecorder records connection records produced as byproducts of creation of messages.
-type connectionRecorder interface {
-	SaveInvitation(id string, i interface{}) error
+type oobService interface {
+	AcceptRequest(request *outofband.Request) (string, error)
+	SaveRequest(request *outofband.Request) error
 }
 
 // Provider provides the dependencies for the client.
 type Provider interface {
-	StorageProvider() storage.Provider
-	TransientStorageProvider() storage.Provider
 	ServiceEndpoint() string
 	Service(id string) (interface{}, error)
 	LegacyKMS() legacykms.KeyManager
@@ -47,19 +43,24 @@ type Provider interface {
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0434-outofband/README.md
 type Client struct {
 	didDocSvcFunc func() (*did.Service, error)
-	connRecorder  connectionRecorder
+	oobService    oobService
 }
 
 // New returns a new Client for the Out-Of-Band protocol.
 func New(p Provider) (*Client, error) {
-	r, err := connection.NewRecorder(p)
+	s, err := p.Service(outofband.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize outofband client : %w", err)
+		return nil, fmt.Errorf("failed to look up service %s : %w", outofband.Name, err)
+	}
+
+	oobSvc, ok := s.(oobService)
+	if !ok {
+		return nil, fmt.Errorf("failed to cast service %s as a dependency", outofband.Name)
 	}
 
 	return &Client{
 		didDocSvcFunc: didServiceBlockFunc(p),
-		connRecorder:  r,
+		oobService:    oobSvc,
 	}, nil
 }
 
@@ -92,12 +93,30 @@ func (c *Client) CreateRequest(opts ...RequestOptions) (*Request, error) {
 	req.ID = uuid.New().String()
 	req.Type = RequestMsgType
 
-	err := c.connRecorder.SaveInvitation(req.ID, req)
+	err := c.oobService.SaveRequest(req.Request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to save request : %w", err)
+		return nil, fmt.Errorf("outofband service failed to save request : %w", err)
 	}
 
 	return req, nil
+}
+
+// AcceptRequest from another agent and return the ID of a new connection record.
+func (c *Client) AcceptRequest(r *Request) (string, error) {
+	connID, err := c.oobService.AcceptRequest(&outofband.Request{
+		ID:       r.ID,
+		Type:     r.Type,
+		Label:    r.Label,
+		Goal:     r.Goal,
+		GoalCode: r.GoalCode,
+		Requests: r.Requests,
+		Service:  r.Service,
+	})
+	if err != nil {
+		return "", fmt.Errorf("out-of-band service failed to accept request : %w", err)
+	}
+
+	return connID, err
 }
 
 // WithLabel allows you to specify the label on the message.

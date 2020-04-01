@@ -17,6 +17,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
+	"github.com/mitchellh/mapstructure"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -28,6 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	connectionstore "github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
@@ -45,6 +47,8 @@ const (
 	didMethod          = "peer"
 	timestamplen       = 8
 )
+
+var errVerKeyNotFound = errors.New("verkey not found")
 
 // state action for network call
 type stateAction func() error
@@ -66,7 +70,7 @@ type state interface {
 // Returns the state towards which the protocol will transition to if the msgType is processed.
 func stateFromMsgType(msgType string) (state, error) {
 	switch msgType {
-	case InvitationMsgType:
+	case InvitationMsgType, oobMsgType:
 		return &invited{}, nil
 	case RequestMsgType:
 		return &requested{}, nil
@@ -173,7 +177,7 @@ func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	state, stateAction, error) {
 	switch msg.Type() {
 	case oobMsgType:
-		action, record, err := ctx.sendRequest(msg.connRecord)
+		action, record, err := ctx.handleInboundOOBInvitation(msg, thid)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to handle inbound oob invitation : %w", err)
 		}
@@ -290,7 +294,8 @@ func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	return nil, nil, nil, errors.New("not implemented")
 }
 
-func (ctx *context) sendRequest(connRec *connectionstore.Record) (stateAction, *connectionstore.Record, error) {
+func (ctx *context) handleInboundOOBInvitation(
+	msg *stateMachineMsg, thid string) (stateAction, *connectionstore.Record, error) {
 	// get the route configs (pass empty service endpoint, as default service endpoint added in VDRI)
 	myEndpoint, myRoutingKeys, err := route.GetRouterConfig(ctx.routeSvc, "")
 	if err != nil {
@@ -306,23 +311,37 @@ func (ctx *context) sendRequest(connRec *connectionstore.Record) (stateAction, *
 		return nil, nil, fmt.Errorf("failed to create myDID : %w", err)
 	}
 
-	connRec.MyDID = myDID.ID
+	msg.connRecord.MyDID = myDID.ID
 
 	request := &Request{
 		Type: RequestMsgType,
-		ID:   uuid.New().String(),
+		ID:   thid,
 		Connection: &Connection{
 			DID:    myDID.ID,
 			DIDDoc: myDID,
 		},
 		Thread: &decorator.Thread{
-			PID: connRec.ThreadID,
+			ID:  thid,
+			PID: msg.connRecord.ParentThreadID,
 		},
 	}
+
+	oobInvitation := OOBInvitation{}
+
+	err = msg.Decode(&oobInvitation)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decode oob invitation : %w", err)
+	}
+
+	svc, err := ctx.getServiceBlock(&oobInvitation)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get service block : %w", err)
+	}
+
 	dest := &service.Destination{
-		RecipientKeys:   connRec.RecipientKeys,
-		ServiceEndpoint: connRec.ServiceEndPoint,
-		RoutingKeys:     connRec.RoutingKeys,
+		RecipientKeys:   svc.RecipientKeys,
+		ServiceEndpoint: svc.ServiceEndpoint,
+		RoutingKeys:     svc.RoutingKeys,
 	}
 
 	senderVerKeys, ok := did.LookupRecipientKeys(myDID, didCommServiceType, ed25519KeyType)
@@ -332,7 +351,7 @@ func (ctx *context) sendRequest(connRec *connectionstore.Record) (stateAction, *
 
 	return func() error {
 		return ctx.outboundDispatcher.Send(request, senderVerKeys[0], dest)
-	}, connRec, nil
+	}, msg.connRecord, nil
 }
 
 func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string, options *options,
@@ -532,9 +551,11 @@ func (ctx *context) resolveDidDocFromConnection(conn *Connection) (*did.Doc, err
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0023-did-exchange
 func (ctx *context) prepareConnectionSignature(connection *Connection,
 	invitationID string) (*ConnectionSignature, error) {
+	logger.Debugf("connection=%+v invitationID=%s", connection, invitationID)
+
 	connAttributeBytes, err := json.Marshal(connection)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal connection : %w", err)
 	}
 
 	now := getEpochTime()
@@ -542,19 +563,9 @@ func (ctx *context) prepareConnectionSignature(connection *Connection,
 	binary.BigEndian.PutUint64(timestampBuf, uint64(now))
 	concatenateSignData := append(timestampBuf, connAttributeBytes...)
 
-	var invitation Invitation
-	if isDID(invitationID) {
-		invitation = Invitation{ID: invitationID, DID: invitationID}
-	} else {
-		err = ctx.connectionStore.GetInvitation(invitationID, &invitation)
-		if err != nil {
-			return nil, fmt.Errorf("get invitation for signature: %w", err)
-		}
-	}
-
-	pubKey, err := ctx.getInvitationRecipientKey(&invitation)
+	pubKey, err := ctx.getVerKey(invitationID)
 	if err != nil {
-		return nil, fmt.Errorf("get invitation recipient key: %w", err)
+		return nil, fmt.Errorf("failed to get verkey : %w", err)
 	}
 
 	// TODO: Replace with signed attachments issue-626
@@ -675,6 +686,34 @@ func getEpochTime() int64 {
 	return time.Now().Unix()
 }
 
+func (ctx *context) getVerKey(invitationID string) (string, error) {
+	pubKey, err := ctx.getVerKeyFromOOBInvitation(invitationID)
+	if err != nil && !errors.Is(err, errVerKeyNotFound) {
+		return "", fmt.Errorf("failed to get my verkey from oob invitation : %w", err)
+	}
+
+	if err == nil {
+		return pubKey, nil
+	}
+
+	var invitation Invitation
+	if isDID(invitationID) {
+		invitation = Invitation{ID: invitationID, DID: invitationID}
+	} else {
+		err = ctx.connectionStore.GetInvitation(invitationID, &invitation)
+		if err != nil {
+			return "", fmt.Errorf("get invitation for signature: %w", err)
+		}
+	}
+
+	pubKey, err = ctx.getInvitationRecipientKey(&invitation)
+	if err != nil {
+		return "", fmt.Errorf("get invitation recipient key: %w", err)
+	}
+
+	return pubKey, nil
+}
+
 func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, error) {
 	if invitation.DID != "" {
 		didDoc, err := ctx.vdriRegistry.Resolve(invitation.DID)
@@ -691,6 +730,90 @@ func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, e
 	}
 
 	return invitation.RecipientKeys[0], nil
+}
+
+func (ctx *context) getVerKeyFromOOBInvitation(invitationID string) (string, error) {
+	logger.Debugf("invitationID=%s", invitationID)
+
+	var invitation OOBInvitation
+
+	err := ctx.connectionStore.GetInvitation(invitationID, &invitation)
+	if errors.Is(err, storage.ErrDataNotFound) {
+		return "", errVerKeyNotFound
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to load oob invitation : %w", err)
+	}
+
+	if invitation.Type != oobMsgType {
+		return "", errVerKeyNotFound
+	}
+
+	pubKey, err := ctx.resolveVerKey(&invitation)
+	if err != nil {
+		return "", fmt.Errorf("failed to get my verkey : %w", err)
+	}
+
+	return pubKey, nil
+}
+
+func (ctx *context) getServiceBlock(i *OOBInvitation) (*did.Service, error) {
+	logger.Debugf("extracting service block from oobinvitation=%+v", i)
+
+	var block *did.Service
+
+	switch svc := i.Target.(type) {
+	case string:
+		doc, err := ctx.vdriRegistry.Resolve(svc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve myDID=%s : %w", svc, err)
+		}
+
+		s, found := did.LookupService(doc, didCommServiceType)
+		if !found {
+			return nil, fmt.Errorf(
+				"no valid service block found on myDID=%s with serviceType=%s",
+				svc, didCommServiceType)
+		}
+
+		block = s
+	case *did.Service:
+		block = svc
+	case map[string]interface{}:
+		var s did.Service
+
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &s})
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize decoder : %w", err)
+		}
+
+		err = decoder.Decode(svc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode service block : %w", err)
+		}
+
+		block = &s
+	default:
+		return nil, fmt.Errorf("unsupported target type: %+v", svc)
+	}
+
+	logger.Debugf("extracted service block=%+v", block)
+
+	return block, nil
+}
+
+func (ctx *context) resolveVerKey(i *OOBInvitation) (string, error) {
+	logger.Debugf("extracting verkey from oobinvitation=%+v", i)
+
+	svc, err := ctx.getServiceBlock(i)
+	if err != nil {
+		return "", fmt.Errorf("failed to get service block from oobinvitation : %w", err)
+	}
+
+	logger.Debugf("extracted verkey=%s", svc.RecipientKeys[0])
+
+	return svc.RecipientKeys[0], nil
 }
 
 func isDID(str string) bool {

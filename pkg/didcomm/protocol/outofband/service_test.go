@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package outofband
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
@@ -176,7 +178,7 @@ func TestHandleRequestCallback(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		err := s.handleRequestCallback(newReqCallback())
+		_, err := s.handleRequestCallback(newReqCallback())
 		require.NoError(t, err)
 		select {
 		case <-invoked:
@@ -195,13 +197,13 @@ func TestHandleRequestCallback(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		err := s.handleRequestCallback(newReqCallback())
+		_, err := s.handleRequestCallback(newReqCallback())
 		require.NoError(t, err)
 	})
 	t.Run("wraps error thrown when decoding the message", func(t *testing.T) {
 		expected := errors.New("test")
 		s := newAutoService(t, testProvider())
-		err := s.handleRequestCallback(&callback{msg: &testDIDCommMsg{errDecode: expected}})
+		_, err := s.handleRequestCallback(&callback{msg: &testDIDCommMsg{errDecode: expected}})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -216,7 +218,7 @@ func TestHandleRequestCallback(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		err := s.handleRequestCallback(newReqCallback())
+		_, err := s.handleRequestCallback(newReqCallback())
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -229,7 +231,7 @@ func TestHandleRequestCallback(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		err := s.handleRequestCallback(newReqCallback())
+		_, err := s.handleRequestCallback(newReqCallback())
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -489,9 +491,9 @@ func TestListener(t *testing.T) {
 	t.Run("invokes handleReqFunc", func(t *testing.T) {
 		invoked := make(chan struct{})
 		callbacks := make(chan *callback)
-		handleReqFunc := func(*callback) error {
+		handleReqFunc := func(*callback) (string, error) {
 			invoked <- struct{}{}
-			return nil
+			return "", nil
 		}
 		go listener(callbacks, nil, handleReqFunc, nil)()
 
@@ -534,7 +536,7 @@ func TestDecodeInvitationAndRequest(t *testing.T) {
 		require.Equal(t, expected, req)
 		require.NotNil(t, inv)
 		require.NotEmpty(t, inv.ID)
-		require.Equal(t, req.ID, inv.ID)
+		require.NotEmpty(t, inv.ID)
 		require.Equal(t, req.ID, inv.ThreadID)
 		require.Equal(t, req.Label, inv.Label)
 		require.NotNil(t, inv.Target)
@@ -554,7 +556,7 @@ func TestDecodeInvitationAndRequest(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, inv)
 		require.Equal(t, expected, inv.Target)
-		require.Equal(t, req.ID, inv.ID)
+		require.NotEmpty(t, inv.ID)
 		require.Equal(t, req.ID, inv.ThreadID)
 		require.Equal(t, req.Label, inv.Label)
 	})
@@ -568,6 +570,101 @@ func TestDecodeInvitationAndRequest(t *testing.T) {
 		expected := errors.New("test")
 		msg := &testDIDCommMsg{errDecode: expected}
 		_, _, err := decodeInvitationAndRequest(msg)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+}
+
+func TestAcceptRequest(t *testing.T) {
+	t.Run("returns connectionID", func(t *testing.T) {
+		expected := "123456"
+		provider := testProvider()
+		provider.ServiceMap = map[string]interface{}{
+			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
+				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
+					return expected, nil
+				},
+			},
+		}
+		s := newAutoService(t, provider)
+		result, err := s.AcceptRequest(newRequest())
+		require.NoError(t, err)
+		require.Equal(t, expected, result)
+	})
+	t.Run("wraps error from didexchange service", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := testProvider()
+		provider.ServiceMap = map[string]interface{}{
+			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
+				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
+					return "", expected
+				},
+			},
+		}
+		s := newAutoService(t, provider)
+		_, err := s.AcceptRequest(newRequest())
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+}
+
+func TestSaveRequest(t *testing.T) {
+	t.Run("saves request", func(t *testing.T) {
+		expected := newRequest()
+		provider := testProvider()
+		provider.StoreProvider = mockstore.NewCustomMockStoreProvider(&stubStore{
+			putFunc: func(k string, v []byte) error {
+				saved := &Request{}
+				err := json.Unmarshal(v, saved)
+				require.NoError(t, err)
+				require.Equal(t, expected, saved)
+				return nil
+			},
+		})
+		provider.ServiceMap[didexchange.DIDExchange] = &mockdidexchange.MockDIDExchangeSvc{
+			SaveFunc: func(i *didexchange.OOBInvitation) error {
+				require.NotNil(t, i)
+				require.NotEmpty(t, i.ID)
+				require.Equal(t, expected.ID, i.ThreadID)
+				require.Equal(t, expected.Label, i.Label)
+				require.Equal(t, expected.Service[0], i.Target)
+				return nil
+			},
+		}
+		s := newAutoService(t, testProvider())
+		err := s.SaveRequest(expected)
+		require.NoError(t, err)
+	})
+	t.Run("wraps error from store", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := testProvider()
+		provider.StoreProvider = &mockstore.MockStoreProvider{
+			Store: &mockstore.MockStore{
+				ErrPut: expected,
+			},
+		}
+		s := newAutoService(t, provider)
+		err := s.SaveRequest(newRequest())
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+	t.Run("fails when request does not have services", func(t *testing.T) {
+		req := newRequest()
+		req.Service = []interface{}{}
+		s := newAutoService(t, testProvider())
+		err := s.SaveRequest(req)
+		require.Error(t, err)
+	})
+	t.Run("wraps error from didexchange service", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := testProvider()
+		provider.ServiceMap[didexchange.DIDExchange] = &mockdidexchange.MockDIDExchangeSvc{
+			SaveFunc: func(*didexchange.OOBInvitation) error {
+				return expected
+			},
+		}
+		s := newAutoService(t, provider)
+		err := s.SaveRequest(newRequest())
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -692,4 +789,28 @@ func (t *testDIDCommMsg) Metadata() map[string]interface{} {
 
 func (t *testDIDCommMsg) Decode(v interface{}) error {
 	return t.errDecode
+}
+
+type stubStore struct {
+	putFunc func(k string, v []byte) error
+}
+
+func (s *stubStore) Put(k string, v []byte) error {
+	if s.putFunc != nil {
+		return s.putFunc(k, v)
+	}
+
+	return nil
+}
+
+func (s *stubStore) Get(k string) ([]byte, error) {
+	panic("implement me")
+}
+
+func (s *stubStore) Iterator(start, limit string) storage.StoreIterator {
+	panic("implement me")
+}
+
+func (s *stubStore) Delete(k string) error {
+	panic("implement me")
 }

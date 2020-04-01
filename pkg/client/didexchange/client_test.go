@@ -870,7 +870,7 @@ func TestServiceEvents(t *testing.T) {
 			didexchange.DIDExchange: didExSvc,
 			route.Coordination:      &mockroute.MockRouteSvc{},
 		},
-		KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}})
+		KMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -961,7 +961,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 			didexchange.DIDExchange: didExSvc,
 			route.Coordination:      &mockroute.MockRouteSvc{},
 		},
-		KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}},
+		KMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, c)
