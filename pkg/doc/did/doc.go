@@ -326,6 +326,10 @@ func getVerifcationMethodsByKeyID(pks []PublicKey, keyIDs ...interface{}) ([]Ver
 	for _, keyID := range keyIDs {
 		keyExist := false
 
+		if keyID == "" {
+			continue
+		}
+
 		for _, pk := range pks {
 			if pk.ID == keyID {
 				vms = append(vms, VerificationMethod{pk})
@@ -392,6 +396,10 @@ func decodePK(rawPK map[string]interface{}) ([]byte, error) {
 		jwkBytes, err := json.Marshal(jwkMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal '%s', cause: %w ", jsonldPublicKeyjwk, err)
+		}
+
+		if string(jwkBytes) == "{}" {
+			return []byte(""), nil
 		}
 
 		return jose.DecodePublicKey(jwkBytes)

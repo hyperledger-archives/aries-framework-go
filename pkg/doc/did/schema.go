@@ -166,7 +166,7 @@ const (
       }
     },
     "authentication": {
-      "type": "array",
+      "type": ["array","string"],
       "items": {
         "oneOf": [
           {
@@ -174,6 +174,9 @@ const (
           },
           {
             "$ref": "#/definitions/publicKeyReferenced"
+          },
+		  {
+            "type": "string"
           }
         ]
       }

@@ -1057,6 +1057,60 @@ func TestDIDSchemas(t *testing.T) {
         }]
     }`,
 			},
+			{
+				name: "DID v0.11 with empty JWK & empty auth key",
+				didStr: `{
+        "@context": "https://w3id.org/did/v0.11",
+        "id": "did:w123:world",
+        "assertionMethod": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", 
+		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A", 
+		"did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw", 
+		"did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
+        "authentication": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", "", 
+		"did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",  
+		"did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
+        "capabilityDelegation": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", 
+		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A", 
+		 "did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw", 
+		 "did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
+        "capabilityInvocation": ["did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN", 
+		"did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A", 
+		 "did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw", 
+		 "did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E"],
+        "keyAgreement": [{
+            "id": "did:w123:world#zC5iai1sL93gQxn8LKh1i42fTbpfar65dVx4NYznYfG3Y5",
+            "type": "X25519KeyAgreementKey2019",
+            "controller": "did:w123:world",
+            "publicKeyBase58": "6DrzegWwfw8Xg5MsHX95sVnJaPmtXP214B5X9hkG9oRs"
+        }],
+        "publicKey": [{
+            "id": "did:w123:world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+            "type": "Ed25519VerificationKey2018",
+            "controller": "did:w123:world",
+            "publicKeyBase58": "DqS5F3GVe3rCxucgi4JBNagjv4dKoHc8TDLDw9kR58Pz"
+        }, {
+            "id": "did:w123:world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+            "type": "JwsVerificationKey2020",
+            "controller": "did:w123:world",
+            "publicKeyJwk": {}
+        }, {
+            "id": "did:w123:world#4SZ-StXrp5Yd4_4rxHVTCYTHyt4zyPfN1fIuYsm6k3A",
+            "type": "JwsVerificationKey2020",
+            "controller": "did:w123:world",
+            "publicKeyJwk": {}
+        }, {
+            "id": "did:w123:world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
+            "type": "JwsVerificationKey2020",
+            "controller": "did:w123:world",
+            "publicKeyJwk": {}
+        }, {
+            "id": "did:w123:world#NjQ6Y_ZMj6IUK_XkgCDwtKHlNTUTVjEYOWZtxhp1n-E",
+            "type": "JwsVerificationKey2020",
+            "controller": "did:w123:world",
+            "publicKeyJwk": {}
+        }]
+    }`,
+			},
 		}
 
 		t.Parallel()
