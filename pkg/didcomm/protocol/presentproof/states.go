@@ -33,8 +33,11 @@ const (
 )
 
 const (
+	// error codes
 	codeInternalError = "internal"
 	codeRejectedError = "rejected"
+
+	jsonThread = "~thread"
 )
 
 // state action for network call
@@ -48,8 +51,7 @@ type state interface {
 	CanTransitionTo(next state) bool
 	// Executes this state, returning a followup state to be immediately executed as well.
 	// The 'noOp' state should be returned if the state has no followup.
-	ExecuteInbound(msg *metaData) (state, stateAction, error)
-	ExecuteOutbound(msg *metaData) (state, stateAction, error)
+	Execute(msg *metaData) (state, stateAction, error)
 }
 
 // represents zero state's action
@@ -75,12 +77,8 @@ func (s *start) CanTransitionTo(st state) bool {
 	return false
 }
 
-func (s *start) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteInbound is not implemented yet", s.Name())
-}
-
-func (s *start) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
+func (s *start) Execute(_ *metaData) (state, stateAction, error) {
+	return nil, nil, fmt.Errorf("%s: is not implemented yet", s.Name())
 }
 
 // abandoning state
@@ -96,7 +94,7 @@ func (s *abandoning) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameDone
 }
 
-func (s *abandoning) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func (s *abandoning) Execute(md *metaData) (state, stateAction, error) {
 	// if code is not provided it means we do not need to notify the another agent
 	if s.Code == "" {
 		return &done{}, zeroAction, nil
@@ -122,10 +120,6 @@ func (s *abandoning) ExecuteInbound(md *metaData) (state, stateAction, error) {
 	}, nil
 }
 
-func (s *abandoning) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
-}
-
 // done state
 type done struct{}
 
@@ -137,12 +131,8 @@ func (s *done) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *done) ExecuteInbound(_ *metaData) (state, stateAction, error) {
+func (s *done) Execute(_ *metaData) (state, stateAction, error) {
 	return &noOp{}, zeroAction, nil
-}
-
-func (s *done) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
 // noOp state
@@ -156,11 +146,7 @@ func (s *noOp) CanTransitionTo(_ state) bool {
 	return false
 }
 
-func (s *noOp) ExecuteInbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, errors.New("cannot execute no-op")
-}
-
-func (s *noOp) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
+func (s *noOp) Execute(_ *metaData) (state, stateAction, error) {
 	return nil, nil, errors.New("cannot execute no-op")
 }
 
@@ -177,16 +163,12 @@ func (s *requestReceived) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoning
 }
 
-func (s *requestReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func (s *requestReceived) Execute(md *metaData) (state, stateAction, error) {
 	if md.presentation != nil {
 		return &presentationSent{}, zeroAction, nil
 	}
 
 	return &proposalSent{}, zeroAction, nil
-}
-
-func (s *requestReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
 // requestSent the Verifier's state
@@ -202,28 +184,25 @@ func (s *requestSent) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoning
 }
 
-func (s *requestSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func forwardInitial(md *metaData) stateAction {
+	return func(messenger service.Messenger) error {
+		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
+	}
+}
+
+func (s *requestSent) Execute(md *metaData) (state, stateAction, error) {
+	if !canReplyTo(md.Msg) {
+		return &noOp{}, forwardInitial(md), nil
+	}
+
 	if md.request == nil {
 		return nil, nil, errors.New("request was not provided")
 	}
 
-	// creates the state's action
-	action := func(messenger service.Messenger) error {
-		// sets message type
+	return &noOp{}, func(messenger service.Messenger) error {
 		md.request.Type = RequestPresentationMsgType
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.request))
-	}
-
-	return &noOp{}, action, nil
-}
-
-func (s *requestSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
-	// creates the state's action
-	action := func(messenger service.Messenger) error {
-		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
-	}
-
-	return &noOp{}, action, nil
+	}, nil
 }
 
 // presentationSent the Prover's state
@@ -238,7 +217,7 @@ func (s *presentationSent) CanTransitionTo(st state) bool {
 		st.Name() == stateNameDone
 }
 
-func (s *presentationSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func (s *presentationSent) Execute(md *metaData) (state, stateAction, error) {
 	if md.presentation == nil {
 		return nil, nil, errors.New("presentation was not provided")
 	}
@@ -253,10 +232,6 @@ func (s *presentationSent) ExecuteInbound(md *metaData) (state, stateAction, err
 	return &noOp{}, action, nil
 }
 
-func (s *presentationSent) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
-}
-
 // presentationReceived the Verifier's state
 type presentationReceived struct{}
 
@@ -269,7 +244,7 @@ func (s *presentationReceived) CanTransitionTo(st state) bool {
 		st.Name() == stateNameDone
 }
 
-func (s *presentationReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error) {
 	// TODO: need to verify presentation issue-1525
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
@@ -279,10 +254,6 @@ func (s *presentationReceived) ExecuteInbound(md *metaData) (state, stateAction,
 	}
 
 	return &done{}, action, nil
-}
-
-func (s *presentationReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }
 
 // proposalSent the Prover's state
@@ -297,28 +268,24 @@ func (s *proposalSent) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoning
 }
 
-func (s *proposalSent) ExecuteInbound(md *metaData) (state, stateAction, error) {
+func canReplyTo(msg service.DIDCommMsgMap) bool {
+	_, ok := msg[jsonThread]
+	return ok
+}
+
+func (s *proposalSent) Execute(md *metaData) (state, stateAction, error) {
+	if !canReplyTo(md.Msg) {
+		return &noOp{}, forwardInitial(md), nil
+	}
+
 	if md.proposePresentation == nil {
 		return nil, nil, errors.New("propose-presentation was not provided")
 	}
 
-	// creates the state's action
-	action := func(messenger service.Messenger) error {
-		// sets message type
+	return &noOp{}, func(messenger service.Messenger) error {
 		md.proposePresentation.Type = ProposePresentationMsgType
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(md.proposePresentation))
-	}
-
-	return &noOp{}, action, nil
-}
-
-func (s *proposalSent) ExecuteOutbound(md *metaData) (state, stateAction, error) {
-	// creates the state's action
-	action := func(messenger service.Messenger) error {
-		return messenger.Send(md.Msg, md.MyDID, md.TheirDID)
-	}
-
-	return &noOp{}, action, nil
+	}, nil
 }
 
 // proposalReceived the Verifier's state
@@ -333,10 +300,6 @@ func (s *proposalReceived) CanTransitionTo(st state) bool {
 		st.Name() == stateNameAbandoning
 }
 
-func (s *proposalReceived) ExecuteInbound(_ *metaData) (state, stateAction, error) {
+func (s *proposalReceived) Execute(_ *metaData) (state, stateAction, error) {
 	return &requestSent{}, zeroAction, nil
-}
-
-func (s *proposalReceived) ExecuteOutbound(_ *metaData) (state, stateAction, error) {
-	return nil, nil, fmt.Errorf("%s: ExecuteOutbound is not implemented yet", s.Name())
 }

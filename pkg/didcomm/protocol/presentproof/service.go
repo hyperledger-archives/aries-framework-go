@@ -58,7 +58,6 @@ type metaData struct {
 	transitionalPayload
 	state               state
 	msgClone            service.DIDCommMsg
-	inbound             bool
 	presentation        *Presentation
 	proposePresentation *ProposePresentation
 	request             *RequestPresentation
@@ -131,25 +130,30 @@ func New(p Provider) (*Service, error) {
 
 // HandleInbound handles inbound message (presentproof protocol)
 func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+	msgMap, ok := msg.(service.DIDCommMsgMap)
+	if !ok {
+		return "", errors.New("bad assertion message is not DIDCommMsgMap")
+	}
+
 	aEvent := s.ActionEvent()
 
-	// throw error if there is no action event registered for inbound messages
-	if aEvent == nil {
+	canReply := canReplyTo(msgMap)
+
+	if canReply && aEvent == nil {
+		// throw error if there is no action event registered for inbound messages
 		return "", errors.New("no clients are registered to handle the message")
 	}
 
-	md, err := s.doHandle(msg, false)
+	md, err := s.doHandle(msgMap)
 	if err != nil {
 		return "", fmt.Errorf("doHandle: %w", err)
 	}
 
-	// sets inbound payload
-	md.inbound = true
 	md.MyDID = myDID
 	md.TheirDID = theirDID
 
 	// trigger action event based on message type for inbound messages
-	if canTriggerActionEvents(msg) {
+	if canReply && canTriggerActionEvents(msg) {
 		aEvent <- s.newDIDCommActionMsg(md)
 
 		return "", nil
@@ -160,17 +164,8 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 }
 
 // HandleOutbound handles outbound message (presentproof protocol)
-func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
-	md, err := s.doHandle(msg, true)
-	if err != nil {
-		return fmt.Errorf("doHandle: %w", err)
-	}
-
-	// sets outbound payload
-	md.MyDID = myDID
-	md.TheirDID = theirDID
-
-	return s.handle(md)
+func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) error {
+	return nil
 }
 
 func (s *Service) getCurrentStateNameAndPIID(msg service.DIDCommMsg) (string, string, error) {
@@ -193,7 +188,7 @@ func (s *Service) getCurrentStateNameAndPIID(msg service.DIDCommMsg) (string, st
 	return piID, stateName, nil
 }
 
-func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, error) {
+func (s *Service) doHandle(msg service.DIDCommMsgMap) (*metaData, error) {
 	piID, stateName, err := s.getCurrentStateNameAndPIID(msg)
 	if err != nil {
 		return nil, fmt.Errorf("getCurrentStateNameAndPIID: %w", err)
@@ -201,7 +196,7 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 
 	current := stateFromName(stateName)
 
-	next, err := nextState(msg, outbound)
+	next, err := nextState(msg)
 	if err != nil {
 		return nil, fmt.Errorf("nextState: %w", err)
 	}
@@ -213,7 +208,7 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 	return &metaData{
 		transitionalPayload: transitionalPayload{
 			StateName: next.Name(),
-			Msg:       msg.(service.DIDCommMsgMap),
+			Msg:       msg,
 			PIID:      piID,
 		},
 		state:    next,
@@ -323,20 +318,22 @@ func stateFromName(name string) state {
 }
 
 // nolint: gocyclo
-func nextState(msg service.DIDCommMsg, outbound bool) (state, error) {
+func nextState(msg service.DIDCommMsgMap) (state, error) {
+	canReply := canReplyTo(msg)
+
 	switch msg.Type() {
 	case RequestPresentationMsgType:
-		if outbound {
-			return &requestSent{}, nil
+		if canReply {
+			return &requestReceived{}, nil
 		}
 
-		return &requestReceived{}, nil
+		return &requestSent{}, nil
 	case ProposePresentationMsgType:
-		if outbound {
-			return &proposalSent{}, nil
+		if canReply {
+			return &proposalReceived{}, nil
 		}
 
-		return &proposalReceived{}, nil
+		return &proposalSent{}, nil
 	case PresentationMsgType:
 		return &presentationReceived{}, nil
 	case ProblemReportMsgType:
@@ -397,12 +394,7 @@ func (s *Service) execute(next state, md *metaData) (state, stateAction, error) 
 		StateID:      next.Name(),
 	})
 
-	exec := next.ExecuteOutbound
-	if md.inbound {
-		exec = next.ExecuteInbound
-	}
-
-	return exec(md)
+	return next.Execute(md)
 }
 
 // sendMsgEvents triggers the message events.

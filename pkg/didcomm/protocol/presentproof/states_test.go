@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 )
 
@@ -38,15 +39,8 @@ func TestStart_CanTransitionTo(t *testing.T) {
 	require.True(t, st.CanTransitionTo(&proposalSent{}))
 }
 
-func TestStart_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&start{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
-}
-
-func TestStart_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&start{}).ExecuteOutbound(&metaData{})
+func TestStart_Execute(t *testing.T) {
+	followup, action, err := (&start{}).Execute(&metaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
 	require.Nil(t, followup)
 	require.Nil(t, action)
@@ -70,7 +64,7 @@ func TestAbandoning_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
-func TestAbandoning_ExecuteInbound(t *testing.T) {
+func TestAbandoning_Execute(t *testing.T) {
 	t.Run("Internal Error", func(t *testing.T) {
 		md := &metaData{}
 		md.Msg = service.NewDIDCommMsgMap(struct{}{})
@@ -78,7 +72,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 		thID := uuid.New().String()
 		require.NoError(t, md.Msg.SetID(thID))
 
-		followup, action, err := (&abandoning{Code: codeInternalError}).ExecuteInbound(md)
+		followup, action, err := (&abandoning{Code: codeInternalError}).Execute(md)
 		require.NoError(t, err)
 		require.Equal(t, &done{}, followup)
 		require.NotNil(t, action)
@@ -102,7 +96,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("Invalid message", func(t *testing.T) {
-		followup, action, err := (&abandoning{Code: codeInternalError}).ExecuteInbound(&metaData{})
+		followup, action, err := (&abandoning{Code: codeInternalError}).Execute(&metaData{})
 		require.EqualError(t, errors.Unwrap(err), service.ErrInvalidMessage.Error())
 		require.Nil(t, followup)
 		require.Nil(t, action)
@@ -115,7 +109,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 		thID := uuid.New().String()
 		require.NoError(t, md.Msg.SetID(thID))
 
-		followup, action, err := (&abandoning{Code: codeInternalError}).ExecuteInbound(md)
+		followup, action, err := (&abandoning{Code: codeInternalError}).Execute(md)
 		require.NoError(t, err)
 		require.Equal(t, &done{}, followup)
 		require.NotNil(t, action)
@@ -144,7 +138,7 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 
 		require.NoError(t, md.Msg.SetID(uuid.New().String()))
 
-		followup, action, err := (&abandoning{}).ExecuteInbound(md)
+		followup, action, err := (&abandoning{}).Execute(md)
 		require.NoError(t, err)
 		require.Equal(t, &done{}, followup)
 		require.NotNil(t, action)
@@ -153,31 +147,17 @@ func TestAbandoning_ExecuteInbound(t *testing.T) {
 	})
 }
 
-func TestAbandoning_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&abandoning{}).ExecuteOutbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
-}
-
 func TestDone_CanTransitionTo(t *testing.T) {
 	st := &done{}
 	require.Equal(t, stateNameDone, st.Name())
 	notTransition(t, st)
 }
 
-func TestDone_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&done{}).ExecuteInbound(&metaData{})
+func TestDone_Execute(t *testing.T) {
+	followup, action, err := (&done{}).Execute(&metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &noOp{}, followup)
 	require.NoError(t, action(nil))
-}
-
-func TestDone_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&done{}).ExecuteOutbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
 }
 
 func TestNoOp_CanTransitionTo(t *testing.T) {
@@ -186,15 +166,8 @@ func TestNoOp_CanTransitionTo(t *testing.T) {
 	notTransition(t, st)
 }
 
-func TestNoOp_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&noOp{}).ExecuteInbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "cannot execute no-op")
-	require.Nil(t, followup)
-	require.Nil(t, action)
-}
-
-func TestNoOp_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&noOp{}).ExecuteOutbound(&metaData{})
+func TestNoOp_Execute(t *testing.T) {
+	followup, action, err := (&noOp{}).Execute(&metaData{})
 	require.Contains(t, fmt.Sprintf("%v", err), "cannot execute no-op")
 	require.Nil(t, followup)
 	require.Nil(t, action)
@@ -218,9 +191,9 @@ func TestRequestReceived_CanTransitionTo(t *testing.T) {
 	require.True(t, st.CanTransitionTo(&proposalSent{}))
 }
 
-func TestRequestReceived_ExecuteInbound(t *testing.T) {
+func TestRequestReceived_Execute(t *testing.T) {
 	t.Run("With presentation", func(t *testing.T) {
-		followup, action, err := (&requestReceived{}).ExecuteInbound(&metaData{
+		followup, action, err := (&requestReceived{}).Execute(&metaData{
 			presentation: &Presentation{},
 		})
 		require.NoError(t, err)
@@ -229,18 +202,11 @@ func TestRequestReceived_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("Without presentation", func(t *testing.T) {
-		followup, action, err := (&requestReceived{}).ExecuteInbound(&metaData{})
+		followup, action, err := (&requestReceived{}).Execute(&metaData{})
 		require.NoError(t, err)
 		require.Equal(t, &proposalSent{}, followup)
 		require.NoError(t, action(nil))
 	})
-}
-
-func TestRequestReceived_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&requestReceived{}).ExecuteOutbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
 }
 
 func TestRequestSent_CanTransitionTo(t *testing.T) {
@@ -261,10 +227,23 @@ func TestRequestSent_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
-func TestRequestSent_ExecuteInbound(t *testing.T) {
+func randomInboundMessage(t string) service.DIDCommMsgMap {
+	return service.NewDIDCommMsgMap(struct {
+		ID     string           `json:"@id"`
+		Thread decorator.Thread `json:"~thread"`
+		Type   string           `json:"@type"`
+	}{
+		ID:     uuid.New().String(),
+		Thread: decorator.Thread{ID: uuid.New().String()},
+		Type:   t,
+	})
+}
+
+func TestRequestSent_Execute(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		followup, action, err := (&requestSent{}).ExecuteInbound(&metaData{
-			request: &RequestPresentation{},
+		followup, action, err := (&requestSent{}).Execute(&metaData{
+			transitionalPayload: transitionalPayload{Msg: randomInboundMessage("")},
+			request:             &RequestPresentation{},
 		})
 		require.NoError(t, err)
 		require.Equal(t, &noOp{}, followup)
@@ -280,26 +259,28 @@ func TestRequestSent_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("Request presentation is absent", func(t *testing.T) {
-		followup, action, err := (&requestSent{}).ExecuteInbound(&metaData{})
+		followup, action, err := (&requestSent{}).Execute(&metaData{
+			transitionalPayload: transitionalPayload{Msg: randomInboundMessage("")},
+		})
 		require.EqualError(t, err, "request was not provided")
 		require.Nil(t, followup)
 		require.Nil(t, action)
 	})
-}
 
-func TestRequestSent_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&requestSent{}).ExecuteOutbound(&metaData{})
-	require.NoError(t, err)
-	require.Equal(t, &noOp{}, followup)
-	require.NotNil(t, action)
+	t.Run("Success (outbound)", func(t *testing.T) {
+		followup, action, err := (&requestSent{}).Execute(&metaData{})
+		require.NoError(t, err)
+		require.Equal(t, &noOp{}, followup)
+		require.NotNil(t, action)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-	messenger := serviceMocks.NewMockMessenger(ctrl)
-	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any())
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any())
 
-	require.NoError(t, action(messenger))
+		require.NoError(t, action(messenger))
+	})
 }
 
 func TestPresentationSent_CanTransitionTo(t *testing.T) {
@@ -320,9 +301,9 @@ func TestPresentationSent_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
-func TestPresentationSent_ExecuteInbound(t *testing.T) {
+func TestPresentationSent_Execute(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		followup, action, err := (&presentationSent{}).ExecuteInbound(&metaData{presentation: &Presentation{}})
+		followup, action, err := (&presentationSent{}).Execute(&metaData{presentation: &Presentation{}})
 		require.NoError(t, err)
 		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)
@@ -337,18 +318,11 @@ func TestPresentationSent_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("Presentation is absent", func(t *testing.T) {
-		followup, action, err := (&presentationSent{}).ExecuteInbound(&metaData{})
+		followup, action, err := (&presentationSent{}).Execute(&metaData{})
 		require.EqualError(t, err, "presentation was not provided")
 		require.Nil(t, followup)
 		require.Nil(t, action)
 	})
-}
-
-func TestPresentationSent_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&presentationSent{}).ExecuteOutbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
 }
 
 func TestPresentationReceived_CanTransitionTo(t *testing.T) {
@@ -369,8 +343,8 @@ func TestPresentationReceived_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
-func TestPresentationReceived_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&presentationReceived{}).ExecuteInbound(&metaData{})
+func TestPresentationReceived_Execute(t *testing.T) {
+	followup, action, err := (&presentationReceived{}).Execute(&metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &done{}, followup)
 	require.NotNil(t, action)
@@ -382,13 +356,6 @@ func TestPresentationReceived_ExecuteInbound(t *testing.T) {
 	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
 
 	require.NoError(t, action(messenger))
-}
-
-func TestPresentationReceived_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&presentationReceived{}).ExecuteOutbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
 }
 
 func TestProposePresentationSent_CanTransitionTo(t *testing.T) {
@@ -409,9 +376,10 @@ func TestProposePresentationSent_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
-func TestProposePresentationSent_ExecuteInbound(t *testing.T) {
+func TestProposePresentationSent_Execute(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		followup, action, err := (&proposalSent{}).ExecuteInbound(&metaData{
+		followup, action, err := (&proposalSent{}).Execute(&metaData{
+			transitionalPayload: transitionalPayload{Msg: randomInboundMessage("")},
 			proposePresentation: &ProposePresentation{},
 		})
 		require.NoError(t, err)
@@ -428,26 +396,28 @@ func TestProposePresentationSent_ExecuteInbound(t *testing.T) {
 	})
 
 	t.Run("Propose presentation is absent", func(t *testing.T) {
-		followup, action, err := (&proposalSent{}).ExecuteInbound(&metaData{})
+		followup, action, err := (&proposalSent{}).Execute(&metaData{
+			transitionalPayload: transitionalPayload{Msg: randomInboundMessage("")},
+		})
 		require.EqualError(t, err, "propose-presentation was not provided")
 		require.Nil(t, followup)
 		require.Nil(t, action)
 	})
-}
 
-func TestProposePresentationSent_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&proposalSent{}).ExecuteOutbound(&metaData{})
-	require.NoError(t, err)
-	require.Equal(t, &noOp{}, followup)
-	require.NotNil(t, action)
+	t.Run("Success (outbound)", func(t *testing.T) {
+		followup, action, err := (&proposalSent{}).Execute(&metaData{})
+		require.NoError(t, err)
+		require.Equal(t, &noOp{}, followup)
+		require.NotNil(t, action)
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-	messenger := serviceMocks.NewMockMessenger(ctrl)
-	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any())
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any())
 
-	require.NoError(t, action(messenger))
+		require.NoError(t, action(messenger))
+	})
 }
 
 func TestProposePresentationReceived_CanTransitionTo(t *testing.T) {
@@ -468,18 +438,11 @@ func TestProposePresentationReceived_CanTransitionTo(t *testing.T) {
 	require.False(t, st.CanTransitionTo(&proposalSent{}))
 }
 
-func TestProposePresentationReceived_ExecuteInbound(t *testing.T) {
-	followup, action, err := (&proposalReceived{}).ExecuteInbound(&metaData{})
+func TestProposePresentationReceived_Execute(t *testing.T) {
+	followup, action, err := (&proposalReceived{}).Execute(&metaData{})
 	require.NoError(t, err)
 	require.Equal(t, &requestSent{}, followup)
 	require.NoError(t, action(nil))
-}
-
-func TestProposePresentationReceived_ExecuteOutbound(t *testing.T) {
-	followup, action, err := (&proposalReceived{}).ExecuteOutbound(&metaData{})
-	require.Contains(t, fmt.Sprintf("%v", err), "is not implemented yet")
-	require.Nil(t, followup)
-	require.Nil(t, action)
 }
 
 func notTransition(t *testing.T, st state) {
