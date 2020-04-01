@@ -6,29 +6,16 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto/ecdsa"
 	"crypto/ed25519"
-	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"testing"
 
-	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
-	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
@@ -64,10 +51,13 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 	r.Equal(vc, vcWithLdp)
 }
 
-func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {
+// TODO below tests needs to be enabled after fixing [Issue:#1548]
+// TransmuteVC isn't following "https://github.com/digitalbazaar/jsonld-signatures." for JsonWebSignature2020 signatures
+// https://github.com/digitalbazaar/jsonld-signatures/blob/master/lib/suites/LinkedDataSignature.js#L194-L196
+//nolint:lll
+/*func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {
 	r := require.New(t)
 
-	//nolint:lll
 	vcFromTransmute := `
  {
       "@context": [
@@ -149,24 +139,23 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 	}
   },
   "proof": {
-	"type": "JsonWebSignature2020",
-	"created": "2020-03-27T16:12:55Z",
-	"verificationMethod": "did:example:123#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
-	"proofPurpose": "assertionMethod",
-	"jws": "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJFUzI1NiJ9..rxj1M_yPYhn5Eo9IGGdQKVmF8dgzhaxaForvuGc6lllrSZ_VIUPcK57Odq2KPHtUAra4_1LtbCihSbaLogyACA"
+    "type": "JsonWebSignature2020",
+    "created": "2020-03-27T22:10:31Z",
+    "verificationMethod": "did:web:vc.transmute.world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
+    "proofPurpose": "assertionMethod",
+    "jws": "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJFUzI1NiJ9..LolbHdjWoqNK2o_kKiCFNbTHHURLKArGuysZPABkpSrKkztu9O9OoVDQjciwC8HVkn-lUI6RQHwQOZI4nOMbeQ"
   }
 }
 `
 
 	ecdsaP256Key := `
 {
-  "crv": "P-256",
-  "x": "38M1FDts7Oea7urmseiugGW7tWc3mLpJh6rKe7xINZ8",
-  "y": "nDQW6XZ7b_u2Sy9slofYLlG03sOEoug3I0aAPQ0exs4",
-  "d": "jo3AJc3hrH_Ms39W_4dAl2Qm3gAs9JrNijO6n30sIWc",
-  "kty": "EC",
-  "kid": "_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw"
-}
+                "crv": "P-256",
+                "x": "38M1FDts7Oea7urmseiugGW7tWc3mLpJh6rKe7xINZ8",
+                "y": "nDQW6XZ7b_u2Sy9slofYLlG03sOEoug3I0aAPQ0exs4",
+                "kty": "EC",
+                "kid": "_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw"
+            }
 `
 
 	var jsonWebKey jose.JSONWebKey
@@ -191,6 +180,72 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 	r.NoError(err)
 	r.NotNil(t, vcWithLdp)
 }
+
+func createLocalCrypto() crypto.Crypto {
+	lKMS := createKMS()
+
+	tinkCrypto, err := tinkcrypto.New()
+	if err != nil {
+		panic("failed to create tinkcrypto")
+	}
+
+	return &LocalCrypto{
+		Crypto:   tinkCrypto,
+		localKMS: lKMS,
+	}
+}
+
+
+// LocalCrypto defines a verifier which is based on Local KMS and Crypto
+// which uses keyset.Handle as input for verification.
+type LocalCrypto struct {
+	*tinkcrypto.Crypto
+	localKMS *localkms.LocalKMS
+}
+
+func (t *LocalCrypto) Verify(sig, msg []byte, kh interface{}) error {
+	pubKey, ok := kh.(*sigverifier.PublicKey)
+	if !ok {
+		return errors.New("bad key handle format")
+	}
+
+	kmsKeyType, err := mapKeyTypeToKMS(pubKey.Type)
+	if err != nil {
+		return err
+	}
+
+	handle, err := t.localKMS.PubKeyBytesToHandle(pubKey.Value, kmsKeyType)
+	if err != nil {
+		return err
+	}
+
+	return t.Crypto.Verify(sig, msg, handle)
+}
+
+
+func mapKeyTypeToKMS(t string) (kms.KeyType, error) {
+	switch t {
+	case kms.ECDSAP256:
+		return kms.ECDSAP256Type, nil
+	case kms.ED25519:
+		return kms.ED25519Type, nil
+	default:
+		return "", fmt.Errorf("unsupported key type: %s", t)
+	}
+}
+
+func createKMS() *localkms.LocalKMS {
+	p := mockkms.NewProvider(storage.NewMockStoreProvider(), &noop.NoLock{})
+
+	k, err := localkms.New("local-lock://custom/master/key/", p)
+	if err != nil {
+		panic(err)
+	}
+
+	return k
+}
+
+*/
 
 func TestCredential_AddLinkedDataProof(t *testing.T) {
 	r := require.New(t)
@@ -252,66 +307,4 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		err = vc.AddLinkedDataProof(ldpContextWithMissingSignatureType)
 		r.Error(err)
 	})
-}
-
-func createLocalCrypto() crypto.Crypto {
-	lKMS := createKMS()
-
-	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		panic("failed to create tinkcrypto")
-	}
-
-	return &LocalCrypto{
-		Crypto:   tinkCrypto,
-		localKMS: lKMS,
-	}
-}
-
-// LocalCrypto defines a verifier which is based on Local KMS and Crypto
-// which uses keyset.Handle as input for verification.
-type LocalCrypto struct {
-	*tinkcrypto.Crypto
-	localKMS *localkms.LocalKMS
-}
-
-func (t *LocalCrypto) Verify(sig, msg []byte, kh interface{}) error {
-	pubKey, ok := kh.(*sigverifier.PublicKey)
-	if !ok {
-		return errors.New("bad key handle format")
-	}
-
-	kmsKeyType, err := mapKeyTypeToKMS(pubKey.Type)
-	if err != nil {
-		return err
-	}
-
-	handle, err := t.localKMS.PubKeyBytesToHandle(pubKey.Value, kmsKeyType)
-	if err != nil {
-		return err
-	}
-
-	return t.Crypto.Verify(sig, msg, handle)
-}
-
-func mapKeyTypeToKMS(t string) (kms.KeyType, error) {
-	switch t {
-	case kms.ECDSAP256:
-		return kms.ECDSAP256Type, nil
-	case kms.ED25519:
-		return kms.ED25519Type, nil
-	default:
-		return "", fmt.Errorf("unsupported key type: %s", t)
-	}
-}
-
-func createKMS() *localkms.LocalKMS {
-	p := mockkms.NewProvider(storage.NewMockStoreProvider(), &noop.NoLock{})
-
-	k, err := localkms.New("local-lock://custom/master/key/", p)
-	if err != nil {
-		panic(err)
-	}
-
-	return k
 }
