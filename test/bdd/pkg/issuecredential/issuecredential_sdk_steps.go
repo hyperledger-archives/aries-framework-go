@@ -22,6 +22,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
+const timeout = time.Second * 5
+
 func getVCredential() *verifiable.Credential {
 	const referenceNumber = 83294847
 
@@ -93,7 +95,7 @@ func (a *SDKSteps) waitFor(agent, name string) error {
 			if e.StateID == name {
 				return nil
 			}
-		case <-time.After(time.Second):
+		case <-time.After(timeout):
 			return errors.New("timeout")
 		}
 	}
@@ -208,7 +210,7 @@ func (a *SDKSteps) getActionID(agent string) (string, error) {
 	select {
 	case e := <-a.actions[agent]:
 		return e.Message.ThreadID()
-	case <-time.After(time.Second):
+	case <-time.After(timeout):
 		return "", errors.New("timeout")
 	}
 }
