@@ -27,19 +27,19 @@ func newConnectionStore(p provider) (*connectionStore, error) {
 		return nil, fmt.Errorf("failed to initialize connection recorder: %w", err)
 	}
 
-	didConnStore, err := did.New(p)
+	didConnStore, err := did.NewConnectionStore(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize did connection store: %w", err)
 	}
 
-	return &connectionStore{Recorder: recorder, Store: didConnStore}, nil
+	return &connectionStore{Recorder: recorder, ConnectionStore: didConnStore}, nil
 }
 
 // connectionStore takes care of connection and DID related persistence features
 // TODO merge connection stores [Issue #1004]
 type connectionStore struct {
 	*connection.Recorder
-	*did.Store
+	*did.ConnectionStore
 }
 
 // saveConnectionRecord saves the connection record against the connection id  in the store
