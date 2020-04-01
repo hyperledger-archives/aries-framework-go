@@ -41,6 +41,7 @@ func TestNew(t *testing.T) {
 		provider := presentproofMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().VDRIRegistry().Return(nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -79,6 +80,7 @@ func TestService_HandleInbound(t *testing.T) {
 	provider := presentproofMocks.NewMockProvider(ctrl)
 	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
 	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+	provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
 
 	t.Run("No clients", func(t *testing.T) {
 		svc, err := New(provider)
