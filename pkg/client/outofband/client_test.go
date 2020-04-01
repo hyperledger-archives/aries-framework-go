@@ -13,17 +13,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
-	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
-	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
 func TestNew(t *testing.T) {
@@ -31,20 +31,6 @@ func TestNew(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 		require.NotNil(t, c)
-	})
-	t.Run("wraps persistent store error when opening it", func(t *testing.T) {
-		expected := errors.New("test")
-		provider := withTestProvider()
-		provider.StorageProviderValue = &mockstore.MockStoreProvider{ErrOpenStoreHandle: expected}
-		_, err := New(provider)
-		require.Error(t, err)
-	})
-	t.Run("wraps transient store error when opening it", func(t *testing.T) {
-		expected := errors.New("test")
-		provider := withTestProvider()
-		provider.TransientStorageProviderValue = &mockstore.MockStoreProvider{ErrOpenStoreHandle: expected}
-		_, err := New(provider)
-		require.Error(t, err)
 	})
 }
 
@@ -191,18 +177,6 @@ func TestCreateRequest(t *testing.T) {
 			WithServices(unsupported))
 		require.Error(t, err)
 	})
-	t.Run("wraps connection recorder error", func(t *testing.T) {
-		expected := errors.New("test")
-		provider := withTestProvider()
-		provider.StorageProviderValue = mockstore.NewCustomMockStoreProvider(&mockstore.MockStore{
-			ErrPut: expected,
-		})
-		c, err := New(provider)
-		require.NoError(t, err)
-		_, err = c.CreateRequest(WithAttachments(dummyAttachment(t)))
-		require.Error(t, err)
-		require.True(t, errors.Is(err, expected))
-	})
 	t.Run("wraps did service block creation error when KMS fails", func(t *testing.T) {
 		expected := errors.New("test")
 		provider := withTestProvider()
@@ -220,16 +194,6 @@ func TestCreateRequest(t *testing.T) {
 		require.NoError(t, err)
 		_, err = c.CreateRequest(WithAttachments(dummyAttachment(t)))
 		require.Error(t, err)
-	})
-	t.Run("wraps did service block creation error when service lookup fails", func(t *testing.T) {
-		expected := errors.New("test")
-		provider := withTestProvider()
-		provider.ServiceErr = expected
-		c, err := New(provider)
-		require.NoError(t, err)
-		_, err = c.CreateRequest(WithAttachments(dummyAttachment(t)))
-		require.Error(t, err)
-		require.True(t, errors.Is(err, expected))
 	})
 	t.Run("wraps did service block creation error when route service config fails", func(t *testing.T) {
 		expected := errors.New("test")
@@ -252,6 +216,41 @@ func TestCreateRequest(t *testing.T) {
 		c, err := New(provider)
 		require.NoError(t, err)
 		_, err = c.CreateRequest(WithAttachments(dummyAttachment(t)))
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+}
+
+func TestAcceptRequest(t *testing.T) {
+	t.Run("returns connection ID", func(t *testing.T) {
+		expected := "123456"
+		provider := withTestProvider()
+		provider.ServiceMap = map[string]interface{}{
+			outofband.Name: &stubOOBService{
+				acceptReqFunc: func(*outofband.Request) (string, error) {
+					return expected, nil
+				},
+			},
+		}
+		c, err := New(provider)
+		require.NoError(t, err)
+		result, err := c.AcceptRequest(&Request{&outofband.Request{}})
+		require.NoError(t, err)
+		require.Equal(t, expected, result)
+	})
+	t.Run("wraps error from outofband service", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := withTestProvider()
+		provider.ServiceMap = map[string]interface{}{
+			outofband.Name: &stubOOBService{
+				acceptReqFunc: func(*outofband.Request) (string, error) {
+					return "", expected
+				},
+			},
+		}
+		c, err := New(provider)
+		require.NoError(t, err)
+		_, err = c.AcceptRequest(&Request{&outofband.Request{}})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -293,7 +292,29 @@ func withTestProvider() *mockprovider.Provider {
 		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 		ServiceMap: map[string]interface{}{
 			route.Coordination: &mockroute.MockRouteSvc{},
+			outofband.Name:     &stubOOBService{},
 		},
 		ServiceEndpointValue: "endpoint",
 	}
+}
+
+type stubOOBService struct {
+	acceptReqFunc func(request *outofband.Request) (string, error)
+	saveReqFunc   func(*outofband.Request) error
+}
+
+func (s *stubOOBService) AcceptRequest(request *outofband.Request) (string, error) {
+	if s.acceptReqFunc != nil {
+		return s.acceptReqFunc(request)
+	}
+
+	return "", nil
+}
+
+func (s *stubOOBService) SaveRequest(request *outofband.Request) error {
+	if s.saveReqFunc != nil {
+		return s.saveReqFunc(request)
+	}
+
+	return nil
 }

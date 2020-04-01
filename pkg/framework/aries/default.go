@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
@@ -52,7 +53,7 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 
 	// order is important as DIDExchange service depends on Route service and Introduce depends on DIDExchange
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators,
-		newRouteSvc(), newExchangeSvc(), newIntroduceSvc(), newIssueCredentialSvc())
+		newRouteSvc(), newExchangeSvc(), newIntroduceSvc(), newIssueCredentialSvc(), newOutOfBandSvc())
 
 	if frameworkOpts.secretLock == nil && frameworkOpts.kmsCreator == nil {
 		err := createDefSecretLock(frameworkOpts)
@@ -91,6 +92,12 @@ func newIssueCredentialSvc() api.ProtocolSvcCreator {
 func newRouteSvc() api.ProtocolSvcCreator {
 	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
 		return route.New(prv)
+	}
+}
+
+func newOutOfBandSvc() api.ProtocolSvcCreator {
+	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
+		return outofband.New(prv)
 	}
 }
 

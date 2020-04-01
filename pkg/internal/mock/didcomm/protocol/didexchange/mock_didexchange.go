@@ -37,6 +37,7 @@ type MockDIDExchangeSvc struct {
 	AcceptError              error
 	ImplicitInvitationErr    error
 	RespondToFunc            func(*didexchange.OOBInvitation) (string, error)
+	SaveFunc                 func(invitation *didexchange.OOBInvitation) error
 }
 
 // HandleInbound msg
@@ -145,6 +146,15 @@ func (m *MockDIDExchangeSvc) RespondTo(i *didexchange.OOBInvitation) (string, er
 	}
 
 	return "", nil
+}
+
+// SaveInvitation this invitation.
+func (m *MockDIDExchangeSvc) SaveInvitation(i *didexchange.OOBInvitation) error {
+	if m.SaveFunc != nil {
+		return m.SaveFunc(i)
+	}
+
+	return nil
 }
 
 // MockProvider is provider for DIDExchange Service

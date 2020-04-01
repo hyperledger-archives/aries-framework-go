@@ -11,16 +11,17 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
+
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
-
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 )
 
 const (
@@ -39,6 +40,7 @@ var errIgnoredDidEvent = errors.New("ignored")
 
 type didExchSvc interface {
 	RespondTo(*didexchange.OOBInvitation) (string, error)
+	SaveInvitation(invitation *didexchange.OOBInvitation) error
 }
 
 // Service implements the Out-Of-Band protocol.
@@ -49,7 +51,7 @@ type Service struct {
 	didSvc                     didExchSvc
 	didEvents                  chan service.StateMsg
 	store                      storage.Store
-	connections                *connection.Lookup
+	connections                *connection.Recorder
 	dispatch                   transport.InboundMessageHandler
 	getNextRequestFunc         func(*myState) (*decorator.Attachment, bool)
 	extractDIDCommMsgBytesFunc func(*decorator.Attachment) ([]byte, error)
@@ -94,7 +96,7 @@ func New(p Provider) (*Service, error) {
 		return nil, fmt.Errorf("failed to open the store : %w", err)
 	}
 
-	connectionLookup, err := connection.NewLookup(p)
+	connectionRecorder, err := connection.NewRecorder(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a connection.Lookup : %w", err)
 	}
@@ -104,7 +106,7 @@ func New(p Provider) (*Service, error) {
 		didSvc:                     didSvc,
 		didEvents:                  make(chan service.StateMsg, callbackChannelSize),
 		store:                      store,
-		connections:                connectionLookup,
+		connections:                connectionRecorder,
 		dispatch:                   p.InboundMessageHandler(),
 		getNextRequestFunc:         getNextRequest,
 		extractDIDCommMsgBytesFunc: extractDIDCommMsgBytes,
@@ -169,6 +171,44 @@ func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) error {
 	return errors.New("not implemented")
 }
 
+// AcceptRequest from another agent and return the connection ID.
+func (s *Service) AcceptRequest(r *Request) (string, error) {
+	connID, err := s.handleRequestCallback(&callback{
+		msg: service.NewDIDCommMsgMap(r),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to accept request : %w", err)
+	}
+
+	return connID, err
+}
+
+// SaveRequest created by the outofband client.
+func (s *Service) SaveRequest(r *Request) error {
+	// TODO where should we save this request? - https://github.com/hyperledger/aries-framework-go/issues/1547
+	err := s.connections.SaveInvitation(r.ID+"-TODO", r)
+	if err != nil {
+		return fmt.Errorf("failed to save oob request : %w", err)
+	}
+
+	target, err := chooseTarget(r.Service)
+	if err != nil {
+		return fmt.Errorf("failed to choose a target to perform did-exchange against : %w", err)
+	}
+
+	err = s.didSvc.SaveInvitation(&didexchange.OOBInvitation{
+		ID:       uuid.New().String(),
+		ThreadID: r.ID,
+		Label:    r.Label,
+		Target:   target,
+	})
+	if err != nil {
+		return fmt.Errorf("the didexchange service failed to save the oob invitation : %w", err)
+	}
+
+	return nil
+}
+
 func continueFunc(c chan *callback, msg service.DIDCommMsg, myDID, theirDID string) func(interface{}) {
 	return func(_ interface{}) {
 		c <- &callback{
@@ -182,7 +222,7 @@ func continueFunc(c chan *callback, msg service.DIDCommMsg, myDID, theirDID stri
 func listener(
 	callbacks chan *callback,
 	didEvents chan service.StateMsg,
-	handleReqFunc func(*callback) error,
+	handleReqFunc func(*callback) (string, error),
 	handleDidEventFunc func(msg service.StateMsg) error) func() {
 	return func() {
 		for {
@@ -192,7 +232,7 @@ func listener(
 				//  https://github.com/hyperledger/aries-framework-go/issues/1488
 				switch c.msg.Type() {
 				case RequestMsgType:
-					err := handleReqFunc(c)
+					_, err := handleReqFunc(c)
 					if err != nil {
 						logutil.LogError(logger, Name, "handleRequestCallback", err.Error(),
 							logutil.CreateKeyValueString("msgType", c.msg.Type()),
@@ -213,17 +253,17 @@ func listener(
 	}
 }
 
-func (s *Service) handleRequestCallback(c *callback) error {
+func (s *Service) handleRequestCallback(c *callback) (string, error) {
 	// TODO refactor didexchange.Service to accept an object other than didexchange.Invitation
 	//  https://github.com/hyperledger/aries-framework-go/issues/1501
 	invitation, req, err := decodeInvitationAndRequest(c.msg)
 	if err != nil {
-		return fmt.Errorf("failed to decode didexchange invitation and out-of-band request : %w", err)
+		return "", fmt.Errorf("failed to decode didexchange invitation and out-of-band request : %w", err)
 	}
 
 	connID, err := s.didSvc.RespondTo(invitation)
 	if err != nil {
-		return fmt.Errorf("didexchange service failed to handle inbound request : %w", err)
+		return "", fmt.Errorf("didexchange service failed to handle inbound request : %w", err)
 	}
 
 	// TODO if we want to implement retries then we should be saving state before invoking
@@ -236,10 +276,10 @@ func (s *Service) handleRequestCallback(c *callback) error {
 		Request:      req,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to save my state : %w", err)
+		return "", fmt.Errorf("failed to save my state : %w", err)
 	}
 
-	return nil
+	return connID, nil
 }
 
 func (s *Service) handleDIDEvent(e service.StateMsg) error {
@@ -351,7 +391,7 @@ func decodeInvitationAndRequest(msg service.DIDCommMsg) (*didexchange.OOBInvitat
 	}
 
 	invitation := &didexchange.OOBInvitation{
-		ID:       req.ID,
+		ID:       uuid.New().String(),
 		ThreadID: req.ID,
 		Label:    req.Label,
 	}
