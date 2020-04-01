@@ -7,11 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package presentproof
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
 const (
@@ -244,8 +248,35 @@ func (s *presentationReceived) CanTransitionTo(st state) bool {
 		st.Name() == stateNameDone
 }
 
+func verifyPresentation(registryVDRI vdri.Registry, attachments []decorator.Attachment) error {
+	// TODO: Currently, it supports only base64 payload. We need to add support for links and JSON as well. [Issue 1455]
+	for i := range attachments {
+		raw, err := base64.StdEncoding.DecodeString(attachments[i].Data.Base64)
+		if err != nil {
+			return fmt.Errorf("decode string: %w", err)
+		}
+
+		_, err = verifiable.NewPresentation(raw, verifiable.WithPresPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(registryVDRI).PublicKeyFetcher(),
+		))
+		if err != nil {
+			return fmt.Errorf("new presentation: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error) {
-	// TODO: need to verify presentation issue-1525
+	var presentation = Presentation{}
+	if err := md.Msg.Decode(&presentation); err != nil {
+		return nil, nil, fmt.Errorf("decode: %w", err)
+	}
+
+	if err := verifyPresentation(md.registryVDRI, presentation.Presentations); err != nil {
+		return nil, nil, fmt.Errorf("verify presentation: %w", err)
+	}
+
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(model.Ack{

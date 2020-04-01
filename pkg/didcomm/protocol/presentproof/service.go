@@ -14,6 +14,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -61,6 +62,7 @@ type metaData struct {
 	presentation        *Presentation
 	proposePresentation *ProposePresentation
 	request             *RequestPresentation
+	registryVDRI        vdri.Registry
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -98,15 +100,17 @@ func WithRequestPresentation(msg *RequestPresentation) Opt {
 type Provider interface {
 	Messenger() service.Messenger
 	StorageProvider() storage.Provider
+	VDRIRegistry() vdri.Registry
 }
 
 // Service for the presentproof protocol
 type Service struct {
 	service.Action
 	service.Message
-	store     storage.Store
-	callbacks chan *metaData
-	messenger service.Messenger
+	store        storage.Store
+	callbacks    chan *metaData
+	messenger    service.Messenger
+	registryVDRI vdri.Registry
 }
 
 // New returns the presentproof service
@@ -117,9 +121,10 @@ func New(p Provider) (*Service, error) {
 	}
 
 	svc := &Service{
-		messenger: p.Messenger(),
-		store:     store,
-		callbacks: make(chan *metaData),
+		messenger:    p.Messenger(),
+		registryVDRI: p.VDRIRegistry(),
+		store:        store,
+		callbacks:    make(chan *metaData),
 	}
 
 	// start the listener
@@ -211,8 +216,9 @@ func (s *Service) doHandle(msg service.DIDCommMsgMap) (*metaData, error) {
 			Msg:       msg,
 			PIID:      piID,
 		},
-		state:    next,
-		msgClone: msg.Clone(),
+		state:        next,
+		msgClone:     msg.Clone(),
+		registryVDRI: s.registryVDRI,
 	}, nil
 }
 
