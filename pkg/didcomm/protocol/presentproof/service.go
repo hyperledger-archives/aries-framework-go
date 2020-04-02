@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package presentproof
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -37,7 +38,10 @@ const (
 	PresentationPreviewMsgType = Spec + "presentation-preview"
 )
 
-const stateNameKey = "state_name_"
+const (
+	stateNameKey           = "state_name_"
+	transitionalPayloadKey = "transitionalPayload_%s"
+)
 
 var logger = log.New("aries-framework/presentproof/service")
 
@@ -67,6 +71,13 @@ type metaData struct {
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
 	err error
+}
+
+// Action contains helpful information about action
+type Action struct {
+	// protocol state machine identifier
+	PIID string
+	Msg  service.DIDCommMsgMap
 }
 
 // Opt describes option signature for the Continue function
@@ -159,6 +170,10 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 
 	// trigger action event based on message type for inbound messages
 	if canReply && canTriggerActionEvents(msg) {
+		err = s.saveTransitionalPayload(md.PIID, md.transitionalPayload)
+		if err != nil {
+			return "", fmt.Errorf("save transitional payload: %w", err)
+		}
 		aEvent <- s.newDIDCommActionMsg(md)
 
 		return "", nil
@@ -351,11 +366,115 @@ func nextState(msg service.DIDCommMsgMap) (state, error) {
 	}
 }
 
+func (s *Service) saveTransitionalPayload(id string, data transitionalPayload) error {
+	src, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("marshal transitional payload: %w", err)
+	}
+
+	return s.store.Put(fmt.Sprintf(transitionalPayloadKey, id), src)
+}
+
 // canTriggerActionEvents checks if the incoming message can trigger an action event
 func canTriggerActionEvents(msg service.DIDCommMsg) bool {
 	return msg.Type() == PresentationMsgType ||
 		msg.Type() == ProposePresentationMsgType ||
 		msg.Type() == RequestPresentationMsgType
+}
+
+func (s *Service) getTransitionalPayload(id string) (*transitionalPayload, error) {
+	src, err := s.store.Get(fmt.Sprintf(transitionalPayloadKey, id))
+	if err != nil {
+		return nil, fmt.Errorf("store get: %w", err)
+	}
+
+	t := &transitionalPayload{}
+
+	err = json.Unmarshal(src, t)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal transitional payload: %w", err)
+	}
+
+	return t, err
+}
+
+func (s *Service) deleteTransitionalPayload(id string) error {
+	return s.store.Delete(fmt.Sprintf(transitionalPayloadKey, id))
+}
+
+// Actions returns actions for the async usage
+func (s *Service) Actions() ([]Action, error) {
+	records := s.store.Iterator(
+		fmt.Sprintf(transitionalPayloadKey, ""),
+		fmt.Sprintf(transitionalPayloadKey, "~"),
+	)
+	defer records.Release()
+
+	var actions []Action
+
+	for records.Next() {
+		var action Action
+		if err := json.Unmarshal(records.Value(), &action); err != nil {
+			return nil, fmt.Errorf("unmarshal: %w", err)
+		}
+
+		actions = append(actions, action)
+	}
+
+	if records.Error() != nil {
+		return nil, records.Error()
+	}
+
+	return actions, nil
+}
+
+// ActionContinue allows proceeding with the action by the piID
+func (s *Service) ActionContinue(piID string, opt Opt) error {
+	tPayload, err := s.getTransitionalPayload(piID)
+	if err != nil {
+		return fmt.Errorf("get transitional payload: %w", err)
+	}
+
+	md := &metaData{
+		transitionalPayload: *tPayload,
+		state:               stateFromName(tPayload.StateName),
+		msgClone:            tPayload.Msg.Clone(),
+	}
+
+	if opt != nil {
+		opt(md)
+	}
+
+	if err := s.deleteTransitionalPayload(md.PIID); err != nil {
+		return fmt.Errorf("delete transitional payload: %w", err)
+	}
+
+	s.processCallback(md)
+
+	return nil
+}
+
+// ActionStop allows stopping the action by the piID
+func (s *Service) ActionStop(piID string, cErr error) error {
+	tPayload, err := s.getTransitionalPayload(piID)
+	if err != nil {
+		return fmt.Errorf("get transitional payload: %w", err)
+	}
+
+	md := &metaData{
+		transitionalPayload: *tPayload,
+		state:               stateFromName(tPayload.StateName),
+		msgClone:            tPayload.Msg.Clone(),
+	}
+
+	if err := s.deleteTransitionalPayload(md.PIID); err != nil {
+		return fmt.Errorf("delete transitional payload: %w", err)
+	}
+
+	md.err = customError{error: cErr}
+	s.processCallback(md)
+
+	return nil
 }
 
 func (s *Service) processCallback(msg *metaData) {
@@ -376,9 +495,17 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 				fn(md)
 			}
 
+			if err := s.deleteTransitionalPayload(md.PIID); err != nil {
+				logger.Errorf("continue: delete transitional payload: %v", err)
+			}
+
 			s.processCallback(md)
 		},
 		Stop: func(cErr error) {
+			if err := s.deleteTransitionalPayload(md.PIID); err != nil {
+				logger.Errorf("stop: delete transitional payload: %v", err)
+			}
+
 			md.err = customError{error: cErr}
 			s.processCallback(md)
 		},
