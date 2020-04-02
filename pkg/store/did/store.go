@@ -105,8 +105,8 @@ func (s *Store) GetDIDByName(name string) (string, error) {
 	return string(idBytes), nil
 }
 
-// GetDIDs retrieves the didDoc records containing name and didID.
-func (s *Store) GetDIDs() []*Record {
+// GetDIDRecords retrieves the didDoc records containing name and didID.
+func (s *Store) GetDIDRecords() []*Record {
 	searchKey := didNameDataKey("")
 
 	itr := s.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
