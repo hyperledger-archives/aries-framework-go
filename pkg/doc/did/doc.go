@@ -112,7 +112,10 @@ type PublicKey struct {
 	ID         string
 	Type       string
 	Controller string
-	Value      []byte
+
+	Value []byte
+
+	jsonWebKey *jose.JWK
 }
 
 // Service DID doc service
@@ -351,61 +354,88 @@ func populatePublicKeys(context string, rawPKs []map[string]interface{}) ([]Publ
 	var publicKeys []PublicKey
 
 	for _, rawPK := range rawPKs {
-		decodeValue, err := decodePK(rawPK)
-		if err != nil {
-			return nil, err
-		}
-
 		controllerKey := jsonldController
 
 		if context == contextV011 {
 			controllerKey = jsonldOwner
 		}
 
-		publicKeys = append(publicKeys, PublicKey{ID: stringEntry(rawPK[jsonldID]), Type: stringEntry(rawPK[jsonldType]),
-			Controller: stringEntry(rawPK[controllerKey]), Value: decodeValue})
+		publicKey := PublicKey{ID: stringEntry(rawPK[jsonldID]), Type: stringEntry(rawPK[jsonldType]),
+			Controller: stringEntry(rawPK[controllerKey])}
+
+		err := decodePK(&publicKey, rawPK)
+		if err != nil {
+			return nil, err
+		}
+
+		publicKeys = append(publicKeys, publicKey)
 	}
 
 	return publicKeys, nil
 }
 
-func decodePK(rawPK map[string]interface{}) ([]byte, error) {
+func decodePK(publicKey *PublicKey, rawPK map[string]interface{}) error {
 	if stringEntry(rawPK[jsonldPublicKeyBase58]) != "" {
-		return base58.Decode(stringEntry(rawPK[jsonldPublicKeyBase58])), nil
+		publicKey.Value = base58.Decode(stringEntry(rawPK[jsonldPublicKeyBase58]))
+		return nil
 	}
 
 	if stringEntry(rawPK[jsonldPublicKeyHex]) != "" {
 		value, err := hex.DecodeString(stringEntry(rawPK[jsonldPublicKeyHex]))
 		if err != nil {
-			return nil, fmt.Errorf("decode public key hex failed: %w", err)
+			return fmt.Errorf("decode public key hex failed: %w", err)
 		}
 
-		return value, nil
+		publicKey.Value = value
+
+		return nil
 	}
 
 	if stringEntry(rawPK[jsonldPublicKeyPem]) != "" {
 		block, _ := pem.Decode([]byte(stringEntry(rawPK[jsonldPublicKeyPem])))
 		if block == nil {
-			return nil, errors.New("failed to decode PEM block containing public key")
+			return errors.New("failed to decode PEM block containing public key")
 		}
 
-		return block.Bytes, nil
+		publicKey.Value = block.Bytes
+
+		return nil
 	}
 
 	if jwkMap := mapEntry(rawPK[jsonldPublicKeyjwk]); jwkMap != nil {
-		jwkBytes, err := json.Marshal(jwkMap)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal '%s', cause: %w ", jsonldPublicKeyjwk, err)
-		}
-
-		if string(jwkBytes) == "{}" {
-			return []byte(""), nil
-		}
-
-		return jose.DecodePublicKey(jwkBytes)
+		return decodePublicKeyJwk(jwkMap, publicKey)
 	}
 
-	return nil, errors.New("public key encoding not supported")
+	return errors.New("public key encoding not supported")
+}
+
+func decodePublicKeyJwk(jwkMap map[string]interface{}, publicKey *PublicKey) error {
+	jwkBytes, err := json.Marshal(jwkMap)
+	if err != nil {
+		return fmt.Errorf("failed to marshal '%s', cause: %w ", jsonldPublicKeyjwk, err)
+	}
+
+	if string(jwkBytes) == "{}" {
+		publicKey.Value = []byte("")
+		return nil
+	}
+
+	var jwk jose.JWK
+
+	err = json.Unmarshal(jwkBytes, &jwk)
+	if err != nil {
+		return fmt.Errorf("unmarshal JWK: %w", err)
+	}
+
+	pkBytes, err := jwk.PublicKeyBytes()
+	if err != nil {
+		return fmt.Errorf("failed to decode public key from JWK: %w", err)
+	}
+
+	publicKey.Value = pkBytes
+	publicKey.jsonWebKey = &jwk
+
+	return nil
 }
 
 func (r *rawDoc) ParseContext() []string {
@@ -593,6 +623,7 @@ func (r *didKeyResolver) Resolve(id string) (*verifier.PublicKey, error) {
 			return &verifier.PublicKey{
 				Type:  key.Type,
 				Value: key.Value,
+				JWK:   key.jsonWebKey,
 			}, nil
 		}
 	}
@@ -628,14 +659,14 @@ func populateRawServices(services []Service) []map[string]interface{} {
 
 func populateRawPublicKeys(context string, pks []PublicKey) []map[string]interface{} {
 	var rawPKs []map[string]interface{}
-	for _, pk := range pks {
-		rawPKs = append(rawPKs, populateRawPublicKey(context, pk))
+	for i := range pks {
+		rawPKs = append(rawPKs, populateRawPublicKey(context, &pks[i]))
 	}
 
 	return rawPKs
 }
 
-func populateRawPublicKey(context string, pk PublicKey) map[string]interface{} {
+func populateRawPublicKey(context string, pk *PublicKey) map[string]interface{} {
 	rawPK := make(map[string]interface{})
 	rawPK[jsonldID] = pk.ID
 	rawPK[jsonldType] = pk.Type
@@ -657,7 +688,7 @@ func populateRawAuthentications(context string, vms []VerificationMethod) []inte
 	var rawAuthentications []interface{}
 
 	for _, vm := range vms {
-		rawAuthentications = append(rawAuthentications, populateRawPublicKey(context, vm.PublicKey))
+		rawAuthentications = append(rawAuthentications, populateRawPublicKey(context, &vm.PublicKey))
 	}
 
 	return rawAuthentications
