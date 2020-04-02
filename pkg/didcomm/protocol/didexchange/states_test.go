@@ -1022,7 +1022,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		connectionStore.Store, err = did.New(&protocol.MockProvider{
+		connectionStore.ConnectionStore, err = did.NewConnectionStore(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: fmt.Errorf("did error"),
@@ -1068,7 +1068,7 @@ func TestGetDIDDocAndConnection(t *testing.T) {
 		connectionStore, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		connectionStore.Store, err = did.New(&protocol.MockProvider{
+		connectionStore.ConnectionStore, err = did.NewConnectionStore(&protocol.MockProvider{
 			StoreProvider: mockstorage.NewCustomMockStoreProvider(&mockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: fmt.Errorf("did error"),

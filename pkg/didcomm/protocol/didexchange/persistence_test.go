@@ -113,7 +113,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		record, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		record.Store, err = did.New(&protocol.MockProvider{
+		record.ConnectionStore, err = did.NewConnectionStore(&protocol.MockProvider{
 			CustomVDRI: &vdri.MockVDRIRegistry{
 				ResolveErr: fmt.Errorf("resolve error"),
 			},
@@ -137,7 +137,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		record, err := newConnectionStore(&protocol.MockProvider{})
 		require.NoError(t, err)
 
-		record.Store, err = did.New(&protocol.MockProvider{
+		record.ConnectionStore, err = did.NewConnectionStore(&protocol.MockProvider{
 			CustomVDRI: &vdri.MockVDRIRegistry{
 				ResolveErr: fmt.Errorf("resolve error"),
 			},

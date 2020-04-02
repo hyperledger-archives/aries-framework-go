@@ -36,7 +36,7 @@ type Creator func(prov Provider) (transport.Packager, error)
 type Packager struct {
 	primaryPacker   packer.Packer
 	packers         map[string]packer.Packer
-	connectionStore *did.Store
+	connectionStore *did.ConnectionStore
 }
 
 // PackerCreator holds a creator function for a Packer and the name of the Packer's encoding method.
@@ -47,7 +47,7 @@ type PackerCreator struct {
 
 // New return new instance of LegacyKMS implementation
 func New(ctx Provider) (*Packager, error) {
-	didConnStore, err := did.New(ctx)
+	didConnStore, err := did.NewConnectionStore(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new packager: %w", err)
 	}

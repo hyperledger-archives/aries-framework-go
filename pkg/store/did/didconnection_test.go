@@ -42,10 +42,10 @@ func TestBaseConnectionStore(t *testing.T) {
 	}
 
 	t.Run("New", func(t *testing.T) {
-		_, err := New(&prov)
+		_, err := NewConnectionStore(&prov)
 		require.NoError(t, err)
 
-		_, err = New(&ctx{
+		_, err = NewConnectionStore(&ctx{
 			store: &mockstorage.MockStoreProvider{
 				ErrOpenStoreHandle: fmt.Errorf("store error"),
 			},
@@ -55,7 +55,7 @@ func TestBaseConnectionStore(t *testing.T) {
 	})
 
 	t.Run("SaveDID error", func(t *testing.T) {
-		cs, err := New(&ctx{
+		cs, err := NewConnectionStore(&ctx{
 			store: &mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{
 					Store:  map[string][]byte{},
@@ -75,7 +75,7 @@ func TestBaseConnectionStore(t *testing.T) {
 	})
 
 	t.Run("SaveDID + GetDID", func(t *testing.T) {
-		connStore, err := New(&prov)
+		connStore, err := NewConnectionStore(&prov)
 		require.NoError(t, err)
 
 		err = connStore.SaveDID("did:abcde", "abcde")
@@ -98,7 +98,7 @@ func TestBaseConnectionStore(t *testing.T) {
 	})
 
 	t.Run("SaveDIDFromDoc", func(t *testing.T) {
-		connStore, err := New(&prov)
+		connStore, err := NewConnectionStore(&prov)
 		require.NoError(t, err)
 
 		err = connStore.SaveDIDFromDoc(mockdiddoc.GetMockDIDDoc())
@@ -106,7 +106,7 @@ func TestBaseConnectionStore(t *testing.T) {
 	})
 
 	t.Run("SaveDIDByResolving success", func(t *testing.T) {
-		cs, err := New(&prov)
+		cs, err := NewConnectionStore(&prov)
 		require.NoError(t, err)
 
 		err = cs.SaveDIDByResolving(mockdiddoc.GetMockDIDDoc().ID)
@@ -119,7 +119,7 @@ func TestBaseConnectionStore(t *testing.T) {
 			vdr:   &mockvdri.MockVDRIRegistry{ResolveErr: fmt.Errorf("resolve error")},
 		}
 
-		cs, err := New(&prov)
+		cs, err := NewConnectionStore(&prov)
 		require.NoError(t, err)
 
 		err = cs.SaveDIDByResolving("did")
