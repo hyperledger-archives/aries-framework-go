@@ -46,8 +46,8 @@ type SDKSteps struct {
 }
 
 // NewSDKSteps returns new agent from client SDK
-func NewSDKSteps(ctx *context.BDDContext) *SDKSteps {
-	return &SDKSteps{bddContext: ctx}
+func NewSDKSteps() *SDKSteps {
+	return &SDKSteps{}
 }
 
 func (a *SDKSteps) createAgent(agentID, inboundHost, inboundPort, scheme string) error {
@@ -219,10 +219,16 @@ func (a *SDKSteps) createFramework(agentID string, opts ...aries.Option) error {
 		return fmt.Errorf("failed to create context: %w", err)
 	}
 
+	a.bddContext.Agents[agentID] = agent
 	a.bddContext.AgentCtx[agentID] = ctx
 	a.bddContext.Messengers[agentID] = agent.Messenger()
 
 	return nil
+}
+
+// SetContext is called before every scenario is run with a fresh new context
+func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
+	a.bddContext = ctx
 }
 
 // RegisterSteps registers agent steps

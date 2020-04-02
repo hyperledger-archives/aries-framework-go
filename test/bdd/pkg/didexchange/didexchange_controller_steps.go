@@ -54,12 +54,16 @@ type ControllerSteps struct {
 }
 
 // NewDIDExchangeControllerSteps creates steps for didexchange with controller
-func NewDIDExchangeControllerSteps(ctx *context.BDDContext) *ControllerSteps {
+func NewDIDExchangeControllerSteps() *ControllerSteps {
 	return &ControllerSteps{
-		bddContext:    ctx,
 		invitations:   make(map[string]*didexchange.Invitation),
 		connectionIDs: make(map[string]string),
 	}
+}
+
+// SetContext is called before every scenario is run with a fresh new context
+func (a *ControllerSteps) SetContext(ctx *context.BDDContext) {
+	a.bddContext = ctx
 }
 
 // RegisterSteps registers agent steps

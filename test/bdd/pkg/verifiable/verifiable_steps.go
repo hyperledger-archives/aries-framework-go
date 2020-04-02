@@ -30,10 +30,8 @@ type SDKSteps struct {
 }
 
 // NewVerifiableCredentialSDKSteps creates steps for verifiable credential with SDK
-func NewVerifiableCredentialSDKSteps(ctx *context.BDDContext) *SDKSteps {
-	return &SDKSteps{
-		bddContext: ctx,
-	}
+func NewVerifiableCredentialSDKSteps() *SDKSteps {
+	return &SDKSteps{}
 }
 
 const (
@@ -41,6 +39,11 @@ const (
 
 	jwsProof = "JWS"
 )
+
+// SetContext is called before every scenario is run with a fresh new context
+func (s *SDKSteps) SetContext(ctx *context.BDDContext) {
+	s.bddContext = ctx
+}
 
 // RegisterSteps registers Verifiable Credential steps.
 func (s *SDKSteps) RegisterSteps(gs *godog.Suite) {
@@ -169,7 +172,8 @@ func (s *SDKSteps) createDID(issuer, holder string) error {
 	)
 
 	participants := issuer + "," + holder
-	agentSDK := agent.NewSDKSteps(s.bddContext)
+	agentSDK := agent.NewSDKSteps()
+	agentSDK.SetContext(s.bddContext)
 
 	err := agentSDK.CreateAgentWithHTTPDIDResolver(participants, inboundHost, inboundPort, endpointURL, acceptDidMethod)
 	if err != nil {
@@ -180,7 +184,8 @@ func (s *SDKSteps) createDID(issuer, holder string) error {
 		return err
 	}
 
-	didExchangeSDK := bddDIDExchange.NewDIDExchangeSDKSteps(s.bddContext)
+	didExchangeSDK := bddDIDExchange.NewDIDExchangeSDKSteps()
+	didExchangeSDK.SetContext(s.bddContext)
 
 	return didExchangeSDK.WaitForPublicDID(participants, 10)
 }

@@ -23,13 +23,6 @@ type messagingSDKSteps struct {
 	bddContext *context.BDDContext
 }
 
-// newMessagingSDKSteps return new steps for messaging using client SDK
-func newMessagingSDKSteps(ctx *context.BDDContext) *messagingSDKSteps {
-	return &messagingSDKSteps{
-		bddContext: ctx,
-	}
-}
-
 func (d *messagingSDKSteps) registerMsgService(agentID string, msgSvc dispatcher.MessageService) error {
 	registrar, ok := d.bddContext.MessageRegistrar[agentID]
 	if !ok {

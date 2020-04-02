@@ -59,9 +59,8 @@ type ControllerSteps struct {
 }
 
 // NewMessagingControllerSteps return new steps for messaging using controller/REST binding
-func NewMessagingControllerSteps(ctx *context.BDDContext) *ControllerSteps {
+func NewMessagingControllerSteps() *ControllerSteps {
 	return &ControllerSteps{
-		bddContext:     ctx,
 		msgIDsBySender: make(map[string]string),
 	}
 }
@@ -529,6 +528,11 @@ func closeResponse(c io.Closer) {
 	if err != nil {
 		logger.Errorf("Failed to close response body : %s", err)
 	}
+}
+
+// SetContext is called before every scenario is run with a fresh new context
+func (d *ControllerSteps) SetContext(ctx *context.BDDContext) {
+	d.bddContext = ctx
 }
 
 // RegisterSteps registers messaging steps

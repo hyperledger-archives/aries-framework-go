@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/msghandler"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 )
 
@@ -28,6 +29,7 @@ type BDDContext struct {
 	RouteClients       map[string]*route.Client
 	PublicDIDDocs      map[string]*did.Doc
 	PublicDIDs         map[string]string
+	Agents             map[string]*aries.Aries
 	AgentCtx           map[string]*context.Provider
 	MessageRegistrar   map[string]*msghandler.Registrar
 	Messengers         map[string]service.Messenger
@@ -39,12 +41,13 @@ type BDDContext struct {
 }
 
 // NewBDDContext create new BDDContext
-func NewBDDContext() (*BDDContext, error) {
-	instance := BDDContext{
+func NewBDDContext() *BDDContext {
+	return &BDDContext{
 		DIDExchangeClients: make(map[string]*didexchange.Client),
 		RouteClients:       make(map[string]*route.Client),
 		PublicDIDDocs:      make(map[string]*did.Doc),
 		PublicDIDs:         make(map[string]string),
+		Agents:             make(map[string]*aries.Aries),
 		AgentCtx:           make(map[string]*context.Provider),
 		MessageRegistrar:   make(map[string]*msghandler.Registrar),
 		Messengers:         make(map[string]service.Messenger),
@@ -53,16 +56,6 @@ func NewBDDContext() (*BDDContext, error) {
 		webhookURLs:        make(map[string]string),
 		webSocketConns:     make(map[string]*websocket.Conn),
 	}
-
-	return &instance, nil
-}
-
-// BeforeScenario execute code before bdd scenario
-func (b *BDDContext) BeforeScenario(scenarioOrScenarioOutline interface{}) {
-}
-
-// AfterScenario execute code after bdd scenario
-func (b *BDDContext) AfterScenario(interface{}, error) {
 }
 
 // Destroy BDD context
@@ -71,7 +64,13 @@ func (b *BDDContext) Destroy() {
 	for agentID, conn := range b.webSocketConns {
 		err := conn.Close(websocket.StatusNormalClosure, "bddtests destroy context")
 		if err != nil {
-			logger.Debugf("failed to close websocket connection for [%s] : %w", agentID, err)
+			logger.Warnf("failed to close websocket connection for [%s] : %w", agentID, err)
+		}
+	}
+
+	for _, agent := range b.Agents {
+		if err := agent.Close(); err != nil {
+			logger.Warnf("failed to teardown aries framework : %s", err.Error())
 		}
 	}
 }

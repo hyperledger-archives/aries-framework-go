@@ -46,8 +46,13 @@ type Steps struct {
 }
 
 // NewDIDResolverSteps returns new steps for DID resolver tests
-func NewDIDResolverSteps(ctx *bddctx.BDDContext) *Steps {
-	return &Steps{bddContext: ctx}
+func NewDIDResolverSteps() *Steps {
+	return &Steps{}
+}
+
+// SetContext is called before every scenario is run with a fresh new context
+func (d *Steps) SetContext(ctx *bddctx.BDDContext) {
+	d.bddContext = ctx
 }
 
 func (d *Steps) createDIDDocument(agents, method string) error {

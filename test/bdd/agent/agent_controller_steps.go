@@ -29,10 +29,13 @@ type ControllerSteps struct {
 }
 
 // NewControllerSteps creates steps for agent with controller
-func NewControllerSteps(ctx *context.BDDContext) *ControllerSteps {
-	return &ControllerSteps{
-		bddContext: ctx,
-	}
+func NewControllerSteps() *ControllerSteps {
+	return &ControllerSteps{}
+}
+
+// SetContext is called before every scenario is run with a fresh new context
+func (a *ControllerSteps) SetContext(ctx *context.BDDContext) {
+	a.bddContext = ctx
 }
 
 // RegisterSteps registers agent steps

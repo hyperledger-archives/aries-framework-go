@@ -61,13 +61,17 @@ type SDKSteps struct {
 }
 
 // NewIssueCredentialSDKSteps creates steps for the issuecredential with SDK
-func NewIssueCredentialSDKSteps(ctx *context.BDDContext) *SDKSteps {
+func NewIssueCredentialSDKSteps() *SDKSteps {
 	return &SDKSteps{
-		bddContext: ctx,
-		clients:    make(map[string]*issuecredential.Client),
-		actions:    make(map[string]chan service.DIDCommAction),
-		events:     make(map[string]chan service.StateMsg),
+		clients: make(map[string]*issuecredential.Client),
+		actions: make(map[string]chan service.DIDCommAction),
+		events:  make(map[string]chan service.StateMsg),
 	}
+}
+
+// SetContext is called before every scenario is run with a fresh new context
+func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
+	a.bddContext = ctx
 }
 
 // RegisterSteps registers agent steps
