@@ -34,6 +34,7 @@ type Suite struct {
 
 const (
 	signatureType = "JsonWebSignature2020"
+	jwkType       = "JwsVerificationKey2020"
 	format        = "application/n-quads"
 	algorithm     = "URDNA2015"
 )

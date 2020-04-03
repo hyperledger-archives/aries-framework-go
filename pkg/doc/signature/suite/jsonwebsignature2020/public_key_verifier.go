@@ -9,7 +9,10 @@ package jsonwebsignature2020
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
+	"crypto/rsa"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"math/big"
@@ -19,18 +22,39 @@ import (
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
-// PublicKeyVerifierEC verifies a ECDSA signature taking public key bytes as input.
-// NOTE: this verifier is present for backward compatibility reasons and can be removed soon.
+// PublicKeyVerifier verifies a Ed25519 / EC (P-256, P-384, P-521, secp256k1) / RSA signature
+// taking public key bytes and / or JSON Web Key as input.
+// The list of Supported JWS algorithms of JsonWebSignature2020 is defined here:
+// https://github.com/transmute-industries/lds-jws2020#supported-jws-algs
+// NOTE: this verifier is present for backward compatibility reasons and can be removed later.
 // Please use CryptoVerifier or your own verifier.
-type PublicKeyVerifierEC struct {
+type PublicKeyVerifier struct {
 }
 
 // Verify will verify a signature.
-func (v *PublicKeyVerifierEC) Verify(pubKey *sigverifier.PublicKey, doc, signature []byte) error {
+func (v *PublicKeyVerifier) Verify(pubKey *sigverifier.PublicKey, doc, signature []byte) error {
+	// A presence of JSON Web Key is mandatory (due to JwsVerificationKey2020 type).
 	if pubKey.JWK == nil {
-		return errors.New("JWK is not defined")
+		return ErrJWKNotPresent
 	}
 
+	if pubKey.Type != jwkType {
+		return ErrTypeNotJwsVerificationKey2020
+	}
+
+	switch pubKey.JWK.Kty {
+	case "EC":
+		return v.verifyEllipticCurve(pubKey, signature, doc)
+	case "OKP":
+		return v.verifyEdDSA(pubKey, signature, doc)
+	case "RSA":
+		return v.verifyRSA(pubKey, signature, doc)
+	default:
+		return fmt.Errorf("unsupported key type: %s", pubKey.JWK.Kty)
+	}
+}
+
+func (v *PublicKeyVerifier) verifyEllipticCurve(pubKey *sigverifier.PublicKey, signature, msg []byte) error {
 	ec := parseEllipticCurve(pubKey.JWK.Crv)
 	if ec == nil {
 		return fmt.Errorf("ecdsa: unsupported elliptic curve '%s'", pubKey.JWK.Crv)
@@ -55,7 +79,7 @@ func (v *PublicKeyVerifierEC) Verify(pubKey *sigverifier.PublicKey, doc, signatu
 
 	hasher := crypto.SHA256.New()
 
-	_, err := hasher.Write(doc)
+	_, err := hasher.Write(msg)
 	if err != nil {
 		return errors.New("ecdsa: hash error")
 	}
@@ -111,3 +135,58 @@ func parseEllipticCurve(curve string) *ellipticCurve {
 		return nil
 	}
 }
+
+func (v *PublicKeyVerifier) verifyEdDSA(pubKey *sigverifier.PublicKey, signature, msg []byte) error {
+	if pubKey.JWK.Algorithm != "" && pubKey.JWK.Algorithm != "EdDSA" {
+		return fmt.Errorf("unsupported OKP algorithm: %s", pubKey.JWK.Algorithm)
+	}
+
+	// Check the key size before calling ed25519.Verify() as it will panic in case of invalid key size.
+	if len(pubKey.Value) != ed25519.PublicKeySize {
+		return errors.New("ed25519: invalid key")
+	}
+
+	verified := ed25519.Verify(pubKey.Value, msg, signature)
+	if !verified {
+		return errors.New("ed25519: invalid signature")
+	}
+
+	return nil
+}
+
+func (v *PublicKeyVerifier) verifyRSA(key *sigverifier.PublicKey, signature, msg []byte) error {
+	if key.JWK.Algorithm != "" && key.JWK.Algorithm != "PS256" {
+		return fmt.Errorf("unsupported RSA algorithm: %s", key.JWK.Algorithm)
+	}
+
+	pubKey, err := x509.ParsePKCS1PublicKey(key.Value)
+	if err != nil {
+		return errors.New("rsa: invalid public key")
+	}
+
+	hash := crypto.SHA256
+	hasher := hash.New()
+
+	_, err = hasher.Write(msg)
+	if err != nil {
+		return errors.New("rsa: hash error")
+	}
+
+	hashed := hasher.Sum(nil)
+
+	err = rsa.VerifyPSS(pubKey, hash, hashed, signature, nil)
+	if err != nil {
+		return errors.New("rsa: invalid signature")
+	}
+
+	return nil
+}
+
+var (
+	// ErrJWKNotPresent is returned when no JWK is defined in a public key (must be defined for JwsVerificationKey2020).
+	ErrJWKNotPresent = errors.New("JWK is not present")
+
+	// ErrTypeNotJwsVerificationKey2020 is returned when a public key passed for signature verification has a type
+	// different from JwsVerificationKey2020.
+	ErrTypeNotJwsVerificationKey2020 = errors.New("a type of public key is not JwsVerificationKey2020")
+)
