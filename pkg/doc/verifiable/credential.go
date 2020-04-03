@@ -571,8 +571,8 @@ func WithStrictValidation() CredentialOpt {
 	}
 }
 
-// WithEmbeddedSignatureSuites defines the suite which is used to check embedded linked data proof of VC.
-func WithEmbeddedSignatureSuites(suite verifierSignatureSuite) CredentialOpt {
+// WithEmbeddedSignatureSuite defines the suite which is used to check embedded linked data proof of VC.
+func WithEmbeddedSignatureSuite(suite verifierSignatureSuite) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.ldpSuite = suite
 	}

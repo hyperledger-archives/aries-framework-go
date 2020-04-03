@@ -7,6 +7,7 @@ package verifiable
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
@@ -185,6 +186,46 @@ func (s *ed25519TestSigner) Sign(doc []byte) ([]byte, error) {
 	}
 
 	return ed25519.Sign(s.privateKey, doc), nil
+}
+
+func getEcdsaP256TestSigner(privKey *ecdsa.PrivateKey) *ecdsaP256TestSigner {
+	return &ecdsaP256TestSigner{privateKey: privKey}
+}
+
+type ecdsaP256TestSigner struct {
+	privateKey *ecdsa.PrivateKey
+}
+
+func (es *ecdsaP256TestSigner) Sign(doc []byte) ([]byte, error) {
+	hasher := crypto.SHA256.New()
+
+	_, err := hasher.Write(doc)
+	if err != nil {
+		panic(err)
+	}
+
+	hashed := hasher.Sum(nil)
+
+	r, s, err := ecdsa.Sign(rand.Reader, es.privateKey, hashed)
+	if err != nil {
+		panic(err)
+	}
+
+	curveBits := es.privateKey.Curve.Params().BitSize
+
+	keyBytes := curveBits / 8
+	if curveBits%8 > 0 {
+		keyBytes++
+	}
+
+	copyPadded := func(source []byte, size int) []byte {
+		dest := make([]byte, size)
+		copy(dest[size-len(source):], source)
+
+		return dest
+	}
+
+	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
 }
 
 func getRS256TestSigner(privKey *rsa.PrivateKey) *rs256TestSigner {

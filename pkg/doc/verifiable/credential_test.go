@@ -799,7 +799,7 @@ func TestWithStrictValidation(t *testing.T) {
 func TestWithEmbeddedSignatureSuites(t *testing.T) {
 	ss := ed25519signature2018.New()
 
-	credentialOpt := WithEmbeddedSignatureSuites(ss)
+	credentialOpt := WithEmbeddedSignatureSuite(ss)
 	require.NotNil(t, credentialOpt)
 
 	opts := &credentialOpts{}

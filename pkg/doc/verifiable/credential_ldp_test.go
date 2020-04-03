@@ -6,16 +6,31 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
+	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
+	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
@@ -45,149 +60,139 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 	r.NoError(err)
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
-		WithEmbeddedSignatureSuites(sigSuite),
+		WithEmbeddedSignatureSuite(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
 }
 
-// TODO below tests needs to be enabled after fixing [Issue:#1548]
-// TransmuteVC isn't following "https://github.com/digitalbazaar/jsonld-signatures." for JsonWebSignature2020 signatures
-// https://github.com/digitalbazaar/jsonld-signatures/blob/master/lib/suites/LinkedDataSignature.js#L194-L196
 //nolint:lll
-/*func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {
+func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018_Transmute(t *testing.T) {
 	r := require.New(t)
 
 	vcFromTransmute := `
- {
-      "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://www.w3.org/2018/credentials/examples/v1"
-      ],
-      "id": "http://example.gov/credentials/3732",
-      "type": [
-        "VerifiableCredential",
-        "UniversityDegreeCredential"
-      ],
-      "issuer": "did:web:vc.transmute.world",
-      "issuanceDate": "2020-03-10T04:24:12.164Z",
-      "credentialSubject": {
-        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-        "degree": {
-          "type": "BachelorDegree",
-          "name": "Bachelor of Science and Arts"
-        }
-      },
-      "proof": {
-        "type": "JsonWebSignature2020",
-        "created": "2020-03-23T10:06:49Z",
-        "verificationMethod": "did:example:123#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
-        "proofPurpose": "assertionMethod",
-        "jws": "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJFZERTQSJ9..oWfz-jYc_pb5sLmh_2tpDJoLm9uCvUfbuN2yA40MgZcfuFqyhTi0fQj785c0GXPwT4yaZAEQY8rQJacM2MSzBg"
-      }
-    }
-`
-	key := `
 {
-      "crv": "Ed25519",
-      "x": "VCpo2LMLhn6iWku8MKvSLg2ZAoC-nlOyPVQaO3FxVeQ",
-      "d": "tP7VWE16yMQWUO2G250yvoevfbfxY25GjHglTP3ZOyU",
-      "kty": "OKP",
-      "kid": "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A"
-    }
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ],
+  "id": "http://example.gov/credentials/3732",
+  "issuanceDate": "2020-03-16T22:37:26.544Z",
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "degree": {
+      "type": "BachelorDegree",
+      "degree": "MIT"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "profile": "",
+  "issuer": "did:web:vc.transmute.world",
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "created": "2019-12-11T03:50:55Z",
+    "verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+    "proofPurpose": "assertionMethod",
+    "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..MlJy4Sn47kgse7SKc56OKkJUhu-Z3CPiv2_MdjOQXJk8Bpzxa-JuinjJNN3YkYb6tPE6poIhBTlgnc_c5qQsBA"
+  }
+}
 `
 
-	var jsonWebKey *jose.JWK
-	err := json.Unmarshal([]byte(key), &jsonWebKey)
-	r.NoError(err)
+	pubKeyBytes := base58.Decode("DqS5F3GVe3rCxucgi4JBNagjv4dKoHc8TDLDw9kR58Pz")
 
-	pubKeyBytes, ok := jsonWebKey.Public().Key.(ed25519.PublicKey)
-	r.True(ok)
-
-	sigSuite := jsonwebsignature2020.New(
-		suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())),
-		suite.WithCompactProof())
+	sigSuite := ed25519signature2018.New(
+		suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())))
 
 	vcWithLdp, _, err := NewCredential([]byte(vcFromTransmute),
-		WithEmbeddedSignatureSuites(sigSuite),
+		WithEmbeddedSignatureSuite(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKeyBytes, kms.ED25519)))
 	r.NoError(err)
 	r.NotNil(t, vcWithLdp)
 }
 
-func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *testing.T) {
+func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {
 	r := require.New(t)
-	//nolint:lll
-	vcFromTransmute := `
-{
-  "@context": [
-	"https://www.w3.org/2018/credentials/v1",
-	"https://www.w3.org/2018/credentials/examples/v1"
-  ],
-  "id": "http://example.gov/credentials/3732",
-  "type": [
-	"VerifiableCredential",
-	"UniversityDegreeCredential"
-  ],
-  "issuer": "did:web:vc.transmute.world",
-  "issuanceDate": "2020-03-10T04:24:12.164Z",
-  "credentialSubject": {
-	"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-	"degree": {
-	  "type": "BachelorDegree",
-	  "name": "Bachelor of Science and Arts"
-	}
-  },
-  "proof": {
-    "type": "JsonWebSignature2020",
-    "created": "2020-03-27T22:10:31Z",
-    "verificationMethod": "did:web:vc.transmute.world#_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw",
-    "proofPurpose": "assertionMethod",
-    "jws": "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJFUzI1NiJ9..LolbHdjWoqNK2o_kKiCFNbTHHURLKArGuysZPABkpSrKkztu9O9OoVDQjciwC8HVkn-lUI6RQHwQOZI4nOMbeQ"
-  }
-}
-`
 
-	ecdsaP256Key := `
-{
-                "crv": "P-256",
-                "x": "38M1FDts7Oea7urmseiugGW7tWc3mLpJh6rKe7xINZ8",
-                "y": "nDQW6XZ7b_u2Sy9slofYLlG03sOEoug3I0aAPQ0exs4",
-                "kty": "EC",
-                "kid": "_TKzHv2jFIyvdTGF1Dsgwngfdg3SH6TpDv0Ta1aOEkw"
-            }
-`
-
-	var jsonWebKey jose.JWK
-
-	err := json.Unmarshal([]byte(ecdsaP256Key), &jsonWebKey)
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
-
-	pubKey, ok := jsonWebKey.Public().Key.(*ecdsa.PublicKey)
-	r.True(ok)
-
-	pubKeyBytes := elliptic.Marshal(pubKey, pubKey.X, pubKey.Y)
 
 	sigSuite := jsonwebsignature2020.New(
-		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier (as it's done in Ed25519 test above)
-		//   (https://github.com/hyperledger/aries-framework-go/issues/1534)
-		suite.WithVerifier(&jsonwebsignature2020.PublicKeyVerifierEC{}),
-		suite.WithCompactProof())
+		suite.WithSigner(getEd25519TestSigner(privKey)),
+		suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())))
 
-	vcWithLdp, _, err := NewCredential([]byte(vcFromTransmute),
-		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(
-			func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
-				return &sigverifier.PublicKey{
-					Type:    kms.ECDSAP256,
-					Value:   pubKeyBytes,
-					Curve:   "P-256",
-					Alg:     "ES256",
-					KeyType: "EC",
-				}, nil
-			}))
+	ldpContext := &LinkedDataProofContext{
+		SignatureType:           "JsonWebSignature2020",
+		SignatureRepresentation: SignatureJWS,
+		Suite:                   sigSuite,
+		VerificationMethod:      "did:example:123456#key1",
+	}
+
+	vc, _, err := NewCredential([]byte(validCredential))
 	r.NoError(err)
-	r.NotNil(t, vcWithLdp)
+
+	err = vc.AddLinkedDataProof(ldpContext)
+	r.NoError(err)
+
+	vcBytes, err := json.Marshal(vc)
+	r.NoError(err)
+
+	vcWithLdp, _, err := NewCredential(vcBytes,
+		WithEmbeddedSignatureSuite(sigSuite),
+		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
+	r.NoError(err)
+	r.Equal(vc, vcWithLdp)
+}
+
+func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *testing.T) {
+	r := require.New(t)
+
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	sigSuite := jsonwebsignature2020.New(
+		suite.WithSigner(getEcdsaP256TestSigner(privateKey)),
+		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier (as it's done in Ed25519 test above)
+		suite.WithVerifier(&jsonwebsignature2020.PublicKeyVerifierEC{}))
+
+	ldpContext := &LinkedDataProofContext{
+		SignatureType:           "JsonWebSignature2020",
+		SignatureRepresentation: SignatureJWS,
+		Suite:                   sigSuite,
+		VerificationMethod:      "did:example:123456#key1",
+	}
+
+	vc, _, err := NewCredential([]byte(validCredential))
+	r.NoError(err)
+
+	err = vc.AddLinkedDataProof(ldpContext)
+	r.NoError(err)
+
+	vcBytes, err := json.Marshal(vc)
+	r.NoError(err)
+
+	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
+	vcWithLdp, _, err := NewCredential(vcBytes,
+		WithEmbeddedSignatureSuite(sigSuite),
+		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
+			return &sigverifier.PublicKey{
+				Type:  kms.ECDSAP256,
+				Value: pubKeyBytes,
+				JWK: &jose.JWK{
+					JSONWebKey: gojose.JSONWebKey{
+						Algorithm: "ES256",
+					},
+					Crv: "P-256",
+					Kty: "EC",
+				},
+			}, nil
+		}))
+	r.NoError(err)
+	r.Equal(vc, vcWithLdp)
 }
 
 func createLocalCrypto() crypto.Crypto {
@@ -203,7 +208,6 @@ func createLocalCrypto() crypto.Crypto {
 		localKMS: lKMS,
 	}
 }
-
 
 // LocalCrypto defines a verifier which is based on Local KMS and Crypto
 // which uses keyset.Handle as input for verification.
@@ -231,7 +235,6 @@ func (t *LocalCrypto) Verify(sig, msg []byte, kh interface{}) error {
 	return t.Crypto.Verify(sig, msg, handle)
 }
 
-
 func mapKeyTypeToKMS(t string) (kms.KeyType, error) {
 	switch t {
 	case kms.ECDSAP256:
@@ -253,8 +256,6 @@ func createKMS() *localkms.LocalKMS {
 
 	return k
 }
-
-*/
 
 func TestCredential_AddLinkedDataProof(t *testing.T) {
 	r := require.New(t)
