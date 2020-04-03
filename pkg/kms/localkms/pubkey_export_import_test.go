@@ -12,25 +12,15 @@ import (
 
 	"github.com/google/tink/go/hybrid"
 	"github.com/google/tink/go/keyset"
+	commonpb "github.com/google/tink/go/proto/common_go_proto"
+	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/signature"
-	commonpb "github.com/google/tink/proto/common_go_proto"
-	tinkpb "github.com/google/tink/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestPubKeyExportAndRead(t *testing.T) {
-	// TODO remove below variables when corresponding key templates `WithoutPrefix` are available in Tink - issue #1489
-	ecdsaP256KeyTemplate := signature.ECDSAP256KeyTemplate()
-	ecdsaP256KeyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
-	ecdsaP384KeyTemplate := signature.ECDSAP384KeyTemplate()
-	ecdsaP384KeyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
-	ecdsaP521KeyTemplate := signature.ECDSAP521KeyTemplate()
-	ecdsaP521KeyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
-	ed25519KeyTemplate := signature.ED25519KeyTemplate()
-	ed25519KeyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
-
 	var flagTests = []struct {
 		tcName      string
 		keyType     kms.KeyType
@@ -40,34 +30,26 @@ func TestPubKeyExportAndRead(t *testing.T) {
 		{
 			tcName:      "export then read ECDSAP256 public key",
 			keyType:     kms.ECDSAP256Type,
-			keyTemplate: ecdsaP256KeyTemplate,
-			// TODO remove above line then uncomment below line when key template is available in Tink - issue #1489
-			// keyTemplate: signature.ECDSAP256KeyWithoutPrefixTemplate()
-			doSign: true,
+			keyTemplate: signature.ECDSAP256KeyWithoutPrefixTemplate(),
+			doSign:      true,
 		},
 		{
 			tcName:      "export then read ECDSAP384 public key",
 			keyType:     kms.ECDSAP384Type,
-			keyTemplate: ecdsaP384KeyTemplate,
-			// TODO remove above line then uncomment below line when key template is available in Tink - issue #1489
-			// keyTemplate: signature.ECDSAP384KeyWithoutPrefixTemplate()
-			doSign: true,
+			keyTemplate: signature.ECDSAP384KeyWithoutPrefixTemplate(),
+			doSign:      true,
 		},
 		{
 			tcName:      "export then read ECDSAP521 public key",
 			keyType:     kms.ECDSAP521Type,
-			keyTemplate: ecdsaP521KeyTemplate,
-			// TODO remove above line then uncomment below line when key template is available in Tink - issue #1489
-			// keyTemplate: signature.ECDSAP521KeyWithoutPrefixTemplate()
-			doSign: true,
+			keyTemplate: signature.ECDSAP521KeyWithoutPrefixTemplate(),
+			doSign:      true,
 		},
 		{
 			tcName:      "export then read ED25519 public key",
 			keyType:     kms.ED25519Type,
-			keyTemplate: ed25519KeyTemplate,
-			// TODO remove above line then uncomment below line when key template is available in Tink - issue #1489
-			// keyTemplate: signature.ED25519KeyWithoutPrefixTemplate()
-			doSign: true,
+			keyTemplate: signature.ED25519KeyWithoutPrefixTemplate(),
+			doSign:      true,
 		},
 	}
 

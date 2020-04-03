@@ -14,11 +14,11 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
+	commonpb "github.com/google/tink/go/proto/common_go_proto"
+	ecdsapb "github.com/google/tink/go/proto/ecdsa_go_proto"
+	ed25519pb "github.com/google/tink/go/proto/ed25519_go_proto"
+	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/subtle"
-	commonpb "github.com/google/tink/proto/common_go_proto"
-	ecdsapb "github.com/google/tink/proto/ecdsa_go_proto"
-	ed25519pb "github.com/google/tink/proto/ed25519_go_proto"
-	tinkpb "github.com/google/tink/proto/tink_go_proto"
 )
 
 const (

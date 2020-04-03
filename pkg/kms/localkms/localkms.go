@@ -13,8 +13,8 @@ import (
 	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
+	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/signature"
-	tinkpb "github.com/google/tink/proto/tink_go_proto"
 
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
@@ -143,37 +143,14 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 		return aead.ChaCha20Poly1305KeyTemplate(), nil
 	case kms.XChaCha20Poly1305Type:
 		return aead.XChaCha20Poly1305KeyTemplate(), nil
-
-	// TODO: Uncomment below when key template functions are available in Tink
-	//       and remove temporary cases below  - issue #1489
-	// case kms.ECDSAP256Type:
-	//	return signature.ECDSAP256KeyWithoutPrefixTemplate(), nil
-	// case kms.ECDSAP384Type:
-	//	return signature.ECDSAP384KeyWithoutPrefixTemplate(), nil
-	// case kms.ECDSAP521Type:
-	//	return signature.ECDSAP521KeyWithoutPrefixTemplate(), nil
-	// case kms.Ed25519Type:
-	//	return signature.ED25519KeyWithoutPrefixTemplate(), nil
 	case kms.ECDSAP256Type:
-		keyTemplate := signature.ECDSAP256KeyTemplate()
-		keyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
-
-		return keyTemplate, nil
+		return signature.ECDSAP256KeyWithoutPrefixTemplate(), nil
 	case kms.ECDSAP384Type:
-		keyTemplate := signature.ECDSAP384KeyTemplate()
-		keyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
-
-		return keyTemplate, nil
+		return signature.ECDSAP384KeyWithoutPrefixTemplate(), nil
 	case kms.ECDSAP521Type:
-		keyTemplate := signature.ECDSAP521KeyTemplate()
-		keyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
-
-		return keyTemplate, nil
+		return signature.ECDSAP521KeyWithoutPrefixTemplate(), nil
 	case kms.ED25519Type:
-		keyTemplate := signature.ED25519KeyTemplate()
-		keyTemplate.OutputPrefixType = tinkpb.OutputPrefixType_RAW
-
-		return keyTemplate, nil
+		return signature.ED25519KeyWithoutPrefixTemplate(), nil
 	case kms.HMACSHA256Tag256Type:
 		return mac.HMACSHA256Tag256KeyTemplate(), nil
 	default:
