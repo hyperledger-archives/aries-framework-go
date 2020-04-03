@@ -10,7 +10,7 @@ require (
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/golang/mock v1.4.0
 	github.com/golang/protobuf v1.3.3
-	github.com/google/tink v1.3.0
+	github.com/google/tink/go v0.0.0-20200403150819-3a14bf4b3380
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/kr/pretty v0.1.0 // indirect

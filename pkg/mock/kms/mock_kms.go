@@ -10,9 +10,9 @@ import (
 	"fmt"
 
 	"github.com/google/tink/go/keyset"
+	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/testkeyset"
 	"github.com/google/tink/go/testutil"
-	tinkpb "github.com/google/tink/proto/tink_go_proto"
 
 	kmsservice "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"

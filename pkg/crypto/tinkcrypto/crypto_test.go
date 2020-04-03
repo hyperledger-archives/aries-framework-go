@@ -9,10 +9,9 @@ package tinkcrypto
 import (
 	"testing"
 
-	"github.com/google/tink/go/mac"
-
 	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/keyset"
+	"github.com/google/tink/go/mac"
 	"github.com/google/tink/go/signature"
 	aeadsubtle "github.com/google/tink/go/subtle/aead"
 	"github.com/stretchr/testify/require"
