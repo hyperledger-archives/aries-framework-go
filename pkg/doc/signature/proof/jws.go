@@ -101,9 +101,6 @@ func prepareJWSProof(suite signatureSuite, proofOptions map[string]interface{}) 
 
 	delete(proofOptionsCopy, jsonldJWS)
 	delete(proofOptionsCopy, jsonldProofValue)
-	// TODO not any where mentioned in RFCs to exclude type, this is causing issue while validating signature from
-	// other systems [Issue#1548]
-	// delete(proofOptionsCopy, jsonldType)
 
 	return suite.GetCanonicalDocument(proofOptionsCopy)
 }
