@@ -157,7 +157,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 	sigSuite := jsonwebsignature2020.New(
 		suite.WithSigner(getEcdsaP256TestSigner(privateKey)),
 		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier (as it's done in Ed25519 test above)
-		suite.WithVerifier(&jsonwebsignature2020.PublicKeyVerifierEC{}))
+		suite.WithVerifier(&jsonwebsignature2020.PublicKeyVerifier{}))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "JsonWebSignature2020",
@@ -180,7 +180,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 		WithEmbeddedSignatureSuite(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
-				Type:  kms.ECDSAP256,
+				Type:  "JwsVerificationKey2020",
 				Value: pubKeyBytes,
 				JWK: &jose.JWK{
 					JSONWebKey: gojose.JSONWebKey{
