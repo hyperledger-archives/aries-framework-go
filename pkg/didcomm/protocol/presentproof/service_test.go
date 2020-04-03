@@ -23,6 +23,7 @@ import (
 	presentproofMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/presentproof"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
 
 const (
@@ -60,6 +61,108 @@ func TestNew(t *testing.T) {
 		svc, err := New(provider)
 		require.Contains(t, fmt.Sprintf("%v", err), errMsg)
 		require.Nil(t, svc)
+	})
+}
+
+func TestService_ActionContinue(t *testing.T) {
+	t.Run("Error transitional payload (get)", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		const errMsg = "error"
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
+
+		storeProvider := storageMocks.NewMockProvider(ctrl)
+		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+
+		provider := presentproofMocks.NewMockProvider(ctrl)
+		provider.EXPECT().Messenger().Return(nil)
+		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		err = svc.ActionContinue("piID", nil)
+		require.Contains(t, fmt.Sprintf("%v", err), "get transitional payload: store get: "+errMsg)
+	})
+
+	t.Run("Error transitional payload (delete)", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		const errMsg = "error"
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{}`), nil)
+		store.EXPECT().Delete(gomock.Any()).Return(errors.New(errMsg))
+
+		storeProvider := storageMocks.NewMockProvider(ctrl)
+		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+
+		provider := presentproofMocks.NewMockProvider(ctrl)
+		provider.EXPECT().Messenger().Return(nil)
+		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		err = svc.ActionContinue("piID", nil)
+		require.Contains(t, fmt.Sprintf("%v", err), "delete transitional payload: "+errMsg)
+	})
+}
+
+func TestService_ActionStop(t *testing.T) {
+	t.Run("Error transitional payload (get)", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		const errMsg = "error"
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
+
+		storeProvider := storageMocks.NewMockProvider(ctrl)
+		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+
+		provider := presentproofMocks.NewMockProvider(ctrl)
+		provider.EXPECT().Messenger().Return(nil)
+		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		err = svc.ActionStop("piID", nil)
+		require.Contains(t, fmt.Sprintf("%v", err), "get transitional payload: store get: "+errMsg)
+	})
+
+	t.Run("Error transitional payload (delete)", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		const errMsg = "error"
+
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).Return([]byte(`{}`), nil)
+		store.EXPECT().Delete(gomock.Any()).Return(errors.New(errMsg))
+
+		storeProvider := storageMocks.NewMockProvider(ctrl)
+		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+
+		provider := presentproofMocks.NewMockProvider(ctrl)
+		provider.EXPECT().Messenger().Return(nil)
+		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		err = svc.ActionStop("piID", nil)
+		require.Contains(t, fmt.Sprintf("%v", err), "delete transitional payload: "+errMsg)
 	})
 }
 
@@ -106,6 +209,19 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, msg.SetID(uuid.New().String()))
 		_, err = svc.HandleInbound(msg, "", "")
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: getCurrentStateNameAndPIID: currentStateName: "+errMsg)
+	})
+
+	t.Run("DB error (saveTransitionalPayload)", func(t *testing.T) {
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		require.NoError(t, svc.RegisterActionEvent(make(chan<- service.DIDCommAction)))
+
+		_, err = svc.HandleInbound(randomInboundMessage(RequestPresentationMsgType), "", "")
+		require.Contains(t, fmt.Sprintf("%v", err), "save transitional payload: "+errMsg)
 	})
 
 	t.Run("Unrecognized msgType", func(t *testing.T) {
@@ -158,6 +274,12 @@ func TestService_HandleInbound(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "abandoning", string(name))
+
+			return nil
+		})
+		store.EXPECT().Delete(gomock.Any()).Return(errors.New(errMsg))
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
 
 			return nil
@@ -199,6 +321,12 @@ func TestService_HandleInbound(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "request-received", string(name))
+
+			return nil
+		})
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "presentation-sent", string(name))
 
 			return nil
@@ -214,6 +342,92 @@ func TestService_HandleInbound(t *testing.T) {
 		require.NoError(t, err)
 
 		(<-ch).Continue(WithPresentation(&Presentation{}))
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Request Presentation (continue with presentation) async", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		newProvider := presentproofMocks.NewMockProvider(ctrl)
+		newProvider.EXPECT().Messenger().Return(messenger)
+		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider())
+		newProvider.EXPECT().VDRIRegistry().Return(nil)
+
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
+				r := &Presentation{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, PresentationMsgType, r.Type)
+
+				return nil
+			})
+
+		svc, err := New(newProvider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		_, err = svc.HandleInbound(randomInboundMessage(RequestPresentationMsgType), Alice, Bob)
+		require.NoError(t, err)
+
+		actions, err := svc.Actions()
+		require.NoError(t, err)
+		for _, action := range actions {
+			require.NoError(t, svc.ActionContinue(action.PIID, WithPresentation(&Presentation{})))
+		}
+
+		select {
+		case <-done:
+			return
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+
+	t.Run("Receive Request Presentation (Stop) async", func(t *testing.T) {
+		var done = make(chan struct{})
+
+		newProvider := presentproofMocks.NewMockProvider(ctrl)
+		newProvider.EXPECT().Messenger().Return(messenger)
+		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider())
+		newProvider.EXPECT().VDRIRegistry().Return(nil)
+
+		messenger.EXPECT().
+			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(_ string, msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
+				r := &model.ProblemReport{}
+				require.NoError(t, msg.Decode(r))
+				require.Equal(t, codeRejectedError, r.Description.Code)
+				require.Equal(t, ProblemReportMsgType, r.Type)
+
+				return nil
+			})
+
+		svc, err := New(newProvider)
+		require.NoError(t, err)
+
+		ch := make(chan service.DIDCommAction, 1)
+		require.NoError(t, svc.RegisterActionEvent(ch))
+
+		_, err = svc.HandleInbound(randomInboundMessage(RequestPresentationMsgType), Alice, Bob)
+		require.NoError(t, err)
+
+		actions, err := svc.Actions()
+		require.NoError(t, err)
+		for _, action := range actions {
+			require.NoError(t, svc.ActionStop(action.PIID, nil))
+		}
 
 		select {
 		case <-done:
@@ -239,6 +453,12 @@ func TestService_HandleInbound(t *testing.T) {
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
+			require.Equal(t, "request-received", string(name))
+
+			return nil
+		})
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "proposal-sent", string(name))
 
@@ -279,6 +499,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "proposal-received", string(name))
 
@@ -325,6 +547,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "proposal-received", string(name))
 
@@ -377,6 +601,8 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
+		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
+		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "presentation-received", string(name))
 
@@ -580,6 +806,30 @@ func TestService_canTriggerActionEvents(t *testing.T) {
 	})))
 
 	require.False(t, canTriggerActionEvents(service.NewDIDCommMsgMap(struct{}{})))
+}
+
+func Test_getTransitionalPayload(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := storageMocks.NewMockStore(ctrl)
+
+	storeProvider := storageMocks.NewMockProvider(ctrl)
+	storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
+
+	provider := presentproofMocks.NewMockProvider(ctrl)
+	provider.EXPECT().Messenger().Return(nil).AnyTimes()
+	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+	provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+
+	store.EXPECT().Get(fmt.Sprintf(transitionalPayloadKey, "ID")).Return([]byte(`[]`), nil)
+
+	svc, err := New(provider)
+	require.NoError(t, err)
+
+	res, err := svc.getTransitionalPayload("ID")
+	require.Nil(t, res)
+	require.Contains(t, fmt.Sprintf("%v", err), "unmarshal transitional payload")
 }
 
 func Test_nextState(t *testing.T) {
