@@ -188,16 +188,25 @@ func (s *ed25519TestSigner) Sign(doc []byte) ([]byte, error) {
 	return ed25519.Sign(s.privateKey, doc), nil
 }
 
-func getEcdsaP256TestSigner(privKey *ecdsa.PrivateKey) *ecdsaP256TestSigner {
-	return &ecdsaP256TestSigner{privateKey: privKey}
+func getEcdsaP256TestSigner(privKey *ecdsa.PrivateKey) *ecdsaTestSigner {
+	return &ecdsaTestSigner{privateKey: privKey, hash: crypto.SHA256}
 }
 
-type ecdsaP256TestSigner struct {
+func getEcdsaSecp256k1RS256TestSigner(privKey *ecdsa.PrivateKey) *ecdsaTestSigner {
+	return &ecdsaTestSigner{privateKey: privKey, hash: crypto.SHA256}
+}
+
+type ecdsaTestSigner struct {
 	privateKey *ecdsa.PrivateKey
+	hash       crypto.Hash
 }
 
-func (es *ecdsaP256TestSigner) Sign(doc []byte) ([]byte, error) {
-	hasher := crypto.SHA256.New()
+func (es *ecdsaTestSigner) Sign(doc []byte) ([]byte, error) {
+	return signEcdsa(doc, es.privateKey, es.hash)
+}
+
+func signEcdsa(doc []byte, privateKey *ecdsa.PrivateKey, hash crypto.Hash) ([]byte, error) {
+	hasher := hash.New()
 
 	_, err := hasher.Write(doc)
 	if err != nil {
@@ -206,12 +215,12 @@ func (es *ecdsaP256TestSigner) Sign(doc []byte) ([]byte, error) {
 
 	hashed := hasher.Sum(nil)
 
-	r, s, err := ecdsa.Sign(rand.Reader, es.privateKey, hashed)
+	r, s, err := ecdsa.Sign(rand.Reader, privateKey, hashed)
 	if err != nil {
 		panic(err)
 	}
 
-	curveBits := es.privateKey.Curve.Params().BitSize
+	curveBits := privateKey.Curve.Params().BitSize
 
 	keyBytes := curveBits / 8
 	if curveBits%8 > 0 {

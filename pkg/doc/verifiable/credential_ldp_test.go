@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcutil/base58"
 	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
@@ -23,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
@@ -187,6 +189,53 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 						Algorithm: "ES256",
 					},
 					Crv: "P-256",
+					Kty: "EC",
+				},
+			}, nil
+		}))
+	r.NoError(err)
+	r.Equal(vc, vcWithLdp)
+}
+
+func TestNewCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing.T) {
+	r := require.New(t)
+
+	privateKey, err := ecdsa.GenerateKey(btcec.S256(), rand.Reader)
+	require.NoError(t, err)
+
+	sigSuite := ecdsasecp256k1signature2019.New(
+		suite.WithSigner(getEcdsaSecp256k1RS256TestSigner(privateKey)),
+		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier
+		suite.WithVerifier(&ecdsasecp256k1signature2019.PublicKeyVerifier{}))
+
+	ldpContext := &LinkedDataProofContext{
+		SignatureType:           "EcdsaSecp256k1Signature2019",
+		SignatureRepresentation: SignatureJWS,
+		Suite:                   sigSuite,
+		VerificationMethod:      "did:example:123456#key1",
+	}
+
+	vc, _, err := NewCredential([]byte(validCredential))
+	r.NoError(err)
+
+	err = vc.AddLinkedDataProof(ldpContext)
+	r.NoError(err)
+
+	vcBytes, err := json.Marshal(vc)
+	r.NoError(err)
+
+	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
+	vcWithLdp, _, err := NewCredential(vcBytes,
+		WithEmbeddedSignatureSuite(sigSuite),
+		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
+			return &sigverifier.PublicKey{
+				Type:  "EcdsaSecp256k1VerificationKey2019",
+				Value: pubKeyBytes,
+				JWK: &jose.JWK{
+					JSONWebKey: gojose.JSONWebKey{
+						Algorithm: "ES256K",
+					},
+					Crv: "secp256k1",
 					Kty: "EC",
 				},
 			}, nil
