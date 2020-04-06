@@ -6,7 +6,7 @@ GO_CMD ?= go
 ARIES_AGENT_REST_PATH=cmd/aries-agent-rest
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
 OPENAPI_SPEC_PATH=build/rest/openapi/spec
-OPENAPI_DOCKER_IMG_VERSION=v0.21.0
+OPENAPI_DOCKER_IMG_VERSION=v0.23.0
 
 # Namespace for the agent images
 DOCKER_OUTPUT_NS   ?= aries-framework-go
