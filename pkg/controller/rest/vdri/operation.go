@@ -8,10 +8,13 @@ package vdri
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+
+	"github.com/gorilla/mux"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -23,6 +26,10 @@ import (
 const (
 	vdriOperationID     = "/vdri"
 	createPublicDIDPath = vdriOperationID + "/create-public-did"
+	vdriDIDPath         = vdriOperationID + "/did"
+	saveDIDPath         = vdriDIDPath
+	getDIDPath          = vdriDIDPath + "/{id}"
+	getDIDRecordsPath   = vdriDIDPath + "/records"
 )
 
 // provider contains dependencies for the common controller operations
@@ -61,12 +68,15 @@ func (o *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(createPublicDIDPath, http.MethodPost, o.CreatePublicDID),
+		cmdutil.NewHTTPHandler(saveDIDPath, http.MethodPost, o.SaveDID),
+		cmdutil.NewHTTPHandler(getDIDPath, http.MethodGet, o.GetDID),
+		cmdutil.NewHTTPHandler(getDIDRecordsPath, http.MethodGet, o.GetDIDRecords),
 	}
 }
 
 // CreatePublicDID swagger:route POST /vdri/create-public-did vdri createPublicDID
 //
-// Creates a new Public DID....
+// Creates a new Public DID.
 //
 // Responses:
 //    default: genericError
@@ -79,6 +89,48 @@ func (o *Operation) CreatePublicDID(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	rest.Execute(o.command.CreatePublicDID, rw, bytes.NewReader(reqBytes))
+}
+
+// SaveDID swagger:route POST /vdri/did vdri saveDIDReq
+//
+// Saves a did document with the friendly name.
+//
+// Responses:
+//    default: genericError
+func (o *Operation) SaveDID(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.SaveDID, rw, req.Body)
+}
+
+// GetDID swagger:route GET /vdri/did/{id} vdri getDIDReq
+//
+// Gets did document with the friendly name.
+//
+// Responses:
+//    default: genericError
+//        200: documentRes
+func (o *Operation) GetDID(rw http.ResponseWriter, req *http.Request) {
+	id := mux.Vars(req)["id"]
+
+	decodedID, err := base64.StdEncoding.DecodeString(id)
+	if err != nil {
+		rest.SendHTTPStatusError(rw, http.StatusBadRequest, vdri.InvalidRequestErrorCode, fmt.Errorf("invalid id"))
+		return
+	}
+
+	request := fmt.Sprintf(`{"id":"%s"}`, string(decodedID))
+
+	rest.Execute(o.command.GetDID, rw, bytes.NewBufferString(request))
+}
+
+// GetDIDRecords swagger:route GET /vdri/did/records vdri getDIDRecords
+//
+// Retrieves the did records
+//
+// Responses:
+//    default: genericError
+//        200: didRecordResult
+func (o *Operation) GetDIDRecords(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.GetDIDRecords, rw, req.Body)
 }
 
 // queryValuesAsJSON converts query strings to `map[string]string`

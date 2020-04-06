@@ -8,6 +8,7 @@ package vdri
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,8 +23,54 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
+
+const sampleDIDName = "sampleDIDName"
+
+//nolint:lll
+const doc = `{
+  "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
+  "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
+  "publicKey": [
+    {
+      "id": "did:peer:123456789abcdefghi#keys-1",
+      "type": "Secp256k1VerificationKey2018",
+      "controller": "did:peer:123456789abcdefghi",
+      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+    },
+    {
+      "id": "did:peer:123456789abcdefghw#key2",
+      "type": "RsaVerificationKey2018",
+      "controller": "did:peer:123456789abcdefghw",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
+    }
+  ]
+}`
+
+func TestNew(t *testing.T) {
+	t.Run("test new command - success", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+		require.Equal(t, 4, len(cmd.GetRESTHandlers()))
+	})
+
+	t.Run("test new command - error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				ErrOpenStoreHandle: fmt.Errorf("error opening the store"),
+			},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "new did store")
+		require.Nil(t, cmd)
+	})
+}
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
 	svc, err := New(&protocol.MockProvider{})
@@ -40,7 +87,7 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		handler := lookupCreatePublicDIDHandler(t, svc)
+		handler := lookupHandler(t, svc, createPublicDIDPath, http.MethodPost)
 		buf, err := getSuccessResponseFromHandler(handler, nil, handler.Path()+"?method=sidetree")
 		require.NoError(t, err)
 
@@ -61,13 +108,13 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, svc)
 
-		handler := lookupCreatePublicDIDHandler(t, svc)
+		handler := lookupHandler(t, svc, createPublicDIDPath, http.MethodPost)
 		buf, code, err := sendRequestToHandler(handler, nil, handler.Path())
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
 		verifyError(t, vdri.InvalidRequestErrorCode, "", buf.Bytes())
 
-		handler = lookupCreatePublicDIDHandler(t, svc)
+		handler = lookupHandler(t, svc, createPublicDIDPath, http.MethodPost)
 		buf, code, err = sendRequestToHandler(handler, nil, handler.Path()+"?-----")
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
@@ -78,8 +125,7 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 		svc, err := New(&protocol.MockProvider{CustomVDRI: &mockvdri.MockVDRIRegistry{CreateErr: fmt.Errorf("just-fail-it")}})
 		require.NoError(t, err)
 		require.NotNil(t, svc)
-
-		handler := lookupCreatePublicDIDHandler(t, svc)
+		handler := lookupHandler(t, svc, createPublicDIDPath, http.MethodPost)
 		buf, code, err := sendRequestToHandler(handler, nil, handler.Path()+"?method=valid")
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, code)
@@ -87,12 +133,134 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 	})
 }
 
-func lookupCreatePublicDIDHandler(t *testing.T, op *Operation) rest.Handler {
+func TestSaveDID(t *testing.T) {
+	t.Run("test save did - success", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		didReq := vdri.DIDArgs{
+			Document: vdri.Document{DID: json.RawMessage(doc)},
+			Name:     sampleDIDName,
+		}
+		jsonStr, err := json.Marshal(didReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, saveDIDPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		// verify response
+		require.NotEmpty(t, buf)
+	})
+
+	t.Run("test save did - error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var jsonStr = []byte(`{
+			"name" : "sample"
+		}`)
+
+		handler := lookupHandler(t, cmd, saveDIDPath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, vdri.SaveDIDErrorCode, "parse did doc", buf.Bytes())
+	})
+}
+
+func TestGetDID(t *testing.T) {
+	t.Run("test get did - success", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = []byte(doc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+		fmt.Println(base64.StdEncoding.EncodeToString([]byte("http://example.edu/credentials/1989")))
+
+		handler := lookupHandler(t, cmd, getDIDPath, http.MethodGet)
+		buf, err := getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/%s`,
+			vdriDIDPath, base64.StdEncoding.EncodeToString([]byte("did:peer:21tDAKCERh95uGgKbJNHYp"))))
+		require.NoError(t, err)
+
+		response := documentRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+	})
+
+	t.Run("test get vc - error", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = []byte(doc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		handler := lookupHandler(t, cmd, getDIDPath, http.MethodGet)
+		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/%s`, vdriDIDPath, "abc"))
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, vdri.InvalidRequestErrorCode, "invalid id", buf.Bytes())
+	})
+}
+
+func TestGetDIDRecords(t *testing.T) {
+	t.Run("test get did records", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		didReq := vdri.DIDArgs{
+			Document: vdri.Document{DID: json.RawMessage(doc)},
+			Name:     sampleDIDName,
+		}
+		jsonStr, err := json.Marshal(didReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, saveDIDPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		handler = lookupHandler(t, cmd, getDIDRecordsPath, http.MethodGet)
+		buf, err = getSuccessResponseFromHandler(handler, nil, getDIDRecordsPath)
+		require.NoError(t, err)
+
+		var response didRecordResult
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.Equal(t, 1, len(response.Result))
+	})
+}
+
+func lookupHandler(t *testing.T, op *Operation, path, method string) rest.Handler {
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
 	for _, h := range handlers {
-		if h.Path() == createPublicDIDPath {
+		if h.Path() == path && h.Method() == method {
 			return h
 		}
 	}
