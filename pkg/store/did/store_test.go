@@ -186,13 +186,13 @@ func TestGetCredentials(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		records := s.GetDIDs()
+		records := s.GetDIDRecords()
 		require.Equal(t, 0, len(records))
 
 		err = s.SaveDID(sampleDIDName, &did.Doc{ID: sampleDIDID})
 		require.NoError(t, err)
 
-		records = s.GetDIDs()
+		records = s.GetDIDRecords()
 		require.Equal(t, 1, len(records))
 		require.Equal(t, records[0].Name, sampleDIDName)
 		require.Equal(t, records[0].ID, sampleDIDID)
@@ -200,7 +200,7 @@ func TestGetCredentials(t *testing.T) {
 		// add some other values and make sure the GetCredential returns records as before
 		store["dummy-value"] = []byte("dummy-key")
 
-		records = s.GetDIDs()
+		records = s.GetDIDRecords()
 		require.Equal(t, 1, len(records))
 
 		n := 10
@@ -210,7 +210,7 @@ func TestGetCredentials(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		records = s.GetDIDs()
+		records = s.GetDIDRecords()
 		require.Equal(t, 1+n, len(records))
 	})
 }

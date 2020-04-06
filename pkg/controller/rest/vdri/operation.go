@@ -9,6 +9,7 @@ package vdri
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const (
@@ -27,6 +29,7 @@ const (
 // and is typically created by using aries.Context()
 type provider interface {
 	VDRIRegistry() vdriapi.Registry
+	StorageProvider() storage.Provider
 }
 
 // Operation contains basic common operations provided by controller REST API
@@ -36,11 +39,16 @@ type Operation struct {
 }
 
 // New returns new common operations rest client instance
-func New(ctx provider) *Operation {
-	o := &Operation{command: vdri.New(ctx)}
+func New(ctx provider) (*Operation, error) {
+	cmd, err := vdri.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("new vdri : %w", err)
+	}
+
+	o := &Operation{command: cmd}
 	o.registerHandler()
 
-	return o
+	return o, nil
 }
 
 // GetRESTHandlers get all controller API handler available for this service

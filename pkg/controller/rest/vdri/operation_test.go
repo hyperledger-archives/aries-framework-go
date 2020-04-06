@@ -26,7 +26,8 @@ import (
 )
 
 func TestOperation_GetAPIHandlers(t *testing.T) {
-	svc := New(&protocol.MockProvider{})
+	svc, err := New(&protocol.MockProvider{})
+	require.NoError(t, err)
 	require.NotNil(t, svc)
 
 	handlers := svc.GetRESTHandlers()
@@ -35,7 +36,8 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 
 func TestOperation_CreatePublicDID(t *testing.T) {
 	t.Run("Successful Create public DID", func(t *testing.T) {
-		svc := New(&protocol.MockProvider{})
+		svc, err := New(&protocol.MockProvider{})
+		require.NoError(t, err)
 		require.NotNil(t, svc)
 
 		handler := lookupCreatePublicDIDHandler(t, svc)
@@ -55,7 +57,8 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 	})
 
 	t.Run("Failed Create public DID", func(t *testing.T) {
-		svc := New(&protocol.MockProvider{})
+		svc, err := New(&protocol.MockProvider{})
+		require.NoError(t, err)
 		require.NotNil(t, svc)
 
 		handler := lookupCreatePublicDIDHandler(t, svc)
@@ -72,7 +75,8 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 	})
 
 	t.Run("Failed Create public DID, VDRI error", func(t *testing.T) {
-		svc := New(&protocol.MockProvider{CustomVDRI: &mockvdri.MockVDRIRegistry{CreateErr: fmt.Errorf("just-fail-it")}})
+		svc, err := New(&protocol.MockProvider{CustomVDRI: &mockvdri.MockVDRIRegistry{CreateErr: fmt.Errorf("just-fail-it")}})
+		require.NoError(t, err)
 		require.NotNil(t, svc)
 
 		handler := lookupCreatePublicDIDHandler(t, svc)

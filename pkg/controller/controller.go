@@ -96,7 +96,10 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	}
 
 	// VDRI REST operation
-	vdriOp := vdrirest.New(ctx)
+	vdriOp, err := vdrirest.New(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	// messaging REST operation
 	messagingOp, err := messagingrest.New(ctx, restAPIOpts.msgHandler, notifier)
@@ -161,7 +164,10 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	}
 
 	// VDRI command operation
-	vcmd := vdricmd.New(ctx)
+	vcmd, err := vdricmd.New(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	// messaging command operation
 	msgcmd, err := messagingcmd.New(ctx, cmdOpts.msgHandler, notifier)
