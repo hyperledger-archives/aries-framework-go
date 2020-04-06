@@ -18,11 +18,12 @@ func mustBeLinkedDataProof(proofMap map[string]interface{}) error {
 	}
 
 	proofTypeStr := safeStringValue(proofType)
-	if proofTypeStr != "Ed25519Signature2018" && proofTypeStr != "JsonWebSignature2020" {
+	switch proofTypeStr {
+	case "Ed25519Signature2018", "JsonWebSignature2020", "EcdsaSecp256k1Signature2019":
+		return nil
+	default:
 		return fmt.Errorf("unsupported proof type: %s", proofType)
 	}
-
-	return nil
 }
 
 func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error) {
