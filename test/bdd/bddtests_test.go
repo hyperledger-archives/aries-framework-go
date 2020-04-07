@@ -27,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/issuecredential"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/messaging"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/presentproof"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/route"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 )
@@ -187,5 +188,6 @@ func features() []feature {
 		route.NewRouteRESTSteps(),
 		verifiable.NewVerifiableCredentialSDKSteps(),
 		outofband.NewOutOfBandSDKSteps(),
+		presentproof.NewPresentProofSDKSteps(),
 	}
 }
