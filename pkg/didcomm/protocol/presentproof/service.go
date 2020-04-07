@@ -439,6 +439,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
+		registryVDRI:        s.registryVDRI,
 	}
 
 	if opt != nil {
@@ -465,6 +466,7 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
+		registryVDRI:        s.registryVDRI,
 	}
 
 	if err := s.deleteTransitionalPayload(md.PIID); err != nil {
