@@ -54,6 +54,19 @@ const pkgs = {
             pathParam:"id",
             queryStrings: ["method","header"]
         },
+        SaveDID: {
+            path: "/vdri/did",
+            method: "POST"
+        },
+        GetDID: {
+            path: "/vdri/did/{id}",
+            method: "GET",
+            pathParam:"id"
+        },
+        GetDIDs: {
+            path: "/vdri/did/records",
+            method: "GET",
+        },
     },
     messaging: {
         RegisteredServices: {
