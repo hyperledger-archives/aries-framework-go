@@ -4,7 +4,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 name: build
-on: [push, pull_request]
+on:
+  push:
+    branches-ignore:
+    - 'dependabot/**'
+  pull_request:
 jobs:
   unitTest:
     name: Unit test

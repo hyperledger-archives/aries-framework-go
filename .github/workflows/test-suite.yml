@@ -6,6 +6,8 @@
 name: test-suite
 on: 
   push:
+    branches-ignore:
+    - 'dependabot/**'
     paths:
     - 'pkg/doc/verifiable/**'
     - 'scripts/*_test_suite.sh'
