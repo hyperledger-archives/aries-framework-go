@@ -388,7 +388,8 @@ func ExampleCredential_AddLinkedDataProof() {
 	//	},
 	//	"proof": {
 	//		"created": "2010-01-01T19:23:24Z",
-	//		"jws": "eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..Io85NnajfPXWBtB60QRI-OEfJtKEVv_ij2QTVLYqXdHTs01zCVMbUTyi6m5zIfH6YZELPgty2NujKYlun4L8Dg",
+	//		"jws": "eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..hC0uWFmcwp5Fp7nVx3y0LbxZdwReduCde2tyVAwmx3oetNkmn9AP7wvKNbWIBnbVItbGNxib46ld4-YpZhxXDA",
+	//		"proofPurpose": "assertionMethod",
 	//		"type": "Ed25519Signature2018",
 	//		"verificationMethod": "did:example:123456#key1"
 	//	},

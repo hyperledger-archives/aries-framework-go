@@ -15,6 +15,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 )
 
+const defaultProofPurpose = "assertionMethod"
+
 // signatureSuite encapsulates signature suite methods required for signing documents
 type signatureSuite interface {
 
@@ -102,6 +104,9 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		Domain:                  context.Domain,
 		Nonce:                   context.Nonce,
 		VerificationMethod:      context.VerificationMethod,
+		// TODO support custom proof purpose
+		//  (https://github.com/hyperledger/aries-framework-go/issues/1586)
+		ProofPurpose: defaultProofPurpose,
 	}
 
 	if context.SignatureRepresentation == proof.SignatureJWS {
