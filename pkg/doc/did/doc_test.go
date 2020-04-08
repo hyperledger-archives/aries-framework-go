@@ -1045,7 +1045,7 @@ func TestDIDSchemas(t *testing.T) {
 				didStr: `{
         "@context": "https://www.w3.org/2019/did/v1",
         "id": "did:sov:danube:CDEabPCipwE51bg7KF9yXt",
-        "service": [],
+        "service": [{"type": "example","serviceEndpoint": "http://example.com"}],
         "authentication": [{
             "type": "Ed25519SignatureAuthentication2018",
             "publicKey": ["did:sov:danube:CDEabPCipwE51bg7KF9yXt#key-1"]
