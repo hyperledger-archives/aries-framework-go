@@ -24,8 +24,21 @@ const (
 
 // CreateDetachedJWTHeader creates detached JWT header.
 func CreateDetachedJWTHeader(p *Proof) string {
+	var jwsAlg string
+
+	// TODO this is a hacky workaround, to be improved
+	//  (https://github.com/hyperledger/aries-framework-go/issues/1589)
+	switch p.Type {
+	case "EcdsaSecp256k1Signature2019":
+		jwsAlg = "ES256K"
+	case "Ed25519Signature2018":
+		jwsAlg = "EdDSA"
+	default:
+		jwsAlg = p.Type
+	}
+
 	jwtHeaderMap := map[string]interface{}{
-		"alg":  p.Type,
+		"alg":  jwsAlg,
 		"b64":  false,
 		"crit": []string{"b64"},
 	}
