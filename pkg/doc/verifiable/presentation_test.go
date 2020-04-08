@@ -137,7 +137,29 @@ func TestValidateVP_Context(t *testing.T) {
 		require.NoError(t, err)
 		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "Does not match pattern '^https://www.w3.org/2018/credentials/v1$'")
+		require.Contains(t, err.Error(), "does not match: \"https://www.w3.org/2018/credentials/v1\"")
+		require.Nil(t, vp)
+	})
+
+	t.Run("generate verifiable presentation with valid string context", func(t *testing.T) {
+		raw := &rawPresentation{}
+		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
+		raw.Context = "https://www.w3.org/2018/credentials/v1"
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		vp, err := NewPresentation(bytes)
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+	})
+
+	t.Run("rejects verifiable presentation with invalid string context", func(t *testing.T) {
+		raw := &rawPresentation{}
+		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
+		raw.Context = "https://www.w3.org/2018/credentials/v2"
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		vp, err := NewPresentation(bytes)
+		require.Contains(t, err.Error(), "does not match: \"https://www.w3.org/2018/credentials/v1\"")
 		require.Nil(t, vp)
 	})
 }
