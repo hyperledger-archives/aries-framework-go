@@ -35,6 +35,26 @@ func TestDocumentSigner_Sign(t *testing.T) {
 	signedJWSDoc, err := s.Sign(context, []byte(validDoc))
 	require.NoError(t, err)
 	require.NotNil(t, signedJWSDoc)
+
+	var signedJWSMap map[string]interface{}
+	err = json.Unmarshal(signedJWSDoc, &signedJWSMap)
+	require.NoError(t, err)
+
+	proofsIface, ok := signedJWSMap["proof"]
+	require.True(t, ok)
+
+	proofs, ok := proofsIface.([]interface{})
+	require.True(t, ok)
+	require.Len(t, proofs, 1)
+
+	proofMap, ok := proofs[0].(map[string]interface{})
+	require.True(t, ok)
+
+	require.Equal(t, "creator", proofMap["creator"])
+	require.Equal(t, "assertionMethod", proofMap["proofPurpose"])
+	require.Equal(t, "Ed25519Signature2018", proofMap["type"])
+	require.Contains(t, proofMap, "created")
+	require.Contains(t, proofMap, "jws")
 }
 
 func TestDocumentSigner_SignErrors(t *testing.T) {
