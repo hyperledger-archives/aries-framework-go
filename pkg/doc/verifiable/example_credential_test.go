@@ -388,7 +388,7 @@ func ExampleCredential_AddLinkedDataProof() {
 	//	},
 	//	"proof": {
 	//		"created": "2010-01-01T19:23:24Z",
-	//		"jws": "eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..hC0uWFmcwp5Fp7nVx3y0LbxZdwReduCde2tyVAwmx3oetNkmn9AP7wvKNbWIBnbVItbGNxib46ld4-YpZhxXDA",
+	//		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..lrkhpRH4tWl6KzQKHlcyAwSm8qUTXIMSKmD3QASF_uI5QW8NWLxLebXmnQpIM8H7umhLA6dINSYVowcaPdpwBw",
 	//		"proofPurpose": "assertionMethod",
 	//		"type": "Ed25519Signature2018",
 	//		"verificationMethod": "did:example:123456#key1"
