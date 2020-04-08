@@ -370,6 +370,34 @@ const Aries = function (opts) {
             createPublicDID: async function (req) {
                 return invoke(aw, pending, this.pkgname, "CreatePublicDID", req, "timeout while creating public DID")
             },
+
+            /**
+             * Saves a did document.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            saveDID: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SaveDID", req, "timeout while saving did document")
+            },
+
+            /**
+             * Retrieves a did document.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            getDID: async function (req) {
+                return invoke(aw, pending, this.pkgname, "GetDID", req, "timeout while retrieving did document")
+            },
+            /**
+             * Retrieves did records containing name and id.
+             *
+             * @returns {Promise<Object>}
+             */
+            getDIDRecords: async function () {
+                return invoke(aw, pending, this.pkgname, "GetDIDRecords", {}, "timeout while retrieving did records")
+            },
         },
 
         /**
