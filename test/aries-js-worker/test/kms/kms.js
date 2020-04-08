@@ -12,28 +12,35 @@ const agentControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.USER_H
 const restMode = 'rest'
 const wasmMode = 'wasm'
 
-describe("KMS Test", async function () {
-    await kms(newAriesREST(agentControllerApiUrl), restMode)
-    await kms(newAries())
+describe("KMS Test", function () {
+    describe(restMode, function () {  kms(restMode) })
+    describe(wasmMode, function () {  kms(wasmMode) })
 })
 
-async function kms(newAries, mode = wasmMode) {
+async function kms(mode) {
     let aries
-    let modePrefix = '[' + mode + '] '
 
-    before(async () => {
-        await newAries
-            .then(a => {
-                aries = a
-            })
-            .catch(err => new Error(err.message));
+    before(() => {
+        return new Promise((resolve, reject) => {
+            let _aries;
+            if (mode === restMode){
+                _aries =  newAriesREST(agentControllerApiUrl)
+            }else {
+                _aries =   newAries()
+            }
+
+            _aries.then(
+                a => {aries = a; resolve()},
+                err => reject(new Error(err.message))
+            )
+        })
     })
 
     after(() => {
         aries.destroy()
     })
 
-    it(modePrefix + "Alice create key set", function (done) {
+    it("Alice create key set", function (done) {
         aries.kms.createKeySet().then(
             resp => {
                 try {
