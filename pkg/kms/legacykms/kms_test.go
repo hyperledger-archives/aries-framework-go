@@ -135,7 +135,7 @@ func TestBaseKMS_SignMessage(t *testing.T) {
 		require.NotEmpty(t, signature)
 
 		// verify signature
-		suiteVerifier := &ed25519signature2018.PublicKeyVerifier{}
+		suiteVerifier := ed25519signature2018.NewPublicKeyVerifier()
 		err = ed25519signature2018.New(suite.WithVerifier(suiteVerifier)).Verify(
 			&verifier.PublicKey{Type: "ED25519", Value: base58.Decode(fromVerKey)},
 			testMsg, signature)

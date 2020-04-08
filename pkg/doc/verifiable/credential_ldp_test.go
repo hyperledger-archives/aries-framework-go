@@ -43,7 +43,7 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 
 	sigSuite := ed25519signature2018.New(
 		suite.WithSigner(getEd25519TestSigner(privKey)),
-		suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
@@ -159,7 +159,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 	sigSuite := jsonwebsignature2020.New(
 		suite.WithSigner(getEcdsaP256TestSigner(privateKey)),
 		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier (as it's done in Ed25519 test above)
-		suite.WithVerifier(&jsonwebsignature2020.PublicKeyVerifier{}))
+		suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "JsonWebSignature2020",
@@ -206,7 +206,7 @@ func TestNewCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing
 	sigSuite := ecdsasecp256k1signature2019.New(
 		suite.WithSigner(getEcdsaSecp256k1RS256TestSigner(privateKey)),
 		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier
-		suite.WithVerifier(&ecdsasecp256k1signature2019.PublicKeyVerifier{}))
+		suite.WithVerifier(ecdsasecp256k1signature2019.NewPublicKeyVerifier()))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "EcdsaSecp256k1Signature2019",
