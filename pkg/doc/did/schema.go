@@ -385,7 +385,6 @@ const (
     },
     "service": {
       "required": [
-        "id",
         "type",
         "serviceEndpoint"
       ],
