@@ -814,7 +814,7 @@ func TestVerifyProof(t *testing.T) {
 
 		signedDoc := createSignedDidDocument(privKey, pubKey)
 
-		s := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+		s := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 
 		// happy path - valid signed document
 		doc, err := ParseDocument(signedDoc)

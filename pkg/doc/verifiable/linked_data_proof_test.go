@@ -105,7 +105,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 	require.NoError(t, err)
 
 	verifierSuite := ed25519signature2018.New(
-		suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}),
+		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()),
 		suite.WithCompactProof())
 	vcDecoded, _, err := NewCredential(vcWithProofBytes,
 		WithEmbeddedSignatureSuite(verifierSuite),

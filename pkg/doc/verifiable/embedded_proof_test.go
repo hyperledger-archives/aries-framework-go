@@ -47,7 +47,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
 		vc, publicKeyFetcher := createVCWithLinkedDataProof()
 		vcBytes := vc.byteJSON(t)
 
-		vSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+		vSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 		proof, err := checkEmbeddedProof(vcBytes, &credentialOpts{
 			publicKeyFetcher: publicKeyFetcher,
 			ldpSuite:         vSuite,
