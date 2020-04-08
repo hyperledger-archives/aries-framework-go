@@ -8,8 +8,16 @@ package verifiable
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
+
+	"github.com/btcsuite/btcutil/base58"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
@@ -66,7 +74,47 @@ const (
 	// log constants
 	vcID   = "vcID"
 	vcName = "vcName"
+
+	creatorParts = 2
+	// Ed25519VerificationKey supported Verification Key types
+	Ed25519VerificationKey = "Ed25519VerificationKey"
 )
+
+type keyResolver interface {
+	PublicKeyFetcher() verifiable.PublicKeyFetcher
+}
+
+type signer interface {
+	// Sign will sign document and return signature
+	Sign(data []byte) ([]byte, error)
+}
+
+type kmsSigner struct {
+	kms   legacykms.KMS
+	keyID string
+}
+
+func newKMSSigner(kms legacykms.KMS, kResolver keyResolver, creator string) (*kmsSigner, error) {
+	// creator will contain didID#keyID
+	idSplit := strings.Split(creator, "#")
+	if len(idSplit) != creatorParts {
+		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
+	}
+
+	k, err := kResolver.PublicKeyFetcher()(idSplit[0], "#"+idSplit[1])
+	if err != nil {
+		return nil, err
+	}
+
+	keyID := base58.Encode(k.Value)
+
+	return &kmsSigner{kms: kms, keyID: keyID}, nil
+}
+
+func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
+	return s.kms.SignMessage(data, s.keyID)
+}
+
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
 type provider interface {
@@ -76,10 +124,12 @@ type provider interface {
 // Command contains command operations provided by verifiable credential controller.
 type Command struct {
 	verifiableStore *verifiablestore.Store
+	kms       legacykms.KMS
+	kResolver keyResolver
 }
 
 // New returns new verifiable credential controller command instance.
-func New(p provider) (*Command, error) {
+func New(p provider, kms legacykms.KMS, kResolver keyResolver) (*Command, error) {
 	verifiableStore, err := verifiablestore.New(p)
 	if err != nil {
 		return nil, fmt.Errorf("new vc store : %w", err)
@@ -87,6 +137,8 @@ func New(p provider) (*Command, error) {
 
 	return &Command{
 		verifiableStore: verifiableStore,
+		kms:kms,
+		kResolver:kResolver,
 	}, nil
 }
 
@@ -258,7 +310,7 @@ func (o *Command) GetCredentials(rw io.Writer, req io.Reader) command.Error {
 
 // GeneratePresentation generates verifiable presentation from a verifiable credential.
 func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Error {
-	request := &Credential{}
+	request := &PresentationRequest{}
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
@@ -275,8 +327,16 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 
 		return command.NewValidationError(GeneratePresentationErrorCode, fmt.Errorf("generate vp - parse vc : %w", err))
 	}
+	doc := &did.Doc{}
+	err = json.Unmarshal([]byte(request.DID), doc)
+	if err != nil {
+		//change error here
+		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "unmarshal doc: "+err.Error())
 
-	return o.generatePresentation(rw, vc, generatePresentationCommandMethod, GeneratePresentationErrorCode)
+		return command.NewValidationError(GeneratePresentationErrorCode, fmt.Errorf("unmarshall : %w", err))
+	}
+
+	return o.generatePresentation(rw, vc, doc, generatePresentationCommandMethod, GeneratePresentationErrorCode)
 }
 
 // GeneratePresentationByID generates verifiable presentation from a stored verifiable credential.
@@ -303,19 +363,26 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("get vc by id : %w", err))
 	}
 
-	return o.generatePresentation(rw, vc, getCredentialByNameCommandMethod, GeneratePresentationByIDErrorCode)
+	doc := &did.Doc{}
+	err = json.Unmarshal([]byte(request.DID), doc)
+	if err != nil {
+		//change error here
+		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "unmarshal doc: "+err.Error())
+
+		return command.NewValidationError(GeneratePresentationErrorCode, fmt.Errorf("unmarshall : %w", err))
+	}
+	return o.generatePresentation(rw, vc, doc, getCredentialByNameCommandMethod, GeneratePresentationByIDErrorCode)
 }
 
-func (o *Command) generatePresentation(rw io.Writer, vc *verifiable.Credential,
+func (o *Command) generatePresentation(rw io.Writer, vc *verifiable.Credential, doc *did.Doc,
 	commandMethodName string, errCode command.Code) command.Error {
-	vp, err := vc.Presentation()
+
+    vp, err := o.SignAndGeneratePresentation(doc, vc)
 	if err != nil {
-		logutil.LogError(logger, commandName, commandMethodName, "generate vp : "+err.Error())
+		logutil.LogError(logger, commandName, commandMethodName, "sign and generate vp : "+err.Error())
 
-		return command.NewValidationError(errCode, fmt.Errorf("generate vp : %w", err))
+		return command.NewValidationError(errCode, fmt.Errorf("sign and generate vp : %w", err))
 	}
-
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1422 - add proof
 
 	vpBytes, err := vp.MarshalJSON()
 	if err != nil {
@@ -331,4 +398,69 @@ func (o *Command) generatePresentation(rw io.Writer, vc *verifiable.Credential,
 	logutil.LogDebug(logger, commandName, commandMethodName, "success")
 
 	return nil
+}
+
+// SignAndGeneratePresentation sign and generate vp
+func (o *Command) SignAndGeneratePresentation(didDoc *did.Doc, vc *verifiable.Credential) (*verifiable.Presentation, error) { // nolint:lll
+	var s signer
+
+	pk, err := getPublicKeyID(didDoc)
+	if err != nil {
+		return nil, err
+	}
+
+	s, err = newKMSSigner(o.kms, o.kResolver, pk)
+	if err != nil {
+		return nil, err
+	}
+
+	signingCtx := &verifiable.LinkedDataProofContext{
+		VerificationMethod:      pk,
+		SignatureRepresentation: verifiable.SignatureJWS,
+		SignatureType:           "Ed25519Signature2018",
+		Suite: ed25519signature2018.New(
+			suite.WithSigner(s)),
+	}
+
+	vp, err := vc.Presentation()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vp: %w", err)
+	}
+
+	err = vp.AddLinkedDataProof(signingCtx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign vc: %w", err)
+	}
+
+	return vp, nil
+}
+
+func getPublicKeyID(didDoc *did.Doc) (string, error) {
+	switch {
+	case len(didDoc.PublicKey) > 0:
+		var publicKeyID string
+
+		for _, k := range didDoc.PublicKey {
+			if strings.HasPrefix(k.Type, Ed25519VerificationKey) {
+				publicKeyID = k.ID
+				break
+			}
+		}
+
+		// TODO this is temporary check to support public key ID's which aren't in DID format
+		// Will be removed [Issue#140]
+		if !isDID(publicKeyID) {
+			return didDoc.ID + publicKeyID, nil
+		}
+
+		return publicKeyID, nil
+	case len(didDoc.Authentication) > 0:
+		return didDoc.Authentication[0].PublicKey.ID, nil
+	default:
+		return "", errors.New("public key not found in DID Document")
+	}
+}
+
+func isDID(str string) bool {
+	return strings.HasPrefix(str, "did:")
 }

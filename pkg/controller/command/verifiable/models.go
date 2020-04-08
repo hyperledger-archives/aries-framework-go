@@ -6,11 +6,21 @@ SPDX-License-Identifier: Apache-2.0
 
 package verifiable
 
-import "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+import
+(
+	"encoding/json"
+	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+)
 
-// Credential is model for verifiable credential.
 type Credential struct {
 	VerifiableCredential string `json:"verifiableCredential,omitempty"`
+}
+
+
+// PresentationRequest is model for verifiable credential.
+type PresentationRequest struct {
+	VerifiableCredential string `json:"verifiableCredential,omitempty"`
+	DID json.RawMessage `json:"did,omitempty"`
 }
 
 // CredentialExt is model for verifiable credential with fields related to command features.
@@ -26,6 +36,7 @@ type CredentialExt struct {
 type IDArg struct {
 	// ID
 	ID string `json:"id"`
+	DID json.RawMessage `json:"did,omitempty"`
 }
 
 // NameArg model
