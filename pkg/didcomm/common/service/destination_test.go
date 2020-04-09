@@ -31,15 +31,6 @@ func TestGetDestinationFromDID(t *testing.T) {
 		require.NotNil(t, destination)
 	})
 
-	t.Run("test public key not found", func(t *testing.T) {
-		doc.PublicKey = nil
-		vdr := mockvdri.MockVDRIRegistry{ResolveValue: doc}
-		destination, err := GetDestination(doc.ID, &vdr)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "missing keys")
-		require.Nil(t, destination)
-	})
-
 	t.Run("test service not found", func(t *testing.T) {
 		doc2 := createDIDDoc()
 		doc2.Service = nil
@@ -48,6 +39,36 @@ func TestGetDestinationFromDID(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "missing DID doc service")
 		require.Nil(t, destination)
+	})
+
+	t.Run("fails if no service of type did-communication is found", func(t *testing.T) {
+		diddoc := createDIDDoc()
+		for i := range diddoc.Service {
+			diddoc.Service[i].Type = "invalid"
+		}
+		vdr := &mockvdri.MockVDRIRegistry{ResolveValue: diddoc}
+		_, err := GetDestination(diddoc.ID, vdr)
+		require.Error(t, err)
+	})
+
+	t.Run("fails if the service endpoint is missing", func(t *testing.T) {
+		diddoc := createDIDDoc()
+		for i := range diddoc.Service {
+			diddoc.Service[i].ServiceEndpoint = ""
+		}
+		vdr := &mockvdri.MockVDRIRegistry{ResolveValue: diddoc}
+		_, err := GetDestination(diddoc.ID, vdr)
+		require.Error(t, err)
+	})
+
+	t.Run("fails it there are no recipient keys", func(t *testing.T) {
+		diddoc := createDIDDoc()
+		for i := range diddoc.Service {
+			diddoc.Service[i].RecipientKeys = nil
+		}
+		vdr := &mockvdri.MockVDRIRegistry{ResolveValue: diddoc}
+		_, err := GetDestination(diddoc.ID, vdr)
+		require.Error(t, err)
 	})
 
 	t.Run("test did document not found", func(t *testing.T) {

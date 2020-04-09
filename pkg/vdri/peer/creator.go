@@ -53,7 +53,7 @@ func build(pubKey *vdriapi.PubKey, docOpts *vdriapi.CreateDIDOpts) (*did.Doc, er
 		}
 
 		if docOpts.ServiceType == vdriapi.DIDCommServiceType {
-			s.RecipientKeys = []string{publicKey.ID}
+			s.RecipientKeys = []string{pubKey.Value}
 			s.Priority = 0
 		}
 

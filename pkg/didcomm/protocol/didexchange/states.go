@@ -42,7 +42,6 @@ const (
 	stateNameCompleted = "completed"
 	stateNameAbandoned = "abandoned"
 	ackStatusOK        = "ok"
-	ed25519KeyType     = "Ed25519VerificationKey2018"
 	didCommServiceType = "did-communication"
 	didMethod          = "peer"
 	timestamplen       = 8
@@ -344,13 +343,13 @@ func (ctx *context) handleInboundOOBInvitation(
 		RoutingKeys:     svc.RoutingKeys,
 	}
 
-	senderVerKeys, ok := did.LookupRecipientKeys(myDID, didCommServiceType, ed25519KeyType)
-	if !ok {
-		return nil, nil, fmt.Errorf("failed to lookup sender verification keys")
+	recipientKey, err := recipientKey(myDID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("handle inbound OOBInvitation : %w", err)
 	}
 
 	return func() error {
-		return ctx.outboundDispatcher.Send(request, senderVerKeys[0], dest)
+		return ctx.outboundDispatcher.Send(request, recipientKey, dest)
 	}, msg.connRecord, nil
 }
 
@@ -384,13 +383,13 @@ func (ctx *context) handleInboundInvitation(invitation *Invitation, thid string,
 	}
 	connRec.MyDID = request.Connection.DID
 
-	senderVerKeys, ok := did.LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
-	if !ok {
-		return nil, nil, fmt.Errorf("getting sender verification keys")
+	recipientKey, err := recipientKey(didDoc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("handle inbound invitation : %w", err)
 	}
 
 	return func() error {
-		return ctx.outboundDispatcher.Send(request, senderVerKeys[0], destination)
+		return ctx.outboundDispatcher.Send(request, recipientKey, destination)
 	}, connRec, nil
 }
 
@@ -433,14 +432,14 @@ func (ctx *context) handleInboundRequest(request *Request, options *options,
 		return nil, nil, err
 	}
 
-	senderVerKeys, ok := did.LookupRecipientKeys(responseDidDoc, didCommServiceType, ed25519KeyType)
-	if !ok {
-		return nil, nil, fmt.Errorf("getting sender verification keys")
+	senderVerKey, err := recipientKey(responseDidDoc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("handle inbound request : %w", err)
 	}
 
 	// send exchange response
 	return func() error {
-		return ctx.outboundDispatcher.Send(response, senderVerKeys[0], destination)
+		return ctx.outboundDispatcher.Send(response, senderVerKey, destination)
 	}, connRec, nil
 }
 
@@ -507,9 +506,9 @@ func (ctx *context) getDIDDocAndConnection(pubDID string) (*did.Doc, *Connection
 		return nil, nil, fmt.Errorf("create %s did: %w", didMethod, err)
 	}
 
-	recipientKeys, ok := did.LookupRecipientKeys(newDidDoc, didCommServiceType, ed25519KeyType)
+	svc, ok := did.LookupService(newDidDoc, didCommServiceType)
 	if ok {
-		for _, recKey := range recipientKeys {
+		for _, recKey := range svc.RecipientKeys {
 			// TODO https://github.com/hyperledger/aries-framework-go/issues/1105 Support to Add multiple
 			//  recKeys to the Router
 			if err = route.AddKeyToRouter(ctx.routeSvc, recKey); err != nil {
@@ -625,13 +624,13 @@ func (ctx *context) handleInboundResponse(response *Response) (stateAction, *con
 		return nil, nil, fmt.Errorf("fetching did document: %w", err)
 	}
 
-	senderVerKeys, ok := did.LookupRecipientKeys(myDidDoc, didCommServiceType, ed25519KeyType)
-	if !ok {
-		return nil, nil, fmt.Errorf("getting sender verification keys")
+	recipientKey, err := recipientKey(myDidDoc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("handle inbound response : %w", err)
 	}
 
 	return func() error {
-		return ctx.outboundDispatcher.Send(ack, senderVerKeys[0], destination)
+		return ctx.outboundDispatcher.Send(ack, recipientKey, destination)
 	}, connRecord, nil
 }
 
@@ -721,12 +720,12 @@ func (ctx *context) getInvitationRecipientKey(invitation *Invitation) (string, e
 			return "", fmt.Errorf("get invitation recipient key: %w", err)
 		}
 
-		recipientKeys, ok := did.LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
-		if !ok {
-			return "", fmt.Errorf("get recipient keys from did")
+		recipientKey, err := recipientKey(didDoc)
+		if err != nil {
+			return "", fmt.Errorf("getInvitationRecipientKey: %w", err)
 		}
 
-		return recipientKeys[0], nil
+		return recipientKey, nil
 	}
 
 	return invitation.RecipientKeys[0], nil
@@ -819,4 +818,13 @@ func (ctx *context) resolveVerKey(i *OOBInvitation) (string, error) {
 func isDID(str string) bool {
 	const didPrefix = "did:"
 	return strings.HasPrefix(str, didPrefix)
+}
+
+func recipientKey(doc *did.Doc) (string, error) {
+	dest, err := service.CreateDestination(doc)
+	if err != nil {
+		return "", fmt.Errorf("failed to create destination : %w", err)
+	}
+
+	return dest.RecipientKeys[0], nil
 }

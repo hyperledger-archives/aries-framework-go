@@ -24,12 +24,10 @@ type Destination struct {
 
 const (
 	didCommServiceType = "did-communication"
-	// TODO: hardcoded key type https://github.com/hyperledger/aries-framework-go/issues/1008
-	ed25519KeyType = "Ed25519VerificationKey2018"
 )
 
 // GetDestination constructs a Destination struct based on the given DID and parameters
-// It resolves the DID using the given VDR, and collects relevant data from the resolved DIDDoc.
+// It resolves the DID using the given VDR, and uses CreateDestination under the hood.
 func GetDestination(did string, vdr vdri.Registry) (*Destination, error) {
 	didDoc, err := vdr.Resolve(did)
 	if err != nil {
@@ -39,20 +37,27 @@ func GetDestination(did string, vdr vdri.Registry) (*Destination, error) {
 	return CreateDestination(didDoc)
 }
 
-// CreateDestination makes a DIDComm Destination object from a DID Doc
+// CreateDestination makes a DIDComm Destination object from a DID Doc as per the DIDComm service conventions:
+// https://github.com/hyperledger/aries-rfcs/blob/master/features/0067-didcomm-diddoc-conventions/README.md.
 func CreateDestination(didDoc *diddoc.Doc) (*Destination, error) {
 	didCommService, ok := diddoc.LookupService(didDoc, didCommServiceType)
 	if !ok {
 		return nil, fmt.Errorf("create destination: missing DID doc service")
 	}
 
-	recipientKeys, ok := diddoc.LookupRecipientKeys(didDoc, didCommServiceType, ed25519KeyType)
-	if !ok {
-		return nil, fmt.Errorf("create destination: missing keys")
+	if didCommService.ServiceEndpoint == "" {
+		return nil, fmt.Errorf("create destination: no service endpoint on didcomm service block in diddoc: %+v", didDoc)
 	}
 
+	if len(didCommService.RecipientKeys) == 0 {
+		return nil, fmt.Errorf("create destination: no recipient keys on didcomm service block in diddoc: %+v", didDoc)
+	}
+
+	// TODO ensure recipient keys are did:key's
+	//  https://github.com/hyperledger/aries-framework-go/issues/1604
+
 	return &Destination{
-		RecipientKeys:   recipientKeys,
+		RecipientKeys:   didCommService.RecipientKeys,
 		ServiceEndpoint: didCommService.ServiceEndpoint,
 		RoutingKeys:     didCommService.RoutingKeys,
 	}, nil

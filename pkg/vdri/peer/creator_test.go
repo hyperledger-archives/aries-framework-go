@@ -71,6 +71,23 @@ func TestDIDCreator(t *testing.T) {
 	})
 }
 
+func TestBuild(t *testing.T) {
+	t.Run("inlined recipient keys for didcomm", func(t *testing.T) {
+		expected := getSigningKey()
+		c, err := New(&storage.MockStoreProvider{})
+		require.NoError(t, err)
+
+		result, err := c.Build(
+			expected,
+			api.WithServiceType("did-communication"),
+		)
+		require.NoError(t, err)
+		require.NotEmpty(t, result.Service)
+		require.NotEmpty(t, result.Service[0].RecipientKeys)
+		require.Equal(t, expected.Value, result.Service[0].RecipientKeys[0])
+	})
+}
+
 func getSigningKey() *api.PubKey {
 	pub, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
