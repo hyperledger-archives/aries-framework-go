@@ -6,15 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -254,11 +250,15 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 	r.NoError(err)
 	r.Equal(publicKey.Value, pubKey.Value)
 	r.Equal("Ed25519VerificationKey2018", pubKey.Type)
+	r.NotNil(pubKey.JWK)
+	r.Equal(pubKey.JWK.Algorithm, "EdDSA")
 
 	authPubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, authentication.PublicKey.ID)
 	r.NoError(err)
 	r.Equal(authentication.PublicKey.Value, authPubKey.Value)
 	r.Equal("Ed25519VerificationKey2018", authPubKey.Type)
+	r.NotNil(authPubKey.JWK)
+	r.Equal(authPubKey.JWK.Algorithm, "EdDSA")
 
 	pubKey, err = resolver.PublicKeyFetcher()(didDoc.ID, "invalid key")
 	r.Error(err)
@@ -273,68 +273,56 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 }
 
 func createDIDDoc() *did.Doc {
-	return createDIDDocWithKey()
-}
+	didDocJSON := `{
+  "@context": [
+    "https://w3id.org/did/v1"
+  ],
+  "id": "did:test:2WxUJa8nVjXr5yS69JWoKZ",
+  "publicKey": [
+    {
+      "controller": "did:test:8STcrCQFzFxKey7YSbj62A",
+      "id": "did:test:8STcrCQFzFxKey7YSbj62A#keys-1",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "alg": "EdDSA",
+        "x": "PD34BecP4G7UcAj2u1ygB9MX31jJnqtkJFvkR1o8nIE"
+      },
+      "type": "Ed25519VerificationKey2018"
+    }
+  ],
+  "service": [
+    {
+      "id": "did:test:8STcrCQFzFxKey7YSbj62A#endpoint-1",
+      "priority": 0,
+      "recipientKeys": [
+        "did:test:8STcrCQFzFxKey7YSbj62A#keys-1"
+      ],
+      "routingKeys": null,
+      "serviceEndpoint": "http://localhost:47582",
+      "type": "did-communication"
+    }
+  ],
+  "authentication": [
+    {
+      "controller": "did:test:2WxUJa8nVjXr5yS69JWoKZ",
+      "id": "did:test:2WxUJa8nVjXr5yS69JWoKZ#keys-1",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "alg": "EdDSA",
+        "x": "DEfkntM3vCV5WtS-1G9cBMmkNJSPlVdjwSdHmHbirTg"
+      },
+      "type": "Ed25519VerificationKey2018"
+    }
+  ],
+  "created": "2020-04-13T12:51:08.274813+03:00",
+  "updated": "2020-04-13T12:51:08.274813+03:00"
+}`
 
-func generateKeyPair() string {
-	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	didDoc, err := did.ParseDocument([]byte(didDocJSON))
 	if err != nil {
 		panic(err)
-	}
-
-	return base58.Encode(pubKey[:])
-}
-
-func createDIDDocWithKey() *did.Doc {
-	const (
-		didFormat    = "did:%s:%s"
-		didPKID      = "%s#keys-%d"
-		didServiceID = "%s#endpoint-%d"
-		method       = "test"
-	)
-
-	pub := generateKeyPair()
-	id := fmt.Sprintf(didFormat, method, pub[:16])
-	pubKeyID := fmt.Sprintf(didPKID, id, 1)
-	pubKey := did.PublicKey{
-		ID:         pubKeyID,
-		Type:       "Ed25519VerificationKey2018",
-		Controller: id,
-		Value:      []byte(pub),
-	}
-	services := []did.Service{
-		{
-			ID:              fmt.Sprintf(didServiceID, id, 1),
-			Type:            "did-communication",
-			ServiceEndpoint: "http://localhost:47582",
-			Priority:        0,
-			RecipientKeys:   []string{pubKeyID},
-		},
-	}
-
-	pub = generateKeyPair()
-	id = fmt.Sprintf(didFormat, method, pub[:16])
-	pubKeyID = fmt.Sprintf(didPKID, id, 1)
-	auth := []did.VerificationMethod{
-		{
-			PublicKey: did.PublicKey{
-				ID:         pubKeyID,
-				Type:       "Ed25519VerificationKey2018",
-				Controller: id,
-				Value:      []byte(pub),
-			},
-		},
-	}
-
-	createdTime := time.Now()
-	didDoc := &did.Doc{
-		Context:        []string{did.Context},
-		ID:             id,
-		PublicKey:      []did.PublicKey{pubKey},
-		Service:        services,
-		Authentication: auth,
-		Created:        &createdTime,
-		Updated:        &createdTime,
 	}
 
 	return didDoc

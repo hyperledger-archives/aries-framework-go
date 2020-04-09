@@ -244,12 +244,7 @@ func createDIDKeyFetcher(t *testing.T, pub ed25519.PublicKey, didID string) Publ
 
 	id := fmt.Sprintf(didFormat, method, didID)
 	pubKeyID := fmt.Sprintf(didPKID, id, 1)
-	pubKey := did.PublicKey{
-		ID:         pubKeyID,
-		Type:       "Ed25519VerificationKey2018",
-		Controller: id,
-		Value:      pub,
-	}
+	pubKey := did.NewPublicKeyFromBytes(pubKeyID, "Ed25519VerificationKey2018", id, pub)
 	services := []did.Service{
 		{
 			ID:              fmt.Sprintf(didServiceID, id, 1),
@@ -263,7 +258,7 @@ func createDIDKeyFetcher(t *testing.T, pub ed25519.PublicKey, didID string) Publ
 	didDoc := &did.Doc{
 		Context:   []string{did.Context},
 		ID:        id,
-		PublicKey: []did.PublicKey{pubKey},
+		PublicKey: []did.PublicKey{*pubKey},
 		Service:   services,
 		Created:   &createdTime,
 		Updated:   &createdTime,
