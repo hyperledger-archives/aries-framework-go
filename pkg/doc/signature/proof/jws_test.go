@@ -131,3 +131,33 @@ func TestGetJWTSignature(t *testing.T) {
 	require.EqualError(t, err, "invalid JWT")
 	require.Empty(t, signature)
 }
+
+func TestFilterJsonldObject(t *testing.T) {
+	const doc = `{
+  		"@context": [
+    		"https://www.w3.org/2018/credentials/v1",
+    		"https://www.w3.org/2018/credentials/examples/v1"
+  		],
+  		"credentialSchema": [],
+  		"credentialStatus": {
+    		"id": "http://issuer.vc.rest.example.com:8070/status/1",
+    		"type": "CredentialStatusList2017"
+  		}
+	}`
+
+	var jsonldDoc map[string]interface{}
+	err := json.Unmarshal([]byte(doc), &jsonldDoc)
+	require.NoError(t, err)
+	require.NotEmpty(t, jsonldDoc)
+
+	credStatus, ok := jsonldDoc["credentialStatus"].(map[string]interface{})
+	require.True(t, ok)
+
+	l := len(credStatus)
+
+	filterJsonldObject(jsonldDoc)
+
+	credStatus, ok = jsonldDoc["credentialStatus"].(map[string]interface{})
+	require.True(t, ok)
+	require.Len(t, credStatus, l-1)
+}

@@ -86,6 +86,9 @@ func createVerifyJWS(suite signatureSuite, jsonldDoc map[string]interface{}, p *
 
 	proofOptionsDigest := suite.GetDigest(canonicalProofOptions)
 
+	// TODO this filter function to be removed [Issue #1592]
+	filterJsonldObject(jsonldDoc)
+
 	canonicalDoc, err := prepareDocumentForJWS(suite, jsonldDoc)
 	if err != nil {
 		return nil, err
@@ -101,6 +104,18 @@ func createVerifyJWS(suite signatureSuite, jsonldDoc map[string]interface{}, p *
 	}
 
 	return append([]byte(jwtHeader+"."), verifyData...), nil
+}
+
+// TODO this is a temporary fix to remove fields from JSON LD doc which is causing incorrect
+// canonized docs. To be removed as part of [Issue #1592]
+func filterJsonldObject(jsonldDoc map[string]interface{}) {
+	// remove 'type' from credential status object
+	if crStatus, ok := jsonldDoc["credentialStatus"]; ok {
+		if crstatusMap, ok := crStatus.(map[string]interface{}); ok {
+			delete(crstatusMap, "type")
+			jsonldDoc["credentialStatus"] = crstatusMap
+		}
+	}
 }
 
 func prepareJWSProof(suite signatureSuite, proofOptions map[string]interface{}) ([]byte, error) {
