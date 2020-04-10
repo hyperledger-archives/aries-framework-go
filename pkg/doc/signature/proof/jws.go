@@ -11,7 +11,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/piprate/json-gold/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 )
 
 const securityContext = "https://w3id.org/security/v2"
@@ -143,13 +143,7 @@ func getCompactedWithSecuritySchema(docMap map[string]interface{}) (map[string]i
 		return nil, err
 	}
 
-	proc := ld.NewJsonLdProcessor()
-	options := ld.NewJsonLdOptions("")
-	options.ProcessingMode = ld.JsonLd_1_1
-	options.Format = "application/n-quads"
-	options.ProduceGeneralizedRdf = true
-
-	return proc.Compact(docMap, contextMap, options)
+	return jsonld.Default().Compact(docMap, contextMap, nil)
 }
 
 // cached value from https://w3id.org/security/v2
