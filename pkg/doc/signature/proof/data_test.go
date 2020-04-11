@@ -11,8 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 )
 
 func TestCreateVerifyHashAlgorithm(t *testing.T) {
@@ -111,18 +112,7 @@ type mockSignatureSuite struct {
 
 // GetCanonicalDocument will return normalized/canonical version of the document
 func (s *mockSignatureSuite) GetCanonicalDocument(doc map[string]interface{}) ([]byte, error) {
-	proc := ld.NewJsonLdProcessor()
-	options := ld.NewJsonLdOptions("")
-	options.ProcessingMode = ld.JsonLd_1_1
-	options.Format = "application/n-quads"
-	options.ProduceGeneralizedRdf = true
-
-	canonicalDoc, err := proc.Normalize(doc, options)
-	if err != nil {
-		return nil, err
-	}
-
-	return []byte(canonicalDoc.(string)), nil
+	return jsonld.Default().GetCanonicalDocument(doc)
 }
 
 // GetDigest returns document digest

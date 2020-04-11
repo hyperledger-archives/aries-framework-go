@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/piprate/json-gold/ld"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 )
 
 const vcJSONLD = `
@@ -279,14 +281,7 @@ func compactJSONLD(doc string, documentLoader ld.DocumentLoader, strict bool) er
 		return fmt.Errorf("extract context from JSON-LD doc: %w", err)
 	}
 
-	proc := ld.NewJsonLdProcessor()
-	options := ld.NewJsonLdOptions("")
-	options.ProcessingMode = ld.JsonLd_1_1
-	options.Format = "application/n-quads"
-	options.ProduceGeneralizedRdf = true
-	options.DocumentLoader = documentLoader
-
-	docCompactedMap, err := proc.Compact(docMap, contextMap, options)
+	docCompactedMap, err := jsonld.Default().Compact(docMap, contextMap, documentLoader)
 	if err != nil {
 		return fmt.Errorf("compact JSON-LD document: %w", err)
 	}
