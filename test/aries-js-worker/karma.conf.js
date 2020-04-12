@@ -18,6 +18,9 @@ const ENV_CONFIG_OUT = "test/environment.js";
         if (attr.startsWith("E2E_")) {
             config[attr.replace("E2E_", "")] = process.env[attr]
         }
+        if (attr.startsWith("HTTP_")) {
+            config[attr] = process.env[attr]
+        }
     }
     fs.writeFileSync(ENV_CONFIG_OUT, "export const environment = " + util.inspect(config))
 })()

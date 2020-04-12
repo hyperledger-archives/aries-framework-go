@@ -110,19 +110,6 @@ type generatePresentationReq struct { // nolint: unused,deadcode
 	Params verifiable.Credential
 }
 
-// presentationByIDReq model
-//
-// This is used to generate the verifiable presentation from stored verifiable credential.
-//
-// swagger:parameters presentationByIDReq
-type presentationByIDReq struct { // nolint: unused,deadcode
-	// VC ID - pass base64 version of the ID
-	//
-	// in: path
-	// required: true
-	ID string `json:"id"`
-}
-
 // presentationRes model
 //
 // This is used for returning the verifiable presentation

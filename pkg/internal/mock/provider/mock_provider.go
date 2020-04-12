@@ -19,6 +19,7 @@ type Provider struct {
 	ServiceErr                    error
 	ServiceMap                    map[string]interface{}
 	KMSValue                      legacykms.KeyManager
+	LegacyKMSValue                legacykms.KMS
 	ServiceEndpointValue          string
 	StorageProviderValue          storage.Provider
 	TransientStorageProviderValue storage.Provider
@@ -84,4 +85,9 @@ func (p *Provider) OutboundDispatcher() dispatcher.Outbound {
 // VDRIRegistry return vdri registry
 func (p *Provider) VDRIRegistry() vdriapi.Registry {
 	return p.VDRIRegistryValue
+}
+
+// Signer returns a legacyKMS signing service.
+func (p *Provider) Signer() legacykms.Signer {
+	return p.LegacyKMSValue
 }

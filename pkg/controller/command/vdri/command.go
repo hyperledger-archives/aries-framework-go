@@ -121,7 +121,15 @@ func (o *Command) CreatePublicDID(rw io.Writer, req io.Reader) command.Error {
 		return command.NewExecuteError(CreatePublicDIDError, err)
 	}
 
-	command.WriteNillableResponse(rw, CreatePublicDIDResponse{DID: doc}, logger)
+	docByte, err := doc.JSONBytes()
+
+	if err != nil {
+		logutil.LogError(logger, commandName, createPublicDIDCommandMethod, err.Error(),
+			logutil.CreateKeyValueString("method", request.Method))
+		return command.NewExecuteError(CreatePublicDIDError, err)
+	}
+
+	command.WriteNillableResponse(rw, CreatePublicDIDResponse{DID: docByte}, logger)
 
 	logutil.LogDebug(logger, commandName, createPublicDIDCommandMethod, "success",
 		logutil.CreateKeyValueString("method", request.Method))

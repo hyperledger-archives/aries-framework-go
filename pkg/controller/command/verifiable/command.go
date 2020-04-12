@@ -8,15 +8,25 @@ package verifiable
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"strings"
+
+	"github.com/btcsuite/btcutil/base58"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
@@ -62,20 +72,67 @@ const (
 	// error messages
 	errEmptyCredentialName = "credential name is mandatory"
 	errEmptyCredentialID   = "credential id is mandatory"
+	errEmptyDID            = "did is mandatory"
 
 	// log constants
 	vcID   = "vcID"
 	vcName = "vcName"
+
+	creatorParts = 2
+	// Ed25519VerificationKey supported Verification Key types
+	// TODO Support JwsVerificationKey2020 type for verification #1639
+	Ed25519VerificationKey = "Ed25519VerificationKey"
 )
+
+type keyResolver interface {
+	PublicKeyFetcher() verifiable.PublicKeyFetcher
+}
+
+type signer interface {
+	// Sign will sign document and return signature
+	Sign(data []byte) ([]byte, error)
+}
+
+type kmsSigner struct {
+	kms   legacykms.Signer
+	keyID string
+}
+
+func newKMSSigner(kms legacykms.Signer, kResolver keyResolver, verificationMethod string) (*kmsSigner, error) {
+	// creator will contain didID#keyID
+	idSplit := strings.Split(verificationMethod, "#")
+	if len(idSplit) != creatorParts {
+		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
+	}
+
+	k, err := kResolver.PublicKeyFetcher()(idSplit[0], "#"+idSplit[1])
+
+	if err != nil {
+		return nil, err
+	}
+
+	keyID := base58.Encode(k.Value)
+
+	return &kmsSigner{kms: kms, keyID: keyID}, nil
+}
+
+func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
+	return s.kms.SignMessage(data, s.keyID)
+}
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
 type provider interface {
 	StorageProvider() storage.Provider
+	VDRIRegistry() vdri.Registry
+	Signer() legacykms.Signer
 }
 
 // Command contains command operations provided by verifiable credential controller.
 type Command struct {
 	verifiableStore *verifiablestore.Store
+	didStore        *didstore.Store
+	kResolver       keyResolver
+	ctx             provider
 }
 
 // New returns new verifiable credential controller command instance.
@@ -85,8 +142,16 @@ func New(p provider) (*Command, error) {
 		return nil, fmt.Errorf("new vc store : %w", err)
 	}
 
+	didStore, err := didstore.New(p)
+	if err != nil {
+		return nil, fmt.Errorf("new did store : %w", err)
+	}
+
 	return &Command{
 		verifiableStore: verifiableStore,
+		didStore:        didStore,
+		kResolver:       verifiable.NewDIDKeyResolver(p.VDRIRegistry()),
+		ctx:             p,
 	}, nil
 }
 
@@ -258,7 +323,7 @@ func (o *Command) GetCredentials(rw io.Writer, req io.Reader) command.Error {
 
 // GeneratePresentation generates verifiable presentation from a verifiable credential.
 func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Error {
-	request := &Credential{}
+	request := &PresentationRequest{}
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
@@ -267,21 +332,34 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1316 Add keys for proof
-	//  verification as options to the function.
-	vc, _, err := verifiable.NewCredential([]byte(request.VerifiableCredential))
+	didDoc, err := o.ctx.VDRIRegistry().Resolve(request.DID)
+	//  if did not found in VDRI, look through in local storage
 	if err != nil {
-		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "generate vp - parse vc : "+err.Error())
+		didDoc, err = o.didStore.GetDID(request.DID)
+		if err != nil {
+			logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+				"failed to get did doc from store or vdri: "+err.Error())
 
-		return command.NewValidationError(GeneratePresentationErrorCode, fmt.Errorf("generate vp - parse vc : %w", err))
+			return command.NewValidationError(GeneratePresentationErrorCode,
+				fmt.Errorf("generate vp - failed to get did doc from store or vdri : %w", err))
+		}
 	}
 
-	return o.generatePresentation(rw, vc, generatePresentationCommandMethod, GeneratePresentationErrorCode)
+	credentials, vm, err := o.parsePresentationRequest(request, didDoc)
+	if err != nil {
+		logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+			"parse presentation request: "+err.Error())
+
+		return command.NewValidationError(GeneratePresentationErrorCode,
+			fmt.Errorf("generate vp - parse presentation request: %w", err))
+	}
+
+	return o.generatePresentation(rw, credentials, vm)
 }
 
 // GeneratePresentationByID generates verifiable presentation from a stored verifiable credential.
 func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.Error {
-	request := &IDArg{}
+	request := &PresentationRequestByID{}
 
 	err := json.NewDecoder(req).Decode(&request)
 	if err != nil {
@@ -295,6 +373,11 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredentialID))
 	}
 
+	if request.DID == "" {
+		logutil.LogDebug(logger, commandName, getCredentialByNameCommandMethod, errEmptyDID)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyDID))
+	}
+
 	vc, err := o.verifiableStore.GetCredential(request.ID)
 	if err != nil {
 		logutil.LogError(logger, commandName, getCredentialByNameCommandMethod, "get vc by id : "+err.Error(),
@@ -303,32 +386,184 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("get vc by id : %w", err))
 	}
 
-	return o.generatePresentation(rw, vc, getCredentialByNameCommandMethod, GeneratePresentationByIDErrorCode)
-}
-
-func (o *Command) generatePresentation(rw io.Writer, vc *verifiable.Credential,
-	commandMethodName string, errCode command.Code) command.Error {
-	vp, err := vc.Presentation()
+	doc, err := o.didStore.GetDID(request.DID)
 	if err != nil {
-		logutil.LogError(logger, commandName, commandMethodName, "generate vp : "+err.Error())
+		logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+			"failed to get did doc from store: "+err.Error())
 
-		return command.NewValidationError(errCode, fmt.Errorf("generate vp : %w", err))
+		return command.NewValidationError(GeneratePresentationErrorCode,
+			fmt.Errorf("failed to get did doc from store : %w", err))
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1422 - add proof
+	return o.generatePresentationByID(rw, vc, doc)
+}
 
-	vpBytes, err := vp.MarshalJSON()
+func (o *Command) generatePresentation(rw io.Writer, vcs []interface{}, pk string) command.Error {
+	// prepare vp
+	vp, err := o.createAndSignPresentation(vcs, pk)
 	if err != nil {
-		logutil.LogError(logger, commandName, commandMethodName, "generate vp : "+err.Error())
+		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "create and sign vp: "+err.Error())
 
-		return command.NewValidationError(errCode, fmt.Errorf("generate vp : %w", err))
+		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("prepare vp: %w", err))
 	}
 
 	command.WriteNillableResponse(rw, &Presentation{
-		VerifiablePresentation: string(vpBytes),
+		VerifiablePresentation: string(vp),
 	}, logger)
 
-	logutil.LogDebug(logger, commandName, commandMethodName, "success")
+	logutil.LogDebug(logger, commandName, generatePresentationCommandMethod, "success")
 
 	return nil
+}
+
+func (o *Command) generatePresentationByID(rw io.Writer, vc *verifiable.Credential, didDoc *did.Doc) command.Error {
+	// prepare vp by id
+	vp, err := o.createAndSignPresentationByID(vc, didDoc)
+	if err != nil {
+		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "create and sign vp by id: "+err.Error())
+
+		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("prepare vp by id: %w", err))
+	}
+
+	//  TODO : VP is already implementing marshall json. Revisit #1643
+	command.WriteNillableResponse(rw, &Presentation{
+		VerifiablePresentation: string(vp),
+	}, logger)
+
+	logutil.LogDebug(logger, commandName, generatePresentationCommandMethod, "success")
+
+	return nil
+}
+
+func (o *Command) createAndSignPresentation(credentials []interface{},
+	pk string) ([]byte, error) {
+	vp, err := credentials[0].(*verifiable.Credential).Presentation()
+	if err != nil {
+		return nil, err
+	}
+	// Add array of credentials in the presentation
+	err = vp.SetCredentials(credentials...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set credentials: %w", err)
+	}
+
+	// Add proofs to vp - sign presentation
+	vp, err = o.addLinkedDataProof(vp, pk)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign vp: %w", err)
+	}
+
+	return vp.MarshalJSON()
+}
+
+func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
+	didDoc *did.Doc) ([]byte, error) {
+	// pk is verification method
+	pk, err := getDefaultVerificationMethod(didDoc)
+	if err != nil {
+		return nil, err
+	}
+
+	vp, err := vc.Presentation()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vp by ID: %w", err)
+	}
+
+	vp, err = o.addLinkedDataProof(vp, pk)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign vp by ID: %w", err)
+	}
+
+	return vp.MarshalJSON()
+}
+
+func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, pk string) (*verifiable.Presentation, error) {
+	var s signer
+
+	s, err := newKMSSigner(o.ctx.Signer(), o.kResolver, pk)
+	if err != nil {
+		return nil, err
+	}
+
+	signingCtx := &verifiable.LinkedDataProofContext{
+		VerificationMethod:      pk,
+		SignatureRepresentation: verifiable.SignatureJWS,
+		SignatureType:           "Ed25519Signature2018",
+		Suite: ed25519signature2018.New(
+			suite.WithSigner(s)),
+	}
+
+	err = vp.AddLinkedDataProof(signingCtx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add linked data proof: %w", err)
+	}
+
+	return vp, nil
+}
+
+func (o *Command) parsePresentationRequest(request *PresentationRequest,
+	didDoc *did.Doc) ([]interface{},
+	string, error) {
+	if len(request.VerifiableCredentials) == 0 {
+		return nil, "", fmt.Errorf("no credential found")
+	}
+
+	vcs := make([]interface{}, len(request.VerifiableCredentials))
+	// loop through all credentials present in the presentation request
+
+	for i, vcRaw := range request.VerifiableCredentials {
+		vc, _, err := verifiable.NewCredential([]byte(vcRaw))
+		if err != nil {
+			logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+				"failed to parse presentation request: "+err.Error())
+			return nil, "", fmt.Errorf("parse vc failed: %w", err)
+		}
+
+		vcs[i] = vc
+	}
+
+	verificationMethod, err := getVerificationMethod(request, didDoc)
+	if err != nil {
+		return nil, "", fmt.Errorf("get verification method: %w", err)
+	}
+
+	return vcs, verificationMethod, nil
+}
+
+func getVerificationMethod(request *PresentationRequest, didDoc *did.Doc) (string, error) {
+	if request.ProofOptions.VerificationMethod != "" {
+		return request.ProofOptions.VerificationMethod, nil
+	}
+
+	// The default implementation if user provides no proofing option, here public key id is verification method
+	return getDefaultVerificationMethod(didDoc)
+}
+
+func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
+	switch {
+	case len(didDoc.PublicKey) > 0:
+		var publicKeyID string
+
+		for _, k := range didDoc.PublicKey {
+			if strings.HasPrefix(k.Type, Ed25519VerificationKey) {
+				publicKeyID = k.ID
+				break
+			}
+		}
+
+		// todo Review this logic  #1640
+		if !isDID(publicKeyID) {
+			return didDoc.ID + publicKeyID, nil
+		}
+
+		return publicKeyID, nil
+	case len(didDoc.Authentication) > 0:
+		return didDoc.Authentication[0].PublicKey.ID, nil
+	default:
+		return "", errors.New("public key not found in DID Document")
+	}
+}
+
+func isDID(str string) bool {
+	return strings.HasPrefix(str, "did:")
 }
