@@ -14,17 +14,18 @@ import (
 	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
@@ -70,6 +71,7 @@ const (
 	// error messages
 	errEmptyCredentialName = "credential name is mandatory"
 	errEmptyCredentialID   = "credential id is mandatory"
+	errEmptyDID            = "did is mandatory"
 
 	// log constants
 	vcID   = "vcID"
@@ -115,7 +117,6 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 	return s.kms.SignMessage(data, s.keyID)
 }
 
-
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
 type provider interface {
 	StorageProvider() storage.Provider
@@ -124,8 +125,9 @@ type provider interface {
 // Command contains command operations provided by verifiable credential controller.
 type Command struct {
 	verifiableStore *verifiablestore.Store
-	kms       legacykms.KMS
-	kResolver keyResolver
+	didStore        *didstore.Store
+	kms             legacykms.KMS
+	kResolver       keyResolver
 }
 
 // New returns new verifiable credential controller command instance.
@@ -135,10 +137,16 @@ func New(p provider, kms legacykms.KMS, kResolver keyResolver) (*Command, error)
 		return nil, fmt.Errorf("new vc store : %w", err)
 	}
 
+	didStore, err := didstore.New(p)
+	if err != nil {
+		return nil, fmt.Errorf("new did store : %w", err)
+	}
+
 	return &Command{
 		verifiableStore: verifiableStore,
-		kms:kms,
-		kResolver:kResolver,
+		didStore:        didStore,
+		kms:             kms,
+		kResolver:       kResolver,
 	}, nil
 }
 
@@ -319,21 +327,20 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1316 Add keys for proof
-	//  verification as options to the function.
 	vc, _, err := verifiable.NewCredential([]byte(request.VerifiableCredential))
 	if err != nil {
 		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "generate vp - parse vc : "+err.Error())
 
 		return command.NewValidationError(GeneratePresentationErrorCode, fmt.Errorf("generate vp - parse vc : %w", err))
 	}
+
 	doc := &did.Doc{}
-	err = json.Unmarshal([]byte(request.DID), doc)
+	err = json.Unmarshal([]byte(request.DidDoc), doc)
+
 	if err != nil {
-		//change error here
 		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "unmarshal doc: "+err.Error())
 
-		return command.NewValidationError(GeneratePresentationErrorCode, fmt.Errorf("unmarshall : %w", err))
+		return command.NewValidationError(GeneratePresentationErrorCode, fmt.Errorf("generate vp - parse did doc : %w", err))
 	}
 
 	return o.generatePresentation(rw, vc, doc, generatePresentationCommandMethod, GeneratePresentationErrorCode)
@@ -355,6 +362,11 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyCredentialID))
 	}
 
+	if request.DID == "" {
+		logutil.LogDebug(logger, commandName, getCredentialByNameCommandMethod, errEmptyDID)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyDID))
+	}
+
 	vc, err := o.verifiableStore.GetCredential(request.ID)
 	if err != nil {
 		logutil.LogError(logger, commandName, getCredentialByNameCommandMethod, "get vc by id : "+err.Error(),
@@ -363,25 +375,25 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 		return command.NewValidationError(GeneratePresentationByIDErrorCode, fmt.Errorf("get vc by id : %w", err))
 	}
 
-	doc := &did.Doc{}
-	err = json.Unmarshal([]byte(request.DID), doc)
+	doc, err := o.didStore.GetDID(request.DID)
 	if err != nil {
-		//change error here
-		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "unmarshal doc: "+err.Error())
+		logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+			"failed to get did doc from store: "+err.Error())
 
-		return command.NewValidationError(GeneratePresentationErrorCode, fmt.Errorf("unmarshall : %w", err))
+		return command.NewValidationError(GeneratePresentationErrorCode,
+			fmt.Errorf("failed to get did doc from store : %w", err))
 	}
+
 	return o.generatePresentation(rw, vc, doc, getCredentialByNameCommandMethod, GeneratePresentationByIDErrorCode)
 }
 
 func (o *Command) generatePresentation(rw io.Writer, vc *verifiable.Credential, doc *did.Doc,
 	commandMethodName string, errCode command.Code) command.Error {
-
-    vp, err := o.SignAndGeneratePresentation(doc, vc)
+	vp, err := o.SignPresentation(doc, vc)
 	if err != nil {
-		logutil.LogError(logger, commandName, commandMethodName, "sign and generate vp : "+err.Error())
+		logutil.LogError(logger, commandName, commandMethodName, "sign vp : "+err.Error())
 
-		return command.NewValidationError(errCode, fmt.Errorf("sign and generate vp : %w", err))
+		return command.NewValidationError(errCode, fmt.Errorf("sign vp : %w", err))
 	}
 
 	vpBytes, err := vp.MarshalJSON()
@@ -400,8 +412,8 @@ func (o *Command) generatePresentation(rw io.Writer, vc *verifiable.Credential, 
 	return nil
 }
 
-// SignAndGeneratePresentation sign and generate vp
-func (o *Command) SignAndGeneratePresentation(didDoc *did.Doc, vc *verifiable.Credential) (*verifiable.Presentation, error) { // nolint:lll
+// SignPresentation sign the verifiable presentation
+func (o *Command) SignPresentation(didDoc *did.Doc, vc *verifiable.Credential) (*verifiable.Presentation, error) { // nolint:lll
 	var s signer
 
 	pk, err := getPublicKeyID(didDoc)
@@ -446,7 +458,6 @@ func getPublicKeyID(didDoc *did.Doc) (string, error) {
 				break
 			}
 		}
-
 		// TODO this is temporary check to support public key ID's which aren't in DID format
 		// Will be removed [Issue#140]
 		if !isDID(publicKeyID) {

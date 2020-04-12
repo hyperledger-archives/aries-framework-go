@@ -17,6 +17,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	docverifiable "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -30,7 +32,7 @@ const (
 	getCredentialsPath           = verifiableOperationID + "/credentials"
 	varifiablePresentationPath   = verifiableOperationID + "/presentation"
 	generatePresentationPath     = varifiablePresentationPath + "/generate"
-	generatePresentationByIDPath = varifiableCredentialPath + "/{id}" + "/presentation"
+	generatePresentationByIDPath = varifiableCredentialPath + "/{id}" + "/presentation" + "/{did}"
 )
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -44,9 +46,13 @@ type Operation struct {
 	command  *verifiable.Command
 }
 
+type keyResolver interface {
+	PublicKeyFetcher() docverifiable.PublicKeyFetcher
+}
+
 // New returns new common operations rest client instance
-func New(p provider) (*Operation, error) {
-	cmd, err := verifiable.New(p)
+func New(p provider, kms legacykms.KMS, kResolver keyResolver) (*Operation, error) {
+	cmd, err := verifiable.New(p, kms, kResolver)
 	if err != nil {
 		return nil, fmt.Errorf("new vc store : %w", err)
 	}
@@ -155,7 +161,8 @@ func (o *Operation) GeneratePresentation(rw http.ResponseWriter, req *http.Reque
 	rest.Execute(o.command.GeneratePresentation, rw, req.Body)
 }
 
-// GeneratePresentationByID swagger:route GET /verifiable/credential/{id}/presentation verifiable presentationByIDReq
+// GeneratePresentationByID swagger:route GET /verifiable/credential/{id}/presentation/{did}
+// verifiable presentationByIDReq
 //
 // Generates the verifiable presentation from a stored verifiable credential.
 //
@@ -164,6 +171,7 @@ func (o *Operation) GeneratePresentation(rw http.ResponseWriter, req *http.Reque
 //        200: presentationRes
 func (o *Operation) GeneratePresentationByID(rw http.ResponseWriter, req *http.Request) {
 	id := mux.Vars(req)["id"]
+	did := mux.Vars(req)["did"]
 
 	decodedID, err := base64.StdEncoding.DecodeString(id)
 	if err != nil {
@@ -171,7 +179,13 @@ func (o *Operation) GeneratePresentationByID(rw http.ResponseWriter, req *http.R
 		return
 	}
 
-	request := fmt.Sprintf(`{"id":"%s"}`, string(decodedID))
+	decodedDID, err := base64.StdEncoding.DecodeString(did)
+	if err != nil {
+		rest.SendHTTPStatusError(rw, http.StatusBadRequest, verifiable.InvalidRequestErrorCode, err)
+		return
+	}
+
+	request := fmt.Sprintf(`{"id":"%s", "did": "%s"}`, string(decodedID), string(decodedDID))
 
 	rest.Execute(o.command.GeneratePresentationByID, rw, bytes.NewBufferString(request))
 }

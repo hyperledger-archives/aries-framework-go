@@ -24,7 +24,10 @@ import (
 	vdrirest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 	verifiablerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
+	verifiabledoc "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 type allOpts struct {
@@ -33,6 +36,8 @@ type allOpts struct {
 	autoAccept   bool
 	msgHandler   command.MessageHandler
 	notifier     command.Notifier
+	kms          legacykms.KMS
+	vdri         vdriapi.Registry
 }
 
 const wsPath = "/ws"
@@ -114,7 +119,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	}
 
 	// verifiable command operation
-	verifiablecmd, err := verifiablerest.New(ctx)
+	verifiablecmd, err := verifiablerest.New(ctx, restAPIOpts.kms, verifiabledoc.NewDIDKeyResolver(restAPIOpts.vdri))
 	if err != nil {
 		return nil, fmt.Errorf("create verifiable rest command : %w", err)
 	}
@@ -182,7 +187,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	}
 
 	// verifiable command operation
-	verifiablecmd, err := verifiable.New(ctx)
+	verifiablecmd, err := verifiable.New(ctx, cmdOpts.kms, verifiabledoc.NewDIDKeyResolver(cmdOpts.vdri))
 	if err != nil {
 		return nil, fmt.Errorf("create verifiable command : %w", err)
 	}

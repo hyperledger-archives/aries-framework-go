@@ -14,15 +14,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-
 	"github.com/stretchr/testify/require"
 
-	docverifiable "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
+	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 const sampleCredentialName = "sampleVCName"
@@ -49,6 +49,8 @@ const vc = `
    }
 }
 `
+
+//nolint:lll
 const doc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
@@ -73,6 +75,31 @@ const doc = `{
     }
 
   ]
+}`
+
+//nolint:lll
+const invalidDoc = `{
+  "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
+  "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
+  "publicKey": [
+    {
+      "id": "did:peer:123456789abcdefghi#keys-1",
+      "type": "Secp256k1VerificationKey2018",
+      "controller": "did:peer:123456789abcdefghi",
+      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+    },
+    {
+      "id": "did:peer:123456789abcdefghw#key2",
+      "type": "RsaVerificationKey2018",
+      "controller": "did:peer:123456789abcdefghw",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
+    }
+  ]
+}`
+
+const noPubKeyDoc = `{
+  "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
+  "id": "did:peer:21tDAKCERh95uGgKbJNHYp"
 }`
 
 func TestNew(t *testing.T) {
@@ -331,7 +358,7 @@ func TestGetCredentialByName(t *testing.T) {
 		cmdErr := cmd.GetCredentialByName(&getRW, bytes.NewBufferString(jsoStr))
 		require.NoError(t, cmdErr)
 
-		var response verifiable.CredentialRecord
+		var response verifiablestore.CredentialRecord
 		err = json.NewDecoder(&getRW).Decode(&response)
 		require.NoError(t, err)
 
@@ -429,14 +456,16 @@ func TestGeneratePresentation(t *testing.T) {
 
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: mockstore.NewMockStoreProvider(),
-	}, &kmsmock.CloseableKMS{}, &mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-		return &verifier.PublicKey{Value: []byte(pubKey)}, nil
-	}})
+	}, &kmsmock.CloseableKMS{},
+		&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
+			return &verifier.PublicKey{Value: []byte(pubKey)}, nil
+		}})
+
 	require.NotNil(t, cmd)
 	require.NoError(t, cmdErr)
 
 	t.Run("test generate presentation - success", func(t *testing.T) {
-		presReq := PresentationRequest{VerifiableCredential: vc, DID: json.RawMessage(doc)}
+		presReq := PresentationRequest{VerifiableCredential: vc, DidDoc: json.RawMessage(doc)}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 
@@ -461,15 +490,39 @@ func TestGeneratePresentation(t *testing.T) {
 	})
 
 	t.Run("test generate presentation - validation error", func(t *testing.T) {
-		vcReq := Credential{VerifiableCredential: ""}
-		vcReqBytes, err := json.Marshal(vcReq)
+		presReq := PresentationRequest{VerifiableCredential: ""}
+		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 
 		var b bytes.Buffer
 
-		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(vcReqBytes))
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "generate vp - parse vc ")
+	})
+
+	t.Run("test generate presentation - failed to parse doc", func(t *testing.T) {
+		presReq := PresentationRequest{VerifiableCredential: vc}
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "generate vp - parse did doc ")
+	})
+
+	t.Run("test generate presentation - failed to sign presentation", func(t *testing.T) {
+		presReq := PresentationRequest{VerifiableCredential: vc, DidDoc: json.RawMessage(invalidDoc)}
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "sign vp : wrong id")
 	})
 }
 
@@ -480,20 +533,21 @@ func TestGeneratePresentationByID(t *testing.T) {
 	s := make(map[string][]byte)
 	cmd, err := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
-	},  &kmsmock.CloseableKMS{}, &mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-		return &verifier.PublicKey{Value: []byte(pubKey)}, nil
-	}})
+	}, &kmsmock.CloseableKMS{},
+		&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
+			return &verifier.PublicKey{Value: []byte(pubKey)}, nil
+		}})
+
 	require.NotNil(t, cmd)
 	require.NoError(t, err)
 
 	t.Run("test generate presentation - success", func(t *testing.T) {
 		s["http://example.edu/credentials/1989"] = []byte(vc)
+		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = []byte(doc)
 
-		//jsoStr := fmt.Sprintf(`{"id":"%s"}`, "http://example.edu/credentials/1989")
-
-		presIDArgs := IDArg{ID:"http://example.edu/credentials/1989", DID: json.RawMessage(doc)}
-		presReqBytes, err := json.Marshal(presIDArgs)
-		require.NoError(t, err)
+		presIDArgs := IDArg{ID: "http://example.edu/credentials/1989", DID: "did:peer:21tDAKCERh95uGgKbJNHYp"}
+		presReqBytes, e := json.Marshal(presIDArgs)
+		require.NoError(t, e)
 
 		var getRW bytes.Buffer
 		cmdErr := cmd.GeneratePresentationByID(&getRW, bytes.NewBuffer(presReqBytes))
@@ -506,6 +560,20 @@ func TestGeneratePresentationByID(t *testing.T) {
 		// verify response
 		require.NotEmpty(t, response)
 		require.NotEmpty(t, response.VerifiablePresentation)
+	})
+
+	t.Run("test generate presentation - failed to get did doc", func(t *testing.T) {
+		s["http://example.edu/credentials/1989"] = []byte(vc)
+		s["test"] = []byte(doc)
+
+		presIDArgs := IDArg{ID: "http://example.edu/credentials/1989", DID: "notFoundDID"}
+		presReqBytes, e := json.Marshal(presIDArgs)
+		require.NoError(t, e)
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.GeneratePresentationByID(&getRW, bytes.NewBuffer(presReqBytes))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "failed to get did doc from store")
 	})
 
 	t.Run("test generate presentation - invalid request", func(t *testing.T) {
@@ -524,6 +592,15 @@ func TestGeneratePresentationByID(t *testing.T) {
 		require.Contains(t, err.Error(), "credential id is mandatory")
 	})
 
+	t.Run("test generate presentation - no did in the request", func(t *testing.T) {
+		jsoStr := fmt.Sprintf(`{"id":"%s"}`, "http://example.edu/credentials/1989")
+
+		var b bytes.Buffer
+		err = cmd.GeneratePresentationByID(&b, bytes.NewBufferString(jsoStr))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "did is mandatory")
+	})
+
 	t.Run("test generate presentation - store error", func(t *testing.T) {
 		cmd, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{
@@ -532,10 +609,12 @@ func TestGeneratePresentationByID(t *testing.T) {
 				},
 			},
 		}, nil, nil)
+
 		require.NotNil(t, cmd)
 		require.NoError(t, err)
 
-		jsoStr := fmt.Sprintf(`{"id":"%s"}`, "http://example.edu/credentials/1989")
+		jsoStr := fmt.Sprintf(`{"id":"%s","did":"%s"}`, "http://example.edu/credentials/1989",
+			"did:peer:21tDAKCERh95uGgKbJNHYp")
 
 		var b bytes.Buffer
 		err = cmd.GeneratePresentationByID(&b, bytes.NewBufferString(jsoStr))
@@ -544,10 +623,75 @@ func TestGeneratePresentationByID(t *testing.T) {
 	})
 }
 
-type mockKeyResolver struct {
-	publicKeyFetcherValue docverifiable.PublicKeyFetcher
+func TestSignPresentation(t *testing.T) {
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	cmd, err := New(&mockprovider.Provider{
+		StorageProviderValue: mockstore.NewMockStoreProvider(),
+	}, &kmsmock.CloseableKMS{},
+		&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
+			return &verifier.PublicKey{Value: []byte(pubKey)}, nil
+		}})
+
+	require.NotNil(t, cmd)
+	require.NoError(t, err)
+
+	t.Run("test sign presentation - success", func(t *testing.T) {
+		d := &did.Doc{}
+		err := json.Unmarshal([]byte(doc), d)
+		require.NoError(t, err)
+
+		vc, _, err := verifiable.NewCredential([]byte(vc))
+		require.NoError(t, err)
+
+		vp, err := cmd.SignPresentation(d, vc)
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.Len(t, vp.Proofs, 1)
+
+		require.Equal(t, vp.Proofs[0]["type"], "Ed25519Signature2018")
+		require.Equal(t, vp.Proofs[0]["verificationMethod"],
+			"did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key")
+		require.Equal(t, vp.Proofs[0]["jws"],
+			"eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..")
+	})
+
+	t.Run("test sign presentation - wrong id", func(t *testing.T) {
+		d := &did.Doc{}
+		err := json.Unmarshal([]byte(invalidDoc), d)
+		require.NoError(t, err)
+
+		vc, _, err := verifiable.NewCredential([]byte(vc))
+		require.NoError(t, err)
+
+		vp, err := cmd.SignPresentation(d, vc)
+		require.Error(t, err)
+		require.Nil(t, vp)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "wrong id [did:peer:21tDAKCERh95uGgKbJNHYp] to resolve")
+	})
+
+	t.Run("test sign presentation - no pub key", func(t *testing.T) {
+		d := &did.Doc{}
+		err := json.Unmarshal([]byte(noPubKeyDoc), d)
+		require.NoError(t, err)
+
+		vc, _, err := verifiable.NewCredential([]byte(vc))
+		require.NoError(t, err)
+
+		vp, err := cmd.SignPresentation(d, vc)
+		require.Error(t, err)
+		require.Nil(t, vp)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "public key not found in DID Document")
+	})
 }
 
-func (m *mockKeyResolver) PublicKeyFetcher() docverifiable.PublicKeyFetcher {
+type mockKeyResolver struct {
+	publicKeyFetcherValue verifiable.PublicKeyFetcher
+}
+
+func (m *mockKeyResolver) PublicKeyFetcher() verifiable.PublicKeyFetcher {
 	return m.publicKeyFetcherValue
 }
