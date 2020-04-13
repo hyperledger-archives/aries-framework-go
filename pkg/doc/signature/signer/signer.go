@@ -19,7 +19,6 @@ const defaultProofPurpose = "assertionMethod"
 
 // signatureSuite encapsulates signature suite methods required for signing documents
 type signatureSuite interface {
-
 	// GetCanonicalDocument will return normalized/canonical version of the document
 	GetCanonicalDocument(doc map[string]interface{}) ([]byte, error)
 
@@ -50,6 +49,8 @@ type Context struct {
 	Domain                  string                        // optional
 	Nonce                   []byte                        // optional
 	VerificationMethod      string                        // optional
+	Challenge               string                        // optional
+	Purpose                 string                        // optional
 }
 
 // New returns new instance of document verifier
@@ -104,9 +105,14 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		Domain:                  context.Domain,
 		Nonce:                   context.Nonce,
 		VerificationMethod:      context.VerificationMethod,
-		// TODO support custom proof purpose
-		//  (https://github.com/hyperledger/aries-framework-go/issues/1586)
-		ProofPurpose: defaultProofPurpose,
+		Challenge:               context.Challenge,
+		ProofPurpose:            context.Purpose,
+	}
+
+	// TODO support custom proof purpose
+	//  (https://github.com/hyperledger/aries-framework-go/issues/1586)
+	if p.ProofPurpose == "" {
+		p.ProofPurpose = defaultProofPurpose
 	}
 
 	if context.SignatureRepresentation == proof.SignatureJWS {

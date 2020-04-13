@@ -90,6 +90,9 @@ type LinkedDataProofContext struct {
 	SignatureRepresentation SignatureRepresentation // required
 	Created                 *time.Time              // optional
 	VerificationMethod      string                  // optional
+	Challenge               string                  // optional
+	Domain                  string                  // optional
+	Purpose                 string                  // optional
 }
 
 func checkLinkedDataProof(jsonldBytes []byte, suite VerifierSignatureSuite, pubKeyFetcher PublicKeyFetcher) error {
@@ -139,5 +142,8 @@ func mapContext(context *LinkedDataProofContext) *signer.Context {
 		SignatureRepresentation: proof.SignatureRepresentation(context.SignatureRepresentation),
 		Created:                 context.Created,
 		VerificationMethod:      context.VerificationMethod,
+		Challenge:               context.Challenge,
+		Domain:                  context.Domain,
+		Purpose:                 context.Purpose,
 	}
 }

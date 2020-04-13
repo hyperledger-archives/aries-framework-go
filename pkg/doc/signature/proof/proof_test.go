@@ -101,6 +101,7 @@ func TestProof_JSONLdObject(t *testing.T) {
 		ProofPurpose: "assertionMethod",
 		Domain:       "internal",
 		Nonce:        nonceBase64,
+		Challenge:    "sample-challenge-xyz",
 	}
 
 	pJSONLd := p.JSONLdObject()
@@ -112,6 +113,7 @@ func TestProof_JSONLdObject(t *testing.T) {
 	r.Equal("assertionMethod", pJSONLd["proofPurpose"])
 	r.Equal("internal", pJSONLd["domain"])
 	r.Equal("abc", pJSONLd["nonce"])
+	r.Equal("sample-challenge-xyz", pJSONLd["challenge"])
 }
 
 func TestProof_PublicKeyID(t *testing.T) {
