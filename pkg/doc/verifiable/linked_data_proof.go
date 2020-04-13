@@ -36,14 +36,16 @@ type signatureSuite interface {
 	CompactProof() bool
 }
 
-type verifierSignatureSuite interface {
+// VerifierSignatureSuite encapsulates the methods required for verifying a documents.
+type VerifierSignatureSuite interface {
 	signatureSuite
 
 	// Verify will verify signature against public key
 	Verify(pubKey *verifier.PublicKey, doc []byte, signature []byte) error
 }
 
-type signerSignatureSuite interface {
+// SignerSignatureSuite encapsulates the methods required for signing a documents.
+type SignerSignatureSuite interface {
 	signatureSuite
 
 	// Sign will sign JSON LD document
@@ -84,13 +86,13 @@ const (
 // LinkedDataProofContext holds options needed to build a Linked Data Proof.
 type LinkedDataProofContext struct {
 	SignatureType           string                  // required
-	Suite                   signerSignatureSuite    // required
+	Suite                   SignerSignatureSuite    // required
 	SignatureRepresentation SignatureRepresentation // required
 	Created                 *time.Time              // optional
 	VerificationMethod      string                  // optional
 }
 
-func checkLinkedDataProof(jsonldBytes []byte, suite verifierSignatureSuite, pubKeyFetcher PublicKeyFetcher) error {
+func checkLinkedDataProof(jsonldBytes []byte, suite VerifierSignatureSuite, pubKeyFetcher PublicKeyFetcher) error {
 	documentVerifier := verifier.New(&keyResolverAdapter{pubKeyFetcher}, suite)
 
 	err := documentVerifier.Verify(jsonldBytes)

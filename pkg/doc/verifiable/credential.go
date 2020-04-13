@@ -483,7 +483,7 @@ type credentialOpts struct {
 	disabledProofCheck    bool
 	jsonldDocumentLoader  ld.DocumentLoader
 	strictValidation      bool
-	ldpSuite              verifierSignatureSuite
+	ldpSuite              VerifierSignatureSuite
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
@@ -572,7 +572,7 @@ func WithStrictValidation() CredentialOpt {
 }
 
 // WithEmbeddedSignatureSuite defines the suite which is used to check embedded linked data proof of VC.
-func WithEmbeddedSignatureSuite(suite verifierSignatureSuite) CredentialOpt {
+func WithEmbeddedSignatureSuite(suite VerifierSignatureSuite) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.ldpSuite = suite
 	}
