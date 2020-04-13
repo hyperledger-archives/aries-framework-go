@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	verifiableStore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
@@ -131,7 +130,7 @@ func (a *SDKSteps) sendsOffer(agent1, agent2 string) error {
 		return err
 	}
 
-	return a.clients[agent1].SendOffer(&protocol.OfferCredential{}, conn.MyDID, conn.TheirDID)
+	return a.clients[agent1].SendOffer(&issuecredential.OfferCredential{}, conn.MyDID, conn.TheirDID)
 }
 
 func (a *SDKSteps) sendsProposal(agent1, agent2 string) error {
@@ -140,7 +139,7 @@ func (a *SDKSteps) sendsProposal(agent1, agent2 string) error {
 		return err
 	}
 
-	return a.clients[agent1].SendProposal(&protocol.ProposeCredential{}, conn.MyDID, conn.TheirDID)
+	return a.clients[agent1].SendProposal(&issuecredential.ProposeCredential{}, conn.MyDID, conn.TheirDID)
 }
 
 func (a *SDKSteps) sendsRequest(agent1, agent2 string) error {
@@ -149,7 +148,7 @@ func (a *SDKSteps) sendsRequest(agent1, agent2 string) error {
 		return err
 	}
 
-	return a.clients[agent1].SendRequest(&protocol.RequestCredential{}, conn.MyDID, conn.TheirDID)
+	return a.clients[agent1].SendRequest(&issuecredential.RequestCredential{}, conn.MyDID, conn.TheirDID)
 }
 
 func (a *SDKSteps) acceptProposal(agent string) error {
@@ -158,7 +157,7 @@ func (a *SDKSteps) acceptProposal(agent string) error {
 		return err
 	}
 
-	return a.clients[agent].AcceptProposal(PIID, &protocol.OfferCredential{})
+	return a.clients[agent].AcceptProposal(PIID, &issuecredential.OfferCredential{})
 }
 
 func (a *SDKSteps) declineCredential(agent string) error {
@@ -203,7 +202,7 @@ func (a *SDKSteps) acceptRequest(agent string) error {
 		return err
 	}
 
-	return a.clients[agent].AcceptRequest(PIID, &protocol.IssueCredential{
+	return a.clients[agent].AcceptRequest(PIID, &issuecredential.IssueCredential{
 		CredentialsAttach: []decorator.Attachment{
 			{Data: decorator.AttachmentData{JSON: getVCredential()}},
 		},
@@ -225,7 +224,7 @@ func (a *SDKSteps) negotiateProposal(agent string) error {
 		return err
 	}
 
-	return a.clients[agent].NegotiateProposal(PIID, &protocol.ProposeCredential{})
+	return a.clients[agent].NegotiateProposal(PIID, &issuecredential.ProposeCredential{})
 }
 
 func (a *SDKSteps) acceptOffer(agent string) error {
