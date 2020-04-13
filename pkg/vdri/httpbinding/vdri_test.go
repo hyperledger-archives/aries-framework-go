@@ -8,6 +8,7 @@ package httpbinding
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
@@ -75,6 +77,43 @@ func TestVDRI_Build(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, newDidDoc.ID, didBuilt.ID)
 		require.Equal(t, newDidDoc.PublicKey, didBuilt.PublicKey)
+	})
+
+	t.Run("inlined recipient keys for didcomm", func(t *testing.T) {
+		expected := &vdriapi.PubKey{Type: "sample-type", Value: "sample-value"}
+		doc, err := (&vdri.MockVDRIRegistry{}).Create("test")
+		require.NoError(t, err)
+
+		doc.Service = []did.Service{{
+			ID:              "#didcomm",
+			Type:            "did-communication",
+			RecipientKeys:   []string{expected.Value},
+			ServiceEndpoint: "https://test.com",
+		}}
+
+		server, cleanup := mockServer(t, doc)
+		defer cleanup()
+		resolver, err := New(server.URL)
+		require.NoError(t, err)
+
+		result, err := resolver.Build(
+			expected,
+			vdriapi.WithServiceType(vdriapi.DIDCommServiceType),
+			vdriapi.WithRequestBuilder(
+				func(b []byte) (io.Reader, error) {
+					result := &did.Doc{}
+					merr := json.Unmarshal(b, result)
+					require.NoError(t, merr)
+					require.NotEmpty(t, result.Service)
+					require.NotEmpty(t, result.Service[0].RecipientKeys)
+					require.Equal(t, expected.Value, result.Service[0].RecipientKeys[0])
+					return bytes.NewReader(b), nil
+				},
+			))
+		require.NoError(t, err)
+		require.NotEmpty(t, result.Service)
+		require.NotEmpty(t, result.Service[0].RecipientKeys)
+		require.Equal(t, expected.Value, result.Service[0].RecipientKeys[0])
 	})
 
 	t.Run("test HTTP Binding VDRI build with request builder errors", func(t *testing.T) {
@@ -144,4 +183,17 @@ func TestVDRI_Build(t *testing.T) {
 			require.Nil(t, didBuilt)
 		}
 	})
+}
+
+func mockServer(t *testing.T, doc *did.Doc) (*httptest.Server, func()) {
+	server := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Add("Content-type", "application/json")
+		res.WriteHeader(http.StatusOK)
+		b, e := doc.JSONBytes()
+		require.NoError(t, e)
+		_, e = res.Write(b)
+		require.NoError(t, e)
+	}))
+
+	return server, func() { server.Close() }
 }
