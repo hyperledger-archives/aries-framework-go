@@ -28,7 +28,7 @@ const (
 	eventDataKeyprefix  = "connevent"
 	didConnMapKeyprefix = "didconn_%s,%s"
 	// limitPattern with `~` at the end for lte of given prefix (less than or equal)
-	limitPattern    = "%s~"
+	limitPattern    = "%s" + storage.EndKeySuffix
 	keySeparator    = "_"
 	stateIDEmptyErr = "stateID can't be empty"
 )

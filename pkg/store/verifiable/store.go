@@ -22,7 +22,7 @@ const (
 	credentialNameDataKeyPattern = credentialNameKey + "%s"
 
 	// limitPattern for the iterator
-	limitPattern = "%s~"
+	limitPattern = "%s" + storage.EndKeySuffix
 )
 
 // ErrNotFound signals that the entry for the given DID and key is not present in the store.

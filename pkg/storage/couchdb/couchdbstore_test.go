@@ -6,40 +6,75 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package leveldb
+package couchdbstore
 
 import (
+	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/go-kivik/kivik"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-func setupLevelDB(t testing.TB) (string, func()) {
-	dbPath, err := ioutil.TempDir("", "db")
+const (
+	couchDBURL = "localhost:5984"
+)
+
+// For these unit tests to run, you must ensure you have a CouchDB instance running at the URL specified in couchDBURL.
+// 'make unit-test' from the terminal will take care of this for you.
+// To run the tests manually, start an instance by running docker run -p 5984:5984 couchdb:2.3.1 from a terminal.
+
+func TestMain(m *testing.M) {
+	err := waitForCouchDBToStart()
 	if err != nil {
-		t.Fatalf("Failed to create leveldb directory: %s", err)
+		fmt.Printf(err.Error() +
+			". Make sure you start a couchDB instance using" +
+			" 'docker run -p 5984:5984 couchdb:2.3.1' before running the unit tests")
+		os.Exit(0)
 	}
 
-	return dbPath, func() {
-		err := os.RemoveAll(dbPath)
-		if err != nil {
-			t.Fatalf("Failed to clear leveldb directory: %s", err)
+	os.Exit(m.Run())
+}
+
+func waitForCouchDBToStart() error {
+	client, err := kivik.New("couch", couchDBURL)
+	if err != nil {
+		return err
+	}
+
+	timeout := time.After(5 * time.Second)
+
+	for {
+		select {
+		case <-timeout:
+			return fmt.Errorf("timeout: couldn't reach CouchDB server")
+		default:
+			dbs, err := client.AllDBs(context.Background())
+			if err != nil {
+				return err
+			}
+
+			for _, v := range dbs {
+				if err := client.DestroyDB(context.Background(), v); err != nil {
+					panic(err.Error())
+				}
+			}
+
+			return nil
 		}
 	}
 }
 
-func TestLevelDBStore(t *testing.T) {
-	path, cleanup := setupLevelDB(t)
-	defer cleanup()
-
-	t.Run("Test Leveldb store put and get", func(t *testing.T) {
-		prov := NewProvider(path)
+func TestCouchDBStore(t *testing.T) {
+	t.Run("Test couchdb store put and get", func(t *testing.T) {
+		prov, err := NewProvider(couchDBURL)
+		require.NoError(t, err)
 		store, err := prov.OpenStore("test")
 		require.NoError(t, err)
 
@@ -50,6 +85,27 @@ func TestLevelDBStore(t *testing.T) {
 		require.NoError(t, err)
 
 		doc, err := store.Get(key)
+		require.NoError(t, err)
+		require.NotEmpty(t, doc)
+		require.Equal(t, data, doc)
+
+		// test update
+		data = []byte(`{"key1":"value1"}`)
+		err = store.Put(key, data)
+		require.NoError(t, err)
+
+		doc, err = store.Get(key)
+		require.NoError(t, err)
+		require.NotEmpty(t, doc)
+		require.Equal(t, data, doc)
+
+		// test update with invalid key
+		invalidData := []byte(`{"_key1":"value1"}`)
+		err = store.Put(key, invalidData)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to store data")
+
+		doc, err = store.Get(key)
 		require.NoError(t, err)
 		require.NotEmpty(t, doc)
 		require.Equal(t, data, doc)
@@ -72,14 +128,11 @@ func TestLevelDBStore(t *testing.T) {
 
 		err = prov.Close()
 		require.NoError(t, err)
-
-		// try to get after provider is closed
-		_, err = store.Get(key)
-		require.Error(t, err)
 	})
 
-	t.Run("Test Leveldb multi store put and get", func(t *testing.T) {
-		prov := NewProvider(path)
+	t.Run("Test couchdb multi store put and get", func(t *testing.T) {
+		prov, err := NewProvider(couchDBURL)
+		require.NoError(t, err)
 		const commonKey = "did:example:1"
 		data := []byte("value1")
 		// create store 1 & store 2
@@ -129,28 +182,28 @@ func TestLevelDBStore(t *testing.T) {
 		require.Len(t, prov.dbs, 2)
 	})
 
-	t.Run("Test Leveldb store failures", func(t *testing.T) {
-		// pass file instead of directory for leveldb
-		file, err := ioutil.TempFile("", "leveldb.txt*-sample")
-		if err != nil {
-			t.Fatalf("Failed to create leveldb file: %s", err)
-		}
-		defer cleanupFile(t, file)
+	t.Run("Test couchdb store failures", func(t *testing.T) {
+		prov, err := NewProvider("")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), blankHostErrMsg)
+		require.Nil(t, prov)
 
-		prov := NewProvider(strings.Split(file.Name(), "-")[0])
+		prov, err = NewProvider("wrongURL")
+		require.NoError(t, err)
 		store, err := prov.OpenStore("sample")
 		require.Error(t, err)
 		require.Nil(t, store)
 	})
 
-	t.Run("Test Leveldb multi store close by name", func(t *testing.T) {
-		prov := NewProvider(path)
+	t.Run("Test couchdb multi store close by name", func(t *testing.T) {
+		prov, err := NewProvider(couchDBURL)
+		require.NoError(t, err)
 
 		const commonKey = "did:example:1"
 		data := []byte("value1")
 
 		storeNames := []string{"store_1", "store_2", "store_3", "store_4", "store_5"}
-		storesToClose := []string{"store_1", "STore_3", "stOre_5"}
+		storesToClose := []string{"store_1", "store_3", "store_5"}
 
 		for _, name := range storeNames {
 			store, e := prov.OpenStore(name)
@@ -180,17 +233,13 @@ func TestLevelDBStore(t *testing.T) {
 
 			e = prov.CloseStore(name)
 			require.NoError(t, e)
-
-			dataRead, e := store.Get(commonKey)
-			require.Error(t, e)
-			require.Empty(t, dataRead)
 		}
 
 		// verify store length
 		require.Len(t, prov.dbs, 2)
 
 		// try to close non existing db
-		err := prov.CloseStore("store_x")
+		err = prov.CloseStore("store_x")
 		require.NoError(t, err)
 
 		// verify store length
@@ -207,8 +256,9 @@ func TestLevelDBStore(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Test Leveldb store iterator", func(t *testing.T) {
-		prov := NewProvider(path)
+	t.Run("Test couchdb store iterator", func(t *testing.T) {
+		prov, err := NewProvider(couchDBURL)
+		require.NoError(t, err)
 		store, err := prov.OpenStore("test-iterator")
 		require.NoError(t, err)
 
@@ -250,22 +300,16 @@ func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string
 	require.False(t, itr.Next())
 	require.Empty(t, itr.Key())
 	require.Empty(t, itr.Value())
+	require.Error(t, itr.Error())
+	require.Contains(t, itr.Error().Error(), "Iterator is closed")
 }
 
-func cleanupFile(t *testing.T, file *os.File) {
-	err := os.Remove(file.Name())
-	if err != nil {
-		t.Fatalf("Failed to cleanup file: %s", file.Name())
-	}
-}
+func TestCouchDBStoreDelete(t *testing.T) {
+	const commonKey = "did:example:1234"
 
-func TestLevelDBStoreDelete(t *testing.T) {
-	path, cleanup := setupLevelDB(t)
-	defer cleanup()
+	prov, err := NewProvider(couchDBURL)
+	require.NoError(t, err)
 
-	const commonKey = "did:example:1"
-
-	prov := NewProvider(path)
 	data := []byte("value1")
 
 	// create store 1 & store 2
@@ -285,6 +329,10 @@ func TestLevelDBStoreDelete(t *testing.T) {
 	// now try Delete with an empty key - should fail
 	err = store1.Delete("")
 	require.EqualError(t, err, "key is mandatory")
+
+	err = store1.Delete("k1")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to delete doc")
 
 	// finally test Delete an existing key
 	err = store1.Delete(commonKey)

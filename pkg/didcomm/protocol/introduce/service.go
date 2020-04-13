@@ -429,7 +429,7 @@ func (s *Service) currentStateName(piID string) (string, error) {
 func (s *Service) Actions() ([]Action, error) {
 	records := s.store.Iterator(
 		fmt.Sprintf(transitionalPayloadKey, ""),
-		fmt.Sprintf(transitionalPayloadKey, "~"),
+		fmt.Sprintf(transitionalPayloadKey, storage.EndKeySuffix),
 	)
 	defer records.Release()
 
@@ -656,7 +656,8 @@ func (s *Service) saveParticipant(piID string, p *participant) error {
 }
 
 func (s *Service) getParticipants(piID string) ([]*participant, error) {
-	records := s.store.Iterator(fmt.Sprintf(participantsKey, piID, ""), fmt.Sprintf(participantsKey, piID, "~"))
+	records := s.store.Iterator(fmt.Sprintf(participantsKey, piID, ""),
+		fmt.Sprintf(participantsKey, piID, storage.EndKeySuffix))
 	defer records.Release()
 
 	var participants []*participant

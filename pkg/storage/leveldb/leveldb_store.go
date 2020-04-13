@@ -147,7 +147,8 @@ func (s *leveldbStore) Iterator(start, limit string) storage.StoreIterator {
 		iterator.NewEmptyIterator(errors.New("start or limit key is mandatory"))
 	}
 
-	return s.db.NewIterator(&util.Range{Start: []byte(start), Limit: []byte(limit)}, nil)
+	return s.db.NewIterator(&util.Range{Start: []byte(start),
+		Limit: []byte(strings.ReplaceAll(limit, storage.EndKeySuffix, "~"))}, nil)
 }
 
 // Delete will delete record with k key

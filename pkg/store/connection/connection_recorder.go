@@ -203,7 +203,7 @@ func computeHash(bytes []byte) (string, error) {
 func removeConnectionsForStates(c *Recorder, connectionID string) error {
 	itr := c.transientStore.Iterator(getConnectionStateKeyPrefix()(
 		connectionID),
-		getConnectionStateKeyPrefix()(connectionID)+"~",
+		getConnectionStateKeyPrefix()(connectionID)+storage.EndKeySuffix,
 	)
 	defer itr.Release()
 
