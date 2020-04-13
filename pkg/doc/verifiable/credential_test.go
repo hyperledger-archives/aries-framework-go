@@ -799,12 +799,12 @@ func TestWithStrictValidation(t *testing.T) {
 func TestWithEmbeddedSignatureSuites(t *testing.T) {
 	ss := ed25519signature2018.New()
 
-	credentialOpt := WithEmbeddedSignatureSuite(ss)
+	credentialOpt := WithEmbeddedSignatureSuites(ss)
 	require.NotNil(t, credentialOpt)
 
 	opts := &credentialOpts{}
 	credentialOpt(opts)
-	require.Equal(t, ss, opts.ldpSuite)
+	require.Equal(t, []VerifierSignatureSuite{ss}, opts.ldpSuites)
 }
 
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {

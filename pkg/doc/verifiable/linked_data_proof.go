@@ -7,6 +7,7 @@ package verifiable
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -92,8 +93,22 @@ type LinkedDataProofContext struct {
 	VerificationMethod      string                  // optional
 }
 
-func checkLinkedDataProof(jsonldBytes []byte, suite VerifierSignatureSuite, pubKeyFetcher PublicKeyFetcher) error {
-	documentVerifier := verifier.New(&keyResolverAdapter{pubKeyFetcher}, suite)
+func checkLinkedDataProof(jsonldBytes []byte, suites []VerifierSignatureSuite, pubKeyFetcher PublicKeyFetcher) error {
+	if len(suites) == 0 {
+		return errors.New("undefined verifier signature suites")
+	}
+
+	var extraSuites []verifier.SignatureSuite
+
+	if len(suites) > 1 {
+		extraSuites = make([]verifier.SignatureSuite, len(suites)-1)
+
+		for i := range suites[1:] {
+			extraSuites[i] = suites[i+1]
+		}
+	}
+
+	documentVerifier := verifier.New(&keyResolverAdapter{pubKeyFetcher}, suites[0], extraSuites...)
 
 	err := documentVerifier.Verify(jsonldBytes)
 	if err != nil {

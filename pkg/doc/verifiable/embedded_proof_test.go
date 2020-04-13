@@ -50,7 +50,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
 		vSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 		proof, err := checkEmbeddedProof(vcBytes, &credentialOpts{
 			publicKeyFetcher: publicKeyFetcher,
-			ldpSuite:         vSuite,
+			ldpSuites:        []VerifierSignatureSuite{vSuite},
 		})
 
 		require.NoError(t, err)
