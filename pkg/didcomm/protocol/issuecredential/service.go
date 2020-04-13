@@ -501,7 +501,7 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 func (s *Service) Actions() ([]Action, error) {
 	records := s.store.Iterator(
 		fmt.Sprintf(transitionalPayloadKey, ""),
-		fmt.Sprintf(transitionalPayloadKey, "~"),
+		fmt.Sprintf(transitionalPayloadKey, storage.EndKeySuffix),
 	)
 	defer records.Release()
 

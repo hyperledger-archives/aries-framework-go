@@ -8,6 +8,9 @@ package storage
 
 import "errors"
 
+// EndKeySuffix end key suffix
+const EndKeySuffix = "!!"
+
 // ErrDataNotFound is returned when data not found
 var ErrDataNotFound = errors.New("data not found")
 
@@ -36,13 +39,13 @@ type Store interface {
 	//
 	// Args:
 	//
-	// start: Start of the key range, include in the range.
-	// limit: Limit of the key range, not include in the range.
+	// startKey: Start of the key range, include in the range.
+	// endKey: End of the key range, not include in the range.
 	//
 	// Returns:
 	//
 	// StoreIterator: iterator for result range
-	Iterator(start, limit string) StoreIterator
+	Iterator(startKey, endKey string) StoreIterator
 
 	// Delete will delete a record with k key
 	Delete(k string) error

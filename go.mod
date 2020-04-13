@@ -8,6 +8,8 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v1.0.1
+	github.com/go-kivik/couchdb v2.0.0+incompatible
+	github.com/go-kivik/kivik v2.0.0+incompatible
 	github.com/golang/mock v1.4.0
 	github.com/golang/protobuf v1.3.3
 	github.com/google/tink/go v0.0.0-20200403150819-3a14bf4b3380

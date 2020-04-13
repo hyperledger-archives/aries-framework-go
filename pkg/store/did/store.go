@@ -22,7 +22,7 @@ const (
 	didNameKeyPattern = didNameKey + "%s"
 
 	// limitPattern for the iterator
-	limitPattern = "%s~"
+	limitPattern = "%s" + storage.EndKeySuffix
 )
 
 // ErrDIDNotFound signals that the entry for the given DID and key is not present in the store.

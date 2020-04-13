@@ -498,7 +498,7 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 
 		itr := recorder.transientStore.Iterator(
 			getConnectionStateKeyPrefix()(record.ConnectionID),
-			getConnectionStateKeyPrefix()(record.ConnectionID)+"~",
+			getConnectionStateKeyPrefix()(record.ConnectionID)+storage.EndKeySuffix,
 		)
 		defer itr.Release()
 
