@@ -17,6 +17,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/uuid"
 	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
@@ -323,6 +324,10 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 			SignatureType:           "Ed25519Signature2018",
 			SignatureRepresentation: SignatureJWS,
 			Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
+			VerificationMethod:      "did:example:xyz#key-1",
+			Challenge:               uuid.New().String(),
+			Domain:                  "issuer.service.com",
+			Purpose:                 "authentication",
 		})
 		r.NoError(err)
 
@@ -335,7 +340,12 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		r.True(ok)
 		r.Contains(vcProofMap, "created")
 		r.Contains(vcProofMap, "jws")
+		r.Contains(vcProofMap, "challenge")
+		r.Contains(vcProofMap, "domain")
+		r.Contains(vcProofMap, "verificationMethod")
+		r.Contains(vcProofMap, "proofPurpose")
 		r.Equal("Ed25519Signature2018", vcProofMap["type"])
+		r.Equal("authentication", vcProofMap["proofPurpose"])
 
 		// check that only "proof" element was added as a result of AddLinkedDataProof().
 		delete(vcMap, "proof")

@@ -30,6 +30,8 @@ const (
 	jsonldJWS = "jws"
 	// jsonldVerificationMethod is a key for verification method
 	jsonldVerificationMethod = "verificationMethod"
+	// jsonldChallenge is a key for challenge
+	jsonldChallenge = "challenge"
 )
 
 // Proof is cryptographic proof of the integrity of the DID Document
@@ -43,6 +45,7 @@ type Proof struct {
 	ProofPurpose            string
 	Domain                  string
 	Nonce                   []byte
+	Challenge               string
 	SignatureRepresentation SignatureRepresentation
 }
 
@@ -93,6 +96,7 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 		ProofPurpose:            stringEntry(emap[jsonldProofPurpose]),
 		Domain:                  stringEntry(emap[jsonldDomain]),
 		Nonce:                   nonce,
+		Challenge:               stringEntry(emap[jsonldChallenge]),
 	}, nil
 }
 
@@ -140,6 +144,10 @@ func (p *Proof) JSONLdObject() map[string]interface{} {
 
 	if p.ProofPurpose != "" {
 		emap[jsonldProofPurpose] = p.ProofPurpose
+	}
+
+	if p.Challenge != "" {
+		emap[jsonldChallenge] = p.Challenge
 	}
 
 	return emap
