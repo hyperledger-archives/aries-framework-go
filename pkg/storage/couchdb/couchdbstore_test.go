@@ -196,7 +196,7 @@ func TestCouchDBStore(t *testing.T) {
 	})
 
 	t.Run("Test couchdb multi store close by name", func(t *testing.T) {
-		prov, err := NewProvider(couchDBURL)
+		prov, err := NewProvider(couchDBURL, WithDBPrefix("dbprefix"))
 		require.NoError(t, err)
 
 		const commonKey = "did:example:1"
