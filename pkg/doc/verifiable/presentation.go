@@ -13,6 +13,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 const basePresentationSchema = `
@@ -273,7 +274,7 @@ type rawPresentation struct {
 type presentationOpts struct {
 	publicKeyFetcher   PublicKeyFetcher
 	disabledProofCheck bool
-	ldpSuites          []VerifierSignatureSuite
+	ldpSuites          []verifier.SignatureSuite
 }
 
 // PresentationOpt is the Verifiable Presentation decoding option
@@ -288,7 +289,7 @@ func WithPresPublicKeyFetcher(fetcher PublicKeyFetcher) PresentationOpt {
 }
 
 // WithPresEmbeddedSignatureSuites defines the suites which are used to check embedded linked data proof of VP.
-func WithPresEmbeddedSignatureSuites(suites ...VerifierSignatureSuite) PresentationOpt {
+func WithPresEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.ldpSuites = suites
 	}

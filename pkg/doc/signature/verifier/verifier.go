@@ -7,6 +7,7 @@ package verifier
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -53,10 +54,14 @@ type DocumentVerifier struct {
 }
 
 // New returns new instance of document verifier
-func New(resolver keyResolver, mainSuite SignatureSuite, extraSuites ...SignatureSuite) *DocumentVerifier {
+func New(resolver keyResolver, suites ...SignatureSuite) (*DocumentVerifier, error) {
+	if len(suites) == 0 {
+		return nil, errors.New("at least one suite must be provided")
+	}
+
 	return &DocumentVerifier{
-		signatureSuites: append([]SignatureSuite{mainSuite}, extraSuites...),
-		pkResolver:      resolver}
+		signatureSuites: suites,
+		pkResolver:      resolver}, nil
 }
 
 // Verify will verify document proofs

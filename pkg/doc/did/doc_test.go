@@ -823,6 +823,11 @@ func TestVerifyProof(t *testing.T) {
 		err = doc.VerifyProof(s)
 		require.NoError(t, err)
 
+		// error - no suites are passed, verifier is not created
+		err = doc.VerifyProof()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create verifier")
+
 		// error - doc with invalid proof value
 		doc.Proof[0].ProofValue = []byte("invalid")
 		err = doc.VerifyProof(s)

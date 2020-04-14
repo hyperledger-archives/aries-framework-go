@@ -112,7 +112,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 	})
 
 	t.Run("Several signature suites", func(t *testing.T) {
-		verifierSuites := []VerifierSignatureSuite{
+		verifierSuites := []verifier.SignatureSuite{
 			ed25519signature2018.New(
 				suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()),
 				suite.WithCompactProof()),
@@ -150,7 +150,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 		vcDecoded, _, err := NewCredential(vcWithEd25519ProofBytes,
 			WithPublicKeyFetcher(SingleKey(ed25519PubKey, kms.ED25519)))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "undefined verifier signature suites")
+		require.Contains(t, err.Error(), "create new signature verifier")
 		require.Nil(t, vcDecoded)
 	})
 }

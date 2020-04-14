@@ -19,6 +19,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
 //go:generate testdata/scripts/openssl_env.sh testdata/scripts/generate_test_keys.sh
@@ -483,7 +484,7 @@ type credentialOpts struct {
 	disabledProofCheck    bool
 	jsonldDocumentLoader  ld.DocumentLoader
 	strictValidation      bool
-	ldpSuites             []VerifierSignatureSuite
+	ldpSuites             []verifier.SignatureSuite
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
@@ -572,7 +573,7 @@ func WithStrictValidation() CredentialOpt {
 }
 
 // WithEmbeddedSignatureSuites defines the suites which are used to check embedded linked data proof of VC.
-func WithEmbeddedSignatureSuites(suites ...VerifierSignatureSuite) CredentialOpt {
+func WithEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.ldpSuites = suites
 	}

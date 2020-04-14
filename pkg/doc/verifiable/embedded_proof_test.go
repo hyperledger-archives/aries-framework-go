@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -50,7 +51,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
 		vSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 		proof, err := checkEmbeddedProof(vcBytes, &credentialOpts{
 			publicKeyFetcher: publicKeyFetcher,
-			ldpSuites:        []VerifierSignatureSuite{vSuite},
+			ldpSuites:        []verifier.SignatureSuite{vSuite},
 		})
 
 		require.NoError(t, err)

@@ -574,27 +574,8 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 	return byteDoc, nil
 }
 
-// signatureSuite encapsulates signature suite methods required for signature verification
-type signatureSuite interface {
-
-	// GetCanonicalDocument will return normalized/canonical version of the document
-	GetCanonicalDocument(doc map[string]interface{}) ([]byte, error)
-
-	// GetDigest returns document digest
-	GetDigest(doc []byte) []byte
-
-	// Verify will verify signature against public key
-	Verify(pubKey *verifier.PublicKey, doc []byte, signature []byte) error
-
-	// Accept registers this signature suite with the given signature type
-	Accept(signatureType string) bool
-
-	// CompactProof indicates weather to compact the proof doc before canonization
-	CompactProof() bool
-}
-
 // VerifyProof verifies document proofs
-func (doc *Doc) VerifyProof(suite signatureSuite) error {
+func (doc *Doc) VerifyProof(suites ...verifier.SignatureSuite) error {
 	if len(doc.Proof) == 0 {
 		return ErrProofNotFound
 	}
@@ -604,7 +585,10 @@ func (doc *Doc) VerifyProof(suite signatureSuite) error {
 		return err
 	}
 
-	v := verifier.New(&didKeyResolver{doc.PublicKey}, suite)
+	v, err := verifier.New(&didKeyResolver{doc.PublicKey}, suites...)
+	if err != nil {
+		return fmt.Errorf("create verifier: %w", err)
+	}
 
 	return v.Verify(docBytes)
 }
