@@ -11,6 +11,7 @@ package couchdbstore
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -72,8 +73,11 @@ func waitForCouchDBToStart() error {
 }
 
 func TestCouchDBStore(t *testing.T) {
+	path, cleanup := setupLevelDB(t)
+	defer cleanup()
+
 	t.Run("Test couchdb store put and get", func(t *testing.T) {
-		prov, err := NewProvider(couchDBURL)
+		prov, err := NewProvider(couchDBURL, path)
 		require.NoError(t, err)
 		store, err := prov.OpenStore("test")
 		require.NoError(t, err)
@@ -131,7 +135,7 @@ func TestCouchDBStore(t *testing.T) {
 	})
 
 	t.Run("Test couchdb multi store put and get", func(t *testing.T) {
-		prov, err := NewProvider(couchDBURL)
+		prov, err := NewProvider(couchDBURL, path)
 		require.NoError(t, err)
 		const commonKey = "did:example:1"
 		data := []byte("value1")
@@ -183,20 +187,36 @@ func TestCouchDBStore(t *testing.T) {
 	})
 
 	t.Run("Test couchdb store failures", func(t *testing.T) {
-		prov, err := NewProvider("")
+		prov, err := NewProvider("", path)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), blankHostErrMsg)
 		require.Nil(t, prov)
 
-		prov, err = NewProvider("wrongURL")
+		prov, err = NewProvider("wrongURL", path)
 		require.NoError(t, err)
 		store, err := prov.OpenStore("sample")
 		require.Error(t, err)
 		require.Nil(t, store)
 	})
 
+	t.Run("Test Leveldb store failures", func(t *testing.T) {
+		// pass file instead of directory for leveldb
+		file, err := ioutil.TempFile("", "leveldb.txt*-sample")
+		if err != nil {
+			t.Fatalf("Failed to create leveldb file: %s", err)
+		}
+		defer cleanupFile(t, file)
+
+		prov, err := NewProvider(couchDBURL, strings.Split(file.Name(), "-")[0])
+		require.NoError(t, err)
+		store, err := prov.OpenStore("sample")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to open leveldb store")
+		require.Nil(t, store)
+	})
+
 	t.Run("Test couchdb multi store close by name", func(t *testing.T) {
-		prov, err := NewProvider(couchDBURL)
+		prov, err := NewProvider(couchDBURL, path)
 		require.NoError(t, err)
 
 		const commonKey = "did:example:1"
@@ -257,7 +277,7 @@ func TestCouchDBStore(t *testing.T) {
 	})
 
 	t.Run("Test couchdb store iterator", func(t *testing.T) {
-		prov, err := NewProvider(couchDBURL)
+		prov, err := NewProvider(couchDBURL, path)
 		require.NoError(t, err)
 		store, err := prov.OpenStore("test-iterator")
 		require.NoError(t, err)
@@ -305,9 +325,12 @@ func verifyItr(t *testing.T, itr storage.StoreIterator, count int, prefix string
 }
 
 func TestCouchDBStoreDelete(t *testing.T) {
+	path, cleanup := setupLevelDB(t)
+	defer cleanup()
+
 	const commonKey = "did:example:1234"
 
-	prov, err := NewProvider(couchDBURL)
+	prov, err := NewProvider(couchDBURL, path)
 	require.NoError(t, err)
 
 	data := []byte("value1")
@@ -341,4 +364,25 @@ func TestCouchDBStoreDelete(t *testing.T) {
 	doc, err = store1.Get(commonKey)
 	require.EqualError(t, err, storage.ErrDataNotFound.Error())
 	require.Empty(t, doc)
+}
+
+func setupLevelDB(t testing.TB) (string, func()) {
+	dbPath, err := ioutil.TempDir("", "db")
+	if err != nil {
+		t.Fatalf("Failed to create leveldb directory: %s", err)
+	}
+
+	return dbPath, func() {
+		err := os.RemoveAll(dbPath)
+		if err != nil {
+			t.Fatalf("Failed to clear leveldb directory: %s", err)
+		}
+	}
+}
+
+func cleanupFile(t *testing.T, file *os.File) {
+	err := os.Remove(file.Name())
+	if err != nil {
+		t.Fatalf("Failed to cleanup file: %s", file.Name())
+	}
 }

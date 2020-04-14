@@ -20,6 +20,7 @@ import (
 
 	_ "github.com/go-kivik/couchdb" // The CouchDB driver
 	"github.com/go-kivik/kivik"
+	"github.com/syndtr/goleveldb/leveldb"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
@@ -29,16 +30,20 @@ type Provider struct {
 	hostURL       string
 	couchDBClient *kivik.Client
 	dbs           map[string]*CouchDBStore
+	levelDBPath   string
 	sync.RWMutex
 }
 
 const (
 	blankHostErrMsg           = "hostURL for new CouchDB provider can't be blank"
 	failToCloseProviderErrMsg = "failed to close provider"
+	pathPattern               = "%s-%s"
+	levelDBNotFoundErr        = "not found"
+	couchDBNotFoundErr        = "Not Found:"
 )
 
 // NewProvider instantiates Provider
-func NewProvider(hostURL string) (*Provider, error) {
+func NewProvider(hostURL, levelDBPath string) (*Provider, error) {
 	if hostURL == "" {
 		return nil, errors.New(blankHostErrMsg)
 	}
@@ -48,7 +53,8 @@ func NewProvider(hostURL string) (*Provider, error) {
 		return nil, err
 	}
 
-	return &Provider{hostURL: hostURL, couchDBClient: client, dbs: map[string]*CouchDBStore{}}, nil
+	return &Provider{hostURL: hostURL, couchDBClient: client, dbs: map[string]*CouchDBStore{},
+		levelDBPath: levelDBPath}, nil
 }
 
 // OpenStore opens an existing store with the given name and returns it.
@@ -62,14 +68,9 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 		return cachedStore, nil
 	}
 
-	dbExists, err := p.couchDBClient.DBExists(context.Background(), name)
+	err := p.couchDBClient.CreateDB(context.Background(), name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check db exists: %w", err)
-	}
-
-	if !dbExists {
-		err := p.couchDBClient.CreateDB(context.Background(), name)
-		if err != nil {
+		if err.Error() != "Precondition Failed: The database could not be created, the file already exists." {
 			return nil, fmt.Errorf("failed to create db: %w", err)
 		}
 	}
@@ -80,11 +81,27 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 		return nil, db.Err()
 	}
 
-	store := &CouchDBStore{db: db, revIDs: make(map[string]string)}
+	revIDs, err := p.newLeveldbStore(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open leveldb store: %w", err)
+	}
+
+	store := &CouchDBStore{db: db, revIDs: revIDs}
 
 	p.dbs[name] = store
 
 	return store, nil
+}
+
+// newLeveldbStore creates level db store for given name space
+// returns nil if not found
+func (p *Provider) newLeveldbStore(name string) (*leveldb.DB, error) {
+	db, err := leveldb.OpenFile(fmt.Sprintf(pathPattern, p.levelDBPath, name), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
 
 // CloseStore closes a previously opened store.
@@ -99,6 +116,10 @@ func (p *Provider) CloseStore(name string) error {
 
 	delete(p.dbs, name)
 
+	if err := store.revIDs.Close(); err != nil {
+		return fmt.Errorf("failed to close rev id store: %w", err)
+	}
+
 	return store.db.Close(context.Background())
 }
 
@@ -108,8 +129,11 @@ func (p *Provider) Close() error {
 	defer p.Unlock()
 
 	for _, store := range p.dbs {
-		err := store.db.Close(context.Background())
-		if err != nil {
+		if err := store.db.Close(context.Background()); err != nil {
+			return fmt.Errorf(failToCloseProviderErrMsg+": %w", err)
+		}
+
+		if err := store.revIDs.Close(); err != nil {
 			return fmt.Errorf(failToCloseProviderErrMsg+": %w", err)
 		}
 	}
@@ -125,9 +149,8 @@ func (p *Provider) Close() error {
 
 // CouchDBStore represents a CouchDB-backed database.
 type CouchDBStore struct {
-	db *kivik.DB
-	// TODO change to leveldb https://github.com/hyperledger/aries-framework-go/issues/1608
-	revIDs map[string]string
+	db     *kivik.DB
+	revIDs *leveldb.DB
 }
 
 // Put stores the given key-value pair in the store.
@@ -143,19 +166,17 @@ func (c *CouchDBStore) Put(k string, v []byte) error {
 		valueToPut = wrapTextAsCouchDBAttachment(v)
 	}
 
-	if c.revIDs[k] != "" {
-		var m map[string]interface{}
-		if err := json.Unmarshal(valueToPut, &m); err != nil {
-			return fmt.Errorf("failed to unmarshal put value: %w", err)
+	revID, err := c.revIDs.Get([]byte(k), nil)
+	if err != nil {
+		if !strings.Contains(err.Error(), levelDBNotFoundErr) {
+			return err
 		}
+	}
 
-		m["_rev"] = c.revIDs[k]
-
-		var err error
-		valueToPut, err = json.Marshal(m)
-
+	if string(revID) != "" {
+		valueToPut, err = c.addRevID(valueToPut, string(revID))
 		if err != nil {
-			return fmt.Errorf("failed to marshal put value: %w", err)
+			return err
 		}
 	}
 
@@ -164,9 +185,27 @@ func (c *CouchDBStore) Put(k string, v []byte) error {
 		return fmt.Errorf("failed to store data: %w", err)
 	}
 
-	c.revIDs[k] = rev
+	if err := c.revIDs.Put([]byte(k), []byte(rev), nil); err != nil {
+		return fmt.Errorf("failed to store rev id in leveldb: %w", err)
+	}
 
 	return nil
+}
+
+func (c *CouchDBStore) addRevID(valueToPut []byte, revID string) ([]byte, error) {
+	var m map[string]interface{}
+	if err := json.Unmarshal(valueToPut, &m); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal put value: %w", err)
+	}
+
+	m["_rev"] = revID
+
+	newValue, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal put value: %w", err)
+	}
+
+	return newValue, nil
 }
 
 func isJSON(textToCheck []byte) bool {
@@ -193,7 +232,7 @@ func (c *CouchDBStore) Get(k string) ([]byte, error) {
 
 	err := row.ScanDoc(&rawDoc)
 	if err != nil {
-		if strings.Contains(err.Error(), "Not Found:") {
+		if strings.Contains(err.Error(), couchDBNotFoundErr) {
 			return nil, storage.ErrDataNotFound
 		}
 
@@ -209,7 +248,14 @@ func (c *CouchDBStore) Delete(k string) error {
 		return errors.New("key is mandatory")
 	}
 
-	_, err := c.db.Delete(context.TODO(), k, c.revIDs[k])
+	revID, err := c.revIDs.Get([]byte(k), nil)
+	if err != nil {
+		if !strings.Contains(err.Error(), levelDBNotFoundErr) {
+			return err
+		}
+	}
+
+	_, err = c.db.Delete(context.TODO(), k, string(revID))
 	if err != nil {
 		return fmt.Errorf("failed to delete doc: %w", err)
 	}
