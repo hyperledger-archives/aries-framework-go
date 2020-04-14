@@ -107,7 +107,9 @@ type Doc struct {
 	Proof          []Proof
 }
 
-// PublicKey DID doc public key
+// PublicKey DID doc public key.
+// The value of the public key is defined either as raw public key bytes (Value field) or as JSON Web Key.
+// In the first case the Type field can hold additional information to understand the nature of the raw public key.
 type PublicKey struct {
 	ID         string
 	Type       string
@@ -116,6 +118,37 @@ type PublicKey struct {
 	Value []byte
 
 	jsonWebKey *jose.JWK
+}
+
+// NewPublicKeyFromBytes creates a new PublicKey based on raw public key bytes.
+func NewPublicKeyFromBytes(id, kType, controller string, value []byte) *PublicKey {
+	return &PublicKey{
+		ID:         id,
+		Type:       kType,
+		Controller: controller,
+		Value:      value,
+	}
+}
+
+// NewPublicKeyFromJWK creates a new PublicKey based on JSON Web Key.
+func NewPublicKeyFromJWK(id, kType, controller string, jwk *jose.JWK) (*PublicKey, error) {
+	pkBytes, err := jwk.PublicKeyBytes()
+	if err != nil {
+		return nil, fmt.Errorf("convert JWK to public key bytes: %w", err)
+	}
+
+	return &PublicKey{
+		ID:         id,
+		Type:       kType,
+		Controller: controller,
+		Value:      pkBytes,
+		jsonWebKey: jwk,
+	}, nil
+}
+
+// JSONWebKey returns JSON Web key if defined
+func (pk *PublicKey) JSONWebKey() *jose.JWK {
+	return pk.jsonWebKey
 }
 
 // Service DID doc service
@@ -555,11 +588,21 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 		context = doc.Context[0]
 	}
 
+	publicKeys, err := populateRawPublicKeys(context, doc.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("JSON unmarshalling of Public Key failed: %w", err)
+	}
+
+	auths, err := populateRawAuthentications(context, doc.Authentication)
+	if err != nil {
+		return nil, fmt.Errorf("JSON unmarshalling of Authentication failed: %w", err)
+	}
+
 	raw := &rawDoc{
 		Context:        doc.Context,
 		ID:             doc.ID,
-		PublicKey:      populateRawPublicKeys(context, doc.PublicKey),
-		Authentication: populateRawAuthentications(context, doc.Authentication),
+		PublicKey:      publicKeys,
+		Authentication: auths,
 		Service:        populateRawServices(doc.Service),
 		Created:        doc.Created,
 		Proof:          populateRawProofs(context, doc.Proof),
@@ -641,16 +684,22 @@ func populateRawServices(services []Service) []map[string]interface{} {
 	return rawServices
 }
 
-func populateRawPublicKeys(context string, pks []PublicKey) []map[string]interface{} {
+func populateRawPublicKeys(context string, pks []PublicKey) ([]map[string]interface{}, error) {
 	var rawPKs []map[string]interface{}
+
 	for i := range pks {
-		rawPKs = append(rawPKs, populateRawPublicKey(context, &pks[i]))
+		publicKey, err := populateRawPublicKey(context, &pks[i])
+		if err != nil {
+			return nil, err
+		}
+
+		rawPKs = append(rawPKs, publicKey)
 	}
 
-	return rawPKs
+	return rawPKs, nil
 }
 
-func populateRawPublicKey(context string, pk *PublicKey) map[string]interface{} {
+func populateRawPublicKey(context string, pk *PublicKey) (map[string]interface{}, error) {
 	rawPK := make(map[string]interface{})
 	rawPK[jsonldID] = pk.ID
 	rawPK[jsonldType] = pk.Type
@@ -661,21 +710,33 @@ func populateRawPublicKey(context string, pk *PublicKey) map[string]interface{} 
 		rawPK[jsonldController] = pk.Controller
 	}
 
-	if pk.Value != nil {
+	if pk.jsonWebKey != nil {
+		jwkBytes, err := json.Marshal(pk.jsonWebKey)
+		if err != nil {
+			return nil, err
+		}
+
+		rawPK[jsonldPublicKeyjwk] = json.RawMessage(jwkBytes)
+	} else if pk.Value != nil {
 		rawPK[jsonldPublicKeyBase58] = base58.Encode(pk.Value)
 	}
 
-	return rawPK
+	return rawPK, nil
 }
 
-func populateRawAuthentications(context string, vms []VerificationMethod) []interface{} {
+func populateRawAuthentications(context string, vms []VerificationMethod) ([]interface{}, error) {
 	var rawAuthentications []interface{}
 
 	for _, vm := range vms {
-		rawAuthentications = append(rawAuthentications, populateRawPublicKey(context, &vm.PublicKey))
+		publicKey, err := populateRawPublicKey(context, &vm.PublicKey)
+		if err != nil {
+			return nil, err
+		}
+
+		rawAuthentications = append(rawAuthentications, publicKey)
 	}
 
-	return rawAuthentications
+	return rawAuthentications, nil
 }
 
 func populateRawProofs(context string, proofs []Proof) []interface{} {

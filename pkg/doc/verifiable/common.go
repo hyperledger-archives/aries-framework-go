@@ -90,6 +90,7 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.Pu
 			return &verifier.PublicKey{
 				Type:  key.Type,
 				Value: key.Value,
+				JWK:   key.JSONWebKey(),
 			}, nil
 		}
 	}
@@ -102,6 +103,7 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.Pu
 			return &verifier.PublicKey{
 				Type:  auth.PublicKey.Type,
 				Value: auth.PublicKey.Value,
+				JWK:   auth.PublicKey.JSONWebKey(),
 			}, nil
 		}
 	}

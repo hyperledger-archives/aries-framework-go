@@ -9,6 +9,7 @@ package did
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -19,8 +20,10 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -173,11 +176,10 @@ func TestValid(t *testing.T) {
 
 		// test authentication
 		eAuthentication := []VerificationMethod{
-			{PublicKey: PublicKey{
-				ID:         "did:example:123456789abcdefghi#keys-1",
-				Controller: "did:example:123456789abcdefghi",
-				Type:       "Secp256k1VerificationKey2018",
-				Value:      base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")}},
+			{PublicKey: *NewPublicKeyFromBytes("did:example:123456789abcdefghi#keys-1",
+				"Secp256k1VerificationKey2018",
+				"did:example:123456789abcdefghi",
+				base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"))},
 			{PublicKey: PublicKey{
 				ID:         "did:example:123456789abcdefghs#key3",
 				Controller: "did:example:123456789abcdefghs",
@@ -782,7 +784,7 @@ func TestValidateDidDocProof(t *testing.T) {
 }
 
 func TestJSONConversion(t *testing.T) {
-	docs := []string{validDoc, validDocV011}
+	docs := []string{validDoc, validDocV011, validDocWithProofAndJWK}
 	for _, d := range docs {
 		// setup -> create Document from json byte data
 		doc, err := ParseDocument([]byte(d))
@@ -802,6 +804,77 @@ func TestJSONConversion(t *testing.T) {
 		// verify documents created by ParseDocument and JSONBytes function matches
 		require.Equal(t, doc, doc2)
 	}
+}
+
+func TestNewPublicKeyFromJWK(t *testing.T) {
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	jwk := &jose.JWK{
+		JSONWebKey: gojose.JSONWebKey{
+			Key:   pubKey,
+			KeyID: "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+		},
+	}
+
+	pubKeyBytes, err := x509.MarshalPKIXPublicKey(pubKey)
+	require.NoError(t, err)
+
+	// Success.
+	signingKey, err := NewPublicKeyFromJWK(creator, keyType, did, jwk)
+	require.NoError(t, err)
+	require.Equal(t, jwk, signingKey.JSONWebKey())
+	require.Equal(t, pubKeyBytes, signingKey.Value)
+
+	// Error - invalid JWK.
+	jwk = &jose.JWK{
+		JSONWebKey: gojose.JSONWebKey{
+			Key:   nil,
+			KeyID: "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+		},
+	}
+	signingKey, err = NewPublicKeyFromJWK(creator, keyType, did, jwk)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "convert JWK to public key bytes")
+	require.Nil(t, signingKey)
+}
+
+func TestJSONWebKey(t *testing.T) {
+	const didContext = "https://w3id.org/did/v1"
+
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	jwk := &jose.JWK{
+		JSONWebKey: gojose.JSONWebKey{
+			Key:   pubKey,
+			KeyID: "_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+		},
+	}
+
+	signingKey, err := NewPublicKeyFromJWK(creator, keyType, did, jwk)
+	require.NoError(t, err)
+	require.Equal(t, jwk, signingKey.JSONWebKey())
+
+	createdTime := time.Now()
+
+	didDoc := &Doc{
+		Context:   []string{didContext},
+		ID:        did,
+		PublicKey: []PublicKey{*signingKey},
+		Created:   &createdTime,
+		Updated:   &createdTime,
+	}
+
+	didDocBytes, err := didDoc.JSONBytes()
+	require.NoError(t, err)
+
+	parsedDidDoc, err := ParseDocument(didDocBytes)
+	require.NoError(t, err)
+
+	parsedDidDocBytes, err := parsedDidDoc.JSONBytes()
+	require.NoError(t, err)
+	require.Equal(t, didDocBytes, parsedDidDocBytes)
 }
 
 func TestVerifyProof(t *testing.T) {
@@ -1212,6 +1285,40 @@ const validDocWithProof = `{
 	}],
 	"updated": "2019-09-23T14:16:59.261024-04:00"
 }`
+
+const validDocWithProofAndJWK = `
+{
+  "@context": [
+    "https://w3id.org/did/v1"
+  ],
+  "created": "2019-09-23T14:16:59.261024-04:00",
+  "id": "did:method:abc",
+  "proof": [
+    {
+      "created": "2019-09-23T14:16:59.484733-04:00",
+      "creator": "did:method:abc#key-1",
+      "domain": "",
+      "nonce": "",
+      "proofValue": "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA",
+      "type": "Ed25519Signature2018"
+    }
+  ],
+  "publicKey": [
+    {
+      "controller": "did:method:abc",
+      "id": "did:method:abc#key-1",
+      "publicKeyJwk": {
+        "kty": "OKP",
+        "crv": "Ed25519",
+        "alg": "EdDSA",
+        "x": "DEfkntM3vCV5WtS-1G9cBMmkNJSPlVdjwSdHmHbirTg"
+      },
+      "type": "Ed25519VerificationKey2018"
+    }
+  ],
+  "updated": "2019-09-23T14:16:59.261024-04:00"
+}
+`
 
 const validDocV011WithProof = `{
 	"@context": ["https://w3id.org/did/v0.11"],
