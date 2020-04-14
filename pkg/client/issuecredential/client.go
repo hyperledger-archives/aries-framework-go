@@ -19,6 +19,27 @@ var (
 	errEmptyRequest  = errors.New("received an empty request")
 )
 
+type (
+	// OfferCredential is a message sent by the Issuer to the potential Holder,
+	// describing the credential they intend to offer and possibly the price they expect to be paid.
+	OfferCredential issuecredential.OfferCredential
+	// ProposeCredential is an optional message sent by the potential Holder to the Issuer
+	// to initiate the protocol or in response to a offer-credential message when the Holder
+	// wants some adjustments made to the credential data offered by Issuer.
+	ProposeCredential issuecredential.ProposeCredential
+	// RequestCredential is a message sent by the potential Holder to the Issuer,
+	// to request the issuance of a credential. Where circumstances do not require
+	// a preceding Offer Credential message (e.g., there is no cost to issuance
+	// that the Issuer needs to explain in advance, and there is no need for cryptographic negotiation),
+	// this message initiates the protocol.
+	RequestCredential issuecredential.RequestCredential
+	// IssueCredential contains as attached payload the credentials being issued and is
+	// sent in response to a valid Request Credential message.
+	IssueCredential issuecredential.IssueCredential
+	// Action contains helpful information about action
+	Action issuecredential.Action
+)
+
 // Provider contains dependencies for the issuecredential protocol and is typically created by using aries.Context()
 type Provider interface {
 	Service(id string) (interface{}, error)
@@ -57,12 +78,22 @@ func New(ctx Provider) (*Client, error) {
 }
 
 // Actions returns unfinished actions for the async usage
-func (c *Client) Actions() ([]issuecredential.Action, error) {
-	return c.service.Actions()
+func (c *Client) Actions() ([]Action, error) {
+	actions, err := c.service.Actions()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]Action, len(actions))
+	for i, action := range actions {
+		result[i] = Action(action)
+	}
+
+	return result, nil
 }
 
 // SendOffer is used by the Issuer to send an offer.
-func (c *Client) SendOffer(offer *issuecredential.OfferCredential, myDID, theirDID string) error {
+func (c *Client) SendOffer(offer *OfferCredential, myDID, theirDID string) error {
 	if offer == nil {
 		return errEmptyOffer
 	}
@@ -73,7 +104,7 @@ func (c *Client) SendOffer(offer *issuecredential.OfferCredential, myDID, theirD
 }
 
 // SendProposal is used by the Holder to send a proposal.
-func (c *Client) SendProposal(proposal *issuecredential.ProposeCredential, myDID, theirDID string) error {
+func (c *Client) SendProposal(proposal *ProposeCredential, myDID, theirDID string) error {
 	if proposal == nil {
 		return errEmptyProposal
 	}
@@ -84,7 +115,7 @@ func (c *Client) SendProposal(proposal *issuecredential.ProposeCredential, myDID
 }
 
 // SendRequest is used by the Holder to send a request.
-func (c *Client) SendRequest(request *issuecredential.RequestCredential, myDID, theirDID string) error {
+func (c *Client) SendRequest(request *RequestCredential, myDID, theirDID string) error {
 	if request == nil {
 		return errEmptyRequest
 	}
@@ -96,7 +127,7 @@ func (c *Client) SendRequest(request *issuecredential.RequestCredential, myDID, 
 
 // AcceptProposal is used when the Issuer is willing to accept the proposal.
 // NOTE: For async usage.
-func (c *Client) AcceptProposal(piID string, msg *issuecredential.OfferCredential) error {
+func (c *Client) AcceptProposal(piID string, msg *OfferCredential) error {
 	return c.service.ActionContinue(piID, WithOfferCredential(msg))
 }
 
@@ -119,13 +150,13 @@ func (c *Client) DeclineOffer(piID, reason string) error {
 
 // NegotiateProposal is used when the Holder wants to negotiate about an offer he received.
 // NOTE: For async usage. This function can be used only after receiving OfferCredential
-func (c *Client) NegotiateProposal(piID string, msg *issuecredential.ProposeCredential) error {
+func (c *Client) NegotiateProposal(piID string, msg *ProposeCredential) error {
 	return c.service.ActionContinue(piID, WithProposeCredential(msg))
 }
 
 // AcceptRequest is used when the Issuer is willing to accept the request.
 // NOTE: For async usage.
-func (c *Client) AcceptRequest(piID string, msg *issuecredential.IssueCredential) error {
+func (c *Client) AcceptRequest(piID string, msg *IssueCredential) error {
 	return c.service.ActionContinue(piID, WithIssueCredential(msg))
 }
 
@@ -149,20 +180,23 @@ func (c *Client) DeclineCredential(piID, reason string) error {
 
 // WithProposeCredential allows providing ProposeCredential message
 // USAGE: This message should be provided after receiving an OfferCredential message
-func WithProposeCredential(msg *issuecredential.ProposeCredential) issuecredential.Opt {
-	return issuecredential.WithProposeCredential(msg)
+func WithProposeCredential(msg *ProposeCredential) issuecredential.Opt {
+	origin := issuecredential.ProposeCredential(*msg)
+	return issuecredential.WithProposeCredential(&origin)
 }
 
 // WithOfferCredential allows providing OfferCredential message
 // USAGE: This message should be provided after receiving a ProposeCredential message
-func WithOfferCredential(msg *issuecredential.OfferCredential) issuecredential.Opt {
-	return issuecredential.WithOfferCredential(msg)
+func WithOfferCredential(msg *OfferCredential) issuecredential.Opt {
+	origin := issuecredential.OfferCredential(*msg)
+	return issuecredential.WithOfferCredential(&origin)
 }
 
 // WithIssueCredential allows providing IssueCredential message
 // USAGE: This message should be provided after receiving a RequestCredential message
-func WithIssueCredential(msg *issuecredential.IssueCredential) issuecredential.Opt {
-	return issuecredential.WithIssueCredential(msg)
+func WithIssueCredential(msg *IssueCredential) issuecredential.Opt {
+	origin := issuecredential.IssueCredential(*msg)
+	return issuecredential.WithIssueCredential(&origin)
 }
 
 // WithFriendlyNames allows providing names for the credentials.

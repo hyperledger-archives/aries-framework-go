@@ -63,7 +63,7 @@ func TestClient_SendOffer(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.NoError(t, client.SendOffer(&issuecredential.OfferCredential{}, Alice, Bob))
+		require.NoError(t, client.SendOffer(&OfferCredential{}, Alice, Bob))
 	})
 
 	t.Run("Empty offer", func(t *testing.T) {
@@ -96,7 +96,7 @@ func TestClient_SendProposal(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.NoError(t, client.SendProposal(&issuecredential.ProposeCredential{}, Alice, Bob))
+		require.NoError(t, client.SendProposal(&ProposeCredential{}, Alice, Bob))
 	})
 
 	t.Run("Empty offer", func(t *testing.T) {
@@ -129,7 +129,7 @@ func TestClient_SendRequest(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.NoError(t, client.SendRequest(&issuecredential.RequestCredential{}, Alice, Bob))
+		require.NoError(t, client.SendRequest(&RequestCredential{}, Alice, Bob))
 	})
 
 	t.Run("Empty offer", func(t *testing.T) {
@@ -156,7 +156,7 @@ func TestClient_AcceptProposal(t *testing.T) {
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	require.NoError(t, client.AcceptProposal("PIID", &issuecredential.OfferCredential{}))
+	require.NoError(t, client.AcceptProposal("PIID", &OfferCredential{}))
 }
 
 func TestClient_DeclineProposal(t *testing.T) {
@@ -220,7 +220,7 @@ func TestClient_AcceptRequest(t *testing.T) {
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	require.NoError(t, client.AcceptRequest("PIID", &issuecredential.IssueCredential{}))
+	require.NoError(t, client.AcceptRequest("PIID", &IssueCredential{}))
 }
 
 func TestClient_DeclineRequest(t *testing.T) {
@@ -252,7 +252,7 @@ func TestClient_NegotiateProposal(t *testing.T) {
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	require.NoError(t, client.NegotiateProposal("PIID", &issuecredential.ProposeCredential{}))
+	require.NoError(t, client.NegotiateProposal("PIID", &ProposeCredential{}))
 }
 
 func TestClient_AcceptCredential(t *testing.T) {
