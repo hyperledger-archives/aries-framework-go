@@ -35,6 +35,7 @@ type Provider struct {
 const (
 	blankHostErrMsg           = "hostURL for new CouchDB provider can't be blank"
 	failToCloseProviderErrMsg = "failed to close provider"
+	couchDBNotFoundErr        = "Not Found:"
 )
 
 // NewProvider instantiates Provider
@@ -80,7 +81,7 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 		return nil, db.Err()
 	}
 
-	store := &CouchDBStore{db: db, revIDs: make(map[string]string)}
+	store := &CouchDBStore{db: db}
 
 	p.dbs[name] = store
 
@@ -126,8 +127,6 @@ func (p *Provider) Close() error {
 // CouchDBStore represents a CouchDB-backed database.
 type CouchDBStore struct {
 	db *kivik.DB
-	// TODO change to leveldb https://github.com/hyperledger/aries-framework-go/issues/1608
-	revIDs map[string]string
 }
 
 // Put stores the given key-value pair in the store.
@@ -143,28 +142,22 @@ func (c *CouchDBStore) Put(k string, v []byte) error {
 		valueToPut = wrapTextAsCouchDBAttachment(v)
 	}
 
-	if c.revIDs[k] != "" {
-		var m map[string]interface{}
-		if err := json.Unmarshal(valueToPut, &m); err != nil {
-			return fmt.Errorf("failed to unmarshal put value: %w", err)
-		}
+	revID, err := c.getRevID(k)
+	if err != nil {
+		return err
+	}
 
-		m["_rev"] = c.revIDs[k]
-
-		var err error
-		valueToPut, err = json.Marshal(m)
-
+	if revID != "" {
+		valueToPut, err = c.addRevID(valueToPut, revID)
 		if err != nil {
-			return fmt.Errorf("failed to marshal put value: %w", err)
+			return err
 		}
 	}
 
-	rev, err := c.db.Put(context.Background(), k, valueToPut)
+	_, err = c.db.Put(context.Background(), k, valueToPut)
 	if err != nil {
 		return fmt.Errorf("failed to store data: %w", err)
 	}
-
-	c.revIDs[k] = rev
 
 	return nil
 }
@@ -193,7 +186,7 @@ func (c *CouchDBStore) Get(k string) ([]byte, error) {
 
 	err := row.ScanDoc(&rawDoc)
 	if err != nil {
-		if strings.Contains(err.Error(), "Not Found:") {
+		if strings.Contains(err.Error(), couchDBNotFoundErr) {
 			return nil, storage.ErrDataNotFound
 		}
 
@@ -203,13 +196,52 @@ func (c *CouchDBStore) Get(k string) ([]byte, error) {
 	return c.getStoredValueFromRawDoc(rawDoc, k)
 }
 
+func (c *CouchDBStore) addRevID(valueToPut []byte, revID string) ([]byte, error) {
+	var m map[string]interface{}
+	if err := json.Unmarshal(valueToPut, &m); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal put value: %w", err)
+	}
+
+	m["_rev"] = revID
+
+	newValue, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal put value: %w", err)
+	}
+
+	return newValue, nil
+}
+
+// get rev ID
+func (c *CouchDBStore) getRevID(k string) (string, error) {
+	rawDoc := make(map[string]interface{})
+
+	row := c.db.Get(context.Background(), k)
+
+	err := row.ScanDoc(&rawDoc)
+	if err != nil {
+		if strings.Contains(err.Error(), couchDBNotFoundErr) {
+			return "", nil
+		}
+
+		return "", err
+	}
+
+	return rawDoc["_rev"].(string), nil
+}
+
 // Delete will delete record with k key
 func (c *CouchDBStore) Delete(k string) error {
 	if k == "" {
 		return errors.New("key is mandatory")
 	}
 
-	_, err := c.db.Delete(context.TODO(), k, c.revIDs[k])
+	revID, err := c.getRevID(k)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.db.Delete(context.TODO(), k, revID)
 	if err != nil {
 		return fmt.Errorf("failed to delete doc: %w", err)
 	}
