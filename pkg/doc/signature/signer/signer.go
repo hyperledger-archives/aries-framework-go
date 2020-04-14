@@ -17,8 +17,8 @@ import (
 
 const defaultProofPurpose = "assertionMethod"
 
-// signatureSuite encapsulates signature suite methods required for signing documents
-type signatureSuite interface {
+// SignatureSuite encapsulates signature suite methods required for signing documents
+type SignatureSuite interface {
 	// GetCanonicalDocument will return normalized/canonical version of the document
 	GetCanonicalDocument(doc map[string]interface{}) ([]byte, error)
 
@@ -37,7 +37,7 @@ type signatureSuite interface {
 
 // DocumentSigner implements signing of JSONLD documents
 type DocumentSigner struct {
-	signatureSuites []signatureSuite
+	signatureSuites []SignatureSuite
 }
 
 // Context holds signing options and private key
@@ -54,7 +54,7 @@ type Context struct {
 }
 
 // New returns new instance of document verifier
-func New(signatureSuites ...signatureSuite) *DocumentSigner {
+func New(signatureSuites ...SignatureSuite) *DocumentSigner {
 	return &DocumentSigner{signatureSuites: signatureSuites}
 }
 
@@ -144,7 +144,7 @@ func (signer *DocumentSigner) applySignatureValue(context *Context, p *proof.Pro
 }
 
 // getSignatureSuite returns signature suite based on signature type
-func (signer *DocumentSigner) getSignatureSuite(signatureType string) (signatureSuite, error) {
+func (signer *DocumentSigner) getSignatureSuite(signatureType string) (SignatureSuite, error) {
 	for _, s := range signer.signatureSuites {
 		if s.Accept(signatureType) {
 			return s, nil

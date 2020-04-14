@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -159,6 +160,7 @@ func TestValidateVP_Context(t *testing.T) {
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		vp, err := NewPresentation(bytes)
+		require.Error(t, err)
 		require.Contains(t, err.Error(), "does not match: \"https://www.w3.org/2018/credentials/v1\"")
 		require.Nil(t, vp)
 	})
@@ -419,7 +421,7 @@ func TestWithPresEmbeddedSignatureSuites(t *testing.T) {
 
 	opts := &presentationOpts{}
 	vpOpt(opts)
-	require.Equal(t, []VerifierSignatureSuite{suite}, opts.ldpSuites)
+	require.Equal(t, []verifier.SignatureSuite{suite}, opts.ldpSuites)
 }
 
 func TestNewUnverifiedPresentation(t *testing.T) {

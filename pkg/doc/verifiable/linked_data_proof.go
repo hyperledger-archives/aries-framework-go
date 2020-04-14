@@ -7,7 +7,6 @@ package verifiable
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -20,38 +19,6 @@ import (
 const (
 	resolveIDParts = 2
 )
-
-// signatureSuite encapsulates signature suite methods required for signing documents
-type signatureSuite interface {
-
-	// GetCanonicalDocument will return normalized/canonical version of the document
-	GetCanonicalDocument(doc map[string]interface{}) ([]byte, error)
-
-	// GetDigest returns document digest
-	GetDigest(doc []byte) []byte
-
-	// Accept registers this signature suite with the given signature type
-	Accept(signatureType string) bool
-
-	// CompactProof indicates weather to compact the proof doc before canonization
-	CompactProof() bool
-}
-
-// VerifierSignatureSuite encapsulates the methods required for verifying a documents.
-type VerifierSignatureSuite interface {
-	signatureSuite
-
-	// Verify will verify signature against public key
-	Verify(pubKey *verifier.PublicKey, doc []byte, signature []byte) error
-}
-
-// SignerSignatureSuite encapsulates the methods required for signing a documents.
-type SignerSignatureSuite interface {
-	signatureSuite
-
-	// Sign will sign JSON LD document
-	Sign(jsonLdDoc []byte) ([]byte, error)
-}
 
 type keyResolverAdapter struct {
 	pubKeyFetcher PublicKeyFetcher
@@ -87,7 +54,7 @@ const (
 // LinkedDataProofContext holds options needed to build a Linked Data Proof.
 type LinkedDataProofContext struct {
 	SignatureType           string                  // required
-	Suite                   SignerSignatureSuite    // required
+	Suite                   signer.SignatureSuite   // required
 	SignatureRepresentation SignatureRepresentation // required
 	Created                 *time.Time              // optional
 	VerificationMethod      string                  // optional
@@ -96,24 +63,13 @@ type LinkedDataProofContext struct {
 	Purpose                 string                  // optional
 }
 
-func checkLinkedDataProof(jsonldBytes []byte, suites []VerifierSignatureSuite, pubKeyFetcher PublicKeyFetcher) error {
-	if len(suites) == 0 {
-		return errors.New("undefined verifier signature suites")
+func checkLinkedDataProof(jsonldBytes []byte, suites []verifier.SignatureSuite, pubKeyFetcher PublicKeyFetcher) error {
+	documentVerifier, err := verifier.New(&keyResolverAdapter{pubKeyFetcher}, suites...)
+	if err != nil {
+		return fmt.Errorf("create new signature verifier: %w", err)
 	}
 
-	var extraSuites []verifier.SignatureSuite
-
-	if len(suites) > 1 {
-		extraSuites = make([]verifier.SignatureSuite, len(suites)-1)
-
-		for i := range suites[1:] {
-			extraSuites[i] = suites[i+1]
-		}
-	}
-
-	documentVerifier := verifier.New(&keyResolverAdapter{pubKeyFetcher}, suites[0], extraSuites...)
-
-	err := documentVerifier.Verify(jsonldBytes)
+	err = documentVerifier.Verify(jsonldBytes)
 	if err != nil {
 		return fmt.Errorf("check linked data proof: %w", err)
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -804,7 +805,7 @@ func TestWithEmbeddedSignatureSuites(t *testing.T) {
 
 	opts := &credentialOpts{}
 	credentialOpt(opts)
-	require.Equal(t, []VerifierSignatureSuite{ss}, opts.ldpSuites)
+	require.Equal(t, []verifier.SignatureSuite{ss}, opts.ldpSuites)
 }
 
 func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
