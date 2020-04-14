@@ -29,6 +29,7 @@ type Provider struct {
 	hostURL       string
 	couchDBClient *kivik.Client
 	dbs           map[string]*CouchDBStore
+	dbPrefix      string
 	sync.RWMutex
 }
 
@@ -38,8 +39,18 @@ const (
 	couchDBNotFoundErr        = "Not Found:"
 )
 
+// Option configures the couchdb provider
+type Option func(opts *Provider)
+
+// WithDBPrefix option is for adding prefix to db name
+func WithDBPrefix(dbPrefix string) Option {
+	return func(opts *Provider) {
+		opts.dbPrefix = dbPrefix
+	}
+}
+
 // NewProvider instantiates Provider
-func NewProvider(hostURL string) (*Provider, error) {
+func NewProvider(hostURL string, opts ...Option) (*Provider, error) {
 	if hostURL == "" {
 		return nil, errors.New(blankHostErrMsg)
 	}
@@ -49,13 +60,23 @@ func NewProvider(hostURL string) (*Provider, error) {
 		return nil, err
 	}
 
-	return &Provider{hostURL: hostURL, couchDBClient: client, dbs: map[string]*CouchDBStore{}}, nil
+	p := &Provider{hostURL: hostURL, couchDBClient: client, dbs: map[string]*CouchDBStore{}}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p, nil
 }
 
 // OpenStore opens an existing store with the given name and returns it.
 func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	p.Lock()
 	defer p.Unlock()
+
+	if p.dbPrefix != "" {
+		name = p.dbPrefix + "_" + name
+	}
 
 	// Check cache first
 	cachedStore, existsInCache := p.dbs[name]

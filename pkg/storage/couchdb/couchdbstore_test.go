@@ -73,7 +73,7 @@ func waitForCouchDBToStart() error {
 
 func TestCouchDBStore(t *testing.T) {
 	t.Run("Test couchdb store put and get", func(t *testing.T) {
-		prov, err := NewProvider(couchDBURL)
+		prov, err := NewProvider(couchDBURL, WithDBPrefix("dbprefix"))
 		require.NoError(t, err)
 		store, err := prov.OpenStore("test")
 		require.NoError(t, err)
