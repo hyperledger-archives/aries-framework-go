@@ -13,8 +13,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 )
 
-// signatureSuite encapsulates signature suite methods required for signature verification
-type signatureSuite interface {
+// SignatureSuite encapsulates signature suite methods required for signature verification
+type SignatureSuite interface {
 
 	// GetCanonicalDocument will return normalized/canonical version of the document
 	GetCanonicalDocument(doc map[string]interface{}) ([]byte, error)
@@ -48,14 +48,14 @@ type keyResolver interface {
 
 // DocumentVerifier implements JSON LD document proof verification
 type DocumentVerifier struct {
-	signatureSuites []signatureSuite
+	signatureSuites []SignatureSuite
 	pkResolver      keyResolver
 }
 
 // New returns new instance of document verifier
-func New(resolver keyResolver, mainSuite signatureSuite, extraSuites ...signatureSuite) *DocumentVerifier {
+func New(resolver keyResolver, mainSuite SignatureSuite, extraSuites ...SignatureSuite) *DocumentVerifier {
 	return &DocumentVerifier{
-		signatureSuites: append([]signatureSuite{mainSuite}, extraSuites...),
+		signatureSuites: append([]SignatureSuite{mainSuite}, extraSuites...),
 		pkResolver:      resolver}
 }
 
@@ -114,7 +114,7 @@ func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}) er
 }
 
 // getSignatureSuite returns signature suite based on signature type
-func (dv *DocumentVerifier) getSignatureSuite(signatureType string) (signatureSuite, error) {
+func (dv *DocumentVerifier) getSignatureSuite(signatureType string) (SignatureSuite, error) {
 	for _, s := range dv.signatureSuites {
 		if s.Accept(signatureType) {
 			return s, nil

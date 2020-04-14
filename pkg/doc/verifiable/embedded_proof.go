@@ -58,7 +58,7 @@ func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error)
 		return nil, errors.New("public key fetcher is not defined")
 	}
 
-	err = checkLinkedDataProof(docBytes, vcOpts.ldpSuite, vcOpts.publicKeyFetcher)
+	err = checkLinkedDataProof(docBytes, vcOpts.ldpSuites, vcOpts.publicKeyFetcher)
 	if err != nil {
 		return nil, fmt.Errorf("check embedded proof: %w", err)
 	}

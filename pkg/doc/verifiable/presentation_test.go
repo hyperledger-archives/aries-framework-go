@@ -419,7 +419,7 @@ func TestWithPresEmbeddedSignatureSuites(t *testing.T) {
 
 	opts := &presentationOpts{}
 	vpOpt(opts)
-	require.Equal(t, suite, opts.ldpSuite)
+	require.Equal(t, []VerifierSignatureSuite{suite}, opts.ldpSuites)
 }
 
 func TestNewUnverifiedPresentation(t *testing.T) {

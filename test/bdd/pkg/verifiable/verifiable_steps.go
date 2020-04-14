@@ -147,7 +147,7 @@ func (s *SDKSteps) verifyCredential(holder string) error {
 
 	parsedVC, _, err := verifiable.NewCredential(s.issuedVCBytes,
 		verifiable.WithPublicKeyFetcher(pKeyFetcher),
-		verifiable.WithEmbeddedSignatureSuite(sigSuite))
+		verifiable.WithEmbeddedSignatureSuites(sigSuite))
 	if err != nil {
 		return err
 	}

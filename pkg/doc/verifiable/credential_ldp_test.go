@@ -63,7 +63,7 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 	r.NoError(err)
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
-		WithEmbeddedSignatureSuite(sigSuite),
+		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
@@ -112,7 +112,7 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018_Transmute(t *test
 		suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())))
 
 	vcWithLdp, _, err := NewCredential([]byte(vcFromTransmute),
-		WithEmbeddedSignatureSuite(sigSuite),
+		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKeyBytes, kms.ED25519)))
 	r.NoError(err)
 	r.NotNil(t, vcWithLdp)
@@ -145,7 +145,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testin
 	r.NoError(err)
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
-		WithEmbeddedSignatureSuite(sigSuite),
+		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
@@ -180,7 +180,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 
 	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
 	vcWithLdp, _, err := NewCredential(vcBytes,
-		WithEmbeddedSignatureSuite(sigSuite),
+		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
 				Type:  "JwsVerificationKey2020",
@@ -227,7 +227,7 @@ func TestNewCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing
 
 	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
 	vcWithLdp, _, err := NewCredential(vcBytes,
-		WithEmbeddedSignatureSuite(sigSuite),
+		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
 				Type:  "EcdsaSecp256k1VerificationKey2019",
