@@ -12,6 +12,7 @@ import (
 
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
@@ -203,16 +204,50 @@ func (vp *Presentation) Credentials() []interface{} {
 // SetCredentials defines credentials of presentation.
 // The credential could be string/byte (probably serialized JWT) or Credential structure.
 func (vp *Presentation) SetCredentials(creds ...interface{}) error {
+	var vpCreds []interface{}
+
+	convertToVC := func(vcStr string) (interface{}, error) {
+		// Check if passed VC is correct one.
+		vc, err := NewUnverifiedCredential([]byte(vcStr))
+		if err != nil {
+			return nil, fmt.Errorf("check VC: %w", err)
+		}
+
+		// If VC was passed in JWT form, left it as is. Otherwise, return parsed VC
+		if jose.IsCompactJWS(vcStr) {
+			return vcStr, nil
+		}
+
+		return vc, nil
+	}
+
 	for i := range creds {
-		switch creds[i].(type) {
-		case []byte, string, *Credential:
-			// Acceptable.
+		switch rawVC := creds[i].(type) {
+		case *Credential:
+			vpCreds = append(vpCreds, rawVC)
+
+		case []byte:
+			vc, err := convertToVC(string(rawVC))
+			if err != nil {
+				return err
+			}
+
+			vpCreds = append(vpCreds, vc)
+
+		case string:
+			vc, err := convertToVC(rawVC)
+			if err != nil {
+				return err
+			}
+
+			vpCreds = append(vpCreds, vc)
+
 		default:
 			return errors.New("unsupported credential format")
 		}
 	}
 
-	vp.credentials = creds
+	vp.credentials = vpCreds
 
 	return nil
 }
