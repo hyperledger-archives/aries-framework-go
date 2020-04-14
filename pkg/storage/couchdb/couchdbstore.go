@@ -63,14 +63,9 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 		return cachedStore, nil
 	}
 
-	dbExists, err := p.couchDBClient.DBExists(context.Background(), name)
+	err := p.couchDBClient.CreateDB(context.Background(), name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check db exists: %w", err)
-	}
-
-	if !dbExists {
-		err := p.couchDBClient.CreateDB(context.Background(), name)
-		if err != nil {
+		if err.Error() != "Precondition Failed: The database could not be created, the file already exists." {
 			return nil, fmt.Errorf("failed to create db: %w", err)
 		}
 	}
