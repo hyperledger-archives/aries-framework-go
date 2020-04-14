@@ -109,6 +109,10 @@ func (p *Provider) CloseStore(name string) error {
 	p.Lock()
 	defer p.Unlock()
 
+	if p.dbPrefix != "" {
+		name = p.dbPrefix + "_" + name
+	}
+
 	store, exists := p.dbs[name]
 	if !exists {
 		return nil
