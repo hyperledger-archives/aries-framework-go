@@ -107,7 +107,31 @@ func (p *Processor) validateView(view string) (string, error) {
 		return p.validateView(removeQuad(view, lineNumber-1))
 	}
 
-	return view, nil
+	// returning filtered view isn't enough since invalid RDF data might have messed up labelling prefix counter of nodes.
+	// so recreate json_ld from filtered view and get new  normalized RDF dataset view.
+	return p.normalizeFilteredDataset(view)
+}
+
+// normalizeFilteredDataset recreates json-ld from RDF view and
+// returns normalized RDF dataset from recreated json-ld
+func (p *Processor) normalizeFilteredDataset(view string) (string, error) {
+	proc := ld.NewJsonLdProcessor()
+	options := ld.NewJsonLdOptions("")
+	options.ProcessingMode = ld.JsonLd_1_1
+	options.Algorithm = p.algorithm
+	options.Format = format
+
+	filteredJSONLd, err := proc.FromRDF(view, options)
+	if err != nil {
+		return "", err
+	}
+
+	result, err := proc.Normalize(filteredJSONLd, options)
+	if err != nil {
+		return "", err
+	}
+
+	return result.(string), nil
 }
 
 // removeQuad removes quad from given index of view
