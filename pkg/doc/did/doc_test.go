@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -144,6 +145,8 @@ const did = "did:method:abc"
 const creator = did + "#key-1"
 const keyType = "Ed25519VerificationKey2018"
 const signatureType = "Ed25519Signature2018"
+
+const missingPubKeyID = "did:example:123456789abcdefghs#key4"
 
 func TestParseOfNull(t *testing.T) {
 	doc, err := ParseDocument([]byte("null"))
@@ -301,13 +304,13 @@ func TestPopulateAuthentications(t *testing.T) {
 	t.Run("test key not exist", func(t *testing.T) {
 		raw := &rawDoc{}
 		require.NoError(t, json.Unmarshal([]byte(validDoc), &raw))
-		raw.Authentication[0] = "did:example:123456789abcdefghs#key4"
+		raw.Authentication[0] = missingPubKeyID
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := "authentication key did:example:123456789abcdefghs#key4 not exist in did doc public key"
+		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 
@@ -315,7 +318,7 @@ func TestPopulateAuthentications(t *testing.T) {
 		raw := &rawDoc{}
 		require.NoError(t, json.Unmarshal([]byte(validDocV011), &raw))
 		m := make(map[string]string)
-		m[jsonldPublicKey] = "did:example:123456789abcdefghs#key4"
+		m[jsonldPublicKey] = missingPubKeyID
 		m["type"] = "key"
 		raw.Authentication[0] = m
 		bytes, err := json.Marshal(raw)
@@ -323,7 +326,93 @@ func TestPopulateAuthentications(t *testing.T) {
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := "authentication key did:example:123456789abcdefghs#key4 not exist in did doc public key"
+		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
+		require.Contains(t, err.Error(), expected)
+	})
+}
+
+func TestPopulateAssertionMethods(t *testing.T) {
+	t.Run("test key not exist", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(docV011WithVerificationRelationships), &raw))
+
+		raw.AssertionMethod[0] = missingPubKeyID
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+
+		_, err = ParseDocument(bytes)
+		require.Error(t, err)
+
+		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
+		require.Contains(t, err.Error(), expected)
+	})
+}
+
+func TestPopulateCapabilityDelegations(t *testing.T) {
+	t.Run("test key not exist", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(docV011WithVerificationRelationships), &raw))
+
+		raw.CapabilityDelegation[0] = missingPubKeyID
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+
+		_, err = ParseDocument(bytes)
+		require.Error(t, err)
+
+		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
+		require.Contains(t, err.Error(), expected)
+	})
+}
+
+func TestPopulateCapabilityInvocations(t *testing.T) {
+	t.Run("test key not exist", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(docV011WithVerificationRelationships), &raw))
+
+		raw.CapabilityInvocation[0] = missingPubKeyID
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+
+		_, err = ParseDocument(bytes)
+		require.Error(t, err)
+
+		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
+		require.Contains(t, err.Error(), expected)
+	})
+}
+
+func TestPopulateKeyAgreements(t *testing.T) {
+	t.Run("test did doc key agreement", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(docV011WithVerificationRelationships), &raw))
+
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+
+		doc, err := ParseDocument(bytes)
+		require.NotNil(t, doc)
+		require.NoError(t, err)
+
+		pubKey := doc.KeyAgreement[0].PublicKey
+		require.Equal(t, "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#zBzoR5sqFgi6q3iFia8JPNfENCpi7RNSTKF7XNXX96SBY4", pubKey.ID) //nolint:lll
+		require.Equal(t, "X25519KeyAgreementKey2019", pubKey.Type)
+		require.Equal(t, "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH", pubKey.Controller)
+		require.Equal(t, "JhNWeSVLMYccCk7iopQW4guaSJTojqpMEELgSLhKwRr", base58.Encode(pubKey.Value))
+	})
+
+	t.Run("test invalid key agreement publicKey", func(t *testing.T) {
+		raw := &rawDoc{}
+		require.NoError(t, json.Unmarshal([]byte(docV011WithVerificationRelationships), &raw))
+
+		raw.KeyAgreement[0]["publicKeyBase58"] = ""
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+
+		_, err = ParseDocument(bytes)
+		require.Error(t, err)
+
+		expected := "populate key agreements failed"
 		require.Contains(t, err.Error(), expected)
 	})
 }
@@ -1393,4 +1482,33 @@ const docV011WithInvalidUpdated = `{
 	"created": "2019-09-23T14:16:59.484733-04:00",
 	"updated": "2019-9-23T14:16:59.261024-04:00",
 	"id": "did:method:abc"
+}`
+
+const docV011WithVerificationRelationships = `{
+	"@context": ["https://w3id.org/did/v0.11"],
+	"id": "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
+	"assertionMethod": [
+		"did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
+	],
+	"authentication": [
+		"did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
+	],
+	"capabilityDelegation": [
+		"did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
+	],
+	"capabilityInvocation": [
+		"did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
+	],
+	"keyAgreement": [{
+		"id": "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#zBzoR5sqFgi6q3iFia8JPNfENCpi7RNSTKF7XNXX96SBY4",
+		"type": "X25519KeyAgreementKey2019",
+		"controller": "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
+		"publicKeyBase58": "JhNWeSVLMYccCk7iopQW4guaSJTojqpMEELgSLhKwRr"
+	}],
+	"publicKey": [{
+		"id": "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
+		"type": "Ed25519VerificationKey2018",
+		"controller": "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
+		"publicKeyBase58": "B12NYF8RrR3h41TDCTJojY59usg3mbtbjnFs7Eud1Y6u"
+	}]
 }`
