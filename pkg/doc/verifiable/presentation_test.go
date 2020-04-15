@@ -354,22 +354,62 @@ func TestPresentation_SetCredentials(t *testing.T) {
 	r := require.New(t)
 	vp := Presentation{}
 
+	vc, err := NewUnverifiedCredential([]byte(validCredential))
+	r.NoError(err)
+
 	// Pass Credential struct pointer
-	vcp := &Credential{}
-	err := vp.SetCredentials(vcp)
+	err = vp.SetCredentials(vc)
+	r.NoError(err)
+	r.Len(vp.credentials, 1)
+	r.Equal(vc, vp.credentials[0])
+
+	// Pass VC marshalled into JSON bytes
+	err = vp.SetCredentials([]byte(validCredential))
+	r.NoError(err)
+	r.Len(vp.credentials, 1)
+	// VC JSON bytes is converted to vc struct
+	r.Equal(vc, vp.credentials[0])
+
+	// Pass VC marshalled into JSON string
+	err = vp.SetCredentials(validCredential)
+	r.NoError(err)
+	r.Len(vp.credentials, 1)
+	// VC JSON string is converted to vc struct
+	r.Equal(vc, vp.credentials[0])
+
+	// Pass VC marshalled into unsecured JWT
+	jwtClaims, err := vc.JWTClaims(true)
 	r.NoError(err)
 
-	// Pass bytes (e.g. marshalled JSON)
-	b := make([]byte, 3)
-	err = vp.SetCredentials(b)
+	jwt, err := jwtClaims.MarshalUnsecuredJWT()
 	r.NoError(err)
 
-	// Pass string (e.g. JWS)
-	s := "supposed to be JWS"
-	err = vp.SetCredentials(s)
+	err = vp.SetCredentials(jwt)
 	r.NoError(err)
+	r.Len(vp.credentials, 1)
+	// VC JWT is NOT converted to vc struct, it's kept as is
+	r.Equal(jwt, vp.credentials[0])
 
-	// Invalid - pass another presentation.
+	// set multiple credentials
+	err = vp.SetCredentials(vc, jwt, validCredential, []byte(validCredential))
+	r.NoError(err)
+	r.Len(vp.credentials, 4)
+	r.Equal(vc, vp.credentials[0])
+	r.Equal(jwt, vp.credentials[1])
+	r.Equal(vc, vp.credentials[2])
+	r.Equal(vc, vp.credentials[3])
+
+	// Error - invalid VC in string form
+	err = vp.SetCredentials("invalid VC")
+	r.Error(err)
+	r.Contains(err.Error(), "check VC")
+
+	// Error - invalid VC in bytes form
+	err = vp.SetCredentials([]byte("invalid VC"))
+	r.Error(err)
+	r.Contains(err.Error(), "check VC")
+
+	// Error - pass unsupported type
 	vpOther := &Presentation{}
 	err = vp.SetCredentials(vpOther)
 	r.Error(err)

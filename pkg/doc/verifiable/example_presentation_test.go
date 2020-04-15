@@ -183,6 +183,7 @@ func ExampleCredential_Presentation() {
 	//Output: eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJkaWQ6ZXhhbXBsZTo0YTU3NTQ2OTczNDM2ZjZmNmM0YTRhNTc1NzMiLCJpc3MiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJqdGkiOiJ1cm46dXVpZDozOTc4MzQ0Zi04NTk2LTRjM2EtYTk3OC04ZmNhYmEzOTAzYzUiLCJ2cCI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sInR5cGUiOlsiVmVyaWZpYWJsZVByZXNlbnRhdGlvbiJdLCJ2ZXJpZmlhYmxlQ3JlZGVudGlhbCI6W3siQGNvbnRleHQiOlsiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvdjEiLCJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy9leGFtcGxlcy92MSJdLCJjcmVkZW50aWFsU3ViamVjdCI6eyJkZWdyZWUiOnsidHlwZSI6IkJhY2hlbG9yRGVncmVlIiwidW5pdmVyc2l0eSI6Ik1JVCJ9LCJpZCI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsIm5hbWUiOiJKYXlkZW4gRG9lIiwic3BvdXNlIjoiZGlkOmV4YW1wbGU6YzI3NmUxMmVjMjFlYmZlYjFmNzEyZWJjNmYxIn0sImV4cGlyYXRpb25EYXRlIjoiMjAyMC0wMS0wMVQxOToyMzoyNFoiLCJpZCI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8xODcyIiwiaXNzdWFuY2VEYXRlIjoiMjAxMC0wMS0wMVQxOToyMzoyNFoiLCJpc3N1ZXIiOnsiaWQiOiJkaWQ6ZXhhbXBsZTo3NmUxMmVjNzEyZWJjNmYxYzIyMWViZmViMWYiLCJuYW1lIjoiRXhhbXBsZSBVbml2ZXJzaXR5In0sInJlZmVyZW5jZU51bWJlciI6ODMyOTQ4NDcsInR5cGUiOlsiVmVyaWZpYWJsZUNyZWRlbnRpYWwiLCJVbml2ZXJzaXR5RGVncmVlQ3JlZGVudGlhbCJdfV19fQ.eK1cySQybVKqg-fHxe5FZRNM3ldAS9yQfwlesLVPsEodPjb6I67CJk7LdByToR9UiJaWMBuWggVsuvLiFfHyAw
 }
 
+//nolint:lll
 func ExamplePresentation_SetCredentials() {
 	// Holder wants to send 2 credentials to Verifier
 	vp := &verifiable.Presentation{
@@ -223,15 +224,102 @@ func ExamplePresentation_SetCredentials() {
 		},
 	}
 
+	vcStr := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "id": "http://example.edu/credentials/58473",
+  "type": ["VerifiableCredential", "AlumniCredential"],
+  "issuer": "https://example.edu/issuers/14",
+  "issuanceDate": "2010-01-01T19:23:24Z",
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "alumniOf": "Example University"
+  },
+  "proof": {
+    "type": "RsaSignature2018"
+  }
+}
+`
+
 	// The second VC is provided in JWS form (e.g. kept in the wallet in that form).
 	vcJWS := "eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFNjaGVtYSI6W10sImNyZWRlbnRpYWxTdWJqZWN0Ijp7ImRlZ3JlZSI6eyJ0eXBlIjoiQmFjaGVsb3JEZWdyZWUiLCJ1bml2ZXJzaXR5IjoiTUlUIn0sImlkIjoiZGlkOmV4YW1wbGU6ZWJmZWIxZjcxMmViYzZmMWMyNzZlMTJlYzIxIiwibmFtZSI6IkpheWRlbiBEb2UiLCJzcG91c2UiOiJkaWQ6ZXhhbXBsZTpjMjc2ZTEyZWMyMWViZmViMWY3MTJlYmM2ZjEifSwiaXNzdWVyIjp7Im5hbWUiOiJFeGFtcGxlIFVuaXZlcnNpdHkifSwidHlwZSI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl19fQ.AHn2A2q5DL1heX3_izq_2yrsBDhoZ6BGGKhoRvhfMnMUuuOnBOdekdTg-dfUMJgipXRql_6WzBUIj4wTFehXCw" // nolint:lll
 
-	err := vp.SetCredentials(vc, vcJWS)
+	err := vp.SetCredentials(vc, vcJWS, vcStr)
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}
 
+	vpBytes, err := json.MarshalIndent(vp, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Print(string(vpBytes))
+
 	//Output:
+	//{
+	//	"@context": [
+	//		"https://www.w3.org/2018/credentials/v1"
+	//	],
+	//	"id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c",
+	//	"type": [
+	//		"VerifiablePresentation"
+	//	],
+	//	"verifiableCredential": [
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1",
+	//				"https://www.w3.org/2018/credentials/examples/v1"
+	//			],
+	//			"credentialSubject": {
+	//				"degree": {
+	//					"type": "BachelorDegree",
+	//					"university": "MIT"
+	//				},
+	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	//				"name": "Jayden Doe",
+	//				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+	//			},
+	//			"expirationDate": "2020-01-01T19:23:24Z",
+	//			"id": "http://example.edu/credentials/1872",
+	//			"issuanceDate": "2010-01-01T19:23:24Z",
+	//			"issuer": {
+	//				"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+	//				"name": "Example University"
+	//			},
+	//			"referenceNumber": 83294847,
+	//			"type": [
+	//				"VerifiableCredential",
+	//				"UniversityDegreeCredential"
+	//			]
+	//		},
+	//		"eyJhbGciOiJFZERTQSIsImtpZCI6IiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiXSwiY3JlZGVudGlhbFNjaGVtYSI6W10sImNyZWRlbnRpYWxTdWJqZWN0Ijp7ImRlZ3JlZSI6eyJ0eXBlIjoiQmFjaGVsb3JEZWdyZWUiLCJ1bml2ZXJzaXR5IjoiTUlUIn0sImlkIjoiZGlkOmV4YW1wbGU6ZWJmZWIxZjcxMmViYzZmMWMyNzZlMTJlYzIxIiwibmFtZSI6IkpheWRlbiBEb2UiLCJzcG91c2UiOiJkaWQ6ZXhhbXBsZTpjMjc2ZTEyZWMyMWViZmViMWY3MTJlYmM2ZjEifSwiaXNzdWVyIjp7Im5hbWUiOiJFeGFtcGxlIFVuaXZlcnNpdHkifSwidHlwZSI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl19fQ.AHn2A2q5DL1heX3_izq_2yrsBDhoZ6BGGKhoRvhfMnMUuuOnBOdekdTg-dfUMJgipXRql_6WzBUIj4wTFehXCw",
+	//		{
+	//			"@context": [
+	//				"https://www.w3.org/2018/credentials/v1",
+	//				"https://www.w3.org/2018/credentials/examples/v1"
+	//			],
+	//			"credentialSubject": {
+	//				"alumniOf": "Example University",
+	//				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+	//			},
+	//			"id": "http://example.edu/credentials/58473",
+	//			"issuanceDate": "2010-01-01T19:23:24Z",
+	//			"issuer": "https://example.edu/issuers/14",
+	//			"proof": {
+	//				"type": "RsaSignature2018"
+	//			},
+	//			"type": [
+	//				"VerifiableCredential",
+	//				"AlumniCredential"
+	//			]
+	//		}
+	//	],
+	//	"holder": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+	//}
 }
 
 func ExamplePresentation_MarshalJSON() {
