@@ -188,6 +188,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 				JWK: &jose.JWK{
 					JSONWebKey: gojose.JSONWebKey{
 						Algorithm: "ES256",
+						Key:       &privateKey.PublicKey,
 					},
 					Crv: "P-256",
 					Kty: "EC",
@@ -225,20 +226,33 @@ func TestNewCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
+	// JWK encoded public key
 	vcWithLdp, _, err := NewCredential(vcBytes,
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
+			return &sigverifier.PublicKey{
+				Type: "EcdsaSecp256k1VerificationKey2019",
+				JWK: &jose.JWK{
+					JSONWebKey: gojose.JSONWebKey{
+						Algorithm: "ES256K",
+						Key:       &privateKey.PublicKey,
+					},
+					Crv: "secp256k1",
+					Kty: "EC",
+				},
+			}, nil
+		}))
+	r.NoError(err)
+	r.Equal(vc, vcWithLdp)
+
+	// Bytes encoded public key (can come in e.g. publicKeyHex field)
+	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
+	vcWithLdp, _, err = NewCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
 				Type:  "EcdsaSecp256k1VerificationKey2019",
 				Value: pubKeyBytes,
-				JWK: &jose.JWK{
-					JSONWebKey: gojose.JSONWebKey{
-						Algorithm: "ES256K",
-					},
-					Crv: "secp256k1",
-					Kty: "EC",
-				},
 			}, nil
 		}))
 	r.NoError(err)

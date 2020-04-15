@@ -18,6 +18,7 @@ import (
 	"math/big"
 
 	"github.com/btcsuite/btcd/btcec"
+	gojose "github.com/square/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
@@ -220,26 +221,27 @@ const (
 // ECDSASignatureVerifier verifies elliptic curve signatures.
 type ECDSASignatureVerifier struct {
 	baseSignatureVerifier
+
+	ec ellipticCurve
 }
 
 // Verify verifies the signature.
-func (sv ECDSASignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byte) error {
-	ec := parseEllipticCurve(pubKey.JWK.Crv)
-	if ec == nil {
-		return fmt.Errorf("ecdsa: unsupported elliptic curve '%s'", pubKey.JWK.Crv)
+func (sv *ECDSASignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byte) error {
+	pubKeyJWK := pubKey.JWK
+	if pubKeyJWK == nil {
+		jwk, err := sv.createJWK(pubKey.Value)
+		if err != nil {
+			return fmt.Errorf("ecdsa: create JWK from public key bytes: %w", err)
+		}
+
+		pubKeyJWK = jwk
 	}
 
-	pubKeyBytes := pubKey.Value
+	ec := sv.ec
 
-	x, y := elliptic.Unmarshal(ec.curve, pubKeyBytes)
-	if x == nil {
-		return errors.New("ecdsa: invalid public key")
-	}
-
-	ecdsaPubKey := &ecdsa.PublicKey{
-		Curve: ec.curve,
-		X:     x,
-		Y:     y,
+	ecdsaPubKey, ok := pubKeyJWK.Key.(*ecdsa.PublicKey)
+	if !ok {
+		return errors.New("ecdsa: invalid public key type")
 	}
 
 	if len(signature) != 2*ec.keySize {
@@ -266,79 +268,100 @@ func (sv ECDSASignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byte
 	return nil
 }
 
+func (sv *ECDSASignatureVerifier) createJWK(pubKeyBytes []byte) (*jose.JWK, error) {
+	curve := sv.ec.curve
+
+	x, y := elliptic.Unmarshal(curve, pubKeyBytes)
+	if x == nil {
+		return nil, errors.New("invalid public key")
+	}
+
+	ecdsaPubKey := &ecdsa.PublicKey{
+		Curve: curve,
+		X:     x,
+		Y:     y,
+	}
+
+	return &jose.JWK{
+		JSONWebKey: gojose.JSONWebKey{
+			Key:       ecdsaPubKey,
+			Algorithm: sv.algorithm,
+		},
+		Kty: sv.keyType,
+		Crv: sv.curve,
+	}, nil
+}
+
 // NewECDSASecp256k1SignatureVerifier creates a new signature verifier that verifies a ECDSA secp256k1 signature
 // taking public key bytes and JSON Web Key as input.
 func NewECDSASecp256k1SignatureVerifier() *ECDSASignatureVerifier {
-	return &ECDSASignatureVerifier{baseSignatureVerifier{
-		keyType:   "EC",
-		curve:     "secp256k1",
-		algorithm: "ES256K",
-	}}
+	return &ECDSASignatureVerifier{
+		baseSignatureVerifier: baseSignatureVerifier{
+			keyType:   "EC",
+			curve:     "secp256k1",
+			algorithm: "ES256K",
+		},
+		ec: ellipticCurve{
+			curve:   btcec.S256(),
+			keySize: secp256k1KeySize,
+			hash:    crypto.SHA256,
+		},
+	}
 }
 
 // NewECDSAES256SignatureVerifier creates a new signature verifier that verifies a ECDSA P-256 signature
 // taking public key bytes and JSON Web Key as input.
 func NewECDSAES256SignatureVerifier() *ECDSASignatureVerifier {
-	return &ECDSASignatureVerifier{baseSignatureVerifier{
-		keyType:   "EC",
-		curve:     "P-256",
-		algorithm: "ES256",
-	}}
+	return &ECDSASignatureVerifier{
+		baseSignatureVerifier: baseSignatureVerifier{
+			keyType:   "EC",
+			curve:     "P-256",
+			algorithm: "ES256",
+		},
+		ec: ellipticCurve{
+			curve:   elliptic.P256(),
+			keySize: p256KeySize,
+			hash:    crypto.SHA256,
+		},
+	}
 }
 
 // NewECDSAES384SignatureVerifier creates a new signature verifier that verifies a ECDSA P-384 signature
 // taking public key bytes and JSON Web Key as input.
 func NewECDSAES384SignatureVerifier() *ECDSASignatureVerifier {
-	return &ECDSASignatureVerifier{baseSignatureVerifier{
-		keyType:   "EC",
-		curve:     "P-384",
-		algorithm: "ES384",
-	}}
+	return &ECDSASignatureVerifier{
+		baseSignatureVerifier: baseSignatureVerifier{
+			keyType:   "EC",
+			curve:     "P-384",
+			algorithm: "ES384",
+		},
+		ec: ellipticCurve{
+			curve:   elliptic.P384(),
+			keySize: p384KeySize,
+			hash:    crypto.SHA384,
+		},
+	}
 }
 
 // NewECDSAES521SignatureVerifier creates a new signature verifier that verifies a ECDSA P-521 signature
 // taking public key bytes and JSON Web Key as input.
 func NewECDSAES521SignatureVerifier() *ECDSASignatureVerifier {
-	return &ECDSASignatureVerifier{baseSignatureVerifier{
-		keyType:   "EC",
-		curve:     "P-521",
-		algorithm: "ES521",
-	}}
+	return &ECDSASignatureVerifier{
+		baseSignatureVerifier: baseSignatureVerifier{
+			keyType:   "EC",
+			curve:     "P-521",
+			algorithm: "ES521",
+		},
+		ec: ellipticCurve{
+			curve:   elliptic.P521(),
+			keySize: p521KeySize,
+			hash:    crypto.SHA512,
+		},
+	}
 }
 
 type ellipticCurve struct {
 	curve   elliptic.Curve
 	keySize int
 	hash    crypto.Hash
-}
-
-func parseEllipticCurve(curve string) *ellipticCurve {
-	switch curve {
-	case "P-256":
-		return &ellipticCurve{
-			curve:   elliptic.P256(),
-			keySize: p256KeySize,
-			hash:    crypto.SHA256,
-		}
-	case "P-384":
-		return &ellipticCurve{
-			curve:   elliptic.P384(),
-			keySize: p384KeySize,
-			hash:    crypto.SHA384,
-		}
-	case "P-521":
-		return &ellipticCurve{
-			curve:   elliptic.P521(),
-			keySize: p521KeySize,
-			hash:    crypto.SHA512,
-		}
-	case "secp256k1":
-		return &ellipticCurve{
-			curve:   btcec.S256(),
-			keySize: secp256k1KeySize,
-			hash:    crypto.SHA256,
-		}
-	default:
-		return nil
-	}
 }

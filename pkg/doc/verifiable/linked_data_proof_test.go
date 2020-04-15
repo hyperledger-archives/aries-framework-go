@@ -136,6 +136,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 					JWK: &jose.JWK{
 						JSONWebKey: gojose.JSONWebKey{
 							Algorithm: "ES256K",
+							Key:       &ecdsaPrivKey.PublicKey,
 						},
 						Crv: "secp256k1",
 						Kty: "EC",

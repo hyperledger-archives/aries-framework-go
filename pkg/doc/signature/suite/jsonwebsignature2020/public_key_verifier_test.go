@@ -38,6 +38,7 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 
 		JWK: &jose.JWK{
 			JSONWebKey: gojose.JSONWebKey{
+				Key:       &privKey.PublicKey,
 				Algorithm: "ES256",
 			},
 			Crv: "P-256",
@@ -92,6 +93,7 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 					Value: pubKeyBytes,
 					JWK: &jose.JWK{
 						JSONWebKey: gojose.JSONWebKey{
+							Key:       &privKey.PublicKey,
 							Algorithm: tc.algorithm,
 						},
 						Crv: tc.curveName,
