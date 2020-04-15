@@ -176,7 +176,7 @@ func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 	state, stateAction, error) {
 	switch msg.Type() {
 	case oobMsgType:
-		action, record, err := ctx.handleInboundOOBInvitation(msg, thid)
+		action, record, err := ctx.handleInboundOOBInvitation(msg, thid, msg.options)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to handle inbound oob invitation : %w", err)
 		}
@@ -294,31 +294,19 @@ func (s *abandoned) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *conte
 }
 
 func (ctx *context) handleInboundOOBInvitation(
-	msg *stateMachineMsg, thid string) (stateAction, *connectionstore.Record, error) {
-	// get the route configs (pass empty service endpoint, as default service endpoint added in VDRI)
-	myEndpoint, myRoutingKeys, err := route.GetRouterConfig(ctx.routeSvc, "")
+	msg *stateMachineMsg, thid string, options *options) (stateAction, *connectionstore.Record, error) {
+	myDID, conn, err := ctx.getDIDDocAndConnection(getPublicDID(options))
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch my routing configuration : %w", err)
-	}
-
-	myDID, err := ctx.vdriRegistry.Create(
-		didMethod,
-		vdri.WithServiceEndpoint(myEndpoint),
-		vdri.WithRoutingKeys(myRoutingKeys),
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create myDID : %w", err)
+		return nil, nil, fmt.Errorf("handleInboundOOBInvitation - failed to get diddoc and connection : %w", err)
 	}
 
 	msg.connRecord.MyDID = myDID.ID
 
 	request := &Request{
-		Type: RequestMsgType,
-		ID:   thid,
-		Connection: &Connection{
-			DID:    myDID.ID,
-			DIDDoc: myDID,
-		},
+		Type:       RequestMsgType,
+		ID:         thid,
+		Label:      getLabel(options),
+		Connection: conn,
 		Thread: &decorator.Thread{
 			ID:  thid,
 			PID: msg.connRecord.ParentThreadID,
@@ -451,6 +439,7 @@ func getPublicDID(options *options) string {
 	return options.publicDID
 }
 
+// returns the label given in the options, otherwise an empty string
 func getLabel(options *options) string {
 	if options == nil {
 		return ""
