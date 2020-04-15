@@ -30,15 +30,14 @@ func TestPublicKeyVerifier_Verify(t *testing.T) {
 	msg := []byte("test message")
 
 	btcecPubKey := btcecPrivKey.PubKey()
-	pubKeyBytes := elliptic.Marshal(btcecPubKey.Curve, btcecPubKey.X, btcecPubKey.Y)
 
 	pubKey := &verifier.PublicKey{
-		Type:  "EcdsaSecp256k1VerificationKey2019",
-		Value: pubKeyBytes,
+		Type: "EcdsaSecp256k1VerificationKey2019",
 
 		JWK: &jose.JWK{
 			JSONWebKey: gojose.JSONWebKey{
 				Algorithm: "ES256K",
+				Key:       btcecPubKey.ToECDSA(),
 			},
 			Crv: "secp256k1",
 			Kty: "EC",
@@ -47,6 +46,15 @@ func TestPublicKeyVerifier_Verify(t *testing.T) {
 
 	v := NewPublicKeyVerifier()
 	signature := getSignature(ecdsaPrivKey, msg)
+
+	err = v.Verify(pubKey, msg, signature)
+	require.NoError(t, err)
+
+	pubKeyBytes := elliptic.Marshal(btcecPubKey.Curve, btcecPubKey.X, btcecPubKey.Y)
+	pubKey = &verifier.PublicKey{
+		Type:  "EcdsaSecp256k1VerificationKey2019",
+		Value: pubKeyBytes,
+	}
 
 	err = v.Verify(pubKey, msg, signature)
 	require.NoError(t, err)

@@ -273,6 +273,7 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 					JWK: &jose.JWK{
 						JSONWebKey: gojose.JSONWebKey{
 							Algorithm: tc.algorithm,
+							Key:       &privKey.PublicKey,
 						},
 						Crv: tc.curveName,
 						Kty: "EC",
@@ -294,26 +295,52 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(curve, rand.Reader)
 	require.NoError(t, err)
 
+	pubKeyBytes := elliptic.Marshal(curve, privKey.X, privKey.Y)
+
+	t.Run("verify with public key bytes", func(t *testing.T) {
+		signature := getECSignature(privKey, msg, crypto.SHA256)
+
+		verifyError := v.Verify(&PublicKey{
+			Type:  "JwsVerificationKey2020",
+			Value: pubKeyBytes,
+		}, msg, signature)
+
+		require.NoError(t, verifyError)
+	})
+
 	t.Run("invalid public key", func(t *testing.T) {
 		signature := getECSignature(privKey, msg, crypto.SHA256)
 
 		verifyError := v.Verify(&PublicKey{
 			Type:  "JwsVerificationKey2020",
 			Value: []byte("invalid public key"),
+		}, msg, signature)
+		require.Error(t, verifyError)
+		require.EqualError(t, verifyError, "ecdsa: create JWK from public key bytes: invalid public key")
+	})
+
+	t.Run("invalid public key type", func(t *testing.T) {
+		signature := getECSignature(privKey, msg, crypto.SHA256)
+
+		ed25519Key := &ed25519.PublicKey{}
+
+		verifyError := v.Verify(&PublicKey{
+			Type:  "JwsVerificationKey2020",
+			Value: pubKeyBytes,
 			JWK: &jose.JWK{
 				JSONWebKey: gojose.JSONWebKey{
 					Algorithm: "ES256",
+					Key:       ed25519Key,
 				},
 				Crv: "P-256",
 				Kty: "EC",
 			},
 		}, msg, signature)
 		require.Error(t, verifyError)
-		require.EqualError(t, verifyError, "ecdsa: invalid public key")
+		require.EqualError(t, verifyError, "ecdsa: invalid public key type")
 	})
 
 	t.Run("invalid signature", func(t *testing.T) {
-		pubKeyBytes := elliptic.Marshal(curve, privKey.X, privKey.Y)
 		pubKey := &PublicKey{
 			Type:  "JwsVerificationKey2020",
 			Value: pubKeyBytes,
@@ -321,6 +348,7 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 			JWK: &jose.JWK{
 				JSONWebKey: gojose.JSONWebKey{
 					Algorithm: "ES256",
+					Key:       &privKey.PublicKey,
 				},
 				Crv: "P-256",
 				Kty: "EC",
@@ -335,16 +363,6 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 		verifyError = v.Verify(pubKey, msg, emptySig)
 		require.Error(t, verifyError)
 		require.EqualError(t, verifyError, "ecdsa: invalid signature")
-	})
-
-	t.Run("unsupported elliptic curve", func(t *testing.T) {
-		verifyError := v.Verify(&PublicKey{
-			JWK: &jose.JWK{
-				Crv: "invalid crv",
-			},
-		}, msg, []byte("some signature"))
-		require.Error(t, verifyError)
-		require.EqualError(t, verifyError, "ecdsa: unsupported elliptic curve 'invalid crv'")
 	})
 }
 
