@@ -1639,3 +1639,31 @@ func TestNewUnverifiedCredential(t *testing.T) {
 		require.Nil(t, vc)
 	})
 }
+
+func TestMarshalCredential(t *testing.T) {
+	t.Run("test marshalling VC to JSON bytes", func(t *testing.T) {
+		vc, vcData, err := NewCredential([]byte(validCredential))
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+		require.NotEmpty(t, vcData)
+
+		vcMap, err := toMap(vc)
+		require.NoError(t, err)
+		require.Empty(t, vcMap["credentialSchema"])
+		require.NotEmpty(t, vcMap["@context"])
+		require.NotEmpty(t, vcMap["credentialSubject"])
+		require.NotEmpty(t, vcMap["issuer"])
+		require.NotEmpty(t, vcMap["type"])
+
+		// now set schema and try again
+		vc.Schemas = []TypedID{{ID: "test1"}, {ID: "test2"}}
+
+		vcMap, err = toMap(vc)
+		require.NoError(t, err)
+		require.NotEmpty(t, vcMap["credentialSchema"])
+		require.NotEmpty(t, vcMap["@context"])
+		require.NotEmpty(t, vcMap["credentialSubject"])
+		require.NotEmpty(t, vcMap["issuer"])
+		require.NotEmpty(t, vcMap["type"])
+	})
+}
