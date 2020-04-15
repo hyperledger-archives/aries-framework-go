@@ -4,10 +4,16 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = []) {
-    await import('/base/node_modules/@hyperledger/aries-framework-go/dist/web/aries.js')
+var AriesWeb = null;
+var AriesREST = null;
 
-    return new Aries.Framework({
+export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = []) {
+    if (AriesWeb === null){
+        await import('/base/node_modules/@hyperledger/aries-framework-go/dist/web/aries.js')
+        AriesWeb = Aries.Framework
+    }
+
+    return new AriesWeb({
         assetsPath: "/base/public/aries-framework-go/assets",
         "agent-default-label": label,
         "http-resolver-url": httpResolver,
@@ -20,9 +26,12 @@ export async function newAries(dbNS = '', label= "dem-js-agent", httpResolver = 
 }
 
 export async function newAriesREST(controllerUrl) {
-    await import('/base/node_modules/@hyperledger/aries-framework-go/dist/rest/aries.js')
+    if (AriesREST === null){
+        await import('/base/node_modules/@hyperledger/aries-framework-go/dist/rest/aries.js')
+        AriesREST = Aries.Framework
+    }
 
-    return new Aries.Framework({
+    return new AriesREST({
         assetsPath: "/base/public/aries-framework-go/assets",
         "agent-rest-url": controllerUrl
     })
