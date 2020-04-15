@@ -1157,6 +1157,11 @@ func (vc *Credential) raw() (*rawCredential, error) {
 		return nil, err
 	}
 
+	var schema interface{}
+	if len(vc.Schemas) > 0 {
+		schema = vc.Schemas
+	}
+
 	return &rawCredential{
 		Context:        contextToRaw(vc.Context, vc.CustomContext),
 		ID:             vc.ID,
@@ -1167,7 +1172,7 @@ func (vc *Credential) raw() (*rawCredential, error) {
 		Proof:          proof,
 		Status:         vc.Status,
 		Issuer:         issuerToRaw(vc.Issuer),
-		Schema:         vc.Schemas,
+		Schema:         schema,
 		Evidence:       vc.Evidence,
 		RefreshService: rawRefreshService,
 		TermsOfUse:     rawTermsOfUse,
