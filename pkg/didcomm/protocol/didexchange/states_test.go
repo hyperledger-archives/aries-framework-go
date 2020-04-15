@@ -24,7 +24,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
@@ -327,6 +330,88 @@ func TestRequestedState_Execute(t *testing.T) {
 		require.NotEmpty(t, connRec.MyDID)
 		require.Equal(t, &noOp{}, followup)
 		require.NotNil(t, action)
+	})
+	t.Run("handle inbound oob invitations with label", func(t *testing.T) {
+		expected := "my test label"
+		dispatched := false
+		ctx := getContext(t, &prov)
+		ctx.outboundDispatcher = &mockdispatcher.MockOutbound{
+			ValidateSend: func(msg interface{}, _ string, _ *service.Destination) error {
+				dispatched = true
+				result, ok := msg.(*Request)
+				require.True(t, ok)
+				require.Equal(t, expected, result.Label)
+				return nil
+			},
+		}
+		_, _, action, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+			DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock())),
+			connRecord: &connection.Record{},
+			options:    &options{label: expected},
+		}, "", ctx)
+		require.NoError(t, err)
+		require.NotNil(t, action)
+		err = action()
+		require.NoError(t, err)
+		require.True(t, dispatched)
+	})
+	t.Run("handle inbound oob invitations - register recipient keys in router", func(t *testing.T) {
+		expected := "my test key"
+		registered := false
+		ctx := getContext(t, &prov)
+		doc := createDIDDoc()
+		doc.Service = []diddoc.Service{{
+			Type:            "did-communication",
+			ServiceEndpoint: "http://test.com",
+			RecipientKeys:   []string{expected},
+		}}
+		ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{
+			CreateValue: doc,
+		}
+		ctx.routeSvc = &mockroute.MockRouteSvc{
+			RoutingKeys:    []string{expected},
+			RouterEndpoint: "http://blah.com",
+			AddKeyFunc: func(result string) error {
+				require.Equal(t, expected, result)
+				registered = true
+				return nil
+			},
+		}
+		_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+			DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock())),
+			connRecord: &connection.Record{},
+		}, "", ctx)
+		require.NoError(t, err)
+		require.True(t, registered)
+	})
+	t.Run("handle inbound oob invitations - use routing info to create my did", func(t *testing.T) {
+		expected := route.NewConfig("http://test.com", []string{"my-test-key"})
+		created := false
+		ctx := getContext(t, &prov)
+		ctx.routeSvc = &mockroute.MockRouteSvc{
+			RouterEndpoint: expected.Endpoint(),
+			RoutingKeys:    expected.Keys(),
+		}
+		ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{
+			CreateFunc: func(_ string, options ...vdri.DocOpts) (*diddoc.Doc, error) {
+				created = true
+				result := &vdri.CreateDIDOpts{}
+
+				for _, opt := range options {
+					opt(result)
+				}
+
+				require.Equal(t, expected.Keys(), result.RoutingKeys)
+				require.Equal(t, expected.Endpoint(), result.ServiceEndpoint)
+				return createDIDDoc(), nil
+			},
+		}
+		_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
+			DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock())),
+			connRecord: &connection.Record{},
+		}, "", ctx)
+		require.NoError(t, err)
+		require.True(t, created)
 	})
 	t.Run("handling invitations fails if my diddoc does not have a valid didcomm service", func(t *testing.T) {
 		msg, err := service.ParseDIDCommMsgMap(invitationPayloadBytes)

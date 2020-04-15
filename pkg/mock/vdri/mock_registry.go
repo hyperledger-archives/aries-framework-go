@@ -20,6 +20,7 @@ import (
 type MockVDRIRegistry struct {
 	CreateErr    error
 	CreateValue  *did.Doc
+	CreateFunc   func(string, ...vdriapi.DocOpts) (*did.Doc, error)
 	MemStore     map[string]*did.Doc
 	PutErr       error
 	ResolveErr   error
@@ -44,6 +45,10 @@ func (m *MockVDRIRegistry) Store(doc *did.Doc) error {
 func (m *MockVDRIRegistry) Create(method string, opts ...vdriapi.DocOpts) (*did.Doc, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
+	}
+
+	if m.CreateFunc != nil {
+		return m.CreateFunc(method, opts...)
 	}
 
 	doc := m.CreateValue
