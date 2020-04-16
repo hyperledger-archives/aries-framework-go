@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
@@ -23,6 +24,15 @@ const (
 	// RequestMsgType is the request message's '@type'.
 	RequestMsgType = outofband.RequestMsgType
 )
+
+// Event is a container of out-of-band protocol-specific properties for DIDCommActions and StateMsgs.
+type Event interface {
+	// ConnectionID of the connection record, once it's created.
+	// This becomes available in a post-state event unless an error condition is encountered.
+	ConnectionID() string
+	// Error is non-nil if an error is encountered.
+	Error() error
+}
 
 // RequestOptions allow you to customize the way request messages are built.
 type RequestOptions func(*Request) error
@@ -42,6 +52,7 @@ type Provider interface {
 // Client for the Out-Of-Band protocol:
 // https://github.com/hyperledger/aries-rfcs/blob/master/features/0434-outofband/README.md
 type Client struct {
+	service.Event
 	didDocSvcFunc func() (*did.Service, error)
 	oobService    oobService
 }

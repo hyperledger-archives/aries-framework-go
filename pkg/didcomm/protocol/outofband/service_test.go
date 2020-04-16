@@ -108,9 +108,8 @@ func TestAccept(t *testing.T) {
 
 func TestHandleInbound(t *testing.T) {
 	t.Run("accepts out-of-band request messages", func(t *testing.T) {
-		s, err := New(testProvider())
-		require.NoError(t, err)
-		_, err = s.HandleInbound(
+		s := newAutoService(t, testProvider())
+		_, err := s.HandleInbound(
 			service.NewDIDCommMsgMap(newRequest()),
 			"did:example:mine",
 			"did:example:theirs")
@@ -143,6 +142,40 @@ func TestHandleInbound(t *testing.T) {
 		case <-time.After(1 * time.Second):
 			t.Error("timeout waiting for action event")
 		}
+	})
+	t.Run("sends pre-state msg event", func(t *testing.T) {
+		expected := service.NewDIDCommMsgMap(newRequest())
+		s, err := New(testProvider())
+		require.NoError(t, err)
+		stateMsgs := make(chan service.StateMsg)
+		err = s.RegisterMsgEvent(stateMsgs)
+		require.NoError(t, err)
+		err = s.RegisterActionEvent(make(chan service.DIDCommAction))
+		require.NoError(t, err)
+		_, err = s.HandleInbound(expected, "did:example:mine", "did:example:theirs")
+		require.NoError(t, err)
+		select {
+		case result := <-stateMsgs:
+			require.Equal(t, service.PreState, result.Type)
+			require.Equal(t, Name, result.ProtocolName)
+			require.Equal(t, StateRequested, result.StateID)
+			require.Equal(t, expected, result.Msg)
+			props, ok := result.Properties.(*eventProps)
+			require.True(t, ok)
+			require.Empty(t, props.ConnectionID())
+			require.Nil(t, props.Error())
+		case <-time.After(1 * time.Second):
+			t.Error("timeout waiting for action event")
+		}
+	})
+	t.Run("fails if no listeners have been registered for action events", func(t *testing.T) {
+		s, err := New(testProvider())
+		require.NoError(t, err)
+		_, err = s.HandleInbound(
+			service.NewDIDCommMsgMap(newRequest()),
+			"did:example:mine",
+			"did:example:theirs")
+		require.Error(t, err)
 	})
 }
 
@@ -495,7 +528,7 @@ func TestListener(t *testing.T) {
 			invoked <- struct{}{}
 			return "", nil
 		}
-		go listener(callbacks, nil, handleReqFunc, nil)()
+		go listener(callbacks, nil, handleReqFunc, nil, &service.Message{})()
 
 		callbacks <- &callback{
 			msg: service.NewDIDCommMsgMap(newRequest()),
@@ -514,12 +547,67 @@ func TestListener(t *testing.T) {
 			invoked <- struct{}{}
 			return nil
 		}
-		go listener(nil, didEvents, nil, handleDidEventFunc)()
+		go listener(nil, didEvents, nil, handleDidEventFunc, nil)()
 		didEvents <- service.StateMsg{}
 
 		select {
 		case <-invoked:
 		case <-time.After(1 * time.Second):
+			t.Error("timeout")
+		}
+	})
+	t.Run("sends post-state event for oob request", func(t *testing.T) {
+		connID := uuid.New().String()
+		expected := service.NewDIDCommMsgMap(newRequest())
+		handler := make(chan service.StateMsg)
+		handlers := &service.Message{}
+		err := handlers.RegisterMsgEvent(handler)
+		require.NoError(t, err)
+		callbacks := make(chan *callback)
+		handleReqFunc := func(*callback) (string, error) { return connID, nil }
+
+		go listener(callbacks, nil, handleReqFunc, nil, handlers)()
+		callbacks <- &callback{msg: expected}
+
+		select {
+		case result := <-handler:
+			require.Equal(t, service.PostState, result.Type)
+			require.Equal(t, "requested", result.StateID)
+			require.Equal(t, "out-of-band", result.ProtocolName)
+			require.Equal(t, expected, result.Msg)
+			props, ok := result.Properties.(*eventProps)
+			require.True(t, ok)
+			require.Equal(t, connID, props.ConnectionID())
+			require.Nil(t, props.Error())
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
+	})
+	t.Run("sends post-state event with error for oob request", func(t *testing.T) {
+		expectedMsg := service.NewDIDCommMsgMap(newRequest())
+		expectedErr := errors.New("test")
+		handler := make(chan service.StateMsg)
+		handlers := &service.Message{}
+		err := handlers.RegisterMsgEvent(handler)
+		require.NoError(t, err)
+		callbacks := make(chan *callback)
+		handleReqFunc := func(*callback) (string, error) { return "", expectedErr }
+
+		go listener(callbacks, nil, handleReqFunc, nil, handlers)()
+		callbacks <- &callback{msg: expectedMsg}
+
+		select {
+		case result := <-handler:
+			require.Equal(t, service.PostState, result.Type)
+			require.Equal(t, "requested", result.StateID)
+			require.Equal(t, "out-of-band", result.ProtocolName)
+			require.Equal(t, expectedMsg, result.Msg)
+			props, ok := result.Properties.(*eventProps)
+			require.True(t, ok)
+			require.Empty(t, props.ConnectionID())
+			require.Error(t, props.Error())
+			require.Equal(t, expectedErr, props.Error())
+		case <-time.After(time.Second):
 			t.Error("timeout")
 		}
 	})
