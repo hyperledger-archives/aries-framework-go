@@ -13,15 +13,19 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
+	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/introduce"
+	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	introduceService "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
+	bddOutOfBand "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 )
 
 const timeout = time.Second * 2
@@ -30,6 +34,7 @@ const timeout = time.Second * 2
 type SDKSteps struct {
 	bddContext      *context.BDDContext
 	didExchangeSDKS *bddDIDExchange.SDKSteps
+	outofbandSDKS   *bddOutOfBand.SDKSteps
 	clients         map[string]*introduce.Client
 	actions         map[string]chan service.DIDCommAction
 	events          map[string]chan service.StateMsg
@@ -52,17 +57,20 @@ func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers agent steps
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" and "([^"]*)"$`, a.sendProposal)
-	s.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" with "([^"]*)" invitation$`, a.sendProposalWithInvitation)
+	s.Step(`^"([^"]*)" sends introduce proposal to the "([^"]*)" with "([^"]*)" out-of-band request$`,
+		a.sendProposalWithInvitation)
 	s.Step(`^"([^"]*)" sends introduce request to the "([^"]*)" asking about "([^"]*)"$`, a.sendRequest)
 	s.Step(`^"([^"]*)" sends introduce proposal back to the "([^"]*)" and requested introduce$`, a.handleRequest)
-	s.Step(`^"([^"]*)" sends introduce proposal back to the requester with pub invitation$`, a.handleRequestWithInvitation)
+	s.Step(`^"([^"]*)" sends introduce proposal back to the requester with public out-of-band request$`,
+		a.handleRequestWithInvitation)
 	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve$`, a.checkAndContinue)
-	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve and provides invitation$`,
+	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve and provides an out-of-band request$`, //nolint:lll
 		a.checkAndContinueWithInvitation)
 	s.Step(`^"([^"]*)" doesn't want to know "([^"]*)" and sends introduce response$`, a.checkAndStop)
 	s.Step(`^"([^"]*)" stops the introduce protocol$`, a.stopProtocol)
 	s.Step(`^"([^"]*)" checks the history of introduce protocol events "([^"]*)"$`, a.checkHistoryEvents)
-	s.Step(`^"([^"]*)" checks the history of introduce protocol events "([^"]*)" and stop$`, a.checkHistoryEventsAndStop)
+	s.Step(`^"([^"]*)" checks the history of introduce protocol events "([^"]*)" and stop$`,
+		a.checkHistoryEventsAndStop)
 	s.Step(`^"([^"]*)" exchange DIDs with "([^"]*)"$`, a.createConnections)
 	s.Step(`^"([^"]*)" has did exchange connection with "([^"]*)"$`, a.connectionEstablished)
 }
@@ -103,24 +111,23 @@ func (a *SDKSteps) createConnections(introducees, introducer string) error {
 	a.didExchangeSDKS = bddDIDExchange.NewDIDExchangeSDKSteps()
 	a.didExchangeSDKS.SetContext(a.bddContext)
 
+	a.outofbandSDKS = bddOutOfBand.NewOutOfBandSDKSteps()
+	a.outofbandSDKS.SetContext(a.bddContext)
+
 	if err := a.didExchangeSDKS.WaitForPublicDID(participants, 10); err != nil {
 		return err
 	}
 
-	if err := a.didExchangeSDKS.CreateDIDExchangeClient(participants); err != nil {
+	if err := a.createExternalClients(participants); err != nil {
 		return err
 	}
 
-	if err := a.didExchangeSDKS.RegisterPostMsgEvent(participants, "completed"); err != nil {
-		return err
-	}
-
-	if err := a.didExchangeSDKS.CreateInvitationWithDID(introducer); err != nil {
+	if err := a.outofbandSDKS.CreateRequestWithDID(introducer); err != nil {
 		return err
 	}
 
 	for _, introducee := range strings.Split(introducees, ",") {
-		if err := a.didExchangeSDKS.ReceiveInvitation(introducee, introducer); err != nil {
+		if err := a.outofbandSDKS.ReceiveRequest(introducee, introducer); err != nil {
 			return err
 		}
 
@@ -260,14 +267,14 @@ func (a *SDKSteps) handleRequestWithInvitation(agentID string) error {
 
 		introduceTo := request.PleaseIntroduceTo.Name
 
-		inv, err := a.bddContext.DIDExchangeClients[introduceTo].CreateInvitation(introduceTo)
+		req, err := a.newOOBRequest(introduceTo)
 		if err != nil {
 			return err
 		}
 
-		to := &introduceService.To{Name: inv.Label}
+		to := &introduceService.To{Name: req.Label}
 
-		e.Continue(introduce.WithPublicInvitation(inv, to))
+		e.Continue(introduce.WithPublicOOBRequest(req, to))
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
@@ -288,6 +295,8 @@ func (a *SDKSteps) checkAndContinue(agentID, introduceeID string) error {
 		}
 
 		e.Continue(nil)
+
+		go a.outofbandSDKS.ApproveRequest(agentID)
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
@@ -307,12 +316,14 @@ func (a *SDKSteps) checkAndContinueWithInvitation(agentID, introduceeID string) 
 			return fmt.Errorf("%q wants to know %q but got %q", agentID, introduceeID, proposal.To.Name)
 		}
 
-		inv, err := a.bddContext.DIDExchangeClients[agentID].CreateInvitation(agentID)
+		req, err := a.newOOBRequest(agentID)
 		if err != nil {
 			return err
 		}
 
-		e.Continue(introduce.WithInvitation(inv))
+		e.Continue(introduce.WithOOBRequest(req))
+
+		go a.outofbandSDKS.ApproveRequest(agentID)
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
@@ -374,12 +385,12 @@ func (a *SDKSteps) sendProposalWithInvitation(introducer, introducee1, introduce
 		return err
 	}
 
-	inv, err := a.bddContext.DIDExchangeClients[introducee2].CreateInvitation(introducee2)
+	req, err := a.newOOBRequest(introducee2)
 	if err != nil {
 		return err
 	}
 
-	return a.clients[introducer].SendProposalWithInvitation(inv, &introduceService.Recipient{
+	return a.clients[introducer].SendProposalWithOOBRequest(req, &introduceService.Recipient{
 		To:       &introduceService.To{Name: introducee2},
 		MyDID:    conn1.MyDID,
 		TheirDID: conn1.TheirDID,
@@ -395,4 +406,44 @@ func (a *SDKSteps) sendRequest(introducee1, introducer, introducee2 string) erro
 	to := &introduceService.PleaseIntroduceTo{To: introduceService.To{Name: introducee2}}
 
 	return a.clients[introducee1].SendRequest(to, conn1.MyDID, conn1.TheirDID)
+}
+
+func (a *SDKSteps) newOOBRequest(agentID string) (*outofband.Request, error) {
+	client, err := outofband.New(a.bddContext.AgentCtx[agentID])
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := client.CreateRequest(
+		outofband.WithLabel(agentID),
+		outofband.WithAttachments(&decorator.Attachment{
+			ID:          uuid.New().String(),
+			Description: "test",
+			Data: decorator.AttachmentData{
+				JSON: map[string]interface{}{},
+			},
+		},
+		))
+	if err != nil {
+		return nil, err
+	}
+
+	return r, nil
+}
+
+//  creates clients for other protocols (eg. out-of-band, did-exchange)
+func (a *SDKSteps) createExternalClients(participants string) error {
+	if err := a.didExchangeSDKS.CreateDIDExchangeClient(participants); err != nil {
+		return err
+	}
+
+	if err := a.outofbandSDKS.CreateClients(participants); err != nil {
+		return err
+	}
+
+	if err := a.didExchangeSDKS.RegisterPostMsgEvent(participants, "completed"); err != nil {
+		return err
+	}
+
+	return nil
 }

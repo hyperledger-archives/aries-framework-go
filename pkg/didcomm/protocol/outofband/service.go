@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/mitchellh/mapstructure"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -168,7 +169,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 			Stop: func(e error) {
 				// TODO noop - nothing to do here (not even cleanup)
 			},
-			Properties: nil,
+			Properties: &eventProps{},
 		}
 
 		events <- event
@@ -455,6 +456,20 @@ func chooseTarget(svcs []interface{}) (interface{}, error) {
 		switch svc := svcs[i].(type) {
 		case string, *did.Service:
 			return svc, nil
+		case map[string]interface{}:
+			var s did.Service
+
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &s})
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize decoder : %w", err)
+			}
+
+			err = decoder.Decode(svc)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode service block : %w", err)
+			}
+
+			return &s, nil
 		}
 	}
 

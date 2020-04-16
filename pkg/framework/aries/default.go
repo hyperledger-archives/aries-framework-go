@@ -52,10 +52,13 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		frameworkOpts.storeProvider = storeProv
 	}
 
-	// order is important as DIDExchange service depends on Route service and Introduce depends on DIDExchange
+	// order is important:
+	// - DIDExchange depends on Route
+	// - OutOfBand depends on DIDExchange
+	// - Introduce depends on OutOfBand
 	frameworkOpts.protocolSvcCreators = append(frameworkOpts.protocolSvcCreators,
-		newRouteSvc(), newExchangeSvc(), newIntroduceSvc(),
-		newIssueCredentialSvc(), newOutOfBandSvc(), newPresentProofSvc(),
+		newRouteSvc(), newExchangeSvc(), newOutOfBandSvc(), newIntroduceSvc(),
+		newIssueCredentialSvc(), newPresentProofSvc(),
 	)
 
 	if frameworkOpts.secretLock == nil && frameworkOpts.kmsCreator == nil {

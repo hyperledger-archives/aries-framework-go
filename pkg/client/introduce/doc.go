@@ -13,23 +13,23 @@ SPDX-License-Identifier: Apache-2.0
 // 	  select {
 // 	    case event := <-actions:
 //	      if event.Message.Type() == introduce.RequestMsgType {
-//	        // if you want to accept request and you do not have a public invitation
+//	        // if you want to accept request and you do not have a public out-of-band message
 //	        event.Continue(WithRecipients(...))
-//	        // or you have a public invitation
-//	        event.Continue(WithPublicInvitation(...))
+//	        // or you have a public out-of-band message (eg. request)
+//	        event.Continue(WithPublicOOBRequest(...))
 //	      } else {
-//	        // to share your invitation
-//	        event.Continue(WithInvitation(...))
-//	        // or if you do now want to share your invitation
+//	        // to share your out-of-band message (eg. request)
+//	        event.Continue(WithOOBRequest(...))
+//	        // or if you do not want to share your out-of-band message
 //	        event.Continue(nil)
 //	      }
 // 	  }
 // 	}
 //
 // Possible use cases:
-// 1) The introducer wants to commit an introduction. To do that SendProposal or SendProposalWithInvitation
-// functions should be used. SendProposalWithInvitation is used in case if introducer has a public invitation.
-// Otherwise, SendProposal function is used. An invitation, in that case, should be provided by one of the introducees.
+// 1) The introducer wants to commit an introduction. To do that SendProposal or SendProposalWithOOBRequest
+// functions should be used. SendProposalWithOOBRequest is used in case if introducer has a public out-of-band request.
+// Otherwise, SendProposal function is used. A request, in that case, should be provided by one of the introducees.
 // 2) Introducee asks the introducer about the agent. SendRequest function is used to do that.
 //
 //  Basic Flow:
