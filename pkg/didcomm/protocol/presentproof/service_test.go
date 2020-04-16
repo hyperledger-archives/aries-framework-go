@@ -309,6 +309,8 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
 				r := &Presentation{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, PresentationMsgType, r.Type)
@@ -325,8 +327,6 @@ func TestService_HandleInbound(t *testing.T) {
 		})
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
-			defer close(done)
-
 			require.Equal(t, "presentation-sent", string(name))
 
 			return nil
@@ -442,6 +442,8 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
 				r := &ProposePresentation{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, ProposePresentationMsgType, r.Type)
@@ -458,8 +460,6 @@ func TestService_HandleInbound(t *testing.T) {
 		})
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
-			defer close(done)
-
 			require.Equal(t, "proposal-sent", string(name))
 
 			return nil
@@ -489,6 +489,8 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
+				defer close(done)
+
 				r := &RequestPresentation{}
 				require.NoError(t, msg.Decode(r))
 				require.Equal(t, RequestPresentationMsgType, r.Type)
@@ -506,8 +508,6 @@ func TestService_HandleInbound(t *testing.T) {
 		})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
-			defer close(done)
-
 			require.Equal(t, "request-sent", string(name))
 
 			return nil
@@ -669,8 +669,6 @@ func TestService_HandleInbound(t *testing.T) {
 		var done = make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
-			defer close(done)
-
 			require.Equal(t, "request-sent", string(name))
 
 			return nil
@@ -685,6 +683,8 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().Send(msg, Alice, Bob).
 			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
 				return nil
 			})
 
@@ -719,8 +719,6 @@ func TestService_HandleInbound(t *testing.T) {
 		var done = make(chan struct{})
 
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
-			defer close(done)
-
 			require.Equal(t, "proposal-sent", string(name))
 
 			return nil
@@ -735,6 +733,8 @@ func TestService_HandleInbound(t *testing.T) {
 
 		messenger.EXPECT().Send(msg, Alice, Bob).
 			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				defer close(done)
+
 				return nil
 			})
 
