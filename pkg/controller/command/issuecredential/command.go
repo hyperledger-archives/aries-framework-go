@@ -134,7 +134,7 @@ func (c *Command) GetHandlers() []command.Handler {
 	}
 }
 
-// Actions returns pending actions that have yet to be executed or cancelled.
+// Actions returns pending actions that have not yet to be executed or canceled.
 func (c *Command) Actions(rw io.Writer, _ io.Reader) command.Error {
 	result, err := c.client.Actions()
 	if err != nil {
@@ -145,6 +145,8 @@ func (c *Command) Actions(rw io.Writer, _ io.Reader) command.Error {
 	command.WriteNillableResponse(rw, &ActionsResponse{
 		Actions: result,
 	}, logger)
+
+	logutil.LogDebug(logger, commandName, actions, successString)
 
 	return nil
 }
@@ -346,6 +348,8 @@ func (c *Command) DeclineProposal(rw io.Writer, req io.Reader) command.Error {
 
 	command.WriteNillableResponse(rw, &DeclineProposalResponse{}, logger)
 
+	logutil.LogDebug(logger, commandName, declineProposal, successString)
+
 	return nil
 }
 
@@ -396,6 +400,8 @@ func (c *Command) DeclineOffer(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	command.WriteNillableResponse(rw, &DeclineOfferResponse{}, logger)
+
+	logutil.LogDebug(logger, commandName, declineOffer, successString)
 
 	return nil
 }
@@ -454,10 +460,13 @@ func (c *Command) DeclineRequest(rw io.Writer, req io.Reader) command.Error {
 
 	command.WriteNillableResponse(rw, &DeclineRequestResponse{}, logger)
 
+	logutil.LogDebug(logger, commandName, declineRequest, successString)
+
 	return nil
 }
 
 // AcceptCredential is used when the Holder is willing to accept the IssueCredential.
+// nolint: dupl
 func (c *Command) AcceptCredential(rw io.Writer, req io.Reader) command.Error {
 	var args AcceptCredentialArgs
 
@@ -504,6 +513,8 @@ func (c *Command) DeclineCredential(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	command.WriteNillableResponse(rw, &DeclineCredentialResponse{}, logger)
+
+	logutil.LogDebug(logger, commandName, declineCredential, successString)
 
 	return nil
 }
