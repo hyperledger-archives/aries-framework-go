@@ -30,6 +30,9 @@ const (
 	// RequestMsgType is the '@type' for the request message.
 	RequestMsgType = "https://didcomm.org/oob-request/1.0/request"
 
+	// StateRequested is one of the possible states of this protocol.
+	StateRequested = "requested"
+
 	// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 	callbackChannelSize = 10
 )
@@ -112,7 +115,7 @@ func New(p Provider) (*Service, error) {
 		extractDIDCommMsgBytesFunc: extractDIDCommMsgBytes,
 	}
 
-	s.listenerFunc = listener(s.callbackChannel, s.didEvents, s.handleRequestCallback, s.handleDIDEvent)
+	s.listenerFunc = listener(s.callbackChannel, s.didEvents, s.handleRequestCallback, s.handleDIDEvent, &s.Message)
 
 	didEventsSvc, ok := didSvc.(service.Event)
 	if !ok {
@@ -147,11 +150,18 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 		return "", fmt.Errorf("unsupported message type %s", msg.Type())
 	}
 
+	events := s.ActionEvent()
+	if events == nil {
+		return "", fmt.Errorf("no clients registered to handle action events for %s protocol", Name)
+	}
+
 	// TODO should request messages with no attachments be rejected?
 	//  https://github.com/hyperledger/aries-rfcs/issues/451
 
 	go func() {
-		s.ActionEvent() <- service.DIDCommAction{
+		sendMsgEvent(service.PreState, &s.Message, msg, &eventProps{})
+
+		event := service.DIDCommAction{
 			ProtocolName: Name,
 			Message:      msg,
 			Continue:     continueFunc(s.callbackChannel, msg, myDID, theirDID),
@@ -160,9 +170,35 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 			},
 			Properties: nil,
 		}
+
+		events <- event
+
+		logger.Debugf("dispatched event: %+v", event)
 	}()
 
 	return "", nil
+}
+
+func sendMsgEvent(t service.StateMsgType, listeners *service.Message, msg service.DIDCommMsg, p *eventProps) {
+	var stateName string
+
+	if msg.Type() == RequestMsgType {
+		stateName = StateRequested
+	}
+
+	stateMsg := service.StateMsg{
+		ProtocolName: Name,
+		Type:         t,
+		StateID:      stateName,
+		Msg:          msg,
+		Properties:   p,
+	}
+
+	logger.Debugf("sending state msg: %+v\n", stateMsg)
+
+	for _, handler := range listeners.MsgEvents() {
+		handler <- stateMsg
+	}
 }
 
 // HandleOutbound handles outbound messages
@@ -223,7 +259,8 @@ func listener(
 	callbacks chan *callback,
 	didEvents chan service.StateMsg,
 	handleReqFunc func(*callback) (string, error),
-	handleDidEventFunc func(msg service.StateMsg) error) func() {
+	handleDidEventFunc func(msg service.StateMsg) error,
+	msgHandlers *service.Message) func() {
 	return func() {
 		for {
 			select {
@@ -232,12 +269,18 @@ func listener(
 				//  https://github.com/hyperledger/aries-framework-go/issues/1488
 				switch c.msg.Type() {
 				case RequestMsgType:
-					_, err := handleReqFunc(c)
+					connID, err := handleReqFunc(c)
 					if err != nil {
 						logutil.LogError(logger, Name, "handleRequestCallback", err.Error(),
 							logutil.CreateKeyValueString("msgType", c.msg.Type()),
 							logutil.CreateKeyValueString("msgID", c.msg.ID()))
+
+						go sendMsgEvent(service.PostState, msgHandlers, c.msg, &eventProps{err: err})
+
+						continue
 					}
+
+					go sendMsgEvent(service.PostState, msgHandlers, c.msg, &eventProps{connID: connID})
 				default:
 					logutil.LogError(logger, Name, "callbackChannel", "unsupported msg type",
 						logutil.CreateKeyValueString("msgType", c.msg.Type()),
@@ -416,4 +459,17 @@ func chooseTarget(svcs []interface{}) (interface{}, error) {
 	}
 
 	return nil, fmt.Errorf("invalid or no targets to choose from")
+}
+
+type eventProps struct {
+	connID string
+	err    error
+}
+
+func (e *eventProps) ConnectionID() string {
+	return e.connID
+}
+
+func (e *eventProps) Error() error {
+	return e.err
 }
