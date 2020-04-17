@@ -94,6 +94,9 @@ issues:
         - dupl
         - funlen
         - gomnd
+    - source: "swagger:route"
+      linters:
+        - lll
 
   exclude:
     # Allow package logger variables (for now)
