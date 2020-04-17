@@ -44,8 +44,22 @@ func Test_checkEmbeddedProof(t *testing.T) {
 	nonJSONBytes := []byte("not JSON")
 	defaultVCOpts := &credentialOpts{}
 
-	t.Run("Happy path", func(t *testing.T) {
+	t.Run("Happy path - single proof", func(t *testing.T) {
 		vc, publicKeyFetcher := createVCWithLinkedDataProof()
+		vcBytes := vc.byteJSON(t)
+
+		vSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
+		proof, err := checkEmbeddedProof(vcBytes, &credentialOpts{
+			publicKeyFetcher: publicKeyFetcher,
+			ldpSuites:        []verifier.SignatureSuite{vSuite},
+		})
+
+		require.NoError(t, err)
+		require.NotEmpty(t, proof)
+	})
+
+	t.Run("Happy path - two proofs", func(t *testing.T) {
+		vc, publicKeyFetcher := createVCWithTwoLinkedDataProofs()
 		vcBytes := vc.byteJSON(t)
 
 		vSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
@@ -87,7 +101,41 @@ func Test_checkEmbeddedProof(t *testing.T) {
 }`
 		docBytes, err := checkEmbeddedProof([]byte(docWithNotMapProof), defaultVCOpts)
 		r.Error(err)
-		r.EqualError(err, "check embedded proof: expecting [string]interface{}")
+		r.EqualError(err, "check embedded proof: invalid proof type")
+		r.Nil(docBytes)
+	})
+
+	t.Run("error on not map \"proof\" element", func(t *testing.T) {
+		docWithNotMapProof := `{
+  "@context": "https://www.w3.org/2018/credentials/v1",
+  "proof": "some string proof"
+}`
+		docBytes, err := checkEmbeddedProof([]byte(docWithNotMapProof), defaultVCOpts)
+		r.Error(err)
+		r.EqualError(err, "check embedded proof: invalid proof type")
+		r.Nil(docBytes)
+	})
+
+	t.Run("error on not map \"proof\" element inside proofs array", func(t *testing.T) {
+		docWithNotMapProof := `
+{
+  "@context": "https://www.w3.org/2018/credentials/v1",
+  "proof": [
+    {
+      "created": "2020-04-17T16:54:24+03:00",
+      "proofPurpose": "assertionMethod",
+      "proofValue": "Lxx69YOV08JglTEmAmdVZgsJdBnCw7oWvfGNaTEKdg-_8qMVAKy1u0oTvWZuhAjTbowjuf1oRtu_1N--PA4TBg",
+      "type": "Ed25519Signature2018",
+      "verificationMethod": "did:example:123456#key1"
+    },
+    "some string proof"
+  ]
+
+}
+`
+		docBytes, err := checkEmbeddedProof([]byte(docWithNotMapProof), defaultVCOpts)
+		r.Error(err)
+		r.EqualError(err, "check embedded proof: invalid proof type")
 		r.Nil(docBytes)
 	})
 
@@ -100,7 +148,7 @@ func Test_checkEmbeddedProof(t *testing.T) {
 }`
 		docBytes, err := checkEmbeddedProof([]byte(docWithNotSupportedProof), defaultVCOpts)
 		r.Error(err)
-		r.EqualError(err, "unsupported proof type: SomethingUnsupported")
+		r.EqualError(err, "check embedded proof: unsupported proof type: SomethingUnsupported")
 		r.Nil(docBytes)
 	})
 

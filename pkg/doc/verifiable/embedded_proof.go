@@ -44,14 +44,16 @@ func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error)
 		return docBytes, nil
 	}
 
-	proofMap, ok := proofElement.(map[string]interface{})
-	if !ok {
-		return nil, errors.New("check embedded proof: expecting [string]interface{}")
+	proofs, err := getProofs(proofElement)
+	if err != nil {
+		return nil, fmt.Errorf("check embedded proof: %w", err)
 	}
 
-	err = mustBeLinkedDataProof(proofMap)
-	if err != nil {
-		return nil, err
+	for i := range proofs {
+		err = mustBeLinkedDataProof(proofs[i])
+		if err != nil {
+			return nil, fmt.Errorf("check embedded proof: %w", err)
+		}
 	}
 
 	if vcOpts.publicKeyFetcher == nil {
@@ -64,4 +66,27 @@ func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error)
 	}
 
 	return docBytes, nil
+}
+
+func getProofs(proofElement interface{}) ([]map[string]interface{}, error) {
+	switch p := proofElement.(type) {
+	case map[string]interface{}:
+		return []map[string]interface{}{p}, nil
+
+	case []interface{}:
+		proofs := make([]map[string]interface{}, len(p))
+
+		for i := range p {
+			proofMap, ok := p[i].(map[string]interface{})
+			if !ok {
+				return nil, errors.New("invalid proof type")
+			}
+
+			proofs[i] = proofMap
+		}
+
+		return proofs, nil
+	}
+
+	return nil, errors.New("invalid proof type")
 }

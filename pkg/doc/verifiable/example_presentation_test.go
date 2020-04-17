@@ -109,7 +109,7 @@ func ExamplePresentation_JWTClaims() {
 		fmt.Println(fmt.Errorf("failed to create JWT claims of VP: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getSigner(holderPrivKey), "")
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(holderPrivKey), "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}
@@ -173,7 +173,7 @@ func ExampleCredential_Presentation() {
 		fmt.Println(fmt.Errorf("failed to create JWT claims of VP: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getSigner(holderPrivKey), "")
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(holderPrivKey), "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}
@@ -456,7 +456,7 @@ func ExamplePresentation_MarshalledCredentials() {
 		fmt.Println(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}
 
-	vcJWS, err := vcJWTClaims.MarshalJWS(verifiable.EdDSA, getSigner(issuerPrivKey), "i-kid")
+	vcJWS, err := vcJWTClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(issuerPrivKey), "i-kid")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VC JWT: %w", err))
 	}
@@ -473,7 +473,7 @@ func ExamplePresentation_MarshalledCredentials() {
 		fmt.Println(fmt.Errorf("failed to create JWT claims of VP: %w", err))
 	}
 
-	vpJWS, err := vpJWTClaims.MarshalJWS(verifiable.EdDSA, getSigner(holderPrivKey), "h-kid")
+	vpJWS, err := vpJWTClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(holderPrivKey), "h-kid")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}

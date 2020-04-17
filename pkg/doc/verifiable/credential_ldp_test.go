@@ -259,6 +259,80 @@ func TestNewCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing
 	r.Equal(vc, vcWithLdp)
 }
 
+func TestNewCredentialWithSeveralLinkedDataProofs(t *testing.T) {
+	r := require.New(t)
+
+	ed25519PubKey, ed25519PrivKey, err := ed25519.GenerateKey(rand.Reader)
+	r.NoError(err)
+	r.NotNil(ed25519PubKey)
+
+	ed25519SigSuite := ed25519signature2018.New(
+		suite.WithSigner(getEd25519TestSigner(ed25519PrivKey)),
+		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
+
+	vc, _, err := NewCredential([]byte(validCredential))
+	r.NoError(err)
+
+	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		SignatureRepresentation: SignatureProofValue,
+		Suite:                   ed25519SigSuite,
+		VerificationMethod:      "did:example:123456#key1",
+	})
+	r.NoError(err)
+
+	ecdsaPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	ecdsaSigSuite := jsonwebsignature2020.New(
+		suite.WithSigner(getEcdsaP256TestSigner(ecdsaPrivKey)),
+		suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
+
+	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
+		SignatureType:           "JsonWebSignature2020",
+		SignatureRepresentation: SignatureJWS,
+		Suite:                   ecdsaSigSuite,
+		VerificationMethod:      "did:example:123456#key2",
+	})
+	r.NoError(err)
+
+	vcBytes, err := json.Marshal(vc)
+	r.NoError(err)
+	r.NotEmpty(vcBytes)
+
+	t.Logf("vc with 2 LDP: %s\n", string(vcBytes))
+
+	vcWithLdp, _, err := NewCredential(vcBytes,
+		WithEmbeddedSignatureSuites(ed25519SigSuite, ecdsaSigSuite),
+		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
+			switch keyID {
+			case "#key1":
+				return &sigverifier.PublicKey{
+					Type:  "Ed25519Signature2018",
+					Value: ed25519PubKey,
+				}, nil
+
+			case "#key2":
+				return &sigverifier.PublicKey{
+					Type:  "JwsVerificationKey2020",
+					Value: elliptic.Marshal(ecdsaPrivKey.Curve, ecdsaPrivKey.X, ecdsaPrivKey.Y),
+					JWK: &jose.JWK{
+						JSONWebKey: gojose.JSONWebKey{
+							Algorithm: "ES256",
+							Key:       &ecdsaPrivKey.PublicKey,
+						},
+						Crv: "P-256",
+						Kty: "EC",
+					},
+				}, nil
+			}
+
+			return nil, errors.New("unsupported keyID")
+		}))
+	r.NoError(err)
+	r.Equal(vc, vcWithLdp)
+}
+
 func createLocalCrypto() crypto.Crypto {
 	lKMS := createKMS()
 
