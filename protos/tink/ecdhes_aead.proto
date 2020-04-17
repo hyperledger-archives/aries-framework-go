@@ -1,0 +1,101 @@
+/*
+Copyright Google Inc., SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+// Definitions for Elliptic Curve Diffie-Hellman - Ephemeral Static (ECDH-ES).
+syntax = "proto3";
+
+package google.crypto.tink;
+import "proto/common.proto";
+import "proto/tink.proto";
+
+option java_package = "com.google.crypto.tink.proto";
+option java_multiple_files = true;
+option objc_class_prefix = "TINKPB";
+option go_package = "github.com/hyperledger/aries-framework-go/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto";
+
+// Protos for keys for ECIES with Concat KDF key wrapping and AEAD encryption.
+//
+//
+// ECDH-ES-keys represent ESEncryption and ESDecryption primitives.
+
+// Parameters of KW (Key Wrapping)
+message EcdhesKwParams {
+  // Required.
+  EllipticCurveType curve_type = 1;
+
+  // Not needed for key storage but required for primitive execution
+  repeated EcdhesAeadRecipientPublicKey recipients = 2;
+}
+
+// Parameters of AEAD Content encryption.
+message EcdhesAeadEncParams {
+  // Required.
+  KeyTemplate aead_enc = 1; // Contains e.g. AesGcmKeyFormat.
+}
+
+message EcdhesAeadParams {
+  // Key Wrapping.
+  // Required.
+  EcdhesKwParams kw_params = 1;
+
+  // Content Encryption.
+  // Required.
+  EcdhesAeadEncParams enc_params = 2;
+
+  // EC point format.
+  // Required.
+  EcPointFormat ec_point_format = 3;
+}
+
+// EcdhesAeadPublicKey represents ECDHESEncrypt primitive.
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhesAeadPublicKey
+message EcdhesAeadPublicKey {
+  // Required.
+  uint32 version = 1;
+
+  // Required.
+  EcdhesAeadParams params = 2;
+
+  // Affine coordinates of the public key in bigendian representation.
+  // The public key is a point (x, y) on the curve defined by params.kw_params.curve.
+  // Required.
+  bytes x = 3;
+
+  // Required.
+  bytes y = 4;
+}
+
+// EcdhesAeadPrivateKey represents ECDHESDecrypt primitive.
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhesAeadPrivateKey
+message EcdhesAeadPrivateKey {
+  // Required.
+  uint32 version = 1;
+
+  // Required.
+  EcdhesAeadPublicKey public_key = 2;
+
+  // Required.
+  bytes key_value = 3; // Big integer in bigendian representation.
+}
+
+message EcdhesAeadRecipientPublicKey {
+  // Required.
+  uint32 version = 1;
+  // Required.
+  EllipticCurveType curve_type = 2;
+
+  // Affine coordinates of the public key in bigendian representation.
+  // The public key is a point (x, y) on the curve defined by params.kw_params.curve.
+  // Required.
+  bytes x = 3;
+  // Required.
+  bytes y = 4;
+}
+
+message EcdhesAeadKeyFormat {
+  // Required.
+  EcdhesAeadParams params = 1;
+}

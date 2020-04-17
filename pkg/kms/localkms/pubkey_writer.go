@@ -28,6 +28,8 @@ const (
 
 // PubKeyWriter will write the raw bytes of a Tink KeySet's primary public key
 // The keyset must be one of the keyURLs defined above
+// Note: Only signing public keys can be exported through this PubKeyWriter.
+// ECHDES has its own Writer to export its public keys due to cyclic dependency.
 type PubKeyWriter struct {
 	w io.Writer
 }
@@ -39,12 +41,12 @@ func NewWriter(w io.Writer) *PubKeyWriter {
 	}
 }
 
-// Write writes the public keyset to the underlying w.Writer.
+// Write writes the public keyset to the underlying w.Writer
 func (p *PubKeyWriter) Write(keyset *tinkpb.Keyset) error {
 	return write(p.w, keyset)
 }
 
-// WriteEncrypted writes the encrypted keyset to the underlying w.Writer.
+// WriteEncrypted writes the encrypted keyset to the underlying w.Writer
 func (p *PubKeyWriter) WriteEncrypted(keyset *tinkpb.EncryptedKeyset) error {
 	return fmt.Errorf("write encrypted function not supported")
 }
@@ -73,7 +75,7 @@ func write(w io.Writer, msg *tinkpb.Keyset) error {
 	}
 
 	if !created {
-		return fmt.Errorf("JWK not created")
+		return fmt.Errorf("key not written")
 	}
 
 	return nil
