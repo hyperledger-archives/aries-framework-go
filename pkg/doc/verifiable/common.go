@@ -83,28 +83,16 @@ func (r *DIDKeyResolver) resolvePublicKey(issuerDID, keyID string) (*verifier.Pu
 		return nil, fmt.Errorf("resolve DID %s: %w", issuerDID, err)
 	}
 
-	for _, key := range doc.PublicKey {
-		// TODO remove string contains after sidetree create public key with this format DID#KEYID
-		// sidetree now return #KEYID
-		if strings.Contains(key.ID, keyID) {
-			return &verifier.PublicKey{
-				Type:  key.Type,
-				Value: key.Value,
-				JWK:   key.JSONWebKey(),
-			}, nil
-		}
-	}
-
-	// if key not found in PublicKey try to find it in authentication
-	for _, auth := range doc.Authentication {
-		// TODO remove string contains after sidetree create public key with this format DID#KEYID
-		// sidetree now return #KEYID
-		if strings.Contains(auth.PublicKey.ID, keyID) {
-			return &verifier.PublicKey{
-				Type:  auth.PublicKey.Type,
-				Value: auth.PublicKey.Value,
-				JWK:   auth.PublicKey.JSONWebKey(),
-			}, nil
+	methods := doc.VerificationMethods()
+	for _, verificationMethods := range methods {
+		for _, vm := range verificationMethods {
+			if strings.Contains(vm.PublicKey.ID, keyID) {
+				return &verifier.PublicKey{
+					Type:  vm.PublicKey.Type,
+					Value: vm.PublicKey.Value,
+					JWK:   vm.PublicKey.JSONWebKey(),
+				}, nil
+			}
 		}
 	}
 
