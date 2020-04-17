@@ -315,11 +315,11 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(agentTransportReturnRouteFlagName, "", "", agentTransportReturnRouteFlagUsage)
 }
 
-func getUserSetVar(cmd *cobra.Command, hostFlagName, envKey string, isOptional bool) (string, error) {
-	if cmd.Flags().Changed(hostFlagName) {
-		value, err := cmd.Flags().GetString(hostFlagName)
+func getUserSetVar(cmd *cobra.Command, flagName, envKey string, isOptional bool) (string, error) {
+	if cmd.Flags().Changed(flagName) {
+		value, err := cmd.Flags().GetString(flagName)
 		if err != nil {
-			return "", fmt.Errorf(hostFlagName+" flag not found: %s", err)
+			return "", fmt.Errorf(flagName+" flag not found: %s", err)
 		}
 
 		return value, nil
@@ -331,7 +331,7 @@ func getUserSetVar(cmd *cobra.Command, hostFlagName, envKey string, isOptional b
 		return value, nil
 	}
 
-	return "", errors.New("Neither " + hostFlagName + " (command line flag) nor " + envKey +
+	return "", errors.New("Neither " + flagName + " (command line flag) nor " + envKey +
 		" (environment variable) have been set.")
 }
 
