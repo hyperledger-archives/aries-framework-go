@@ -17,10 +17,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	messengerMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
@@ -92,10 +94,10 @@ func agentSetup(agent string, t *testing.T, ctrl *gomock.Controller, tr map[stri
 				didMap, err := service.ParseDIDCommMsgMap(msg.msg)
 				require.NoError(t, err)
 
-				if didMap.Type() == didexchange.InvitationMsgType {
-					require.NoError(t, svc.InvitationReceived(service.StateMsg{
+				if didMap.Type() == outofband.RequestMsgType {
+					require.NoError(t, svc.OOBMessageReceived(service.StateMsg{
 						Type:    service.PostState,
-						StateID: "invited",
+						StateID: "requested",
 						Msg:     didMap,
 					}))
 
@@ -245,8 +247,8 @@ func TestService_SkipProposal(t *testing.T) {
 	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
 
 	proposal := introduce.CreateProposal(&introduce.To{Name: Carol})
-	introduce.WrapWithMetadataPublicInvitation(proposal, &didexchange.Invitation{
-		Type: didexchange.InvitationMsgType,
+	introduce.WrapWithMetadataPublicOOBRequest(proposal, &outofband.Request{
+		Type: outofband.RequestMsgType,
 	})
 
 	err := alice.HandleOutbound(proposal, Alice, Bob)
@@ -291,8 +293,8 @@ func TestService_Proposal(t *testing.T) {
 	), checkDIDCommAction(t, Bob,
 		action{
 			Expected: introduce.ProposalMsgType,
-			Opt: introduce.WithInvitation(&didexchange.Invitation{
-				Type: didexchange.InvitationMsgType,
+			Opt: introduce.WithOOBRequest(&outofband.Request{
+				Type: outofband.RequestMsgType,
 			}),
 		},
 	))
@@ -356,8 +358,8 @@ func TestService_ProposalContinue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
 
-		require.NoError(t, bob.Continue(actions[0].PIID, introduce.WithInvitation(&didexchange.Invitation{
-			Type: didexchange.InvitationMsgType,
+		require.NoError(t, bob.Continue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
+			Type: outofband.RequestMsgType,
 		})))
 
 		runtime.Goexit()
@@ -425,8 +427,8 @@ func TestService_ProposalSecond(t *testing.T) {
 	), checkDIDCommAction(t, Carol,
 		action{
 			Expected: introduce.ProposalMsgType,
-			Opt: introduce.WithInvitation(&didexchange.Invitation{
-				Type: didexchange.InvitationMsgType,
+			Opt: introduce.WithOOBRequest(&outofband.Request{
+				Type: outofband.RequestMsgType,
 			}),
 		},
 	))
@@ -490,8 +492,8 @@ func TestService_ProposalSecondContinue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
 
-		require.NoError(t, carol.Continue(actions[0].PIID, introduce.WithInvitation(&didexchange.Invitation{
-			Type: didexchange.InvitationMsgType,
+		require.NoError(t, carol.Continue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
+			Type: outofband.RequestMsgType,
 		})))
 
 		runtime.Goexit()
@@ -599,8 +601,8 @@ func TestService_SkipProposalStopIntroducee(t *testing.T) {
 	})
 
 	proposal := introduce.CreateProposal(&introduce.To{Name: Carol})
-	introduce.WrapWithMetadataPublicInvitation(proposal, &didexchange.Invitation{
-		Type: didexchange.InvitationMsgType,
+	introduce.WrapWithMetadataPublicOOBRequest(proposal, &outofband.Request{
+		Type: outofband.RequestMsgType,
 	})
 
 	err := alice.HandleOutbound(proposal, Alice, Bob)
@@ -773,8 +775,8 @@ func TestService_ProposalWithRequest(t *testing.T) {
 	), checkDIDCommAction(t, Bob,
 		action{
 			Expected: introduce.ProposalMsgType,
-			Opt: introduce.WithInvitation(&didexchange.Invitation{
-				Type: didexchange.InvitationMsgType,
+			Opt: introduce.WithOOBRequest(&outofband.Request{
+				Type: outofband.RequestMsgType,
 			}),
 		},
 	))
@@ -852,8 +854,8 @@ func TestService_ProposalWithRequestContinue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
 
-		require.NoError(t, bob.Continue(actions[0].PIID, introduce.WithInvitation(&didexchange.Invitation{
-			Type: didexchange.InvitationMsgType,
+		require.NoError(t, bob.Continue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
+			Type: outofband.RequestMsgType,
 		})))
 
 		runtime.Goexit()
@@ -932,8 +934,8 @@ func TestService_ProposalWithRequestSecond(t *testing.T) {
 	), checkDIDCommAction(t, Carol,
 		action{
 			Expected: introduce.ProposalMsgType,
-			Opt: introduce.WithInvitation(&didexchange.Invitation{
-				Type: didexchange.InvitationMsgType,
+			Opt: introduce.WithOOBRequest(&outofband.Request{
+				Type: outofband.RequestMsgType,
 			}),
 		},
 	))
@@ -1146,8 +1148,8 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 	), checkDIDCommAction(t, Alice,
 		action{
 			Expected: introduce.RequestMsgType,
-			Opt: introduce.WithPublicInvitation(&didexchange.Invitation{
-				Type: didexchange.InvitationMsgType,
+			Opt: introduce.WithPublicOOBRequest(&outofband.Request{
+				Type: outofband.RequestMsgType,
 			}, &introduce.To{
 				Name: Carol,
 			}),
@@ -1195,8 +1197,8 @@ func TestService_SkipProposalWithRequestStopIntroducee(t *testing.T) {
 	), checkDIDCommAction(t, Alice,
 		action{
 			Expected: introduce.RequestMsgType,
-			Opt: introduce.WithPublicInvitation(&didexchange.Invitation{
-				Type: didexchange.InvitationMsgType,
+			Opt: introduce.WithPublicOOBRequest(&outofband.Request{
+				Type: outofband.RequestMsgType,
 			}, &introduce.To{
 				Name: Carol,
 			}),
@@ -1301,10 +1303,10 @@ func TestService_New(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(nil, errors.New(errMsg))
+		provider.EXPECT().Service(outofband.Name).Return(nil, errors.New(errMsg))
 
 		svc, err := introduce.New(provider)
-		require.EqualError(t, err, "load the DIDExchange service: test err")
+		require.EqualError(t, err, "load the out-of-band service: test err")
 		require.Nil(t, svc)
 	})
 
@@ -1314,11 +1316,29 @@ func TestService_New(t *testing.T) {
 
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(nil, nil)
+		provider.EXPECT().Service(outofband.Name).Return(nil, nil)
 
 		svc, err := introduce.New(provider)
 		require.EqualError(t, err, "cast service to service.Event")
 		require.Nil(t, svc)
+	})
+
+	t.Run("wraps error returned during msg event registration", func(t *testing.T) {
+		expected := errors.New("test")
+
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(nil, nil)
+		provider := introduceMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().Messenger().Return(nil)
+
+		oobService := serviceMocks.NewMockDIDComm(ctrl)
+		oobService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(expected)
+		provider.EXPECT().Service(outofband.Name).Return(oobService, nil)
+
+		_, err := introduce.New(provider)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
 	})
 }
 
@@ -1340,7 +1360,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
+		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 
@@ -1372,7 +1392,7 @@ func TestService_HandleInbound(t *testing.T) {
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
+		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -1399,7 +1419,7 @@ func TestService_HandleInbound(t *testing.T) {
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
+		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -1429,7 +1449,7 @@ func TestService_HandleInbound(t *testing.T) {
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
+		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -1459,7 +1479,7 @@ func TestService_HandleInbound(t *testing.T) {
 		provider := introduceMocks.NewMockProvider(ctrl)
 		provider.EXPECT().StorageProvider().Return(storageProvider)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().Service(didexchange.DIDExchange).Return(didService, nil)
+		provider.EXPECT().Service(outofband.Name).Return(didService, nil)
 
 		svc, err := introduce.New(provider)
 		require.NoError(t, err)
@@ -1471,5 +1491,106 @@ func TestService_HandleInbound(t *testing.T) {
 
 		_, err = svc.HandleInbound(msg, "", "")
 		require.EqualError(t, err, "doHandle: nextState: unrecognized msgType: unknown")
+	})
+}
+
+func TestOOBMessageReceived(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("ignores msg not in requested state", func(t *testing.T) {
+		ignored := true
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).MaxTimes(0).DoAndReturn(
+			func(string) ([]byte, error) {
+				ignored = false
+				return nil, nil
+			},
+		)
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+		provider := introduceMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().Messenger().Return(nil)
+		oobService := serviceMocks.NewMockDIDComm(ctrl)
+		oobService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		provider.EXPECT().Service(outofband.Name).Return(oobService, nil)
+
+		s, err := introduce.New(provider)
+		require.NoError(t, err)
+
+		err = s.OOBMessageReceived(service.StateMsg{
+			Type:    service.PostState,
+			StateID: "invalid",
+			Msg: service.NewDIDCommMsgMap(&model.Ack{
+				Thread: &decorator.Thread{
+					PID: "123",
+				},
+			}),
+		})
+		require.NoError(t, err)
+		require.True(t, ignored)
+	})
+	t.Run("ignores pre-state msgs", func(t *testing.T) {
+		ignored := true
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).MaxTimes(0).DoAndReturn(
+			func(string) ([]byte, error) {
+				ignored = false
+				return nil, nil
+			},
+		)
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+		provider := introduceMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().Messenger().Return(nil)
+		oobService := serviceMocks.NewMockDIDComm(ctrl)
+		oobService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		provider.EXPECT().Service(outofband.Name).Return(oobService, nil)
+
+		s, err := introduce.New(provider)
+		require.NoError(t, err)
+
+		err = s.OOBMessageReceived(service.StateMsg{
+			Type:    service.PreState,
+			StateID: "requested",
+			Msg: service.NewDIDCommMsgMap(&model.Ack{
+				Thread: &decorator.Thread{
+					PID: "123",
+				},
+			}),
+		})
+		require.NoError(t, err)
+		require.True(t, ignored)
+	})
+	t.Run("ignores msgs with no parent thread", func(t *testing.T) {
+		ignored := true
+		store := storageMocks.NewMockStore(ctrl)
+		store.EXPECT().Get(gomock.Any()).MaxTimes(0).DoAndReturn(
+			func(string) ([]byte, error) {
+				ignored = false
+				return nil, nil
+			},
+		)
+		storageProvider := storageMocks.NewMockProvider(ctrl)
+		storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+		provider := introduceMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storageProvider)
+		provider.EXPECT().Messenger().Return(nil)
+		oobService := serviceMocks.NewMockDIDComm(ctrl)
+		oobService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+		provider.EXPECT().Service(outofband.Name).Return(oobService, nil)
+
+		s, err := introduce.New(provider)
+		require.NoError(t, err)
+
+		err = s.OOBMessageReceived(service.StateMsg{
+			Type:    service.PostState,
+			StateID: "requested",
+			Msg:     service.NewDIDCommMsgMap(&model.Ack{}),
+		})
+		require.NoError(t, err)
+		require.True(t, ignored)
 	})
 }

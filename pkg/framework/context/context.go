@@ -126,8 +126,8 @@ func (p *Provider) Signer() legacykms.Signer {
 	return p.legacyKMS
 }
 
-// ServiceEndpoint returns an service endpoint. This endpoint is used in DID
-// Exchange Invitation or DID Document service to send messages to the agent.
+// ServiceEndpoint returns an service endpoint. This endpoint is used in Out-Of-Band messages,
+// DID Exchange Invitations or DID Document service to send messages to the agent.
 func (p *Provider) ServiceEndpoint() string {
 	return p.serviceEndpoint
 }

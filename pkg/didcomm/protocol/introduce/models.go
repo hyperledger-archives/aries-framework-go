@@ -8,7 +8,6 @@ package introduce
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 )
 
 // Proposal defines proposal request
@@ -83,9 +82,9 @@ type Request struct {
 
 // Response message that introducee usually sends in response to an introduction proposal
 type Response struct {
-	Type       string                  `json:"@type,omitempty"`
-	ID         string                  `json:"@id,omitempty"`
-	Thread     *decorator.Thread       `json:"~thread,omitempty"`
-	Approve    bool                    `json:"approve,omitempty"`
-	Invitation *didexchange.Invitation `json:"invitation,omitempty"`
+	Type       string                 `json:"@type,omitempty"`
+	ID         string                 `json:"@id,omitempty"`
+	Thread     *decorator.Thread      `json:"~thread,omitempty"`
+	Approve    bool                   `json:"approve,omitempty"`
+	OOBMessage map[string]interface{} `json:"oob-message,omitempty"`
 }

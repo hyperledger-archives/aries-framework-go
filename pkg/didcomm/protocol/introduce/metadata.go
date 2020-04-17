@@ -10,35 +10,35 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 )
 
 const (
 	// protocol instance ID
 	metaPIID         = Introduce + "_pi_id"
 	metaSkipProposal = Introduce + "_skip_proposal"
-	metaInvitation   = Introduce + "_invitation"
+	metaOOBMessage   = Introduce + "_oobmessage"
 	metaRecipients   = Introduce + "_recipients"
 )
 
 // Opt describes option signature for the Continue function
 type Opt func(m map[string]interface{})
 
-// WithInvitation is used when introducee wants to provide invitation.
-// NOTE: Introducee can provide invitation only after receiving ProposalMsgType
-// USAGE: event.Continue(WithInvitation(inv))
-func WithInvitation(inv *didexchange.Invitation) Opt {
+// WithOOBRequest is used when introducee wants to provide an out-of-band request.
+// NOTE: Introducee can provide this request only after receiving ProposalMsgType
+// USAGE: event.Continue(WithOOBRequest(req))
+func WithOOBRequest(req *outofband.Request) Opt {
 	return func(m map[string]interface{}) {
-		m[metaInvitation] = service.NewDIDCommMsgMap(inv)
+		m[metaOOBMessage] = service.NewDIDCommMsgMap(req)
 	}
 }
 
-// WithPublicInvitation is used when introducer wants to provide public invitation.
-// NOTE: Introducer can provide invitation only after receiving RequestMsgType
-// USAGE: event.Continue(WithPublicInvitation(inv, to))
-func WithPublicInvitation(inv *didexchange.Invitation, to *To) Opt {
+// WithPublicOOBRequest is used when introducer wants to provide public an out-of-band request.
+// NOTE: Introducer can provide this request only after receiving RequestMsgType
+// USAGE: event.Continue(WithPublicOOBRequest(req, to))
+func WithPublicOOBRequest(req *outofband.Request, to *To) Opt {
 	return func(m map[string]interface{}) {
-		m[metaInvitation] = service.NewDIDCommMsgMap(inv)
+		m[metaOOBMessage] = service.NewDIDCommMsgMap(req)
 		m[metaSkipProposal] = true
 		m[metaRecipients] = []interface{}{&Recipient{
 			To: to,
@@ -69,11 +69,11 @@ func WrapWithMetadataPIID(msgMap ...service.DIDCommMsg) {
 	}
 }
 
-// WrapWithMetadataPublicInvitation wraps message with metadata.
+// WrapWithMetadataPublicOOBRequest wraps message with metadata.
 // The function is used by the introduce client to define skip proposal.
 // It also saves invitation and will provide it later to the introducee.
-func WrapWithMetadataPublicInvitation(msg service.DIDCommMsgMap, inv *didexchange.Invitation) {
-	msg.Metadata()[metaInvitation] = service.NewDIDCommMsgMap(inv)
+func WrapWithMetadataPublicOOBRequest(msg service.DIDCommMsgMap, req *outofband.Request) {
+	msg.Metadata()[metaOOBMessage] = service.NewDIDCommMsgMap(req)
 	msg.Metadata()[metaSkipProposal] = true
 }
 

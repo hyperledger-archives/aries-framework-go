@@ -35,6 +35,7 @@ func TestNew(t *testing.T) {
 		c, err := New(withTestProvider())
 		require.NoError(t, err)
 		require.NotNil(t, c)
+		require.NotNil(t, c.Event)
 	})
 }
 
@@ -162,15 +163,6 @@ func TestCreateRequest(t *testing.T) {
 		require.Len(t, req.Service, 2)
 		require.Contains(t, req.Service, didRef)
 		require.Contains(t, req.Service, svc)
-	})
-	t.Run("WithServices rejects invalid dids", func(t *testing.T) {
-		c, err := New(withTestProvider())
-		require.NoError(t, err)
-		didRef := "123"
-		_, err = c.CreateRequest(
-			WithAttachments(dummyAttachment(t)),
-			WithServices(didRef))
-		require.Error(t, err)
 	})
 	t.Run("WithServices rejects unsupported service data types", func(t *testing.T) {
 		c, err := New(withTestProvider())
@@ -303,6 +295,7 @@ func withTestProvider() *mockprovider.Provider {
 }
 
 type stubOOBService struct {
+	service.Event
 	acceptReqFunc func(request *outofband.Request) (string, error)
 	saveReqFunc   func(*outofband.Request) error
 }

@@ -14,7 +14,6 @@ import (
 )
 
 // Destination provides the recipientKeys, routingKeys, and serviceEndpoint for an outbound message.
-// Can be populated from an Invitation or DIDDoc.
 type Destination struct {
 	RecipientKeys        []string
 	ServiceEndpoint      string

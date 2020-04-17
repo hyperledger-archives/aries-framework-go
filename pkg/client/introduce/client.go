@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 )
@@ -51,7 +51,7 @@ func New(ctx Provider) (*Client, error) {
 	}, nil
 }
 
-// SendProposal sends a proposal to the introducees (the client does not have a public Invitation).
+// SendProposal sends a proposal to the introducees (the client has not published an out-of-band message).
 func (c *Client) SendProposal(recipient1, recipient2 *introduce.Recipient) error {
 	proposal1 := introduce.CreateProposal(recipient1.To)
 	proposal2 := introduce.CreateProposal(recipient2.To)
@@ -68,11 +68,11 @@ func (c *Client) SendProposal(recipient1, recipient2 *introduce.Recipient) error
 	return err
 }
 
-// SendProposalWithInvitation sends a proposal to the introducee (the client has a public Invitation).
-func (c *Client) SendProposalWithInvitation(inv *didexchange.Invitation, recipient *introduce.Recipient) error {
+// SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
+func (c *Client) SendProposalWithOOBRequest(req *outofband.Request, recipient *introduce.Recipient) error {
 	proposal := introduce.CreateProposal(recipient.To)
 
-	introduce.WrapWithMetadataPublicInvitation(proposal, inv.Invitation)
+	introduce.WrapWithMetadataPublicOOBRequest(proposal, req.Request)
 
 	err := c.service.HandleOutbound(proposal, recipient.MyDID, recipient.TheirDID)
 
@@ -80,7 +80,7 @@ func (c *Client) SendProposalWithInvitation(inv *didexchange.Invitation, recipie
 }
 
 // SendRequest sends a request.
-// Sending a request means that the introducee is willing to share its invitation.
+// Sending a request means that the introducee is willing to share their own out-of-band message.
 func (c *Client) SendRequest(to *introduce.PleaseIntroduceTo, myDID, theirDID string) error {
 	err := c.service.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type:              introduce.RequestMsgType,
@@ -90,19 +90,19 @@ func (c *Client) SendRequest(to *introduce.PleaseIntroduceTo, myDID, theirDID st
 	return err
 }
 
-// AcceptProposal is used when introducee wants to provide invitation.
-// NOTE: For async usage. Introducee can provide invitation only after receiving ProposalMsgType
-func (c *Client) AcceptProposal(piID string, inv *didexchange.Invitation) error {
-	return c.service.Continue(piID, WithInvitation(inv))
+// AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.
+// NOTE: For async usage. Introducee can provide this request only after receiving ProposalMsgType
+func (c *Client) AcceptProposalWithOOBRequest(piID string, req *outofband.Request) error {
+	return c.service.Continue(piID, WithOOBRequest(req))
 }
 
-// AcceptRequestWithPublicInvitation is used when introducer wants to provide public invitation.
+// AcceptRequestWithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
 // NOTE: For async usage. Introducer can provide invitation only after receiving RequestMsgType
-func (c *Client) AcceptRequestWithPublicInvitation(piID string, inv *didexchange.Invitation, to *introduce.To) error {
-	return c.service.Continue(piID, WithPublicInvitation(inv, to))
+func (c *Client) AcceptRequestWithPublicOOBRequest(piID string, req *outofband.Request, to *introduce.To) error {
+	return c.service.Continue(piID, WithPublicOOBRequest(req, to))
 }
 
-// AcceptRequestWithRecipients is used when the introducer does not have a public invitation
+// AcceptRequestWithRecipients is used when the introducer does not have a published out-of-band message on hand
 // but he is willing to introduce agents to each other.
 // NOTE: For async usage. Introducer can provide recipients only after receiving RequestMsgType.
 func (c *Client) AcceptRequestWithRecipients(piID string, to *introduce.To, recipient *introduce.Recipient) error {
@@ -114,7 +114,7 @@ func (c *Client) Actions() ([]introduce.Action, error) {
 	return c.service.Actions()
 }
 
-// WithRecipients is used when the introducer does not have a public invitation
+// WithRecipients is used when the introducer does not have a published out-of-band message on hand
 // but he is willing to introduce agents to each other.
 // NOTE: Introducer can provide recipients only after receiving RequestMsgType.
 // USAGE: event.Continue(WithRecipients(to, recipient))
@@ -122,16 +122,16 @@ func WithRecipients(to *introduce.To, recipient *introduce.Recipient) introduce.
 	return introduce.WithRecipients(to, recipient)
 }
 
-// WithPublicInvitation is used when introducer wants to provide public invitation.
-// NOTE: Introducer can provide invitation only after receiving RequestMsgType
-// USAGE: event.Continue(WithPublicInvitation(inv, to))
-func WithPublicInvitation(inv *didexchange.Invitation, to *introduce.To) introduce.Opt {
-	return introduce.WithPublicInvitation(inv.Invitation, to)
+// WithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
+// NOTE: Introducer can provide this request only after receiving RequestMsgType
+// USAGE: event.Continue(WithPublicOOBRequest(req, to))
+func WithPublicOOBRequest(req *outofband.Request, to *introduce.To) introduce.Opt {
+	return introduce.WithPublicOOBRequest(req.Request, to)
 }
 
-// WithInvitation is used when introducee wants to provide invitation.
+// WithOOBRequest is used when introducee wants to provide invitation.
 // NOTE: Introducee can provide invitation only after receiving ProposalMsgType
-// USAGE: event.Continue(WithInvitation(inv))
-func WithInvitation(inv *didexchange.Invitation) introduce.Opt {
-	return introduce.WithInvitation(inv.Invitation)
+// USAGE: event.Continue(WithOOBRequest(inv))
+func WithOOBRequest(req *outofband.Request) introduce.Opt {
+	return introduce.WithOOBRequest(req.Request)
 }

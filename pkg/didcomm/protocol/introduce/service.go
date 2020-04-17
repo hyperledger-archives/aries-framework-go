@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -38,8 +38,8 @@ const (
 	AckMsgType = IntroduceSpec + "ack"
 	// ProblemReportMsgType defines the introduce problem-report message type.
 	ProblemReportMsgType = IntroduceSpec + "problem-report"
-	// stateInvited the didexchange protocol state name to determine specific event
-	stateInvited = "invited"
+	// stateOOBRequested the outofband protocol state name to determine specific event
+	stateOOBRequested = "requested"
 )
 
 const (
@@ -98,11 +98,10 @@ type metaData struct {
 type Service struct {
 	service.Action
 	service.Message
-	store           storage.Store
-	callbacks       chan *metaData
-	didEvent        chan service.StateMsg
-	didEventService service.Event
-	messenger       service.Messenger
+	store     storage.Store
+	callbacks chan *metaData
+	oobEvent  chan service.StateMsg
+	messenger service.Messenger
 }
 
 // Provider contains dependencies for the DID exchange protocol and is typically created by using aries.Context()
@@ -119,26 +118,25 @@ func New(p Provider) (*Service, error) {
 		return nil, err
 	}
 
-	didSvc, err := p.Service(didexchange.DIDExchange)
+	oobSvc, err := p.Service(outofband.Name)
 	if err != nil {
-		return nil, fmt.Errorf("load the DIDExchange service: %w", err)
+		return nil, fmt.Errorf("load the %s service: %w", outofband.Name, err)
 	}
 
-	didService, ok := didSvc.(service.Event)
+	oobService, ok := oobSvc.(service.Event)
 	if !ok {
 		return nil, fmt.Errorf("cast service to service.Event")
 	}
 
 	svc := &Service{
-		messenger:       p.Messenger(),
-		store:           store,
-		didEventService: didService,
-		callbacks:       make(chan *metaData),
-		didEvent:        make(chan service.StateMsg),
+		messenger: p.Messenger(),
+		store:     store,
+		callbacks: make(chan *metaData),
+		oobEvent:  make(chan service.StateMsg),
 	}
 
-	if err = svc.didEventService.RegisterMsgEvent(svc.didEvent); err != nil {
-		return nil, fmt.Errorf("did register msg event: %w", err)
+	if err = oobService.RegisterMsgEvent(svc.oobEvent); err != nil {
+		return nil, fmt.Errorf("oob register msg event: %w", err)
 	}
 
 	// start the listener
@@ -169,9 +167,9 @@ func (s *Service) startInternalListener() {
 			if err := s.handle(msg); err != nil {
 				logger.Errorf("listener handle: %s", err)
 			}
-		case event := <-s.didEvent:
-			if err := s.InvitationReceived(event); err != nil {
-				logger.Errorf("listener invitation received: %s", err)
+		case event := <-s.oobEvent:
+			if err := s.OOBMessageReceived(event); err != nil {
+				logger.Errorf("listener oob message received: %s", err)
 			}
 		}
 	}
@@ -239,10 +237,10 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 	}, nil
 }
 
-// InvitationReceived is used to finish the state machine
-// the function should be called by didexchange after receiving an invitation
-func (s *Service) InvitationReceived(msg service.StateMsg) error {
-	if msg.StateID != stateInvited || msg.Type != service.PostState || msg.Msg.ParentThreadID() == "" {
+// OOBMessageReceived is used to finish the state machine
+// the function should be called by the out-of-band service after receiving an oob message
+func (s *Service) OOBMessageReceived(msg service.StateMsg) error {
+	if msg.StateID != stateOOBRequested || msg.Type != service.PostState || msg.Msg.ParentThreadID() == "" {
 		return nil
 	}
 
@@ -578,25 +576,25 @@ func (s *Service) handle(md *metaData) error {
 	return nil
 }
 
-func contextInvitation(msg service.DIDCommMsg) (*didexchange.Invitation, error) {
-	var inv *didexchange.Invitation
+func contextOOBMessage(msg service.DIDCommMsg) map[string]interface{} {
+	var oobMsg map[string]interface{}
 
-	switch v := msg.Metadata()[metaInvitation].(type) {
+	switch v := msg.Metadata()[metaOOBMessage].(type) {
 	case service.DIDCommMsgMap:
-		if err := v.Decode(&inv); err != nil {
-			return nil, err
+		oobMsg = v.Clone()
+
+		for k := range v.Metadata() {
+			delete(oobMsg, k)
 		}
 	case map[string]interface{}:
-		if err := service.DIDCommMsgMap(v).Decode(&inv); err != nil {
-			return nil, err
-		}
+		oobMsg = v
 	}
 
-	return inv, nil
+	return oobMsg
 }
 
 type participant struct {
-	Invitation *didexchange.Invitation
+	OOBMessage map[string]interface{}
 	Approve    bool
 	MessageID  string
 	MyDID      string
@@ -629,7 +627,7 @@ func (s *Service) saveResponse(md *metaData) error {
 	}
 
 	err = s.saveParticipant(md.PIID, &participant{
-		Invitation: r.Invitation,
+		OOBMessage: r.OOBMessage,
 		Approve:    r.Approve,
 		MessageID:  md.Msg.ID(),
 		MyDID:      md.MyDID,

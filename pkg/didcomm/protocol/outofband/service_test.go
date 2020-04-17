@@ -139,6 +139,11 @@ func TestHandleInbound(t *testing.T) {
 		case e := <-events:
 			require.Equal(t, Name, e.ProtocolName)
 			require.Equal(t, expected, e.Message)
+			require.NotNil(t, e.Properties)
+			props, ok := e.Properties.(*eventProps)
+			require.True(t, ok)
+			require.Empty(t, props.ConnectionID())
+			require.NoError(t, props.Error())
 		case <-time.After(1 * time.Second):
 			t.Error("timeout waiting for action event")
 		}
@@ -755,6 +760,52 @@ func TestSaveRequest(t *testing.T) {
 		err := s.SaveRequest(newRequest())
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
+	})
+}
+
+func TestChooseTarget(t *testing.T) {
+	t.Run("chooses a string", func(t *testing.T) {
+		expected := "abc123"
+		result, err := chooseTarget([]interface{}{expected})
+		require.NoError(t, err)
+		require.Equal(t, expected, result)
+	})
+	t.Run("chooses a did service entry", func(t *testing.T) {
+		expected := &did.Service{
+			ID:              uuid.New().String(),
+			Type:            "did-communication",
+			Priority:        0,
+			RecipientKeys:   []string{"my ver key"},
+			RoutingKeys:     []string{"my routing key"},
+			ServiceEndpoint: "my service endpoint",
+		}
+		result, err := chooseTarget([]interface{}{expected})
+		require.NoError(t, err)
+		require.Equal(t, expected, result)
+	})
+	t.Run("chooses a map-type service", func(t *testing.T) {
+		expected := map[string]interface{}{
+			"id":              uuid.New().String(),
+			"type":            "did-communication",
+			"priority":        uint(0),
+			"recipientKeys":   []string{"my ver key"},
+			"routingKeys":     []string{"my routing key"},
+			"serviceEndpoint": "my service endpoint",
+		}
+		svc, err := chooseTarget([]interface{}{expected})
+		require.NoError(t, err)
+		result, ok := svc.(*did.Service)
+		require.True(t, ok)
+		require.Equal(t, expected["id"], result.ID)
+		require.Equal(t, expected["type"], result.Type)
+		require.Equal(t, expected["priority"], result.Priority)
+		require.Equal(t, expected["recipientKeys"], result.RecipientKeys)
+		require.Equal(t, expected["routingKeys"], result.RoutingKeys)
+		require.Equal(t, expected["serviceEndpoint"], result.ServiceEndpoint)
+	})
+	t.Run("fails if not services are specified", func(t *testing.T) {
+		_, err := chooseTarget([]interface{}{})
+		require.Error(t, err)
 	})
 }
 

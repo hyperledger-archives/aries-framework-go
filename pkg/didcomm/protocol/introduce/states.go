@@ -12,13 +12,12 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 )
 
 const (
 	codeNotApproved     = "not approved"
 	codeRequestDeclined = "request declined"
-	codeNoInvitation    = "no invitation"
+	codeNoOOBMessage    = "no out-of-band message"
 	codeInternalError   = "internal error"
 )
 
@@ -148,9 +147,9 @@ func isApproved(md *metaData) bool {
 	return true
 }
 
-func hasInvitation(md *metaData) bool {
+func hasOOBMessage(md *metaData) bool {
 	for _, p := range md.participants {
-		if p.Invitation != nil {
+		if p.OOBMessage != nil {
 			return true
 		}
 	}
@@ -258,12 +257,9 @@ func deliveringSkipInvitation(messenger service.Messenger, md *metaData) (state,
 	}
 
 	return &done{}, func() error {
-		inv, err := contextInvitation(md.Msg)
-		if err != nil {
-			return fmt.Errorf("context invitation: %w", err)
-		}
+		msg := contextOOBMessage(md.Msg)
 
-		return messenger.ReplyToNested(thID, service.NewDIDCommMsgMap(inv), md.MyDID, md.TheirDID)
+		return messenger.ReplyToNested(thID, msg, md.MyDID, md.TheirDID)
 	}, nil
 }
 
@@ -272,18 +268,18 @@ func (s *delivering) ExecuteInbound(messenger service.Messenger, md *metaData) (
 		return deliveringSkipInvitation(messenger, md)
 	}
 
-	// edge case: no one shared the invitation
-	if !hasInvitation(md) {
-		return &abandoning{Code: codeNoInvitation}, zeroAction, nil
+	// edge case: no one shared an oob message
+	if !hasOOBMessage(md) {
+		return &abandoning{Code: codeNoOOBMessage}, zeroAction, nil
 	}
 
-	var inv *didexchange.Invitation
+	var msg service.DIDCommMsgMap
 
 	var participants []*participant
 
 	for _, participant := range md.participants {
-		if participant.Invitation != nil && inv == nil {
-			inv = participant.Invitation
+		if participant.OOBMessage != nil && msg == nil {
+			msg = participant.OOBMessage
 		} else {
 			participants = append(participants, participant)
 		}
@@ -291,7 +287,7 @@ func (s *delivering) ExecuteInbound(messenger service.Messenger, md *metaData) (
 
 	return &confirming{}, func() error {
 		for _, p := range participants {
-			err := messenger.ReplyToNested(p.ThreadID, service.NewDIDCommMsgMap(inv), p.MyDID, p.TheirDID)
+			err := messenger.ReplyToNested(p.ThreadID, msg, p.MyDID, p.TheirDID)
 			if err != nil {
 				return fmt.Errorf("reply to nested: %w", err)
 			}
@@ -325,7 +321,7 @@ func (s *confirming) ExecuteInbound(messenger service.Messenger, md *metaData) (
 	var p *participant
 
 	for _, participant := range md.participants {
-		if participant.Invitation == nil {
+		if participant.OOBMessage == nil {
 			continue
 		}
 
@@ -440,14 +436,11 @@ func (s *deciding) ExecuteInbound(messenger service.Messenger, md *metaData) (st
 	}
 
 	return st, func() error {
-		inv, err := contextInvitation(md.Msg)
-		if err != nil {
-			return fmt.Errorf("context invitation: %w", err)
-		}
+		msg := contextOOBMessage(md.Msg)
 
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(Response{
 			Type:       ResponseMsgType,
-			Invitation: inv,
+			OOBMessage: msg,
 			Approve:    !md.rejected,
 		}))
 	}, nil
