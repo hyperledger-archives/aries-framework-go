@@ -7,14 +7,25 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable_test
 
 import (
+	"crypto"
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/btcsuite/btcd/btcec"
+	gojose "github.com/square/go-jose/v3"
+
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
+	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -103,7 +114,7 @@ func ExampleCredential_embedding() {
 		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getSigner(issuerPrivKey), "")
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(issuerPrivKey), "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}
@@ -172,7 +183,7 @@ func ExampleCredential_extraFields() {
 		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getSigner(issuerPrivKey), "")
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(issuerPrivKey), "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}
@@ -233,7 +244,7 @@ func ExampleNewCredential() {
 		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getSigner(issuerPrivKey), "")
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(issuerPrivKey), "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}
@@ -296,7 +307,7 @@ func ExampleCredential_JWTClaims() {
 		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getSigner(issuerPrivKey), "")
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(issuerPrivKey), "")
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}
@@ -348,7 +359,7 @@ func ExampleCredential_AddLinkedDataProof() {
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		Created:                 &issued,
 		SignatureType:           "Ed25519Signature2018",
-		Suite:                   ed25519signature2018.New(suite.WithSigner(getSigner(issuerPrivKey))),
+		Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519Signer(issuerPrivKey))),
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      "did:example:123456#key1",
 	})
@@ -399,18 +410,169 @@ func ExampleCredential_AddLinkedDataProof() {
 	//}
 }
 
-func getSigner(privKey []byte) *testSigner {
-	return &testSigner{privateKey: privKey}
+//nolint:lll,govet
+func ExampleCredential_AddLinkedDataProofMultiProofs() {
+	log.SetLevel("aries-framework/json-ld-processor", log.ERROR)
+
+	vcJSON := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "credentialSchema": [],
+  "credentialSubject": {
+    "degree": {
+      "type": "BachelorDegree",
+      "university": "MIT"
+    },
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "expirationDate": "2020-01-01T19:23:24Z",
+  "id": "http://example.edu/credentials/1872",
+  "issuanceDate": "2009-01-01T19:23:24Z",
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University"
+  },
+  "referenceNumber": 83294849,
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ]
+}
+`
+
+	vc, _, err := verifiable.NewCredential([]byte(vcJSON))
+	if err != nil {
+		fmt.Println(fmt.Errorf("failed to decode VC JSON: %w", err))
+	}
+
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		Created:                 &issued,
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519Signer(issuerPrivKey))),
+		SignatureRepresentation: verifiable.SignatureJWS,
+		VerificationMethod:      "did:example:123456#key1",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	ecdsaPrivKey, err := ecdsa.GenerateKey(btcec.S256(), rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		Created:                 &issued,
+		SignatureType:           "JsonWebSignature2020",
+		Suite:                   jsonwebsignature2020.New(suite.WithSigner(getECDSASecp256k1Signer(ecdsaPrivKey))),
+		SignatureRepresentation: verifiable.SignatureJWS,
+		VerificationMethod:      "did:example:123456#key2",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	vcBytes, err := json.Marshal(vc)
+	if err != nil {
+		panic(err)
+	}
+
+	// Verify the VC with two embedded proofs.
+	ed25519Suite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
+	jsonWebSignatureSuite := jsonwebsignature2020.New(suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
+
+	_, _, err = verifiable.NewCredential(vcBytes,
+		verifiable.WithEmbeddedSignatureSuites(ed25519Suite, jsonWebSignatureSuite),
+		verifiable.WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
+			switch keyID {
+			case "#key1":
+				return &sigverifier.PublicKey{
+					Type:  "Ed25519Signature2018",
+					Value: issuerPubKey,
+				}, nil
+
+			case "#key2":
+				return &sigverifier.PublicKey{
+					Type:  "JwsVerificationKey2020",
+					Value: elliptic.Marshal(ecdsaPrivKey.Curve, ecdsaPrivKey.X, ecdsaPrivKey.Y),
+					JWK: &jose.JWK{
+						JSONWebKey: gojose.JSONWebKey{
+							Algorithm: "ES256",
+							Key:       &ecdsaPrivKey.PublicKey,
+						},
+						Crv: "P-256",
+						Kty: "EC",
+					},
+				}, nil
+			}
+
+			return nil, errors.New("unsupported keyID")
+		}))
+	if err != nil {
+		panic(err)
+	}
+	// Output:
 }
 
-type testSigner struct {
+func getEd25519Signer(privKey []byte) *ed25519Signer {
+	return &ed25519Signer{privateKey: privKey}
+}
+
+type ed25519Signer struct {
 	privateKey []byte
 }
 
-func (s *testSigner) Sign(doc []byte) ([]byte, error) {
+func (s *ed25519Signer) Sign(doc []byte) ([]byte, error) {
 	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
 		return nil, errors.New("ed25519: bad private key length")
 	}
 
 	return ed25519.Sign(s.privateKey, doc), nil
+}
+
+func getECDSASecp256k1Signer(privKey *ecdsa.PrivateKey) *ecdsaSecp256k1Signer {
+	return &ecdsaSecp256k1Signer{
+		privKey: privKey,
+	}
+}
+
+type ecdsaSecp256k1Signer struct {
+	privKey *ecdsa.PrivateKey
+}
+
+func (es *ecdsaSecp256k1Signer) Sign(payload []byte) ([]byte, error) {
+	hasher := crypto.SHA256.New()
+
+	_, err := hasher.Write(payload)
+	if err != nil {
+		panic(err)
+	}
+
+	hashed := hasher.Sum(nil)
+
+	r, s, err := ecdsa.Sign(rand.Reader, es.privKey, hashed)
+	if err != nil {
+		panic(err)
+	}
+
+	curveBits := es.privKey.Curve.Params().BitSize
+
+	keyBytes := curveBits / 8
+	if curveBits%8 > 0 {
+		keyBytes++
+	}
+
+	copyPadded := func(source []byte, size int) []byte {
+		dest := make([]byte, size)
+		copy(dest[size-len(source):], source)
+
+		return dest
+	}
+
+	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
 }

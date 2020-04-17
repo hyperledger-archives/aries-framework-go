@@ -25,6 +25,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -287,4 +288,63 @@ func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
 	}
 
 	return vc, SingleKey(pubKey, kmsapi.ED25519)
+}
+
+func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
+	vc, err := NewUnverifiedCredential([]byte(validCredential))
+	if err != nil {
+		panic(err)
+	}
+
+	created := time.Now()
+
+	pubKey1, privKey1, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey1))),
+		SignatureRepresentation: SignatureJWS,
+		Created:                 &created,
+		VerificationMethod:      "did:123#key1",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	pubKey2, privKey2, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey2))),
+		SignatureRepresentation: SignatureJWS,
+		Created:                 &created,
+		VerificationMethod:      "did:123#key2",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return vc, func(issuerID, keyID string) (*verifier.PublicKey, error) {
+		switch keyID {
+		case "#key1":
+			return &verifier.PublicKey{
+				Type:  "Ed25519Signature2018",
+				Value: pubKey1,
+			}, nil
+
+		case "#key2":
+			return &verifier.PublicKey{
+				Type:  "Ed25519Signature2018",
+				Value: pubKey2,
+			}, nil
+		}
+
+		panic("invalid keyID")
+	}
 }
