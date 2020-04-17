@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,8 +23,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
 const sampleCredentialName = "sampleVCName"
@@ -50,6 +55,33 @@ const vc = `
    }
 }
 `
+
+//nolint:lll
+const doc = `{
+  "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
+  "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
+  "publicKey": [
+    {
+      "id": "did:peer:123456789abcdefghi#keys-1",
+      "type": "Secp256k1VerificationKey2018",
+      "controller": "did:peer:123456789abcdefghi",
+      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+    },
+    {
+      "id": "did:peer:123456789abcdefghw#key2",
+      "type": "RsaVerificationKey2018",
+      "controller": "did:peer:123456789abcdefghw",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
+    },
+{
+        "type": "Ed25519VerificationKey2018",
+        "publicKeyBase58": "GUXiqNHCdirb6NKpH6wYG4px3YfMjiCh6dQhU3zxQVQ7",
+        "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+    }
+
+  ]
+}`
 
 func TestNew(t *testing.T) {
 	t.Run("test new command - success", func(t *testing.T) {
@@ -179,7 +211,7 @@ func TestGetVC(t *testing.T) {
 
 		handler := lookupHandler(t, cmd, getCredentialPath, http.MethodGet)
 		buf, err := getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/%s`,
-			varifiableCredentialPath, base64.StdEncoding.EncodeToString([]byte("http://example.edu/credentials/1989"))))
+			verifiableCredentialPath, base64.StdEncoding.EncodeToString([]byte("http://example.edu/credentials/1989"))))
 		require.NoError(t, err)
 
 		response := credentialRes{}
@@ -201,7 +233,7 @@ func TestGetVC(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		handler := lookupHandler(t, cmd, getCredentialPath, http.MethodGet)
-		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/%s`, varifiableCredentialPath, "abc"))
+		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/%s`, verifiableCredentialPath, "abc"))
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
 
@@ -232,7 +264,7 @@ func TestGetCredentialByName(t *testing.T) {
 
 		handler = lookupHandler(t, cmd, getCredentialByNamePath, http.MethodGet)
 		buf, err = getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/name/%s`,
-			varifiableCredentialPath, sampleCredentialName))
+			verifiableCredentialPath, sampleCredentialName))
 		require.NoError(t, err)
 
 		response := credentialRecord{}
@@ -254,7 +286,7 @@ func TestGetCredentialByName(t *testing.T) {
 
 		handler := lookupHandler(t, cmd, getCredentialByNamePath, http.MethodGet)
 		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/name/%s`,
-			varifiableCredentialPath, sampleCredentialName))
+			verifiableCredentialPath, sampleCredentialName))
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
 
@@ -298,19 +330,41 @@ func TestGetCredentials(t *testing.T) {
 }
 
 func TestGeneratePresentation(t *testing.T) {
-	cmd, err := New(&mockprovider.Provider{
-		StorageProviderValue: mockstore.NewMockStoreProvider(),
+	s := make(map[string][]byte)
+	invalidDID := "did:error:123"
+	cmd, cmdErr := New(&mockprovider.Provider{
+		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (didDoc *did.Doc, e error) {
+				if didID == invalidDID {
+					return nil, errors.New("invalid")
+				}
+				didDoc = &did.Doc{}
+				err := json.Unmarshal([]byte(doc), didDoc)
+				if err != nil {
+					return nil, errors.New("unmarshal failed ")
+				}
+				return didDoc, nil
+			},
+		},
+		LegacyKMSValue: &kmsmock.CloseableKMS{},
 	})
-	require.NoError(t, err)
 	require.NotNil(t, cmd)
+	require.NoError(t, cmdErr)
 
 	t.Run("test generate presentation - success", func(t *testing.T) {
-		vcReq := verifiable.Credential{VerifiableCredential: vc}
-		jsonStr, err := json.Marshal(vcReq)
+		vcs := make([]string, 1)
+		vcs[0] = vc
+
+		presReq := verifiable.PresentationRequest{
+			VerifiableCredentials: vcs,
+			DID:                   "did:peer:21tDAKCERh95uGgKbJNHYp",
+		}
+		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 
 		handler := lookupHandler(t, cmd, generatePresentationPath, http.MethodPost)
-		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(presReqBytes), handler.Path())
 		require.NoError(t, err)
 
 		response := presentationRes{}
@@ -324,7 +378,8 @@ func TestGeneratePresentation(t *testing.T) {
 
 	t.Run("test generate presentation - error", func(t *testing.T) {
 		var jsonStr = []byte(`{
-			"name" : "sample"
+			"name" : "sample",
+            "did"  : "did:peer:21tDAKCERh95uGgKbJNHYp"
 		}`)
 
 		handler := lookupHandler(t, cmd, generatePresentationPath, http.MethodPost)
@@ -333,27 +388,47 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NotEmpty(t, buf)
 
 		require.Equal(t, http.StatusBadRequest, code)
-		verifyError(t, verifiable.GeneratePresentationErrorCode, "parse vc : decode new credential", buf.Bytes())
+		verifyError(t, verifiable.GeneratePresentationErrorCode,
+			"generate vp - parse presentation request: no credential found", buf.Bytes())
 	})
 }
 
 func TestGeneratePresentationByID(t *testing.T) {
 	s := make(map[string][]byte)
-
-	cmd, err := New(&mockprovider.Provider{
+	invalidDID := "did:error:123"
+	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (didDoc *did.Doc, e error) {
+				if didID == invalidDID {
+					return nil, errors.New("invalid")
+				}
+				didDoc, err := did.ParseDocument([]byte(doc))
+				if err != nil {
+					return nil, errors.New("unmarshal failed ")
+				}
+				return didDoc, nil
+			},
+		},
+		LegacyKMSValue: &kmsmock.CloseableKMS{},
 	})
-	require.NoError(t, err)
 	require.NotNil(t, cmd)
+	require.NoError(t, cmdErr)
 
 	t.Run("test generate presentation by id - success", func(t *testing.T) {
+		// to store the values in the store
 		s["http://example.edu/credentials/1989"] = []byte(vc)
+		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = []byte(doc)
 
-		handler := lookupHandler(t, cmd, generatePresentationByIDPath, http.MethodGet)
-		url := fmt.Sprintf(`%s/%s/%s`,
-			varifiableCredentialPath, base64.StdEncoding.EncodeToString([]byte("http://example.edu/credentials/1989")),
-			"presentation")
-		buf, err := getSuccessResponseFromHandler(handler, nil, url)
+		presReqByID := verifiable.PresentationRequestByID{
+			ID:  "http://example.edu/credentials/1989",
+			DID: "did:peer:21tDAKCERh95uGgKbJNHYp",
+		}
+		presReqBytes, err := json.Marshal(presReqByID)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, generatePresentationByIDPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(presReqBytes), handler.Path())
 		require.NoError(t, err)
 
 		response := presentationRes{}
@@ -365,16 +440,34 @@ func TestGeneratePresentationByID(t *testing.T) {
 		require.NotEmpty(t, response.VerifiablePresentation)
 	})
 
-	t.Run("test generate presentation by id - error", func(t *testing.T) {
-		handler := lookupHandler(t, cmd, generatePresentationByIDPath, http.MethodGet)
-		url := fmt.Sprintf(`%s/%s/%s`, varifiableCredentialPath, "abc",
-			"presentation")
-		buf, code, err := sendRequestToHandler(handler, nil, url)
+	t.Run("test generate presentation by id - invalid data", func(t *testing.T) {
+		var jsonStr = []byte(`{
+			"id" : "sample", 
+     		"did": "testDID"
+		}`)
+
+		handler := lookupHandler(t, cmd, generatePresentationByIDPath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
 
 		require.Equal(t, http.StatusBadRequest, code)
-		verifyError(t, verifiable.InvalidRequestErrorCode, "illegal base64 data", buf.Bytes())
+		verifyError(t, verifiable.GeneratePresentationByIDErrorCode, "get vc by id ", buf.Bytes())
+	})
+
+	t.Run("test generate presentation by id - invalid did", func(t *testing.T) {
+		var jsonStr = []byte(`{
+			"name" : "http://example.edu/credentials/1989", 
+     		"dids": "testDID"
+		}`)
+
+		handler := lookupHandler(t, cmd, generatePresentationByIDPath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.InvalidRequestErrorCode, "credential id is mandatory", buf.Bytes())
 	})
 }
 

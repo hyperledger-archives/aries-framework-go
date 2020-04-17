@@ -9,7 +9,6 @@ package vdri
 import (
 	"encoding/json"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	storeDID "github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
 
@@ -24,8 +23,7 @@ type CreatePublicDIDArgs struct {
 
 // CreatePublicDIDResponse for returning public DID created
 type CreatePublicDIDResponse struct {
-	// TODO return base64-encoded raw bytes of the DID doc [Issue: #855]
-	DID *did.Doc `json:"did"`
+	DID json.RawMessage `json:"did"`
 }
 
 // Document is model for did document.

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -64,9 +65,14 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 		// verify response
 		require.NotEmpty(t, response)
 		require.NotEmpty(t, response.DID)
-		require.NotEmpty(t, response.DID.ID)
-		require.NotEmpty(t, response.DID.PublicKey)
-		require.NotEmpty(t, response.DID.Service)
+
+		doc, err := did.ParseDocument(response.DID)
+		require.NoError(t, err)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, doc.ID)
+		require.NotEmpty(t, doc.PublicKey)
+		require.NotEmpty(t, doc.Service)
 	})
 
 	t.Run("Test successful create public DID with request header", func(t *testing.T) {
@@ -86,9 +92,13 @@ func TestOperation_CreatePublicDID(t *testing.T) {
 		// verify response
 		require.NotEmpty(t, response)
 		require.NotEmpty(t, response.DID)
-		require.NotEmpty(t, response.DID.ID)
-		require.NotEmpty(t, response.DID.PublicKey)
-		require.NotEmpty(t, response.DID.Service)
+
+		doc, err := did.ParseDocument(response.DID)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, doc.ID)
+		require.NotEmpty(t, doc.PublicKey)
+		require.NotEmpty(t, doc.Service)
 	})
 
 	t.Run("Test create public DID validation error", func(t *testing.T) {

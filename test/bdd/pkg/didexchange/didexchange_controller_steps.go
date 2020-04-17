@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	vdricmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -499,21 +500,28 @@ func (a *ControllerSteps) createPublicDID(agentID, didMethod string) error {
 		return err
 	}
 
+	doc, err := did.ParseDocument(result.DID)
+
+	if err != nil {
+		logger.Errorf("Failed to unmarshal did : %s", err)
+		return err
+	}
+
 	// validate response
-	if result.DID == nil || result.DID.ID == "" {
+	if result.DID == nil || doc.ID == "" {
 		return fmt.Errorf("failed to get valid public DID for agent [%s]", agentID)
 	}
 
-	logger.Debugf("Created public DID '%s' for agent '%s'", result.DID.ID, agentID)
+	logger.Debugf("Created public DID '%s' for agent '%s'", doc.ID, agentID)
 
-	err = a.waitForPublicDID(result.DID.ID)
+	err = a.waitForPublicDID(doc.ID)
 	if err != nil {
 		logger.Errorf("Failed to resolve public DID created, cause : %s", err)
 		return fmt.Errorf("failed to resolve public DID created, %w", err)
 	}
 
 	// save public DID for later use
-	a.bddContext.PublicDIDs[agentID] = result.DID.ID
+	a.bddContext.PublicDIDs[agentID] = doc.ID
 
 	return nil
 }

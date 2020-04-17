@@ -17,25 +17,29 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const (
 	verifiableOperationID        = "/verifiable"
-	varifiableCredentialPath     = verifiableOperationID + "/credential"
-	validateCredentialPath       = varifiableCredentialPath + "/validate"
-	saveCredentialPath           = varifiableCredentialPath
-	getCredentialPath            = varifiableCredentialPath + "/{id}"
-	getCredentialByNamePath      = varifiableCredentialPath + "/name" + "/{name}"
+	verifiableCredentialPath     = verifiableOperationID + "/credential"
+	validateCredentialPath       = verifiableCredentialPath + "/validate"
+	saveCredentialPath           = verifiableCredentialPath
+	getCredentialPath            = verifiableCredentialPath + "/{id}"
+	getCredentialByNamePath      = verifiableCredentialPath + "/name" + "/{name}"
 	getCredentialsPath           = verifiableOperationID + "/credentials"
-	varifiablePresentationPath   = verifiableOperationID + "/presentation"
-	generatePresentationPath     = varifiablePresentationPath + "/generate"
-	generatePresentationByIDPath = varifiableCredentialPath + "/{id}" + "/presentation"
+	verifiablePresentationPath   = verifiableOperationID + "/presentation"
+	generatePresentationPath     = verifiablePresentationPath + "/generate"
+	generatePresentationByIDPath = verifiablePresentationPath + "/generatebyid"
 )
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
 type provider interface {
 	StorageProvider() storage.Provider
+	VDRIRegistry() vdri.Registry
+	Signer() legacykms.Signer
 }
 
 // Operation contains basic common operations provided by controller REST API
@@ -48,7 +52,7 @@ type Operation struct {
 func New(p provider) (*Operation, error) {
 	cmd, err := verifiable.New(p)
 	if err != nil {
-		return nil, fmt.Errorf("new vc store : %w", err)
+		return nil, fmt.Errorf("verfiable new: %w", err)
 	}
 
 	o := &Operation{command: cmd}
@@ -71,7 +75,7 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(getCredentialByNamePath, http.MethodGet, o.GetCredentialByName),
 		cmdutil.NewHTTPHandler(getCredentialsPath, http.MethodGet, o.GetCredentials),
 		cmdutil.NewHTTPHandler(generatePresentationPath, http.MethodPost, o.GeneratePresentation),
-		cmdutil.NewHTTPHandler(generatePresentationByIDPath, http.MethodGet, o.GeneratePresentationByID),
+		cmdutil.NewHTTPHandler(generatePresentationByIDPath, http.MethodPost, o.GeneratePresentationByID),
 	}
 }
 
@@ -155,7 +159,8 @@ func (o *Operation) GeneratePresentation(rw http.ResponseWriter, req *http.Reque
 	rest.Execute(o.command.GeneratePresentation, rw, req.Body)
 }
 
-// GeneratePresentationByID swagger:route GET /verifiable/credential/{id}/presentation verifiable presentationByIDReq
+// GeneratePresentationByID swagger:route POST /verifiable/presentation/generatebyid
+// verifiable PresentationRequestByID model
 //
 // Generates the verifiable presentation from a stored verifiable credential.
 //
@@ -163,15 +168,5 @@ func (o *Operation) GeneratePresentation(rw http.ResponseWriter, req *http.Reque
 //    default: genericError
 //        200: presentationRes
 func (o *Operation) GeneratePresentationByID(rw http.ResponseWriter, req *http.Request) {
-	id := mux.Vars(req)["id"]
-
-	decodedID, err := base64.StdEncoding.DecodeString(id)
-	if err != nil {
-		rest.SendHTTPStatusError(rw, http.StatusBadRequest, verifiable.InvalidRequestErrorCode, err)
-		return
-	}
-
-	request := fmt.Sprintf(`{"id":"%s"}`, string(decodedID))
-
-	rest.Execute(o.command.GeneratePresentationByID, rw, bytes.NewBufferString(request))
+	rest.Execute(o.command.GeneratePresentationByID, rw, req.Body)
 }
