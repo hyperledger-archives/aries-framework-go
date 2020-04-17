@@ -195,6 +195,17 @@ func TestCrypto_ComputeMAC(t *testing.T) {
 		require.Equal(t, errBadKeyHandleFormat, err)
 		require.Empty(t, macBytes)
 	})
+	t.Run("fail - wrong key type", func(t *testing.T) {
+		kh, err := keyset.NewHandle(signature.ECDSAP256KeyTemplate())
+		require.NoError(t, err)
+		require.NotNil(t, kh)
+
+		c := Crypto{}
+		msg := []byte(testMessage)
+		macBytes, err := c.ComputeMAC(msg, kh)
+		require.EqualError(t, err, "mac_factory: not a MAC primitive")
+		require.Empty(t, macBytes)
+	})
 }
 
 func TestCrypto_VerifyMAC(t *testing.T) {
@@ -216,5 +227,14 @@ func TestCrypto_VerifyMAC(t *testing.T) {
 		c := Crypto{}
 		err := c.VerifyMAC(nil, nil, nil)
 		require.Equal(t, errBadKeyHandleFormat, err)
+	})
+	t.Run("fail - wrong key type", func(t *testing.T) {
+		kh, err := keyset.NewHandle(signature.ECDSAP256KeyTemplate())
+		require.NoError(t, err)
+		require.NotNil(t, kh)
+
+		c := Crypto{}
+		err = c.VerifyMAC(nil, nil, kh)
+		require.EqualError(t, err, "mac_factory: not a MAC primitive")
 	})
 }
