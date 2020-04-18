@@ -158,12 +158,22 @@ func NewEd25519SignatureVerifier() *Ed25519SignatureVerifier {
 
 // Verify verifies the signature.
 func (sv Ed25519SignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byte) error {
+	value := pubKey.Value
+
+	if pubKey.JWK != nil {
+		var ok bool
+		value, ok = pubKey.JWK.Public().Key.(ed25519.PublicKey)
+
+		if !ok {
+			return fmt.Errorf("public key not ed25519.PublicKey")
+		}
+	}
 	// ed25519 panics if key size is wrong
-	if len(pubKey.Value) != ed25519.PublicKeySize {
+	if len(value) != ed25519.PublicKeySize {
 		return errors.New("ed25519: invalid key")
 	}
 
-	verified := ed25519.Verify(pubKey.Value, msg, signature)
+	verified := ed25519.Verify(value, msg, signature)
 	if !verified {
 		return errors.New("ed25519: invalid signature")
 	}

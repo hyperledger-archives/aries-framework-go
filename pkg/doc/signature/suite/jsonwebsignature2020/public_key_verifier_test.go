@@ -121,10 +121,10 @@ func TestPublicKeyVerifier_Verify_Ed25519(t *testing.T) {
 	pubKey := &sigverifier.PublicKey{
 		Type: "JwsVerificationKey2020",
 		JWK: &jose.JWK{
-			Kty: "OKP",
-			Crv: "Ed25519",
+			JSONWebKey: gojose.JSONWebKey{Key: publicKey},
+			Kty:        "OKP",
+			Crv:        "Ed25519",
 		},
-		Value: publicKey,
 	}
 	v := NewPublicKeyVerifier()
 
