@@ -18,20 +18,33 @@ import (
 
 func Test_parseEmbeddedProof(t *testing.T) {
 	t.Run("parse linked data proof with \"Ed25519Signature2018\" proof type", func(t *testing.T) {
-		err := mustBeLinkedDataProof(map[string]interface{}{
-			"type": "Ed25519Signature2018",
+		s, err := getProofType(map[string]interface{}{
+			"type": ed25519Signature2018,
 		})
 		require.NoError(t, err)
+		require.Equal(t, ed25519Signature2018, s)
+
+		s, err = getProofType(map[string]interface{}{
+			"type": jsonWebSignature2020,
+		})
+		require.NoError(t, err)
+		require.Equal(t, jsonWebSignature2020, s)
+
+		s, err = getProofType(map[string]interface{}{
+			"type": ecdsaSecp256k1Signature2019,
+		})
+		require.NoError(t, err)
+		require.Equal(t, ecdsaSecp256k1Signature2019, s)
 	})
 
 	t.Run("parse embedded proof without \"type\" element", func(t *testing.T) {
-		err := mustBeLinkedDataProof(map[string]interface{}{})
+		_, err := getProofType(map[string]interface{}{})
 		require.Error(t, err)
 		require.EqualError(t, err, "proof type is missing")
 	})
 
 	t.Run("parse embedded proof with unsupported type", func(t *testing.T) {
-		err := mustBeLinkedDataProof(map[string]interface{}{
+		_, err := getProofType(map[string]interface{}{
 			"type": "SomethingUnsupported",
 		})
 		require.Error(t, err)

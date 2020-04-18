@@ -150,9 +150,8 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 	t.Run("no signature suite defined", func(t *testing.T) {
 		vcDecoded, _, err := NewCredential(vcWithEd25519ProofBytes,
 			WithPublicKeyFetcher(SingleKey(ed25519PubKey, kms.ED25519)))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "create new signature verifier")
-		require.Nil(t, vcDecoded)
+		require.NoError(t, err)
+		require.NotNil(t, vcDecoded)
 	})
 }
 
