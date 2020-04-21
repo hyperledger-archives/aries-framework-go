@@ -134,7 +134,7 @@ type DeclineOfferResponse struct{}
 type DeclineRequestArgs struct {
 	// PIID protocol state machine identifier
 	PIID string `json:"piid"`
-	// Reason why offer is declined
+	// Reason why request is declined
 	Reason string `json:"reason"`
 }
 
@@ -151,7 +151,7 @@ type DeclineRequestResponse struct{}
 type DeclineCredentialArgs struct {
 	// PIID protocol state machine identifier
 	PIID string `json:"piid"`
-	// Reason why offer is declined
+	// Reason why credential is declined
 	Reason string `json:"reason"`
 }
 
@@ -222,7 +222,7 @@ type SendRequestResponse struct{}
 
 // ActionsResponse model
 //
-// Represents a Actions response message
+// Represents Actions response message
 //
 type ActionsResponse struct {
 	Actions []issuecredential.Action `json:"actions"`

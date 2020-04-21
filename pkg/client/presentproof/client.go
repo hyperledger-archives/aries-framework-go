@@ -22,6 +22,8 @@ type (
 	// presentation process, or in response to a request-presentation message when the Prover wants to
 	// propose using a different presentation format.
 	ProposePresentation presentproof.ProposePresentation
+	// Action contains helpful information about action
+	Action presentproof.Action
 )
 
 var (
@@ -68,8 +70,18 @@ func New(ctx Provider) (*Client, error) {
 }
 
 // Actions returns pending actions that have yet to be executed or cancelled.
-func (c *Client) Actions() ([]presentproof.Action, error) {
-	return c.service.Actions()
+func (c *Client) Actions() ([]Action, error) {
+	actions, err := c.service.Actions()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]Action, len(actions))
+	for i, action := range actions {
+		result[i] = Action(action)
+	}
+
+	return result, nil
 }
 
 // SendRequestPresentation is used by the Verifier to send a request presentation.
