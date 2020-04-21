@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package jose
 
 import (
-	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -309,28 +308,15 @@ func TestCurveSize(t *testing.T) {
 }
 
 func TestJWK_PublicKeyBytesValidation(t *testing.T) {
-	// invalid public key
-	privKey, err := ecdsa.GenerateKey(btcec.S256(), rand.Reader)
-	require.NoError(t, err)
-
 	jwk := &JWK{
 		JSONWebKey: jose.JSONWebKey{
-			Key:       &privKey.PublicKey,
-			Algorithm: "ES256",
-			KeyID:     "pubkey#123",
+			Key:   "key of invalid type",
+			KeyID: "pubkey#123",
 		},
-		Crv: "P-256",
-		Kty: "EC",
 	}
 
-	pkBytes, err := jwk.PublicKeyBytes()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "failed to read public key bytes")
-	require.Empty(t, pkBytes)
-
 	// unsupported public key type
-	jwk.Key = "key of invalid type"
-	pkBytes, err = jwk.PublicKeyBytes()
+	pkBytes, err := jwk.PublicKeyBytes()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unsupported public key type in kid 'pubkey#123'")
 	require.Empty(t, pkBytes)

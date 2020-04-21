@@ -9,7 +9,6 @@ package did
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -906,14 +905,11 @@ func TestNewPublicKeyFromJWK(t *testing.T) {
 		},
 	}
 
-	pubKeyBytes, err := x509.MarshalPKIXPublicKey(pubKey)
-	require.NoError(t, err)
-
 	// Success.
 	signingKey, err := NewPublicKeyFromJWK(creator, keyType, did, jwk)
 	require.NoError(t, err)
 	require.Equal(t, jwk, signingKey.JSONWebKey())
-	require.Equal(t, pubKeyBytes, signingKey.Value)
+	require.Equal(t, []byte(pubKey), signingKey.Value)
 
 	// Error - invalid JWK.
 	jwk = &jose.JWK{

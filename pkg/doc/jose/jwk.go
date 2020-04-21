@@ -59,13 +59,12 @@ func (j *JWK) PublicKeyBytes() ([]byte, error) {
 	}
 
 	switch pubKey := j.Public().Key.(type) {
-	case *ecdsa.PublicKey, *rsa.PublicKey, ed25519.PublicKey:
-		pubKBytes, err := x509.MarshalPKIXPublicKey(pubKey)
-		if err != nil {
-			return nil, errors.New("failed to read public key bytes")
-		}
-
-		return pubKBytes, nil
+	case ed25519.PublicKey:
+		return pubKey, nil
+	case *ecdsa.PublicKey:
+		return elliptic.Marshal(pubKey, pubKey.X, pubKey.Y), nil
+	case *rsa.PublicKey:
+		return x509.MarshalPKCS1PublicKey(pubKey), nil
 	default:
 		return nil, fmt.Errorf("unsupported public key type in kid '%s'", j.KeyID)
 	}
