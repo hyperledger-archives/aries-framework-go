@@ -238,6 +238,7 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 	didDoc := createDIDDoc()
 	publicKey := didDoc.PublicKey[0]
 	authentication := didDoc.Authentication[0]
+	assertionMethod := didDoc.AssertionMethod[0]
 
 	v := &mockvdri.MockVDRIRegistry{
 		ResolveValue: didDoc,
@@ -260,6 +261,11 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 	r.NotNil(authPubKey.JWK)
 	r.Equal(authPubKey.JWK.Algorithm, "EdDSA")
 
+	assertMethPubKey, err := resolver.PublicKeyFetcher()(didDoc.ID, assertionMethod.PublicKey.ID)
+	r.NoError(err)
+	r.Equal(assertionMethod.PublicKey.Value, assertMethPubKey.Value)
+	r.Equal("Ed25519VerificationKey2018", assertMethPubKey.Type)
+
 	pubKey, err = resolver.PublicKeyFetcher()(didDoc.ID, "invalid key")
 	r.Error(err)
 	r.EqualError(err, fmt.Sprintf("public key with KID invalid key is not found for DID %s", didDoc.ID))
@@ -272,6 +278,7 @@ func TestDIDKeyResolver_Resolve(t *testing.T) {
 	r.Nil(pubKey)
 }
 
+//nolint:lll
 func createDIDDoc() *did.Doc {
 	didDocJSON := `{
   "@context": [
@@ -314,6 +321,14 @@ func createDIDDoc() *did.Doc {
         "x": "DEfkntM3vCV5WtS-1G9cBMmkNJSPlVdjwSdHmHbirTg"
       },
       "type": "Ed25519VerificationKey2018"
+    }
+  ],
+  "assertionMethod": [
+    {
+      "id": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J#z6MkqfvdBsFw4QdGrZrnx7L1EKfY5zh9tT4gumUGsMMEZHY3",
+      "type": "Ed25519VerificationKey2018",
+      "controller": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J",
+      "publicKeyBase58": "CDfabd1Vis8ok526GYNAPE7YGRRJUZpLDkZM35PDe4kf"
     }
   ],
   "created": "2020-04-13T12:51:08.274813+03:00",

@@ -181,12 +181,12 @@ func TestValid(t *testing.T) {
 			{PublicKey: *NewPublicKeyFromBytes("did:example:123456789abcdefghi#keys-1",
 				"Secp256k1VerificationKey2018",
 				"did:example:123456789abcdefghi",
-				base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"))},
+				base58.Decode("H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV")), Relationship: Authentication},
 			{PublicKey: PublicKey{
 				ID:         "did:example:123456789abcdefghs#key3",
 				Controller: "did:example:123456789abcdefghs",
 				Type:       "RsaVerificationKey2018",
-				Value:      hexDecodeValue}}}
+				Value:      hexDecodeValue}, Relationship: Authentication, Embedded: true}}
 		require.Equal(t, eAuthentication, doc.Authentication)
 
 		// test public key
@@ -382,36 +382,18 @@ func TestPopulateCapabilityInvocations(t *testing.T) {
 }
 
 func TestPopulateKeyAgreements(t *testing.T) {
-	t.Run("test did doc key agreement", func(t *testing.T) {
+	t.Run("test key not exist", func(t *testing.T) {
 		raw := &rawDoc{}
 		require.NoError(t, json.Unmarshal([]byte(docV011WithVerificationRelationships), &raw))
 
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-
-		doc, err := ParseDocument(bytes)
-		require.NotNil(t, doc)
-		require.NoError(t, err)
-
-		pubKey := doc.KeyAgreement[0].PublicKey
-		require.Equal(t, "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#zBzoR5sqFgi6q3iFia8JPNfENCpi7RNSTKF7XNXX96SBY4", pubKey.ID) //nolint:lll
-		require.Equal(t, "X25519KeyAgreementKey2019", pubKey.Type)
-		require.Equal(t, "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH", pubKey.Controller)
-		require.Equal(t, "JhNWeSVLMYccCk7iopQW4guaSJTojqpMEELgSLhKwRr", base58.Encode(pubKey.Value))
-	})
-
-	t.Run("test invalid key agreement publicKey", func(t *testing.T) {
-		raw := &rawDoc{}
-		require.NoError(t, json.Unmarshal([]byte(docV011WithVerificationRelationships), &raw))
-
-		raw.KeyAgreement[0]["publicKeyBase58"] = ""
+		raw.KeyAgreement[0] = missingPubKeyID
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 
 		_, err = ParseDocument(bytes)
 		require.Error(t, err)
 
-		expected := "populate key agreements failed"
+		expected := fmt.Sprintf("key %s not exist in did doc public key", missingPubKeyID)
 		require.Contains(t, err.Error(), expected)
 	})
 }
@@ -1287,6 +1269,125 @@ func TestDIDSchemas(t *testing.T) {
 			})
 		}
 	})
+}
+
+// nolint:lll
+func TestDoc_VerificationMethods(t *testing.T) {
+	didDocStr := `
+{
+  "@context": "https://w3id.org/did/v1",
+  "id": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A",
+  "service": [
+    {
+      "id": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A#openid",
+      "type": "OpenIdConnectVersion1.0Service",
+      "serviceEndpoint": "https://openid.example.com/"
+    }
+  ],
+  "assertionMethod": [
+    "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A#edv"
+  ],
+  "authentication": [
+    "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A#edv",
+    {
+      "id": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A#authentication",
+      "type": "Ed25519VerificationKey2018",
+      "controller": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A",
+      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
+    }
+  ],
+  "capabilityDelegation": [
+    "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A#edv"
+  ],
+  "capabilityInvocation": [
+    "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A#edv"
+  ],
+  "keyAgreement": [
+    {
+      "id": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A#keyAgreement",
+      "type": "X25519KeyAgreementKey2019",
+      "controller": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A",
+      "publicKeyBase58": "ENpfk9K9J6uss5qu6BrAszioE732mYCobmMPSpvB3faM"
+    }
+  ],
+  "publicKey": [
+    {
+      "id": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A#primary",
+      "type": "Secp256k1VerificationKey2018",
+      "controller": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A",
+      "publicKeyHex": "0361f286ada2a6b2c74bc6ed44a71ef59fb9dd15eca9283cbe5608aeb516730f33"
+    },
+    {
+      "id": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A#recovery",
+      "type": "Secp256k1VerificationKey2018",
+      "controller": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A",
+      "publicKeyHex": "02c00982681081372cbb941cd2c9745908316e1373ac333479f0deabcad0e9d574"
+    },
+    {
+      "id": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A#edv",
+      "type": "Ed25519VerificationKey2018",
+      "controller": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A",
+      "publicKeyBase58": "atEBuHypSkQx7486xT5FUkoBLqvNcWyNK2Xz9EPjdMy"
+    },
+    {
+      "id": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A#key-JUvpllMEYUZ2joO59UNui_XYDqxVqiFLLAJ8klWuPBw",
+      "type": "Ed25519VerificationKey2018",
+      "controller": "did:elem:ropsten:EiAS3mqC4OLMKOwcz3ItIL7XfWduPT7q3Fa4vHgiCfSG2A",
+      "publicKeyJwk": {
+        "crv": "secp256k1",
+        "kid": "JUvpllMEYUZ2joO59UNui_XYDqxVqiFLLAJ8klWuPBw",
+        "kty": "EC",
+        "x": "dWCvM4fTdeM0KmloF57zxtBPXTOythHPMm1HCLrdd3A",
+        "y": "36uMVGM7hnw-N6GnjFcihWE3SkrhMLzzLCdPMXPEXlA"
+      }
+    }
+  ]
+}
+`
+
+	doc, err := ParseDocument([]byte(didDocStr))
+	require.NoError(t, err)
+
+	// Get all verification methods.
+	methods := doc.VerificationMethods()
+	require.Len(t, methods, 6)
+	require.Len(t, methods[AssertionMethod], 1)
+	require.Len(t, methods[Authentication], 2)
+	require.Len(t, methods[CapabilityInvocation], 1)
+	require.Len(t, methods[CapabilityDelegation], 1)
+	require.Len(t, methods[KeyAgreement], 1)
+	require.Len(t, methods[VerificationRelationshipGeneral], 4)
+
+	// Get verification methods of several relationships.
+	methods = doc.VerificationMethods(AssertionMethod, Authentication)
+	require.Len(t, methods, 2)
+	require.Len(t, methods[AssertionMethod], 1)
+	require.Len(t, methods[Authentication], 2)
+
+	// Get verification methods of concrete relationship.
+	methods = doc.VerificationMethods(AssertionMethod)
+	require.Len(t, methods, 1)
+	require.Len(t, methods[AssertionMethod], 1)
+
+	methods = doc.VerificationMethods(Authentication)
+	require.Len(t, methods, 1)
+	require.Len(t, methods[Authentication], 2)
+
+	methods = doc.VerificationMethods(CapabilityInvocation)
+	require.Len(t, methods, 1)
+	require.Len(t, methods[CapabilityInvocation], 1)
+
+	methods = doc.VerificationMethods(CapabilityDelegation)
+	require.Len(t, methods, 1)
+	require.Len(t, methods[CapabilityDelegation], 1)
+
+	methods = doc.VerificationMethods(KeyAgreement)
+	require.Len(t, methods, 1)
+	require.Len(t, methods[KeyAgreement], 1)
+
+	methods = doc.VerificationMethods(VerificationRelationshipGeneral)
+	require.Len(t, methods, 1)
+	require.Len(t, methods[VerificationRelationshipGeneral], 4)
 }
 
 func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
