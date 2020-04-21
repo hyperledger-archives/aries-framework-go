@@ -36,65 +36,86 @@ func TestGetCommandHandlers(t *testing.T) {
 }
 
 func TestGetCommandHandlers_Success(t *testing.T) {
-	path, cleanup := generateTempDir(t)
-	defer cleanup()
+	t.Run("Default", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
 
-	framework, err := aries.New(defaults.WithStorePath(path), defaults.WithInboundHTTPAddr(":26508", ""))
-	require.NoError(t, err)
-	require.NotNil(t, framework)
+		framework, err := aries.New(defaults.WithStorePath(path), defaults.WithInboundHTTPAddr(":26508", ""))
+		require.NoError(t, err)
+		require.NotNil(t, framework)
 
-	defer func() {
-		e := framework.Close()
-		if e != nil {
-			t.Fatal(e)
-		}
-	}()
+		defer func() { require.NoError(t, framework.Close()) }()
 
-	ctx, err := framework.Context()
-	require.NoError(t, err)
-	require.NotNil(t, ctx)
+		ctx, err := framework.Context()
+		require.NoError(t, err)
+		require.NotNil(t, ctx)
 
-	handlers, err := GetCommandHandlers(ctx)
-	require.NoError(t, err)
-	require.NotEmpty(t, handlers)
+		handlers, err := GetCommandHandlers(ctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, handlers)
+	})
 
-	// test with options
-	handlers, err = GetCommandHandlers(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
-		WithAutoAccept(true), WithDefaultLabel("sample-label"),
-		WithWebhookURLs("sample-wh-url"), WithNotifier(webhook.NewMockWebhookNotifier()))
-	require.NoError(t, err)
-	require.NotEmpty(t, handlers)
+	t.Run("With options", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
+
+		framework, err := aries.New(defaults.WithStorePath(path), defaults.WithInboundHTTPAddr(":26508", ""))
+		require.NoError(t, err)
+		require.NotNil(t, framework)
+
+		defer func() { require.NoError(t, framework.Close()) }()
+
+		ctx, err := framework.Context()
+		require.NoError(t, err)
+		require.NotNil(t, ctx)
+
+		handlers, err := GetCommandHandlers(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
+			WithAutoAccept(true), WithDefaultLabel("sample-label"),
+			WithWebhookURLs("sample-wh-url"), WithNotifier(webhook.NewMockWebhookNotifier()))
+		require.NoError(t, err)
+		require.NotEmpty(t, handlers)
+	})
 }
 
 func TestGetRESTHandlers_Success(t *testing.T) {
-	path, cleanup := generateTempDir(t)
-	defer cleanup()
+	t.Run("", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
 
-	framework, err := aries.New(defaults.WithStorePath(path), defaults.WithInboundHTTPAddr(":26508", ""))
-	require.NoError(t, err)
-	require.NotNil(t, framework)
+		framework, err := aries.New(defaults.WithStorePath(path), defaults.WithInboundHTTPAddr(":26508", ""))
+		require.NoError(t, err)
+		require.NotNil(t, framework)
 
-	defer func() {
-		e := framework.Close()
-		if e != nil {
-			t.Fatal(e)
-		}
-	}()
+		defer func() { require.NoError(t, framework.Close()) }()
 
-	ctx, err := framework.Context()
-	require.NoError(t, err)
-	require.NotNil(t, ctx)
+		ctx, err := framework.Context()
+		require.NoError(t, err)
+		require.NotNil(t, ctx)
 
-	handlers, err := GetRESTHandlers(ctx)
-	require.NoError(t, err)
-	require.NotEmpty(t, handlers)
+		handlers, err := GetRESTHandlers(ctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, handlers)
+	})
+	t.Run("", func(t *testing.T) {
+		path, cleanup := generateTempDir(t)
+		defer cleanup()
 
-	// test with options
-	handlers, err = GetRESTHandlers(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
-		WithAutoAccept(true), WithDefaultLabel("sample-label"),
-		WithWebhookURLs("sample-wh-url"))
-	require.NoError(t, err)
-	require.NotEmpty(t, handlers)
+		framework, err := aries.New(defaults.WithStorePath(path), defaults.WithInboundHTTPAddr(":26508", ""))
+		require.NoError(t, err)
+		require.NotNil(t, framework)
+
+		defer func() { require.NoError(t, framework.Close()) }()
+
+		ctx, err := framework.Context()
+		require.NoError(t, err)
+		require.NotNil(t, ctx)
+
+		handlers, err := GetRESTHandlers(ctx, WithMessageHandler(msghandler.NewMockMsgServiceProvider()),
+			WithAutoAccept(true), WithDefaultLabel("sample-label"),
+			WithWebhookURLs("sample-wh-url"))
+		require.NoError(t, err)
+		require.NotEmpty(t, handlers)
+	})
 }
 
 func TestWithWebhookNotifierOption(t *testing.T) {

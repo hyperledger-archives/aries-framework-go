@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	didexchangecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
+	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
@@ -18,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	didexchangerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
+	issuecredentialrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	kmsrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/route"
@@ -76,7 +78,7 @@ func WithMessageHandler(handler command.MessageHandler) Opt {
 }
 
 // GetRESTHandlers returns all REST handlers provided by controller.
-func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error) {
+func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error) { // nolint: funlen
 	restAPIOpts := &allOpts{}
 	// Apply options
 	for _, opt := range opts {
@@ -119,6 +121,12 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		return nil, fmt.Errorf("create verifiable rest command : %w", err)
 	}
 
+	// issuecredential REST operation
+	issuecredentialOp, err := issuecredentialrest.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create issue-credential rest command : %w", err)
+	}
+
 	// kms command operation
 	kmscmd := kmsrest.New(ctx)
 
@@ -129,6 +137,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, messagingOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, routeOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, verifiablecmd.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, issuecredentialOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, kmscmd.GetRESTHandlers()...)
 
 	nhp, ok := notifier.(handlerProvider)
@@ -144,7 +153,7 @@ type handlerProvider interface {
 }
 
 // GetCommandHandlers returns all command handlers provided by controller.
-func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, error) {
+func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, error) { // nolint: funlen
 	cmdOpts := &allOpts{}
 	// Apply options
 	for _, opt := range opts {
@@ -187,6 +196,12 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 		return nil, fmt.Errorf("create verifiable command : %w", err)
 	}
 
+	// issuecredential command operation
+	issuecredential, err := issuecredentialcmd.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create issuecredential command : %w", err)
+	}
+
 	// kms command operation
 	kmscmd := kms.New(ctx)
 
@@ -197,6 +212,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, routecmd.GetHandlers()...)
 	allHandlers = append(allHandlers, verifiablecmd.GetHandlers()...)
 	allHandlers = append(allHandlers, kmscmd.GetHandlers()...)
+	allHandlers = append(allHandlers, issuecredential.GetHandlers()...)
 
 	return allHandlers, nil
 }
