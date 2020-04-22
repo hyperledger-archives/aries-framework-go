@@ -11,7 +11,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -494,14 +496,12 @@ func TestGeneratePresentation(t *testing.T) {
 	require.NoError(t, cmdErr)
 
 	t.Run("test generate presentation - success", func(t *testing.T) {
-		credList := make([]string, 2)
-		credList[0] = vc
-		credList[1] = vc
+		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
 
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
-			ProofOptions:          ProofOptions{},
+			ProofOptions:          &ProofOptions{},
 		}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
@@ -518,6 +518,90 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NotEmpty(t, response)
 	})
 
+	t.Run("test generate presentation with proof options - success", func(t *testing.T) {
+		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
+
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		presReq := PresentationRequest{
+			VerifiableCredentials: credList,
+			DID:                   "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				VerificationMethod: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				Domain:             "issuer.example.com",
+				Challenge:          "sample-random-test-value",
+				ProofPurpose:       "authentication",
+				Created:            &createdTime,
+			},
+		}
+
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response Presentation
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+
+		vp, err := verifiable.NewPresentation([]byte(response.VerifiablePresentation))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.NotEmpty(t, vp.Proofs)
+		require.Len(t, vp.Proofs, 1)
+		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
+		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
+	})
+
+	t.Run("test generate verifiable presentation with proof options & presentation - success", func(t *testing.T) {
+		pRaw := json.RawMessage([]byte(`{"@context": "https://www.w3.org/2018/credentials/v1",
+		"type": "VerifiablePresentation","holder": "did:web:vc.example.world"}`))
+
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		presReq := PresentationRequest{
+			Presentation: pRaw,
+			DID:          "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				VerificationMethod: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				Domain:             "issuer.example.com",
+				Challenge:          "sample-random-test-value",
+				ProofPurpose:       "authentication",
+				Created:            &createdTime,
+			},
+		}
+
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response Presentation
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+
+		vp, err := verifiable.NewPresentation([]byte(response.VerifiablePresentation))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.NotEmpty(t, vp.Proofs)
+		require.Equal(t, vp.Holder, "did:web:vc.example.world")
+		require.Len(t, vp.Proofs, 1)
+		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
+		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
+	})
+
 	t.Run("test generate presentation - invalid request", func(t *testing.T) {
 		var b bytes.Buffer
 
@@ -527,8 +611,7 @@ func TestGeneratePresentation(t *testing.T) {
 	})
 
 	t.Run("test generate presentation - validation error", func(t *testing.T) {
-		credList := make([]string, 1)
-		credList[0] = ""
+		credList := []json.RawMessage{[]byte("{}")}
 
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
@@ -547,8 +630,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, cmdErr)
 
-		credList := make([]string, 1)
-		credList[0] = vc
+		credList := []json.RawMessage{[]byte(vc)}
 
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
@@ -699,7 +781,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		credList[0] = v
 
 		var b bytes.Buffer
-		err = cmd.generatePresentation(&b, credList, "pk")
+		err = cmd.generatePresentation(&b, credList, nil, &ProofOptions{VerificationMethod: "pk"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "prepare vp: failed to sign vp: wrong id [pk] to resolve")
 	})
@@ -734,21 +816,21 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 	})
 
 	t.Run("test generate presentation helper parse presentation- no credential error", func(t *testing.T) {
-		credList := make([]string, 0)
+		credList := make([]json.RawMessage, 0)
 
 		req := &PresentationRequest{
 			VerifiableCredentials: credList,
 		}
 
-		vc, _, err := cmd.parsePresentationRequest(req, nil)
+		vc, p, _, err := cmd.parsePresentationRequest(req, nil)
 		require.Error(t, err)
 		require.Nil(t, vc)
-		require.Contains(t, err.Error(), "no credential found")
+		require.Nil(t, p)
+		require.Contains(t, err.Error(), "no valid credentials/presentation found")
 	})
 
 	t.Run("test parse presentation- public key not found in DID Document", func(t *testing.T) {
-		credList := make([]string, 1)
-		credList[0] = vc
+		credList := []json.RawMessage{[]byte(vc)}
 
 		req := &PresentationRequest{
 			VerifiableCredentials: credList,
@@ -757,16 +839,16 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		doc, err := did.ParseDocument([]byte(noPublicKeyDoc))
 		require.NoError(t, err)
 
-		vc, pk, err := cmd.parsePresentationRequest(req, doc)
+		vc, p, opts, err := cmd.parsePresentationRequest(req, doc)
 		require.Error(t, err)
 		require.Nil(t, vc)
-		require.Equal(t, "", pk)
-		require.Contains(t, err.Error(), "get verification method: public key not found in DID Document")
+		require.Nil(t, p)
+		require.Nil(t, opts)
+		require.Contains(t, err.Error(), "public key not found in DID Document")
 	})
 
 	t.Run("test parse presentation- public key not found in DID Document", func(t *testing.T) {
-		credList := make([]string, 1)
-		credList[0] = vc
+		credList := []json.RawMessage{[]byte(vc)}
 
 		req := &PresentationRequest{
 			VerifiableCredentials: credList,
@@ -777,26 +859,27 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 
 		require.NoError(t, err)
 
-		vc, pk, err := cmd.parsePresentationRequest(req, doc)
+		vc, p, opts, err := cmd.parsePresentationRequest(req, doc)
 		require.Error(t, err)
 		require.Nil(t, vc)
-		require.Equal(t, "", pk)
-		require.Contains(t, err.Error(), "get verification method: public key not found in DID Document")
+		require.Nil(t, p)
+		require.Nil(t, opts)
+		require.Contains(t, err.Error(), "public key not found in DID Document")
 	})
 
 	t.Run("test parse presentation- invalid vc", func(t *testing.T) {
-		credList := make([]string, 1)
-		credList[0] = invalidVC
+		credList := []json.RawMessage{[]byte(invalidVC)}
 
 		req := &PresentationRequest{
 			VerifiableCredentials: credList,
 		}
 
-		vc, pk, err := cmd.parsePresentationRequest(req, nil)
+		vc, p, opts, err := cmd.parsePresentationRequest(req, nil)
 		require.Error(t, err)
 		require.Nil(t, vc)
-		require.Equal(t, "", pk)
-		require.Contains(t, err.Error(), "parse vc failed: build new credential")
+		require.Nil(t, p)
+		require.Nil(t, opts)
+		require.Contains(t, err.Error(), "parse credential failed: build new credential")
 	})
 
 	t.Run("test create and sign presentation by id - error", func(t *testing.T) {

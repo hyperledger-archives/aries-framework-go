@@ -345,7 +345,7 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 		}
 	}
 
-	credentials, vm, err := o.parsePresentationRequest(request, didDoc)
+	credentials, presentation, opts, err := o.parsePresentationRequest(request, didDoc)
 	if err != nil {
 		logutil.LogError(logger, commandName, generatePresentationCommandMethod,
 			"parse presentation request: "+err.Error())
@@ -354,7 +354,7 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 			fmt.Errorf("generate vp - parse presentation request: %w", err))
 	}
 
-	return o.generatePresentation(rw, credentials, vm)
+	return o.generatePresentation(rw, credentials, presentation, opts)
 }
 
 // GeneratePresentationByID generates verifiable presentation from a stored verifiable credential.
@@ -398,9 +398,10 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 	return o.generatePresentationByID(rw, vc, doc)
 }
 
-func (o *Command) generatePresentation(rw io.Writer, vcs []interface{}, pk string) command.Error {
+func (o *Command) generatePresentation(rw io.Writer, vcs []interface{}, p *verifiable.Presentation,
+	opts *ProofOptions) command.Error {
 	// prepare vp
-	vp, err := o.createAndSignPresentation(vcs, pk)
+	vp, err := o.createAndSignPresentation(vcs, p, opts)
 	if err != nil {
 		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "create and sign vp: "+err.Error())
 
@@ -435,20 +436,23 @@ func (o *Command) generatePresentationByID(rw io.Writer, vc *verifiable.Credenti
 	return nil
 }
 
-func (o *Command) createAndSignPresentation(credentials []interface{},
-	pk string) ([]byte, error) {
-	vp, err := credentials[0].(*verifiable.Credential).Presentation()
-	if err != nil {
-		return nil, err
-	}
-	// Add array of credentials in the presentation
-	err = vp.SetCredentials(credentials...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set credentials: %w", err)
+func (o *Command) createAndSignPresentation(credentials []interface{}, vp *verifiable.Presentation,
+	opts *ProofOptions) ([]byte, error) {
+	var err error
+	if vp == nil {
+		vp, err = credentials[0].(*verifiable.Credential).Presentation()
+		if err != nil {
+			return nil, err
+		}
+		// Add array of credentials in the presentation
+		err = vp.SetCredentials(credentials...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set credentials: %w", err)
+		}
 	}
 
 	// Add proofs to vp - sign presentation
-	vp, err = o.addLinkedDataProof(vp, pk)
+	vp, err = o.addLinkedDataProof(vp, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vp: %w", err)
 	}
@@ -469,7 +473,7 @@ func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
 		return nil, fmt.Errorf("failed to create vp by ID: %w", err)
 	}
 
-	vp, err = o.addLinkedDataProof(vp, pk)
+	vp, err = o.addLinkedDataProof(vp, &ProofOptions{VerificationMethod: pk})
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vp by ID: %w", err)
 	}
@@ -477,20 +481,25 @@ func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
 	return vp.MarshalJSON()
 }
 
-func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, pk string) (*verifiable.Presentation, error) {
+func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, opts *ProofOptions) (*verifiable.Presentation,
+	error) {
 	var s signer
 
-	s, err := newKMSSigner(o.ctx.Signer(), o.kResolver, pk)
+	s, err := newKMSSigner(o.ctx.Signer(), o.kResolver, opts.VerificationMethod)
 	if err != nil {
 		return nil, err
 	}
 
 	signingCtx := &verifiable.LinkedDataProofContext{
-		VerificationMethod:      pk,
+		VerificationMethod:      opts.VerificationMethod,
 		SignatureRepresentation: verifiable.SignatureJWS,
 		SignatureType:           "Ed25519Signature2018",
 		Suite: ed25519signature2018.New(
 			suite.WithSigner(s)),
+		Created:   opts.Created,
+		Domain:    opts.Domain,
+		Challenge: opts.Challenge,
+		Purpose:   opts.ProofPurpose,
 	}
 
 	err = vp.AddLinkedDataProof(signingCtx)
@@ -502,41 +511,49 @@ func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, pk string) (*v
 }
 
 func (o *Command) parsePresentationRequest(request *PresentationRequest,
-	didDoc *did.Doc) ([]interface{},
-	string, error) {
-	if len(request.VerifiableCredentials) == 0 {
-		return nil, "", fmt.Errorf("no credential found")
+	didDoc *did.Doc) ([]interface{}, *verifiable.Presentation, *ProofOptions, error) {
+	if len(request.VerifiableCredentials) == 0 && len(request.Presentation) == 0 {
+		return nil, nil, nil, fmt.Errorf("invalid request, no valid credentials/presentation found")
 	}
 
-	vcs := make([]interface{}, len(request.VerifiableCredentials))
-	// loop through all credentials present in the presentation request
+	var vcs []interface{}
 
-	for i, vcRaw := range request.VerifiableCredentials {
-		vc, _, err := verifiable.NewCredential([]byte(vcRaw))
+	var presentation *verifiable.Presentation
+
+	var err error
+
+	if len(request.VerifiableCredentials) > 0 {
+		for _, vcRaw := range request.VerifiableCredentials {
+			vc, _, e := verifiable.NewCredential(vcRaw)
+			if e != nil {
+				logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+					"failed to parse credential from request, invalid credential: "+e.Error())
+				return nil, nil, nil, fmt.Errorf("parse credential failed: %w", e)
+			}
+
+			vcs = append(vcs, vc)
+		}
+	} else {
+		presentation, err = verifiable.NewUnverifiedPresentation(request.Presentation)
 		if err != nil {
 			logutil.LogError(logger, commandName, generatePresentationCommandMethod,
-				"failed to parse presentation request: "+err.Error())
-			return nil, "", fmt.Errorf("parse vc failed: %w", err)
+				"failed to parse presentation from request: "+err.Error())
+			return nil, nil, nil, fmt.Errorf("parse presentation failed: %w", err)
+		}
+	}
+
+	if request.ProofOptions == nil {
+		defaultVM, err := getDefaultVerificationMethod(didDoc)
+		if err != nil {
+			logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+				"failed to get default verification method: "+err.Error())
+			return nil, nil, nil, fmt.Errorf("failed to get default verification method: %w", err)
 		}
 
-		vcs[i] = vc
+		return vcs, presentation, &ProofOptions{VerificationMethod: defaultVM}, nil
 	}
 
-	verificationMethod, err := getVerificationMethod(request, didDoc)
-	if err != nil {
-		return nil, "", fmt.Errorf("get verification method: %w", err)
-	}
-
-	return vcs, verificationMethod, nil
-}
-
-func getVerificationMethod(request *PresentationRequest, didDoc *did.Doc) (string, error) {
-	if request.ProofOptions.VerificationMethod != "" {
-		return request.ProofOptions.VerificationMethod, nil
-	}
-
-	// The default implementation if user provides no proofing option, here public key id is verification method
-	return getDefaultVerificationMethod(didDoc)
+	return vcs, presentation, request.ProofOptions, nil
 }
 
 func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {

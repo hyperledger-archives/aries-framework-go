@@ -15,7 +15,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
@@ -24,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	verifiableapi "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
@@ -353,8 +356,7 @@ func TestGeneratePresentation(t *testing.T) {
 	require.NoError(t, cmdErr)
 
 	t.Run("test generate presentation - success", func(t *testing.T) {
-		vcs := make([]string, 1)
-		vcs[0] = vc
+		vcs := []json.RawMessage{[]byte(vc)}
 
 		presReq := verifiable.PresentationRequest{
 			VerifiableCredentials: vcs,
@@ -376,6 +378,92 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NotEmpty(t, response.VerifiablePresentation)
 	})
 
+	t.Run("test generate presentation with options - success", func(t *testing.T) {
+		vcs := []json.RawMessage{[]byte(vc)}
+
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		presReq := verifiable.PresentationRequest{
+			VerifiableCredentials: vcs,
+			DID:                   "did:peer:21tDAKCERh95uGgKbJNHYp",
+			ProofOptions: &verifiable.ProofOptions{
+				VerificationMethod: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				Domain:             "issuer.example.com",
+				Challenge:          "sample-random-test-value",
+				ProofPurpose:       "authentication",
+				Created:            &createdTime,
+			},
+		}
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, generatePresentationPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(presReqBytes), handler.Path())
+		require.NoError(t, err)
+
+		response := presentationRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiablePresentation)
+
+		vp, err := verifiableapi.NewPresentation([]byte(response.VerifiablePresentation))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.NotEmpty(t, vp.Proofs)
+		require.Len(t, vp.Proofs, 1)
+		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
+		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
+	})
+
+	t.Run("test generate verifiable presentation from presentation with options  - success", func(t *testing.T) {
+		pRaw := json.RawMessage([]byte(`{"@context": "https://www.w3.org/2018/credentials/v1",
+		"type": "VerifiablePresentation","holder": "did:web:vc.example.world"}`))
+
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		presReq := verifiable.PresentationRequest{
+			Presentation: pRaw,
+			DID:          "did:peer:21tDAKCERh95uGgKbJNHYp",
+			ProofOptions: &verifiable.ProofOptions{
+				VerificationMethod: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				Domain:             "issuer.example.com",
+				Challenge:          "sample-random-test-value",
+				ProofPurpose:       "authentication",
+				Created:            &createdTime,
+			},
+		}
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, generatePresentationPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(presReqBytes), handler.Path())
+		require.NoError(t, err)
+
+		response := presentationRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiablePresentation)
+
+		vp, err := verifiableapi.NewPresentation([]byte(response.VerifiablePresentation))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.NotEmpty(t, vp.Proofs)
+		require.Equal(t, vp.Holder, "did:web:vc.example.world")
+		require.Len(t, vp.Proofs, 1)
+		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
+		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
+	})
+
 	t.Run("test generate presentation - error", func(t *testing.T) {
 		var jsonStr = []byte(`{
 			"name" : "sample",
@@ -389,7 +477,7 @@ func TestGeneratePresentation(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, code)
 		verifyError(t, verifiable.GeneratePresentationErrorCode,
-			"generate vp - parse presentation request: no credential found", buf.Bytes())
+			"no valid credentials/presentation found", buf.Bytes())
 	})
 }
 
