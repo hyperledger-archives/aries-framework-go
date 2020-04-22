@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/json"
+	"time"
+
 	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
@@ -18,9 +21,10 @@ type Credential struct {
 // PresentationRequest is model for verifiable presentation request.
 type PresentationRequest struct {
 	// TODO  Update VC from string to json raw message #1643
-	VerifiableCredentials []string `json:"verifiableCredential,omitempty"`
-	DID                   string   `json:"did,omitempty"`
-	ProofOptions
+	VerifiableCredentials []json.RawMessage `json:"verifiableCredential,omitempty"`
+	Presentation          json.RawMessage   `json:"presentation,omitempty"`
+	DID                   string            `json:"did,omitempty"`
+	*ProofOptions
 }
 
 // IDArg model
@@ -34,9 +38,16 @@ type IDArg struct {
 
 // ProofOptions is model to allow the dynamic proofing options by the user.
 type ProofOptions struct {
-	// TODO Add more proof options as mentioned in this pr
-	// https://github.com/hyperledger/aries-framework-go/issues/1644#issue-601483491
+	// VerificationMethod is the URI of the verificationMethod used for the proof.
 	VerificationMethod string `json:"verifiableMethod,omitempty"`
+	// ProofPurpose is purpose of the proof. If omitted "assertionMethod" will be used.
+	ProofPurpose string `json:"proofPurpose,omitempty"`
+	// Created date of the proof. If omitted current system time will be used.
+	Created *time.Time `json:"created,omitempty"`
+	// Domain is operational domain of a digital proof.
+	Domain string `json:"domain,omitempty"`
+	// Challenge is a random or pseudo-random value option authentication
+	Challenge string `json:"challenge,omitempty"`
 }
 
 // CredentialExt is model for verifiable credential with fields related to command features.

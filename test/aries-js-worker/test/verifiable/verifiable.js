@@ -164,7 +164,7 @@ async function verifiableStore(newAries, mode = wasmMode) {
 it(modePrefix + "Alice generates the signed  verifiable presentation to pass it to the employer", async function () {
         await healthCheck(`${environment.HTTP_LOCAL_RESOLVER_URL}/` + did.id, 5000, "resolve did timeout!")
         aries.verifiable.generatePresentation({
-            "verifiableCredential": [vc],
+            "verifiableCredential": [JSON.parse(vc)],
             "did": did.id
         }).then(
             resp => {
