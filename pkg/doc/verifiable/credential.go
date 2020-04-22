@@ -490,6 +490,13 @@ type credentialOpts struct {
 // CredentialOpt is the Verifiable Credential decoding option
 type CredentialOpt func(opts *credentialOpts)
 
+// WithDisabledProofCheck option for disabling of proof check.
+func WithDisabledProofCheck() CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.disabledProofCheck = true
+	}
+}
+
 // WithNoCustomSchemaCheck option is for disabling of Credential Schemas download if defined
 // in Verifiable Credential. Instead, the Verifiable Credential is checked against default Schema.
 func WithNoCustomSchemaCheck() CredentialOpt {
