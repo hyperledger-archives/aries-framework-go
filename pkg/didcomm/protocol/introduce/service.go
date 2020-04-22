@@ -65,14 +65,14 @@ type Recipient struct {
 
 // Action contains helpful information about action
 type Action struct {
-	// protocol state machine identifier
+	// Protocol instance ID
 	PIID string
 	Msg  service.DIDCommMsgMap
 }
 
 // transitionalPayload keeps payload needed for Continue function to proceed with the action
 type transitionalPayload struct {
-	// protocol state machine identifier
+	// Protocol instance ID
 	PIID      string
 	StateName string
 	Msg       service.DIDCommMsgMap

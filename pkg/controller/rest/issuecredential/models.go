@@ -88,6 +88,7 @@ type issueCredentialAcceptCredentialRequest struct { // nolint: unused,deadcode
 	// required: true
 	PIID string `json:"piid"`
 
+	// Names under which the credentials will be stored.
 	// in: body
 	// required: true
 	Names []string `json:""`
@@ -112,7 +113,7 @@ type issueCredentialDeclineCredentialRequest struct { // nolint: unused,deadcode
 	// required: true
 	PIID string `json:"piid"`
 
-	// Optional Reason is an explanation of why it was declined
+	// Reason is an explanation of why it was declined
 	Reason string `json:"reason"`
 }
 
@@ -135,7 +136,7 @@ type issueCredentialDeclineRequestRequest struct { // nolint: unused,deadcode
 	// required: true
 	PIID string `json:"piid"`
 
-	// Optional Reason is an explanation of why it was declined
+	// Reason is an explanation of why it was declined
 	Reason string `json:"reason"`
 }
 
@@ -158,7 +159,7 @@ type issueCredentialDeclineOfferRequest struct { // nolint: unused,deadcode
 	// required: true
 	PIID string `json:"piid"`
 
-	// Optional Reason is an explanation of why it was declined
+	// Reason is an explanation of why it was declined
 	Reason string `json:"reason"`
 }
 
@@ -181,7 +182,7 @@ type issueCredentialDeclineProposalRequest struct { // nolint: unused,deadcode
 	// required: true
 	PIID string `json:"piid"`
 
-	// Optional Reason is an explanation of why it was declined
+	// Reason is an explanation of why it was declined
 	Reason string `json:"reason"`
 }
 
