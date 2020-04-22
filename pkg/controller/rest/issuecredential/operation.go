@@ -96,7 +96,7 @@ func (c *Operation) Actions(rw http.ResponseWriter, _ *http.Request) {
 
 // SendOffer swagger:route POST /issuecredential/send-offer issue-credential issueCredentialSendOffer
 //
-// Sends an offer
+// Sends an offer.
 //
 // Responses:
 //    default: genericError
@@ -107,7 +107,7 @@ func (c *Operation) SendOffer(rw http.ResponseWriter, req *http.Request) {
 
 // SendProposal swagger:route POST /issuecredential/send-proposal issue-credential issueCredentialSendProposal
 //
-// Sends a proposal
+// Sends a proposal.
 //
 // Responses:
 //    default: genericError
@@ -118,7 +118,7 @@ func (c *Operation) SendProposal(rw http.ResponseWriter, req *http.Request) {
 
 // SendRequest swagger:route POST /issuecredential/send-request issue-credential issueCredentialSendRequest
 //
-// Sends a request
+// Sends a request.
 //
 // Responses:
 //    default: genericError
@@ -129,7 +129,7 @@ func (c *Operation) SendRequest(rw http.ResponseWriter, req *http.Request) {
 
 // AcceptProposal swagger:route POST /issuecredential/{piid}/accept-proposal issue-credential issueCredentialAcceptProposal
 //
-// Accepts proposal
+// Accepts a proposal.
 //
 // Responses:
 //    default: genericError
@@ -160,7 +160,7 @@ func (c *Operation) AcceptProposal(rw http.ResponseWriter, req *http.Request) { 
 
 // DeclineProposal swagger:route POST /issuecredential/{piid}/decline-proposal issue-credential issueCredentialDeclineProposal
 //
-// Declines a proposal
+// Declines a proposal.
 //
 // Responses:
 //    default: genericError
@@ -174,7 +174,7 @@ func (c *Operation) DeclineProposal(rw http.ResponseWriter, req *http.Request) {
 
 // AcceptOffer swagger:route POST /issuecredential/{piid}/accept-offer issue-credential issueCredentialAcceptOffer
 //
-// Accepts an offer
+// Accepts an offer.
 //
 // Responses:
 //    default: genericError
@@ -187,7 +187,7 @@ func (c *Operation) AcceptOffer(rw http.ResponseWriter, req *http.Request) {
 
 // DeclineOffer swagger:route POST /issuecredential/{piid}/decline-offer issue-credential issueCredentialDeclineOffer
 //
-// Declines an offer
+// Declines an offer.
 //
 // Responses:
 //    default: genericError
@@ -232,7 +232,7 @@ func (c *Operation) NegotiateProposal(rw http.ResponseWriter, req *http.Request)
 
 // AcceptRequest swagger:route POST /issuecredential/{piid}/accept-request issue-credential issueCredentialAcceptRequest
 //
-// Accepts a request
+// Accepts a request.
 //
 // Responses:
 //    default: genericError
@@ -263,7 +263,7 @@ func (c *Operation) AcceptRequest(rw http.ResponseWriter, req *http.Request) { /
 
 // DeclineRequest swagger:route POST /issuecredential/{piid}/decline-request issue-credential issueCredentialDeclineRequest
 //
-// Declines a request
+// Declines a request.
 //
 // Responses:
 //    default: genericError
@@ -277,7 +277,7 @@ func (c *Operation) DeclineRequest(rw http.ResponseWriter, req *http.Request) {
 
 // AcceptCredential swagger:route POST /issuecredential/{piid}/accept-credential issue-credential issueCredentialAcceptCredential
 //
-// Accepts a credential
+// Accepts a credential.
 //
 // Responses:
 //    default: genericError
@@ -308,7 +308,7 @@ func (c *Operation) AcceptCredential(rw http.ResponseWriter, req *http.Request) 
 
 // DeclineCredential swagger:route POST /issuecredential/{piid}/decline-credential issue-credential issueCredentialDeclineCredential
 //
-// Declines a credential
+// Declines a credential.
 //
 // Responses:
 //    default: genericError

@@ -13,7 +13,7 @@ import "github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
 // This is used for accepting proposal
 //
 type AcceptProposalArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// OfferCredential is a message describing the credential intend to offer and
 	// possibly the price they expect to be paid.
@@ -31,7 +31,7 @@ type AcceptProposalResponse struct{}
 // This is used for accepting an offer
 //
 type AcceptOfferArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 }
 
@@ -46,7 +46,7 @@ type AcceptOfferResponse struct{}
 // This is used for accepting a request
 //
 type AcceptRequestArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// IssueCredential contains as attached payload the credentials being issued
 	IssueCredential *issuecredential.IssueCredential `json:"issue_credential"`
@@ -63,7 +63,7 @@ type AcceptRequestResponse struct{}
 // This is used for accepting a credential
 //
 type AcceptCredentialArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// Names represent the names of how credentials will be stored
 	Names []string `json:"names"`
@@ -80,7 +80,7 @@ type AcceptCredentialResponse struct{}
 // This is used when the Holder wants to negotiate about an offer he received.
 //
 type NegotiateProposalArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// ProposeCredential is a message sent in response to a offer-credential message when the Holder
 	// wants some adjustments made to the credential data offered by Issuer.
@@ -98,7 +98,7 @@ type NegotiateProposalResponse struct{}
 // This is used when proposal needs to be rejected
 //
 type DeclineProposalArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// Reason why proposal is declined
 	Reason string `json:"reason"`
@@ -115,7 +115,7 @@ type DeclineProposalResponse struct{}
 // This is used when offer needs to be rejected
 //
 type DeclineOfferArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// Reason why offer is declined
 	Reason string `json:"reason"`
@@ -132,7 +132,7 @@ type DeclineOfferResponse struct{}
 // This is used when request needs to be rejected
 //
 type DeclineRequestArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// Reason why request is declined
 	Reason string `json:"reason"`
@@ -149,7 +149,7 @@ type DeclineRequestResponse struct{}
 // This is used when credential needs to be rejected
 //
 type DeclineCredentialArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// Reason why credential is declined
 	Reason string `json:"reason"`
