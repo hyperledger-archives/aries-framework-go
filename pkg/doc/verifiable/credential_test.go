@@ -700,6 +700,15 @@ func TestWithDisabledExternalSchemaCheck(t *testing.T) {
 	require.True(t, opts.disabledCustomSchema)
 }
 
+func TestWithDisabledProofCheck(t *testing.T) {
+	credentialOpt := WithDisabledProofCheck()
+	require.NotNil(t, credentialOpt)
+
+	opts := &credentialOpts{}
+	credentialOpt(opts)
+	require.True(t, opts.disabledProofCheck)
+}
+
 func TestWithCredentialSchemaLoader(t *testing.T) {
 	httpClient := &http.Client{}
 	jsonSchemaLoader := gojsonschema.NewStringLoader(defaultSchema)
