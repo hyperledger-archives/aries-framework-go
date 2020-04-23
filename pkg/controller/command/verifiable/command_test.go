@@ -52,6 +52,34 @@ const vc = `
 }
 `
 
+//nolint:lll
+const vcWithDIDNotAvailble = `{ 
+   "@context":[ 
+      "https://www.w3.org/2018/credentials/v1"
+   ],
+   "id":"http://example.edu/credentials/1989",
+   "type":"VerifiableCredential",
+   "credentialSubject":{ 
+      "id":"did:example:iuajk1f712ebc6f1c276e12ec21"
+   },
+   "issuer":{ 
+      "id":"did:example:09s12ec712ebc6f1c671ebfeb1f",
+      "name":"Example University"
+   },
+   "issuanceDate":"2020-01-01T10:54:01Z",
+   "credentialStatus":{ 
+      "id":"https://example.gov/status/65",
+      "type":"CredentialStatusList2017"
+   },
+   "proof": {
+        "created": "2020-04-17T04:17:48Z",
+        "proofPurpose": "assertionMethod",
+        "proofValue": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8AUdTbFUU4VVQVpPhEZLjg1U-1lBJyluRejsNbHZCJDRptPkBuqAQ",
+        "type": "Ed25519Signature2018",
+        "verificationMethod": "did:trustbloc:testnet.trustbloc.local:EiABBmUZ7Jjp-mlxWJInqp3Ak2v82QQtCdIUS5KSTNGq9Q==#key-1"
+    }
+}`
+
 const invalidVC = `
 {
    "id":"http://example.edu/credentials/1989",
@@ -516,6 +544,33 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotEmpty(t, response)
+	})
+
+	t.Run("test generate presentation skip verify - success", func(t *testing.T) {
+		credList := []json.RawMessage{[]byte(vcWithDIDNotAvailble), []byte(vcWithDIDNotAvailble)}
+
+		// try with invalid proof
+		presReq := PresentationRequest{
+			VerifiableCredentials: credList,
+			DID:                   "did:peer:123456789abcdefghi#inbox",
+			ProofOptions:          &ProofOptions{},
+		}
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "#key-1 is not found for DID did:trustbloc:testnet.trustbloc.local")
+
+		// try by skipping proof check
+		presReq.SkipVerify = true
+		presReqBytes, err = json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b1 bytes.Buffer
+		err = cmd.GeneratePresentation(&b1, bytes.NewBuffer(presReqBytes))
+		require.NoError(t, err)
 	})
 
 	t.Run("test generate presentation with proof options - success", func(t *testing.T) {
