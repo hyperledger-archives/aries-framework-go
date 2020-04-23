@@ -30,16 +30,16 @@ var logger = log.New("aries-framework/did-exchange/service")
 const (
 	// DIDExchange did exchange protocol
 	DIDExchange = "didexchange"
-	// DIDExchangeSpec defines the did-exchange spec
-	DIDExchangeSpec = "https://didcomm.org/didexchange/1.0/"
+	// PIURI is the did-exchange protocol identifier URI
+	PIURI = "https://didcomm.org/didexchange/1.0"
 	// InvitationMsgType defines the did-exchange invite message type.
-	InvitationMsgType = DIDExchangeSpec + "invitation"
+	InvitationMsgType = PIURI + "/invitation"
 	// RequestMsgType defines the did-exchange request message type.
-	RequestMsgType = DIDExchangeSpec + "request"
+	RequestMsgType = PIURI + "/request"
 	// ResponseMsgType defines the did-exchange response message type.
-	ResponseMsgType = DIDExchangeSpec + "response"
+	ResponseMsgType = PIURI + "/response"
 	// AckMsgType defines the did-exchange ack message type.
-	AckMsgType = DIDExchangeSpec + "ack"
+	AckMsgType = PIURI + "/ack"
 
 	oobMsgType = "oob-invitation"
 )

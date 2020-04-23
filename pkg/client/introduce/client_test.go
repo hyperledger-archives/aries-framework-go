@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
-	protocolOutOfBand "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/introduce"
 )
 
@@ -121,7 +120,7 @@ func TestClient_SendProposalWithOOBRequest(t *testing.T) {
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	req := &outofband.Request{Request: &protocolOutOfBand.Request{}}
+	req := &outofband.Request{}
 	require.NoError(t, client.SendProposalWithOOBRequest(req, &introduce.Recipient{
 		MyDID:    "firstMyDID",
 		TheirDID: "firstTheirDID",

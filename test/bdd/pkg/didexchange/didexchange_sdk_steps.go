@@ -155,7 +155,7 @@ func (d *SDKSteps) WaitForPostEvent(agents, statesValue string) error {
 			select {
 			case <-d.postStatesFlag[agentID][state]:
 			case <-time.After(timeout):
-				return fmt.Errorf("timeout waiting for post state event %s", state)
+				return fmt.Errorf("timeout waiting for %s's post state event '%s'", agentID, state)
 			}
 		}
 	}
@@ -357,6 +357,8 @@ func (d *SDKSteps) eventListener(statusCh chan service.StateMsg, agentID string,
 		}
 
 		if e.Type == service.PostState {
+			logger.Debugf("%s has received state event: %+v", agentID, e)
+
 			if e.StateID != "invited" {
 				logger.Debugf("Agent %s done processing %s message \n%s\n*****", agentID, e.Msg.Type(), e.Msg)
 			}

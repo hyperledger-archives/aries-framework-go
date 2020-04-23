@@ -415,15 +415,15 @@ func (a *SDKSteps) newOOBRequest(agentID string) (*outofband.Request, error) {
 	}
 
 	r, err := client.CreateRequest(
-		outofband.WithLabel(agentID),
-		outofband.WithAttachments(&decorator.Attachment{
+		[]*decorator.Attachment{{
 			ID:          uuid.New().String(),
 			Description: "test",
 			Data: decorator.AttachmentData{
 				JSON: map[string]interface{}{},
 			},
-		},
-		))
+		}},
+		outofband.WithLabel(agentID),
+	)
 	if err != nil {
 		return nil, err
 	}
