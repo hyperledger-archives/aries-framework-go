@@ -240,20 +240,6 @@ func TestValidateVP_Type(t *testing.T) {
 		})
 }
 
-func TestValidateVP_VerifiableCredential(t *testing.T) {
-	t.Run("rejects verifiable presentation with not defined verifiableCredential", func(t *testing.T) {
-		raw := &rawPresentation{}
-		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.Credential = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "verifiableCredential is required")
-		require.Nil(t, vp)
-	})
-}
-
 func TestValidateVP_Holder(t *testing.T) {
 	t.Run("rejects verifiable presentation with non-url holder", func(t *testing.T) {
 		raw := &rawPresentation{}
@@ -437,6 +423,14 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 	dCreds, err := decodeCredentials(jws, opts)
 	r.NoError(err)
 	r.Len(dCreds, 1)
+
+	// no credential
+	dCreds, err = decodeCredentials(nil, opts)
+	r.NoError(err)
+	r.Len(dCreds, 0)
+	dCreds, err = decodeCredentials([]interface{}{}, opts)
+	r.NoError(err)
+	r.Len(dCreds, 0)
 
 	// single credential - JWS decoding failed (e.g. to no public key fetcher available)
 	opts.publicKeyFetcher = nil

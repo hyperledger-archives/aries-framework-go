@@ -775,6 +775,7 @@ func TestGeneratePresentation(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
+		require.Empty(t, vp.Credentials())
 		require.NotEmpty(t, vp.Proofs)
 		require.Equal(t, vp.Holder, "did:web:vc.example.world")
 		require.Len(t, vp.Proofs, 1)
