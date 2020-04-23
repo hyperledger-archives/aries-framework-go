@@ -524,7 +524,16 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 
 	if len(request.VerifiableCredentials) > 0 {
 		for _, vcRaw := range request.VerifiableCredentials {
-			vc, _, e := verifiable.NewCredential(vcRaw)
+			var credOpts []verifiable.CredentialOpt
+			if request.SkipVerify {
+				credOpts = append(credOpts, verifiable.WithDisabledProofCheck())
+			} else {
+				credOpts = append(credOpts, verifiable.WithPublicKeyFetcher(
+					verifiable.NewDIDKeyResolver(o.ctx.VDRIRegistry()).PublicKeyFetcher(),
+				))
+			}
+
+			vc, _, e := verifiable.NewCredential(vcRaw, credOpts...)
 			if e != nil {
 				logutil.LogError(logger, commandName, generatePresentationCommandMethod,
 					"failed to parse credential from request, invalid credential: "+e.Error())

@@ -20,11 +20,12 @@ type Credential struct {
 
 // PresentationRequest is model for verifiable presentation request.
 type PresentationRequest struct {
-	// TODO  Update VC from string to json raw message #1643
 	VerifiableCredentials []json.RawMessage `json:"verifiableCredential,omitempty"`
 	Presentation          json.RawMessage   `json:"presentation,omitempty"`
 	DID                   string            `json:"did,omitempty"`
 	*ProofOptions
+	// SkipVerify can be used to skip verification of `VerifiableCredentials` provided.
+	SkipVerify bool `json:"skipVerify,omitempty"`
 }
 
 // IDArg model

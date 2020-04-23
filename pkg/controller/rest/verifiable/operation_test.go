@@ -60,6 +60,34 @@ const vc = `
 `
 
 //nolint:lll
+const vcWithDIDNotAvailble = `{ 
+   "@context":[ 
+      "https://www.w3.org/2018/credentials/v1"
+   ],
+   "id":"http://example.edu/credentials/1989",
+   "type":"VerifiableCredential",
+   "credentialSubject":{ 
+      "id":"did:example:iuajk1f712ebc6f1c276e12ec21"
+   },
+   "issuer":{ 
+      "id":"did:example:09s12ec712ebc6f1c671ebfeb1f",
+      "name":"Example University"
+   },
+   "issuanceDate":"2020-01-01T10:54:01Z",
+   "credentialStatus":{ 
+      "id":"https://example.gov/status/65",
+      "type":"CredentialStatusList2017"
+   },
+   "proof": {
+        "created": "2020-04-17T04:17:48Z",
+        "proofPurpose": "assertionMethod",
+        "proofValue": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8AUdTbFUU4VVQVpPhEZLjg1U-1lBJyluRejsNbHZCJDRptPkBuqAQ",
+        "type": "Ed25519Signature2018",
+        "verificationMethod": "did:trustbloc:testnet.trustbloc.local:EiABBmUZ7Jjp-mlxWJInqp3Ak2v82QQtCdIUS5KSTNGq9Q==#key-1"
+    }
+}`
+
+//nolint:lll
 const doc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
@@ -367,6 +395,42 @@ func TestGeneratePresentation(t *testing.T) {
 
 		handler := lookupHandler(t, cmd, generatePresentationPath, http.MethodPost)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(presReqBytes), handler.Path())
+		require.NoError(t, err)
+
+		response := presentationRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiablePresentation)
+	})
+
+	t.Run("test generate presentation skip verify - success", func(t *testing.T) {
+		vcs := []json.RawMessage{[]byte(vcWithDIDNotAvailble)}
+
+		presReq := verifiable.PresentationRequest{
+			VerifiableCredentials: vcs,
+			DID:                   "did:peer:21tDAKCERh95uGgKbJNHYp",
+		}
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, generatePresentationPath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(presReqBytes), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.GeneratePresentationErrorCode,
+			"#key-1 is not found for DID did:trustbloc:testnet.trustbloc.local:", buf.Bytes())
+
+		// now try by skipping verification
+		presReq.SkipVerify = true
+		presReqBytes, err = json.Marshal(presReq)
+		require.NoError(t, err)
+
+		buf, err = getSuccessResponseFromHandler(handler, bytes.NewBuffer(presReqBytes), handler.Path())
 		require.NoError(t, err)
 
 		response := presentationRes{}
