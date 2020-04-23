@@ -8,6 +8,11 @@ package verifiable
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -612,6 +618,127 @@ func TestGeneratePresentation(t *testing.T) {
 		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
 		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
 		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
+	})
+
+	t.Run("test generate presentation with proof options - success (p256 jsonwebsignature)", func(t *testing.T) {
+		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+
+		encodedPrivateKey, err := x509.MarshalECPrivateKey(privateKey)
+		require.NoError(t, err)
+
+		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
+
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		presReq := PresentationRequest{
+			VerifiableCredentials: credList,
+			DID:                   "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				Domain:       "issuer.example.com",
+				Challenge:    "sample-random-test-value",
+				ProofPurpose: "authentication",
+				Created:      &createdTime,
+				DIDKeyID:     "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				PrivateKey:   base58.Encode(encodedPrivateKey),
+				KeyType:      P256KeyType,
+			},
+		}
+
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response Presentation
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+
+		vp, err := verifiable.NewPresentation([]byte(response.VerifiablePresentation))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.NotEmpty(t, vp.Proofs)
+		require.Len(t, vp.Proofs, 1)
+		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
+		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
+		require.Contains(t, vp.Proofs[0]["type"], "JsonWebSignature2020")
+	})
+
+	t.Run("test generate presentation with proof options - success (ed25519 jsonwebsignature)", func(t *testing.T) {
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
+
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		presReq := PresentationRequest{
+			VerifiableCredentials: credList,
+			DID:                   "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				VerificationMethod: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				Domain:             "issuer.example.com",
+				Challenge:          "sample-random-test-value",
+				ProofPurpose:       "authentication",
+				Created:            &createdTime,
+				PrivateKey:         base58.Encode(privateKey),
+				KeyType:            Ed25519KeyType,
+			},
+		}
+
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response Presentation
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+
+		vp, err := verifiable.NewPresentation([]byte(response.VerifiablePresentation))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.NotEmpty(t, vp.Proofs)
+		require.Len(t, vp.Proofs, 1)
+		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
+		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
+		require.Contains(t, vp.Proofs[0]["type"], "JsonWebSignature2020")
+	})
+
+	t.Run("test generate presentation with proof options - invalid key type", func(t *testing.T) {
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
+
+		presReq := PresentationRequest{
+			VerifiableCredentials: credList,
+			DID:                   "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				PrivateKey: base58.Encode(privateKey),
+				KeyType:    "invalid-key-type",
+			},
+		}
+
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid key type : invalid-key-type")
 	})
 
 	t.Run("test generate verifiable presentation with proof options & presentation - success", func(t *testing.T) {

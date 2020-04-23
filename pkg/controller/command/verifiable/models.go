@@ -49,6 +49,12 @@ type ProofOptions struct {
 	Domain string `json:"domain,omitempty"`
 	// Challenge is a random or pseudo-random value option authentication
 	Challenge string `json:"challenge,omitempty"`
+	// KeyType key type of the private key
+	KeyType string `json:"keyType,omitempty"`
+	// PrivateKey is used to sign instead of DID
+	PrivateKey string `json:"privateKey,omitempty"`
+	// DIDKeyID id of the public key associated with the private key
+	DIDKeyID string `json:"didKeyID,omitempty"`
 }
 
 // CredentialExt is model for verifiable credential with fields related to command features.

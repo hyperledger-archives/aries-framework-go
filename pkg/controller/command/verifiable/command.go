@@ -7,6 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,8 +24,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	verifiablesigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
@@ -82,15 +89,16 @@ const (
 	// Ed25519VerificationKey supported Verification Key types
 	// TODO Support JwsVerificationKey2020 type for verification #1639
 	Ed25519VerificationKey = "Ed25519VerificationKey"
+
+	// Ed25519KeyType ed25519 key type
+	Ed25519KeyType = "Ed25519"
+
+	// P256KeyType EC P-256 key type
+	P256KeyType = "P256"
 )
 
 type keyResolver interface {
 	PublicKeyFetcher() verifiable.PublicKeyFetcher
-}
-
-type signer interface {
-	// Sign will sign document and return signature
-	Sign(data []byte) ([]byte, error)
 }
 
 type kmsSigner struct {
@@ -118,6 +126,31 @@ func newKMSSigner(kms legacykms.Signer, kResolver keyResolver, verificationMetho
 
 func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 	return s.kms.SignMessage(data, s.keyID)
+}
+
+type privateKeySigner struct {
+	keyType    string
+	privateKey []byte
+}
+
+func newPrivateKeySigner(keyType string, privateKey []byte) *privateKeySigner {
+	return &privateKeySigner{keyType: keyType, privateKey: privateKey}
+}
+
+func (s *privateKeySigner) Sign(data []byte) ([]byte, error) {
+	switch s.keyType {
+	case Ed25519KeyType:
+		return ed25519.Sign(s.privateKey, data), nil
+	case P256KeyType:
+		ecPrivateKey, err := x509.ParseECPrivateKey(s.privateKey)
+		if err != nil {
+			return nil, err
+		}
+
+		return signEcdsa(data, ecPrivateKey, crypto.SHA256)
+	}
+
+	return nil, fmt.Errorf("invalid key type : %s", s.keyType)
 }
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -483,26 +516,39 @@ func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
 
 func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, opts *ProofOptions) (*verifiable.Presentation,
 	error) {
-	var s signer
+	var signer verifiablesigner.SignatureSuite
 
-	s, err := newKMSSigner(o.ctx.Signer(), o.kResolver, opts.VerificationMethod)
-	if err != nil {
-		return nil, err
+	signatureType := "Ed25519Signature2018"
+
+	// TODO  Need to provide the option to user for signature type. for now create jsonwebsignature2020
+	//  private key is not empty.
+	if opts.PrivateKey != "" {
+		s := newPrivateKeySigner(opts.KeyType, base58.Decode(opts.PrivateKey))
+
+		signatureType = "JsonWebSignature2020"
+		signer = jsonwebsignature2020.New(suite.WithSigner(s))
+		opts.VerificationMethod = opts.DIDKeyID
+	} else {
+		s, err := newKMSSigner(o.ctx.Signer(), o.kResolver, opts.VerificationMethod)
+		if err != nil {
+			return nil, err
+		}
+
+		signer = ed25519signature2018.New(suite.WithSigner(s))
 	}
 
 	signingCtx := &verifiable.LinkedDataProofContext{
 		VerificationMethod:      opts.VerificationMethod,
 		SignatureRepresentation: verifiable.SignatureJWS,
-		SignatureType:           "Ed25519Signature2018",
-		Suite: ed25519signature2018.New(
-			suite.WithSigner(s)),
-		Created:   opts.Created,
-		Domain:    opts.Domain,
-		Challenge: opts.Challenge,
-		Purpose:   opts.ProofPurpose,
+		SignatureType:           signatureType,
+		Suite:                   signer,
+		Created:                 opts.Created,
+		Domain:                  opts.Domain,
+		Challenge:               opts.Challenge,
+		Purpose:                 opts.ProofPurpose,
 	}
 
-	err = vp.AddLinkedDataProof(signingCtx)
+	err := vp.AddLinkedDataProof(signingCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add linked data proof: %w", err)
 	}
@@ -592,4 +638,38 @@ func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 
 func isDID(str string) bool {
 	return strings.HasPrefix(str, "did:")
+}
+
+func signEcdsa(doc []byte, privateKey *ecdsa.PrivateKey, hash crypto.Hash) ([]byte, error) {
+	hasher := hash.New()
+
+	_, err := hasher.Write(doc)
+	if err != nil {
+		return nil, err
+	}
+
+	hashed := hasher.Sum(nil)
+
+	r, s, err := ecdsa.Sign(rand.Reader, privateKey, hashed)
+	if err != nil {
+		return nil, err
+	}
+
+	curveBits := privateKey.Curve.Params().BitSize
+
+	const bitsInByte = 8
+	keyBytes := curveBits / bitsInByte
+
+	if curveBits%bitsInByte > 0 {
+		keyBytes++
+	}
+
+	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
+}
+
+func copyPadded(source []byte, size int) []byte {
+	dest := make([]byte, size)
+	copy(dest[size-len(source):], source)
+
+	return dest
 }
