@@ -14,6 +14,7 @@ import (
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
+	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
 	vdricmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
@@ -22,6 +23,7 @@ import (
 	issuecredentialrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	kmsrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
+	presentproofrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/route"
 	vdrirest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 	verifiablerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
@@ -78,7 +80,7 @@ func WithMessageHandler(handler command.MessageHandler) Opt {
 }
 
 // GetRESTHandlers returns all REST handlers provided by controller.
-func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error) { // nolint: funlen
+func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error) { // nolint: funlen,gocyclo
 	restAPIOpts := &allOpts{}
 	// Apply options
 	for _, opt := range opts {
@@ -127,6 +129,12 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		return nil, fmt.Errorf("create issue-credential rest command : %w", err)
 	}
 
+	// presentproof REST operation
+	presentproofOp, err := presentproofrest.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create present-proof rest command : %w", err)
+	}
+
 	// kms command operation
 	kmscmd := kmsrest.New(ctx)
 
@@ -138,6 +146,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, routeOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, verifiablecmd.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, issuecredentialOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, presentproofOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, kmscmd.GetRESTHandlers()...)
 
 	nhp, ok := notifier.(handlerProvider)
@@ -199,7 +208,13 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	// issuecredential command operation
 	issuecredential, err := issuecredentialcmd.New(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("create issuecredential command : %w", err)
+		return nil, fmt.Errorf("create issue-credential command : %w", err)
+	}
+
+	// presentproof command operation
+	presentproof, err := presentproofcmd.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create present-proof command : %w", err)
 	}
 
 	// kms command operation
@@ -213,6 +228,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, verifiablecmd.GetHandlers()...)
 	allHandlers = append(allHandlers, kmscmd.GetHandlers()...)
 	allHandlers = append(allHandlers, issuecredential.GetHandlers()...)
+	allHandlers = append(allHandlers, presentproof.GetHandlers()...)
 
 	return allHandlers, nil
 }

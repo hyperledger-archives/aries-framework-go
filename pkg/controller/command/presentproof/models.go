@@ -13,7 +13,7 @@ import "github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 // This is used when the presentation needs to be rejected
 //
 type DeclinePresentationArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// Reason why presentation is declined
 	Reason string `json:"reason"`
@@ -30,7 +30,7 @@ type DeclinePresentationResponse struct{}
 // This is used when proposal needs to be rejected
 //
 type DeclineProposePresentationArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// Reason why proposal is declined
 	Reason string `json:"reason"`
@@ -47,7 +47,7 @@ type DeclineProposePresentationResponse struct{}
 // This is used when the request needs to be rejected
 //
 type DeclineRequestPresentationArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// Reason why request is declined
 	Reason string `json:"reason"`
@@ -72,7 +72,7 @@ type ActionsResponse struct {
 // This is used for accepting a presentation
 //
 type AcceptPresentationArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 }
 
@@ -87,7 +87,7 @@ type AcceptPresentationResponse struct{}
 // This is used for accepting a request presentation
 //
 type AcceptRequestPresentationArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// Presentation is a message that contains signed presentations.
 	Presentation *presentproof.Presentation `json:"presentation"`
@@ -104,7 +104,7 @@ type AcceptRequestPresentationResponse struct{}
 // This is used for accepting a propose presentation
 //
 type AcceptProposePresentationArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
 	RequestPresentation *presentproof.RequestPresentation `json:"request_presentation"`
@@ -121,7 +121,7 @@ type AcceptProposePresentationResponse struct{}
 // This is used by the Prover to counter a presentation request they received with a proposal.
 //
 type NegotiateRequestPresentationArgs struct {
-	// PIID protocol state machine identifier
+	// PIID Protocol instance ID
 	PIID string `json:"piid"`
 	// ProposePresentation is a response message to a request-presentation message when the Prover wants to
 	// propose using a different presentation format.
