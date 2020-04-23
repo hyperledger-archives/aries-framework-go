@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/keyset"
+	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -28,9 +29,7 @@ func TestNewCryptoSignerAndVerifier(t *testing.T) {
 	kid, kh := createKeyHandle(lKMS, kmsapi.ECDSAP256Type)
 
 	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		panic("failed to create tinkcrypto")
-	}
+	require.NoError(t, err)
 
 	doc := []byte("test doc")
 
@@ -43,14 +42,10 @@ func TestNewCryptoSignerAndVerifier(t *testing.T) {
 	ss := New(suite.WithSigner(suiteSigner), suite.WithVerifier(suiteVerifier))
 
 	docSig, err := ss.Sign(doc)
-	if err != nil {
-		panic("failed to create a signature")
-	}
+	require.NoError(t, err)
 
 	pubKeyBytes, err := lKMS.ExportPubKeyBytes(kid)
-	if err != nil {
-		panic("failed to export public key bytes")
-	}
+	require.NoError(t, err)
 
 	pubKey := &sigverifier.PublicKey{
 		Type:  kmsapi.ECDSAP256,
@@ -58,9 +53,7 @@ func TestNewCryptoSignerAndVerifier(t *testing.T) {
 	}
 
 	err = ss.Verify(pubKey, doc, docSig)
-	if err != nil {
-		panic("failed to verify signature")
-	}
+	require.NoError(t, err)
 }
 
 // LocalCrypto defines a verifier which is based on Local KMS and Crypto

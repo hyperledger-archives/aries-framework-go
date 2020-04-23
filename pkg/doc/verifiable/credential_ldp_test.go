@@ -113,7 +113,7 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018_Transmute(t *test
 
 	vcWithLdp, _, err := NewCredential([]byte(vcFromTransmute),
 		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKeyBytes, kms.ED25519)))
+		WithPublicKeyFetcher(SingleKey(pubKeyBytes, "Ed25519Signature2018")))
 	r.NoError(err)
 	r.NotNil(t, vcWithLdp)
 }
@@ -146,7 +146,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testin
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
+		WithPublicKeyFetcher(SingleKey(pubKey, "Ed25519Signature2018")))
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
 }
@@ -159,8 +159,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 
 	sigSuite := jsonwebsignature2020.New(
 		suite.WithSigner(getEcdsaP256TestSigner(privateKey)),
-		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier (as it's done in Ed25519 test above)
-		suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
+		suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "JsonWebSignature2020",
@@ -207,7 +206,8 @@ func TestNewCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing
 
 	sigSuite := ecdsasecp256k1signature2019.New(
 		suite.WithSigner(getEcdsaSecp256k1RS256TestSigner(privateKey)),
-		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier
+		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier as soon as
+		//  tinkcrypto will support secp256k1 (https://github.com/hyperledger/aries-framework-go/issues/1285)
 		suite.WithVerifier(ecdsasecp256k1signature2019.NewPublicKeyVerifier()))
 
 	ldpContext := &LinkedDataProofContext{
@@ -360,7 +360,7 @@ func (t *LocalCrypto) Verify(sig, msg []byte, kh interface{}) error {
 		return errors.New("bad key handle format")
 	}
 
-	kmsKeyType, err := mapKeyTypeToKMS(pubKey.Type)
+	kmsKeyType, err := mapPublicKeyToKMSKeyType(pubKey)
 	if err != nil {
 		return err
 	}
@@ -373,15 +373,33 @@ func (t *LocalCrypto) Verify(sig, msg []byte, kh interface{}) error {
 	return t.Crypto.Verify(sig, msg, handle)
 }
 
-func mapKeyTypeToKMS(t string) (kms.KeyType, error) {
-	switch t {
-	case kms.ECDSAP256:
-		return kms.ECDSAP256Type, nil
-	case kms.ED25519:
+func mapPublicKeyToKMSKeyType(pubKey *sigverifier.PublicKey) (kms.KeyType, error) {
+	switch pubKey.Type {
+	case "Ed25519Signature2018":
 		return kms.ED25519Type, nil
+	case "JwsVerificationKey2020":
+		return mapJWKToKMSKeyType(pubKey.JWK)
 	default:
-		return "", fmt.Errorf("unsupported key type: %s", t)
+		return "", fmt.Errorf("unsupported key type: %s", pubKey.Type)
 	}
+}
+
+func mapJWKToKMSKeyType(jwk *jose.JWK) (kms.KeyType, error) {
+	switch jwk.Kty {
+	case "OKP":
+		return kms.ED25519Type, nil
+	case "EC":
+		switch jwk.Crv {
+		case "P-256":
+			return kms.ECDSAP256Type, nil
+		case "P-384":
+			return kms.ECDSAP384Type, nil
+		case "P-521":
+			return kms.ECDSAP521Type, nil
+		}
+	}
+
+	return "", fmt.Errorf("unsupported JWK: %v", jwk)
 }
 
 func createKMS() *localkms.LocalKMS {
