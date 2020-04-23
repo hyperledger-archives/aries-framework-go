@@ -31,19 +31,19 @@ func TestPubKeyExportAndRead(t *testing.T) {
 		{
 			tcName:      "export then read ECDSAP256 public key",
 			keyType:     kms.ECDSAP256Type,
-			keyTemplate: signature.ECDSAP256KeyWithoutPrefixTemplate(),
+			keyTemplate: ecdsaP256KeyWithoutPrefixTemplate(),
 			doSign:      true,
 		},
 		{
 			tcName:      "export then read ECDSAP384 public key",
 			keyType:     kms.ECDSAP384Type,
-			keyTemplate: signature.ECDSAP384KeyWithoutPrefixTemplate(),
+			keyTemplate: ecdsaP384KeyWithoutPrefixTemplate(),
 			doSign:      true,
 		},
 		{
 			tcName:      "export then read ECDSAP521 public key",
 			keyType:     kms.ECDSAP521Type,
-			keyTemplate: signature.ECDSAP521KeyWithoutPrefixTemplate(),
+			keyTemplate: ecdsaP521KeyWithoutPrefixTemplate(),
 			doSign:      true,
 		},
 		{

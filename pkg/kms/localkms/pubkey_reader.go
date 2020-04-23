@@ -137,8 +137,9 @@ func getMarshalledECDSAKey(pubKey []byte, curveName string, c commonpb.EllipticC
 	pubKeyProto.Y = y.Bytes()
 	pubKeyProto.Version = 0
 	pubKeyProto.Params = &ecdsapb.EcdsaParams{
-		Curve:    c,
-		Encoding: ecdsapb.EcdsaSignatureEncoding_DER,
+		Curve: c,
+		// TODO pass encoding as parameter (https://github.com/hyperledger/aries-framework-go/issues/1678)
+		Encoding: ecdsapb.EcdsaSignatureEncoding_IEEE_P1363,
 		HashType: h,
 	}
 
