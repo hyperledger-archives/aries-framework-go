@@ -854,7 +854,7 @@ func TestValidateDidDocProof(t *testing.T) {
 }
 
 func TestJSONConversion(t *testing.T) {
-	docs := []string{validDoc, validDocV011, validDocWithProofAndJWK}
+	docs := []string{validDoc, validDocV011, validDocWithProofAndJWK, docV011WithVerificationRelationships}
 	for _, d := range docs {
 		// setup -> create Document from json byte data
 		doc, err := ParseDocument([]byte(d))
@@ -1588,7 +1588,7 @@ const docV011WithVerificationRelationships = `{
 		"did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
 	],
 	"authentication": [
-		"did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
+		"#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
 	],
 	"capabilityDelegation": [
 		"did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH"
