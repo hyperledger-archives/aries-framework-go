@@ -260,7 +260,7 @@ func TestEncryptPrimitiveSetFail(t *testing.T) {
 	_, err = encPrimitiveSet.Encrypt([]byte("plaintext"), []byte("aad"))
 	require.Error(t, err)
 
-	// create ECDSA key and set encPrimitiveSet's primary primtive to the ECDSA's primary
+	// create ECDSA key and set encPrimitiveSet's primary primitive to the ECDSA's primary
 	kh, err := keyset.NewHandle(signature.ECDSAP256KeyTemplate())
 	require.NoError(t, err)
 

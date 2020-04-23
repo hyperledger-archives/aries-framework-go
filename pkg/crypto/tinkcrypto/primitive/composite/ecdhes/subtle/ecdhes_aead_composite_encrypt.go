@@ -16,6 +16,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 )
 
+// A256GCM is the default content encryption algorithm value as per
+// the JWA specification: https://tools.ietf.org/html/rfc7518#section-5.1
+const A256GCM = "A256GCM"
+
 // ECDHESAEADCompositeEncrypt is an instance of ECDH-ES encryption with Concat KDF
 // and AEAD content encryption
 type ECDHESAEADCompositeEncrypt struct {
@@ -94,6 +98,7 @@ func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, err
 	tagOffset := len(ctAndTag) - tagSize
 
 	encData := &EncryptedData{
+		EncAlg:     A256GCM, // TODO add chacha alg too, https://github.com/hyperledger/aries-framework-go/issues/1684
 		Ciphertext: ctAndTag[:tagOffset],
 		IV:         iv,
 		Tag:        ctAndTag[tagOffset:],

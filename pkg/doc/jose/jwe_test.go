@@ -17,15 +17,15 @@ import (
 const (
 	expectedJWEAllFields = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
 		`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
-		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"TestKey","header":` +
+		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
 		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
 		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
 	expectedJWEProtectedFieldAbsent = `{"unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
-		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"TestKey","header":{"apu":` +
+		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":{"apu":` +
 		`"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
 		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
 	expectedJWEUnprotectedFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIs` +
-		`InByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","recipients":[{"encrypted_key":"TestKey",` +
+		`InByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","recipients":[{"encrypted_key":"VGVzdEtleQ",` +
 		`"header":{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":` +
 		`"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
 	expectedJWERecipientsFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsI` +
@@ -34,17 +34,17 @@ const (
 		`"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
 	expectedJWEAADFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3R` +
 		`lZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
-		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"TestKey","header":` +
+		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
 		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],` +
 		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
 	expectedJWEIVFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3Rl` +
 		`ZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
-		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"TestKey","header":` +
+		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
 		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
 		`"ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
 	expectedJWETagFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3R` +
 		`lZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1"` +
-		`,"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"TestKey","header":` +
+		`,"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
 		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
 		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ"}`
 )
@@ -57,9 +57,9 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			"protectedheader2": "protectedtestvalue2"}
 		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
 			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]Recipient, 1)
+		recipients := make([]*Recipient, 1)
 
-		recipients[0] = Recipient{
+		recipients[0] = &Recipient{
 			EncryptedKey: "TestKey",
 			Header: RecipientHeaders{
 				APU: "TestAPU",
@@ -86,9 +86,9 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 	t.Run("Successfully serialize JWE, protected header value is empty", func(t *testing.T) {
 		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
 			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]Recipient, 1)
+		recipients := make([]*Recipient, 1)
 
-		recipients[0] = Recipient{
+		recipients[0] = &Recipient{
 			EncryptedKey: "TestKey",
 			Header: RecipientHeaders{
 				APU: "TestAPU",
@@ -114,9 +114,9 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 	t.Run("Successfully serialize JWE, unprotected header value is empty", func(t *testing.T) {
 		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
 			"protectedheader2": "protectedtestvalue2"}
-		recipients := make([]Recipient, 1)
+		recipients := make([]*Recipient, 1)
 
-		recipients[0] = Recipient{
+		recipients[0] = &Recipient{
 			EncryptedKey: "TestKey",
 			Header: RecipientHeaders{
 				APU: "TestAPU",
@@ -162,9 +162,9 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			"protectedheader2": "protectedtestvalue2"}
 		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
 			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]Recipient, 1)
+		recipients := make([]*Recipient, 1)
 
-		recipients[0] = Recipient{
+		recipients[0] = &Recipient{
 			EncryptedKey: "TestKey",
 			Header: RecipientHeaders{
 				APU: "TestAPU",
@@ -192,9 +192,9 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			"protectedheader2": "protectedtestvalue2"}
 		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
 			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]Recipient, 1)
+		recipients := make([]*Recipient, 1)
 
-		recipients[0] = Recipient{
+		recipients[0] = &Recipient{
 			EncryptedKey: "TestKey",
 			Header: RecipientHeaders{
 				APU: "TestAPU",
@@ -222,9 +222,9 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			"protectedheader2": "protectedtestvalue2"}
 		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
 			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]Recipient, 1)
+		recipients := make([]*Recipient, 1)
 
-		recipients[0] = Recipient{
+		recipients[0] = &Recipient{
 			EncryptedKey: "TestKey",
 			Header: RecipientHeaders{
 				APU: "TestAPU",
@@ -252,9 +252,9 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 			"protectedheader2": "protectedtestvalue2"}
 		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
 			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]Recipient, 1)
+		recipients := make([]*Recipient, 1)
 
-		recipients[0] = Recipient{
+		recipients[0] = &Recipient{
 			EncryptedKey: "TestKey",
 			Header: RecipientHeaders{
 				APU: "TestAPU",
@@ -292,7 +292,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 	})
 	t.Run("fail to marshal recipients", func(t *testing.T) {
 		jwe := JSONWebEncryption{
-			Recipients: make([]Recipient, 0),
+			Recipients: make([]*Recipient, 0),
 		}
 
 		fm := &failingMarshaller{

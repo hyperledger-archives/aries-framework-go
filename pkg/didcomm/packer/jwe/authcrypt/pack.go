@@ -163,8 +163,8 @@ func extractCipherText(symOutput []byte) string {
 }
 
 // buildJWE builds the JSON object representing the JWE output of the encryption
-// and returns its marshaled []byte representation
-func (p *Packer) buildJWE(headers string, recipients []jose.Recipient, aad, iv, tag, cipherText string) ([]byte, error) { //nolint:lll
+// and returns its marshalled []byte representation
+func (p *Packer) buildJWE(headers string, recipients []*jose.Recipient, aad, iv, tag, cipherText string) ([]byte, error) { //nolint:lll
 	jwe := Envelope{
 		Protected:  headers,
 		Recipients: recipients,
@@ -205,8 +205,9 @@ func hashAAD(keys []string) []byte {
 
 // encodeRecipients is a utility function that will encrypt the cek (content encryption key) for each recipient
 // and return a list of encoded recipient keys in a JWE compliant format ([]Recipient)
-func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte, senderPubKey *[chacha.KeySize]byte) ([]jose.Recipient, error) { //nolint:lll
-	var encodedRecipients []jose.Recipient
+func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chacha.KeySize]byte,
+	senderPubKey *[chacha.KeySize]byte) ([]*jose.Recipient, error) {
+	var encodedRecipients []*jose.Recipient
 
 	for _, e := range recipients {
 		rec, err := p.encodeRecipient(cek, e, senderPubKey)
@@ -214,7 +215,7 @@ func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chac
 			return nil, err
 		}
 
-		encodedRecipients = append(encodedRecipients, *rec)
+		encodedRecipients = append(encodedRecipients, rec)
 	}
 
 	return encodedRecipients, nil
@@ -223,7 +224,7 @@ func (p *Packer) encodeRecipients(cek *[chacha.KeySize]byte, recipients []*[chac
 // encodeRecipient will encrypt the cek (content encryption key) with a recipientKey
 // by generating a new ephemeral key to be used by the recipient to later decrypt it
 // it returns a JWE compliant Recipient
-func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*jose.Recipient, error) { //nolint:lll
+func (p *Packer) encodeRecipient(cek, recipientPubKey, senderPubKey *[chacha.KeySize]byte) (*jose.Recipient, error) {
 	// generate a random APU value (Agreement PartyUInfo: https://tools.ietf.org/html/rfc7518#section-4.6.1.2)
 	apu := make([]byte, 64)
 

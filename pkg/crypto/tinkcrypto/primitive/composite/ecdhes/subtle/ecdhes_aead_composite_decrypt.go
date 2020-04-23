@@ -49,6 +49,11 @@ func (d *ECDHESAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, er
 		return nil, err
 	}
 
+	// TODO: add support for Chacha content encryption https://github.com/hyperledger/aries-framework-go/issues/1684
+	if encData.EncAlg != A256GCM {
+		return nil, fmt.Errorf("invalid content encryption algorihm '%s' for Decrypt()", encData.EncAlg)
+	}
+
 	for _, rec := range encData.Recipients {
 		recipientKW := &ECDHESConcatKDFRecipientKW{
 			recipientPrivateKey: d.privateKey,

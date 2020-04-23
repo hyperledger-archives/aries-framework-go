@@ -164,7 +164,7 @@ func mergeHeaders(h1, h2 Headers) Headers {
 	return h
 }
 
-func sign(joseHeaders Headers, payload []byte, signer Signer) ([]byte, error) {
+func sign(joseHeaders Headers, payload []byte, signer Signer) ([]byte, error) { //nolint:interfacer
 	err := checkJWSHeaders(joseHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("check JOSE headers: %w", err)

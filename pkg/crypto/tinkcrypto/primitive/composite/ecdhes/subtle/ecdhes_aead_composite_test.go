@@ -159,6 +159,19 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 		_, err = dEnc.Decrypt([]byte{}, aad)
 		require.Error(t, err)
 
+		// try decrypting with empty encAlg
+		var encData EncryptedData
+		err = json.Unmarshal(ct, &encData)
+		require.NoError(t, err)
+
+		encData.EncAlg = ""
+
+		emptyAlgCiphertext, err := json.Marshal(encData)
+		require.NoError(t, err)
+
+		_, err = dEnc.Decrypt(emptyAlgCiphertext, aad)
+		require.Error(t, err)
+
 		// finally try successful decrypt
 		dpt, err := dEnc.Decrypt(ct, aad)
 		require.NoError(t, err)

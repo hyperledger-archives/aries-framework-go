@@ -9,6 +9,7 @@ package subtle
 // EncryptedData represents the Encryption's output data as a result of ECDHESEncrypt.Encrypt(pt, aad) call
 // The user of the primitive must unmarshal the result and build their own ECDH-ES compliant message (ie JWE msg)
 type EncryptedData struct {
+	EncAlg     string                 `json:"EncAlg,omitempty"`
 	Ciphertext []byte                 `json:"Ciphertext,omitempty"`
 	IV         []byte                 `json:"IV,omitempty"`
 	Tag        []byte                 `json:"Tag,omitempty"`
