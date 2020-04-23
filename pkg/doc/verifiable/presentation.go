@@ -88,6 +88,9 @@ const basePresentationSchema = `
         },
         {
           "type": "string"
+        },
+        {
+          "type": "null"
         }
       ]
     },
@@ -299,7 +302,7 @@ type rawPresentation struct {
 	Context        interface{}     `json:"@context,omitempty"`
 	ID             string          `json:"id,omitempty"`
 	Type           interface{}     `json:"type,omitempty"`
-	Credential     interface{}     `json:"verifiableCredential,omitempty"`
+	Credential     interface{}     `json:"verifiableCredential"`
 	Holder         string          `json:"holder,omitempty"`
 	Proof          json.RawMessage `json:"proof,omitempty"`
 	RefreshService *TypedID        `json:"refreshService,omitempty"`
@@ -410,6 +413,11 @@ func newPresentation(vpRaw *rawPresentation, vpOpts *presentationOpts) (*Present
 // 3) struct (should be map[string]interface{}) representing credential data model
 // 4) the same as 3) but as array - i.e. zero or more credentials structs.
 func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface{}, error) {
+	// Accept the case when VP does not have any VCs.
+	if rawCred == nil {
+		return nil, nil
+	}
+
 	marshalSingleCredFn := func(cred interface{}) (interface{}, error) {
 		// Check the case when VC is defined in string format (e.g. JWT).
 		// Decode credential and keep result of decoding.
@@ -430,6 +438,11 @@ func decodeCredentials(rawCred interface{}, opts *presentationOpts) ([]interface
 
 	switch cred := rawCred.(type) {
 	case []interface{}:
+		// Accept the case when VP does not have any VCs.
+		if len(cred) == 0 {
+			return nil, nil
+		}
+
 		// 1 or more credentials
 		creds := make([]interface{}, len(cred))
 
