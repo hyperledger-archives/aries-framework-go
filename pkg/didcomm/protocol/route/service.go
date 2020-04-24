@@ -93,6 +93,8 @@ type provider interface {
 	VDRIRegistry() vdri.Registry
 }
 
+// TODO add support for events: https://github.com/hyperledger/aries-framework-go/issues/1718
+
 // Service for Route Coordination protocol.
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination
 type Service struct {
@@ -176,7 +178,16 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 
 // HandleOutbound handles outbound route coordination messages.
 func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
-	return errors.New("not implemented")
+	if !s.Accept(msg.Type()) {
+		return fmt.Errorf("unsupported message type %s", msg.Type())
+	}
+
+	switch msg.Type() {
+	case RequestMsgType:
+		return s.handleOutboundRequest(msg, myDID, theirDID)
+	default:
+		return fmt.Errorf("invalid or unsupported outbound message type %s", msg.Type())
+	}
 }
 
 // Accept checks whether the service can handle the message type.
@@ -605,6 +616,15 @@ func (s *Service) getConnection(routerConnID string) (*connection.Record, error)
 	}
 
 	return conn, nil
+}
+
+func (s *Service) handleOutboundRequest(_ service.DIDCommMsg, myDID, theirDID string) error {
+	connID, err := s.connectionLookup.GetConnectionIDByDIDs(myDID, theirDID)
+	if err != nil {
+		return fmt.Errorf("failed to lookup connection record for myDID=%s theirDID=%s : %w", myDID, theirDID, err)
+	}
+
+	return s.Register(connID)
 }
 
 func dataKey(id string) string {

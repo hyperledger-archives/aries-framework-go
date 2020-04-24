@@ -18,6 +18,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
@@ -170,6 +171,50 @@ func TestNewProvider(t *testing.T) {
 		}`), "", "")
 
 		require.EqualError(t, errors.Unwrap(err), errTest.Error())
+	})
+
+	t.Run("outbound message handler", func(t *testing.T) {
+		expected := service.NewDIDCommMsgMap(&didexchange.Request{
+			Type: "test-type",
+		})
+		expectedMyDID := "123"
+		expectedTheirDID := "456"
+		handled := false
+		accepted := false
+		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
+			HandleOutboundFunc: func(result service.DIDCommMsg, myDID, theirDID string) error {
+				handled = true
+				require.Equal(t, expected, result)
+				require.Equal(t, expectedMyDID, myDID)
+				require.Equal(t, expectedTheirDID, theirDID)
+				return nil
+			},
+			AcceptFunc: func(msgType string) bool {
+				accepted = true
+				require.Equal(t, expected.Type(), msgType)
+				return true
+			},
+		}))
+		require.NoError(t, err)
+		handler := ctx.OutboundMessageHandler()
+		require.NotNil(t, handler)
+		err = handler.HandleOutbound(expected, expectedMyDID, expectedTheirDID)
+		require.NoError(t, err)
+		require.True(t, accepted)
+		require.True(t, handled)
+	})
+
+	t.Run("outbound message handler fails if msg not handles", func(t *testing.T) {
+		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
+			AcceptFunc: func(msgType string) bool {
+				return false
+			},
+		}))
+		require.NoError(t, err)
+		err = ctx.OutboundMessageHandler().HandleOutbound(service.NewDIDCommMsgMap(&didexchange.Request{
+			Type: "test",
+		}), "myDID", "theirDID")
+		require.Error(t, err)
 	})
 
 	t.Run("test new with message service", func(t *testing.T) {

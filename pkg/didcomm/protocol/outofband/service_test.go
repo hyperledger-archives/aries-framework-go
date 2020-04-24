@@ -289,24 +289,27 @@ func TestHandleRequestCallback(t *testing.T) {
 }
 
 func TestHandleDIDEvent(t *testing.T) {
-	t.Run("invokes inbound msg handler", func(t *testing.T) {
+	t.Run("invokes outbound msg handler", func(t *testing.T) {
 		invoked := make(chan struct{}, 2)
 		connID := uuid.New().String()
 		pthid := uuid.New().String()
 
 		provider := testProvider()
-		provider.InboundMsgHandler = func([]byte, string, string) error {
-			invoked <- struct{}{}
-			return nil
+		provider.OutboundMsgHandler = &outboundMsgHandlerStub{
+			handleFunc: func(service.DIDCommMsg, string, string) error {
+				invoked <- struct{}{}
+				return nil
+			},
 		}
 
 		// setup connection state
 		r, err := connection.NewRecorder(provider)
 		require.NoError(t, err)
 		err = r.SaveConnectionRecord(&connection.Record{
-			ConnectionID: connID,
-			MyDID:        "did:example:mine",
-			TheirDID:     "did:example:theirs",
+			ConnectionID:   connID,
+			MyDID:          "did:example:mine",
+			TheirDID:       "did:example:theirs",
+			ParentThreadID: pthid,
 		})
 		require.NoError(t, err)
 
@@ -323,6 +326,8 @@ func TestHandleDIDEvent(t *testing.T) {
 			ProtocolName: didexchange.DIDExchange,
 			Type:         service.PostState,
 			Msg:          service.NewDIDCommMsgMap(newAck(pthid)),
+			StateID:      didexchange.StateIDCompleted,
+			Properties:   &mockdidexchange.MockEventProperties{ConnID: connID},
 		})
 		require.NoError(t, err)
 
@@ -334,17 +339,27 @@ func TestHandleDIDEvent(t *testing.T) {
 	})
 	t.Run("wraps error returned by the transient store", func(t *testing.T) {
 		expected := errors.New("test")
+		const connID = "123"
 		provider := testProvider()
 		provider.TransientStoreProvider = &mockstore.MockStoreProvider{
 			Store: &mockstore.MockStore{
+				Store:  make(map[string][]byte),
 				ErrGet: expected,
 			},
 		}
+		r, err := connection.NewRecorder(provider)
+		require.NoError(t, err)
+		err = r.SaveConnectionRecord(&connection.Record{
+			ConnectionID: connID,
+		})
+		require.NoError(t, err)
 		s := newAutoService(t, provider)
-		err := s.handleDIDEvent(service.StateMsg{
+		err = s.handleDIDEvent(service.StateMsg{
 			ProtocolName: didexchange.DIDExchange,
 			Type:         service.PostState,
 			Msg:          service.NewDIDCommMsgMap(newAck()),
+			StateID:      didexchange.StateIDCompleted,
+			Properties:   &mockdidexchange.MockEventProperties{},
 		})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
@@ -371,6 +386,8 @@ func TestHandleDIDEvent(t *testing.T) {
 			ProtocolName: didexchange.DIDExchange,
 			Type:         service.PostState,
 			Msg:          service.NewDIDCommMsgMap(newAck(pthid)),
+			StateID:      didexchange.StateIDCompleted,
+			Properties:   &mockdidexchange.MockEventProperties{},
 		})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
@@ -381,17 +398,20 @@ func TestHandleDIDEvent(t *testing.T) {
 		connID := uuid.New().String()
 
 		provider := testProvider()
-		provider.InboundMsgHandler = func([]byte, string, string) error {
-			return expected
+		provider.OutboundMsgHandler = &outboundMsgHandlerStub{
+			handleFunc: func(service.DIDCommMsg, string, string) error {
+				return expected
+			},
 		}
 
 		// setup connection state
 		r, err := connection.NewRecorder(provider)
 		require.NoError(t, err)
 		err = r.SaveConnectionRecord(&connection.Record{
-			ConnectionID: connID,
-			MyDID:        "did:example:mine",
-			TheirDID:     "did:example:theirs",
+			ConnectionID:   connID,
+			MyDID:          "did:example:mine",
+			TheirDID:       "did:example:theirs",
+			ParentThreadID: pthid,
 		})
 		require.NoError(t, err)
 
@@ -407,6 +427,8 @@ func TestHandleDIDEvent(t *testing.T) {
 			ProtocolName: didexchange.DIDExchange,
 			Type:         service.PostState,
 			Msg:          service.NewDIDCommMsgMap(newAck(pthid)),
+			StateID:      didexchange.StateIDCompleted,
+			Properties:   &mockdidexchange.MockEventProperties{ConnID: connID},
 		})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
@@ -425,9 +447,10 @@ func TestHandleDIDEvent(t *testing.T) {
 		r, err := connection.NewRecorder(provider)
 		require.NoError(t, err)
 		err = r.SaveConnectionRecord(&connection.Record{
-			ConnectionID: connID,
-			MyDID:        "did:example:mine",
-			TheirDID:     "did:example:theirs",
+			ConnectionID:   connID,
+			MyDID:          "did:example:mine",
+			TheirDID:       "did:example:theirs",
+			ParentThreadID: pthid,
 		})
 		require.NoError(t, err)
 
@@ -449,6 +472,8 @@ func TestHandleDIDEvent(t *testing.T) {
 			ProtocolName: didexchange.DIDExchange,
 			Type:         service.PostState,
 			Msg:          service.NewDIDCommMsgMap(newAck(pthid)),
+			StateID:      didexchange.StateIDCompleted,
+			Properties:   &mockdidexchange.MockEventProperties{ConnID: connID},
 		})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
@@ -501,7 +526,7 @@ func TestHandleDIDEvent(t *testing.T) {
 				Done:         false,
 			}),
 		)
-		s.getNextRequestFunc = func(*myState) (*decorator.Attachment, bool) {
+		s.chooseRequestFunc = func(*myState) (*decorator.Attachment, bool) {
 			return nil, false
 		}
 		err := s.handleDIDEvent(service.StateMsg{
@@ -517,7 +542,20 @@ func TestHandleDIDEvent(t *testing.T) {
 		pthid := uuid.New().String()
 		connID := uuid.New().String()
 
-		s := newAutoService(t, testProvider(),
+		provider := testProvider()
+
+		// setup connection state
+		r, err := connection.NewRecorder(provider)
+		require.NoError(t, err)
+		err = r.SaveConnectionRecord(&connection.Record{
+			ConnectionID:   connID,
+			MyDID:          "did:example:mine",
+			TheirDID:       "did:example:theirs",
+			ParentThreadID: pthid,
+		})
+
+		require.NoError(t, err)
+		s := newAutoService(t, provider,
 			withState(t, &myState{
 				ID:           pthid,
 				ConnectionID: connID,
@@ -528,10 +566,12 @@ func TestHandleDIDEvent(t *testing.T) {
 		s.extractDIDCommMsgBytesFunc = func(*decorator.Attachment) ([]byte, error) {
 			return nil, expected
 		}
-		err := s.handleDIDEvent(service.StateMsg{
+		err = s.handleDIDEvent(service.StateMsg{
 			ProtocolName: didexchange.DIDExchange,
 			Type:         service.PostState,
 			Msg:          service.NewDIDCommMsgMap(newAck(pthid)),
+			StateID:      didexchange.StateIDCompleted,
+			Properties:   &mockdidexchange.MockEventProperties{ConnID: connID},
 		})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
@@ -948,7 +988,10 @@ func newRequest() *Request {
 				MimeType:    "text/plain",
 				LastModTime: time.Now(),
 				Data: decorator.AttachmentData{
-					Base64: "test",
+					JSON: map[string]interface{}{
+						"@id":   "123",
+						"@type": "test-type",
+					},
 				},
 			},
 		},
@@ -1078,4 +1121,16 @@ func (s *stubStore) Iterator(start, limit string) storage.StoreIterator {
 
 func (s *stubStore) Delete(k string) error {
 	panic("implement me")
+}
+
+type outboundMsgHandlerStub struct {
+	handleFunc func(service.DIDCommMsg, string, string) error
+}
+
+func (o *outboundMsgHandlerStub) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
+	if o.handleFunc != nil {
+		return o.handleFunc(msg, myDID, theirDID)
+	}
+
+	return nil
 }

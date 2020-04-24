@@ -200,3 +200,19 @@ func (p *MockProvider) VDRIRegistry() vdriapi.Registry {
 
 	return &mockvdri.MockVDRIRegistry{}
 }
+
+// MockEventProperties is a didexchange.Event
+type MockEventProperties struct {
+	ConnID string
+	InvID  string
+}
+
+// ConnectionID returns the connection id
+func (m *MockEventProperties) ConnectionID() string {
+	return m.ConnID
+}
+
+// InvitationID returns the invitation id
+func (m *MockEventProperties) InvitationID() string {
+	return m.InvID
+}

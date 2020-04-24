@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -18,9 +20,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
+	routeClient "github.com/hyperledger/aries-framework-go/pkg/client/route"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	introduceService "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
@@ -66,6 +70,8 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve$`, a.checkAndContinue)
 	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve and provides an out-of-band request$`, //nolint:lll
 		a.checkAndContinueWithInvitation)
+	s.Step(`^"([^"]*)" wants to know "([^"]*)" and sends introduce response with approve and provides an out-of-band request with an embedded "([^"]*)"$`, //nolint:lll
+		a.checkAndContinueWithInvitationAndEmbeddedRequest)
 	s.Step(`^"([^"]*)" doesn't want to know "([^"]*)" and sends introduce response$`, a.checkAndStop)
 	s.Step(`^"([^"]*)" stops the introduce protocol$`, a.stopProtocol)
 	s.Step(`^"([^"]*)" checks the history of introduce protocol events "([^"]*)"$`, a.checkHistoryEvents)
@@ -73,6 +79,7 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 		a.checkHistoryEventsAndStop)
 	s.Step(`^"([^"]*)" exchange DIDs with "([^"]*)"$`, a.createConnections)
 	s.Step(`^"([^"]*)" has did exchange connection with "([^"]*)"$`, a.connectionEstablished)
+	s.Step(`^"([^"]*)" confirms route registration with "([^"]*)"$`, a.confirmRouteRegistration)
 }
 
 func (a *SDKSteps) connectionEstablished(agent1, agent2 string) error {
@@ -331,6 +338,33 @@ func (a *SDKSteps) checkAndContinueWithInvitation(agentID, introduceeID string) 
 	return nil
 }
 
+func (a *SDKSteps) checkAndContinueWithInvitationAndEmbeddedRequest(agentID, introduceeID, request string) error {
+	select {
+	case e := <-a.actions[agentID]:
+		proposal := &introduceService.Proposal{}
+		if err := e.Message.Decode(proposal); err != nil {
+			return err
+		}
+
+		if proposal.To.Name != introduceeID {
+			return fmt.Errorf("%q wants to know %q but got %q", agentID, introduceeID, proposal.To.Name)
+		}
+
+		req, err := a.newOOBRequest(agentID, request)
+		if err != nil {
+			return err
+		}
+
+		e.Continue(introduce.WithOOBRequest(req))
+
+		go a.outofbandSDKS.ApproveRequest(agentID)
+	case <-time.After(timeout):
+		return fmt.Errorf("timeout checkAndContinue %s", agentID)
+	}
+
+	return nil
+}
+
 func (a *SDKSteps) stopProtocol(agentID string) error {
 	select {
 	case e := <-a.actions[agentID]:
@@ -408,20 +442,50 @@ func (a *SDKSteps) sendRequest(introducee1, introducer, introducee2 string) erro
 	return a.clients[introducee1].SendRequest(to, conn1.MyDID, conn1.TheirDID)
 }
 
-func (a *SDKSteps) newOOBRequest(agentID string) (*outofband.Request, error) {
+func (a *SDKSteps) newOOBRequest(agentID string, requests ...interface{}) (*outofband.Request, error) {
 	client, err := outofband.New(a.bddContext.AgentCtx[agentID])
 	if err != nil {
 		return nil, err
 	}
 
+	// default
+	attachments := []*decorator.Attachment{{
+		ID:          uuid.New().String(),
+		Description: "test",
+		Data: decorator.AttachmentData{
+			JSON: map[string]interface{}{},
+		},
+	}}
+
+	if len(requests) > 0 {
+		// override
+		attachments = []*decorator.Attachment{}
+
+		for _, r := range requests {
+			if r != "route-request" {
+				return nil, fmt.Errorf("unsupported request type: %s", r)
+			}
+
+			bytes, er := json.Marshal(&route.Request{
+				ID:   uuid.New().String(),
+				Type: route.RequestMsgType,
+			})
+			if er != nil {
+				return nil, er
+			}
+
+			attachments = append(attachments, &decorator.Attachment{
+				ID:          uuid.New().String(),
+				Description: "test",
+				Data: decorator.AttachmentData{
+					Base64: base64.StdEncoding.EncodeToString(bytes),
+				},
+			})
+		}
+	}
+
 	r, err := client.CreateRequest(
-		[]*decorator.Attachment{{
-			ID:          uuid.New().String(),
-			Description: "test",
-			Data: decorator.AttachmentData{
-				JSON: map[string]interface{}{},
-			},
-		}},
+		attachments,
 		outofband.WithLabel(agentID),
 	)
 	if err != nil {
@@ -443,6 +507,44 @@ func (a *SDKSteps) createExternalClients(participants string) error {
 
 	if err := a.didExchangeSDKS.RegisterPostMsgEvent(participants, "completed"); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (a *SDKSteps) confirmRouteRegistration(agentID, router string) error {
+	expected, err := a.getConnection(agentID, router)
+	if err != nil {
+		return err
+	}
+
+	client, err := routeClient.New(a.bddContext.AgentCtx[agentID])
+	if err != nil {
+		return err
+	}
+
+	var result string
+
+	err = errors.New("dummy")
+	deadline := time.Now().Add(timeout)
+
+	// TODO add protocol state msg event capability to routing service
+	//  https://github.com/hyperledger/aries-framework-go/issues/1718
+	for err != nil && time.Now().Before(deadline) {
+		result, err = client.GetConnection()
+		if err != nil {
+			time.Sleep(250 * time.Millisecond) //nolint:gomnd
+		}
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if expected.ConnectionID != result {
+		return fmt.Errorf(
+			"mismatch: %s has connectionID=%s with router %s but its routing ID is %s",
+			agentID, expected.ConnectionID, router, result)
 	}
 
 	return nil

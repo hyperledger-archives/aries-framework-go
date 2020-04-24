@@ -47,7 +47,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 		connRec := &connection.Record{ThreadID: threadIDValue,
 
-			ConnectionID: connIDValue, State: stateNameInvited, Namespace: theirNSPrefix}
+			ConnectionID: connIDValue, State: StateIDInvited, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.NoError(t, err)
 
@@ -60,7 +60,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 		connRec := &connection.Record{ThreadID: threadIDValue,
 
-			ConnectionID: connIDValue, State: stateNameInvited}
+			ConnectionID: connIDValue, State: StateIDInvited}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "empty")
@@ -75,7 +75,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		})
 		require.NoError(t, err)
 		connRec := &connection.Record{ThreadID: "",
-			ConnectionID: "test", State: stateNameInvited, Namespace: theirNSPrefix}
+			ConnectionID: "test", State: StateIDInvited, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecord(connRec)
 		require.Contains(t, err.Error(), errMsg)
 	})
@@ -89,7 +89,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		})
 		require.NoError(t, err)
 		connRec := &connection.Record{ThreadID: threadIDValue,
-			ConnectionID: connIDValue, State: stateNameInvited, Namespace: theirNSPrefix}
+			ConnectionID: connIDValue, State: StateIDInvited, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.Contains(t, err.Error(), errMsg)
 	})
@@ -105,7 +105,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 
 		require.NotNil(t, record)
 		connRec := &connection.Record{ThreadID: threadIDValue,
-			ConnectionID: connIDValue, State: stateNameCompleted, Namespace: theirNSPrefix}
+			ConnectionID: connIDValue, State: StateIDCompleted, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.Contains(t, err.Error(), errMsg)
 	})
@@ -123,7 +123,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 
 		connRec := &connection.Record{ThreadID: threadIDValue, MyDID: "did:foo",
-			ConnectionID: connIDValue, State: stateNameCompleted, Namespace: theirNSPrefix}
+			ConnectionID: connIDValue, State: StateIDCompleted, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
@@ -146,7 +146,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NoError(t, err)
 
 		connRec := &connection.Record{ThreadID: threadIDValue, MyDID: "did:foo",
-			ConnectionID: connIDValue, State: stateNameCompleted, Namespace: theirNSPrefix}
+			ConnectionID: connIDValue, State: StateIDCompleted, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecord(connRec)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "resolve error")
@@ -165,7 +165,7 @@ func TestConnectionRecorder_GetConnectionRecordByNSThreadID(t *testing.T) {
 
 		require.NotNil(t, record)
 		connRec := &connection.Record{ThreadID: threadIDValue,
-			ConnectionID: connIDValue, State: stateNameInvited, Namespace: myNSPrefix}
+			ConnectionID: connIDValue, State: StateIDInvited, Namespace: myNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.NoError(t, err)
 
@@ -181,7 +181,7 @@ func TestConnectionRecorder_GetConnectionRecordByNSThreadID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, record)
 		connRec := &connection.Record{ThreadID: threadIDValue,
-			ConnectionID: connIDValue, State: stateNameInvited, Namespace: theirNSPrefix}
+			ConnectionID: connIDValue, State: StateIDInvited, Namespace: theirNSPrefix}
 		err = record.saveConnectionRecordWithMapping(connRec)
 		require.NoError(t, err)
 

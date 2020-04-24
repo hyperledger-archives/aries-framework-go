@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -60,8 +59,8 @@ type Service struct {
 	didEvents                  chan service.StateMsg
 	store                      storage.Store
 	connections                *connection.Recorder
-	dispatch                   transport.InboundMessageHandler
-	getNextRequestFunc         func(*myState) (*decorator.Attachment, bool)
+	outboundHandler            service.OutboundHandler
+	chooseRequestFunc          func(*myState) (*decorator.Attachment, bool)
 	extractDIDCommMsgBytesFunc func(*decorator.Attachment) ([]byte, error)
 	listenerFunc               func()
 }
@@ -73,6 +72,7 @@ type callback struct {
 }
 
 type myState struct {
+	// ID becomes the parent thread ID of didexchange
 	ID           string
 	ConnectionID string
 	Request      *Request
@@ -85,7 +85,7 @@ type Provider interface {
 	Service(id string) (interface{}, error)
 	StorageProvider() storage.Provider
 	TransientStorageProvider() storage.Provider
-	InboundMessageHandler() transport.InboundMessageHandler
+	OutboundMessageHandler() service.OutboundHandler
 }
 
 // New creates a new instance of the out-of-band service.
@@ -116,8 +116,8 @@ func New(p Provider) (*Service, error) {
 		didEvents:                  make(chan service.StateMsg, callbackChannelSize),
 		store:                      store,
 		connections:                connectionRecorder,
-		dispatch:                   p.InboundMessageHandler(),
-		getNextRequestFunc:         getNextRequest,
+		outboundHandler:            p.OutboundMessageHandler(),
+		chooseRequestFunc:          chooseRequest,
 		extractDIDCommMsgBytesFunc: extractDIDCommMsgBytes,
 	}
 
@@ -352,11 +352,25 @@ func (s *Service) handleCallback(c *callback) (string, error) {
 }
 
 func (s *Service) handleRequestCallback(c *callback) (string, error) {
+	logger.Debugf("input: %+v", c)
+
 	// TODO refactor didexchange.Service to accept an object other than didexchange.Invitation
 	//  https://github.com/hyperledger/aries-framework-go/issues/1501
 	invitation, req, err := decodeInvitationAndRequest(c.msg)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode didexchange invitation and out-of-band request : %w", err)
+	}
+
+	state := &myState{
+		// the pthid of the didexchange thread will equal this invitation's ID as per the RFC
+		ID:      invitation.ThreadID,
+		Request: req,
+	}
+
+	err = s.save(state)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to save new state : %w", err)
 	}
 
 	connID, err := s.didSvc.RespondTo(invitation)
@@ -367,20 +381,19 @@ func (s *Service) handleRequestCallback(c *callback) (string, error) {
 	// TODO if we want to implement retries then we should be saving state before invoking
 	//  the didexchange service
 
-	err = s.save(&myState{
-		// the pthid of the didexchange thread will equal this invitation's ID as per the RFC
-		ID:           invitation.ID,
-		ConnectionID: connID,
-		Request:      req,
-	})
+	state.ConnectionID = connID
+
+	err = s.save(state)
 	if err != nil {
-		return "", fmt.Errorf("failed to save my state : %w", err)
+		return "", fmt.Errorf("failed to persist state update with connectionID : %w", err)
 	}
 
 	return connID, nil
 }
 
 func (s *Service) handleInvitationCallback(c *callback) (string, error) {
+	logger.Debugf("input: %+v", c)
+
 	didInv, oobInv, err := decodeDIDInvitationAndOOBInvitation(c.msg)
 	if err != nil {
 		return "", fmt.Errorf("handleInvitationCallback: failed to decode callback message : %w", err)
@@ -406,46 +419,46 @@ func (s *Service) handleInvitationCallback(c *callback) (string, error) {
 }
 
 func (s *Service) handleDIDEvent(e service.StateMsg) error {
-	// TODO remove 'empty parent threadID check'?
-	if e.Type != service.PostState || e.Msg.Type() != didexchange.AckMsgType || e.Msg.ParentThreadID() == "" {
-		// we are only interested in a successfully completed didexchange.
-		// the out-of-band protocol thread should be the did-exchange's parent thread.
+	logger.Debugf("input: %+v", e)
+
+	if e.Type != service.PostState || e.StateID != didexchange.StateIDCompleted {
 		return errIgnoredDidEvent
 	}
 
-	state, err := s.fetchMyState(e.Msg.ParentThreadID())
+	props, ok := e.Properties.(didexchange.Event)
+	if !ok {
+		return fmt.Errorf("failed to cast did state msg properties")
+	}
+
+	connID := props.ConnectionID()
+
+	record, err := s.connections.GetConnectionRecord(connID)
 	if err != nil {
-		return fmt.Errorf("failed to load state data with id=%s : %w", e.Msg.ParentThreadID(), err)
+		return fmt.Errorf("failed to get connection record : %w", err)
 	}
 
-	req, found := s.getNextRequestFunc(state)
-	if !found {
-		return errIgnoredDidEvent
-	}
-
-	bytes, err := s.extractDIDCommMsgBytesFunc(req)
+	state, err := s.fetchMyState(record.ParentThreadID)
 	if err != nil {
-		return fmt.Errorf("failed to extract didcomm message from attachment : %w", err)
+		return fmt.Errorf("handleDIDEvent - failed to load state : %w", err)
 	}
 
-	record, err := s.fetchConnectionRecord(state.ConnectionID)
+	msg, err := s.extractDIDCommMsg(state)
 	if err != nil {
-		return fmt.Errorf("failed to fetch connection record with id=%s : %w", state.ConnectionID, err)
+		return fmt.Errorf("failed to extract DIDComm msg : %w", err)
 	}
 
-	err = s.dispatch(bytes, record.MyDID, record.TheirDID)
-	if err != nil {
-		return fmt.Errorf("failed to dispatch message : %w", err)
-	}
-
-	// TODO do we need the capability to register for events from whatever protocol service is handling that msg?
-
-	// TODO we're only processing a single message for now
 	state.Done = true
 
+	// Save state as Done before dispatching message because the out-of-band protocol
+	// has done its job in getting this far. The other protocol maintains its own state.
 	err = s.save(state)
 	if err != nil {
 		return fmt.Errorf("failed to update state : %w", err)
+	}
+
+	err = s.outboundHandler.HandleOutbound(msg, record.MyDID, record.TheirDID)
+	if err != nil {
+		return fmt.Errorf("failed to dispatch message : %w", err)
 	}
 
 	return nil
@@ -468,7 +481,7 @@ func (s *Service) save(state *myState) error {
 func (s *Service) fetchMyState(id string) (*myState, error) {
 	bytes, err := s.store.Get(id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch state data with id=%s : %w", id, err)
+		return nil, fmt.Errorf("failed to fetch state using id=%s : %w", id, err)
 	}
 
 	state := &myState{}
@@ -481,18 +494,11 @@ func (s *Service) fetchMyState(id string) (*myState, error) {
 	return state, nil
 }
 
-func (s *Service) fetchConnectionRecord(id string) (*connection.Record, error) {
-	r, err := s.connections.GetConnectionRecord(id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch connection record for id=%s : %w", id, err)
-	}
-
-	return r, nil
-}
-
-// TODO a request message contains an array of attachments (each a request in of itself).
-//  Should we process in parallel? Would need a spec update.
-func getNextRequest(state *myState) (*decorator.Attachment, bool) {
+// TODO only 1 attached request is to be processed from the array as discussed in:
+//  - https://github.com/hyperledger/aries-rfcs/issues/468
+//  - https://github.com/hyperledger/aries-rfcs/issues/451
+//  This logic should be injected into the service.
+func chooseRequest(state *myState) (*decorator.Attachment, bool) {
 	if !state.Done {
 		return state.Request.Requests[0], true
 	}
@@ -500,9 +506,32 @@ func getNextRequest(state *myState) (*decorator.Attachment, bool) {
 	return nil, false
 }
 
-func extractDIDCommMsgBytes(_ *decorator.Attachment) ([]byte, error) {
-	// TODO implement
-	return nil, nil
+func extractDIDCommMsgBytes(a *decorator.Attachment) ([]byte, error) {
+	bytes, err := a.Data.Fetch()
+	if err != nil {
+		return nil, fmt.Errorf("extractDIDCommMsgBytes: %w", err)
+	}
+
+	return bytes, nil
+}
+
+func (s *Service) extractDIDCommMsg(state *myState) (service.DIDCommMsg, error) {
+	req, found := s.chooseRequestFunc(state)
+	if !found {
+		return nil, fmt.Errorf("no requests found to extract for msgId=%s", state.Request.ID)
+	}
+
+	bytes, err := s.extractDIDCommMsgBytesFunc(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract didcomm message from attachment : %w", err)
+	}
+
+	msg, err := service.ParseDIDCommMsgMap(bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse followup request : %w", err)
+	}
+
+	return msg, nil
 }
 
 func decodeInvitationAndRequest(msg service.DIDCommMsg) (*didexchange.OOBInvitation, *Request, error) {

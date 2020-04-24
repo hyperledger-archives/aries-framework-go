@@ -41,6 +41,7 @@ type Provider interface {
 	Signer() legacykms.Signer
 	TransientStorageProvider() storage.Provider
 	InboundMessageHandler() didcommtransport.InboundMessageHandler
+	OutboundMessageHandler() service.OutboundHandler
 }
 
 // ProtocolSvcCreator method to create new protocol service

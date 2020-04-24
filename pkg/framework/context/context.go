@@ -46,6 +46,20 @@ type Provider struct {
 	frameworkID            string
 }
 
+type outboundHandler struct {
+	services []dispatcher.ProtocolService
+}
+
+func (o *outboundHandler) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
+	for _, s := range o.services {
+		if s.Accept(msg.Type()) {
+			return s.HandleOutbound(msg, myDID, theirDID)
+		}
+	}
+
+	return fmt.Errorf("no handlers for msg type %s", msg.Type())
+}
+
 // New instantiates a new context provider.
 func New(opts ...ProviderOption) (*Provider, error) {
 	ctxProvider := Provider{}
@@ -184,6 +198,14 @@ func (p *Provider) InboundMessageHandler() transport.InboundMessageHandler {
 
 		return fmt.Errorf("no message handlers found for the message type: %s", msg.Type())
 	}
+}
+
+// OutboundMessageHandler returns a handler composed of all registered protocol services.
+func (p *Provider) OutboundMessageHandler() service.OutboundHandler {
+	tmp := make([]dispatcher.ProtocolService, len(p.services))
+	copy(tmp, p.services)
+
+	return &outboundHandler{services: tmp}
 }
 
 // StorageProvider return a storage provider.

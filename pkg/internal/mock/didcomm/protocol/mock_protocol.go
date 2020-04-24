@@ -31,6 +31,7 @@ type MockProvider struct {
 	ServiceErr             error
 	ServiceMap             map[string]interface{}
 	InboundMsgHandler      transport.InboundMessageHandler
+	OutboundMsgHandler     service.OutboundHandler
 }
 
 // OutboundDispatcher is mock outbound dispatcher for DID exchange service
@@ -104,4 +105,9 @@ func (p *MockProvider) Messenger() service.Messenger {
 // InboundMessageHandler handles an unpacked inbound message.
 func (p *MockProvider) InboundMessageHandler() transport.InboundMessageHandler {
 	return p.InboundMsgHandler
+}
+
+// OutboundMessageHandler handles an outbound message.
+func (p *MockProvider) OutboundMessageHandler() service.OutboundHandler {
+	return p.OutboundMsgHandler
 }
