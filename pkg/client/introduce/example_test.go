@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
-	protocolOutOfBand "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	dispatcherMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/dispatcher"
 	messengerMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/messenger"
@@ -207,9 +206,7 @@ func ExampleClient_SendProposal() {
 				e.Continue(nil)
 			case e := <-actionsCarol:
 				e.Continue(WithOOBRequest(&outofband.Request{
-					Request: &protocolOutOfBand.Request{
-						Type: outofband.RequestMsgType,
-					},
+					Type: outofband.RequestMsgType,
 				}))
 			}
 		}
@@ -289,9 +286,7 @@ func ExampleClient_SendProposalWithOOBRequest() {
 
 	err = clientAlice.SendProposalWithOOBRequest(
 		&outofband.Request{
-			Request: &protocolOutOfBand.Request{
-				Type: outofband.RequestMsgType,
-			},
+			Type: outofband.RequestMsgType,
 		},
 		&introduce.Recipient{
 			MyDID:    Alice,
@@ -376,9 +371,7 @@ func ExampleClient_SendRequest() {
 				e.Continue(nil)
 			case e := <-actionsCarol:
 				e.Continue(WithOOBRequest(&outofband.Request{
-					Request: &protocolOutOfBand.Request{
-						Type: outofband.RequestMsgType,
-					},
+					Type: outofband.RequestMsgType,
 				}))
 			}
 		}
@@ -448,9 +441,7 @@ func ExampleClient_SendRequest_second() {
 			select {
 			case e := <-actionsAlice:
 				e.Continue(WithPublicOOBRequest(&outofband.Request{
-					Request: &protocolOutOfBand.Request{
-						Type: outofband.RequestMsgType,
-					},
+					Type: outofband.RequestMsgType,
 				}, &introduce.To{Name: Carol}))
 			case e := <-actionsBob:
 				e.Continue(nil)

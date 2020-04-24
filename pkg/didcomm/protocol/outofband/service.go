@@ -30,9 +30,13 @@ const (
 	Name = "out-of-band"
 	// RequestMsgType is the '@type' for the request message.
 	RequestMsgType = "https://didcomm.org/oob-request/1.0/request"
+	// InvitationMsgType is the '@type' for the invitation message.
+	InvitationMsgType = "https://didcomm.org/oob-invitation/1.0/invitation"
 
 	// StateRequested is one of the possible states of this protocol.
 	StateRequested = "requested"
+	// StateInvited is this protocol's state after accepting an invitation
+	StateInvited = "invited"
 
 	// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 	callbackChannelSize = 10
@@ -72,6 +76,7 @@ type myState struct {
 	ID           string
 	ConnectionID string
 	Request      *Request
+	Invitation   *Invitation
 	Done         bool
 }
 
@@ -116,7 +121,7 @@ func New(p Provider) (*Service, error) {
 		extractDIDCommMsgBytesFunc: extractDIDCommMsgBytes,
 	}
 
-	s.listenerFunc = listener(s.callbackChannel, s.didEvents, s.handleRequestCallback, s.handleDIDEvent, &s.Message)
+	s.listenerFunc = listener(s.callbackChannel, s.didEvents, s.handleCallback, s.handleDIDEvent, &s.Message)
 
 	didEventsSvc, ok := didSvc.(service.Event)
 	if !ok {
@@ -139,8 +144,7 @@ func (s *Service) Name() string {
 
 // Accept determines whether this service can handle the given type of message
 func (s *Service) Accept(msgType string) bool {
-	// TODO add invitation msg type https://github.com/hyperledger/aries-rfcs/issues/451
-	return msgType == RequestMsgType
+	return msgType == RequestMsgType || msgType == InvitationMsgType
 }
 
 // HandleInbound handles inbound messages
@@ -185,6 +189,8 @@ func sendMsgEvent(t service.StateMsgType, listeners *service.Message, msg servic
 
 	if msg.Type() == RequestMsgType {
 		stateName = StateRequested
+	} else {
+		stateName = StateInvited
 	}
 
 	stateMsg := service.StateMsg{
@@ -210,7 +216,7 @@ func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) error {
 
 // AcceptRequest from another agent and return the connection ID.
 func (s *Service) AcceptRequest(r *Request) (string, error) {
-	connID, err := s.handleRequestCallback(&callback{
+	connID, err := s.handleCallback(&callback{
 		msg: service.NewDIDCommMsgMap(r),
 	})
 	if err != nil {
@@ -218,6 +224,19 @@ func (s *Service) AcceptRequest(r *Request) (string, error) {
 	}
 
 	return connID, err
+}
+
+// AcceptInvitation from another agent and return the connection ID.
+func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
+	connID, err := s.handleCallback(&callback{
+		msg: service.NewDIDCommMsgMap(i),
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to accept invitation : %w", err)
+	}
+
+	return connID, nil
 }
 
 // SaveRequest created by the outofband client.
@@ -246,6 +265,32 @@ func (s *Service) SaveRequest(r *Request) error {
 	return nil
 }
 
+// SaveInvitation created by the outofband client.
+func (s *Service) SaveInvitation(i *Invitation) error {
+	target, err := chooseTarget(i.Service)
+	if err != nil {
+		return fmt.Errorf("failed to choose a target to connect against : %w", err)
+	}
+
+	// TODO where should we save this invitation? - https://github.com/hyperledger/aries-framework-go/issues/1547
+	err = s.connections.SaveInvitation(i.ID+"-TODO", i)
+	if err != nil {
+		return fmt.Errorf("failed to save oob invitation : %w", err)
+	}
+
+	err = s.didSvc.SaveInvitation(&didexchange.OOBInvitation{
+		ID:       uuid.New().String(),
+		ThreadID: i.ID,
+		Label:    i.Label,
+		Target:   target,
+	})
+	if err != nil {
+		return fmt.Errorf("the didexchange service failed to save the oob invitation : %w", err)
+	}
+
+	return nil
+}
+
 func continueFunc(c chan *callback, msg service.DIDCommMsg, myDID, theirDID string) func(interface{}) {
 	return func(_ interface{}) {
 		c <- &callback{
@@ -259,20 +304,18 @@ func continueFunc(c chan *callback, msg service.DIDCommMsg, myDID, theirDID stri
 func listener(
 	callbacks chan *callback,
 	didEvents chan service.StateMsg,
-	handleReqFunc func(*callback) (string, error),
+	handleCallbackFunc func(*callback) (string, error),
 	handleDidEventFunc func(msg service.StateMsg) error,
 	msgHandlers *service.Message) func() {
 	return func() {
 		for {
 			select {
 			case c := <-callbacks:
-				// TODO add support for handling the 'invitation' message
-				//  https://github.com/hyperledger/aries-framework-go/issues/1488
 				switch c.msg.Type() {
-				case RequestMsgType:
-					connID, err := handleReqFunc(c)
+				case RequestMsgType, InvitationMsgType:
+					connID, err := handleCallbackFunc(c)
 					if err != nil {
-						logutil.LogError(logger, Name, "handleRequestCallback", err.Error(),
+						logutil.LogError(logger, Name, "handleCallback", err.Error(),
 							logutil.CreateKeyValueString("msgType", c.msg.Type()),
 							logutil.CreateKeyValueString("msgID", c.msg.ID()))
 
@@ -294,6 +337,17 @@ func listener(
 				}
 			}
 		}
+	}
+}
+
+func (s *Service) handleCallback(c *callback) (string, error) {
+	switch c.msg.Type() {
+	case RequestMsgType:
+		return s.handleRequestCallback(c)
+	case InvitationMsgType:
+		return s.handleInvitationCallback(c)
+	default:
+		return "", fmt.Errorf("unsupported message type: %s", c.msg.Type())
 	}
 }
 
@@ -319,6 +373,31 @@ func (s *Service) handleRequestCallback(c *callback) (string, error) {
 		ConnectionID: connID,
 		Request:      req,
 	})
+	if err != nil {
+		return "", fmt.Errorf("failed to save my state : %w", err)
+	}
+
+	return connID, nil
+}
+
+func (s *Service) handleInvitationCallback(c *callback) (string, error) {
+	didInv, oobInv, err := decodeDIDInvitationAndOOBInvitation(c.msg)
+	if err != nil {
+		return "", fmt.Errorf("handleInvitationCallback: failed to decode callback message : %w", err)
+	}
+
+	connID, err := s.didSvc.RespondTo(didInv)
+	if err != nil {
+		return "", fmt.Errorf("didexchange service failed to handle inbound invitation : %w", err)
+	}
+
+	state := &myState{
+		ID:           didInv.ID,
+		ConnectionID: connID,
+		Invitation:   oobInv,
+	}
+
+	err = s.save(state)
 	if err != nil {
 		return "", fmt.Errorf("failed to save my state : %w", err)
 	}
@@ -449,6 +528,29 @@ func decodeInvitationAndRequest(msg service.DIDCommMsg) (*didexchange.OOBInvitat
 
 	// TODO support explicit invitations : https://github.com/hyperledger/aries-framework-go/issues/1502
 	return invitation, req, nil
+}
+
+func decodeDIDInvitationAndOOBInvitation(msg service.DIDCommMsg) (*didexchange.OOBInvitation, *Invitation, error) {
+	oobInv := &Invitation{}
+
+	err := msg.Decode(oobInv)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decode out-of-band invitation mesesage : %w", err)
+	}
+
+	target, err := chooseTarget(oobInv.Service)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to choose a target to connect against : %w", err)
+	}
+
+	didInv := &didexchange.OOBInvitation{
+		ID:       uuid.New().String(),
+		ThreadID: oobInv.ID,
+		Label:    oobInv.Label,
+		Target:   target,
+	}
+
+	return didInv, oobInv, nil
 }
 
 func chooseTarget(svcs []interface{}) (interface{}, error) {

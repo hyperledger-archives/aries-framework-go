@@ -16,6 +16,12 @@ Feature: Out-Of-Band protocol
 
   Scenario: New connection after Alice sends an out-of-band request to Bob
     Given "Alice" constructs an out-of-band request with no attachments
-    And "Alice" sends the request to "Bob" through an out-of-band channel
+    When "Alice" sends the request to "Bob" through an out-of-band channel
     And "Bob" accepts the request and connects with "Alice"
+    Then "Alice" and "Bob" confirm their connection is "completed"
+
+  Scenario: New connection after Alice sends an ouf-of-band invitation to Bob
+    Given "Alice" constructs an out-of-band invitation
+    When "Alice" sends the invitation to "Bob" through an out-of-band channel
+    And "Bob" accepts the invitation and connects with "Alice"
     Then "Alice" and "Bob" confirm their connection is "completed"

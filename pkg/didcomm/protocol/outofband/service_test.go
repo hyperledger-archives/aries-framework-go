@@ -99,6 +99,11 @@ func TestAccept(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, s.Accept("https://didcomm.org/oob-request/1.0/request"))
 	})
+	t.Run("accepts out-of-band invitation messages", func(t *testing.T) {
+		s, err := New(testProvider())
+		require.NoError(t, err)
+		require.True(t, s.Accept("https://didcomm.org/oob-invitation/1.0/invitation"))
+	})
 	t.Run("rejects unsupported messages", func(t *testing.T) {
 		s, err := New(testProvider())
 		require.NoError(t, err)
@@ -111,6 +116,14 @@ func TestHandleInbound(t *testing.T) {
 		s := newAutoService(t, testProvider())
 		_, err := s.HandleInbound(
 			service.NewDIDCommMsgMap(newRequest()),
+			"did:example:mine",
+			"did:example:theirs")
+		require.NoError(t, err)
+	})
+	t.Run("accepts out-of-band invitation messages", func(t *testing.T) {
+		s := newAutoService(t, testProvider())
+		_, err := s.HandleInbound(
+			service.NewDIDCommMsgMap(newInvitation()),
 			"did:example:mine",
 			"did:example:theirs")
 		require.NoError(t, err)
@@ -701,6 +714,39 @@ func TestAcceptRequest(t *testing.T) {
 	})
 }
 
+func TestAcceptInvitation(t *testing.T) {
+	t.Run("returns connectionID", func(t *testing.T) {
+		expected := "123456"
+		provider := testProvider()
+		provider.ServiceMap = map[string]interface{}{
+			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
+				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
+					return expected, nil
+				},
+			},
+		}
+		s := newAutoService(t, provider)
+		result, err := s.AcceptInvitation(newInvitation())
+		require.NoError(t, err)
+		require.Equal(t, expected, result)
+	})
+	t.Run("wraps error from didexchange service", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := testProvider()
+		provider.ServiceMap = map[string]interface{}{
+			didexchange.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
+				RespondToFunc: func(_ *didexchange.OOBInvitation) (string, error) {
+					return "", expected
+				},
+			},
+		}
+		s := newAutoService(t, provider)
+		_, err := s.AcceptInvitation(newInvitation())
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+}
+
 func TestSaveRequest(t *testing.T) {
 	t.Run("saves request", func(t *testing.T) {
 		expected := newRequest()
@@ -758,6 +804,74 @@ func TestSaveRequest(t *testing.T) {
 		}
 		s := newAutoService(t, provider)
 		err := s.SaveRequest(newRequest())
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+}
+
+func TestSaveInvitation(t *testing.T) {
+	t.Run("saves invitation", func(t *testing.T) {
+		savedInStore := false
+		savedInDidSvc := false
+		expected := newInvitation()
+		provider := testProvider()
+		provider.StoreProvider = mockstore.NewCustomMockStoreProvider(&stubStore{
+			putFunc: func(k string, v []byte) error {
+				savedInStore = true
+				result := &Invitation{}
+				err := json.Unmarshal(v, result)
+				require.NoError(t, err)
+				require.Equal(t, expected, result)
+				return nil
+			},
+		})
+		provider.ServiceMap[didexchange.DIDExchange] = &mockdidexchange.MockDIDExchangeSvc{
+			SaveFunc: func(i *didexchange.OOBInvitation) error {
+				savedInDidSvc = true
+				require.NotNil(t, i)
+				require.NotEmpty(t, i.ID)
+				require.Equal(t, expected.ID, i.ThreadID)
+				require.Equal(t, expected.Label, i.Label)
+				require.Equal(t, expected.Service[0], i.Target)
+				return nil
+			},
+		}
+		s := newAutoService(t, provider)
+		err := s.SaveInvitation(expected)
+		require.NoError(t, err)
+		require.True(t, savedInStore)
+		require.True(t, savedInDidSvc)
+	})
+	t.Run("wraps error from store", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := testProvider()
+		provider.StoreProvider = &mockstore.MockStoreProvider{
+			Store: &mockstore.MockStore{
+				ErrPut: expected,
+			},
+		}
+		s := newAutoService(t, provider)
+		err := s.SaveInvitation(newInvitation())
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+	t.Run("fails when invitation does not have services", func(t *testing.T) {
+		inv := newInvitation()
+		inv.Service = []interface{}{}
+		s := newAutoService(t, testProvider())
+		err := s.SaveInvitation(inv)
+		require.Error(t, err)
+	})
+	t.Run("wraps error from didexchange service", func(t *testing.T) {
+		expected := errors.New("test")
+		provider := testProvider()
+		provider.ServiceMap[didexchange.DIDExchange] = &mockdidexchange.MockDIDExchangeSvc{
+			SaveFunc: func(*didexchange.OOBInvitation) error {
+				return expected
+			},
+		}
+		s := newAutoService(t, provider)
+		err := s.SaveInvitation(newInvitation())
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -839,6 +953,18 @@ func newRequest() *Request {
 			},
 		},
 		Service: []interface{}{"did:example:1235"},
+	}
+}
+
+func newInvitation() *Invitation {
+	return &Invitation{
+		ID:        uuid.New().String(),
+		Type:      InvitationMsgType,
+		Label:     "test",
+		Goal:      "test",
+		GoalCode:  "test",
+		Service:   []interface{}{"did:example:1235"},
+		Protocols: []string{didexchange.PIURI},
 	}
 }
 

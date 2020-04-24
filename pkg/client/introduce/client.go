@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
+	outofbandsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 )
 
 // Provider contains dependencies for the introduce protocol and is typically created by using aries.Context()
@@ -71,8 +72,9 @@ func (c *Client) SendProposal(recipient1, recipient2 *introduce.Recipient) error
 // SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
 func (c *Client) SendProposalWithOOBRequest(req *outofband.Request, recipient *introduce.Recipient) error {
 	proposal := introduce.CreateProposal(recipient.To)
+	cast := outofbandsvc.Request(*req)
 
-	introduce.WrapWithMetadataPublicOOBRequest(proposal, req.Request)
+	introduce.WrapWithMetadataPublicOOBRequest(proposal, &cast)
 
 	err := c.service.HandleOutbound(proposal, recipient.MyDID, recipient.TheirDID)
 
@@ -126,12 +128,14 @@ func WithRecipients(to *introduce.To, recipient *introduce.Recipient) introduce.
 // NOTE: Introducer can provide this request only after receiving RequestMsgType
 // USAGE: event.Continue(WithPublicOOBRequest(req, to))
 func WithPublicOOBRequest(req *outofband.Request, to *introduce.To) introduce.Opt {
-	return introduce.WithPublicOOBRequest(req.Request, to)
+	cast := outofbandsvc.Request(*req)
+	return introduce.WithPublicOOBRequest(&cast, to)
 }
 
 // WithOOBRequest is used when introducee wants to provide invitation.
 // NOTE: Introducee can provide invitation only after receiving ProposalMsgType
 // USAGE: event.Continue(WithOOBRequest(inv))
 func WithOOBRequest(req *outofband.Request) introduce.Opt {
-	return introduce.WithOOBRequest(req.Request)
+	cast := outofbandsvc.Request(*req)
+	return introduce.WithOOBRequest(&cast)
 }
