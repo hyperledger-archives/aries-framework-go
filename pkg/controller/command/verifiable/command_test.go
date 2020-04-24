@@ -620,6 +620,48 @@ func TestGeneratePresentation(t *testing.T) {
 		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
 	})
 
+	t.Run("test generate presentation with proof options with default vm - success", func(t *testing.T) {
+		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
+
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		presReq := PresentationRequest{
+			VerifiableCredentials: credList,
+			DID:                   "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				Domain:       "issuer.example.com",
+				Challenge:    "sample-random-test-value",
+				ProofPurpose: "authentication",
+				Created:      &createdTime,
+			},
+		}
+
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response Presentation
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+
+		vp, err := verifiable.NewPresentation([]byte(response.VerifiablePresentation))
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.NotEmpty(t, vp.Proofs)
+		require.Len(t, vp.Proofs, 1)
+		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
+		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
+		require.Equal(t, vp.Proofs[0]["verificationMethod"],
+			"did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key")
+	})
+
 	t.Run("test generate presentation with proof options - success (p256 jsonwebsignature)", func(t *testing.T) {
 		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		require.NoError(t, err)

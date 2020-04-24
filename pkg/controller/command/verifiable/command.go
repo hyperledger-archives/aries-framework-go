@@ -597,18 +597,33 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 		}
 	}
 
-	if request.ProofOptions == nil {
+	opts, err := prepareOpts(request.ProofOptions, didDoc)
+	if err != nil {
+		logutil.LogError(logger, commandName, generatePresentationCommandMethod,
+			"failed to prepare proof options: "+err.Error())
+		return nil, nil, nil, fmt.Errorf("failed to prepare proof options: %w", err)
+	}
+
+	return vcs, presentation, opts, nil
+}
+
+func prepareOpts(opts *ProofOptions, didDoc *did.Doc) (*ProofOptions, error) {
+	if opts == nil {
+		opts = &ProofOptions{}
+	}
+
+	if opts.VerificationMethod == "" {
 		defaultVM, err := getDefaultVerificationMethod(didDoc)
 		if err != nil {
 			logutil.LogError(logger, commandName, generatePresentationCommandMethod,
 				"failed to get default verification method: "+err.Error())
-			return nil, nil, nil, fmt.Errorf("failed to get default verification method: %w", err)
+			return nil, fmt.Errorf("failed to get default verification method: %w", err)
 		}
 
-		return vcs, presentation, &ProofOptions{VerificationMethod: defaultVM}, nil
+		opts.VerificationMethod = defaultVM
 	}
 
-	return vcs, presentation, request.ProofOptions, nil
+	return opts, nil
 }
 
 func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
