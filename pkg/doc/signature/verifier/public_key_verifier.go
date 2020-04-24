@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package verifier
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
 	"errors"
 	"fmt"
 	"math/big"
@@ -228,6 +230,39 @@ const (
 	secp256k1KeySize = 32
 )
 
+// ECDSASignature is a struct holding r and s values of an ECDSA signature.
+// TODO remove ECDSASignature and asn1decode() when Verify() uses pkg.Crypto interface
+type ECDSASignature struct {
+	R, S *big.Int
+}
+
+// NewECDSASignature creates a new ecdsaSignature object.
+func NewECDSASignature(r, s *big.Int) *ECDSASignature {
+	return &ECDSASignature{R: r, S: s}
+}
+
+func asn1decode(b []byte) (*ECDSASignature, error) {
+	// parse the signature
+	sig := new(ECDSASignature)
+
+	_, err := asn1.Unmarshal(b, sig)
+	if err != nil {
+		return nil, fmt.Errorf("decode failure")
+	}
+
+	// encode the signature again
+	encoded, err := asn1.Marshal(*sig)
+	if err != nil {
+		return nil, fmt.Errorf("decode failure")
+	}
+
+	if !bytes.Equal(b, encoded) {
+		return nil, fmt.Errorf("decode failure")
+	}
+
+	return sig, nil
+}
+
 // ECDSASignatureVerifier verifies elliptic curve signatures.
 type ECDSASignatureVerifier struct {
 	baseSignatureVerifier
@@ -236,6 +271,7 @@ type ECDSASignatureVerifier struct {
 }
 
 // Verify verifies the signature.
+// TODO replace logic of Verify() and call Crypto.Verify() instead
 func (sv *ECDSASignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byte) error {
 	pubKeyJWK := pubKey.JWK
 	if pubKeyJWK == nil {
@@ -254,10 +290,6 @@ func (sv *ECDSASignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byt
 		return errors.New("ecdsa: invalid public key type")
 	}
 
-	if len(signature) != 2*ec.keySize {
-		return errors.New("ecdsa: invalid signature size")
-	}
-
 	hasher := ec.hash.New()
 
 	_, err := hasher.Write(msg)
@@ -267,10 +299,13 @@ func (sv *ECDSASignatureVerifier) Verify(pubKey *PublicKey, msg, signature []byt
 
 	hash := hasher.Sum(nil)
 
-	r := big.NewInt(0).SetBytes(signature[:ec.keySize])
-	s := big.NewInt(0).SetBytes(signature[ec.keySize:])
+	// DER format decode signature
+	sig, err := asn1decode(signature)
+	if err != nil {
+		return fmt.Errorf("ecdsa: %w", err)
+	}
 
-	verified := ecdsa.Verify(ecdsaPubKey, hash, r, s)
+	verified := ecdsa.Verify(ecdsaPubKey, hash, sig.R, sig.S)
 	if !verified {
 		return errors.New("ecdsa: invalid signature")
 	}

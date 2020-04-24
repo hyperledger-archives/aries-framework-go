@@ -7,7 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package localkms
 
 import (
-	"crypto/elliptic"
+	"crypto/ecdsa"
+	"crypto/x509"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
@@ -119,27 +120,31 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 	return keyValue, tURL, nil
 }
 
-func getMarshalledECDSAKey(pubKey []byte, curveName string, c commonpb.EllipticCurveType,
+func getMarshalledECDSAKey(marshaledPubKey []byte, curveName string, c commonpb.EllipticCurveType,
 	h commonpb.HashType) ([]byte, error) {
 	curve := subtle.GetCurve(curveName)
 	if curve == nil {
 		return nil, fmt.Errorf("undefined curve")
 	}
 
-	x, y := elliptic.Unmarshal(curve, pubKey)
-	pubKeyProto := new(ecdsapb.EcdsaPublicKey)
-
-	if x == nil || y == nil {
-		return nil, fmt.Errorf("invalid key")
+	pubKey, err := x509.ParsePKIXPublicKey(marshaledPubKey)
+	if err != nil {
+		return nil, err
 	}
 
-	pubKeyProto.X = x.Bytes()
-	pubKeyProto.Y = y.Bytes()
+	ecPubKey, ok := pubKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("public key reader: not an ecdsa public key")
+	}
+
+	pubKeyProto := new(ecdsapb.EcdsaPublicKey)
+
+	pubKeyProto.X = ecPubKey.X.Bytes()
+	pubKeyProto.Y = ecPubKey.Y.Bytes()
 	pubKeyProto.Version = 0
 	pubKeyProto.Params = &ecdsapb.EcdsaParams{
-		Curve: c,
-		// TODO pass encoding as parameter (https://github.com/hyperledger/aries-framework-go/issues/1678)
-		Encoding: ecdsapb.EcdsaSignatureEncoding_IEEE_P1363,
+		Curve:    c,
+		Encoding: ecdsapb.EcdsaSignatureEncoding_DER,
 		HashType: h,
 	}
 

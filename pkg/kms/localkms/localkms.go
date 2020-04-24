@@ -10,12 +10,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
-	commonpb "github.com/google/tink/go/proto/common_go_proto"
-	ecdsapb "github.com/google/tink/go/proto/ecdsa_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/signature"
 
@@ -28,8 +25,6 @@ import (
 const (
 	// Namespace is the keystore's DB storage namespace
 	Namespace = "kmsdb"
-
-	ecdsaPrivateKeyTypeURL = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
 )
 
 // LocalKMS implements kms.KeyManager to provide key management capabilities using a local db.
@@ -149,55 +144,17 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 	case kms.XChaCha20Poly1305Type:
 		return aead.XChaCha20Poly1305KeyTemplate(), nil
 	case kms.ECDSAP256Type:
-		return ecdsaP256KeyWithoutPrefixTemplate(), nil
+		return signature.ECDSAP256KeyWithoutPrefixTemplate(), nil
 	case kms.ECDSAP384Type:
-		return ecdsaP384KeyWithoutPrefixTemplate(), nil
+		return signature.ECDSAP384KeyWithoutPrefixTemplate(), nil
 	case kms.ECDSAP521Type:
-		return ecdsaP521KeyWithoutPrefixTemplate(), nil
+		return signature.ECDSAP521KeyWithoutPrefixTemplate(), nil
 	case kms.ED25519Type:
 		return signature.ED25519KeyWithoutPrefixTemplate(), nil
 	case kms.HMACSHA256Tag256Type:
 		return mac.HMACSHA256Tag256KeyTemplate(), nil
 	default:
 		return nil, fmt.Errorf("key type unrecognized")
-	}
-}
-
-func ecdsaP256KeyWithoutPrefixTemplate() *tinkpb.KeyTemplate {
-	return createECDSAKeyTemplate(commonpb.HashType_SHA256,
-		commonpb.EllipticCurveType_NIST_P256,
-		ecdsapb.EcdsaSignatureEncoding_IEEE_P1363,
-		tinkpb.OutputPrefixType_RAW)
-}
-
-func ecdsaP384KeyWithoutPrefixTemplate() *tinkpb.KeyTemplate {
-	return createECDSAKeyTemplate(commonpb.HashType_SHA512,
-		commonpb.EllipticCurveType_NIST_P384,
-		ecdsapb.EcdsaSignatureEncoding_IEEE_P1363,
-		tinkpb.OutputPrefixType_RAW)
-}
-
-func ecdsaP521KeyWithoutPrefixTemplate() *tinkpb.KeyTemplate {
-	return createECDSAKeyTemplate(commonpb.HashType_SHA512,
-		commonpb.EllipticCurveType_NIST_P521,
-		ecdsapb.EcdsaSignatureEncoding_IEEE_P1363,
-		tinkpb.OutputPrefixType_RAW)
-}
-
-func createECDSAKeyTemplate(hashType commonpb.HashType, curve commonpb.EllipticCurveType,
-	encoding ecdsapb.EcdsaSignatureEncoding, prefixType tinkpb.OutputPrefixType) *tinkpb.KeyTemplate {
-	params := &ecdsapb.EcdsaParams{
-		HashType: hashType,
-		Curve:    curve,
-		Encoding: encoding,
-	}
-	format := &ecdsapb.EcdsaKeyFormat{Params: params}
-	serializedFormat, _ := proto.Marshal(format) //nolint:errcheck
-
-	return &tinkpb.KeyTemplate{
-		TypeUrl:          ecdsaPrivateKeyTypeURL,
-		Value:            serializedFormat,
-		OutputPrefixType: prefixType,
 	}
 }
 

@@ -8,7 +8,7 @@ package localkms
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"math/big"
@@ -82,7 +82,7 @@ func write(w io.Writer, msg *tinkpb.Keyset) error {
 }
 
 func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
-	var marshaledPubKey []byte
+	var marshaledRawPubKey []byte
 
 	switch key.KeyData.TypeUrl {
 	case ecdsaVerifierTypeURL:
@@ -109,7 +109,10 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 		pubKey.X.SetBytes(pubKeyProto.X)
 		pubKey.Y.SetBytes(pubKeyProto.Y)
 
-		marshaledPubKey = elliptic.Marshal(curve, pubKey.X, pubKey.Y)
+		marshaledRawPubKey, err = x509.MarshalPKIXPublicKey(&pubKey)
+		if err != nil {
+			return false, err
+		}
 	case ed25519VerifierTypeURL:
 		pubKeyProto := new(ed25519pb.Ed25519PublicKey)
 
@@ -118,13 +121,13 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 			return false, err
 		}
 
-		marshaledPubKey = make([]byte, len(pubKeyProto.KeyValue))
-		copy(marshaledPubKey, pubKeyProto.KeyValue)
+		marshaledRawPubKey = make([]byte, len(pubKeyProto.KeyValue))
+		copy(marshaledRawPubKey, pubKeyProto.KeyValue)
 	default:
 		return false, fmt.Errorf("can't export key with keyURL:%s", key.KeyData.TypeUrl)
 	}
 
-	n, err := w.Write(marshaledPubKey)
+	n, err := w.Write(marshaledRawPubKey)
 	if err != nil {
 		return false, nil
 	}

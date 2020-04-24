@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -197,6 +198,7 @@ func getEcdsaSecp256k1RS256TestSigner(privKey *ecdsa.PrivateKey) *ecdsaTestSigne
 	return &ecdsaTestSigner{privateKey: privKey, hash: crypto.SHA256}
 }
 
+// TODO replace this signer by Crypto signer and get key from LocalKMS
 type ecdsaTestSigner struct {
 	privateKey *ecdsa.PrivateKey
 	hash       crypto.Hash
@@ -221,21 +223,15 @@ func signEcdsa(doc []byte, privateKey *ecdsa.PrivateKey, hash crypto.Hash) ([]by
 		panic(err)
 	}
 
-	curveBits := privateKey.Curve.Params().BitSize
+	// use DER format of signature
+	ecdsaSig := verifier.NewECDSASignature(r, s)
 
-	keyBytes := curveBits / 8
-	if curveBits%8 > 0 {
-		keyBytes++
+	ret, err := asn1.Marshal(*ecdsaSig)
+	if err != nil {
+		return nil, fmt.Errorf("asn.1 encoding failed")
 	}
 
-	copyPadded := func(source []byte, size int) []byte {
-		dest := make([]byte, size)
-		copy(dest[size-len(source):], source)
-
-		return dest
-	}
-
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
+	return ret, nil
 }
 
 func getRS256TestSigner(privKey *rsa.PrivateKey) *rs256TestSigner {
