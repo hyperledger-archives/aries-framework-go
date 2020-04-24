@@ -626,6 +626,7 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc) (*ProofOptions, error) {
 	return opts, nil
 }
 
+// TODO default verification method logic needs to be revisited, [Issue #1693]
 func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 	switch {
 	case len(didDoc.PublicKey) > 0:
@@ -636,6 +637,11 @@ func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 				publicKeyID = k.ID
 				break
 			}
+		}
+
+		// if there isn't any ed25519 key then pick first one
+		if publicKeyID == "" {
+			publicKeyID = didDoc.PublicKey[0].ID
 		}
 
 		// todo Review this logic  #1640

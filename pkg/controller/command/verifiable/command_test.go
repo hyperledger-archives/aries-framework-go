@@ -137,20 +137,22 @@ const invalidDoc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
   "publicKey": [
-    {
-      "id": "did:peer:123456789abcdefghi#keys-1",
-      "type": "Secp256k1VerificationKey2018",
-      "controller": "did:peer:123456789abcdefghi",
-      "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
-    },
-    {
-      "id": "did:peer:123456789abcdefghw#key2",
-      "type": "RsaVerificationKey2018",
-      "controller": "did:peer:123456789abcdefghw",
-      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
-    }
   ]
 }`
+
+//nolint:lll
+const jwsDIDDoc = `{
+    "@context":
+        ["https://w3id.org/did/v1"], "id":
+        "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA", 
+    "publicKey": [{
+            "controller": "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA",
+            "id": "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777",
+            "publicKeyJwk": {"kty": "OKP", "crv": "Ed25519", "x": "tp-lwePd7QnwWaxCLZ76-fPj2mjA-3z_ivCfBmZoDNA"},
+            "type": "JwsVerificationKey2020"
+        }]
+}
+`
 
 const noPublicKeyDoc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
@@ -158,6 +160,7 @@ const noPublicKeyDoc = `{
 }`
 
 const invalidDID = "did:error:123"
+const jwsDID = "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA"
 
 func TestNew(t *testing.T) {
 	t.Run("test new command - success", func(t *testing.T) {
@@ -512,10 +515,19 @@ func TestGeneratePresentation(t *testing.T) {
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
-			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (didDoc *did.Doc, e error) {
+			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
+
+				if didID == jwsDID {
+					jwsDoc, err := did.ParseDocument([]byte(jwsDIDDoc))
+					if err != nil {
+						return nil, errors.New("unmarshal failed ")
+					}
+					return jwsDoc, nil
+				}
+
 				didDoc, err := did.ParseDocument([]byte(doc))
 				if err != nil {
 					return nil, errors.New("unmarshal failed ")
@@ -550,6 +562,31 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotEmpty(t, response)
+	})
+
+	t.Run("test generate presentation - jws key - success", func(t *testing.T) {
+		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
+
+		presReq := PresentationRequest{
+			VerifiableCredentials: credList,
+			DID:                   jwsDID,
+			ProofOptions:          &ProofOptions{},
+		}
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response Presentation
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, response)
+		require.Contains(t, response.VerifiablePresentation,
+			"did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777")
 	})
 
 	t.Run("test generate presentation skip verify - success", func(t *testing.T) {
@@ -1022,8 +1059,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		var b bytes.Buffer
 		err = cmd.generatePresentationByID(&b, cred, doc)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "prepare vp by id: failed to sign vp by ID: wrong id "+
-			"[did:peer:21tDAKCERh95uGgKbJNHYp] to resolve")
+		require.Contains(t, err.Error(), "prepare vp by id: public key not found in DID Document")
 	})
 
 	t.Run("test create and sign presentation - error", func(t *testing.T) {
