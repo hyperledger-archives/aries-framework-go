@@ -10,6 +10,7 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -125,7 +126,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testin
 	r.NoError(err)
 
 	sigSuite := jsonwebsignature2020.New(
-		suite.WithSigner(getEd25519TestSigner(privKey)),
+		suite.WithSigner(getEd25519TestSigner(privKey)), // TODO replace getEd25519TestSigner with LocalCrypto/KMS
 		suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())))
 
 	ldpContext := &LinkedDataProofContext{
@@ -154,6 +155,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testin
 func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *testing.T) {
 	r := require.New(t)
 
+	// TODO replace ecdsa.GenerateKey with KMS.Create(kms.ECDSAP256Type) and use localkms and Crypto for signing
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
@@ -177,7 +179,9 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
+	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	r.NoError(err)
+
 	vcWithLdp, _, err := NewCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {

@@ -14,7 +14,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -280,7 +282,8 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 					},
 				}
 
-				signature := getECSignature(privKey, msg, tc.hash)
+				signature, err := getECSignature(privKey, msg, tc.hash)
+				require.NoError(t, err)
 
 				err = tc.sVerifier.Verify(pubKey, msg, signature)
 				require.NoError(t, err)
@@ -298,7 +301,8 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 	pubKeyBytes := elliptic.Marshal(curve, privKey.X, privKey.Y)
 
 	t.Run("verify with public key bytes", func(t *testing.T) {
-		signature := getECSignature(privKey, msg, crypto.SHA256)
+		signature, err := getECSignature(privKey, msg, crypto.SHA256)
+		require.NoError(t, err)
 
 		verifyError := v.Verify(&PublicKey{
 			Type:  "JwsVerificationKey2020",
@@ -309,7 +313,8 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 	})
 
 	t.Run("invalid public key", func(t *testing.T) {
-		signature := getECSignature(privKey, msg, crypto.SHA256)
+		signature, err := getECSignature(privKey, msg, crypto.SHA256)
+		require.NoError(t, err)
 
 		verifyError := v.Verify(&PublicKey{
 			Type:  "JwsVerificationKey2020",
@@ -320,7 +325,8 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 	})
 
 	t.Run("invalid public key type", func(t *testing.T) {
-		signature := getECSignature(privKey, msg, crypto.SHA256)
+		signature, err := getECSignature(privKey, msg, crypto.SHA256)
+		require.NoError(t, err)
 
 		ed25519Key := &ed25519.PublicKey{}
 
@@ -355,14 +361,14 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 			},
 		}
 
-		verifyError := v.Verify(pubKey, msg, []byte("signature of invalid size"))
+		verifyError := v.Verify(pubKey, msg, []byte("signature of invalid format"))
 		require.Error(t, verifyError)
-		require.EqualError(t, verifyError, "ecdsa: invalid signature size")
+		require.EqualError(t, verifyError, "ecdsa: decode failure")
 
 		emptySig := make([]byte, 64)
 		verifyError = v.Verify(pubKey, msg, emptySig)
 		require.Error(t, verifyError)
-		require.EqualError(t, verifyError, "ecdsa: invalid signature")
+		require.EqualError(t, verifyError, "ecdsa: decode failure")
 	})
 }
 
@@ -396,34 +402,28 @@ func getRSASignature(privKey *rsa.PrivateKey, payload []byte) []byte {
 	return signature
 }
 
-func getECSignature(privKey *ecdsa.PrivateKey, payload []byte, hash crypto.Hash) []byte {
+func getECSignature(privKey *ecdsa.PrivateKey, payload []byte, hash crypto.Hash) ([]byte, error) {
 	hasher := hash.New()
 
 	_, err := hasher.Write(payload)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	hashed := hasher.Sum(nil)
 
 	r, s, err := ecdsa.Sign(rand.Reader, privKey, hashed)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	curveBits := privKey.Curve.Params().BitSize
+	// use DER format of signature
+	ecdsaSig := NewECDSASignature(r, s)
 
-	keyBytes := curveBits / 8
-	if curveBits%8 > 0 {
-		keyBytes++
+	ret, err := asn1.Marshal(*ecdsaSig)
+	if err != nil {
+		return nil, fmt.Errorf("asn.1 encoding failed: %w", err)
 	}
 
-	copyPadded := func(source []byte, size int) []byte {
-		dest := make([]byte, size)
-		copy(dest[size-len(source):], source)
-
-		return dest
-	}
-
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...)
+	return ret, nil
 }

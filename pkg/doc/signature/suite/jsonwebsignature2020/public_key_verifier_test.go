@@ -14,6 +14,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
+	"fmt"
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -102,7 +104,8 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 				}
 
 				v := NewPublicKeyVerifier()
-				signature := getECSignature(privKey, msg, tc.hash)
+				signature, err := getECSignature(privKey, msg, tc.hash)
+				require.NoError(t, err)
 
 				err = v.Verify(pubKey, msg, signature)
 				require.NoError(t, err)
@@ -157,7 +160,7 @@ func TestPublicKeyVerifier_Verify_RSA(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func getECSignature(privKey *ecdsa.PrivateKey, payload []byte, hash crypto.Hash) []byte {
+func getECSignature(privKey *ecdsa.PrivateKey, payload []byte, hash crypto.Hash) ([]byte, error) {
 	hasher := hash.New()
 
 	_, err := hasher.Write(payload)
@@ -169,24 +172,18 @@ func getECSignature(privKey *ecdsa.PrivateKey, payload []byte, hash crypto.Hash)
 
 	r, s, err := ecdsa.Sign(rand.Reader, privKey, hashed)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	curveBits := privKey.Curve.Params().BitSize
+	// use DER format of signature
+	ecdsaSig := sigverifier.NewECDSASignature(r, s)
 
-	keyBytes := curveBits / 8
-	if curveBits%8 > 0 {
-		keyBytes++
+	ret, err := asn1.Marshal(*ecdsaSig)
+	if err != nil {
+		return nil, fmt.Errorf("asn.1 encoding failed: %w", err)
 	}
 
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...)
-}
-
-func copyPadded(source []byte, size int) []byte {
-	dest := make([]byte, size)
-	copy(dest[size-len(source):], source)
-
-	return dest
+	return ret, nil
 }
 
 func getRSASignature(privKey *rsa.PrivateKey, payload []byte) []byte {

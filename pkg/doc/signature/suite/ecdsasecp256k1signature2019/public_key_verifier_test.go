@@ -11,6 +11,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/asn1"
+	"fmt"
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -45,7 +47,8 @@ func TestPublicKeyVerifier_Verify(t *testing.T) {
 	}
 
 	v := NewPublicKeyVerifier()
-	signature := getSignature(ecdsaPrivKey, msg)
+	signature, err := getSignature(ecdsaPrivKey, msg)
+	require.NoError(t, err)
 
 	err = v.Verify(pubKey, msg, signature)
 	require.NoError(t, err)
@@ -60,34 +63,28 @@ func TestPublicKeyVerifier_Verify(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func getSignature(privKey *ecdsa.PrivateKey, payload []byte) []byte {
+func getSignature(privKey *ecdsa.PrivateKey, payload []byte) ([]byte, error) {
 	hasher := crypto.SHA256.New()
 
 	_, err := hasher.Write(payload)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	hashed := hasher.Sum(nil)
 
 	r, s, err := ecdsa.Sign(rand.Reader, privKey, hashed)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	curveBits := privKey.Curve.Params().BitSize
+	// use DER format of signature
+	ecdsaSig := verifier.NewECDSASignature(r, s)
 
-	keyBytes := curveBits / 8
-	if curveBits%8 > 0 {
-		keyBytes++
+	ret, err := asn1.Marshal(*ecdsaSig)
+	if err != nil {
+		return nil, fmt.Errorf("asn.1 encoding failed: %w", err)
 	}
 
-	copyPadded := func(source []byte, size int) []byte {
-		dest := make([]byte, size)
-		copy(dest[size-len(source):], source)
-
-		return dest
-	}
-
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...)
+	return ret, nil
 }

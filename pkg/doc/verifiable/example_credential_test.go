@@ -12,6 +12,7 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/asn1"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -560,19 +561,13 @@ func (es *ecdsaSecp256k1Signer) Sign(payload []byte) ([]byte, error) {
 		panic(err)
 	}
 
-	curveBits := es.privKey.Curve.Params().BitSize
+	// use DER format of signature
+	ecdsaSig := sigverifier.NewECDSASignature(r, s)
 
-	keyBytes := curveBits / 8
-	if curveBits%8 > 0 {
-		keyBytes++
+	ret, err := asn1.Marshal(*ecdsaSig)
+	if err != nil {
+		return nil, fmt.Errorf("asn.1 encoding failed")
 	}
 
-	copyPadded := func(source []byte, size int) []byte {
-		dest := make([]byte, size)
-		copy(dest[size-len(source):], source)
-
-		return dest
-	}
-
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
+	return ret, nil
 }

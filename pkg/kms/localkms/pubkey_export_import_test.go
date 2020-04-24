@@ -31,19 +31,19 @@ func TestPubKeyExportAndRead(t *testing.T) {
 		{
 			tcName:      "export then read ECDSAP256 public key",
 			keyType:     kms.ECDSAP256Type,
-			keyTemplate: ecdsaP256KeyWithoutPrefixTemplate(),
+			keyTemplate: signature.ECDSAP256KeyWithoutPrefixTemplate(),
 			doSign:      true,
 		},
 		{
 			tcName:      "export then read ECDSAP384 public key",
 			keyType:     kms.ECDSAP384Type,
-			keyTemplate: ecdsaP384KeyWithoutPrefixTemplate(),
+			keyTemplate: signature.ECDSAP384KeyWithoutPrefixTemplate(),
 			doSign:      true,
 		},
 		{
 			tcName:      "export then read ECDSAP521 public key",
 			keyType:     kms.ECDSAP521Type,
-			keyTemplate: ecdsaP521KeyWithoutPrefixTemplate(),
+			keyTemplate: signature.ECDSAP521KeyWithoutPrefixTemplate(),
 			doSign:      true,
 		},
 		{
@@ -128,19 +128,19 @@ func TestNegativeCases(t *testing.T) {
 
 	t.Run("test publicKeyBytesToHandle with bad pubKey and ECDSAP256Type", func(t *testing.T) {
 		kh, err := publicKeyBytesToHandle([]byte{1}, kms.ECDSAP256Type)
-		require.EqualError(t, err, "error getting marshalled proto key: invalid key")
+		require.EqualError(t, err, "error getting marshalled proto key: asn1: syntax error: truncated tag or length")
 		require.Empty(t, kh)
 	})
 
 	t.Run("test publicKeyBytesToHandle with bad pubKey and ECDSAP384Type", func(t *testing.T) {
 		kh, err := publicKeyBytesToHandle([]byte{1}, kms.ECDSAP384Type)
-		require.EqualError(t, err, "error getting marshalled proto key: invalid key")
+		require.EqualError(t, err, "error getting marshalled proto key: asn1: syntax error: truncated tag or length")
 		require.Empty(t, kh)
 	})
 
 	t.Run("test publicKeyBytesToHandle with bad pubKey and ECDSAP521Type", func(t *testing.T) {
 		kh, err := publicKeyBytesToHandle([]byte{1}, kms.ECDSAP521Type)
-		require.EqualError(t, err, "error getting marshalled proto key: invalid key")
+		require.EqualError(t, err, "error getting marshalled proto key: asn1: syntax error: truncated tag or length")
 		require.Empty(t, kh)
 	})
 
