@@ -17,9 +17,8 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
-
 	"github.com/google/uuid"
+	"github.com/mitchellh/mapstructure"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller"
@@ -38,6 +37,7 @@ const (
 	ariesCommandPkg  = "aries"
 	ariesStartFn     = "Start"
 	ariesStopFn      = "Stop"
+	workers          = 2
 )
 
 var logger = log.New("aries-js-worker")
@@ -104,6 +104,7 @@ func takeFrom(in chan *command) func(js.Value, []js.Value) interface{} {
 
 			return nil
 		}
+
 		in <- cmd
 
 		return nil
@@ -115,6 +116,12 @@ func pipe(input chan *command, output chan *result) {
 
 	addAriesHandlers(handlers)
 
+	for w := 0; w < workers; w++ {
+		go worker(input, output, handlers)
+	}
+}
+
+func worker(input chan *command, output chan *result, handlers map[string]map[string]func(*command) *result) {
 	for c := range input {
 		if c.ID == "" {
 			logger.Warnf("aries wasm: missing ID for input: %v", c)
