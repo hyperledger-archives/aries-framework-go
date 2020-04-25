@@ -8,6 +8,8 @@ package proof
 import (
 	"errors"
 	"fmt"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 )
 
 const jsonldContext = "@context"
@@ -16,7 +18,7 @@ const jsonldContext = "@context"
 type signatureSuite interface {
 
 	// GetCanonicalDocument will return normalized/canonical version of the document
-	GetCanonicalDocument(doc map[string]interface{}) ([]byte, error)
+	GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.CanonicalizationOpts) ([]byte, error)
 
 	// GetDigest returns document digest
 	GetDigest(doc []byte) []byte
@@ -40,12 +42,13 @@ const (
 // It depends on the signature value holder type.
 // In case of "proofValue", the standard Create Verify Hash algorithm is used.
 // In case of "jws", verify data is built as JSON Web Signature (JWS) with detached payload.
-func CreateVerifyData(suite signatureSuite, jsonldDoc map[string]interface{}, proof *Proof) ([]byte, error) {
+func CreateVerifyData(suite signatureSuite, jsonldDoc map[string]interface{}, proof *Proof,
+	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
 	switch proof.SignatureRepresentation {
 	case SignatureProofValue:
-		return CreateVerifyHash(suite, jsonldDoc, proof.JSONLdObject())
+		return CreateVerifyHash(suite, jsonldDoc, proof.JSONLdObject(), opts...)
 	case SignatureJWS:
-		return createVerifyJWS(suite, jsonldDoc, proof)
+		return createVerifyJWS(suite, jsonldDoc, proof, opts...)
 	}
 
 	return nil, fmt.Errorf("unsupported signature representation: %v", proof.SignatureRepresentation)
@@ -53,7 +56,8 @@ func CreateVerifyData(suite signatureSuite, jsonldDoc map[string]interface{}, pr
 
 // CreateVerifyHash returns data that is used to generate or verify a digital signature
 // Algorithm steps are described here https://w3c-dvcg.github.io/ld-signatures/#create-verify-hash-algorithm
-func CreateVerifyHash(suite signatureSuite, jsonldDoc, proofOptions map[string]interface{}) ([]byte, error) {
+func CreateVerifyHash(suite signatureSuite, jsonldDoc, proofOptions map[string]interface{},
+	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
 	// in  order to generate canonical form we need context
 	// if context is not passed, use document's context
 	// spec doesn't mention anything about context
@@ -62,14 +66,14 @@ func CreateVerifyHash(suite signatureSuite, jsonldDoc, proofOptions map[string]i
 		proofOptions[jsonldContext] = jsonldDoc[jsonldContext]
 	}
 
-	canonicalProofOptions, err := prepareCanonicalProofOptions(suite, proofOptions)
+	canonicalProofOptions, err := prepareCanonicalProofOptions(suite, proofOptions, opts...)
 	if err != nil {
 		return nil, err
 	}
 
 	proofOptionsDigest := suite.GetDigest(canonicalProofOptions)
 
-	canonicalDoc, err := prepareCanonicalDocument(suite, jsonldDoc)
+	canonicalDoc, err := prepareCanonicalDocument(suite, jsonldDoc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +83,8 @@ func CreateVerifyHash(suite signatureSuite, jsonldDoc, proofOptions map[string]i
 	return append(proofOptionsDigest, docDigest...), nil
 }
 
-func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]interface{}) ([]byte, error) {
+func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]interface{},
+	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
 	value, ok := proofOptions[jsonldCreated]
 	if !ok || value == nil {
 		return nil, errors.New("created is missing")
@@ -95,15 +100,16 @@ func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]
 	}
 
 	// build canonical proof options
-	return suite.GetCanonicalDocument(proofOptionsCopy)
+	return suite.GetCanonicalDocument(proofOptionsCopy, opts...)
 }
 
-func prepareCanonicalDocument(suite signatureSuite, jsonldObject map[string]interface{}) ([]byte, error) {
+func prepareCanonicalDocument(suite signatureSuite, jsonldObject map[string]interface{},
+	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
 	// copy document object without proof
 	docCopy := GetCopyWithoutProof(jsonldObject)
 
 	// build canonical document
-	return suite.GetCanonicalDocument(docCopy)
+	return suite.GetCanonicalDocument(docCopy, opts...)
 }
 
 // excludedKey defines keys that are excluded for proof options

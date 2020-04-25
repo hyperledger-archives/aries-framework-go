@@ -23,16 +23,31 @@ func TestGetCanonicalDocument(t *testing.T) {
 			doc    string
 			result string
 			err    string
+			opts   []CanonicalizationOpts
 		}{
 			{
 				name:   "canonizing document with 1 incorrect RDF",
 				doc:    jsonLdWithIncorrectRDF,
+				result: canonizedIncorrectRDF_Filtered,
+				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing document with 1 incorrect RDF",
+				doc:    jsonLdWithIncorrectRDF,
 				result: canonizedIncorrectRDF,
+				opts:   []CanonicalizationOpts{},
 			},
 			{
 				name:   "canonizing valid document 1",
 				doc:    jsonLdSample1,
-				result: canonizedIncorrectRDF,
+				result: canonizedIncorrectRDF_Filtered,
+				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing valid document 1",
+				doc:    jsonLdSample1,
+				result: canonizedIncorrectRDF_Filtered,
+				opts:   []CanonicalizationOpts{},
 			},
 			{
 				name:   "canonizing sample proof document",
@@ -40,7 +55,19 @@ func TestGetCanonicalDocument(t *testing.T) {
 				result: canonizedJsonLDProof,
 			},
 			{
-				name:   "canonizing sample document with multiple incorrect RDFs",
+				name:   "canonizing sample document with multiple incorrect RDFs 1",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_filtered,
+				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing sample document with multiple incorrect RDFs 2",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_incompleteFilter,
+				opts:   []CanonicalizationOpts{WithRemoveInvalidRDF("<CredentialStatusList2017>")},
+			},
+			{
+				name:   "canonizing sample document with multiple incorrect RDFs 3",
 				doc:    jsonLDMultipleInvalidRDFs,
 				result: canonizedSampleVP,
 			},
@@ -48,6 +75,25 @@ func TestGetCanonicalDocument(t *testing.T) {
 				name:   "canonizing sample document with incorrect RDFs causing node label miss match issue",
 				doc:    invalidRDFMessingUpLabelPrefixCounter,
 				result: canonizedSampleVP2,
+				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing document with 1 incorrect RDF",
+				doc:    jsonldWith2KnownInvalidRDFs,
+				result: canonizedIncorrectRDF_incompletefilter_1,
+				opts:   []CanonicalizationOpts{WithRemoveInvalidRDF("<CredentialStatusList2017>", "<JsonWebSignature2020>")},
+			},
+			{
+				name:   "canonizing document with 1 incorrect RDF",
+				doc:    jsonldWith2KnownInvalidRDFs,
+				result: canonizedIncorrectRDF_incompletefilter_2,
+				opts:   []CanonicalizationOpts{WithRemoveInvalidRDF("<CredentialStatusList2017>")},
+			},
+			{
+				name:   "canonizing document with 1 incorrect RDF11",
+				doc:    jsonldWith2KnownInvalidRDFs,
+				result: canonizedIncorrectRDF_allfiltered,
+				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
 			},
 			{
 				name:   "canonizing empty document",
@@ -65,12 +111,15 @@ func TestGetCanonicalDocument(t *testing.T) {
 				err := json.Unmarshal([]byte(tc.doc), &jsonldDoc)
 				require.NoError(t, err)
 
-				response, err := NewProcessor(defaultAlgorithm).GetCanonicalDocument(jsonldDoc)
+				response, err := NewProcessor(defaultAlgorithm).GetCanonicalDocument(jsonldDoc, tc.opts...)
 				if tc.err != "" {
 					require.Error(t, err)
 					require.Contains(t, err.Error(), tc.err)
 					return
 				}
+
+				fmt.Println("string(response)", string(response))
+				fmt.Println("tc.result", string(response))
 
 				require.NoError(t, err)
 				require.EqualValues(t, tc.result, string(response))
@@ -108,19 +157,6 @@ func TestCompact(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, compactedDoc)
 		require.Len(t, compactedDoc, 4)
-	})
-}
-
-func TestUtilFunctions(t *testing.T) {
-	t.Run("Test find line number", func(t *testing.T) {
-		l, e := findLineNumber(fmt.Errorf("sample error"))
-		require.Error(t, e)
-		require.True(t, l < 0)
-	})
-	t.Run("Test validate view", func(t *testing.T) {
-		view, err := NewProcessor("").validateView(canonizedJsonLDProof)
-		require.NoError(t, err)
-		require.Equal(t, view, canonizedJsonLDProof)
 	})
 }
 
@@ -191,6 +227,7 @@ const (
 <did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
 <did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
 <did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n0 .
+<http://issuer.vc.rest.example.com:8070/status/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <CredentialStatusList2017> .
 <https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
 <https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
 <https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#credentialStatus> <http://issuer.vc.rest.example.com:8070/status/1> .
@@ -200,6 +237,22 @@ const (
 _:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
 _:c14n0 <https://example.org/examples#degree> "MIT" .
 `
+
+	// nolint
+	canonizedIncorrectRDF_Filtered = `<did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg> <http://schema.org/name> "alice_f94db66c-be63-4f03-af10-4205d1f625e1"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n0 .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#credentialStatus> <http://issuer.vc.rest.example.com:8070/status/1> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:ebfeb1f712ebc6f1c276e12ec21> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#issuanceDate> "2020-03-16T22:37:26.544Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#issuer> <did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg> .
+_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
+_:c14n0 <https://example.org/examples#degree> "MIT" .
+`
+
 	// nolint
 	jsonLDProofSample = `{
   "@context": "https://w3id.org/security/v2",
@@ -252,7 +305,24 @@ _:c14n0 <https://w3id.org/security#verificationMethod> <did:elem:EiBJJPdo-ONF0jx
 }
 `
 	// nolint
-	canonizedSampleVP = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+	canonizedSampleVP = `<did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <alice_f94db66c-be63-4f03-af10-4205d1f625e1> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n0 .
+<http://issuer.vc.rest.example.com:8070/status/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <CredentialStatusList2017> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#credentialStatus> <http://issuer.vc.rest.example.com:8070/status/1> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:ebfeb1f712ebc6f1c276e12ec21> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#issuanceDate> "2020-03-16T22:37:26.544Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#issuer> <did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg> .
+_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
+_:c14n0 <https://example.org/examples#degree> "MIT" .
+`
+
+	// nolint
+	canonizedSampleVP_incompleteFilter = `<did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <alice_f94db66c-be63-4f03-af10-4205d1f625e1> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
 <did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
 <did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n0 .
 <https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
@@ -264,6 +334,21 @@ _:c14n0 <https://w3id.org/security#verificationMethod> <did:elem:EiBJJPdo-ONF0jx
 _:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
 _:c14n0 <https://example.org/examples#degree> "MIT" .
 `
+
+	// nolint
+	canonizedSampleVP_filtered = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n0 .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#credentialStatus> <http://issuer.vc.rest.example.com:8070/status/1> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:ebfeb1f712ebc6f1c276e12ec21> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#issuanceDate> "2020-03-16T22:37:26.544Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#issuer> <did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg> .
+_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
+_:c14n0 <https://example.org/examples#degree> "MIT" .
+`
+
 	// nolint
 	invalidRDFMessingUpLabelPrefixCounter = `{
     "@context": [
@@ -337,3 +422,78 @@ _:c14n3 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/20
 _:c14n3 <https://www.w3.org/2018/credentials#verifiableCredential> _:c14n1 .
 `
 )
+
+// nolint
+const jsonldWith2KnownInvalidRDFs = `{
+    "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
+    "credentialStatus": {"id": "http://issuer.vc.rest.example.com:8070/status/1", "type": "CredentialStatusList2017"},
+    "credentialSubject": {
+        "degree": {"degree": "MIT", "type": "BachelorDegree"},
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "name": "Jayden Doe",
+        "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+    },
+    "id": "https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837",
+    "issuanceDate": "2020-03-16T22:37:26.544Z",
+    "issuer": {
+        "id": "did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg",
+        "name": "myprofile_ud_unireg_p256_jws_1"
+    },
+    "proof": {
+        "created": "2020-04-25T17:29:31Z",
+        "jws": "eyJhbGciOiJKc29uV2ViU2lnbmF0dXJlMjAyMCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..MEYCIQCdyY3CgjXLYdtPgxDiHDzHxlomakAzgvntBy_dJL-N8AIhAMmVyd3DIwVUBgAUhO9OFjtC-qp_-xYqNBnDQtoH1caw",
+        "proofPurpose": "assertionMethod",
+        "type": "JsonWebSignature2020",
+        "verificationMethod": "did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg#bG9jYWwtbG9jazovL2N1c3RvbS9tYXN0ZXIva2V5L0hhREZiSkE1WUMyVmdZY3diTmNDd2FKNjFsNWtzd1ZTMnVfaEUwYVBMc3M9"
+    },
+    "type": ["VerifiableCredential", "UniversityDegreeCredential"]
+}`
+
+// nolint
+const canonizedIncorrectRDF_incompletefilter_1 = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n1 .
+<did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg> <http://schema.org/name> "myprofile_ud_unireg_p256_jws_1"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://w3id.org/security#proof> _:c14n0 .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#credentialStatus> <http://issuer.vc.rest.example.com:8070/status/1> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:ebfeb1f712ebc6f1c276e12ec21> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#issuanceDate> "2020-03-16T22:37:26.544Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#issuer> <did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg> .
+_:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
+_:c14n1 <https://example.org/examples#degree> "MIT" .
+`
+
+// nolint
+const canonizedIncorrectRDF_incompletefilter_2 = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n1 .
+<did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg> <http://schema.org/name> "myprofile_ud_unireg_p256_jws_1"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://w3id.org/security#proof> _:c14n0 .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#credentialStatus> <http://issuer.vc.rest.example.com:8070/status/1> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:ebfeb1f712ebc6f1c276e12ec21> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#issuanceDate> "2020-03-16T22:37:26.544Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#issuer> <did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg> .
+_:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
+_:c14n1 <https://example.org/examples#degree> "MIT" .
+_:c14n2 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <JsonWebSignature2020> _:c14n0 .
+`
+
+// nolint
+const canonizedIncorrectRDF_allfiltered = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n1 .
+<did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg> <http://schema.org/name> "myprofile_ud_unireg_p256_jws_1"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://w3id.org/security#proof> _:c14n0 .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#credentialStatus> <http://issuer.vc.rest.example.com:8070/status/1> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:ebfeb1f712ebc6f1c276e12ec21> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#issuanceDate> "2020-03-16T22:37:26.544Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#issuer> <did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg> .
+_:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
+_:c14n1 <https://example.org/examples#degree> "MIT" .
+`

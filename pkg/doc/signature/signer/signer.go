@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 )
 
@@ -20,7 +22,7 @@ const defaultProofPurpose = "assertionMethod"
 // SignatureSuite encapsulates signature suite methods required for signing documents
 type SignatureSuite interface {
 	// GetCanonicalDocument will return normalized/canonical version of the document
-	GetCanonicalDocument(doc map[string]interface{}) ([]byte, error)
+	GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.CanonicalizationOpts) ([]byte, error)
 
 	// GetDigest returns document digest
 	GetDigest(doc []byte) []byte
@@ -119,7 +121,7 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		p.JWS = proof.CreateDetachedJWTHeader(p) + ".."
 	}
 
-	message, err := proof.CreateVerifyData(suite, jsonLdObject, p)
+	message, err := proof.CreateVerifyData(suite, jsonLdObject, p, jsonld.WithRemoveAllInvalidRDF())
 	if err != nil {
 		return err
 	}
