@@ -63,6 +63,12 @@ type CredentialExt struct {
 	Name string `json:"name,omitempty"`
 }
 
+// PresentationExt is model for presentation with fields related to command features.
+type PresentationExt struct {
+	Presentation
+	Name string `json:"name,omitempty"`
+}
+
 // PresentationRequestByID model
 //
 // This is used for querying/removing by ID from input json.
@@ -84,14 +90,13 @@ type NameArg struct {
 	Name string `json:"name"`
 }
 
-// CredentialRecordResult holds the credential records.
-type CredentialRecordResult struct {
+// RecordResult holds the credential records.
+type RecordResult struct {
 	// Result
-	Result []*verifiable.CredentialRecord `json:"result,omitempty"`
+	Result []*verifiable.Record `json:"result,omitempty"`
 }
 
 // Presentation is model for verifiable presentation.
 type Presentation struct {
-	// TODO Update VP from string to json raw message #1643
-	VerifiablePresentation string `json:"verifiablePresentation,omitempty"`
+	VerifiablePresentation json.RawMessage `json:"verifiablePresentation,omitempty"`
 }

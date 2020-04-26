@@ -35,7 +35,9 @@ import (
 )
 
 const sampleCredentialName = "sampleVCName"
+const samplePresentationName = "sampleVPName"
 const sampleVCID = "http://example.edu/credentials/1989"
+const sampleVPID = "http://example.edu/presentations/1989"
 
 const vc = `
 { 
@@ -114,6 +116,84 @@ const doc = `{
   ]
 }`
 
+//nolint:lll
+const udVerifiablePresentation = `{
+        "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
+        "type": ["VerifiablePresentation"],
+        "verifiableCredential": [{
+            "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
+            "credentialSchema": [],
+            "credentialStatus": {
+                "id": "http://issuer.vc.rest.example.com:8070/status/1",
+                "type": "CredentialStatusList2017"
+            },
+            "credentialSubject": {
+                "degree": {"degree": "MIT", "type": "BachelorDegree"},
+                "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+                "name": "Jayden Doe",
+                "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+            },
+            "id": "https://example.com/credentials/9315d0fd-da93-436e-9e20-2121f2821df3",
+            "issuanceDate": "2020-03-16T22:37:26.544Z",
+            "issuer": {
+                "id": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg",
+                "name": "alice_ca31684e-6cbb-40f9-b7e6-87e1ab5661ae"
+            },
+            "proof": {
+                "created": "2020-04-08T21:19:02Z",
+                "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..yGHHYmRp4mWd918SDSzmBDs8eq-SX7WPl8moGB8oJeSqEMmuEiI81D4s5-BPWGmKy3VlCsKJxYrTNqrEGJpNAQ",
+                "proofPurpose": "assertionMethod",
+                "type": "Ed25519Signature2018",
+                "verificationMethod": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg#xqc3gS1gz1vch7R3RvNebWMjLvBOY-n_14feCYRPsUo"
+            },
+            "type": ["VerifiableCredential", "UniversityDegreeCredential"]
+        }],
+        "proof": {
+            "created": "2020-04-08T17:19:05-04:00",
+            "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..0CH8GwphcMoQ0JHCm1O8n9ctM-s8hTfTuOa-WeQFSmPipaO41pECe7pQ4zDM6sp08W59pkrTz_U1PrwLlUyoBw",
+            "proofPurpose": "assertionMethod",
+            "type": "Ed25519Signature2018",
+            "verificationMethod": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg#xqc3gS1gz1vch7R3RvNebWMjLvBOY-n_14feCYRPsUo"
+        }
+    }
+`
+
+//nolint:lll
+const udPresentation = `{
+        "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
+        "type": ["VerifiablePresentation"],
+		"id": "http://example.edu/presentations/1989",
+        "verifiableCredential": [{
+            "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
+            "credentialSchema": [],
+            "credentialStatus": {
+                "id": "http://issuer.vc.rest.example.com:8070/status/1",
+                "type": "CredentialStatusList2017"
+            },
+            "credentialSubject": {
+                "degree": {"degree": "MIT", "type": "BachelorDegree"},
+                "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+                "name": "Jayden Doe",
+                "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+            },
+            "id": "https://example.com/credentials/9315d0fd-da93-436e-9e20-2121f2821df3",
+            "issuanceDate": "2020-03-16T22:37:26.544Z",
+            "issuer": {
+                "id": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg",
+                "name": "alice_ca31684e-6cbb-40f9-b7e6-87e1ab5661ae"
+            },
+            "proof": {
+                "created": "2020-04-08T21:19:02Z",
+                "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..yGHHYmRp4mWd918SDSzmBDs8eq-SX7WPl8moGB8oJeSqEMmuEiI81D4s5-BPWGmKy3VlCsKJxYrTNqrEGJpNAQ",
+                "proofPurpose": "assertionMethod",
+                "type": "Ed25519Signature2018",
+                "verificationMethod": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg#xqc3gS1gz1vch7R3RvNebWMjLvBOY-n_14feCYRPsUo"
+            },
+            "type": ["VerifiableCredential", "UniversityDegreeCredential"]
+        }]
+    }
+`
+
 func TestNew(t *testing.T) {
 	t.Run("test new command - success", func(t *testing.T) {
 		cmd, err := New(&mockprovider.Provider{
@@ -121,7 +201,7 @@ func TestNew(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
-		require.Equal(t, 7, len(cmd.GetRESTHandlers()))
+		require.Equal(t, 10, len(cmd.GetRESTHandlers()))
 	})
 
 	t.Run("test new command - error", func(t *testing.T) {
@@ -623,6 +703,166 @@ func TestGeneratePresentationByID(t *testing.T) {
 	})
 }
 
+func TestSaveVP(t *testing.T) {
+	t.Run("test save vp - success", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		presentations := []string{udPresentation, udVerifiablePresentation}
+		handler := lookupHandler(t, cmd, savePresentationPath, http.MethodPost)
+
+		for i, presentation := range presentations {
+			vpReq := verifiable.PresentationExt{
+				Presentation: verifiable.Presentation{VerifiablePresentation: stringToJSONRaw(presentation)},
+				Name:         fmt.Sprintf("%s_%d", samplePresentationName, i),
+			}
+			jsonStr, err := json.Marshal(vpReq)
+			require.NoError(t, err)
+
+			buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+			require.NoError(t, err)
+
+			response := emptyRes{}
+			err = json.Unmarshal(buf.Bytes(), &response)
+			require.NoError(t, err)
+
+			// verify response
+			require.Empty(t, response)
+		}
+	})
+
+	t.Run("test save vp - error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var jsonStr = []byte(`{
+			"name" : "sample"
+		}`)
+
+		handler := lookupHandler(t, cmd, savePresentationPath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.SavePresentationErrorCode, "parse vp :", buf.Bytes())
+	})
+}
+
+func TestGetVP(t *testing.T) {
+	t.Run("test get vp - success", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s[sampleVPID] = []byte(vc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		handler := lookupHandler(t, cmd, savePresentationPath, http.MethodPost)
+
+		vpReq := verifiable.PresentationExt{
+			Presentation: verifiable.Presentation{VerifiablePresentation: stringToJSONRaw(udPresentation)},
+			Name:         samplePresentationName,
+		}
+		jsonStr, err := json.Marshal(vpReq)
+		require.NoError(t, err)
+
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+
+		response := emptyRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.Empty(t, response)
+
+		handler = lookupHandler(t, cmd, getPresentationPath, http.MethodGet)
+
+		buf, err = getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/%s`,
+			verifiablePresentationPath, base64.StdEncoding.EncodeToString([]byte(sampleVPID))))
+		require.NoError(t, err)
+
+		getResponse := presentationRes{}
+		err = json.Unmarshal(buf.Bytes(), &getResponse)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, getResponse)
+	})
+
+	t.Run("test get vp - error", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s[sampleVPID] = []byte(vc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		handler := lookupHandler(t, cmd, getPresentationPath, http.MethodGet)
+		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/%s`, verifiablePresentationPath, "abc"))
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.InvalidRequestErrorCode, "illegal base64 data", buf.Bytes())
+	})
+}
+
+func TestGetPresentations(t *testing.T) {
+	t.Run("test get presentations", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		presentations := []string{udPresentation, udVerifiablePresentation}
+		handler := lookupHandler(t, cmd, savePresentationPath, http.MethodPost)
+
+		for i, presentation := range presentations {
+			vpReq := verifiable.PresentationExt{
+				Presentation: verifiable.Presentation{VerifiablePresentation: stringToJSONRaw(presentation)},
+				Name:         fmt.Sprintf("%s_%d", samplePresentationName, i),
+			}
+			jsonStr, e := json.Marshal(vpReq)
+			require.NoError(t, e)
+
+			buf, e := getSuccessResponseFromHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+			require.NoError(t, e)
+
+			response := emptyRes{}
+			e = json.Unmarshal(buf.Bytes(), &response)
+			require.NoError(t, e)
+
+			// verify response
+			require.Empty(t, response)
+		}
+
+		handler = lookupHandler(t, cmd, getPresentationsPath, http.MethodGet)
+		buf, err := getSuccessResponseFromHandler(handler, nil, getPresentationsPath)
+		require.NoError(t, err)
+
+		var response presentationRecordResult
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.Equal(t, 2, len(response.Result))
+	})
+}
+
 func lookupHandler(t *testing.T, op *Operation, path, method string) rest.Handler {
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
@@ -689,4 +929,8 @@ func verifyError(t *testing.T, expectedCode command.Code, expectedMsg string, da
 	if expectedMsg != "" {
 		require.Contains(t, errResponse.Message, expectedMsg)
 	}
+}
+
+func stringToJSONRaw(jsonStr string) json.RawMessage {
+	return json.RawMessage([]byte(jsonStr))
 }

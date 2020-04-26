@@ -33,8 +33,11 @@ import (
 	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
-const sampleCredentialName = "sampleVCName"
-const sampleVCID = "http://example.edu/credentials/1989"
+const (
+	sampleCredentialName   = "sampleVCName"
+	sampleVCID             = "http://example.edu/credentials/1989"
+	samplePresentationName = "sampleVpName"
+)
 
 const vc = `
 { 
@@ -154,6 +157,84 @@ const jwsDIDDoc = `{
 }
 `
 
+//nolint:lll
+const udVerifiablePresentation = `{
+        "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
+        "type": ["VerifiablePresentation"],
+        "verifiableCredential": [{
+            "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
+            "credentialSchema": [],
+            "credentialStatus": {
+                "id": "http://issuer.vc.rest.example.com:8070/status/1",
+                "type": "CredentialStatusList2017"
+            },
+            "credentialSubject": {
+                "degree": {"degree": "MIT", "type": "BachelorDegree"},
+                "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+                "name": "Jayden Doe",
+                "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+            },
+            "id": "https://example.com/credentials/9315d0fd-da93-436e-9e20-2121f2821df3",
+            "issuanceDate": "2020-03-16T22:37:26.544Z",
+            "issuer": {
+                "id": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg",
+                "name": "alice_ca31684e-6cbb-40f9-b7e6-87e1ab5661ae"
+            },
+            "proof": {
+                "created": "2020-04-08T21:19:02Z",
+                "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..yGHHYmRp4mWd918SDSzmBDs8eq-SX7WPl8moGB8oJeSqEMmuEiI81D4s5-BPWGmKy3VlCsKJxYrTNqrEGJpNAQ",
+                "proofPurpose": "assertionMethod",
+                "type": "Ed25519Signature2018",
+                "verificationMethod": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg#xqc3gS1gz1vch7R3RvNebWMjLvBOY-n_14feCYRPsUo"
+            },
+            "type": ["VerifiableCredential", "UniversityDegreeCredential"]
+        }],
+        "proof": {
+            "created": "2020-04-08T17:19:05-04:00",
+            "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..0CH8GwphcMoQ0JHCm1O8n9ctM-s8hTfTuOa-WeQFSmPipaO41pECe7pQ4zDM6sp08W59pkrTz_U1PrwLlUyoBw",
+            "proofPurpose": "assertionMethod",
+            "type": "Ed25519Signature2018",
+            "verificationMethod": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg#xqc3gS1gz1vch7R3RvNebWMjLvBOY-n_14feCYRPsUo"
+        }
+    }
+`
+
+//nolint:lll
+const udPresentation = `{
+        "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
+        "type": ["VerifiablePresentation"],
+		"id": "http://example.edu/presentations/1989",
+        "verifiableCredential": [{
+            "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
+            "credentialSchema": [],
+            "credentialStatus": {
+                "id": "http://issuer.vc.rest.example.com:8070/status/1",
+                "type": "CredentialStatusList2017"
+            },
+            "credentialSubject": {
+                "degree": {"degree": "MIT", "type": "BachelorDegree"},
+                "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+                "name": "Jayden Doe",
+                "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+            },
+            "id": "https://example.com/credentials/9315d0fd-da93-436e-9e20-2121f2821df3",
+            "issuanceDate": "2020-03-16T22:37:26.544Z",
+            "issuer": {
+                "id": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg",
+                "name": "alice_ca31684e-6cbb-40f9-b7e6-87e1ab5661ae"
+            },
+            "proof": {
+                "created": "2020-04-08T21:19:02Z",
+                "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..yGHHYmRp4mWd918SDSzmBDs8eq-SX7WPl8moGB8oJeSqEMmuEiI81D4s5-BPWGmKy3VlCsKJxYrTNqrEGJpNAQ",
+                "proofPurpose": "assertionMethod",
+                "type": "Ed25519Signature2018",
+                "verificationMethod": "did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg#xqc3gS1gz1vch7R3RvNebWMjLvBOY-n_14feCYRPsUo"
+            },
+            "type": ["VerifiableCredential", "UniversityDegreeCredential"]
+        }]
+    }
+`
+
 const noPublicKeyDoc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp"
@@ -171,7 +252,7 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 7, len(handlers))
+		require.Equal(t, 10, len(handlers))
 	})
 
 	t.Run("test new command - vc store error", func(t *testing.T) {
@@ -418,7 +499,7 @@ func TestGetCredentialByName(t *testing.T) {
 		cmdErr := cmd.GetCredentialByName(&getRW, bytes.NewBufferString(jsoStr))
 		require.NoError(t, cmdErr)
 
-		var response verifiablestore.CredentialRecord
+		var response verifiablestore.Record
 		err = json.NewDecoder(&getRW).Decode(&response)
 		require.NoError(t, err)
 
@@ -500,7 +581,7 @@ func TestGetCredentials(t *testing.T) {
 		cmdErr := cmd.GetCredentials(&getRW, nil)
 		require.NoError(t, cmdErr)
 
-		var response CredentialRecordResult
+		var response RecordResult
 		err = json.NewDecoder(&getRW).Decode(&response)
 		require.NoError(t, err)
 
@@ -585,7 +666,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotEmpty(t, response)
-		require.Contains(t, response.VerifiablePresentation,
+		require.Contains(t, string(response.VerifiablePresentation),
 			"did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777")
 	})
 
@@ -1178,4 +1259,246 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		require.Nil(t, vp)
 		require.Contains(t, err.Error(), "failed to sign vp by ID: failed to add linked data proof: add linked data proof")
 	})
+}
+
+func TestSaveVP(t *testing.T) {
+	t.Run("test save vp - success", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		vpReq := PresentationExt{
+			Presentation: Presentation{VerifiablePresentation: stringToJSONRaw(udPresentation)},
+			Name:         samplePresentationName,
+		}
+		vpReqBytes, err := json.Marshal(vpReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SavePresentation(&b, bytes.NewBuffer(vpReqBytes))
+		require.NoError(t, err)
+
+		vpReq = PresentationExt{
+			Presentation: Presentation{VerifiablePresentation: stringToJSONRaw(udVerifiablePresentation)},
+			Name:         samplePresentationName + "_x",
+		}
+
+		vpReqBytes, err = json.Marshal(vpReq)
+		require.NoError(t, err)
+
+		var b1 bytes.Buffer
+		err = cmd.SavePresentation(&b1, bytes.NewBuffer(vpReqBytes))
+		require.NoError(t, err)
+
+		vpReq = PresentationExt{
+			Presentation: Presentation{VerifiablePresentation: stringToJSONRaw(udPresentation)},
+			Name:         samplePresentationName,
+		}
+		vpReqBytes, err = json.Marshal(vpReq)
+		require.NoError(t, err)
+
+		var b2 bytes.Buffer
+		err = cmd.SavePresentation(&b2, bytes.NewBuffer(vpReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "presentation name already exists")
+	})
+
+	t.Run("test save vp - invalid request", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+
+		err = cmd.SavePresentation(&b, bytes.NewBufferString("--"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "request decode")
+	})
+
+	t.Run("test save vp - validation error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		vcReq := PresentationExt{
+			Presentation: Presentation{VerifiablePresentation: stringToJSONRaw("{}")},
+			Name:         samplePresentationName,
+		}
+		vcReqBytes, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+
+		err = cmd.SavePresentation(&b, bytes.NewBuffer(vcReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "verifiable presentation is not valid")
+
+		vcReq = PresentationExt{
+			Presentation: Presentation{VerifiablePresentation: stringToJSONRaw("{}")},
+			Name:         "",
+		}
+		vcReqBytes, err = json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		var b1 bytes.Buffer
+
+		err = cmd.SavePresentation(&b1, bytes.NewBuffer(vcReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "presentation name is mandatory")
+	})
+
+	t.Run("test save vc - store error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				Store: &mockstore.MockStore{
+					ErrPut: fmt.Errorf("put error"),
+				},
+			},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		vcReq := PresentationExt{
+			Presentation: Presentation{VerifiablePresentation: stringToJSONRaw(udPresentation)},
+			Name:         samplePresentationName,
+		}
+		vcReqBytes, err := json.Marshal(vcReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+
+		err = cmd.SavePresentation(&b, bytes.NewBuffer(vcReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "save vp : failed to put vp:")
+	})
+}
+
+func TestGetVP(t *testing.T) {
+	t.Run("test get vp - success", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s["http://example.edu/presentations/1989"] = []byte(vc)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		// save presentation
+		vpReq := PresentationExt{
+			Presentation: Presentation{VerifiablePresentation: stringToJSONRaw(udPresentation)},
+			Name:         samplePresentationName,
+		}
+		vpReqBytes, err := json.Marshal(vpReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SavePresentation(&b, bytes.NewBuffer(vpReqBytes))
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"id":"http://example.edu/presentations/1989"}`)
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.GetPresentation(&getRW, bytes.NewBufferString(jsoStr))
+		require.NoError(t, cmdErr)
+
+		response := Presentation{}
+		err = json.NewDecoder(&getRW).Decode(&response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiablePresentation)
+	})
+
+	t.Run("test get vp - invalid request", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GetPresentation(&b, bytes.NewBufferString("--"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "request decode")
+	})
+
+	t.Run("test get vp - no id in the request", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{}`)
+
+		var b bytes.Buffer
+		err = cmd.GetPresentation(&b, bytes.NewBufferString(jsoStr))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "presentation id is mandatory")
+	})
+
+	t.Run("test get vp - store error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{
+				Store: &mockstore.MockStore{
+					ErrGet: fmt.Errorf("get error"),
+				},
+			},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"id":"http://example.edu/presentations/1989"}`)
+
+		var b bytes.Buffer
+		err = cmd.GetPresentation(&b, bytes.NewBufferString(jsoStr))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get vp")
+	})
+}
+
+func TestGetPresentations(t *testing.T) {
+	t.Run("test get credentials", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		// save presentation
+		vpReq := PresentationExt{
+			Presentation: Presentation{VerifiablePresentation: stringToJSONRaw(udPresentation)},
+			Name:         samplePresentationName,
+		}
+		vpReqBytes, err := json.Marshal(vpReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SavePresentation(&b, bytes.NewBuffer(vpReqBytes))
+		require.NoError(t, err)
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.GetPresentations(&getRW, nil)
+		require.NoError(t, cmdErr)
+
+		var response RecordResult
+		err = json.NewDecoder(&getRW).Decode(&response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.Equal(t, 1, len(response.Result))
+	})
+}
+
+func stringToJSONRaw(jsonStr string) json.RawMessage {
+	return json.RawMessage([]byte(jsonStr))
 }

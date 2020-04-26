@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/json"
+
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
@@ -41,6 +43,18 @@ type saveCredentialReq struct { // nolint: unused,deadcode
 	Params verifiable.CredentialExt
 }
 
+// savePresentationReq model
+//
+// This is used to save the verifiable presentation.
+//
+// swagger:parameters savePresentationReq
+type savePresentationReq struct { // nolint: unused,deadcode
+	// Params for saving the verifiable presentation
+	//
+	// in: body
+	Params verifiable.PresentationExt
+}
+
 // getCredentialReq model
 //
 // This is used to retrieve the verifiable credential.
@@ -65,6 +79,18 @@ type credentialRes struct { // nolint: unused,deadcode
 	verifiable.Credential
 }
 
+// getPresentationReq model
+//
+// This is used to retrieve the verifiable presentation.
+//
+// swagger:parameters getPresentationReq
+type getPresentationReq struct { // nolint: unused,deadcode
+	// VP ID - pass base64 version of the ID
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
 // getCredentialByNameReq model
 //
 // This is used to retrieve the verifiable credential by name.
@@ -85,7 +111,7 @@ type getCredentialByNameReq struct { // nolint: unused,deadcode
 // swagger:response credentialRecord
 type credentialRecord struct {
 	// in: body
-	verifiablestore.CredentialRecord
+	verifiablestore.Record
 }
 
 // credentialRecordResult model
@@ -95,7 +121,17 @@ type credentialRecord struct {
 // swagger:response credentialRecordResult
 type credentialRecordResult struct {
 	// in: body
-	Result []*verifiablestore.CredentialRecord `json:"result,omitempty"`
+	Result []*verifiablestore.Record `json:"result,omitempty"`
+}
+
+// presentationRecordResult model
+//
+// This is used to return presentation records.
+//
+// swagger:response presentationRecordResult
+type presentationRecordResult struct {
+	// in: body
+	Result []*verifiablestore.Record `json:"result,omitempty"`
 }
 
 // generatePresentationReq model
@@ -118,5 +154,5 @@ type generatePresentationReq struct { // nolint: unused,deadcode
 type presentationRes struct {
 
 	// in: body
-	verifiable.Presentation
+	VerifiablePresentation json.RawMessage `json:"verifiablePresentation,omitempty"`
 }

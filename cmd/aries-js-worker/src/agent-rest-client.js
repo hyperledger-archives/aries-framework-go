@@ -140,6 +140,19 @@ const pkgs = {
             method: "GET",
             pathParam:"id"
         },
+        SavePresentation: {
+            path: "/verifiable/presentation",
+            method: "POST"
+        },
+        GetPresentation: {
+            path: "/verifiable/presentation/{id}",
+            method: "GET",
+            pathParam:"id"
+        },
+        GetPresentations: {
+            path: "/verifiable/presentations",
+            method: "GET",
+        },
     },
     kms: {
         CreateKeySet: {
