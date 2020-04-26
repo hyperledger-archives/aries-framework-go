@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -31,6 +32,12 @@ const (
 
 // ErrNotFound signals that the entry for the given DID and key is not present in the store.
 var ErrNotFound = errors.New("did not found under given key")
+
+type record struct {
+	ID      string   `json:"id,omitempty"`
+	Context []string `json:"context,omitempty"`
+	Type    []string `json:"type,omitempty"`
+}
 
 // Store stores vc
 type Store struct {
@@ -71,11 +78,16 @@ func (s *Store) SaveCredential(name string, vc *verifiable.Credential) error {
 		return fmt.Errorf("failed to marshal vc: %w", err)
 	}
 
-	if err := s.store.Put(vc.ID, vcBytes); err != nil {
-		return fmt.Errorf("failed to put vc: %w", err)
+	if e := s.store.Put(vc.ID, vcBytes); e != nil {
+		return fmt.Errorf("failed to put vc: %w", e)
 	}
 
-	if err := s.store.Put(credentialNameDataKey(name), []byte(vc.ID)); err != nil {
+	recordBytes, err := getRecord(vc.ID, vc.Context, vc.Types)
+	if err != nil {
+		return fmt.Errorf("failed to prepare record: %w", err)
+	}
+
+	if err := s.store.Put(credentialNameDataKey(name), recordBytes); err != nil {
 		return fmt.Errorf("store vc name to id map : %w", err)
 	}
 
@@ -108,11 +120,16 @@ func (s *Store) SavePresentation(name string, vp *verifiable.Presentation) error
 		id = uuid.New().String()
 	}
 
+	recordBytes, err := getRecord(id, vp.Context, vp.Type)
+	if err != nil {
+		return fmt.Errorf("failed to prepare record: %w", err)
+	}
+
 	if err := s.store.Put(id, vpBytes); err != nil {
 		return fmt.Errorf("failed to put vp: %w", err)
 	}
 
-	if err := s.store.Put(presentationNameDataKey(name), []byte(id)); err != nil {
+	if err := s.store.Put(presentationNameDataKey(name), recordBytes); err != nil {
 		return fmt.Errorf("store vp name to id map : %w", err)
 	}
 
@@ -151,64 +168,82 @@ func (s *Store) GetPresentation(id string) (*verifiable.Presentation, error) {
 
 // GetCredentialIDByName retrieves verifiable credential id based on name.
 func (s *Store) GetCredentialIDByName(name string) (string, error) {
-	idBytes, err := s.store.Get(credentialNameDataKey(name))
+	recordBytes, err := s.store.Get(credentialNameDataKey(name))
 	if err != nil {
 		return "", fmt.Errorf("fetch credential id based on name : %w", err)
 	}
 
-	return string(idBytes), nil
+	var r record
+
+	err = json.Unmarshal(recordBytes, &r)
+	if err != nil {
+		return "", fmt.Errorf("failed unmarshal record : %w", err)
+	}
+
+	return r.ID, nil
 }
 
 // GetPresentationIDByName retrieves verifiable presentation id based on name.
 func (s *Store) GetPresentationIDByName(name string) (string, error) {
-	idBytes, err := s.store.Get(presentationNameDataKey(name))
+	recordBytes, err := s.store.Get(presentationNameDataKey(name))
 	if err != nil {
 		return "", fmt.Errorf("fetch presentation id based on name : %w", err)
 	}
 
-	return string(idBytes), nil
+	var r record
+
+	err = json.Unmarshal(recordBytes, &r)
+	if err != nil {
+		return "", fmt.Errorf("failed unmarshal record : %w", err)
+	}
+
+	return r.ID, nil
 }
 
 // GetCredentials retrieves the verifiable credential records containing name and fields of interest.
-func (s *Store) GetCredentials() []*Record {
-	searchKey := credentialNameDataKey("")
-
-	itr := s.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
-	defer itr.Release()
-
-	var records []*Record
-
-	for itr.Next() {
-		record := &Record{
-			Name: getCredentialName(string(itr.Key())),
-			ID:   string(itr.Value()),
-		}
-
-		records = append(records, record)
-	}
-
-	return records
+func (s *Store) GetCredentials() ([]*Record, error) {
+	return s.getAllRecords(credentialNameDataKey(""), getCredentialName)
 }
 
 // GetPresentations retrieves the verifiable presenations records containing name and fields of interest.
-func (s *Store) GetPresentations() []*Record {
-	searchKey := presentationNameDataKey("")
+func (s *Store) GetPresentations() ([]*Record, error) {
+	return s.getAllRecords(presentationNameDataKey(""), getPresentationName)
+}
 
+func (s *Store) getAllRecords(searchKey string, keyPrefix func(string) string) ([]*Record, error) {
 	itr := s.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
 	defer itr.Release()
 
 	var records []*Record
 
 	for itr.Next() {
+		var r record
+
+		err := json.Unmarshal(itr.Value(), &r)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal record : %w", err)
+		}
+
 		record := &Record{
-			Name: getPresentationName(string(itr.Key())),
-			ID:   string(itr.Value()),
+			Name:    keyPrefix(string(itr.Key())),
+			ID:      r.ID,
+			Context: r.Context,
+			Type:    r.Type,
 		}
 
 		records = append(records, record)
 	}
 
-	return records
+	return records, nil
+}
+
+func getRecord(id string, contexts, types []string) ([]byte, error) {
+	recordBytes, err := json.Marshal(&record{id, contexts, types})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal vc record: %w", err)
+	}
+
+	return recordBytes, nil
 }
 
 func credentialNameDataKey(name string) string {

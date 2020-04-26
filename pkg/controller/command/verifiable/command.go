@@ -67,6 +67,12 @@ const (
 
 	// GetPresentationErrorCode for get vp error
 	GetPresentationErrorCode
+
+	// GetCredentialsErrorCode for get credential records
+	GetCredentialsErrorCode
+
+	// GetPresentationsErrorCode for get presentation records
+	GetPresentationsErrorCode
 )
 
 const (
@@ -437,7 +443,12 @@ func (o *Command) GetCredentialByName(rw io.Writer, req io.Reader) command.Error
 
 // GetCredentials retrieves the verifiable credential records containing name and fields of interest.
 func (o *Command) GetCredentials(rw io.Writer, req io.Reader) command.Error {
-	vcRecords := o.verifiableStore.GetCredentials()
+	vcRecords, err := o.verifiableStore.GetCredentials()
+	if err != nil {
+		logutil.LogError(logger, commandName, getCredentialsCommandMethod, "get credential records : "+err.Error())
+
+		return command.NewValidationError(GetCredentialsErrorCode, fmt.Errorf("get credential records : %w", err))
+	}
 
 	command.WriteNillableResponse(rw, &RecordResult{
 		Result: vcRecords,
@@ -450,7 +461,12 @@ func (o *Command) GetCredentials(rw io.Writer, req io.Reader) command.Error {
 
 // GetPresentations retrieves the verifiable presentation records containing name and fields of interest.
 func (o *Command) GetPresentations(rw io.Writer, req io.Reader) command.Error {
-	vpRecords := o.verifiableStore.GetPresentations()
+	vpRecords, err := o.verifiableStore.GetPresentations()
+	if err != nil {
+		logutil.LogError(logger, commandName, getPresentationsCommandMethod, "get presentation records : "+err.Error())
+
+		return command.NewValidationError(GetPresentationsErrorCode, fmt.Errorf("get presentation records : %w", err))
+	}
 
 	command.WriteNillableResponse(rw, &RecordResult{
 		Result: vpRecords,

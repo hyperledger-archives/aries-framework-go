@@ -588,6 +588,8 @@ func TestGetCredentials(t *testing.T) {
 		// verify response
 		require.NotEmpty(t, response)
 		require.Equal(t, 1, len(response.Result))
+		require.Len(t, response.Result[0].Context, 1)
+		require.Len(t, response.Result[0].Type, 1)
 	})
 }
 
@@ -1495,7 +1497,9 @@ func TestGetPresentations(t *testing.T) {
 
 		// verify response
 		require.NotEmpty(t, response)
-		require.Equal(t, 1, len(response.Result))
+		require.Len(t, response.Result, 1)
+		require.Len(t, response.Result[0].Context, 2)
+		require.Len(t, response.Result[0].Type, 1)
 	})
 }
 
