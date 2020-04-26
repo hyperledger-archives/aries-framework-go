@@ -333,6 +333,13 @@ func WithPresEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) Presenta
 	}
 }
 
+// WithDisabledPresentationProofCheck option for disabling of proof check.
+func WithDisabledPresentationProofCheck() PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.disabledProofCheck = true
+	}
+}
+
 // NewPresentation creates an instance of Verifiable Presentation by reading a JSON document from bytes.
 // It also applies miscellaneous options like custom decoders or settings of schema validation.
 func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, error) {

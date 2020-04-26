@@ -512,6 +512,35 @@ const Aries = function (opts) {
             generatePresentationByID: async function (req) {
                 return invoke(aw, pending,  this.pkgname, "GeneratePresentationByID", req, "timeout while generating verifiable presentation by id")
             },
+
+            /**
+             * Saves a presentation.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            savePresentation: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SavePresentation", req, "timeout while saving presentation")
+            },
+
+            /**
+             * Retrieves a presentation.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            getPresentation: async function (req) {
+                return invoke(aw, pending, this.pkgname, "GetPresentation", req, "timeout while retrieving presentation")
+            },
+
+            /**
+             * Retrieves presentation records containing name and fields of interest.
+             *
+             * @returns {Promise<Object>}
+             */
+            getPresentations: async function () {
+                return invoke(aw, pending, this.pkgname, "GetPresentations", {}, "timeout while retrieving presentations")
+            },
         },
 
         /**

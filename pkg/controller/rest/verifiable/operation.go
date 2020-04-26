@@ -23,16 +23,24 @@ import (
 )
 
 const (
-	verifiableOperationID        = "/verifiable"
-	verifiableCredentialPath     = verifiableOperationID + "/credential"
-	validateCredentialPath       = verifiableCredentialPath + "/validate"
-	saveCredentialPath           = verifiableCredentialPath
-	getCredentialPath            = verifiableCredentialPath + "/{id}"
-	getCredentialByNamePath      = verifiableCredentialPath + "/name" + "/{name}"
-	getCredentialsPath           = verifiableOperationID + "/credentials"
-	verifiablePresentationPath   = verifiableOperationID + "/presentation"
+	// roots
+	verifiableOperationID      = "/verifiable"
+	verifiableCredentialPath   = verifiableOperationID + "/credential"
+	verifiablePresentationPath = verifiableOperationID + "/presentation"
+
+	// credential paths
+	validateCredentialPath  = verifiableCredentialPath + "/validate"
+	saveCredentialPath      = verifiableCredentialPath
+	getCredentialPath       = verifiableCredentialPath + "/{id}"
+	getCredentialByNamePath = verifiableCredentialPath + "/name" + "/{name}"
+	getCredentialsPath      = verifiableOperationID + "/credentials"
+
+	// presentation paths
 	generatePresentationPath     = verifiablePresentationPath + "/generate"
 	generatePresentationByIDPath = verifiablePresentationPath + "/generatebyid"
+	savePresentationPath         = verifiablePresentationPath
+	getPresentationPath          = verifiablePresentationPath + "/{id}"
+	getPresentationsPath         = verifiableOperationID + "/presentations"
 )
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -76,6 +84,9 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(getCredentialsPath, http.MethodGet, o.GetCredentials),
 		cmdutil.NewHTTPHandler(generatePresentationPath, http.MethodPost, o.GeneratePresentation),
 		cmdutil.NewHTTPHandler(generatePresentationByIDPath, http.MethodPost, o.GeneratePresentationByID),
+		cmdutil.NewHTTPHandler(savePresentationPath, http.MethodPost, o.SavePresentation),
+		cmdutil.NewHTTPHandler(getPresentationPath, http.MethodGet, o.GetPresentation),
+		cmdutil.NewHTTPHandler(getPresentationsPath, http.MethodGet, o.GetPresentations),
 	}
 }
 
@@ -101,6 +112,17 @@ func (o *Operation) SaveCredential(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.SaveCredential, rw, req.Body)
 }
 
+// SavePresentation swagger:route POST /verifiable/presentation verifiable savePresentationReq
+//
+// Saves the verifiable presentation.
+//
+// Responses:
+//    default: genericError
+//        200: emptyRes
+func (o *Operation) SavePresentation(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.SavePresentation, rw, req.Body)
+}
+
 // GetCredential swagger:route GET /verifiable/credential/{id} verifiable getCredentialReq
 //
 // Retrieves the verifiable credential.
@@ -120,6 +142,27 @@ func (o *Operation) GetCredential(rw http.ResponseWriter, req *http.Request) {
 	request := fmt.Sprintf(`{"id":"%s"}`, string(decodedID))
 
 	rest.Execute(o.command.GetCredential, rw, bytes.NewBufferString(request))
+}
+
+// GetPresentation swagger:route GET /verifiable/presentation/{id} verifiable getPresentationReq
+//
+// Retrieves the verifiable presentation.
+//
+// Responses:
+//    default: genericError
+//        200: presentationRes
+func (o *Operation) GetPresentation(rw http.ResponseWriter, req *http.Request) {
+	id := mux.Vars(req)["id"]
+
+	decodedID, err := base64.StdEncoding.DecodeString(id)
+	if err != nil {
+		rest.SendHTTPStatusError(rw, http.StatusBadRequest, verifiable.InvalidRequestErrorCode, err)
+		return
+	}
+
+	request := fmt.Sprintf(`{"id":"%s"}`, string(decodedID))
+
+	rest.Execute(o.command.GetPresentation, rw, bytes.NewBufferString(request))
 }
 
 // GetCredentialByName swagger:route GET /verifiable/credential/name/{name} verifiable getCredentialByNameReq
@@ -146,6 +189,17 @@ func (o *Operation) GetCredentialByName(rw http.ResponseWriter, req *http.Reques
 //        200: credentialRecordResult
 func (o *Operation) GetCredentials(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.GetCredentials, rw, req.Body)
+}
+
+// GetPresentations swagger:route GET /verifiable/presentations verifiable
+//
+// Retrieves the verifiable credentials.
+//
+// Responses:
+//    default: genericError
+//        200: presentationRecordResult
+func (o *Operation) GetPresentations(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.GetPresentations, rw, req.Body)
 }
 
 // GeneratePresentation swagger:route POST /verifiable/presentation/generate verifiable generatePresentationReq

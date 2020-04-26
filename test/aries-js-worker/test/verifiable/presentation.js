@@ -110,8 +110,8 @@ async function presentation(newAries, mode = wasmMode) {
         }).then(
             resp => {
                 try {
-                    assert.isTrue(JSON.parse(resp.verifiablePresentation).type.includes("VerifiablePresentation"))
-                    assert.equal(JSON.parse(resp.verifiablePresentation).proof.type, "Ed25519Signature2018")
+                    assert.isTrue(resp.verifiablePresentation.type.includes("VerifiablePresentation"))
+                    assert.equal(resp.verifiablePresentation.proof.type, "Ed25519Signature2018")
                     done()
                 } catch (err) {
                     console.log(err);
@@ -132,8 +132,8 @@ async function presentation(newAries, mode = wasmMode) {
         }).then(
             resp => {
                 try {
-                    assert.isTrue(JSON.parse(resp.verifiablePresentation).type.includes("VerifiablePresentation"))
-                    assert.equal(JSON.parse(resp.verifiablePresentation).proof.type, "JsonWebSignature2020")
+                    assert.isTrue(resp.verifiablePresentation.type.includes("VerifiablePresentation"))
+                    assert.equal(resp.verifiablePresentation.proof.type, "JsonWebSignature2020")
                     done()
                 } catch (err) {
                     console.log(err);
