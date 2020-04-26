@@ -8,6 +8,7 @@ package localkms
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/x509"
 	"fmt"
 
@@ -61,7 +62,7 @@ func publicKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (*keyset.Handle, erro
 	return parsedHandle, nil
 }
 
-func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, string, error) {
+func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, string, error) { //nolint:funlen,gocyclo
 	var (
 		tURL     string
 		keyValue []byte
@@ -69,10 +70,10 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 	)
 
 	switch kt {
-	case kms.ECDSAP256Type:
+	case kms.ECDSAP256TypeDER:
 		tURL = ecdsaVerifierTypeURL
 
-		keyValue, err = getMarshalledECDSAKey(
+		keyValue, err = getMarshalledECDSADERKey(
 			pubKey,
 			"NIST_P256",
 			commonpb.EllipticCurveType_NIST_P256,
@@ -80,10 +81,10 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 		if err != nil {
 			return nil, "", err
 		}
-	case kms.ECDSAP384Type:
+	case kms.ECDSAP384TypeDER:
 		tURL = ecdsaVerifierTypeURL
 
-		keyValue, err = getMarshalledECDSAKey(
+		keyValue, err = getMarshalledECDSADERKey(
 			pubKey,
 			"NIST_P384",
 			commonpb.EllipticCurveType_NIST_P384,
@@ -91,10 +92,43 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 		if err != nil {
 			return nil, "", err
 		}
-	case kms.ECDSAP521Type:
+	case kms.ECDSAP521TypeDER:
 		tURL = ecdsaVerifierTypeURL
 
-		keyValue, err = getMarshalledECDSAKey(
+		keyValue, err = getMarshalledECDSADERKey(
+			pubKey,
+			"NIST_P521",
+			commonpb.EllipticCurveType_NIST_P521,
+			commonpb.HashType_SHA512)
+		if err != nil {
+			return nil, "", err
+		}
+	case kms.ECDSAP256TypeIEEE1363:
+		tURL = ecdsaVerifierTypeURL
+
+		keyValue, err = getMarshalledECDSAIEEE1363Key(
+			pubKey,
+			"NIST_P256",
+			commonpb.EllipticCurveType_NIST_P256,
+			commonpb.HashType_SHA256)
+		if err != nil {
+			return nil, "", err
+		}
+	case kms.ECDSAP384TypeIEEE1363:
+		tURL = ecdsaVerifierTypeURL
+
+		keyValue, err = getMarshalledECDSAIEEE1363Key(
+			pubKey,
+			"NIST_P384",
+			commonpb.EllipticCurveType_NIST_P384,
+			commonpb.HashType_SHA512)
+		if err != nil {
+			return nil, "", err
+		}
+	case kms.ECDSAP521TypeIEEE1363:
+		tURL = ecdsaVerifierTypeURL
+
+		keyValue, err = getMarshalledECDSAIEEE1363Key(
 			pubKey,
 			"NIST_P521",
 			commonpb.EllipticCurveType_NIST_P521,
@@ -120,7 +154,7 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 	return keyValue, tURL, nil
 }
 
-func getMarshalledECDSAKey(marshaledPubKey []byte, curveName string, c commonpb.EllipticCurveType,
+func getMarshalledECDSADERKey(marshaledPubKey []byte, curveName string, c commonpb.EllipticCurveType,
 	h commonpb.HashType) ([]byte, error) {
 	curve := subtle.GetCurve(curveName)
 	if curve == nil {
@@ -137,6 +171,28 @@ func getMarshalledECDSAKey(marshaledPubKey []byte, curveName string, c commonpb.
 		return nil, fmt.Errorf("public key reader: not an ecdsa public key")
 	}
 
+	return getMarshalledECDSAKey(ecPubKey, c, h, ecdsapb.EcdsaSignatureEncoding_DER)
+}
+
+func getMarshalledECDSAIEEE1363Key(marshaledPubKey []byte, curveName string, c commonpb.EllipticCurveType,
+	h commonpb.HashType) ([]byte, error) {
+	curve := subtle.GetCurve(curveName)
+	if curve == nil {
+		return nil, fmt.Errorf("undefined curve")
+	}
+
+	x, y := elliptic.Unmarshal(curve, marshaledPubKey)
+
+	if x == nil || y == nil {
+		return nil, fmt.Errorf("failed to unamrshal public ecdsa key")
+	}
+
+	return getMarshalledECDSAKey(&ecdsa.PublicKey{X: x, Y: y, Curve: curve}, c, h,
+		ecdsapb.EcdsaSignatureEncoding_IEEE_P1363)
+}
+
+func getMarshalledECDSAKey(ecPubKey *ecdsa.PublicKey, c commonpb.EllipticCurveType,
+	h commonpb.HashType, enc ecdsapb.EcdsaSignatureEncoding) ([]byte, error) {
 	pubKeyProto := new(ecdsapb.EcdsaPublicKey)
 
 	pubKeyProto.X = ecPubKey.X.Bytes()
@@ -144,7 +200,7 @@ func getMarshalledECDSAKey(marshaledPubKey []byte, curveName string, c commonpb.
 	pubKeyProto.Version = 0
 	pubKeyProto.Params = &ecdsapb.EcdsaParams{
 		Curve:    c,
-		Encoding: ecdsapb.EcdsaSignatureEncoding_DER,
+		Encoding: enc,
 		HashType: h,
 	}
 

@@ -199,9 +199,12 @@ func TestLocalKMS_Success(t *testing.T) {
 		kms.AES256GCMType,
 		kms.ChaCha20Poly1305Type,
 		kms.XChaCha20Poly1305Type,
-		kms.ECDSAP256Type,
-		kms.ECDSAP384Type,
-		kms.ECDSAP521Type,
+		kms.ECDSAP256TypeDER,
+		kms.ECDSAP384TypeDER,
+		kms.ECDSAP521TypeDER,
+		kms.ECDSAP256TypeIEEE1363,
+		kms.ECDSAP384TypeIEEE1363,
+		kms.ECDSAP521TypeIEEE1363,
 		kms.ED25519Type,
 	}
 

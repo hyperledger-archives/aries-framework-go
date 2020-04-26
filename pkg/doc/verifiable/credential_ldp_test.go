@@ -10,7 +10,6 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -155,7 +154,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testin
 func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *testing.T) {
 	r := require.New(t)
 
-	// TODO replace ecdsa.GenerateKey with KMS.Create(kms.ECDSAP256Type) and use localkms and Crypto for signing
+	// TODO replace ecdsa.GenerateKey with KMS.Create(kms.ECDSAP256TypeIEEE1363) and use localkms and Crypto for signing
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
@@ -179,8 +178,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	pubKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
-	r.NoError(err)
+	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
@@ -395,11 +393,11 @@ func mapJWKToKMSKeyType(jwk *jose.JWK) (kms.KeyType, error) {
 	case "EC":
 		switch jwk.Crv {
 		case "P-256":
-			return kms.ECDSAP256Type, nil
+			return kms.ECDSAP256TypeIEEE1363, nil
 		case "P-384":
-			return kms.ECDSAP384Type, nil
+			return kms.ECDSAP384TypeIEEE1363, nil
 		case "P-521":
-			return kms.ECDSAP521Type, nil
+			return kms.ECDSAP521TypeIEEE1363, nil
 		}
 	}
 

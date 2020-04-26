@@ -8,6 +8,7 @@ package localkms
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/x509"
 	"fmt"
 	"io"
@@ -93,23 +94,7 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 			return false, err
 		}
 
-		curveName := commonpb.EllipticCurveType_name[int32(pubKeyProto.Params.Curve)]
-
-		curve := subtle.GetCurve(curveName)
-		if curve == nil {
-			return false, fmt.Errorf("undefined curve")
-		}
-
-		pubKey := ecdsa.PublicKey{
-			Curve: curve,
-			X:     new(big.Int),
-			Y:     new(big.Int),
-		}
-
-		pubKey.X.SetBytes(pubKeyProto.X)
-		pubKey.Y.SetBytes(pubKeyProto.Y)
-
-		marshaledRawPubKey, err = x509.MarshalPKIXPublicKey(&pubKey)
+		marshaledRawPubKey, err = getMarshalledECDSAKeyValueFromProto(pubKeyProto)
 		if err != nil {
 			return false, err
 		}
@@ -133,4 +118,41 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 	}
 
 	return n > 0, nil
+}
+
+func getMarshalledECDSAKeyValueFromProto(pubKeyProto *ecdsapb.EcdsaPublicKey) ([]byte, error) {
+	var (
+		marshaledRawPubKey []byte
+		err                error
+	)
+
+	curveName := commonpb.EllipticCurveType_name[int32(pubKeyProto.Params.Curve)]
+
+	curve := subtle.GetCurve(curveName)
+	if curve == nil {
+		return nil, fmt.Errorf("undefined curve")
+	}
+
+	pubKey := ecdsa.PublicKey{
+		Curve: curve,
+		X:     new(big.Int),
+		Y:     new(big.Int),
+	}
+
+	pubKey.X.SetBytes(pubKeyProto.X)
+	pubKey.Y.SetBytes(pubKeyProto.Y)
+
+	switch pubKeyProto.Params.Encoding {
+	case ecdsapb.EcdsaSignatureEncoding_DER:
+		marshaledRawPubKey, err = x509.MarshalPKIXPublicKey(&pubKey)
+		if err != nil {
+			return nil, err
+		}
+	case ecdsapb.EcdsaSignatureEncoding_IEEE_P1363:
+		marshaledRawPubKey = elliptic.Marshal(curve, pubKey.X, pubKey.Y)
+	default:
+		return nil, fmt.Errorf("can't export key with bad key encoding: '%s'", pubKeyProto.Params.Encoding)
+	}
+
+	return marshaledRawPubKey, nil
 }

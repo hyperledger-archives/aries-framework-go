@@ -10,9 +10,12 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
+	commonpb "github.com/google/tink/go/proto/common_go_proto"
+	ecdsapb "github.com/google/tink/go/proto/ecdsa_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/signature"
 
@@ -25,6 +28,8 @@ import (
 const (
 	// Namespace is the keystore's DB storage namespace
 	Namespace = "kmsdb"
+
+	ecdsaPrivateKeyTypeURL = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
 )
 
 // LocalKMS implements kms.KeyManager to provide key management capabilities using a local db.
@@ -143,18 +148,41 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 		return aead.ChaCha20Poly1305KeyTemplate(), nil
 	case kms.XChaCha20Poly1305Type:
 		return aead.XChaCha20Poly1305KeyTemplate(), nil
-	case kms.ECDSAP256Type:
+	case kms.ECDSAP256TypeDER:
 		return signature.ECDSAP256KeyWithoutPrefixTemplate(), nil
-	case kms.ECDSAP384Type:
+	case kms.ECDSAP384TypeDER:
 		return signature.ECDSAP384KeyWithoutPrefixTemplate(), nil
-	case kms.ECDSAP521Type:
+	case kms.ECDSAP521TypeDER:
 		return signature.ECDSAP521KeyWithoutPrefixTemplate(), nil
+	case kms.ECDSAP256TypeIEEE1363:
+		// JWS keys should sign using IEEE_1363 format only (not DER format)
+		return createECDSAIEEE1363KeyTemplate(commonpb.HashType_SHA256, commonpb.EllipticCurveType_NIST_P256), nil
+	case kms.ECDSAP384TypeIEEE1363:
+		return createECDSAIEEE1363KeyTemplate(commonpb.HashType_SHA512, commonpb.EllipticCurveType_NIST_P384), nil
+	case kms.ECDSAP521TypeIEEE1363:
+		return createECDSAIEEE1363KeyTemplate(commonpb.HashType_SHA512, commonpb.EllipticCurveType_NIST_P521), nil
 	case kms.ED25519Type:
 		return signature.ED25519KeyWithoutPrefixTemplate(), nil
 	case kms.HMACSHA256Tag256Type:
 		return mac.HMACSHA256Tag256KeyTemplate(), nil
 	default:
 		return nil, fmt.Errorf("key type unrecognized")
+	}
+}
+
+func createECDSAIEEE1363KeyTemplate(hashType commonpb.HashType, curve commonpb.EllipticCurveType) *tinkpb.KeyTemplate {
+	params := &ecdsapb.EcdsaParams{
+		HashType: hashType,
+		Curve:    curve,
+		Encoding: ecdsapb.EcdsaSignatureEncoding_IEEE_P1363,
+	}
+	format := &ecdsapb.EcdsaKeyFormat{Params: params}
+	serializedFormat, _ := proto.Marshal(format) //nolint:errcheck
+
+	return &tinkpb.KeyTemplate{
+		TypeUrl:          ecdsaPrivateKeyTypeURL,
+		Value:            serializedFormat,
+		OutputPrefixType: tinkpb.OutputPrefixType_RAW,
 	}
 }
 

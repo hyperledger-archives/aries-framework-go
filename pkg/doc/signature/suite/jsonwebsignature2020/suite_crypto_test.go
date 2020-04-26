@@ -26,7 +26,7 @@ import (
 func TestNewCryptoSignerAndVerifier(t *testing.T) {
 	lKMS := createKMS()
 
-	kid, kh := createKeyHandle(lKMS, kmsapi.ECDSAP256Type)
+	kid, kh := createKeyHandle(lKMS, kmsapi.ECDSAP256TypeIEEE1363)
 
 	tinkCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
@@ -48,7 +48,7 @@ func TestNewCryptoSignerAndVerifier(t *testing.T) {
 	require.NoError(t, err)
 
 	pubKey := &sigverifier.PublicKey{
-		Type:  kmsapi.ECDSAP256,
+		Type:  kmsapi.ECDSAP256IEEE1363,
 		Value: pubKeyBytes,
 	}
 
@@ -104,8 +104,8 @@ func createKMS() *localkms.LocalKMS {
 
 func mapKeyTypeToKMS(t string) (kmsapi.KeyType, error) {
 	switch t {
-	case kmsapi.ECDSAP256:
-		return kmsapi.ECDSAP256Type, nil
+	case kmsapi.ECDSAP256IEEE1363:
+		return kmsapi.ECDSAP256TypeIEEE1363, nil
 	default:
 		return "", fmt.Errorf("unsupported key type: %s", t)
 	}
