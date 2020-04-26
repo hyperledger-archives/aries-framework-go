@@ -14,8 +14,6 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/asn1"
-	"fmt"
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -175,15 +173,21 @@ func getECSignature(privKey *ecdsa.PrivateKey, payload []byte, hash crypto.Hash)
 		return nil, err
 	}
 
-	// use DER format of signature
-	ecdsaSig := sigverifier.NewECDSASignature(r, s)
+	curveBits := privKey.Curve.Params().BitSize
 
-	ret, err := asn1.Marshal(*ecdsaSig)
-	if err != nil {
-		return nil, fmt.Errorf("asn.1 encoding failed: %w", err)
+	keyBytes := curveBits / 8
+	if curveBits%8 > 0 {
+		keyBytes++
 	}
 
-	return ret, nil
+	copyPadded := func(source []byte, size int) []byte {
+		dest := make([]byte, size)
+		copy(dest[size-len(source):], source)
+
+		return dest
+	}
+
+	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
 }
 
 func getRSASignature(privKey *rsa.PrivateKey, payload []byte) []byte {
