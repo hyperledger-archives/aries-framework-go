@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package jose
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -15,38 +16,51 @@ import (
 )
 
 const (
-	expectedJWEAllFields = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
+	exampleJWEAllFields = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
 		`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
 		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
 		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
 		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	expectedJWEProtectedFieldAbsent = `{"unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
+	exampleJWEProtectedFieldAbsent = `{"unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
 		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":{"apu":` +
 		`"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
 		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	expectedJWEUnprotectedFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIs` +
+	exampleCompactJWEAllFields = "eyJhbGciOiJSU0EtT0FFUCIsImVuYyI6IkEyNTZHQ00ifQ.OKOawDo13gRp2ojaHV7LFpZcgV7T6DV" +
+		"ZKTyKOMTYUmKoTCVJRgckCL9kiMT03JGeipsEdY3mx_etLbbWSrFr05kLzcSr4qKAq7YN7e9jwQRb23nfa6c9d-StnImGyFDbSv04uV" +
+		"uxIp5Zms1gNxKKK2Da14B8S4rzVRltdYwam_lDp5XnZAYpQdb76FdIKLaVmqgfwX7XWRxv2322i-vDxRfqNzo_tETKzpVLzfiwQyeyP" +
+		"GLBIO56YJ7eObdv0je81860ppamavo35UgoRdbYaBcoh9QcfylQr66oc6vFWXRcZ_ZT2LawVCWTIy3brGPi6UklfCpIMfIjf7iGdXKH" +
+		"zg.48V1_ALb6US04U3b.5eym8TW_c8SuK0ltJ3rpYIzOeDQz7TALvtu6UG9oMo4vpzs9tX_EFShS8iB7j6jiSdiwkIr3ajwQzaBtQD_" +
+		"A.XFBoMYUZodetZdvTiFvSkQ"
+	exampleJWEUnprotectedFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIs` +
 		`InByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","recipients":[{"encrypted_key":"VGVzdEtleQ",` +
 		`"header":{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":` +
 		`"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	expectedJWERecipientsFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsI` +
+	exampleJWERecipientsFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsI` +
 		`nByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":` +
 		`"unprotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{}],"aad":` +
 		`"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	expectedJWEAADFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3R` +
+	exampleJWEAADFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3R` +
 		`lZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
 		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
 		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],` +
 		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	expectedJWEIVFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3Rl` +
+	exampleJWEIVFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3Rl` +
 		`ZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
 		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
 		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
 		`"ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	expectedJWETagFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3R` +
+	exampleJWETagFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3R` +
 		`lZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1"` +
 		`,"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
 		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
 		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ"}`
+	expectedSerializedCompactJWE = `{"protected":"eyJhbGciOiJSU0EtT0FFUCIsImVuYyI6IkEyNTZHQ00ifQ","unprotected"` +
+		`:{},"recipients":[{"encrypted_key":"OKOawDo13gRp2ojaHV7LFpZcgV7T6DVZKTyKOMTYUmKoTCVJRgckCL9kiMT03JGeips` +
+		`EdY3mx_etLbbWSrFr05kLzcSr4qKAq7YN7e9jwQRb23nfa6c9d-StnImGyFDbSv04uVuxIp5Zms1gNxKKK2Da14B8S4rzVRltdYwam_` +
+		`lDp5XnZAYpQdb76FdIKLaVmqgfwX7XWRxv2322i-vDxRfqNzo_tETKzpVLzfiwQyeyPGLBIO56YJ7eObdv0je81860ppamavo35UgoR` +
+		`dbYaBcoh9QcfylQr66oc6vFWXRcZ_ZT2LawVCWTIy3brGPi6UklfCpIMfIjf7iGdXKHzg","header":{}}],"iv":"48V1_ALb6US0` +
+		`4U3b","ciphertext":"5eym8TW_c8SuK0ltJ3rpYIzOeDQz7TALvtu6UG9oMo4vpzs9tX_EFShS8iB7j6jiSdiwkIr3ajwQzaBtQD_` +
+		`A","tag":"XFBoMYUZodetZdvTiFvSkQ"}`
 )
 
 var errFailingMarshal = errors.New("i failed to marshal")
@@ -81,7 +95,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 		}
 		serializedJWE, err := jwe.Serialize(json.Marshal)
 		require.NoError(t, err)
-		require.Equal(t, expectedJWEAllFields, serializedJWE)
+		require.Equal(t, exampleJWEAllFields, serializedJWE)
 	})
 	t.Run("Successfully serialize JWE, protected header value is empty", func(t *testing.T) {
 		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
@@ -109,7 +123,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 		}
 		serializedJWE, err := jwe.Serialize(json.Marshal)
 		require.NoError(t, err)
-		require.Equal(t, expectedJWEProtectedFieldAbsent, serializedJWE)
+		require.Equal(t, exampleJWEProtectedFieldAbsent, serializedJWE)
 	})
 	t.Run("Successfully serialize JWE, unprotected header value is empty", func(t *testing.T) {
 		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
@@ -137,7 +151,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 		}
 		serializedJWE, err := jwe.Serialize(json.Marshal)
 		require.NoError(t, err)
-		require.Equal(t, expectedJWEUnprotectedFieldAbsent, serializedJWE)
+		require.Equal(t, exampleJWEUnprotectedFieldAbsent, serializedJWE)
 	})
 	t.Run("Successfully serialize JWE, recipients value is empty", func(t *testing.T) {
 		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
@@ -155,7 +169,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 		}
 		serializedJWE, err := jwe.Serialize(json.Marshal)
 		require.NoError(t, err)
-		require.Equal(t, expectedJWERecipientsFieldAbsent, serializedJWE)
+		require.Equal(t, exampleJWERecipientsFieldAbsent, serializedJWE)
 	})
 	t.Run("Successfully serialize JWE, IV value is empty", func(t *testing.T) {
 		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
@@ -185,7 +199,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 		}
 		serializedJWE, err := jwe.Serialize(json.Marshal)
 		require.NoError(t, err)
-		require.Equal(t, expectedJWEIVFieldAbsent, serializedJWE)
+		require.Equal(t, exampleJWEIVFieldAbsent, serializedJWE)
 	})
 	t.Run("Successfully serialize JWE, AAD value is empty", func(t *testing.T) {
 		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
@@ -215,7 +229,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 		}
 		serializedJWE, err := jwe.Serialize(json.Marshal)
 		require.NoError(t, err)
-		require.Equal(t, expectedJWEAADFieldAbsent, serializedJWE)
+		require.Equal(t, exampleJWEAADFieldAbsent, serializedJWE)
 	})
 	t.Run("Fail to serialize JWE, ciphertext value is empty", func(t *testing.T) {
 		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
@@ -275,7 +289,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 		}
 		serializedJWE, err := jwe.Serialize(json.Marshal)
 		require.NoError(t, err)
-		require.Equal(t, expectedJWETagFieldAbsent, serializedJWE)
+		require.Equal(t, exampleJWETagFieldAbsent, serializedJWE)
 	})
 	t.Run("fail to prepare headers", func(t *testing.T) {
 		jwe := JSONWebEncryption{
@@ -349,6 +363,120 @@ func TestJSONWebEncryption_PrepareHeaders(t *testing.T) {
 		require.Equal(t, errFailingMarshal, err)
 		require.Empty(t, marshalledProtectedHeaders)
 		require.Nil(t, marshalledUnprotectedHeaders)
+	})
+}
+
+func TestDeserialize(t *testing.T) {
+	t.Run("Full JWE tests", func(t *testing.T) {
+		t.Run("Success", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(exampleJWEAllFields)
+			require.NoError(t, err)
+			require.NotNil(t, deserializedJWE)
+
+			reserializedJWE, err := deserializedJWE.Serialize(json.Marshal)
+			require.NoError(t, err)
+			require.Equal(t, exampleJWEAllFields, reserializedJWE)
+		})
+		t.Run("Unable to unmarshal serialized JWE string", func(t *testing.T) {
+			deserializedJWE, err := Deserialize("{")
+			require.EqualError(t, err, "unexpected end of JSON input")
+			require.Nil(t, deserializedJWE)
+		})
+		t.Run("Protected headers are not base64-encoded", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(`{"protected":"Not base64-encoded"}`)
+			require.EqualError(t, err, "illegal base64 data at input byte 3")
+			require.Nil(t, deserializedJWE)
+		})
+		t.Run("Protected headers are base64-encoded, but cannot be unmarshalled", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(`{"protected":"` +
+				base64.RawURLEncoding.EncodeToString([]byte("invalid protected headers")) + `"}`)
+			require.EqualError(t, err, "invalid character 'i' looking for beginning of value")
+			require.Nil(t, deserializedJWE)
+		})
+		t.Run("Unable to unmarshal unprotected headers", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(
+				`{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
+					`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0", "unprotected":""}`)
+			require.EqualError(t, err, "json: cannot unmarshal string into Go value of type jose.Headers")
+			require.Nil(t, deserializedJWE)
+		})
+		t.Run("Unable to unmarshal recipients", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(
+				`{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
+					`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":` +
+					`"unprotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":""}`)
+			require.EqualError(t, err, "json: cannot unmarshal string into Go value of type []*jose.Recipient")
+			require.Nil(t, deserializedJWE)
+		})
+		t.Run("AAD is not base64-encoded", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(
+				`{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
+					`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":` +
+					`"unprotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"aad":"not base64-encoded"}`)
+			require.EqualError(t, err, "illegal base64 data at input byte 3")
+			require.Nil(t, deserializedJWE)
+		})
+		t.Run("IV is not base64-encoded", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(
+				`{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
+					`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":` +
+					`"unprotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"iv":"not base64-encoded"}`)
+			require.EqualError(t, err, "illegal base64 data at input byte 3")
+			require.Nil(t, deserializedJWE)
+		})
+		t.Run("Ciphertext is not base64-encoded", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(
+				`{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
+					`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":` +
+					`"unprotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"ciphertext":` +
+					`"not base64-encoded"}`)
+			require.EqualError(t, err, "illegal base64 data at input byte 3")
+			require.Nil(t, deserializedJWE)
+		})
+		t.Run("Tag is not base64-encoded", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(
+				`{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
+					`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":` +
+					`"unprotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"tag":"not base64-encoded"}`)
+			require.EqualError(t, err, "illegal base64 data at input byte 3")
+			require.Nil(t, deserializedJWE)
+		})
+	})
+	t.Run("Flattened JWE tests", func(t *testing.T) {
+		t.Run("Recipient encrypted key is not base64-encoded", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(
+				`{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
+					`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":` +
+					`"unprotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"encrypted_key":` +
+					`"not base64-encoded"}`)
+			require.EqualError(t, err, "illegal base64 data at input byte 3")
+			require.Nil(t, deserializedJWE)
+		})
+		t.Run("Unable to unmarshal single recipient header", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(
+				`{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
+					`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":` +
+					`"unprotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"header":` +
+					`"not a valid value"}`)
+			require.EqualError(t, err, "invalid character 'o' in literal null (expecting 'u')")
+			require.Nil(t, deserializedJWE)
+		})
+	})
+	t.Run("Compact JWE tests", func(t *testing.T) {
+		t.Run("Success", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(exampleCompactJWEAllFields)
+			require.NoError(t, err)
+			require.NotNil(t, deserializedJWE)
+
+			reserializedJWE, err := deserializedJWE.Serialize(json.Marshal)
+			require.NoError(t, err)
+			require.Equal(t, expectedSerializedCompactJWE, reserializedJWE)
+		})
+		t.Run("Invalid compact JWE - wrong number of parts", func(t *testing.T) {
+			deserializedJWE, err := Deserialize("")
+			require.Equal(t, errWrongNumberOfCompactJWEParts, err)
+			require.Nil(t, deserializedJWE)
+		})
 	})
 }
 
