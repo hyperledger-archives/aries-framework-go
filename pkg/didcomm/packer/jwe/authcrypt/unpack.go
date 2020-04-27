@@ -97,7 +97,7 @@ func (p *Packer) decryptPayload(cek []byte, jwe *Envelope) ([]byte, error) {
 }
 
 // findRecipient will loop through jweRecipients and returns the first matching key from the legacyKMS
-func (p *Packer) findRecipient(jweRecipients []jose.Recipient) (*[chacha.KeySize]byte, *jose.Recipient, error) {
+func (p *Packer) findRecipient(jweRecipients []*jose.Recipient) (*[chacha.KeySize]byte, *jose.Recipient, error) {
 	var recipientsKeys []string
 	for _, recipient := range jweRecipients {
 		recipientsKeys = append(recipientsKeys, recipient.Header.KID)
@@ -111,7 +111,7 @@ func (p *Packer) findRecipient(jweRecipients []jose.Recipient) (*[chacha.KeySize
 	pubK := new([chacha.KeySize]byte)
 	copy(pubK[:], base58.Decode(recipientsKeys[i]))
 
-	return pubK, &jweRecipients[i], nil
+	return pubK, jweRecipients[i], nil
 }
 
 // decryptCEK will decrypt the CEK found in recipient using recipientKp's private key and senderPubKey

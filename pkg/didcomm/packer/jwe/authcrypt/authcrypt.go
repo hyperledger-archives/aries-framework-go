@@ -49,12 +49,12 @@ type Packer struct {
 
 // Envelope represents a JWE envelope as per the Aries Encryption envelope specs
 type Envelope struct {
-	Protected  string           `json:"protected,omitempty"`
-	Recipients []jose.Recipient `json:"recipients,omitempty"`
-	AAD        string           `json:"aad,omitempty"`
-	IV         string           `json:"iv,omitempty"`
-	Tag        string           `json:"tag,omitempty"`
-	CipherText string           `json:"ciphertext,omitempty"`
+	Protected  string            `json:"protected,omitempty"`
+	Recipients []*jose.Recipient `json:"recipients,omitempty"`
+	AAD        string            `json:"aad,omitempty"`
+	IV         string            `json:"iv,omitempty"`
+	Tag        string            `json:"tag,omitempty"`
+	CipherText string            `json:"ciphertext,omitempty"`
 }
 
 // jweHeaders are the Protected JWE headers in a map format

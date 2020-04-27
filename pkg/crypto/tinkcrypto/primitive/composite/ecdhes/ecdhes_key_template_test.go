@@ -71,8 +71,8 @@ func createRecipients(t *testing.T, numberOfRecipients int) ([]ecdhessubtle.ECPu
 	return r, rKH
 }
 
-// createAndMarshalRecipient creates a new recipient keyset.Handle, extract public key, marshal it and return
-// both marshaled public key and original recipient keyset.Handle
+// createAndMarshalRecipient creates a new recipient keyset.Handle, extracts public key, marshals it and returns
+// both marshalled public key and original recipient keyset.Handle
 func createAndMarshalRecipient(t *testing.T) ([]byte, *keyset.Handle) {
 	t.Helper()
 

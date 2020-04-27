@@ -16,7 +16,7 @@ import (
 type JSONWebEncryption struct {
 	ProtectedHeaders   Headers
 	UnprotectedHeaders Headers
-	Recipients         []Recipient
+	Recipients         []*Recipient
 	AAD                string
 	IV                 string
 	Ciphertext         string
@@ -31,11 +31,13 @@ type Recipient struct {
 
 // RecipientHeaders are the recipient headers
 type RecipientHeaders struct {
+	Alg string `json:"alg,omitempty"`
 	APU string `json:"apu,omitempty"`
 	IV  string `json:"iv,omitempty"`
 	Tag string `json:"tag,omitempty"`
 	KID string `json:"kid,omitempty"`
 	SPK string `json:"spk,omitempty"`
+	EPK string `json:"epk,omitempty"`
 }
 
 // rawJSONWebEncryption represents a RAW JWE that is used for serialization/deserialization.
@@ -66,6 +68,10 @@ func (e *JSONWebEncryption) Serialize(marshal marshalFunc) (string, error) {
 		// even if some or all of the array values are the empty JSON object "{}".
 		recipientsJSON = json.RawMessage("[{}]")
 	} else {
+		for i, rec := range e.Recipients {
+			e.Recipients[i].EncryptedKey = base64.RawURLEncoding.EncodeToString([]byte(rec.EncryptedKey))
+		}
+
 		nonEmptyRecipientsJSON, errMarshal := marshal(e.Recipients)
 		if errMarshal != nil {
 			return "", errMarshal
