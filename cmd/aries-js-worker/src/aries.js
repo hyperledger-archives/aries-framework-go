@@ -196,6 +196,127 @@ const Aries = function (opts) {
             }
         },
 
+        issuecredential: {
+            pkgname: "issuecredential",
+            /**
+             * Returns pending actions that have not yet to be executed or cancelled.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            actions: async function (req) {
+                return invoke(aw, pending, this.pkgname, "Actions", req, "timeout while getting actions")
+            },
+            /**
+             * Sends an offer.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendOffer: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SendOffer", req, "timeout while sending an offer")
+            },
+            /**
+             * Sends a proposal.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendProposal: function (req) {
+                return invoke(aw, pending, this.pkgname, "SendProposal", req, "timeout while sending a proposal")
+            },
+            /**
+             * Sends a request.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendRequest: function (req) {
+                return invoke(aw, pending, this.pkgname, "SendRequest", req, "timeout while sending a request")
+            },
+            /**
+             * Accepts a proposal.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptProposal: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptProposal", req, "timeout while accepting a proposal")
+            },
+            /**
+             * Declines a proposal.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            declineProposal: function (req) {
+                return invoke(aw, pending, this.pkgname, "DeclineProposal", req, "timeout while declining a proposal")
+            },
+            /**
+             * Accepts an offer.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptOffer: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptOffer", req, "timeout while accepting an offer")
+            },
+            /**
+             * Declines an offer.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            declineOffer: function (req) {
+                return invoke(aw, pending, this.pkgname, "DeclineOffer", req, "timeout while declining an offer")
+            },
+            /**
+             * Is used when the Holder wants to negotiate about an offer he received.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            negotiateProposal: function (req) {
+                return invoke(aw, pending, this.pkgname, "NegotiateProposal", req, "timeout while negotiating proposal")
+            },
+            /**
+             * Accepts a request.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptRequest: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptRequest", req, "timeout while accepting a request")
+            },
+            /**
+             * Declines a request.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            declineRequest: function (req) {
+                return invoke(aw, pending, this.pkgname, "DeclineRequest", req, "timeout while declining a request")
+            },
+            /**
+             * Accepts a credential.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptCredential: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptCredential", req, "timeout while accepting a credential")
+            },
+            /**
+             * Declines a credential.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            declineCredential: function (req) {
+                return invoke(aw, pending, this.pkgname, "DeclineCredential", req, "timeout while declining a credential")
+            },
+        },
+
         /**
          * DIDExchange methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
          * input params and output return json values.

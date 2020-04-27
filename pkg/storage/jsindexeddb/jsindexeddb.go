@@ -17,6 +17,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -243,7 +245,7 @@ func getResult(req js.Value) (*js.Value, error) {
 	onsuccess := make(chan js.Value)
 	onerror := make(chan js.Value)
 
-	const timeout = 3
+	const timeout = 10
 
 	req.Set("onsuccess", js.FuncOf(func(this js.Value, inputs []js.Value) interface{} {
 		onsuccess <- this.Get("result")
@@ -278,5 +280,7 @@ func getStoreNames() []string {
 		did.StoreName,
 		localkms.Namespace,
 		verifiable.NameSpace,
+		issuecredential.Name,
+		presentproof.Name,
 	}
 }

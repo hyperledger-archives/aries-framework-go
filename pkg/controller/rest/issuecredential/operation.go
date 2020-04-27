@@ -322,7 +322,7 @@ func (c *Operation) DeclineCredential(rw http.ResponseWriter, req *http.Request)
 
 func isJSONMap(data []byte) bool {
 	var v struct{}
-	return isJSON(data, v)
+	return isJSON(data, &v)
 }
 
 func isJSON(data []byte, v interface{}) bool {
@@ -330,6 +330,6 @@ func isJSON(data []byte, v interface{}) bool {
 }
 
 func isJSONArray(data []byte) bool {
-	var v []struct{}
-	return isJSON(data, v)
+	var v []interface{}
+	return isJSON(data, &v)
 }
