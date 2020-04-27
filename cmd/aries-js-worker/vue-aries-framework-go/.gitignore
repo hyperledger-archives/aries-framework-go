@@ -9,6 +9,8 @@ node_modules
 /dist
 assets/
 
+package-lock.json
+
 # local env files
 .env.local
 .env.*.local
