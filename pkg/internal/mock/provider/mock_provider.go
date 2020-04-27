@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package provider
 
 import (
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -28,6 +29,7 @@ type Provider struct {
 	PackerValue                   packer.Packer
 	OutboundDispatcherValue       dispatcher.Outbound
 	VDRIRegistryValue             vdriapi.Registry
+	CryptoValue                   crypto.Crypto
 }
 
 // Service return service
@@ -51,6 +53,11 @@ func (p *Provider) LegacyKMS() legacykms.KeyManager {
 // KMS returns a kms instance
 func (p *Provider) KMS() kms.KeyManager {
 	return p.KMSValue
+}
+
+// Crypto returns a crypto
+func (p *Provider) Crypto() crypto.Crypto {
+	return p.CryptoValue
 }
 
 // ServiceEndpoint returns the service endpoint

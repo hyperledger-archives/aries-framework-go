@@ -103,23 +103,25 @@ async function presentation(newAries, mode = wasmMode) {
         )
     })
 
-    it(modePrefix + "Alice generates the signed  verifiable presentation to pass it to the employer", function (done) {
-        aries.verifiable.generatePresentation({
+    it(modePrefix + "Alice generates the signed  verifiable presentation to pass it to the employer", async function () {
+        const keyset= await aries.kms.createKeySet({keyType: "ED25519"})
+
+        await aries.verifiable.generatePresentation({
             "verifiableCredential": [JSON.parse(vc)],
-            "did": did.id
+            "did": did.id,
+            "verifiableMethod":did.id+"#"+keyset.keyID,
+            "signatureType":"Ed25519Signature2018"
         }).then(
             resp => {
                 try {
                     assert.isTrue(resp.verifiablePresentation.type.includes("VerifiablePresentation"))
                     assert.equal(resp.verifiablePresentation.proof.type, "Ed25519Signature2018")
-                    done()
                 } catch (err) {
-                    console.log(err);
-                    done(err)
+                    assert.fail(err)
                 }
             },
-            err => done(err)
-        )
+            err => assert.fail(err)
+    )
     });
 
     it(modePrefix + "Alice generates the signed  verifiable presentation to pass it to the employer using P-256 key", function (done) {
@@ -128,7 +130,8 @@ async function presentation(newAries, mode = wasmMode) {
             "did" : did.id,
             "didKeyID": did.id + did.publicKey[0].id,
             "privateKey" :"WejGrq3SkHF1YpsdXSCg46FK8vuTDxroA9wh2q1398MUqrpKrFts54j8rLqGfT5Tu8cmG6PVUXUoFWManr4uVEpVFd8ZywoHPV8nBRQTxQXjucdd22nji7ijKG18kuptpArQBrAAo2GLmv8yFtSagkvFrYQ4A8Ti4aafw",
-            "keyType" : "P256"
+            "keyType" : "P256",
+            "signatureType":"JsonWebSignature2020"
         }).then(
             resp => {
                 try {
