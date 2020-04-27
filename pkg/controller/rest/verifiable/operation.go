@@ -17,8 +17,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
@@ -47,7 +48,8 @@ const (
 type provider interface {
 	StorageProvider() storage.Provider
 	VDRIRegistry() vdri.Registry
-	Signer() legacykms.Signer
+	KMS() kms.KeyManager
+	Crypto() ariescrypto.Crypto
 }
 
 // Operation contains basic common operations provided by controller REST API

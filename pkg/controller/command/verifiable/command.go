@@ -12,6 +12,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
+	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	verifiablesigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -31,7 +33,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
@@ -104,46 +106,63 @@ const (
 	vpID   = "vpID"
 
 	creatorParts = 2
-	// Ed25519VerificationKey supported Verification Key types
-	// TODO Support JwsVerificationKey2020 type for verification #1639
-	Ed25519VerificationKey = "Ed25519VerificationKey"
+
+	// Ed25519Signature2018 ed25519 signature suite
+	Ed25519Signature2018 = "Ed25519Signature2018"
+	// JSONWebSignature2020 json web signature suite
+	JSONWebSignature2020 = "JsonWebSignature2020"
 
 	// Ed25519KeyType ed25519 key type
 	Ed25519KeyType = "Ed25519"
 
 	// P256KeyType EC P-256 key type
 	P256KeyType = "P256"
+
+	// Ed25519VerificationKey ED25519 verification key type
+	Ed25519VerificationKey = "Ed25519VerificationKey"
 )
 
 type keyResolver interface {
 	PublicKeyFetcher() verifiable.PublicKeyFetcher
 }
 
-type kmsSigner struct {
-	kms   legacykms.Signer
-	keyID string
+type signer interface {
+	// Sign will sign document and return signature
+	Sign(data []byte) ([]byte, error)
 }
 
-func newKMSSigner(kms legacykms.Signer, kResolver keyResolver, verificationMethod string) (*kmsSigner, error) {
+type kmsSigner struct {
+	keyHandle interface{}
+	crypto    ariescrypto.Crypto
+}
+
+func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator string) (*kmsSigner, error) {
 	// creator will contain didID#keyID
-	idSplit := strings.Split(verificationMethod, "#")
+	idSplit := strings.Split(creator, "#")
 	if len(idSplit) != creatorParts {
 		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
 	}
 
-	k, err := kResolver.PublicKeyFetcher()(idSplit[0], "#"+idSplit[1])
-
+	b, err := base64.RawURLEncoding.DecodeString(idSplit[1])
 	if err != nil {
 		return nil, err
 	}
 
-	keyID := base58.Encode(k.Value)
+	keyHandler, err := keyManager.Get(string(b))
+	if err != nil {
+		return nil, err
+	}
 
-	return &kmsSigner{kms: kms, keyID: keyID}, nil
+	return &kmsSigner{keyHandle: keyHandler, crypto: c}, nil
 }
 
 func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
-	return s.kms.SignMessage(data, s.keyID)
+	v, err := s.crypto.Sign(data, s.keyHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	return v, nil
 }
 
 type privateKeySigner struct {
@@ -175,7 +194,8 @@ func (s *privateKeySigner) Sign(data []byte) ([]byte, error) {
 type provider interface {
 	StorageProvider() storage.Provider
 	VDRIRegistry() vdri.Registry
-	Signer() legacykms.Signer
+	KMS() kms.KeyManager
+	Crypto() ariescrypto.Crypto
 }
 
 // Command contains command operations provided by verifiable credential controller.
@@ -551,7 +571,7 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 			fmt.Errorf("failed to get did doc from store : %w", err))
 	}
 
-	return o.generatePresentationByID(rw, vc, doc)
+	return o.generatePresentationByID(rw, vc, doc, request.SignatureType)
 }
 
 func (o *Command) generatePresentation(rw io.Writer, vcs []interface{}, p *verifiable.Presentation,
@@ -573,9 +593,10 @@ func (o *Command) generatePresentation(rw io.Writer, vcs []interface{}, p *verif
 	return nil
 }
 
-func (o *Command) generatePresentationByID(rw io.Writer, vc *verifiable.Credential, didDoc *did.Doc) command.Error {
+func (o *Command) generatePresentationByID(rw io.Writer, vc *verifiable.Credential, didDoc *did.Doc,
+	signatureType string) command.Error {
 	// prepare vp by id
-	vp, err := o.createAndSignPresentationByID(vc, didDoc)
+	vp, err := o.createAndSignPresentationByID(vc, didDoc, signatureType)
 	if err != nil {
 		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "create and sign vp by id: "+err.Error())
 
@@ -617,7 +638,7 @@ func (o *Command) createAndSignPresentation(credentials []interface{}, vp *verif
 }
 
 func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
-	didDoc *did.Doc) ([]byte, error) {
+	didDoc *did.Doc, signatureType string) ([]byte, error) {
 	// pk is verification method
 	pk, err := getDefaultVerificationMethod(didDoc)
 	if err != nil {
@@ -629,7 +650,7 @@ func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
 		return nil, fmt.Errorf("failed to create vp by ID: %w", err)
 	}
 
-	vp, err = o.addLinkedDataProof(vp, &ProofOptions{VerificationMethod: pk})
+	vp, err = o.addLinkedDataProof(vp, &ProofOptions{VerificationMethod: pk, SignatureType: signatureType})
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vp by ID: %w", err)
 	}
@@ -639,32 +660,35 @@ func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
 
 func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, opts *ProofOptions) (*verifiable.Presentation,
 	error) {
-	var signer verifiablesigner.SignatureSuite
-
-	signatureType := "Ed25519Signature2018"
-
-	// TODO  Need to provide the option to user for signature type. for now create jsonwebsignature2020
-	//  private key is not empty.
+	var s signer
 	if opts.PrivateKey != "" {
-		s := newPrivateKeySigner(opts.KeyType, base58.Decode(opts.PrivateKey))
+		s = newPrivateKeySigner(opts.KeyType, base58.Decode(opts.PrivateKey))
 
-		signatureType = "JsonWebSignature2020"
-		signer = jsonwebsignature2020.New(suite.WithSigner(s))
 		opts.VerificationMethod = opts.DIDKeyID
 	} else {
-		s, err := newKMSSigner(o.ctx.Signer(), o.kResolver, opts.VerificationMethod)
+		var err error
+		s, err = newKMSSigner(o.ctx.KMS(), o.ctx.Crypto(), opts.VerificationMethod)
 		if err != nil {
 			return nil, err
 		}
+	}
 
-		signer = ed25519signature2018.New(suite.WithSigner(s))
+	var signatureSuite verifiablesigner.SignatureSuite
+
+	switch opts.SignatureType {
+	case Ed25519Signature2018:
+		signatureSuite = ed25519signature2018.New(suite.WithSigner(s))
+	case JSONWebSignature2020:
+		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
+	default:
+		return nil, fmt.Errorf("signature type unsupported %s", opts.SignatureType)
 	}
 
 	signingCtx := &verifiable.LinkedDataProofContext{
 		VerificationMethod:      opts.VerificationMethod,
 		SignatureRepresentation: verifiable.SignatureJWS,
-		SignatureType:           signatureType,
-		Suite:                   signer,
+		SignatureType:           opts.SignatureType,
+		Suite:                   signatureSuite,
 		Created:                 opts.Created,
 		Domain:                  opts.Domain,
 		Challenge:               opts.Challenge,
@@ -683,6 +707,10 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 	didDoc *did.Doc) ([]interface{}, *verifiable.Presentation, *ProofOptions, error) {
 	if len(request.VerifiableCredentials) == 0 && len(request.Presentation) == 0 {
 		return nil, nil, nil, fmt.Errorf("invalid request, no valid credentials/presentation found")
+	}
+
+	if request.SignatureType == "" {
+		return nil, nil, nil, fmt.Errorf("invalid request, signature type empty")
 	}
 
 	var vcs []interface{}

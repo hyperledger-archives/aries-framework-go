@@ -27,7 +27,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
-	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	verifiablestore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
@@ -618,7 +619,8 @@ func TestGeneratePresentation(t *testing.T) {
 				return didDoc, nil
 			},
 		},
-		LegacyKMSValue: &kmsmock.CloseableKMS{},
+		KMSValue:    &kmsmock.KeyManager{},
+		CryptoValue: &cryptomock.Crypto{},
 	})
 
 	require.NotNil(t, cmd)
@@ -630,7 +632,7 @@ func TestGeneratePresentation(t *testing.T) {
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
-			ProofOptions:          &ProofOptions{},
+			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018},
 		}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
@@ -653,7 +655,7 @@ func TestGeneratePresentation(t *testing.T) {
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
 			DID:                   jwsDID,
-			ProofOptions:          &ProofOptions{},
+			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018},
 		}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
@@ -679,7 +681,7 @@ func TestGeneratePresentation(t *testing.T) {
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
-			ProofOptions:          &ProofOptions{},
+			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018},
 		}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
@@ -712,6 +714,7 @@ func TestGeneratePresentation(t *testing.T) {
 				Challenge:          "sample-random-test-value",
 				ProofPurpose:       "authentication",
 				Created:            &createdTime,
+				SignatureType:      Ed25519Signature2018,
 			},
 		}
 
@@ -748,10 +751,11 @@ func TestGeneratePresentation(t *testing.T) {
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
 			ProofOptions: &ProofOptions{
-				Domain:       "issuer.example.com",
-				Challenge:    "sample-random-test-value",
-				ProofPurpose: "authentication",
-				Created:      &createdTime,
+				Domain:        "issuer.example.com",
+				Challenge:     "sample-random-test-value",
+				ProofPurpose:  "authentication",
+				Created:       &createdTime,
+				SignatureType: Ed25519Signature2018,
 			},
 		}
 
@@ -796,13 +800,14 @@ func TestGeneratePresentation(t *testing.T) {
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
 			ProofOptions: &ProofOptions{
-				Domain:       "issuer.example.com",
-				Challenge:    "sample-random-test-value",
-				ProofPurpose: "authentication",
-				Created:      &createdTime,
-				DIDKeyID:     "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
-				PrivateKey:   base58.Encode(encodedPrivateKey),
-				KeyType:      P256KeyType,
+				Domain:        "issuer.example.com",
+				Challenge:     "sample-random-test-value",
+				ProofPurpose:  "authentication",
+				Created:       &createdTime,
+				DIDKeyID:      "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				PrivateKey:    base58.Encode(encodedPrivateKey),
+				SignatureType: JSONWebSignature2020,
+				KeyType:       P256KeyType,
 			},
 		}
 
@@ -849,6 +854,7 @@ func TestGeneratePresentation(t *testing.T) {
 				ProofPurpose:       "authentication",
 				Created:            &createdTime,
 				PrivateKey:         base58.Encode(privateKey),
+				SignatureType:      JSONWebSignature2020,
 				KeyType:            Ed25519KeyType,
 			},
 		}
@@ -889,8 +895,9 @@ func TestGeneratePresentation(t *testing.T) {
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
 			ProofOptions: &ProofOptions{
-				PrivateKey: base58.Encode(privateKey),
-				KeyType:    "invalid-key-type",
+				PrivateKey:    base58.Encode(privateKey),
+				KeyType:       "invalid-key-type",
+				SignatureType: JSONWebSignature2020,
 			},
 		}
 
@@ -901,6 +908,54 @@ func TestGeneratePresentation(t *testing.T) {
 		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid key type : invalid-key-type")
+	})
+
+	t.Run("test generate presentation with proof options - unsupported signature type", func(t *testing.T) {
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
+
+		presReq := PresentationRequest{
+			VerifiableCredentials: credList,
+			DID:                   "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				PrivateKey:    base58.Encode(privateKey),
+				KeyType:       Ed25519Signature2018,
+				SignatureType: "invalid",
+			},
+		}
+
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signature type unsupported invalid")
+	})
+
+	t.Run("test generate presentation with proof options - signature type empty", func(t *testing.T) {
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
+
+		presReq := PresentationRequest{
+			VerifiableCredentials: credList,
+			DID:                   "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				PrivateKey: base58.Encode(privateKey),
+			},
+		}
+
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signature type empty")
 	})
 
 	t.Run("test generate verifiable presentation with proof options & presentation - success", func(t *testing.T) {
@@ -917,6 +972,7 @@ func TestGeneratePresentation(t *testing.T) {
 				Challenge:          "sample-random-test-value",
 				ProofPurpose:       "authentication",
 				Created:            &createdTime,
+				SignatureType:      JSONWebSignature2020,
 			},
 		}
 
@@ -960,7 +1016,8 @@ func TestGeneratePresentation(t *testing.T) {
 
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
-			DID:                   "did:peer:123456789abcdefghi#inbox"}
+			DID:                   "did:peer:123456789abcdefghi#inbox",
+			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018}}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 
@@ -1007,7 +1064,8 @@ func TestGeneratePresentationByID(t *testing.T) {
 				return didDoc, nil
 			},
 		},
-		LegacyKMSValue: &kmsmock.CloseableKMS{},
+		KMSValue:    &kmsmock.KeyManager{},
+		CryptoValue: &cryptomock.Crypto{},
 	})
 	require.NotNil(t, cmd)
 	require.NoError(t, cmdErr)
@@ -1017,8 +1075,9 @@ func TestGeneratePresentationByID(t *testing.T) {
 		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = []byte(doc)
 
 		presIDArgs := PresentationRequestByID{
-			ID:  "http://example.edu/credentials/1989",
-			DID: "did:peer:21tDAKCERh95uGgKbJNHYp"}
+			ID:            "http://example.edu/credentials/1989",
+			DID:           "did:peer:21tDAKCERh95uGgKbJNHYp",
+			SignatureType: Ed25519Signature2018}
 		presReqBytes, e := json.Marshal(presIDArgs)
 		require.NoError(t, e)
 
@@ -1112,7 +1171,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 				return didDoc, nil
 			},
 		},
-		LegacyKMSValue: &kmsmock.CloseableKMS{},
+		KMSValue: &kmsmock.KeyManager{},
 	})
 	require.NotNil(t, cmd)
 	require.NoError(t, cmdErr)
@@ -1140,7 +1199,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		require.NoError(t, err)
 
 		var b bytes.Buffer
-		err = cmd.generatePresentationByID(&b, cred, doc)
+		err = cmd.generatePresentationByID(&b, cred, doc, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "prepare vp by id: public key not found in DID Document")
 	})
@@ -1153,7 +1212,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		doc, err := did.ParseDocument([]byte(noPublicKeyDoc))
 		require.NoError(t, err)
 
-		vp, err := cmd.createAndSignPresentationByID(cred, doc)
+		vp, err := cmd.createAndSignPresentationByID(cred, doc, "")
 		require.Error(t, err)
 		require.Nil(t, vp)
 		require.Contains(t, err.Error(), "public key not found in DID Document")
@@ -1178,6 +1237,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 
 		req := &PresentationRequest{
 			VerifiableCredentials: credList,
+			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018},
 		}
 
 		doc, err := did.ParseDocument([]byte(noPublicKeyDoc))
@@ -1196,6 +1256,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 
 		req := &PresentationRequest{
 			VerifiableCredentials: credList,
+			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018},
 		}
 
 		doc, err := did.ParseDocument([]byte(noPublicKeyDoc))
@@ -1216,6 +1277,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 
 		req := &PresentationRequest{
 			VerifiableCredentials: credList,
+			ProofOptions:          &ProofOptions{SignatureType: Ed25519Signature2018},
 		}
 
 		vc, p, opts, err := cmd.parsePresentationRequest(req, nil)
@@ -1241,9 +1303,8 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 					return didDoc, nil
 				},
 			},
-			LegacyKMSValue: &kmsmock.CloseableKMS{
-				SignMessageErr: errors.New("invalid signer"),
-			},
+			KMSValue:    &kmsmock.KeyManager{},
+			CryptoValue: &cryptomock.Crypto{SignErr: errors.New("invalid signer")},
 		})
 
 		cred := &verifiable.Credential{}
@@ -1256,7 +1317,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		require.NotNil(t, cmd)
 		require.NoError(t, cmdErr)
 
-		vp, err := cmd.createAndSignPresentationByID(cred, d)
+		vp, err := cmd.createAndSignPresentationByID(cred, d, Ed25519Signature2018)
 		require.Error(t, err)
 		require.Nil(t, vp)
 		require.Contains(t, err.Error(), "failed to sign vp by ID: failed to add linked data proof: add linked data proof")

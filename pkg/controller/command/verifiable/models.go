@@ -51,6 +51,8 @@ type ProofOptions struct {
 	Challenge string `json:"challenge,omitempty"`
 	// KeyType key type of the private key
 	KeyType string `json:"keyType,omitempty"`
+	// SignatureType signature type used for signing
+	SignatureType string `json:"signatureType,omitempty"`
 	// PrivateKey is used to sign instead of DID
 	PrivateKey string `json:"privateKey,omitempty"`
 	// DIDKeyID id of the public key associated with the private key
@@ -79,6 +81,9 @@ type PresentationRequestByID struct {
 
 	// DID ID
 	DID string `json:"did"`
+
+	// SignatureType
+	SignatureType string `json:"signatureType"`
 }
 
 // NameArg model

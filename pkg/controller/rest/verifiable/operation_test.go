@@ -29,7 +29,8 @@ import (
 	verifiableapi "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
-	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
@@ -460,7 +461,8 @@ func TestGeneratePresentation(t *testing.T) {
 				return didDoc, nil
 			},
 		},
-		LegacyKMSValue: &kmsmock.CloseableKMS{},
+		KMSValue:    &kmsmock.KeyManager{},
+		CryptoValue: &cryptomock.Crypto{},
 	})
 	require.NotNil(t, cmd)
 	require.NoError(t, cmdErr)
@@ -471,7 +473,11 @@ func TestGeneratePresentation(t *testing.T) {
 		presReq := verifiable.PresentationRequest{
 			VerifiableCredentials: vcs,
 			DID:                   "did:peer:21tDAKCERh95uGgKbJNHYp",
+			ProofOptions: &verifiable.ProofOptions{
+				SignatureType: verifiable.Ed25519Signature2018,
+			},
 		}
+
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
 
@@ -494,6 +500,9 @@ func TestGeneratePresentation(t *testing.T) {
 		presReq := verifiable.PresentationRequest{
 			VerifiableCredentials: vcs,
 			DID:                   "did:peer:21tDAKCERh95uGgKbJNHYp",
+			ProofOptions: &verifiable.ProofOptions{
+				SignatureType: verifiable.Ed25519Signature2018,
+			},
 		}
 		presReqBytes, err := json.Marshal(presReq)
 		require.NoError(t, err)
@@ -537,6 +546,7 @@ func TestGeneratePresentation(t *testing.T) {
 				Challenge:          "sample-random-test-value",
 				ProofPurpose:       "authentication",
 				Created:            &createdTime,
+				SignatureType:      verifiable.Ed25519Signature2018,
 			},
 		}
 		presReqBytes, err := json.Marshal(presReq)
@@ -580,6 +590,7 @@ func TestGeneratePresentation(t *testing.T) {
 				Challenge:          "sample-random-test-value",
 				ProofPurpose:       "authentication",
 				Created:            &createdTime,
+				SignatureType:      verifiable.Ed25519Signature2018,
 			},
 		}
 		presReqBytes, err := json.Marshal(presReq)
@@ -644,7 +655,8 @@ func TestGeneratePresentationByID(t *testing.T) {
 				return didDoc, nil
 			},
 		},
-		LegacyKMSValue: &kmsmock.CloseableKMS{},
+		KMSValue:    &kmsmock.KeyManager{},
+		CryptoValue: &cryptomock.Crypto{},
 	})
 	require.NotNil(t, cmd)
 	require.NoError(t, cmdErr)
@@ -655,8 +667,9 @@ func TestGeneratePresentationByID(t *testing.T) {
 		s["did:peer:21tDAKCERh95uGgKbJNHYp"] = []byte(doc)
 
 		presReqByID := verifiable.PresentationRequestByID{
-			ID:  "http://example.edu/credentials/1989",
-			DID: "did:peer:21tDAKCERh95uGgKbJNHYp",
+			ID:            "http://example.edu/credentials/1989",
+			DID:           "did:peer:21tDAKCERh95uGgKbJNHYp",
+			SignatureType: verifiable.Ed25519Signature2018,
 		}
 		presReqBytes, err := json.Marshal(presReqByID)
 		require.NoError(t, err)
