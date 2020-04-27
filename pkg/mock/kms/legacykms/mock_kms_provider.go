@@ -45,7 +45,7 @@ func NewMockProvider(kp ...*cryptoutil.MessagingKeys) (*mockprovider.Provider, e
 	}
 
 	mockKMSProvider := &mockprovider.Provider{
-		KMSValue: w,
+		LegacyKMSValue: w,
 	}
 
 	return mockKMSProvider, nil

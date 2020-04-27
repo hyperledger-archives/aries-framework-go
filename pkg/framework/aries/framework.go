@@ -283,6 +283,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithOutboundTransports(a.outboundTransports...),
 		context.WithProtocolServices(a.services...),
 		context.WithLegacyKMS(a.legacyKMS),
+		context.WithKMS(a.kms),
 		context.WithSecretLock(a.secretLock),
 		context.WithCrypto(a.crypto),
 		context.WithServiceEndpoint(serviceEndpoint(a)),

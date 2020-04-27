@@ -555,8 +555,8 @@ const Aries = function (opts) {
              *
              * @returns {Promise<Object>}
              */
-            createKeySet: async function () {
-                return invoke(aw, pending, this.pkgname, "CreateKeySet", {}, "timeout while creating key set")
+            createKeySet: async function (req) {
+                return invoke(aw, pending, this.pkgname, "CreateKeySet", req, "timeout while creating key set")
             },
         }
     }

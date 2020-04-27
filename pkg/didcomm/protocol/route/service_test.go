@@ -105,7 +105,7 @@ func TestServiceRequestMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -120,7 +120,7 @@ func TestServiceRequestMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -136,7 +136,7 @@ func TestServiceRequestMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			ServiceEndpointValue:          endpoint,
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSend: func(msg interface{}, senderVerKey string, des *service.Destination) error {
@@ -168,7 +168,7 @@ func TestServiceGrantMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -183,7 +183,7 @@ func TestServiceGrantMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -200,7 +200,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -218,7 +218,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -238,7 +238,7 @@ func TestServiceUpdateKeyListMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSend: func(msg interface{}, senderVerKey string, des *service.Destination) error {
 					res, err := json.Marshal(msg)
@@ -281,7 +281,7 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -300,7 +300,7 @@ func TestServiceKeylistUpdateResponseMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -318,7 +318,7 @@ func TestServiceForwardMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -336,7 +336,7 @@ func TestServiceForwardMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -354,7 +354,7 @@ func TestServiceForwardMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -381,7 +381,7 @@ func TestServiceForwardMsg(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateForward: func(msg interface{}, des *service.Destination) error {
 					require.Equal(t, content, msg)
@@ -423,7 +423,7 @@ func TestRegister(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -465,7 +465,7 @@ func TestRegister(t *testing.T) {
 				Store: &mockstore.MockStore{Store: s, ErrPut: errors.New("save error")},
 			},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					request, ok := msg.(*Request)
@@ -497,7 +497,7 @@ func TestRegister(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -516,7 +516,7 @@ func TestRegister(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return fmt.Errorf("error send")
@@ -533,7 +533,7 @@ func TestRegister(t *testing.T) {
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{ErrGet: fmt.Errorf("get error")}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					return fmt.Errorf("error send")
@@ -607,7 +607,7 @@ func TestKeylistUpdate(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -657,7 +657,7 @@ func TestKeylistUpdate(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
 					require.Equal(t, myDID, MYDID)
@@ -715,7 +715,7 @@ func TestKeylistUpdate(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -738,7 +738,7 @@ func TestKeylistUpdate(t *testing.T) {
 				Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 			},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -756,7 +756,7 @@ func TestConfig(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -777,7 +777,7 @@ func TestConfig(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -792,7 +792,7 @@ func TestConfig(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -809,7 +809,7 @@ func TestConfig(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
@@ -829,7 +829,7 @@ func TestConfig(t *testing.T) {
 				Store: &mockstore.MockStore{Store: s, ErrGet: errors.New("get error")},
 			},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			KMSValue:                      &mockkms.CloseableKMS{},
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 

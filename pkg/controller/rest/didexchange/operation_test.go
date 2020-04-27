@@ -383,7 +383,7 @@ func TestEmptyID(t *testing.T) {
 			didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
 			route.Coordination:   &mockroute.MockRouteSvc{},
 		},
-		KMSValue:             &mockkms.CloseableKMS{},
+		LegacyKMSValue:       &mockkms.CloseableKMS{},
 		ServiceEndpointValue: "endppint",
 	}
 
@@ -476,7 +476,7 @@ func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
 			},
 			route.Coordination: &mockroute.MockRouteSvc{},
 		},
-		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+		LegacyKMSValue:                &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 		ServiceEndpointValue:          "endpoint",
 		TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: &transientStore},
 		StorageProviderValue:          &mockstore.MockStoreProvider{Store: &store}},
