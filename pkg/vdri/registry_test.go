@@ -143,14 +143,14 @@ func TestRegistry_Store(t *testing.T) {
 func TestRegistry_Create(t *testing.T) {
 	t.Run("test error from create key", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{
-			KMSValue: &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("create key error")}})
+			LegacyKMSValue: &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("create key error")}})
 		doc, err := registry.Create("1:id:123")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create key error")
 		require.Nil(t, doc)
 	})
 	t.Run("test did method not supported", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{KMSValue: &mockkms.CloseableKMS{}},
+		registry := New(&mockprovider.Provider{LegacyKMSValue: &mockkms.CloseableKMS{}},
 			WithVDRI(&mockvdri.MockVDRI{AcceptValue: false}))
 		doc, err := registry.Create("id")
 		require.Error(t, err)
@@ -158,7 +158,7 @@ func TestRegistry_Create(t *testing.T) {
 		require.Nil(t, doc)
 	})
 	t.Run("test opts is passed", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{KMSValue: &mockkms.CloseableKMS{}},
+		registry := New(&mockprovider.Provider{LegacyKMSValue: &mockkms.CloseableKMS{}},
 			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					docOpts := &vdriapi.CreateDIDOpts{}
@@ -173,7 +173,7 @@ func TestRegistry_Create(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("test error from build doc", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{KMSValue: &mockkms.CloseableKMS{}},
+		registry := New(&mockprovider.Provider{LegacyKMSValue: &mockkms.CloseableKMS{}},
 			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					return nil, fmt.Errorf("build did error")
@@ -184,7 +184,7 @@ func TestRegistry_Create(t *testing.T) {
 		require.Nil(t, doc)
 	})
 	t.Run("test error from store doc", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{KMSValue: &mockkms.CloseableKMS{}},
+		registry := New(&mockprovider.Provider{LegacyKMSValue: &mockkms.CloseableKMS{}},
 			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true, StoreErr: fmt.Errorf("store error"),
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					return &did.Doc{ID: "1:id:123"}, nil
@@ -195,7 +195,7 @@ func TestRegistry_Create(t *testing.T) {
 		require.Nil(t, doc)
 	})
 	t.Run("test success", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{KMSValue: &mockkms.CloseableKMS{}},
+		registry := New(&mockprovider.Provider{LegacyKMSValue: &mockkms.CloseableKMS{}},
 			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					return &did.Doc{ID: "1:id:123"}, nil

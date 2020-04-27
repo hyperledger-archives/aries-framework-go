@@ -177,7 +177,7 @@ func TestCreateRequest(t *testing.T) {
 	t.Run("wraps did service block creation error when KMS fails", func(t *testing.T) {
 		expected := errors.New("test")
 		provider := withTestProvider()
-		provider.KMSValue = &mockkms.CloseableKMS{CreateKeyErr: expected}
+		provider.LegacyKMSValue = &mockkms.CloseableKMS{CreateKeyErr: expected}
 		c, err := New(provider)
 		require.NoError(t, err)
 		_, err = c.CreateRequest([]*decorator.Attachment{dummyAttachment(t)})
@@ -436,7 +436,7 @@ func withTestProvider() *mockprovider.Provider {
 	return &mockprovider.Provider{
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          mockstore.NewMockStoreProvider(),
-		KMSValue:                      &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+		LegacyKMSValue:                &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 		ServiceMap: map[string]interface{}{
 			route.Coordination: &mockroute.MockRouteSvc{},
 			outofband.Name:     &stubOOBService{},

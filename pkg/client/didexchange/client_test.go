@@ -140,7 +140,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue: &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("createKeyErr")}})
+			LegacyKMSValue: &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("createKeyErr")}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
@@ -198,7 +198,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue: &mockkms.CloseableKMS{}})
+			LegacyKMSValue: &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
 		_, err = c.CreateInvitation("agent")
 		require.Error(t, err)
@@ -224,7 +224,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{RoutingKeys: routingKeys, RouterEndpoint: endpoint},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint",
 		})
 		require.NoError(t, err)
@@ -254,7 +254,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{ConfigErr: errors.New("router config error")},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint",
 		})
 		require.NoError(t, err)
@@ -288,7 +288,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 					AddKeyErr:      errors.New("failed to add key to the router"),
 				},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint",
 		})
 		require.NoError(t, err)
@@ -317,7 +317,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -353,7 +353,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue: &mockkms.CloseableKMS{}})
+			LegacyKMSValue: &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
 
 		_, err = c.CreateInvitationWithDID("agent", "did:sidetree:123")
@@ -384,7 +384,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -420,7 +420,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -449,7 +449,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 				didexchange.DIDExchange: svc,
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -590,7 +590,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
 
 		require.NoError(t, err)
@@ -613,7 +613,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 				route.Coordination: &mockroute.MockRouteSvc{},
 			},
 
-			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, ServiceEndpointValue: "endpoint"})
+			LegacyKMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 		inviteReq, err := c.CreateInvitation("agent")
 		require.NoError(t, err)
@@ -633,7 +633,7 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -651,7 +651,7 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 					ImplicitInvitationErr: errors.New("implicit error")},
 				route.Coordination: &mockroute.MockRouteSvc{},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -674,7 +674,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -692,7 +692,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 					ImplicitInvitationErr: errors.New("implicit with DID error")},
 				route.Coordination: &mockroute.MockRouteSvc{},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -710,7 +710,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
 				route.Coordination:      &mockroute.MockRouteSvc{},
 			},
-			KMSValue:             &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
+			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
 		require.NoError(t, err)
 
@@ -870,7 +870,7 @@ func TestServiceEvents(t *testing.T) {
 			didexchange.DIDExchange: didExSvc,
 			route.Coordination:      &mockroute.MockRouteSvc{},
 		},
-		KMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}})
+		LegacyKMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -961,7 +961,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 			didexchange.DIDExchange: didExSvc,
 			route.Coordination:      &mockroute.MockRouteSvc{},
 		},
-		KMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}},
+		LegacyKMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, c)

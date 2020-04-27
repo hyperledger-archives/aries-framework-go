@@ -22,13 +22,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 )
 
 func TestNew(t *testing.T) {
 	t.Run("test new command - success", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{
-			KMSValue: &mockkms.CloseableKMS{},
+			KMSValue: &mockkms.KeyManager{},
 		})
 		require.NotNil(t, cmd)
 		require.Equal(t, 1, len(cmd.GetRESTHandlers()))
@@ -38,32 +38,30 @@ func TestNew(t *testing.T) {
 func TestCreateKeySet(t *testing.T) {
 	t.Run("test create key set - success", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{
-			KMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "encryptionKey",
-				CreateSigningKeyValue: "signingKey"},
+			KMSValue: &mockkms.KeyManager{},
 		})
-		require.NotNil(t, cmd)
+		cmd.command = &mockKMSCommand{}
 
 		handler := lookupHandler(t, cmd, createKeySetPath, http.MethodPost)
-		buf, err := getSuccessResponseFromHandler(handler, nil, createKeySetPath)
+		_, err := getSuccessResponseFromHandler(handler, nil, createKeySetPath)
 		require.NoError(t, err)
-
-		response := createKeySetRes{}
-		err = json.Unmarshal(buf.Bytes(), &response)
-		require.NoError(t, err)
-
-		// verify response
-		require.Equal(t, "encryptionKey", response.EncryptionPublicKey)
-		require.Equal(t, "signingKey", response.SignaturePublicKey)
 	})
 
 	t.Run("test create key set - error", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{
-			KMSValue: &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("error create key set")},
+			KMSValue: &mockkms.KeyManager{CreateKeyErr: fmt.Errorf("error create key set")},
 		})
 		require.NotNil(t, cmd)
 
 		handler := lookupHandler(t, cmd, createKeySetPath, http.MethodPost)
-		buf, code, err := sendRequestToHandler(handler, nil, createKeySetPath)
+
+		req := createKeySetReq{CreateKeySetRequest: kms.CreateKeySetRequest{
+			KeyType: "ED25519",
+		}}
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(reqBytes), createKeySetPath)
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
 
@@ -138,4 +136,11 @@ func verifyError(t *testing.T, expectedCode command.Code, expectedMsg string, da
 	if expectedMsg != "" {
 		require.Contains(t, errResponse.Message, expectedMsg)
 	}
+}
+
+type mockKMSCommand struct {
+}
+
+func (m *mockKMSCommand) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
+	return nil
 }

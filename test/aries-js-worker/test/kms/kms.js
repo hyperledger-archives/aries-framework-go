@@ -41,11 +41,13 @@ async function kms(mode) {
     })
 
     it("Alice create key set", function (done) {
-        aries.kms.createKeySet().then(
+        aries.kms.createKeySet({
+            keyType: "ED25519"
+        }).then(
             resp => {
                 try {
-                    assert.isNotEmpty(resp.encryptionPublicKey)
-                    assert.isNotEmpty(resp.signaturePublicKey)
+                    assert.isNotEmpty(resp.keyID)
+                    assert.isNotEmpty(resp.publicKey)
                 } catch (err) {
                     done(err)
                 }

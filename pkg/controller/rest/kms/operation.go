@@ -7,12 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package kms
 
 import (
+	"io"
 	"net/http"
 
-	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+
+	cmdkms "github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 const (
@@ -22,18 +25,22 @@ const (
 
 // provider contains dependencies for the kms command and is typically created by using aries.Context().
 type provider interface {
-	LegacyKMS() legacykms.KeyManager
+	KMS() kms.KeyManager
+}
+
+type kmsCommand interface {
+	CreateKeySet(rw io.Writer, req io.Reader) command.Error
 }
 
 // Operation contains basic common operations provided by controller REST API
 type Operation struct {
 	handlers []rest.Handler
-	command  *kms.Command
+	command  kmsCommand
 }
 
 // New returns new kms operations rest client instance
 func New(p provider) *Operation {
-	cmd := kms.New(p)
+	cmd := cmdkms.New(p)
 
 	o := &Operation{command: cmd}
 	o.registerHandler()

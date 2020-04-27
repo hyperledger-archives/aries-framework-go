@@ -117,7 +117,7 @@ func didClientMockContext() *mockprovider.Provider {
 	}
 
 	context := &mockprovider.Provider{
-		KMSValue:                      &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"},
+		LegacyKMSValue:                &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"},
 		TransientStorageProviderValue: transientStoreProvider,
 		StorageProviderValue:          storeProvider,
 		ServiceMap: map[string]interface{}{
