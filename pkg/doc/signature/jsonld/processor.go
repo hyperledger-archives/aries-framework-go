@@ -8,8 +8,6 @@ package jsonld
 
 import (
 	"fmt"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/piprate/json-gold/ld"
@@ -25,10 +23,28 @@ const (
 
 var logger = log.New("aries-framework/json-ld-processor")
 
-// nolint:gochecknoglobals
-var (
-	invalidRDFLinePattern = regexp.MustCompile("[0-9]*$")
-)
+// normalizeOpts holds options for canonicalization of JSON LD docs
+type normalizeOpts struct {
+	removeInvalidRDF bool
+	removeRDFMatches []string
+}
+
+// CanonicalizationOpts are the options for canonicalization of JSON LD docs
+type CanonicalizationOpts func(opts *normalizeOpts)
+
+// WithRemoveAllInvalidRDF option for removing all invalid RDF dataset from normalize document
+func WithRemoveAllInvalidRDF() CanonicalizationOpts {
+	return func(opts *normalizeOpts) {
+		opts.removeInvalidRDF = true
+	}
+}
+
+// WithRemoveInvalidRDF option for removing RDFs containing any one of the given matches
+func WithRemoveInvalidRDF(matches ...string) CanonicalizationOpts {
+	return func(opts *normalizeOpts) {
+		opts.removeRDFMatches = matches
+	}
+}
 
 // Processor is JSON-LD processor for aries.
 // processing mode JSON-LD 1.0 {RFC: https://www.w3.org/TR/2014/REC-json-ld-20140116}
@@ -51,7 +67,7 @@ func Default() *Processor {
 }
 
 // GetCanonicalDocument returns canonized document of given json ld
-func (p *Processor) GetCanonicalDocument(doc map[string]interface{}) ([]byte, error) {
+func (p *Processor) GetCanonicalDocument(doc map[string]interface{}, opts ...CanonicalizationOpts) ([]byte, error) {
 	proc := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")
 	options.ProcessingMode = ld.JsonLd_1_1
@@ -64,9 +80,18 @@ func (p *Processor) GetCanonicalDocument(doc map[string]interface{}) ([]byte, er
 		return nil, fmt.Errorf("failed to normalize JSON-LD document: %w", err)
 	}
 
-	result, err := p.validateView(view.(string))
-	if err != nil {
-		return nil, fmt.Errorf("failed to normalize due to invalid RDF dataset: %w", err)
+	customOpts := prepareOpts(opts)
+
+	result, ok := view.(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to normalize JSON-LD document, invalid view")
+	}
+
+	if customOpts.removeInvalidRDF || len(customOpts.removeRDFMatches) > 0 {
+		result, err = p.removeMatchingInvalidRDFs(result, customOpts.removeRDFMatches...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to normalize due to invalid RDF dataset: %w", err)
+		}
 	}
 
 	return []byte(result), nil
@@ -87,29 +112,52 @@ func (p *Processor) Compact(input, context interface{}, loader ld.DocumentLoader
 	return proc.Compact(input, context, options)
 }
 
-// validateView validates normalized view to find any invalid RDF. If found then it discards that data
-// and try again recursively until validation is passed and returns filtered view after removing all invalid data.
+// removeMatchingInvalidRDFs validates normalized view to find any invalid RDF and
+// returns filtered view after removing all invalid data except the ones given in rdfMatches argument.
 // [Note : handling invalid RDF data, by following pattern https://github.com/digitalbazaar/jsonld.js/issues/199]
-func (p *Processor) validateView(view string) (string, error) {
-	_, err := ld.ParseNQuads(view)
-	if err != nil {
-		if !strings.Contains(err.Error(), handleNormalizeErr) {
-			return "", err
+func (p *Processor) removeMatchingInvalidRDFs(view string, rdfMatches ...string) (string, error) {
+	views := strings.Split(view, "\n")
+
+	var filteredViews []string
+
+	var dirtyDataSet, foundInvalid bool
+
+	for _, v := range views {
+		_, err := ld.ParseNQuads(v)
+		if err != nil {
+			if !strings.Contains(err.Error(), handleNormalizeErr) {
+				return "", err
+			}
+
+			foundInvalid = true
+
+			if shouldSkipRDF(v, rdfMatches...) {
+				continue
+			}
+
+			logger.Warnf("Invalid RDF dataset in canonized JSON-LD document. %s", v)
+
+			dirtyDataSet = true
 		}
 
-		lineNumber, e := findLineNumber(err)
-		if e != nil {
-			return "", fmt.Errorf("failed to locate invalid RDF data:%w", e)
-		}
-
-		logger.Warnf("Found invalid data in normalized JSON-LD, removing invalid data at line number %d", lineNumber)
-
-		return p.validateView(removeQuad(view, lineNumber-1))
+		filteredViews = append(filteredViews, v)
 	}
 
-	// returning filtered view isn't enough since invalid RDF data might have messed up labelling prefix counter of nodes.
-	// so recreate json_ld from filtered view and get new  normalized RDF dataset view.
-	return p.normalizeFilteredDataset(view)
+	if !foundInvalid {
+		// clean RDF view, no need to regenerate
+		return view, nil
+	}
+
+	filteredView := strings.Join(filteredViews, "\n")
+	// not safe to re-generate RDF dataset from view containing invalid RDFs
+	if dirtyDataSet {
+		return filteredView, nil
+	}
+
+	logger.Debugf("Found invalid RDF dataset, Canonicalizing JSON-LD again after removing invalid data ")
+
+	// all invalid RDF dataset from view are removed, re-generate
+	return p.normalizeFilteredDataset(filteredView)
 }
 
 // normalizeFilteredDataset recreates json-ld from RDF view and
@@ -134,20 +182,28 @@ func (p *Processor) normalizeFilteredDataset(view string) (string, error) {
 	return result.(string), nil
 }
 
-// removeQuad removes quad from given index of view
-func removeQuad(view string, index int) string {
-	lines := strings.Split(view, "\n")
-	return strings.Join(append(lines[:index], lines[index+1:]...), "\n")
-}
-
-// findLineNumber finds problematic line number from error
-func findLineNumber(err error) (int, error) {
-	s := invalidRDFLinePattern.FindString(err.Error())
-
-	i, err := strconv.Atoi(s)
-	if err != nil {
-		return -1, fmt.Errorf("unable to locate invalid RDF data line number: %w", err)
+// shouldSkipRDF checks if given line of RDF view matches with any of the given matches
+func shouldSkipRDF(v string, matches ...string) bool {
+	if len(matches) == 0 {
+		return true
 	}
 
-	return i, nil
+	for _, m := range matches {
+		if strings.Contains(v, m) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// prepareOpts prepare normalizeOpts from given CanonicalizationOpts arguments.
+func prepareOpts(opts []CanonicalizationOpts) *normalizeOpts {
+	nOpts := &normalizeOpts{}
+	// apply opts
+	for _, opt := range opts {
+		opt(nOpts)
+	}
+
+	return nOpts
 }

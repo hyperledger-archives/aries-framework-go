@@ -10,15 +10,33 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
+)
+
+// nolint:gochecknoglobals
+var (
+	// CredentialStatusList2017 from credential status type is treated as invalid RDF
+	//  and excluded in signature verification, but it needs to be included while verifying signature.
+	// TODO to be removed as part of [Issue#1697]
+	allowedInvalidRDF = []string{
+		"<CredentialStatusList2017>",
+		"<JsonWebSignature2020>",
+		"<Ed25519VerificationKey2018>",
+		"<EcdsaSecp256k1Signature2019>",
+		"<IssuerPolicy>",
+		"<DocumentVerification>",
+		"<SupportingActivity>",
+	}
 )
 
 // SignatureSuite encapsulates signature suite methods required for signature verification
 type SignatureSuite interface {
 
 	// GetCanonicalDocument will return normalized/canonical version of the document
-	GetCanonicalDocument(doc map[string]interface{}) ([]byte, error)
+	GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.CanonicalizationOpts) ([]byte, error)
 
 	// GetDigest returns document digest
 	GetDigest(doc []byte) []byte
@@ -99,7 +117,8 @@ func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}) er
 			return err
 		}
 
-		message, err := proof.CreateVerifyData(suite, jsonLdObject, p)
+		// TODO below json ld option to be removed as part of  [Issue#1697]
+		message, err := proof.CreateVerifyData(suite, jsonLdObject, p, jsonld.WithRemoveInvalidRDF(allowedInvalidRDF...))
 		if err != nil {
 			return err
 		}

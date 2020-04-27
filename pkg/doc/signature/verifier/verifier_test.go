@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -180,7 +181,8 @@ type testSignatureSuite struct {
 	compactProof bool
 }
 
-func (s *testSignatureSuite) GetCanonicalDocument(map[string]interface{}) ([]byte, error) {
+func (s *testSignatureSuite) GetCanonicalDocument(map[string]interface{},
+	...jsonld.CanonicalizationOpts) ([]byte, error) {
 	return s.canonicalDocument, s.canonicalDocumentError
 }
 
