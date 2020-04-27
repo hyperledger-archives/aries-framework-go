@@ -109,6 +109,8 @@ async function verifiableStore(newAries, mode = wasmMode) {
                     assert.equal(1, resp.result.length)
                     assert.equal(vcID, resp.result[0].id)
                     assert.equal(vcName, resp.result[0].name)
+                    assert.isNotEmpty(vcName, resp.result[0].type)
+                    assert.isNotEmpty(vcName, resp.result[0].context)
                 } catch (err) {
                     done(err)
                 }

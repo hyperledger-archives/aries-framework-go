@@ -23,6 +23,7 @@ import (
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	issuecredentialMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/issuecredential"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	storeVerifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
@@ -655,7 +656,7 @@ func TestCredentialReceived_ExecuteInbound(t *testing.T) {
 		defer ctrl.Finish()
 
 		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(gomock.Any()).Return(nil, nil)
+		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 		storeProvider := storageMocks.NewMockProvider(ctrl)

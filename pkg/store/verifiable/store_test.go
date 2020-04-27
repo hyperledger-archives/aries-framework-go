@@ -303,8 +303,11 @@ func TestGetVC(t *testing.T) {
 
 func TestGetCredentialIDBasedOnName(t *testing.T) {
 	t.Run("test get credential based on name - success", func(t *testing.T) {
+		rbytes, err := getRecord(sampleCredentialID, nil, nil)
+		require.NoError(t, err)
+
 		store := make(map[string][]byte)
-		store[credentialNameDataKey(sampleCredentialName)] = []byte(sampleCredentialID)
+		store[credentialNameDataKey(sampleCredentialName)] = rbytes
 
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
@@ -314,6 +317,11 @@ func TestGetCredentialIDBasedOnName(t *testing.T) {
 		id, err := s.GetCredentialIDByName(sampleCredentialName)
 		require.NoError(t, err)
 		require.Equal(t, sampleCredentialID, id)
+
+		id, err = s.GetCredentialIDByName("some-random-id")
+		require.Error(t, err)
+		require.Empty(t, id)
+		require.Contains(t, err.Error(), "fetch credential id based on name : data not found")
 	})
 
 	t.Run("test get credential based on name - db error", func(t *testing.T) {
@@ -340,13 +348,15 @@ func TestGetCredentials(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		records := s.GetCredentials()
+		records, err := s.GetCredentials()
+		require.NoError(t, err)
 		require.Equal(t, 0, len(records))
 
 		err = s.SaveCredential(sampleCredentialName, &verifiable.Credential{ID: sampleCredentialID})
 		require.NoError(t, err)
 
-		records = s.GetCredentials()
+		records, err = s.GetCredentials()
+		require.NoError(t, err)
 		require.Equal(t, 1, len(records))
 		require.Equal(t, records[0].Name, sampleCredentialName)
 		require.Equal(t, records[0].ID, sampleCredentialID)
@@ -354,7 +364,8 @@ func TestGetCredentials(t *testing.T) {
 		// add some other values and make sure the GetCredential returns records as before
 		store["dummy-value"] = []byte("dummy-key")
 
-		records = s.GetCredentials()
+		records, err = s.GetCredentials()
+		require.NoError(t, err)
 		require.Equal(t, 1, len(records))
 
 		n := 10
@@ -364,8 +375,9 @@ func TestGetCredentials(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		records = s.GetCredentials()
+		records, err = s.GetCredentials()
 		require.Equal(t, 1+n, len(records))
+		require.NoError(t, err)
 	})
 }
 
@@ -505,8 +517,11 @@ func TestGetVP(t *testing.T) {
 
 func TestGetPresentationIDBasedOnName(t *testing.T) {
 	t.Run("test get presentation based on name - success", func(t *testing.T) {
+		rbytes, err := getRecord(samplePresentationID, nil, nil)
+		require.NoError(t, err)
+
 		store := make(map[string][]byte)
-		store[presentationNameDataKey(samplePresentationName)] = []byte(samplePresentationID)
+		store[presentationNameDataKey(samplePresentationName)] = rbytes
 
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
@@ -542,13 +557,15 @@ func TestGetPresentations(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		records := s.GetPresentations()
+		records, err := s.GetPresentations()
+		require.NoError(t, err)
 		require.Equal(t, 0, len(records))
 
 		err = s.SavePresentation(samplePresentationName, &verifiable.Presentation{ID: samplePresentationID})
 		require.NoError(t, err)
 
-		records = s.GetPresentations()
+		records, err = s.GetPresentations()
+		require.NoError(t, err)
 		require.Equal(t, 1, len(records))
 		require.Equal(t, records[0].Name, samplePresentationName)
 		require.Equal(t, records[0].ID, samplePresentationID)
@@ -556,7 +573,8 @@ func TestGetPresentations(t *testing.T) {
 		// add some other values and make sure the GetCredential returns records as before
 		store["dummy-value"] = []byte("dummy-key")
 
-		records = s.GetPresentations()
+		records, err = s.GetPresentations()
+		require.NoError(t, err)
 		require.Equal(t, 1, len(records))
 
 		n := 10
@@ -566,7 +584,8 @@ func TestGetPresentations(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		records = s.GetPresentations()
-		require.Equal(t, 1+n, len(records))
+		records, err = s.GetPresentations()
+		require.NoError(t, err)
+		require.Len(t, records, 1+n)
 	})
 }
