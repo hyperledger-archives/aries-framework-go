@@ -36,8 +36,6 @@ const (
 type Encrypter interface {
 	// Encrypt plaintext and aad sent to 1 or more recipients and return a valid JSONWebEncryption instance
 	Encrypt(plaintext, aad []byte) (*JSONWebEncryption, error)
-	// Decrypt a marshalledJWE, extract the corresponding recipient key to decrypt plaintext and return it
-	Decrypt(marshalledJWE []byte) ([]byte, error)
 }
 
 type encPrimitiveFunc func(*keyset.Handle) (api.CompositeEncrypt, error)
@@ -50,7 +48,7 @@ type JWEEncrypt struct {
 	encAlg       EncAlg
 }
 
-// NewJWEEncrypt creates a new JWEEncrypt instance to build/parse JWE with recipientsPubKeys
+// NewJWEEncrypt creates a new JWEEncrypt instance to build JWE with recipientsPubKeys
 func NewJWEEncrypt(encAlg EncAlg, recipientsPubKeys []subtle.ECPublicKey) (*JWEEncrypt, error) {
 	if len(recipientsPubKeys) == 0 {
 		return nil, fmt.Errorf("empty recipientsPubKeys list")
@@ -94,7 +92,7 @@ func getEncryptionPrimitive(senderKH *keyset.Handle) (api.CompositeEncrypt, erro
 	return ecdhes.NewECDHESEncrypt(senderPubKH)
 }
 
-// Encrypt plaintext with AAD and return a JSONWebEncryption instance to serialize JWE instance
+// Encrypt plaintext with AAD and returns a JSONWebEncryption instance to serialize a JWE instance
 func (je *JWEEncrypt) Encrypt(plaintext, aad []byte) (*JSONWebEncryption, error) {
 	encPrimitive, err := je.getPrimitive(je.senderKH)
 	if err != nil {
@@ -150,6 +148,7 @@ func (je *JWEEncrypt) Encrypt(plaintext, aad []byte) (*JSONWebEncryption, error)
 		Ciphertext:       string(encData.Ciphertext),
 		Recipients:       recipients,
 		ProtectedHeaders: protectedHeaders,
+		AAD:              string(aad),
 	}
 
 	return jsonEncryption, nil
@@ -177,13 +176,6 @@ func convertRecKeyToMarshalledJWK(rec *subtle.RecipientWrappedKey) ([]byte, erro
 	}
 
 	return recJWK.MarshalJSON()
-}
-
-// Decrypt serializedJWE by first deserializing it, then decrypting the underlying JWE instance and return plaintext
-func (je *JWEEncrypt) Decrypt(serializedJWE []byte) ([]byte, error) {
-	// TODO will need JWE Deserialization: https://github.com/hyperledger/aries-framework-go/issues/1507 to
-	//  implement this function
-	return nil, fmt.Errorf("TODO - implement me")
 }
 
 // Get the additional authenticated data from a JWE object.
