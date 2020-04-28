@@ -33,8 +33,8 @@ type JSONWebEncryption struct {
 
 // Recipient is a recipient of a JWE including the shared encryption key
 type Recipient struct {
-	EncryptedKey string           `json:"encrypted_key,omitempty"`
-	Header       RecipientHeaders `json:"header,omitempty"`
+	Header       *RecipientHeaders `json:"header,omitempty"`
+	EncryptedKey string            `json:"encrypted_key,omitempty"`
 }
 
 // RecipientHeaders are the recipient headers
@@ -52,9 +52,9 @@ type RecipientHeaders struct {
 type rawJSONWebEncryption struct {
 	B64ProtectedHeaders      string          `json:"protected,omitempty"`
 	UnprotectedHeaders       json.RawMessage `json:"unprotected,omitempty"`
-	Recipients               json.RawMessage `json:"recipients,omitempty"` //
+	Recipients               json.RawMessage `json:"recipients,omitempty"`
 	B64SingleRecipientEncKey string          `json:"encrypted_key,omitempty"`
-	SingleRecipientHeader    string          `json:"header,omitempty"`
+	SingleRecipientHeader    json.RawMessage `json:"header,omitempty"`
 	B64AAD                   string          `json:"aad,omitempty"`
 	B64IV                    string          `json:"iv,omitempty"`
 	B64Ciphertext            string          `json:"ciphertext,omitempty"`
@@ -64,28 +64,16 @@ type rawJSONWebEncryption struct {
 type marshalFunc func(interface{}) ([]byte, error)
 
 // Serialize serializes the given JWE into JSON as defined in https://tools.ietf.org/html/rfc7516#section-7.2.
+// The full serialization syntax is used. If there is only one recipient, then the flattened syntax is used.
 func (e *JSONWebEncryption) Serialize(marshal marshalFunc) (string, error) {
 	b64ProtectedHeaders, unprotectedHeaders, err := e.prepareHeaders(marshal)
 	if err != nil {
 		return "", err
 	}
 
-	var recipientsJSON json.RawMessage
-	if e.Recipients == nil {
-		// The spec requires that the "recipients" must always be an array and be present,
-		// even if some or all of the array values are the empty JSON object "{}".
-		recipientsJSON = json.RawMessage("[{}]")
-	} else {
-		for i, rec := range e.Recipients {
-			e.Recipients[i].EncryptedKey = base64.RawURLEncoding.EncodeToString([]byte(rec.EncryptedKey))
-		}
-
-		nonEmptyRecipientsJSON, errMarshal := marshal(e.Recipients)
-		if errMarshal != nil {
-			return "", errMarshal
-		}
-
-		recipientsJSON = nonEmptyRecipientsJSON
+	recipientsJSON, b64SingleRecipientEncKey, singleRecipientHeader, err := e.prepareRecipients(marshal)
+	if err != nil {
+		return "", err
 	}
 
 	b64AAD := base64.RawURLEncoding.EncodeToString([]byte(e.AAD))
@@ -101,13 +89,15 @@ func (e *JSONWebEncryption) Serialize(marshal marshalFunc) (string, error) {
 	b64Tag := base64.RawURLEncoding.EncodeToString([]byte(e.Tag))
 
 	preparedJWE := rawJSONWebEncryption{
-		B64ProtectedHeaders: b64ProtectedHeaders,
-		UnprotectedHeaders:  unprotectedHeaders,
-		Recipients:          recipientsJSON,
-		B64AAD:              b64AAD,
-		B64IV:               b64IV,
-		B64Ciphertext:       b64Ciphertext,
-		B64Tag:              b64Tag,
+		B64ProtectedHeaders:      b64ProtectedHeaders,
+		UnprotectedHeaders:       unprotectedHeaders,
+		Recipients:               recipientsJSON,
+		B64SingleRecipientEncKey: b64SingleRecipientEncKey,
+		SingleRecipientHeader:    singleRecipientHeader,
+		B64AAD:                   b64AAD,
+		B64IV:                    b64IV,
+		B64Ciphertext:            b64Ciphertext,
+		B64Tag:                   b64Tag,
 	}
 
 	serializedJWE, err := marshal(preparedJWE)
@@ -142,6 +132,49 @@ func (e *JSONWebEncryption) prepareHeaders(marshal marshalFunc) (string, json.Ra
 	}
 
 	return b64ProtectedHeaders, unprotectedHeaders, nil
+}
+
+func (e *JSONWebEncryption) prepareRecipients(marshal marshalFunc) (json.RawMessage, string, []byte, error) {
+	var recipientsJSON json.RawMessage
+
+	var b64SingleRecipientEncKey string
+
+	var singleRecipientHeader []byte
+
+	switch len(e.Recipients) {
+	case 0:
+		// The spec requires that the "recipients" field must always be an array and be present,
+		// even if some or all of the array values are the empty JSON object "{}".
+		recipientsJSON = json.RawMessage("[{}]")
+	case 1:
+		// Use flattened JWE JSON serialization syntax as defined in https://tools.ietf.org/html/rfc7516#section-7.2.2.
+		b64SingleRecipientEncKey = base64.RawURLEncoding.EncodeToString([]byte(e.Recipients[0].EncryptedKey))
+
+		if e.Recipients[0].Header != nil {
+			var errMarshal error
+
+			singleRecipientHeader, errMarshal = marshal(e.Recipients[0].Header)
+			if errMarshal != nil {
+				return nil, "", nil, errMarshal
+			}
+		}
+	default:
+		// Make copy of Recipients array so we don't change the underlying object
+		recipientsToMarshal := make([]Recipient, len(e.Recipients))
+		for i, recipient := range e.Recipients {
+			recipientsToMarshal[i].EncryptedKey = base64.RawURLEncoding.EncodeToString([]byte(recipient.EncryptedKey))
+			recipientsToMarshal[i].Header = recipient.Header
+		}
+
+		nonEmptyRecipientsJSON, errMarshal := marshal(recipientsToMarshal)
+		if errMarshal != nil {
+			return nil, "", nil, errMarshal
+		}
+
+		recipientsJSON = nonEmptyRecipientsJSON
+	}
+
+	return recipientsJSON, b64SingleRecipientEncKey, singleRecipientHeader, nil
 }
 
 // Deserialize deserializes the given serialized JWE into a JSONWebEncryption object.
@@ -231,14 +264,14 @@ func deserializeAndDecodeHeaders(rawJWE *rawJSONWebEncryption) (*Headers, *Heade
 		return nil, nil, err
 	}
 
-	protectedHeaders := Headers{}
+	var protectedHeaders Headers
 
 	err = json.Unmarshal(protectedHeadersBytes, &protectedHeaders)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	unprotectedHeaders := Headers{}
+	var unprotectedHeaders Headers
 
 	if rawJWE.UnprotectedHeaders != nil {
 		err = json.Unmarshal(rawJWE.UnprotectedHeaders, &unprotectedHeaders)
@@ -253,16 +286,14 @@ func deserializeAndDecodeHeaders(rawJWE *rawJSONWebEncryption) (*Headers, *Heade
 func deserializeRecipients(rawJWE *rawJSONWebEncryption) ([]*Recipient, error) {
 	var recipients []*Recipient
 
-	// If no recipients field, then we must be deserializing JWE with the flattened syntax as defined in
+	// If there is no recipients field, then we must be deserializing JWE with the flattened syntax as defined in
 	// https://tools.ietf.org/html/rfc7516#section-7.2.2.
 	if rawJWE.Recipients == nil {
 		recipients = make([]*Recipient, 1)
-		recipients[0] = &Recipient{}
+		recipients[0] = &Recipient{EncryptedKey: rawJWE.B64SingleRecipientEncKey}
 
-		recipients[0].EncryptedKey = rawJWE.B64SingleRecipientEncKey
-
-		if rawJWE.SingleRecipientHeader != "" {
-			err := json.Unmarshal([]byte(rawJWE.SingleRecipientHeader), &recipients[0].Header)
+		if rawJWE.SingleRecipientHeader != nil {
+			err := json.Unmarshal(rawJWE.SingleRecipientHeader, &recipients[0].Header)
 			if err != nil {
 				return nil, err
 			}

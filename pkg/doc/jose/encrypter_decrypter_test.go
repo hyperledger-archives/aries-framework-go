@@ -91,7 +91,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 		badJWE.Recipients = []*Recipient{
 			{
 				EncryptedKey: "someKey",
-				Header: RecipientHeaders{
+				Header: &RecipientHeaders{
 					EPK: "somerawbytes",
 				},
 			},
@@ -120,7 +120,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 		badJWE.Recipients = []*Recipient{
 			{
 				EncryptedKey: "someKey",
-				Header: RecipientHeaders{
+				Header: &RecipientHeaders{
 					EPK: string(mk),
 				},
 			},

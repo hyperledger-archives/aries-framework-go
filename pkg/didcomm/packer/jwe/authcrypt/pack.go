@@ -264,7 +264,7 @@ func (p *Packer) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded
 
 	recipient := &jose.Recipient{
 		EncryptedKey: key,
-		Header:       recipientHeaders,
+		Header:       &recipientHeaders,
 	}
 
 	return recipient, nil
