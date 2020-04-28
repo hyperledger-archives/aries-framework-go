@@ -84,9 +84,14 @@ func (h Headers) KeyID() (string, bool) {
 	return h.stringValue(HeaderKeyID)
 }
 
-// Algorithm gets Key ID from JOSE headers.
+// Algorithm gets Algorithm from JOSE headers.
 func (h Headers) Algorithm() (string, bool) {
 	return h.stringValue(HeaderAlgorithm)
+}
+
+// Encryption gets content encryption algorithm from JOSE headers.
+func (h Headers) Encryption() (string, bool) {
+	return h.stringValue(HeaderEncryption)
 }
 
 func (h Headers) stringValue(key string) (string, bool) {

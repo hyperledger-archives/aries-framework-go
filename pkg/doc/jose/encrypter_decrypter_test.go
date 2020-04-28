@@ -8,6 +8,8 @@ package jose
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -22,12 +24,12 @@ import (
 	ecdhessubtle "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
 )
 
-func TestJWEEncrypt(t *testing.T) {
+func TestJWEEncryptRoundTrip(t *testing.T) {
 	_, err := NewJWEEncrypt("", nil)
 	require.EqualError(t, err, "empty recipientsPubKeys list",
 		"NewJWEEncrypt should fail with empty recipientPubKeys")
 
-	recECKeys, _ := createRecipients(t, 20)
+	recECKeys, recKHs := createRecipients(t, 20)
 
 	_, err = NewJWEEncrypt("", recECKeys)
 	require.EqualError(t, err, "encryption algorithm '' not supported",
@@ -36,7 +38,8 @@ func TestJWEEncrypt(t *testing.T) {
 	jweEncrypter, err := NewJWEEncrypt(A256GCM, recECKeys)
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
-	jwe, err := jweEncrypter.Encrypt([]byte("some msg"), []byte("aad value"))
+	pt := []byte("some msg")
+	jwe, err := jweEncrypter.Encrypt(pt, []byte("aad value"))
 	require.NoError(t, err)
 	require.Equal(t, len(recECKeys), len(jwe.Recipients))
 
@@ -49,8 +52,111 @@ func TestJWEEncrypt(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, joseJWE)
 
-	_, err = jweEncrypter.Decrypt([]byte{})
-	require.EqualError(t, err, "TODO - implement me", "TODO implement Decrypt()")
+	// try to deserialize with local package
+	localJWE, err := Deserialize(serializedJWE)
+	require.NoError(t, err)
+
+	t.Run("Decrypting JWE tests failures", func(t *testing.T) {
+		jweDecrypter := NewJWEDecrypt(recKHs[0])
+
+		// decrypt empty JWE
+		_, err = jweDecrypter.Decrypt(nil)
+		require.EqualError(t, err, "jwedecrypt: jwe is nil")
+
+		var badJWE *JSONWebEncryption
+
+		badJWE, err = Deserialize(serializedJWE)
+		require.NoError(t, err)
+
+		ph := badJWE.ProtectedHeaders
+		badJWE.ProtectedHeaders = nil
+
+		// decrypt JWE with empty ProtectHeaders
+		_, err = jweDecrypter.Decrypt(badJWE)
+		require.EqualError(t, err, "jwedecrypt: jwe is missing alg header")
+
+		badJWE.ProtectedHeaders = map[string]interface{}{
+			HeaderEncryption: "badEncHeader",
+		}
+
+		// decrypt JWE with bad Enc header value
+		_, err = jweDecrypter.Decrypt(badJWE)
+		require.EqualError(t, err, "jwedecrypt: encryption algorithm 'badEncHeader' not supported")
+
+		badJWE.ProtectedHeaders = ph
+
+		// decrypt JWE with invalid recipient key
+		recipients := badJWE.Recipients
+
+		badJWE.Recipients = []*Recipient{
+			{
+				EncryptedKey: "someKey",
+				Header: RecipientHeaders{
+					EPK: "somerawbytes",
+				},
+			},
+		}
+
+		_, err = jweDecrypter.Decrypt(badJWE)
+		require.EqualError(t, err, "jwedecrypt: failed to build encryptedData for Decrypt(): unable to read "+
+			"JWK: invalid character 's' looking for beginning of value")
+
+		// decrypt JWE with unsupported recipient key
+		var privKey *rsa.PrivateKey
+
+		privKey, err = rsa.GenerateKey(rand.Reader, 2048)
+
+		unsupportedJWK := JWK{
+			JSONWebKey: jose.JSONWebKey{
+				Key: &privKey.PublicKey,
+			},
+		}
+
+		var mk []byte
+
+		mk, err = unsupportedJWK.MarshalJSON()
+		require.NoError(t, err)
+
+		badJWE.Recipients = []*Recipient{
+			{
+				EncryptedKey: "someKey",
+				Header: RecipientHeaders{
+					EPK: string(mk),
+				},
+			},
+		}
+
+		_, err = jweDecrypter.Decrypt(badJWE)
+		require.EqualError(t, err, "jwedecrypt: failed to build encryptedData for Decrypt(): unsupported "+
+			"recipient key type")
+
+		badJWE.Recipients = recipients
+		// finally create Decrypt with bad keyset.Handle and try to Decrypt with invalid Handle
+		aeadKT := aead.AES256GCMKeyTemplate()
+
+		var aeadKH *keyset.Handle
+
+		aeadKH, err = keyset.NewHandle(aeadKT)
+		require.NoError(t, err)
+		jweDecrypter = NewJWEDecrypt(aeadKH)
+
+		_, err = jweDecrypter.Decrypt(localJWE)
+		require.EqualError(t, err, "ecdhes_factory: decryption failed")
+	})
+
+	for _, recKH := range recKHs {
+		recipientKH := recKH
+
+		t.Run("Decrypting JWE test success ", func(t *testing.T) {
+			jweDecrypter := NewJWEDecrypt(recipientKH)
+
+			var msg []byte
+
+			msg, err = jweDecrypter.Decrypt(localJWE)
+			require.NoError(t, err)
+			require.EqualValues(t, pt, msg)
+		})
+	}
 }
 
 // createRecipients and return their public key and keyset.Handle
