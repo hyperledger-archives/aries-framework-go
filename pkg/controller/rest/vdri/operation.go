@@ -29,6 +29,7 @@ const (
 	vdriDIDPath         = vdriOperationID + "/did"
 	saveDIDPath         = vdriDIDPath
 	getDIDPath          = vdriDIDPath + "/{id}"
+	resolveDIDPath      = vdriDIDPath + "/resolve/{id}"
 	getDIDRecordsPath   = vdriDIDPath + "/records"
 )
 
@@ -70,6 +71,7 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(createPublicDIDPath, http.MethodPost, o.CreatePublicDID),
 		cmdutil.NewHTTPHandler(saveDIDPath, http.MethodPost, o.SaveDID),
 		cmdutil.NewHTTPHandler(getDIDPath, http.MethodGet, o.GetDID),
+		cmdutil.NewHTTPHandler(resolveDIDPath, http.MethodGet, o.ResolveDID),
 		cmdutil.NewHTTPHandler(getDIDRecordsPath, http.MethodGet, o.GetDIDRecords),
 	}
 }
@@ -120,6 +122,27 @@ func (o *Operation) GetDID(rw http.ResponseWriter, req *http.Request) {
 	request := fmt.Sprintf(`{"id":"%s"}`, string(decodedID))
 
 	rest.Execute(o.command.GetDID, rw, bytes.NewBufferString(request))
+}
+
+// ResolveDID swagger:route GET /vdri/did/resolve/{id} vdri resolveDIDReq
+//
+// Resolve did
+//
+// Responses:
+//    default: genericError
+//        200: documentRes
+func (o *Operation) ResolveDID(rw http.ResponseWriter, req *http.Request) {
+	id := mux.Vars(req)["id"]
+
+	decodedID, err := base64.StdEncoding.DecodeString(id)
+	if err != nil {
+		rest.SendHTTPStatusError(rw, http.StatusBadRequest, vdri.InvalidRequestErrorCode, fmt.Errorf("invalid id"))
+		return
+	}
+
+	request := fmt.Sprintf(`{"id":"%s"}`, string(decodedID))
+
+	rest.Execute(o.command.ResolveDID, rw, bytes.NewBufferString(request))
 }
 
 // GetDIDRecords swagger:route GET /vdri/did/records vdri getDIDRecords

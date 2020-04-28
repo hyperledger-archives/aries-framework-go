@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -57,7 +58,7 @@ func TestNew(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
-		require.Equal(t, 4, len(cmd.GetRESTHandlers()))
+		require.Equal(t, 5, len(cmd.GetRESTHandlers()))
 	})
 
 	t.Run("test new command - error", func(t *testing.T) {
@@ -213,6 +214,48 @@ func TestGetDID(t *testing.T) {
 
 		handler := lookupHandler(t, cmd, getDIDPath, http.MethodGet)
 		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/%s`, vdriDIDPath, "abc"))
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, vdri.InvalidRequestErrorCode, "invalid id", buf.Bytes())
+	})
+}
+
+func TestResolveDID(t *testing.T) {
+	t.Run("test resolve did - success", func(t *testing.T) {
+		didDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			VDRIRegistryValue:    &mockvdri.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		handler := lookupHandler(t, cmd, resolveDIDPath, http.MethodGet)
+		buf, err := getSuccessResponseFromHandler(handler, nil, fmt.Sprintf(`%s/resolve/%s`,
+			vdriDIDPath, base64.StdEncoding.EncodeToString([]byte("did:peer:21tDAKCERh95uGgKbJNHYp"))))
+		require.NoError(t, err)
+
+		response := documentRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+	})
+
+	t.Run("test resolve did - error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		handler := lookupHandler(t, cmd, resolveDIDPath, http.MethodGet)
+		buf, code, err := sendRequestToHandler(handler, nil, fmt.Sprintf(`%s/resolve/%s`, vdriDIDPath, "abc"))
 		require.NoError(t, err)
 		require.NotEmpty(t, buf)
 

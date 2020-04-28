@@ -39,6 +39,9 @@ const (
 
 	// GetDIDErrorCode for get did error
 	GetDIDErrorCode
+
+	// ResolveDIDErrorCode for get did error
+	ResolveDIDErrorCode
 )
 
 const (
@@ -50,6 +53,7 @@ const (
 	saveDIDCommandMethod         = "SaveDID"
 	getDIDsCommandMethod         = "GetDIDRecords"
 	getDIDCommandMethod          = "GetDID"
+	resolveDIDCommandMethod      = "ResolveDID"
 
 	// error messages
 	errDIDMethodMandatory = "invalid method name"
@@ -93,6 +97,7 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, saveDIDCommandMethod, o.SaveDID),
 		cmdutil.NewCommandHandler(commandName, getDIDCommandMethod, o.GetDID),
 		cmdutil.NewCommandHandler(commandName, getDIDsCommandMethod, o.GetDIDRecords),
+		cmdutil.NewCommandHandler(commandName, resolveDIDCommandMethod, o.ResolveDID),
 	}
 }
 
@@ -133,6 +138,47 @@ func (o *Command) CreatePublicDID(rw io.Writer, req io.Reader) command.Error {
 
 	logutil.LogDebug(logger, commandName, createPublicDIDCommandMethod, "success",
 		logutil.CreateKeyValueString("method", request.Method))
+
+	return nil
+}
+
+// ResolveDID resolve did
+func (o *Command) ResolveDID(rw io.Writer, req io.Reader) command.Error {
+	var request IDArg
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, commandName, resolveDIDCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	if request.ID == "" {
+		logutil.LogDebug(logger, commandName, resolveDIDCommandMethod, errEmptyDIDID)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyDIDID))
+	}
+
+	didDoc, err := o.ctx.VDRIRegistry().Resolve(request.ID)
+	if err != nil {
+		logutil.LogError(logger, commandName, resolveDIDCommandMethod, "resolve did doc: "+err.Error(),
+			logutil.CreateKeyValueString(didID, request.ID))
+
+		return command.NewValidationError(ResolveDIDErrorCode, fmt.Errorf("resolve did doc: %w", err))
+	}
+
+	docBytes, err := didDoc.JSONBytes()
+	if err != nil {
+		logutil.LogError(logger, commandName, resolveDIDCommandMethod, "unmarshal did doc: "+err.Error(),
+			logutil.CreateKeyValueString(didID, request.ID))
+
+		return command.NewValidationError(ResolveDIDErrorCode, fmt.Errorf("unmarshal did doc: %w", err))
+	}
+
+	command.WriteNillableResponse(rw, &Document{
+		DID: json.RawMessage(docBytes),
+	}, logger)
+
+	logutil.LogDebug(logger, commandName, resolveDIDCommandMethod, "success",
+		logutil.CreateKeyValueString(didID, request.ID))
 
 	return nil
 }

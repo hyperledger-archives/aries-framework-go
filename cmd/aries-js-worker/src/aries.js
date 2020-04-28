@@ -390,6 +390,17 @@ const Aries = function (opts) {
             getDID: async function (req) {
                 return invoke(aw, pending, this.pkgname, "GetDID", req, "timeout while retrieving did document")
             },
+
+            /**
+             * Resolve a did document.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            resolveDID: async function (req) {
+                return invoke(aw, pending, this.pkgname, "ResolveDID", req, "timeout while resolving did document")
+            },
+
             /**
              * Retrieves did records containing name and id.
              *

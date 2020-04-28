@@ -74,8 +74,8 @@ async function presentation(newAries, mode = wasmMode) {
 
     it(modePrefix + "Alice makes sure that the DID is resolvable", async function () {
         let success = false
-        for (var i = 0; i < 10; i++) {
-            await axios.get(`${environment.HTTP_LOCAL_RESOLVER_URL}/` + did.id)
+        for (var i = 0; i < retries; i++) {
+            await aries.vdri.resolveDID({id:getID(mode, did.id)})
                 .then(function(response) {
                     success = true
                 })
@@ -146,4 +146,12 @@ async function presentation(newAries, mode = wasmMode) {
             err => done(err)
         )
     });
+}
+
+function getID(mode, id) {
+    if (mode == restMode) {
+        return window.btoa(id)
+    }
+
+    return id
 }
