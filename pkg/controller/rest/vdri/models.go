@@ -61,6 +61,19 @@ type getDIDReq struct { // nolint: unused,deadcode
 	ID string `json:"id"`
 }
 
+// resolveDIDReq model
+//
+// This is used to retrieve the did document.
+//
+// swagger:parameters resolveDIDReq
+type resolveDIDReq struct { // nolint: unused,deadcode
+	// DID ID - pass the did
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
 // documentRes model
 //
 // This is used for returning query connection result for single record search

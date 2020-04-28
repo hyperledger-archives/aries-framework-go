@@ -170,7 +170,7 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 4, len(handlers))
+		require.Equal(t, 5, len(handlers))
 	})
 
 	t.Run("test new command - did store error", func(t *testing.T) {
@@ -283,6 +283,77 @@ func TestSaveDID(t *testing.T) {
 		err = cmd.SaveDID(&b, bytes.NewBuffer(didReqBytes))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "save did doc")
+	})
+}
+
+func TestResolveDID(t *testing.T) {
+	t.Run("test resolve did - success", func(t *testing.T) {
+		didDoc, err := did.ParseDocument([]byte(doc))
+		require.NoError(t, err)
+
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+			VDRIRegistryValue:    &mockvdri.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"id":"%s"}`, "did:peer:21tDAKCERh95uGgKbJNHYp")
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.ResolveDID(&getRW, bytes.NewBufferString(jsoStr))
+		require.NoError(t, cmdErr)
+
+		response := Document{}
+		err = json.NewDecoder(&getRW).Decode(&response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.DID)
+	})
+
+	t.Run("test get did - invalid request", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.ResolveDID(&b, bytes.NewBufferString("--"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "request decode")
+	})
+
+	t.Run("test get did - no did in the request", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{}`)
+
+		var b bytes.Buffer
+		err = cmd.ResolveDID(&b, bytes.NewBufferString(jsoStr))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "did is mandatory")
+	})
+
+	t.Run("test get did - resolve error", func(t *testing.T) {
+		cmd, err := New(&mockprovider.Provider{StorageProviderValue: mockstore.NewMockStoreProvider(),
+			VDRIRegistryValue: &mockvdri.MockVDRIRegistry{ResolveErr: fmt.Errorf("failed to resolve")},
+		})
+		require.NotNil(t, cmd)
+		require.NoError(t, err)
+
+		jsoStr := fmt.Sprintf(`{"id":"%s"}`, "did:peer:21tDAKCERh95uGgKbJNHYp")
+
+		var b bytes.Buffer
+		err = cmd.ResolveDID(&b, bytes.NewBufferString(jsoStr))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to resolve")
 	})
 }
 

@@ -63,6 +63,11 @@ const pkgs = {
             method: "GET",
             pathParam:"id"
         },
+        ResolveDID: {
+            path: "/vdri/did/resolve/{id}",
+            method: "GET",
+            pathParam:"id"
+        },
         GetDIDs: {
             path: "/vdri/did/records",
             method: "GET",
