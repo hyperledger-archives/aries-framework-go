@@ -12,323 +12,454 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/square/go-jose/v3"
+
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	exampleJWEAllFields = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZG` +
-		`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
-		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
-		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
-		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	exampleJWEProtectedFieldAbsent = `{"unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
-		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":{"apu":` +
-		`"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
-		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	exampleCompactJWEAllFields = "eyJhbGciOiJSU0EtT0FFUCIsImVuYyI6IkEyNTZHQ00ifQ.OKOawDo13gRp2ojaHV7LFpZcgV7T6DV" +
+	exampleMockJWEAllFields = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVl` +
+		`MSIsInByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unp` +
+		`rotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"header":{"apu":"Tes` +
+		`tAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"` +
+		`header":{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypt` +
+		`ed_key":"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"` +
+		`VGVzdFRhZw"}`
+	exampleMockJWEAllFieldsOneRecipient = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVl` +
+		`MSIsInByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unp` +
+		`rotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"encrypted_key":"VGVzdEtleQ","heade` +
+		`r":{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"aad":"VGVzdEFBRA"` +
+		`,"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
+	exampleMockJWEProtectedFieldAbsent = `{"unprotected":{"unprotectedheader1":"unprotectedtestvalue1","unpr` +
+		`otectedheader2":"unprotectedtestvalue2"},"recipients":[{"header":{"apu":"TestAPU","iv":"TestIV","tag"` +
+		`:"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"header":{"apu":"TestAPU2"` +
+		`,"iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypted_key":"VGVzdEtleTI"}],"` +
+		`aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
+	exampleMockJWEUnprotectedFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVl` +
+		`MSIsInByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","recipients":[{"header":{"apu":"TestAPU"` +
+		`,"iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"heade` +
+		`r":{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypted_ke` +
+		`y":"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzd` +
+		`FRhZw"}`
+	exampleMockJWERecipientsFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVl` +
+		`MSIsInByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unp` +
+		`rotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{}],"aad":"VGVzdEFBRA` +
+		`","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
+	exampleMockJWEIVFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInBy` +
+		`b3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotected` +
+		`testvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"header":{"apu":"TestAPU","i` +
+		`v":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"header":` +
+		`{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypted_key":` +
+		`"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
+	exampleMockJWEAADFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInBy` +
+		`b3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotected` +
+		`testvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"header":{"apu":"TestAPU","i` +
+		`v":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"header":` +
+		`{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypted_key":` +
+		`"VGVzdEtleTI"}],"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
+	exampleMockJWETagFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInBy` +
+		`b3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotected` +
+		`testvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"header":{"apu":"TestAPU","i` +
+		`v":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"header":` +
+		`{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypted_key":` +
+		`"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ"}`
+
+	exampleRealFullJWE = `{"protected":"eyJlbmMiOiJBMTI4Q0JDLUhTMjU2In0","unprotected":{"jku":"https://serv` +
+		`er.example.com/keys.jwks"},"recipients":[{"header":{"alg":"RSA1_5","kid":"2011-04-29"},"encrypted_key` +
+		`":"UGhIOguC7IuEvf_NPVaXsGMoLOmwvc1GyqlIKOK1nN94nHPoltGRhWhw7Zx0-kFm1NJn8LE9XShH59_i8J0PH5ZZyNfGy2xGdU` +
+		`LU7sHNF6Gp2vPLgNZ__deLKxGHZ7PcHALUzoOegEI-8E66jX2E4zyJKx-YxzZIItRzC5hlRirb6Y5Cl_p-ko3YvkkysZIFNPccxRU` +
+		`7qve1WYPxqbb2Yw8kZqa2rMWI5ng8OtvzlV7elprCbuPhcCdZ6XDP0_F8rkXds2vE4X-ncOIM8hAYHHi29NX0mcKiRaD0-D-ljQTP` +
+		`-cFPgwCp6X-nZZd9OHBv-B3oWh2TbqmScqXMR4gp_A"},{"header":{"alg":"A128KW","kid":"7"},"encrypted_key":"6K` +
+		`B707dM9YTIgHtLvtgWQ8mKwboJW3of9locizkDTHzBC2IlrT1oOQ"}],"iv":"AxY8DCtDaGlsbGljb3RoZQ","ciphertext":"K` +
+		`DlTtXchhZTGufMYmOYGS4HffxPSUrfmqCHXaI9wOGY","tag":"Mz-VPPyU4RlcuYv1IwIvzw"}`
+	exampleRealCompactJWE = "eyJhbGciOiJSU0EtT0FFUCIsImVuYyI6IkEyNTZHQ00ifQ.OKOawDo13gRp2ojaHV7LFpZcgV7T6DV" +
 		"ZKTyKOMTYUmKoTCVJRgckCL9kiMT03JGeipsEdY3mx_etLbbWSrFr05kLzcSr4qKAq7YN7e9jwQRb23nfa6c9d-StnImGyFDbSv04uV" +
 		"uxIp5Zms1gNxKKK2Da14B8S4rzVRltdYwam_lDp5XnZAYpQdb76FdIKLaVmqgfwX7XWRxv2322i-vDxRfqNzo_tETKzpVLzfiwQyeyP" +
 		"GLBIO56YJ7eObdv0je81860ppamavo35UgoRdbYaBcoh9QcfylQr66oc6vFWXRcZ_ZT2LawVCWTIy3brGPi6UklfCpIMfIjf7iGdXKH" +
 		"zg.48V1_ALb6US04U3b.5eym8TW_c8SuK0ltJ3rpYIzOeDQz7TALvtu6UG9oMo4vpzs9tX_EFShS8iB7j6jiSdiwkIr3ajwQzaBtQD_" +
 		"A.XFBoMYUZodetZdvTiFvSkQ"
-	exampleJWEUnprotectedFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIs` +
-		`InByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","recipients":[{"encrypted_key":"VGVzdEtleQ",` +
-		`"header":{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":` +
-		`"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	exampleJWERecipientsFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsI` +
-		`nByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":` +
-		`"unprotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{}],"aad":` +
-		`"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	exampleJWEAADFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3R` +
-		`lZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
-		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
-		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],` +
-		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	exampleJWEIVFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3Rl` +
-		`ZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1",` +
-		`"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
-		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
-		`"ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
-	exampleJWETagFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3R` +
-		`lZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotectedtestvalue1"` +
-		`,"unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"encrypted_key":"VGVzdEtleQ","header":` +
-		`{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"}}],"aad":"VGVzdEFBRA",` +
-		`"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ"}`
-	expectedSerializedCompactJWE = `{"protected":"eyJhbGciOiJSU0EtT0FFUCIsImVuYyI6IkEyNTZHQ00ifQ","unprotected"` +
-		`:{},"recipients":[{"encrypted_key":"OKOawDo13gRp2ojaHV7LFpZcgV7T6DVZKTyKOMTYUmKoTCVJRgckCL9kiMT03JGeips` +
-		`EdY3mx_etLbbWSrFr05kLzcSr4qKAq7YN7e9jwQRb23nfa6c9d-StnImGyFDbSv04uVuxIp5Zms1gNxKKK2Da14B8S4rzVRltdYwam_` +
-		`lDp5XnZAYpQdb76FdIKLaVmqgfwX7XWRxv2322i-vDxRfqNzo_tETKzpVLzfiwQyeyPGLBIO56YJ7eObdv0je81860ppamavo35UgoR` +
-		`dbYaBcoh9QcfylQr66oc6vFWXRcZ_ZT2LawVCWTIy3brGPi6UklfCpIMfIjf7iGdXKHzg","header":{}}],"iv":"48V1_ALb6US0` +
-		`4U3b","ciphertext":"5eym8TW_c8SuK0ltJ3rpYIzOeDQz7TALvtu6UG9oMo4vpzs9tX_EFShS8iB7j6jiSdiwkIr3ajwQzaBtQD_` +
-		`A","tag":"XFBoMYUZodetZdvTiFvSkQ"}`
+
+	expectedSerializedCompactJWE = `{"protected":"eyJhbGciOiJSU0EtT0FFUCIsImVuYyI6IkEyNTZHQ00ifQ","encrypted_k` +
+		`ey":"OKOawDo13gRp2ojaHV7LFpZcgV7T6DVZKTyKOMTYUmKoTCVJRgckCL9kiMT03JGeipsEdY3mx_etLbbWSrFr05kLzcSr4qKA` +
+		`q7YN7e9jwQRb23nfa6c9d-StnImGyFDbSv04uVuxIp5Zms1gNxKKK2Da14B8S4rzVRltdYwam_lDp5XnZAYpQdb76FdIKLaVmqgfw` +
+		`X7XWRxv2322i-vDxRfqNzo_tETKzpVLzfiwQyeyPGLBIO56YJ7eObdv0je81860ppamavo35UgoRdbYaBcoh9QcfylQr66oc6vFWX` +
+		`RcZ_ZT2LawVCWTIy3brGPi6UklfCpIMfIjf7iGdXKHzg","iv":"48V1_ALb6US04U3b","ciphertext":"5eym8TW_c8SuK0ltJ` +
+		`3rpYIzOeDQz7TALvtu6UG9oMo4vpzs9tX_EFShS8iB7j6jiSdiwkIr3ajwQzaBtQD_A","tag":"XFBoMYUZodetZdvTiFvSkQ"}`
 )
 
 var errFailingMarshal = errors.New("i failed to marshal")
 
 func TestJSONWebEncryption_Serialize(t *testing.T) {
-	t.Run("Successfully serialize JWE, all fields filled", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
-		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]*Recipient, 1)
+	t.Run("Success cases", func(t *testing.T) {
+		t.Run("All fields filled, multiple recipients", func(t *testing.T) {
+			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2"}
+			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2"}
+			recipients := make([]*Recipient, 2)
 
-		recipients[0] = &Recipient{
-			EncryptedKey: "TestKey",
-			Header: RecipientHeaders{
-				APU: "TestAPU",
-				IV:  "TestIV",
-				Tag: "TestTag",
-				KID: "TestKID",
-				SPK: "TestSPK",
-			},
-		}
+			recipients[0] = &Recipient{
+				EncryptedKey: "TestKey",
+				Header: &RecipientHeaders{
+					APU: "TestAPU",
+					IV:  "TestIV",
+					Tag: "TestTag",
+					KID: "TestKID",
+					SPK: "TestSPK",
+				},
+			}
+			recipients[1] = &Recipient{
+				EncryptedKey: "TestKey2",
+				Header: &RecipientHeaders{
+					APU: "TestAPU2",
+					IV:  "TestIV2",
+					Tag: "TestTag2",
+					KID: "TestKID2",
+					SPK: "TestSPK2",
+				},
+			}
 
-		jwe := JSONWebEncryption{
-			ProtectedHeaders:   protectedHeaders,
-			UnprotectedHeaders: unprotectedHeaders,
-			Recipients:         recipients,
-			AAD:                "TestAAD",
-			IV:                 "TestIV",
-			Ciphertext:         "TestCipherText",
-			Tag:                "TestTag",
-		}
-		serializedJWE, err := jwe.Serialize(json.Marshal)
-		require.NoError(t, err)
-		require.Equal(t, exampleJWEAllFields, serializedJWE)
+			jwe := JSONWebEncryption{
+				ProtectedHeaders:   protectedHeaders,
+				UnprotectedHeaders: unprotectedHeaders,
+				Recipients:         recipients,
+				AAD:                "TestAAD",
+				IV:                 "TestIV",
+				Ciphertext:         "TestCipherText",
+				Tag:                "TestTag",
+			}
+			serializedJWE, err := jwe.Serialize(json.Marshal)
+			require.NoError(t, err)
+			require.Equal(t, exampleMockJWEAllFields, serializedJWE)
+		})
+		t.Run("All fields filled, one recipient - serialized JWE uses flattened syntax", func(t *testing.T) {
+			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2"}
+			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2"}
+			recipients := make([]*Recipient, 1)
+
+			recipients[0] = &Recipient{
+				EncryptedKey: "TestKey",
+				Header: &RecipientHeaders{
+					APU: "TestAPU",
+					IV:  "TestIV",
+					Tag: "TestTag",
+					KID: "TestKID",
+					SPK: "TestSPK",
+				},
+			}
+
+			jwe := JSONWebEncryption{
+				ProtectedHeaders:   protectedHeaders,
+				UnprotectedHeaders: unprotectedHeaders,
+				Recipients:         recipients,
+				AAD:                "TestAAD",
+				IV:                 "TestIV",
+				Ciphertext:         "TestCipherText",
+				Tag:                "TestTag",
+			}
+			serializedJWE, err := jwe.Serialize(json.Marshal)
+			require.NoError(t, err)
+			require.Equal(t, exampleMockJWEAllFieldsOneRecipient, serializedJWE)
+		})
+		t.Run("Successfully serialize JWE, protected header value is empty", func(t *testing.T) {
+			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2"}
+			recipients := make([]*Recipient, 2)
+
+			recipients[0] = &Recipient{
+				EncryptedKey: "TestKey",
+				Header: &RecipientHeaders{
+					APU: "TestAPU",
+					IV:  "TestIV",
+					Tag: "TestTag",
+					KID: "TestKID",
+					SPK: "TestSPK",
+				},
+			}
+			recipients[1] = &Recipient{
+				EncryptedKey: "TestKey2",
+				Header: &RecipientHeaders{
+					APU: "TestAPU2",
+					IV:  "TestIV2",
+					Tag: "TestTag2",
+					KID: "TestKID2",
+					SPK: "TestSPK2",
+				},
+			}
+
+			jwe := JSONWebEncryption{
+				UnprotectedHeaders: unprotectedHeaders,
+				Recipients:         recipients,
+				AAD:                "TestAAD",
+				IV:                 "TestIV",
+				Ciphertext:         "TestCipherText",
+				Tag:                "TestTag",
+			}
+			serializedJWE, err := jwe.Serialize(json.Marshal)
+			require.NoError(t, err)
+			require.Equal(t, exampleMockJWEProtectedFieldAbsent, serializedJWE)
+		})
+		t.Run("Successfully serialize JWE, unprotected header value is empty", func(t *testing.T) {
+			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2"}
+			recipients := make([]*Recipient, 2)
+
+			recipients[0] = &Recipient{
+				EncryptedKey: "TestKey",
+				Header: &RecipientHeaders{
+					APU: "TestAPU",
+					IV:  "TestIV",
+					Tag: "TestTag",
+					KID: "TestKID",
+					SPK: "TestSPK",
+				},
+			}
+			recipients[1] = &Recipient{
+				EncryptedKey: "TestKey2",
+				Header: &RecipientHeaders{
+					APU: "TestAPU2",
+					IV:  "TestIV2",
+					Tag: "TestTag2",
+					KID: "TestKID2",
+					SPK: "TestSPK2",
+				},
+			}
+
+			jwe := JSONWebEncryption{
+				ProtectedHeaders: protectedHeaders,
+				Recipients:       recipients,
+				AAD:              "TestAAD",
+				IV:               "TestIV",
+				Ciphertext:       "TestCipherText",
+				Tag:              "TestTag",
+			}
+			serializedJWE, err := jwe.Serialize(json.Marshal)
+			require.NoError(t, err)
+			require.Equal(t, exampleMockJWEUnprotectedFieldAbsent, serializedJWE)
+		})
+		t.Run("Successfully serialize JWE, recipients value is empty", func(t *testing.T) {
+			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2"}
+			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2"}
+
+			jwe := JSONWebEncryption{
+				ProtectedHeaders:   protectedHeaders,
+				UnprotectedHeaders: unprotectedHeaders,
+				AAD:                "TestAAD",
+				IV:                 "TestIV",
+				Ciphertext:         "TestCipherText",
+				Tag:                "TestTag",
+			}
+			serializedJWE, err := jwe.Serialize(json.Marshal)
+			require.NoError(t, err)
+			require.Equal(t, exampleMockJWERecipientsFieldAbsent, serializedJWE)
+		})
+		t.Run("Successfully serialize JWE, IV value is empty", func(t *testing.T) {
+			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2"}
+			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2"}
+			recipients := make([]*Recipient, 2)
+
+			recipients[0] = &Recipient{
+				EncryptedKey: "TestKey",
+				Header: &RecipientHeaders{
+					APU: "TestAPU",
+					IV:  "TestIV",
+					Tag: "TestTag",
+					KID: "TestKID",
+					SPK: "TestSPK",
+				},
+			}
+			recipients[1] = &Recipient{
+				EncryptedKey: "TestKey2",
+				Header: &RecipientHeaders{
+					APU: "TestAPU2",
+					IV:  "TestIV2",
+					Tag: "TestTag2",
+					KID: "TestKID2",
+					SPK: "TestSPK2",
+				},
+			}
+
+			jwe := JSONWebEncryption{
+				ProtectedHeaders:   protectedHeaders,
+				UnprotectedHeaders: unprotectedHeaders,
+				Recipients:         recipients,
+				AAD:                "TestAAD",
+				Ciphertext:         "TestCipherText",
+				Tag:                "TestTag",
+			}
+			serializedJWE, err := jwe.Serialize(json.Marshal)
+			println(serializedJWE)
+			require.NoError(t, err)
+			require.Equal(t, exampleMockJWEIVFieldAbsent, serializedJWE)
+		})
+		t.Run("Successfully serialize JWE, AAD value is empty", func(t *testing.T) {
+			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2"}
+			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2"}
+			recipients := make([]*Recipient, 2)
+
+			recipients[0] = &Recipient{
+				EncryptedKey: "TestKey",
+				Header: &RecipientHeaders{
+					APU: "TestAPU",
+					IV:  "TestIV",
+					Tag: "TestTag",
+					KID: "TestKID",
+					SPK: "TestSPK",
+				},
+			}
+			recipients[1] = &Recipient{
+				EncryptedKey: "TestKey2",
+				Header: &RecipientHeaders{
+					APU: "TestAPU2",
+					IV:  "TestIV2",
+					Tag: "TestTag2",
+					KID: "TestKID2",
+					SPK: "TestSPK2",
+				},
+			}
+
+			jwe := JSONWebEncryption{
+				ProtectedHeaders:   protectedHeaders,
+				UnprotectedHeaders: unprotectedHeaders,
+				Recipients:         recipients,
+				IV:                 "TestIV",
+				Ciphertext:         "TestCipherText",
+				Tag:                "TestTag",
+			}
+			serializedJWE, err := jwe.Serialize(json.Marshal)
+			require.NoError(t, err)
+			require.Equal(t, exampleMockJWEAADFieldAbsent, serializedJWE)
+		})
+		t.Run("Successfully serialize JWE, tag value is empty", func(t *testing.T) {
+			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2"}
+			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2"}
+			recipients := make([]*Recipient, 2)
+
+			recipients[0] = &Recipient{
+				EncryptedKey: "TestKey",
+				Header: &RecipientHeaders{
+					APU: "TestAPU",
+					IV:  "TestIV",
+					Tag: "TestTag",
+					KID: "TestKID",
+					SPK: "TestSPK",
+				},
+			}
+			recipients[1] = &Recipient{
+				EncryptedKey: "TestKey2",
+				Header: &RecipientHeaders{
+					APU: "TestAPU2",
+					IV:  "TestIV2",
+					Tag: "TestTag2",
+					KID: "TestKID2",
+					SPK: "TestSPK2",
+				},
+			}
+
+			jwe := JSONWebEncryption{
+				ProtectedHeaders:   protectedHeaders,
+				UnprotectedHeaders: unprotectedHeaders,
+				Recipients:         recipients,
+				AAD:                "TestAAD",
+				IV:                 "TestIV",
+				Ciphertext:         "TestCipherText",
+			}
+			serializedJWE, err := jwe.Serialize(json.Marshal)
+			require.NoError(t, err)
+			require.Equal(t, exampleMockJWETagFieldAbsent, serializedJWE)
+		})
 	})
-	t.Run("Successfully serialize JWE, protected header value is empty", func(t *testing.T) {
-		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]*Recipient, 1)
+	t.Run("Error cases", func(t *testing.T) {
+		t.Run("Fail to serialize JWE, ciphertext value is empty", func(t *testing.T) {
+			protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+				"protectedheader2": "protectedtestvalue2"}
+			unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
+				"unprotectedheader2": "unprotectedtestvalue2"}
 
-		recipients[0] = &Recipient{
-			EncryptedKey: "TestKey",
-			Header: RecipientHeaders{
-				APU: "TestAPU",
-				IV:  "TestIV",
-				Tag: "TestTag",
-				KID: "TestKID",
-				SPK: "TestSPK",
-			},
-		}
+			jwe := JSONWebEncryption{
+				ProtectedHeaders:   protectedHeaders,
+				UnprotectedHeaders: unprotectedHeaders,
+				Recipients:         nil,
+				AAD:                "TestAAD",
+				IV:                 "TestIV",
+				Tag:                "TestTag",
+			}
+			serializedJWE, err := jwe.Serialize(json.Marshal)
+			require.Equal(t, errEmptyCiphertext, err)
+			require.Equal(t, "", serializedJWE)
+		})
+		t.Run("fail to prepare headers", func(t *testing.T) {
+			jwe := JSONWebEncryption{
+				ProtectedHeaders: Headers{},
+			}
 
-		jwe := JSONWebEncryption{
-			UnprotectedHeaders: unprotectedHeaders,
-			Recipients:         recipients,
-			AAD:                "TestAAD",
-			IV:                 "TestIV",
-			Ciphertext:         "TestCipherText",
-			Tag:                "TestTag",
-		}
-		serializedJWE, err := jwe.Serialize(json.Marshal)
-		require.NoError(t, err)
-		require.Equal(t, exampleJWEProtectedFieldAbsent, serializedJWE)
-	})
-	t.Run("Successfully serialize JWE, unprotected header value is empty", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
-		recipients := make([]*Recipient, 1)
+			fm := &failingMarshaller{
+				numTimesMarshalCalledBeforeReturnErr: 0,
+			}
 
-		recipients[0] = &Recipient{
-			EncryptedKey: "TestKey",
-			Header: RecipientHeaders{
-				APU: "TestAPU",
-				IV:  "TestIV",
-				Tag: "TestTag",
-				KID: "TestKID",
-				SPK: "TestSPK",
-			},
-		}
+			serializedJWE, err := jwe.Serialize(fm.failingMarshal)
+			require.Equal(t, errFailingMarshal, err)
+			require.Empty(t, serializedJWE)
+		})
+		t.Run("Fail to marshal recipient header (single recipient)", func(t *testing.T) {
+			recipients := make([]*Recipient, 1)
 
-		jwe := JSONWebEncryption{
-			ProtectedHeaders: protectedHeaders,
-			Recipients:       recipients,
-			AAD:              "TestAAD",
-			IV:               "TestIV",
-			Ciphertext:       "TestCipherText",
-			Tag:              "TestTag",
-		}
-		serializedJWE, err := jwe.Serialize(json.Marshal)
-		require.NoError(t, err)
-		require.Equal(t, exampleJWEUnprotectedFieldAbsent, serializedJWE)
-	})
-	t.Run("Successfully serialize JWE, recipients value is empty", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
-		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-			"unprotectedheader2": "unprotectedtestvalue2"}
+			recipients[0] = &Recipient{
+				EncryptedKey: "TestKey",
+				Header:       &RecipientHeaders{},
+			}
 
-		jwe := JSONWebEncryption{
-			ProtectedHeaders:   protectedHeaders,
-			UnprotectedHeaders: unprotectedHeaders,
-			AAD:                "TestAAD",
-			IV:                 "TestIV",
-			Ciphertext:         "TestCipherText",
-			Tag:                "TestTag",
-		}
-		serializedJWE, err := jwe.Serialize(json.Marshal)
-		require.NoError(t, err)
-		require.Equal(t, exampleJWERecipientsFieldAbsent, serializedJWE)
-	})
-	t.Run("Successfully serialize JWE, IV value is empty", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
-		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]*Recipient, 1)
+			jwe := JSONWebEncryption{
+				Recipients: recipients,
+			}
 
-		recipients[0] = &Recipient{
-			EncryptedKey: "TestKey",
-			Header: RecipientHeaders{
-				APU: "TestAPU",
-				IV:  "TestIV",
-				Tag: "TestTag",
-				KID: "TestKID",
-				SPK: "TestSPK",
-			},
-		}
+			fm := &failingMarshaller{
+				numTimesMarshalCalledBeforeReturnErr: 0,
+			}
 
-		jwe := JSONWebEncryption{
-			ProtectedHeaders:   protectedHeaders,
-			UnprotectedHeaders: unprotectedHeaders,
-			Recipients:         recipients,
-			AAD:                "TestAAD",
-			Ciphertext:         "TestCipherText",
-			Tag:                "TestTag",
-		}
-		serializedJWE, err := jwe.Serialize(json.Marshal)
-		require.NoError(t, err)
-		require.Equal(t, exampleJWEIVFieldAbsent, serializedJWE)
-	})
-	t.Run("Successfully serialize JWE, AAD value is empty", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
-		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]*Recipient, 1)
+			serializedJWE, err := jwe.Serialize(fm.failingMarshal)
+			require.Equal(t, errFailingMarshal, err)
+			require.Empty(t, serializedJWE)
+		})
+		t.Run("fail to marshal recipients", func(t *testing.T) {
+			jwe := JSONWebEncryption{
+				Recipients: make([]*Recipient, 2),
+			}
 
-		recipients[0] = &Recipient{
-			EncryptedKey: "TestKey",
-			Header: RecipientHeaders{
-				APU: "TestAPU",
-				IV:  "TestIV",
-				Tag: "TestTag",
-				KID: "TestKID",
-				SPK: "TestSPK",
-			},
-		}
+			jwe.Recipients[0] = &Recipient{}
+			jwe.Recipients[1] = &Recipient{}
 
-		jwe := JSONWebEncryption{
-			ProtectedHeaders:   protectedHeaders,
-			UnprotectedHeaders: unprotectedHeaders,
-			Recipients:         recipients,
-			IV:                 "TestIV",
-			Ciphertext:         "TestCipherText",
-			Tag:                "TestTag",
-		}
-		serializedJWE, err := jwe.Serialize(json.Marshal)
-		require.NoError(t, err)
-		require.Equal(t, exampleJWEAADFieldAbsent, serializedJWE)
-	})
-	t.Run("Fail to serialize JWE, ciphertext value is empty", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
-		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]*Recipient, 1)
+			fm := &failingMarshaller{
+				numTimesMarshalCalledBeforeReturnErr: 0,
+			}
 
-		recipients[0] = &Recipient{
-			EncryptedKey: "TestKey",
-			Header: RecipientHeaders{
-				APU: "TestAPU",
-				IV:  "TestIV",
-				Tag: "TestTag",
-				KID: "TestKID",
-				SPK: "TestSPK",
-			},
-		}
+			serializedJWE, err := jwe.Serialize(fm.failingMarshal)
+			require.Equal(t, errFailingMarshal, err)
+			require.Empty(t, serializedJWE)
+		})
+		t.Run("fail to marshal rawJSONWebEncryption", func(t *testing.T) {
+			jwe := JSONWebEncryption{
+				Ciphertext: "some ciphertext",
+			}
 
-		jwe := JSONWebEncryption{
-			ProtectedHeaders:   protectedHeaders,
-			UnprotectedHeaders: unprotectedHeaders,
-			Recipients:         recipients,
-			AAD:                "TestAAD",
-			IV:                 "TestIV",
-			Tag:                "TestTag",
-		}
-		serializedJWE, err := jwe.Serialize(json.Marshal)
-		require.Equal(t, errEmptyCiphertext, err)
-		require.Equal(t, "", serializedJWE)
-	})
-	t.Run("Successfully serialize JWE, tag value is empty", func(t *testing.T) {
-		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
-			"protectedheader2": "protectedtestvalue2"}
-		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
-			"unprotectedheader2": "unprotectedtestvalue2"}
-		recipients := make([]*Recipient, 1)
+			fm := &failingMarshaller{
+				numTimesMarshalCalledBeforeReturnErr: 0,
+			}
 
-		recipients[0] = &Recipient{
-			EncryptedKey: "TestKey",
-			Header: RecipientHeaders{
-				APU: "TestAPU",
-				IV:  "TestIV",
-				Tag: "TestTag",
-				KID: "TestKID",
-				SPK: "TestSPK",
-			},
-		}
-
-		jwe := JSONWebEncryption{
-			ProtectedHeaders:   protectedHeaders,
-			UnprotectedHeaders: unprotectedHeaders,
-			Recipients:         recipients,
-			AAD:                "TestAAD",
-			IV:                 "TestIV",
-			Ciphertext:         "TestCipherText",
-		}
-		serializedJWE, err := jwe.Serialize(json.Marshal)
-		require.NoError(t, err)
-		require.Equal(t, exampleJWETagFieldAbsent, serializedJWE)
-	})
-	t.Run("fail to prepare headers", func(t *testing.T) {
-		jwe := JSONWebEncryption{
-			ProtectedHeaders: Headers{},
-		}
-
-		fm := &failingMarshaller{
-			numTimesMarshalCalledBeforeReturnErr: 0,
-		}
-
-		serializedJWE, err := jwe.Serialize(fm.failingMarshal)
-		require.Equal(t, errFailingMarshal, err)
-		require.Empty(t, serializedJWE)
-	})
-	t.Run("fail to marshal recipients", func(t *testing.T) {
-		jwe := JSONWebEncryption{
-			Recipients: make([]*Recipient, 0),
-		}
-
-		fm := &failingMarshaller{
-			numTimesMarshalCalledBeforeReturnErr: 0,
-		}
-
-		serializedJWE, err := jwe.Serialize(fm.failingMarshal)
-		require.Equal(t, errFailingMarshal, err)
-		require.Empty(t, serializedJWE)
-	})
-	t.Run("fail to marshal rawJSONWebEncryption", func(t *testing.T) {
-		jwe := JSONWebEncryption{
-			Ciphertext: "some ciphertext",
-		}
-
-		fm := &failingMarshaller{
-			numTimesMarshalCalledBeforeReturnErr: 0,
-		}
-
-		serializedJWE, err := jwe.Serialize(fm.failingMarshal)
-		require.Equal(t, errFailingMarshal, err)
-		require.Empty(t, serializedJWE)
+			serializedJWE, err := jwe.Serialize(fm.failingMarshal)
+			require.Equal(t, errFailingMarshal, err)
+			require.Empty(t, serializedJWE)
+		})
 	})
 }
 
@@ -369,13 +500,13 @@ func TestJSONWebEncryption_PrepareHeaders(t *testing.T) {
 func TestDeserialize(t *testing.T) {
 	t.Run("Full JWE tests", func(t *testing.T) {
 		t.Run("Success", func(t *testing.T) {
-			deserializedJWE, err := Deserialize(exampleJWEAllFields)
+			deserializedJWE, err := Deserialize(exampleMockJWEAllFields)
 			require.NoError(t, err)
 			require.NotNil(t, deserializedJWE)
 
 			reserializedJWE, err := deserializedJWE.Serialize(json.Marshal)
 			require.NoError(t, err)
-			require.Equal(t, exampleJWEAllFields, reserializedJWE)
+			require.Equal(t, exampleMockJWEAllFields, reserializedJWE)
 		})
 		t.Run("Unable to unmarshal serialized JWE string", func(t *testing.T) {
 			deserializedJWE, err := Deserialize("{")
@@ -458,13 +589,13 @@ func TestDeserialize(t *testing.T) {
 					`hlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":` +
 					`"unprotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"header":` +
 					`"not a valid value"}`)
-			require.EqualError(t, err, "invalid character 'o' in literal null (expecting 'u')")
+			require.EqualError(t, err, "json: cannot unmarshal string into Go value of type jose.RecipientHeaders")
 			require.Nil(t, deserializedJWE)
 		})
 	})
 	t.Run("Compact JWE tests", func(t *testing.T) {
 		t.Run("Success", func(t *testing.T) {
-			deserializedJWE, err := Deserialize(exampleCompactJWEAllFields)
+			deserializedJWE, err := Deserialize(exampleRealCompactJWE)
 			require.NoError(t, err)
 			require.NotNil(t, deserializedJWE)
 
@@ -478,6 +609,100 @@ func TestDeserialize(t *testing.T) {
 			require.Nil(t, deserializedJWE)
 		})
 	})
+}
+
+func TestInterop(t *testing.T) {
+	t.Run("Use go-jose to deserialize JWE that's been serialized with Aries", func(t *testing.T) {
+		ariesJWE, err := Deserialize(exampleRealFullJWE)
+		require.NoError(t, err)
+		require.NotNil(t, ariesJWE)
+
+		reserializedAriesJWE, err := ariesJWE.Serialize(json.Marshal)
+		require.NoError(t, err)
+		require.NotEmpty(t, reserializedAriesJWE)
+
+		goJoseJWE, err := jose.ParseEncrypted(reserializedAriesJWE)
+		require.NoError(t, err)
+		require.NotNil(t, goJoseJWE)
+	})
+	t.Run("Use Aries to deserialize JWE that's been serialized with go-jose using full syntax",
+		func(t *testing.T) {
+			goJoseJWE, err := jose.ParseEncrypted(exampleRealFullJWE)
+			require.NoError(t, err)
+			require.NotNil(t, goJoseJWE)
+
+			reserializedGoJoseJWEString := goJoseJWE.FullSerialize()
+			require.NotEmpty(t, reserializedGoJoseJWEString)
+
+			ariesJWE, err := Deserialize(reserializedGoJoseJWEString)
+			require.NoError(t, err)
+			require.NotNil(t, ariesJWE)
+		})
+	t.Run("Use Aries to deserialize JWE that's been serialized with go-jose using compact syntax",
+		func(t *testing.T) {
+			goJoseJWE, err := jose.ParseEncrypted(exampleRealCompactJWE)
+			require.NoError(t, err)
+			require.NotNil(t, goJoseJWE)
+
+			reserializedGoJoseJWEString, err := goJoseJWE.CompactSerialize()
+			require.NoError(t, err)
+			require.NotEmpty(t, reserializedGoJoseJWEString)
+
+			ariesJWE, err := Deserialize(reserializedGoJoseJWEString)
+			require.NoError(t, err)
+			require.NotNil(t, ariesJWE)
+		})
+	t.Run("Deserialize full JWE with aries and go-jose, then reserialize and compare", func(t *testing.T) {
+		ariesJWE, err := Deserialize(exampleRealFullJWE)
+		require.NoError(t, err)
+		require.NotNil(t, ariesJWE)
+
+		reserializedAriesJWE, err := ariesJWE.Serialize(json.Marshal)
+		require.NoError(t, err)
+		require.NotEmpty(t, reserializedAriesJWE)
+
+		require.Equal(t, exampleRealFullJWE, reserializedAriesJWE)
+
+		goJoseJWE, err := jose.ParseEncrypted(exampleRealFullJWE)
+		require.NoError(t, err)
+		require.NotNil(t, goJoseJWE)
+
+		reserializedGoJoseJWE := goJoseJWE.FullSerialize()
+		require.NotEmpty(t, reserializedGoJoseJWE)
+
+		checkEquality(t, reserializedGoJoseJWE, reserializedAriesJWE)
+	})
+	t.Run("Deserialize compact JWE with aries and go-jose, then reserialize and compare", func(t *testing.T) {
+		ariesJWE, err := Deserialize(exampleRealCompactJWE)
+		require.NoError(t, err)
+		require.NotNil(t, ariesJWE)
+
+		reserializedAriesJWE, err := ariesJWE.Serialize(json.Marshal)
+		require.NoError(t, err)
+		require.NotEmpty(t, reserializedAriesJWE)
+
+		goJoseJWE, err := jose.ParseEncrypted(exampleRealCompactJWE)
+		require.NoError(t, err)
+		require.NotNil(t, goJoseJWE)
+
+		reserializedGoJoseJWEString := goJoseJWE.FullSerialize()
+		require.NotEmpty(t, reserializedGoJoseJWEString)
+
+		require.Equal(t, reserializedGoJoseJWEString, reserializedAriesJWE)
+	})
+}
+
+func checkEquality(t *testing.T, goJoseJWE, ariesJWE string) {
+	// When there are multiple recipients, for some reason the go-jose library seems to put the first recipient's
+	// encrypted key in the top-level JSON object - but this should only be done when using the flattened syntax,
+	// and that is only allowed when there is a single recipient, so go-jose's serialize function doesn't seem to be
+	// strictly compliant with the spec. In order to make the resulting serialized strings comparable,
+	// the extra encrypted key field is stripped out.
+	goJoseJWEBeforeNonCompliantPart := goJoseJWE[:642]
+	gojoseJWEAfterNonCompliantPart := goJoseJWE[1003:]
+	goJoseJWEWithoutNonCompliantPart := goJoseJWEBeforeNonCompliantPart + gojoseJWEAfterNonCompliantPart
+
+	require.Equal(t, goJoseJWEWithoutNonCompliantPart, ariesJWE)
 }
 
 type failingMarshaller struct {

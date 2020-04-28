@@ -572,7 +572,7 @@ func deepCopy(envelope, envelope2 *Envelope) {
 	for _, r := range envelope2.Recipients {
 		newRe := &jose.Recipient{
 			EncryptedKey: r.EncryptedKey,
-			Header: jose.RecipientHeaders{
+			Header: &jose.RecipientHeaders{
 				APU: r.Header.APU,
 				KID: r.Header.KID,
 				IV:  r.Header.IV,
