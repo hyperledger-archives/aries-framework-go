@@ -25,6 +25,14 @@ const ENV_CONFIG_OUT = "test/environment.js";
     fs.writeFileSync(ENV_CONFIG_OUT, "export const environment = " + util.inspect(config))
 })()
 
+// if you want to run it in the browser and see all logs please do the following.
+//  browsers: ['Chrome_without_security'],
+//  singleRun: false,
+//  Chrome_without_security: {
+//      base: 'Chrome',
+//      flags: ['--disable-web-security', '--disable-site-isolation-trials']
+//  }
+
 module.exports = function(config) {
     config.set({
         frameworks: ["mocha", "chai"],
@@ -32,13 +40,13 @@ module.exports = function(config) {
         singleRun: true,
         captureConsole: true,
         files: [
-            {pattern: "test/**/*.js", type: "module"},
             {pattern: "public/aries-framework-go/assets/*", included: false},
             {pattern: "node_modules/@hyperledger/aries-framework-go/dist/web/*", type: "module"},
             {pattern: "node_modules/@hyperledger/aries-framework-go/dist/rest/*", type: "module"},
             "node_modules/axios/dist/axios.min.js",
             {pattern: "test/common.js", included: false},
             {pattern: "test/environment.js", included: false},
+            {pattern: "test/**/*.js", type: "module"}
         ],
         reporters: ["spec"],
         customLaunchers: {

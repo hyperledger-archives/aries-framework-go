@@ -20,6 +20,9 @@ const states = {
     requested: "requested",
 }
 
+const restMode = 'rest'
+const wasmMode = 'wasm'
+
 /**
  * DID exchange client for JS bdd tests
  * @param aries agent1 and agent2 instances
@@ -27,9 +30,10 @@ const states = {
  *
  */
 export const didExchangeClient = class {
-    constructor(agent1, agent2) {
+    constructor(agent1, agent2,mode) {
         this.agent1 = agent1
         this.agent2 = agent2
+        this.mode = mode
     }
 
     done(err) {
@@ -39,7 +43,14 @@ export const didExchangeClient = class {
     }
 
     async performDIDExchangeE2E() {
-        let connectionIDs
+        if (this.mode === restMode){
+            return await this.performDIDExchangeE2EREST()
+        }
+
+        return await this.performDIDExchangeE2EWASM()
+    }
+
+    async performDIDExchangeE2EWASM() {
         // receive an invitation from the router via the controller API
         var invitation = await this.createInvitationFromRouter(routerCreateInvitationPath)
         // agent1 accepts the invitation from the router
@@ -64,31 +75,23 @@ export const didExchangeClient = class {
 
         // perform did exchange between agent 1 and agent 2
         // create invitation from agent1
+        let response = await this.agent1.didexchange.createInvitation()
+        this.validateInvitation(response.invitation)
+        // accept invitation in agent 2 and accept exchange request in agent 1
+        await this.acceptInvitation(this.agent2, response.invitation, this.done)
+        await this.acceptExchangeRequest(this.agent1)
+        // wait for connection 'completed' in both the agents
+        return await Promise.all([this.watchForConnection(this.agent1, states.completed), this.watchForConnection(this.agent2, states.completed)])
+    }
+
+    async performDIDExchangeE2EREST() {
         var response = await this.agent1.didexchange.createInvitation()
         this.validateInvitation(response.invitation)
-       // accept invitation in agent 2 and accept exchange request in agent 1
-        await Promise.all([this.acceptInvitation(this.agent2, response.invitation, this.done), await this.acceptExchangeRequest(this.agent1)]).then(
-            values => {
-                this.done()
-            }
-        ).catch(
-            err => {
-                this.done(err)
-            }
-        )
+        // accept invitation in agent 2
+        await this.acceptInvitation(this.agent2, response.invitation)
         // wait for connection 'completed' in both the agents
-        await Promise.all([this.watchForConnection(this.agent1, states.completed), this.watchForConnection(this.agent2, states.completed)]).then(
-            values => {
-                this.done()
-                connectionIDs = values
-            }
-        ).catch(
-            err => {
-                this.done(err)
-            }
-        )
-
-        return connectionIDs
+        let connections = await Promise.all([this.watchForConnection(this.agent1), this.watchForConnection(this.agent2)])
+        return [connections[0].ConnectionID, connections[1].ConnectionID];
     }
 
     async destroy(){
@@ -118,7 +121,11 @@ export const didExchangeClient = class {
         assert.equal(invitation["@type"], "https://didcomm.org/didexchange/1.0/invitation")
     }
 
-    acceptInvitation(agent, invitation, done) {
+    acceptInvitation(agent, invitation) {
+        if (this.mode === restMode){
+            return agent.didexchange.receiveInvitation(invitation)
+        }
+
         return new Promise((resolve, reject) => {
             const timer = setTimeout(_ => reject(new Error("time out while accepting invitation")), 10000)
             const stop = agent.startNotifier(notice => {
@@ -140,6 +147,20 @@ export const didExchangeClient = class {
         })
     }
 
+
+    async watchForConnectionREST(agent) {
+        for (let i =0;i<10;i++){
+            let res = await agent.didexchange.queryConnections()
+            if ((Object.keys(res).length !== 0)){
+                return res.results[0]
+            }
+
+            await sleep(1000)
+        }
+
+        throw new Error("no connection")
+    }
+
     async acceptExchangeRequest(agent){
         const connectionID = await this.watchForConnection(agent, states.requested)
         agent.didexchange.acceptExchangeRequest({
@@ -148,6 +169,10 @@ export const didExchangeClient = class {
     }
 
     watchForConnection(agent, state) {
+        if (this.mode === restMode){
+            return this.watchForConnectionREST(agent)
+        }
+
         return new Promise((resolve, reject) => {
             const timer = setTimeout(_ => reject(new Error("time out while waiting for connection")), 5000)
             const stop = agent.startNotifier(notice => {
@@ -169,14 +194,8 @@ export const didExchangeClient = class {
         })
     }
 
-    async registerRouter(agent, connectionID, done) {
-        var resp
-        try {
-        resp = await agent.router.register({
-            "connectionID": connectionID
-        })} catch(err) {
-           done(err)
-        }
+    async registerRouter(agent, connectionID) {
+        await agent.router.register({"connectionID": connectionID})
     }
 
     validateRouterConnection(agent, connectionID, done) {
@@ -195,7 +214,7 @@ export const didExchangeClient = class {
     }
 }
 
-export async function newDIDExchangeClient(agent1, agent2, restmode) {
+export async function newDIDExchangeClient(agent1, agent2) {
     let aries1, aries2;
 
     const init = (values) => {
@@ -205,7 +224,7 @@ export async function newDIDExchangeClient(agent1, agent2, restmode) {
 
     await Promise.all([newAries(agent1,agent1), newAries(agent2,agent2)]).then(init).catch(err => new Error(err.message));
 
-    return new didExchangeClient(aries1, aries2)
+    return new didExchangeClient(aries1, aries2, wasmMode)
 }
 
 
@@ -219,5 +238,9 @@ export async function newDIDExchangeRESTClient(agentURL1, agentURL2) {
 
     await Promise.all([newAriesREST(agentURL1), newAriesREST(agentURL2)]).then(init).catch(err => new Error(err.message));
 
-    return new didExchangeClient(aries1, aries2)
+    return new didExchangeClient(aries1, aries2, restMode)
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
