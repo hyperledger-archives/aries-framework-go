@@ -49,7 +49,7 @@ func (c *connectionStore) saveConnectionRecord(record *connection.Record) error 
 		return fmt.Errorf(" failed to save connection record : %w", err)
 	}
 
-	if record.State == stateNameCompleted {
+	if record.State == StateIDCompleted {
 		if err := c.SaveDIDByResolving(record.TheirDID, record.RecipientKeys...); err != nil {
 			return fmt.Errorf(" failed to save DID by resolving : %w", err)
 		}

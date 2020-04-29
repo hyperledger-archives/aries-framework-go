@@ -71,7 +71,7 @@ func TestServiceAccept(t *testing.T) {
 }
 
 func TestServiceHandleInbound(t *testing.T) {
-	t.Run("test handle outbound ", func(t *testing.T) {
+	t.Run("test handle inbound ", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
@@ -87,16 +87,64 @@ func TestServiceHandleInbound(t *testing.T) {
 }
 
 func TestServiceHandleOutbound(t *testing.T) {
-	t.Run("test handle outbound ", func(t *testing.T) {
-		svc, err := New(&mockprovider.Provider{
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+	t.Run("outbound route-request", func(t *testing.T) {
+		msgID := make(chan string)
+
+		s := make(map[string][]byte)
+		provider := &mockprovider.Provider{
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-		})
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					require.Equal(t, myDID, MYDID)
+					require.Equal(t, theirDID, THEIRDID)
+
+					request, ok := msg.(*Request)
+					require.True(t, ok)
+
+					msgID <- request.ID
+					return nil
+				}}}
+		connRec := &connection.Record{
+			ConnectionID: "conn1", MyDID: MYDID, TheirDID: THEIRDID, State: "completed"}
+		connBytes, err := json.Marshal(connRec)
 		require.NoError(t, err)
 
-		err = svc.HandleOutbound(nil, "", "")
+		s["conn_conn1"] = connBytes
+
+		r, err := connection.NewRecorder(provider)
+		require.NoError(t, err)
+		err = r.SaveConnectionRecord(connRec)
+		require.NoError(t, err)
+
+		svc, err := New(provider)
+		require.NoError(t, err)
+
+		go func() {
+			id := <-msgID
+			require.NoError(t, svc.handleGrant(generateGrantMsgPayload(t, id)))
+		}()
+
+		err = svc.HandleOutbound(service.NewDIDCommMsgMap(&Request{
+			ID:   uuid.New().String(),
+			Type: RequestMsgType,
+		}), MYDID, THEIRDID)
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects invalid msg types", func(t *testing.T) {
+		err := (&Service{}).HandleOutbound(service.NewDIDCommMsgMap(&Request{
+			Type: "invalid",
+		}), "myDID", "theirDID")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "not implemented")
+	})
+
+	t.Run("rejects unsupported route protocol messages", func(t *testing.T) {
+		err := (&Service{}).HandleOutbound(service.NewDIDCommMsgMap(&Request{
+			Type: GrantMsgType,
+		}), "myDID", "theirDID")
+		require.Error(t, err)
 	})
 }
 

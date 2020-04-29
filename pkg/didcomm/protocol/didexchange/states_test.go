@@ -107,7 +107,7 @@ func TestCompletedState(t *testing.T) {
 
 func TestAbandonedState(t *testing.T) {
 	abandoned := &abandoned{}
-	require.Equal(t, stateNameAbandoned, abandoned.Name())
+	require.Equal(t, StateIDAbandoned, abandoned.Name())
 	require.False(t, abandoned.CanTransitionTo(&null{}))
 	require.False(t, abandoned.CanTransitionTo(&invited{}))
 	require.False(t, abandoned.CanTransitionTo(&requested{}))

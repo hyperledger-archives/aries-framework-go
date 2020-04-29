@@ -347,9 +347,9 @@ func handleMessagesInvitee(statusCh chan service.StateMsg, requestedCh chan stri
 	for e := range statusCh {
 		if e.Type == service.PostState {
 			// receive the events
-			if e.StateID == stateNameCompleted {
+			if e.StateID == StateIDCompleted {
 				close(completedCh)
-			} else if e.StateID == stateNameRequested {
+			} else if e.StateID == StateIDRequested {
 				prop, ok := e.Properties.(event)
 				if !ok {
 					panic("Failed to cast the event properties to service.Event")
@@ -660,7 +660,7 @@ func TestEventsSuccess(t *testing.T) {
 
 	go func() {
 		for e := range statusCh {
-			if e.Type == service.PostState && e.StateID == stateNameRequested {
+			if e.Type == service.PostState && e.StateID == StateIDRequested {
 				done <- struct{}{}
 			}
 		}
@@ -770,7 +770,7 @@ func TestEventsUserError(t *testing.T) {
 			case e := <-actionCh:
 				e.Stop(errors.New("invalid id"))
 			case e := <-statusCh:
-				if e.Type == service.PostState && e.StateID == stateNameAbandoned {
+				if e.Type == service.PostState && e.StateID == StateIDAbandoned {
 					done <- struct{}{}
 				}
 			}
@@ -919,7 +919,7 @@ func TestServiceErrors(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid state name:")
 
 	// invalid state name
-	message.NextStateName = stateNameInvited
+	message.NextStateName = StateIDInvited
 	message.ConnRecord = &connection.Record{ConnectionID: "abc"}
 	err = svc.handleWithoutAction(message)
 	require.Error(t, err)
@@ -1099,7 +1099,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 
 	go func() {
 		for e := range statusCh {
-			if e.Type == service.PostState && e.StateID == stateNameResponded {
+			if e.Type == service.PostState && e.StateID == StateIDResponded {
 				done <- struct{}{}
 			}
 		}
@@ -1165,7 +1165,7 @@ func TestAcceptExchangeRequestWithPublicDID(t *testing.T) {
 
 	go func() {
 		for e := range statusCh {
-			if e.Type == service.PostState && e.StateID == stateNameResponded {
+			if e.Type == service.PostState && e.StateID == StateIDResponded {
 				done <- struct{}{}
 			}
 		}
@@ -1219,11 +1219,11 @@ func TestAcceptInvitation(t *testing.T) {
 					require.Fail(t, "Failed to cast the event properties to service.Event")
 				}
 
-				if e.Type == service.PostState && e.StateID == stateNameInvited {
+				if e.Type == service.PostState && e.StateID == StateIDInvited {
 					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), "", ""))
 				}
 
-				if e.Type == service.PostState && e.StateID == stateNameRequested {
+				if e.Type == service.PostState && e.StateID == StateIDRequested {
 					done <- struct{}{}
 				}
 			}
@@ -1273,7 +1273,7 @@ func TestAcceptInvitation(t *testing.T) {
 		id := generateRandomID()
 		connRecord := &connection.Record{
 			ConnectionID: id,
-			State:        stateNameRequested,
+			State:        StateIDRequested,
 		}
 		err = svc.connectionStore.saveConnectionRecord(connRecord)
 		require.NoError(t, err)
@@ -1297,7 +1297,7 @@ func TestAcceptInvitation(t *testing.T) {
 		id := generateRandomID()
 		connRecord := &connection.Record{
 			ConnectionID: id,
-			State:        stateNameRequested,
+			State:        StateIDRequested,
 		}
 
 		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
@@ -1351,11 +1351,11 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 					require.Fail(t, "Failed to cast the event properties to service.Event")
 				}
 
-				if e.Type == service.PostState && e.StateID == stateNameInvited {
+				if e.Type == service.PostState && e.StateID == StateIDInvited {
 					require.NoError(t, svc.AcceptInvitation(prop.ConnectionID(), publicDID, "sample-label"))
 				}
 
-				if e.Type == service.PostState && e.StateID == stateNameRequested {
+				if e.Type == service.PostState && e.StateID == StateIDRequested {
 					done <- struct{}{}
 				}
 			}
@@ -1405,7 +1405,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		id := generateRandomID()
 		connRecord := &connection.Record{
 			ConnectionID: id,
-			State:        stateNameRequested,
+			State:        StateIDRequested,
 		}
 		err = svc.connectionStore.saveConnectionRecord(connRecord)
 		require.NoError(t, err)
@@ -1429,7 +1429,7 @@ func TestAcceptInvitationWithPublicDID(t *testing.T) {
 		id := generateRandomID()
 		connRecord := &connection.Record{
 			ConnectionID: id,
-			State:        stateNameRequested,
+			State:        StateIDRequested,
 		}
 
 		err = svc.storeEventTransientData(&message{ConnRecord: connRecord})
@@ -1522,7 +1522,7 @@ func TestNextState(t *testing.T) {
 
 		s, errState := svc.nextState(RequestMsgType, generateRandomID())
 		require.NoError(t, errState)
-		require.Equal(t, stateNameRequested, s.Name())
+		require.Equal(t, StateIDRequested, s.Name())
 	})
 }
 

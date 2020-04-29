@@ -34,13 +34,18 @@ import (
 )
 
 const (
-	stateNameNoop      = "noop"
-	stateNameNull      = "null"
-	stateNameInvited   = "invited"
-	stateNameRequested = "requested"
-	stateNameResponded = "responded"
-	stateNameCompleted = "completed"
-	stateNameAbandoned = "abandoned"
+	stateNameNoop = "noop"
+	stateNameNull = "null"
+	// StateIDInvited marks the invited phase of the did-exchange protocol.
+	StateIDInvited = "invited"
+	// StateIDRequested marks the requested phase of the did-exchange protocol.
+	StateIDRequested = "requested"
+	// StateIDResponded marks the responded phase of the did-exchange protocol.
+	StateIDResponded = "responded"
+	// StateIDCompleted marks the completed phase of the did-exchange protocol.
+	StateIDCompleted = "completed"
+	// StateIDAbandoned marks the abandoned phase of the did-exchange protocol.
+	StateIDAbandoned   = "abandoned"
 	ackStatusOK        = "ok"
 	didCommServiceType = "did-communication"
 	didMethod          = "peer"
@@ -89,15 +94,15 @@ func stateFromName(name string) (state, error) {
 		return &noOp{}, nil
 	case stateNameNull:
 		return &null{}, nil
-	case stateNameInvited:
+	case StateIDInvited:
 		return &invited{}, nil
-	case stateNameRequested:
+	case StateIDRequested:
 		return &requested{}, nil
-	case stateNameResponded:
+	case StateIDResponded:
 		return &responded{}, nil
-	case stateNameCompleted:
+	case StateIDCompleted:
 		return &completed{}, nil
-	case stateNameAbandoned:
+	case StateIDAbandoned:
 		return &abandoned{}, nil
 	default:
 		return nil, fmt.Errorf("invalid state name %s", name)
@@ -129,7 +134,7 @@ func (s *null) Name() string {
 }
 
 func (s *null) CanTransitionTo(next state) bool {
-	return stateNameInvited == next.Name() || stateNameRequested == next.Name()
+	return StateIDInvited == next.Name() || StateIDRequested == next.Name()
 }
 
 func (s *null) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
@@ -142,11 +147,11 @@ type invited struct {
 }
 
 func (s *invited) Name() string {
-	return stateNameInvited
+	return StateIDInvited
 }
 
 func (s *invited) CanTransitionTo(next state) bool {
-	return stateNameRequested == next.Name()
+	return StateIDRequested == next.Name()
 }
 
 func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
@@ -165,11 +170,11 @@ type requested struct {
 }
 
 func (s *requested) Name() string {
-	return stateNameRequested
+	return StateIDRequested
 }
 
 func (s *requested) CanTransitionTo(next state) bool {
-	return stateNameResponded == next.Name()
+	return StateIDResponded == next.Name()
 }
 
 func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
@@ -208,11 +213,11 @@ type responded struct {
 }
 
 func (s *responded) Name() string {
-	return stateNameResponded
+	return StateIDResponded
 }
 
 func (s *responded) CanTransitionTo(next state) bool {
-	return stateNameCompleted == next.Name()
+	return StateIDCompleted == next.Name()
 }
 
 func (s *responded) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
@@ -244,7 +249,7 @@ type completed struct {
 }
 
 func (s *completed) Name() string {
-	return stateNameCompleted
+	return StateIDCompleted
 }
 
 func (s *completed) CanTransitionTo(next state) bool {
@@ -281,7 +286,7 @@ type abandoned struct {
 }
 
 func (s *abandoned) Name() string {
-	return stateNameAbandoned
+	return StateIDAbandoned
 }
 
 func (s *abandoned) CanTransitionTo(next state) bool {
@@ -301,6 +306,7 @@ func (ctx *context) handleInboundOOBInvitation(
 	}
 
 	msg.connRecord.MyDID = myDID.ID
+	msg.connRecord.ThreadID = thid
 
 	request := &Request{
 		Type:       RequestMsgType,
@@ -337,6 +343,7 @@ func (ctx *context) handleInboundOOBInvitation(
 	}
 
 	return func() error {
+		logger.Debugf("dispatching outbound request on thread: %+v", request.Thread)
 		return ctx.outboundDispatcher.Send(request, recipientKey, dest)
 	}, msg.connRecord, nil
 }

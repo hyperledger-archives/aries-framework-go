@@ -6,7 +6,13 @@ SPDX-License-Identifier: Apache-2.0
 
 package decorator
 
-import "time"
+import (
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+)
 
 const (
 	// TransportReturnRouteNone return route option none
@@ -86,4 +92,33 @@ type AttachmentData struct {
 	// JSON is a directly embedded JSON data, when representing content inline instead of via links,
 	// and when the content is natively conveyable as JSON. Optional.
 	JSON interface{} `json:"json,omitempty"`
+}
+
+// Fetch this attachment's contents.
+func (d *AttachmentData) Fetch() ([]byte, error) {
+	if d.JSON != nil {
+		bits, err := json.Marshal(d.JSON)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal json contents : %w", err)
+		}
+
+		return bits, nil
+	}
+
+	if d.Base64 != "" {
+		bits, err := base64.StdEncoding.DecodeString(d.Base64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to base64 decode attachment contents : %w", err)
+		}
+
+		return bits, nil
+	}
+
+	// TODO add support for checksum verification
+
+	// TODO add support to fetch links
+
+	// TODO add support for jws signatures
+
+	return nil, errors.New("no contents in this attachment")
 }
