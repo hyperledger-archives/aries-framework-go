@@ -12,6 +12,9 @@ const inBrowser = typeof window !== 'undefined' && typeof window.document !== 'u
 // wait for 'notifierWait' milliseconds before retrying to check for incoming notifications
 const notifierWait = 10000
 
+// time out for command operations
+const commandTimeout = 20000
+
 // base path to load assets from at runtime
 const __publicPath = _ => {
     if (inNode) {
@@ -31,7 +34,7 @@ const {loadWorker} = require("worker_loader")
 // registers messages in pending and posts them to the worker
 async function invoke(w, pending, pkg, fn, arg, msgTimeout) {
     return new Promise((resolve, reject) => {
-        const timer = setTimeout(_ => reject(new Error(msgTimeout)), 5000)
+        const timer = setTimeout(_ => reject(new Error(msgTimeout)), commandTimeout)
         let payload = arg
         if (typeof arg === "string") {
             payload = JSON.parse(arg)

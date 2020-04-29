@@ -78,11 +78,17 @@ func (s *Store) SaveCredential(name string, vc *verifiable.Credential) error {
 		return fmt.Errorf("failed to marshal vc: %w", err)
 	}
 
-	if e := s.store.Put(vc.ID, vcBytes); e != nil {
+	id = vc.ID
+	if id == "" {
+		// ID in VCs are not mandatory, use uuid to save in DB if id missing
+		id = uuid.New().String()
+	}
+
+	if e := s.store.Put(id, vcBytes); e != nil {
 		return fmt.Errorf("failed to put vc: %w", e)
 	}
 
-	recordBytes, err := getRecord(vc.ID, vc.Context, vc.Types)
+	recordBytes, err := getRecord(id, vc.Context, vc.Types)
 	if err != nil {
 		return fmt.Errorf("failed to prepare record: %w", err)
 	}
@@ -115,7 +121,7 @@ func (s *Store) SavePresentation(name string, vp *verifiable.Presentation) error
 	}
 
 	id = vp.ID
-	if vp.ID == "" {
+	if id == "" {
 		// ID in VPs are not mandatory, use uuid to save in DB
 		id = uuid.New().String()
 	}

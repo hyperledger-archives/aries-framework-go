@@ -8,7 +8,6 @@ package jsonld
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"testing"
 
@@ -72,8 +71,14 @@ func TestGetCanonicalDocument(t *testing.T) {
 				result: canonizedSampleVP,
 			},
 			{
-				name:   "canonizing sample document with incorrect RDFs causing node label miss match issue",
+				name:   "canonizing sample document with incorrect RDFs causing node label miss match issue (array type)",
 				doc:    invalidRDFMessingUpLabelPrefixCounter,
+				result: canonizedSampleVP2,
+				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing sample document with incorrect RDFs causing node label miss match issue (string type)",
+				doc:    invalidRDFMessingUpLabelPrefixCounterStringType,
 				result: canonizedSampleVP2,
 				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
 			},
@@ -93,6 +98,29 @@ func TestGetCanonicalDocument(t *testing.T) {
 				name:   "canonizing document with 1 incorrect RDF11",
 				doc:    jsonldWith2KnownInvalidRDFs,
 				result: canonizedIncorrectRDF_allfiltered,
+				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing sample VC document with proper context",
+				doc:    jsonVCWithProperContexts,
+				result: canonizedJSONCredential,
+			},
+			{
+				name:   "canonizing sample VC document with proper proper context but remove all invalid RDF",
+				doc:    jsonVCWithProperContexts,
+				result: canonizedJSONCredential,
+				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+			},
+			{
+				name:   "canonizing sample VC document with improper context",
+				doc:    jsonVCWithIncorrectContexts,
+				result: canonizedJSONCredential_notfiltered,
+				opts:   []CanonicalizationOpts{},
+			},
+			{
+				name:   "canonizing sample VC document with improper context but remove all invalid RDF",
+				doc:    jsonVCWithIncorrectContexts,
+				result: canonizedJSONCredential_filtered,
 				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
 			},
 			{
@@ -117,9 +145,6 @@ func TestGetCanonicalDocument(t *testing.T) {
 					require.Contains(t, err.Error(), tc.err)
 					return
 				}
-
-				fmt.Println("string(response)", string(response))
-				fmt.Println("tc.result", string(response))
 
 				require.NoError(t, err)
 				require.EqualValues(t, tc.result, string(response))
@@ -348,7 +373,6 @@ _:c14n0 <https://example.org/examples#degree> "MIT" .
 _:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
 _:c14n0 <https://example.org/examples#degree> "MIT" .
 `
-
 	// nolint
 	invalidRDFMessingUpLabelPrefixCounter = `{
     "@context": [
@@ -358,6 +382,54 @@ _:c14n0 <https://example.org/examples#degree> "MIT" .
     "type": [
       "VerifiablePresentation"
     ],
+    "verifiableCredential": [
+      {
+        "@context": [
+          "https://www.w3.org/2018/credentials/v1",
+          "https://www.w3.org/2018/credentials/examples/v1"
+        ],
+        "credentialSchema": [],
+        "credentialStatus": {
+          "id": "http://issuer.vc.rest.example.com:8070/status/1",
+          "type": "CredentialStatusList2017"
+        },
+        "credentialSubject": {
+          "degree": {
+            "degree": "MIT",
+            "type": "BachelorDegree"
+          },
+          "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+          "name": "Jayden Doe",
+          "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+        },
+        "id": "https://example.com/credentials/296d1a51-5577-4570-ba14-a4664fe2ca20",
+        "issuanceDate": "2020-03-16T22:37:26.544Z",
+        "issuer": {
+          "id": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+          "name": "alice_e64b24cf-2698-495e-9770-01554a1ce780"
+        },
+        "proof": {
+          "created": "2020-04-14T01:15:33Z",
+          "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..PEhM4787FbnSu98Er_OKeFn1BDqbdw2DrNhdBQfUou6qgUdITLfsmfPkXtuXM_AbLtrPuWi_yy9y8zIGX0YGDA",
+          "proofPurpose": "assertionMethod",
+          "type": "Ed25519Signature2018",
+          "verificationMethod": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd"
+        },
+        "type": [
+          "VerifiableCredential",
+          "UniversityDegreeCredential"
+        ]
+      }
+    ]
+  }`
+
+	// nolint
+	invalidRDFMessingUpLabelPrefixCounterStringType = `{
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://www.w3.org/2018/credentials/examples/v1"
+    ],
+    "type": "VerifiablePresentation",
     "verifiableCredential": [
       {
         "@context": [
@@ -496,4 +568,138 @@ const canonizedIncorrectRDF_allfiltered = `<did:example:ebfeb1f712ebc6f1c276e12e
 <https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#issuer> <did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg> .
 _:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
 _:c14n1 <https://example.org/examples#degree> "MIT" .
+`
+
+// nolint
+const jsonVCWithProperContexts = `{
+    "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+		"https://www.w3.org/2018/credentials/examples/v1",
+        "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+        "https://trustbloc.github.io/context/vc/credentials-v1.jsonld"
+    ],
+    "credentialStatus": {
+        "id": "https://issuer-vcs.trustbloc.local/status/1",
+        "type": "CredentialStatusList2017"
+    },
+    "credentialSubject": {
+            "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+            "degree": {
+                "degree": "MIT",
+                "type": "BachelorDegree"
+            },
+            "name": "Jayden Doe",
+            "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+	},
+    "id": "http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440",
+    "issuanceDate": "2020-04-29T00:04:25.1025635Z",
+    "issuer": {
+        "id": "did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q",
+        "name": "trustbloc-jsonwebsignature2020-ed25519"
+    },
+    "proof": {
+        "created": "2020-04-29T00:04:29Z",
+        "jws": "eyJhbGciOiJKc29uV2ViU2lnbmF0dXJlMjAyMCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..PyBEIah5rLOUIkfa3bDkEccDPn6RD9iL2n9Hndwgionu5ZcghR3ekt-4UjBKIhU7VMNcggxOQGD1srAIFlCEBw",
+        "proofPurpose": "assertionMethod",
+        "type": "JsonWebSignature2020",
+        "verificationMethod": "did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q#bG9jYWwtbG9jazovL2N1c3RvbS9tYXN0ZXIva2V5L3lCQUJlV0RHakJicUQ3eTNUWTgwc2Nrb3FUR3V0VS1TSC1CRDF5aEM4RTA9"
+    },
+    "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+    ]
+}`
+
+// nolint
+const jsonVCWithIncorrectContexts = `{
+    "@context": [
+        "https://www.w3.org/2018/credentials/v1", 
+		"https://www.w3.org/2018/credentials/examples/v1"
+    ],
+    "credentialStatus": {
+        "id": "https://issuer-vcs.trustbloc.local/status/1",
+        "type": "CredentialStatusList2017"
+    },
+	"credentialSubject": {
+            "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+            "degree": {
+                "degree": "MIT",
+                "type": "BachelorDegree"
+            },
+            "name": "Jayden Doe",
+            "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+	},
+    "id": "http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440",
+    "issuanceDate": "2020-04-29T00:04:25.1025635Z",
+    "issuer": {
+        "id": "did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q",
+        "name": "trustbloc-jsonwebsignature2020-ed25519"
+    },
+    "proof": {
+        "created": "2020-04-29T00:04:29Z",
+        "jws": "eyJhbGciOiJKc29uV2ViU2lnbmF0dXJlMjAyMCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..PyBEIah5rLOUIkfa3bDkEccDPn6RD9iL2n9Hndwgionu5ZcghR3ekt-4UjBKIhU7VMNcggxOQGD1srAIFlCEBw",
+        "proofPurpose": "assertionMethod",
+        "type": "JsonWebSignature2020",
+        "verificationMethod": "did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q#bG9jYWwtbG9jazovL2N1c3RvbS9tYXN0ZXIva2V5L3lCQUJlV0RHakJicUQ3eTNUWTgwc2Nrb3FUR3V0VS1TSC1CRDF5aEM4RTA9"
+    },
+    "type": [
+        "VerifiableCredential",
+        "UniversityDegreeCredential"
+    ]
+}`
+
+// nolint
+const canonizedJSONCredential = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n0 .
+<did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q> <http://schema.org/name> "trustbloc-jsonwebsignature2020-ed25519"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://w3id.org/security#proof> _:c14n2 .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#credentialStatus> <https://issuer-vcs.trustbloc.local/status/1> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:ebfeb1f712ebc6f1c276e12ec21> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#issuanceDate> "2020-04-29T00:04:25.1025635Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#issuer> <did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q> .
+<https://issuer-vcs.trustbloc.local/status/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#CredentialStatusList2017> .
+_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
+_:c14n0 <https://example.org/examples#degree> "MIT" .
+_:c14n1 <http://purl.org/dc/terms/created> "2020-04-29T00:04:29Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> _:c14n2 .
+_:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3c-ccg.github.io/lds-jws2020/contexts/#JsonWebSignature2020> _:c14n2 .
+_:c14n1 <https://w3id.org/security#jws> "eyJhbGciOiJKc29uV2ViU2lnbmF0dXJlMjAyMCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..PyBEIah5rLOUIkfa3bDkEccDPn6RD9iL2n9Hndwgionu5ZcghR3ekt-4UjBKIhU7VMNcggxOQGD1srAIFlCEBw" _:c14n2 .
+_:c14n1 <https://w3id.org/security#proofPurpose> <https://w3id.org/security#assertionMethod> _:c14n2 .
+_:c14n1 <https://w3id.org/security#verificationMethod> <did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q#bG9jYWwtbG9jazovL2N1c3RvbS9tYXN0ZXIva2V5L3lCQUJlV0RHakJicUQ3eTNUWTgwc2Nrb3FUR3V0VS1TSC1CRDF5aEM4RTA9> _:c14n2 .
+`
+
+// nolint
+const canonizedJSONCredential_filtered = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n1 .
+<did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q> <http://schema.org/name> "trustbloc-jsonwebsignature2020-ed25519"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://w3id.org/security#proof> _:c14n0 .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#credentialStatus> <https://issuer-vcs.trustbloc.local/status/1> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:ebfeb1f712ebc6f1c276e12ec21> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#issuanceDate> "2020-04-29T00:04:25.1025635Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#issuer> <did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q> .
+_:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
+_:c14n1 <https://example.org/examples#degree> "MIT" .
+`
+
+// nolint
+const canonizedJSONCredential_notfiltered = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
+<did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n0 .
+<did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q> <http://schema.org/name> "trustbloc-jsonwebsignature2020-ed25519"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://w3id.org/security#proof> _:c14n2 .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#credentialStatus> <https://issuer-vcs.trustbloc.local/status/1> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:ebfeb1f712ebc6f1c276e12ec21> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#issuanceDate> "2020-04-29T00:04:25.1025635Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+<http://example.com/8de063d1-9c00-4093-8dc9-262ff89e3440> <https://www.w3.org/2018/credentials#issuer> <did:trustbloc:testnet.trustbloc.local:EiCukr5lyAmPI0E2lDstNHcvqKhTpJzc_Ql1KQWYCJIB_Q> .
+<https://issuer-vcs.trustbloc.local/status/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <CredentialStatusList2017> .
+_:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
+_:c14n0 <https://example.org/examples#degree> "MIT" .
+_:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <JsonWebSignature2020> _:c14n2 .
 `

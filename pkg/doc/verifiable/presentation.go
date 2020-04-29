@@ -287,9 +287,9 @@ func (vp *Presentation) raw() (*rawPresentation, error) {
 	}
 
 	return &rawPresentation{
-		Context:        vp.Context,
+		Context:        typesToRaw(vp.Context),
 		ID:             vp.ID,
-		Type:           vp.Type,
+		Type:           typesToRaw(vp.Type),
 		Credential:     vp.credentials,
 		Holder:         vp.Holder,
 		Proof:          proof,
