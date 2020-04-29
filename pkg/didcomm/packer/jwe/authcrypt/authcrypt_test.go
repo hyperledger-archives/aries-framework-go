@@ -466,7 +466,7 @@ func TestEncrypt(t *testing.T) {
 		jwe.Tag = validJwe.Tag
 
 		// update jwe with bad recipient spk (JWE format)
-		jwe.Recipients[0].Header.SPK = "badSPK!"
+		jwe.Recipients[0].Header.SPK = []byte(`"badSPK!"`)
 		enc, e = json.Marshal(jwe)
 		require.NoError(t, e)
 		// decrypt with bad tag
