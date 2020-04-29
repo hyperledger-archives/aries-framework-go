@@ -137,7 +137,7 @@ func (je *JWEEncrypt) Encrypt(plaintext, aad []byte) (*JSONWebEncryption, error)
 			EncryptedKey: string(rec.EncryptedCEK),
 			Header: &RecipientHeaders{
 				Alg: rec.Alg,
-				EPK: string(mRecJWK),
+				EPK: mRecJWK,
 			},
 		})
 	}

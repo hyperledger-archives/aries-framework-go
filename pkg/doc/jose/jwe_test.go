@@ -18,29 +18,32 @@ import (
 )
 
 const (
+	exampleEPK = `{"kty":"EC","crv":"P-256","x":"0_Zip_vHBNI-P_in4S2OuPsxWy9cMWCem-ubr4hK1D0","y":"UTIlc5Vf0Ul` +
+		`yrOgxFzZjt3JwKTA99cfkVNGu70_UZpA"}`
+
 	exampleMockJWEAllFields = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVl` +
 		`MSIsInByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unp` +
 		`rotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"header":{"apu":"Tes` +
-		`tAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"` +
-		`header":{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypt` +
-		`ed_key":"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"` +
-		`VGVzdFRhZw"}`
+		`tAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","epk":` + exampleEPK + `},"encrypted_key":"VGVzdE` +
+		`tleQ"},{"header":{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","epk":` +
+		exampleEPK + `},"encrypt` + `ed_key":"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"` +
+		`VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
 	exampleMockJWEAllFieldsOneRecipient = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVl` +
 		`MSIsInByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unp` +
 		`rotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"encrypted_key":"VGVzdEtleQ","heade` +
-		`r":{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"aad":"VGVzdEFBRA"` +
-		`,"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
+		`r":{"apu":"TestAPU","iv":"TestIV","tag":"TestTag","kid":"TestKID","epk":` + exampleEPK + `},"aad":"VG` +
+		`VzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
 	exampleMockJWEProtectedFieldAbsent = `{"unprotected":{"unprotectedheader1":"unprotectedtestvalue1","unpr` +
 		`otectedheader2":"unprotectedtestvalue2"},"recipients":[{"header":{"apu":"TestAPU","iv":"TestIV","tag"` +
-		`:"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"header":{"apu":"TestAPU2"` +
-		`,"iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypted_key":"VGVzdEtleTI"}],"` +
-		`aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
+		`:"TestTag","kid":"TestKID","epk":` + exampleEPK + `},"encrypted_key":"VGVzdEtleQ"},{"header":{"apu":"` +
+		`TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","epk":` + exampleEPK + `},"encrypted_key":` +
+		`"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
 	exampleMockJWEUnprotectedFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVl` +
 		`MSIsInByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","recipients":[{"header":{"apu":"TestAPU"` +
-		`,"iv":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"heade` +
-		`r":{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypted_ke` +
-		`y":"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzd` +
-		`FRhZw"}`
+		`,"iv":"TestIV","tag":"TestTag","kid":"TestKID","epk":` + exampleEPK + `},"encrypted_key":"VGVzdEtleQ"` +
+		`},{"header":{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","epk":` + exampleEPK +
+		`},"encrypted_key":"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleH` +
+		`Q","tag":"VGVzdFRhZw"}`
 	exampleMockJWERecipientsFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVl` +
 		`MSIsInByb3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unp` +
 		`rotectedtestvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{}],"aad":"VGVzdEFBRA` +
@@ -48,21 +51,21 @@ const (
 	exampleMockJWEIVFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInBy` +
 		`b3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotected` +
 		`testvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"header":{"apu":"TestAPU","i` +
-		`v":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"header":` +
-		`{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypted_key":` +
-		`"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
+		`v":"TestIV","tag":"TestTag","kid":"TestKID","epk":` + exampleEPK + `},"encrypted_key":"VGVzdEtleQ"},{` +
+		`"header":{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","epk":` + exampleEPK + `}` +
+		`,"encrypted_key":"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
 	exampleMockJWEAADFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInBy` +
 		`b3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotected` +
 		`testvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"header":{"apu":"TestAPU","i` +
-		`v":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"header":` +
-		`{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypted_key":` +
-		`"VGVzdEtleTI"}],"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
+		`v":"TestIV","tag":"TestTag","kid":"TestKID","epk":` + exampleEPK + `},"encrypted_key":"VGVzdEtleQ"},{` +
+		`"header":{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","epk":` + exampleEPK + `}` +
+		`,"encrypted_key":"VGVzdEtleTI"}],"iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ","tag":"VGVzdFRhZw"}`
 	exampleMockJWETagFieldAbsent = `{"protected":"eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInBy` +
 		`b3RlY3RlZGhlYWRlcjIiOiJwcm90ZWN0ZWR0ZXN0dmFsdWUyIn0","unprotected":{"unprotectedheader1":"unprotected` +
 		`testvalue1","unprotectedheader2":"unprotectedtestvalue2"},"recipients":[{"header":{"apu":"TestAPU","i` +
-		`v":"TestIV","tag":"TestTag","kid":"TestKID","spk":"TestSPK"},"encrypted_key":"VGVzdEtleQ"},{"header":` +
-		`{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","spk":"TestSPK2"},"encrypted_key":` +
-		`"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ"}`
+		`v":"TestIV","tag":"TestTag","kid":"TestKID","epk":` + exampleEPK + `},"encrypted_key":"VGVzdEtleQ"},{` +
+		`"header":{"apu":"TestAPU2","iv":"TestIV2","tag":"TestTag2","kid":"TestKID2","epk":` + exampleEPK + `}` +
+		`,"encrypted_key":"VGVzdEtleTI"}],"aad":"VGVzdEFBRA","iv":"VGVzdElW","ciphertext":"VGVzdENpcGhlclRleHQ"}`
 
 	exampleRealFullJWE = `{"protected":"eyJlbmMiOiJBMTI4Q0JDLUhTMjU2In0","unprotected":{"jku":"https://serv` +
 		`er.example.com/keys.jwks"},"recipients":[{"header":{"alg":"RSA1_5","kid":"2011-04-29"},"encrypted_key` +
@@ -72,6 +75,15 @@ const (
 		`-cFPgwCp6X-nZZd9OHBv-B3oWh2TbqmScqXMR4gp_A"},{"header":{"alg":"A128KW","kid":"7"},"encrypted_key":"6K` +
 		`B707dM9YTIgHtLvtgWQ8mKwboJW3of9locizkDTHzBC2IlrT1oOQ"}],"iv":"AxY8DCtDaGlsbGljb3RoZQ","ciphertext":"K` +
 		`DlTtXchhZTGufMYmOYGS4HffxPSUrfmqCHXaI9wOGY","tag":"Mz-VPPyU4RlcuYv1IwIvzw"}`
+	exampleRealFullJWEWithEPKs = `{"protected":"eyJlbmMiOiJBMjU2R0NNIn0","recipients":[{"header":{"alg":"ECDH-` +
+		`ES+A256KW","epk":{"kty":"EC","crv":"P-256","x":"nHdqtsfXMabc2a1dtpnOgvWhkRiPxHopnfFH-BtSOaQ","y":"GWG` +
+		`uLnoohFrpXExSuuuOz-p3uSFFq1FVZP0dN-3q9H8"}},"encrypted_key":"fE26rjeON_iBo84fkvD56nLthhRM04LPzrYiIUQ4` +
+		`E5caOhtU95-t2w"},{"header":{"alg":"ECDH-ES+A256KW","epk":{"kty":"EC","crv":"P-256","x":"r2wTh-URkmIuK` +
+		`3f4LaJvPP7wTZVG7sdVatGxGadPPqA","y":"tZ29KzMcIrF9j-SakwtR9a-qP0iV4hdaeghjnpPgoaQ"}},"encrypted_key":"` +
+		`cixwgiJZK3JtKAOX2UHSE9N_4s4CXruAWby8efyQWueY-wx0_qeIrg"},{"header":{"alg":"ECDH-ES+A256KW","epk":{"kt` +
+		`y":"EC","crv":"P-256","x":"t0p3XILJf-1FMkuQqyX59kBpxVaYd-DIjrY3oDxvFHA","y":"Wfme-7LxEUK7sewvXhxrTV6c` +
+		`EVMkROPGbd2glkddAZs"}},"encrypted_key":"YSQvknAFf5teYWg2eciNiVx5oXNbKS688Dd_0aVxgtFtelxqc8Jv0g"}],"iv` +
+		`":"8-9HnO8n5et1Se3y","ciphertext":"jlgZfA44GMe-mhZLzxcur9g40g","tag":"rbXD5g7QxIOc4_J7idRHQA"}`
 	exampleRealCompactJWE = "eyJhbGciOiJSU0EtT0FFUCIsImVuYyI6IkEyNTZHQ00ifQ.OKOawDo13gRp2ojaHV7LFpZcgV7T6DV" +
 		"ZKTyKOMTYUmKoTCVJRgckCL9kiMT03JGeipsEdY3mx_etLbbWSrFr05kLzcSr4qKAq7YN7e9jwQRb23nfa6c9d-StnImGyFDbSv04uV" +
 		"uxIp5Zms1gNxKKK2Da14B8S4rzVRltdYwam_lDp5XnZAYpQdb76FdIKLaVmqgfwX7XWRxv2322i-vDxRfqNzo_tETKzpVLzfiwQyeyP" +
@@ -105,7 +117,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV",
 					Tag: "TestTag",
 					KID: "TestKID",
-					SPK: "TestSPK",
+					EPK: []byte(exampleEPK),
 				},
 			}
 			recipients[1] = &Recipient{
@@ -115,7 +127,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV2",
 					Tag: "TestTag2",
 					KID: "TestKID2",
-					SPK: "TestSPK2",
+					EPK: []byte(exampleEPK),
 				},
 			}
 
@@ -146,7 +158,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV",
 					Tag: "TestTag",
 					KID: "TestKID",
-					SPK: "TestSPK",
+					EPK: []byte(exampleEPK),
 				},
 			}
 
@@ -175,7 +187,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV",
 					Tag: "TestTag",
 					KID: "TestKID",
-					SPK: "TestSPK",
+					EPK: []byte(exampleEPK),
 				},
 			}
 			recipients[1] = &Recipient{
@@ -185,7 +197,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV2",
 					Tag: "TestTag2",
 					KID: "TestKID2",
-					SPK: "TestSPK2",
+					EPK: []byte(exampleEPK),
 				},
 			}
 
@@ -213,7 +225,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV",
 					Tag: "TestTag",
 					KID: "TestKID",
-					SPK: "TestSPK",
+					EPK: []byte(exampleEPK),
 				},
 			}
 			recipients[1] = &Recipient{
@@ -223,7 +235,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV2",
 					Tag: "TestTag2",
 					KID: "TestKID2",
-					SPK: "TestSPK2",
+					EPK: []byte(exampleEPK),
 				},
 			}
 
@@ -271,7 +283,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV",
 					Tag: "TestTag",
 					KID: "TestKID",
-					SPK: "TestSPK",
+					EPK: []byte(exampleEPK),
 				},
 			}
 			recipients[1] = &Recipient{
@@ -281,7 +293,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV2",
 					Tag: "TestTag2",
 					KID: "TestKID2",
-					SPK: "TestSPK2",
+					EPK: []byte(exampleEPK),
 				},
 			}
 
@@ -312,7 +324,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV",
 					Tag: "TestTag",
 					KID: "TestKID",
-					SPK: "TestSPK",
+					EPK: []byte(exampleEPK),
 				},
 			}
 			recipients[1] = &Recipient{
@@ -322,7 +334,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV2",
 					Tag: "TestTag2",
 					KID: "TestKID2",
-					SPK: "TestSPK2",
+					EPK: []byte(exampleEPK),
 				},
 			}
 
@@ -352,7 +364,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV",
 					Tag: "TestTag",
 					KID: "TestKID",
-					SPK: "TestSPK",
+					EPK: []byte(exampleEPK),
 				},
 			}
 			recipients[1] = &Recipient{
@@ -362,7 +374,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 					IV:  "TestIV2",
 					Tag: "TestTag2",
 					KID: "TestKID2",
-					SPK: "TestSPK2",
+					EPK: []byte(exampleEPK),
 				},
 			}
 
@@ -499,7 +511,7 @@ func TestJSONWebEncryption_PrepareHeaders(t *testing.T) {
 
 func TestDeserialize(t *testing.T) {
 	t.Run("Full JWE tests", func(t *testing.T) {
-		t.Run("Success", func(t *testing.T) {
+		t.Run("Success - JWE without EPK", func(t *testing.T) {
 			deserializedJWE, err := Deserialize(exampleMockJWEAllFields)
 			require.NoError(t, err)
 			require.NotNil(t, deserializedJWE)
@@ -507,6 +519,15 @@ func TestDeserialize(t *testing.T) {
 			reserializedJWE, err := deserializedJWE.Serialize(json.Marshal)
 			require.NoError(t, err)
 			require.Equal(t, exampleMockJWEAllFields, reserializedJWE)
+		})
+		t.Run("Success - JWE with many recipients, each with an EPK", func(t *testing.T) {
+			deserializedJWE, err := Deserialize(exampleRealFullJWEWithEPKs)
+			require.NoError(t, err)
+			require.NotNil(t, deserializedJWE)
+
+			reserializedJWE, err := deserializedJWE.Serialize(json.Marshal)
+			require.NoError(t, err)
+			require.Equal(t, exampleRealFullJWEWithEPKs, reserializedJWE)
 		})
 		t.Run("Unable to unmarshal serialized JWE string", func(t *testing.T) {
 			deserializedJWE, err := Deserialize("{")

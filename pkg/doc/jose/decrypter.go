@@ -86,7 +86,7 @@ func buildEncryptedData(encAlg string, jwe *JSONWebEncryption) ([]byte, error) {
 	var recipients []*subtle.RecipientWrappedKey
 
 	for _, recJWE := range jwe.Recipients {
-		rec, err := convertMarshalledJWKToRecKey([]byte(recJWE.Header.EPK))
+		rec, err := convertMarshalledJWKToRecKey(recJWE.Header.EPK)
 		if err != nil {
 			return nil, err
 		}

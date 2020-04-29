@@ -259,7 +259,7 @@ func (p *Packer) buildRecipient(key string, apu []byte, spkEncoded, nonceEncoded
 		IV:  nonceEncoded,
 		Tag: tagEncoded,
 		KID: base58.Encode(recipientKey[:]),
-		SPK: spkEncoded,
+		SPK: []byte(`"` + spkEncoded + `"`),
 	}
 
 	recipient := &jose.Recipient{

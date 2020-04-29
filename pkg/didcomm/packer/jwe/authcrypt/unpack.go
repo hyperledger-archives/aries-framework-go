@@ -38,7 +38,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 		return nil, fmt.Errorf("unpack: %w", err)
 	}
 
-	senderKey, err := p.decryptSPK(recipientPubKey, recipient.Header.SPK)
+	senderKey, err := p.decryptSPK(recipientPubKey, string(recipient.Header.SPK))
 	if err != nil {
 		return nil, fmt.Errorf("unpack: sender key: %w", err)
 	}

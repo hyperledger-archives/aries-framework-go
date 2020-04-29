@@ -39,13 +39,13 @@ type Recipient struct {
 
 // RecipientHeaders are the recipient headers
 type RecipientHeaders struct {
-	Alg string `json:"alg,omitempty"`
-	APU string `json:"apu,omitempty"`
-	IV  string `json:"iv,omitempty"`
-	Tag string `json:"tag,omitempty"`
-	KID string `json:"kid,omitempty"`
-	SPK string `json:"spk,omitempty"`
-	EPK string `json:"epk,omitempty"`
+	Alg string          `json:"alg,omitempty"`
+	APU string          `json:"apu,omitempty"`
+	IV  string          `json:"iv,omitempty"`
+	Tag string          `json:"tag,omitempty"`
+	KID string          `json:"kid,omitempty"`
+	EPK json.RawMessage `json:"epk,omitempty"`
+	SPK json.RawMessage `json:"spk,omitempty"`
 }
 
 // rawJSONWebEncryption represents a RAW JWE that is used for serialization/deserialization.

@@ -21,6 +21,9 @@ import (
 func (p *Packer) decryptSPK(recipientPubKey *[chacha.KeySize]byte, spk string) ([]byte, error) {
 	const jweNumComponents = 5
 
+	// Since spk is a raw JSON message it'll be surrounded by quotes. Need to trim them off first.
+	spk = spk[1 : len(spk)-1]
+
 	jwe := strings.Split(spk, ".")
 	if len(jwe) != jweNumComponents {
 		return nil, fmt.Errorf("bad SPK format")
