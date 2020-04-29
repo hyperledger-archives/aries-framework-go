@@ -355,6 +355,34 @@ func TestValidateVerCredIssuer(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "issuer: Invalid type")
 	})
+
+	t.Run("test verifiable credential with string issuer", func(t *testing.T) {
+		var raw rawCredential
+
+		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		raw.Issuer = "not-a-uri-issuer"
+		bytes, err := json.Marshal(raw)
+		require.NoError(t, err)
+		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "issuer: Does not match format 'uri'")
+	})
+
+	t.Run("test verifiable credential with object issuer", func(t *testing.T) {
+		var raw rawCredential
+
+		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
+		raw.Issuer = map[string]interface{}{
+			"id":   "not-a-uri-issuer-id",
+			"name": "University",
+		}
+		bytes, err := json.Marshal(raw)
+
+		require.NoError(t, err)
+		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "issuer.id: Does not match format 'uri'")
+	})
 }
 
 func TestValidateVerCredIssuanceDate(t *testing.T) {
