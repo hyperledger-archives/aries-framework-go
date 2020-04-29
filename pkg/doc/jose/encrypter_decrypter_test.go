@@ -162,7 +162,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRoundTripInteropWithGoJose(t *testing.T) {
+func TestInteropWithGoJoseEncryptAndLocalJoseDecrypt(t *testing.T) {
 	recECKeys, recKHs := createRecipients(t, 3)
 	gjRecipients := convertToGoJoseRecipients(t, recECKeys)
 
@@ -170,9 +170,10 @@ func TestRoundTripInteropWithGoJose(t *testing.T) {
 	require.NoError(t, err)
 
 	pt := []byte("Test secret message")
+	aad := []byte("Test some auth data")
 
 	// encrypt pt using go-jose encryption
-	gjJWEEncrypter, err := gjEncrypter.Encrypt(pt)
+	gjJWEEncrypter, err := gjEncrypter.EncryptWithAuthData(pt, aad)
 	require.NoError(t, err)
 
 	// get go-jose serialized JWE
@@ -195,6 +196,45 @@ func TestRoundTripInteropWithGoJose(t *testing.T) {
 			require.EqualValues(t, pt, msg)
 		})
 	}
+}
+
+func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
+	// get two generated recipient Tink keys
+	recECKeys, _ := createRecipients(t, 2)
+	// create a normal recipient key (not using Tink)
+	rec3PrivKey, err := ecdsa.GenerateKey(subtle.GetCurve(recECKeys[0].Curve), rand.Reader)
+	require.NoError(t, err)
+
+	// add third key to recECKeys
+	recECKeys = append(recECKeys, ecdhessubtle.ECPublicKey{
+		X:     rec3PrivKey.PublicKey.X.Bytes(),
+		Y:     rec3PrivKey.PublicKey.Y.Bytes(),
+		Curve: rec3PrivKey.PublicKey.Curve.Params().Name,
+	})
+
+	// encrypt using local jose package
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, recECKeys)
+	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
+
+	pt := []byte("some msg")
+	jwe, err := jweEncrypter.Encrypt(pt, []byte("aad value"))
+	require.NoError(t, err)
+	require.Equal(t, len(recECKeys), len(jwe.Recipients))
+
+	serializedJWE, err := jwe.Serialize(json.Marshal)
+	require.NoError(t, err)
+
+	// now parse serializedJWE using go-jose
+	gjParsedJWE, err := jose.ParseEncrypted(serializedJWE)
+	require.NoError(t, err)
+
+	// Decrypt with third recipient's private key (non Tink key)
+	i, _, msg, err := gjParsedJWE.DecryptMulti(rec3PrivKey)
+	require.NoError(t, err)
+	require.EqualValues(t, pt, msg)
+
+	// the third recipient's index is 2
+	require.Equal(t, 2, i)
 }
 
 func convertToGoJoseRecipients(t *testing.T, keys []ecdhessubtle.ECPublicKey) []jose.Recipient {
