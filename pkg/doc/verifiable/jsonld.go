@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/piprate/json-gold/ld"
@@ -276,17 +277,19 @@ func compactJSONLD(doc string, documentLoader ld.DocumentLoader, strict bool) er
 		return fmt.Errorf("convert JSON-LD doc to map: %w", err)
 	}
 
+	jsonldProc := jsonld.Default()
+
 	contextMap, err := extractContext(docMap)
 	if err != nil {
 		return fmt.Errorf("extract context from JSON-LD doc: %w", err)
 	}
 
-	docCompactedMap, err := jsonld.Default().Compact(docMap, contextMap, documentLoader)
+	docCompactedMap, err := jsonldProc.Compact(docMap, contextMap, documentLoader)
 	if err != nil {
 		return fmt.Errorf("compact JSON-LD document: %w", err)
 	}
 
-	if strict && !vcHaveSameStructure(docMap, docCompactedMap) {
+	if strict && !mapsHaveSameStructure(docMap, docCompactedMap) {
 		return errors.New("JSON-LD doc has different structure after compaction")
 	}
 
@@ -302,71 +305,70 @@ func extractContext(docMap map[string]interface{}) (map[string]interface{}, erro
 	return map[string]interface{}{"@context": context}, nil
 }
 
-func vcHaveSameStructure(vcOriginalMap, vcCompactedMap map[string]interface{}) bool {
-	// check the root fields of VC
-	if !mapsHaveSameStructure(vcOriginalMap, vcCompactedMap) {
-		return false
-	}
-
-	// check the fields of credential subjects
-	return vcSubjectsHaveSameStructure(
-		credentialSubjectsMap(vcOriginalMap["credentialSubject"]),
-		credentialSubjectsMap(vcCompactedMap["credentialSubject"]))
-}
-
 func mapsHaveSameStructure(originalMap, compactedMap map[string]interface{}) bool {
-	m2Copy := make(map[string]interface{})
-	for k, v := range compactedMap {
-		m2Copy[k] = v
-	}
-
-	for k := range originalMap {
-		_, ok := m2Copy[k]
-		if !ok {
-			return false
-		}
-
-		delete(m2Copy, k)
-	}
-
-	return true
+	return reflect.DeepEqual(compactMap(originalMap), compactMap(compactedMap))
 }
 
-type credentialSubjectMap map[string]interface{}
+func compactMap(m map[string]interface{}) map[string]interface{} {
+	mCopy := make(map[string]interface{})
 
-func vcSubjectsHaveSameStructure(originalMap, compactedMap map[string]credentialSubjectMap) bool {
-	cs2Copy := make(map[string]credentialSubjectMap)
-	for k, v := range compactedMap {
-		cs2Copy[k] = v
-	}
+	for k, v := range m {
+		vNorm := compactValue(v)
 
-	for k, v1 := range originalMap {
-		v2 := cs2Copy[k]
+		switch kv := vNorm.(type) {
+		case []interface{}:
+			mCopy[k] = compactSlice(kv)
 
-		if !mapsHaveSameStructure(v1, v2) {
-			return false
+		case map[string]interface{}:
+			mCopy[k] = compactMap(kv)
+
+		default:
+			mCopy[k] = vNorm
 		}
-
-		delete(cs2Copy, k)
 	}
 
-	return true
+	return mCopy
 }
 
-func credentialSubjectsMap(credentialSubject interface{}) map[string]credentialSubjectMap {
-	csMap := make(map[string]credentialSubjectMap)
+func compactSlice(s []interface{}) []interface{} {
+	sCopy := make([]interface{}, len(s))
 
-	switch cs := credentialSubject.(type) {
-	case map[string]interface{}:
-		csMap[safeStringValue(cs["id"])] = cs
-	case string:
-		csMap[cs] = credentialSubjectMap{"id": cs}
+	for i := range s {
+		sItem := compactValue(s[i])
+
+		switch sItem := sItem.(type) {
+		case map[string]interface{}:
+			sCopy[i] = compactMap(sItem)
+
+		default:
+			sCopy[i] = sItem
+		}
+	}
+
+	return sCopy
+}
+
+func compactValue(v interface{}) interface{} {
+	switch cv := v.(type) {
 	case []interface{}:
-		for i := range cs {
-			subjectMap, _ := cs[i].(map[string]interface{}) //nolint:errcheck
-			csMap[safeStringValue(subjectMap["id"])] = subjectMap
+		// consists of only one element
+		if len(cv) == 1 {
+			return compactValue(cv[0])
 		}
-	}
 
-	return csMap
+		return cv
+
+	case map[string]interface{}:
+		// contains "id" element only
+		if len(cv) == 1 {
+			if _, ok := cv["id"]; ok {
+				return cv["id"]
+			}
+		}
+
+		return cv
+
+	default:
+		return cv
+	}
 }

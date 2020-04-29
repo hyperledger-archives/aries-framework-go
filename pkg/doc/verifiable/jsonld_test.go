@@ -21,7 +21,8 @@ func Test_compactJSONLD(t *testing.T) {
   "@context": {
     "referenceNumber": "https://example.com/vocab#referenceNumber",
     "favoriteFood": "https://example.com/vocab#favoriteFood",
-    "name": "https://example.com/vocab#name"
+    "name": "https://example.com/vocab#name",
+    "CustomExt12": "https://example.com/vocab#CustomExt12"
   }
 }
 `
@@ -36,22 +37,66 @@ func Test_compactJSONLD(t *testing.T) {
 
 		defer func() { testServer.Close() }()
 
-		vcJSONTemplate := `
-{
+		vcJSONTemplate := `{
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
     "%s"
   ],
   "id": "http://example.com/credentials/4643",
-  "type": ["VerifiableCredential", "CustomExt12"],
+  "type": [
+    "VerifiableCredential",
+    "CustomExt12"
+  ],
   "issuer": "https://example.com/issuers/14",
   "issuanceDate": "2018-02-24T05:28:04Z",
   "referenceNumber": 83294847,
-  "credentialSubject": {
-    "id": "did:example:abcdef1234567",
-    "name": "Jane Doe",
-    "favoriteFood": "Papaya"
-  }
+  "credentialSubject": [
+    {
+      "id": "did:example:abcdef1234567",
+      "name": "Jane Doe",
+      "favoriteFood": "Papaya"
+    },
+    {
+      "id": "did:example:abcdef1234568",
+      "name": "Alex"
+    },
+    {
+      "id": "did:example:abcdef1234569",
+      "name": "Justin"
+    }
+  ],
+  "proof": [
+    {
+      "type": "Ed25519Signature2018",
+      "created": "2020-04-10T21:35:35Z",
+      "verificationMethod": "did:key:z6MkjRag",
+      "proofPurpose": "assertionMethod",
+      "jws": "eyJ..l9d0Y"
+    },
+    {
+      "type": "Ed25519Signature2018",
+      "created": "2020-04-11T21:35:35Z",
+      "verificationMethod": "did:key:z6MkjRll",
+      "proofPurpose": "assertionMethod",
+      "jws": "eyJ..l9dZq"
+    }
+  ],
+  "termsOfUse": [
+    {
+      "type": [
+        "IssuerPolicy",
+        "HolderPolicy"
+      ],
+      "id": "http://example.com/policies/credential/4"
+    },
+    {
+      "type": [
+        "IssuerPolicy",
+        "HolderPolicy"
+      ],
+      "id": "http://example.com/policies/credential/5"
+    }
+  ]
 }
 `
 		vc := fmt.Sprintf(vcJSONTemplate, testServer.URL)
@@ -72,7 +117,8 @@ func Test_compactJSONLD(t *testing.T) {
 	jsonldContext := `
 {
   "@context": {
-    "referenceNumber": "https://example.com/vocab#referenceNumber"
+    "referenceNumber": "https://example.com/vocab#referenceNumber",
+    "CustomExt12": "https://example.com/vocab#CustomExt12"
   }
 }
 `
@@ -237,6 +283,67 @@ func Test_compactJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
 		require.Error(t, err)
 		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 	})
+}
+
+func Test_compactJSONLD_WithExtraUndefinedFieldsInProof(t *testing.T) {
+	vcJSONWithValidProof := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1"
+  ],
+  "id": "http://example.com/credentials/4643",
+  "type": [
+    "VerifiableCredential"
+  ],
+  "issuer": "https://example.com/issuers/14",
+  "issuanceDate": "2018-02-24T05:28:04Z",
+  "credentialSubject": [
+    {
+      "id": "did:example:abcdef1234567"
+    }
+  ],
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "created": "2020-04-10T21:35:35Z",
+    "verificationMethod": "did:key:z6MkjRag",
+    "proofPurpose": "assertionMethod",
+    "jws": "eyJ..l9d0Y"
+  }
+}
+`
+
+	err := compactJSONLD(vcJSONWithValidProof, CachingJSONLDLoader(), true)
+	require.NoError(t, err)
+
+	// "newProp" field is present in the proof
+	vcJSONWithInvalidProof := `{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1"
+  ],
+  "id": "http://example.com/credentials/4643",
+  "type": [
+    "VerifiableCredential"
+  ],
+  "issuer": "https://example.com/issuers/14",
+  "issuanceDate": "2018-02-24T05:28:04Z",
+  "credentialSubject": [
+    {
+      "id": "did:example:abcdef1234567"
+    }
+  ],
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "created": "2020-04-10T21:35:35Z",
+    "verificationMethod": "did:key:z6MkjRag",
+    "proofPurpose": "assertionMethod",
+    "jws": "eyJ..l9d0Y",
+    "newProp": "foo"
+  }
+}`
+
+	err = compactJSONLD(vcJSONWithInvalidProof, CachingJSONLDLoader(), true)
+	require.Error(t, err)
+	require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 }
 
 func Test_compactJSONLD_CornerErrorCases(t *testing.T) {

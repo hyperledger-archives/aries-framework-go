@@ -70,10 +70,22 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 }
 
 //nolint:lll
-func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018_Transmute(t *testing.T) {
+func TestNewCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 	r := require.New(t)
 
-	vcFromTransmute := `
+	pubKeyBytes := base58.Decode("DqS5F3GVe3rCxucgi4JBNagjv4dKoHc8TDLDw9kR58Pz")
+
+	sigSuite := ed25519signature2018.New(
+		suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())))
+
+	vcOptions := []CredentialOpt{
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(SingleKey(pubKeyBytes, "Ed25519Signature2018")),
+		WithStrictValidation(),
+	}
+
+	t.Run("valid VC", func(t *testing.T) {
+		vcJSON := `
 {
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
@@ -106,16 +118,94 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018_Transmute(t *test
 }
 `
 
-	pubKeyBytes := base58.Decode("DqS5F3GVe3rCxucgi4JBNagjv4dKoHc8TDLDw9kR58Pz")
+		vcWithLdp, _, err := NewCredential([]byte(vcJSON), vcOptions...)
+		r.NoError(err)
+		r.NotNil(t, vcWithLdp)
+	})
 
-	sigSuite := ed25519signature2018.New(
-		suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())))
+	t.Run("VC with unknown field", func(t *testing.T) {
+		// "newProp" is a field not defined in any context.
+		vcJSON := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ],
+  "id": "http://example.gov/credentials/3732",
+  "issuanceDate": "2020-03-16T22:37:26.544Z",
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "degree": {
+      "type": "BachelorDegree",
+      "degree": "MIT"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "profile": "",
+  "issuer": "did:web:vc.transmute.world",
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "created": "2019-12-11T03:50:55Z",
+    "verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+    "proofPurpose": "assertionMethod",
+    "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..MlJy4Sn47kgse7SKc56OKkJUhu-Z3CPiv2_MdjOQXJk8Bpzxa-JuinjJNN3YkYb6tPE6poIhBTlgnc_c5qQsBA"
+  },
+  "newProp": "foo"
+}
+`
 
-	vcWithLdp, _, err := NewCredential([]byte(vcFromTransmute),
-		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKeyBytes, "Ed25519Signature2018")))
-	r.NoError(err)
-	r.NotNil(t, vcWithLdp)
+		vcWithLdp, _, err := NewCredential([]byte(vcJSON), vcOptions...)
+		r.Error(err)
+		r.EqualError(err, "JSON-LD doc has different structure after compaction")
+		r.Nil(vcWithLdp)
+	})
+
+	t.Run("VC with unknown proof field", func(t *testing.T) {
+		// "newProp" is a field not defined in any context.
+		vcJSON := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ],
+  "id": "http://example.gov/credentials/3732",
+  "issuanceDate": "2020-03-16T22:37:26.544Z",
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "degree": {
+      "type": "BachelorDegree",
+      "degree": "MIT"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "profile": "",
+  "issuer": "did:web:vc.transmute.world",
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "created": "2019-12-11T03:50:55Z",
+    "verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+    "proofPurpose": "assertionMethod",
+    "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..MlJy4Sn47kgse7SKc56OKkJUhu-Z3CPiv2_MdjOQXJk8Bpzxa-JuinjJNN3YkYb6tPE6poIhBTlgnc_c5qQsBA",
+    "newProp": "foo"
+  }
+}
+`
+
+		vcWithLdp, _, err := NewCredential([]byte(vcJSON), vcOptions...)
+		r.Error(err)
+		r.EqualError(err, "JSON-LD doc has different structure after compaction")
+		r.Nil(vcWithLdp)
+	})
 }
 
 func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {

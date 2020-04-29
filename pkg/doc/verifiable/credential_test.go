@@ -56,13 +56,14 @@ const issuerAsObject = `
 
 func TestNewCredential(t *testing.T) {
 	t.Run("test creation of new Verifiable Credential from JSON with valid structure", func(t *testing.T) {
-		vc, vcData, err := NewCredential([]byte(validCredential))
+		vc, vcData, err := NewCredential([]byte(validCredential), WithStrictValidation())
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 		require.NotEmpty(t, vcData)
 
 		// validate @context
-		require.Equal(t, []string{"https://www.w3.org/2018/credentials/v1"}, vc.Context)
+		require.Equal(t, []string{"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1"}, vc.Context)
 
 		// validate id
 		require.Equal(t, "http://example.edu/credentials/1872", vc.ID)
