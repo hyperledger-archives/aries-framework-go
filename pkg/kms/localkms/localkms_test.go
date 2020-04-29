@@ -206,6 +206,7 @@ func TestLocalKMS_Success(t *testing.T) {
 		kms.ECDSAP384TypeIEEE1363,
 		kms.ECDSAP521TypeIEEE1363,
 		kms.ED25519Type,
+		kms.ECDHES256AES256GCMType,
 	}
 
 	for _, v := range keyTemplates {
