@@ -8,14 +8,17 @@ package jose
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/google/tink/go/aead"
 	"github.com/google/tink/go/keyset"
+	"github.com/google/tink/go/subtle"
 	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
@@ -157,6 +160,63 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 			require.EqualValues(t, pt, msg)
 		})
 	}
+}
+
+func TestRoundTripInteropWithGoJose(t *testing.T) {
+	recECKeys, recKHs := createRecipients(t, 3)
+	gjRecipients := convertToGoJoseRecipients(t, recECKeys)
+
+	gjEncrypter, err := jose.NewMultiEncrypter(jose.A256GCM, gjRecipients, nil)
+	require.NoError(t, err)
+
+	pt := []byte("Test secret message")
+
+	// encrypt pt using go-jose encryption
+	gjJWEEncrypter, err := gjEncrypter.Encrypt(pt)
+	require.NoError(t, err)
+
+	// get go-jose serialized JWE
+	gjSerializedJWE := gjJWEEncrypter.FullSerialize()
+
+	// deserialize using local jose package
+	localJWE, err := Deserialize(gjSerializedJWE)
+	require.NoError(t, err)
+
+	for i, recKH := range recKHs {
+		recipientKH := recKH
+
+		t.Run(fmt.Sprintf("%d: Decrypting JWE message encrypted by go-jose test success", i), func(t *testing.T) {
+			jweDecrypter := NewJWEDecrypt(recipientKH)
+
+			var msg []byte
+
+			msg, err = jweDecrypter.Decrypt(localJWE)
+			require.NoError(t, err)
+			require.EqualValues(t, pt, msg)
+		})
+	}
+}
+
+func convertToGoJoseRecipients(t *testing.T, keys []ecdhessubtle.ECPublicKey) []jose.Recipient {
+	t.Helper()
+
+	var joseRecipients []jose.Recipient
+
+	for _, key := range keys {
+		c := subtle.GetCurve(key.Curve)
+		gjKey := jose.Recipient{
+			Algorithm: jose.ECDH_ES_A256KW,
+			Key: &ecdsa.PublicKey{
+				Curve: c,
+				X:     new(big.Int).SetBytes(key.X),
+				Y:     new(big.Int).SetBytes(key.Y),
+			},
+		}
+
+		joseRecipients = append(joseRecipients, gjKey)
+	}
+
+	return joseRecipients
 }
 
 // createRecipients and return their public key and keyset.Handle
