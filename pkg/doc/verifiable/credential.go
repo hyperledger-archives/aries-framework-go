@@ -114,7 +114,8 @@ const defaultSchema = `{
           ],
           "properties": {
             "id": {
-              "type": "string"
+              "type": "string",
+              "format": "uri"
             }
           }
         }
