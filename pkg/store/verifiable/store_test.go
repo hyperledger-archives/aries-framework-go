@@ -101,6 +101,38 @@ var udCredential = `
 }
 `
 
+//nolint:gochecknoglobals,lll
+var udCredentialWithoutID = `
+
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ],
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "degree": {
+      "type": "BachelorDegree"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University"
+  },
+
+  "issuanceDate": "2010-01-01T19:23:24Z",
+
+  "expirationDate": "2020-01-01T19:23:24Z"
+}
+`
+
 //nolint:lll
 const udVerifiablePresentation = `{
         "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
@@ -271,6 +303,24 @@ func TestGetVC(t *testing.T) {
 		vc, err := s.GetCredential("http://example.edu/credentials/1872")
 		require.NoError(t, err)
 		require.Equal(t, vc.ID, "http://example.edu/credentials/1872")
+	})
+
+	t.Run("test success - vc without ID", func(t *testing.T) {
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		udVC, _, err := verifiable.NewCredential([]byte(udCredentialWithoutID))
+		require.NoError(t, err)
+		require.NoError(t, s.SaveCredential(sampleCredentialName, udVC))
+
+		id, err := s.GetCredentialIDByName(sampleCredentialName)
+		require.NoError(t, err)
+		require.NotEmpty(t, id)
+
+		vc, err := s.GetCredential(id)
+		require.NoError(t, err)
+		require.NotEmpty(t, vc)
 	})
 
 	t.Run("test error from store get", func(t *testing.T) {
