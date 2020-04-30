@@ -21,7 +21,7 @@ func TestLocalKMSWriter(t *testing.T) {
 		storeMap := map[string][]byte{}
 		mockStore := &mockstorage.MockStore{Store: storeMap}
 
-		for i := 0; i < 20; i++ {
+		for i := 0; i < 256; i++ {
 			l := newWriter(mockStore)
 			require.NotEmpty(t, l)
 			someKey := random.GetRandomBytes(uint32(32))
@@ -29,12 +29,14 @@ func TestLocalKMSWriter(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, len(someKey), n)
 			require.Equal(t, maxKeyIDLen, len(l.KeysetID))
+			// keysetID must not start with _
+			require.NotEqual(t, uint8('_'), l.KeysetID[0])
 			retrievedKey, ok := storeMap[l.KeysetID]
 			require.True(t, ok)
 			require.Equal(t, retrievedKey, someKey)
 		}
 
-		require.Equal(t, 20, len(storeMap))
+		require.Equal(t, 256, len(storeMap))
 	})
 
 	t.Run("error case - create a storeWriter using a bad storeWriter to storage", func(t *testing.T) {
