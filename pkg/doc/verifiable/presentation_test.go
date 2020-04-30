@@ -23,7 +23,8 @@ const validPresentation = `
 {
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/v1"
+    "https://www.w3.org/2018/credentials/examples/v1",
+    "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
   ],
   "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
   "type": "VerifiablePresentation",
@@ -33,24 +34,16 @@ const validPresentation = `
         "https://www.w3.org/2018/credentials/v1",
         "https://www.w3.org/2018/credentials/examples/v1"
       ],
-      "id": "http://example.edu/credentials/1872",
-      "type": [
-        "VerifiableCredential",
-        "AlumniCredential"
-      ],
-      "issuer": "https://example.edu/issuers/565049",
-      "issuanceDate": "2010-01-01T19:03:24Z",
+      "id": "http://example.edu/credentials/58473",
+      "type": ["VerifiableCredential", "UniversityDegreeCredential"],
+      "issuer": "https://example.edu/issuers/14",
+      "issuanceDate": "2010-01-01T19:23:24Z",
       "credentialSubject": {
         "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-        "alumniOf": {
-          "id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-          "name": [
-            {
-              "value": "Example University",
-              "lang": "en"
-            }
-          ]
-        }
+        "alumniOf": "Example University"
+      },
+      "proof": {
+        "type": "RsaSignature2018"
       }
     }
   ],
@@ -59,24 +52,21 @@ const validPresentation = `
     "type": "Ed25519Signature2018",
     "created": "2020-01-21T16:44:53+02:00",
     "proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01mq-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVBAh4vGHSrQyHUGlcTwLtjPAnKb78"
-  },
-  "refreshService": {
-    "id": "https://example.edu/refresh/3732",
-    "type": "ManualRefreshService2018"
   }
 }
 `
 
 func TestNewPresentation(t *testing.T) {
 	t.Run("creates a new Verifiable Presentation from JSON with valid structure", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation))
+		vp, err := NewPresentation([]byte(validPresentation), WithPresStrictValidation())
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 
 		// validate @context
 		require.Equal(t, []string{
 			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"}, vp.Context)
+			"https://www.w3.org/2018/credentials/examples/v1",
+			"https://trustbloc.github.io/context/vc/examples-v1.jsonld"}, vp.Context)
 
 		// check id
 		require.Equal(t, "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5", vp.ID)
@@ -93,11 +83,6 @@ func TestNewPresentation(t *testing.T) {
 
 		// check proof
 		require.NotNil(t, vp.Proofs)
-
-		// check refreshService
-		require.NotNil(t, vp.RefreshService)
-		require.Equal(t, "https://example.edu/refresh/3732", vp.RefreshService.ID)
-		require.Equal(t, "ManualRefreshService2018", vp.RefreshService.Type)
 	})
 
 	t.Run("creates a new Verifiable Presentation from JSON with invalid structure", func(t *testing.T) {
@@ -111,6 +96,61 @@ func TestNewPresentation(t *testing.T) {
 		vp, err := NewPresentation([]byte("non json"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "JSON unmarshalling of verifiable presentation")
+		require.Nil(t, vp)
+	})
+
+	t.Run("strict VP validation fails because of invalid field in VP", func(t *testing.T) {
+		var vpMap map[string]interface{}
+
+		err := json.Unmarshal([]byte(validPresentation), &vpMap)
+		require.NoError(t, err)
+
+		// add invalid field
+		vpMap["foo1"] = "bar1"
+
+		vpBytes, err := json.Marshal(vpMap)
+		require.NoError(t, err)
+
+		vp, err := NewPresentation(vpBytes, WithPresStrictValidation())
+		require.Error(t, err)
+		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
+		require.Nil(t, vp)
+	})
+
+	t.Run("strict VP validation fails because of invalid field in VP proof", func(t *testing.T) {
+		vp, err := NewPresentation([]byte(validPresentation))
+		require.NoError(t, err)
+
+		proof := vp.Proofs[0]
+		proof["foo2"] = "bar2"
+
+		vpBytes, err := json.Marshal(vp)
+		require.NoError(t, err)
+
+		vp, err = NewPresentation(vpBytes, WithPresStrictValidation())
+		require.Error(t, err)
+		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
+		require.Nil(t, vp)
+	})
+
+	t.Run("strict VP validation fails because of invalid field in VC of VP", func(t *testing.T) {
+		vp, err := NewPresentation([]byte(validPresentation))
+		require.NoError(t, err)
+
+		vc := vp.Credentials()[0]
+		require.NotNil(t, vc)
+
+		vcMap, ok := vc.(map[string]interface{})
+		require.True(t, ok)
+
+		vcMap["foo3"] = "bar3"
+
+		vpBytes, err := json.Marshal(vp)
+		require.NoError(t, err)
+
+		vp, err = NewPresentation(vpBytes, WithPresStrictValidation())
+		require.Error(t, err)
+		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 		require.Nil(t, vp)
 	})
 }
@@ -264,55 +304,6 @@ func TestValidateVP_Proof(t *testing.T) {
 		vp, err := NewPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "embedded proof is missing")
-		require.Nil(t, vp)
-	})
-}
-
-func TestValidateVP_RefreshService(t *testing.T) {
-	t.Run("accepts verifiable presentation with empty refresh service", func(t *testing.T) {
-		raw := &rawPresentation{}
-		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.RefreshService = nil
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
-		require.NoError(t, err)
-	})
-
-	t.Run("test verifiable presentation with undefined id of refresh service", func(t *testing.T) {
-		raw := &rawPresentation{}
-		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.RefreshService = &TypedID{Type: "ManualRefreshService2018"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "refreshService: id is required")
-		require.Nil(t, vp)
-	})
-
-	t.Run("test verifiable presentation with undefined type of refresh service", func(t *testing.T) {
-		raw := &rawPresentation{}
-		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.RefreshService = &TypedID{ID: "https://example.edu/refresh/3732"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "refreshService: type is required")
-		require.Nil(t, vp)
-	})
-
-	t.Run("test verifiable presentation with invalid URL of id of credential schema", func(t *testing.T) {
-		raw := &rawPresentation{}
-		require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))
-		raw.RefreshService = &TypedID{ID: "invalid URL", Type: "ManualRefreshService2018"}
-		bytes, err := json.Marshal(raw)
-		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
-
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "refreshService.id: Does not match format 'uri'")
 		require.Nil(t, vp)
 	})
 }

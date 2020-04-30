@@ -474,12 +474,6 @@ type CredentialDecoder func(dataJSON []byte, vc *Credential) error
 // CredentialTemplate defines a factory method to create new Credential template.
 type CredentialTemplate func() *Credential
 
-type jsonldCredentialOpts struct {
-	jsonldDocumentLoader ld.DocumentLoader
-	externalContext      []string
-	jsonldOnlyValidRDF   bool
-}
-
 // credentialOpts holds options for the Verifiable Credential decoding
 type credentialOpts struct {
 	publicKeyFetcher      PublicKeyFetcher
@@ -579,8 +573,7 @@ func WithJSONLDDocumentLoader(documentLoader ld.DocumentLoader) CredentialOpt {
 // In case of JSON Schema validation, additionalProperties=true is set on the schema.
 //
 // In case of JSON-LD validation, the comparison of JSON-LD VC document after compaction with original VC one is made.
-// In case when any field (root one or inside credentialSubject) not defined in any JSON-LD schema is present
-// the validation exception is raised.
+// In case of mismatch a validation exception is raised.
 func WithStrictValidation() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.strictValidation = true
@@ -771,10 +764,10 @@ func validateCredential(vc *Credential, vcBytes []byte, vcOpts *credentialOpts) 
 			return err
 		}
 
-		return vc.validateJSONLD(vcOpts)
+		return vc.validateJSONLD(vcBytes, vcOpts)
 
 	case jsonldValidation:
-		return vc.validateJSONLD(vcOpts)
+		return vc.validateJSONLD(vcBytes, vcOpts)
 
 	case baseContextValidation:
 		return validateBaseContext(vc, vcBytes, vcOpts)
@@ -815,13 +808,8 @@ func validateBaseContextWithExtendedValidation(vc *Credential, vcOpts *credentia
 	return vc.validateJSONSchema(vcBytes, vcOpts)
 }
 
-func (vc *Credential) validateJSONLD(vcOpts *credentialOpts) error {
-	vcJSON, err := vc.MarshalJSON()
-	if err != nil {
-		return err
-	}
-
-	return compactJSONLD(string(vcJSON), &vcOpts.jsonldCredentialOpts, vcOpts.strictValidation)
+func (vc *Credential) validateJSONLD(vcBytes []byte, vcOpts *credentialOpts) error {
+	return compactJSONLD(string(vcBytes), &vcOpts.jsonldCredentialOpts, vcOpts.strictValidation)
 }
 
 // CustomCredentialProducer is a factory for Credentials with extended data model.
