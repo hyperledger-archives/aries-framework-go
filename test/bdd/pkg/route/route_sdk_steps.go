@@ -7,23 +7,33 @@ SPDX-License-Identifier: Apache-2.0
 package route
 
 import (
+	"errors"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/route"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	routesvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
+const sleepDuration = 2 * time.Millisecond
+
 // SDKSteps is steps for route using client SDK
 type SDKSteps struct {
-	bddContext *context.BDDContext
+	bddContext     *context.BDDContext
+	eventsReceived map[string]service.DIDCommAction
+	lock           sync.RWMutex
 }
 
 // NewRouteSDKSteps return steps for router using client SDK
 func NewRouteSDKSteps() *SDKSteps {
-	return &SDKSteps{}
+	return &SDKSteps{
+		eventsReceived: make(map[string]service.DIDCommAction),
+	}
 }
 
 // CreateRouteClient creates route client
@@ -55,11 +65,72 @@ func (d *SDKSteps) handleEvents(events chan service.DIDCommAction, callbacks cha
 	for event := range events {
 		logger.Debugf("handling event: %+v", event)
 
+		d.setEventReceived(event)
+
 		c := <-callbacks
 
 		logger.Debugf("received callback: %+v", c)
 		event.Continue(c)
 	}
+}
+
+func (d *SDKSteps) setEventReceived(event service.DIDCommAction) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	d.eventsReceived[event.Message.ID()] = event
+}
+
+// GetEventReceived blocks until a routing event for the given message ID is found or until the timeout is reached.
+func (d *SDKSteps) GetEventReceived(msgID string, timeout time.Duration) (*service.DIDCommAction, error) {
+	deadline := time.Now().Add(timeout)
+	found := false
+
+	var event service.DIDCommAction
+
+	for !found && time.Now().Before(deadline) {
+		d.lock.Lock()
+
+		event, found = d.eventsReceived[msgID]
+
+		d.lock.Unlock()
+
+		if !found {
+			time.Sleep(sleepDuration)
+		}
+	}
+
+	if !found {
+		return nil, fmt.Errorf("timeout while waiting for reception of event for msg with id=%s", msgID)
+	}
+
+	return &event, nil
+}
+
+// GetRoutingConfig blocks until it fetches the agent's routing configuration or until the timeout is reached.
+func (d *SDKSteps) GetRoutingConfig(agent string, timeout time.Duration) (*routesvc.Config, error) {
+	client, found := d.bddContext.RouteClients[agent]
+	if !found {
+		return nil, fmt.Errorf("%s does not have a registered routing client", agent)
+	}
+
+	var config *routesvc.Config
+
+	err := errors.New("dummy")
+	deadline := time.Now().Add(timeout)
+
+	for err != nil && time.Now().Before(deadline) {
+		config, err = client.GetConfig()
+		if err != nil {
+			time.Sleep(sleepDuration)
+		}
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("%s failed to fetch their routing config : %w", agent, err)
+	}
+
+	return config, nil
 }
 
 // ApproveRequest approves a routing protocol request with the given args.

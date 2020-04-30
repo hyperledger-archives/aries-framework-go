@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	outofbandsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 )
@@ -54,8 +55,8 @@ func New(ctx Provider) (*Client, error) {
 
 // SendProposal sends a proposal to the introducees (the client has not published an out-of-band message).
 func (c *Client) SendProposal(recipient1, recipient2 *introduce.Recipient) error {
-	proposal1 := introduce.CreateProposal(recipient1.To)
-	proposal2 := introduce.CreateProposal(recipient2.To)
+	proposal1 := introduce.CreateProposal(recipient1)
+	proposal2 := introduce.CreateProposal(recipient2)
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
@@ -71,7 +72,7 @@ func (c *Client) SendProposal(recipient1, recipient2 *introduce.Recipient) error
 
 // SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
 func (c *Client) SendProposalWithOOBRequest(req *outofband.Request, recipient *introduce.Recipient) error {
-	proposal := introduce.CreateProposal(recipient.To)
+	proposal := introduce.CreateProposal(recipient)
 	cast := outofbandsvc.Request(*req)
 
 	introduce.WrapWithMetadataPublicOOBRequest(proposal, &cast)
@@ -132,10 +133,11 @@ func WithPublicOOBRequest(req *outofband.Request, to *introduce.To) introduce.Op
 	return introduce.WithPublicOOBRequest(&cast, to)
 }
 
-// WithOOBRequest is used when introducee wants to provide invitation.
-// NOTE: Introducee can provide invitation only after receiving ProposalMsgType
+// WithOOBRequest is used when introducee wants to provide an out-of-band request with an optional
+// series of attachments.
+// NOTE: Introducee can provide the request only after receiving ProposalMsgType
 // USAGE: event.Continue(WithOOBRequest(inv))
-func WithOOBRequest(req *outofband.Request) introduce.Opt {
+func WithOOBRequest(req *outofband.Request, a ...*decorator.Attachment) introduce.Opt {
 	cast := outofbandsvc.Request(*req)
-	return introduce.WithOOBRequest(&cast)
+	return introduce.WithOOBRequest(&cast, a...)
 }

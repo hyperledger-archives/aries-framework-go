@@ -12,9 +12,11 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 )
 
@@ -231,16 +233,56 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	messenger := serviceMocks.NewMockMessenger(ctrl)
-	messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).Return(nil)
+	t.Run("handles inbound message", func(t *testing.T) {
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).Return(nil)
 
-	followup, action, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
-		transitionalPayload: transitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
+		followup, action, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
+			transitionalPayload: transitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
+		})
+
+		require.NoError(t, err)
+		require.NoError(t, action())
+		require.Equal(t, &waiting{}, followup)
 	})
 
-	require.NoError(t, err)
-	require.NoError(t, action())
-	require.Equal(t, &waiting{}, followup)
+	t.Run("adds attachment", func(t *testing.T) {
+		expected := &decorator.Attachment{
+			ID: uuid.New().String(),
+		}
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ string, msg service.DIDCommMsgMap) error {
+				result := &Response{}
+				err := msg.Decode(result)
+				require.NoError(t, err)
+				require.Len(t, result.Attachments, 1)
+				require.Equal(t, expected, result.Attachments[0])
+				return nil
+			},
+		).Times(1)
+		msg := service.NewDIDCommMsgMap(struct{}{})
+		msg.Metadata()[metaAttachment] = []*decorator.Attachment{expected}
+		_, action, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
+			transitionalPayload: transitionalPayload{Msg: msg},
+		})
+		require.NoError(t, err)
+		err = action()
+		require.NoError(t, err)
+	})
+
+	t.Run("fails if attachments used improperly", func(t *testing.T) {
+		messenger := serviceMocks.NewMockMessenger(ctrl)
+		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).MaxTimes(0)
+		msg := service.NewDIDCommMsgMap(struct{}{})
+		msg.Metadata()[metaAttachment] = []struct{}{}
+		_, action, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
+			transitionalPayload: transitionalPayload{Msg: msg},
+		})
+		require.NoError(t, err)
+		err = action()
+		require.Error(t, err)
+	})
 }
 
 func TestDeciding_ExecuteOutbound(t *testing.T) {

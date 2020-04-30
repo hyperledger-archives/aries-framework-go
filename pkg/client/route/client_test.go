@@ -123,3 +123,34 @@ func TestGetConnection(t *testing.T) {
 		require.Empty(t, connID)
 	})
 }
+
+func TestClient_GetConfig(t *testing.T) {
+	t.Run("returns configuration", func(t *testing.T) {
+		endpoint := "http://example.com"
+		keys := []string{"key1", "key2"}
+		c, err := New(&mockprovider.Provider{
+			ServiceValue: &mockroute.MockRouteSvc{
+				RouterEndpoint: endpoint,
+				RoutingKeys:    keys,
+			},
+		})
+		require.NoError(t, err)
+		result, err := c.GetConfig()
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.Equal(t, endpoint, result.Endpoint())
+		require.Equal(t, keys, result.Keys())
+	})
+	t.Run("wraps config error", func(t *testing.T) {
+		expected := errors.New("test")
+		c, err := New(&mockprovider.Provider{
+			ServiceValue: &mockroute.MockRouteSvc{
+				ConfigErr: expected,
+			},
+		})
+		require.NoError(t, err)
+		_, err = c.GetConfig()
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+}

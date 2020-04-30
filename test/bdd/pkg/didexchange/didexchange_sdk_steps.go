@@ -204,8 +204,14 @@ func (d *SDKSteps) validateResolveDID(agentID, theirDID string) error {
 
 // ApproveRequest approves request
 func (d *SDKSteps) ApproveRequest(agentID string) error {
+	c, found := d.nextAction[agentID]
+	if !found {
+		return fmt.Errorf("%s is not registered for request approval", agentID)
+	}
+
 	// sends the signal which automatically handles events
-	d.nextAction[agentID] <- struct{}{}
+	c <- struct{}{}
+
 	return nil
 }
 
@@ -238,6 +244,10 @@ func (copts *clientOptions) Label() string {
 // CreateDIDExchangeClient creates DIDExchangeClient
 func (d *SDKSteps) CreateDIDExchangeClient(agents string) error {
 	for _, agentID := range strings.Split(agents, ",") {
+		if _, exists := d.bddContext.DIDExchangeClients[agentID]; exists {
+			continue
+		}
+
 		// create new did exchange client
 		didexchangeClient, err := didexchange.New(d.bddContext.AgentCtx[agentID])
 		if err != nil {
@@ -246,7 +256,7 @@ func (d *SDKSteps) CreateDIDExchangeClient(agents string) error {
 
 		actionCh := make(chan service.DIDCommAction)
 		if err = didexchangeClient.RegisterActionEvent(actionCh); err != nil {
-			return fmt.Errorf("failed to register action event: %w", err)
+			return fmt.Errorf("%s failed to register action event: %w", agentID, err)
 		}
 
 		d.bddContext.DIDExchangeClients[agentID] = didexchangeClient

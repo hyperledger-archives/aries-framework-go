@@ -107,13 +107,18 @@ type callback struct {
 	err      error
 }
 
+type connections interface {
+	GetConnectionIDByDIDs(string, string) (string, error)
+	GetConnectionRecord(string) (*connection.Record, error)
+}
+
 // Service for Route Coordination protocol.
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination
 type Service struct {
 	service.Action
 	service.Message
 	routeStore               storage.Store
-	connectionLookup         *connection.Lookup
+	connectionLookup         connections
 	outbound                 dispatcher.Outbound
 	endpoint                 string
 	kms                      legacykms.KeyManager
@@ -156,7 +161,7 @@ func New(prov provider) (*Service, error) {
 
 func (s *Service) listenForCallbacks() {
 	for c := range s.callbacks {
-		logger.Debugf("handling user callback for msgID=%s err=%s", c.msg.ID(), c.err)
+		logger.Debugf("handling user callback %+v with options %+v", c, c.options)
 
 		if c.err != nil {
 			go s.handleUserRejection(c)
@@ -202,12 +207,14 @@ func (s *Service) sendActionEvent(msg service.DIDCommMsg, myDID, theirDID string
 			ProtocolName: Coordination,
 			Message:      msg,
 			Continue: func(args interface{}) {
-				opts, ok := args.(Options)
-				if !ok {
-					opts = Options{}
+				switch o := args.(type) {
+				case Options:
+					c.options = &o
+				case *Options:
+					c.options = o
+				default:
+					c.options = &Options{}
 				}
-
-				c.options = &opts
 
 				s.callbacks <- c
 			},
@@ -268,6 +275,8 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 
 // HandleOutbound handles outbound route coordination messages.
 func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
+	logger.Debugf("input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
+
 	if !s.Accept(msg.Type()) {
 		return fmt.Errorf("unsupported message type %s", msg.Type())
 	}
@@ -468,9 +477,24 @@ func (s *Service) handleForward(msg service.DIDCommMsg) error {
 // connectionID. This method blocks until a response is received from the router or it times out.
 // The agent is registered with the router and retrieves the router endpoint and routing keys.
 // This function throws an error if the agent is already registered against a router.
+func (s *Service) Register(connectionID string) error {
+	record, err := s.getConnection(connectionID)
+	if err != nil {
+		return err
+	}
+
+	return s.doRegistration(
+		record,
+		&Request{
+			ID:   uuid.New().String(),
+			Type: RequestMsgType,
+		},
+	)
+}
+
 // TODO https://github.com/hyperledger/aries-framework-go/issues/1076 Register agent with
 //  multiple routers
-func (s *Service) Register(connectionID string) error {
+func (s *Service) doRegistration(record *connection.Record, req *Request) error {
 	// check if router is already registered
 	routerConnID, err := s.getRouterConnectionID()
 	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
@@ -481,27 +505,14 @@ func (s *Service) Register(connectionID string) error {
 		return errors.New("router is already registered")
 	}
 
-	// get the connection record for the ID to fetch DID information
-	conn, err := s.getConnection(connectionID)
-	if err != nil {
-		return err
-	}
-
-	// generate message ID
-	msgID := uuid.New().String()
+	msgID := req.ID
 
 	// register chan for callback processing
 	grantCh := make(chan Grant)
 	s.setRouteRegistrationCh(msgID, grantCh)
 
-	// create request message
-	req := &Request{
-		ID:   msgID,
-		Type: RequestMsgType,
-	}
-
 	// send message to the router
-	if err := s.outbound.SendToDID(req, conn.MyDID, conn.TheirDID); err != nil {
+	if err := s.outbound.SendToDID(req, record.MyDID, record.TheirDID); err != nil {
 		return fmt.Errorf("send route request: %w", err)
 	}
 
@@ -525,7 +536,7 @@ func (s *Service) Register(connectionID string) error {
 	s.setRouteRegistrationCh(msgID, nil)
 
 	// save the connectionID of the router
-	return s.saveRouterConnectionID(connectionID)
+	return s.saveRouterConnectionID(record.ConnectionID)
 }
 
 // Unregister unregisters the agent with the router.
@@ -732,13 +743,25 @@ func (s *Service) getConnection(routerConnID string) (*connection.Record, error)
 	return conn, nil
 }
 
-func (s *Service) handleOutboundRequest(_ service.DIDCommMsg, myDID, theirDID string) error {
-	connID, err := s.connectionLookup.GetConnectionIDByDIDs(myDID, theirDID)
+func (s *Service) handleOutboundRequest(msg service.DIDCommMsg, myDID, theirDID string) error {
+	req := &Request{}
+
+	err := msg.Decode(req)
 	if err != nil {
-		return fmt.Errorf("failed to lookup connection record for myDID=%s theirDID=%s : %w", myDID, theirDID, err)
+		return fmt.Errorf("failed to decode request : %w", err)
 	}
 
-	return s.Register(connID)
+	connID, err := s.connectionLookup.GetConnectionIDByDIDs(myDID, theirDID)
+	if err != nil {
+		return fmt.Errorf("failed to lookup connection ID for myDID=%s theirDID=%s : %w", myDID, theirDID, err)
+	}
+
+	record, err := s.connectionLookup.GetConnectionRecord(connID)
+	if err != nil {
+		return fmt.Errorf("failed to lookup connection record with id=%s : %w", connID, err)
+	}
+
+	return s.doRegistration(record, req)
 }
 
 func dataKey(id string) string {

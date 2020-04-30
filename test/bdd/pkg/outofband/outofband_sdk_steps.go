@@ -58,7 +58,7 @@ func (sdk *SDKSteps) RegisterSteps(suite *godog.Suite) {
 		`^"([^"]*)" sends the invitation to "([^"]*)" through an out-of-band channel`, sdk.sendInvitationThruOOBChannel)
 	suite.Step(`^"([^"]*)" accepts the request and connects with "([^"]*)"`, sdk.acceptRequestAndConnect)
 	suite.Step(`^"([^"]*)" accepts the invitation and connects with "([^"]*)"`, sdk.acceptInvitationAndConnect)
-	suite.Step(`^"([^"]*)" and "([^"]*)" confirm their connection is "([^"]*)"`, sdk.confirmConnections)
+	suite.Step(`^"([^"]*)" and "([^"]*)" confirm their connection is "([^"]*)"`, sdk.ConfirmConnections)
 }
 
 func (sdk *SDKSteps) constructOOBRequestWithNoAttachments(agentID string) error {
@@ -194,7 +194,8 @@ func (sdk *SDKSteps) acceptAndConnect(
 	return nil
 }
 
-func (sdk *SDKSteps) confirmConnections(senderID, receiverID, status string) error {
+// ConfirmConnections confirms the connection between the sender and receiver is at the given status.
+func (sdk *SDKSteps) ConfirmConnections(senderID, receiverID, status string) error {
 	err := sdk.bddDIDExchSDK.WaitForPostEvent(strings.Join([]string{senderID, receiverID}, ","), status)
 	if err != nil {
 		return fmt.Errorf("failed to wait for post events : %w", err)
@@ -275,6 +276,10 @@ func (sdk *SDKSteps) newInvitation(agentID string) (*outofband.Invitation, error
 // The out-of-band clients are registered in the BDD context under their respective identifier.
 func (sdk *SDKSteps) CreateClients(agents string) error {
 	for _, agent := range strings.Split(agents, ",") {
+		if _, exists := sdk.context.OutOfBandClients[agent]; exists {
+			continue
+		}
+
 		client, err := outofband.New(sdk.context.AgentCtx[agent])
 		if err != nil {
 			return fmt.Errorf("failed to create new oob client for %s : %w", agent, err)
@@ -304,10 +309,15 @@ func (sdk *SDKSteps) autoExecuteActionEvent(agentID string, ch <-chan service.DI
 	}
 }
 
-// ApproveRequest approves request
-func (sdk *SDKSteps) ApproveRequest(agentID string) {
+// ApproveOOBRequest approves an out-of-band request for this agent.
+func (sdk *SDKSteps) ApproveOOBRequest(agentID string) {
 	// sends the signal which automatically handles events
 	sdk.nextAction[agentID] <- struct{}{}
+}
+
+// ApproveDIDExchangeRequest approves a didexchange request for this agent.
+func (sdk *SDKSteps) ApproveDIDExchangeRequest(agentID string) error {
+	return sdk.bddDIDExchSDK.ApproveRequest(agentID)
 }
 
 // CreateRequestWithDID creates an out-of-band request message and sets its 'service' to a single
@@ -362,6 +372,54 @@ func (sdk *SDKSteps) ReceiveRequest(to, from string) error {
 	}
 
 	sdk.connectionIDs[to] = connID
+
+	return nil
+}
+
+// ConnectAll connects all agents to each other.
+// 'agents' is a comma-separated string of agent identifiers.
+func (sdk *SDKSteps) ConnectAll(agents string) error {
+	err := sdk.CreateClients(agents)
+	if err != nil {
+		return err
+	}
+
+	err = sdk.bddDIDExchSDK.CreateDIDExchangeClient(agents)
+	if err != nil {
+		return err
+	}
+
+	all := strings.Split(agents, ",")
+
+	for i := 0; i < len(all)-1; i++ {
+		inviter := all[i]
+
+		err = sdk.constructOOBInvitation(inviter)
+		if err != nil {
+			return err
+		}
+
+		for j := i + 1; j < len(all); j++ {
+			invitee := all[j]
+
+			// send outofband invitation to invitee
+			err = sdk.sendInvitationThruOOBChannel(inviter, invitee)
+			if err != nil {
+				return err
+			}
+
+			// invitee accepts outofband invitation
+			err = sdk.acceptInvitationAndConnect(invitee, inviter)
+			if err != nil {
+				return err
+			}
+
+			err = sdk.ConfirmConnections(inviter, invitee, "completed")
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
 }

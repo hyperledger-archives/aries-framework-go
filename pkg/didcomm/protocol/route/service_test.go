@@ -147,6 +147,46 @@ func TestServiceHandleOutbound(t *testing.T) {
 		}), "myDID", "theirDID")
 		require.Error(t, err)
 	})
+
+	t.Run("wraps error getting connection ID", func(t *testing.T) {
+		expected := errors.New("test")
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		s.connectionLookup = &connectionsStub{
+			getConnIDByDIDs: func(string, string) (string, error) {
+				return "", expected
+			},
+		}
+		err = s.HandleOutbound(service.NewDIDCommMsgMap(
+			&Request{Type: RequestMsgType}),
+			"myDID", "theirDID",
+		)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+
+	t.Run("wraps error getting connection record", func(t *testing.T) {
+		expected := errors.New("test")
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+		})
+		require.NoError(t, err)
+		s.connectionLookup = &connectionsStub{
+			getConnRecord: func(string) (*connection.Record, error) {
+				return nil, expected
+			},
+		}
+		err = s.HandleOutbound(service.NewDIDCommMsgMap(
+			&Request{Type: RequestMsgType}),
+			"myDID", "theirDID",
+		)
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
 }
 
 func TestServiceRequestMsg(t *testing.T) {
@@ -362,7 +402,7 @@ func TestEvents(t *testing.T) {
 	t.Run("Continue assigns keys and endpoint provided by user", func(t *testing.T) {
 		endpoint := "ws://agent.example.com"
 		routingKeys := []string{"key1", "key2"}
-		dispatched := false
+		dispatched := make(chan struct{})
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
@@ -370,7 +410,6 @@ func TestEvents(t *testing.T) {
 			ServiceEndpointValue:          "http://other.com",
 			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
 				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
-					dispatched = true
 					res, err := json.Marshal(msg)
 					require.NoError(t, err)
 
@@ -381,23 +420,59 @@ func TestEvents(t *testing.T) {
 					require.Equal(t, endpoint, grant.Endpoint)
 					require.Equal(t, routingKeys, grant.RoutingKeys)
 
+					dispatched <- struct{}{}
+
 					return nil
 				},
 			},
 		})
 		require.NoError(t, err)
 
-		err = svc.handleInboundRequest(&callback{
-			msg:      generateRequestMsgPayload(t, randomID()),
-			myDID:    MYDID,
-			theirDID: THEIRDID,
-			options: &Options{
-				ServiceEndpoint: endpoint,
-				RoutingKeys:     routingKeys,
-			},
-		})
+		events := make(chan service.DIDCommAction)
+		err = svc.RegisterActionEvent(events)
 		require.NoError(t, err)
-		require.True(t, dispatched)
+
+		t.Run("with Options as a struct type", func(t *testing.T) {
+			_, err = svc.HandleInbound(generateRequestMsgPayload(t, randomID()), MYDID, THEIRDID)
+			require.NoError(t, err)
+
+			select {
+			case event := <-events:
+				event.Continue(Options{
+					ServiceEndpoint: endpoint,
+					RoutingKeys:     routingKeys,
+				})
+			case <-time.After(time.Second):
+				require.Fail(t, "timeout")
+			}
+
+			select {
+			case <-dispatched:
+			case <-time.After(time.Second):
+				require.Fail(t, "timeout")
+			}
+		})
+
+		t.Run("with Options as a pointer type", func(t *testing.T) {
+			_, err = svc.HandleInbound(generateRequestMsgPayload(t, randomID()), MYDID, THEIRDID)
+			require.NoError(t, err)
+
+			select {
+			case event := <-events:
+				event.Continue(&Options{
+					ServiceEndpoint: endpoint,
+					RoutingKeys:     routingKeys,
+				})
+			case <-time.After(time.Second):
+				require.Fail(t, "timeout")
+			}
+
+			select {
+			case <-dispatched:
+			case <-time.After(time.Second):
+				require.Fail(t, "timeout")
+			}
+		})
 	})
 }
 
@@ -689,7 +764,7 @@ func TestRegister(t *testing.T) {
 		err = svc.Register("conn1")
 		require.NoError(t, err)
 
-		err = svc.Register("")
+		err = svc.Register("conn1")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "router is already registered")
 	})
@@ -780,7 +855,7 @@ func TestRegister(t *testing.T) {
 
 		err = svc.Register("conn1")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "fetch router connection id")
+		require.Contains(t, err.Error(), "fetch connection record from store")
 	})
 }
 
@@ -1227,4 +1302,25 @@ func generateForwardMsgPayload(t *testing.T, id, to string, msg *model.Envelope)
 
 func randomID() string {
 	return uuid.New().String()
+}
+
+type connectionsStub struct {
+	getConnIDByDIDs func(string, string) (string, error)
+	getConnRecord   func(string) (*connection.Record, error)
+}
+
+func (c *connectionsStub) GetConnectionIDByDIDs(myDID, theirDID string) (string, error) {
+	if c.getConnIDByDIDs != nil {
+		return c.getConnIDByDIDs(myDID, theirDID)
+	}
+
+	return "", nil
+}
+
+func (c *connectionsStub) GetConnectionRecord(id string) (*connection.Record, error) {
+	if c.getConnRecord != nil {
+		return c.getConnRecord(id)
+	}
+
+	return nil, nil
 }

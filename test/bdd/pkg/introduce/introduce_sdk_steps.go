@@ -304,7 +304,7 @@ func (a *SDKSteps) checkAndContinue(agentID, introduceeID string) error {
 
 		e.Continue(nil)
 
-		go a.outofbandSDKS.ApproveRequest(agentID)
+		go a.outofbandSDKS.ApproveOOBRequest(agentID)
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
@@ -331,7 +331,7 @@ func (a *SDKSteps) checkAndContinueWithInvitation(agentID, introduceeID string) 
 
 		e.Continue(introduce.WithOOBRequest(req))
 
-		go a.outofbandSDKS.ApproveRequest(agentID)
+		go a.outofbandSDKS.ApproveOOBRequest(agentID)
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
@@ -358,7 +358,7 @@ func (a *SDKSteps) checkAndContinueWithInvitationAndEmbeddedRequest(agentID, int
 
 		e.Continue(introduce.WithOOBRequest(req))
 
-		go a.outofbandSDKS.ApproveRequest(agentID)
+		go a.outofbandSDKS.ApproveOOBRequest(agentID)
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
