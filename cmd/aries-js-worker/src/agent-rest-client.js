@@ -222,6 +222,55 @@ const pkgs = {
             pathParam:"piid"
         },
     },
+    presentproof:{
+        Actions: {
+            path: "/presentproof/actions",
+            method: "GET",
+        },
+        SendRequestPresentation: {
+            path: "/presentproof/send-request-presentation",
+            method: "POST",
+        },
+        SendProposePresentation: {
+            path: "/presentproof/send-propose-presentation",
+            method: "POST",
+        },
+        AcceptRequestPresentation: {
+            path: "/presentproof/{piid}/accept-request-presentation",
+            method: "POST",
+            pathParam:"piid"
+        },
+        AcceptProposePresentation: {
+            path: "/presentproof/{piid}/accept-propose-presentation",
+            method: "POST",
+            pathParam:"piid"
+        },
+        AcceptPresentation: {
+            path: "/presentproof/{piid}/accept-presentation",
+            method: "POST",
+            pathParam:"piid"
+        },
+        NegotiateRequestPresentation: {
+            path: "/presentproof/{piid}/negotiate-request-presentation",
+            method: "POST",
+            pathParam:"piid"
+        },
+        DeclineRequestPresentation: {
+            path: "/presentproof/{piid}/decline-request-presentation",
+            method: "POST",
+            pathParam:"piid"
+        },
+        DeclineProposePresentation: {
+            path: "/presentproof/{piid}/decline-propose-presentation",
+            method: "POST",
+            pathParam:"piid"
+        },
+        DeclinePresentation: {
+            path: "/presentproof/{piid}/decline-presentation",
+            method: "POST",
+            pathParam:"piid"
+        },
+    },
     kms: {
         CreateKeySet: {
             path: "/kms/keyset",

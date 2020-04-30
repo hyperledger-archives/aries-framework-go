@@ -25,14 +25,6 @@ const ENV_CONFIG_OUT = "test/environment.js";
     fs.writeFileSync(ENV_CONFIG_OUT, "export const environment = " + util.inspect(config))
 })()
 
-// if you want to run it in the browser and see all logs please do the following.
-//  browsers: ['Chrome_without_security'],
-//  singleRun: false,
-//  Chrome_without_security: {
-//      base: 'Chrome',
-//      flags: ['--disable-web-security', '--disable-site-isolation-trials']
-//  }
-
 module.exports = function(config) {
     config.set({
         frameworks: ["mocha", "chai"],
@@ -43,6 +35,7 @@ module.exports = function(config) {
             {pattern: "public/aries-framework-go/assets/*", included: false},
             {pattern: "node_modules/@hyperledger/aries-framework-go/dist/web/*", type: "module"},
             {pattern: "node_modules/@hyperledger/aries-framework-go/dist/rest/*", type: "module"},
+            {pattern: 'node_modules/axios/dist/axios.min.map', included: false},
             "node_modules/axios/dist/axios.min.js",
             {pattern: "test/common.js", included: false},
             {pattern: "test/environment.js", included: false},
@@ -53,7 +46,11 @@ module.exports = function(config) {
             ChromeHeadless_cors: {
                 base: "ChromeHeadless",
                 flags: ["--disable-web-security"]
-            }
+            },
+            Chrome_without_security: {
+                 base: 'Chrome',
+                 flags: ['--disable-web-security', '--disable-site-isolation-trials', '--auto-open-devtools-for-tabs']
+             },
         },
         client: {
             mocha: {
