@@ -32,7 +32,11 @@ echo "----> executing aries-js-worker tests"
 echo ""
 cd $ROOT/test/aries-js-worker
 # capture exit code if it fails
-npm test || code=$?
+command=$1
+if [ -z "$command" ]; then
+    command=test
+fi
+npm run "$command" || code=$?
 if [ -z ${code+x} ]; then
   # set exit code because it did not fail
   code=0

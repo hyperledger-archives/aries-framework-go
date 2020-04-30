@@ -58,6 +58,9 @@ bdd-test-go:
 bdd-test-js:
 	@scripts/check_js_integration.sh
 
+bdd-test-js-local:
+	@scripts/check_js_integration.sh test-local
+
 .PHONY: vc-test-suite
 vc-test-suite: clean
 	@scripts/run_vc_test_suite.sh

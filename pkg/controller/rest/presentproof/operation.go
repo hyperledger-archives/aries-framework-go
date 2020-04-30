@@ -260,7 +260,7 @@ func (c *Operation) DeclinePresentation(rw http.ResponseWriter, req *http.Reques
 
 func isJSONMap(data []byte) bool {
 	var v struct{}
-	return isJSON(data, v)
+	return isJSON(data, &v)
 }
 
 func isJSON(data []byte, v interface{}) bool {
