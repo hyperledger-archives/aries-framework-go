@@ -15,5 +15,6 @@ echo "Running $0"
 PKGS="github.com/hyperledger/aries-framework-go/pkg/storage/jsindexeddb
 github.com/hyperledger/aries-framework-go/cmd/aries-js-worker"
 
+cd cmd/aries-js-worker
 PATH="$GOBIN:$PATH" GOOS=js GOARCH=wasm go test $PKGS -count=1 -exec=wasmbrowsertest -cover -timeout=10m
 

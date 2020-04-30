@@ -1392,7 +1392,7 @@ func TestCredential_CreatePresentation(t *testing.T) {
 
 	require.Equal(t, []interface{}{vc}, vp.Credentials())
 	require.Equal(t, []string{"VerifiablePresentation"}, vp.Type)
-	require.Equal(t, vc.Context, vp.Context)
+	require.Equal(t, vp.Context, []string{baseContext})
 }
 
 func TestCredential_validateCredential(t *testing.T) {

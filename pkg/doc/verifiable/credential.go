@@ -1242,7 +1242,7 @@ func (vc *Credential) MarshalJSON() ([]byte, error) {
 // Presentation encloses credential into presentation.
 func (vc *Credential) Presentation() (*Presentation, error) {
 	vp := Presentation{
-		Context: vc.Context,
+		Context: []string{baseContext},
 		Type:    []string{vpType},
 	}
 

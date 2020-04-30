@@ -40,9 +40,7 @@ type IDArg struct {
 // ProofOptions is model to allow the dynamic proofing options by the user.
 type ProofOptions struct {
 	// VerificationMethod is the URI of the verificationMethod used for the proof.
-	VerificationMethod string `json:"verifiableMethod,omitempty"`
-	// ProofPurpose is purpose of the proof. If omitted "assertionMethod" will be used.
-	ProofPurpose string `json:"proofPurpose,omitempty"`
+	VerificationMethod string `json:"verificationMethod,omitempty"`
 	// Created date of the proof. If omitted current system time will be used.
 	Created *time.Time `json:"created,omitempty"`
 	// Domain is operational domain of a digital proof.
@@ -54,9 +52,10 @@ type ProofOptions struct {
 	// SignatureType signature type used for signing
 	SignatureType string `json:"signatureType,omitempty"`
 	// PrivateKey is used to sign instead of DID
+	// deprecate : TODO to be removed as part of #1748
 	PrivateKey string `json:"privateKey,omitempty"`
-	// DIDKeyID id of the public key associated with the private key
-	DIDKeyID string `json:"didKeyID,omitempty"`
+	// proofPurpose is purpose of the proof.
+	proofPurpose string
 }
 
 // CredentialExt is model for verifiable credential with fields related to command features.

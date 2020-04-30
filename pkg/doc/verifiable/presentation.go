@@ -287,7 +287,9 @@ func (vp *Presentation) raw() (*rawPresentation, error) {
 	}
 
 	return &rawPresentation{
-		Context:        typesToRaw(vp.Context),
+		// TODO single value contexts should be compacted as part of Issue [#1730]
+		// Not compacting now to support interoperability
+		Context:        vp.Context,
 		ID:             vp.ID,
 		Type:           typesToRaw(vp.Type),
 		Credential:     vp.credentials,

@@ -6,7 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package did
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -85,9 +84,7 @@ func (s *Store) GetDID(id string) (*did.Doc, error) {
 		return nil, fmt.Errorf("failed to get did doc: %w", err)
 	}
 
-	didDoc := &did.Doc{}
-	err = json.Unmarshal(docBytes, didDoc)
-
+	didDoc, err := did.ParseDocument(docBytes)
 	if err != nil {
 		return nil, fmt.Errorf("umarshalling didDoc failed: %w", err)
 	}
