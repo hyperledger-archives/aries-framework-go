@@ -22,7 +22,7 @@ const defaultProofPurpose = "assertionMethod"
 // SignatureSuite encapsulates signature suite methods required for signing documents
 type SignatureSuite interface {
 	// GetCanonicalDocument will return normalized/canonical version of the document
-	GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.CanonicalizationOpts) ([]byte, error)
+	GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]byte, error)
 
 	// GetDigest returns document digest
 	GetDigest(doc []byte) []byte

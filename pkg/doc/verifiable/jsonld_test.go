@@ -101,15 +101,15 @@ func Test_compactJSONLD(t *testing.T) {
 `
 		vc := fmt.Sprintf(vcJSONTemplate, testServer.URL)
 
-		loader := CachingJSONLDLoader()
+		opts := &jsonldCredentialOpts{jsonldDocumentLoader: CachingJSONLDLoader()}
 
-		err := compactJSONLD(vc, loader, true)
+		err := compactJSONLD(vc, opts, true)
 		require.NoError(t, err)
 		require.Equal(t, 1, loadsCount)
 
 		// Use same the loader, make sure that the cache of the JSON-LD schema is used
 		// and thus no extra load of the schema is made.
-		err = compactJSONLD(vc, loader, true)
+		err = compactJSONLD(vc, opts, true)
 		require.NoError(t, err)
 		require.Equal(t, 1, loadsCount)
 	})
@@ -152,7 +152,7 @@ func Test_compactJSONLD(t *testing.T) {
 `
 		vcJSON := fmt.Sprintf(vcJSONTemplate, testServer.URL)
 
-		err := compactJSONLD(vcJSON, CachingJSONLDLoader(), true)
+		err := compactJSONLD(vcJSON, defaultOpts(), true)
 		require.NoError(t, err)
 	})
 }
@@ -195,7 +195,7 @@ func Test_compactJSONLDWithExtraUndefinedFields(t *testing.T) {
 `
 	vc := fmt.Sprintf(vcJSONTemplate, testServer.URL)
 
-	err := compactJSONLD(vc, CachingJSONLDLoader(), true)
+	err := compactJSONLD(vc, defaultOpts(), true)
 	require.Error(t, err)
 	require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 }
@@ -246,7 +246,7 @@ func Test_compactJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
 
 			vcJSON := fmt.Sprintf(vcJSONTemplate, testServer.URL)
 
-			err := compactJSONLD(vcJSON, CachingJSONLDLoader(), true)
+			err := compactJSONLD(vcJSON, defaultOpts(), true)
 			require.Error(t, err)
 			require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 		})
@@ -279,7 +279,7 @@ func Test_compactJSONLDWithExtraUndefinedSubjectFields(t *testing.T) {
 
 		vcJSON := fmt.Sprintf(vcJSONTemplate, testServer.URL)
 
-		err := compactJSONLD(vcJSON, CachingJSONLDLoader(), true)
+		err := compactJSONLD(vcJSON, defaultOpts(), true)
 		require.Error(t, err)
 		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 	})
@@ -312,7 +312,7 @@ func Test_compactJSONLD_WithExtraUndefinedFieldsInProof(t *testing.T) {
 }
 `
 
-	err := compactJSONLD(vcJSONWithValidProof, CachingJSONLDLoader(), true)
+	err := compactJSONLD(vcJSONWithValidProof, defaultOpts(), true)
 	require.NoError(t, err)
 
 	// "newProp" field is present in the proof
@@ -341,35 +341,16 @@ func Test_compactJSONLD_WithExtraUndefinedFieldsInProof(t *testing.T) {
   }
 }`
 
-	err = compactJSONLD(vcJSONWithInvalidProof, CachingJSONLDLoader(), true)
+	err = compactJSONLD(vcJSONWithInvalidProof, defaultOpts(), true)
 	require.Error(t, err)
 	require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 }
 
 func Test_compactJSONLD_CornerErrorCases(t *testing.T) {
 	t.Run("Invalid JSON input", func(t *testing.T) {
-		err := compactJSONLD("not a json", CachingJSONLDLoader(), true)
+		err := compactJSONLD("not a json", defaultOpts(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "convert JSON-LD doc to map")
-	})
-
-	t.Run("No \"context\" in VC", func(t *testing.T) {
-		vcJSONTemplate := `
-{
-  "id": "http://example.com/credentials/4643",
-  "type": [
-    "VerifiableCredential",
-    "CustomExt12"
-  ],
-  "issuer": "https://example.com/issuers/14",
-  "issuanceDate": "2018-02-24T05:28:04Z",
-  "referenceNumber": 83294847,
-  "credentialSubject": "did:example:abcdef1234567"
-}
-`
-		err := compactJSONLD(vcJSONTemplate, CachingJSONLDLoader(), true)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "extract context from JSON-LD doc")
 	})
 
 	t.Run("JSON-LD compact error", func(t *testing.T) {
@@ -388,8 +369,12 @@ func Test_compactJSONLD_CornerErrorCases(t *testing.T) {
 }
 `
 
-		err := compactJSONLD(vcJSONTemplate, CachingJSONLDLoader(), true)
+		err := compactJSONLD(vcJSONTemplate, defaultOpts(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "compact JSON-LD document")
 	})
+}
+
+func defaultOpts() *jsonldCredentialOpts {
+	return &jsonldCredentialOpts{jsonldDocumentLoader: CachingJSONLDLoader()}
 }

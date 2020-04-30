@@ -1391,7 +1391,10 @@ func TestDoc_VerificationMethods(t *testing.T) {
 }
 
 func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
-	const didContext = "https://w3id.org/did/v1"
+	const (
+		didContext      = "https://www.w3.org/ns/did/v1"
+		securityContext = "https://w3id.org/security/v1"
+	)
 
 	signingKey := PublicKey{
 		ID:         creator,
@@ -1403,11 +1406,10 @@ func createDidDocumentWithSigningKey(pubKey []byte) *Doc {
 	createdTime := time.Now()
 
 	didDoc := &Doc{
-		Context:   []string{didContext},
+		Context:   []string{didContext, securityContext},
 		ID:        did,
 		PublicKey: []PublicKey{signingKey},
 		Created:   &createdTime,
-		Updated:   &createdTime,
 	}
 
 	return didDoc

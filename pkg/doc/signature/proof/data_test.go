@@ -112,7 +112,7 @@ type mockSignatureSuite struct {
 
 // GetCanonicalDocument will return normalized/canonical version of the document
 func (s *mockSignatureSuite) GetCanonicalDocument(doc map[string]interface{},
-	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
+	opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	return jsonld.Default().GetCanonicalDocument(doc)
 }
 

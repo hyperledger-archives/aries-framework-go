@@ -41,7 +41,7 @@ func New(opts ...suite.Opt) *Suite {
 
 // GetCanonicalDocument will return normalized/canonical version of the document.
 // EcdsaSecp256k1Signature2019 signature suite uses RDF Dataset Normalization as canonicalization algorithm.
-func (s *Suite) GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
+func (s *Suite) GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	return s.jsonldProcessor.GetCanonicalDocument(doc, opts...)
 }
 

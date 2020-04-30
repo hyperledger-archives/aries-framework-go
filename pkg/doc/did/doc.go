@@ -44,6 +44,7 @@ const (
 	jsonldSignatureValue = "signatureValue"
 	jsonldDomain         = "domain"
 	jsonldNonce          = "nonce"
+	jsonldProofPurpose   = "proofPurpose"
 
 	// various public key encodings
 	jsonldPublicKeyBase58 = "publicKeyBase58"
@@ -215,12 +216,13 @@ type rawDoc struct {
 
 // Proof is cryptographic proof of the integrity of the DID Document
 type Proof struct {
-	Type       string
-	Created    *time.Time
-	Creator    string
-	ProofValue []byte
-	Domain     string
-	Nonce      []byte
+	Type         string
+	Created      *time.Time
+	Creator      string
+	ProofValue   []byte
+	Domain       string
+	Nonce        []byte
+	ProofPurpose string
 }
 
 // ParseDocument creates an instance of DIDDocument by reading a JSON document from bytes
@@ -343,12 +345,13 @@ func populateProofs(context string, rawProofs []interface{}) ([]Proof, error) {
 		}
 
 		proof := Proof{
-			Type:       stringEntry(emap[jsonldType]),
-			Created:    &timeValue,
-			Creator:    stringEntry(emap[jsonldCreator]),
-			ProofValue: proofValue,
-			Domain:     stringEntry(emap[jsonldDomain]),
-			Nonce:      nonce,
+			Type:         stringEntry(emap[jsonldType]),
+			Created:      &timeValue,
+			Creator:      stringEntry(emap[jsonldCreator]),
+			ProofValue:   proofValue,
+			ProofPurpose: stringEntry(emap[jsonldProofPurpose]),
+			Domain:       stringEntry(emap[jsonldDomain]),
+			Nonce:        nonce,
 		}
 
 		proofs = append(proofs, proof)
@@ -939,12 +942,13 @@ func populateRawProofs(context string, proofs []Proof) []interface{} {
 
 	for _, p := range proofs {
 		rawProofs = append(rawProofs, map[string]interface{}{
-			jsonldType:    p.Type,
-			jsonldCreated: p.Created,
-			jsonldCreator: p.Creator,
-			k:             base64.RawURLEncoding.EncodeToString(p.ProofValue),
-			jsonldDomain:  p.Domain,
-			jsonldNonce:   base64.RawURLEncoding.EncodeToString(p.Nonce),
+			jsonldType:         p.Type,
+			jsonldCreated:      p.Created,
+			jsonldCreator:      p.Creator,
+			k:                  base64.RawURLEncoding.EncodeToString(p.ProofValue),
+			jsonldDomain:       p.Domain,
+			jsonldNonce:        base64.RawURLEncoding.EncodeToString(p.Nonce),
+			jsonldProofPurpose: p.ProofPurpose,
 		})
 	}
 

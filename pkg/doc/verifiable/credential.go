@@ -474,6 +474,12 @@ type CredentialDecoder func(dataJSON []byte, vc *Credential) error
 // CredentialTemplate defines a factory method to create new Credential template.
 type CredentialTemplate func() *Credential
 
+type jsonldCredentialOpts struct {
+	jsonldDocumentLoader ld.DocumentLoader
+	externalContext      []string
+	jsonldOnlyValidRDF   bool
+}
+
 // credentialOpts holds options for the Verifiable Credential decoding
 type credentialOpts struct {
 	publicKeyFetcher      PublicKeyFetcher
@@ -483,9 +489,10 @@ type credentialOpts struct {
 	allowedCustomContexts map[string]bool
 	allowedCustomTypes    map[string]bool
 	disabledProofCheck    bool
-	jsonldDocumentLoader  ld.DocumentLoader
 	strictValidation      bool
 	ldpSuites             []verifier.SignatureSuite
+
+	jsonldCredentialOpts
 }
 
 // CredentialOpt is the Verifiable Credential decoding option
@@ -577,6 +584,22 @@ func WithJSONLDDocumentLoader(documentLoader ld.DocumentLoader) CredentialOpt {
 func WithStrictValidation() CredentialOpt {
 	return func(opts *credentialOpts) {
 		opts.strictValidation = true
+	}
+}
+
+// WithExternalJSONLDContext defines external JSON-LD contexts to be used in JSON-LD validation and
+// Linked Data Signatures verification.
+func WithExternalJSONLDContext(context ...string) CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.externalContext = context
+	}
+}
+
+// WithJSONLDOnlyValidRDF indicates the need to remove all invalid RDF dataset from normalize document
+// when verifying linked data signatures of verifiable credential.
+func WithJSONLDOnlyValidRDF() CredentialOpt {
+	return func(opts *credentialOpts) {
+		opts.jsonldOnlyValidRDF = true
 	}
 }
 
@@ -748,11 +771,7 @@ func validateCredential(vc *Credential, vcBytes []byte, vcOpts *credentialOpts) 
 			return err
 		}
 
-		if len(vc.Context) > 1 {
-			return vc.validateJSONLD(vcOpts)
-		}
-
-		return nil
+		return vc.validateJSONLD(vcOpts)
 
 	case jsonldValidation:
 		return vc.validateJSONLD(vcOpts)
@@ -802,7 +821,7 @@ func (vc *Credential) validateJSONLD(vcOpts *credentialOpts) error {
 		return err
 	}
 
-	return compactJSONLD(string(vcJSON), vcOpts.jsonldDocumentLoader, vcOpts.strictValidation)
+	return compactJSONLD(string(vcJSON), &vcOpts.jsonldCredentialOpts, vcOpts.strictValidation)
 }
 
 // CustomCredentialProducer is a factory for Credentials with extended data model.

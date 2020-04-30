@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -70,7 +72,15 @@ func checkEmbeddedProof(docBytes []byte, vcOpts *credentialOpts) ([]byte, error)
 		return nil, errors.New("public key fetcher is not defined")
 	}
 
-	err = checkLinkedDataProof(docBytes, ldpSuites, vcOpts.publicKeyFetcher)
+	checkedDoc := docBytes
+
+	if len(vcOpts.externalContext) > 0 {
+		// Use external contexts for check of the linked data proofs to enrich JSON-LD context vocabulary.
+		jsonldDoc["@context"] = jsonld.AppendExternalContexts(jsonldDoc["@context"], vcOpts.externalContext...)
+		checkedDoc, _ = json.Marshal(jsonldDoc) //nolint:errcheck
+	}
+
+	err = checkLinkedDataProof(checkedDoc, ldpSuites, vcOpts.publicKeyFetcher, &vcOpts.jsonldCredentialOpts)
 	if err != nil {
 		return nil, fmt.Errorf("check embedded proof: %w", err)
 	}

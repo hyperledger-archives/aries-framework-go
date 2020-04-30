@@ -16,27 +16,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 )
 
-// nolint:gochecknoglobals
-var (
-	// CredentialStatusList2017 from credential status type is treated as invalid RDF
-	//  and excluded in signature verification, but it needs to be included while verifying signature.
-	// TODO to be removed as part of [Issue#1697]
-	allowedInvalidRDF = []string{
-		"<CredentialStatusList2017>",
-		"<JsonWebSignature2020>",
-		"<Ed25519VerificationKey2018>",
-		"<EcdsaSecp256k1Signature2019>",
-		"<IssuerPolicy>",
-		"<DocumentVerification>",
-		"<SupportingActivity>",
-	}
-)
-
 // SignatureSuite encapsulates signature suite methods required for signature verification
 type SignatureSuite interface {
 
 	// GetCanonicalDocument will return normalized/canonical version of the document
-	GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.CanonicalizationOpts) ([]byte, error)
+	GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]byte, error)
 
 	// GetDigest returns document digest
 	GetDigest(doc []byte) []byte
@@ -83,7 +67,7 @@ func New(resolver keyResolver, suites ...SignatureSuite) (*DocumentVerifier, err
 }
 
 // Verify will verify document proofs
-func (dv *DocumentVerifier) Verify(jsonLdDoc []byte) error {
+func (dv *DocumentVerifier) Verify(jsonLdDoc []byte, opts ...jsonld.ProcessorOpts) error {
 	var jsonLdObject map[string]interface{}
 
 	err := json.Unmarshal(jsonLdDoc, &jsonLdObject)
@@ -91,11 +75,11 @@ func (dv *DocumentVerifier) Verify(jsonLdDoc []byte) error {
 		return fmt.Errorf("failed to unmarshal json ld document: %w", err)
 	}
 
-	return dv.verifyObject(jsonLdObject)
+	return dv.verifyObject(jsonLdObject, opts)
 }
 
 // verifyObject will verify document proofs for JSON LD object
-func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}) error {
+func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}, opts []jsonld.ProcessorOpts) error {
 	proofs, err := proof.GetProofs(jsonLdObject)
 	if err != nil {
 		return err
@@ -117,8 +101,7 @@ func (dv *DocumentVerifier) verifyObject(jsonLdObject map[string]interface{}) er
 			return err
 		}
 
-		// TODO below json ld option to be removed as part of  [Issue#1697]
-		message, err := proof.CreateVerifyData(suite, jsonLdObject, p, jsonld.WithRemoveInvalidRDF(allowedInvalidRDF...))
+		message, err := proof.CreateVerifyData(suite, jsonLdObject, p, opts...)
 		if err != nil {
 			return err
 		}
