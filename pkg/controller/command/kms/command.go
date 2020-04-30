@@ -103,7 +103,7 @@ func (o *Command) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
 	}
 
 	command.WriteNillableResponse(rw, &CreateKeySetResponse{
-		KeyID:     base64.RawURLEncoding.EncodeToString([]byte(keyID)),
+		KeyID:     keyID,
 		PublicKey: base64.RawURLEncoding.EncodeToString(pubKeyBytes),
 	}, logger)
 

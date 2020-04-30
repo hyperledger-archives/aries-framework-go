@@ -12,7 +12,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -143,12 +142,7 @@ func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator strin
 		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
 	}
 
-	b, err := base64.RawURLEncoding.DecodeString(idSplit[1])
-	if err != nil {
-		return nil, err
-	}
-
-	keyHandler, err := keyManager.Get(string(b))
+	keyHandler, err := keyManager.Get(idSplit[1])
 	if err != nil {
 		return nil, err
 	}

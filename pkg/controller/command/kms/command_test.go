@@ -68,7 +68,7 @@ func TestCreateKeySet(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify response
-		require.Equal(t, base64.RawURLEncoding.EncodeToString([]byte("keyID")), response.KeyID)
+		require.Equal(t, "keyID", response.KeyID)
 		require.Equal(t, base64.RawURLEncoding.EncodeToString([]byte("publicKey")), response.PublicKey)
 	})
 
