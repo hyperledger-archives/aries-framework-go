@@ -190,7 +190,7 @@ func createECDSAIEEE1363KeyTemplate(hashType commonpb.HashType, curve commonpb.E
 }
 
 func (l *LocalKMS) storeKeySet(kh *keyset.Handle) (string, error) {
-	w := newWriter(l.store, l.masterKeyURI)
+	w := newWriter(l.store)
 
 	buf := new(bytes.Buffer)
 	jsonKeysetWriter := keyset.NewJSONWriter(buf)

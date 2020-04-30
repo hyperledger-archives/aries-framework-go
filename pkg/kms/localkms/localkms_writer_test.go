@@ -10,40 +10,31 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
 func TestLocalKMSWriter(t *testing.T) {
-	masterKeyURI := "/master/key/uri"
-
-	t.Run("success case - create a valid storeWriter and store a non empty key", func(t *testing.T) {
+	t.Run("success case - create a valid storeWriter and store 20 non empty random keys", func(t *testing.T) {
 		storeMap := map[string][]byte{}
 		mockStore := &mockstorage.MockStore{Store: storeMap}
 
-		l := newWriter(mockStore, masterKeyURI)
-		require.NotEmpty(t, l)
-		someKey := []byte("someKeyData")
-		n, err := l.Write(someKey)
-		require.NoError(t, err)
-		require.Equal(t, len(someKey), n)
-		require.NotEmpty(t, l.KeysetID)
-		retrievedKey, ok := storeMap[l.KeysetID]
-		require.True(t, ok)
-		require.Equal(t, retrievedKey, someKey)
-	})
+		for i := 0; i < 20; i++ {
+			l := newWriter(mockStore)
+			require.NotEmpty(t, l)
+			someKey := random.GetRandomBytes(uint32(32))
+			n, err := l.Write(someKey)
+			require.NoError(t, err)
+			require.Equal(t, len(someKey), n)
+			require.Equal(t, maxKeyIDLen, len(l.KeysetID))
+			retrievedKey, ok := storeMap[l.KeysetID]
+			require.True(t, ok)
+			require.Equal(t, retrievedKey, someKey)
+		}
 
-	t.Run("error case - create a storeWriter with missing mastKeyURI", func(t *testing.T) {
-		storeMap := map[string][]byte{}
-		mockStore := &mockstorage.MockStore{Store: storeMap}
-
-		l := newWriter(mockStore, "")
-		require.NotEmpty(t, l)
-		someKey := []byte("someKeyData")
-		n, err := l.Write(someKey)
-		require.EqualError(t, err, "master key is not set")
-		require.Equal(t, 0, n)
+		require.Equal(t, 20, len(storeMap))
 	})
 
 	t.Run("error case - create a storeWriter using a bad storeWriter to storage", func(t *testing.T) {
@@ -54,7 +45,7 @@ func TestLocalKMSWriter(t *testing.T) {
 			ErrPut: putError,
 		}
 
-		l := newWriter(mockStore, masterKeyURI)
+		l := newWriter(mockStore)
 		require.NotEmpty(t, l)
 		someKey := []byte("someKeyData")
 		n, err := l.Write(someKey)
@@ -70,7 +61,7 @@ func TestLocalKMSWriter(t *testing.T) {
 			ErrGet: getError,
 		}
 
-		l := newWriter(mockStore, masterKeyURI)
+		l := newWriter(mockStore)
 		require.NotEmpty(t, l)
 		someKey := []byte("someKeyData")
 		n, err := l.Write(someKey)

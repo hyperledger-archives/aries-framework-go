@@ -8,49 +8,36 @@ package localkms
 
 import (
 	"encoding/base64"
-	"fmt"
-	"strings"
 
 	"github.com/google/tink/go/subtle/random"
 
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// newWriter creates a new instance of local storage key storeWriter in the given store and for masterKeyURI
-func newWriter(kmsStore storage.Store, masterKeyURI string) *storeWriter {
-	mkURI := masterKeyURI
-	if strings.LastIndex(mkURI, "/") < len(mkURI)-1 {
-		mkURI += "/"
-	}
+const maxKeyIDLen = 20
 
+// newWriter creates a new instance of local storage key storeWriter in the given store and for masterKeyURI
+func newWriter(kmsStore storage.Store) *storeWriter {
 	return &storeWriter{
-		storage:      kmsStore,
-		masterKeyURI: mkURI,
+		storage: kmsStore,
 	}
 }
 
 // storeWriter struct to store a keyset in a local store
 type storeWriter struct {
-	storage      storage.Store
-	masterKeyURI string
+	storage storage.Store
 	// KeysetID is set when Write() is called
 	KeysetID string
 }
 
 // Write a marshaled keyset p in localstore with masterKeyURI prefix + randomly generated KeysetID
 func (l *storeWriter) Write(p []byte) (int, error) {
-	if l.masterKeyURI == "" {
-		return 0, fmt.Errorf("master key is not set")
-	}
-
-	const keySetIDLength = 32
-
-	baseID := l.masterKeyURI
+	keySetIDLength := base64.RawURLEncoding.DecodedLen(maxKeyIDLen)
 	ksID := ""
 
 	for {
 		// generate random ID prefixed with masterKeyURI
-		ksID = baseID + base64.URLEncoding.EncodeToString(random.GetRandomBytes(keySetIDLength))
+		ksID = base64.RawURLEncoding.EncodeToString(random.GetRandomBytes(uint32(keySetIDLength)))
 
 		// ensure ksID is not already used
 		_, e := l.storage.Get(ksID)
