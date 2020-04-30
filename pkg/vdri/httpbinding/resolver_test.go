@@ -140,7 +140,7 @@ func TestRead_DIDDoc(t *testing.T) {
 
 		defer func() { testServer.Close() }()
 
-		resolver, err := New(testServer.URL)
+		resolver, err := New(testServer.URL, WithResolveAuthToken("tk1"))
 		require.NoError(t, err)
 		gotDocument, err := resolver.Read("did:example:334455")
 		require.NoError(t, err)
