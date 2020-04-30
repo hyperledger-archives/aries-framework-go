@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
@@ -48,6 +49,12 @@ func (ja JWSAlgorithm) name() (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported algorithm: %v", ja)
 	}
+}
+
+type jsonldCredentialOpts struct {
+	jsonldDocumentLoader ld.DocumentLoader
+	externalContext      []string
+	jsonldOnlyValidRDF   bool
 }
 
 // PublicKeyFetcher fetches public key for JWT signing verification based on Issuer ID (possibly DID)

@@ -86,26 +86,4 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 		r.Contains(newVPProof, "proofValue")
 		r.Equal("Ed25519Signature2018", newVPProof["type"])
 	})
-
-	t.Run("Add invalid Linked Data proof to VC", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation))
-		require.NoError(t, err)
-
-		vp.RefreshService = &TypedID{
-			CustomFields: map[string]interface{}{
-				"invalidField": make(chan int),
-			},
-		}
-
-		err = vp.AddLinkedDataProof(ldpContext)
-		r.Error(err)
-
-		vp.RefreshService = nil
-		ldpContextWithMissingSignatureType := &LinkedDataProofContext{
-			Suite: ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
-		}
-
-		err = vp.AddLinkedDataProof(ldpContextWithMissingSignatureType)
-		r.Error(err)
-	})
 }

@@ -301,6 +301,11 @@ func compactMap(m map[string]interface{}) map[string]interface{} {
 	mCopy := make(map[string]interface{})
 
 	for k, v := range m {
+		// ignore context
+		if k == "@context" {
+			continue
+		}
+
 		vNorm := compactValue(v)
 
 		switch kv := vNorm.(type) {
