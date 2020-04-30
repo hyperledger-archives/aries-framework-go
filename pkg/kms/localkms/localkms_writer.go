@@ -36,8 +36,13 @@ func (l *storeWriter) Write(p []byte) (int, error) {
 	ksID := ""
 
 	for {
-		// generate random ID prefixed with masterKeyURI
+		// generate random ID
 		ksID = base64.RawURLEncoding.EncodeToString(random.GetRandomBytes(uint32(keySetIDLength)))
+
+		// skip IDs starting with '_' as some storage types reserve them for indexes (eg couchdb)
+		if ksID[0] == '_' {
+			continue
+		}
 
 		// ensure ksID is not already used
 		_, e := l.storage.Get(ksID)
