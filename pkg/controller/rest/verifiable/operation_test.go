@@ -94,6 +94,7 @@ const vcWithDIDNotAvailble = `{
 const doc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
+  "authentication": ["did:peer:123456789abcdefghi#keys-1"],
   "publicKey": [
     {
       "id": "did:peer:123456789abcdefghi#keys-1",
@@ -453,8 +454,7 @@ func TestGeneratePresentation(t *testing.T) {
 				if didID == invalidDID {
 					return nil, errors.New("invalid")
 				}
-				didDoc = &did.Doc{}
-				err := json.Unmarshal([]byte(doc), didDoc)
+				didDoc, err := did.ParseDocument([]byte(doc))
 				if err != nil {
 					return nil, errors.New("unmarshal failed ")
 				}
@@ -483,7 +483,7 @@ func TestGeneratePresentation(t *testing.T) {
 
 		handler := lookupHandler(t, cmd, generatePresentationPath, http.MethodPost)
 		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(presReqBytes), handler.Path())
-		require.NoError(t, err)
+		require.NoError(t, err, err)
 
 		response := presentationRes{}
 		err = json.Unmarshal(buf.Bytes(), &response)
@@ -541,10 +541,9 @@ func TestGeneratePresentation(t *testing.T) {
 			VerifiableCredentials: vcs,
 			DID:                   "did:peer:21tDAKCERh95uGgKbJNHYp",
 			ProofOptions: &verifiable.ProofOptions{
-				VerificationMethod: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
 				Domain:             "issuer.example.com",
 				Challenge:          "sample-random-test-value",
-				ProofPurpose:       "authentication",
 				Created:            &createdTime,
 				SignatureType:      verifiable.Ed25519Signature2018,
 			},
@@ -572,7 +571,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
 		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
-		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], "authentication")
 		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
 	})
 
@@ -585,10 +584,9 @@ func TestGeneratePresentation(t *testing.T) {
 			Presentation: pRaw,
 			DID:          "did:peer:21tDAKCERh95uGgKbJNHYp",
 			ProofOptions: &verifiable.ProofOptions{
-				VerificationMethod: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
 				Domain:             "issuer.example.com",
 				Challenge:          "sample-random-test-value",
-				ProofPurpose:       "authentication",
 				Created:            &createdTime,
 				SignatureType:      verifiable.Ed25519Signature2018,
 			},
@@ -617,7 +615,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
 		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
-		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], "authentication")
 		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
 	})
 

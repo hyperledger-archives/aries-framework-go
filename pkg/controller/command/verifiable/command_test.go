@@ -113,6 +113,7 @@ const invalidVC = `
 const doc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:123456789abcdefghi#inbox",
+  "authentication": ["did:peer:123456789abcdefghi#keys-1"],
   "publicKey": [
     {
       "id": "did:peer:123456789abcdefghi#keys-1",
@@ -126,7 +127,7 @@ const doc = `{
       "controller": "did:peer:123456789abcdefghw",
       "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAryQICCl6NZ5gDKrnSztO\n3Hy8PEUcuyvg/ikC+VcIo2SFFSf18a3IMYldIugqqqZCs4/4uVW3sbdLs/6PfgdX\n7O9D22ZiFWHPYA2k2N744MNiCD1UE+tJyllUhSblK48bn+v1oZHCM0nYQ2NqUkvS\nj+hwUU3RiWl7x3D2s9wSdNt7XUtW05a/FXehsPSiJfKvHJJnGOX0BgTvkLnkAOTd\nOrUZ/wK69Dzu4IvrN4vs9Nes8vbwPa/ddZEzGR0cQMt0JBkhk9kU/qwqUseP1QRJ\n5I1jR4g8aYPL/ke9K35PxZWuDp3U0UPAZ3PjFAh+5T+fc7gzCs9dPzSHloruU+gl\nFQIDAQAB\n-----END PUBLIC KEY-----"
     },
-{
+	{
         "type": "Ed25519VerificationKey2018",
         "publicKeyBase58": "GUXiqNHCdirb6NKpH6wYG4px3YfMjiCh6dQhU3zxQVQ7",
         "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
@@ -146,9 +147,9 @@ const invalidDoc = `{
 
 //nolint:lll
 const jwsDIDDoc = `{
-    "@context":
-        ["https://w3id.org/did/v1"], "id":
-        "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA", 
+    "@context":["https://w3id.org/did/v1"], 
+	"id": "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA",
+	"authentication" : [ "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777" ],
     "publicKey": [{
             "controller": "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA",
             "id": "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777",
@@ -157,6 +158,71 @@ const jwsDIDDoc = `{
         }]
 }
 `
+
+//nolint:lll
+const didKeyDoc = `{
+  "@context" : [ "https://w3id.org/did/v0.11" ],
+  "id" : "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+  "authentication" : [ 
+		"did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+		"did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd"],
+  "assertionMethod" : [ "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd" ],
+  "capabilityDelegation" : [ "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd" ],
+  "capabilityInvocation" : [ "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd" ],
+  "keyAgreement" : [ {
+    "id" : "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6LShKMZ117txS1WuExddVM2rbJ2zy3AKFtZVY5WNi44aKzA",
+    "type" : "X25519KeyAgreementKey2019",
+    "controller" : "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+    "publicKeyBase58" : "6eBPUhK2ryHmoras6qq5Y15Z9pW3ceiQcZMptFQXrxDQ"
+  } ],
+  "publicKey" : [ {
+    "id" : "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+    "type" : "Ed25519VerificationKey2018",
+    "controller" : "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+    "publicKeyBase58" : "5yKdnU7ToTjAoRNDzfuzVTfWBH38qyhE1b9xh4v8JaWF"
+  },
+  {
+    "id" : "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+    "type" : "Ed25519VerificationKey2018",
+    "controller" : "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+    "publicKeyBase58" : "5yKdnU7ToTjAoRNDzfuzVTfWBH38qyhE1b9xh4v8JaWF"
+  }]
+}`
+
+//nolint:lll
+const tbDoc = `{
+  "@context": [
+    "https://w3id.org/did/v1"
+  ],
+  "authentication": [
+    "#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ"
+  ],
+  "id": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg",
+  "publicKey": [
+    {
+      "controller": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg",
+      "id": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+      "publicKeyBase58": "7yJkjsEqXSjVyqETXobYzpesAY8zgQyomS54nN3KHZqg",
+      "type": "Ed25519VerificationKey2018"
+    }
+  ]
+}`
+
+//nolint:lll
+const tbDocNoAuth = `{
+  "@context": [
+    "https://w3id.org/did/v1"
+  ],
+  "id": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1",
+  "publicKey": [
+    {
+      "controller": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1",
+      "id": "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+      "publicKeyBase58": "7yJkjsEqXSjVyqETXobYzpesAY8zgQyomS54nN3KHZqg",
+      "type": "Ed25519VerificationKey2018"
+    }
+  ]
+}`
 
 //nolint:lll
 const udVerifiablePresentation = `{
@@ -709,10 +775,9 @@ func TestGeneratePresentation(t *testing.T) {
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
 			ProofOptions: &ProofOptions{
-				VerificationMethod: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
 				Domain:             "issuer.example.com",
 				Challenge:          "sample-random-test-value",
-				ProofPurpose:       "authentication",
 				Created:            &createdTime,
 				SignatureType:      Ed25519Signature2018,
 			},
@@ -739,7 +804,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
 		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
-		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], "authentication")
 		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
 	})
 
@@ -753,7 +818,6 @@ func TestGeneratePresentation(t *testing.T) {
 			ProofOptions: &ProofOptions{
 				Domain:        "issuer.example.com",
 				Challenge:     "sample-random-test-value",
-				ProofPurpose:  "authentication",
 				Created:       &createdTime,
 				SignatureType: Ed25519Signature2018,
 			},
@@ -780,10 +844,10 @@ func TestGeneratePresentation(t *testing.T) {
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
 		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
-		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], "authentication")
 		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
 		require.Equal(t, vp.Proofs[0]["verificationMethod"],
-			"did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key")
+			"did:peer:123456789abcdefghi#keys-1")
 	})
 
 	t.Run("test generate presentation with proof options - success (p256 jsonwebsignature)", func(t *testing.T) {
@@ -800,14 +864,13 @@ func TestGeneratePresentation(t *testing.T) {
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
 			ProofOptions: &ProofOptions{
-				Domain:        "issuer.example.com",
-				Challenge:     "sample-random-test-value",
-				ProofPurpose:  "authentication",
-				Created:       &createdTime,
-				DIDKeyID:      "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
-				PrivateKey:    base58.Encode(encodedPrivateKey),
-				SignatureType: JSONWebSignature2020,
-				KeyType:       P256KeyType,
+				Domain:             "issuer.example.com",
+				Challenge:          "sample-random-test-value",
+				Created:            &createdTime,
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
+				PrivateKey:         base58.Encode(encodedPrivateKey),
+				SignatureType:      JSONWebSignature2020,
+				KeyType:            P256KeyType,
 			},
 		}
 
@@ -832,7 +895,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
 		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
-		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], "authentication")
 		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
 		require.Contains(t, vp.Proofs[0]["type"], "JsonWebSignature2020")
 	})
@@ -846,12 +909,11 @@ func TestGeneratePresentation(t *testing.T) {
 		createdTime := time.Now().AddDate(-1, 0, 0)
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
-			DID:                   "did:peer:123456789abcdefghi#inbox",
+			DID:                   jwsDID,
 			ProofOptions: &ProofOptions{
-				VerificationMethod: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777",
 				Domain:             "issuer.example.com",
 				Challenge:          "sample-random-test-value",
-				ProofPurpose:       "authentication",
 				Created:            &createdTime,
 				PrivateKey:         base58.Encode(privateKey),
 				SignatureType:      JSONWebSignature2020,
@@ -880,7 +942,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
 		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
-		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], "authentication")
 		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
 		require.Contains(t, vp.Proofs[0]["type"], "JsonWebSignature2020")
 	})
@@ -895,9 +957,10 @@ func TestGeneratePresentation(t *testing.T) {
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
 			ProofOptions: &ProofOptions{
-				PrivateKey:    base58.Encode(privateKey),
-				KeyType:       "invalid-key-type",
-				SignatureType: JSONWebSignature2020,
+				PrivateKey:         base58.Encode(privateKey),
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
+				KeyType:            "invalid-key-type",
+				SignatureType:      JSONWebSignature2020,
 			},
 		}
 
@@ -920,9 +983,10 @@ func TestGeneratePresentation(t *testing.T) {
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
 			ProofOptions: &ProofOptions{
-				PrivateKey:    base58.Encode(privateKey),
-				KeyType:       Ed25519Signature2018,
-				SignatureType: "invalid",
+				PrivateKey:         base58.Encode(privateKey),
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
+				KeyType:            Ed25519Signature2018,
+				SignatureType:      "invalid",
 			},
 		}
 
@@ -967,10 +1031,9 @@ func TestGeneratePresentation(t *testing.T) {
 			Presentation: pRaw,
 			DID:          "did:peer:123456789abcdefghi#inbox",
 			ProofOptions: &ProofOptions{
-				VerificationMethod: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
 				Domain:             "issuer.example.com",
 				Challenge:          "sample-random-test-value",
-				ProofPurpose:       "authentication",
 				Created:            &createdTime,
 				SignatureType:      JSONWebSignature2020,
 			},
@@ -999,7 +1062,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
 		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
-		require.Equal(t, vp.Proofs[0]["proofPurpose"], presReq.ProofPurpose)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], "authentication")
 		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(presReq.Created.Year()))
 	})
 
@@ -1561,6 +1624,203 @@ func TestGetPresentations(t *testing.T) {
 		require.Len(t, response.Result, 1)
 		require.Len(t, response.Result[0].Context, 2)
 		require.Len(t, response.Result[0].Type, 1)
+	})
+}
+
+func TestGeneratePresentation_prepareOpts(t *testing.T) {
+	dids := []string{doc, didKeyDoc, tbDoc, invalidDoc, tbDocNoAuth}
+
+	didStore := make(map[string]*did.Doc)
+
+	for _, d := range dids {
+		doc, err := did.ParseDocument([]byte(d))
+		require.NoError(t, err)
+		require.NotNil(t, doc)
+
+		didStore[doc.ID] = doc
+	}
+
+	require.Len(t, didStore, len(dids))
+
+	//nolint:lll
+	t.Run("Test generate presentation opts", func(t *testing.T) {
+		tests := []struct {
+			name         string
+			requestDID   string
+			requestOpts  *ProofOptions
+			responseOpts *ProofOptions
+			err          string
+		}{
+			{
+				name:        "with default opts",
+				requestDID:  "did:peer:123456789abcdefghi#inbox",
+				requestOpts: nil,
+				responseOpts: &ProofOptions{
+					VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
+					proofPurpose:       "authentication",
+				},
+			},
+			{
+				name:       "with default opts when there are two authentication methods in DID",
+				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				requestOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				},
+				responseOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					proofPurpose:       "authentication",
+				},
+			},
+			{
+				name:       "second under authentication as verification method",
+				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				requestOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				},
+				responseOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					proofPurpose:       "authentication",
+				},
+			},
+			{
+				name:       "first under authentication as verification method",
+				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				requestOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				},
+				responseOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					proofPurpose:       "authentication",
+				},
+			},
+			{
+				name:       "first with only one authentication method",
+				requestDID: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg",
+				requestOpts: &ProofOptions{
+					VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+				},
+				responseOpts: &ProofOptions{
+					VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+					proofPurpose:       "authentication",
+				},
+			},
+			{
+				name:       "did without authentication method but VM in opts",
+				requestDID: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1",
+				requestOpts: &ProofOptions{
+					VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+				},
+				err: "unable to find matching 'authentication' key IDs for given verification method",
+			},
+			{
+				name:        "did without authentication method but no VM in opts",
+				requestDID:  "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1",
+				requestOpts: &ProofOptions{},
+				responseOpts: &ProofOptions{
+					VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+					proofPurpose:       "authentication",
+				},
+			},
+			{
+				name:        "using invalid DID and default opts",
+				requestDID:  "did:peer:21tDAKCERh95uGgKbJNHYp",
+				requestOpts: &ProofOptions{},
+				err:         "failed to get default verification method: public key not found in DID Document",
+			},
+			{
+				name:       "using invalid DID and verification method",
+				requestDID: "did:peer:21tDAKCERh95uGgKbJNHYp",
+				requestOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				},
+				err: "unable to find matching 'authentication' key IDs for given verification method",
+			},
+			{
+				name:       "private key without verification method",
+				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				requestOpts: &ProofOptions{
+					PrivateKey: "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				},
+				err: "verification method matching given private key is not provided",
+			},
+			{
+				name:       "private key matching second verification method",
+				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				requestOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				},
+				responseOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					proofPurpose:       "authentication",
+				},
+			},
+			{
+				name:       "private key matching first verification method",
+				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				requestOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				},
+				responseOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					proofPurpose:       "authentication",
+				},
+			},
+			{
+				name:       "private key not matching any verification method",
+				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				requestOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHdXYZ",
+					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				},
+				err: "unable to find matching 'authentication' key IDs for given verification method",
+			},
+			{
+				name:       "all opts given",
+				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				requestOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					Domain:             "sample.domain.example.com",
+					Challenge:          "sample-challenge",
+					SignatureType:      JSONWebSignature2020,
+					KeyType:            Ed25519KeyType,
+				},
+				responseOpts: &ProofOptions{
+					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					proofPurpose:       "authentication",
+					Domain:             "sample.domain.example.com",
+					Challenge:          "sample-challenge",
+					SignatureType:      JSONWebSignature2020,
+					KeyType:            Ed25519KeyType,
+				},
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.name, func(t *testing.T) {
+				res, err := prepareOpts(tc.requestOpts, didStore[tc.requestDID])
+
+				if tc.err != "" {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tc.err)
+					require.Nil(t, res)
+
+					return
+				}
+
+				require.NoError(t, err)
+				require.NotNil(t, res)
+				require.Equal(t, tc.responseOpts, res)
+			})
+		}
 	})
 }
 

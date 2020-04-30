@@ -663,8 +663,6 @@ func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, opts *ProofOpt
 	var s signer
 	if opts.PrivateKey != "" {
 		s = newPrivateKeySigner(opts.KeyType, base58.Decode(opts.PrivateKey))
-
-		opts.VerificationMethod = opts.DIDKeyID
 	} else {
 		var err error
 		s, err = newKMSSigner(o.ctx.KMS(), o.ctx.Crypto(), opts.VerificationMethod)
@@ -692,7 +690,7 @@ func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, opts *ProofOpt
 		Created:                 opts.Created,
 		Domain:                  opts.Domain,
 		Challenge:               opts.Challenge,
-		Purpose:                 opts.ProofPurpose,
+		Purpose:                 opts.proofPurpose,
 	}
 
 	err := vp.AddLinkedDataProof(signingCtx)
@@ -763,11 +761,43 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc) (*ProofOptions, error) {
 		opts = &ProofOptions{}
 	}
 
+	opts.proofPurpose = "authentication"
+
+	if opts.PrivateKey != "" && opts.VerificationMethod == "" {
+		return nil, fmt.Errorf("verification method matching given private key is not provided")
+	}
+
+	authVMs := didDoc.VerificationMethods(did.Authentication)[did.Authentication]
+
+	vmMatched := opts.VerificationMethod == ""
+
+	for _, vm := range authVMs {
+		if opts.VerificationMethod != "" {
+			// if verification method is provided as an option, then validate if it belongs to 'authentication'
+			if opts.VerificationMethod == vm.PublicKey.ID {
+				vmMatched = true
+				break
+			}
+
+			continue
+		} else {
+			// by default first authentication public key
+			opts.VerificationMethod = vm.PublicKey.ID
+			break
+		}
+	}
+
+	if !vmMatched {
+		return nil, fmt.Errorf("unable to find matching 'authentication' key IDs for given verification method")
+	}
+
+	// this is the fallback logic kept for DIDs not having authentication method
+	// TODO to be removed [Issue #1693]
 	if opts.VerificationMethod == "" {
+		logger.Warnf("Could not find matching verification method for 'authentication' proof purpose")
+
 		defaultVM, err := getDefaultVerificationMethod(didDoc)
 		if err != nil {
-			logutil.LogError(logger, commandName, generatePresentationCommandMethod,
-				"failed to get default verification method: "+err.Error())
 			return nil, fmt.Errorf("failed to get default verification method: %w", err)
 		}
 

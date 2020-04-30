@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-import {newAries, newAriesREST,healthCheck} from "../common.js"
+import {healthCheck, newAries, newAriesREST} from "../common.js"
 import {environment} from "../environment.js";
 
 const agentControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.USER_HOST}:${environment.USER_API_PORT}`
@@ -39,8 +39,12 @@ const wasmMode = 'wasm'
 
 
 describe("Verifiable Store Test", function () {
-    describe(restMode, function() { verifiableStore(newAriesREST(agentControllerApiUrl), restMode) })
-    describe(wasmMode, function() { verifiableStore(newAries('demo','demo-agent', [`${environment.HTTP_LOCAL_DID_RESOLVER}`])) })
+    describe(restMode, function () {
+        verifiableStore(newAriesREST(agentControllerApiUrl), restMode)
+    })
+    describe(wasmMode, function () {
+        verifiableStore(newAries('demo', 'demo-agent', [`${environment.HTTP_LOCAL_DID_RESOLVER}`]))
+    })
 })
 
 async function verifiableStore(newAries, mode = wasmMode) {
@@ -106,8 +110,8 @@ async function verifiableStore(newAries, mode = wasmMode) {
         aries.verifiable.getCredentials().then(
             resp => {
                 let found = false;
-                for (let i=0; i<resp.result.length;i++){
-                    if (vcName === resp.result[i].name){
+                for (let i = 0; i < resp.result.length; i++) {
+                    if (vcName === resp.result[i].name) {
                         try {
                             assert.equal(vcID, resp.result[i].id)
                             assert.equal(vcName, resp.result[i].name)
@@ -120,7 +124,7 @@ async function verifiableStore(newAries, mode = wasmMode) {
                     }
                 }
 
-                if (!found){
+                if (!found) {
                     done(new Error("credential: not found"))
                 }
 
@@ -176,14 +180,15 @@ async function verifiableStore(newAries, mode = wasmMode) {
     //     )
     // })
 
-it(modePrefix + "Alice generates the signed  verifiable presentation to pass it to the employer", async function () {
+    // TODO below test to be enabled once creating sidetree DID with authentication method is available in aries vdri [Issue #1747]
+    xit(modePrefix + "Alice generates the signed  verifiable presentation to pass it to the employer", async function () {
         await healthCheck(`${environment.HTTP_LOCAL_RESOLVER_URL}/` + did.id, 5000, "resolve did timeout!")
         await aries.verifiable.generatePresentation({
             "verifiableCredential": [JSON.parse(vc)],
             "did": did.id,
-            "privateKey" :"WejGrq3SkHF1YpsdXSCg46FK8vuTDxroA9wh2q1398MUqrpKrFts54j8rLqGfT5Tu8cmG6PVUXUoFWManr4uVEpVFd8ZywoHPV8nBRQTxQXjucdd22nji7ijKG18kuptpArQBrAAo2GLmv8yFtSagkvFrYQ4A8Ti4aafw",
-            "keyType" : "P256",
-            "signatureType":"JsonWebSignature2020"
+            "privateKey": "WejGrq3SkHF1YpsdXSCg46FK8vuTDxroA9wh2q1398MUqrpKrFts54j8rLqGfT5Tu8cmG6PVUXUoFWManr4uVEpVFd8ZywoHPV8nBRQTxQXjucdd22nji7ijKG18kuptpArQBrAAo2GLmv8yFtSagkvFrYQ4A8Ti4aafw",
+            "keyType": "P256",
+            "signatureType": "JsonWebSignature2020"
         }).then(
             resp => {
                 try {
@@ -193,8 +198,9 @@ it(modePrefix + "Alice generates the signed  verifiable presentation to pass it 
                 }
             }, err => assert.fail(err)
         )
-});
+    });
 }
+
 // TODO https://github.com/hyperledger/aries-framework-go/issues/1411 rest api expects base64
 function getCredentialID(mode, id) {
     if (mode == restMode) {
