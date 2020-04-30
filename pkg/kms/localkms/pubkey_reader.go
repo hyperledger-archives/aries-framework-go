@@ -103,10 +103,10 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 		if err != nil {
 			return nil, "", err
 		}
-	case kms.ECDSAP256TypeIEEE1363:
+	case kms.ECDSAP256TypeIEEEP1363:
 		tURL = ecdsaVerifierTypeURL
 
-		keyValue, err = getMarshalledECDSAIEEE1363Key(
+		keyValue, err = getMarshalledECDSAIEEEP1363Key(
 			pubKey,
 			"NIST_P256",
 			commonpb.EllipticCurveType_NIST_P256,
@@ -114,10 +114,10 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 		if err != nil {
 			return nil, "", err
 		}
-	case kms.ECDSAP384TypeIEEE1363:
+	case kms.ECDSAP384TypeIEEEP1363:
 		tURL = ecdsaVerifierTypeURL
 
-		keyValue, err = getMarshalledECDSAIEEE1363Key(
+		keyValue, err = getMarshalledECDSAIEEEP1363Key(
 			pubKey,
 			"NIST_P384",
 			commonpb.EllipticCurveType_NIST_P384,
@@ -125,10 +125,10 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, stri
 		if err != nil {
 			return nil, "", err
 		}
-	case kms.ECDSAP521TypeIEEE1363:
+	case kms.ECDSAP521TypeIEEEP1363:
 		tURL = ecdsaVerifierTypeURL
 
-		keyValue, err = getMarshalledECDSAIEEE1363Key(
+		keyValue, err = getMarshalledECDSAIEEEP1363Key(
 			pubKey,
 			"NIST_P521",
 			commonpb.EllipticCurveType_NIST_P521,
@@ -174,7 +174,7 @@ func getMarshalledECDSADERKey(marshaledPubKey []byte, curveName string, c common
 	return getMarshalledECDSAKey(ecPubKey, c, h, ecdsapb.EcdsaSignatureEncoding_DER)
 }
 
-func getMarshalledECDSAIEEE1363Key(marshaledPubKey []byte, curveName string, c commonpb.EllipticCurveType,
+func getMarshalledECDSAIEEEP1363Key(marshaledPubKey []byte, curveName string, c commonpb.EllipticCurveType,
 	h commonpb.HashType) ([]byte, error) {
 	curve := subtle.GetCurve(curveName)
 	if curve == nil {

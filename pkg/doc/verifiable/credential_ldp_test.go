@@ -244,7 +244,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testin
 func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *testing.T) {
 	r := require.New(t)
 
-	// TODO replace ecdsa.GenerateKey with KMS.Create(kms.ECDSAP256TypeIEEE1363) and use localkms and Crypto for signing
+	// TODO replace ecdsa.GenerateKey with KMS.Create(kms.ECDSAP256TypeIEEEP1363) and use localkms and Crypto for signing
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
@@ -483,11 +483,11 @@ func mapJWKToKMSKeyType(jwk *jose.JWK) (kms.KeyType, error) {
 	case "EC":
 		switch jwk.Crv {
 		case "P-256":
-			return kms.ECDSAP256TypeIEEE1363, nil
+			return kms.ECDSAP256TypeIEEEP1363, nil
 		case "P-384":
-			return kms.ECDSAP384TypeIEEE1363, nil
+			return kms.ECDSAP384TypeIEEEP1363, nil
 		case "P-521":
-			return kms.ECDSAP521TypeIEEE1363, nil
+			return kms.ECDSAP521TypeIEEEP1363, nil
 		}
 	}
 

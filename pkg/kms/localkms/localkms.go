@@ -155,12 +155,12 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 		return signature.ECDSAP384KeyWithoutPrefixTemplate(), nil
 	case kms.ECDSAP521TypeDER:
 		return signature.ECDSAP521KeyWithoutPrefixTemplate(), nil
-	case kms.ECDSAP256TypeIEEE1363:
-		// JWS keys should sign using IEEE_1363 format only (not DER format)
+	case kms.ECDSAP256TypeIEEEP1363:
+		// JWS keys should sign using IEEE_P1363 format only (not DER format)
 		return createECDSAIEEE1363KeyTemplate(commonpb.HashType_SHA256, commonpb.EllipticCurveType_NIST_P256), nil
-	case kms.ECDSAP384TypeIEEE1363:
+	case kms.ECDSAP384TypeIEEEP1363:
 		return createECDSAIEEE1363KeyTemplate(commonpb.HashType_SHA512, commonpb.EllipticCurveType_NIST_P384), nil
-	case kms.ECDSAP521TypeIEEE1363:
+	case kms.ECDSAP521TypeIEEEP1363:
 		return createECDSAIEEE1363KeyTemplate(commonpb.HashType_SHA512, commonpb.EllipticCurveType_NIST_P521), nil
 	case kms.ED25519Type:
 		return signature.ED25519KeyWithoutPrefixTemplate(), nil

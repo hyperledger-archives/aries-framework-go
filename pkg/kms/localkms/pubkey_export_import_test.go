@@ -47,20 +47,20 @@ func TestPubKeyExportAndRead(t *testing.T) {
 			doSign:      true,
 		},
 		{
-			tcName:      "export then read ECDSAP256IEEE1363 public key",
-			keyType:     kms.ECDSAP256TypeIEEE1363,
+			tcName:      "export then read ECDSAP256IEEEP1363 public key",
+			keyType:     kms.ECDSAP256TypeIEEEP1363,
 			keyTemplate: createECDSAIEEE1363KeyTemplate(commonpb.HashType_SHA256, commonpb.EllipticCurveType_NIST_P256),
 			doSign:      true,
 		},
 		{
-			tcName:      "export then read ECDSAP384IEEE1363 public key",
-			keyType:     kms.ECDSAP384TypeIEEE1363,
+			tcName:      "export then read ECDSAP384IEEEP1363 public key",
+			keyType:     kms.ECDSAP384TypeIEEEP1363,
 			keyTemplate: createECDSAIEEE1363KeyTemplate(commonpb.HashType_SHA512, commonpb.EllipticCurveType_NIST_P384),
 			doSign:      true,
 		},
 		{
-			tcName:      "export then read ECDSAP521IEEE1363 public key",
-			keyType:     kms.ECDSAP521TypeIEEE1363,
+			tcName:      "export then read ECDSAP521IEEEP1363 public key",
+			keyType:     kms.ECDSAP521TypeIEEEP1363,
 			keyTemplate: createECDSAIEEE1363KeyTemplate(commonpb.HashType_SHA512, commonpb.EllipticCurveType_NIST_P521),
 			doSign:      true,
 		},
@@ -133,7 +133,7 @@ func exportRawPublicKeyBytes(t *testing.T, keyTemplate *tinkpb.KeyTemplate, expe
 
 func TestNegativeCases(t *testing.T) {
 	t.Run("test publicKeyBytesToHandle with empty pubKey", func(t *testing.T) {
-		kh, err := publicKeyBytesToHandle([]byte{}, kms.ECDSAP256TypeIEEE1363)
+		kh, err := publicKeyBytesToHandle([]byte{}, kms.ECDSAP256TypeIEEEP1363)
 		require.EqualError(t, err, "pubKey is empty")
 		require.Empty(t, kh)
 	})
@@ -150,8 +150,8 @@ func TestNegativeCases(t *testing.T) {
 		require.Empty(t, kh)
 	})
 
-	t.Run("test publicKeyBytesToHandle with bad pubKey and ECDSAP256TypeIEEE1363", func(t *testing.T) {
-		kh, err := publicKeyBytesToHandle([]byte{1}, kms.ECDSAP256TypeIEEE1363)
+	t.Run("test publicKeyBytesToHandle with bad pubKey and ECDSAP256TypeIEEEP1363", func(t *testing.T) {
+		kh, err := publicKeyBytesToHandle([]byte{1}, kms.ECDSAP256TypeIEEEP1363)
 		require.EqualError(t, err, "error getting marshalled proto key: failed to unamrshal public ecdsa key")
 		require.Empty(t, kh)
 	})
@@ -162,8 +162,8 @@ func TestNegativeCases(t *testing.T) {
 		require.Empty(t, kh)
 	})
 
-	t.Run("test publicKeyBytesToHandle with bad pubKey and ECDSAP384TypeIEEE1363", func(t *testing.T) {
-		kh, err := publicKeyBytesToHandle([]byte{1}, kms.ECDSAP384TypeIEEE1363)
+	t.Run("test publicKeyBytesToHandle with bad pubKey and ECDSAP384TypeIEEEP1363", func(t *testing.T) {
+		kh, err := publicKeyBytesToHandle([]byte{1}, kms.ECDSAP384TypeIEEEP1363)
 		require.EqualError(t, err, "error getting marshalled proto key: failed to unamrshal public ecdsa key")
 		require.Empty(t, kh)
 	})
@@ -174,8 +174,8 @@ func TestNegativeCases(t *testing.T) {
 		require.Empty(t, kh)
 	})
 
-	t.Run("test publicKeyBytesToHandle with bad pubKey and ECDSAP521TypeIEEE1363", func(t *testing.T) {
-		kh, err := publicKeyBytesToHandle([]byte{1}, kms.ECDSAP521TypeIEEE1363)
+	t.Run("test publicKeyBytesToHandle with bad pubKey and ECDSAP521TypeIEEEP1363", func(t *testing.T) {
+		kh, err := publicKeyBytesToHandle([]byte{1}, kms.ECDSAP521TypeIEEEP1363)
 		require.EqualError(t, err, "error getting marshalled proto key: failed to unamrshal public ecdsa key")
 		require.Empty(t, kh)
 	})
@@ -190,7 +190,7 @@ func TestNegativeCases(t *testing.T) {
 	})
 
 	t.Run("test getMarshalledECDSAKey with empty curveName", func(t *testing.T) {
-		kh, err := getMarshalledECDSAIEEE1363Key([]byte{},
+		kh, err := getMarshalledECDSAIEEEP1363Key([]byte{},
 			"",
 			commonpb.EllipticCurveType_NIST_P521,
 			commonpb.HashType_SHA512)
