@@ -201,9 +201,9 @@ func WithAccept(accept Accept) Option {
 }
 
 // WithResolveAuthToken add auth token for resolve
-func WithResolveAuthToken(auhtToken string) Option {
+func WithResolveAuthToken(authToken string) Option {
 	return func(opts *VDRI) {
-		opts.resolveAuthToken = "Bearer " + auhtToken
+		opts.resolveAuthToken = "Bearer " + authToken
 	}
 }
 
