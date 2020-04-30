@@ -271,7 +271,7 @@ func CachingJSONLDLoader() *ld.CachingDocumentLoader {
 	return loader
 }
 
-func compactJSONLD(doc string, documentLoader ld.DocumentLoader, strict bool) error {
+func compactJSONLD(doc string, opts *jsonldCredentialOpts, strict bool) error {
 	docMap, err := toMap(doc)
 	if err != nil {
 		return fmt.Errorf("convert JSON-LD doc to map: %w", err)
@@ -279,12 +279,9 @@ func compactJSONLD(doc string, documentLoader ld.DocumentLoader, strict bool) er
 
 	jsonldProc := jsonld.Default()
 
-	contextMap, err := extractContext(docMap)
-	if err != nil {
-		return fmt.Errorf("extract context from JSON-LD doc: %w", err)
-	}
-
-	docCompactedMap, err := jsonldProc.Compact(docMap, contextMap, documentLoader)
+	docCompactedMap, err := jsonldProc.Compact(docMap,
+		nil, jsonld.WithDocumentLoader(opts.jsonldDocumentLoader),
+		jsonld.WithExternalContext(opts.externalContext...))
 	if err != nil {
 		return fmt.Errorf("compact JSON-LD document: %w", err)
 	}
@@ -294,15 +291,6 @@ func compactJSONLD(doc string, documentLoader ld.DocumentLoader, strict bool) er
 	}
 
 	return nil
-}
-
-func extractContext(docMap map[string]interface{}) (map[string]interface{}, error) {
-	context, ok := docMap["@context"]
-	if !ok {
-		return nil, errors.New("@context is not defined in JSON-LD document")
-	}
-
-	return map[string]interface{}{"@context": context}, nil
 }
 
 func mapsHaveSameStructure(originalMap, compactedMap map[string]interface{}) bool {

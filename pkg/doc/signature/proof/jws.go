@@ -77,7 +77,7 @@ func getJWTHeader(jwt string) (string, error) {
 // JSON and Signature documents and by preliminary JSON-LD compacting of JSON document.
 // The current implementation is based on the https://github.com/digitalbazaar/jsonld-signatures.
 func createVerifyJWS(suite signatureSuite, jsonldDoc map[string]interface{}, p *Proof,
-	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
+	opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	proofOptions := p.JSONLdObject()
 
 	canonicalProofOptions, err := prepareJWSProof(suite, proofOptions, opts...)
@@ -105,7 +105,7 @@ func createVerifyJWS(suite signatureSuite, jsonldDoc map[string]interface{}, p *
 }
 
 func prepareJWSProof(suite signatureSuite, proofOptions map[string]interface{},
-	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
+	opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	proofOptions[jsonldContext] = securityContext
 
 	proofOptionsCopy := make(map[string]interface{}, len(proofOptions))
@@ -117,11 +117,11 @@ func prepareJWSProof(suite signatureSuite, proofOptions map[string]interface{},
 	delete(proofOptionsCopy, jsonldJWS)
 	delete(proofOptionsCopy, jsonldProofValue)
 
-	return suite.GetCanonicalDocument(proofOptionsCopy, opts...)
+	return suite.GetCanonicalDocument(proofOptionsCopy, append(opts, jsonld.WithRemoveAllInvalidRDF())...)
 }
 
 func prepareDocumentForJWS(suite signatureSuite, jsonldObject map[string]interface{},
-	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
+	opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	// copy document object without proof
 	doc := GetCopyWithoutProof(jsonldObject)
 
@@ -146,7 +146,7 @@ func getCompactedWithSecuritySchema(docMap map[string]interface{}) (map[string]i
 		return nil, err
 	}
 
-	return jsonld.Default().Compact(docMap, contextMap, nil)
+	return jsonld.Default().Compact(docMap, contextMap)
 }
 
 // cached value from https://w3id.org/security/v2

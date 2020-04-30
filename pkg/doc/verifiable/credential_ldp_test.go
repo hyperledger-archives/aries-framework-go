@@ -10,14 +10,17 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
+	"github.com/piprate/json-gold/ld"
 	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
@@ -208,6 +211,191 @@ func TestNewCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 	})
 }
 
+//nolint:lll
+func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
+	vcJSON := `
+{
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://www.w3.org/2018/credentials/examples/v1"
+    ],
+    "id": "http://example.gov/credentials/3732",
+    "type": [
+      "VerifiableCredential",
+      "UniversityDegreeCredential"
+    ],
+    "issuer": {
+      "id": "did:web:vc.transmute.world"
+    },
+    "issuanceDate": "2020-03-10T04:24:12.164Z",
+    "credentialSubject": {
+      "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+      "degree": {
+        "type": "BachelorDegree",
+        "name": "Bachelor of Science and Arts"
+      }
+    },
+    "proof": {
+      "type": "JsonWebSignature2020",
+      "created": "2020-03-21T17:51:48Z",
+      "verificationMethod": "did:web:vc.transmute.world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
+      "proofPurpose": "assertionMethod",
+      "jws": "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJFZERTQSJ9..OPxskX37SK0FhmYygDk-S4csY_gNhCUgSOAaXFXDTZx86CmI5nU9xkqtLWg-f4cqkigKDdMVdtIqWAvaYx2JBA"
+    }
+}
+`
+	sigSuite := jsonwebsignature2020.New(
+		suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
+
+	decoded, err := base64.RawURLEncoding.DecodeString("VCpo2LMLhn6iWku8MKvSLg2ZAoC-nlOyPVQaO3FxVeQ")
+	require.NoError(t, err)
+
+	publicKey := make([]byte, ed25519.PublicKeySize)
+	copy(publicKey[0:32], decoded)
+	rv := ed25519.PublicKey(publicKey)
+
+	vcWithLdp, _, err := NewCredential([]byte(vcJSON),
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
+			return &sigverifier.PublicKey{
+				Type: "JwsVerificationKey2020",
+				JWK: &jose.JWK{
+					JSONWebKey: gojose.JSONWebKey{
+						Algorithm: "EdDSA",
+						Key:       rv,
+					},
+					Crv: "Ed25519",
+					Kty: "OKP",
+				},
+			}, nil
+		}),
+		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/credentials-v1.jsonld"),
+		WithStrictValidation())
+
+	require.NoError(t, err)
+	require.NotNil(t, vcWithLdp)
+}
+
+func TestExtraContextWithLDP(t *testing.T) {
+	r := require.New(t)
+
+	vcJSON := `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
+  ],
+  "id": "http://example.edu/credentials/3732",
+  "type": ["VerifiableCredential", "SupportingActivity"],
+  "issuer": "https://example.edu/issuers/14",
+  "issuanceDate": "2010-01-01T19:23:24Z",
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+  },
+  "credentialStatus": {
+    "id": "https://example.edu/status/24",
+    "type": "CredentialStatusList2017"
+  }
+}`
+
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	r.NoError(err)
+
+	sigSuite := ed25519signature2018.New(
+		suite.WithSigner(getEd25519TestSigner(privKey)),
+		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
+
+	ldpContext := &LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		SignatureRepresentation: SignatureProofValue,
+		Suite:                   sigSuite,
+		VerificationMethod:      "did:example:123456#key1",
+	}
+
+	vc, _, err := NewCredential([]byte(vcJSON))
+	r.NoError(err)
+
+	err = vc.AddLinkedDataProof(ldpContext)
+	r.NoError(err)
+
+	vcBytes, err := json.Marshal(vc)
+	r.NoError(err)
+
+	vcWithLdp, _, err := NewCredential(vcBytes,
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
+		WithStrictValidation())
+	r.NoError(err)
+	r.Equal(vc, vcWithLdp)
+	r.NotNil(vcWithLdp)
+
+	// Drop https://trustbloc.github.io/context/vc/examples-v1.jsonld context where
+	// SupportingActivity and CredentialStatusList2017 are defined.
+	vcMap, err := toMap(vcBytes)
+	r.NoError(err)
+
+	vcMap["@context"] = baseContext
+	vcBytes, err = json.Marshal(vcMap)
+	r.NoError(err)
+
+	vcWithLdp, _, err = NewCredential(vcBytes,
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
+		WithStrictValidation())
+	r.Error(err)
+	r.EqualError(err, "decode new credential: check embedded proof: check linked data proof: ed25519: invalid signature")
+	r.Nil(vcWithLdp)
+
+	// Use extra context.
+	vcWithLdp, _, err = NewCredential(vcBytes,
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
+		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
+		WithStrictValidation())
+	r.NoError(err)
+	r.NotNil(vcWithLdp)
+
+	// Use extra context.
+	vcWithLdp, _, err = NewCredential(vcBytes,
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
+		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
+		WithStrictValidation())
+	r.NoError(err)
+	r.NotNil(vcWithLdp)
+
+	// Use extra in-memory context.
+	reader, err := ld.DocumentFromReader(strings.NewReader(`
+{
+    "@context": {
+      "@version": 1.1,
+  
+      "id": "@id",
+      "type": "@type",
+      
+      "ex": "https://example.org/examples#",
+
+      "CredentialStatusList2017": "ex:CredentialStatusList2017",
+      "DocumentVerification": "ex:DocumentVerification",
+      "SupportingActivity": "ex:SupportingActivity"
+    }
+}
+`))
+	r.NoError(err)
+
+	loader := CachingJSONLDLoader()
+	loader.AddDocument("http://localhost:8652/dummy.jsonld", reader)
+
+	vcWithLdp, _, err = NewCredential(vcBytes,
+		WithEmbeddedSignatureSuites(sigSuite),
+		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
+		WithExternalJSONLDContext("http://localhost:8652/dummy.jsonld"),
+		WithJSONLDDocumentLoader(loader),
+		WithStrictValidation())
+	r.NoError(err)
+	r.NotNil(vcWithLdp)
+}
+
 func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {
 	r := require.New(t)
 
@@ -391,8 +579,6 @@ func TestNewCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 	r.NotEmpty(vcBytes)
-
-	t.Logf("vc with 2 LDP: %s\n", string(vcBytes))
 
 	vcWithLdp, _, err := NewCredential(vcBytes,
 		WithEmbeddedSignatureSuites(ed25519SigSuite, ecdsaSigSuite),

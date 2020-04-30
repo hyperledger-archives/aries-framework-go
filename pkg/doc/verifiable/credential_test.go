@@ -63,7 +63,8 @@ func TestNewCredential(t *testing.T) {
 
 		// validate @context
 		require.Equal(t, []string{"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"}, vc.Context)
+			"https://www.w3.org/2018/credentials/examples/v1",
+			"https://trustbloc.github.io/context/vc/examples-v1.jsonld"}, vc.Context)
 
 		// validate id
 		require.Equal(t, "http://example.edu/credentials/1872", vc.ID)
@@ -899,6 +900,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		vc, _, err := NewCredential(customValidSchema, WithBaseContextExtendedValidation([]string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
+			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
 		}, []string{
 			"VerifiableCredential",
 			"UniversityDegreeCredential",
@@ -1405,9 +1407,11 @@ func TestCredential_validateCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		vcOpts := &credentialOpts{
-			modelValidationMode:  jsonldValidation,
-			jsonldDocumentLoader: ld.NewDefaultDocumentLoader(nil),
-			strictValidation:     true,
+			modelValidationMode: jsonldValidation,
+			jsonldCredentialOpts: jsonldCredentialOpts{
+				jsonldDocumentLoader: ld.NewDefaultDocumentLoader(nil),
+			},
+			strictValidation: true,
 		}
 
 		r.NoError(validateCredential(vc, vc.byteJSON(t), vcOpts))

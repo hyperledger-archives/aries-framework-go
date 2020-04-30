@@ -512,7 +512,8 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 			}
 
 			return nil, errors.New("unsupported keyID")
-		}))
+		}),
+		verifiable.WithJSONLDOnlyValidRDF())
 	if err != nil {
 		panic(err)
 	}

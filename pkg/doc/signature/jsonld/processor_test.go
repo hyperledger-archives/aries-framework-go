@@ -9,9 +9,12 @@ package jsonld
 import (
 	"encoding/json"
 	"log"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/piprate/json-gold/ld"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,31 +25,31 @@ func TestGetCanonicalDocument(t *testing.T) {
 			doc    string
 			result string
 			err    string
-			opts   []CanonicalizationOpts
+			opts   []ProcessorOpts
 		}{
 			{
 				name:   "canonizing document with 1 incorrect RDF",
 				doc:    jsonLdWithIncorrectRDF,
 				result: canonizedIncorrectRDF_Filtered,
-				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
 			},
 			{
 				name:   "canonizing document with 1 incorrect RDF",
 				doc:    jsonLdWithIncorrectRDF,
 				result: canonizedIncorrectRDF,
-				opts:   []CanonicalizationOpts{},
+				opts:   []ProcessorOpts{},
 			},
 			{
 				name:   "canonizing valid document 1",
 				doc:    jsonLdSample1,
 				result: canonizedIncorrectRDF_Filtered,
-				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
 			},
 			{
 				name:   "canonizing valid document 1",
 				doc:    jsonLdSample1,
 				result: canonizedIncorrectRDF_Filtered,
-				opts:   []CanonicalizationOpts{},
+				opts:   []ProcessorOpts{},
 			},
 			{
 				name:   "canonizing sample proof document",
@@ -57,13 +60,21 @@ func TestGetCanonicalDocument(t *testing.T) {
 				name:   "canonizing sample document with multiple incorrect RDFs 1",
 				doc:    jsonLDMultipleInvalidRDFs,
 				result: canonizedSampleVP_filtered,
-				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
 			},
 			{
-				name:   "canonizing sample document with multiple incorrect RDFs 2",
+				name:   "canonizing sample document with extra context",
 				doc:    jsonLDMultipleInvalidRDFs,
-				result: canonizedSampleVP_incompleteFilter,
-				opts:   []CanonicalizationOpts{WithRemoveInvalidRDF("<CredentialStatusList2017>")},
+				result: canonizedSampleVP_extraContext,
+				opts: []ProcessorOpts{WithRemoveAllInvalidRDF(),
+					WithExternalContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld")},
+			},
+			{
+				name:   "canonizing sample document with extra dummy context and in-memory document loader",
+				doc:    jsonLDMultipleInvalidRDFs,
+				result: canonizedSampleVP_extraContext,
+				opts: []ProcessorOpts{WithRemoveAllInvalidRDF(), WithExternalContext("http://localhost:8652/dummy.jsonld"),
+					WithDocumentLoader(createInMemoryDocumentLoader("http://localhost:8652/dummy.jsonld", extraJSONLDContext))},
 			},
 			{
 				name:   "canonizing sample document with multiple incorrect RDFs 3",
@@ -74,31 +85,19 @@ func TestGetCanonicalDocument(t *testing.T) {
 				name:   "canonizing sample document with incorrect RDFs causing node label miss match issue (array type)",
 				doc:    invalidRDFMessingUpLabelPrefixCounter,
 				result: canonizedSampleVP2,
-				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
 			},
 			{
 				name:   "canonizing sample document with incorrect RDFs causing node label miss match issue (string type)",
 				doc:    invalidRDFMessingUpLabelPrefixCounterStringType,
 				result: canonizedSampleVP2,
-				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
-			},
-			{
-				name:   "canonizing document with 1 incorrect RDF",
-				doc:    jsonldWith2KnownInvalidRDFs,
-				result: canonizedIncorrectRDF_incompletefilter_1,
-				opts:   []CanonicalizationOpts{WithRemoveInvalidRDF("<CredentialStatusList2017>", "<JsonWebSignature2020>")},
-			},
-			{
-				name:   "canonizing document with 1 incorrect RDF",
-				doc:    jsonldWith2KnownInvalidRDFs,
-				result: canonizedIncorrectRDF_incompletefilter_2,
-				opts:   []CanonicalizationOpts{WithRemoveInvalidRDF("<CredentialStatusList2017>")},
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
 			},
 			{
 				name:   "canonizing document with 1 incorrect RDF11",
 				doc:    jsonldWith2KnownInvalidRDFs,
 				result: canonizedIncorrectRDF_allfiltered,
-				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
 			},
 			{
 				name:   "canonizing sample VC document with proper context",
@@ -109,19 +108,19 @@ func TestGetCanonicalDocument(t *testing.T) {
 				name:   "canonizing sample VC document with proper proper context but remove all invalid RDF",
 				doc:    jsonVCWithProperContexts,
 				result: canonizedJSONCredential,
-				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
 			},
 			{
 				name:   "canonizing sample VC document with improper context",
 				doc:    jsonVCWithIncorrectContexts,
 				result: canonizedJSONCredential_notfiltered,
-				opts:   []CanonicalizationOpts{},
+				opts:   []ProcessorOpts{},
 			},
 			{
 				name:   "canonizing sample VC document with improper context but remove all invalid RDF",
 				doc:    jsonVCWithIncorrectContexts,
 				result: canonizedJSONCredential_filtered,
-				opts:   []CanonicalizationOpts{WithRemoveAllInvalidRDF()},
+				opts:   []ProcessorOpts{WithRemoveAllInvalidRDF()},
 			},
 			{
 				name:   "canonizing empty document",
@@ -173,7 +172,7 @@ func TestCompact(t *testing.T) {
 			},
 		}
 
-		compactedDoc, err := Default().Compact(doc, context, ld.NewDefaultDocumentLoader(nil))
+		compactedDoc, err := Default().Compact(doc, context)
 		if err != nil {
 			log.Println("Error when compacting JSON-LD document:", err)
 			return
@@ -183,6 +182,19 @@ func TestCompact(t *testing.T) {
 		require.NotEmpty(t, compactedDoc)
 		require.Len(t, compactedDoc, 4)
 	})
+}
+
+func createInMemoryDocumentLoader(url, inMemoryContext string) *ld.CachingDocumentLoader {
+	loader := ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
+
+	reader, err := ld.DocumentFromReader(strings.NewReader(inMemoryContext))
+	if err != nil {
+		panic(err)
+	}
+
+	loader.AddDocument(url, reader)
+
+	return loader
 }
 
 const (
@@ -346,10 +358,10 @@ _:c14n0 <https://example.org/examples#degree> "MIT" .
 `
 
 	// nolint
-	canonizedSampleVP_incompleteFilter = `<did:elem:EiBJJPdo-ONF0jxqt8mZYEj9Z7FbdC87m2xvN0_HAbcoEg> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <alice_f94db66c-be63-4f03-af10-4205d1f625e1> .
-<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
+	canonizedSampleVP_extraContext = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
 <did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
 <did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n0 .
+<http://issuer.vc.rest.example.com:8070/status/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#CredentialStatusList2017> .
 <https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
 <https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
 <https://example.com/credentials/932236e0-966c-44cf-9342-236c0a2c77a7> <https://www.w3.org/2018/credentials#credentialStatus> <http://issuer.vc.rest.example.com:8070/status/1> .
@@ -522,39 +534,6 @@ const jsonldWith2KnownInvalidRDFs = `{
 }`
 
 // nolint
-const canonizedIncorrectRDF_incompletefilter_1 = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
-<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
-<did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n1 .
-<did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg> <http://schema.org/name> "myprofile_ud_unireg_p256_jws_1"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://w3id.org/security#proof> _:c14n0 .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#credentialStatus> <http://issuer.vc.rest.example.com:8070/status/1> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:ebfeb1f712ebc6f1c276e12ec21> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#issuanceDate> "2020-03-16T22:37:26.544Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#issuer> <did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg> .
-_:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
-_:c14n1 <https://example.org/examples#degree> "MIT" .
-`
-
-// nolint
-const canonizedIncorrectRDF_incompletefilter_2 = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
-<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
-<did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n1 .
-<did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg> <http://schema.org/name> "myprofile_ud_unireg_p256_jws_1"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#UniversityDegreeCredential> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://w3id.org/security#proof> _:c14n0 .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#credentialStatus> <http://issuer.vc.rest.example.com:8070/status/1> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#credentialSubject> <did:example:ebfeb1f712ebc6f1c276e12ec21> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#issuanceDate> "2020-03-16T22:37:26.544Z"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-<https://example.com/credentials/979deefc-df53-4520-992f-73a88b9b6837> <https://www.w3.org/2018/credentials#issuer> <did:trustbloc:testnet.trustbloc.local:EiCL0ikZX2MABHKc_ZVobGCXzbK_F1dVIFjczt8cOI_8Vg> .
-_:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
-_:c14n1 <https://example.org/examples#degree> "MIT" .
-_:c14n2 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <JsonWebSignature2020> _:c14n0 .
-`
-
-// nolint
 const canonizedIncorrectRDF_allfiltered = `<did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/name> "Jayden Doe"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#HTML> .
 <did:example:ebfeb1f712ebc6f1c276e12ec21> <http://schema.org/spouse> "did:example:c276e12ec21ebfeb1f712ebc6f1" .
 <did:example:ebfeb1f712ebc6f1c276e12ec21> <https://example.org/examples#degree> _:c14n1 .
@@ -702,4 +681,21 @@ const canonizedJSONCredential_notfiltered = `<did:example:ebfeb1f712ebc6f1c276e1
 _:c14n0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://example.org/examples#BachelorDegree> .
 _:c14n0 <https://example.org/examples#degree> "MIT" .
 _:c14n1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <JsonWebSignature2020> _:c14n2 .
+`
+
+const extraJSONLDContext = `
+{
+    "@context": {
+      "@version": 1.1,
+  
+      "id": "@id",
+      "type": "@type",
+      
+      "ex": "https://example.org/examples#",
+
+      "CredentialStatusList2017": "ex:CredentialStatusList2017",
+      "DocumentVerification": "ex:DocumentVerification",
+      "SupportingActivity": "ex:SupportingActivity"
+    }
+}
 `

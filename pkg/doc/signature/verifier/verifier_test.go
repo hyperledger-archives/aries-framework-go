@@ -181,8 +181,7 @@ type testSignatureSuite struct {
 	compactProof bool
 }
 
-func (s *testSignatureSuite) GetCanonicalDocument(map[string]interface{},
-	...jsonld.CanonicalizationOpts) ([]byte, error) {
+func (s *testSignatureSuite) GetCanonicalDocument(map[string]interface{}, ...jsonld.ProcessorOpts) ([]byte, error) {
 	return s.canonicalDocument, s.canonicalDocumentError
 }
 

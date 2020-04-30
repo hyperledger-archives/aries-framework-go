@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
@@ -63,13 +64,24 @@ type LinkedDataProofContext struct {
 	Purpose                 string                  // optional
 }
 
-func checkLinkedDataProof(jsonldBytes []byte, suites []verifier.SignatureSuite, pubKeyFetcher PublicKeyFetcher) error {
+func checkLinkedDataProof(jsonldBytes []byte, suites []verifier.SignatureSuite,
+	pubKeyFetcher PublicKeyFetcher, jsonldOpts *jsonldCredentialOpts) error {
 	documentVerifier, err := verifier.New(&keyResolverAdapter{pubKeyFetcher}, suites...)
 	if err != nil {
 		return fmt.Errorf("create new signature verifier: %w", err)
 	}
 
-	err = documentVerifier.Verify(jsonldBytes)
+	var processorOpts []jsonld.ProcessorOpts
+
+	if jsonldOpts.jsonldDocumentLoader != nil {
+		processorOpts = append(processorOpts, jsonld.WithDocumentLoader(jsonldOpts.jsonldDocumentLoader))
+	}
+
+	if jsonldOpts.jsonldOnlyValidRDF {
+		processorOpts = append(processorOpts, jsonld.WithRemoveAllInvalidRDF())
+	}
+
+	err = documentVerifier.Verify(jsonldBytes, processorOpts...)
 	if err != nil {
 		return fmt.Errorf("check linked data proof: %w", err)
 	}

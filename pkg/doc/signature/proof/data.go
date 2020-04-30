@@ -18,7 +18,7 @@ const jsonldContext = "@context"
 type signatureSuite interface {
 
 	// GetCanonicalDocument will return normalized/canonical version of the document
-	GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.CanonicalizationOpts) ([]byte, error)
+	GetCanonicalDocument(doc map[string]interface{}, opts ...jsonld.ProcessorOpts) ([]byte, error)
 
 	// GetDigest returns document digest
 	GetDigest(doc []byte) []byte
@@ -43,7 +43,7 @@ const (
 // In case of "proofValue", the standard Create Verify Hash algorithm is used.
 // In case of "jws", verify data is built as JSON Web Signature (JWS) with detached payload.
 func CreateVerifyData(suite signatureSuite, jsonldDoc map[string]interface{}, proof *Proof,
-	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
+	opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	switch proof.SignatureRepresentation {
 	case SignatureProofValue:
 		return CreateVerifyHash(suite, jsonldDoc, proof.JSONLdObject(), opts...)
@@ -57,7 +57,7 @@ func CreateVerifyData(suite signatureSuite, jsonldDoc map[string]interface{}, pr
 // CreateVerifyHash returns data that is used to generate or verify a digital signature
 // Algorithm steps are described here https://w3c-dvcg.github.io/ld-signatures/#create-verify-hash-algorithm
 func CreateVerifyHash(suite signatureSuite, jsonldDoc, proofOptions map[string]interface{},
-	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
+	opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	// in  order to generate canonical form we need context
 	// if context is not passed, use document's context
 	// spec doesn't mention anything about context
@@ -84,7 +84,7 @@ func CreateVerifyHash(suite signatureSuite, jsonldDoc, proofOptions map[string]i
 }
 
 func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]interface{},
-	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
+	opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	value, ok := proofOptions[jsonldCreated]
 	if !ok || value == nil {
 		return nil, errors.New("created is missing")
@@ -100,11 +100,11 @@ func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]
 	}
 
 	// build canonical proof options
-	return suite.GetCanonicalDocument(proofOptionsCopy, opts...)
+	return suite.GetCanonicalDocument(proofOptionsCopy, append(opts, jsonld.WithRemoveAllInvalidRDF())...)
 }
 
 func prepareCanonicalDocument(suite signatureSuite, jsonldObject map[string]interface{},
-	opts ...jsonld.CanonicalizationOpts) ([]byte, error) {
+	opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	// copy document object without proof
 	docCopy := GetCopyWithoutProof(jsonldObject)
 
