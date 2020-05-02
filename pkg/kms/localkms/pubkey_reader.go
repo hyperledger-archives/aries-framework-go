@@ -34,13 +34,26 @@ func publicKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (*keyset.Handle, erro
 		return nil, fmt.Errorf("error getting marshalled proto key: %w", err)
 	}
 
+	ks := newKeySet(tURL, marshalledKey, tinkpb.KeyData_ASYMMETRIC_PUBLIC)
+
+	memReader := &keyset.MemReaderWriter{Keyset: ks}
+
+	parsedHandle, err := insecurecleartextkeyset.Read(memReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create key handle: %w", err)
+	}
+
+	return parsedHandle, nil
+}
+
+func newKeySet(tURL string, marshalledKey []byte, keyMaterialType tinkpb.KeyData_KeyMaterialType) *tinkpb.Keyset {
 	keyData := &tinkpb.KeyData{
 		TypeUrl:         tURL,
 		Value:           marshalledKey,
-		KeyMaterialType: tinkpb.KeyData_ASYMMETRIC_PUBLIC,
+		KeyMaterialType: keyMaterialType,
 	}
 
-	ks := &tinkpb.Keyset{
+	return &tinkpb.Keyset{
 		Key: []*tinkpb.Keyset_Key{
 			{
 				KeyData: keyData,
@@ -51,15 +64,6 @@ func publicKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (*keyset.Handle, erro
 			}},
 		PrimaryKeyId: 1,
 	}
-
-	memReader := &keyset.MemReaderWriter{Keyset: ks}
-
-	parsedHandle, err := insecurecleartextkeyset.Read(memReader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create key handle: %w", err)
-	}
-
-	return parsedHandle, nil
 }
 
 func getMarshalledProtoKeyAndKeyURL(pubKey []byte, kt kms.KeyType) ([]byte, string, error) { //nolint:funlen,gocyclo
@@ -171,7 +175,13 @@ func getMarshalledECDSADERKey(marshaledPubKey []byte, curveName string, c common
 		return nil, fmt.Errorf("public key reader: not an ecdsa public key")
 	}
 
-	return getMarshalledECDSAKey(ecPubKey, c, h, ecdsapb.EcdsaSignatureEncoding_DER)
+	params := &ecdsapb.EcdsaParams{
+		Curve:    c,
+		Encoding: ecdsapb.EcdsaSignatureEncoding_DER,
+		HashType: h,
+	}
+
+	return getMarshalledECDSAKey(ecPubKey, params)
 }
 
 func getMarshalledECDSAIEEEP1363Key(marshaledPubKey []byte, curveName string, c commonpb.EllipticCurveType,
@@ -187,22 +197,24 @@ func getMarshalledECDSAIEEEP1363Key(marshaledPubKey []byte, curveName string, c 
 		return nil, fmt.Errorf("failed to unamrshal public ecdsa key")
 	}
 
-	return getMarshalledECDSAKey(&ecdsa.PublicKey{X: x, Y: y, Curve: curve}, c, h,
-		ecdsapb.EcdsaSignatureEncoding_IEEE_P1363)
-}
-
-func getMarshalledECDSAKey(ecPubKey *ecdsa.PublicKey, c commonpb.EllipticCurveType,
-	h commonpb.HashType, enc ecdsapb.EcdsaSignatureEncoding) ([]byte, error) {
-	pubKeyProto := new(ecdsapb.EcdsaPublicKey)
-
-	pubKeyProto.X = ecPubKey.X.Bytes()
-	pubKeyProto.Y = ecPubKey.Y.Bytes()
-	pubKeyProto.Version = 0
-	pubKeyProto.Params = &ecdsapb.EcdsaParams{
+	params := &ecdsapb.EcdsaParams{
 		Curve:    c,
-		Encoding: enc,
+		Encoding: ecdsapb.EcdsaSignatureEncoding_IEEE_P1363,
 		HashType: h,
 	}
 
-	return proto.Marshal(pubKeyProto)
+	return getMarshalledECDSAKey(&ecdsa.PublicKey{X: x, Y: y, Curve: curve}, params)
+}
+
+func getMarshalledECDSAKey(ecPubKey *ecdsa.PublicKey, params *ecdsapb.EcdsaParams) ([]byte, error) {
+	return proto.Marshal(newProtoECDSAPublicKey(ecPubKey, params))
+}
+
+func newProtoECDSAPublicKey(ecPubKey *ecdsa.PublicKey, params *ecdsapb.EcdsaParams) *ecdsapb.EcdsaPublicKey {
+	return &ecdsapb.EcdsaPublicKey{
+		Version: 0,
+		X:       ecPubKey.X.Bytes(),
+		Y:       ecPubKey.Y.Bytes(),
+		Params:  params,
+	}
 }

@@ -8,6 +8,8 @@ package localkms
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/ed25519"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
@@ -190,8 +192,6 @@ func createECDSAIEEE1363KeyTemplate(hashType commonpb.HashType, curve commonpb.E
 }
 
 func (l *LocalKMS) storeKeySet(kh *keyset.Handle) (string, error) {
-	w := newWriter(l.store)
-
 	buf := new(bytes.Buffer)
 	jsonKeysetWriter := keyset.NewJSONWriter(buf)
 
@@ -200,8 +200,14 @@ func (l *LocalKMS) storeKeySet(kh *keyset.Handle) (string, error) {
 		return "", err
 	}
 
+	return writeToStore(l.store, buf)
+}
+
+func writeToStore(store storage.Store, buf *bytes.Buffer) (string, error) {
+	w := newWriter(store)
+
 	// write buffer to localstorage
-	_, err = w.Write(buf.Bytes())
+	_, err := w.Write(buf.Bytes())
 	if err != nil {
 		return "", err
 	}
@@ -256,4 +262,18 @@ func (l *LocalKMS) ExportPubKeyBytes(id string) ([]byte, error) {
 // associated with it.
 func (l *LocalKMS) PubKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (*keyset.Handle, error) {
 	return publicKeyBytesToHandle(pubKey, kt)
+}
+
+// ImportPrivateKey will import privKey into the KMS storage for the given keyType then returns the new key id and the
+// newly stored keyset.Handle
+// it returns an error if importing the key failed (key invalid, doesn't match keyType or storing key failed)
+func (l *LocalKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType) (string, *keyset.Handle, error) {
+	switch pk := privKey.(type) {
+	case *ecdsa.PrivateKey:
+		return l.importECDSAKey(pk, kt)
+	case ed25519.PrivateKey:
+		return l.importEd25519Key(pk, kt)
+	default:
+		return "", nil, fmt.Errorf("import private key does not support this key type or key is public")
+	}
 }

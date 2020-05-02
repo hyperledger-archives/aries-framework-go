@@ -7,8 +7,12 @@
 package localkms
 
 import (
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -267,6 +271,103 @@ func TestLocalKMS_Success(t *testing.T) {
 			require.NoError(t, e)
 			require.NotEmpty(t, kh)
 		}
+	}
+}
+
+func TestLocalKMS_ImportPrivateKey(t *testing.T) {
+	// create a real (not mocked) master key and secret lock to test the KMS end to end
+	sl := createMasterKeyAndSecretLock(t)
+
+	storeDB := make(map[string][]byte)
+	// test New()
+	kmsService, e := New(testMasterKeyURI, &mockProvider{
+		storage: mockstorage.NewCustomMockStoreProvider(
+			&mockstorage.MockStore{
+				Store: storeDB,
+			}),
+		secretLock: sl,
+	})
+	require.NoError(t, e)
+	require.NotEmpty(t, kmsService)
+
+	var flagTests = []struct {
+		tcName  string
+		keyType kms.KeyType
+		curve   elliptic.Curve
+	}{
+		{
+			tcName:  "import private key using ECDSAP256DER type",
+			keyType: kms.ECDSAP256TypeDER,
+			curve:   elliptic.P256(),
+		},
+		{
+			tcName:  "import private key using ECDSAP384TypeDER type",
+			keyType: kms.ECDSAP384TypeDER,
+			curve:   elliptic.P384(),
+		},
+		{
+			tcName:  "import private key using ECDSAP521TypeDER type",
+			keyType: kms.ECDSAP521TypeDER,
+			curve:   elliptic.P521(),
+		},
+		{
+			tcName:  "import private key using ECDSAP256TypeIEEEP1363 type",
+			keyType: kms.ECDSAP256TypeIEEEP1363,
+			curve:   elliptic.P256(),
+		},
+		{
+			tcName:  "import private key using ECDSAP384TypeIEEEP1363 type",
+			keyType: kms.ECDSAP384TypeIEEEP1363,
+			curve:   elliptic.P384(),
+		},
+		{
+			tcName:  "import private key using ECDSAP521TypeIEEEP1363 type",
+			keyType: kms.ECDSAP521TypeIEEEP1363,
+			curve:   elliptic.P521(),
+		},
+		{
+			tcName:  "import private key using ED25519Type type",
+			keyType: kms.ED25519Type,
+		},
+	}
+
+	for _, tc := range flagTests {
+		tt := tc
+		t.Run(tt.tcName, func(t *testing.T) {
+			if tt.keyType == kms.ED25519Type {
+				pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				ksID, _, err := kmsService.ImportPrivateKey(privKey, tt.keyType)
+				require.NoError(t, err)
+
+				pubKeyBytes, err := kmsService.ExportPubKeyBytes(ksID)
+				require.NoError(t, err)
+				require.EqualValues(t, pubKey, pubKeyBytes)
+				return
+			}
+
+			privKey, err := ecdsa.GenerateKey(tt.curve, rand.Reader)
+			require.NoError(t, err)
+
+			// test ImportPrivateKey
+			ksID, _, err := kmsService.ImportPrivateKey(privKey, tt.keyType)
+			require.NoError(t, err)
+
+			// export marshaled public key to verify it against the original public key (marshalled)
+			pubKeyBytes, err := kmsService.ExportPubKeyBytes(ksID)
+			require.NoError(t, err)
+
+			switch tt.keyType {
+			case kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.ECDSAP521TypeDER:
+				pubKey, err := x509.MarshalPKIXPublicKey(privKey.Public())
+				require.NoError(t, err)
+				require.EqualValues(t, pubKey, pubKeyBytes)
+			case kms.ECDSAP256TypeIEEEP1363, kms.ECDSAP384TypeIEEEP1363, kms.ECDSAP521TypeIEEEP1363:
+				pubKey := elliptic.Marshal(tt.curve, privKey.X, privKey.Y)
+				require.EqualValues(t, pubKey, pubKeyBytes)
+			}
+		})
 	}
 }
 
