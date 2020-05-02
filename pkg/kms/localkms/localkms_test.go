@@ -290,6 +290,10 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 	require.NoError(t, e)
 	require.NotEmpty(t, kmsService)
 
+	// test import with nil key
+	_, _, err := kmsService.ImportPrivateKey(nil, kms.ECDSAP256DER)
+	require.EqualError(t, err, "import private key does not support this key type or key is public")
+
 	var flagTests = []struct {
 		tcName  string
 		keyType kms.KeyType
