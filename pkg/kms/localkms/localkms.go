@@ -266,6 +266,7 @@ func (l *LocalKMS) PubKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (*keyset.H
 
 // ImportPrivateKey will import privKey into the KMS storage for the given keyType then returns the new key id and the
 // newly stored keyset.Handle
+// privKey possible types are: *ecdsa.PrivateKey and ed25519.PrivateKey
 // it returns an error if importing the key failed (key invalid, doesn't match keyType or storing key failed)
 func (l *LocalKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType) (string, *keyset.Handle, error) {
 	switch pk := privKey.(type) {
