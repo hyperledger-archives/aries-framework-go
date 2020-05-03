@@ -687,8 +687,8 @@ func TestCredentialReceived_ExecuteInbound(t *testing.T) {
 								ID string
 							}{ID: "SubjectID"},
 							Issuer: verifiable.Issuer{
-								ID:   "did:example:76e12ec712ebc6f1c221ebfeb1f",
-								Name: "Example University",
+								ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+								CustomFields: verifiable.CustomFields{"name": "Example University"},
 							},
 							Issued:  &issued,
 							Schemas: []verifiable.TypedID{},

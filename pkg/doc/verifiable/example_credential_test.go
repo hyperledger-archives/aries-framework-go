@@ -90,8 +90,8 @@ func ExampleCredential_embedding() {
 				},
 			},
 			Issuer: verifiable.Issuer{
-				ID:   "did:example:76e12ec712ebc6f1c221ebfeb1f",
-				Name: "Example University",
+				ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				CustomFields: verifiable.CustomFields{"name": "Example University"},
 			},
 			Issued:  &issued,
 			Expired: &expired,
@@ -158,8 +158,8 @@ func ExampleCredential_extraFields() {
 			},
 		},
 		Issuer: verifiable.Issuer{
-			ID:   "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			Name: "Example University",
+			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
 		Issued:  &issued,
 		Expired: &expired,
@@ -227,8 +227,8 @@ func ExampleNewCredential() {
 			},
 		},
 		Issuer: verifiable.Issuer{
-			ID:   "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			Name: "Example University",
+			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
 		Issued:  &issued,
 		Expired: &expired,
