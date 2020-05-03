@@ -417,6 +417,7 @@ type Credential struct {
 	RefreshService []TypedID
 
 	CustomFields CustomFields
+	rawFields    rememberedFields
 }
 
 // rawCredential is a basic verifiable credential
@@ -425,8 +426,8 @@ type rawCredential struct {
 	ID             string          `json:"id,omitempty"`
 	Type           interface{}     `json:"type,omitempty"`
 	Subject        Subject         `json:"credentialSubject,omitempty"`
-	Issued         *time.Time      `json:"issuanceDate,omitempty"`
-	Expired        *time.Time      `json:"expirationDate,omitempty"`
+	Issued         interface{}     `json:"issuanceDate,omitempty"`
+	Expired        interface{}     `json:"expirationDate,omitempty"`
 	Proof          json.RawMessage `json:"proof,omitempty"`
 	Status         *TypedID        `json:"credentialStatus,omitempty"`
 	Issuer         interface{}     `json:"issuer,omitempty"`
@@ -858,6 +859,7 @@ func CreateCustomCredential(
 	return vcBase, nil
 }
 
+//nolint: gocyclo,funlen
 func newCredential(raw *rawCredential) (*Credential, error) {
 	var schemas []TypedID
 
@@ -902,6 +904,16 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
 	}
 
+	issuedDate, err := decodeDate(raw.Issued)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse issued date from raw: %w", err)
+	}
+
+	expiredDate, err := decodeDate(raw.Expired)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse issued date from raw: %w", err)
+	}
+
 	return &Credential{
 		Context:        context,
 		CustomContext:  customContext,
@@ -909,8 +921,8 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		Types:          types,
 		Subject:        raw.Subject,
 		Issuer:         issuer,
-		Issued:         raw.Issued,
-		Expired:        raw.Expired,
+		Issued:         issuedDate,
+		Expired:        expiredDate,
 		Proofs:         proofs,
 		Status:         raw.Status,
 		Schemas:        schemas,
@@ -918,7 +930,32 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		TermsOfUse:     termsOfUse,
 		RefreshService: refreshService,
 		CustomFields:   raw.CustomFields,
+		rawFields:      preserveRawFields(raw),
 	}, nil
+}
+
+func preserveRawFields(raw *rawCredential) rememberedFields {
+	r := make(rememberedFields)
+
+	r.PushIssuanceDate(raw.Issued)
+	r.PushExpirationDate(raw.Expired)
+
+	return r
+}
+
+// decodeDate decodes given date to '*time.Time'
+// returns nil with no error if nil argument passed
+func decodeDate(dateStr interface{}) (*time.Time, error) {
+	if dateStr == nil {
+		return nil, nil
+	}
+
+	d, err := time.Parse(time.RFC3339, dateStr.(string))
+	if err != nil {
+		return nil, err
+	}
+
+	return &d, nil
 }
 
 func decodeTypedID(bytes json.RawMessage) ([]TypedID, error) {
@@ -1190,13 +1227,11 @@ func (vc *Credential) raw() (*rawCredential, error) {
 		schema = vc.Schemas
 	}
 
-	return &rawCredential{
+	r := &rawCredential{
 		Context:        contextToRaw(vc.Context, vc.CustomContext),
 		ID:             vc.ID,
 		Type:           typesToRaw(vc.Types),
 		Subject:        vc.Subject,
-		Issued:         vc.Issued,
-		Expired:        vc.Expired,
 		Proof:          proof,
 		Status:         vc.Status,
 		Issuer:         issuerToRaw(vc.Issuer),
@@ -1205,7 +1240,17 @@ func (vc *Credential) raw() (*rawCredential, error) {
 		RefreshService: rawRefreshService,
 		TermsOfUse:     rawTermsOfUse,
 		CustomFields:   vc.CustomFields,
-	}, nil
+	}
+
+	if vc.Issued != nil {
+		r.Issued = vc.rawFields.GetIssuanceDate(vc.Issued)
+	}
+
+	if vc.Expired != nil {
+		r.Expired = vc.rawFields.GetExpirationDate(vc.Expired)
+	}
+
+	return r, nil
 }
 
 func typesToRaw(types []string) interface{} {

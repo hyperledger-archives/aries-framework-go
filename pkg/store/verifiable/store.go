@@ -34,9 +34,10 @@ const (
 var ErrNotFound = errors.New("did not found under given key")
 
 type record struct {
-	ID      string   `json:"id,omitempty"`
-	Context []string `json:"context,omitempty"`
-	Type    []string `json:"type,omitempty"`
+	ID        string   `json:"id,omitempty"`
+	Context   []string `json:"context,omitempty"`
+	Type      []string `json:"type,omitempty"`
+	SubjectID string   `json:"subjectId,omitempty"`
 }
 
 // Store stores vc
@@ -88,7 +89,7 @@ func (s *Store) SaveCredential(name string, vc *verifiable.Credential) error {
 		return fmt.Errorf("failed to put vc: %w", e)
 	}
 
-	recordBytes, err := getRecord(id, vc.Context, vc.Types)
+	recordBytes, err := getRecord(id, getVCSubjectID(vc), vc.Context, vc.Types)
 	if err != nil {
 		return fmt.Errorf("failed to prepare record: %w", err)
 	}
@@ -126,7 +127,7 @@ func (s *Store) SavePresentation(name string, vp *verifiable.Presentation) error
 		id = uuid.New().String()
 	}
 
-	recordBytes, err := getRecord(id, vp.Context, vp.Type)
+	recordBytes, err := getRecord(id, vp.Holder, vp.Context, vp.Type)
 	if err != nil {
 		return fmt.Errorf("failed to prepare record: %w", err)
 	}
@@ -231,10 +232,11 @@ func (s *Store) getAllRecords(searchKey string, keyPrefix func(string) string) (
 		}
 
 		record := &Record{
-			Name:    keyPrefix(string(itr.Key())),
-			ID:      r.ID,
-			Context: r.Context,
-			Type:    r.Type,
+			Name:      keyPrefix(string(itr.Key())),
+			ID:        r.ID,
+			Context:   r.Context,
+			Type:      r.Type,
+			SubjectID: r.SubjectID,
 		}
 
 		records = append(records, record)
@@ -243,8 +245,18 @@ func (s *Store) getAllRecords(searchKey string, keyPrefix func(string) string) (
 	return records, nil
 }
 
-func getRecord(id string, contexts, types []string) ([]byte, error) {
-	recordBytes, err := json.Marshal(&record{id, contexts, types})
+func getVCSubjectID(vc *verifiable.Credential) string {
+	if subject, ok := vc.Subject.(map[string]interface{}); ok {
+		if s, ok := subject["id"].(string); ok {
+			return s
+		}
+	}
+
+	return ""
+}
+
+func getRecord(id, subjectID string, contexts, types []string) ([]byte, error) {
+	recordBytes, err := json.Marshal(&record{id, contexts, types, subjectID})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal vc record: %w", err)
 	}

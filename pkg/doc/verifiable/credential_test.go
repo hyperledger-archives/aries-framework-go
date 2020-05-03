@@ -54,6 +54,40 @@ const issuerAsObject = `
 }
 `
 
+const credentialWithPreciseDate = `{
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://w3id.org/citizenship/v1"
+      ],
+      "id": "https://prc.uscis.gov/credentials/3dbd30a1-114b-4889-90b2-b37b07866125",
+      "type": [
+        "VerifiableCredential",
+        "PermanentResidentCard"
+      ],
+      "issuer": {"id": "did:v1:test:nym:z6MkqaFQ7SZdWMgUkiQLvxZBpmkmYmbgAcAvXftU7jfmMWLa"},
+      "issuanceDate": "2020-01-01T00:00:00.000Z",
+      "expirationDate": "2030-01-01T00:00:00.000Z",
+      "name": "Permanent Resident Card",
+      "description": "Permanent Resident Card of Mr.Louis Pasteur",
+      "credentialSubject": {
+        "id": "did:v1:test:nym:z6Mkoi4q6txuz3rJ3XeqJauhrHcKDWbTwHepfcewDm5BVN4N",
+        "type": [
+          "Person",
+          "PermanentResident"
+        ],
+        "givenName": "Louis",
+        "familyName": "Pasteur",
+        "gender": "Male",
+        "image": "data:image/png;base64,Jtvf7y4+Pjdxw/UiREBZDlwUAwoALFcm9QPcSTMzX2Rqsyr26dfDeBflf6uKaaRK5CYII=",
+        "residentSince": "2015-01-01T00:00:00.000Z",
+        "lprCategory": "C09",
+        "lprNumber": "999-999-999",
+        "birthCountry": "Mexico",
+        "birthDate": "1958-07-17T00:00:00.000Z"
+      }
+}
+`
+
 func TestNewCredential(t *testing.T) {
 	t.Run("test creation of new Verifiable Credential from JSON with valid structure", func(t *testing.T) {
 		vc, vcData, err := NewCredential([]byte(validCredential), WithStrictValidation())
@@ -1396,6 +1430,17 @@ func TestNewCredentialFromRaw(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential proof from raw")
 	require.Nil(t, vc)
+}
+
+func TestNewCredentialFromRaw_PreserveDates(t *testing.T) {
+	cred, _, err := NewCredential([]byte(credentialWithPreciseDate), WithDisabledProofCheck())
+	require.NoError(t, err)
+	require.NotEmpty(t, cred)
+
+	raw, err := cred.raw()
+	require.NoError(t, err)
+	require.Equal(t, raw.Issued.(string), "2020-01-01T00:00:00.000Z")
+	require.Equal(t, raw.Expired.(string), "2030-01-01T00:00:00.000Z")
 }
 
 func TestCredential_CreatePresentation(t *testing.T) {
