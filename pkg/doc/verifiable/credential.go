@@ -391,8 +391,9 @@ type Evidence interface{}
 
 // Issuer of the Verifiable Credential
 type Issuer struct {
-	ID   string
-	Name string
+	ID    string
+	Name  string
+	Image string
 }
 
 // Subject of the Verifiable Credential
@@ -463,8 +464,9 @@ func (rc *rawCredential) UnmarshalJSON(data []byte) error {
 }
 
 type compositeIssuer struct {
-	ID   string `json:"id,omitempty"`
-	Name string `json:"name,omitempty"`
+	ID    string `json:"id,omitempty"`
+	Name  string `json:"name,omitempty"`
+	Image string `json:"image,omitempty"`
 }
 
 // CredentialDecoder makes a custom decoding of Verifiable Credential in JSON form to existent
@@ -643,9 +645,16 @@ func decodeIssuer(issuer interface{}) (Issuer, error) {
 			return Issuer{}, err
 		}
 
+		image, err := getStringEntry(iss, "image")
+		if err != nil {
+			return Issuer{}, err
+		}
+
+		// TODO: allow for custom fields.
 		return Issuer{
-			ID:   id,
-			Name: name,
+			ID:    id,
+			Name:  name,
+			Image: image,
 		}, nil
 	default:
 		return Issuer{}, errors.New("unsupported format of issuer")
@@ -991,8 +1000,12 @@ func newDefaultSchemaLoader() *CredentialSchemaLoader {
 }
 
 func issuerToRaw(issuer Issuer) interface{} {
-	if issuer.Name != "" {
-		return &compositeIssuer{ID: issuer.ID, Name: issuer.Name}
+	if issuer.Name != "" || issuer.Image != "" {
+		return &compositeIssuer{
+			ID:    issuer.ID,
+			Name:  issuer.Name,
+			Image: issuer.Image,
+		}
 	}
 
 	return issuer.ID

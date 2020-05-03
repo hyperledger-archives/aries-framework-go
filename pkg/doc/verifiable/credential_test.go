@@ -79,6 +79,7 @@ func TestNewCredential(t *testing.T) {
 		require.NotNil(t, vc.Issuer)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", vc.Issuer.ID)
 		require.Equal(t, "Example University", vc.Issuer.Name)
+		require.Equal(t, "data:image/png;base64,iVBOR", vc.Issuer.Image)
 
 		// check issued date
 		expectedIssued := time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
@@ -1232,6 +1233,18 @@ func TestDecodeIssuer(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
 		require.Equal(t, "Example University", issuer.Name)
+	})
+
+	t.Run("Decode Issuer identified by ID and name and image", func(t *testing.T) {
+		issuer, err := decodeIssuer(map[string]interface{}{
+			"id":    "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			"name":  "Example University",
+			"image": "data:image/png;base64,iVBOR",
+		})
+		require.NoError(t, err)
+		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
+		require.Equal(t, "Example University", issuer.Name)
+		require.Equal(t, "data:image/png;base64,iVBOR", issuer.Image)
 	})
 
 	t.Run("Decode Issuer identified by ID and empty name", func(t *testing.T) {
