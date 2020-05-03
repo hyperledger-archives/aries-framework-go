@@ -45,7 +45,8 @@ const validCredential = `{
   },
   "issuer": {
     "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-    "name": "Example University"
+    "name": "Example University",
+    "image": "data:image/png;base64,iVBOR"
   },
   "issuanceDate": "2010-01-01T19:23:24Z",
   "expirationDate": "2020-01-01T19:23:24Z",
