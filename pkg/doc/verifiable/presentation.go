@@ -21,8 +21,7 @@ const basePresentationSchema = `
 {
   "required": [
     "@context",
-    "type",
-    "verifiableCredential"
+    "type"
   ],
   "properties": {
     "@context": {
@@ -313,6 +312,7 @@ type presentationOpts struct {
 	disabledProofCheck bool
 	ldpSuites          []verifier.SignatureSuite
 	strictValidation   bool
+	requireVC          bool
 
 	jsonldCredentialOpts
 }
@@ -351,6 +351,13 @@ func WithPresStrictValidation() PresentationOpt {
 	}
 }
 
+// WithPresRequireVC option enables check for at least one verifiableCredential in the VP.
+func WithPresRequireVC() PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.requireVC = true
+	}
+}
+
 // NewPresentation creates an instance of Verifiable Presentation by reading a JSON document from bytes.
 // It also applies miscellaneous options like custom decoders or settings of schema validation.
 func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, error) {
@@ -371,7 +378,16 @@ func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, err
 		return nil, err
 	}
 
-	return newPresentation(vpRaw, vpOpts)
+	p, err := newPresentation(vpRaw, vpOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	if vpOpts.requireVC && len(p.credentials) == 0 {
+		return nil, fmt.Errorf("verifiableCredential is required")
+	}
+
+	return p, nil
 }
 
 // NewUnverifiedPresentation decodes Verifiable Presentation from bytes which could be marshalled JSON or

@@ -223,7 +223,9 @@ func encodeVCToJSON(vcBytes []byte, testFileName string) {
 }
 
 func encodeVPToJSON(vcBytes []byte) {
-	vp, err := verifiable.NewPresentation(vcBytes)
+	// https://www.w3.org/TR/vc-data-model/#presentations-0 states "If present" under verifiableCredential
+	// but the test suite requires the element to be present. Hence, WithPresRequireVC is used in test suite runs.
+	vp, err := verifiable.NewPresentation(vcBytes, verifiable.WithPresRequireVC())
 	if err != nil {
 		abort("failed to decode presentation: %v", err)
 	}
