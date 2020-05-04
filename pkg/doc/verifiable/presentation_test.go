@@ -56,6 +56,25 @@ const validPresentation = `
 }
 `
 
+//nolint:lll
+const validEmptyPresentation = `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1",
+    "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
+  ],
+  "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+  "type": "VerifiablePresentation",
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "created": "2020-01-21T16:44:53+02:00",
+    "proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01mq-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVBAh4vGHSrQyHUGlcTwLtjPAnKb78"
+  }
+}
+`
+
 func TestNewPresentation(t *testing.T) {
 	t.Run("creates a new Verifiable Presentation from JSON with valid structure", func(t *testing.T) {
 		vp, err := NewPresentation([]byte(validPresentation), WithPresStrictValidation())
@@ -83,6 +102,18 @@ func TestNewPresentation(t *testing.T) {
 
 		// check proof
 		require.NotNil(t, vp.Proofs)
+	})
+
+	t.Run("creates a new Verifiable Presentation from JSON with invalid empty VC structure", func(t *testing.T) {
+		vp, err := NewPresentation([]byte(validEmptyPresentation), WithPresStrictValidation(), WithPresRequireVC())
+		require.Error(t, err)
+		require.Nil(t, vp)
+	})
+
+	t.Run("creates a new Verifiable Presentation from JSON with valid empty VC structure", func(t *testing.T) {
+		vp, err := NewPresentation([]byte(validEmptyPresentation), WithPresStrictValidation())
+		require.NoError(t, err)
+		require.NotNil(t, vp)
 	})
 
 	t.Run("creates a new Verifiable Presentation from JSON with invalid structure", func(t *testing.T) {
