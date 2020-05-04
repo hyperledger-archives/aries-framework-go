@@ -95,6 +95,16 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" saves the connectionID to variable "([^"]*)"$`, a.saveConnectionID)
 }
 
+// EstablishConnection establishes connection between two agents through did exchange protocol
+func (a *ControllerSteps) EstablishConnection(inviter, invitee string) error {
+	return a.performDIDExchange(inviter, invitee)
+}
+
+// ConnectionIDs gets connection IDs
+func (a *ControllerSteps) ConnectionIDs() map[string]string {
+	return a.connectionIDs
+}
+
 func (a *ControllerSteps) pullEventsFromWebSocket(agentID, state string) (string, error) {
 	conn, ok := a.bddContext.GetWebSocketConn(agentID)
 	if !ok {
