@@ -12,6 +12,7 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -33,13 +34,49 @@ func (d *SDKSteps) CreateRouteClient(agentID string) error {
 		return fmt.Errorf("failed to create new route client: %w", err)
 	}
 
+	events := make(chan service.DIDCommAction)
+
+	err = routeClient.RegisterActionEvent(events)
+	if err != nil {
+		return fmt.Errorf("failed to register %s for action events on their routing client : %w", agentID, err)
+	}
+
+	callbacks := make(chan interface{})
+
 	d.bddContext.RouteClients[agentID] = routeClient
+	d.bddContext.RouteCallbacks[agentID] = callbacks
+
+	go d.handleEvents(events, callbacks)
 
 	return nil
 }
 
+func (d *SDKSteps) handleEvents(events chan service.DIDCommAction, callbacks chan interface{}) {
+	for event := range events {
+		logger.Debugf("handling event: %+v", event)
+
+		c := <-callbacks
+
+		logger.Debugf("received callback: %+v", c)
+		event.Continue(c)
+	}
+}
+
+// ApproveRequest approves a routing protocol request with the given args.
+func (d *SDKSteps) ApproveRequest(agentID string, args interface{}) {
+	c, found := d.bddContext.RouteCallbacks[agentID]
+	if !found {
+		logger.Warnf("no callback channel found for %s", agentID)
+		return
+	}
+
+	c <- args
+}
+
 // RegisterRoute registers the router for the agent
-func (d *SDKSteps) RegisterRoute(agentID, varName string) error {
+func (d *SDKSteps) RegisterRoute(agentID, varName, routerID string) error {
+	go d.ApproveRequest(routerID, nil)
+
 	err := d.bddContext.RouteClients[agentID].Register(d.bddContext.Args[varName])
 	if err != nil {
 		return fmt.Errorf("register route : %w", err)
@@ -71,6 +108,6 @@ func (d *SDKSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers router steps
 func (d *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" creates a route exchange client$`, d.CreateRouteClient)
-	s.Step(`^"([^"]*)" sets "([^"]*)" as the router$`, d.RegisterRoute)
+	s.Step(`^"([^"]*)" sets "([^"]*)" as the router and "([^"]*)" approves$`, d.RegisterRoute)
 	s.Step(`^"([^"]*)" verifies that the router connection id is set to "([^"]*)"$`, d.VerifyConnection)
 }

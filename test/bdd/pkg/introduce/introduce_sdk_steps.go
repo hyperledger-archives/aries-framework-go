@@ -30,6 +30,7 @@ import (
 	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
 	bddOutOfBand "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
+	routeBDDSteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/route"
 )
 
 const timeout = time.Second * 2
@@ -513,6 +514,11 @@ func (a *SDKSteps) createExternalClients(participants string) error {
 }
 
 func (a *SDKSteps) confirmRouteRegistration(agentID, router string) error {
+	routeSteps := routeBDDSteps.NewRouteSDKSteps()
+	routeSteps.SetContext(a.bddContext)
+
+	go routeSteps.ApproveRequest(router, service.Empty{})
+
 	expected, err := a.getConnection(agentID, router)
 	if err != nil {
 		return err

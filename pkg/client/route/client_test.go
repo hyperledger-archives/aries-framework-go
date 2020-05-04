@@ -13,9 +13,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 )
+
+// Ensure Client can emit events
+var _ service.Event = (*Client)(nil)
 
 func TestNew(t *testing.T) {
 	t.Run("test new client", func(t *testing.T) {

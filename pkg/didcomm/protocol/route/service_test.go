@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -157,6 +158,9 @@ func TestServiceRequestMsg(t *testing.T) {
 			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
 		require.NoError(t, err)
 
+		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
+		require.NoError(t, err)
+
 		msgID := randomID()
 
 		id, err := svc.HandleInbound(generateRequestMsgPayload(t, msgID), "", "")
@@ -174,7 +178,11 @@ func TestServiceRequestMsg(t *testing.T) {
 
 		msg := &service.DIDCommMsgMap{"@id": map[int]int{}}
 
-		err = svc.handleRequest(msg, MYDID, THEIRDID)
+		err = svc.handleInboundRequest(&callback{
+			msg:      msg,
+			myDID:    MYDID,
+			theirDID: THEIRDID,
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "route request message unmarshal")
 	})
@@ -206,8 +214,190 @@ func TestServiceRequestMsg(t *testing.T) {
 
 		msgID := randomID()
 
-		err = svc.handleRequest(generateRequestMsgPayload(t, msgID), MYDID, THEIRDID)
+		err = svc.handleInboundRequest(&callback{
+			msg:      generateRequestMsgPayload(t, msgID),
+			myDID:    MYDID,
+			theirDID: THEIRDID,
+			options:  &Options{},
+		})
 		require.NoError(t, err)
+	})
+
+	t.Run("test service handle request msg - kms failure", func(t *testing.T) {
+		expected := errors.New("test")
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue: &mockkms.CloseableKMS{
+				CreateKeyErr: expected,
+			},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		err = svc.handleInboundRequest(&callback{
+			msg:      service.NewDIDCommMsgMap(&Request{ID: "test", Type: RequestMsgType}),
+			myDID:    MYDID,
+			theirDID: THEIRDID,
+			options:  &Options{},
+		})
+		require.Error(t, err)
+		require.True(t, errors.Is(err, expected))
+	})
+}
+
+//nolint:gocyclo
+func TestEvents(t *testing.T) {
+	t.Run("HandleInbound dispatches action events", func(t *testing.T) {
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		events := make(chan service.DIDCommAction)
+
+		err = svc.RegisterActionEvent(events)
+		require.NoError(t, err)
+
+		msgID := randomID()
+		msg := generateRequestMsgPayload(t, msgID)
+
+		id, err := svc.HandleInbound(msg, "", "")
+		require.NoError(t, err)
+		require.Equal(t, msgID, id)
+
+		select {
+		case e := <-events:
+			require.Equal(t, msg, e.Message)
+		case <-time.After(time.Second):
+			require.Fail(t, "timeout")
+		}
+	})
+
+	t.Run("continuing inbound request event dispatches outbound grant", func(t *testing.T) {
+		dispatched := make(chan struct{})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					dispatched <- struct{}{}
+					return nil
+				},
+			}})
+		require.NoError(t, err)
+
+		events := make(chan service.DIDCommAction)
+
+		err = svc.RegisterActionEvent(events)
+		require.NoError(t, err)
+
+		_, err = svc.HandleInbound(generateRequestMsgPayload(t, "123"), "", "")
+		require.NoError(t, err)
+
+		select {
+		case e := <-events:
+			e.Continue(service.Empty{})
+		case <-time.After(time.Second):
+			require.Fail(t, "timeout")
+		}
+
+		select {
+		case <-dispatched:
+		case <-time.After(time.Second):
+			require.Fail(t, "timeout")
+		}
+	})
+
+	t.Run("stopping inbound request event does not dispatch outbound grant", func(t *testing.T) {
+		dispatched := make(chan struct{})
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					dispatched <- struct{}{}
+					return nil
+				},
+			}})
+		require.NoError(t, err)
+
+		events := make(chan service.DIDCommAction)
+
+		err = svc.RegisterActionEvent(events)
+		require.NoError(t, err)
+
+		_, err = svc.HandleInbound(generateRequestMsgPayload(t, "123"), "", "")
+		require.NoError(t, err)
+
+		select {
+		case e := <-events:
+			e.Stop(errors.New("rejected"))
+		case <-time.After(time.Second):
+			require.Fail(t, "timeout")
+		}
+
+		select {
+		case <-dispatched:
+			require.Fail(t, "stopping the protocol flow should not result in an outbound message dispatch")
+		case <-time.After(time.Second):
+		}
+	})
+
+	t.Run("fails when no listeners are registered for action events", func(t *testing.T) {
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		_, err = svc.HandleInbound(generateRequestMsgPayload(t, "123"), "", "")
+		require.Error(t, err)
+	})
+
+	t.Run("Continue assigns keys and endpoint provided by user", func(t *testing.T) {
+		endpoint := "ws://agent.example.com"
+		routingKeys := []string{"key1", "key2"}
+		dispatched := false
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			ServiceEndpointValue:          "http://other.com",
+			OutboundDispatcherValue: &mockdispatcher.MockOutbound{
+				ValidateSendToDID: func(msg interface{}, myDID, theirDID string) error {
+					dispatched = true
+					res, err := json.Marshal(msg)
+					require.NoError(t, err)
+
+					grant := &Grant{}
+					err = json.Unmarshal(res, grant)
+					require.NoError(t, err)
+
+					require.Equal(t, endpoint, grant.Endpoint)
+					require.Equal(t, routingKeys, grant.RoutingKeys)
+
+					return nil
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		err = svc.handleInboundRequest(&callback{
+			msg:      generateRequestMsgPayload(t, randomID()),
+			myDID:    MYDID,
+			theirDID: THEIRDID,
+			options: &Options{
+				ServiceEndpoint: endpoint,
+				RoutingKeys:     routingKeys,
+			},
+		})
+		require.NoError(t, err)
+		require.True(t, dispatched)
 	})
 }
 

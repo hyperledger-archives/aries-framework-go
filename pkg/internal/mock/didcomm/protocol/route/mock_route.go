@@ -15,6 +15,8 @@ import (
 
 // MockRouteSvc mock route service
 type MockRouteSvc struct {
+	service.Action
+	service.Message
 	ProtocolName       string
 	HandleFunc         func(service.DIDCommMsg) (string, error)
 	HandleOutboundFunc func(msg service.DIDCommMsg, myDID, theirDID string) error

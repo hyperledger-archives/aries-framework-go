@@ -112,7 +112,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	}
 
 	// route REST operation
-	routeOp, err := route.New(ctx)
+	routeOp, err := route.New(ctx, restAPIOpts.autoAccept)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	}
 
 	// route command operation
-	routecmd, err := routercmd.New(ctx)
+	routecmd, err := routercmd.New(ctx, cmdOpts.autoAccept)
 	if err != nil {
 		return nil, err
 	}

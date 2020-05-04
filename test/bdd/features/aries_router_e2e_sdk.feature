@@ -12,6 +12,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
   Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers
     # DID Exchange between Alice and her Router
     Given "Alice-Router" agent is running on "localhost" port "random" with "websocket" as the transport provider
+      And "Alice-Router" creates a route exchange client
       And   "Alice-Router" creates did exchange client
       And   "Alice-Router" registers to receive notification for post state event "completed"
 
@@ -36,6 +37,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Bob" creates did exchange client
 
     Given "Bob-Router" agent is running on "localhost" port "random" with "websocket" as the transport provider
+      And "Bob-Router" creates a route exchange client
       And   "Bob-Router" creates did exchange client
       And   "Bob-Router" registers to receive notification for post state event "completed"
       And   "Bob" registers to receive notification for post state event "completed"
@@ -54,12 +56,12 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
 
        # Alice registers her Router
       And   "Alice" creates a route exchange client
-      And   "Alice" sets "alice-router-connID" as the router
+      And   "Alice" sets "alice-router-connID" as the router and "Alice-Router" approves
       And   "Alice" verifies that the router connection id is set to "alice-router-connID"
 
        # Bob registers his Router
       And   "Bob" creates a route exchange client
-      And   "Bob" sets "bob-router-connID" as the router
+      And   "Bob" sets "bob-router-connID" as the router and "Bob-Router" approves
       And   "Bob" verifies that the router connection id is set to "bob-router-connID"
 
      # DIDExchange between Alice and Bob through routers
@@ -77,6 +79,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
   Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents through Routers
     # DID Exchange between Alice and her Router
     Given "Alice-Router" agent is running on "localhost" port "random" with "http" as the transport provider
+      And "Alice-Router" creates a route exchange client
       And   "Alice-Router" creates did exchange client
       And   "Alice-Router" registers to receive notification for post state event "completed"
 
@@ -101,6 +104,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Bob" creates did exchange client
 
     Given "Bob-Router" agent is running on "localhost" port "random" with "http" as the transport provider
+      And "Bob-Router" creates a route exchange client
       And   "Bob-Router" creates did exchange client
       And   "Bob-Router" registers to receive notification for post state event "completed"
       And   "Bob" registers to receive notification for post state event "completed"
@@ -119,12 +123,12 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
 
        # Alice registers her Router
       And   "Alice" creates a route exchange client
-      And   "Alice" sets "alice-router-connID" as the router
+      And   "Alice" sets "alice-router-connID" as the router and "Alice-Router" approves
       And   "Alice" verifies that the router connection id is set to "alice-router-connID"
 
        # Bob registers his Router
       And   "Bob" creates a route exchange client
-      And   "Bob" sets "bob-router-connID" as the router
+      And   "Bob" sets "bob-router-connID" as the router and "Bob-Router" approves
       And   "Bob" verifies that the router connection id is set to "bob-router-connID"
 
      # DIDExchange between Alice and Bob through routers
@@ -143,6 +147,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
   Scenario: Decentralized Identifier(DID) Exchange between two Edge Agents(without Inbound) through Routers(HTTP/WS)
     # DID Exchange between Alice and her Router
     Given "Alice-Router" agent is running on "localhost,localhost" port "random,random" with "http,websocket" as the transport provider
+      And "Alice-Router" creates a route exchange client
       And   "Alice-Router" creates did exchange client
       And   "Alice-Router" registers to receive notification for post state event "completed"
 
@@ -167,6 +172,7 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
       And   "Bob" creates did exchange client
 
     Given "Bob-Router" agent is running on "localhost,localhost" port "random,random" with "http,websocket" as the transport provider
+      And "Bob-Router" creates a route exchange client
       And   "Bob-Router" creates did exchange client
       And   "Bob-Router" registers to receive notification for post state event "completed"
       And   "Bob" registers to receive notification for post state event "completed"
@@ -185,12 +191,12 @@ Feature: DIDComm Transport between two Agents through DIDComm Routers [SDK]
 
        # Alice registers her Router
       And   "Alice" creates a route exchange client
-      And   "Alice" sets "alice-router-connID" as the router
+      And   "Alice" sets "alice-router-connID" as the router and "Alice-Router" approves
       And   "Alice" verifies that the router connection id is set to "alice-router-connID"
 
        # Bob registers his Router
       And   "Bob" creates a route exchange client
-      And   "Bob" sets "bob-router-connID" as the router
+      And   "Bob" sets "bob-router-connID" as the router and "Bob-Router" approves
       And   "Bob" verifies that the router connection id is set to "bob-router-connID"
 
      # DIDExchange between Alice and Bob through routers
