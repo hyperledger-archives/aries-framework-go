@@ -137,6 +137,7 @@ var udCredentialWithoutID = `
 const udVerifiablePresentation = `{
         "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
         "type": ["VerifiablePresentation"],
+		"holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
         "verifiableCredential": [{
             "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
             "credentialSchema": [],
@@ -179,6 +180,7 @@ const udVerifiablePresentation = `{
 const udPresentation = `{
         "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
         "type": ["VerifiablePresentation"],
+		"holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
         "verifiableCredential": [{
             "@context": ["https://www.w3.org/2018/credentials/v1", "https://www.w3.org/2018/credentials/examples/v1"],
             "credentialSchema": [],
@@ -303,6 +305,16 @@ func TestGetVC(t *testing.T) {
 		vc, err := s.GetCredential("http://example.edu/credentials/1872")
 		require.NoError(t, err)
 		require.Equal(t, vc.ID, "http://example.edu/credentials/1872")
+
+		records, err := s.GetCredentials()
+		require.NoError(t, err)
+		require.NotEmpty(t, records)
+
+		for _, r := range records {
+			require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", r.SubjectID)
+			require.Equal(t, "http://example.edu/credentials/1872", r.ID)
+			require.Equal(t, "sampleVCName", r.Name)
+		}
 	})
 
 	t.Run("test success - vc without ID", func(t *testing.T) {
@@ -353,7 +365,7 @@ func TestGetVC(t *testing.T) {
 
 func TestGetCredentialIDBasedOnName(t *testing.T) {
 	t.Run("test get credential based on name - success", func(t *testing.T) {
-		rbytes, err := getRecord(sampleCredentialID, nil, nil)
+		rbytes, err := getRecord(sampleCredentialID, "", nil, nil)
 		require.NoError(t, err)
 
 		store := make(map[string][]byte)
@@ -567,7 +579,7 @@ func TestGetVP(t *testing.T) {
 
 func TestGetPresentationIDBasedOnName(t *testing.T) {
 	t.Run("test get presentation based on name - success", func(t *testing.T) {
-		rbytes, err := getRecord(samplePresentationID, nil, nil)
+		rbytes, err := getRecord(samplePresentationID, "", nil, nil)
 		require.NoError(t, err)
 
 		store := make(map[string][]byte)
@@ -600,7 +612,7 @@ func TestGetPresentationIDBasedOnName(t *testing.T) {
 }
 
 func TestGetPresentations(t *testing.T) {
-	t.Run("test get presentations", func(t *testing.T) {
+	t.Run("test get save & presentations", func(t *testing.T) {
 		store := make(map[string][]byte)
 		s, err := New(&mockprovider.Provider{
 			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
@@ -637,5 +649,24 @@ func TestGetPresentations(t *testing.T) {
 		records, err = s.GetPresentations()
 		require.NoError(t, err)
 		require.Len(t, records, 1+n)
+	})
+
+	t.Run("test get presentations", func(t *testing.T) {
+		store := make(map[string][]byte)
+		s, err := New(&mockprovider.Provider{
+			StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: store}},
+		})
+		require.NoError(t, err)
+
+		udVP, err := verifiable.NewPresentation([]byte(udVerifiablePresentation))
+		require.NoError(t, err)
+		require.NoError(t, s.SavePresentation(samplePresentationName, udVP))
+
+		records, err := s.GetPresentations()
+		require.NoError(t, err)
+		require.Len(t, records, 1)
+
+		require.Equal(t, records[0].Name, samplePresentationName)
+		require.Equal(t, records[0].SubjectID, udVP.Holder)
 	})
 }

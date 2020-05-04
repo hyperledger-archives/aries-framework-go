@@ -524,7 +524,7 @@ func (o *Command) GeneratePresentation(rw io.Writer, req io.Reader) command.Erro
 			fmt.Errorf("generate vp - parse presentation request: %w", err))
 	}
 
-	return o.generatePresentation(rw, credentials, presentation, opts)
+	return o.generatePresentation(rw, credentials, presentation, didDoc.ID, opts)
 }
 
 // GeneratePresentationByID generates verifiable presentation from a stored verifiable credential.
@@ -569,9 +569,9 @@ func (o *Command) GeneratePresentationByID(rw io.Writer, req io.Reader) command.
 }
 
 func (o *Command) generatePresentation(rw io.Writer, vcs []interface{}, p *verifiable.Presentation,
-	opts *ProofOptions) command.Error {
+	holder string, opts *ProofOptions) command.Error {
 	// prepare vp
-	vp, err := o.createAndSignPresentation(vcs, p, opts)
+	vp, err := o.createAndSignPresentation(vcs, p, holder, opts)
 	if err != nil {
 		logutil.LogError(logger, commandName, generatePresentationCommandMethod, "create and sign vp: "+err.Error())
 
@@ -608,7 +608,7 @@ func (o *Command) generatePresentationByID(rw io.Writer, vc *verifiable.Credenti
 }
 
 func (o *Command) createAndSignPresentation(credentials []interface{}, vp *verifiable.Presentation,
-	opts *ProofOptions) ([]byte, error) {
+	holder string, opts *ProofOptions) ([]byte, error) {
 	var err error
 	if vp == nil {
 		vp, err = credentials[0].(*verifiable.Credential).Presentation()
@@ -621,6 +621,9 @@ func (o *Command) createAndSignPresentation(credentials []interface{}, vp *verif
 			return nil, fmt.Errorf("failed to set credentials: %w", err)
 		}
 	}
+
+	// set holder
+	vp.Holder = holder
 
 	// Add proofs to vp - sign presentation
 	vp, err = o.addLinkedDataProof(vp, opts)

@@ -611,7 +611,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 		require.NotEmpty(t, vp.Proofs)
-		require.Equal(t, vp.Holder, "did:web:vc.example.world")
+		require.Equal(t, vp.Holder, "did:peer:21tDAKCERh95uGgKbJNHYp")
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
 		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)

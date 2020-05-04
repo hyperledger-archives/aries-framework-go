@@ -800,6 +800,7 @@ func TestGeneratePresentation(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
+		require.Equal(t, presReq.DID, vp.Holder)
 		require.NotEmpty(t, vp.Proofs)
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
@@ -840,6 +841,7 @@ func TestGeneratePresentation(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
+		require.Equal(t, presReq.DID, vp.Holder)
 		require.NotEmpty(t, vp.Proofs)
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
@@ -891,6 +893,7 @@ func TestGeneratePresentation(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
+		require.Equal(t, presReq.DID, vp.Holder)
 		require.NotEmpty(t, vp.Proofs)
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
@@ -1024,7 +1027,7 @@ func TestGeneratePresentation(t *testing.T) {
 
 	t.Run("test generate verifiable presentation with proof options & presentation - success", func(t *testing.T) {
 		pRaw := json.RawMessage([]byte(`{"@context": "https://www.w3.org/2018/credentials/v1",
-		"type": "VerifiablePresentation","holder": "did:web:vc.example.world"}`))
+		"type": "VerifiablePresentation"}`))
 
 		createdTime := time.Now().AddDate(-1, 0, 0)
 		presReq := PresentationRequest{
@@ -1058,7 +1061,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NotNil(t, vp)
 		require.Empty(t, vp.Credentials())
 		require.NotEmpty(t, vp.Proofs)
-		require.Equal(t, vp.Holder, "did:web:vc.example.world")
+		require.Equal(t, vp.Holder, "did:peer:123456789abcdefghi#inbox")
 		require.Len(t, vp.Proofs, 1)
 		require.Equal(t, vp.Proofs[0]["challenge"], presReq.Challenge)
 		require.Equal(t, vp.Proofs[0]["domain"], presReq.Domain)
@@ -1248,7 +1251,7 @@ func TestGeneratePresentationHelperFunctions(t *testing.T) {
 		credList[0] = v
 
 		var b bytes.Buffer
-		err = cmd.generatePresentation(&b, credList, nil, &ProofOptions{VerificationMethod: "pk"})
+		err = cmd.generatePresentation(&b, credList, nil, "did:example", &ProofOptions{VerificationMethod: "pk"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "prepare vp: failed to sign vp: wrong id [pk] to resolve")
 	})
