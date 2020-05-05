@@ -34,8 +34,8 @@ type Operation struct {
 }
 
 // New returns new common operations rest client instance
-func New(ctx provider) (*Operation, error) {
-	routeCmd, err := route.New(ctx)
+func New(ctx provider, autoAccept bool) (*Operation, error) {
+	routeCmd, err := route.New(ctx, autoAccept)
 	if err != nil {
 		return nil, fmt.Errorf("create route command : %w", err)
 	}

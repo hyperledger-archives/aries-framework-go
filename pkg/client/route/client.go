@@ -21,13 +21,14 @@ type provider interface {
 
 // Client enable access to route api.
 type Client struct {
+	service.Event
 	routeSvc protocolService
 }
 
 // protocolService defines DID Exchange service.
 type protocolService interface {
 	// DIDComm service
-	service.Handler
+	service.DIDComm
 
 	// Register registers the agent with the router
 	Register(connectionID string) error
@@ -52,6 +53,7 @@ func New(ctx provider) (*Client, error) {
 	}
 
 	return &Client{
+		Event:    routeSvc,
 		routeSvc: routeSvc,
 	}, nil
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 )
 
@@ -64,10 +65,26 @@ type Command struct {
 }
 
 // New returns new route controller command instance.
-func New(ctx provider) (*Command, error) {
+func New(ctx provider, autoAccept bool) (*Command, error) {
 	routeClient, err := route.New(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("create route client : %w", err)
+	}
+
+	if !autoAccept {
+		// TODO add support sending action approvals to webhooks
+		autoAccept = true
+	}
+
+	if autoAccept {
+		actions := make(chan service.DIDCommAction)
+
+		err = routeClient.RegisterActionEvent(actions)
+		if err != nil {
+			return nil, fmt.Errorf("failed to register action events : %w", err)
+		}
+
+		go service.AutoExecuteActionEvent(actions)
 	}
 
 	return &Command{

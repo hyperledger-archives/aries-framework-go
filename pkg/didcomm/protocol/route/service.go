@@ -93,7 +93,19 @@ type provider interface {
 	VDRIRegistry() vdri.Registry
 }
 
-// TODO add support for events: https://github.com/hyperledger/aries-framework-go/issues/1718
+// Options is a container for route protocol options.
+type Options struct {
+	ServiceEndpoint string
+	RoutingKeys     []string
+}
+
+type callback struct {
+	msg      service.DIDCommMsg
+	myDID    string
+	theirDID string
+	options  *Options
+	err      error
+}
 
 // Service for Route Coordination protocol.
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination
@@ -110,6 +122,7 @@ type Service struct {
 	routeRegistrationMapLock sync.RWMutex
 	keylistUpdateMap         map[string]chan *KeylistUpdateResponse
 	keylistUpdateMapLock     sync.RWMutex
+	callbacks                chan *callback
 }
 
 // New return route coordination service.
@@ -124,7 +137,7 @@ func New(prov provider) (*Service, error) {
 		return nil, err
 	}
 
-	return &Service{
+	s := &Service{
 		routeStore:           store,
 		outbound:             prov.OutboundDispatcher(),
 		endpoint:             prov.RouterEndpoint(),
@@ -133,18 +146,95 @@ func New(prov provider) (*Service, error) {
 		connectionLookup:     connectionLookup,
 		routeRegistrationMap: make(map[string]chan Grant),
 		keylistUpdateMap:     make(map[string]chan *KeylistUpdateResponse),
-	}, nil
+		callbacks:            make(chan *callback),
+	}
+
+	go s.listenForCallbacks()
+
+	return s, nil
+}
+
+func (s *Service) listenForCallbacks() {
+	for c := range s.callbacks {
+		logger.Debugf("handling user callback for msgID=%s err=%s", c.msg.ID(), c.err)
+
+		if c.err != nil {
+			go s.handleUserRejection(c)
+			continue
+		}
+
+		switch c.msg.Type() {
+		case RequestMsgType:
+			err := s.handleInboundRequest(c)
+			if err != nil {
+				logger.Errorf("failed to handle inbound request: %+v : %w", c.msg, err)
+			}
+		default:
+			logger.Warnf("ignoring unsupported message type %s", c.msg.Type())
+		}
+	}
+}
+
+func (s *Service) handleUserRejection(c *callback) {
+	logger.Infof("user aborted response action for msgID=%s", c.msg.ID())
+}
+
+func triggersActionEvent(msgType string) bool {
+	return msgType == RequestMsgType
+}
+
+func (s *Service) sendActionEvent(msg service.DIDCommMsg, myDID, theirDID string) error {
+	events := s.ActionEvent()
+	if events == nil {
+		return fmt.Errorf("no clients registered to handle action events for %s protocol", Coordination)
+	}
+
+	logger.Debugf("dispatching action event for msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
+
+	go func() {
+		c := &callback{
+			msg:      msg,
+			myDID:    myDID,
+			theirDID: theirDID,
+		}
+
+		events <- service.DIDCommAction{
+			ProtocolName: Coordination,
+			Message:      msg,
+			Continue: func(args interface{}) {
+				opts, ok := args.(Options)
+				if !ok {
+					opts = Options{}
+				}
+
+				c.options = &opts
+
+				s.callbacks <- c
+			},
+			Stop: func(err error) {
+				c.err = err
+
+				s.callbacks <- c
+			},
+		}
+	}()
+
+	return nil
 }
 
 // HandleInbound handles inbound route coordination messages.
-func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) { // nolint gocyclo (5 switch cases)
+func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+	logger.Debugf("input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
+
+	if triggersActionEvent(msg.Type()) {
+		return msg.ID(), s.sendActionEvent(msg, myDID, theirDID)
+	}
+
 	// perform action on inbound message asynchronously
 	go func() {
 		var err error
 
 		switch msg.Type() {
-		case RequestMsgType:
-			err = s.handleRequest(msg, myDID, theirDID)
 		case GrantMsgType:
 			err = s.handleGrant(msg)
 		case KeylistUpdateMsgType:
@@ -205,33 +295,55 @@ func (s *Service) Name() string {
 	return Coordination
 }
 
-func (s *Service) handleRequest(msg service.DIDCommMsg, myDID, theirDID string) error {
+func (s *Service) handleInboundRequest(c *callback) error {
 	// unmarshal the payload
 	request := &Request{}
 
-	err := msg.Decode(request)
+	err := c.msg.Decode(request)
 	if err != nil {
 		return fmt.Errorf("route request message unmarshal : %w", err)
 	}
 
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1133 Support to
-	//  add business logic for Route Request Approval
-
-	// create keys
-	_, sigPubKey, err := s.kms.CreateKeySet()
+	grant, err := outboundGrant(
+		c.msg.ID(),
+		c.options,
+		s.endpoint,
+		func() (string, error) {
+			_, key, er := s.kms.CreateKeySet()
+			return key, er
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("failed to create keys : %w", err)
+		return fmt.Errorf("failed to handle inbound request : %w", err)
 	}
 
-	// send the grant response
+	return s.outbound.SendToDID(grant, c.myDID, c.theirDID)
+}
+
+func outboundGrant(
+	msgID string, opts *Options,
+	defaultEndpoint string, defaultKey func() (string, error)) (*Grant, error) {
 	grant := &Grant{
+		ID:          msgID,
 		Type:        GrantMsgType,
-		ID:          msg.ID(),
-		Endpoint:    s.endpoint,
-		RoutingKeys: []string{sigPubKey},
+		Endpoint:    opts.ServiceEndpoint,
+		RoutingKeys: opts.RoutingKeys,
 	}
 
-	return s.outbound.SendToDID(grant, myDID, theirDID)
+	if grant.Endpoint == "" {
+		grant.Endpoint = defaultEndpoint
+	}
+
+	if len(grant.RoutingKeys) == 0 {
+		keys, err := defaultKey()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create keys : %w", err)
+		}
+
+		grant.RoutingKeys = []string{keys}
+	}
+
+	return grant, nil
 }
 
 func (s *Service) handleGrant(msg service.DIDCommMsg) error {
@@ -246,10 +358,12 @@ func (s *Service) handleGrant(msg service.DIDCommMsg) error {
 	// check if there are any channels registered for the message ID
 	grantCh := s.getRouteRegistrationCh(grantMsg.ID)
 
-	if grantCh != nil {
-		// invoke the channel for the incoming message
-		grantCh <- *grantMsg
+	if grantCh == nil {
+		logger.Warnf("no channels awaiting grant with msgID=%s", grantMsg.ID)
+		return nil
 	}
+
+	grantCh <- *grantMsg
 
 	return nil
 }

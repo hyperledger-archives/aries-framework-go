@@ -24,6 +24,7 @@ func TestNew(t *testing.T) {
 			&mockprovider.Provider{
 				ServiceValue: &mockroute.MockRouteSvc{},
 			},
+			false,
 		)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -35,6 +36,7 @@ func TestNew(t *testing.T) {
 	t.Run("test new command - client creation fail", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{},
+			false,
 		)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create route client")
@@ -48,6 +50,7 @@ func TestRegisterRoute(t *testing.T) {
 			&mockprovider.Provider{
 				ServiceValue: &mockroute.MockRouteSvc{},
 			},
+			false,
 		)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -63,6 +66,7 @@ func TestRegisterRoute(t *testing.T) {
 			&mockprovider.Provider{
 				ServiceValue: &mockroute.MockRouteSvc{},
 			},
+			false,
 		)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -79,6 +83,7 @@ func TestRegisterRoute(t *testing.T) {
 			&mockprovider.Provider{
 				ServiceValue: &mockroute.MockRouteSvc{},
 			},
+			false,
 		)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -98,6 +103,7 @@ func TestRegisterRoute(t *testing.T) {
 					},
 				},
 			},
+			false,
 		)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -116,6 +122,7 @@ func TestUnregisterRoute(t *testing.T) {
 			&mockprovider.Provider{
 				ServiceValue: &mockroute.MockRouteSvc{},
 			},
+			false,
 		)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -132,6 +139,7 @@ func TestUnregisterRoute(t *testing.T) {
 					UnregisterErr: errors.New("unregister error"),
 				},
 			},
+			false,
 		)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -153,6 +161,7 @@ func TestGetConnectionID(t *testing.T) {
 					ConnectionID: routerConnectionID,
 				},
 			},
+			false,
 		)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
@@ -174,6 +183,7 @@ func TestGetConnectionID(t *testing.T) {
 					GetConnectionIDErr: errors.New("get connectionID error"),
 				},
 			},
+			false,
 		)
 		require.NoError(t, err)
 		require.NotNil(t, cmd)

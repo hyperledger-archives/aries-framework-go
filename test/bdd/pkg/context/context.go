@@ -29,6 +29,7 @@ type BDDContext struct {
 	OutOfBandClients   map[string]*outofband.Client
 	DIDExchangeClients map[string]*didexchange.Client
 	RouteClients       map[string]*route.Client
+	RouteCallbacks     map[string]chan interface{}
 	PublicDIDDocs      map[string]*did.Doc
 	PublicDIDs         map[string]string
 	Agents             map[string]*aries.Aries
@@ -48,6 +49,7 @@ func NewBDDContext() *BDDContext {
 		OutOfBandClients:   make(map[string]*outofband.Client),
 		DIDExchangeClients: make(map[string]*didexchange.Client),
 		RouteClients:       make(map[string]*route.Client),
+		RouteCallbacks:     make(map[string]chan interface{}),
 		PublicDIDDocs:      make(map[string]*did.Doc),
 		PublicDIDs:         make(map[string]string),
 		Agents:             make(map[string]*aries.Aries),

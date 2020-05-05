@@ -57,6 +57,7 @@ Feature: Introduce protocol
   @proposal_response_with_embedded_route_request
   Scenario: Bob sends a response with approve and an out-of-band request with an embedded route-request.
     Given   "Alice-Router,Bob" exchange DIDs with "Alice"
+    And   "Alice-Router" creates a route exchange client
     When   "Alice" sends introduce proposal to the "Alice-Router" and "Bob"
     And   "Alice-Router" wants to know "Bob" and sends introduce response with approve and provides an out-of-band request with an embedded "route-request"
     And   "Bob" wants to know "Alice-Router" and sends introduce response with approve
