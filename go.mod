@@ -36,4 +36,6 @@ require (
 	nhooyr.io/websocket v1.8.3
 )
 
+replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
+
 go 1.14

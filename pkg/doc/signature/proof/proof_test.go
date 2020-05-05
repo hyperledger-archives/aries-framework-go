@@ -41,6 +41,22 @@ func TestProof(t *testing.T) {
 	require.Equal(t, "abc.com", p.Domain)
 	require.Equal(t, []byte(""), p.Nonce)
 	require.Equal(t, proofValueBytes, p.ProofValue)
+
+	// test created time with milliseconds section
+	p, err = NewProof(map[string]interface{}{
+		"type":               "type",
+		"creator":            "didID",
+		"verificationMethod": "did:example:123456#key1",
+		"created":            "2018-03-15T00:00:00.972Z",
+		"domain":             "abc.com",
+		"nonce":              "",
+		"proofValue":         proofValueBase64,
+	})
+	require.NoError(t, err)
+
+	created, err = time.Parse(time.RFC3339, "2018-03-15T00:00:00.972Z")
+	require.NoError(t, err)
+	require.Equal(t, &created, p.Created)
 }
 
 func TestInvalidProofValue(t *testing.T) {
@@ -114,6 +130,14 @@ func TestProof_JSONLdObject(t *testing.T) {
 	r.Equal("internal", pJSONLd["domain"])
 	r.Equal("abc", pJSONLd["nonce"])
 	r.Equal("sample-challenge-xyz", pJSONLd["challenge"])
+
+	// test created time with milliseconds section
+	created, err = time.Parse(time.RFC3339Nano, "2018-03-15T00:00:00.972Z")
+	require.NoError(t, err)
+
+	p.Created = &created
+	pJSONLd = p.JSONLdObject()
+	r.Equal("2018-03-15T00:00:00.972Z", pJSONLd["created"])
 }
 
 func TestProof_PublicKeyID(t *testing.T) {

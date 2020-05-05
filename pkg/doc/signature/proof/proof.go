@@ -53,7 +53,7 @@ type Proof struct {
 func NewProof(emap map[string]interface{}) (*Proof, error) {
 	created := stringEntry(emap[jsonldCreated])
 
-	timeValue, err := time.Parse(time.RFC3339, created)
+	timeValue, err := time.Parse(time.RFC3339Nano, created)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (p *Proof) JSONLdObject() map[string]interface{} {
 	}
 
 	if p.Created != nil {
-		emap[jsonldCreated] = p.Created.Format(time.RFC3339)
+		emap[jsonldCreated] = p.Created.Format(time.RFC3339Nano)
 	}
 
 	if len(p.ProofValue) > 0 {
