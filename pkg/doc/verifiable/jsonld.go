@@ -294,7 +294,39 @@ func compactJSONLD(doc string, opts *jsonldCredentialOpts, strict bool) error {
 }
 
 func mapsHaveSameStructure(originalMap, compactedMap map[string]interface{}) bool {
-	return reflect.DeepEqual(compactMap(originalMap), compactMap(compactedMap))
+	original := compactMap(originalMap)
+	compacted := compactMap(compactedMap)
+
+	if reflect.DeepEqual(original, compacted) {
+		return true
+	}
+
+	if len(original) != len(compacted) {
+		return false
+	}
+
+	for k, v1 := range original {
+		v1Map, isMap := v1.(map[string]interface{})
+		if !isMap {
+			continue
+		}
+
+		v2, present := compacted[k]
+		if !present { // special case - the name of the map was mapped, cannot guess what's a new name
+			continue
+		}
+
+		v2Map, isMap := v2.(map[string]interface{})
+		if !isMap {
+			return false
+		}
+
+		if !mapsHaveSameStructure(v1Map, v2Map) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func compactMap(m map[string]interface{}) map[string]interface{} {
