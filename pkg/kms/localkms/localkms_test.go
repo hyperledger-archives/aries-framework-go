@@ -13,6 +13,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -298,6 +299,8 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 		tcName  string
 		keyType kms.KeyType
 		curve   elliptic.Curve
+		setID   bool
+		ksID    string
 	}{
 		{
 			tcName:  "import private key using ECDSAP256DER type",
@@ -333,6 +336,29 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 			tcName:  "import private key using ED25519Type type",
 			keyType: kms.ED25519Type,
 		},
+		{
+			tcName:  "import private key using ECDSAP256DER type and a set empty KeyID",
+			keyType: kms.ECDSAP256TypeDER,
+			curve:   elliptic.P256(),
+			setID:   true,
+			ksID:    "",
+		},
+		{
+			tcName:  "import private key using ECDSAP256DER type and a set non empty KeyID",
+			keyType: kms.ECDSAP256TypeDER,
+			curve:   elliptic.P256(),
+			setID:   true,
+			ksID: base64.RawURLEncoding.EncodeToString(random.GetRandomBytes(
+				uint32(base64.RawURLEncoding.DecodedLen(maxKeyIDLen)))),
+		},
+		{
+			tcName:  "import private key using ECDSAP256DER type and a set non KeyID larger than maxKeyIDLen",
+			keyType: kms.ECDSAP256TypeDER,
+			curve:   elliptic.P256(),
+			setID:   true,
+			ksID: base64.RawURLEncoding.EncodeToString(random.GetRandomBytes(
+				uint32(base64.RawURLEncoding.DecodedLen(30)))),
+		},
 	}
 
 	for _, tc := range flagTests {
@@ -354,9 +380,28 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 			privKey, err := ecdsa.GenerateKey(tt.curve, rand.Reader)
 			require.NoError(t, err)
 
+			ksID := ""
+
 			// test ImportPrivateKey
-			ksID, _, err := kmsService.ImportPrivateKey(privKey, tt.keyType)
-			require.NoError(t, err)
+			if tt.setID {
+				// with set keyset ID
+				ksID, _, err = kmsService.ImportPrivateKey(privKey, tt.keyType, WithKeyID(tt.ksID))
+				if strings.Contains(tt.tcName, "larger than maxKeyIDLen") {
+					require.Contains(t, err.Error(),
+						fmt.Sprintf("is longer than max allowed length of %d", maxKeyIDLen))
+					return
+				}
+
+				require.NoError(t, err)
+				// calling ImportPrivatekeyt and WithKeyID("") will ignore the set KeyID and generate a new one
+				if tt.ksID != "" {
+					require.Equal(t, tt.ksID, ksID)
+				}
+			} else {
+				// generate a new keyset ID
+				ksID, _, err = kmsService.ImportPrivateKey(privKey, tt.keyType)
+				require.NoError(t, err)
+			}
 
 			// export marshaled public key to verify it against the original public key (marshalled)
 			pubKeyBytes, err := kmsService.ExportPubKeyBytes(ksID)

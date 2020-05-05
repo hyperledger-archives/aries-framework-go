@@ -27,7 +27,8 @@ const (
 	ed25519SignerTypeURL = "type.googleapis.com/google.crypto.tink.Ed25519PrivateKey"
 )
 
-func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType) (string, *keyset.Handle, error) {
+func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
+	opts ...PrivateKeyOpts) (string, *keyset.Handle, error) {
 	var params *ecdsapb.EcdsaParams
 
 	err := validECPrivateKey(privKey)
@@ -83,11 +84,11 @@ func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType) (st
 
 	ks := newKeySet(ecdsaSignerTypeURL, mKeyValue, tinkpb.KeyData_ASYMMETRIC_PRIVATE)
 
-	return l.importKeySet(ks)
+	return l.importKeySet(ks, opts...)
 }
 
-func (l *LocalKMS) importKeySet(ks *tinkpb.Keyset) (string, *keyset.Handle, error) {
-	ksID, err := l.writeImportedKey(ks)
+func (l *LocalKMS) importKeySet(ks *tinkpb.Keyset, opts ...PrivateKeyOpts) (string, *keyset.Handle, error) {
+	ksID, err := l.writeImportedKey(ks, opts...)
 	if err != nil {
 		return "", nil, fmt.Errorf("import private EC key failed: %w", err)
 	}
@@ -105,7 +106,8 @@ func getMarshalledECDSAPrivateKey(privKey *ecdsa.PrivateKey, params *ecdsapb.Ecd
 	return proto.Marshal(newProtoECDSAPrivateKey(pubKeyProto, privKey.D.Bytes()))
 }
 
-func (l *LocalKMS) importEd25519Key(privKey ed25519.PrivateKey, kt kms.KeyType) (string, *keyset.Handle, error) {
+func (l *LocalKMS) importEd25519Key(privKey ed25519.PrivateKey, kt kms.KeyType,
+	opts ...PrivateKeyOpts) (string, *keyset.Handle, error) {
 	if privKey == nil {
 		return "", nil, fmt.Errorf("import private ED25519 key failed: private key is nil")
 	}
@@ -126,7 +128,7 @@ func (l *LocalKMS) importEd25519Key(privKey ed25519.PrivateKey, kt kms.KeyType) 
 
 	ks := newKeySet(ed25519SignerTypeURL, mKeyValue, tinkpb.KeyData_ASYMMETRIC_PRIVATE)
 
-	return l.importKeySet(ks)
+	return l.importKeySet(ks, opts...)
 }
 
 func validECPrivateKey(privateKey *ecdsa.PrivateKey) error {
@@ -176,7 +178,7 @@ func newProtoEd25519PrivateKey(privateKey ed25519.PrivateKey) (*ed25519pb.Ed2551
 	}, nil
 }
 
-func (l *LocalKMS) writeImportedKey(ks *tinkpb.Keyset) (string, error) {
+func (l *LocalKMS) writeImportedKey(ks *tinkpb.Keyset, opts ...PrivateKeyOpts) (string, error) {
 	serializedKeyset, err := proto.Marshal(ks)
 	if err != nil {
 		return "", fmt.Errorf("invalid keyset data")
@@ -205,7 +207,7 @@ func (l *LocalKMS) writeImportedKey(ks *tinkpb.Keyset) (string, error) {
 		return "", fmt.Errorf("failed to write keyset as json: %w", err)
 	}
 
-	return writeToStore(l.store, buf)
+	return writeToStore(l.store, buf, opts...)
 }
 
 func getKeysetInfo(ks *tinkpb.Keyset) (*tinkpb.KeysetInfo, error) {

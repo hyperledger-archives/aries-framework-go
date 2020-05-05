@@ -203,8 +203,8 @@ func (l *LocalKMS) storeKeySet(kh *keyset.Handle) (string, error) {
 	return writeToStore(l.store, buf)
 }
 
-func writeToStore(store storage.Store, buf *bytes.Buffer) (string, error) {
-	w := newWriter(store)
+func writeToStore(store storage.Store, buf *bytes.Buffer, opts ...PrivateKeyOpts) (string, error) {
+	w := newWriter(store, opts...)
 
 	// write buffer to localstorage
 	_, err := w.Write(buf.Bytes())
@@ -267,14 +267,34 @@ func (l *LocalKMS) PubKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (*keyset.H
 // ImportPrivateKey will import privKey into the KMS storage for the given keyType then returns the new key id and the
 // newly stored keyset.Handle
 // privKey possible types are: *ecdsa.PrivateKey and ed25519.PrivateKey
-// it returns an error if importing the key failed (key invalid, doesn't match keyType or storing key failed)
-func (l *LocalKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType) (string, *keyset.Handle, error) {
+// kt possible types are signing key types only (ECDSA keys or Ed25519)
+// opts allows setting the keysetID of the imported key using WithKeyID() option. If the ID is already used,
+// then an error is returned.
+//
+// It returns an error if importing the key fails (key empty, invalid, doesn't match keyType or storing key failed)
+func (l *LocalKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
+	opts ...PrivateKeyOpts) (string, *keyset.Handle, error) {
 	switch pk := privKey.(type) {
 	case *ecdsa.PrivateKey:
-		return l.importECDSAKey(pk, kt)
+		return l.importECDSAKey(pk, kt, opts...)
 	case ed25519.PrivateKey:
-		return l.importEd25519Key(pk, kt)
+		return l.importEd25519Key(pk, kt, opts...)
 	default:
 		return "", nil, fmt.Errorf("import private key does not support this key type or key is public")
+	}
+}
+
+// privateKeyOpts holds options for ImportPrivateKey.
+type privateKeyOpts struct {
+	ksID string
+}
+
+// PrivateKeyOpts are the import private key option.
+type PrivateKeyOpts func(opts *privateKeyOpts)
+
+// WithKeyID option is for importing a private key with a specified KeyID.
+func WithKeyID(keyID string) PrivateKeyOpts {
+	return func(opts *privateKeyOpts) {
+		opts.ksID = keyID
 	}
 }
