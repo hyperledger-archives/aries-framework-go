@@ -391,9 +391,58 @@ type Evidence interface{}
 
 // Issuer of the Verifiable Credential
 type Issuer struct {
-	ID    string
-	Name  string
-	Image string
+	ID string `json:"id,omitempty"`
+
+	CustomFields CustomFields `json:"-"`
+}
+
+// MarshalJSON marshals Issuer to JSON.
+func (i Issuer) MarshalJSON() ([]byte, error) {
+	if len(i.CustomFields) == 0 {
+		// as string
+		return json.Marshal(i.ID)
+	}
+
+	// as object
+	type Alias Issuer
+
+	alias := Alias(i)
+
+	data, err := marshalWithCustomFields(alias, i.CustomFields)
+	if err != nil {
+		return nil, fmt.Errorf("marshal Issuer: %w", err)
+	}
+
+	return data, nil
+}
+
+// UnmarshalJSON unmarshals issuer from JSON.
+func (i *Issuer) UnmarshalJSON(bytes []byte) error {
+	var issuerID string
+
+	if err := json.Unmarshal(bytes, &issuerID); err == nil {
+		// as string
+		i.ID = issuerID
+		return nil
+	}
+
+	// as object
+	type Alias Issuer
+
+	alias := (*Alias)(i)
+
+	i.CustomFields = make(CustomFields)
+
+	err := unmarshalWithCustomFields(bytes, alias, i.CustomFields)
+	if err != nil {
+		return fmt.Errorf("unmarshal Issuer: %w", err)
+	}
+
+	if i.ID == "" {
+		return errors.New("issuer ID is not defined")
+	}
+
+	return nil
 }
 
 // Subject of the Verifiable Credential
@@ -430,7 +479,7 @@ type rawCredential struct {
 	Expired        interface{}     `json:"expirationDate,omitempty"`
 	Proof          json.RawMessage `json:"proof,omitempty"`
 	Status         *TypedID        `json:"credentialStatus,omitempty"`
-	Issuer         interface{}     `json:"issuer,omitempty"`
+	Issuer         json.RawMessage `json:"issuer,omitempty"`
 	Schema         interface{}     `json:"credentialSchema,omitempty"`
 	Evidence       Evidence        `json:"evidence,omitempty"`
 	TermsOfUse     json.RawMessage `json:"termsOfUse,omitempty"`
@@ -462,12 +511,6 @@ func (rc *rawCredential) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
-}
-
-type compositeIssuer struct {
-	ID    string `json:"id,omitempty"`
-	Name  string `json:"name,omitempty"`
-	Image string `json:"image,omitempty"`
 }
 
 // CredentialDecoder makes a custom decoding of Verifiable Credential in JSON form to existent
@@ -613,53 +656,15 @@ func WithEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) CredentialOp
 // - a string which is ID of the issuer;
 //
 // - object with mandatory "id" field and optional "name" field.
-func decodeIssuer(issuer interface{}) (Issuer, error) {
-	getStringEntry := func(m map[string]interface{}, k string) (string, error) {
-		v, exists := m[k]
-		if !exists {
-			return "", nil
-		}
+func decodeIssuer(issuerBytes json.RawMessage) (Issuer, error) {
+	var issuer Issuer
 
-		s, valid := v.(string)
-		if !valid {
-			return "", fmt.Errorf("value of key '%s' is not a string", k)
-		}
-
-		return s, nil
+	err := json.Unmarshal(issuerBytes, &issuer)
+	if err != nil {
+		return Issuer{}, err
 	}
 
-	switch iss := issuer.(type) {
-	case string:
-		return Issuer{ID: iss}, nil
-	case map[string]interface{}:
-		id, err := getStringEntry(iss, "id")
-		if err != nil {
-			return Issuer{}, err
-		}
-
-		if id == "" {
-			return Issuer{}, errors.New("issuer ID is not defined")
-		}
-
-		name, err := getStringEntry(iss, "name")
-		if err != nil {
-			return Issuer{}, err
-		}
-
-		image, err := getStringEntry(iss, "image")
-		if err != nil {
-			return Issuer{}, err
-		}
-
-		// TODO: allow for custom fields.
-		return Issuer{
-			ID:    id,
-			Name:  name,
-			Image: image,
-		}, nil
-	default:
-		return Issuer{}, errors.New("unsupported format of issuer")
-	}
+	return issuer, err
 }
 
 // decodeCredentialSchemas decodes credential schema(s).
@@ -1036,16 +1041,8 @@ func newDefaultSchemaLoader() *CredentialSchemaLoader {
 	}
 }
 
-func issuerToRaw(issuer Issuer) interface{} {
-	if issuer.Name != "" || issuer.Image != "" {
-		return &compositeIssuer{
-			ID:    issuer.ID,
-			Name:  issuer.Name,
-			Image: issuer.Image,
-		}
-	}
-
-	return issuer.ID
+func issuerToRaw(issuer Issuer) (json.RawMessage, error) {
+	return json.Marshal(issuer)
 }
 
 func (vc *Credential) validateJSONSchema(data []byte, opts *credentialOpts) error {
@@ -1227,6 +1224,11 @@ func (vc *Credential) raw() (*rawCredential, error) {
 		schema = vc.Schemas
 	}
 
+	issuer, err := issuerToRaw(vc.Issuer)
+	if err != nil {
+		return nil, err
+	}
+
 	r := &rawCredential{
 		Context:        contextToRaw(vc.Context, vc.CustomContext),
 		ID:             vc.ID,
@@ -1234,7 +1236,7 @@ func (vc *Credential) raw() (*rawCredential, error) {
 		Subject:        vc.Subject,
 		Proof:          proof,
 		Status:         vc.Status,
-		Issuer:         issuerToRaw(vc.Issuer),
+		Issuer:         issuer,
 		Schema:         schema,
 		Evidence:       vc.Evidence,
 		RefreshService: rawRefreshService,

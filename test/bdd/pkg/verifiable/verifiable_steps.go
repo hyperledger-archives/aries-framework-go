@@ -92,8 +92,8 @@ func (s *SDKSteps) createVC(issuedAt, subject, issuer string) (*verifiable.Crede
 			"UniversityDegreeCredential"},
 		Subject: subject,
 		Issuer: verifiable.Issuer{
-			ID:   s.getPublicDID(issuer).ID,
-			Name: issuer,
+			ID:           s.getPublicDID(issuer).ID,
+			CustomFields: verifiable.CustomFields{"name": issuer},
 		},
 		Issued: &issued,
 	}

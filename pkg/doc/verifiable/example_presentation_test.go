@@ -213,8 +213,8 @@ func ExamplePresentation_SetCredentials() {
 			},
 		},
 		Issuer: verifiable.Issuer{
-			ID:   "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			Name: "Example University",
+			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
 		Issued:  &issued,
 		Expired: &expired,
@@ -347,8 +347,8 @@ func ExamplePresentation_MarshalJSON() {
 			},
 		},
 		Issuer: verifiable.Issuer{
-			ID:   "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			Name: "Example University",
+			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
 		Issued:  &issued,
 		Expired: &expired,
@@ -438,8 +438,8 @@ func ExamplePresentation_MarshalledCredentials() {
 			},
 		},
 		Issuer: verifiable.Issuer{
-			ID:   "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			Name: "Example University",
+			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
 		Issued:  &issued,
 		Expired: &expired,

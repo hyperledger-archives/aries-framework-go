@@ -112,8 +112,8 @@ func TestNewCredential(t *testing.T) {
 		// validate not null credential subject
 		require.NotNil(t, vc.Issuer)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", vc.Issuer.ID)
-		require.Equal(t, "Example University", vc.Issuer.Name)
-		require.Equal(t, "data:image/png;base64,iVBOR", vc.Issuer.Image)
+		require.Equal(t, "Example University", vc.Issuer.CustomFields["name"])
+		require.Equal(t, "data:image/png;base64,iVBOR", vc.Issuer.CustomFields["image"])
 
 		// check issued date
 		expectedIssued := time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
@@ -363,7 +363,12 @@ func TestValidateVerCredIssuer(t *testing.T) {
 		var raw rawCredential
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Issuer = "https://example.edu/issuers/14"
+
+		issuerRaw, err := json.Marshal("https://example.edu/issuers/14")
+		require.NoError(t, err)
+
+		raw.Issuer = issuerRaw
+
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
@@ -385,7 +390,12 @@ func TestValidateVerCredIssuer(t *testing.T) {
 		var raw rawCredential
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Issuer = 55
+
+		issuerRaw, err := json.Marshal(55)
+		require.NoError(t, err)
+
+		raw.Issuer = issuerRaw
+
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
@@ -397,7 +407,12 @@ func TestValidateVerCredIssuer(t *testing.T) {
 		var raw rawCredential
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Issuer = "not-a-uri-issuer"
+
+		issuerRaw, err := json.Marshal("not-a-uri-issuer")
+		require.NoError(t, err)
+
+		raw.Issuer = issuerRaw
+
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
@@ -409,10 +424,15 @@ func TestValidateVerCredIssuer(t *testing.T) {
 		var raw rawCredential
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Issuer = map[string]interface{}{
+
+		issuerRaw, err := json.Marshal(map[string]interface{}{
 			"id":   "not-a-uri-issuer-id",
 			"name": "University",
-		}
+		})
+		require.NoError(t, err)
+
+		raw.Issuer = issuerRaw
+
 		bytes, err := json.Marshal(raw)
 
 		require.NoError(t, err)
@@ -708,7 +728,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 
 		// clean issuer name - this means that we have only issuer id and thus it should be serialized
 		// as plain issuer id
-		vc.Issuer.Name = ""
+		delete(vc.Issuer.CustomFields, "name")
 
 		// convert verifiable credential to json byte data
 		byteCred, err := vc.MarshalJSON()
@@ -1253,76 +1273,133 @@ func TestRawCredentialSerialization(t *testing.T) {
 
 func TestDecodeIssuer(t *testing.T) {
 	t.Run("Decode Issuer defined by ID only", func(t *testing.T) {
-		issuer, err := decodeIssuer("did:example:76e12ec712ebc6f1c221ebfeb1f")
+		issueBytes, err := json.Marshal("did:example:76e12ec712ebc6f1c221ebfeb1f")
+		require.NoError(t, err)
+
+		issuer, err := decodeIssuer(issueBytes)
 		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
-		require.Empty(t, issuer.Name)
+		require.Empty(t, issuer.CustomFields)
 	})
 
 	t.Run("Decode Issuer identified by ID and name", func(t *testing.T) {
-		issuer, err := decodeIssuer(map[string]interface{}{
+		issueBytes, err := json.Marshal(map[string]interface{}{
 			"id":   "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			"name": "Example University",
 		})
 		require.NoError(t, err)
+
+		issuer, err := decodeIssuer(issueBytes)
+		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
-		require.Equal(t, "Example University", issuer.Name)
+		require.Equal(t, "Example University", issuer.CustomFields["name"])
 	})
 
 	t.Run("Decode Issuer identified by ID and name and image", func(t *testing.T) {
-		issuer, err := decodeIssuer(map[string]interface{}{
+		issueBytes, err := json.Marshal(map[string]interface{}{
 			"id":    "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			"name":  "Example University",
 			"image": "data:image/png;base64,iVBOR",
 		})
 		require.NoError(t, err)
+
+		issuer, err := decodeIssuer(issueBytes)
+		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
-		require.Equal(t, "Example University", issuer.Name)
-		require.Equal(t, "data:image/png;base64,iVBOR", issuer.Image)
+		require.Equal(t, "Example University", issuer.CustomFields["name"])
+		require.Equal(t, "data:image/png;base64,iVBOR", issuer.CustomFields["image"])
 	})
 
 	t.Run("Decode Issuer identified by ID and empty name", func(t *testing.T) {
-		issuer, err := decodeIssuer(map[string]interface{}{
+		issueBytes, err := json.Marshal(map[string]interface{}{
 			"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
 		})
 		require.NoError(t, err)
+
+		issuer, err := decodeIssuer(issueBytes)
+		require.NoError(t, err)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", issuer.ID)
-		require.Empty(t, issuer.Name)
+		require.Empty(t, issuer.CustomFields)
 	})
 
 	t.Run("Decode Issuer identified by empty ID and name", func(t *testing.T) {
-		issuerID, err := decodeIssuer(map[string]interface{}{
+		issueBytes, err := json.Marshal(map[string]interface{}{
 			"name": "Example University",
 		})
+		require.NoError(t, err)
+
+		issuer, err := decodeIssuer(issueBytes)
 		require.Error(t, err)
 		require.EqualError(t, err, "issuer ID is not defined")
-		require.Empty(t, issuerID)
+		require.Empty(t, issuer.ID)
 	})
 
 	t.Run("Decode Issuer with invalid type of ID", func(t *testing.T) {
-		issuerID, err := decodeIssuer(map[string]interface{}{
+		issueBytes, err := json.Marshal(map[string]interface{}{
 			"id": 55,
 		})
-		require.Error(t, err)
-		require.EqualError(t, err, "value of key 'id' is not a string")
-		require.Empty(t, issuerID)
-	})
+		require.NoError(t, err)
 
-	t.Run("Decode Issuer with invalid type of name", func(t *testing.T) {
-		issuerID, err := decodeIssuer(map[string]interface{}{
-			"id":   "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			"name": 55,
-		})
+		issuer, err := decodeIssuer(issueBytes)
 		require.Error(t, err)
-		require.EqualError(t, err, "value of key 'name' is not a string")
-		require.Empty(t, issuerID)
+		require.Contains(t, err.Error(), "unmarshal Issuer")
+		require.Empty(t, issuer.ID)
 	})
 
 	t.Run("Decode Issuer of invalid type", func(t *testing.T) {
-		issuerID, err := decodeIssuer(77)
+		issueBytes, err := json.Marshal(77)
+		require.NoError(t, err)
+
+		issuer, err := decodeIssuer(issueBytes)
+
 		require.Error(t, err)
-		require.EqualError(t, err, "unsupported format of issuer")
-		require.Empty(t, issuerID)
+		require.Contains(t, err.Error(), "unmarshal Issuer")
+		require.Empty(t, issuer.ID)
+	})
+}
+
+func TestMarshalIssuer(t *testing.T) {
+	t.Run("Marshal Issuer with ID defined only", func(t *testing.T) {
+		issuer := Issuer{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}
+
+		expectedIssuerBytes, err := json.Marshal("did:example:76e12ec712ebc6f1c221ebfeb1f")
+		require.NoError(t, err)
+
+		issuerBytes, err := issuer.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, expectedIssuerBytes, issuerBytes)
+	})
+
+	t.Run("Marshal Issuer with ID, name, image defined", func(t *testing.T) {
+		issuer := Issuer{
+			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: CustomFields{
+				"name":  "Example University",
+				"image": "data:image/png;base64,iVBOR",
+			},
+		}
+
+		expectedIssuerBytes, err := json.Marshal(map[string]interface{}{
+			"id":    "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			"name":  "Example University",
+			"image": "data:image/png;base64,iVBOR",
+		})
+		require.NoError(t, err)
+
+		issuerBytes, err := issuer.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, expectedIssuerBytes, issuerBytes)
+	})
+
+	t.Run("corner case: marshal issuer with invalid custom fields", func(t *testing.T) {
+		issuer := Issuer{
+			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: map[string]interface{}{"image": map[chan int]interface{}{make(chan int): 777}},
+		}
+
+		issuerBytes, err := issuer.MarshalJSON()
+		require.Error(t, err)
+		require.Empty(t, issuerBytes)
 	})
 }
 
@@ -1364,10 +1441,13 @@ func TestContextToSerialize(t *testing.T) {
 }
 
 func TestNewCredentialFromRaw(t *testing.T) {
+	issuer, err := json.Marshal("did:example:76e12ec712ebc6f1c221ebfeb1f")
+	require.NoError(t, err)
+
 	vc, err := newCredential(&rawCredential{
 		Schema:  44,
 		Type:    "VerifiableCredential",
-		Issuer:  "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Issuer:  issuer,
 		Context: "https://www.w3.org/2018/credentials/v1",
 	})
 	require.Error(t, err)
@@ -1376,16 +1456,19 @@ func TestNewCredentialFromRaw(t *testing.T) {
 
 	vc, err = newCredential(&rawCredential{
 		Type:    5,
-		Issuer:  "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Issuer:  issuer,
 		Context: "https://www.w3.org/2018/credentials/v1",
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "fill credential types from raw")
 	require.Nil(t, vc)
 
+	invalidIssuer, err := json.Marshal(5)
+	require.NoError(t, err)
+
 	vc, err = newCredential(&rawCredential{
 		Type:    "VerifiableCredential",
-		Issuer:  5,
+		Issuer:  invalidIssuer,
 		Context: "https://www.w3.org/2018/credentials/v1",
 	})
 	require.Error(t, err)
@@ -1394,7 +1477,7 @@ func TestNewCredentialFromRaw(t *testing.T) {
 
 	vc, err = newCredential(&rawCredential{
 		Type:    "VerifiableCredential",
-		Issuer:  "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Issuer:  issuer,
 		Context: 5, // invalid context
 	})
 	require.Error(t, err)
@@ -1403,7 +1486,7 @@ func TestNewCredentialFromRaw(t *testing.T) {
 
 	vc, err = newCredential(&rawCredential{
 		Type:       "VerifiableCredential",
-		Issuer:     "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Issuer:     issuer,
 		Context:    "https://www.w3.org/2018/credentials/v1",
 		TermsOfUse: []byte("not json"),
 	})
@@ -1413,7 +1496,7 @@ func TestNewCredentialFromRaw(t *testing.T) {
 
 	vc, err = newCredential(&rawCredential{
 		Type:           "VerifiableCredential",
-		Issuer:         "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Issuer:         issuer,
 		Context:        "https://www.w3.org/2018/credentials/v1",
 		RefreshService: []byte("not json"),
 	})
@@ -1423,7 +1506,7 @@ func TestNewCredentialFromRaw(t *testing.T) {
 
 	vc, err = newCredential(&rawCredential{
 		Type:    "VerifiableCredential",
-		Issuer:  "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Issuer:  issuer,
 		Context: "https://www.w3.org/2018/credentials/v1",
 		Proof:   []byte("not json"),
 	})

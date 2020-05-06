@@ -166,8 +166,8 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 			},
 		},
 		Issuer: Issuer{
-			ID:   "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			Name: "Example University",
+			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: CustomFields{"name": "Example University"},
 		},
 		Issued:  &issued,
 		Expired: &expired,
