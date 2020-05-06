@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -216,8 +217,8 @@ func ExamplePresentation_SetCredentials() {
 			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
-		Issued:  &issued,
-		Expired: &expired,
+		Issued:  util.NewTime(issued),
+		Expired: util.NewTime(expired),
 		Schemas: []verifiable.TypedID{},
 		CustomFields: map[string]interface{}{
 			"referenceNumber": 83294847,
@@ -350,8 +351,8 @@ func ExamplePresentation_MarshalJSON() {
 			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
-		Issued:  &issued,
-		Expired: &expired,
+		Issued:  util.NewTime(issued),
+		Expired: util.NewTime(expired),
 		Schemas: []verifiable.TypedID{},
 		CustomFields: map[string]interface{}{
 			"referenceNumber": 83294847,
@@ -441,8 +442,8 @@ func ExamplePresentation_MarshalledCredentials() {
 			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
-		Issued:  &issued,
-		Expired: &expired,
+		Issued:  util.NewTime(issued),
+		Expired: util.NewTime(expired),
 		Schemas: []verifiable.TypedID{},
 	}
 

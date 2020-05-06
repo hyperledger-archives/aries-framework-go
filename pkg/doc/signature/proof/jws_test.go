@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 )
 
 func Test_getJWTHeader(t *testing.T) {
@@ -31,7 +33,7 @@ func Test_createVerifyJWS(t *testing.T) {
 
 	p := &Proof{
 		Type:         "Ed25519Signature2018",
-		Created:      &created,
+		Created:      util.NewTime(created),
 		JWS:          "eyJ0eXAiOiJK..gFWFOEjXk",
 		ProofPurpose: "assertionMethod",
 	}

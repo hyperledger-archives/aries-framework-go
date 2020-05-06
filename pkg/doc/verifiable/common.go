@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
@@ -118,59 +117,6 @@ type Proof map[string]interface{}
 // CustomFields is a map of extra fields of struct build when unmarshalling JSON which are not
 // mapped to the struct fields.
 type CustomFields map[string]interface{}
-
-// rememberedFields is a map of raw fields used to preserve actual values of fields which pose risk of losing
-// information during parsing, such as dates.
-// TODO currently this is used only for date parsing issues, to be removed as part of [Issue#1772]
-type rememberedFields map[string]interface{}
-
-// fields to be remembered
-const (
-	issuanceDate   = "issuanceDate"
-	expirationDate = "expirationDate"
-)
-
-func (r rememberedFields) GetIssuanceDate(vcDate *time.Time) interface{} {
-	if issueDate, ok := r[issuanceDate]; ok && issueDate != nil {
-		if issueDate != nil && vcDate != nil {
-			t, err := time.Parse(time.RFC3339, issueDate.(string))
-			if err != nil {
-				return vcDate
-			}
-
-			if t.Equal(*vcDate) {
-				return issueDate
-			}
-		}
-	}
-
-	return vcDate
-}
-
-func (r rememberedFields) GetExpirationDate(vcDate *time.Time) interface{} {
-	if expiryDate, ok := r[expirationDate]; ok {
-		if expiryDate != nil && vcDate != nil {
-			t, err := time.Parse(time.RFC3339, expiryDate.(string))
-			if err != nil {
-				return vcDate
-			}
-
-			if t.Equal(*vcDate) {
-				return expiryDate
-			}
-		}
-	}
-
-	return vcDate
-}
-
-func (r rememberedFields) PushIssuanceDate(val interface{}) {
-	r[issuanceDate] = val
-}
-
-func (r rememberedFields) PushExpirationDate(val interface{}) {
-	r[expirationDate] = val
-}
 
 // TypedID defines a flexible structure with id and name fields and arbitrary extra fields
 // kept in CustomFields.

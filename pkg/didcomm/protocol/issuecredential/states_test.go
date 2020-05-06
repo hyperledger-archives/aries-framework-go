@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	issuecredentialMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/issuecredential"
@@ -690,7 +691,7 @@ func TestCredentialReceived_ExecuteInbound(t *testing.T) {
 								ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
 								CustomFields: verifiable.CustomFields{"name": "Example University"},
 							},
-							Issued:  &issued,
+							Issued:  util.NewTime(issued),
 							Schemas: []verifiable.TypedID{},
 							CustomFields: map[string]interface{}{
 								"referenceNumber": 83294847,
