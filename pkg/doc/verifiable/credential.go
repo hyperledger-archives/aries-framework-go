@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 )
 
 //go:generate testdata/scripts/openssl_env.sh testdata/scripts/generate_test_keys.sh
@@ -456,8 +457,8 @@ type Credential struct {
 	Types          []string
 	Subject        Subject
 	Issuer         Issuer
-	Issued         *time.Time
-	Expired        *time.Time
+	Issued         *util.TimeWithTrailingZeroMsec
+	Expired        *util.TimeWithTrailingZeroMsec
 	Proofs         []Proof
 	Status         *TypedID
 	Schemas        []TypedID
@@ -466,24 +467,23 @@ type Credential struct {
 	RefreshService []TypedID
 
 	CustomFields CustomFields
-	rawFields    rememberedFields
 }
 
 // rawCredential is a basic verifiable credential
 type rawCredential struct {
-	Context        interface{}     `json:"@context,omitempty"`
-	ID             string          `json:"id,omitempty"`
-	Type           interface{}     `json:"type,omitempty"`
-	Subject        Subject         `json:"credentialSubject,omitempty"`
-	Issued         interface{}     `json:"issuanceDate,omitempty"`
-	Expired        interface{}     `json:"expirationDate,omitempty"`
-	Proof          json.RawMessage `json:"proof,omitempty"`
-	Status         *TypedID        `json:"credentialStatus,omitempty"`
-	Issuer         json.RawMessage `json:"issuer,omitempty"`
-	Schema         interface{}     `json:"credentialSchema,omitempty"`
-	Evidence       Evidence        `json:"evidence,omitempty"`
-	TermsOfUse     json.RawMessage `json:"termsOfUse,omitempty"`
-	RefreshService json.RawMessage `json:"refreshService,omitempty"`
+	Context        interface{}                    `json:"@context,omitempty"`
+	ID             string                         `json:"id,omitempty"`
+	Type           interface{}                    `json:"type,omitempty"`
+	Subject        Subject                        `json:"credentialSubject,omitempty"`
+	Issued         *util.TimeWithTrailingZeroMsec `json:"issuanceDate,omitempty"`
+	Expired        *util.TimeWithTrailingZeroMsec `json:"expirationDate,omitempty"`
+	Proof          json.RawMessage                `json:"proof,omitempty"`
+	Status         *TypedID                       `json:"credentialStatus,omitempty"`
+	Issuer         json.RawMessage                `json:"issuer,omitempty"`
+	Schema         interface{}                    `json:"credentialSchema,omitempty"`
+	Evidence       Evidence                       `json:"evidence,omitempty"`
+	TermsOfUse     json.RawMessage                `json:"termsOfUse,omitempty"`
+	RefreshService json.RawMessage                `json:"refreshService,omitempty"`
 
 	// All unmapped fields are put here.
 	CustomFields `json:"-"`
@@ -909,16 +909,6 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
 	}
 
-	issuedDate, err := decodeDate(raw.Issued)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse issued date from raw: %w", err)
-	}
-
-	expiredDate, err := decodeDate(raw.Expired)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse issued date from raw: %w", err)
-	}
-
 	return &Credential{
 		Context:        context,
 		CustomContext:  customContext,
@@ -926,8 +916,8 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		Types:          types,
 		Subject:        raw.Subject,
 		Issuer:         issuer,
-		Issued:         issuedDate,
-		Expired:        expiredDate,
+		Issued:         raw.Issued,
+		Expired:        raw.Expired,
 		Proofs:         proofs,
 		Status:         raw.Status,
 		Schemas:        schemas,
@@ -935,32 +925,7 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		TermsOfUse:     termsOfUse,
 		RefreshService: refreshService,
 		CustomFields:   raw.CustomFields,
-		rawFields:      preserveRawFields(raw),
 	}, nil
-}
-
-func preserveRawFields(raw *rawCredential) rememberedFields {
-	r := make(rememberedFields)
-
-	r.PushIssuanceDate(raw.Issued)
-	r.PushExpirationDate(raw.Expired)
-
-	return r
-}
-
-// decodeDate decodes given date to '*time.Time'
-// returns nil with no error if nil argument passed
-func decodeDate(dateStr interface{}) (*time.Time, error) {
-	if dateStr == nil {
-		return nil, nil
-	}
-
-	d, err := time.Parse(time.RFC3339, dateStr.(string))
-	if err != nil {
-		return nil, err
-	}
-
-	return &d, nil
 }
 
 func decodeTypedID(bytes json.RawMessage) ([]TypedID, error) {
@@ -1241,15 +1206,9 @@ func (vc *Credential) raw() (*rawCredential, error) {
 		Evidence:       vc.Evidence,
 		RefreshService: rawRefreshService,
 		TermsOfUse:     rawTermsOfUse,
+		Issued:         vc.Issued,
+		Expired:        vc.Expired,
 		CustomFields:   vc.CustomFields,
-	}
-
-	if vc.Issued != nil {
-		r.Issued = vc.rawFields.GetIssuanceDate(vc.Issued)
-	}
-
-	if vc.Expired != nil {
-		r.Expired = vc.rawFields.GetExpirationDate(vc.Expired)
 	}
 
 	return r, nil

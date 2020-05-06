@@ -8,7 +8,8 @@ package proof
 import (
 	"encoding/base64"
 	"errors"
-	"time"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 )
 
 const (
@@ -37,7 +38,7 @@ const (
 // Proof is cryptographic proof of the integrity of the DID Document
 type Proof struct {
 	Type                    string
-	Created                 *time.Time
+	Created                 *util.TimeWithTrailingZeroMsec
 	Creator                 string
 	VerificationMethod      string
 	ProofValue              []byte
@@ -53,7 +54,7 @@ type Proof struct {
 func NewProof(emap map[string]interface{}) (*Proof, error) {
 	created := stringEntry(emap[jsonldCreated])
 
-	timeValue, err := time.Parse(time.RFC3339Nano, created)
+	timeValue, err := util.ParseTimeWithTrailingZeroMsec(created)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +88,7 @@ func NewProof(emap map[string]interface{}) (*Proof, error) {
 
 	return &Proof{
 		Type:                    stringEntry(emap[jsonldType]),
-		Created:                 &timeValue,
+		Created:                 timeValue,
 		Creator:                 stringEntry(emap[jsonldCreator]),
 		VerificationMethod:      stringEntry(emap[jsonldVerificationMethod]),
 		ProofValue:              proofValue,
@@ -123,7 +124,7 @@ func (p *Proof) JSONLdObject() map[string]interface{} {
 	}
 
 	if p.Created != nil {
-		emap[jsonldCreated] = p.Created.Format(time.RFC3339Nano)
+		emap[jsonldCreated] = p.Created.Format(p.Created.GetFormat())
 	}
 
 	if len(p.ProofValue) > 0 {

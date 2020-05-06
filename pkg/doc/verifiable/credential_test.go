@@ -83,11 +83,11 @@ func TestNewCredential(t *testing.T) {
 
 		// check issued date
 		expectedIssued := time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
-		require.Equal(t, &expectedIssued, vc.Issued)
+		require.Equal(t, expectedIssued, vc.Issued.Time)
 
 		// check issued date
 		expectedExpired := time.Date(2020, time.January, 1, 19, 23, 24, 0, time.UTC)
-		require.Equal(t, &expectedExpired, vc.Expired)
+		require.Equal(t, expectedExpired, vc.Expired.Time)
 
 		// check credential status
 		require.NotNil(t, vc.Status)
@@ -1495,10 +1495,17 @@ func TestNewCredentialFromRaw_PreserveDates(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, cred)
 
-	raw, err := cred.raw()
+	vcBytes, err := cred.MarshalJSON()
 	require.NoError(t, err)
-	require.Equal(t, raw.Issued.(string), "2020-01-01T00:00:00.000Z")
-	require.Equal(t, raw.Expired.(string), "2030-01-01T00:00:00.000Z")
+
+	// Check that the dates formatting is not corrupted.
+	rawMap, err := toMap(vcBytes)
+	require.NoError(t, err)
+
+	require.Contains(t, rawMap, "issuanceDate")
+	require.Equal(t, rawMap["issuanceDate"], "2020-01-01T00:00:00.000Z")
+	require.Contains(t, rawMap, "expirationDate")
+	require.Equal(t, rawMap["expirationDate"], "2030-01-01T00:00:00.000Z")
 }
 
 func TestCredential_CreatePresentation(t *testing.T) {

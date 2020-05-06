@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -169,8 +170,8 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			CustomFields: CustomFields{"name": "Example University"},
 		},
-		Issued:  &issued,
-		Expired: &expired,
+		Issued:  util.NewTime(issued),
+		Expired: util.NewTime(expired),
 		Schemas: []TypedID{},
 	}
 

@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	verifiableStore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
@@ -43,7 +44,7 @@ func getVCredential() *verifiable.Credential {
 			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			CustomFields: verifiable.CustomFields{"name": "Example University"},
 		},
-		Issued:  &issued,
+		Issued:  util.NewTime(issued),
 		Schemas: []verifiable.TypedID{},
 		CustomFields: map[string]interface{}{
 			"referenceNumber": referenceNumber,

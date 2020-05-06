@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
@@ -95,7 +96,7 @@ func (s *SDKSteps) createVC(issuedAt, subject, issuer string) (*verifiable.Crede
 			ID:           s.getPublicDID(issuer).ID,
 			CustomFields: verifiable.CustomFields{"name": issuer},
 		},
-		Issued: &issued,
+		Issued: util.NewTime(issued),
 	}
 
 	return vcToIssue, nil
@@ -114,7 +115,7 @@ func (s *SDKSteps) addVCProof(vc *verifiable.Credential, issuer, proofType strin
 			SignatureType:           "Ed25519Signature2018",
 			Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
 			SignatureRepresentation: verifiable.SignatureJWS,
-			Created:                 vc.Issued,
+			Created:                 &vc.Issued.Time,
 			VerificationMethod:      doc.ID + pubKey.ID,
 		})
 		if err != nil {

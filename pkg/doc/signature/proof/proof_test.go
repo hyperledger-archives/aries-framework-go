@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 )
 
 const proofValueBase64 = "6mdES87erjP5r1qCSRW__otj-A_Rj0YgRO7XU_0Amhwdfa7AAmtGUSFGflR_fZqPYrY9ceLRVQCJ49s0q7-LBA"
@@ -37,7 +39,7 @@ func TestProof(t *testing.T) {
 	require.Equal(t, "type", p.Type)
 	require.Equal(t, "didID", p.Creator)
 	require.Equal(t, "did:example:123456#key1", p.VerificationMethod)
-	require.Equal(t, &created, p.Created)
+	require.Equal(t, created, p.Created.Time)
 	require.Equal(t, "abc.com", p.Domain)
 	require.Equal(t, []byte(""), p.Nonce)
 	require.Equal(t, proofValueBytes, p.ProofValue)
@@ -54,9 +56,24 @@ func TestProof(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	created, err = time.Parse(time.RFC3339, "2018-03-15T00:00:00.972Z")
+	created, err = time.Parse(time.RFC3339Nano, "2018-03-15T00:00:00.972Z")
 	require.NoError(t, err)
-	require.Equal(t, &created, p.Created)
+	require.Equal(t, created, p.Created.Time)
+
+	// test created time with zero milliseconds section
+	p, err = NewProof(map[string]interface{}{
+		"type":               "type",
+		"creator":            "didID",
+		"verificationMethod": "did:example:123456#key1",
+		"created":            "2018-03-15T00:00:00.00000Z",
+		"domain":             "abc.com",
+		"nonce":              "",
+		"proofValue":         proofValueBase64,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, err)
+	require.Equal(t, "2018-03-15T00:00:00.00000Z", p.Created.Format(p.Created.GetFormat()))
 }
 
 func TestInvalidProofValue(t *testing.T) {
@@ -110,7 +127,7 @@ func TestProof_JSONLdObject(t *testing.T) {
 
 	p := &Proof{
 		Type:         "Ed25519Signature2018",
-		Created:      &created,
+		Created:      util.NewTime(created),
 		Creator:      "creator",
 		ProofValue:   proofValueBytes,
 		JWS:          "test.jws.value",
@@ -135,9 +152,17 @@ func TestProof_JSONLdObject(t *testing.T) {
 	created, err = time.Parse(time.RFC3339Nano, "2018-03-15T00:00:00.972Z")
 	require.NoError(t, err)
 
-	p.Created = &created
+	p.Created = util.NewTime(created)
 	pJSONLd = p.JSONLdObject()
 	r.Equal("2018-03-15T00:00:00.972Z", pJSONLd["created"])
+
+	// test created time with zero milliseconds section
+	created, err = time.Parse(time.RFC3339Nano, "2018-03-15T00:00:00.000Z")
+	require.NoError(t, err)
+
+	p.Created = util.NewTimeWithTrailingZeroMsec(created, 3)
+	pJSONLd = p.JSONLdObject()
+	r.Equal("2018-03-15T00:00:00.000Z", pJSONLd["created"])
 }
 
 func TestProof_PublicKeyID(t *testing.T) {

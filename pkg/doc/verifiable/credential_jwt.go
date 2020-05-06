@@ -41,14 +41,14 @@ func newJWTCredClaims(vc *Credential, minimizeVC bool) (*JWTCredClaims, error) {
 
 	// currently jwt encoding supports only single subject (by the spec)
 	jwtClaims := &jwt.Claims{
-		Issuer:    vc.Issuer.ID,                       // iss
-		NotBefore: josejwt.NewNumericDate(*vc.Issued), // nbf
-		ID:        vc.ID,                              // jti
-		Subject:   subjectID,                          // sub
-		IssuedAt:  josejwt.NewNumericDate(*vc.Issued), // iat (not in spec, follow the interop project approach)
+		Issuer:    vc.Issuer.ID,                           // iss
+		NotBefore: josejwt.NewNumericDate(vc.Issued.Time), // nbf
+		ID:        vc.ID,                                  // jti
+		Subject:   subjectID,                              // sub
+		IssuedAt:  josejwt.NewNumericDate(vc.Issued.Time), // iat (not in spec, follow the interop project approach)
 	}
 	if vc.Expired != nil {
-		jwtClaims.Expiry = josejwt.NewNumericDate(*vc.Expired) // exp
+		jwtClaims.Expiry = josejwt.NewNumericDate(vc.Expired.Time) // exp
 	}
 
 	var raw *rawCredential
