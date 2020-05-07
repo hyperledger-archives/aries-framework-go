@@ -12,7 +12,7 @@ To achieve these requirements, the following criteria must be met:
  - The SecretLock service must work with a master key that can be provided by the user.
  - The master key should also be encrypted to prevent its compromise. This should be optional in the SecretLock. For instance, a user may decide to use an unprotected master key for testing purposes but the recommended way is for the master key to be secured.
  - An example of unlocking a master key by the KMS/SecretLock would be the use of a passphrase.
- - Finally the crypto services must only accept key references provided by the KMS to execute operations. They must not accept raw content of keys as function arguments.
+ - Finally, the crypto services must only accept key references provided by the KMS to execute operations. They must not accept raw content of keys as function arguments.
  
 The default Crypto service accepts key handles and delegate crypto operations to Tink. These key handles are a reference to real keys which are only available internally to Tink crypto operations. The default KMS service creates and manages these key handles and serves as a provider of these key handles to the crypto service. Although the default Crypto and KMS services are implemented using Tink, the framework itself can accept any implementation being supplied to `aries.WithKMS(customKMSImplementaiton)` and `aries.WithCrypto(customCryptoImplementation)`.
  
@@ -233,3 +233,70 @@ a, err = aries.New(aries.WithKMS(func(ctx kms.Provider) (kms.KeyManager, error) 
 ```
 
 Aries framework will use the instance of customKMS passed in as an option instead of creating a default one.
+
+## Interop with external keys
+
+### Export Public signing keys []bytes from KMS
+The default KMS implementation (in `localkms` package) supports exporting public signing keys in DER/IEEE-P1363 signature formats to allow signature verification outside of the KMS.
+
+The following call is an example of creating and exporting a public P-256 key using IEEE-P1363 signature format:
+
+```
+// ... get/create kmsInstance as per previous sections
+keyID, newKeyHandle, err := kmsInstance.Create(kms.ECDSAP256TypeIEEEP1363)
+if err != nil {
+    return err
+}
+
+pubKeyBytes, err := kmsInstance.ExportPubKeyBytes(ksID)
+
+```
+
+### Convert Public Signing Keys []byte to Tink's keyset.Handle
+
+The reverse of an export operation would be to get a keyset.Handle from a public key in raw []byte (DER or IEEE-P1363 signing format). 
+
+The KMS service does not support importing public keys alone, it supports importing private keys (along with their public keys, see the next section for more information), but it can create a Tink `keyset.Handle` instance representing a public signing key to execute signatures verifications. This created `keyset.Handle` can only be used for verifying a signature, not signing a message as it doesn't contain the private key.
+
+The following is an example of creating a Tink `keyset.Handle` instance that can be used by the `crypto` service to execute `Verify()` calls:
+
+```
+// ... get/create kmsInstance as per previous sections
+pubKeyBytes, err := kmsInstance.ExportPubKeyBytes(ksID)
+//
+// ... exchange pubKeyBytes with other party
+//
+// the other party can then do the follwoing
+pubKeyHandle, err := kmsInstance.PubKeyBytesToHandle(pubKeyBytes, kms.ECDSAP256TypeIEEEP1363)
+if err != nil {
+    return err
+}
+```
+
+`pubKeyHandle` can then be passed to `crypto.Verify()` for signature verification. Note that the signing key format must be known prior to getting the public keyset.Handle instance. To verify using DER signature format, use `kms.ECDSAP256TypeDER`.
+
+
+### Import Private Signing Keys into the KMS
+
+Finally, to support using signing keys created outside of KMS/Tink, an import of private keys utility function in the default KMS implementation is available.
+
+Below is an example of how to do just this for say a P-521 key with IEEE-P1363 signature format:
+
+```
+// ... get/create kmsInstance as per previous sections
+// ... get ecdsa.Private instance of the private key (privKey below)
+ksID, kh, err = kmsInstance.ImportPrivateKey(privKey, kms.ECDSAP521TypeIEEEP1363)
+```
+
+The returns of the call above are `ksID` which is a newly generated key ID in the KMS and `kh`, the Tink `keyset.Handle` needed to pass to `crypto.Sign()` call for signing. To get the public `keyset.Handle` for verification, you can call `kh.Public()`.
+
+If `ksID` must be preset (for example when restarting an Aries and a KMS instance, you would like to re-use the same key IDs), you can add the optional `WithKeyID()` call with the preset key ID as shown below: 
+
+```
+// ... get/create kmsInstance as per previous sections
+// ... get ecdsa.Private instance of the private key (privKey below)
+// ... using a prset presetKeyID 
+ksID, kh, err = kmsInstance.ImportPrivateKey(privKey, kms.ECDSAP521TypeIEEEP1363, WithKeyID(presetKeyID))
+```
+
+In the above call, importing the private key will try to use `presetKeyID` as the `ksID` and if it already exists then `err` will not be empty.
