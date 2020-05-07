@@ -50,7 +50,8 @@ func NewSDKSteps() *SDKSteps {
 	return &SDKSteps{}
 }
 
-func (a *SDKSteps) createAgent(agentID, inboundHost, inboundPort, scheme string) error {
+// CreateAgent with the given parameters.
+func (a *SDKSteps) CreateAgent(agentID, inboundHost, inboundPort, scheme string) error {
 	opts := append([]aries.Option{}, aries.WithStoreProvider(a.getStoreProvider(agentID)))
 
 	return a.create(agentID, inboundHost, inboundPort, scheme, opts...)
@@ -234,7 +235,7 @@ func (a *SDKSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers agent steps
 func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" with "([^"]*)" as the transport provider$`,
-		a.createAgent)
+		a.CreateAgent)
 	s.Step(`^"([^"]*)" edge agent is running with "([^"]*)" as the outbound transport provider `+
 		`and "([^"]*)" as the transport return route option`, a.createEdgeAgent)
 	s.Step(`^"([^"]*)" agent is running on "([^"]*)" port "([^"]*)" `+

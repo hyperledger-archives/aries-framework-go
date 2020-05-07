@@ -59,6 +59,8 @@ type customError struct{ error }
 // 'MyDID' and 'TheirDID' fields are needed for sending messages e.g report-problem, proposal, ack etc.
 type Recipient struct {
 	To       *To
+	Goal     string
+	GoalCode string
 	MyDID    string `json:"my_did,omitempty"`
 	TheirDID string `json:"their_did,omitempty"`
 }

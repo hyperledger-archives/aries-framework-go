@@ -246,7 +246,7 @@ func TestService_SkipProposal(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
 
-	proposal := introduce.CreateProposal(&introduce.To{Name: Carol})
+	proposal := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
 	introduce.WrapWithMetadataPublicOOBRequest(proposal, &outofband.Request{
 		Type: outofband.RequestMsgType,
 	})
@@ -305,8 +305,8 @@ func TestService_Proposal(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
 
-	proposal1 := introduce.CreateProposal(&introduce.To{Name: Carol})
-	proposal2 := introduce.CreateProposal(&introduce.To{Name: Bob})
+	proposal1 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
+	proposal2 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Bob}})
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
@@ -371,8 +371,8 @@ func TestService_ProposalContinue(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
 
-	proposal1 := introduce.CreateProposal(&introduce.To{Name: Carol})
-	proposal2 := introduce.CreateProposal(&introduce.To{Name: Bob})
+	proposal1 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
+	proposal2 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Bob}})
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
@@ -433,8 +433,8 @@ func TestService_ProposalSecond(t *testing.T) {
 		},
 	))
 
-	proposal1 := introduce.CreateProposal(&introduce.To{Name: Carol})
-	proposal2 := introduce.CreateProposal(&introduce.To{Name: Bob})
+	proposal1 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
+	proposal2 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Bob}})
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
@@ -499,8 +499,8 @@ func TestService_ProposalSecondContinue(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	proposal1 := introduce.CreateProposal(&introduce.To{Name: Carol})
-	proposal2 := introduce.CreateProposal(&introduce.To{Name: Bob})
+	proposal1 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
+	proposal2 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Bob}})
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
@@ -556,8 +556,8 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
 
-	proposal1 := introduce.CreateProposal(&introduce.To{Name: Carol})
-	proposal2 := introduce.CreateProposal(&introduce.To{Name: Bob})
+	proposal1 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
+	proposal2 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Bob}})
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
@@ -600,7 +600,7 @@ func TestService_SkipProposalStopIntroducee(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	proposal := introduce.CreateProposal(&introduce.To{Name: Carol})
+	proposal := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
 	introduce.WrapWithMetadataPublicOOBRequest(proposal, &outofband.Request{
 		Type: outofband.RequestMsgType,
 	})
@@ -654,8 +654,8 @@ func TestService_ProposalStopIntroduceeFirst(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
 
-	proposal1 := introduce.CreateProposal(&introduce.To{Name: Carol})
-	proposal2 := introduce.CreateProposal(&introduce.To{Name: Bob})
+	proposal1 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
+	proposal2 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Bob}})
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
@@ -711,8 +711,8 @@ func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	proposal1 := introduce.CreateProposal(&introduce.To{Name: Carol})
-	proposal2 := introduce.CreateProposal(&introduce.To{Name: Bob})
+	proposal1 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
+	proposal2 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Bob}})
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 

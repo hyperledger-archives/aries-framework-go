@@ -38,6 +38,9 @@ type protocolService interface {
 
 	// GetConnection returns the connectionID of the router.
 	GetConnection() (string, error)
+
+	// Config returns the router's configuration.
+	Config() (*route.Config, error)
 }
 
 // New return new instance of route client.
@@ -86,4 +89,14 @@ func (c *Client) GetConnection() (string, error) {
 	}
 
 	return connectionID, nil
+}
+
+// GetConfig returns the router's configuration.
+func (c *Client) GetConfig() (*route.Config, error) {
+	conf, err := c.routeSvc.Config()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch routing configuration : %w", err)
+	}
+
+	return conf, nil
 }

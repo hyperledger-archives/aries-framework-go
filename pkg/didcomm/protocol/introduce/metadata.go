@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 )
 
@@ -19,6 +20,7 @@ const (
 	metaSkipProposal = Introduce + "_skip_proposal"
 	metaOOBMessage   = Introduce + "_oobmessage"
 	metaRecipients   = Introduce + "_recipients"
+	metaAttachment   = Introduce + "_attachment"
 )
 
 // Opt describes option signature for the Continue function
@@ -27,9 +29,10 @@ type Opt func(m map[string]interface{})
 // WithOOBRequest is used when introducee wants to provide an out-of-band request.
 // NOTE: Introducee can provide this request only after receiving ProposalMsgType
 // USAGE: event.Continue(WithOOBRequest(req))
-func WithOOBRequest(req *outofband.Request) Opt {
+func WithOOBRequest(req *outofband.Request, attachments ...*decorator.Attachment) Opt {
 	return func(m map[string]interface{}) {
 		m[metaOOBMessage] = service.NewDIDCommMsgMap(req)
+		m[metaAttachment] = attachments
 	}
 }
 

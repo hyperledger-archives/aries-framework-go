@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 )
 
 const (
@@ -179,16 +180,18 @@ func getMetaRecipients(md *metaData) []*Recipient {
 }
 
 // CreateProposal creates a DIDCommMsgMap proposal
-func CreateProposal(to *To) service.DIDCommMsgMap {
+func CreateProposal(r *Recipient) service.DIDCommMsgMap {
 	return service.NewDIDCommMsgMap(Proposal{
-		Type: ProposalMsgType,
-		To:   to,
+		Type:     ProposalMsgType,
+		To:       r.To,
+		GoalCode: r.GoalCode,
+		Goal:     r.Goal,
 	})
 }
 
 func sendProposals(messenger service.Messenger, md *metaData) error {
 	for _, recipient := range getMetaRecipients(md) {
-		proposal := CreateProposal(recipient.To)
+		proposal := CreateProposal(recipient)
 		proposal.Metadata()[metaPIID] = md.PIID
 		copyMetadata(md.Msg, proposal)
 
@@ -438,10 +441,24 @@ func (s *deciding) ExecuteInbound(messenger service.Messenger, md *metaData) (st
 	return st, func() error {
 		msg := contextOOBMessage(md.Msg)
 
+		var attch []*decorator.Attachment
+
+		if a, found := md.Msg.Metadata()[metaAttachment]; found {
+			var ok bool
+
+			attch, ok = a.([]*decorator.Attachment)
+			if !ok {
+				return fmt.Errorf(
+					"unable to cast metadata key %s to []*decorator.Attachments (this shouldn't happen), found: %+v",
+					metaAttachment, a)
+			}
+		}
+
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(Response{
-			Type:       ResponseMsgType,
-			OOBMessage: msg,
-			Approve:    !md.rejected,
+			Type:        ResponseMsgType,
+			OOBMessage:  msg,
+			Approve:     !md.rejected,
+			Attachments: attch,
 		}))
 	}, nil
 }
