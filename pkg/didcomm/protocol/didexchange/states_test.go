@@ -257,7 +257,7 @@ func TestInvitedState_Execute(t *testing.T) {
 	t.Run("followup to 'requested' on inbound oobinvitations", func(t *testing.T) {
 		connRec, followup, action, err := (&invited{}).ExecuteInbound(
 			&stateMachineMsg{
-				DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{Type: oobMsgType}),
+				DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{Type: OOBMsgType}),
 				connRecord: &connection.Record{},
 			},
 			"",
@@ -313,7 +313,7 @@ func TestRequestedState_Execute(t *testing.T) {
 		connRec, followup, action, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
 			DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{
 				ID:       uuid.New().String(),
-				Type:     oobMsgType,
+				Type:     OOBMsgType,
 				ThreadID: uuid.New().String(),
 				Label:    "test",
 				Target: &diddoc.Service{
@@ -448,7 +448,7 @@ func TestRequestedState_Execute(t *testing.T) {
 		_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
 			DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{
 				ID:       uuid.New().String(),
-				Type:     oobMsgType,
+				Type:     OOBMsgType,
 				ThreadID: uuid.New().String(),
 				Label:    "test",
 				Target: &diddoc.Service{
@@ -1554,7 +1554,7 @@ func newDidExchangeInvite(publicDID string, svc *diddoc.Service) *Invitation {
 func newOOBInvite(target interface{}) *OOBInvitation {
 	return &OOBInvitation{
 		ID:       uuid.New().String(),
-		Type:     oobMsgType,
+		Type:     OOBMsgType,
 		ThreadID: uuid.New().String(),
 		Label:    "test",
 		Target:   target,

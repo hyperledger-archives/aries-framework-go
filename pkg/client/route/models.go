@@ -13,6 +13,8 @@ import (
 )
 
 const (
+	// ProtocolName is the framework's friendly name for the route-coordination protocol.
+	ProtocolName = route.Coordination
 	// RequestMsgType defines the route coordination request message type.
 	RequestMsgType = route.RequestMsgType
 )

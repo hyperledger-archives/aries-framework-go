@@ -26,6 +26,8 @@ const (
 	InvitationMsgType = didexchange.InvitationMsgType
 	// RequestMsgType defines the did-exchange request message type.
 	RequestMsgType = didexchange.RequestMsgType
+	// ProtocolName is the framework's friendly name for the did exchange protocol
+	ProtocolName = didexchange.DIDExchange
 )
 
 // ErrConnectionNotFound is returned when connection not found
