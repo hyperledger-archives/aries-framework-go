@@ -38,7 +38,7 @@ type UniversityDegreeCredential struct {
 }
 
 func NewUniversityDegreeCredential(vcData []byte, opts ...CredentialOpt) (*UniversityDegreeCredential, error) {
-	cred, credBytes, err := NewCredential(vcData, opts...)
+	cred, credBytes, err := newTestCredential(vcData, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("new university degree credential: %w", err)
 	}
@@ -133,7 +133,7 @@ func TestCredentialExtensibility(t *testing.T) {
 }
 `
 
-	cred, _, err := NewCredential([]byte(udCredential))
+	cred, _, err := newTestCredential([]byte(udCredential))
 	require.NoError(t, err)
 	require.NotNil(t, cred)
 

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -77,7 +78,7 @@ const validEmptyPresentation = `
 
 func TestNewPresentation(t *testing.T) {
 	t.Run("creates a new Verifiable Presentation from JSON with valid structure", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation), WithPresStrictValidation())
+		vp, err := newTestPresentation([]byte(validPresentation), WithPresStrictValidation())
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 
@@ -105,26 +106,26 @@ func TestNewPresentation(t *testing.T) {
 	})
 
 	t.Run("creates a new Verifiable Presentation from JSON with invalid empty VC structure", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validEmptyPresentation), WithPresStrictValidation(), WithPresRequireVC())
+		vp, err := newTestPresentation([]byte(validEmptyPresentation), WithPresStrictValidation(), WithPresRequireVC())
 		require.Error(t, err)
 		require.Nil(t, vp)
 	})
 
 	t.Run("creates a new Verifiable Presentation from JSON with valid empty VC structure", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validEmptyPresentation), WithPresStrictValidation())
+		vp, err := newTestPresentation([]byte(validEmptyPresentation), WithPresStrictValidation())
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 	})
 
 	t.Run("creates a new Verifiable Presentation from JSON with invalid structure", func(t *testing.T) {
 		emptyJSONDoc := "{}"
-		vp, err := NewPresentation([]byte(emptyJSONDoc))
+		vp, err := newTestPresentation([]byte(emptyJSONDoc))
 		require.Error(t, err)
 		require.Nil(t, vp)
 	})
 
 	t.Run("fails to create a new Verifiable Presentation from non-JSON doc", func(t *testing.T) {
-		vp, err := NewPresentation([]byte("non json"))
+		vp, err := newTestPresentation([]byte("non json"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "JSON unmarshalling of verifiable presentation")
 		require.Nil(t, vp)
@@ -142,14 +143,14 @@ func TestNewPresentation(t *testing.T) {
 		vpBytes, err := json.Marshal(vpMap)
 		require.NoError(t, err)
 
-		vp, err := NewPresentation(vpBytes, WithPresStrictValidation())
+		vp, err := newTestPresentation(vpBytes, WithPresStrictValidation())
 		require.Error(t, err)
 		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 		require.Nil(t, vp)
 	})
 
 	t.Run("strict VP validation fails because of invalid field in VP proof", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation))
+		vp, err := newTestPresentation([]byte(validPresentation))
 		require.NoError(t, err)
 
 		proof := vp.Proofs[0]
@@ -158,14 +159,14 @@ func TestNewPresentation(t *testing.T) {
 		vpBytes, err := json.Marshal(vp)
 		require.NoError(t, err)
 
-		vp, err = NewPresentation(vpBytes, WithPresStrictValidation())
+		vp, err = newTestPresentation(vpBytes, WithPresStrictValidation())
 		require.Error(t, err)
 		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 		require.Nil(t, vp)
 	})
 
 	t.Run("strict VP validation fails because of invalid field in VC of VP", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation))
+		vp, err := newTestPresentation([]byte(validPresentation))
 		require.NoError(t, err)
 
 		vc := vp.Credentials()[0]
@@ -179,7 +180,7 @@ func TestNewPresentation(t *testing.T) {
 		vpBytes, err := json.Marshal(vp)
 		require.NoError(t, err)
 
-		vp, err = NewPresentation(vpBytes, WithPresStrictValidation())
+		vp, err = newTestPresentation(vpBytes, WithPresStrictValidation())
 		require.Error(t, err)
 		require.EqualError(t, err, "JSON-LD doc has different structure after compaction")
 		require.Nil(t, vp)
@@ -193,7 +194,7 @@ func TestValidateVP_Context(t *testing.T) {
 		raw.Context = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
+		vp, err := newTestPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "@context is required")
 		require.Nil(t, vp)
@@ -207,7 +208,7 @@ func TestValidateVP_Context(t *testing.T) {
 			"https://www.w3.org/2018/credentials/examples/v1"}
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
+		vp, err := newTestPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "does not match: \"https://www.w3.org/2018/credentials/v1\"")
 		require.Nil(t, vp)
@@ -219,7 +220,7 @@ func TestValidateVP_Context(t *testing.T) {
 		raw.Context = "https://www.w3.org/2018/credentials/v1"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
+		vp, err := newTestPresentation(bytes)
 		require.NoError(t, err)
 		require.NotNil(t, vp)
 	})
@@ -230,7 +231,7 @@ func TestValidateVP_Context(t *testing.T) {
 		raw.Context = "https://www.w3.org/2018/credentials/v2"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
+		vp, err := newTestPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "does not match: \"https://www.w3.org/2018/credentials/v1\"")
 		require.Nil(t, vp)
@@ -244,7 +245,7 @@ func TestValidateVP_ID(t *testing.T) {
 		raw.ID = "not valid presentation ID URL"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
+		vp, err := newTestPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "id: Does not match format 'uri'")
 		require.Nil(t, vp)
@@ -258,7 +259,7 @@ func TestValidateVP_Type(t *testing.T) {
 		raw.Type = "VerifiablePresentation"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		_, err = NewPresentation(bytes)
+		_, err = newTestPresentation(bytes)
 		require.NoError(t, err)
 	})
 
@@ -269,7 +270,7 @@ func TestValidateVP_Type(t *testing.T) {
 			raw.Type = []string{"VerifiablePresentation", "CredentialManagerPresentation"}
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			_, err = NewPresentation(bytes)
+			_, err = newTestPresentation(bytes)
 			require.NoError(t, err)
 		})
 
@@ -279,7 +280,7 @@ func TestValidateVP_Type(t *testing.T) {
 		raw.Type = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
+		vp, err := newTestPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "type is required")
 		require.Nil(t, vp)
@@ -291,7 +292,7 @@ func TestValidateVP_Type(t *testing.T) {
 		raw.Type = "CredentialManagerPresentation"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
+		vp, err := newTestPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "Does not match pattern '^VerifiablePresentation$'")
 		require.Nil(t, vp)
@@ -304,7 +305,7 @@ func TestValidateVP_Type(t *testing.T) {
 			raw.Type = []string{"CredentialManagerPresentation", "VerifiablePresentation"}
 			bytes, err := json.Marshal(raw)
 			require.NoError(t, err)
-			vp, err := NewPresentation(bytes)
+			vp, err := newTestPresentation(bytes)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "Does not match pattern '^VerifiablePresentation$'")
 			require.Nil(t, vp)
@@ -318,7 +319,7 @@ func TestValidateVP_Holder(t *testing.T) {
 		raw.Holder = "not valid presentation Holder URL"
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
+		vp, err := newTestPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "holder: Does not match format 'uri'")
 		require.Nil(t, vp)
@@ -332,7 +333,7 @@ func TestValidateVP_Proof(t *testing.T) {
 		raw.Proof = nil
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
-		vp, err := NewPresentation(bytes)
+		vp, err := newTestPresentation(bytes)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "embedded proof is missing")
 		require.Nil(t, vp)
@@ -340,7 +341,7 @@ func TestValidateVP_Proof(t *testing.T) {
 }
 
 func TestPresentation_MarshalJSON(t *testing.T) {
-	vp, err := NewPresentation([]byte(validPresentation))
+	vp, err := newTestPresentation([]byte(validPresentation))
 	require.NoError(t, err)
 	require.NotEmpty(t, vp)
 
@@ -350,7 +351,7 @@ func TestPresentation_MarshalJSON(t *testing.T) {
 	require.NotEmpty(t, vpData)
 
 	// convert json byte data back to verifiable presentation
-	vp2, err := NewPresentation(vpData)
+	vp2, err := newTestPresentation(vpData)
 	require.NoError(t, err)
 	require.NotEmpty(t, vp2)
 
@@ -430,7 +431,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	vc, _, err := NewCredential([]byte(validCredential))
+	vc, _, err := newTestCredential([]byte(validCredential))
 	r.NoError(err)
 
 	jwtClaims, err := vc.JWTClaims(false)
@@ -478,6 +479,16 @@ func TestWithPresEmbeddedSignatureSuites(t *testing.T) {
 	opts := &presentationOpts{}
 	vpOpt(opts)
 	require.Equal(t, []verifier.SignatureSuite{suite}, opts.ldpSuites)
+}
+
+func TestWithPresJSONLDDocumentLoader(t *testing.T) {
+	documentLoader := ld.NewDefaultDocumentLoader(nil)
+	presentationOpt := WithPresJSONLDDocumentLoader(documentLoader)
+	require.NotNil(t, presentationOpt)
+
+	opts := &presentationOpts{}
+	presentationOpt(opts)
+	require.Equal(t, documentLoader, opts.jsonldDocumentLoader)
 }
 
 func TestNewUnverifiedPresentation(t *testing.T) {

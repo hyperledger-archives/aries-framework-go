@@ -16,7 +16,7 @@ import (
 )
 
 func TestCredentialJWTClaimsMarshallingToUnsecuredJWT(t *testing.T) {
-	vc, _, err := NewCredential([]byte(validCredential))
+	vc, _, err := newTestCredential([]byte(validCredential))
 	require.NoError(t, err)
 
 	jwtClaims, err := vc.JWTClaims(true)
@@ -39,7 +39,7 @@ func TestCredentialJWTClaimsMarshallingToUnsecuredJWT(t *testing.T) {
 
 func TestCredUnsecuredJWTDecoderParseJWTClaims(t *testing.T) {
 	t.Run("Successful unsecured JWT decoding", func(t *testing.T) {
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		jwtClaims, err := vc.JWTClaims(true)

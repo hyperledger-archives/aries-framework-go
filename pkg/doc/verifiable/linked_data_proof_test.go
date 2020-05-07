@@ -104,7 +104,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 		verifierSuite := ed25519signature2018.New(
 			suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()),
 			suite.WithCompactProof())
-		vcDecoded, _, err := NewCredential(vcWithEd25519ProofBytes,
+		vcDecoded, _, err := newTestCredential(vcWithEd25519ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuite),
 			WithPublicKeyFetcher(SingleKey(ed25519PubKey, kms.ED25519)))
 		require.NoError(t, err)
@@ -120,14 +120,14 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 				suite.WithVerifier(ecdsasecp256k1signature2019.NewPublicKeyVerifier())),
 		}
 
-		vcDecoded, _, err := NewCredential(vcWithEd25519ProofBytes,
+		vcDecoded, _, err := newTestCredential(vcWithEd25519ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuites...),
 			WithPublicKeyFetcher(SingleKey(ed25519PubKey, kms.ED25519)))
 		require.NoError(t, err)
 		require.Equal(t, vcWithEd25519Proof, vcDecoded)
 
 		pubKeyBytes := elliptic.Marshal(ecdsaPrivKey.Curve, ecdsaPrivKey.X, ecdsaPrivKey.Y)
-		vcDecoded, _, err = NewCredential(vcWithSecp256k1ProofBytes,
+		vcDecoded, _, err = newTestCredential(vcWithSecp256k1ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuites...),
 			WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				return &verifier.PublicKey{
@@ -148,7 +148,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 	})
 
 	t.Run("no signature suite defined", func(t *testing.T) {
-		vcDecoded, _, err := NewCredential(vcWithEd25519ProofBytes,
+		vcDecoded, _, err := newTestCredential(vcWithEd25519ProofBytes,
 			WithPublicKeyFetcher(SingleKey(ed25519PubKey, kms.ED25519)))
 		require.NoError(t, err)
 		require.NotNil(t, vcDecoded)

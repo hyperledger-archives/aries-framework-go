@@ -32,7 +32,7 @@ func TestNewPresentationFromLinkedDataProof(t *testing.T) {
 		Suite:                   ss,
 	}
 
-	vc, err := NewPresentation([]byte(validPresentation))
+	vc, err := newTestPresentation([]byte(validPresentation))
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(ldpContext)
@@ -41,7 +41,7 @@ func TestNewPresentationFromLinkedDataProof(t *testing.T) {
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	vcWithLdp, err := NewPresentation(vcBytes,
+	vcWithLdp, err := newTestPresentation(vcBytes,
 		WithPresEmbeddedSignatureSuites(ss),
 		WithPresPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	r.NoError(err)
@@ -63,7 +63,7 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 	}
 
 	t.Run("Add a valid Linked Data proof to VC", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation))
+		vp, err := newTestPresentation([]byte(validPresentation))
 		r.NoError(err)
 
 		err = vp.AddLinkedDataProof(ldpContext)

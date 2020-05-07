@@ -12,7 +12,7 @@ import (
 )
 
 func TestNewJWTPresClaims(t *testing.T) {
-	vp, err := NewPresentation([]byte(validPresentation))
+	vp, err := newTestPresentation([]byte(validPresentation))
 	require.NoError(t, err)
 
 	audience := []string{"did:example:4a57546973436f6f6c4a4a57573"}

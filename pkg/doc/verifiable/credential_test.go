@@ -54,43 +54,9 @@ const issuerAsObject = `
 }
 `
 
-const credentialWithPreciseDate = `{
-      "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://w3id.org/citizenship/v1"
-      ],
-      "id": "https://prc.uscis.gov/credentials/3dbd30a1-114b-4889-90b2-b37b07866125",
-      "type": [
-        "VerifiableCredential",
-        "PermanentResidentCard"
-      ],
-      "issuer": {"id": "did:v1:test:nym:z6MkqaFQ7SZdWMgUkiQLvxZBpmkmYmbgAcAvXftU7jfmMWLa"},
-      "issuanceDate": "2020-01-01T00:00:00.000Z",
-      "expirationDate": "2030-01-01T00:00:00.000Z",
-      "name": "Permanent Resident Card",
-      "description": "Permanent Resident Card of Mr.Louis Pasteur",
-      "credentialSubject": {
-        "id": "did:v1:test:nym:z6Mkoi4q6txuz3rJ3XeqJauhrHcKDWbTwHepfcewDm5BVN4N",
-        "type": [
-          "Person",
-          "PermanentResident"
-        ],
-        "givenName": "Louis",
-        "familyName": "Pasteur",
-        "gender": "Male",
-        "image": "data:image/png;base64,Jtvf7y4+Pjdxw/UiREBZDlwUAwoALFcm9QPcSTMzX2Rqsyr26dfDeBflf6uKaaRK5CYII=",
-        "residentSince": "2015-01-01T00:00:00.000Z",
-        "lprCategory": "C09",
-        "lprNumber": "999-999-999",
-        "birthCountry": "Mexico",
-        "birthDate": "1958-07-17T00:00:00.000Z"
-      }
-}
-`
-
 func TestNewCredential(t *testing.T) {
 	t.Run("test creation of new Verifiable Credential from JSON with valid structure", func(t *testing.T) {
-		vc, vcData, err := NewCredential([]byte(validCredential), WithStrictValidation())
+		vc, vcData, err := newTestCredential([]byte(validCredential), WithStrictValidation())
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 		require.NotEmpty(t, vcData)
@@ -141,7 +107,7 @@ func TestNewCredential(t *testing.T) {
 
 	t.Run("test a try to create a new Verifiable Credential from JSON with invalid structure", func(t *testing.T) {
 		emptyJSONDoc := "{}"
-		vc, vcBytes, err := NewCredential([]byte(emptyJSONDoc))
+		vc, vcBytes, err := newTestCredential([]byte(emptyJSONDoc))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "credential type of unknown structure")
 		require.Nil(t, vc)
@@ -149,7 +115,7 @@ func TestNewCredential(t *testing.T) {
 	})
 
 	t.Run("test a try to create a new Verifiable Credential from non-JSON doc", func(t *testing.T) {
-		vc, vcBytes, err := NewCredential([]byte("non json"))
+		vc, vcBytes, err := newTestCredential([]byte("non json"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "new credential")
 		require.Nil(t, vc)
@@ -663,7 +629,7 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 	})
 
 	t.Run("test verifiable credential with undefined id of refresh service", func(t *testing.T) {
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		vc.RefreshService = []TypedID{{Type: "ManualRefreshService2018"}}
@@ -675,7 +641,7 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 	})
 
 	t.Run("test verifiable credential with undefined type of refresh service", func(t *testing.T) {
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		vc.RefreshService = []TypedID{{ID: "https://example.edu/refresh/3732"}}
@@ -687,7 +653,7 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 	})
 
 	t.Run("test verifiable credential with invalid URL of id of credential schema", func(t *testing.T) {
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		vc.RefreshService = []TypedID{{ID: "invalid URL", Type: "ManualRefreshService2018"}}
@@ -702,7 +668,7 @@ func TestValidateVerCredRefreshService(t *testing.T) {
 func TestCredential_MarshalJSON(t *testing.T) {
 	t.Run("round trip conversion of credential with plain issuer", func(t *testing.T) {
 		// setup -> create verifiable credential from json byte data
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 		require.NotEmpty(t, vc)
 
@@ -712,7 +678,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 		require.NotEmpty(t, byteCred)
 
 		// convert json byte data to verifiable credential
-		cred2, _, err := NewCredential(byteCred)
+		cred2, _, err := newTestCredential(byteCred)
 		require.NoError(t, err)
 		require.NotEmpty(t, cred2)
 
@@ -722,7 +688,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 
 	t.Run("round trip conversion of credential with composite issuer", func(t *testing.T) {
 		// setup -> create verifiable credential from json byte data
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 		require.NotEmpty(t, vc)
 
@@ -736,7 +702,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 		require.NotEmpty(t, byteCred)
 
 		// convert json byte data to verifiable credential
-		cred2, _, err := NewCredential(byteCred)
+		cred2, _, err := newTestCredential(byteCred)
 		require.NoError(t, err)
 		require.NotEmpty(t, cred2)
 
@@ -745,7 +711,7 @@ func TestCredential_MarshalJSON(t *testing.T) {
 	})
 
 	t.Run("Failure in VC marshalling", func(t *testing.T) {
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		vc.CustomFields = map[string]interface{}{
@@ -935,7 +901,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	require.NoError(t, mErr)
 
 	t.Run("Applies custom JSON Schema and detects data inconsistency due to missing new required field", func(t *testing.T) { //nolint:lll
-		vc, vcBytes, err := NewCredential(missingReqFieldSchema)
+		vc, vcBytes, err := newTestCredential(missingReqFieldSchema)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "referenceNumber is required")
 		require.Nil(t, vc)
@@ -952,7 +918,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		customValidSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		vc, _, err := NewCredential(customValidSchema, WithBaseContextExtendedValidation([]string{
+		vc, _, err := newTestCredential(customValidSchema, WithBaseContextExtendedValidation([]string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
 			"https://trustbloc.github.io/context/vc/examples-v1.jsonld",
@@ -980,7 +946,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		schemaWithInvalidURLToCredentialSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		vc, vcBytes, err := NewCredential(schemaWithInvalidURLToCredentialSchema)
+		vc, vcBytes, err := newTestCredential(schemaWithInvalidURLToCredentialSchema)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "load of custom credential schema")
 		require.Nil(t, vc)
@@ -998,7 +964,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 		unsupportedCredentialTypeOfSchema, err := json.Marshal(raw)
 		require.NoError(t, err)
 
-		vc, _, err := NewCredential(unsupportedCredentialTypeOfSchema)
+		vc, _, err := newTestCredential(unsupportedCredentialTypeOfSchema)
 		require.NoError(t, err)
 
 		// check credential schema
@@ -1008,7 +974,7 @@ func TestCustomCredentialJsonSchemaValidator2018(t *testing.T) {
 	})
 
 	t.Run("Fallback to default schema validation when custom schemas usage is disabled", func(t *testing.T) {
-		_, _, err := NewCredential(missingReqFieldSchema, WithNoCustomSchemaCheck())
+		_, _, err := newTestCredential(missingReqFieldSchema, WithNoCustomSchemaCheck())
 
 		// without disabling external schema check we would get an error here
 		require.NoError(t, err)
@@ -1516,7 +1482,16 @@ func TestNewCredentialFromRaw(t *testing.T) {
 }
 
 func TestNewCredentialFromRaw_PreserveDates(t *testing.T) {
-	cred, _, err := NewCredential([]byte(credentialWithPreciseDate), WithDisabledProofCheck())
+	vcMap, err := toMap(validCredential)
+	require.NoError(t, err)
+
+	vcMap["issuanceDate"] = "2020-01-01T00:00:00.000Z"
+	vcMap["expirationDate"] = "2030-01-01T00:00:00.000Z"
+
+	credentialWithPreciseDate, err := json.Marshal(vcMap)
+	require.NoError(t, err)
+
+	cred, _, err := newTestCredential(credentialWithPreciseDate, WithDisabledProofCheck())
 	require.NoError(t, err)
 	require.NotEmpty(t, cred)
 
@@ -1527,7 +1502,7 @@ func TestNewCredentialFromRaw_PreserveDates(t *testing.T) {
 }
 
 func TestCredential_CreatePresentation(t *testing.T) {
-	vc, _, err := NewCredential([]byte(validCredential))
+	vc, _, err := newTestCredential([]byte(validCredential))
 	require.NoError(t, err)
 
 	vp, err := vc.Presentation()
@@ -1544,17 +1519,16 @@ func TestCredential_validateCredential(t *testing.T) {
 	r := require.New(t)
 
 	t.Run("test jsonldValidation constraint", func(t *testing.T) {
-		vc, _, err := NewCredential([]byte(validCredential))
-		require.NoError(t, err)
+		vc, _, err := newTestCredential([]byte(validCredential))
+		r.NoError(err)
 
 		vcOpts := &credentialOpts{
 			modelValidationMode: jsonldValidation,
 			jsonldCredentialOpts: jsonldCredentialOpts{
-				jsonldDocumentLoader: ld.NewDefaultDocumentLoader(nil),
+				jsonldDocumentLoader: testDocumentLoader,
 			},
 			strictValidation: true,
 		}
-
 		r.NoError(validateCredential(vc, vc.byteJSON(t), vcOpts))
 
 		// add a field which is not defined in the schema
@@ -1565,7 +1539,7 @@ func TestCredential_validateCredential(t *testing.T) {
 	})
 
 	t.Run("test baseContextValidation constraint", func(t *testing.T) {
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		vc.Types = []string{"VerifiableCredential"}
@@ -1608,7 +1582,7 @@ func TestCredential_validateCredential(t *testing.T) {
 	})
 
 	t.Run("test baseContextExtendedValidation constraint", func(t *testing.T) {
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		vc.Types = []string{"VerifiableCredential", "AlumniCredential"}
@@ -1694,14 +1668,14 @@ func TestDecodeWithNullValues(t *testing.T) {
 }
 `
 
-	vc, _, err := NewCredential([]byte(vcJSON))
+	vc, _, err := newTestCredential([]byte(vcJSON))
 	require.NoError(t, err)
 	require.NotNil(t, vc)
 }
 
 func TestCredential_raw(t *testing.T) {
 	t.Run("Serialize with invalid refresh service", func(t *testing.T) {
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		vc.RefreshService = []TypedID{{CustomFields: map[string]interface{}{
@@ -1713,7 +1687,7 @@ func TestCredential_raw(t *testing.T) {
 	})
 
 	t.Run("Serialize with invalid terms of use", func(t *testing.T) {
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		vc.TermsOfUse = []TypedID{{CustomFields: map[string]interface{}{
@@ -1726,7 +1700,7 @@ func TestCredential_raw(t *testing.T) {
 	})
 
 	t.Run("Serialize with invalid proof", func(t *testing.T) {
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		vc.Proofs = []Proof{{
@@ -1745,7 +1719,7 @@ func TestNewUnverifiedCredential(t *testing.T) {
 
 	t.Run("NewUnverifiedCredential() for JWS", func(t *testing.T) {
 		// Prepare JWS.
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		credClaims, err := vc.JWTClaims(true)
@@ -1763,7 +1737,7 @@ func TestNewUnverifiedCredential(t *testing.T) {
 
 	t.Run("NewUnverifiedCredential() for Linked Data proof", func(t *testing.T) {
 		// Prepare JWS.
-		vc, _, err := NewCredential([]byte(validCredential))
+		vc, _, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		created := time.Now()
@@ -1825,7 +1799,7 @@ func TestNewUnverifiedCredential(t *testing.T) {
 
 func TestMarshalCredential(t *testing.T) {
 	t.Run("test marshalling VC to JSON bytes", func(t *testing.T) {
-		vc, vcData, err := NewCredential([]byte(validCredential))
+		vc, vcData, err := newTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 		require.NotNil(t, vc)
 		require.NotEmpty(t, vcData)
