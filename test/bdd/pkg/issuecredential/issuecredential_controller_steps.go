@@ -36,7 +36,6 @@ const (
 	acceptOffer       = operationID + "/%s/accept-offer"
 	acceptRequest     = operationID + "/%s/accept-request"
 	acceptCredential  = operationID + "/%s/accept-credential"
-	declineRequest    = operationID + "/%s/decline-request"
 )
 
 var logger = log.New("aries-framework/issuecredential-tests")
@@ -45,7 +44,6 @@ var logger = log.New("aries-framework/issuecredential-tests")
 type ControllerSteps struct {
 	bddContext *context.BDDContext
 	did        map[string]string
-	connection map[string]string
 }
 
 // NewIssueCredentialControllerSteps creates steps for issuecredential with controller
@@ -59,17 +57,17 @@ func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 }
 
 // RegisterSteps registers agent steps
+// nolint:lll
 func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
-	gs.Step(`^"([^"]*)" has established connection with "([^"]*)" using controller$`, s.establishConnection)
-	gs.Step(`^"([^"]*)" requests credential from "([^"]*)" using controller$`, s.requestCredential)
-	gs.Step(`^"([^"]*)" sends an offer to the "([^"]*)" using controller$`, s.sendOffer)
-	gs.Step(`^"([^"]*)" sends proposal credential to the "([^"]*)" using controller$`, s.sendProposal)
-	gs.Step(`^"([^"]*)" accepts a proposal and sends an offer to the Holder using controller$`, s.acceptProposal)
-	gs.Step(`^"([^"]*)" does not like the offer and sends a new proposal to the Issuer using controller$`, s.negotiateProposal) //nolint:lll
-	gs.Step(`^"([^"]*)" accepts an offer and sends a request to the Issuer using controller$`, s.acceptOffer)
-	gs.Step(`^"([^"]*)" accepts request and sends credential to the Holder using controller$`, s.acceptRequest)
-	gs.Step(`^"([^"]*)" declines a request using controller$`, s.declineRequest)
-	gs.Step(`^"([^"]*)" accepts credential with name "([^"]*)" using controller$`, s.acceptCredential)
+	gs.Step(`^"([^"]*)" has established connection with "([^"]*)" through IssueCredential controller$`, s.establishConnection)
+	gs.Step(`^"([^"]*)" requests credential from "([^"]*)" through IssueCredential controller$`, s.requestCredential)
+	gs.Step(`^"([^"]*)" sends an offer to the "([^"]*)" through IssueCredential controller$`, s.sendOffer)
+	gs.Step(`^"([^"]*)" sends proposal credential to the "([^"]*)" through IssueCredential controller$`, s.sendProposal)
+	gs.Step(`^"([^"]*)" accepts a proposal and sends an offer to the Holder through IssueCredential controller$`, s.acceptProposal)
+	gs.Step(`^"([^"]*)" does not like the offer and sends a new proposal to the Issuer through IssueCredential controller$`, s.negotiateProposal)
+	gs.Step(`^"([^"]*)" accepts an offer and sends a request to the Issuer through IssueCredential controller$`, s.acceptOffer)
+	gs.Step(`^"([^"]*)" accepts request and sends credential to the Holder through IssueCredential controller$`, s.acceptRequest)
+	gs.Step(`^"([^"]*)" accepts credential with name "([^"]*)" through IssueCredential controller$`, s.acceptCredential)
 	gs.Step(`^"([^"]*)" checks that issued credential is being stored under "([^"]*)" name$`, s.validateCredential)
 }
 
@@ -86,9 +84,6 @@ func (s *ControllerSteps) establishConnection(holder, issuer string) error {
 	if !ok {
 		return fmt.Errorf("unable to find connection for agent [%s]", holder)
 	}
-
-	s.connection = make(map[string]string)
-	s.connection[holder] = connID
 
 	controllerURL, ok := s.bddContext.GetControllerURL(holder)
 	if !ok {
@@ -220,20 +215,6 @@ func (s *ControllerSteps) acceptRequest(issuer string) error {
 	}
 
 	return postToURL(url+fmt.Sprintf(acceptRequest, piid), msg)
-}
-
-func (s *ControllerSteps) declineRequest(issuer string) error {
-	url, ok := s.bddContext.GetControllerURL(issuer)
-	if !ok {
-		return fmt.Errorf("unable to find controller URL registered for agent [%s]", issuer)
-	}
-
-	piid, err := actionPIID(url)
-	if err != nil {
-		return err
-	}
-
-	return postToURL(url+fmt.Sprintf(declineRequest, piid), nil)
 }
 
 func (s *ControllerSteps) acceptCredential(holder, credential string) error {
