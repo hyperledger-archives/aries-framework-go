@@ -25,9 +25,10 @@ import (
 
 var errBadKeyHandleFormat = errors.New("bad key handle format")
 
-// Package provider/tinkcrypto includes implementation of spi/crypto. SPI implementation will be built
-// as a Framework option and fed into pkg/common/crypto implementation that includes a combined crypto
-// and kms API to be used everywhere by the framework.
+// Package tinkcrypto includes the default implementation of pkg/crypto. It uses Tink for executing crypto primitives
+// and will be built as a framework option. It represents the main crypto service in the framework. `kh interface{}`
+// arguments in this implementation represent Tink's `*keyset.Handle`, using this type provides easy integration with
+// Tink and the default KMS service.
 
 // Crypto is the default Crypto SPI implementation using Tink
 type Crypto struct {

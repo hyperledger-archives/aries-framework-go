@@ -20,6 +20,8 @@ import (
 	cipherutil "github.com/hyperledger/aries-framework-go/pkg/secretlock/local/internal/cipher"
 )
 
+// package hkdf provides an hkdf implementation of secretlock.
+
 type masterLockHKDF struct {
 	h    func() hash.Hash
 	salt []byte

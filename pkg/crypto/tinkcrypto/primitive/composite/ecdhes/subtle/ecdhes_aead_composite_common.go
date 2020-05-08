@@ -6,6 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package subtle
 
+// package subtle provides the core crypto primitives to be used by composite primitives. It is intended for internal
+// use only.
+
 // EncryptedData represents the Encryption's output data as a result of ECDHESEncrypt.Encrypt(pt, aad) call
 // The user of the primitive must unmarshal the result and build their own ECDH-ES compliant message (ie JWE msg)
 type EncryptedData struct {

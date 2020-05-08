@@ -35,6 +35,10 @@ const (
 	ecdsaPrivateKeyTypeURL = "type.googleapis.com/google.crypto.tink.EcdsaPrivateKey"
 )
 
+// package localkms is the default KMS service implementation of pkg/kms.KeyManager. It uses Tink keys to support the
+// default Crypto implementation, pkg/crypto/tinkcrypto, and stores these keys in the format understood by Tink. It also
+// uses a secretLock service to protect private key material in the storage.
+
 // LocalKMS implements kms.KeyManager to provide key management capabilities using a local db.
 // It uses an underlying secret lock service (default local secretLock) to wrap (encrypt) keys
 // prior to storing them.
