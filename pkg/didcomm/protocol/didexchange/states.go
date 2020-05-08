@@ -74,7 +74,7 @@ type state interface {
 // Returns the state towards which the protocol will transition to if the msgType is processed.
 func stateFromMsgType(msgType string) (state, error) {
 	switch msgType {
-	case InvitationMsgType, oobMsgType:
+	case InvitationMsgType, OOBMsgType:
 		return &invited{}, nil
 	case RequestMsgType:
 		return &requested{}, nil
@@ -156,7 +156,7 @@ func (s *invited) CanTransitionTo(next state) bool {
 
 func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
 	state, stateAction, error) {
-	if msg.Type() != InvitationMsgType && msg.Type() != oobMsgType {
+	if msg.Type() != InvitationMsgType && msg.Type() != OOBMsgType {
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type(), s.Name())
 	}
 
@@ -180,7 +180,7 @@ func (s *requested) CanTransitionTo(next state) bool {
 func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
 	state, stateAction, error) {
 	switch msg.Type() {
-	case oobMsgType:
+	case OOBMsgType:
 		action, record, err := ctx.handleInboundOOBInvitation(msg, thid, msg.options)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to handle inbound oob invitation : %w", err)
@@ -741,7 +741,7 @@ func (ctx *context) getVerKeyFromOOBInvitation(invitationID string) (string, err
 		return "", fmt.Errorf("failed to load oob invitation : %w", err)
 	}
 
-	if invitation.Type != oobMsgType {
+	if invitation.Type != OOBMsgType {
 		return "", errVerKeyNotFound
 	}
 
