@@ -36,7 +36,7 @@ type (
 	// IssueCredential contains as attached payload the credentials being issued and is
 	// sent in response to a valid Request Credential message.
 	IssueCredential issuecredential.IssueCredential
-	// Action contains helpful information about action
+	// Action contains helpful information about action.
 	Action issuecredential.Action
 )
 
