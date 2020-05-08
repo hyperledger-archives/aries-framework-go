@@ -386,12 +386,6 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 			if tt.setID {
 				// with set keyset ID
 				ksID, _, err = kmsService.ImportPrivateKey(privKey, tt.keyType, WithKeyID(tt.ksID))
-				if strings.Contains(tt.tcName, "larger than maxKeyIDLen") {
-					require.Contains(t, err.Error(),
-						fmt.Sprintf("is longer than max allowed length of %d", maxKeyIDLen))
-					return
-				}
-
 				require.NoError(t, err)
 				// calling ImportPrivatekeyt and WithKeyID("") will ignore the set KeyID and generate a new one
 				if tt.ksID != "" {

@@ -70,11 +70,6 @@ func (l *storeWriter) Write(p []byte) (int, error) {
 }
 
 func (l *storeWriter) verifyRequestedID() (string, error) {
-	if len(l.requestedKeysetID) > maxKeyIDLen {
-		return "", fmt.Errorf("requested ID '%s' is longer than max allowed length of %d", l.requestedKeysetID,
-			maxKeyIDLen)
-	}
-
 	_, err := l.storage.Get(l.requestedKeysetID)
 	if errors.Is(err, storage.ErrDataNotFound) {
 		return l.requestedKeysetID, nil
