@@ -104,7 +104,7 @@ jobs:
 
   publish:
     name: Publish images and npm packages
-    if: github.event_name == 'push' && github.repository == 'hyperledger/aries-framework-go'
+    if: github.event_name == 'push' && ((github.repository == 'hyperledger/aries-framework-go' && github.ref == 'refs/heads/master') || (github.repository != 'hyperledger/aries-framework-go' && github.ref == 'refs/heads/afg-publish'))
     needs: [checks, unitTest, unitTestWasm, bddTest]
     runs-on: ubuntu-18.04
     timeout-minutes: 10
@@ -130,17 +130,23 @@ jobs:
               }
               trap logout EXIT
               source ci/version_var.sh
-              echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username $GITHUB_ACTOR --password-stdin
-              make agent-rest-docker
-              docker tag aries-framework-go/agent-rest:latest  docker.pkg.github.com/hyperledger/aries-framework-go/agent-rest:$AGENT_IMAGE_TAG
-              docker push docker.pkg.github.com/hyperledger/aries-framework-go/agent-rest:$AGENT_IMAGE_TAG
+              if [ "${IS_RELEASE}" = true ] || [ "${GITHUB_REF}" =  "refs/heads/afg-publish" ]; then
+                echo ${{ secrets.GITHUB_TOKEN }} | docker login docker.pkg.github.com --username $GITHUB_ACTOR --password-stdin
+                make agent-rest-docker
+                docker tag aries-framework-go/agent-rest:latest  docker.pkg.github.com/${GITHUB_REPOSITORY}/agent-rest:$AGENT_IMAGE_TAG
+                docker push docker.pkg.github.com/${GITHUB_REPOSITORY}/agent-rest:$AGENT_IMAGE_TAG
+              fi
 
       - name: Publish npm packages
         working-directory: ./cmd/aries-js-worker
         run: |
           source ../../ci/version_var.sh
-          sed -i 's/"version": "0.0.1"/"version": "'$NPM_PKG_TAG'"/g' package.json
-          npm install
-          npm publish
+          if [ "${IS_RELEASE}" = true ] || [ "${GITHUB_REF}" =  "refs/heads/afg-publish" ]; then
+            sed -i 's/"version": "0.0.1"/"version": "'$NPM_PKG_TAG'"/g' package.json
+            sed -i 's#"name": "@hyperledger/aries-framework-go"#"name": "@'${GITHUB_REPOSITORY}'"#g' package.json
+            sed -i 's#"url": "git://github.com/hyperledger/aries-framework-go.git"#"url": "git://github.com/'${GITHUB_REPOSITORY}'.git"#g' package.json
+            npm install
+            npm publish
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
