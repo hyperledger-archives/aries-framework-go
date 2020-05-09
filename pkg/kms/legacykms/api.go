@@ -6,6 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package legacykms
 
+// package legacykms is a legacy KMS service used by an old Packer implementation. It must not be used outside of the
+// framework as it is deprecated.
+
 // TODO https://github.com/hyperledger/aries-framework-go/issues/752 Signer is not part of KMS and should be
 //  moved elsewhere, merge KMS and KeyManager interface when Signer is removed.
 

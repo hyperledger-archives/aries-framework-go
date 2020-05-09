@@ -6,9 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package crypto
 
-// package Crypto contains the consolidated Crypto interface to be used by the framework.
-// it will be created via Options creation of pkg/framework/provider/crypto (implementation of
-// pkg/framework/spi/crypto)
+// package crypto contains the Crypto interface to be used by the framework.
+// it will be created via Options creation in pkg/framework/context.Provider
 
 // Crypto interface provides all crypto operations needed in the Aries framework
 type Crypto interface {

@@ -23,6 +23,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+// package context creates a framework Provider context to add optional (non default) framework services and provides
+// simple accessor methods to those same services.
+
 // Provider supplies the framework configuration to client objects.
 type Provider struct {
 	services               []dispatcher.ProtocolService

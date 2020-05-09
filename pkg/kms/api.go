@@ -11,6 +11,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
+// package kms provides the KMS interface of the framework. This includes the provider interface necessary for building
+// KMS instances and the list of key types supported by the service.
+
 // KeyManager manages keys and their storage for the aries framework
 type KeyManager interface {
 	// Create a new key/keyset/key handle for the type kt
