@@ -16,7 +16,7 @@ import (
 //
 // swagger:parameters createKeySetReq
 type createKeySetReq struct { // nolint: unused,deadcode
-	// Params for createKeySey
+	// Params for createKeySet
 	//
 	// in: body
 	kms.CreateKeySetRequest
@@ -31,4 +31,15 @@ type createKeySetRes struct { // nolint: unused,deadcode
 
 	// in: body
 	kms.CreateKeySetResponse
+}
+
+// importKeyReq model
+//
+// This is used for import key req
+//
+// swagger:parameters importKeyReq
+type importKeyReq struct { // nolint: unused,deadcode
+
+	// in: body
+	kms.JSONWebKey
 }

@@ -56,4 +56,36 @@ async function kms(mode) {
             err => done(err)
         )
     })
+
+    it("Alice import ed25519 key", function (done) {
+        aries.kms.importKey({
+            kty: "OKP",
+            d:"z7sgkrcwC8FdNUl5VVKgFw0mRpkTVHPWYqxJvoUGdyw",
+            crv:"Ed25519",
+            kid:"k1",
+            x:"WvfMIvH0outwLZk52LpY9lZjBRbVsdweqKZPogozyhg"
+        }).then(
+            resp => {
+                done()
+            },
+            err => done(err)
+        )
+    })
+
+    it("Alice import p256 key", function (done) {
+        aries.kms.importKey({
+            kty: "EC",
+            crv:"P-256",
+            kid:"kid",
+            alg:"EdDSA",
+            x:"PgMD0SNj1jNPZhfzrXZPOrLnKvfXrfRHvp0h-K6B7KQ",
+            y:"3OzFHfWGlk-pH-iGZOcka0LhgpL1-Yn67fTizBbp1Nc",
+            d:"jPJSme0wUa-m61EGzQCnCNG-1Y21Kljpf5lJH_gMrRY"
+        }).then(
+            resp => {
+                done()
+            },
+            err => done(err)
+        )
+    })
 }

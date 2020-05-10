@@ -18,3 +18,15 @@ type CreateKeySetResponse struct {
 	//  public key base64 encoded
 	PublicKey string `json:"publicKey,omitempty"`
 }
+
+// JSONWebKey contains subset of json web key json properties
+type JSONWebKey struct {
+	Use string `json:"use,omitempty"`
+	Kty string `json:"kty,omitempty"`
+	Kid string `json:"kid,omitempty"`
+	Crv string `json:"crv,omitempty"`
+	Alg string `json:"alg,omitempty"`
+	X   string `json:"x,omitempty"`
+	Y   string `json:"y,omitempty"`
+	D   string `json:"d,omitempty"`
+}

@@ -7,14 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package kms
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 
+	"github.com/google/tink/go/keyset"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -25,9 +29,11 @@ var logger = log.New("aries-framework/command/kms")
 // Error codes
 const (
 	// InvalidRequestErrorCode is typically a code for invalid requests
-	InvalidRequestErrorCode = command.Code(iota + command.VC)
+	InvalidRequestErrorCode = command.Code(iota + command.KMS)
 	// CreateKeySetError is for failures while creating key set
 	CreateKeySetError
+	// ImportKeyError is for failures while importing key
+	ImportKeyError
 )
 
 const (
@@ -36,6 +42,7 @@ const (
 
 	// command methods
 	createKeySetCommandMethod = "CreateKeySet"
+	importKeyCommandMethod    = "ImportKey"
 
 	// error messages
 	errEmptyKeyType = "key type is mandatory"
@@ -50,7 +57,8 @@ type provider interface {
 type Command struct {
 	ctx               provider
 	exportPubKeyBytes func(id string) ([]byte, error) // needed for unit test
-
+	importKey         func(privKey interface{}, kt kms.KeyType,
+		opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) // needed for unit test
 }
 
 // New returns new kms command instance.
@@ -65,6 +73,15 @@ func New(p provider) *Command {
 
 			return k.ExportPubKeyBytes(id)
 		},
+		importKey: func(privKey interface{}, kt kms.KeyType,
+			opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+			k, ok := p.KMS().(*localkms.LocalKMS)
+			if !ok {
+				return "", nil, fmt.Errorf("kms is not LocalKMS type")
+			}
+
+			return k.ImportPrivateKey(privKey, kt, opts...)
+		},
 	}
 }
 
@@ -72,6 +89,7 @@ func New(p provider) *Command {
 func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, createKeySetCommandMethod, o.CreateKeySet),
+		cmdutil.NewCommandHandler(commandName, importKeyCommandMethod, o.ImportKey),
 	}
 }
 
@@ -108,6 +126,48 @@ func (o *Command) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
 	}, logger)
 
 	logutil.LogDebug(logger, commandName, createKeySetCommandMethod, "success")
+
+	return nil
+}
+
+// ImportKey import key
+func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(req)
+
+	if err != nil {
+		logutil.LogInfo(logger, commandName, importKeyCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("failed request decode : %w", err))
+	}
+
+	var jwk jose.JWK
+	if errUnmarshal := jwk.UnmarshalJSON(buf.Bytes()); errUnmarshal != nil {
+		logutil.LogInfo(logger, commandName, importKeyCommandMethod, errUnmarshal.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("failed request decode : %w", err))
+	}
+
+	var kType kms.KeyType
+
+	switch jwk.Crv {
+	case "Ed25519":
+		kType = kms.ED25519Type
+	case "P-256":
+		kType = kms.ECDSAP256TypeIEEEP1363
+	default:
+		return command.NewValidationError(InvalidRequestErrorCode,
+			fmt.Errorf("import key type not supported %s", jwk.Crv))
+	}
+
+	_, _, err = o.importKey(jwk.Key, kType,
+		localkms.WithKeyID(jwk.KeyID))
+	if err != nil {
+		logutil.LogError(logger, commandName, importKeyCommandMethod, err.Error())
+		return command.NewExecuteError(ImportKeyError, err)
+	}
+
+	command.WriteNillableResponse(rw, nil, logger)
+
+	logutil.LogDebug(logger, commandName, importKeyCommandMethod, "success")
 
 	return nil
 }

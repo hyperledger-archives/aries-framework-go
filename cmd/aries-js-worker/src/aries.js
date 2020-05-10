@@ -793,6 +793,15 @@ const Aries = function (opts) {
             createKeySet: async function (req) {
                 return invoke(aw, pending, this.pkgname, "CreateKeySet", req, "timeout while creating key set")
             },
+
+            /**
+             * Import key.
+             *
+             * @returns {Promise<Object>}
+             */
+            importKey: async function (req) {
+                return invoke(aw, pending, this.pkgname, "ImportKey", req, "timeout while importing key")
+            },
         }
     }
 

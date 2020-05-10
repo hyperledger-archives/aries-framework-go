@@ -8,14 +8,23 @@ package kms
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
 
+	"github.com/google/tink/go/keyset"
+	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
+	ariesjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 )
 
@@ -27,7 +36,7 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 1, len(handlers))
+		require.Equal(t, 2, len(handlers))
 	})
 
 	t.Run("test new command - error from export public key", func(t *testing.T) {
@@ -37,6 +46,17 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		_, err := cmd.exportPubKeyBytes("id")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "kms is not LocalKMS type")
+	})
+
+	t.Run("test new command - error from import key", func(t *testing.T) {
+		cmd := New(&mockprovider.Provider{
+			KMSValue: &mockkms.KeyManager{},
+		})
+		require.NotNil(t, cmd)
+
+		_, _, err := cmd.importKey("", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "kms is not LocalKMS type")
 	})
@@ -130,5 +150,103 @@ func TestCreateKeySet(t *testing.T) {
 		err = cmd.CreateKeySet(&b, bytes.NewBuffer(reqBytes))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error export public key")
+	})
+}
+
+func TestImportKey(t *testing.T) {
+	t.Run("test import key - success", func(t *testing.T) {
+		cmd := New(&mockprovider.Provider{})
+		require.NotNil(t, cmd)
+
+		cmd.importKey = func(privKey interface{}, kt kms.KeyType,
+			opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+			return "", nil, nil
+		}
+
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		jwk := ariesjose.JWK{
+			JSONWebKey: jose.JSONWebKey{
+				Key:       privateKey,
+				KeyID:     "kid",
+				Algorithm: "EdDSA",
+			},
+		}
+
+		jwkBytes, err := json.Marshal(&jwk)
+		require.NoError(t, err)
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.ImportKey(&getRW, bytes.NewBuffer(jwkBytes))
+		require.NoError(t, cmdErr)
+	})
+
+	t.Run("test import key - error", func(t *testing.T) {
+		cmd := New(&mockprovider.Provider{})
+		require.NotNil(t, cmd)
+
+		cmd.importKey = func(privKey interface{}, kt kms.KeyType,
+			opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+			return "", nil, fmt.Errorf("failed to import key")
+		}
+
+		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+
+		jwk := ariesjose.JWK{
+			JSONWebKey: jose.JSONWebKey{
+				Key:       privateKey,
+				KeyID:     "kid",
+				Algorithm: "EdDSA",
+			},
+		}
+
+		jwkBytes, err := json.Marshal(&jwk)
+		require.NoError(t, err)
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.ImportKey(&getRW, bytes.NewBuffer(jwkBytes))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "failed to import key")
+	})
+
+	t.Run("test import key - unsupported key", func(t *testing.T) {
+		cmd := New(&mockprovider.Provider{})
+		require.NotNil(t, cmd)
+
+		cmd.importKey = func(privKey interface{}, kt kms.KeyType,
+			opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+			return "", nil, nil
+		}
+
+		privateKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+		require.NoError(t, err)
+
+		jwk := ariesjose.JWK{
+			JSONWebKey: jose.JSONWebKey{
+				Key:       privateKey,
+				KeyID:     "kid",
+				Algorithm: "EdDSA",
+			},
+		}
+
+		jwkBytes, err := json.Marshal(&jwk)
+		require.NoError(t, err)
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.ImportKey(&getRW, bytes.NewBuffer(jwkBytes))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "import key type not supported P-521")
+	})
+
+	t.Run("test import key - error request decode", func(t *testing.T) {
+		cmd := New(&mockprovider.Provider{})
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err := cmd.ImportKey(&b, bytes.NewBuffer(nil))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed request decode")
 	})
 }
