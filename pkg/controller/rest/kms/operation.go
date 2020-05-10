@@ -21,6 +21,7 @@ import (
 const (
 	kmseOperationID  = "/kms"
 	createKeySetPath = kmseOperationID + "/keyset"
+	importKeyPath    = kmseOperationID + "/import"
 )
 
 // provider contains dependencies for the kms command and is typically created by using aries.Context().
@@ -30,6 +31,7 @@ type provider interface {
 
 type kmsCommand interface {
 	CreateKeySet(rw io.Writer, req io.Reader) command.Error
+	ImportKey(rw io.Writer, req io.Reader) command.Error
 }
 
 // Operation contains basic common operations provided by controller REST API
@@ -57,6 +59,7 @@ func (o *Operation) GetRESTHandlers() []rest.Handler {
 func (o *Operation) registerHandler() {
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(createKeySetPath, http.MethodPost, o.CreateKeySet),
+		cmdutil.NewHTTPHandler(importKeyPath, http.MethodPost, o.ImportKey),
 	}
 }
 
@@ -69,4 +72,14 @@ func (o *Operation) registerHandler() {
 //        200: createKeySetRes
 func (o *Operation) CreateKeySet(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.CreateKeySet, rw, req.Body)
+}
+
+// ImportKey swagger:route POST /kms/import kms importKey
+//
+// Import key.
+//
+// Responses:
+//    default: genericError
+func (o *Operation) ImportKey(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.ImportKey, rw, req.Body)
 }

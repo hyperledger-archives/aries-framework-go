@@ -276,6 +276,10 @@ const pkgs = {
             path: "/kms/keyset",
             method: "POST",
         },
+        ImportKey: {
+            path: "/kms/import",
+            method: "POST",
+        },
     },
 }
 

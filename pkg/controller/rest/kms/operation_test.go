@@ -31,7 +31,7 @@ func TestNew(t *testing.T) {
 			KMSValue: &mockkms.KeyManager{},
 		})
 		require.NotNil(t, cmd)
-		require.Equal(t, 1, len(cmd.GetRESTHandlers()))
+		require.Equal(t, 2, len(cmd.GetRESTHandlers()))
 	})
 }
 
@@ -42,8 +42,8 @@ func TestCreateKeySet(t *testing.T) {
 		})
 		cmd.command = &mockKMSCommand{}
 
-		handler := lookupHandler(t, cmd, createKeySetPath, http.MethodPost)
-		_, err := getSuccessResponseFromHandler(handler, nil, createKeySetPath)
+		handler := lookupHandler(t, cmd, createKeySetPath)
+		err := getSuccessResponseFromHandler(handler, createKeySetPath)
 		require.NoError(t, err)
 	})
 
@@ -53,7 +53,7 @@ func TestCreateKeySet(t *testing.T) {
 		})
 		require.NotNil(t, cmd)
 
-		handler := lookupHandler(t, cmd, createKeySetPath, http.MethodPost)
+		handler := lookupHandler(t, cmd, createKeySetPath)
 
 		req := createKeySetReq{CreateKeySetRequest: kms.CreateKeySetRequest{
 			KeyType: "ED25519",
@@ -70,12 +70,44 @@ func TestCreateKeySet(t *testing.T) {
 	})
 }
 
-func lookupHandler(t *testing.T, op *Operation, path, method string) rest.Handler {
+func TestImportKey(t *testing.T) {
+	t.Run("test import key - success", func(t *testing.T) {
+		cmd := New(&mockprovider.Provider{})
+		cmd.command = &mockKMSCommand{}
+
+		handler := lookupHandler(t, cmd, importKeyPath)
+		err := getSuccessResponseFromHandler(handler, importKeyPath)
+		require.NoError(t, err)
+	})
+
+	t.Run("test import key - error", func(t *testing.T) {
+		cmd := New(&mockprovider.Provider{})
+		require.NotNil(t, cmd)
+
+		cmd.command = &mockKMSCommand{importKeyError: command.NewExecuteError(kms.ImportKeyError,
+			fmt.Errorf("failed to import key"))}
+
+		handler := lookupHandler(t, cmd, importKeyPath)
+
+		req := importKeyReq{JSONWebKey: kms.JSONWebKey{Kid: "k1"}}
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(reqBytes), importKeyPath)
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusInternalServerError, code)
+		verifyError(t, kms.ImportKeyError, "failed to import key", buf.Bytes())
+	})
+}
+
+func lookupHandler(t *testing.T, op *Operation, path string) rest.Handler {
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
 	for _, h := range handlers {
-		if h.Path() == path && h.Method() == method {
+		if h.Path() == path && h.Method() == http.MethodPost {
 			return h
 		}
 	}
@@ -87,15 +119,15 @@ func lookupHandler(t *testing.T, op *Operation, path, method string) rest.Handle
 
 // getSuccessResponseFromHandler reads response from given http handle func.
 // expects http status OK.
-func getSuccessResponseFromHandler(handler rest.Handler, requestBody io.Reader,
-	path string) (*bytes.Buffer, error) {
-	response, status, err := sendRequestToHandler(handler, requestBody, path)
+func getSuccessResponseFromHandler(handler rest.Handler,
+	path string) error {
+	_, status, err := sendRequestToHandler(handler, nil, path)
 	if status != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: got %v, want %v",
+		return fmt.Errorf("unexpected status code: got %v, want %v",
 			status, http.StatusOK)
 	}
 
-	return response, err
+	return err
 }
 
 // sendRequestToHandler reads response from given http handle func.
@@ -139,8 +171,13 @@ func verifyError(t *testing.T, expectedCode command.Code, expectedMsg string, da
 }
 
 type mockKMSCommand struct {
+	importKeyError command.Error
 }
 
 func (m *mockKMSCommand) CreateKeySet(rw io.Writer, req io.Reader) command.Error {
 	return nil
+}
+
+func (m *mockKMSCommand) ImportKey(rw io.Writer, req io.Reader) command.Error {
+	return m.importKeyError
 }
