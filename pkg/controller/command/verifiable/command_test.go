@@ -8,11 +8,6 @@ package verifiable
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -853,12 +847,6 @@ func TestGeneratePresentation(t *testing.T) {
 	})
 
 	t.Run("test generate presentation with proof options - success (p256 jsonwebsignature)", func(t *testing.T) {
-		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		require.NoError(t, err)
-
-		encodedPrivateKey, err := x509.MarshalECPrivateKey(privateKey)
-		require.NoError(t, err)
-
 		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
 
 		createdTime := time.Now().AddDate(-1, 0, 0)
@@ -870,9 +858,7 @@ func TestGeneratePresentation(t *testing.T) {
 				Challenge:          "sample-random-test-value",
 				Created:            &createdTime,
 				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
-				PrivateKey:         base58.Encode(encodedPrivateKey),
 				SignatureType:      JSONWebSignature2020,
-				KeyType:            P256KeyType,
 			},
 		}
 
@@ -904,9 +890,6 @@ func TestGeneratePresentation(t *testing.T) {
 	})
 
 	t.Run("test generate presentation with proof options - success (ed25519 jsonwebsignature)", func(t *testing.T) {
-		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
 		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
 
 		createdTime := time.Now().AddDate(-1, 0, 0)
@@ -918,9 +901,7 @@ func TestGeneratePresentation(t *testing.T) {
 				Domain:             "issuer.example.com",
 				Challenge:          "sample-random-test-value",
 				Created:            &createdTime,
-				PrivateKey:         base58.Encode(privateKey),
 				SignatureType:      JSONWebSignature2020,
-				KeyType:            Ed25519KeyType,
 			},
 		}
 
@@ -950,45 +931,14 @@ func TestGeneratePresentation(t *testing.T) {
 		require.Contains(t, vp.Proofs[0]["type"], "JsonWebSignature2020")
 	})
 
-	t.Run("test generate presentation with proof options - invalid key type", func(t *testing.T) {
-		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
-
-		presReq := PresentationRequest{
-			VerifiableCredentials: credList,
-			DID:                   "did:peer:123456789abcdefghi#inbox",
-			ProofOptions: &ProofOptions{
-				PrivateKey:         base58.Encode(privateKey),
-				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
-				KeyType:            "invalid-key-type",
-				SignatureType:      JSONWebSignature2020,
-			},
-		}
-
-		presReqBytes, err := json.Marshal(presReq)
-		require.NoError(t, err)
-
-		var b bytes.Buffer
-		err = cmd.GeneratePresentation(&b, bytes.NewBuffer(presReqBytes))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid key type : invalid-key-type")
-	})
-
 	t.Run("test generate presentation with proof options - unsupported signature type", func(t *testing.T) {
-		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
 		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
 
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
 			ProofOptions: &ProofOptions{
-				PrivateKey:         base58.Encode(privateKey),
 				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
-				KeyType:            Ed25519Signature2018,
 				SignatureType:      "invalid",
 			},
 		}
@@ -1003,17 +953,12 @@ func TestGeneratePresentation(t *testing.T) {
 	})
 
 	t.Run("test generate presentation with proof options - signature type empty", func(t *testing.T) {
-		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
 		credList := []json.RawMessage{[]byte(vc), []byte(vc)}
 
 		presReq := PresentationRequest{
 			VerifiableCredentials: credList,
 			DID:                   "did:peer:123456789abcdefghi#inbox",
-			ProofOptions: &ProofOptions{
-				PrivateKey: base58.Encode(privateKey),
-			},
+			ProofOptions:          &ProofOptions{Domain: "domain"},
 		}
 
 		presReqBytes, err := json.Marshal(presReq)
@@ -1739,23 +1684,13 @@ func TestGeneratePresentation_prepareOpts(t *testing.T) {
 				err: "unable to find matching 'authentication' key IDs for given verification method",
 			},
 			{
-				name:       "private key without verification method",
-				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-				requestOpts: &ProofOptions{
-					PrivateKey: "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-				},
-				err: "verification method matching given private key is not provided",
-			},
-			{
 				name:       "private key matching second verification method",
 				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 				requestOpts: &ProofOptions{
 					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 				},
 				responseOpts: &ProofOptions{
 					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 					proofPurpose:       "authentication",
 				},
 			},
@@ -1764,11 +1699,9 @@ func TestGeneratePresentation_prepareOpts(t *testing.T) {
 				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 				requestOpts: &ProofOptions{
 					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 				},
 				responseOpts: &ProofOptions{
 					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 					proofPurpose:       "authentication",
 				},
 			},
@@ -1777,7 +1710,6 @@ func TestGeneratePresentation_prepareOpts(t *testing.T) {
 				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 				requestOpts: &ProofOptions{
 					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHdXYZ",
-					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 				},
 				err: "unable to find matching 'authentication' key IDs for given verification method",
 			},
@@ -1786,20 +1718,16 @@ func TestGeneratePresentation_prepareOpts(t *testing.T) {
 				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 				requestOpts: &ProofOptions{
 					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 					Domain:             "sample.domain.example.com",
 					Challenge:          "sample-challenge",
 					SignatureType:      JSONWebSignature2020,
-					KeyType:            Ed25519KeyType,
 				},
 				responseOpts: &ProofOptions{
 					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					PrivateKey:         "uvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
 					proofPurpose:       "authentication",
 					Domain:             "sample.domain.example.com",
 					Challenge:          "sample-challenge",
 					SignatureType:      JSONWebSignature2020,
-					KeyType:            Ed25519KeyType,
 				},
 			},
 		}

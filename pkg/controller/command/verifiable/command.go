@@ -7,18 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rand"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
-
-	"github.com/btcsuite/btcutil/base58"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
@@ -125,11 +118,6 @@ type keyResolver interface {
 	PublicKeyFetcher() verifiable.PublicKeyFetcher
 }
 
-type signer interface {
-	// Sign will sign document and return signature
-	Sign(data []byte) ([]byte, error)
-}
-
 type kmsSigner struct {
 	keyHandle interface{}
 	crypto    ariescrypto.Crypto
@@ -157,31 +145,6 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 	}
 
 	return v, nil
-}
-
-type privateKeySigner struct {
-	keyType    string
-	privateKey []byte
-}
-
-func newPrivateKeySigner(keyType string, privateKey []byte) *privateKeySigner {
-	return &privateKeySigner{keyType: keyType, privateKey: privateKey}
-}
-
-func (s *privateKeySigner) Sign(data []byte) ([]byte, error) {
-	switch s.keyType {
-	case Ed25519KeyType:
-		return ed25519.Sign(s.privateKey, data), nil
-	case P256KeyType:
-		ecPrivateKey, err := x509.ParseECPrivateKey(s.privateKey)
-		if err != nil {
-			return nil, err
-		}
-
-		return signEcdsa(data, ecPrivateKey, crypto.SHA256)
-	}
-
-	return nil, fmt.Errorf("invalid key type : %s", s.keyType)
 }
 
 // provider contains dependencies for the verifiable command and is typically created by using aries.Context().
@@ -657,15 +620,9 @@ func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
 
 func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, opts *ProofOptions) (*verifiable.Presentation,
 	error) {
-	var s signer
-	if opts.PrivateKey != "" {
-		s = newPrivateKeySigner(opts.KeyType, base58.Decode(opts.PrivateKey))
-	} else {
-		var err error
-		s, err = newKMSSigner(o.ctx.KMS(), o.ctx.Crypto(), opts.VerificationMethod)
-		if err != nil {
-			return nil, err
-		}
+	s, err := newKMSSigner(o.ctx.KMS(), o.ctx.Crypto(), opts.VerificationMethod)
+	if err != nil {
+		return nil, err
 	}
 
 	var signatureSuite verifiablesigner.SignatureSuite
@@ -690,7 +647,7 @@ func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, opts *ProofOpt
 		Purpose:                 opts.proofPurpose,
 	}
 
-	err := vp.AddLinkedDataProof(signingCtx)
+	err = vp.AddLinkedDataProof(signingCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add linked data proof: %w", err)
 	}
@@ -759,10 +716,6 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc) (*ProofOptions, error) {
 	}
 
 	opts.proofPurpose = "authentication"
-
-	if opts.PrivateKey != "" && opts.VerificationMethod == "" {
-		return nil, fmt.Errorf("verification method matching given private key is not provided")
-	}
 
 	authVMs := didDoc.VerificationMethods(did.Authentication)[did.Authentication]
 
@@ -837,38 +790,4 @@ func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 
 func isDID(str string) bool {
 	return strings.HasPrefix(str, "did:")
-}
-
-func signEcdsa(doc []byte, privateKey *ecdsa.PrivateKey, hash crypto.Hash) ([]byte, error) {
-	hasher := hash.New()
-
-	_, err := hasher.Write(doc)
-	if err != nil {
-		return nil, err
-	}
-
-	hashed := hasher.Sum(nil)
-
-	r, s, err := ecdsa.Sign(rand.Reader, privateKey, hashed)
-	if err != nil {
-		return nil, err
-	}
-
-	curveBits := privateKey.Curve.Params().BitSize
-
-	const bitsInByte = 8
-	keyBytes := curveBits / bitsInByte
-
-	if curveBits%bitsInByte > 0 {
-		keyBytes++
-	}
-
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
-}
-
-func copyPadded(source []byte, size int) []byte {
-	dest := make([]byte, size)
-	copy(dest[size-len(source):], source)
-
-	return dest
 }
