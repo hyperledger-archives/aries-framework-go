@@ -47,13 +47,8 @@ type ProofOptions struct {
 	Domain string `json:"domain,omitempty"`
 	// Challenge is a random or pseudo-random value option authentication
 	Challenge string `json:"challenge,omitempty"`
-	// KeyType key type of the private key
-	KeyType string `json:"keyType,omitempty"`
 	// SignatureType signature type used for signing
 	SignatureType string `json:"signatureType,omitempty"`
-	// PrivateKey is used to sign instead of DID
-	// deprecate : TODO to be removed as part of #1748
-	PrivateKey string `json:"privateKey,omitempty"`
 	// proofPurpose is purpose of the proof.
 	proofPurpose string
 }

@@ -46,6 +46,7 @@ const (
 
 	// error messages
 	errEmptyKeyType = "key type is mandatory"
+	errEmptyKeyID   = "key id is mandatory"
 )
 
 // provider contains dependencies for the kms command and is typically created by using aries.Context().
@@ -144,6 +145,11 @@ func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
 	if errUnmarshal := jwk.UnmarshalJSON(buf.Bytes()); errUnmarshal != nil {
 		logutil.LogInfo(logger, commandName, importKeyCommandMethod, errUnmarshal.Error())
 		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("failed request decode : %w", err))
+	}
+
+	if jwk.KeyID == "" {
+		logutil.LogDebug(logger, commandName, importKeyCommandMethod, errEmptyKeyID)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyKeyID))
 	}
 
 	var kType kms.KeyType

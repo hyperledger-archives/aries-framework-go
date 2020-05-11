@@ -240,6 +240,34 @@ func TestImportKey(t *testing.T) {
 		require.Contains(t, cmdErr.Error(), "import key type not supported P-521")
 	})
 
+	t.Run("test import key - jwk without keyID", func(t *testing.T) {
+		cmd := New(&mockprovider.Provider{})
+		require.NotNil(t, cmd)
+
+		cmd.importKey = func(privKey interface{}, kt kms.KeyType,
+			opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+			return "", nil, nil
+		}
+
+		privateKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+		require.NoError(t, err)
+
+		jwk := ariesjose.JWK{
+			JSONWebKey: jose.JSONWebKey{
+				Key:       privateKey,
+				Algorithm: "EdDSA",
+			},
+		}
+
+		jwkBytes, err := json.Marshal(&jwk)
+		require.NoError(t, err)
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.ImportKey(&getRW, bytes.NewBuffer(jwkBytes))
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "key id is mandatory")
+	})
+
 	t.Run("test import key - error request decode", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{})
 		require.NotNil(t, cmd)
