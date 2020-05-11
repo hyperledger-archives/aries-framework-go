@@ -191,6 +191,7 @@ func features() []feature {
 		verifiable.NewVerifiableCredentialSDKSteps(),
 		outofband.NewOutOfBandSDKSteps(),
 		presentproof.NewPresentProofSDKSteps(),
+		presentproof.NewPresentProofControllerSteps(),
 		redeemableroutes.NewBDDSteps(),
 	}
 }
