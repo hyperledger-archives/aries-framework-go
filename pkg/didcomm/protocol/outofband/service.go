@@ -45,6 +45,12 @@ var logger = log.New(fmt.Sprintf("aries-framework/%s/service", Name))
 
 var errIgnoredDidEvent = errors.New("ignored")
 
+// Options is a container for optional values provided by the user.
+type Options interface {
+	// MyLabel is the label to share with the other agent in the subsequent did-exchange.
+	MyLabel() string
+}
+
 type didExchSvc interface {
 	RespondTo(*didexchange.OOBInvitation) (string, error)
 	SaveInvitation(invitation *didexchange.OOBInvitation) error
@@ -69,6 +75,7 @@ type callback struct {
 	msg      service.DIDCommMsg
 	myDID    string
 	theirDID string
+	options  Options
 }
 
 type myState struct {
@@ -215,9 +222,10 @@ func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) error {
 }
 
 // AcceptRequest from another agent and return the connection ID.
-func (s *Service) AcceptRequest(r *Request) (string, error) {
+func (s *Service) AcceptRequest(r *Request, myLabel string) (string, error) {
 	connID, err := s.handleCallback(&callback{
-		msg: service.NewDIDCommMsgMap(r),
+		msg:     service.NewDIDCommMsgMap(r),
+		options: &userOptions{myLabel: myLabel},
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to accept request : %w", err)
@@ -227,9 +235,10 @@ func (s *Service) AcceptRequest(r *Request) (string, error) {
 }
 
 // AcceptInvitation from another agent and return the connection ID.
-func (s *Service) AcceptInvitation(i *Invitation) (string, error) {
+func (s *Service) AcceptInvitation(i *Invitation, myLabel string) (string, error) {
 	connID, err := s.handleCallback(&callback{
-		msg: service.NewDIDCommMsgMap(i),
+		msg:     service.NewDIDCommMsgMap(i),
+		options: &userOptions{myLabel: myLabel},
 	})
 
 	if err != nil {
@@ -253,10 +262,10 @@ func (s *Service) SaveRequest(r *Request) error {
 	}
 
 	err = s.didSvc.SaveInvitation(&didexchange.OOBInvitation{
-		ID:       uuid.New().String(),
-		ThreadID: r.ID,
-		Label:    r.Label,
-		Target:   target,
+		ID:         uuid.New().String(),
+		ThreadID:   r.ID,
+		TheirLabel: r.Label,
+		Target:     target,
 	})
 	if err != nil {
 		return fmt.Errorf("the didexchange service failed to save the oob invitation : %w", err)
@@ -279,10 +288,10 @@ func (s *Service) SaveInvitation(i *Invitation) error {
 	}
 
 	err = s.didSvc.SaveInvitation(&didexchange.OOBInvitation{
-		ID:       uuid.New().String(),
-		ThreadID: i.ID,
-		Label:    i.Label,
-		Target:   target,
+		ID:         uuid.New().String(),
+		ThreadID:   i.ID,
+		TheirLabel: i.Label,
+		Target:     target,
 	})
 	if err != nil {
 		return fmt.Errorf("the didexchange service failed to save the oob invitation : %w", err)
@@ -292,11 +301,21 @@ func (s *Service) SaveInvitation(i *Invitation) error {
 }
 
 func continueFunc(c chan *callback, msg service.DIDCommMsg, myDID, theirDID string) func(interface{}) {
-	return func(_ interface{}) {
+	return func(args interface{}) {
+		var opts Options
+
+		switch t := args.(type) {
+		case Options:
+			opts = t
+		default:
+			opts = &userOptions{}
+		}
+
 		c <- &callback{
 			msg:      msg,
 			myDID:    myDID,
 			theirDID: theirDID,
+			options:  opts,
 		}
 	}
 }
@@ -356,7 +375,7 @@ func (s *Service) handleRequestCallback(c *callback) (string, error) {
 
 	// TODO refactor didexchange.Service to accept an object other than didexchange.Invitation
 	//  https://github.com/hyperledger/aries-framework-go/issues/1501
-	invitation, req, err := decodeInvitationAndRequest(c.msg)
+	invitation, req, err := decodeInvitationAndRequest(c)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode didexchange invitation and out-of-band request : %w", err)
 	}
@@ -394,7 +413,7 @@ func (s *Service) handleRequestCallback(c *callback) (string, error) {
 func (s *Service) handleInvitationCallback(c *callback) (string, error) {
 	logger.Debugf("input: %+v", c)
 
-	didInv, oobInv, err := decodeDIDInvitationAndOOBInvitation(c.msg)
+	didInv, oobInv, err := decodeDIDInvitationAndOOBInvitation(c)
 	if err != nil {
 		return "", fmt.Errorf("handleInvitationCallback: failed to decode callback message : %w", err)
 	}
@@ -534,18 +553,19 @@ func (s *Service) extractDIDCommMsg(state *myState) (service.DIDCommMsg, error) 
 	return msg, nil
 }
 
-func decodeInvitationAndRequest(msg service.DIDCommMsg) (*didexchange.OOBInvitation, *Request, error) {
+func decodeInvitationAndRequest(c *callback) (*didexchange.OOBInvitation, *Request, error) {
 	req := &Request{}
 
-	err := msg.Decode(req)
+	err := c.msg.Decode(req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode out-of-band request message : %w", err)
 	}
 
 	invitation := &didexchange.OOBInvitation{
-		ID:       uuid.New().String(),
-		ThreadID: req.ID,
-		Label:    req.Label,
+		ID:         uuid.New().String(),
+		ThreadID:   req.ID,
+		TheirLabel: req.Label,
+		MyLabel:    c.options.MyLabel(),
 	}
 
 	target, err := chooseTarget(req.Service)
@@ -559,10 +579,10 @@ func decodeInvitationAndRequest(msg service.DIDCommMsg) (*didexchange.OOBInvitat
 	return invitation, req, nil
 }
 
-func decodeDIDInvitationAndOOBInvitation(msg service.DIDCommMsg) (*didexchange.OOBInvitation, *Invitation, error) {
+func decodeDIDInvitationAndOOBInvitation(c *callback) (*didexchange.OOBInvitation, *Invitation, error) {
 	oobInv := &Invitation{}
 
-	err := msg.Decode(oobInv)
+	err := c.msg.Decode(oobInv)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode out-of-band invitation mesesage : %w", err)
 	}
@@ -573,10 +593,11 @@ func decodeDIDInvitationAndOOBInvitation(msg service.DIDCommMsg) (*didexchange.O
 	}
 
 	didInv := &didexchange.OOBInvitation{
-		ID:       uuid.New().String(),
-		ThreadID: oobInv.ID,
-		Label:    oobInv.Label,
-		Target:   target,
+		ID:         uuid.New().String(),
+		ThreadID:   oobInv.ID,
+		TheirLabel: oobInv.Label,
+		Target:     target,
+		MyLabel:    c.options.MyLabel(),
 	}
 
 	return didInv, oobInv, nil
@@ -618,4 +639,12 @@ func (e *eventProps) ConnectionID() string {
 
 func (e *eventProps) Error() error {
 	return e.err
+}
+
+type userOptions struct {
+	myLabel string
+}
+
+func (e *userOptions) MyLabel() string {
+	return e.myLabel
 }

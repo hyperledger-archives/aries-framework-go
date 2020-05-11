@@ -51,7 +51,7 @@ SPDX-License-Identifier: Apache-2.0
 //             }
 //
 //             // accept the request:
-//             event.Continue(nil)
+//             event.Continue(&outofband.EventOptions{Label: "Bob"})
 //             // OR you may reject this request:
 //             // event.Stop(errors.New("rejected"))
 //         case outofband.InvitationMsgType:

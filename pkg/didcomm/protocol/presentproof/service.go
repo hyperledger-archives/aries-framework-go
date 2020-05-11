@@ -146,6 +146,8 @@ func New(p Provider) (*Service, error) {
 
 // HandleInbound handles inbound message (presentproof protocol)
 func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+	logger.Debugf("input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
+
 	msgMap, ok := msg.(service.DIDCommMsgMap)
 	if !ok {
 		return "", errors.New("bad assertion message is not DIDCommMsgMap")
@@ -249,6 +251,8 @@ func (s *Service) startInternalListener() {
 		if msg.err == nil {
 			continue
 		}
+
+		logger.Errorf("failed to handle msgID=%s : %s", msg.Msg.ID(), msg.err)
 
 		msg.state = &abandoning{Code: codeInternalError}
 

@@ -228,19 +228,16 @@ func (b *BDDSteps) routerApprovesIntroduction(router, serviceEndpoint, routingKe
 
 func (b *BDDSteps) bobConnectsWithRouterAndRequestsRoute(bob, router string) error {
 	// bob approves oob request received via the introducer
-	b.oobSdk.ApproveOOBRequest(bob)
+	b.oobSdk.ApproveOOBRequest(bob, &outofband.EventOptions{Label: bob})
 
-	// in order: make bob approve first, then the router
-	for _, agent := range []string{bob, router} {
-		err := b.oobSdk.ApproveDIDExchangeRequest(agent)
-		if err != nil {
-			return fmt.Errorf("%s failed to approve didexchange request : %w", agent, err)
-		}
+	err := b.oobSdk.ApproveDIDExchangeRequest(router)
+	if err != nil {
+		return fmt.Errorf("%s failed to approve didexchange request : %w", router, err)
 	}
 
-	err := b.oobSdk.ConfirmConnections(router, bob, "completed")
+	err = b.oobSdk.ConfirmConnections(router, bob, "completed")
 	if err != nil {
-		return fmt.Errorf("failed to confirm connection status %s and %s", router, bob)
+		return fmt.Errorf("failed to confirm connection status between %s and %s : %w", router, bob, err)
 	}
 
 	return nil

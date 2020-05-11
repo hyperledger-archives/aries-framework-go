@@ -35,6 +35,18 @@ const (
 	InvitationMsgType = outofband.InvitationMsgType
 )
 
+// EventOptions are is a container of options that you can pass to an event's
+// Continue function to customize the reaction to incoming out-of-band messages.
+type EventOptions struct {
+	// Label will be shared with the other agent during the subsequent did-exchange.
+	Label string
+}
+
+// MyLabel will be shared with the other agent during the subsequent did-exchange.
+func (e *EventOptions) MyLabel() string {
+	return e.Label
+}
+
 // Event is a container of out-of-band protocol-specific properties for DIDCommActions and StateMsgs.
 type Event interface {
 	// ConnectionID of the connection record, once it's created.
@@ -56,10 +68,10 @@ type message struct {
 
 type oobService interface {
 	service.Event
-	AcceptRequest(request *outofband.Request) (string, error)
-	AcceptInvitation(inv *outofband.Invitation) (string, error)
-	SaveRequest(request *outofband.Request) error
-	SaveInvitation(inv *outofband.Invitation) error
+	AcceptRequest(*outofband.Request, string) (string, error)
+	AcceptInvitation(*outofband.Invitation, string) (string, error)
+	SaveRequest(*outofband.Request) error
+	SaveInvitation(*outofband.Invitation) error
 }
 
 // Provider provides the dependencies for the client.
@@ -192,10 +204,10 @@ func (c *Client) CreateInvitation(protocols []string, opts ...MessageOption) (*I
 }
 
 // AcceptRequest from another agent and return the ID of a new connection record.
-func (c *Client) AcceptRequest(r *Request) (string, error) {
+func (c *Client) AcceptRequest(r *Request, myLabel string) (string, error) {
 	cast := outofband.Request(*r)
 
-	connID, err := c.oobService.AcceptRequest(&cast)
+	connID, err := c.oobService.AcceptRequest(&cast, myLabel)
 	if err != nil {
 		return "", fmt.Errorf("out-of-band service failed to accept request : %w", err)
 	}
@@ -204,10 +216,10 @@ func (c *Client) AcceptRequest(r *Request) (string, error) {
 }
 
 // AcceptInvitation from another agent and return the ID of the new connection records.
-func (c *Client) AcceptInvitation(i *Invitation) (string, error) {
+func (c *Client) AcceptInvitation(i *Invitation, myLabel string) (string, error) {
 	cast := outofband.Invitation(*i)
 
-	connID, err := c.oobService.AcceptInvitation(&cast)
+	connID, err := c.oobService.AcceptInvitation(&cast, myLabel)
 	if err != nil {
 		return "", fmt.Errorf("out-of-band service failed to accept invitation : %w", err)
 	}

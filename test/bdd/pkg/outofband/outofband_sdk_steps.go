@@ -13,6 +13,7 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 
+	didexClient "github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -27,7 +28,7 @@ type SDKSteps struct {
 	pendingInvitations map[string]*outofband.Invitation
 	connectionIDs      map[string]string
 	bddDIDExchSDK      *bddDIDExchange.SDKSteps
-	nextAction         map[string]chan struct{}
+	nextAction         map[string]chan interface{}
 }
 
 // NewOutOfBandSDKSteps returns the out-of-band protocol's BDD steps using the SDK binding.
@@ -37,7 +38,7 @@ func NewOutOfBandSDKSteps() *SDKSteps {
 		pendingInvitations: make(map[string]*outofband.Invitation),
 		connectionIDs:      make(map[string]string),
 		bddDIDExchSDK:      bddDIDExchange.NewDIDExchangeSDKSteps(),
-		nextAction:         make(map[string]chan struct{}),
+		nextAction:         make(map[string]chan interface{}),
 	}
 }
 
@@ -137,7 +138,7 @@ func (sdk *SDKSteps) acceptRequestAndConnect(receiverID, senderID string) error 
 	return sdk.acceptAndConnect(receiverID, senderID, func(r *outofband.Client) error {
 		var err error
 
-		sdk.connectionIDs[receiverID], err = r.AcceptRequest(request)
+		sdk.connectionIDs[receiverID], err = r.AcceptRequest(request, receiverID)
 		if err != nil {
 			return fmt.Errorf("%s failed to accept out-of-band request : %w", receiverID, err)
 		}
@@ -155,7 +156,7 @@ func (sdk *SDKSteps) acceptInvitationAndConnect(receiverID, senderID string) err
 	return sdk.acceptAndConnect(receiverID, senderID, func(r *outofband.Client) error {
 		var err error
 
-		sdk.connectionIDs[receiverID], err = r.AcceptInvitation(invitation)
+		sdk.connectionIDs[receiverID], err = r.AcceptInvitation(invitation, receiverID)
 		if err != nil {
 			return fmt.Errorf("%s failed to accept out-of-band invitation : %w", receiverID, err)
 		}
@@ -181,11 +182,6 @@ func (sdk *SDKSteps) acceptAndConnect(
 		return err
 	}
 
-	err = sdk.bddDIDExchSDK.ApproveRequest(receiverID)
-	if err != nil {
-		return fmt.Errorf("failed to approve invitation for %s : %w", senderID, err)
-	}
-
 	err = sdk.bddDIDExchSDK.ApproveRequest(senderID)
 	if err != nil {
 		return fmt.Errorf("failed to approve invitation for %s : %w", senderID, err)
@@ -201,17 +197,46 @@ func (sdk *SDKSteps) ConfirmConnections(senderID, receiverID, status string) err
 		return fmt.Errorf("failed to wait for post events : %w", err)
 	}
 
-	err = sdk.bddDIDExchSDK.ValidateConnection(senderID, status)
+	connSender, err := sdk.getConnection(senderID, receiverID)
 	if err != nil {
-		return fmt.Errorf("failed to validate connection status for %s : %w", senderID, err)
+		return err
 	}
 
-	err = sdk.bddDIDExchSDK.ValidateConnection(receiverID, status)
+	if connSender.State != status {
+		return fmt.Errorf(
+			"%s's connection with %s is in state %s but expected %s",
+			senderID, receiverID, connSender.State, status,
+		)
+	}
+
+	connReceiver, err := sdk.getConnection(receiverID, senderID)
 	if err != nil {
-		return fmt.Errorf("failed to validate connection status for %s : %w", receiverID, err)
+		return err
+	}
+
+	if connReceiver.State != status {
+		return fmt.Errorf(
+			"%s's connection with %s is in state %s but expected %s",
+			receiverID, senderID, connSender.State, status,
+		)
 	}
 
 	return nil
+}
+
+func (sdk *SDKSteps) getConnection(from, to string) (*didexClient.Connection, error) {
+	connections, err := sdk.context.DIDExchangeClients[from].QueryConnections(&didexClient.QueryConnectionsParams{})
+	if err != nil {
+		return nil, fmt.Errorf("%s failed to fetch their connections : %w", from, err)
+	}
+
+	for _, c := range connections {
+		if c.TheirLabel == to {
+			return c, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no connection %s -> %s", from, to)
 }
 
 func (sdk *SDKSteps) registerClients(agentIDs ...string) error {
@@ -242,14 +267,17 @@ func (sdk *SDKSteps) newRequest(agentID string) (*outofband.Request, error) {
 		return nil, fmt.Errorf("no agent for %s was found", agentID)
 	}
 
-	req, err := agent.CreateRequest([]*decorator.Attachment{{
-		ID:          uuid.New().String(),
-		Description: "dummy",
-		MimeType:    "text/plain",
-		Data: decorator.AttachmentData{
-			JSON: map[string]interface{}{},
-		},
-	}})
+	req, err := agent.CreateRequest(
+		[]*decorator.Attachment{{
+			ID:          uuid.New().String(),
+			Description: "dummy",
+			MimeType:    "text/plain",
+			Data: decorator.AttachmentData{
+				JSON: map[string]interface{}{},
+			},
+		}},
+		outofband.WithLabel(agentID),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request for %s : %w", agentID, err)
 	}
@@ -263,7 +291,10 @@ func (sdk *SDKSteps) newInvitation(agentID string) (*outofband.Invitation, error
 		return nil, fmt.Errorf("no agent for %s was found", agentID)
 	}
 
-	inv, err := agent.CreateInvitation(nil)
+	inv, err := agent.CreateInvitation(
+		nil,
+		outofband.WithLabel(agentID),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create invitation for %s : %w", agentID, err)
 	}
@@ -293,7 +324,7 @@ func (sdk *SDKSteps) CreateClients(agents string) error {
 		}
 
 		sdk.context.OutOfBandClients[agent] = client
-		sdk.nextAction[agent] = make(chan struct{})
+		sdk.nextAction[agent] = make(chan interface{})
 
 		go sdk.autoExecuteActionEvent(agent, actions)
 	}
@@ -304,15 +335,14 @@ func (sdk *SDKSteps) CreateClients(agents string) error {
 func (sdk *SDKSteps) autoExecuteActionEvent(agentID string, ch <-chan service.DIDCommAction) {
 	for e := range ch {
 		// waits for the signal to approve this event
-		<-sdk.nextAction[agentID]
-		e.Continue(&service.Empty{})
+		e.Continue(<-sdk.nextAction[agentID])
 	}
 }
 
 // ApproveOOBRequest approves an out-of-band request for this agent.
-func (sdk *SDKSteps) ApproveOOBRequest(agentID string) {
+func (sdk *SDKSteps) ApproveOOBRequest(agentID string, args interface{}) {
 	// sends the signal which automatically handles events
-	sdk.nextAction[agentID] <- struct{}{}
+	sdk.nextAction[agentID] <- args
 }
 
 // ApproveDIDExchangeRequest approves a didexchange request for this agent.
@@ -366,7 +396,7 @@ func (sdk *SDKSteps) ReceiveRequest(to, from string) error {
 		return fmt.Errorf("%s does not have a registered oob client", to)
 	}
 
-	connID, err := receiver.AcceptRequest(req)
+	connID, err := receiver.AcceptRequest(req, to)
 	if err != nil {
 		return fmt.Errorf("%s failed to accept request from %s : %w", to, from, err)
 	}

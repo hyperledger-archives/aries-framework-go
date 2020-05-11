@@ -84,10 +84,6 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 }
 
 func (a *SDKSteps) connectionEstablished(agent1, agent2 string) error {
-	if err := a.didExchangeSDKS.ApproveRequest(agent1); err != nil {
-		return err
-	}
-
 	if err := a.didExchangeSDKS.ApproveRequest(agent2); err != nil {
 		return err
 	}
@@ -304,7 +300,7 @@ func (a *SDKSteps) checkAndContinue(agentID, introduceeID string) error {
 
 		e.Continue(nil)
 
-		go a.outofbandSDKS.ApproveOOBRequest(agentID)
+		go a.outofbandSDKS.ApproveOOBRequest(agentID, &outofband.EventOptions{Label: agentID})
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
@@ -331,7 +327,7 @@ func (a *SDKSteps) checkAndContinueWithInvitation(agentID, introduceeID string) 
 
 		e.Continue(introduce.WithOOBRequest(req))
 
-		go a.outofbandSDKS.ApproveOOBRequest(agentID)
+		go a.outofbandSDKS.ApproveOOBRequest(agentID, &outofband.EventOptions{Label: agentID})
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}
@@ -358,7 +354,7 @@ func (a *SDKSteps) checkAndContinueWithInvitationAndEmbeddedRequest(agentID, int
 
 		e.Continue(introduce.WithOOBRequest(req))
 
-		go a.outofbandSDKS.ApproveOOBRequest(agentID)
+		go a.outofbandSDKS.ApproveOOBRequest(agentID, &outofband.EventOptions{Label: agentID})
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout checkAndContinue %s", agentID)
 	}

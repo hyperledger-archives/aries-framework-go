@@ -40,9 +40,8 @@ const (
 	ResponseMsgType = PIURI + "/response"
 	// AckMsgType defines the did-exchange ack message type.
 	AckMsgType = PIURI + "/ack"
-	// OOBMsgType is the internal message type for the oob invitation that the didexchange service receives.
-	// Will be removed in the future.
-	OOBMsgType = "oob-invitation"
+	// oobMsgType is the internal message type for the oob invitation that the didexchange service receives.
+	oobMsgType = "oob-invitation"
 )
 
 // message type to store data for eventing. This is retrieved during callback.
@@ -140,7 +139,7 @@ func New(prov provider) (*Service, error) {
 }
 
 // HandleInbound handles inbound didexchange messages.
-func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (s *Service) HandleInbound(msg service.DIDCommMsg, _, _ string) (string, error) {
 	logger.Debugf("receive inbound message : %s", msg)
 
 	// fetch the thread id
@@ -198,7 +197,7 @@ func (s *Service) Name() string {
 
 func findNamespace(msgType string) string {
 	namespace := theirNSPrefix
-	if msgType == InvitationMsgType || msgType == ResponseMsgType || msgType == OOBMsgType {
+	if msgType == InvitationMsgType || msgType == ResponseMsgType || msgType == oobMsgType {
 		namespace = myNSPrefix
 	}
 
@@ -304,7 +303,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		haltExecution := false
 
 		// trigger action event based on message type for inbound messages
-		if canTriggerActionEvents(connectionRecord.State, connectionRecord.Namespace) {
+		if msg.Msg.Type() != oobMsgType && canTriggerActionEvents(connectionRecord.State, connectionRecord.Namespace) {
 			msg.NextStateName = next.Name()
 			if err = s.sendActionEvent(msg, aEvent); err != nil {
 				return fmt.Errorf("handle inbound: %w", err)
@@ -425,14 +424,14 @@ func (s *Service) AcceptExchangeRequest(connectionID, publicDID, label string) e
 
 // RespondTo this inbound invitation and return with the new connection record's ID.
 func (s *Service) RespondTo(i *OOBInvitation) (string, error) {
-	i.Type = OOBMsgType
+	i.Type = oobMsgType
 
 	return s.HandleInbound(service.NewDIDCommMsgMap(i), "", "")
 }
 
 // SaveInvitation saves this invitation created by you.
 func (s *Service) SaveInvitation(i *OOBInvitation) error {
-	i.Type = OOBMsgType
+	i.Type = oobMsgType
 
 	err := s.connectionStore.SaveInvitation(i.ThreadID, i)
 	if err != nil {
@@ -532,7 +531,7 @@ func isNoOp(s state) bool {
 }
 
 func threadID(didCommMsg service.DIDCommMsg) (string, error) {
-	if didCommMsg.Type() == InvitationMsgType || didCommMsg.Type() == OOBMsgType {
+	if didCommMsg.Type() == InvitationMsgType || didCommMsg.Type() == oobMsgType {
 		return generateRandomID(), nil
 	}
 
@@ -555,7 +554,7 @@ func (s *Service) currentState(nsThID string) (state, error) {
 func (s *Service) update(msgType string, connectionRecord *connection.Record) error {
 	if (msgType == RequestMsgType && connectionRecord.State == StateIDRequested) ||
 		(msgType == InvitationMsgType && connectionRecord.State == StateIDInvited) ||
-		(msgType == OOBMsgType && connectionRecord.State == StateIDInvited) {
+		(msgType == oobMsgType && connectionRecord.State == StateIDInvited) {
 		return s.connectionStore.saveConnectionRecordWithMapping(connectionRecord)
 	}
 
@@ -564,7 +563,7 @@ func (s *Service) update(msgType string, connectionRecord *connection.Record) er
 
 func (s *Service) connectionRecord(msg service.DIDCommMsg) (*connection.Record, error) {
 	switch msg.Type() {
-	case OOBMsgType:
+	case oobMsgType:
 		return s.oobInvitationMsgRecord(msg)
 	case InvitationMsgType:
 		return s.invitationMsgRecord(msg)
@@ -605,7 +604,7 @@ func (s *Service) oobInvitationMsgRecord(msg service.DIDCommMsg) (*connection.Re
 		InvitationID:    oobInvitation.ID,
 		ServiceEndPoint: svc.ServiceEndpoint,
 		RecipientKeys:   svc.RecipientKeys,
-		TheirLabel:      oobInvitation.Label,
+		TheirLabel:      oobInvitation.TheirLabel,
 		Namespace:       findNamespace(msg.Type()),
 	}
 
