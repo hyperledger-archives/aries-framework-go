@@ -9,7 +9,7 @@ services:
 
   sidetree:
     container_name: sidetree-mock
-    image: ${SIDETREE_MOCK_FIXTURE_IMAGE}:${ARCH}-${SIDETREE_MOCK_FIXTURE_IMAGE_TAG}
+    image: ${SIDETREE_MOCK_FIXTURE_IMAGE}:${SIDETREE_MOCK_FIXTURE_IMAGE_TAG}
     environment:
       - SIDETREE_MOCK_TLS_CERTIFICATE=/etc/sidetree/tls/ec-pubCert.pem
       - SIDETREE_MOCK_TLS_KEY=/etc/sidetree/tls/ec-key.pem
