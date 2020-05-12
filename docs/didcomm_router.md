@@ -20,8 +20,6 @@ Currently, framework supports limited set of features.
 1. Supports only [`all`](https://github.com/hyperledger/aries-framework-go/blob/226f142f212e3a18d72220387a30bd161dd3b8c4/pkg/framework/aries/framework.go#L147) transport route option.
 2. Supports only [`websocket`](https://github.com/hyperledger/aries-framework-go/blob/226f142f212e3a18d72220387a30bd161dd3b8c4/pkg/didcomm/transport/ws/outbound.go#L30) for duplex communication. ie, websocket needs to be used 
 as the Outbound transport while initializing the framework for agents without inbound capabilities.
-3. Only [one inbound transport](https://github.com/hyperledger/aries-framework-go/issues/1124) can be added to the 
-framework at the moment. Due to this, DIDComm router always need to be run using `websocket` as the inbound transport. 
 
 ## References
 - [DIDComm Router/Mediator Design - Hyperledger Wiki](https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter)
