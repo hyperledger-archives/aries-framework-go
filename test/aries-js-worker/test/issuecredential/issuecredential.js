@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 import {environment} from "../environment.js";
 import {newDIDExchangeClient,newDIDExchangeRESTClient} from "../didexchange/didexchange_e2e.js";
 
-const agent1ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_API_PORT}`
+const agent1ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.PUBLIC_ROUTER_HOST}:${environment.PUBLIC_ROUTER_API_PORT}`
 const agent2ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.USER_HOST}:${environment.USER_API_PORT}`
 
 const restMode = 'rest'
