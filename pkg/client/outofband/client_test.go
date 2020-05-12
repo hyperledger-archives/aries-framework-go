@@ -339,14 +339,14 @@ func TestAcceptRequest(t *testing.T) {
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{
-				acceptReqFunc: func(*outofband.Request) (string, error) {
+				acceptReqFunc: func(*outofband.Request, string) (string, error) {
 					return expected, nil
 				},
 			},
 		}
 		c, err := New(provider)
 		require.NoError(t, err)
-		result, err := c.AcceptRequest(&Request{})
+		result, err := c.AcceptRequest(&Request{}, "")
 		require.NoError(t, err)
 		require.Equal(t, expected, result)
 	})
@@ -355,14 +355,14 @@ func TestAcceptRequest(t *testing.T) {
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{
-				acceptReqFunc: func(*outofband.Request) (string, error) {
+				acceptReqFunc: func(*outofband.Request, string) (string, error) {
 					return "", expected
 				},
 			},
 		}
 		c, err := New(provider)
 		require.NoError(t, err)
-		_, err = c.AcceptRequest(&Request{})
+		_, err = c.AcceptRequest(&Request{}, "")
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -374,14 +374,14 @@ func TestAcceptInvitation(t *testing.T) {
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{
-				acceptInvFunc: func(*outofband.Invitation) (string, error) {
+				acceptInvFunc: func(*outofband.Invitation, string) (string, error) {
 					return expected, nil
 				},
 			},
 		}
 		c, err := New(provider)
 		require.NoError(t, err)
-		result, err := c.AcceptInvitation(&Invitation{})
+		result, err := c.AcceptInvitation(&Invitation{}, "")
 		require.NoError(t, err)
 		require.Equal(t, expected, result)
 	})
@@ -390,14 +390,14 @@ func TestAcceptInvitation(t *testing.T) {
 		provider := withTestProvider()
 		provider.ServiceMap = map[string]interface{}{
 			outofband.Name: &stubOOBService{
-				acceptInvFunc: func(*outofband.Invitation) (string, error) {
+				acceptInvFunc: func(*outofband.Invitation, string) (string, error) {
 					return "", expected
 				},
 			},
 		}
 		c, err := New(provider)
 		require.NoError(t, err)
-		_, err = c.AcceptInvitation(&Invitation{})
+		_, err = c.AcceptInvitation(&Invitation{}, "")
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -447,23 +447,23 @@ func withTestProvider() *mockprovider.Provider {
 
 type stubOOBService struct {
 	service.Event
-	acceptReqFunc func(*outofband.Request) (string, error)
-	acceptInvFunc func(*outofband.Invitation) (string, error)
+	acceptReqFunc func(*outofband.Request, string) (string, error)
+	acceptInvFunc func(*outofband.Invitation, string) (string, error)
 	saveReqFunc   func(*outofband.Request) error
 	saveInvFunc   func(*outofband.Invitation) error
 }
 
-func (s *stubOOBService) AcceptRequest(request *outofband.Request) (string, error) {
+func (s *stubOOBService) AcceptRequest(request *outofband.Request, myLabel string) (string, error) {
 	if s.acceptReqFunc != nil {
-		return s.acceptReqFunc(request)
+		return s.acceptReqFunc(request, myLabel)
 	}
 
 	return "", nil
 }
 
-func (s *stubOOBService) AcceptInvitation(i *outofband.Invitation) (string, error) {
+func (s *stubOOBService) AcceptInvitation(i *outofband.Invitation, myLabel string) (string, error) {
 	if s.acceptInvFunc != nil {
-		return s.acceptInvFunc(i)
+		return s.acceptInvFunc(i, myLabel)
 	}
 
 	return "", nil

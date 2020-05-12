@@ -1727,10 +1727,10 @@ func TestRespondTo(t *testing.T) {
 		s, err := New(testProvider())
 		require.NoError(t, err)
 		_, err = s.RespondTo(&OOBInvitation{
-			ID:       uuid.New().String(),
-			ThreadID: "",
-			Label:    "test",
-			Target:   "did:example:123",
+			ID:         uuid.New().String(),
+			ThreadID:   "",
+			TheirLabel: "test",
+			Target:     "did:example:123",
 		})
 		require.Error(t, err)
 	})
@@ -1738,10 +1738,10 @@ func TestRespondTo(t *testing.T) {
 		s, err := New(testProvider())
 		require.NoError(t, err)
 		_, err = s.RespondTo(&OOBInvitation{
-			ID:       uuid.New().String(),
-			ThreadID: uuid.New().String(),
-			Label:    "test",
-			Target:   nil,
+			ID:         uuid.New().String(),
+			ThreadID:   uuid.New().String(),
+			TheirLabel: "test",
+			Target:     nil,
 		})
 		require.Error(t, err)
 	})
@@ -1804,10 +1804,10 @@ func TestSave(t *testing.T) {
 
 func newInvitation(target interface{}) *OOBInvitation {
 	return &OOBInvitation{
-		ID:       uuid.New().String(),
-		ThreadID: uuid.New().String(),
-		Label:    "test",
-		Target:   target,
+		ID:         uuid.New().String(),
+		ThreadID:   uuid.New().String(),
+		TheirLabel: "test",
+		Target:     target,
 	}
 }
 

@@ -74,7 +74,7 @@ type state interface {
 // Returns the state towards which the protocol will transition to if the msgType is processed.
 func stateFromMsgType(msgType string) (state, error) {
 	switch msgType {
-	case InvitationMsgType, OOBMsgType:
+	case InvitationMsgType, oobMsgType:
 		return &invited{}, nil
 	case RequestMsgType:
 		return &requested{}, nil
@@ -156,7 +156,7 @@ func (s *invited) CanTransitionTo(next state) bool {
 
 func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
 	state, stateAction, error) {
-	if msg.Type() != InvitationMsgType && msg.Type() != OOBMsgType {
+	if msg.Type() != InvitationMsgType && msg.Type() != oobMsgType {
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type(), s.Name())
 	}
 
@@ -180,7 +180,7 @@ func (s *requested) CanTransitionTo(next state) bool {
 func (s *requested) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
 	state, stateAction, error) {
 	switch msg.Type() {
-	case OOBMsgType:
+	case oobMsgType:
 		action, record, err := ctx.handleInboundOOBInvitation(msg, thid, msg.options)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to handle inbound oob invitation : %w", err)
@@ -308,22 +308,22 @@ func (ctx *context) handleInboundOOBInvitation(
 	msg.connRecord.MyDID = myDID.ID
 	msg.connRecord.ThreadID = thid
 
-	request := &Request{
-		Type:       RequestMsgType,
-		ID:         thid,
-		Label:      getLabel(options),
-		Connection: conn,
-		Thread: &decorator.Thread{
-			ID:  thid,
-			PID: msg.connRecord.ParentThreadID,
-		},
-	}
-
 	oobInvitation := OOBInvitation{}
 
 	err = msg.Decode(&oobInvitation)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode oob invitation : %w", err)
+	}
+
+	request := &Request{
+		Type:       RequestMsgType,
+		ID:         thid,
+		Label:      oobInvitation.MyLabel,
+		Connection: conn,
+		Thread: &decorator.Thread{
+			ID:  thid,
+			PID: msg.connRecord.ParentThreadID,
+		},
 	}
 
 	svc, err := ctx.getServiceBlock(&oobInvitation)
@@ -741,7 +741,7 @@ func (ctx *context) getVerKeyFromOOBInvitation(invitationID string) (string, err
 		return "", fmt.Errorf("failed to load oob invitation : %w", err)
 	}
 
-	if invitation.Type != OOBMsgType {
+	if invitation.Type != oobMsgType {
 		return "", errVerKeyNotFound
 	}
 

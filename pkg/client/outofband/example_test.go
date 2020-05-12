@@ -79,44 +79,6 @@ func ExampleClient_AcceptRequest() { //nolint:gocyclo,gocognit
 		panic(err)
 	}
 
-	bobDIDs, err := didexchange.New(bobCtx)
-	if err != nil {
-		panic(err)
-	}
-
-	// Once an agent accepts an out-of-band message, they SHOULD NOT have to approve
-	// the followup didexchange event. Use this workaround while we fix that:
-	bobEvents := makeActionsChannel(Bob)
-
-	err = bobDIDs.RegisterActionEvent(bobEvents)
-	if err != nil {
-		panic(err)
-	}
-
-	go func() {
-		for event := range bobEvents {
-			if event.Message.Type() != didsvc.OOBMsgType {
-				continue
-			}
-
-			inv := &didsvc.OOBInvitation{}
-
-			er := event.Message.Decode(inv)
-			if er != nil {
-				panic(er)
-			}
-
-			if inv.Label != Router {
-				panic(fmt.Errorf(
-					"%s expected an outofband invitation from %s but got %s",
-					Bob, Router, inv.Label,
-				))
-			}
-
-			event.Continue(&didexchangeOptions{label: Bob})
-		}
-	}()
-
 	// router creates the route-request message
 	routeRequest, err := json.Marshal(route.NewRequest())
 	if err != nil {
@@ -140,7 +102,7 @@ func ExampleClient_AcceptRequest() { //nolint:gocyclo,gocognit
 	fmt.Printf("%s creates an out-of-band request with an embedded route-request message\n", Router)
 
 	// the edge agent accepts the outofband request
-	bobConnID, err := bob.AcceptRequest(req)
+	bobConnID, err := bob.AcceptRequest(req, Bob)
 	if err != nil {
 		panic(err)
 	}
@@ -255,50 +217,10 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 	}
 
 	// set up the edge agent
-	bobCtx := getContext(Bob)
-
-	bob, err := New(bobCtx)
+	bob, err := New(getContext(Bob))
 	if err != nil {
 		panic(err)
 	}
-
-	bobDIDs, err := didexchange.New(bobCtx)
-	if err != nil {
-		panic(err)
-	}
-
-	// Once an agent accepts an out-of-band message, they SHOULD NOT have to approve
-	// the followup didexchange event. Use this workaround while we fix that:
-	bobEvents := makeActionsChannel(Bob)
-
-	err = bobDIDs.RegisterActionEvent(bobEvents)
-	if err != nil {
-		panic(err)
-	}
-
-	go func() {
-		for event := range bobEvents {
-			if event.Message.Type() != didsvc.OOBMsgType {
-				continue
-			}
-
-			inv := &didsvc.OOBInvitation{}
-
-			er := event.Message.Decode(inv)
-			if er != nil {
-				panic(er)
-			}
-
-			if inv.Label != Alice {
-				panic(fmt.Errorf(
-					"%s expected an outofband invitation from %s but got %s",
-					Bob, Alice, inv.Label,
-				))
-			}
-
-			event.Continue(&didexchangeOptions{label: Bob})
-		}
-	}()
 
 	// alice creates an outofband invitation
 	inv, err := alice.CreateInvitation(nil, WithLabel(Alice))
@@ -309,7 +231,7 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 	fmt.Printf("%s creates an out-of-band invitation\n", Alice)
 
 	// the edge agent accepts the outofband invitation
-	bobConnID, err := bob.AcceptInvitation(inv)
+	bobConnID, err := bob.AcceptInvitation(inv, Bob)
 	if err != nil {
 		panic(err)
 	}
@@ -377,15 +299,7 @@ func getContext(agent string) *mockprovider.Provider {
 		ServiceMap: map[string]interface{}{
 			outofband.Name: &stubOOBService{
 				Event: nil,
-				acceptReqFunc: func(r *outofband.Request) (string, error) {
-					agentActions[agent] <- service.DIDCommAction{
-						ProtocolName: didsvc.DIDExchange,
-						Message: service.NewDIDCommMsgMap(&didsvc.OOBInvitation{
-							Type:  didsvc.OOBMsgType,
-							Label: r.Label,
-						}),
-						Continue: func(interface{}) {},
-					}
+				acceptReqFunc: func(r *outofband.Request, myLabel string) (string, error) {
 					agentActions[r.Label] <- service.DIDCommAction{
 						ProtocolName: didsvc.DIDExchange,
 						Message: service.NewDIDCommMsgMap(&didsvc.Request{
@@ -404,15 +318,7 @@ func getContext(agent string) *mockprovider.Provider {
 
 					return "xyz", nil
 				},
-				acceptInvFunc: func(i *outofband.Invitation) (string, error) {
-					agentActions[agent] <- service.DIDCommAction{
-						ProtocolName: didsvc.DIDExchange,
-						Message: service.NewDIDCommMsgMap(&didsvc.OOBInvitation{
-							Type:  didsvc.OOBMsgType,
-							Label: i.Label,
-						}),
-						Continue: func(interface{}) {},
-					}
+				acceptInvFunc: func(i *outofband.Invitation, myLabel string) (string, error) {
 					agentActions[i.Label] <- service.DIDCommAction{
 						ProtocolName: didsvc.DIDExchange,
 						Message: service.NewDIDCommMsgMap(&didsvc.Request{
@@ -442,19 +348,6 @@ func makeActionsChannel(agent string) chan service.DIDCommAction {
 	agentActions[agent] = c
 
 	return c
-}
-
-type didexchangeOptions struct {
-	label  string
-	pubDID string
-}
-
-func (d *didexchangeOptions) Label() string {
-	return d.label
-}
-
-func (d *didexchangeOptions) PublicDID() string {
-	return d.pubDID
 }
 
 type didexchangeEvent struct {

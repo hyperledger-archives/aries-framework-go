@@ -21,8 +21,10 @@ type OOBInvitation struct {
 	// ID of the thread from which this invitation originated.
 	// This will become the parent thread ID of the didexchange protocol instance.
 	ThreadID string
-	// Label of the connection invitation.
-	Label string
+	// TheirLabel is the label on the other party's connection invitation.
+	TheirLabel string
+	// MyLabel is the label we will use during the did-exchange.
+	MyLabel string
 	// Target destination.
 	// This can be any on of:
 	// - a string with a valid DID

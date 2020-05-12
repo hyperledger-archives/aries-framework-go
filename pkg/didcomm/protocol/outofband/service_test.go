@@ -676,7 +676,10 @@ func TestDecodeInvitationAndRequest(t *testing.T) {
 		id := "did:example:myPublicDID123"
 		expected := newRequest()
 		expected.Service = []interface{}{id}
-		inv, req, err := decodeInvitationAndRequest(service.NewDIDCommMsgMap(expected))
+		inv, req, err := decodeInvitationAndRequest(&callback{
+			msg:     service.NewDIDCommMsgMap(expected),
+			options: &userOptions{},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, req)
 		require.Equal(t, expected, req)
@@ -684,7 +687,7 @@ func TestDecodeInvitationAndRequest(t *testing.T) {
 		require.NotEmpty(t, inv.ID)
 		require.NotEmpty(t, inv.ID)
 		require.Equal(t, req.ID, inv.ThreadID)
-		require.Equal(t, req.Label, inv.Label)
+		require.Equal(t, req.Label, inv.TheirLabel)
 		require.NotNil(t, inv.Target)
 		require.Equal(t, id, inv.Target)
 	})
@@ -698,24 +701,30 @@ func TestDecodeInvitationAndRequest(t *testing.T) {
 		}
 		req := newRequest()
 		req.Service = []interface{}{expected}
-		inv, req, err := decodeInvitationAndRequest(service.NewDIDCommMsgMap(req))
+		inv, req, err := decodeInvitationAndRequest(&callback{
+			msg:     service.NewDIDCommMsgMap(req),
+			options: &userOptions{},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, inv)
 		require.Equal(t, expected, inv.Target)
 		require.NotEmpty(t, inv.ID)
 		require.Equal(t, req.ID, inv.ThreadID)
-		require.Equal(t, req.Label, inv.Label)
+		require.Equal(t, req.Label, inv.TheirLabel)
 	})
 	t.Run("fails if request has no service targets", func(t *testing.T) {
 		req := newRequest()
 		req.Service = nil
-		_, _, err := decodeInvitationAndRequest(service.NewDIDCommMsgMap(req))
+		_, _, err := decodeInvitationAndRequest(&callback{
+			msg:     service.NewDIDCommMsgMap(req),
+			options: &userOptions{},
+		})
 		require.Error(t, err)
 	})
 	t.Run("wraps error thrown when decoding the message", func(t *testing.T) {
 		expected := errors.New("test")
 		msg := &testDIDCommMsg{errDecode: expected}
-		_, _, err := decodeInvitationAndRequest(msg)
+		_, _, err := decodeInvitationAndRequest(&callback{msg: msg})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -733,7 +742,7 @@ func TestAcceptRequest(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		result, err := s.AcceptRequest(newRequest())
+		result, err := s.AcceptRequest(newRequest(), "")
 		require.NoError(t, err)
 		require.Equal(t, expected, result)
 	})
@@ -748,7 +757,7 @@ func TestAcceptRequest(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		_, err := s.AcceptRequest(newRequest())
+		_, err := s.AcceptRequest(newRequest(), "")
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -766,7 +775,7 @@ func TestAcceptInvitation(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		result, err := s.AcceptInvitation(newInvitation())
+		result, err := s.AcceptInvitation(newInvitation(), "")
 		require.NoError(t, err)
 		require.Equal(t, expected, result)
 	})
@@ -781,7 +790,7 @@ func TestAcceptInvitation(t *testing.T) {
 			},
 		}
 		s := newAutoService(t, provider)
-		_, err := s.AcceptInvitation(newInvitation())
+		_, err := s.AcceptInvitation(newInvitation(), "")
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
 	})
@@ -805,7 +814,7 @@ func TestSaveRequest(t *testing.T) {
 				require.NotNil(t, i)
 				require.NotEmpty(t, i.ID)
 				require.Equal(t, expected.ID, i.ThreadID)
-				require.Equal(t, expected.Label, i.Label)
+				require.Equal(t, expected.Label, i.TheirLabel)
 				require.Equal(t, expected.Service[0], i.Target)
 				return nil
 			},
@@ -871,7 +880,7 @@ func TestSaveInvitation(t *testing.T) {
 				require.NotNil(t, i)
 				require.NotEmpty(t, i.ID)
 				require.Equal(t, expected.ID, i.ThreadID)
-				require.Equal(t, expected.Label, i.Label)
+				require.Equal(t, expected.Label, i.TheirLabel)
 				require.Equal(t, expected.Service[0], i.Target)
 				return nil
 			},
@@ -1016,6 +1025,7 @@ func newReqCallback() *callback {
 		myDID:    fmt.Sprintf("did:example:%s", uuid.New().String()),
 		theirDID: fmt.Sprintf("did:example:%s", uuid.New().String()),
 		msg:      service.NewDIDCommMsgMap(newRequest()),
+		options:  &userOptions{},
 	}
 }
 

@@ -257,7 +257,7 @@ func TestInvitedState_Execute(t *testing.T) {
 	t.Run("followup to 'requested' on inbound oobinvitations", func(t *testing.T) {
 		connRec, followup, action, err := (&invited{}).ExecuteInbound(
 			&stateMachineMsg{
-				DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{Type: OOBMsgType}),
+				DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{Type: oobMsgType}),
 				connRecord: &connection.Record{},
 			},
 			"",
@@ -312,10 +312,10 @@ func TestRequestedState_Execute(t *testing.T) {
 		ctx := getContext(t, &prov)
 		connRec, followup, action, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
 			DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{
-				ID:       uuid.New().String(),
-				Type:     OOBMsgType,
-				ThreadID: uuid.New().String(),
-				Label:    "test",
+				ID:         uuid.New().String(),
+				Type:       oobMsgType,
+				ThreadID:   uuid.New().String(),
+				TheirLabel: "test",
 				Target: &diddoc.Service{
 					ID:              uuid.New().String(),
 					Type:            "did-communication",
@@ -344,10 +344,11 @@ func TestRequestedState_Execute(t *testing.T) {
 				return nil
 			},
 		}
+		inv := newOOBInvite(newServiceBlock())
+		inv.MyLabel = expected
 		_, _, action, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
-			DIDCommMsg: service.NewDIDCommMsgMap(newOOBInvite(newServiceBlock())),
+			DIDCommMsg: service.NewDIDCommMsgMap(inv),
 			connRecord: &connection.Record{},
-			options:    &options{label: expected},
 		}, "", ctx)
 		require.NoError(t, err)
 		require.NotNil(t, action)
@@ -447,10 +448,10 @@ func TestRequestedState_Execute(t *testing.T) {
 		ctx.vdriRegistry = &mockvdri.MockVDRIRegistry{CreateValue: myDoc}
 		_, _, _, err := (&requested{}).ExecuteInbound(&stateMachineMsg{
 			DIDCommMsg: service.NewDIDCommMsgMap(&OOBInvitation{
-				ID:       uuid.New().String(),
-				Type:     OOBMsgType,
-				ThreadID: uuid.New().String(),
-				Label:    "test",
+				ID:         uuid.New().String(),
+				Type:       oobMsgType,
+				ThreadID:   uuid.New().String(),
+				TheirLabel: "test",
 				Target: &diddoc.Service{
 					ID:              uuid.New().String(),
 					Type:            "did-communication",
@@ -1553,11 +1554,11 @@ func newDidExchangeInvite(publicDID string, svc *diddoc.Service) *Invitation {
 
 func newOOBInvite(target interface{}) *OOBInvitation {
 	return &OOBInvitation{
-		ID:       uuid.New().String(),
-		Type:     OOBMsgType,
-		ThreadID: uuid.New().String(),
-		Label:    "test",
-		Target:   target,
+		ID:         uuid.New().String(),
+		Type:       oobMsgType,
+		ThreadID:   uuid.New().String(),
+		TheirLabel: "test",
+		Target:     target,
 	}
 }
 

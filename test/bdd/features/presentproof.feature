@@ -11,7 +11,7 @@ Feature: Present Proof protocol
   Scenario: The Verifier begins with a request presentation
     Given "Alice" exchange DIDs with "Bob"
     Then "Alice" sends a request presentation to the "Bob"
-    And "Bob" accepts a request and sends a presentation to the Verifier
+    And "Bob" accepts a request and sends a presentation to the "Alice"
     And "Alice" accepts a presentation
     Then "Bob" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,done,done"
     And "Alice" checks the history of events "request-sent,request-sent,presentation-received,presentation-received,done,done"
@@ -19,7 +19,7 @@ Feature: Present Proof protocol
   Scenario: The Verifier declines presentation
     Given "Thomas" exchange DIDs with "Paul"
     Then "Thomas" sends a request presentation to the "Paul"
-    And "Paul" accepts a request and sends a presentation to the Verifier
+    And "Paul" accepts a request and sends a presentation to the "Thomas"
     And "Thomas" declines presentation
     Then "Paul" checks the history of events "request-received,request-received,presentation-sent,presentation-sent,abandoning,abandoning,done,done"
     And "Thomas" checks the history of events "request-sent,request-sent,abandoning,abandoning,done,done"
@@ -35,7 +35,7 @@ Feature: Present Proof protocol
     Given "Carol" exchange DIDs with "Andrew"
     Then "Carol" sends a propose presentation to the "Andrew"
     And "Andrew" accepts a proposal and sends a request to the Prover
-    And "Carol" accepts a request and sends a presentation to the Verifier
+    And "Carol" accepts a request and sends a presentation to the "Andrew"
     And "Andrew" accepts a presentation
     Then "Carol" checks the history of events "proposal-sent,proposal-sent,request-received,request-received,presentation-sent,presentation-sent,done,done"
     And "Andrew" checks the history of events "proposal-received,proposal-received,request-sent,request-sent,presentation-received,presentation-received,done,done"
@@ -52,7 +52,7 @@ Feature: Present Proof protocol
     Then "William" sends a request presentation to the "Felix"
     Then "Felix" negotiates about the request presentation with a proposal
     And "William" accepts a proposal and sends a request to the Prover
-    And "Felix" accepts a request and sends a presentation to the Verifier
+    And "Felix" accepts a request and sends a presentation to the "William"
     And "William" accepts a presentation
     Then "Felix" checks the history of events "request-received,request-received,proposal-sent,proposal-sent,request-received,request-received,presentation-sent,presentation-sent,done,done"
     And "William" checks the history of events "request-sent,request-sent,proposal-received,proposal-received,request-sent,request-sent,presentation-received,presentation-received,done,done"
@@ -63,7 +63,7 @@ Feature: Present Proof protocol
     And "Jesse" accepts a proposal and sends a request to the Prover
     Then "Jason" negotiates about the request presentation with a proposal
     And "Jesse" accepts a proposal and sends a request to the Prover
-    And "Jason" accepts a request and sends a presentation to the Verifier
+    And "Jason" accepts a request and sends a presentation to the "Jesse"
     And "Jesse" accepts a presentation
     Then "Jason" checks the history of events "proposal-sent,proposal-sent,request-received,request-received,proposal-sent,proposal-sent,request-received,request-received,presentation-sent,presentation-sent,done,done"
     And "Jesse" checks the history of events "proposal-received,proposal-received,request-sent,request-sent,proposal-received,proposal-received,request-sent,request-sent,presentation-received,presentation-received,done,done"
