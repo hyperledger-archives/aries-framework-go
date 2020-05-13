@@ -28,6 +28,8 @@ func (s *ECDHESConcatKDFRecipientKW) unwrapKey(recWK *RecipientWrappedKey, keySi
 		return nil, fmt.Errorf("unwrapKey: RecipientWrappedKey is empty")
 	}
 
+	// TODO: add support for 25519 key wrapping https://github.com/hyperledger/aries-framework-go/issues/1637
+
 	recPrivKey := &ecdsa.PrivateKey{
 		PublicKey: ecdsa.PublicKey{
 			Curve: s.recipientPrivateKey.PublicKey.Curve,

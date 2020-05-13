@@ -42,14 +42,14 @@ type encPrimitiveFunc func(*keyset.Handle) (api.CompositeEncrypt, error)
 
 // JWEEncrypt is responsible for encrypting a plaintext and its AAD into a protected JWE and decrypting it
 type JWEEncrypt struct {
-	recipients   []subtle.ECPublicKey
+	recipients   []subtle.PublicKey
 	senderKH     *keyset.Handle
 	getPrimitive encPrimitiveFunc
 	encAlg       EncAlg
 }
 
 // NewJWEEncrypt creates a new JWEEncrypt instance to build JWE with recipientsPubKeys
-func NewJWEEncrypt(encAlg EncAlg, recipientsPubKeys []subtle.ECPublicKey) (*JWEEncrypt, error) {
+func NewJWEEncrypt(encAlg EncAlg, recipientsPubKeys []subtle.PublicKey) (*JWEEncrypt, error) {
 	if len(recipientsPubKeys) == 0 {
 		return nil, fmt.Errorf("empty recipientsPubKeys list")
 	}

@@ -11,6 +11,8 @@ import (
 	"fmt"
 
 	"github.com/google/tink/go/subtle/hybrid"
+
+	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
 // ECDHESAEADCompositeDecrypt is an instance of ECDH-ES decryption with Concat KDF
@@ -19,17 +21,19 @@ type ECDHESAEADCompositeDecrypt struct {
 	privateKey  *hybrid.ECPrivateKey
 	pointFormat string
 	encHelper   EncrypterHelper
+	keyType     ecdhespb.KeyType
 }
 
 // NewECDHESAEADCompositeDecrypt returns ECDH-ES composite decryption construct with Concat KDF/ECDH-ES key unwrapping
 // and AEAD payload decryption.
-func NewECDHESAEADCompositeDecrypt(pvt *hybrid.ECPrivateKey, ptFormat string,
-	encHelper EncrypterHelper) (*ECDHESAEADCompositeDecrypt, error) {
+func NewECDHESAEADCompositeDecrypt(pvt *hybrid.ECPrivateKey, ptFormat string, encHelper EncrypterHelper,
+	keyType ecdhespb.KeyType) *ECDHESAEADCompositeDecrypt {
 	return &ECDHESAEADCompositeDecrypt{
 		privateKey:  pvt,
 		pointFormat: ptFormat,
 		encHelper:   encHelper,
-	}, nil
+		keyType:     keyType,
+	}
 }
 
 // Decrypt using composite ECDH-ES with a Concat KDF key unwrap and AEAD content decryption
@@ -50,8 +54,13 @@ func (d *ECDHESAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, er
 	}
 
 	// TODO: add support for Chacha content encryption https://github.com/hyperledger/aries-framework-go/issues/1684
-	if encData.EncAlg != A256GCM {
-		return nil, fmt.Errorf("invalid content encryption algorihm '%s' for Decrypt()", encData.EncAlg)
+	switch d.keyType {
+	case ecdhespb.KeyType_EC:
+		if encData.EncAlg != A256GCM {
+			return nil, fmt.Errorf("invalid content encryption algorihm '%s' for Decrypt()", encData.EncAlg)
+		}
+	default:
+		return nil, fmt.Errorf("invalid key type '%s' for Decrypt()", d.keyType)
 	}
 
 	for _, rec := range encData.Recipients {

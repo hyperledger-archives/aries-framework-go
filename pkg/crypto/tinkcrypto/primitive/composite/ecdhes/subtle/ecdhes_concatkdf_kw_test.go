@@ -13,6 +13,8 @@ import (
 	"github.com/google/tink/go/subtle/hybrid"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
+
+	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
 func TestWrap(t *testing.T) {
@@ -23,7 +25,12 @@ func TestWrap(t *testing.T) {
 	recPvt, err := hybrid.GenerateECDHKeyPair(curve)
 	require.NoError(t, err)
 
-	recPubKey := &recPvt.PublicKey
+	recPubKey := &PublicKey{
+		Type:  ecdhespb.KeyType_EC.String(),
+		Curve: recPvt.PublicKey.Curve.Params().Name,
+		X:     recPvt.PublicKey.Point.X.Bytes(),
+		Y:     recPvt.PublicKey.Point.Y.Bytes(),
+	}
 
 	senderKW := &ECDHESConcatKDFSenderKW{
 		recipientPublicKey: recPubKey,

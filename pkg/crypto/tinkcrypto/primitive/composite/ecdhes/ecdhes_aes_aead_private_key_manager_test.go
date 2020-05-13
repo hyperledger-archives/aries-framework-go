@@ -29,14 +29,14 @@ func TestECDHESPrivateKeyManager_Primitive(t *testing.T) {
 
 	t.Run("Test private key manager Primitive() with empty serialized key", func(t *testing.T) {
 		p, err := km.Primitive([]byte(""))
-		require.EqualError(t, err, errInvalidECDHESPrivateKey.Error(),
+		require.EqualError(t, err, errInvalidECDHESAESPrivateKey.Error(),
 			"ECDHESPrivate primitive from empty serialized key must fail")
 		require.Empty(t, p)
 	})
 
 	t.Run("Test private key manager Primitive() with bad serialize key", func(t *testing.T) {
 		p, err := km.Primitive([]byte("bad.data"))
-		require.EqualError(t, err, errInvalidECDHESPrivateKey.Error(),
+		require.EqualError(t, err, errInvalidECDHESAESPrivateKey.Error(),
 			"ECDHESPrivate primitive from bad serialized key must fail")
 		require.Empty(t, p)
 	})
@@ -153,7 +153,7 @@ func TestECDHESPrivateKeyManager_Primitive(t *testing.T) {
 
 			p, err := km.Primitive(sPubKey)
 			if bytes.Equal(tt.encTmp.Value, badSerializedFormat) {
-				require.EqualError(t, err, errInvalidECDHESPrivateKey.Error(),
+				require.EqualError(t, err, errInvalidECDHESAESPrivateKey.Error(),
 					"ECDHESPrivate primitive from serialized key with invalid serialized key")
 				require.Empty(t, p)
 
@@ -175,7 +175,7 @@ func TestECDHESPrivateKeyManager_Primitive(t *testing.T) {
 func TestEcdhesPrivateKeyManager_DoesSupport(t *testing.T) {
 	km := newECDHESPrivateKeyManager()
 	require.False(t, km.DoesSupport("bad/url"))
-	require.True(t, km.DoesSupport(ecdhesPrivateKeyTypeURL))
+	require.True(t, km.DoesSupport(ecdhesAESPrivateKeyTypeURL))
 }
 
 func TestEcdhesPrivateKeyManager_NewKey(t *testing.T) {
@@ -183,13 +183,13 @@ func TestEcdhesPrivateKeyManager_NewKey(t *testing.T) {
 
 	t.Run("Test private key manager NewKey() with nil key", func(t *testing.T) {
 		k, err := km.NewKey(nil)
-		require.EqualError(t, err, errInvalidECDHESPrivateKeyFormat.Error())
+		require.EqualError(t, err, errInvalidECDHESAESPrivateKeyFormat.Error())
 		require.Empty(t, k)
 	})
 
 	t.Run("Test private key manager NewKey() with bad serialize key", func(t *testing.T) {
 		p, err := km.NewKey([]byte("bad.data"))
-		require.EqualError(t, err, errInvalidECDHESPrivateKeyFormat.Error(),
+		require.EqualError(t, err, errInvalidECDHESAESPrivateKeyFormat.Error(),
 			"ECDHESPrivate NewKey() from bad serialized key must fail")
 		require.Empty(t, p)
 	})
@@ -294,13 +294,13 @@ func TestEcdhesPrivateKeyManager_NewKey(t *testing.T) {
 			if strings.Contains(tt.tcName, "success") {
 				require.NoError(t, err)
 				require.NotEmpty(t, kd)
-				require.Equal(t, kd.TypeUrl, ecdhesPrivateKeyTypeURL)
+				require.Equal(t, kd.TypeUrl, ecdhesAESPrivateKeyTypeURL)
 				require.Equal(t, kd.KeyMaterialType, tinkpb.KeyData_ASYMMETRIC_PRIVATE)
 				return
 			}
 
 			if bytes.Equal(tt.encTmp.Value, badSerializedFormat) {
-				require.EqualError(t, err, errInvalidECDHESPrivateKeyFormat.Error(),
+				require.EqualError(t, err, errInvalidECDHESAESPrivateKeyFormat.Error(),
 					"ECDHESPrivate NewKey from serialized key with invalid serialized key")
 				require.Empty(t, p)
 

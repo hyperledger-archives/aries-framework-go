@@ -66,7 +66,7 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte) ([]byte, string, error) {
 		err      error
 	)
 
-	tURL = ecdhesPublicKeyTypeURL
+	tURL = ecdhesAESPublicKeyTypeURL
 
 	keyValue, err = getMarshalledECDHESKey(pubKey)
 	if err != nil {
@@ -77,13 +77,29 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte) ([]byte, string, error) {
 }
 
 func getMarshalledECDHESKey(pubKey []byte) ([]byte, error) {
-	ecPubKey := new(ecdhessubtle.ECPublicKey)
+	ecPubKey := new(ecdhessubtle.PublicKey)
 
 	err := json.Unmarshal(pubKey, ecPubKey)
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO: add support for Chacha content encryption https://github.com/hyperledger/aries-framework-go/issues/1684
+	switch ecPubKey.Type {
+	case "EC":
+		return getMarshalledECKey(ecPubKey)
+	default:
+		return nil, fmt.Errorf("unsupported key type '%s'", ecPubKey.Type)
+	}
+}
+
+func getMarshalledECKey(ecPubKey *ecdhessubtle.PublicKey) ([]byte, error) {
+	keyType, err := GetKeyType(ecPubKey.Type)
+	if err != nil {
+		return nil, fmt.Errorf("error on key type: %w", err)
+	}
+
+	// TODO distinguish between EC and OKP key types
 	switch ecPubKey.Curve {
 	case "secp256r1", "NIST_P256", "P-256", "EllipticCurveType_NIST_P256":
 	default:
@@ -111,6 +127,7 @@ func getMarshalledECDHESKey(pubKey []byte) ([]byte, error) {
 		},
 		KwParams: &ecdhespb.EcdhesKwParams{
 			CurveType: curveType,
+			KeyType:   keyType,
 		},
 		EcPointFormat: commonpb.EcPointFormat_UNCOMPRESSED,
 	}

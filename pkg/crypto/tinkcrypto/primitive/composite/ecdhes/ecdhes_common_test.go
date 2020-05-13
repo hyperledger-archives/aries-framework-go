@@ -11,6 +11,8 @@ import (
 
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	"github.com/stretchr/testify/require"
+
+	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
 func TestGetCurveType(t *testing.T) {
@@ -95,7 +97,7 @@ func TestGetCurveType(t *testing.T) {
 		{
 			tcName:       "test unsupported curve type",
 			curveName:    "bad.curve",
-			expectedType: 0,
+			expectedType: commonpb.EllipticCurveType_UNKNOWN_CURVE,
 			isError:      true,
 		},
 	}
@@ -114,6 +116,51 @@ func TestGetCurveType(t *testing.T) {
 
 			require.NoError(t, err)
 			require.EqualValues(t, c.String(), tt.expectedType.String())
+		})
+	}
+}
+
+func TestGetKeyType(t *testing.T) {
+	tcs := []struct {
+		tcName       string
+		keyType      string
+		expectedType ecdhespb.KeyType
+		isError      bool
+	}{
+		{
+			"test get EC KeyType",
+			"EC",
+			ecdhespb.KeyType_EC,
+			false,
+		},
+		{
+			"test get OKP KeyType",
+			"OKP",
+			ecdhespb.KeyType_OKP,
+			false,
+		},
+		{
+			"test get bad KeyType",
+			"bad",
+			ecdhespb.KeyType_UNKNOWN_KEY_TYPE,
+			true,
+		},
+	}
+
+	for _, tc := range tcs {
+		tt := tc
+
+		t.Run(tt.tcName, func(t *testing.T) {
+			kt, err := GetKeyType(tt.keyType)
+			if tt.isError {
+				require.Error(t, err)
+				require.Zero(t, kt)
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.EqualValues(t, kt.String(), tt.expectedType.String())
 		})
 	}
 }

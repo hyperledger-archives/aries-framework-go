@@ -9,7 +9,6 @@ package ecdhes
 import (
 	"crypto/elliptic"
 	"fmt"
-	"math/big"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/core/registry"
@@ -22,15 +21,15 @@ import (
 )
 
 const (
-	ecdhesPublicKeyVersion = 0
-	ecdhesPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhesAeadPublicKey"
+	ecdhesAESPublicKeyVersion = 0
+	ecdhesAESPublicKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhesAesAeadPublicKey"
 )
 
 // common errors
-var errInvalidECDHESPublicKey = fmt.Errorf("ecdhes_public_key_manager: invalid key")
+var errInvalidECDHESAESPublicKey = fmt.Errorf("ecdhes_aes_public_key_manager: invalid key")
 
 // ecdhesPublicKeyManager is an implementation of KeyManager interface.
-// It generates new ECDHESPublicKey keys and produces new instances of ECDHESAEADCompositeEncrypt subtle.
+// It generates new ECDHESPublicKey (AES) keys and produces new instances of ECDHESAEADCompositeEncrypt subtle.
 type ecdhesPublicKeyManager struct{}
 
 // Assert that ecdhesPublicKeyManager implements the KeyManager interface.
@@ -44,35 +43,34 @@ func newECDHESPublicKeyManager() *ecdhesPublicKeyManager {
 // Primitive creates an ECDHESPublicKey subtle for the given serialized ECDHESPublicKey proto.
 func (km *ecdhesPublicKeyManager) Primitive(serializedKey []byte) (interface{}, error) {
 	if len(serializedKey) == 0 {
-		return nil, errInvalidECDHESPublicKey
+		return nil, errInvalidECDHESAESPublicKey
 	}
 
 	ecdhesPubKey := new(ecdhespb.EcdhesAeadPublicKey)
 
 	err := proto.Unmarshal(serializedKey, ecdhesPubKey)
 	if err != nil {
-		return nil, errInvalidECDHESPublicKey
+		return nil, errInvalidECDHESAESPublicKey
 	}
 
 	_, err = km.validateKey(ecdhesPubKey)
 	if err != nil {
-		return nil, errInvalidECDHESPublicKey
+		return nil, errInvalidECDHESAESPublicKey
 	}
 
-	var recipientsKeys []*hybrid.ECPublicKey
+	var recipientsKeys []*subtle.PublicKey
 
 	for _, recKey := range ecdhesPubKey.Params.KwParams.Recipients {
-		recCurve, e := km.validateRecKey(recKey)
+		e := km.validateRecKey(recKey)
 		if e != nil {
-			return nil, errInvalidECDHESPublicKey
+			return nil, errInvalidECDHESAESPublicKey
 		}
 
-		pub := &hybrid.ECPublicKey{
-			Curve: recCurve,
-			Point: hybrid.ECPoint{
-				X: new(big.Int).SetBytes(recKey.X),
-				Y: new(big.Int).SetBytes(recKey.Y),
-			},
+		pub := &subtle.PublicKey{
+			Type:  recKey.KeyType.String(),
+			Curve: recKey.CurveType.String(),
+			X:     recKey.X,
+			Y:     recKey.Y,
 		}
 
 		recipientsKeys = append(recipientsKeys, pub)
@@ -85,17 +83,17 @@ func (km *ecdhesPublicKeyManager) Primitive(serializedKey []byte) (interface{}, 
 
 	ptFormat := ecdhesPubKey.Params.EcPointFormat.String()
 
-	return subtle.NewECDHESAEADCompositeEncrypt(recipientsKeys, ptFormat, rEnc)
+	return subtle.NewECDHESAEADCompositeEncrypt(recipientsKeys, ptFormat, rEnc, ecdhespb.KeyType_EC), nil
 }
 
 // DoesSupport indicates if this key manager supports the given key type.
 func (km *ecdhesPublicKeyManager) DoesSupport(typeURL string) bool {
-	return typeURL == ecdhesPublicKeyTypeURL
+	return typeURL == ecdhesAESPublicKeyTypeURL
 }
 
 // TypeURL returns the key type of keys managed by this key manager.
 func (km *ecdhesPublicKeyManager) TypeURL() string {
-	return ecdhesPublicKeyTypeURL
+	return ecdhesAESPublicKeyTypeURL
 }
 
 // NewKey is not implemented for public key manager.
@@ -110,7 +108,7 @@ func (km *ecdhesPublicKeyManager) NewKeyData(serializedKeyFormat []byte) (*tinkp
 
 // validateKey validates the given ECDHESPublicKey.
 func (km *ecdhesPublicKeyManager) validateKey(key *ecdhespb.EcdhesAeadPublicKey) (elliptic.Curve, error) {
-	err := keyset.ValidateKeyVersion(key.Version, ecdhesPublicKeyVersion)
+	err := keyset.ValidateKeyVersion(key.Version, ecdhesAESPublicKeyVersion)
 	if err != nil {
 		return nil, fmt.Errorf("ecdhes_publie_key_manager: invalid key: %s", err)
 	}
@@ -119,16 +117,21 @@ func (km *ecdhesPublicKeyManager) validateKey(key *ecdhespb.EcdhesAeadPublicKey)
 }
 
 // validateRecKey validates the given recipient's ECDHESPublicKey.
-func (km *ecdhesPublicKeyManager) validateRecKey(key *ecdhespb.EcdhesAeadRecipientPublicKey) (elliptic.Curve, error) {
-	err := keyset.ValidateKeyVersion(key.Version, ecdhesPublicKeyVersion)
+func (km *ecdhesPublicKeyManager) validateRecKey(key *ecdhespb.EcdhesAeadRecipientPublicKey) error {
+	err := keyset.ValidateKeyVersion(key.Version, ecdhesAESPublicKeyVersion)
 	if err != nil {
-		return nil, fmt.Errorf("ecdhes_public_key_manager: invalid key: %s", err)
+		return fmt.Errorf("ecdhes_public_key_manager: invalid key: %s", err)
 	}
 
-	c, err := hybrid.GetCurve(key.CurveType.String())
+	_, err = GetKeyType(key.KeyType.String())
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return c, nil
+	_, err = hybrid.GetCurve(key.CurveType.String())
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
