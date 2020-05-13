@@ -33,9 +33,7 @@ import (
 )
 
 const (
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/837 - If inbound not present, the endpoint
-	//  should be of routing agent
-	defaultEndpoint     = "routing:endpoint"
+	defaultEndpoint     = "didcomm:transport/queue"
 	defaultMasterKeyURI = "local-lock://default/master/key/"
 )
 
