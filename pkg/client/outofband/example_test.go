@@ -180,7 +180,7 @@ func ExampleClient_AcceptRequest() { //nolint:gocyclo,gocognit
 	// Bob accepts the out-of-band request received via an out of band channel and created connectionID xyz
 	// Router received https://didcomm.org/didexchange/1.0/request from Bob
 	// Router created connectionID xyz
-	// Router received https://didcomm.org/routecoordination/1.0/route-request from Bob
+	// Router received https://didcomm.org/coordinatemediation/1.0/mediate-request from Bob
 	// Bob has registered a route on Router with routerEndpoint http://routers-r-us.com and routingKeys [key-1 key-2]
 }
 

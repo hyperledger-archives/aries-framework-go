@@ -15,5 +15,5 @@ import (
 func TestNewRequest(t *testing.T) {
 	result := NewRequest()
 	require.NotEmpty(t, result.ID)
-	require.Equal(t, "https://didcomm.org/routecoordination/1.0/route-request", result.Type)
+	require.Equal(t, "https://didcomm.org/coordinatemediation/1.0/mediate-request", result.Type)
 }

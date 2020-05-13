@@ -31,16 +31,16 @@ var logger = log.New("aries-framework/route/service")
 // constants for route coordination spec types
 const (
 	// Coordination route coordination protocol
-	Coordination = "routecoordination"
+	Coordination = "coordinatemediation"
 
 	// RouteCoordinationSpec defines the route coordination spec
-	CoordinationSpec = "https://didcomm.org/routecoordination/1.0/"
+	CoordinationSpec = "https://didcomm.org/coordinatemediation/1.0/"
 
 	// RouteRequestMsgType defines the route coordination request message type.
-	RequestMsgType = CoordinationSpec + "route-request"
+	RequestMsgType = CoordinationSpec + "mediate-request"
 
 	// RouteGrantMsgType defines the route coordination request grant message type.
-	GrantMsgType = CoordinationSpec + "route-grant"
+	GrantMsgType = CoordinationSpec + "mediate-grant"
 
 	// KeyListUpdateMsgType defines the route coordination key list update message type.
 	KeylistUpdateMsgType = CoordinationSpec + "keylist_update"
