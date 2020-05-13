@@ -36,6 +36,7 @@ const (
 
 	httpTransportProvider      = "http"
 	webSocketTransportProvider = "websocket"
+	sideTreeURL                = "${SIDETREE_URL}"
 )
 
 var logger = log.New("aries-framework/tests")
@@ -72,7 +73,12 @@ func (a *SDKSteps) createAgentWithRegistrarAndHTTPDIDResolver(agentID, inboundHo
 	msgRegistrar := msghandler.NewRegistrar()
 	a.bddContext.MessageRegistrar[agentID] = msgRegistrar
 
-	httpVDRI, err := httpbinding.New(a.bddContext.Args[endpointURL],
+	url := a.bddContext.Args[endpointURL]
+	if endpointURL == sideTreeURL {
+		url += "identifiers"
+	}
+
+	httpVDRI, err := httpbinding.New(url,
 		httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
 	if err != nil {
 		return fmt.Errorf("failed from httpbinding new ")
@@ -90,7 +96,12 @@ func (a *SDKSteps) CreateAgentWithHTTPDIDResolver(
 	var opts []aries.Option
 
 	for _, agentID := range strings.Split(agents, ",") {
-		httpVDRI, err := httpbinding.New(a.bddContext.Args[endpointURL],
+		url := a.bddContext.Args[endpointURL]
+		if endpointURL == sideTreeURL {
+			url += "identifiers"
+		}
+
+		httpVDRI, err := httpbinding.New(url,
 			httpbinding.WithAccept(func(method string) bool { return method == acceptDidMethod }))
 		if err != nil {
 			return fmt.Errorf("failed from httpbinding new ")

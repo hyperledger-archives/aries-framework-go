@@ -586,16 +586,6 @@ const Aries = function (opts) {
             pkgname: "vdri",
 
             /**
-             * Creates a new Public DID.
-             *
-             * @param req - json document
-             * @returns {Promise<Object>}
-             */
-            createPublicDID: async function (req) {
-                return invoke(aw, pending, this.pkgname, "CreatePublicDID", req, "timeout while creating public DID")
-            },
-
-            /**
              * Saves a did document.
              *
              * @param req - json document
@@ -801,6 +791,23 @@ const Aries = function (opts) {
              */
             importKey: async function (req) {
                 return invoke(aw, pending, this.pkgname, "ImportKey", req, "timeout while importing key")
+            },
+        },
+
+        /**
+         * Key Management Service - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
+        legacykms: {
+            pkgname: "legacykms",
+
+            /**
+             * Create key set.
+             *
+             * @returns {Promise<Object>}
+             */
+            createKeySet: async function () {
+                return invoke(aw, pending, this.pkgname, "CreateKeySet", {}, "timeout while creating key set")
             },
         }
     }

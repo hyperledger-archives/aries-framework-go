@@ -4,6 +4,7 @@
 
 GO_CMD ?= go
 ARIES_AGENT_REST_PATH=cmd/aries-agent-rest
+SIDETREE_CLI_PATH=test/bdd/cmd/sidetree
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
 OPENAPI_SPEC_PATH=build/rest/openapi/spec
 OPENAPI_DOCKER_IMG_VERSION=v0.23.0
@@ -48,7 +49,7 @@ unit-test-wasm: depend
 	@scripts/check_unit_wasm.sh
 
 .PHONY: bdd-test
-bdd-test: clean generate-test-keys agent-rest-docker sample-webhook-docker bdd-test-js bdd-test-go
+bdd-test: clean generate-test-keys agent-rest-docker sample-webhook-docker sidetree-cli bdd-test-js bdd-test-go
 
 .PHONY: bdd-test-go
 bdd-test-go:
@@ -98,6 +99,13 @@ agent-rest:
 	@echo "Building aries-agent-rest"
 	@mkdir -p ./build/bin
 	@cd ${ARIES_AGENT_REST_PATH} && go build -o ../../build/bin/aries-agent-rest main.go
+
+
+.PHONY: sidetree-cli
+sidetree-cli:
+	@echo "Building sidetree-cli"
+	@mkdir -p ./build/bin
+	@cd ${SIDETREE_CLI_PATH} && go build -o ../../../../build/bin/sidetree main.go
 
 .PHONY: agent-rest-docker
 agent-rest-docker:

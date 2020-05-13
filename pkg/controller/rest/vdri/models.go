@@ -10,31 +10,8 @@ import (
 	"encoding/json"
 
 	vdricommand "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	didstore "github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
-
-// createPublicDIDRequest model
-//
-// This is used for operation to create public DID
-//
-// swagger:parameters createPublicDID
-type createPublicDIDRequest struct { // nolint: unused,deadcode
-	// Params for creating public DID
-	//
-	// in: path
-	vdricommand.CreatePublicDIDArgs
-}
-
-// createPublicDIDResponse model
-//
-// This is used for returning public DID created
-//
-// swagger:response createPublicDIDResponse
-type createPublicDIDResponse struct {
-	// in: body
-	DID did.Doc `json:"did"`
-}
 
 // saveDIDReq model
 //

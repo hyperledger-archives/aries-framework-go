@@ -58,7 +58,7 @@ func TestNew(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
-		require.Equal(t, 5, len(cmd.GetRESTHandlers()))
+		require.Equal(t, 4, len(cmd.GetRESTHandlers()))
 	})
 
 	t.Run("test new command - error", func(t *testing.T) {
@@ -80,58 +80,6 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 
 	handlers := svc.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
-}
-
-func TestOperation_CreatePublicDID(t *testing.T) {
-	t.Run("Successful Create public DID", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
-		require.NoError(t, err)
-		require.NotNil(t, svc)
-
-		handler := lookupHandler(t, svc, createPublicDIDPath, http.MethodPost)
-		buf, err := getSuccessResponseFromHandler(handler, nil, handler.Path()+"?method=sidetree")
-		require.NoError(t, err)
-
-		response := createPublicDIDResponse{}
-		err = json.Unmarshal(buf.Bytes(), &response)
-		require.NoError(t, err)
-
-		// verify response
-		require.NotEmpty(t, response)
-		require.NotEmpty(t, response.DID)
-		require.NotEmpty(t, response.DID.ID)
-		require.NotEmpty(t, response.DID.PublicKey)
-		require.NotEmpty(t, response.DID.Service)
-	})
-
-	t.Run("Failed Create public DID", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{})
-		require.NoError(t, err)
-		require.NotNil(t, svc)
-
-		handler := lookupHandler(t, svc, createPublicDIDPath, http.MethodPost)
-		buf, code, err := sendRequestToHandler(handler, nil, handler.Path())
-		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, code)
-		verifyError(t, vdri.InvalidRequestErrorCode, "", buf.Bytes())
-
-		handler = lookupHandler(t, svc, createPublicDIDPath, http.MethodPost)
-		buf, code, err = sendRequestToHandler(handler, nil, handler.Path()+"?-----")
-		require.NoError(t, err)
-		require.Equal(t, http.StatusBadRequest, code)
-		verifyError(t, vdri.InvalidRequestErrorCode, "", buf.Bytes())
-	})
-
-	t.Run("Failed Create public DID, VDRI error", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{CustomVDRI: &mockvdri.MockVDRIRegistry{CreateErr: fmt.Errorf("just-fail-it")}})
-		require.NoError(t, err)
-		require.NotNil(t, svc)
-		handler := lookupHandler(t, svc, createPublicDIDPath, http.MethodPost)
-		buf, code, err := sendRequestToHandler(handler, nil, handler.Path()+"?method=valid")
-		require.NoError(t, err)
-		require.Equal(t, http.StatusInternalServerError, code)
-		verifyError(t, vdri.CreatePublicDIDError, "", buf.Bytes())
-	})
 }
 
 func TestSaveDID(t *testing.T) {

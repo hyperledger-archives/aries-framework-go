@@ -35,7 +35,6 @@ import (
 
 const (
 	SideTreeURL = "${SIDETREE_URL}"
-	DIDDocPath  = "${DID_DOC_PATH}"
 )
 
 var composition []*dockerutil.Composition
@@ -162,8 +161,7 @@ func FeatureContext(s *godog.Suite) {
 	s.BeforeScenario(func(interface{}) {
 		bddContext = bddctx.NewBDDContext()
 		// set dynamic args
-		bddContext.Args[SideTreeURL] = "http://localhost:48326/document"
-		bddContext.Args[DIDDocPath] = "fixtures/sidetree-mock/config/didDocument.json"
+		bddContext.Args[SideTreeURL] = "http://localhost:48326/sidetree/0.0.1/"
 
 		for _, f := range features {
 			f.SetContext(bddContext)

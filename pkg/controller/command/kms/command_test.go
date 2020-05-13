@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 )
 
 func TestNew(t *testing.T) {
@@ -36,7 +37,7 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 2, len(handlers))
+		require.Equal(t, 3, len(handlers))
 	})
 
 	t.Run("test new command - error from export public key", func(t *testing.T) {
@@ -59,6 +60,40 @@ func TestNew(t *testing.T) {
 		_, _, err := cmd.importKey("", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "kms is not LocalKMS type")
+	})
+}
+
+func TestCreateKeySetLegacyKMS(t *testing.T) {
+	t.Run("test create key set - success", func(t *testing.T) {
+		cmd := New(&mockprovider.Provider{
+			LegacyKMSValue: &mocklegacykms.CloseableKMS{CreateEncryptionKeyValue: "encryptionKey",
+				CreateSigningKeyValue: "signingKey"},
+		})
+		require.NotNil(t, cmd)
+
+		var getRW bytes.Buffer
+		cmdErr := cmd.CreateKeySetLegacyKMS(&getRW, nil)
+		require.NoError(t, cmdErr)
+
+		response := CreateKeySetResponse{}
+		err := json.NewDecoder(&getRW).Decode(&response)
+		require.NoError(t, err)
+
+		// verify response
+		require.Empty(t, response.KeyID)
+		require.Equal(t, "signingKey", response.PublicKey)
+	})
+
+	t.Run("test create key set - error", func(t *testing.T) {
+		cmd := New(&mockprovider.Provider{
+			LegacyKMSValue: &mocklegacykms.CloseableKMS{CreateKeyErr: fmt.Errorf("error create key set")},
+		})
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		err := cmd.CreateKeySetLegacyKMS(&b, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error create key set")
 	})
 }
 

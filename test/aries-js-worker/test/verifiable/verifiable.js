@@ -16,7 +16,8 @@ const vcID = "http://faber.edu/credentials/1989"
 const vc = `
 { 
    "@context":[ 
-      "https://www.w3.org/2018/credentials/v1"
+       "https://www.w3.org/2018/credentials/v1", 
+       "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
    ],
    "id":"http://faber.edu/credentials/1989",
    "type":"VerifiableCredential",
@@ -36,6 +37,8 @@ const vc = `
 
 const restMode = 'rest'
 const wasmMode = 'wasm'
+const didID = `${environment.DID_ID}`
+
 
 
 describe("Verifiable Store Test", function () {
@@ -94,7 +97,7 @@ async function verifiableStore(newAries, mode = wasmMode) {
                     assert.equal(vcID, id)
 
                     aries.verifiable.getCredential({
-                        "id": getCredentialID(mode, id)
+                        "id": getID(mode, id)
                     }).then(
                         resp => done(),
                         err => done(err)
@@ -136,26 +139,31 @@ async function verifiableStore(newAries, mode = wasmMode) {
         )
     })
 
-    it(modePrefix + "create public DID using VDRI in WASM and REST Client mode", function (done) {
-        aries.vdri.createPublicDID({
-            method: "sidetree",
-            header: '{"alg":"","kid":"","operation":"create"}'
-        }).then(
-            resp => {
-                did = resp.did
-                done()
-            },
-            err => done(err)
-        )
-    })
-
     it(modePrefix + "Alice makes sure that the DID is resolvable", async function () {
+        let resp;
         for (let i = 0; i < retries; i++) {
             try {
-                return await aries.vdri.resolveDID({id:getID(mode, did.id)})
-            }catch (e) {}
+                resp = await aries.vdri.resolveDID({id:getID(mode, didID)})
+            }catch (e) {
+                assert.fail(e.message);
+                if (!e.message.includes("DID does not exist")) {
+                    assert.fail(e.message);
+                }
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+        did=resp.did
 
-            await new Promise(r => setTimeout(r, 1000));
+        try {
+            await aries.kms.importKey({
+                kty: "OKP",
+                d:"nmsQIprcP0RTwKrGE4FaT4l9UbIM1bxu03vwbZpbKOw",
+                crv:"Ed25519",
+                kid:"key1",
+                x:"axETCKcguKigxZiJIPtgotDbVe72AIXRTbF2MRpZIk0"
+            })
+        }catch (e) {
+            assert.fail(e.message);
         }
     })
 
@@ -171,32 +179,11 @@ async function verifiableStore(newAries, mode = wasmMode) {
         )
     })
 
-    // TODO enable this test after updating sidetree-mock
-    // it(modePrefix + "Alice generates the signed verifiable presentation from the previously saved verifiable credential", async function () {
-    //     await aries.verifiable.generatePresentationByID({
-    //         "id": getCredentialID(mode, vcID),
-    //         "did": did.id,
-    //         "privateKey" :"WejGrq3SkHF1YpsdXSCg46FK8vuTDxroA9wh2q1398MUqrpKrFts54j8rLqGfT5Tu8cmG6PVUXUoFWManr4uVEpVFd8ZywoHPV8nBRQTxQXjucdd22nji7ijKG18kuptpArQBrAAo2GLmv8yFtSagkvFrYQ4A8Ti4aafw",
-    //         "keyType" : "P256",
-    //         "signatureType":"JsonWebSignature2020"
-    //     }).then(
-    //         resp => {
-    //             try {
-    //                 assert.isTrue(JSON.stringify(resp.verifiablePresentation).type.includes("VerifiablePresentation"))
-    //             } catch (err) {
-    //                 assert.fail(err);
-    //             }
-    //         },err => assert.fail(err)
-    //     )
-    // })
 
-    // TODO below test to be enabled once creating sidetree DID with authentication method is available in aries vdri [Issue #1747]
-    xit(modePrefix + "Alice generates the signed  verifiable presentation to pass it to the employer", async function () {
+    it(modePrefix + "Alice generates the signed  verifiable presentation to pass it to the employer", async function () {
         await aries.verifiable.generatePresentation({
             "verifiableCredential": [JSON.parse(vc)],
             "did": did.id,
-            "privateKey": "WejGrq3SkHF1YpsdXSCg46FK8vuTDxroA9wh2q1398MUqrpKrFts54j8rLqGfT5Tu8cmG6PVUXUoFWManr4uVEpVFd8ZywoHPV8nBRQTxQXjucdd22nji7ijKG18kuptpArQBrAAo2GLmv8yFtSagkvFrYQ4A8Ti4aafw",
-            "keyType": "P256",
             "signatureType": "JsonWebSignature2020"
         }).then(
             resp => {
@@ -210,9 +197,8 @@ async function verifiableStore(newAries, mode = wasmMode) {
     });
 }
 
-// TODO https://github.com/hyperledger/aries-framework-go/issues/1411 rest api expects base64
-function getCredentialID(mode, id) {
-    if (mode == restMode) {
+function getID(mode, id) {
+    if (mode === restMode) {
         return window.btoa(id)
     }
 

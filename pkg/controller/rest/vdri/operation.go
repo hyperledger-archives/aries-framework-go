@@ -9,10 +9,8 @@ package vdri
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/gorilla/mux"
 
@@ -24,13 +22,12 @@ import (
 )
 
 const (
-	vdriOperationID     = "/vdri"
-	createPublicDIDPath = vdriOperationID + "/create-public-did"
-	vdriDIDPath         = vdriOperationID + "/did"
-	saveDIDPath         = vdriDIDPath
-	getDIDPath          = vdriDIDPath + "/{id}"
-	resolveDIDPath      = vdriDIDPath + "/resolve/{id}"
-	getDIDRecordsPath   = vdriDIDPath + "/records"
+	vdriOperationID   = "/vdri"
+	vdriDIDPath       = vdriOperationID + "/did"
+	saveDIDPath       = vdriDIDPath
+	getDIDPath        = vdriDIDPath + "/{id}"
+	resolveDIDPath    = vdriDIDPath + "/resolve/{id}"
+	getDIDRecordsPath = vdriDIDPath + "/records"
 )
 
 // provider contains dependencies for the common controller operations
@@ -68,29 +65,11 @@ func (o *Operation) GetRESTHandlers() []rest.Handler {
 func (o *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
 	o.handlers = []rest.Handler{
-		cmdutil.NewHTTPHandler(createPublicDIDPath, http.MethodPost, o.CreatePublicDID),
 		cmdutil.NewHTTPHandler(saveDIDPath, http.MethodPost, o.SaveDID),
 		cmdutil.NewHTTPHandler(getDIDPath, http.MethodGet, o.GetDID),
 		cmdutil.NewHTTPHandler(resolveDIDPath, http.MethodGet, o.ResolveDID),
 		cmdutil.NewHTTPHandler(getDIDRecordsPath, http.MethodGet, o.GetDIDRecords),
 	}
-}
-
-// CreatePublicDID swagger:route POST /vdri/create-public-did vdri createPublicDID
-//
-// Creates a new Public DID.
-//
-// Responses:
-//    default: genericError
-//        200: createPublicDIDResponse
-func (o *Operation) CreatePublicDID(rw http.ResponseWriter, req *http.Request) {
-	reqBytes, err := queryValuesAsJSON(req.URL.Query())
-	if err != nil {
-		rest.SendHTTPStatusError(rw, http.StatusBadRequest, vdri.InvalidRequestErrorCode, err)
-		return
-	}
-
-	rest.Execute(o.command.CreatePublicDID, rw, bytes.NewReader(reqBytes))
 }
 
 // SaveDID swagger:route POST /vdri/did vdri saveDIDReq
@@ -154,19 +133,4 @@ func (o *Operation) ResolveDID(rw http.ResponseWriter, req *http.Request) {
 //        200: didRecordResult
 func (o *Operation) GetDIDRecords(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.GetDIDRecords, rw, req.Body)
-}
-
-// queryValuesAsJSON converts query strings to `map[string]string`
-// and marshals them to JSON bytes
-func queryValuesAsJSON(vals url.Values) ([]byte, error) {
-	// normalize all query string key/values
-	args := make(map[string]string)
-
-	for k, v := range vals {
-		if len(v) > 0 {
-			args[k] = v[0]
-		}
-	}
-
-	return json.Marshal(args)
 }

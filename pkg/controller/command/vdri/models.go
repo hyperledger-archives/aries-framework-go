@@ -12,20 +12,6 @@ import (
 	storeDID "github.com/hyperledger/aries-framework-go/pkg/store/did"
 )
 
-// CreatePublicDIDArgs contains parameters for creating new public DID
-type CreatePublicDIDArgs struct {
-	// Params for creating public DID
-	Method string `json:"method"`
-
-	// RequestHeader to be included while submitting request to http binding URL
-	RequestHeader string `json:"header"`
-}
-
-// CreatePublicDIDResponse for returning public DID created
-type CreatePublicDIDResponse struct {
-	DID json.RawMessage `json:"did"`
-}
-
 // Document is model for did document.
 type Document struct {
 	DID json.RawMessage `json:"did,omitempty"`
