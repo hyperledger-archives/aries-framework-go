@@ -631,11 +631,8 @@ func (s *Service) AddKey(recKey string) error {
 // Config fetches the router config - endpoint and routingKeys.
 func (s *Service) Config() (*Config, error) {
 	// check if router is already registered
-	_, err := s.getRouterConnectionID()
-	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
-		return nil, fmt.Errorf("fetch router connection id : %w", err)
-	} else if errors.Is(err, storage.ErrDataNotFound) {
-		return nil, ErrRouterNotRegistered
+	if _, err := s.GetConnection(); err != nil {
+		return nil, err
 	}
 
 	return s.getRouterConfig()
