@@ -32,7 +32,7 @@ Aries Framework Go documentation can be viewed at [GoDoc](https://pkg.go.dev/git
 
 The packages intended for end developer usage are within the [pkg/client](https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/client) folder along with the main agent package ([pkg/framework/aries](https://pkg.go.dev/github.com/hyperledger/aries-framework-go/pkg/framework/aries)).
 
-The project can also be used as a [DIDComm Router/Mediator](docs/didcomm_router.md).
+The project can also be used as a [DIDComm Router/Mediator](docs/didcomm_mediator.md).
 
 ## Controller Bindings
 - [Go](docs/go/README.md)

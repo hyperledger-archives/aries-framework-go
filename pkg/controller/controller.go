@@ -13,18 +13,18 @@ import (
 	didexchangecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
+	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
 	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
-	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
 	vdricmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	didexchangerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
 	issuecredentialrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	kmsrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
 	presentproofrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/route"
 	vdrirest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 	verifiablerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
@@ -112,7 +112,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	}
 
 	// route REST operation
-	routeOp, err := route.New(ctx, restAPIOpts.autoAccept)
+	routeOp, err := mediator.New(ctx, restAPIOpts.autoAccept)
 	if err != nil {
 		return nil, err
 	}

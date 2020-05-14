@@ -15,14 +15,14 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/client/route"
+	"github.com/hyperledger/aries-framework-go/pkg/client/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	routesvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
-	routesvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
@@ -54,7 +54,7 @@ func ExampleClient_AcceptRequest() { //nolint:gocyclo,gocognit
 		panic(err)
 	}
 
-	routerClient, err := route.New(routerCtx)
+	routerClient, err := mediator.New(routerCtx)
 	if err != nil {
 		panic(err)
 	}
@@ -80,7 +80,7 @@ func ExampleClient_AcceptRequest() { //nolint:gocyclo,gocognit
 	}
 
 	// router creates the route-request message
-	routeRequest, err := json.Marshal(route.NewRequest())
+	routeRequest, err := json.Marshal(mediator.NewRequest())
 	if err != nil {
 		panic(err)
 	}
@@ -146,8 +146,8 @@ func ExampleClient_AcceptRequest() { //nolint:gocyclo,gocognit
 
 					event.Continue(nil)
 				}
-			case route.ProtocolName:
-				if event.Message.Type() == route.RequestMsgType {
+			case mediator.ProtocolName:
+				if event.Message.Type() == mediator.RequestMsgType {
 					event.Continue(nil)
 					done <- struct{}{}
 				}
@@ -161,7 +161,7 @@ func ExampleClient_AcceptRequest() { //nolint:gocyclo,gocognit
 		panic("timeout")
 	}
 
-	bobRoutes, err := route.New(bobCtx)
+	bobRoutes, err := mediator.New(bobCtx)
 	if err != nil {
 		panic(err)
 	}
@@ -199,7 +199,7 @@ func ExampleClient_AcceptInvitation() { //nolint:gocyclo,gocognit
 		panic(err)
 	}
 
-	aliceRouting, err := route.New(aliceCtx)
+	aliceRouting, err := mediator.New(aliceCtx)
 	if err != nil {
 		panic(err)
 	}
@@ -308,8 +308,8 @@ func getContext(agent string) *mockprovider.Provider {
 						}),
 						Continue: func(interface{}) {
 							agentActions[r.Label] <- service.DIDCommAction{
-								ProtocolName: route.ProtocolName,
-								Message:      service.NewDIDCommMsgMap(route.NewRequest()),
+								ProtocolName: mediator.ProtocolName,
+								Message:      service.NewDIDCommMsgMap(mediator.NewRequest()),
 								Continue:     func(interface{}) {},
 							}
 						},
@@ -335,7 +335,7 @@ func getContext(agent string) *mockprovider.Provider {
 				saveInvFunc: func(*outofband.Invitation) error { return nil },
 			},
 			didsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
-			routesvc.Coordination: &mockroute.MockRouteSvc{
+			routesvc.Coordination: &mockroute.MockMediatorSvc{
 				RouterEndpoint: "http://routers-r-us.com",
 				RoutingKeys:    []string{"key-1", "key-2"},
 			},

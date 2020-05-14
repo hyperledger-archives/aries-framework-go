@@ -27,9 +27,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -41,8 +41,8 @@ func TestOperation_GetAPIHandlers(t *testing.T) {
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          mockstore.NewMockStoreProvider(),
 		ServiceMap: map[string]interface{}{
-			didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
-			route.Coordination:   &mockroute.MockRouteSvc{},
+			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		}},
 		webnotifier.NewHTTPNotifier(nil), "", false)
 	require.NoError(t, err)
@@ -380,8 +380,8 @@ func TestEmptyID(t *testing.T) {
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          mockstore.NewMockStoreProvider(),
 		ServiceMap: map[string]interface{}{
-			didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
-			route.Coordination:   &mockroute.MockRouteSvc{},
+			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
 		LegacyKMSValue:       &mockkms.CloseableKMS{},
 		ServiceEndpointValue: "endppint",
@@ -474,7 +474,7 @@ func getHandlerWithError(t *testing.T, lookup string, f *fails) rest.Handler {
 				AcceptError:           f.acceptErr,
 				ImplicitInvitationErr: f.implicitErr,
 			},
-			route.Coordination: &mockroute.MockRouteSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
 		LegacyKMSValue:                &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 		ServiceEndpointValue:          "endpoint",

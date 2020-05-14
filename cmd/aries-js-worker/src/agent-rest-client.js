@@ -99,17 +99,17 @@ const pkgs = {
             method: "POST"
         },
     },
-    route: {
+    mediator: {
         Register: {
-            path: "/route/register",
+            path: "/mediator/register",
             method: "POST"
         },
         Unregister: {
-            path: "/route/unregister",
+            path: "/mediator/unregister",
             method: "DELETE"
         },
         GetConnection: {
-            path: "/route/connection",
+            path: "/mediator/connection",
             method: "GET"
         },
     },

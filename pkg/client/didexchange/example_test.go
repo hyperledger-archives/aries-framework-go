@@ -11,9 +11,9 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -128,7 +128,7 @@ func mockContext() provider {
 		TransientStoreProvider: transientStoreProvider,
 		StoreProvider:          storeProvider,
 		ServiceMap: map[string]interface{}{
-			route.Coordination: &mockroute.MockRouteSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
 	}
 
@@ -143,7 +143,7 @@ func mockContext() provider {
 		StorageProviderValue:          storeProvider,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: svc,
-			route.Coordination:      &mockroute.MockRouteSvc{},
+			mediator.Coordination:   &mockroute.MockMediatorSvc{},
 		},
 	}
 

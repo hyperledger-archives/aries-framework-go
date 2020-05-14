@@ -19,18 +19,18 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/introduce"
+	routeClient "github.com/hyperledger/aries-framework-go/pkg/client/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
-	routeClient "github.com/hyperledger/aries-framework-go/pkg/client/route"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	introduceService "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
+	routeBDDSteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/mediator"
 	bddOutOfBand "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
-	routeBDDSteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/route"
 )
 
 const timeout = time.Second * 2
@@ -463,9 +463,9 @@ func (a *SDKSteps) newOOBRequest(agentID string, requests ...interface{}) (*outo
 				return nil, fmt.Errorf("unsupported request type: %s", r)
 			}
 
-			bytes, er := json.Marshal(&route.Request{
+			bytes, er := json.Marshal(&mediator.Request{
 				ID:   uuid.New().String(),
-				Type: route.RequestMsgType,
+				Type: mediator.RequestMsgType,
 			})
 			if er != nil {
 				return nil, er

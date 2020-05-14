@@ -4,14 +4,14 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package route
+package mediator
 
 import (
 	"errors"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 )
 
 // provider contains dependencies for the route protocol and is typically created by using aries.Context()
@@ -40,12 +40,12 @@ type protocolService interface {
 	GetConnection() (string, error)
 
 	// Config returns the router's configuration.
-	Config() (*route.Config, error)
+	Config() (*mediator.Config, error)
 }
 
 // New return new instance of route client.
 func New(ctx provider) (*Client, error) {
-	svc, err := ctx.Service(route.Coordination)
+	svc, err := ctx.Service(mediator.Coordination)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (c *Client) GetConnection() (string, error) {
 }
 
 // GetConfig returns the router's configuration.
-func (c *Client) GetConfig() (*route.Config, error) {
+func (c *Client) GetConfig() (*mediator.Config, error) {
 	conf, err := c.routeSvc.Config()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch routing configuration : %w", err)
