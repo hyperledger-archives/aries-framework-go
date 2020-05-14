@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 )
 
 func TestAddManyProofs(t *testing.T) {
@@ -21,7 +23,7 @@ func TestAddManyProofs(t *testing.T) {
 
 	now := time.Now()
 	proof1 := Proof{Creator: "creator-1",
-		Created:    &now,
+		Created:    util.NewTime(now),
 		ProofValue: []byte("proof"),
 		Type:       "Ed25519Signature2018"}
 
@@ -33,7 +35,7 @@ func TestAddManyProofs(t *testing.T) {
 	require.Equal(t, 1, len(proofs))
 
 	proof2 := Proof{Creator: "creator-2",
-		Created:    &now,
+		Created:    util.NewTime(now),
 		ProofValue: []byte("proof"),
 		Type:       "Ed25519Signature2018"}
 	err = AddProof(doc, &proof2)
@@ -79,7 +81,7 @@ func TestAddSingleProof(t *testing.T) {
 
 	now := time.Now()
 	proof := Proof{Creator: "creator-2",
-		Created:    &now,
+		Created:    util.NewTime(now),
 		ProofValue: []byte("proof #2"),
 		Type:       "Ed25519Signature2018"}
 
