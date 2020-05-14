@@ -37,7 +37,8 @@ const (
 const vc = `
 { 
    "@context":[ 
-      "https://www.w3.org/2018/credentials/v1"
+      "https://www.w3.org/2018/credentials/v1", 
+	  "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
    ],
    "id":"http://example.edu/credentials/1989",
    "type":"VerifiableCredential",
@@ -59,7 +60,8 @@ const vc = `
 //nolint:lll
 const vcWithDIDNotAvailble = `{ 
    "@context":[ 
-      "https://www.w3.org/2018/credentials/v1"
+      "https://www.w3.org/2018/credentials/v1",
+      "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
    ],
    "id":"http://example.edu/credentials/1989",
    "type":"VerifiableCredential",
@@ -649,7 +651,7 @@ func TestGetCredentials(t *testing.T) {
 		// verify response
 		require.NotEmpty(t, response)
 		require.Equal(t, 1, len(response.Result))
-		require.Len(t, response.Result[0].Context, 1)
+		require.Len(t, response.Result[0].Context, 2)
 		require.Len(t, response.Result[0].Type, 1)
 	})
 }

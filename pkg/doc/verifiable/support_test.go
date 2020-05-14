@@ -41,6 +41,7 @@ const validCredential = `{
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
     "https://www.w3.org/2018/credentials/examples/v1",
+	"https://trustbloc.github.io/context/vc/credentials-v1.jsonld",
     "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
   ],
   "id": "http://example.edu/credentials/1872",
@@ -380,11 +381,20 @@ func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
 		panic(err)
 	}
 
+	jsonWebSignJSONLDContext, err := ioutil.ReadFile(filepath.Clean(filepath.Join(
+		jsonldContextPrefix, "trustbloc_jwk2020_example.jsonld")))
+	if err != nil {
+		panic(err)
+	}
+
 	addJSONLDCachedContext(loader,
 		"https://www.w3.org/2018/credentials/examples/v1", string(exampleJSONLDContext))
 
 	addJSONLDCachedContext(loader,
 		"https://trustbloc.github.io/context/vc/examples-v1.jsonld", string(trustblocExampleJSONLDContext))
+
+	addJSONLDCachedContext(loader,
+		"https://trustbloc.github.io/context/vc/credentials-v1.jsonld", string(jsonWebSignJSONLDContext))
 
 	return loader
 }
