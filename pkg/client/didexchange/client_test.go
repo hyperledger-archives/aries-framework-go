@@ -21,10 +21,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mocksvc "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -36,7 +36,7 @@ func TestNew(t *testing.T) {
 	t.Run("test new client", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -47,7 +47,7 @@ func TestNew(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -71,7 +71,7 @@ func TestNew(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
-				route.Coordination:      &mocksvc.MockDIDExchangeSvc{},
+				mediator.Coordination:   &mocksvc.MockDIDExchangeSvc{},
 			},
 		})
 		require.Error(t, err)
@@ -81,7 +81,7 @@ func TestNew(t *testing.T) {
 	t.Run("test error from open store", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -93,7 +93,7 @@ func TestNew(t *testing.T) {
 				ErrOpenStoreHandle: fmt.Errorf("failed to open store")},
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			ServiceEndpointValue: "endpoint"})
 		require.Error(t, err)
@@ -103,7 +103,7 @@ func TestNew(t *testing.T) {
 	t.Run("test error from open transient store", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -115,7 +115,7 @@ func TestNew(t *testing.T) {
 				ErrOpenStoreHandle: fmt.Errorf("failed to open transient store")},
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			ServiceEndpointValue: "endpoint"})
 		require.Error(t, err)
@@ -127,7 +127,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
@@ -156,7 +156,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 	t.Run("test error from createSigningKey", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -167,7 +167,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue: &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("createKeyErr")}})
 		require.NoError(t, err)
@@ -185,7 +185,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			StoreProvider: mockstore.NewCustomMockStoreProvider(store),
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -196,7 +196,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 			StorageProviderValue:          mockstore.NewCustomMockStoreProvider(store),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue: &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
@@ -211,7 +211,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -222,7 +222,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{RoutingKeys: routingKeys, RouterEndpoint: endpoint},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{RoutingKeys: routingKeys, RouterEndpoint: endpoint},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint",
@@ -241,7 +241,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 	t.Run("test create invitation with router config error", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -252,7 +252,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{ConfigErr: errors.New("router config error")},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{ConfigErr: errors.New("router config error")},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint",
@@ -271,7 +271,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -282,7 +282,7 @@ func TestClient_CreateInvitation(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination: &mockroute.MockRouteSvc{
+				mediator.Coordination: &mockroute.MockMediatorSvc{
 					RoutingKeys:    routingKeys,
 					RouterEndpoint: endpoint,
 					AddKeyErr:      errors.New("failed to add key to the router"),
@@ -304,7 +304,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -315,7 +315,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
@@ -340,7 +340,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			StoreProvider: mockstore.NewCustomMockStoreProvider(store),
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -351,7 +351,7 @@ func TestClient_CreateInvitationWithDID(t *testing.T) {
 			StorageProviderValue:          mockstore.NewCustomMockStoreProvider(store),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue: &mockkms.CloseableKMS{}})
 		require.NoError(t, err)
@@ -371,7 +371,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -382,7 +382,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
@@ -402,7 +402,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 		const errMsg = "query connection error"
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -418,7 +418,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
@@ -436,7 +436,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 	t.Run("test data not found", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -447,7 +447,7 @@ func TestClient_QueryConnectionByID(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
@@ -467,7 +467,7 @@ func TestClient_GetConnection(t *testing.T) {
 	t.Run("test failure", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -478,7 +478,7 @@ func TestClient_GetConnection(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -496,7 +496,7 @@ func TestClientGetConnectionAtState(t *testing.T) {
 	// create service
 	svc, err := didexchange.New(&mockprotocol.MockProvider{
 		ServiceMap: map[string]interface{}{
-			route.Coordination: &mockroute.MockRouteSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
 	})
 	require.NoError(t, err)
@@ -508,7 +508,7 @@ func TestClientGetConnectionAtState(t *testing.T) {
 		StorageProviderValue:          mockstore.NewMockStoreProvider(),
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: svc,
-			route.Coordination:      &mockroute.MockRouteSvc{},
+			mediator.Coordination:   &mockroute.MockMediatorSvc{},
 		},
 	})
 	require.NoError(t, err)
@@ -526,7 +526,7 @@ func TestClient_RemoveConnection(t *testing.T) {
 
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -537,7 +537,7 @@ func TestClient_RemoveConnection(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -560,7 +560,7 @@ func TestClient_RemoveConnection(t *testing.T) {
 	t.Run("test error data not found", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -570,7 +570,7 @@ func TestClient_RemoveConnection(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -588,7 +588,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
@@ -610,7 +610,7 @@ func TestClient_HandleInvitation(t *testing.T) {
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{HandleFunc: func(msg service.DIDCommMsg) (string, error) {
 					return "", fmt.Errorf("handle error")
 				}},
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 
 			LegacyKMSValue: &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"}, ServiceEndpointValue: "endpoint"})
@@ -631,7 +631,7 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
@@ -649,7 +649,7 @@ func TestClient_CreateImplicitInvitation(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
 					ImplicitInvitationErr: errors.New("implicit error")},
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
@@ -672,7 +672,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
@@ -690,7 +690,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
 					ImplicitInvitationErr: errors.New("implicit with DID error")},
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
@@ -708,7 +708,7 @@ func TestClient_CreateImplicitInvitationWithDID(t *testing.T) {
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue:       &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 			ServiceEndpointValue: "endpoint"})
@@ -730,7 +730,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 	t.Run("test get all connections", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -742,7 +742,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 			StorageProviderValue:          storageProvider,
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -770,7 +770,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 	t.Run("test get connections by state param", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -782,7 +782,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 			StorageProviderValue:          storageProvider,
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -824,7 +824,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 	t.Run("test get connections error", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -837,7 +837,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 			StorageProviderValue:          storageProvider,
 			ServiceMap: map[string]interface{}{
 				didexchange.DIDExchange: svc,
-				route.Coordination:      &mockroute.MockRouteSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -857,7 +857,7 @@ func TestServiceEvents(t *testing.T) {
 		TransientStoreProvider: transientStore,
 		StoreProvider:          store,
 		ServiceMap: map[string]interface{}{
-			route.Coordination: &mockroute.MockRouteSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
 	})
 	require.NoError(t, err)
@@ -868,7 +868,7 @@ func TestServiceEvents(t *testing.T) {
 		StorageProviderValue:          store,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: didExSvc,
-			route.Coordination:      &mockroute.MockRouteSvc{},
+			mediator.Coordination:   &mockroute.MockMediatorSvc{},
 		},
 		LegacyKMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}})
 	require.NoError(t, err)
@@ -948,7 +948,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 	didExSvc, err := didexchange.New(&mockprotocol.MockProvider{
 		StoreProvider: store,
 		ServiceMap: map[string]interface{}{
-			route.Coordination: &mockroute.MockRouteSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
 	})
 	require.NoError(t, err)
@@ -959,7 +959,7 @@ func TestAcceptExchangeRequest(t *testing.T) {
 		StorageProviderValue:          store,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: didExSvc,
-			route.Coordination:      &mockroute.MockRouteSvc{},
+			mediator.Coordination:   &mockroute.MockMediatorSvc{},
 		},
 		LegacyKMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}},
 	)
@@ -1041,7 +1041,7 @@ func TestAcceptInvitation(t *testing.T) {
 	didExSvc, err := didexchange.New(&mockprotocol.MockProvider{
 		StoreProvider: store,
 		ServiceMap: map[string]interface{}{
-			route.Coordination: &mockroute.MockRouteSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
 	})
 	require.NoError(t, err)
@@ -1052,7 +1052,7 @@ func TestAcceptInvitation(t *testing.T) {
 		StorageProviderValue:          store,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: didExSvc,
-			route.Coordination:      &mockroute.MockRouteSvc{},
+			mediator.Coordination:   &mockroute.MockMediatorSvc{},
 		},
 	})
 	require.NoError(t, err)

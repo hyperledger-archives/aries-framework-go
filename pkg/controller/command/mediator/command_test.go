@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package route
+package mediator
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 )
 
@@ -22,7 +22,7 @@ func TestNew(t *testing.T) {
 	t.Run("test new command", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{},
+				ServiceValue: &mockroute.MockMediatorSvc{},
 			},
 			false,
 		)
@@ -48,7 +48,7 @@ func TestRegisterRoute(t *testing.T) {
 	t.Run("test register - success", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{},
+				ServiceValue: &mockroute.MockMediatorSvc{},
 			},
 			false,
 		)
@@ -64,7 +64,7 @@ func TestRegisterRoute(t *testing.T) {
 	t.Run("test register - empty connectionID", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{},
+				ServiceValue: &mockroute.MockMediatorSvc{},
 			},
 			false,
 		)
@@ -81,7 +81,7 @@ func TestRegisterRoute(t *testing.T) {
 	t.Run("test register - empty connectionID", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{},
+				ServiceValue: &mockroute.MockMediatorSvc{},
 			},
 			false,
 		)
@@ -97,7 +97,7 @@ func TestRegisterRoute(t *testing.T) {
 	t.Run("test register - empty connectionID", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{
+				ServiceValue: &mockroute.MockMediatorSvc{
 					RegisterFunc: func(connectionID string) error {
 						return errors.New("register error")
 					},
@@ -120,7 +120,7 @@ func TestUnregisterRoute(t *testing.T) {
 	t.Run("test unregister - success", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{},
+				ServiceValue: &mockroute.MockMediatorSvc{},
 			},
 			false,
 		)
@@ -135,7 +135,7 @@ func TestUnregisterRoute(t *testing.T) {
 	t.Run("test unregister - error", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{
+				ServiceValue: &mockroute.MockMediatorSvc{
 					UnregisterErr: errors.New("unregister error"),
 				},
 			},
@@ -157,7 +157,7 @@ func TestGetConnectionID(t *testing.T) {
 
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{
+				ServiceValue: &mockroute.MockMediatorSvc{
 					ConnectionID: routerConnectionID,
 				},
 			},
@@ -179,7 +179,7 @@ func TestGetConnectionID(t *testing.T) {
 	t.Run("test get connection - error", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{
+				ServiceValue: &mockroute.MockMediatorSvc{
 					GetConnectionIDErr: errors.New("get connectionID error"),
 				},
 			},

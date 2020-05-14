@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -88,7 +88,7 @@ type context struct {
 	signer             legacykms.Signer
 	connectionStore    *connectionStore
 	vdriRegistry       vdriapi.Registry
-	routeSvc           route.ProtocolService
+	routeSvc           mediator.ProtocolService
 }
 
 // opts are used to provide client properties to DID Exchange service
@@ -107,12 +107,12 @@ func New(prov provider) (*Service, error) {
 		return nil, fmt.Errorf("failed to initialize connection store : %w", err)
 	}
 
-	s, err := prov.Service(route.Coordination)
+	s, err := prov.Service(mediator.Coordination)
 	if err != nil {
 		return nil, err
 	}
 
-	routeSvc, ok := s.(route.ProtocolService)
+	routeSvc, ok := s.(mediator.ProtocolService)
 	if !ok {
 		return nil, errors.New("cast service to Route Service failed")
 	}

@@ -4,23 +4,23 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package route
+package mediator
 
 import (
 	"github.com/google/uuid"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 )
 
 const (
 	// ProtocolName is the framework's friendly name for the route-coordination protocol.
-	ProtocolName = route.Coordination
+	ProtocolName = mediator.Coordination
 	// RequestMsgType defines the route coordination request message type.
-	RequestMsgType = route.RequestMsgType
+	RequestMsgType = mediator.RequestMsgType
 )
 
 // Request is the route-request message of this protocol.
-type Request = route.Request
+type Request = mediator.Request
 
 // NewRequest creates a new request.
 func NewRequest() *Request {

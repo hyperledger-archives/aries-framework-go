@@ -27,10 +27,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	didexsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockdidexchange "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/didexchange"
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -473,7 +473,7 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 		didExSvc, err := didexsvc.New(&protocol.MockProvider{
 			TransientStoreProvider: store,
 			ServiceMap: map[string]interface{}{
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 
@@ -487,8 +487,8 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 			TransientStorageProviderValue: store,
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
-				didexsvc.DIDExchange: didExSvc,
-				route.Coordination:   &mockroute.MockRouteSvc{},
+				didexsvc.DIDExchange:  didExSvc,
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			}},
 			&mockwebhook.Notifier{
 				NotifyFunc: func(topic string, message []byte) error {
@@ -691,7 +691,7 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 			&protocol.MockProvider{
 				TransientStoreProvider: transientStore, StoreProvider: store,
 				ServiceMap: map[string]interface{}{
-					route.Coordination: &mockroute.MockRouteSvc{},
+					mediator.Coordination: &mockroute.MockMediatorSvc{},
 				},
 			},
 		)
@@ -706,8 +706,8 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 			TransientStorageProviderValue: transientStore,
 			StorageProviderValue:          store,
 			ServiceMap: map[string]interface{}{
-				didexsvc.DIDExchange: didExSvc,
-				route.Coordination:   &mockroute.MockRouteSvc{},
+				didexsvc.DIDExchange:  didExSvc,
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 			LegacyKMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}},
 			&mockwebhook.Notifier{
@@ -848,7 +848,7 @@ func TestOperationEventError(t *testing.T) {
 				didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
 					RegisterMsgEventErr: errors.New(errMsg),
 				},
-				route.Coordination: &mockroute.MockRouteSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			}})
 
 		require.NoError(t, err)
@@ -866,8 +866,8 @@ func TestHandleMessageEvent(t *testing.T) {
 		StorageProviderValue: &mockstore.MockStoreProvider{
 			Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
 		ServiceMap: map[string]interface{}{
-			didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
-			route.Coordination:   &mockroute.MockRouteSvc{},
+			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		}},
 		webnotifier.NewHTTPNotifier(nil), "", false)
 	require.NoError(t, err)
@@ -918,8 +918,8 @@ func TestSendConnectionNotification(t *testing.T) {
 			TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: store},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: store},
 			ServiceMap: map[string]interface{}{
-				didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
-				route.Coordination:   &mockroute.MockRouteSvc{},
+				didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			}},
 			webnotifier.NewHTTPNotifier(nil), "", false)
 		require.NoError(t, err)
@@ -932,8 +932,8 @@ func TestSendConnectionNotification(t *testing.T) {
 			StorageProviderValue: &mockstore.MockStoreProvider{
 				Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
 			ServiceMap: map[string]interface{}{
-				didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
-				route.Coordination:   &mockroute.MockRouteSvc{},
+				didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			}},
 			webnotifier.NewHTTPNotifier(nil), "", false)
 		require.NoError(t, err)
@@ -953,8 +953,8 @@ func TestSendConnectionNotification(t *testing.T) {
 			TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: store},
 			StorageProviderValue:          &mockstore.MockStoreProvider{Store: store},
 			ServiceMap: map[string]interface{}{
-				didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
-				route.Coordination:   &mockroute.MockRouteSvc{},
+				didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			}},
 			&mockwebhook.Notifier{NotifyFunc: func(topic string, message []byte) error {
 				return errors.New("webhook error")
@@ -973,8 +973,8 @@ func mockProvider() *mockprovider.Provider {
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 		StorageProviderValue:          mockstore.NewMockStoreProvider(),
 		ServiceMap: map[string]interface{}{
-			didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{},
-			route.Coordination:   &mockroute.MockRouteSvc{},
+			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
 		LegacyKMSValue:       &mockkms.CloseableKMS{},
 		ServiceEndpointValue: mockSvcEndpoint,

@@ -15,8 +15,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
@@ -284,18 +284,18 @@ func didServiceBlockFunc(p Provider) func() (*did.Service, error) {
 			return nil, fmt.Errorf("failed CreateSigningKey: %w", err)
 		}
 
-		s, err := p.Service(route.Coordination)
+		s, err := p.Service(mediator.Coordination)
 		if err != nil {
 			return nil, err
 		}
 
-		routeSvc, ok := s.(route.ProtocolService)
+		routeSvc, ok := s.(mediator.ProtocolService)
 		if !ok {
 			return nil, errors.New("cast service to Route Service failed")
 		}
 
 		// get the route configs
-		serviceEndpoint, routingKeys, err := route.GetRouterConfig(routeSvc, p.ServiceEndpoint())
+		serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(routeSvc, p.ServiceEndpoint())
 		if err != nil {
 			return nil, fmt.Errorf("create invitation - fetch router config : %w", err)
 		}
@@ -309,7 +309,7 @@ func didServiceBlockFunc(p Provider) func() (*did.Service, error) {
 			ServiceEndpoint: serviceEndpoint,
 		}
 
-		if err = route.AddKeyToRouter(routeSvc, verKey); err != nil {
+		if err = mediator.AddKeyToRouter(routeSvc, verKey); err != nil {
 			return nil, fmt.Errorf("create invitation - add key to the router : %w", err)
 		}
 

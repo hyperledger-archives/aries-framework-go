@@ -195,11 +195,11 @@ export const didExchangeClient = class {
     }
 
     async registerRouter(agent, connectionID) {
-        await agent.router.register({"connectionID": connectionID})
+        await agent.mediator.register({"connectionID": connectionID})
     }
 
     validateRouterConnection(agent, connectionID, done) {
-        agent.router.getConnection().then(
+        agent.mediator.getConnection().then(
             resp => {
                 try {
                     assert.equal(resp.connectionID, connectionID)

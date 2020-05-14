@@ -639,8 +639,8 @@ const Aries = function (opts) {
          * Router methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
          * input params and output return json values.
          */
-        router: {
-            pkgname: "router",
+        mediator: {
+            pkgname: "mediator",
 
             /**
              * Registers an agent with the router.

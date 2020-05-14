@@ -4,19 +4,19 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package route
+package mediator
 
 import (
 	"fmt"
 	"net/http"
 
-	"github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
 
 const (
-	routeOperationID  = "/route"
+	routeOperationID  = "/mediator"
 	registerPath      = routeOperationID + "/register"
 	unregisterPath    = routeOperationID + "/unregister"
 	getConnectionPath = routeOperationID + "/connection"
@@ -30,12 +30,12 @@ type provider interface {
 // Operation contains basic common operations provided by controller REST API
 type Operation struct {
 	handlers []rest.Handler
-	command  *route.Command
+	command  *mediator.Command
 }
 
 // New returns new common operations rest client instance
 func New(ctx provider, autoAccept bool) (*Operation, error) {
-	routeCmd, err := route.New(ctx, autoAccept)
+	routeCmd, err := mediator.New(ctx, autoAccept)
 	if err != nil {
 		return nil, fmt.Errorf("create route command : %w", err)
 	}
@@ -62,7 +62,7 @@ func (o *Operation) registerHandler() {
 	}
 }
 
-// Register swagger:route POST /route/register route registerRouteRequest
+// Register swagger:route POST /mediator/register mediator registerRouteRequest
 //
 // Registers the agent with the router.
 //
@@ -73,7 +73,7 @@ func (o *Operation) Register(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.Register, rw, req.Body)
 }
 
-// Unregister swagger:route DELETE /route/unregister route unregisterRouter
+// Unregister swagger:route DELETE /mediator/unregister mediator unregisterRouter
 //
 // Unregisters the agent with the router.
 //
@@ -83,7 +83,7 @@ func (o *Operation) Unregister(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.Unregister, rw, req.Body)
 }
 
-// Connection swagger:route GET /route/connection route routerConnection
+// Connection swagger:route GET /mediator/connection mediator routerConnection
 //
 // Retrieves the router connection id.
 //

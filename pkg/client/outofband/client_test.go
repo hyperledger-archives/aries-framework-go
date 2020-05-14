@@ -19,10 +19,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -186,7 +186,7 @@ func TestCreateRequest(t *testing.T) {
 	})
 	t.Run("fails when the routing svc implementation cannot be casted to route.ProtocolService", func(t *testing.T) {
 		provider := withTestProvider()
-		provider.ServiceMap[route.Coordination] = &struct{}{}
+		provider.ServiceMap[mediator.Coordination] = &struct{}{}
 		c, err := New(provider)
 		require.NoError(t, err)
 		_, err = c.CreateRequest([]*decorator.Attachment{dummyAttachment(t)})
@@ -195,7 +195,7 @@ func TestCreateRequest(t *testing.T) {
 	t.Run("wraps did service block creation error when route service config fails", func(t *testing.T) {
 		expected := errors.New("test")
 		provider := withTestProvider()
-		routeSvc, ok := provider.ServiceMap[route.Coordination].(*mockroute.MockRouteSvc)
+		routeSvc, ok := provider.ServiceMap[mediator.Coordination].(*mockroute.MockMediatorSvc)
 		require.True(t, ok)
 		routeSvc.ConfigErr = expected
 		c, err := New(provider)
@@ -207,7 +207,7 @@ func TestCreateRequest(t *testing.T) {
 	t.Run("wraps did service block creation error when registering a new key with the routing service fails", func(t *testing.T) { //nolint:lll
 		expected := errors.New("test")
 		provider := withTestProvider()
-		routeSvc, ok := provider.ServiceMap[route.Coordination].(*mockroute.MockRouteSvc)
+		routeSvc, ok := provider.ServiceMap[mediator.Coordination].(*mockroute.MockMediatorSvc)
 		require.True(t, ok)
 		routeSvc.AddKeyErr = expected
 		c, err := New(provider)
@@ -438,8 +438,8 @@ func withTestProvider() *mockprovider.Provider {
 		StorageProviderValue:          mockstore.NewMockStoreProvider(),
 		LegacyKMSValue:                &mockkms.CloseableKMS{CreateEncryptionKeyValue: "sample-key"},
 		ServiceMap: map[string]interface{}{
-			route.Coordination: &mockroute.MockRouteSvc{},
-			outofband.Name:     &stubOOBService{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
+			outofband.Name:        &stubOOBService{},
 		},
 		ServiceEndpointValue: "endpoint",
 	}

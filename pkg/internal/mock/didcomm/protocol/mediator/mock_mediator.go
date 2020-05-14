@@ -4,17 +4,17 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package route
+package mediator
 
 import (
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 )
 
-// MockRouteSvc mock route service
-type MockRouteSvc struct {
+// MockMediatorSvc mock route service
+type MockMediatorSvc struct {
 	service.Action
 	service.Message
 	ProtocolName       string
@@ -33,7 +33,7 @@ type MockRouteSvc struct {
 }
 
 // HandleInbound msg
-func (m *MockRouteSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (m *MockMediatorSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if m.HandleFunc != nil {
 		return m.HandleFunc(msg)
 	}
@@ -42,7 +42,7 @@ func (m *MockRouteSvc) HandleInbound(msg service.DIDCommMsg, myDID, theirDID str
 }
 
 // HandleOutbound msg
-func (m *MockRouteSvc) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
+func (m *MockMediatorSvc) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
 	if m.HandleOutboundFunc != nil {
 		return m.HandleOutboundFunc(msg, myDID, theirDID)
 	}
@@ -51,7 +51,7 @@ func (m *MockRouteSvc) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID st
 }
 
 // Accept msg checks the msg type
-func (m *MockRouteSvc) Accept(msgType string) bool {
+func (m *MockMediatorSvc) Accept(msgType string) bool {
 	if m.AcceptFunc != nil {
 		return m.AcceptFunc(msgType)
 	}
@@ -60,7 +60,7 @@ func (m *MockRouteSvc) Accept(msgType string) bool {
 }
 
 // Name return service name
-func (m *MockRouteSvc) Name() string {
+func (m *MockMediatorSvc) Name() string {
 	if m.ProtocolName != "" {
 		return m.ProtocolName
 	}
@@ -69,7 +69,7 @@ func (m *MockRouteSvc) Name() string {
 }
 
 // Register registers agent with the router.
-func (m *MockRouteSvc) Register(connectionID string) error {
+func (m *MockMediatorSvc) Register(connectionID string) error {
 	if m.RegisterFunc != nil {
 		return m.RegisterFunc(connectionID)
 	}
@@ -78,12 +78,12 @@ func (m *MockRouteSvc) Register(connectionID string) error {
 }
 
 // Unregister unregisters the router
-func (m *MockRouteSvc) Unregister() error {
+func (m *MockMediatorSvc) Unregister() error {
 	return m.UnregisterErr
 }
 
 // AddKey adds agents recKey to the router
-func (m *MockRouteSvc) AddKey(recKey string) error {
+func (m *MockMediatorSvc) AddKey(recKey string) error {
 	if m.AddKeyErr != nil {
 		return m.AddKeyErr
 	}
@@ -96,21 +96,21 @@ func (m *MockRouteSvc) AddKey(recKey string) error {
 }
 
 // Config gives back the router configuration
-func (m *MockRouteSvc) Config() (*route.Config, error) {
+func (m *MockMediatorSvc) Config() (*mediator.Config, error) {
 	if m.ConfigErr != nil {
 		return nil, m.ConfigErr
 	}
 
 	// default, route not registered error
 	if m.RouterEndpoint == "" || m.RoutingKeys == nil {
-		return nil, route.ErrRouterNotRegistered
+		return nil, mediator.ErrRouterNotRegistered
 	}
 
-	return route.NewConfig(m.RouterEndpoint, m.RoutingKeys), nil
+	return mediator.NewConfig(m.RouterEndpoint, m.RoutingKeys), nil
 }
 
 // GetConnection returns the connectionID of the router.
-func (m *MockRouteSvc) GetConnection() (string, error) {
+func (m *MockMediatorSvc) GetConnection() (string, error) {
 	if m.GetConnectionIDErr != nil {
 		return "", m.GetConnectionIDErr
 	}

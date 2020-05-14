@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package route
+package mediator
 
 import (
 	"bytes"
@@ -20,9 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 )
 
@@ -30,7 +30,7 @@ func TestNew(t *testing.T) {
 	t.Run("test new command", func(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{},
+				ServiceValue: &mockroute.MockMediatorSvc{},
 			},
 			false,
 		)
@@ -52,7 +52,7 @@ func TestNew(t *testing.T) {
 func TestGetAPIHandlers(t *testing.T) {
 	svc, err := New(
 		&mockprovider.Provider{
-			ServiceValue: &mockroute.MockRouteSvc{},
+			ServiceValue: &mockroute.MockMediatorSvc{},
 		},
 		false,
 	)
@@ -67,7 +67,7 @@ func TestRegisterRoute(t *testing.T) {
 	t.Run("test register route - success", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{},
+				ServiceValue: &mockroute.MockMediatorSvc{},
 			},
 			false,
 		)
@@ -93,7 +93,7 @@ func TestRegisterRoute(t *testing.T) {
 	t.Run("test register route - missing connectionID", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{},
+				ServiceValue: &mockroute.MockMediatorSvc{},
 			},
 			false,
 		)
@@ -109,7 +109,7 @@ func TestRegisterRoute(t *testing.T) {
 		require.NotEmpty(t, buf)
 
 		require.Equal(t, http.StatusBadRequest, code)
-		verifyError(t, route.RegisterMissingConnIDCode, "connectionID is mandatory", buf.Bytes())
+		verifyError(t, mediator.RegisterMissingConnIDCode, "connectionID is mandatory", buf.Bytes())
 	})
 }
 
@@ -117,7 +117,7 @@ func TestUnregisterRoute(t *testing.T) {
 	t.Run("test unregister route - success", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{},
+				ServiceValue: &mockroute.MockMediatorSvc{},
 			},
 			false,
 		)
@@ -132,7 +132,7 @@ func TestUnregisterRoute(t *testing.T) {
 	t.Run("test unregister route - missing connectionID", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{
+				ServiceValue: &mockroute.MockMediatorSvc{
 					UnregisterErr: errors.New("unregister error"),
 				},
 			},
@@ -150,7 +150,7 @@ func TestUnregisterRoute(t *testing.T) {
 		require.NotEmpty(t, buf)
 
 		require.Equal(t, http.StatusInternalServerError, code)
-		verifyError(t, route.UnregisterRouterErrorCode, "router unregister", buf.Bytes())
+		verifyError(t, mediator.UnregisterRouterErrorCode, "router unregister", buf.Bytes())
 	})
 }
 
@@ -158,7 +158,7 @@ func TestGetConnection(t *testing.T) {
 	t.Run("test unregister route - success", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{},
+				ServiceValue: &mockroute.MockMediatorSvc{},
 			},
 			false,
 		)
@@ -173,7 +173,7 @@ func TestGetConnection(t *testing.T) {
 	t.Run("test unregister route - missing connectionID", func(t *testing.T) {
 		svc, err := New(
 			&mockprovider.Provider{
-				ServiceValue: &mockroute.MockRouteSvc{
+				ServiceValue: &mockroute.MockMediatorSvc{
 					UnregisterErr: errors.New("unregister error"),
 				},
 			},
@@ -191,7 +191,7 @@ func TestGetConnection(t *testing.T) {
 		require.NotEmpty(t, buf)
 
 		require.Equal(t, http.StatusInternalServerError, code)
-		verifyError(t, route.UnregisterRouterErrorCode, "router unregister", buf.Bytes())
+		verifyError(t, mediator.UnregisterRouterErrorCode, "router unregister", buf.Bytes())
 	})
 }
 

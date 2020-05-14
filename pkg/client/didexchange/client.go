@@ -15,7 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
@@ -46,7 +46,7 @@ type provider interface {
 type Client struct {
 	service.Event
 	didexchangeSvc  protocolService
-	routeSvc        route.ProtocolService
+	routeSvc        mediator.ProtocolService
 	legacyKMS       legacykms.KeyManager
 	serviceEndpoint string
 	connectionStore *connection.Recorder
@@ -80,12 +80,12 @@ func New(ctx provider) (*Client, error) {
 		return nil, errors.New("cast service to DIDExchange Service failed")
 	}
 
-	s, err := ctx.Service(route.Coordination)
+	s, err := ctx.Service(mediator.Coordination)
 	if err != nil {
 		return nil, err
 	}
 
-	routeSvc, ok := s.(route.ProtocolService)
+	routeSvc, ok := s.(mediator.ProtocolService)
 	if !ok {
 		return nil, errors.New("cast service to Route Service failed")
 	}
@@ -117,7 +117,7 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 	}
 
 	// get the route configs
-	serviceEndpoint, routingKeys, err := route.GetRouterConfig(c.routeSvc, c.serviceEndpoint)
+	serviceEndpoint, routingKeys, err := mediator.GetRouterConfig(c.routeSvc, c.serviceEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("create invitation - fetch router config : %w", err)
 	}
@@ -131,7 +131,7 @@ func (c *Client) CreateInvitation(label string) (*Invitation, error) {
 		RoutingKeys:     routingKeys,
 	}
 
-	if err = route.AddKeyToRouter(c.routeSvc, sigPubKey); err != nil {
+	if err = mediator.AddKeyToRouter(c.routeSvc, sigPubKey); err != nil {
 		return nil, fmt.Errorf("create invitation - add key to the router : %w", err)
 	}
 

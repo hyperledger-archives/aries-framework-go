@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package route
+package mediator
 
 import (
 	"errors"
@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 )
 
@@ -24,7 +24,7 @@ var _ service.Event = (*Client)(nil)
 func TestNew(t *testing.T) {
 	t.Run("test new client", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockRouteSvc{}},
+			ServiceValue: &mockroute.MockMediatorSvc{}},
 		)
 		require.NoError(t, err)
 		require.NotNil(t, svc)
@@ -46,7 +46,7 @@ func TestNew(t *testing.T) {
 func TestRegister(t *testing.T) {
 	t.Run("test register - success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockRouteSvc{RegisterFunc: func(connectionID string) error {
+			ServiceValue: &mockroute.MockMediatorSvc{RegisterFunc: func(connectionID string) error {
 				return nil
 			}}})
 		require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestRegister(t *testing.T) {
 
 	t.Run("test register - error", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockRouteSvc{RegisterFunc: func(connectionID string) error {
+			ServiceValue: &mockroute.MockMediatorSvc{RegisterFunc: func(connectionID string) error {
 				return errors.New("register error")
 			}}})
 		require.NoError(t, err)
@@ -71,7 +71,7 @@ func TestRegister(t *testing.T) {
 func TestUnregister(t *testing.T) {
 	t.Run("test unregister - success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockRouteSvc{},
+			ServiceValue: &mockroute.MockMediatorSvc{},
 		})
 		require.NoError(t, err)
 
@@ -81,7 +81,7 @@ func TestUnregister(t *testing.T) {
 
 	t.Run("test unregister - error", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockRouteSvc{
+			ServiceValue: &mockroute.MockMediatorSvc{
 				UnregisterErr: errors.New("unregister error"),
 			},
 		})
@@ -98,7 +98,7 @@ func TestGetConnection(t *testing.T) {
 		routerConnectionID := "conn-abc"
 
 		c, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockRouteSvc{
+			ServiceValue: &mockroute.MockMediatorSvc{
 				ConnectionID: routerConnectionID,
 			},
 		})
@@ -111,7 +111,7 @@ func TestGetConnection(t *testing.T) {
 
 	t.Run("test get connection - error", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockRouteSvc{
+			ServiceValue: &mockroute.MockMediatorSvc{
 				GetConnectionIDErr: errors.New("get connection id error"),
 			},
 		})
@@ -129,7 +129,7 @@ func TestClient_GetConfig(t *testing.T) {
 		endpoint := "http://example.com"
 		keys := []string{"key1", "key2"}
 		c, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockRouteSvc{
+			ServiceValue: &mockroute.MockMediatorSvc{
 				RouterEndpoint: endpoint,
 				RoutingKeys:    keys,
 			},
@@ -144,7 +144,7 @@ func TestClient_GetConfig(t *testing.T) {
 	t.Run("wraps config error", func(t *testing.T) {
 		expected := errors.New("test")
 		c, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockRouteSvc{
+			ServiceValue: &mockroute.MockMediatorSvc{
 				ConfigErr: expected,
 			},
 		})

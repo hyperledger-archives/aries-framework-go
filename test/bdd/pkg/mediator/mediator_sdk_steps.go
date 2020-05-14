@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package route
+package mediator
 
 import (
 	"errors"
@@ -14,9 +14,9 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"github.com/hyperledger/aries-framework-go/pkg/client/route"
+	"github.com/hyperledger/aries-framework-go/pkg/client/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	routesvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	routesvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -39,7 +39,7 @@ func NewRouteSDKSteps() *SDKSteps {
 // CreateRouteClient creates route client
 func (d *SDKSteps) CreateRouteClient(agentID string) error {
 	// create new route client
-	routeClient, err := route.New(d.bddContext.AgentCtx[agentID])
+	routeClient, err := mediator.New(d.bddContext.AgentCtx[agentID])
 	if err != nil {
 		return fmt.Errorf("failed to create new route client: %w", err)
 	}

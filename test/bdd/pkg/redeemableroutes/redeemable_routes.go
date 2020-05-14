@@ -16,16 +16,16 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	introClient "github.com/hyperledger/aries-framework-go/pkg/client/introduce"
+	routeClient "github.com/hyperledger/aries-framework-go/pkg/client/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
-	routeClient "github.com/hyperledger/aries-framework-go/pkg/client/route"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	agentSteps "github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	bddroute "github.com/hyperledger/aries-framework-go/test/bdd/pkg/mediator"
 	oobSteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
-	bddroute "github.com/hyperledger/aries-framework-go/test/bdd/pkg/route"
 )
 
 const timeout = 2 * time.Second
@@ -39,7 +39,7 @@ type BDDSteps struct {
 	proposals      map[string]*introduce.Recipient
 	goalCode       string
 	redeemableCode string
-	redeemableOpts *route.Options
+	redeemableOpts *mediator.Options
 	introClients   map[string]*introClient.Client
 	introEvents    map[string]chan service.DIDCommAction
 	introApprovals map[string]chan interface{}
@@ -187,7 +187,7 @@ func (b *BDDSteps) routerApprovesIntroduction(router, serviceEndpoint, routingKe
 
 	routeRequest := routeClient.NewRequest()
 	b.redeemableCode = routeRequest.ID
-	b.redeemableOpts = &route.Options{
+	b.redeemableOpts = &mediator.Options{
 		ServiceEndpoint: serviceEndpoint,
 		RoutingKeys:     []string{routingKey},
 	}

@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package route
+package mediator
 
 import (
 	"errors"
@@ -13,9 +13,9 @@ import (
 	didexClient "github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	mockprotocol "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/route"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -107,7 +107,7 @@ func didClientMockContext() *mockprovider.Provider {
 		TransientStoreProvider: transientStoreProvider,
 		StoreProvider:          storeProvider,
 		ServiceMap: map[string]interface{}{
-			route.Coordination: &mockroute.MockRouteSvc{},
+			mediator.Coordination: &mockroute.MockMediatorSvc{},
 		},
 	}
 
@@ -122,7 +122,7 @@ func didClientMockContext() *mockprovider.Provider {
 		StorageProviderValue:          storeProvider,
 		ServiceMap: map[string]interface{}{
 			didexchange.DIDExchange: svc,
-			route.Coordination:      routeService(),
+			mediator.Coordination:   routeService(),
 		},
 	}
 
@@ -135,8 +135,8 @@ func mockContext() provider {
 	}
 }
 
-func routeService() *mockroute.MockRouteSvc {
-	return &mockroute.MockRouteSvc{
+func routeService() *mockroute.MockMediatorSvc {
+	return &mockroute.MockMediatorSvc{
 		RegisterFunc: func(connectionID string) error {
 			if connectionID == "" {
 				return errors.New("connection ID is mandatory")

@@ -53,7 +53,7 @@ function acceptInvitation(agent, invitation, done) {
 }
 
 function routeRegister(agent, connectionID, done) {
-    agent.router.register({
+    agent.mediator.register({
         "connectionID": connectionID
     }).then(
         resp => done(),
@@ -62,7 +62,7 @@ function routeRegister(agent, connectionID, done) {
 }
 
 function validateRouterConnection(agent, connectionID, done) {
-    agent.router.getConnection().then(
+    agent.mediator.getConnection().then(
         resp => {
             try {
                 assert.equal(resp.connectionID, connectionID)

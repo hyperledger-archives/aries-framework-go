@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package route
+package mediator
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
-	"github.com/hyperledger/aries-framework-go/pkg/controller/command/route"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
@@ -47,7 +47,7 @@ func (d *RESTSteps) RegisterRoute(agentID, varName string) error {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	err := sendHTTP(http.MethodPost, destination+"/route/register", registerRouteReq{ConnectionID: connectionID}, nil)
+	err := sendHTTP(http.MethodPost, destination+"/mediator/register", registerRouteReq{ConnectionID: connectionID}, nil)
 	if err != nil {
 		return fmt.Errorf("router registration : %w", err)
 	}
@@ -62,7 +62,7 @@ func (d *RESTSteps) UnregisterRoute(agentID string) error {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	err := sendHTTP(http.MethodDelete, destination+"/route/unregister", nil, nil)
+	err := sendHTTP(http.MethodDelete, destination+"/mediator/unregister", nil, nil)
 	if err != nil {
 		// ignore error if router is not registered (code=5003)
 		if strings.Contains(err.Error(), "\"code\":5003") {
@@ -84,9 +84,9 @@ func (d *RESTSteps) VerifyConnection(agentID, varName string) error {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	resp := &route.RegisterRoute{}
+	resp := &mediator.RegisterRoute{}
 
-	err := sendHTTP(http.MethodGet, destination+"/route/connection", nil, resp)
+	err := sendHTTP(http.MethodGet, destination+"/mediator/connection", nil, resp)
 	if err != nil {
 		return fmt.Errorf("fetch route connection : %w", err)
 	}

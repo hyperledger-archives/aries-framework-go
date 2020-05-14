@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package route
+package mediator
 
 import (
 	"encoding/json"
@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/hyperledger/aries-framework-go/pkg/client/route"
+	"github.com/hyperledger/aries-framework-go/pkg/client/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -42,7 +42,7 @@ const (
 
 const (
 	// command name
-	commandName = "router"
+	commandName = "mediator"
 
 	// command methods
 	registerCommandMethod        = "Register"
@@ -61,12 +61,12 @@ type provider interface {
 
 // Command contains command operations provided by route controller.
 type Command struct {
-	routeClient *route.Client
+	routeClient *mediator.Client
 }
 
 // New returns new route controller command instance.
 func New(ctx provider, autoAccept bool) (*Command, error) {
-	routeClient, err := route.New(ctx)
+	routeClient, err := mediator.New(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("create route client : %w", err)
 	}
