@@ -26,10 +26,10 @@ func TestNewPresentationFromJWS(t *testing.T) {
 
 	t.Run("Decoding presentation from JWS", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, false)
-		vpFromJWT, err := NewPresentation(jws, WithPresPublicKeyFetcher(keyFetcher))
+		vpFromJWT, err := newTestPresentation(jws, WithPresPublicKeyFetcher(keyFetcher))
 		require.NoError(t, err)
 
-		vp, err := NewPresentation(vpBytes)
+		vp, err := newTestPresentation(vpBytes)
 		require.NoError(t, err)
 
 		require.Equal(t, vp, vpFromJWT)
@@ -37,10 +37,10 @@ func TestNewPresentationFromJWS(t *testing.T) {
 
 	t.Run("Decoding presentation from JWS with minimized fields of \"vp\" claim", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, true)
-		vpFromJWT, err := NewPresentation(jws, WithPresPublicKeyFetcher(keyFetcher))
+		vpFromJWT, err := newTestPresentation(jws, WithPresPublicKeyFetcher(keyFetcher))
 		require.NoError(t, err)
 
-		vp, err := NewPresentation(vpBytes)
+		vp, err := newTestPresentation(vpBytes)
 		require.NoError(t, err)
 
 		require.Equal(t, vp, vpFromJWT)
@@ -48,7 +48,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 
 	t.Run("Failed JWT signature verification of presentation", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, true)
-		vp, err := NewPresentation(
+		vp, err := newTestPresentation(
 			jws,
 			// passing issuers's key, while expecting issuer one
 			WithPresPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
@@ -69,7 +69,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 
 	t.Run("Failed public key fetching", func(t *testing.T) {
 		jws := createPresJWS(t, vpBytes, true)
-		vp, err := NewPresentation(
+		vp, err := newTestPresentation(
 			jws,
 			WithPresPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				return nil, errors.New("test: public key is not found")
@@ -81,7 +81,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 	})
 
 	t.Run("Not defined public key fetcher", func(t *testing.T) {
-		vp, err := NewPresentation(createPresJWS(t, vpBytes, true))
+		vp, err := newTestPresentation(createPresJWS(t, vpBytes, true))
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "public key fetcher is not defined")
@@ -95,7 +95,7 @@ func TestNewPresentationFromJWS_EdDSA(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	vp, err := NewPresentation(vpBytes)
+	vp, err := newTestPresentation(vpBytes)
 	require.NoError(t, err)
 
 	// marshal presentation into JWS using EdDSA (Ed25519 signature algorithm).
@@ -106,7 +106,7 @@ func TestNewPresentationFromJWS_EdDSA(t *testing.T) {
 	require.NoError(t, err)
 
 	// unmarshal presentation from JWS
-	vpFromJWS, err := NewPresentation(
+	vpFromJWS, err := newTestPresentation(
 		[]byte(vpJWSStr),
 		WithPresPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	require.NoError(t, err)
@@ -119,22 +119,22 @@ func TestNewPresentationFromUnsecuredJWT(t *testing.T) {
 	vpBytes := []byte(validPresentation)
 
 	t.Run("Decoding presentation from unsecured JWT", func(t *testing.T) {
-		vpFromJWT, err := NewPresentation(createPresUnsecuredJWT(t, vpBytes, false))
+		vpFromJWT, err := newTestPresentation(createPresUnsecuredJWT(t, vpBytes, false))
 
 		require.NoError(t, err)
 
-		vp, err := NewPresentation(vpBytes)
+		vp, err := newTestPresentation(vpBytes)
 		require.NoError(t, err)
 
 		require.Equal(t, vp, vpFromJWT)
 	})
 
 	t.Run("Decoding presentation from unsecured JWT with minimized fields of \"vp\" claim", func(t *testing.T) {
-		vpFromJWT, err := NewPresentation(createPresUnsecuredJWT(t, vpBytes, true))
+		vpFromJWT, err := newTestPresentation(createPresUnsecuredJWT(t, vpBytes, true))
 
 		require.NoError(t, err)
 
-		vp, err := NewPresentation(vpBytes)
+		vp, err := newTestPresentation(vpBytes)
 		require.NoError(t, err)
 
 		require.Equal(t, vp, vpFromJWT)
@@ -206,7 +206,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		r.NoError(err)
 
 		// Decode VP
-		vpDecoded, err := NewPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
+		vpDecoded, err := newTestPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
 			func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				switch keyID {
 				case "holder-key":
@@ -228,7 +228,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		r.NoError(err)
 		r.Len(vpCreds, 1)
 
-		vcDecoded, _, err := NewCredential(vpCreds[0])
+		vcDecoded, _, err := newTestCredential(vpCreds[0])
 		r.NoError(err)
 
 		r.Equal(vc.stringJSON(t), vcDecoded.stringJSON(t))
@@ -256,14 +256,14 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		r.NoError(err)
 
 		// Decode VP
-		vpDecoded, err := NewPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
+		vpDecoded, err := newTestPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
 			SingleKey(holderPubKey, kms.ED25519)))
 		r.NoError(err)
 		vpCreds, err := vpDecoded.MarshalledCredentials()
 		r.NoError(err)
 		r.Len(vpCreds, 1)
 
-		vcDecoded, _, err := NewCredential(vpCreds[0])
+		vcDecoded, _, err := newTestCredential(vpCreds[0])
 		r.NoError(err)
 
 		r.Equal(vc.stringJSON(t), vcDecoded.stringJSON(t))
@@ -291,7 +291,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		r.NoError(err)
 
 		// Decode VP
-		vp, err = NewPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
+		vp, err = newTestPresentation([]byte(vpJWS), WithPresPublicKeyFetcher(
 			func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				switch keyID {
 				case "holder-key":
@@ -321,7 +321,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 }
 
 func createPresJWS(t *testing.T, vpBytes []byte, minimize bool) []byte {
-	vp, err := NewPresentation(vpBytes)
+	vp, err := newTestPresentation(vpBytes)
 	require.NoError(t, err)
 
 	privateKey, err := readPrivateKey(filepath.Join(certPrefix, "holder_private.pem"))
@@ -353,7 +353,7 @@ func createPresKeyFetcher(t *testing.T) func(issuerID string, keyID string) (*ve
 }
 
 func createPresUnsecuredJWT(t *testing.T, cred []byte, minimize bool) []byte {
-	vp, err := NewPresentation(cred)
+	vp, err := newTestPresentation(cred)
 	require.NoError(t, err)
 
 	jwtClaims, err := vp.JWTClaims([]string{}, minimize)

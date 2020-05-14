@@ -18,9 +18,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -29,7 +31,10 @@ import (
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-const certPrefix = "testdata/crypto"
+const (
+	certPrefix          = "testdata/crypto"
+	jsonldContextPrefix = "testdata/context"
+)
 
 //nolint:lll
 const validCredential = `{
@@ -353,4 +358,50 @@ func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
 
 		panic("invalid keyID")
 	}
+}
+
+//nolint:gochecknoglobals
+var testDocumentLoader = createTestJSONLDDocumentLoader()
+
+func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
+	fmt.Printf("Create test document loader!\n")
+
+	loader := CachingJSONLDLoader()
+
+	exampleJSONLDContext, err := ioutil.ReadFile(filepath.Clean(filepath.Join(
+		jsonldContextPrefix, "vc_example.jsonld")))
+	if err != nil {
+		panic(err)
+	}
+
+	trustblocExampleJSONLDContext, err := ioutil.ReadFile(filepath.Clean(filepath.Join(
+		jsonldContextPrefix, "trustbloc_example.jsonld")))
+	if err != nil {
+		panic(err)
+	}
+
+	addJSONLDCachedContext(loader,
+		"https://www.w3.org/2018/credentials/examples/v1", string(exampleJSONLDContext))
+
+	addJSONLDCachedContext(loader,
+		"https://trustbloc.github.io/context/vc/examples-v1.jsonld", string(trustblocExampleJSONLDContext))
+
+	return loader
+}
+
+func addJSONLDCachedContext(loader *ld.CachingDocumentLoader, contextURL, contextContent string) {
+	reader, err := ld.DocumentFromReader(strings.NewReader(contextContent))
+	if err != nil {
+		panic(err)
+	}
+
+	loader.AddDocument(contextURL, reader)
+}
+
+func newTestCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, error) {
+	return NewCredential(vcData, append([]CredentialOpt{WithJSONLDDocumentLoader(testDocumentLoader)}, opts...)...)
+}
+
+func newTestPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, error) {
+	return NewPresentation(vpData, append([]PresentationOpt{WithPresJSONLDDocumentLoader(testDocumentLoader)}, opts...)...)
 }

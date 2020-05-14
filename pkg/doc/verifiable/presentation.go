@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -355,6 +356,14 @@ func WithPresStrictValidation() PresentationOpt {
 func WithPresRequireVC() PresentationOpt {
 	return func(opts *presentationOpts) {
 		opts.requireVC = true
+	}
+}
+
+// WithPresJSONLDDocumentLoader defines custom JSON-LD document loader. If not defined, when decoding VP
+// a new document loader will be created using CachingJSONLDLoader() if JSON-LD validation is made.
+func WithPresJSONLDDocumentLoader(documentLoader ld.DocumentLoader) PresentationOpt {
+	return func(opts *presentationOpts) {
+		opts.jsonldDocumentLoader = documentLoader
 	}
 }
 

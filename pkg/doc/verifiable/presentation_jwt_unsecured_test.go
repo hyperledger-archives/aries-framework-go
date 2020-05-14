@@ -15,7 +15,7 @@ import (
 )
 
 func TestJWTPresClaims_MarshalUnsecuredJWT(t *testing.T) {
-	vp, err := NewPresentation([]byte(validPresentation))
+	vp, err := newTestPresentation([]byte(validPresentation))
 	require.NoError(t, err)
 
 	jws := createCredUnsecuredJWT(t, vp)
@@ -28,7 +28,7 @@ func TestJWTPresClaims_MarshalUnsecuredJWT(t *testing.T) {
 
 func TestDecodeVPFromUnsecuredJWT(t *testing.T) {
 	t.Run("Successful unsecured JWT decoding", func(t *testing.T) {
-		vp, err := NewPresentation([]byte(validPresentation))
+		vp, err := newTestPresentation([]byte(validPresentation))
 		require.NoError(t, err)
 
 		jws := createCredUnsecuredJWT(t, vp)
