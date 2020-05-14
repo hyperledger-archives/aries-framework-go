@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
+	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
 	mockdispatcher "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/dispatcher"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
@@ -373,11 +374,11 @@ func TestNewProvider(t *testing.T) {
 		require.Equal(t, transportReturnRoute, prov.TransportReturnRoute())
 	})
 
-	t.Run("test new with framework id", func(t *testing.T) {
-		frameworkID := "aries-framework-1"
-		prov, err := New(WithAriesFrameworkID(frameworkID))
+	t.Run("test new with verifiable store", func(t *testing.T) {
+		verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
+		prov, err := New(WithVerifiableStore(verifiableStore))
 		require.NoError(t, err)
-		require.Equal(t, frameworkID, prov.AriesFrameworkID())
+		require.Equal(t, verifiableStore, prov.VerifiableStore())
 	})
 
 	t.Run("test new with bad (fake) option", func(t *testing.T) {
@@ -386,5 +387,12 @@ func TestNewProvider(t *testing.T) {
 		})
 		require.EqualError(t, err, "option failed: bad option")
 		require.Empty(t, prov)
+	})
+
+	t.Run("test new with framework ID", func(t *testing.T) {
+		frameworkID := "none"
+		prov, err := New(WithAriesFrameworkID(frameworkID))
+		require.NoError(t, err)
+		require.Equal(t, frameworkID, prov.AriesFrameworkID())
 	})
 }

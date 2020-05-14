@@ -10,14 +10,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
-
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messenger"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
@@ -28,6 +27,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/peer"
 )
@@ -63,6 +63,7 @@ type Aries struct {
 	packers                []packer.Packer
 	vdriRegistry           vdriapi.Registry
 	vdri                   []vdriapi.VDRI
+	verifiableStore        verifiable.Store
 	transportReturnRoute   string
 	id                     string
 }
@@ -273,6 +274,14 @@ func WithPacker(primary packer.Creator, additionalPackers ...packer.Creator) Opt
 	}
 }
 
+// WithVerifiableStore injects a verifiable credential store
+func WithVerifiableStore(store verifiable.Store) Option {
+	return func(opts *Aries) error {
+		opts.verifiableStore = store
+		return nil
+	}
+}
+
 // Context provides a handle to the framework context.
 func (a *Aries) Context() (*context.Provider, error) {
 	return context.New(
@@ -294,6 +303,7 @@ func (a *Aries) Context() (*context.Provider, error) {
 		context.WithTransportReturnRoute(a.transportReturnRoute),
 		context.WithAriesFrameworkID(a.id),
 		context.WithMessageServiceProvider(a.msgSvcProvider),
+		context.WithVerifiableStore(a.verifiableStore),
 	)
 }
 
@@ -489,6 +499,7 @@ func loadServices(frameworkOpts *Aries) error {
 		context.WithServiceEndpoint(serviceEndpoint(frameworkOpts)),
 		context.WithRouterEndpoint(routingEndpoint(frameworkOpts)),
 		context.WithVDRIRegistry(frameworkOpts.vdriRegistry),
+		context.WithVerifiableStore(frameworkOpts.verifiableStore),
 	)
 
 	if err != nil {

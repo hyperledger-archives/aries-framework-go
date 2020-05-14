@@ -31,7 +31,7 @@ func TestWithDBPath(t *testing.T) {
 
 		_, err = aries.New(WithStorePath(path))
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to OpenStore for")
+		require.Contains(t, err.Error(), "failed to open vc store")
 	})
 
 	t.Run("test with db path success", func(t *testing.T) {

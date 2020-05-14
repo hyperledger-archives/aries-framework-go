@@ -583,7 +583,7 @@ func TestStartMultipleAgentsWithSameDBPath(t *testing.T) {
 	err := startAgent(parameters)
 
 	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "failed to OpenStore for")
+	require.Contains(t, err.Error(), "failed to open vc store")
 }
 
 func TestStartAriesErrorWithResolvers(t *testing.T) {

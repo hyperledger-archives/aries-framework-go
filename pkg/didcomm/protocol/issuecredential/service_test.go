@@ -24,6 +24,7 @@ import (
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	issuecredentialMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/issuecredential"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
+	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
@@ -39,11 +40,14 @@ func TestNew(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		storeProvider := storageMocks.NewMockProvider(ctrl)
-		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil).Times(2)
+		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil).Times(1)
+
+		verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
 
 		provider := issuecredentialMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().StorageProvider().Return(storeProvider).Times(2)
+		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -77,11 +81,13 @@ func TestService_HandleInbound(t *testing.T) {
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
 
+	verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
 	messenger := serviceMocks.NewMockMessenger(ctrl)
 
 	provider := issuecredentialMocks.NewMockProvider(ctrl)
 	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
 	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+	provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 	t.Run("No clients", func(t *testing.T) {
 		svc, err := New(provider)
@@ -236,6 +242,7 @@ func TestService_HandleInbound(t *testing.T) {
 		newProvider := issuecredentialMocks.NewMockProvider(ctrl)
 		newProvider.EXPECT().Messenger().Return(messenger).AnyTimes()
 		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider()).AnyTimes()
+		newProvider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -283,6 +290,7 @@ func TestService_HandleInbound(t *testing.T) {
 		newProvider := issuecredentialMocks.NewMockProvider(ctrl)
 		newProvider.EXPECT().Messenger().Return(messenger).AnyTimes()
 		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider()).AnyTimes()
+		newProvider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -588,15 +596,9 @@ func TestService_HandleInbound(t *testing.T) {
 			})
 
 		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(key string, name []byte) error {
-			require.Contains(t, key, "UniversityDegree")
-
-			return nil
-		})
+		verifiableStore.EXPECT().SaveCredential(gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Do(func(_ string, name []byte) error {
 			require.Equal(t, "done", string(name))
 
@@ -762,11 +764,13 @@ func TestService_HandleOutbound(t *testing.T) {
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
 
+	verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
 	messenger := serviceMocks.NewMockMessenger(ctrl)
 
 	provider := issuecredentialMocks.NewMockProvider(ctrl)
 	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
 	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+	provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 	t.Run("DB error", func(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
@@ -955,11 +959,13 @@ func TestService_ActionContinue(t *testing.T) {
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
 
+		verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 
 		provider := issuecredentialMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(messenger)
 		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -981,11 +987,13 @@ func TestService_ActionContinue(t *testing.T) {
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
 
+		verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 
 		provider := issuecredentialMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(messenger)
 		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -1008,11 +1016,13 @@ func TestService_ActionStop(t *testing.T) {
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
 
+		verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 
 		provider := issuecredentialMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(messenger)
 		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -1034,11 +1044,13 @@ func TestService_ActionStop(t *testing.T) {
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
 
+		verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 
 		provider := issuecredentialMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(messenger)
 		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)

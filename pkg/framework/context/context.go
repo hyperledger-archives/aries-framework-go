@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 // package context creates a framework Provider context to add optional (non default) framework services and provides
@@ -45,6 +46,7 @@ type Provider struct {
 	messenger              service.MessengerHandler
 	outboundTransports     []transport.OutboundTransport
 	vdriRegistry           vdriapi.Registry
+	verifiableStore        verifiable.Store
 	transportReturnRoute   string
 	frameworkID            string
 }
@@ -236,6 +238,11 @@ func (p *Provider) AriesFrameworkID() string {
 	return p.frameworkID
 }
 
+// VerifiableStore returns a verifiable credential store.
+func (p *Provider) VerifiableStore() verifiable.Store {
+	return p.verifiableStore
+}
+
 // ProviderOption configures the framework.
 type ProviderOption func(opts *Provider) error
 
@@ -385,6 +392,14 @@ func WithAriesFrameworkID(id string) ProviderOption {
 func WithMessageServiceProvider(msv api.MessageServiceProvider) ProviderOption {
 	return func(opts *Provider) error {
 		opts.msgSvcProvider = msv
+		return nil
+	}
+}
+
+// WithVerifiableStore injects a verifiable credential store
+func WithVerifiableStore(store verifiable.Store) ProviderOption {
+	return func(opts *Provider) error {
+		opts.verifiableStore = store
 		return nil
 	}
 }

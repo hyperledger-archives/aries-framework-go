@@ -152,6 +152,7 @@ mocks: depend clean-mocks
 	$(call create_mock,pkg/didcomm/dispatcher,Outbound)
 	$(call create_mock,pkg/storage,Provider;Store)
 	$(call create_mock,pkg/didcomm/messenger,Provider)
+	$(call create_mock,pkg/store/verifiable,Store)
 
 .PHONY: clean-mocks
 clean-mocks:

@@ -33,6 +33,18 @@ const (
 // ErrNotFound signals that the entry for the given DID and key is not present in the store.
 var ErrNotFound = errors.New("did not found under given key")
 
+// Store provides interface for storing and managing verifiable credentials
+type Store interface {
+	SaveCredential(name string, vc *verifiable.Credential) error
+	SavePresentation(name string, vp *verifiable.Presentation) error
+	GetCredential(id string) (*verifiable.Credential, error)
+	GetPresentation(id string) (*verifiable.Presentation, error)
+	GetCredentialIDByName(name string) (string, error)
+	GetPresentationIDByName(name string) (string, error)
+	GetCredentials() ([]*Record, error)
+	GetPresentations() ([]*Record, error)
+}
+
 type record struct {
 	ID        string   `json:"id,omitempty"`
 	Context   []string `json:"context,omitempty"`
@@ -40,8 +52,8 @@ type record struct {
 	SubjectID string   `json:"subjectId,omitempty"`
 }
 
-// Store stores vc
-type Store struct {
+// StoreImplementation stores vc
+type StoreImplementation struct {
 	store storage.Store
 }
 
@@ -50,17 +62,17 @@ type provider interface {
 }
 
 // New returns a new vc store
-func New(ctx provider) (*Store, error) {
+func New(ctx provider) (*StoreImplementation, error) {
 	store, err := ctx.StorageProvider().OpenStore(NameSpace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open vc store: %w", err)
 	}
 
-	return &Store{store: store}, nil
+	return &StoreImplementation{store: store}, nil
 }
 
 // SaveCredential saves a verifiable credential.
-func (s *Store) SaveCredential(name string, vc *verifiable.Credential) error {
+func (s *StoreImplementation) SaveCredential(name string, vc *verifiable.Credential) error {
 	if name == "" {
 		return errors.New("credential name is mandatory")
 	}
@@ -102,7 +114,7 @@ func (s *Store) SaveCredential(name string, vc *verifiable.Credential) error {
 }
 
 // SavePresentation saves a verifiable presentation.
-func (s *Store) SavePresentation(name string, vp *verifiable.Presentation) error {
+func (s *StoreImplementation) SavePresentation(name string, vp *verifiable.Presentation) error {
 	if name == "" {
 		return errors.New("presentation name is mandatory")
 	}
@@ -144,7 +156,7 @@ func (s *Store) SavePresentation(name string, vp *verifiable.Presentation) error
 }
 
 // GetCredential retrieves a verifiable credential based on ID.
-func (s *Store) GetCredential(id string) (*verifiable.Credential, error) {
+func (s *StoreImplementation) GetCredential(id string) (*verifiable.Credential, error) {
 	vcBytes, err := s.store.Get(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vc: %w", err)
@@ -159,7 +171,7 @@ func (s *Store) GetCredential(id string) (*verifiable.Credential, error) {
 }
 
 // GetPresentation retrieves a verifiable presentation based on ID.
-func (s *Store) GetPresentation(id string) (*verifiable.Presentation, error) {
+func (s *StoreImplementation) GetPresentation(id string) (*verifiable.Presentation, error) {
 	vpBytes, err := s.store.Get(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vc: %w", err)
@@ -174,7 +186,7 @@ func (s *Store) GetPresentation(id string) (*verifiable.Presentation, error) {
 }
 
 // GetCredentialIDByName retrieves verifiable credential id based on name.
-func (s *Store) GetCredentialIDByName(name string) (string, error) {
+func (s *StoreImplementation) GetCredentialIDByName(name string) (string, error) {
 	recordBytes, err := s.store.Get(credentialNameDataKey(name))
 	if err != nil {
 		return "", fmt.Errorf("fetch credential id based on name : %w", err)
@@ -191,7 +203,7 @@ func (s *Store) GetCredentialIDByName(name string) (string, error) {
 }
 
 // GetPresentationIDByName retrieves verifiable presentation id based on name.
-func (s *Store) GetPresentationIDByName(name string) (string, error) {
+func (s *StoreImplementation) GetPresentationIDByName(name string) (string, error) {
 	recordBytes, err := s.store.Get(presentationNameDataKey(name))
 	if err != nil {
 		return "", fmt.Errorf("fetch presentation id based on name : %w", err)
@@ -208,16 +220,16 @@ func (s *Store) GetPresentationIDByName(name string) (string, error) {
 }
 
 // GetCredentials retrieves the verifiable credential records containing name and fields of interest.
-func (s *Store) GetCredentials() ([]*Record, error) {
+func (s *StoreImplementation) GetCredentials() ([]*Record, error) {
 	return s.getAllRecords(credentialNameDataKey(""), getCredentialName)
 }
 
 // GetPresentations retrieves the verifiable presenations records containing name and fields of interest.
-func (s *Store) GetPresentations() ([]*Record, error) {
+func (s *StoreImplementation) GetPresentations() ([]*Record, error) {
 	return s.getAllRecords(presentationNameDataKey(""), getPresentationName)
 }
 
-func (s *Store) getAllRecords(searchKey string, keyPrefix func(string) string) ([]*Record, error) {
+func (s *StoreImplementation) getAllRecords(searchKey string, keyPrefix func(string) string) ([]*Record, error) {
 	itr := s.store.Iterator(searchKey, fmt.Sprintf(limitPattern, searchKey))
 	defer itr.Release()
 
