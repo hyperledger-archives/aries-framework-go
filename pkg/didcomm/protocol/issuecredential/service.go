@@ -66,7 +66,7 @@ type metaData struct {
 	state           state
 	msgClone        service.DIDCommMsg
 	inbound         bool
-	verifiable      *storeverifiable.Store
+	verifiable      storeverifiable.Store
 	credentialNames []string
 	// keeps offer credential payload,
 	// allows filling the message by providing an option function
@@ -125,6 +125,7 @@ func WithFriendlyNames(names ...string) Opt {
 type Provider interface {
 	Messenger() service.Messenger
 	StorageProvider() storage.Provider
+	VerifiableStore() storeverifiable.Store
 }
 
 // Service for the issuecredential protocol
@@ -134,7 +135,7 @@ type Service struct {
 	store      storage.Store
 	callbacks  chan *metaData
 	messenger  service.Messenger
-	verifiable *storeverifiable.Store
+	verifiable storeverifiable.Store
 }
 
 // New returns the issuecredential service
@@ -144,9 +145,9 @@ func New(p Provider) (*Service, error) {
 		return nil, err
 	}
 
-	vStore, err := storeverifiable.New(p)
-	if err != nil {
-		return nil, err
+	vStore := p.VerifiableStore()
+	if vStore == nil {
+		return nil, fmt.Errorf("verifiable store is nil")
 	}
 
 	svc := &Service{

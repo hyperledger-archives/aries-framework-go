@@ -11,10 +11,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )

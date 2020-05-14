@@ -25,10 +25,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/route"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 // defFrameworkOpts provides default framework options
@@ -50,6 +53,11 @@ func defFrameworkOpts(frameworkOpts *Aries) error {
 		}
 
 		frameworkOpts.storeProvider = storeProv
+	}
+
+	err := assignVerifiableStoreIfNeeded(frameworkOpts, frameworkOpts.storeProvider)
+	if err != nil {
+		return err
 	}
 
 	// order is important:
@@ -162,6 +170,24 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 
 	if frameworkOpts.msgSvcProvider == nil {
 		frameworkOpts.msgSvcProvider = &noOpMessageServiceProvider{}
+	}
+
+	return nil
+}
+
+func assignVerifiableStoreIfNeeded(aries *Aries, storeProvider storage.Provider) error {
+	if aries.verifiableStore != nil {
+		return nil
+	}
+
+	provider, err := context.New(context.WithStorageProvider(storeProvider))
+	if err != nil {
+		return fmt.Errorf("verifiable store initialization failed : %w", err)
+	}
+
+	aries.verifiableStore, err = verifiable.New(provider)
+	if err != nil {
+		return fmt.Errorf("can't initialize verifaible store : %w", err)
 	}
 
 	return nil

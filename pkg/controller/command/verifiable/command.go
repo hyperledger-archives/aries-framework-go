@@ -157,7 +157,7 @@ type provider interface {
 
 // Command contains command operations provided by verifiable credential controller.
 type Command struct {
-	verifiableStore *verifiablestore.Store
+	verifiableStore verifiablestore.Store
 	didStore        *didstore.Store
 	kResolver       keyResolver
 	ctx             provider
