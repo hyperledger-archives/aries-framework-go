@@ -15,6 +15,7 @@ import (
 )
 
 const securityContext = "https://w3id.org/security/v2"
+const securityContextJWK2020 = "https://trustbloc.github.io/context/vc/credentials-v1.jsonld"
 
 const (
 	jwtPartsNumber   = 3
@@ -106,8 +107,8 @@ func createVerifyJWS(suite signatureSuite, jsonldDoc map[string]interface{}, p *
 
 func prepareJWSProof(suite signatureSuite, proofOptions map[string]interface{},
 	opts ...jsonld.ProcessorOpts) ([]byte, error) {
-	proofOptions[jsonldContext] = securityContext
-
+	// TODO proof contexts shouldn't be hardcoded in jws, should be passed in jsonld doc by author [Issue#1833]
+	proofOptions[jsonldContext] = []interface{}{securityContext, securityContextJWK2020}
 	proofOptionsCopy := make(map[string]interface{}, len(proofOptions))
 
 	for key, value := range proofOptions {
@@ -117,7 +118,7 @@ func prepareJWSProof(suite signatureSuite, proofOptions map[string]interface{},
 	delete(proofOptionsCopy, jsonldJWS)
 	delete(proofOptionsCopy, jsonldProofValue)
 
-	return suite.GetCanonicalDocument(proofOptionsCopy, append(opts, jsonld.WithRemoveAllInvalidRDF())...)
+	return suite.GetCanonicalDocument(proofOptionsCopy, opts...)
 }
 
 func prepareDocumentForJWS(suite signatureSuite, jsonldObject map[string]interface{},

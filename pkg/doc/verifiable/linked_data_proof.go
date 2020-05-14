@@ -79,6 +79,8 @@ func checkLinkedDataProof(jsonldBytes []byte, suites []verifier.SignatureSuite,
 
 	if jsonldOpts.jsonldOnlyValidRDF {
 		processorOpts = append(processorOpts, jsonld.WithRemoveAllInvalidRDF())
+	} else {
+		processorOpts = append(processorOpts, jsonld.WithValidateRDF())
 	}
 
 	err = documentVerifier.Verify(jsonldBytes, processorOpts...)

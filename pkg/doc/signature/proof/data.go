@@ -100,7 +100,7 @@ func prepareCanonicalProofOptions(suite signatureSuite, proofOptions map[string]
 	}
 
 	// build canonical proof options
-	return suite.GetCanonicalDocument(proofOptionsCopy, append(opts, jsonld.WithRemoveAllInvalidRDF())...)
+	return suite.GetCanonicalDocument(proofOptionsCopy, opts...)
 }
 
 func prepareCanonicalDocument(suite signatureSuite, jsonldObject map[string]interface{},

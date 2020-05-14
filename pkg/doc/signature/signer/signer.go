@@ -121,7 +121,7 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		p.JWS = proof.CreateDetachedJWTHeader(p) + ".."
 	}
 
-	message, err := proof.CreateVerifyData(suite, jsonLdObject, p, jsonld.WithRemoveAllInvalidRDF())
+	message, err := proof.CreateVerifyData(suite, jsonLdObject, p, jsonld.WithValidateRDF())
 	if err != nil {
 		return err
 	}

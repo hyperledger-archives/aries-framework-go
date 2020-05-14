@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package jsonld
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -23,9 +24,13 @@ const (
 
 var logger = log.New("aries-framework/json-ld-processor")
 
+// ErrInvalidRDFFound is returned when normalized view contains invalid RDF
+var ErrInvalidRDFFound = errors.New("invalid JSON-LD context")
+
 // normalizeOpts holds options for canonicalization of JSON LD docs
 type normalizeOpts struct {
 	removeInvalidRDF bool
+	validateRDF      bool
 	documentLoader   ld.DocumentLoader
 	externalContexts []string
 }
@@ -51,6 +56,14 @@ func WithDocumentLoader(loader ld.DocumentLoader) ProcessorOpts {
 func WithExternalContext(context ...string) ProcessorOpts {
 	return func(opts *normalizeOpts) {
 		opts.externalContexts = context
+	}
+}
+
+// WithValidateRDF option validates result view and fails if any invalid RDF dataset found.
+// This option will take precedence when used in conjunction with 'WithRemoveAllInvalidRDF' option.
+func WithValidateRDF() ProcessorOpts {
+	return func(opts *normalizeOpts) {
+		opts.validateRDF = true
 	}
 }
 
@@ -103,11 +116,9 @@ func (p *Processor) GetCanonicalDocument(doc map[string]interface{}, opts ...Pro
 		return nil, fmt.Errorf("failed to normalize JSON-LD document, invalid view")
 	}
 
-	if procOptions.removeInvalidRDF {
-		result, err = p.removeMatchingInvalidRDFs(result)
-		if err != nil {
-			return nil, fmt.Errorf("failed to normalize due to invalid RDF dataset: %w", err)
-		}
+	result, err = p.removeMatchingInvalidRDFs(result, procOptions)
+	if err != nil {
+		return nil, err
 	}
 
 	return []byte(result), nil
@@ -164,7 +175,11 @@ func (p *Processor) Compact(input, context map[string]interface{},
 // removeMatchingInvalidRDFs validates normalized view to find any invalid RDF and
 // returns filtered view after removing all invalid data except the ones given in rdfMatches argument.
 // [Note : handling invalid RDF data, by following pattern https://github.com/digitalbazaar/jsonld.js/issues/199]
-func (p *Processor) removeMatchingInvalidRDFs(view string) (string, error) {
+func (p *Processor) removeMatchingInvalidRDFs(view string, opts *normalizeOpts) (string, error) {
+	if !opts.removeInvalidRDF && !opts.validateRDF {
+		return view, nil
+	}
+
 	views := strings.Split(view, "\n")
 
 	var filteredViews []string
@@ -189,6 +204,8 @@ func (p *Processor) removeMatchingInvalidRDFs(view string) (string, error) {
 	if !foundInvalid {
 		// clean RDF view, no need to regenerate
 		return view, nil
+	} else if opts.validateRDF {
+		return "", ErrInvalidRDFFound
 	}
 
 	filteredView := strings.Join(filteredViews, "\n")

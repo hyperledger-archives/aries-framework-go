@@ -264,39 +264,47 @@ func TestNewCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
 	vcJSON := `
 {
-    "@context": [
-      "https://www.w3.org/2018/credentials/v1",
-      "https://www.w3.org/2018/credentials/examples/v1"
-    ],
-    "id": "http://example.gov/credentials/3732",
-    "type": [
-      "VerifiableCredential",
-      "UniversityDegreeCredential"
-    ],
-    "issuer": {
-      "id": "did:web:vc.transmute.world"
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1",
+    "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
+  ],
+  "credentialStatus": {
+    "id": "http://issuer.vc.rest.example.com:8070/status/1",
+    "type": "CredentialStatusList2017"
+  },
+  "credentialSubject": {
+    "degree": {
+      "degree": "MIT",
+      "type": "BachelorDegree"
     },
-    "issuanceDate": "2020-03-10T04:24:12.164Z",
-    "credentialSubject": {
-      "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-      "degree": {
-        "type": "BachelorDegree",
-        "name": "Bachelor of Science and Arts"
-      }
-    },
-    "proof": {
-      "type": "JsonWebSignature2020",
-      "created": "2020-03-21T17:51:48Z",
-      "verificationMethod": "did:web:vc.transmute.world#_Qq0UL2Fq651Q0Fjd6TvnYE-faHiOpRlPVQcY_-tA4A",
-      "proofPurpose": "assertionMethod",
-      "jws": "eyJiNjQiOmZhbHNlLCJjcml0IjpbImI2NCJdLCJhbGciOiJFZERTQSJ9..OPxskX37SK0FhmYygDk-S4csY_gNhCUgSOAaXFXDTZx86CmI5nU9xkqtLWg-f4cqkigKDdMVdtIqWAvaYx2JBA"
-    }
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "id": "https://example.com/credentials/720df5b8-d6c9-47e6-a024-0abc1507e549",
+  "issuanceDate": "2020-03-16T22:37:26.544Z",
+  "issuer": {
+    "id": "did:trustbloc:testnet.trustbloc.local:EiDcoXqGFKvTYHrjNbgydFJXkRwZ3o4mGo5Hrz5oFWQpTw",
+    "name": "myprofile_ud_unireg_p256_jws"
+  },
+  "proof": {
+    "created": "2020-05-14T18:03:31.42589357Z",
+    "jws": "eyJhbGciOiJKc29uV2ViU2lnbmF0dXJlMjAyMCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..WIqlGjahSWZ6S9fTPIYtXLiKZME-H1iOp2ZVImBokb1Yjkdq2O95v1vVFWLnJA6Ch5cQhrpq3XBvfu4-WRI9BQ",
+    "proofPurpose": "assertionMethod",
+    "type": "JsonWebSignature2020",
+    "verificationMethod": "did:trustbloc:testnet.trustbloc.local:EiDcoXqGFKvTYHrjNbgydFJXkRwZ3o4mGo5Hrz5oFWQpTw#MKDuk3--4skF-pAln0mL"
+  },
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ]
 }
 `
 	sigSuite := jsonwebsignature2020.New(
 		suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
 
-	decoded, err := base64.RawURLEncoding.DecodeString("VCpo2LMLhn6iWku8MKvSLg2ZAoC-nlOyPVQaO3FxVeQ")
+	decoded, err := base64.StdEncoding.DecodeString("+aUmWfY3dieI7pIeRyG+tOjfGL84ay3QyaVmho0oJR8=")
 	require.NoError(t, err)
 
 	publicKey := make([]byte, ed25519.PublicKeySize)
@@ -392,7 +400,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
 		WithStrictValidation())
 	r.Error(err)
-	r.EqualError(err, "decode new credential: check embedded proof: check linked data proof: ed25519: invalid signature")
+	r.EqualError(err, "decode new credential: check embedded proof: check linked data proof: invalid JSON-LD context")
 	r.Nil(vcWithLdp)
 
 	// Use extra context.

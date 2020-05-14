@@ -127,6 +127,20 @@ func TestGetCanonicalDocument(t *testing.T) {
 				doc:    `{}`,
 				result: "",
 			},
+			{
+				name:   "canonizing document with 1 incorrect RDF with validation option",
+				doc:    jsonldWith2KnownInvalidRDFs,
+				result: canonizedIncorrectRDF_allfiltered,
+				opts:   []ProcessorOpts{WithValidateRDF()},
+				err:    ErrInvalidRDFFound.Error(),
+			},
+			{
+				name:   "canonizing document with 1 incorrect RDF with validation & remove all invalid RDF option",
+				doc:    jsonldWith2KnownInvalidRDFs,
+				result: canonizedIncorrectRDF_allfiltered,
+				opts:   []ProcessorOpts{WithValidateRDF(), WithRemoveAllInvalidRDF()},
+				err:    ErrInvalidRDFFound.Error(),
+			},
 		}
 
 		t.Parallel()

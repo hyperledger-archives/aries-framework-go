@@ -147,12 +147,12 @@ func (s *testSigner) Sign(doc []byte) ([]byte, error) {
 
 //nolint:lll
 const validDoc = `{
-  "@context": ["https://w3id.org/did/v1"],
+  "@context": ["https://w3id.org/did/v1", "https://w3id.org/security/v2"],
   "id": "did:example:21tDAKCERh95uGgKbJNHYp",
   "publicKey": [
     {
       "id": "did:example:123456789abcdefghi#keys-1",
-      "type": "Secp256k1VerificationKey2018",
+      "type": "EcdsaSecp256k1VerificationKey2019",
       "controller": "did:example:123456789abcdefghi",
       "publicKeyBase58": "H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV"
     },
