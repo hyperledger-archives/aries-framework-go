@@ -21,14 +21,15 @@ type EncryptedData struct {
 
 // RecipientWrappedKey contains recipient key material required to unwrap CEK
 type RecipientWrappedKey struct {
-	EncryptedCEK []byte      `json:"EncryptedCEK,omitempty"`
-	EPK          ECPublicKey `json:"EPK,omitempty"`
-	Alg          string      `json:"Alg,omitempty"`
+	EncryptedCEK []byte    `json:"EncryptedCEK,omitempty"`
+	EPK          PublicKey `json:"EPK,omitempty"`
+	Alg          string    `json:"Alg,omitempty"`
 }
 
-// ECPublicKey mainly to exchange EPK in RecipientWrappedKey
-type ECPublicKey struct {
+// PublicKey mainly to exchange EPK in RecipientWrappedKey
+type PublicKey struct {
 	X     []byte `json:"X,omitempty"`
 	Y     []byte `json:"Y,omitempty"`
 	Curve string `json:"curve,omitempty"`
+	Type  string `json:"type,omitempty"`
 }

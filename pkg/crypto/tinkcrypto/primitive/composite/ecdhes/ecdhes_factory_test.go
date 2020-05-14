@@ -38,7 +38,7 @@ func TestECDHESFactory(t *testing.T) {
 	require.NoError(t, err)
 
 	primaryPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhesPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdhesAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 8, tinkpb.OutputPrefixType_RAW)
 
 	rawPrivProto := generateECDHESAEADPrivateKey(t, c, rawPtFmt, rawEncT)
@@ -47,7 +47,7 @@ func TestECDHESFactory(t *testing.T) {
 	require.NoError(t, err)
 
 	rawPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhesPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdhesAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 11, tinkpb.OutputPrefixType_RAW)
 
 	privKeys := []*tinkpb.Keyset_Key{primaryPrivKey, rawPrivKey}
@@ -92,6 +92,7 @@ func ecdhesAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commo
 				// add recipients for Encryption primitive
 				Recipients: []*ecdhespb.EcdhesAeadRecipientPublicKey{
 					{
+						KeyType:   ecdhespb.KeyType_EC,
 						CurveType: c,
 						X:         x,
 						Y:         y,
@@ -148,7 +149,7 @@ func TestECDHESFactoryWithBadKeysetType(t *testing.T) {
 	require.NoError(t, err)
 
 	primaryPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhesPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdhesAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 8, tinkpb.OutputPrefixType_RAW)
 
 	rawPrivProto := generateECDHESAEADPrivateKey(t, c, rawPtFmt, rawEncT)
@@ -157,7 +158,7 @@ func TestECDHESFactoryWithBadKeysetType(t *testing.T) {
 	require.NoError(t, err)
 
 	rawPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhesPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdhesAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 11, tinkpb.OutputPrefixType_RAW)
 
 	badPrivKeyProto, err := testutil.GenerateECIESAEADHKDFPrivateKey(c, commonpb.HashType_SHA256, primaryPtFmt,

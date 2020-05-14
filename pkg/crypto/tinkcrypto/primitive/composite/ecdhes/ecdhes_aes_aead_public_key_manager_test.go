@@ -28,14 +28,14 @@ func TestECDHESPublicKeyManager_Primitive(t *testing.T) {
 
 	t.Run("Test public key manager Primitive() with empty serialized key", func(t *testing.T) {
 		p, err := km.Primitive([]byte(""))
-		require.EqualError(t, err, errInvalidECDHESPublicKey.Error(),
+		require.EqualError(t, err, errInvalidECDHESAESPublicKey.Error(),
 			"ECDHESPublic primitive from empty serialized key must fail")
 		require.Empty(t, p)
 	})
 
 	t.Run("Test public key manager Primitive() with bad serialize key", func(t *testing.T) {
 		p, err := km.Primitive([]byte("bad.data"))
-		require.EqualError(t, err, errInvalidECDHESPublicKey.Error(),
+		require.EqualError(t, err, errInvalidECDHESAESPublicKey.Error(),
 			"ECDHESPublic primitive from bad serialized key must fail")
 		require.Empty(t, p)
 	})
@@ -168,7 +168,7 @@ func TestECDHESPublicKeyManager_Primitive(t *testing.T) {
 
 			p, err := km.Primitive(sPubKey)
 			if strings.Contains(tt.tcName, "with bad content encryption key size") {
-				require.EqualError(t, err, errInvalidECDHESPublicKey.Error(),
+				require.EqualError(t, err, errInvalidECDHESAESPublicKey.Error(),
 					"ECDHESPublic primitive from serialized key with invalid serialized key")
 				require.Empty(t, p)
 
@@ -216,18 +216,21 @@ func generateRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKey {
 	return []*ecdhespb.EcdhesAeadRecipientPublicKey{
 		{
 			Version:   0,
+			KeyType:   ecdhespb.KeyType_EC,
 			CurveType: curvProto,
 			X:         recipient1Priv.PublicKey.Point.X.Bytes(),
 			Y:         recipient1Priv.PublicKey.Point.Y.Bytes(),
 		},
 		{
 			Version:   0,
+			KeyType:   ecdhespb.KeyType_EC,
 			CurveType: curvProto,
 			X:         recipient2Priv.PublicKey.Point.X.Bytes(),
 			Y:         recipient2Priv.PublicKey.Point.Y.Bytes(),
 		},
 		{
 			Version:   0,
+			KeyType:   ecdhespb.KeyType_EC,
 			CurveType: curvProto,
 			X:         recipient3Priv.PublicKey.Point.X.Bytes(),
 			Y:         recipient3Priv.PublicKey.Point.Y.Bytes(),
@@ -238,7 +241,7 @@ func generateRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKey {
 func TestEcdhesPublicKeyManager_DoesSupport(t *testing.T) {
 	km := newECDHESPublicKeyManager()
 	require.False(t, km.DoesSupport("bad/url"))
-	require.True(t, km.DoesSupport(ecdhesPublicKeyTypeURL))
+	require.True(t, km.DoesSupport(ecdhesAESPublicKeyTypeURL))
 }
 
 func TestEcdhesPublicKeyManager_NewKeyAndNewKeyData(t *testing.T) {

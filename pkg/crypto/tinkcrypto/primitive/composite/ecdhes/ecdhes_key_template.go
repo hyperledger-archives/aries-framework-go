@@ -24,27 +24,32 @@ import (
 // Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS
 func ECDHES256KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256, commonpb.EcPointFormat_UNCOMPRESSED,
-		aead.AES256GCMKeyTemplate(), tinkpb.OutputPrefixType_RAW, nil)
+		aead.AES256GCMKeyTemplate(), tinkpb.OutputPrefixType_RAW, nil, ecdhespb.KeyType_EC)
 }
 
 // ECDHES256KWAES256GCMKeyTemplateWithRecipients is similar to ECDHES256KWAES256GCMKeyTemplate but adding recipients
 // keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
 // Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS
-func ECDHES256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []subtle.ECPublicKey) (*tinkpb.KeyTemplate, error) {
+func ECDHES256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []subtle.PublicKey) (*tinkpb.KeyTemplate, error) {
 	ecdhesRecipientKeys, err := createECDHESPublicKeys(recPublicKeys)
 	if err != nil {
 		return nil, err
 	}
 
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256, commonpb.EcPointFormat_UNCOMPRESSED,
-		aead.AES256GCMKeyTemplate(), tinkpb.OutputPrefixType_RAW, ecdhesRecipientKeys), nil
+		aead.AES256GCMKeyTemplate(), tinkpb.OutputPrefixType_RAW, ecdhesRecipientKeys, ecdhespb.KeyType_EC), nil
 }
 
-func createECDHESPublicKeys(recRawPublicKeys []subtle.ECPublicKey) ([]*ecdhespb.EcdhesAeadRecipientPublicKey, error) {
+func createECDHESPublicKeys(recRawPublicKeys []subtle.PublicKey) ([]*ecdhespb.EcdhesAeadRecipientPublicKey, error) {
 	var recKeys []*ecdhespb.EcdhesAeadRecipientPublicKey
 
 	for _, key := range recRawPublicKeys {
 		curveType, err := GetCurveType(key.Curve)
+		if err != nil {
+			return nil, err
+		}
+
+		keyType, err := GetKeyType(key.Type)
 		if err != nil {
 			return nil, err
 		}
@@ -54,6 +59,7 @@ func createECDHESPublicKeys(recRawPublicKeys []subtle.ECPublicKey) ([]*ecdhespb.
 			CurveType: curveType,
 			X:         key.X,
 			Y:         key.Y,
+			KeyType:   keyType,
 		}
 
 		recKeys = append(recKeys, rKey)
@@ -67,11 +73,13 @@ func createECDHESPublicKeys(recRawPublicKeys []subtle.ECPublicKey) ([]*ecdhespb.
 // createKeyTemplate creates a new ECDHES-AEAD key template with the given key
 // size in bytes.
 func createKeyTemplate(c commonpb.EllipticCurveType, epf commonpb.EcPointFormat, contentEncKeyT *tinkpb.KeyTemplate,
-	prefixType tinkpb.OutputPrefixType, recipients []*ecdhespb.EcdhesAeadRecipientPublicKey) *tinkpb.KeyTemplate {
+	prefixType tinkpb.OutputPrefixType, recipients []*ecdhespb.EcdhesAeadRecipientPublicKey,
+	keyType ecdhespb.KeyType) *tinkpb.KeyTemplate {
 	format := &ecdhespb.EcdhesAeadKeyFormat{
 		Params: &ecdhespb.EcdhesAeadParams{
 			KwParams: &ecdhespb.EcdhesKwParams{
 				CurveType:  c,
+				KeyType:    keyType,
 				Recipients: recipients,
 			},
 			EncParams: &ecdhespb.EcdhesAeadEncParams{
@@ -87,7 +95,7 @@ func createKeyTemplate(c commonpb.EllipticCurveType, epf commonpb.EcPointFormat,
 	}
 
 	return &tinkpb.KeyTemplate{
-		TypeUrl:          ecdhesPrivateKeyTypeURL,
+		TypeUrl:          ecdhesAESPrivateKeyTypeURL,
 		Value:            serializedFormat,
 		OutputPrefixType: prefixType,
 	}

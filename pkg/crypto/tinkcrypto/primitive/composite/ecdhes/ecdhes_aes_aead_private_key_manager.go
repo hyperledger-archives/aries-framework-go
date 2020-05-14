@@ -21,42 +21,42 @@ import (
 )
 
 const (
-	ecdhesPrivateKeyVersion = 0
-	ecdhesPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhesAeadPrivateKey"
+	ecdhesAESPrivateKeyVersion = 0
+	ecdhesAESPrivateKeyTypeURL = "type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhesAesAeadPrivateKey"
 )
 
 // common errors
-var errInvalidECDHESPrivateKey = fmt.Errorf("ecdhes_private_key_manager: invalid key")
-var errInvalidECDHESPrivateKeyFormat = fmt.Errorf("ecdhes_private_key_manager: invalid key format")
+var errInvalidECDHESAESPrivateKey = fmt.Errorf("ecdhes_aes_private_key_manager: invalid key")
+var errInvalidECDHESAESPrivateKeyFormat = fmt.Errorf("ecdhes_aes_private_key_manager: invalid key format")
 
-// ecdhesPrivateKeyManager is an implementation of PrivateKeyManager interface.
-// It generates new ECDHESPrivateKey keys and produces new instances of ECDHESAEADCompositeDecrypt subtle.
-type ecdhesPrivateKeyManager struct{}
+// ecdhesAESPrivateKeyManager is an implementation of PrivateKeyManager interface.
+// It generates new ECDHESPrivateKey (AES) keys and produces new instances of ECDHESAEADCompositeDecrypt subtle.
+type ecdhesAESPrivateKeyManager struct{}
 
-// Assert that ecdhesPrivateKeyManager implements the PrivateKeyManager interface.
-var _ registry.PrivateKeyManager = (*ecdhesPrivateKeyManager)(nil)
+// Assert that ecdhesAESPrivateKeyManager implements the PrivateKeyManager interface.
+var _ registry.PrivateKeyManager = (*ecdhesAESPrivateKeyManager)(nil)
 
-// newECDHESPrivateKeyManager creates a new ecdhesPrivateKeyManager.
-func newECDHESPrivateKeyManager() *ecdhesPrivateKeyManager {
-	return new(ecdhesPrivateKeyManager)
+// newECDHESPrivateKeyManager creates a new ecdhesAESPrivateKeyManager.
+func newECDHESPrivateKeyManager() *ecdhesAESPrivateKeyManager {
+	return new(ecdhesAESPrivateKeyManager)
 }
 
 // Primitive creates an ECDHESPrivateKey subtle for the given serialized ECDHESPrivateKey proto.
-func (km *ecdhesPrivateKeyManager) Primitive(serializedKey []byte) (interface{}, error) {
+func (km *ecdhesAESPrivateKeyManager) Primitive(serializedKey []byte) (interface{}, error) {
 	if len(serializedKey) == 0 {
-		return nil, errInvalidECDHESPrivateKey
+		return nil, errInvalidECDHESAESPrivateKey
 	}
 
 	key := new(ecdhespb.EcdhesAeadPrivateKey)
 
 	err := proto.Unmarshal(serializedKey, key)
 	if err != nil {
-		return nil, errInvalidECDHESPrivateKey
+		return nil, errInvalidECDHESAESPrivateKey
 	}
 
 	curve, err := km.validateKey(key)
 	if err != nil {
-		return nil, errInvalidECDHESPrivateKey
+		return nil, errInvalidECDHESAESPrivateKey
 	}
 
 	pvt := hybrid.GetECPrivateKey(curve, key.KeyValue)
@@ -68,26 +68,28 @@ func (km *ecdhesPrivateKeyManager) Primitive(serializedKey []byte) (interface{},
 
 	ptFormat := key.PublicKey.Params.EcPointFormat.String()
 
-	return subtle.NewECDHESAEADCompositeDecrypt(pvt, ptFormat, rEnc)
+	return subtle.NewECDHESAEADCompositeDecrypt(pvt, ptFormat, rEnc, ecdhespb.KeyType_EC), nil
 }
 
 // NewKey creates a new key according to the specification of ECDHESPrivateKey format.
-func (km *ecdhesPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto.Message, error) {
+func (km *ecdhesAESPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto.Message, error) {
 	if len(serializedKeyFormat) == 0 {
-		return nil, errInvalidECDHESPrivateKeyFormat
+		return nil, errInvalidECDHESAESPrivateKeyFormat
 	}
 
 	keyFormat := new(ecdhespb.EcdhesAeadKeyFormat)
 
 	err := proto.Unmarshal(serializedKeyFormat, keyFormat)
 	if err != nil {
-		return nil, errInvalidECDHESPrivateKeyFormat
+		return nil, errInvalidECDHESAESPrivateKeyFormat
 	}
 
 	curve, err := validateKeyFormat(keyFormat.Params)
 	if err != nil {
-		return nil, errInvalidECDHESPrivateKeyFormat
+		return nil, errInvalidECDHESAESPrivateKeyFormat
 	}
+
+	keyFormat.Params.KwParams.KeyType = ecdhespb.KeyType_EC
 
 	pvt, err := hybrid.GenerateECDHKeyPair(curve)
 	if err != nil {
@@ -95,10 +97,10 @@ func (km *ecdhesPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto.Mes
 	}
 
 	return &ecdhespb.EcdhesAeadPrivateKey{
-		Version:  ecdhesPrivateKeyVersion,
+		Version:  ecdhesAESPrivateKeyVersion,
 		KeyValue: pvt.D.Bytes(),
 		PublicKey: &ecdhespb.EcdhesAeadPublicKey{
-			Version: ecdhesPrivateKeyVersion,
+			Version: ecdhesAESPrivateKeyVersion,
 			Params:  keyFormat.Params,
 			X:       pvt.PublicKey.Point.X.Bytes(),
 			Y:       pvt.PublicKey.Point.Y.Bytes(),
@@ -108,7 +110,7 @@ func (km *ecdhesPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto.Mes
 
 // NewKeyData creates a new KeyData according to the specification of ECDHESPrivateKey Format.
 // It should be used solely by the key management API.
-func (km *ecdhesPrivateKeyManager) NewKeyData(serializedKeyFormat []byte) (*tinkpb.KeyData, error) {
+func (km *ecdhesAESPrivateKeyManager) NewKeyData(serializedKeyFormat []byte) (*tinkpb.KeyData, error) {
 	key, err := km.NewKey(serializedKeyFormat)
 	if err != nil {
 		return nil, err
@@ -120,46 +122,46 @@ func (km *ecdhesPrivateKeyManager) NewKeyData(serializedKeyFormat []byte) (*tink
 	}
 
 	return &tinkpb.KeyData{
-		TypeUrl:         ecdhesPrivateKeyTypeURL,
+		TypeUrl:         ecdhesAESPrivateKeyTypeURL,
 		Value:           serializedKey,
 		KeyMaterialType: tinkpb.KeyData_ASYMMETRIC_PRIVATE,
 	}, nil
 }
 
 // PublicKeyData returns the enclosed public key data of serializedPrivKey
-func (km *ecdhesPrivateKeyManager) PublicKeyData(serializedPrivKey []byte) (*tinkpb.KeyData, error) {
+func (km *ecdhesAESPrivateKeyManager) PublicKeyData(serializedPrivKey []byte) (*tinkpb.KeyData, error) {
 	privKey := new(ecdhespb.EcdhesAeadPrivateKey)
 
 	err := proto.Unmarshal(serializedPrivKey, privKey)
 	if err != nil {
-		return nil, errInvalidECDHESPrivateKey
+		return nil, errInvalidECDHESAESPrivateKey
 	}
 
 	serializedPubKey, err := proto.Marshal(privKey.PublicKey)
 	if err != nil {
-		return nil, errInvalidECDHESPrivateKey
+		return nil, errInvalidECDHESAESPrivateKey
 	}
 
 	return &tinkpb.KeyData{
-		TypeUrl:         ecdhesPublicKeyTypeURL,
+		TypeUrl:         ecdhesAESPublicKeyTypeURL,
 		Value:           serializedPubKey,
 		KeyMaterialType: tinkpb.KeyData_ASYMMETRIC_PUBLIC,
 	}, nil
 }
 
 // DoesSupport indicates if this key manager supports the given key type.
-func (km *ecdhesPrivateKeyManager) DoesSupport(typeURL string) bool {
-	return typeURL == ecdhesPrivateKeyTypeURL
+func (km *ecdhesAESPrivateKeyManager) DoesSupport(typeURL string) bool {
+	return typeURL == ecdhesAESPrivateKeyTypeURL
 }
 
 // TypeURL returns the key type of keys managed by this key manager.
-func (km *ecdhesPrivateKeyManager) TypeURL() string {
-	return ecdhesPrivateKeyTypeURL
+func (km *ecdhesAESPrivateKeyManager) TypeURL() string {
+	return ecdhesAESPrivateKeyTypeURL
 }
 
 // validateKey validates the given ECDHESPrivateKey and erturns the KW curve.
-func (km *ecdhesPrivateKeyManager) validateKey(key *ecdhespb.EcdhesAeadPrivateKey) (elliptic.Curve, error) {
-	err := keyset.ValidateKeyVersion(key.Version, ecdhesPrivateKeyVersion)
+func (km *ecdhesAESPrivateKeyManager) validateKey(key *ecdhespb.EcdhesAeadPrivateKey) (elliptic.Curve, error) {
+	err := keyset.ValidateKeyVersion(key.Version, ecdhesAESPrivateKeyVersion)
 	if err != nil {
 		return nil, fmt.Errorf("ecdhes_private_key_manager: invalid key: %s", err)
 	}

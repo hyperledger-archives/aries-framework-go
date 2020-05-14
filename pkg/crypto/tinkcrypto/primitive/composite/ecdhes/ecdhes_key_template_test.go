@@ -50,17 +50,17 @@ func TestECDHESKeyTemplateTest(t *testing.T) {
 }
 
 // createRecipients and return their public key and keyset.Handle
-func createRecipients(t *testing.T, numberOfRecipients int) ([]ecdhessubtle.ECPublicKey, []*keyset.Handle) {
+func createRecipients(t *testing.T, numberOfRecipients int) ([]ecdhessubtle.PublicKey, []*keyset.Handle) {
 	t.Helper()
 
 	var (
-		r   []ecdhessubtle.ECPublicKey
+		r   []ecdhessubtle.PublicKey
 		rKH []*keyset.Handle
 	)
 
 	for i := 0; i < numberOfRecipients; i++ {
 		mrKey, kh := createAndMarshalRecipient(t)
-		ecPubKey := new(ecdhessubtle.ECPublicKey)
+		ecPubKey := new(ecdhessubtle.PublicKey)
 		err := json.Unmarshal(mrKey, ecPubKey)
 		require.NoError(t, err)
 

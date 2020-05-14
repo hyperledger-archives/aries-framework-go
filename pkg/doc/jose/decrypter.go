@@ -115,8 +115,9 @@ func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*subtle.RecipientWrappe
 		return nil, err
 	}
 
-	epk := subtle.ECPublicKey{
+	epk := subtle.PublicKey{
 		Curve: jwk.Crv,
+		Type:  jwk.Kty,
 	}
 
 	switch key := jwk.Key.(type) {

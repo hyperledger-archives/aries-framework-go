@@ -206,10 +206,11 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	// add third key to recECKeys
-	recECKeys = append(recECKeys, ecdhessubtle.ECPublicKey{
+	recECKeys = append(recECKeys, ecdhessubtle.PublicKey{
 		X:     rec3PrivKey.PublicKey.X.Bytes(),
 		Y:     rec3PrivKey.PublicKey.Y.Bytes(),
 		Curve: rec3PrivKey.PublicKey.Curve.Params().Name,
+		Type:  "EC",
 	})
 
 	// encrypt using local jose package
@@ -237,7 +238,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 	require.Equal(t, 2, i)
 }
 
-func convertToGoJoseRecipients(t *testing.T, keys []ecdhessubtle.ECPublicKey) []jose.Recipient {
+func convertToGoJoseRecipients(t *testing.T, keys []ecdhessubtle.PublicKey) []jose.Recipient {
 	t.Helper()
 
 	var joseRecipients []jose.Recipient
@@ -260,17 +261,17 @@ func convertToGoJoseRecipients(t *testing.T, keys []ecdhessubtle.ECPublicKey) []
 }
 
 // createRecipients and return their public key and keyset.Handle
-func createRecipients(t *testing.T, numberOfRecipients int) ([]ecdhessubtle.ECPublicKey, []*keyset.Handle) {
+func createRecipients(t *testing.T, numberOfRecipients int) ([]ecdhessubtle.PublicKey, []*keyset.Handle) {
 	t.Helper()
 
 	var (
-		r   []ecdhessubtle.ECPublicKey
+		r   []ecdhessubtle.PublicKey
 		rKH []*keyset.Handle
 	)
 
 	for i := 0; i < numberOfRecipients; i++ {
 		mrKey, kh := createAndMarshalRecipient(t)
-		ecPubKey := new(ecdhessubtle.ECPublicKey)
+		ecPubKey := new(ecdhessubtle.PublicKey)
 		err := json.Unmarshal(mrKey, ecPubKey)
 		require.NoError(t, err)
 
@@ -304,7 +305,7 @@ func createAndMarshalRecipient(t *testing.T) ([]byte, *keyset.Handle) {
 
 func TestFailConvertRecKeyToMarshalledJWK(t *testing.T) {
 	recKey := &ecdhessubtle.RecipientWrappedKey{
-		EPK: ecdhessubtle.ECPublicKey{
+		EPK: ecdhessubtle.PublicKey{
 			Curve: "badCurveName",
 		},
 	}
