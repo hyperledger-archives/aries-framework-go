@@ -11,10 +11,9 @@ services:
     container_name: sidetree-mock
     image: ${SIDETREE_MOCK_FIXTURE_IMAGE}:${SIDETREE_MOCK_FIXTURE_IMAGE_TAG}
     environment:
-      - SIDETREE_MOCK_TLS_CERTIFICATE=/etc/sidetree/tls/ec-pubCert.pem
-      - SIDETREE_MOCK_TLS_KEY=/etc/sidetree/tls/ec-key.pem
       - SIDETREE_MOCK_HOST=0.0.0.0
       - SIDETREE_MOCK_PORT=48326
+      - SIDETREE_MOCK_DID_NAMESPACE=did:sidetree:test
     ports:
       - 48326:48326
     volumes:

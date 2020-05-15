@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 )
 
@@ -40,6 +41,9 @@ const (
 	// command name
 	commandName = "kms"
 
+	// command name
+	legacyKMSCommandName = "legacykms"
+
 	// command methods
 	createKeySetCommandMethod = "CreateKeySet"
 	importKeyCommandMethod    = "ImportKey"
@@ -52,6 +56,7 @@ const (
 // provider contains dependencies for the kms command and is typically created by using aries.Context().
 type provider interface {
 	KMS() kms.KeyManager
+	LegacyKMS() legacykms.KeyManager
 }
 
 // Command contains command operations provided by verifiable credential controller.
@@ -91,7 +96,26 @@ func (o *Command) GetHandlers() []command.Handler {
 	return []command.Handler{
 		cmdutil.NewCommandHandler(commandName, createKeySetCommandMethod, o.CreateKeySet),
 		cmdutil.NewCommandHandler(commandName, importKeyCommandMethod, o.ImportKey),
+		cmdutil.NewCommandHandler(legacyKMSCommandName, createKeySetCommandMethod, o.CreateKeySetLegacyKMS),
 	}
+}
+
+// CreateKeySetLegacyKMS create a new public/private encryption and signature key pairs set.
+// TODO Remove it after switching packer to use new kms https://github.com/hyperledger/aries-framework-go/issues/1828
+func (o *Command) CreateKeySetLegacyKMS(rw io.Writer, req io.Reader) command.Error {
+	_, signaturePublicKey, err := o.ctx.LegacyKMS().CreateKeySet()
+	if err != nil {
+		logutil.LogError(logger, legacyKMSCommandName, createKeySetCommandMethod, err.Error())
+		return command.NewExecuteError(CreateKeySetError, err)
+	}
+
+	command.WriteNillableResponse(rw, &CreateKeySetResponse{
+		PublicKey: signaturePublicKey,
+	}, logger)
+
+	logutil.LogDebug(logger, legacyKMSCommandName, createKeySetCommandMethod, "success")
+
+	return nil
 }
 
 // CreateKeySet create a new public/private encryption and signature key pairs set.

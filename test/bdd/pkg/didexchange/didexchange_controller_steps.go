@@ -9,8 +9,8 @@ package didexchange
 import (
 	"bytes"
 	rqCtx "context"
+	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,40 +18,42 @@ import (
 	"strings"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 	"nhooyr.io/websocket/wsjson"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
-	vdricmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	cmdkms "github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/sidetree"
 )
 
 const (
-	connOperationID              = "/connections"
-	vdriOperationID              = "/vdri"
+	connOperationID = "/connections"
+	// TODO Remove it after switching packer to use new kms https://github.com/hyperledger/aries-framework-go/issues/1828
+	legacyKMSOperationID         = "/legacykms"
 	createInvitationPath         = connOperationID + "/create-invitation"
 	createImplicitInvitationPath = connOperationID + "/create-implicit-invitation"
 	receiveInvtiationPath        = connOperationID + "/receive-invitation"
 	acceptInvitationPath         = connOperationID + "/%s/accept-invitation?public=%s"
 	acceptRequestPath            = connOperationID + "/%s/accept-request?public=%s"
 	connectionsByID              = connOperationID + "/{id}"
-	createPublicDIDPath          = vdriOperationID + "/create-public-did"
-	publicDIDCreateHeader        = `{"alg":"","kid":"","operation":"create"}`
-	sideTreeURL                  = "${SIDETREE_URL}"
+	createKeySetPath             = legacyKMSOperationID + "/keyset"
 	timeoutWaitForDID            = 10 * time.Second
 	timeoutPullTopics            = 5 * time.Second
+	sideTreeURL                  = "${SIDETREE_URL}"
 )
 
 var logger = log.New("aries-framework/didexchange-tests")
 
 // ControllerSteps is steps for didexchange with controller
 type ControllerSteps struct {
-	bddContext    *context.BDDContext
-	invitations   map[string]*didexchange.Invitation
-	connectionIDs map[string]string
+	bddContext            *context.BDDContext
+	invitations           map[string]*didexchange.Invitation
+	connectionIDs         map[string]string
+	agentServiceEndpoints map[string]string
 }
 
 // NewDIDExchangeControllerSteps creates steps for didexchange with controller
@@ -59,6 +61,10 @@ func NewDIDExchangeControllerSteps() *ControllerSteps {
 	return &ControllerSteps{
 		invitations:   make(map[string]*didexchange.Invitation),
 		connectionIDs: make(map[string]string),
+		agentServiceEndpoints: map[string]string{
+			"http://localhost:8082": "http://alice.aries.example.com:8081",
+			"http://localhost:9082": "http://bob.agent.example.com:9081",
+		},
 	}
 }
 
@@ -90,8 +96,6 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 		a.createImplicitInvitationWithDID)
 	s.Step(`^"([^"]*)" has established connection with "([^"]*)" through did exchange using controller$`,
 		a.performDIDExchange)
-	s.Step(`^"([^"]*)" validates that the invitation service endpoint of type "([^"]*)"$`,
-		a.validateInvitationEndpointScheme)
 	s.Step(`^"([^"]*)" saves the connectionID to variable "([^"]*)"$`, a.saveConnectionID)
 }
 
@@ -258,16 +262,6 @@ func (a *ControllerSteps) verifyCreateInvitationResult(result *didexcmd.CreateIn
 
 	if !useDID && len(result.Invitation.RecipientKeys) == 0 {
 		return fmt.Errorf("recipient keys not found in invitation")
-	}
-
-	return nil
-}
-
-func (a *ControllerSteps) validateInvitationEndpointScheme(inviterAgentID, scheme string) error {
-	invitation := a.invitations[inviterAgentID]
-
-	if !strings.HasPrefix(invitation.ServiceEndpoint, scheme) {
-		return errors.New("invitation service endpoint - invalid transport type")
 	}
 
 	return nil
@@ -499,30 +493,25 @@ func (a *ControllerSteps) createPublicDID(agentID, didMethod string) error {
 		return fmt.Errorf(" unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	// call controller
-	path := fmt.Sprintf("%s%s?method=%s&header=%s", destination, createPublicDIDPath, didMethod, publicDIDCreateHeader)
+	path := fmt.Sprintf("%s%s", destination, createKeySetPath)
 
-	var result vdricmd.CreatePublicDIDResponse
-
-	err := sendHTTP(http.MethodPost, path, nil, &result)
+	reqBytes, err := json.Marshal(cmdkms.CreateKeySetRequest{KeyType: "ED25519"})
 	if err != nil {
-		logger.Errorf("Failed to create public DID, cause : %s", err)
 		return err
 	}
 
-	doc, err := did.ParseDocument(result.DID)
+	var result cmdkms.CreateKeySetResponse
 
+	err = sendHTTP(http.MethodPost, path, reqBytes, &result)
 	if err != nil {
-		logger.Errorf("Failed to unmarshal did : %s", err)
 		return err
 	}
 
-	// validate response
-	if result.DID == nil || doc.ID == "" {
-		return fmt.Errorf("failed to get valid public DID for agent [%s]", agentID)
+	doc, err := sidetree.CreateDID(a.bddContext.Args[sideTreeURL]+"operations", "key1",
+		base64.RawURLEncoding.EncodeToString(base58.Decode(result.PublicKey)), a.agentServiceEndpoints[destination])
+	if err != nil {
+		return err
 	}
-
-	logger.Debugf("Created public DID '%s' for agent '%s'", doc.ID, agentID)
 
 	err = a.waitForPublicDID(doc.ID)
 	if err != nil {
@@ -552,7 +541,7 @@ func (a *ControllerSteps) waitForPublicDID(id string) error {
 			break
 		}
 
-		err := sendHTTP(http.MethodGet, endpointURL+"/"+id, nil, nil)
+		err := sendHTTP(http.MethodGet, endpointURL+"/identifiers/"+id, nil, nil)
 		if err != nil {
 			logger.Warnf("Failed to resolve public DID, due to error [%s] will retry", err)
 			time.Sleep(retryDelay)

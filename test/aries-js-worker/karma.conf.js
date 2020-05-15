@@ -5,12 +5,14 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 const fs = require("fs")
+const exec = require('child_process');
+
 
 process.env.CHROME_BIN = require('puppeteer').executablePath()
 const ENV_CONFIG = "fixtures/.env";
 const ENV_CONFIG_OUT = "test/environment.js";
 
-(() => {
+(async () => {
     require("dotenv").config({path: ENV_CONFIG})
     const util = require("util")
     const config = {}
@@ -22,8 +24,28 @@ const ENV_CONFIG_OUT = "test/environment.js";
             config[attr] = process.env[attr]
         }
     }
+
+    let didID=await createDID()
+    console.log(didID)
+    config["DID_ID"] = didID.trim()
+
     fs.writeFileSync(ENV_CONFIG_OUT, "export const environment = " + util.inspect(config))
 })()
+
+function createDID() {
+    return new Promise((resolve, reject) => {
+        exec.exec('../../build/bin/sidetree http://localhost:48326/sidetree/0.0.1/operations key1 axETCKcguKigxZiJIPtgotDbVe72AIXRTbF2MRpZIk0 http://www.example.com', (err, stdout, stderr) => {
+            let v
+            if (err) {
+                //some err occurred
+                console.error(err)
+            } else {
+                v=stdout
+            }
+            resolve(v);
+        });
+    });
+}
 
 module.exports = function(config) {
     config.set({

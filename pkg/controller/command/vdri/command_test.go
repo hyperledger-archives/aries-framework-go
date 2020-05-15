@@ -14,9 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
@@ -44,123 +42,6 @@ const doc = `{
   ]
 }`
 
-func TestOperation_CreatePublicDID(t *testing.T) {
-	t.Run("Test successful create public DID with method", func(t *testing.T) {
-		cmd, err := New(&protocol.MockProvider{})
-		require.NoError(t, err)
-		require.NotNil(t, cmd)
-
-		handlers := cmd.GetHandlers()
-		require.NotEmpty(t, handlers)
-
-		var b bytes.Buffer
-		req := []byte(`{"method":"sidetree"}`)
-		cmdErr := cmd.CreatePublicDID(&b, bytes.NewBuffer(req))
-		require.NoError(t, cmdErr)
-
-		var response CreatePublicDIDResponse
-		err = json.NewDecoder(&b).Decode(&response)
-		require.NoError(t, err)
-
-		// verify response
-		require.NotEmpty(t, response)
-		require.NotEmpty(t, response.DID)
-
-		doc, err := did.ParseDocument(response.DID)
-		require.NoError(t, err)
-		require.NoError(t, err)
-
-		require.NotEmpty(t, doc.ID)
-		require.NotEmpty(t, doc.PublicKey)
-		require.NotEmpty(t, doc.Service)
-	})
-
-	t.Run("Test successful create public DID with request header", func(t *testing.T) {
-		cmd, err := New(&protocol.MockProvider{})
-		require.NoError(t, err)
-		require.NotNil(t, cmd)
-
-		var b bytes.Buffer
-		req := []byte(`{"method":"sidetree", "header":"{}"}`)
-		cmdErr := cmd.CreatePublicDID(&b, bytes.NewBuffer(req))
-		require.NoError(t, cmdErr)
-
-		var response CreatePublicDIDResponse
-		err = json.NewDecoder(&b).Decode(&response)
-		require.NoError(t, err)
-
-		// verify response
-		require.NotEmpty(t, response)
-		require.NotEmpty(t, response.DID)
-
-		doc, err := did.ParseDocument(response.DID)
-		require.NoError(t, err)
-
-		require.NotEmpty(t, doc.ID)
-		require.NotEmpty(t, doc.PublicKey)
-		require.NotEmpty(t, doc.Service)
-	})
-
-	t.Run("Test create public DID validation error", func(t *testing.T) {
-		cmd, err := New(&mockprovider.Provider{
-			StorageProviderValue: mockstore.NewMockStoreProvider(),
-		})
-		require.NoError(t, err)
-		require.NoError(t, err)
-		require.NotNil(t, cmd)
-
-		var b bytes.Buffer
-		req := []byte(`"""`)
-		cmdErr := cmd.CreatePublicDID(&b, bytes.NewBuffer(req))
-
-		require.Error(t, cmdErr)
-		require.Equal(t, cmdErr.Type(), command.ValidationError)
-		require.Equal(t, cmdErr.Code(), InvalidRequestErrorCode)
-		require.Contains(t, cmdErr.Error(), "cannot unmarshal")
-
-		req = []byte(`{}`)
-		cmdErr = cmd.CreatePublicDID(&b, bytes.NewBuffer(req))
-
-		require.Error(t, cmdErr)
-		require.Equal(t, cmdErr.Type(), command.ValidationError)
-		require.Equal(t, cmdErr.Code(), InvalidRequestErrorCode)
-		require.Contains(t, cmdErr.Error(), errDIDMethodMandatory)
-	})
-
-	t.Run("Failed Create public DID, VDRI error", func(t *testing.T) {
-		const errMsg = "just fail it error"
-		cmd, err := New(&protocol.MockProvider{CustomVDRI: &mockvdri.MockVDRIRegistry{CreateErr: fmt.Errorf(errMsg)}})
-		require.NoError(t, err)
-		require.NotNil(t, cmd)
-
-		var b bytes.Buffer
-		req := []byte(`{"method":"sidetree"}`)
-		cmdErr := cmd.CreatePublicDID(&b, bytes.NewBuffer(req))
-		require.Error(t, cmdErr)
-		require.Equal(t, cmdErr.Type(), command.ExecuteError)
-		require.Equal(t, cmdErr.Code(), CreatePublicDIDError)
-		require.Contains(t, cmdErr.Error(), errMsg)
-	})
-}
-
-func TestBuildSideTreeRequest(t *testing.T) {
-	registry := mockvdri.MockVDRIRegistry{}
-	didDoc, err := registry.Create("sidetree")
-	require.NoError(t, err)
-	require.NotNil(t, didDoc)
-
-	b, err := didDoc.JSONBytes()
-	require.NoError(t, err)
-
-	r, err := getBasicRequestBuilder(`{"operation":"create"}`)(b)
-	require.NoError(t, err)
-	require.NotNil(t, r)
-
-	r, err = getBasicRequestBuilder(`--`)(b)
-	require.Error(t, err)
-	require.Nil(t, r)
-}
-
 func TestNew(t *testing.T) {
 	t.Run("test new command - success", func(t *testing.T) {
 		cmd, err := New(&mockprovider.Provider{
@@ -170,7 +51,7 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 5, len(handlers))
+		require.Equal(t, 4, len(handlers))
 	})
 
 	t.Run("test new command - did store error", func(t *testing.T) {

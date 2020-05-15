@@ -7,16 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package httpbinding
 
 import (
-	"bytes"
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
-
-	"github.com/btcsuite/btcutil/base58"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -24,11 +20,6 @@ import (
 )
 
 var logger = log.New("aries-framework/vdri/httpbinding")
-
-const (
-	pubKeyIndex1      = "#key-1"
-	svcEndpointIndex1 = "#endpoint-1"
-)
 
 // VDRI via HTTP(s) endpoint
 type VDRI struct {
@@ -72,101 +63,8 @@ func (v *VDRI) Store(doc *did.Doc, by *[]vdriapi.ModifiedBy) error {
 }
 
 // Build did doc
-// TODO separate this public DID create from httpbinding
-//  and remove with request builder option [Issue #860]
 func (v *VDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc, error) {
-	docOpts := &vdriapi.CreateDIDOpts{}
-
-	for _, opt := range opts {
-		opt(docOpts)
-	}
-
-	publicKey := did.PublicKey{
-		ID:   pubKeyIndex1,
-		Type: pubKey.Type,
-		// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
-		Value: base58.Decode(pubKey.Value),
-	}
-
-	t := time.Now()
-
-	didDoc := &did.Doc{
-		Context:   []string{did.Context},
-		PublicKey: []did.PublicKey{publicKey},
-		Created:   &t,
-		Updated:   &t,
-	}
-
-	if docOpts.ServiceType != "" {
-		s := did.Service{
-			ID:              svcEndpointIndex1,
-			Type:            docOpts.ServiceType,
-			ServiceEndpoint: docOpts.ServiceEndpoint,
-			RoutingKeys:     docOpts.RoutingKeys,
-		}
-
-		if docOpts.ServiceType == vdriapi.DIDCommServiceType {
-			s.RecipientKeys = []string{pubKey.Value}
-			s.Priority = 0
-		}
-
-		didDoc.Service = []did.Service{s}
-	}
-
-	docBytes, err := didDoc.JSONBytes()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get document bytes : %s", err)
-	}
-
-	var reqBody io.Reader
-	if docOpts.RequestBuilder != nil {
-		reqBody, err = docOpts.RequestBuilder(docBytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build request : %s", err)
-		}
-	} else {
-		reqBody = bytes.NewReader(docBytes)
-	}
-
-	resDoc, err := v.sendCreateRequest(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send create DID request: %s", err)
-	}
-
-	return resDoc, nil
-}
-
-// TODO add timeouts on external calls [Issue: #855]
-func (v *VDRI) sendCreateRequest(req io.Reader) (*did.Doc, error) {
-	httpReq, err := http.NewRequest(http.MethodPost, v.endpointURL, req)
-	if err != nil {
-		return nil, err
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := v.client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-
-	defer closeResponseBody(resp.Body)
-
-	responseBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response : %s", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("got unexpected response status '%d' body %s", resp.StatusCode, responseBytes)
-	}
-
-	didDoc, err := did.ParseDocument(responseBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse public DID document: %s", err)
-	}
-
-	return didDoc, nil
+	return nil, fmt.Errorf("build not supported in http binding vdri")
 }
 
 // Close frees resources being maintained by vdri.

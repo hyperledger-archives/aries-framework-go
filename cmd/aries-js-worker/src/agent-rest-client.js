@@ -48,12 +48,6 @@ const pkgs = {
         },
     },
     vdri: {
-        CreatePublicDID: {
-            path: "/vdri/create-public-did?method={method}&header={header}",
-            method: "POST",
-            pathParam:"id",
-            queryStrings: ["method","header"]
-        },
         SaveDID: {
             path: "/vdri/did",
             method: "POST"
@@ -279,8 +273,14 @@ const pkgs = {
         ImportKey: {
             path: "/kms/import",
             method: "POST",
-        },
+        }
     },
+    legacykms: {
+        CreateKeySet: {
+            path: "/legacykms/keyset",
+            method: "POST",
+        }
+    }
 }
 
 /**

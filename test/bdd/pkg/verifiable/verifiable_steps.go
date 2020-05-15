@@ -116,7 +116,7 @@ func (s *SDKSteps) addVCProof(vc *verifiable.Credential, issuer, proofType strin
 			Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
 			SignatureRepresentation: verifiable.SignatureJWS,
 			Created:                 &vc.Issued.Time,
-			VerificationMethod:      doc.ID + pubKey.ID,
+			VerificationMethod:      pubKey.ID,
 		})
 		if err != nil {
 			return nil, err

@@ -11,26 +11,30 @@ import (
 	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
-
 	cmdkms "github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
 const (
-	kmseOperationID  = "/kms"
-	createKeySetPath = kmseOperationID + "/keyset"
-	importKeyPath    = kmseOperationID + "/import"
+	kmseOperationID           = "/kms"
+	legacykmseOperationID     = "/legacykms"
+	createKeySetPath          = kmseOperationID + "/keyset"
+	importKeyPath             = kmseOperationID + "/import"
+	createKeySetLegacyKMSPath = legacykmseOperationID + "/keyset"
 )
 
 // provider contains dependencies for the kms command and is typically created by using aries.Context().
 type provider interface {
 	KMS() kms.KeyManager
+	LegacyKMS() legacykms.KeyManager
 }
 
 type kmsCommand interface {
 	CreateKeySet(rw io.Writer, req io.Reader) command.Error
+	CreateKeySetLegacyKMS(rw io.Writer, req io.Reader) command.Error
 	ImportKey(rw io.Writer, req io.Reader) command.Error
 }
 
@@ -60,7 +64,19 @@ func (o *Operation) registerHandler() {
 	o.handlers = []rest.Handler{
 		cmdutil.NewHTTPHandler(createKeySetPath, http.MethodPost, o.CreateKeySet),
 		cmdutil.NewHTTPHandler(importKeyPath, http.MethodPost, o.ImportKey),
+		cmdutil.NewHTTPHandler(createKeySetLegacyKMSPath, http.MethodPost, o.CreateKeySetLegacyKms),
 	}
+}
+
+// CreateKeySetLegacyKms swagger:route POST /legacykms/keyset legacykms createKeySetLegacyKMS
+//
+// Create key set.
+//
+// Responses:
+//    default: genericError
+//        200: createKeySetRes
+func (o *Operation) CreateKeySetLegacyKms(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.CreateKeySetLegacyKMS, rw, req.Body)
 }
 
 // CreateKeySet swagger:route POST /kms/keyset kms createKeySet
