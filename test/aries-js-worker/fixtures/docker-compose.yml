@@ -7,8 +7,8 @@ version: '2'
 
 services:
 
-  router.agent.example.com:
-    container_name: aries-js-worker-router.com
+  router.agent.aries.js.example.com:
+    container_name: router.agent.aries.js.example.com
     image: ${E2E_AGENT_REST_IMAGE}:${E2E_AGENT_REST_IMAGE_TAG}
     environment:
       - ARIESD_API_HOST=${E2E_ROUTER_HOST}:${E2E_ROUTER_API_PORT}
@@ -24,34 +24,34 @@ services:
       - ${E2E_ROUTER_WS_INBOUND_PORT}:${E2E_ROUTER_WS_INBOUND_PORT}
       - ${E2E_ROUTER_API_PORT}:${E2E_ROUTER_API_PORT}
     command: start
-  public.router.agent.example.com:
-    container_name: aries-js-worker-public-router.com
+  second.user.agent.aries.js.example.com:
+    container_name: second.user.agent.aries.js.example.com
     image: ${E2E_AGENT_REST_IMAGE}:${E2E_AGENT_REST_IMAGE_TAG}
     environment:
-      - ARIESD_API_HOST=${E2E_PUBLIC_ROUTER_HOST}:${E2E_PUBLIC_ROUTER_API_PORT}
-      - ARIESD_INBOUND_HOST=${E2E_HTTP_SCHEME}@${E2E_PUBLIC_ROUTER_HOST}:${E2E_PUBLIC_ROUTER_HTTP_INBOUND_PORT},${E2E_WS_SCHEME}@${E2E_PUBLIC_ROUTER_HOST}:${E2E_PUBLIC_ROUTER_WS_INBOUND_PORT}
-      - ARIESD_INBOUND_HOST_EXTERNAL=${E2E_HTTP_SCHEME}@http://aries-js-worker-public-router.com:${E2E_PUBLIC_ROUTER_HTTP_INBOUND_PORT},${E2E_WS_SCHEME}@ws://aries-js-worker-public-router.com:${E2E_PUBLIC_ROUTER_WS_INBOUND_PORT}
-      - ARIESD_DB_PATH=${E2E_PUBLIC_ROUTER_DB_PATH}
-      - ARIESD_DEFAULT_LABEL=carl-router-agent
+      - ARIESD_API_HOST=${E2E_SECOND_USER_HOST}:${E2E_SECOND_USER_API_PORT}
+      - ARIESD_INBOUND_HOST=${E2E_HTTP_SCHEME}@${E2E_SECOND_USER_HOST}:${E2E_SECOND_USER_INBOUND_PORT}
+      - ARIESD_INBOUND_HOST_EXTERNAL=${E2E_HTTP_SCHEME}@http://second.user.agent.aries.js.example.com:${E2E_SECOND_USER_INBOUND_PORT}
+      - ARIESD_DEFAULT_LABEL=second-user-agent
+      - ARIESD_DB_PATH=${E2E_SECOND_USER_DB_PATH}
+      - ARIESD_AUTO_ACCEPT=${E2E_SECOND_USER_AUTOACCEPT}
       - ARIESD_OUTBOUND_TRANSPORT=${E2E_HTTP_SCHEME},${E2E_WS_SCHEME}
-      - ARIESD_AUTO_ACCEPT=${E2E_PUBLIC_ROUTER_AUTOACCEPT}
-    #      - ARIESD_LOG_LEVEL=DEBUG
+      - ARIESD_LOG_LEVEL=DEBUG
+      - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
     ports:
-      - ${E2E_PUBLIC_ROUTER_HTTP_INBOUND_PORT}:${E2E_PUBLIC_ROUTER_HTTP_INBOUND_PORT}
-      - ${E2E_PUBLIC_ROUTER_WS_INBOUND_PORT}:${E2E_PUBLIC_ROUTER_WS_INBOUND_PORT}
-      - ${E2E_PUBLIC_ROUTER_API_PORT}:${E2E_PUBLIC_ROUTER_API_PORT}
+      - ${E2E_SECOND_USER_INBOUND_PORT}:${E2E_SECOND_USER_INBOUND_PORT}
+      - ${E2E_SECOND_USER_API_PORT}:${E2E_SECOND_USER_API_PORT}
     command: start
 
-  user.agent.example.com:
-    container_name: aries-js-worker-user.com
+  user.agent.aries.js.example.com:
+    container_name: user.agent.aries.js.example.com
     image: ${E2E_AGENT_REST_IMAGE}:${E2E_AGENT_REST_IMAGE_TAG}
     environment:
       - ARIESD_API_HOST=${E2E_USER_HOST}:${E2E_USER_API_PORT}
       - ARIESD_INBOUND_HOST=${E2E_HTTP_SCHEME}@${E2E_USER_HOST}:${E2E_USER_INBOUND_PORT}
-      - ARIESD_INBOUND_HOST_EXTERNAL=${E2E_HTTP_SCHEME}@http://aries-js-worker-user.com:${E2E_USER_INBOUND_PORT}
+      - ARIESD_INBOUND_HOST_EXTERNAL=${E2E_HTTP_SCHEME}@http://user.agent.aries.js.example.com:${E2E_USER_INBOUND_PORT}
       - ARIESD_DEFAULT_LABEL=user-agent
       - ARIESD_DB_PATH=${E2E_USER_DB_PATH}
-      - ARIESD_AUTO_ACCEPT=${E2E_ROUTER_AUTOACCEPT}
+      - ARIESD_AUTO_ACCEPT=${E2E_USER_AUTOACCEPT}
       - ARIESD_OUTBOUND_TRANSPORT=${E2E_HTTP_SCHEME},${E2E_WS_SCHEME}
       - ARIESD_LOG_LEVEL=DEBUG
       - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
@@ -60,8 +60,8 @@ services:
       - ${E2E_USER_API_PORT}:${E2E_USER_API_PORT}
     command: start
 
-  sidetree.js.com:
-    container_name: sidetree-jsmock
+  sidetree.aries.js.example.com:
+    container_name: sidetree.aries.js.example.com
     image: ${SIDETREE_MOCK_FIXTURE_IMAGE}:${SIDETREE_MOCK_FIXTURE_IMAGE_TAG}
     environment:
       - SIDETREE_MOCK_HOST=0.0.0.0
