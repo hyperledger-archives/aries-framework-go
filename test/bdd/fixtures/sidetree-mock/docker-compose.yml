@@ -7,8 +7,8 @@ version: '2'
 
 services:
 
-  sidetree:
-    container_name: sidetree-mock
+  aries.bdd.sidetree.mock:
+    container_name: aries.bdd.sidetree.mock
     image: ${SIDETREE_MOCK_FIXTURE_IMAGE}:${SIDETREE_MOCK_FIXTURE_IMAGE_TAG}
     environment:
       - SIDETREE_MOCK_HOST=0.0.0.0
