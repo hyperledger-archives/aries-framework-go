@@ -256,7 +256,7 @@ func verifyPresentation(registryVDRI vdri.Registry, attachments []decorator.Atta
 			return fmt.Errorf("decode string: %w", err)
 		}
 
-		_, err = verifiable.NewPresentation(raw, verifiable.WithPresPublicKeyFetcher(
+		_, err = verifiable.ParsePresentation(raw, verifiable.WithPresPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(registryVDRI).PublicKeyFetcher(),
 		))
 		if err != nil {

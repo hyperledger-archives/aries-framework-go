@@ -38,13 +38,18 @@ type UniversityDegreeCredential struct {
 }
 
 func NewUniversityDegreeCredential(vcData []byte, opts ...CredentialOpt) (*UniversityDegreeCredential, error) {
-	cred, credBytes, err := newTestCredential(vcData, opts...)
+	cred, err := parseTestCredential(vcData, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("new university degree credential: %w", err)
 	}
 
 	udc := UniversityDegreeCredential{
 		Base: *cred,
+	}
+
+	credBytes, err := json.Marshal(cred)
+	if err != nil {
+		return nil, fmt.Errorf("new university degree credential: %w", err)
 	}
 
 	err = json.Unmarshal(credBytes, &udc)
@@ -133,7 +138,7 @@ func TestCredentialExtensibility(t *testing.T) {
 }
 `
 
-	cred, _, err := newTestCredential([]byte(udCredential))
+	cred, err := parseTestCredential([]byte(udCredential))
 	require.NoError(t, err)
 	require.NotNil(t, cred)
 

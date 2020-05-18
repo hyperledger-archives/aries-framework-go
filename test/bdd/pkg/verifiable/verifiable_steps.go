@@ -148,7 +148,7 @@ func (s *SDKSteps) verifyCredential(holder string) error {
 
 	sigSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 
-	parsedVC, _, err := verifiable.NewCredential(s.issuedVCBytes,
+	parsedVC, err := verifiable.ParseCredential(s.issuedVCBytes,
 		verifiable.WithPublicKeyFetcher(pKeyFetcher),
 		verifiable.WithEmbeddedSignatureSuites(sigSuite))
 	if err != nil {

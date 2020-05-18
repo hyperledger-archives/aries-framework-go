@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-func TestNewPresentationFromLinkedDataProof(t *testing.T) {
+func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)

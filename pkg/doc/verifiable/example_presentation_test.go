@@ -25,12 +25,12 @@ var (
 )
 
 //nolint:lll
-func ExampleNewPresentation() {
+func ExampleParsePresentation() {
 	// A Holder sends to the Verifier a verifiable presentation in JWS form.
 	vpJWS := "eyJhbGciOiJFZERTQSIsImtpZCI6ImtleS0xIiwidHlwIjoiSldUIn0.eyJpc3MiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJqdGkiOiJ1cm46dXVpZDozOTc4MzQ0Zi04NTk2LTRjM2EtYTk3OC04ZmNhYmEzOTAzYzUiLCJ2cCI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sInR5cGUiOlsiVmVyaWZpYWJsZVByZXNlbnRhdGlvbiIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl0sInZlcmlmaWFibGVDcmVkZW50aWFsIjpbeyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sImNyZWRlbnRpYWxTY2hlbWEiOltdLCJjcmVkZW50aWFsU3ViamVjdCI6eyJkZWdyZWUiOnsidHlwZSI6IkJhY2hlbG9yRGVncmVlIiwidW5pdmVyc2l0eSI6Ik1JVCJ9LCJpZCI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsIm5hbWUiOiJKYXlkZW4gRG9lIiwic3BvdXNlIjoiZGlkOmV4YW1wbGU6YzI3NmUxMmVjMjFlYmZlYjFmNzEyZWJjNmYxIn0sImV4cGlyYXRpb25EYXRlIjoiMjAyMC0wMS0wMVQxOToyMzoyNFoiLCJpZCI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8xODcyIiwiaXNzdWFuY2VEYXRlIjoiMjAxMC0wMS0wMVQxOToyMzoyNFoiLCJpc3N1ZXIiOnsiaWQiOiJkaWQ6ZXhhbXBsZTo3NmUxMmVjNzEyZWJjNmYxYzIyMWViZmViMWYiLCJuYW1lIjoiRXhhbXBsZSBVbml2ZXJzaXR5In0sInJlZmVyZW5jZU51bWJlciI6OC4zMjk0ODQ3ZSswNywidHlwZSI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl19XX19.RlO_1B-7qhQNwo2mmOFUWSa8A6hwaJrtq3q7yJDkKq4k6B-EJ-oyLNM6H_g2_nko2Yg9Im1CiROFm6nK12U_AQ" //nolint:lll
 
 	// Holder received and decodes it.
-	vp, err := verifiable.NewPresentation(
+	vp, err := verifiable.ParsePresentation(
 		[]byte(vpJWS),
 
 		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(holderPubKey, kms.ED25519)))
@@ -98,7 +98,7 @@ func ExamplePresentation_JWTClaims() {
 `
 
 	// The Holder wants to send the presentation to the Verifier in JWS.
-	vp, err := verifiable.NewUnverifiedPresentation([]byte(vpStrFromWallet))
+	vp, err := verifiable.ParseUnverifiedPresentation([]byte(vpStrFromWallet))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to decode VP JSON: %w", err))
 	}
@@ -154,7 +154,7 @@ func ExampleCredential_Presentation() {
 }
 `
 
-	vc, _, err := verifiable.NewCredential([]byte(vcStrFromWallet))
+	vc, err := verifiable.ParseCredential([]byte(vcStrFromWallet))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
@@ -195,7 +195,7 @@ func ExamplePresentation_SetCredentials() {
 		Holder: "did:example:ebfeb1f712ebc6f1c276e12ec21",
 	}
 
-	// The first VC is created on fly (or just decoded using NewCredential).
+	// The first VC is created on fly (or just decoded using ParseCredential).
 	vc := &verifiable.Credential{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
@@ -478,7 +478,7 @@ func ExamplePresentation_MarshalledCredentials() {
 	// Decode VP from JWS.
 	// Note that VC-s inside will be decoded as well. If they are JWS, their signature is verified
 	// and thus we need to make sure the public key fetcher can access the
-	vp, err = verifiable.NewPresentation(
+	vp, err = verifiable.ParsePresentation(
 		[]byte(vpJWS),
 		verifiable.WithPresPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			switch issuerID {
@@ -512,7 +512,7 @@ func ExamplePresentation_MarshalledCredentials() {
 
 	// Decoded credential. Note that no public key fetcher is passed as the VC was already decoded (and proof verified)
 	// when VP was decoded.
-	vcDecoded, _, err := verifiable.NewCredential(vpCreds[0])
+	vcDecoded, err := verifiable.ParseCredential(vpCreds[0])
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to decode VC: %w", err))
 	}

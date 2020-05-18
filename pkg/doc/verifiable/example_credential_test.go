@@ -122,12 +122,17 @@ func ExampleCredential_embedding() {
 
 	fmt.Println(jws)
 
-	// Decode JWS and make sure it's coincide with JSON.
-	_, vcBytesFromJWS, err := verifiable.NewCredential(
+	// Parse JWS and make sure it's coincide with JSON.
+	vcParsed, err := verifiable.ParseCredential(
 		[]byte(jws),
 		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to encode VC from JWS: %w", err))
+	}
+
+	vcBytesFromJWS, err := vcParsed.MarshalJSON()
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal VC: %w", err))
 	}
 
 	// todo missing referenceNumber here (https://github.com/hyperledger/aries-framework-go/issues/847)
@@ -191,12 +196,17 @@ func ExampleCredential_extraFields() {
 
 	fmt.Println(jws)
 
-	// Decode JWS and make sure it's coincide with JSON.
-	_, vcBytesFromJWS, err := verifiable.NewCredential(
+	// Parse JWS and make sure it's coincide with JSON.
+	vcParsed, err := verifiable.ParseCredential(
 		[]byte(jws),
 		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to encode VC from JWS: %w", err))
+	}
+
+	vcBytesFromJWS, err := vcParsed.MarshalJSON()
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal VC: %w", err))
 	}
 
 	fmt.Println(string(vcBytesFromJWS))
@@ -208,7 +218,7 @@ func ExampleCredential_extraFields() {
 }
 
 //nolint:lll
-func ExampleNewCredential() {
+func ExampleParseCredential() {
 	// Issuer is about to issue the university degree credential for the Holder
 	vcEncoded := &verifiable.Credential{
 		Context: []string{
@@ -251,11 +261,16 @@ func ExampleNewCredential() {
 	}
 
 	// The Holder receives JWS and decodes it.
-	_, vcDecodedBytes, err := verifiable.NewCredential(
+	vcParsed, err := verifiable.ParseCredential(
 		[]byte(jws),
 		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to decode VC JWS: %w", err))
+	}
+
+	vcDecodedBytes, err := vcParsed.MarshalJSON()
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal VC: %w", err))
 	}
 
 	// The Holder then e.g. can save the credential to her personal verifiable credential wallet.
@@ -298,7 +313,7 @@ func ExampleCredential_JWTClaims() {
 `
 
 	// The Holder wants to send the credential to the Verifier in JWS.
-	vc, _, err := verifiable.NewCredential([]byte(vcStrFromWallet))
+	vc, err := verifiable.ParseCredential([]byte(vcStrFromWallet))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
@@ -352,7 +367,7 @@ func ExampleCredential_AddLinkedDataProof() {
 }
 `
 
-	vc, _, err := verifiable.NewCredential([]byte(vcJSON))
+	vc, err := verifiable.ParseCredential([]byte(vcJSON))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
@@ -446,7 +461,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 }
 `
 
-	vc, _, err := verifiable.NewCredential([]byte(vcJSON))
+	vc, err := verifiable.ParseCredential([]byte(vcJSON))
 	if err != nil {
 		fmt.Println(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
@@ -487,7 +502,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 	ed25519Suite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 	jsonWebSignatureSuite := jsonwebsignature2020.New(suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
 
-	_, _, err = verifiable.NewCredential(vcBytes,
+	_, err = verifiable.ParseCredential(vcBytes,
 		verifiable.WithEmbeddedSignatureSuites(ed25519Suite, jsonWebSignatureSuite),
 		verifiable.WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			switch keyID {

@@ -39,7 +39,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
-func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
+func TestParseCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 	r := require.New(t)
 
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -56,7 +56,7 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 		VerificationMethod:      "did:example:123456#key1",
 	}
 
-	vc, _, err := newTestCredential([]byte(validCredential))
+	vc, err := parseTestCredential([]byte(validCredential))
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(ldpContext)
@@ -65,7 +65,7 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	vcWithLdp, _, err := newTestCredential(vcBytes,
+	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
 	r.NoError(err)
@@ -73,7 +73,7 @@ func TestNewCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 }
 
 //nolint:lll
-func TestNewCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
+func TestParseCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 	r := require.New(t)
 
 	pubKeyBytes := base58.Decode("DqS5F3GVe3rCxucgi4JBNagjv4dKoHc8TDLDw9kR58Pz")
@@ -121,7 +121,7 @@ func TestNewCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 }
 `
 
-		vcWithLdp, _, err := newTestCredential([]byte(vcJSON), vcOptions...)
+		vcWithLdp, err := parseTestCredential([]byte(vcJSON), vcOptions...)
 		r.NoError(err)
 		r.NotNil(t, vcWithLdp)
 	})
@@ -162,7 +162,7 @@ func TestNewCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 }
 `
 
-		vcWithLdp, _, err := newTestCredential([]byte(vcJSON), vcOptions...)
+		vcWithLdp, err := parseTestCredential([]byte(vcJSON), vcOptions...)
 		r.Error(err)
 		r.EqualError(err, "JSON-LD doc has different structure after compaction")
 		r.Nil(vcWithLdp)
@@ -204,7 +204,7 @@ func TestNewCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 }
 `
 
-		vcWithLdp, _, err := newTestCredential([]byte(vcJSON), vcOptions...)
+		vcWithLdp, err := parseTestCredential([]byte(vcJSON), vcOptions...)
 		r.Error(err)
 		r.EqualError(err, "JSON-LD doc has different structure after compaction")
 		r.Nil(vcWithLdp)
@@ -250,7 +250,7 @@ func TestNewCredentialFromLinkedDataProof_JSONLD_Validation(t *testing.T) {
 }
 `
 
-		vc, _, err := newTestCredential([]byte(vcJSON),
+		vc, err := parseTestCredential([]byte(vcJSON),
 			WithDisabledProofCheck(),
 			WithStrictValidation(),
 			WithJSONLDDocumentLoader(docLoader),
@@ -311,7 +311,7 @@ func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
 	copy(publicKey[0:32], decoded)
 	rv := ed25519.PublicKey(publicKey)
 
-	vcWithLdp, _, err := newTestCredential([]byte(vcJSON),
+	vcWithLdp, err := parseTestCredential([]byte(vcJSON),
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
@@ -369,7 +369,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 		VerificationMethod:      "did:example:123456#key1",
 	}
 
-	vc, _, err := newTestCredential([]byte(vcJSON))
+	vc, err := parseTestCredential([]byte(vcJSON))
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(ldpContext)
@@ -378,7 +378,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	vcWithLdp, _, err := newTestCredential(vcBytes,
+	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
 		WithStrictValidation())
@@ -395,7 +395,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	vcBytes, err = json.Marshal(vcMap)
 	r.NoError(err)
 
-	vcWithLdp, _, err = newTestCredential(vcBytes,
+	vcWithLdp, err = parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
 		WithStrictValidation())
@@ -404,7 +404,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	r.Nil(vcWithLdp)
 
 	// Use extra context.
-	vcWithLdp, _, err = newTestCredential(vcBytes,
+	vcWithLdp, err = parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
 		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
@@ -413,7 +413,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	r.NotNil(vcWithLdp)
 
 	// Use extra context.
-	vcWithLdp, _, err = newTestCredential(vcBytes,
+	vcWithLdp, err = parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
 		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
@@ -443,7 +443,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	loader := CachingJSONLDLoader()
 	loader.AddDocument("http://localhost:8652/dummy.jsonld", reader)
 
-	vcWithLdp, _, err = NewCredential(vcBytes,
+	vcWithLdp, err = ParseCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
 		WithExternalJSONLDContext("http://localhost:8652/dummy.jsonld"),
@@ -453,7 +453,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	r.NotNil(vcWithLdp)
 }
 
-func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {
+func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {
 	r := require.New(t)
 
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -470,7 +470,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testin
 		VerificationMethod:      "did:example:123456#key1",
 	}
 
-	vc, _, err := newTestCredential([]byte(validCredential))
+	vc, err := parseTestCredential([]byte(validCredential))
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(ldpContext)
@@ -479,14 +479,14 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testin
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	vcWithLdp, _, err := newTestCredential(vcBytes,
+	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(SingleKey(pubKey, "Ed25519Signature2018")))
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
 }
 
-func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *testing.T) {
+func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *testing.T) {
 	r := require.New(t)
 
 	// TODO replace ecdsa.GenerateKey with KMS.Create(kms.ECDSAP256TypeIEEEP1363) and use localkms and Crypto for signing
@@ -504,7 +504,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 		VerificationMethod:      "did:example:123456#key1",
 	}
 
-	vc, _, err := newTestCredential([]byte(validCredential))
+	vc, err := parseTestCredential([]byte(validCredential))
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(ldpContext)
@@ -515,7 +515,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 
 	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
 
-	vcWithLdp, _, err := newTestCredential(vcBytes,
+	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
@@ -535,7 +535,7 @@ func TestNewCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *test
 	r.Equal(vc, vcWithLdp)
 }
 
-func TestNewCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing.T) {
+func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing.T) {
 	r := require.New(t)
 
 	privateKey, err := ecdsa.GenerateKey(btcec.S256(), rand.Reader)
@@ -554,7 +554,7 @@ func TestNewCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing
 		VerificationMethod:      "did:example:123456#key1",
 	}
 
-	vc, _, err := newTestCredential([]byte(validCredential))
+	vc, err := parseTestCredential([]byte(validCredential))
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(ldpContext)
@@ -564,7 +564,7 @@ func TestNewCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing
 	r.NoError(err)
 
 	// JWK encoded public key
-	vcWithLdp, _, err := newTestCredential(vcBytes,
+	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
@@ -584,7 +584,7 @@ func TestNewCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing
 
 	// Bytes encoded public key (can come in e.g. publicKeyHex field)
 	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
-	vcWithLdp, _, err = newTestCredential(vcBytes,
+	vcWithLdp, err = parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
@@ -597,7 +597,7 @@ func TestNewCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing
 }
 
 //nolint:lll
-func TestNewCredential_JSONLiteralsNotSupported(t *testing.T) {
+func TestParseCredential_JSONLiteralsNotSupported(t *testing.T) {
 	cmtrJSONLD := `
 {
   "@context": {
@@ -837,7 +837,7 @@ func TestNewCredential_JSONLiteralsNotSupported(t *testing.T) {
 
 	publicKeyBytes := base58.Decode("At4yQndGdrJs5AVFjYXqwDRALfm3ghLAmzhLux5eJkhh")
 
-	vc, _, err := NewCredential([]byte(vcJSON),
+	vc, err := ParseCredential([]byte(vcJSON),
 		WithPublicKeyFetcher(SingleKey(publicKeyBytes, "Ed25519Signature2018")),
 		WithEmbeddedSignatureSuites(ed25519signature2018.New(
 			suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())))),
@@ -850,7 +850,7 @@ func TestNewCredential_JSONLiteralsNotSupported(t *testing.T) {
 }
 
 //nolint:lll
-func TestNewCredential_ProofCreatedWithMillisec(t *testing.T) {
+func TestParseCredential_ProofCreatedWithMillisec(t *testing.T) {
 	vcJSON := `
 	{
 	       "issuanceDate": "2020-03-10T04:24:12.164Z",
@@ -885,7 +885,7 @@ func TestNewCredential_ProofCreatedWithMillisec(t *testing.T) {
 
 	publicKeyBytes := base58.Decode("DNwKNoq5MnZ185AyatKe3kT7MMCDD7R2PeNDV6FndMkz")
 
-	vc, _, err := newTestCredential([]byte(vcJSON),
+	vc, err := parseTestCredential([]byte(vcJSON),
 		WithPublicKeyFetcher(SingleKey(publicKeyBytes, "Ed25519Signature2018")),
 		WithEmbeddedSignatureSuites(ed25519signature2018.New(
 			suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())))),
@@ -895,7 +895,7 @@ func TestNewCredential_ProofCreatedWithMillisec(t *testing.T) {
 	require.NotNil(t, vc)
 }
 
-func TestNewCredentialWithSeveralLinkedDataProofs(t *testing.T) {
+func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 	r := require.New(t)
 
 	ed25519PubKey, ed25519PrivKey, err := ed25519.GenerateKey(rand.Reader)
@@ -906,7 +906,7 @@ func TestNewCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 		suite.WithSigner(getEd25519TestSigner(ed25519PrivKey)),
 		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 
-	vc, _, err := newTestCredential([]byte(validCredential))
+	vc, err := parseTestCredential([]byte(validCredential))
 	r.NoError(err)
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
@@ -936,7 +936,7 @@ func TestNewCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 	r.NoError(err)
 	r.NotEmpty(vcBytes)
 
-	vcWithLdp, _, err := newTestCredential(vcBytes,
+	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(ed25519SigSuite, ecdsaSigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			switch keyID {
@@ -1054,7 +1054,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 	r.NoError(err)
 
 	t.Run("Add a valid JWS Linked Data proof to VC", func(t *testing.T) {
-		vc, _, err := newTestCredential([]byte(validCredential))
+		vc, err := parseTestCredential([]byte(validCredential))
 		r.NoError(err)
 
 		originalVCMap, err := toMap(vc)
@@ -1093,7 +1093,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 	})
 
 	t.Run("Add invalid Linked Data proof to VC", func(t *testing.T) {
-		vc, _, err := newTestCredential([]byte(validCredential))
+		vc, err := parseTestCredential([]byte(validCredential))
 		require.NoError(t, err)
 
 		vc.CustomFields = map[string]interface{}{

@@ -79,7 +79,7 @@ func main() {
 }
 
 func encodeVCToJWS(vcBytes []byte, privateKey *rsa.PrivateKey) {
-	credential, _, err := verifiable.NewCredential(vcBytes, verifiable.WithNoProofCheck())
+	credential, err := verifiable.ParseCredential(vcBytes, verifiable.WithNoProofCheck())
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
@@ -98,7 +98,7 @@ func encodeVCToJWS(vcBytes []byte, privateKey *rsa.PrivateKey) {
 }
 
 func encodeVPToJWS(vpBytes []byte, audience string, privateKey *rsa.PrivateKey, publicKey *rsa.PublicKey) {
-	vp, err := verifiable.NewPresentation(vpBytes,
+	vp, err := verifiable.ParsePresentation(vpBytes,
 		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
 		verifiable.WithPresNoProofCheck(),
 		// the public key is used to decode verifiable credentials passed as JWS to the presentation
@@ -121,7 +121,7 @@ func encodeVPToJWS(vpBytes []byte, audience string, privateKey *rsa.PrivateKey, 
 }
 
 func encodeVCToJWTUnsecured(vcBytes []byte) {
-	credential, _, err := verifiable.NewCredential(vcBytes, verifiable.WithNoProofCheck())
+	credential, err := verifiable.ParseCredential(vcBytes, verifiable.WithNoProofCheck())
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
@@ -141,7 +141,7 @@ func encodeVCToJWTUnsecured(vcBytes []byte) {
 
 func decodeVCJWTToJSON(vcBytes []byte, publicKey *rsa.PublicKey) {
 	// Asked to decode JWT
-	credential, _, err := verifiable.NewCredential(vcBytes,
+	credential, err := verifiable.ParseCredential(vcBytes,
 		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), kms.RSA)),
 		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
 		verifiable.WithNoProofCheck())
@@ -209,7 +209,7 @@ func encodeVCToJSON(vcBytes []byte, testFileName string) {
 		vcOpts = append(vcOpts, verifiable.WithBaseContextValidation())
 	}
 
-	credential, _, err := verifiable.NewCredential(vcBytes, vcOpts...)
+	credential, err := verifiable.ParseCredential(vcBytes, vcOpts...)
 	if err != nil {
 		abort("failed to decode credential: %v", err)
 	}
@@ -225,7 +225,7 @@ func encodeVCToJSON(vcBytes []byte, testFileName string) {
 func encodeVPToJSON(vcBytes []byte) {
 	// https://www.w3.org/TR/vc-data-model/#presentations-0 states "If present" under verifiableCredential
 	// but the test suite requires the element to be present. Hence, WithPresRequireVC is used in test suite runs.
-	vp, err := verifiable.NewPresentation(vcBytes, verifiable.WithPresRequireVC())
+	vp, err := verifiable.ParsePresentation(vcBytes, verifiable.WithPresRequireVC())
 	if err != nil {
 		abort("failed to decode presentation: %v", err)
 	}

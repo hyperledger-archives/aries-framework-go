@@ -163,7 +163,7 @@ const basePresentationSchema = `
 var basePresentationSchemaLoader = gojsonschema.NewStringLoader(basePresentationSchema)
 
 // MarshalledCredential defines marshalled Verifiable Credential enclosed into Presentation.
-// MarshalledCredential can be passed to verifiable.NewCredential().
+// MarshalledCredential can be passed to verifiable.ParseCredential().
 type MarshalledCredential []byte
 
 // Presentation Verifiable Presentation base data model definition
@@ -210,7 +210,7 @@ func (vp *Presentation) SetCredentials(creds ...interface{}) error {
 
 	convertToVC := func(vcStr string) (interface{}, error) {
 		// Check if passed VC is correct one.
-		vc, err := NewUnverifiedCredential([]byte(vcStr))
+		vc, err := ParseUnverifiedCredential([]byte(vcStr))
 		if err != nil {
 			return nil, fmt.Errorf("check VC: %w", err)
 		}
@@ -367,9 +367,9 @@ func WithPresJSONLDDocumentLoader(documentLoader ld.DocumentLoader) Presentation
 	}
 }
 
-// NewPresentation creates an instance of Verifiable Presentation by reading a JSON document from bytes.
+// ParsePresentation creates an instance of Verifiable Presentation by reading a JSON document from bytes.
 // It also applies miscellaneous options like custom decoders or settings of schema validation.
-func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, error) {
+func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, error) {
 	// Apply options
 	vpOpts := defaultPresentationOpts()
 
@@ -399,10 +399,10 @@ func NewPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, err
 	return p, nil
 }
 
-// NewUnverifiedPresentation decodes Verifiable Presentation from bytes which could be marshalled JSON or
+// ParseUnverifiedPresentation parses Verifiable Presentation from bytes which could be marshalled JSON or
 // serialized JWT. It does not make a proof check though. Can be used for purposes of decoding of VP stored in a wallet.
 // Please use this function with caution.
-func NewUnverifiedPresentation(vpBytes []byte) (*Presentation, error) {
+func ParseUnverifiedPresentation(vpBytes []byte) (*Presentation, error) {
 	// Apply options
 	vpOpts := &presentationOpts{
 		disabledProofCheck: true,
@@ -432,7 +432,7 @@ func newPresentation(vpRaw *rawPresentation, vpOpts *presentationOpts) (*Present
 		return nil, fmt.Errorf("decode credentials of presentation: %w", err)
 	}
 
-	proofs, err := decodeProof(vpRaw.Proof)
+	proofs, err := parseProof(vpRaw.Proof)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
 	}

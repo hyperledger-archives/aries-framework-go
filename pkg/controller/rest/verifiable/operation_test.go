@@ -565,7 +565,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NotEmpty(t, response)
 		require.NotEmpty(t, response.VerifiablePresentation)
 
-		vp, err := verifiableapi.NewPresentation([]byte(response.VerifiablePresentation))
+		vp, err := verifiableapi.ParsePresentation([]byte(response.VerifiablePresentation))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -608,7 +608,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NotEmpty(t, response)
 		require.NotEmpty(t, response.VerifiablePresentation)
 
-		vp, err := verifiableapi.NewPresentation([]byte(response.VerifiablePresentation))
+		vp, err := verifiableapi.ParsePresentation([]byte(response.VerifiablePresentation))
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)

@@ -792,7 +792,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
 
-		vp, err := verifiable.NewPresentation([]byte(response.VerifiablePresentation))
+		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation)
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -833,7 +833,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
 
-		vp, err := verifiable.NewPresentation([]byte(response.VerifiablePresentation))
+		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation)
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -877,7 +877,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
 
-		vp, err := verifiable.NewPresentation([]byte(response.VerifiablePresentation))
+		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation)
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -920,7 +920,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
 
-		vp, err := verifiable.NewPresentation([]byte(response.VerifiablePresentation))
+		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation)
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -973,8 +973,8 @@ func TestGeneratePresentation(t *testing.T) {
 	})
 
 	t.Run("test generate verifiable presentation with proof options & presentation - success", func(t *testing.T) {
-		pRaw := json.RawMessage([]byte(`{"@context": "https://www.w3.org/2018/credentials/v1",
-		"type": "VerifiablePresentation"}`))
+		pRaw := json.RawMessage(`{"@context": "https://www.w3.org/2018/credentials/v1",
+		"type": "VerifiablePresentation"}`)
 
 		createdTime := time.Now().AddDate(-1, 0, 0)
 		presReq := PresentationRequest{
@@ -1002,7 +1002,7 @@ func TestGeneratePresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, response)
 
-		vp, err := verifiable.NewPresentation([]byte(response.VerifiablePresentation))
+		vp, err := verifiable.ParsePresentation(response.VerifiablePresentation)
 
 		require.NoError(t, err)
 		require.NotNil(t, vp)
@@ -1758,5 +1758,5 @@ func TestGeneratePresentation_prepareOpts(t *testing.T) {
 }
 
 func stringToJSONRaw(jsonStr string) json.RawMessage {
-	return json.RawMessage([]byte(jsonStr))
+	return []byte(jsonStr)
 }
