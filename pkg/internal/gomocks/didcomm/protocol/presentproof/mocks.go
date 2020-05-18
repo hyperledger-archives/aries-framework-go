@@ -9,6 +9,7 @@ import (
 	service "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	vdri "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	storage "github.com/hyperledger/aries-framework-go/pkg/storage"
+	verifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	reflect "reflect"
 )
 
@@ -75,4 +76,18 @@ func (m *MockProvider) VDRIRegistry() vdri.Registry {
 func (mr *MockProviderMockRecorder) VDRIRegistry() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VDRIRegistry", reflect.TypeOf((*MockProvider)(nil).VDRIRegistry))
+}
+
+// VerifiableStore mocks base method
+func (m *MockProvider) VerifiableStore() verifiable.Store {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VerifiableStore")
+	ret0, _ := ret[0].(verifiable.Store)
+	return ret0
+}
+
+// VerifiableStore indicates an expected call of VerifiableStore
+func (mr *MockProviderMockRecorder) VerifiableStore() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifiableStore", reflect.TypeOf((*MockProvider)(nil).VerifiableStore))
 }

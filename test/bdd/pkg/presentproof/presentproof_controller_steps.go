@@ -9,6 +9,7 @@ package presentproof
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,6 +21,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexsteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
@@ -34,6 +37,7 @@ const (
 	acceptRequestPresentation    = operationID + "/%s/accept-request-presentation"
 	negotiateRequestPresentation = operationID + "/%s/negotiate-request-presentation"
 	acceptPresentation           = operationID + "/%s/accept-presentation"
+	verifiablePresentations      = "/verifiable/presentations"
 )
 
 var logger = log.New("aries-framework/presentproof-tests")
@@ -65,7 +69,8 @@ func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^"([^"]*)" negotiates about the request presentation with a proposal through PresentProof controller$`, s.negotiateRequestPresentation)
 	gs.Step(`^"([^"]*)" accepts a proposal and sends a request to the Prover through PresentProof controller$`, s.acceptProposePresentation)
 	gs.Step(`^"([^"]*)" accepts a request and sends a presentation to the Verifier through PresentProof controller$`, s.acceptRequestPresentation)
-	gs.Step(`^"([^"]*)" successfully accepts a presentation through PresentProof controller$`, s.acceptPresentation)
+	gs.Step(`^"([^"]*)" successfully accepts a presentation with "([^"]*)" name through PresentProof controller$`, s.acceptPresentation)
+	gs.Step(`^"([^"]*)" checks that presentation is being stored under the "([^"]*)" name$`, s.checkPresentation)
 }
 
 func (s *ControllerSteps) establishConnection(inviter, invitee string) error {
@@ -179,9 +184,12 @@ func (s *ControllerSteps) acceptRequestPresentation(prover string) error {
 		return err
 	}
 
-	// TODO: Send non-empty VP after resolving https://github.com/hyperledger/aries-framework-go/issues/1799
 	msg := &presentproof.Presentation{
-		Presentations: nil,
+		Presentations: []decorator.Attachment{{
+			Data: decorator.AttachmentData{
+				Base64: "ZXlKaGJHY2lPaUp1YjI1bElpd2lkSGx3SWpvaVNsZFVJbjAuZXlKcGMzTWlPaUprYVdRNlpYaGhiWEJzWlRwbFltWmxZakZtTnpFeVpXSmpObVl4WXpJM05tVXhNbVZqTWpFaUxDSnFkR2tpT2lKMWNtNDZkWFZwWkRvek9UYzRNelEwWmkwNE5UazJMVFJqTTJFdFlUazNPQzA0Wm1OaFltRXpPVEF6WXpVaUxDSjJjQ0k2ZXlKQVkyOXVkR1Y0ZENJNld5Sm9kSFJ3Y3pvdkwzZDNkeTUzTXk1dmNtY3ZNakF4T0M5amNtVmtaVzUwYVdGc2N5OTJNU0lzSW1oMGRIQnpPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1ERTRMMk55WldSbGJuUnBZV3h6TDJWNFlXMXdiR1Z6TDNZeElsMHNJbWh2YkdSbGNpSTZJbVJwWkRwbGVHRnRjR3hsT21WaVptVmlNV1kzTVRKbFltTTJaakZqTWpjMlpURXlaV015TVNJc0ltbGtJam9pZFhKdU9uVjFhV1E2TXprM09ETTBOR1l0T0RVNU5pMDBZek5oTFdFNU56Z3RPR1pqWVdKaE16a3dNMk0xSWl3aWRIbHdaU0k2V3lKV1pYSnBabWxoWW14bFVISmxjMlZ1ZEdGMGFXOXVJaXdpUTNKbFpHVnVkR2xoYkUxaGJtRm5aWEpRY21WelpXNTBZWFJwYjI0aVhTd2lkbVZ5YVdacFlXSnNaVU55WldSbGJuUnBZV3dpT201MWJHeDlmUS4=", // nolint: lll,
+			},
+		}},
 	}
 
 	var result interface{}
@@ -189,7 +197,7 @@ func (s *ControllerSteps) acceptRequestPresentation(prover string) error {
 	return postToURL(url+fmt.Sprintf(acceptRequestPresentation, piid), msg, &result)
 }
 
-func (s *ControllerSteps) acceptPresentation(verifier string) error {
+func (s *ControllerSteps) acceptPresentation(verifier, name string) error {
 	url, ok := s.bddContext.GetControllerURL(verifier)
 	if !ok {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
@@ -202,7 +210,36 @@ func (s *ControllerSteps) acceptPresentation(verifier string) error {
 
 	var result interface{}
 
-	return postToURL(url+fmt.Sprintf(acceptPresentation, piid), nil, &result)
+	return postToURL(url+fmt.Sprintf(acceptPresentation, piid), []string{name}, &result)
+}
+
+func (s *ControllerSteps) checkPresentation(verifier, name string) error {
+	url, ok := s.bddContext.GetControllerURL(verifier)
+	if !ok {
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
+	}
+
+	const (
+		maxRetry = 10
+		delay    = time.Second
+	)
+
+	for i := 0; i < maxRetry; i++ {
+		var result verifiable.RecordResult
+		if err := sendHTTP(http.MethodGet, url+verifiablePresentations, nil, &result); err != nil {
+			return err
+		}
+
+		for _, val := range result.Result {
+			if val.Name == name {
+				return nil
+			}
+		}
+
+		time.Sleep(delay)
+	}
+
+	return errors.New("presentation not found")
 }
 
 func (s *ControllerSteps) agentDID(ds *didexsteps.ControllerSteps, agent string) (string, error) {
@@ -307,7 +344,7 @@ func sendHTTP(method, destination string, message []byte, result interface{}) er
 		return nil
 	}
 
-	return json.Unmarshal(data, result)
+	return json.Unmarshal(data, &result)
 }
 
 func closeResponse(c io.Closer) {

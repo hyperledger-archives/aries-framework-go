@@ -147,9 +147,24 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 		operation, err := New(provider(ctrl))
 		require.NoError(t, err)
 
-		_, code, err := sendRequestToHandler(
+		buf, code, err := sendRequestToHandler(
 			handlerLookup(t, operation, acceptPresentation),
 			nil,
+			strings.Replace(acceptPresentation, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "names payload was not provided")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, acceptPresentation),
+			bytes.NewBufferString(`[]`),
 			strings.Replace(acceptPresentation, `{piid}`, "1234", 1),
 		)
 

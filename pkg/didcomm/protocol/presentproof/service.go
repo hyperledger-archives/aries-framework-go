@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	storeverifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 const (
@@ -62,11 +63,13 @@ type transitionalPayload struct {
 type metaData struct {
 	transitionalPayload
 	state               state
+	presentationNames   []string
 	msgClone            service.DIDCommMsg
 	presentation        *Presentation
 	proposePresentation *ProposePresentation
 	request             *RequestPresentation
 	registryVDRI        vdri.Registry
+	verifiable          storeverifiable.Store
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -107,11 +110,19 @@ func WithRequestPresentation(msg *RequestPresentation) Opt {
 	}
 }
 
+// WithFriendlyNames allows providing names for the presentations.
+func WithFriendlyNames(names ...string) Opt {
+	return func(md *metaData) {
+		md.presentationNames = names
+	}
+}
+
 // Provider contains dependencies for the protocol and is typically created by using aries.Context()
 type Provider interface {
 	Messenger() service.Messenger
 	StorageProvider() storage.Provider
 	VDRIRegistry() vdri.Registry
+	VerifiableStore() storeverifiable.Store
 }
 
 // Service for the presentproof protocol
@@ -119,6 +130,7 @@ type Service struct {
 	service.Action
 	service.Message
 	store        storage.Store
+	verifiable   storeverifiable.Store
 	callbacks    chan *metaData
 	messenger    service.Messenger
 	registryVDRI vdri.Registry
@@ -131,10 +143,16 @@ func New(p Provider) (*Service, error) {
 		return nil, err
 	}
 
+	vStore := p.VerifiableStore()
+	if vStore == nil {
+		return nil, fmt.Errorf("verifiable store is nil")
+	}
+
 	svc := &Service{
 		messenger:    p.Messenger(),
 		registryVDRI: p.VDRIRegistry(),
 		store:        store,
+		verifiable:   vStore,
 		callbacks:    make(chan *metaData),
 	}
 
@@ -234,6 +252,7 @@ func (s *Service) doHandle(msg service.DIDCommMsgMap) (*metaData, error) {
 			PIID:      piID,
 		},
 		state:        next,
+		verifiable:   s.verifiable,
 		msgClone:     msg.Clone(),
 		registryVDRI: s.registryVDRI,
 	}, nil
@@ -444,6 +463,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
 		registryVDRI:        s.registryVDRI,
+		verifiable:          s.verifiable,
 	}
 
 	if opt != nil {

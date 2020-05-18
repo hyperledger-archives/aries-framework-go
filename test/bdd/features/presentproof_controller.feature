@@ -17,7 +17,8 @@ Feature: Present Proof using controller API
     When  "Alice" sends a request presentation to "Bob" through PresentProof controller
       And "Bob" accepts a request and sends a presentation to the Verifier through PresentProof controller
 
-    Then  "Alice" successfully accepts a presentation through PresentProof controller
+    Then  "Alice" successfully accepts a presentation with "passport" name through PresentProof controller
+      And "Alice" checks that presentation is being stored under the "passport" name
 
   Scenario: The Prover begins with a presentation proposal
     Given "Carol" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
@@ -28,7 +29,8 @@ Feature: Present Proof using controller API
       And "Dan" accepts a proposal and sends a request to the Prover through PresentProof controller
       And "Carol" accepts a request and sends a presentation to the Verifier through PresentProof controller
 
-    Then  "Dan" successfully accepts a presentation through PresentProof controller
+    Then  "Dan" successfully accepts a presentation with "degree" name through PresentProof controller
+      And "Dan" checks that presentation is being stored under the "degree" name
 
   Scenario: The Prover begins with a presentation proposal (negotiation)
     Given "Peggy" agent is running on "localhost" port "8081" with controller "http://localhost:8082"
@@ -41,4 +43,5 @@ Feature: Present Proof using controller API
       And "Victor" accepts a proposal and sends a request to the Prover through PresentProof controller
       And "Peggy" accepts a request and sends a presentation to the Verifier through PresentProof controller
 
-    Then  "Victor" successfully accepts a presentation through PresentProof controller
+    Then  "Victor" successfully accepts a presentation with "license" name through PresentProof controller
+      And "Victor" checks that presentation is being stored under the "license" name

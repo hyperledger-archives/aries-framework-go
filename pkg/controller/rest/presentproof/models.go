@@ -140,6 +140,10 @@ type presentProofAcceptPresentationRequest struct { // nolint: unused,deadcode
 	// in: path
 	// required: true
 	PIID string `json:"piid"`
+
+	// in: body
+	// required: true
+	Names []string `json:""`
 }
 
 // presentProofAcceptPresentationResponse model

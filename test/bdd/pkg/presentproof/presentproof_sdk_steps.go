@@ -22,10 +22,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	verifiableStore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 )
 
-const timeout = time.Second * 5
+const timeout = time.Second * 15
 
 const vpStrFromWallet = `
 {
@@ -104,8 +105,42 @@ func (a *SDKSteps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" declines presentation$`, a.declinePresentation)
 	s.Step(`^"([^"]*)" declines a propose presentation$`, a.declineProposePresentation)
 	s.Step(`^"([^"]*)" accepts a proposal and sends a request to the Prover$`, a.acceptProposePresentation)
-	s.Step(`^"([^"]*)" accepts a presentation$`, a.acceptPresentation)
+	s.Step(`^"([^"]*)" accepts a presentation with name "([^"]*)"$`, a.acceptPresentation)
+	s.Step(`^"([^"]*)" checks that presentation is being stored under "([^"]*)" name$`, a.checkPresentation)
 	s.Step(`^"([^"]*)" checks the history of events "([^"]*)"$`, a.checkHistoryEvents)
+}
+
+func (a *SDKSteps) waitFor(agent, name string) error {
+	for {
+		select {
+		case e := <-a.events[agent]:
+			if e.StateID == name {
+				return nil
+			}
+		case <-time.After(timeout):
+			return errors.New("timeout")
+		}
+	}
+}
+
+func (a *SDKSteps) checkPresentation(agent, name string) error {
+	if err := a.waitFor(agent, "done"); err != nil {
+		return err
+	}
+
+	store, err := verifiableStore.New(a.bddContext.AgentCtx[agent])
+	if err != nil {
+		return err
+	}
+
+	ID, err := store.GetPresentationIDByName(name)
+	if err != nil {
+		return err
+	}
+
+	_, err = store.GetPresentation(ID)
+
+	return err
 }
 
 func (a *SDKSteps) checkHistoryEvents(agentID, events string) error {
@@ -222,13 +257,13 @@ func (a *SDKSteps) declinePresentation(agent string) error {
 	return a.clients[agent].DeclinePresentation(PIID, "rejected")
 }
 
-func (a *SDKSteps) acceptPresentation(agent string) error {
+func (a *SDKSteps) acceptPresentation(agent, name string) error {
 	PIID, err := a.getActionID(agent)
 	if err != nil {
 		return err
 	}
 
-	return a.clients[agent].AcceptPresentation(PIID)
+	return a.clients[agent].AcceptPresentation(PIID, name)
 }
 
 func (a *SDKSteps) negotiateRequestPresentation(agent string) error {
@@ -254,7 +289,7 @@ func (a *SDKSteps) createClient(agentID string) error {
 		return nil
 	}
 
-	const stateMsgChanSize = 10
+	const stateMsgChanSize = 12
 
 	client, err := presentproof.New(a.bddContext.AgentCtx[agentID])
 	if err != nil {

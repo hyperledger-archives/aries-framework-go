@@ -74,6 +74,8 @@ type ActionsResponse struct {
 type AcceptPresentationArgs struct {
 	// PIID Protocol instance ID
 	PIID string `json:"piid"`
+	// Names represent the names of how presentations will be stored
+	Names []string `json:"names"`
 }
 
 // AcceptPresentationResponse model

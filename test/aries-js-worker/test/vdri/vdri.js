@@ -48,12 +48,13 @@ describe("VDRI", function () {
                     }
 
                     resp = await agents[i].vdri.resolveDID({id: id})
+                    break
                 } catch (e) {
-                    assert.fail(e.message);
                     if (!e.message.includes("DID does not exist")) {
                         assert.fail(e.message);
                     }
                     await new Promise(r => setTimeout(r, 1000));
+                    console.warn(e.message)
                 }
             }
             await agents[i].vdri.saveDID({

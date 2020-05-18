@@ -136,8 +136,8 @@ func (c *Client) DeclineProposePresentation(piID, reason string) error {
 }
 
 // AcceptPresentation is used by the Verifier to accept a presentation.
-func (c *Client) AcceptPresentation(piID string) error {
-	return c.service.ActionContinue(piID, nil)
+func (c *Client) AcceptPresentation(piID string, names ...string) error {
+	return c.service.ActionContinue(piID, WithFriendlyNames(names...))
 }
 
 // DeclinePresentation is used by the Verifier to decline a presentation.
@@ -164,4 +164,9 @@ func WithProposePresentation(msg *ProposePresentation) presentproof.Opt {
 func WithRequestPresentation(msg *RequestPresentation) presentproof.Opt {
 	origin := presentproof.RequestPresentation(*msg)
 	return presentproof.WithRequestPresentation(&origin)
+}
+
+// WithFriendlyNames allows providing names for the presentations.
+func WithFriendlyNames(names ...string) presentproof.Opt {
+	return presentproof.WithFriendlyNames(names...)
 }
