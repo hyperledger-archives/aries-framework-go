@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
 const (
@@ -383,7 +384,7 @@ func (s *credentialReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameDone || st.Name() == stateNameAbandoning
 }
 
-func toVerifiableCredentials(attachments []decorator.Attachment) ([]*verifiable.Credential, error) {
+func toVerifiableCredentials(vReg vdri.Registry, attachments []decorator.Attachment) ([]*verifiable.Credential, error) {
 	var credentials []*verifiable.Credential
 
 	// TODO: Currently, it supports only JSON payload. We need to add support for links and base64 as well. [Issue 1455]
@@ -393,7 +394,9 @@ func toVerifiableCredentials(attachments []decorator.Attachment) ([]*verifiable.
 			return nil, fmt.Errorf("marshal: %w", err)
 		}
 
-		vc, err := verifiable.ParseCredential(rawVC)
+		vc, err := verifiable.ParseCredential(rawVC, verifiable.WithPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(vReg).PublicKeyFetcher(),
+		))
 		if err != nil {
 			return nil, fmt.Errorf("new credential: %w", err)
 		}
@@ -412,7 +415,7 @@ func (s *credentialReceived) ExecuteInbound(md *metaData) (state, stateAction, e
 		return nil, nil, fmt.Errorf("decode: %w", err)
 	}
 
-	credentials, err := toVerifiableCredentials(credential.CredentialsAttach)
+	credentials, err := toVerifiableCredentials(md.registryVDRI, credential.CredentialsAttach)
 	if err != nil {
 		return nil, nil, fmt.Errorf("to verifiable credentials: %w", err)
 	}

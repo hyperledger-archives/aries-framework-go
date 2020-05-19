@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	storeverifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
@@ -73,6 +74,7 @@ type metaData struct {
 	offerCredential   *OfferCredential
 	proposeCredential *ProposeCredential
 	issueCredential   *IssueCredential
+	registryVDRI      vdri.Registry
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
@@ -126,16 +128,18 @@ type Provider interface {
 	Messenger() service.Messenger
 	StorageProvider() storage.Provider
 	VerifiableStore() storeverifiable.Store
+	VDRIRegistry() vdri.Registry
 }
 
 // Service for the issuecredential protocol
 type Service struct {
 	service.Action
 	service.Message
-	store      storage.Store
-	callbacks  chan *metaData
-	messenger  service.Messenger
-	verifiable storeverifiable.Store
+	store        storage.Store
+	callbacks    chan *metaData
+	messenger    service.Messenger
+	verifiable   storeverifiable.Store
+	registryVDRI vdri.Registry
 }
 
 // New returns the issuecredential service
@@ -151,10 +155,11 @@ func New(p Provider) (*Service, error) {
 	}
 
 	svc := &Service{
-		messenger:  p.Messenger(),
-		store:      store,
-		verifiable: vStore,
-		callbacks:  make(chan *metaData),
+		messenger:    p.Messenger(),
+		registryVDRI: p.VDRIRegistry(),
+		store:        store,
+		verifiable:   vStore,
+		callbacks:    make(chan *metaData),
 	}
 
 	// start the listener
@@ -255,9 +260,10 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 			Msg:       msg.(service.DIDCommMsgMap),
 			PIID:      piID,
 		},
-		state:      next,
-		verifiable: s.verifiable,
-		msgClone:   msg.Clone(),
+		state:        next,
+		registryVDRI: s.registryVDRI,
+		verifiable:   s.verifiable,
+		msgClone:     msg.Clone(),
 	}, nil
 }
 
@@ -457,6 +463,7 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
 		verifiable:          s.verifiable,
+		registryVDRI:        s.registryVDRI,
 		inbound:             true,
 	}
 
@@ -485,6 +492,7 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
 		verifiable:          s.verifiable,
+		registryVDRI:        s.registryVDRI,
 		inbound:             true,
 	}
 
