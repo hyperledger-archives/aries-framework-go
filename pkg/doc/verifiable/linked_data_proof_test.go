@@ -104,7 +104,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 		verifierSuite := ed25519signature2018.New(
 			suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()),
 			suite.WithCompactProof())
-		vcDecoded, _, err := newTestCredential(vcWithEd25519ProofBytes,
+		vcDecoded, err := parseTestCredential(vcWithEd25519ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuite),
 			WithPublicKeyFetcher(SingleKey(ed25519PubKey, kms.ED25519)))
 		require.NoError(t, err)
@@ -120,14 +120,14 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 				suite.WithVerifier(ecdsasecp256k1signature2019.NewPublicKeyVerifier())),
 		}
 
-		vcDecoded, _, err := newTestCredential(vcWithEd25519ProofBytes,
+		vcDecoded, err := parseTestCredential(vcWithEd25519ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuites...),
 			WithPublicKeyFetcher(SingleKey(ed25519PubKey, kms.ED25519)))
 		require.NoError(t, err)
 		require.Equal(t, vcWithEd25519Proof, vcDecoded)
 
 		pubKeyBytes := elliptic.Marshal(ecdsaPrivKey.Curve, ecdsaPrivKey.X, ecdsaPrivKey.Y)
-		vcDecoded, _, err = newTestCredential(vcWithSecp256k1ProofBytes,
+		vcDecoded, err = parseTestCredential(vcWithSecp256k1ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuites...),
 			WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				return &verifier.PublicKey{
@@ -148,7 +148,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 	})
 
 	t.Run("no signature suite defined", func(t *testing.T) {
-		vcDecoded, _, err := newTestCredential(vcWithEd25519ProofBytes,
+		vcDecoded, err := parseTestCredential(vcWithEd25519ProofBytes,
 			WithPublicKeyFetcher(SingleKey(ed25519PubKey, kms.ED25519)))
 		require.NoError(t, err)
 		require.NotNil(t, vcDecoded)
@@ -156,7 +156,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 }
 
 func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, privKey []byte) *Credential {
-	vc, err := NewUnverifiedCredential([]byte(vcJSON))
+	vc, err := ParseUnverifiedCredential([]byte(vcJSON))
 	require.NoError(t, err)
 
 	ed25519SignerSuite := ed25519signature2018.New(
@@ -181,7 +181,7 @@ func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, privKey []byte) *Crede
 }
 
 func prepareVCWithSecp256k1LDP(t *testing.T, vcJSON string, privKey *ecdsa.PrivateKey) *Credential {
-	vc, err := NewUnverifiedCredential([]byte(vcJSON))
+	vc, err := ParseUnverifiedCredential([]byte(vcJSON))
 	require.NoError(t, err)
 
 	ed25519SignerSuite := ecdsasecp256k1signature2019.New(

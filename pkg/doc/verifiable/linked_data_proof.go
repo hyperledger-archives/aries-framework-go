@@ -113,7 +113,7 @@ func addLinkedDataProof(context *LinkedDataProofContext, jsonldBytes []byte) ([]
 		return nil, err
 	}
 
-	proofs, err := decodeProof(rProof.Proof)
+	proofs, err := parseProof(rProof.Proof)
 	if err != nil {
 		return nil, err
 	}

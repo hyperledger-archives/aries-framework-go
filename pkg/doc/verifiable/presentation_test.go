@@ -76,7 +76,7 @@ const validEmptyPresentation = `
 }
 `
 
-func TestNewPresentation(t *testing.T) {
+func TestParsePresentation(t *testing.T) {
 	t.Run("creates a new Verifiable Presentation from JSON with valid structure", func(t *testing.T) {
 		vp, err := newTestPresentation([]byte(validPresentation), WithPresStrictValidation())
 		require.NoError(t, err)
@@ -355,7 +355,7 @@ func TestPresentation_MarshalJSON(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, vp2)
 
-	// verify that verifiable presentations created by NewPresentation() and MarshalJSON() matches
+	// verify that verifiable presentations created by ParsePresentation() and MarshalJSON() matches
 	require.Equal(t, vp, vp2)
 }
 
@@ -363,7 +363,7 @@ func TestPresentation_SetCredentials(t *testing.T) {
 	r := require.New(t)
 	vp := Presentation{}
 
-	vc, err := NewUnverifiedCredential([]byte(validCredential))
+	vc, err := ParseUnverifiedCredential([]byte(validCredential))
 	r.NoError(err)
 
 	// Pass Credential struct pointer
@@ -431,7 +431,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	r.NoError(err)
 
-	vc, _, err := newTestCredential([]byte(validCredential))
+	vc, err := parseTestCredential([]byte(validCredential))
 	r.NoError(err)
 
 	jwtClaims, err := vc.JWTClaims(false)
@@ -491,9 +491,9 @@ func TestWithPresJSONLDDocumentLoader(t *testing.T) {
 	require.Equal(t, documentLoader, opts.jsonldDocumentLoader)
 }
 
-func TestNewUnverifiedPresentation(t *testing.T) {
+func TestParseUnverifiedPresentation(t *testing.T) {
 	// happy path
-	vp, err := NewUnverifiedPresentation([]byte(validPresentation))
+	vp, err := ParseUnverifiedPresentation([]byte(validPresentation))
 	require.NoError(t, err)
 	require.NotNil(t, vp)
 
@@ -507,12 +507,12 @@ func TestNewUnverifiedPresentation(t *testing.T) {
 	vpWithoutProofBytes, err := json.Marshal(vpJSON)
 	require.NoError(t, err)
 
-	vp, err = NewUnverifiedPresentation(vpWithoutProofBytes)
+	vp, err = ParseUnverifiedPresentation(vpWithoutProofBytes)
 	require.NoError(t, err)
 	require.NotNil(t, vp)
 
 	// VP decoding error
-	vp, err = NewUnverifiedPresentation([]byte("invalid"))
+	vp, err = ParseUnverifiedPresentation([]byte("invalid"))
 	require.Error(t, err)
 	require.Nil(t, vp)
 }

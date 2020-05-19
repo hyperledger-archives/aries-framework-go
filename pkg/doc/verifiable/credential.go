@@ -649,14 +649,14 @@ func WithEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) CredentialOp
 	}
 }
 
-// decodeIssuer decodes raw issuer.
+// parseIssuer decodes raw issuer.
 //
 // Issuer can be defined by:
 //
 // - a string which is ID of the issuer;
 //
 // - object with mandatory "id" field and optional "name" field.
-func decodeIssuer(issuerBytes json.RawMessage) (Issuer, error) {
+func parseIssuer(issuerBytes json.RawMessage) (Issuer, error) {
 	var issuer Issuer
 
 	err := json.Unmarshal(issuerBytes, &issuer)
@@ -699,49 +699,45 @@ func decodeCredentialSchemas(data *rawCredential) ([]TypedID, error) {
 	}
 }
 
-// NewCredential decodes Verifiable Credential from bytes which could be marshalled JSON or serialized JWT.
+// ParseCredential parses Verifiable Credential from bytes which could be marshalled JSON or serialized JWT.
 // It also applies miscellaneous options like settings of schema validation.
-// It returns decoded Credential and its marshalled JSON.
-// For JSON bytes input, the output marshalled JSON is the same value.
-// For serialized JWT input, the output is the result of decoding `vc` claim from JWT.
-// The output Credential and marshalled JSON can be used for extensions of the base data model
-// by checking CustomFields of Credential and/or unmarshalling the JSON to custom date structure.
-func NewCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, error) {
+// It returns decoded Credential.
+func ParseCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
 	// Apply options.
-	vcOpts := parseCredentialOpts(opts)
+	vcOpts := getCredentialOpts(opts)
 
 	// Decode credential (e.g. from JWT).
 	vcDataDecoded, err := decodeRaw(vcData, vcOpts)
 	if err != nil {
-		return nil, nil, fmt.Errorf("decode new credential: %w", err)
+		return nil, fmt.Errorf("decode new credential: %w", err)
 	}
 
 	// Unmarshal raw credential from JSON.
 	var raw rawCredential
-	err = json.Unmarshal(vcDataDecoded, &raw)
 
+	err = json.Unmarshal(vcDataDecoded, &raw)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unmarshal new credential: %w", err)
+		return nil, fmt.Errorf("unmarshal new credential: %w", err)
 	}
 
 	// Create credential from raw.
 	vc, err := newCredential(&raw)
 	if err != nil {
-		return nil, nil, fmt.Errorf("build new credential: %w", err)
+		return nil, fmt.Errorf("build new credential: %w", err)
 	}
 
 	err = validateCredential(vc, vcDataDecoded, vcOpts)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return vc, vcDataDecoded, nil
+	return vc, nil
 }
 
-// NewUnverifiedCredential decodes Verifiable Credential from bytes which could be marshalled JSON or serialized JWT.
+// ParseUnverifiedCredential parses Verifiable Credential from bytes which could be marshalled JSON or serialized JWT.
 // It does not make a proof check though. Can be used for purposes of decoding of VC stored in a wallet.
 // Please use this function with caution.
-func NewUnverifiedCredential(vcBytes []byte) (*Credential, error) {
+func ParseUnverifiedCredential(vcBytes []byte) (*Credential, error) {
 	vcDataDecoded, err := decodeRaw(vcBytes, &credentialOpts{
 		disabledProofCheck: true,
 	})
@@ -837,21 +833,21 @@ type CustomCredentialProducer interface {
 }
 
 // CreateCustomCredential creates custom extended credentials from bytes which could be marshalled JSON
-// or serialized JWT. It decodes input bytes to the base Verifiable Credential using NewCredential().
-// It then checks all producers to find the appropriate which is capable of building extended Credential data model.
+// or serialized JWT. It parses input bytes to the base Verifiable Credential using ParseCredential().
+// It then checks all producers to find the capable one to build extended Credential data model.
 // If none of producers accept the credential, the base credential is returned.
-func CreateCustomCredential(
-	vcData []byte,
-	producers []CustomCredentialProducer,
+func CreateCustomCredential(vcData []byte, producers []CustomCredentialProducer,
 	opts ...CredentialOpt) (interface{}, error) {
-	vcBase, vcBytes, credErr := NewCredential(vcData, opts...)
+	vcBase, credErr := ParseCredential(vcData, opts...)
 	if credErr != nil {
 		return nil, fmt.Errorf("build base verifiable credential: %w", credErr)
 	}
 
+	vcBaseBytes, _ := vcBase.MarshalJSON() //nolint:errcheck
+
 	for _, p := range producers {
 		if p.Accept(vcBase) {
-			customCred, err := p.Apply(vcBase, vcBytes)
+			customCred, err := p.Apply(vcBase, vcBaseBytes)
 			if err != nil {
 				return nil, fmt.Errorf("build extended verifiable credential: %w", err)
 			}
@@ -884,7 +880,7 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		return nil, fmt.Errorf("fill credential types from raw: %w", err)
 	}
 
-	issuer, err := decodeIssuer(raw.Issuer)
+	issuer, err := parseIssuer(raw.Issuer)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential issuer from raw: %w", err)
 	}
@@ -894,17 +890,17 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		return nil, fmt.Errorf("fill credential context from raw: %w", err)
 	}
 
-	termsOfUse, err := decodeTypedID(raw.TermsOfUse)
+	termsOfUse, err := parseTypedID(raw.TermsOfUse)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential terms of use from raw: %w", err)
 	}
 
-	refreshService, err := decodeTypedID(raw.RefreshService)
+	refreshService, err := parseTypedID(raw.RefreshService)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential refresh service from raw: %w", err)
 	}
 
-	proofs, err := decodeProof(raw.Proof)
+	proofs, err := parseProof(raw.Proof)
 	if err != nil {
 		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
 	}
@@ -928,7 +924,7 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 	}, nil
 }
 
-func decodeTypedID(bytes json.RawMessage) ([]TypedID, error) {
+func parseTypedID(bytes json.RawMessage) ([]TypedID, error) {
 	if len(bytes) == 0 {
 		return nil, nil
 	}
@@ -979,7 +975,7 @@ func decodeRaw(vcData []byte, vcOpts *credentialOpts) ([]byte, error) {
 	return checkEmbeddedProof(vcData, vcOpts)
 }
 
-func parseCredentialOpts(opts []CredentialOpt) *credentialOpts {
+func getCredentialOpts(opts []CredentialOpt) *credentialOpts {
 	crOpts := &credentialOpts{
 		modelValidationMode: combinedValidation,
 	}

@@ -262,7 +262,7 @@ func proofsToRaw(proofs []Proof) ([]byte, error) {
 	}
 }
 
-func decodeProof(proofBytes json.RawMessage) ([]Proof, error) {
+func parseProof(proofBytes json.RawMessage) ([]Proof, error) {
 	if len(proofBytes) == 0 {
 		return nil, nil
 	}

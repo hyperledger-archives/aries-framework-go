@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-func TestNewPresentationFromJWS(t *testing.T) {
+func TestParsePresentationFromJWS(t *testing.T) {
 	vpBytes := []byte(validPresentation)
 
 	keyFetcher := createPresKeyFetcher(t)
@@ -90,7 +90,7 @@ func TestNewPresentationFromJWS(t *testing.T) {
 	})
 }
 
-func TestNewPresentationFromJWS_EdDSA(t *testing.T) {
+func TestParsePresentationFromJWS_EdDSA(t *testing.T) {
 	vpBytes := []byte(validPresentation)
 
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -116,7 +116,7 @@ func TestNewPresentationFromJWS_EdDSA(t *testing.T) {
 	require.Equal(t, vp, vpFromJWS)
 }
 
-func TestNewPresentationFromUnsecuredJWT(t *testing.T) {
+func TestParsePresentationFromUnsecuredJWT(t *testing.T) {
 	vpBytes := []byte(validPresentation)
 
 	t.Run("Decoding presentation from unsecured JWT", func(t *testing.T) {
@@ -142,7 +142,7 @@ func TestNewPresentationFromUnsecuredJWT(t *testing.T) {
 	})
 }
 
-func TestNewPresentationWithVCJWT(t *testing.T) {
+func TestParsePresentationWithVCJWT(t *testing.T) {
 	r := require.New(t)
 
 	// Create and encode VP.
@@ -229,7 +229,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		r.NoError(err)
 		r.Len(vpCreds, 1)
 
-		vcDecoded, _, err := newTestCredential(vpCreds[0])
+		vcDecoded, err := parseTestCredential(vpCreds[0])
 		r.NoError(err)
 
 		r.Equal(vc.stringJSON(t), vcDecoded.stringJSON(t))
@@ -264,7 +264,7 @@ func TestNewPresentationWithVCJWT(t *testing.T) {
 		r.NoError(err)
 		r.Len(vpCreds, 1)
 
-		vcDecoded, _, err := newTestCredential(vpCreds[0])
+		vcDecoded, err := parseTestCredential(vpCreds[0])
 		r.NoError(err)
 
 		r.Equal(vc.stringJSON(t), vcDecoded.stringJSON(t))

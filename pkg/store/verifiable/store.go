@@ -162,7 +162,7 @@ func (s *StoreImplementation) GetCredential(id string) (*verifiable.Credential, 
 		return nil, fmt.Errorf("failed to get vc: %w", err)
 	}
 
-	vc, err := verifiable.NewUnverifiedCredential(vcBytes)
+	vc, err := verifiable.ParseUnverifiedCredential(vcBytes)
 	if err != nil {
 		return nil, fmt.Errorf("new credential failed: %w", err)
 	}
@@ -177,7 +177,7 @@ func (s *StoreImplementation) GetPresentation(id string) (*verifiable.Presentati
 		return nil, fmt.Errorf("failed to get vc: %w", err)
 	}
 
-	vp, err := verifiable.NewPresentation(vpBytes, verifiable.WithDisabledPresentationProofCheck())
+	vp, err := verifiable.ParsePresentation(vpBytes, verifiable.WithDisabledPresentationProofCheck())
 	if err != nil {
 		return nil, fmt.Errorf("new presentation failed: %w", err)
 	}

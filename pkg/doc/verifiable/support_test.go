@@ -276,7 +276,7 @@ func publicKeyPemToBytes(publicKey *rsa.PublicKey) []byte {
 }
 
 func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
-	vc, err := NewUnverifiedCredential([]byte(validCredential))
+	vc, err := ParseUnverifiedCredential([]byte(validCredential))
 	if err != nil {
 		panic(err)
 	}
@@ -303,7 +303,7 @@ func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
 }
 
 func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
-	vc, err := NewUnverifiedCredential([]byte(validCredential))
+	vc, err := ParseUnverifiedCredential([]byte(validCredential))
 	if err != nil {
 		panic(err)
 	}
@@ -408,10 +408,11 @@ func addJSONLDCachedContext(loader *ld.CachingDocumentLoader, contextURL, contex
 	loader.AddDocument(contextURL, reader)
 }
 
-func newTestCredential(vcData []byte, opts ...CredentialOpt) (*Credential, []byte, error) {
-	return NewCredential(vcData, append([]CredentialOpt{WithJSONLDDocumentLoader(testDocumentLoader)}, opts...)...)
+func parseTestCredential(vcData []byte, opts ...CredentialOpt) (*Credential, error) {
+	return ParseCredential(vcData, append([]CredentialOpt{WithJSONLDDocumentLoader(testDocumentLoader)}, opts...)...)
 }
 
 func newTestPresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, error) {
-	return NewPresentation(vpData, append([]PresentationOpt{WithPresJSONLDDocumentLoader(testDocumentLoader)}, opts...)...)
+	return ParsePresentation(vpData,
+		append([]PresentationOpt{WithPresJSONLDDocumentLoader(testDocumentLoader)}, opts...)...)
 }

@@ -298,7 +298,7 @@ func TestGetVC(t *testing.T) {
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
-		udVC, _, err := verifiable.NewCredential([]byte(udCredential))
+		udVC, err := verifiable.ParseCredential([]byte(udCredential))
 		require.NoError(t, err)
 		require.NoError(t, s.SaveCredential(sampleCredentialName, udVC))
 		vc, err := s.GetCredential("http://example.edu/credentials/1872")
@@ -321,7 +321,7 @@ func TestGetVC(t *testing.T) {
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
-		udVC, _, err := verifiable.NewCredential([]byte(udCredentialWithoutID))
+		udVC, err := verifiable.ParseCredential([]byte(udCredentialWithoutID))
 		require.NoError(t, err)
 		require.NoError(t, s.SaveCredential(sampleCredentialName, udVC))
 
@@ -509,7 +509,7 @@ func TestGetVP(t *testing.T) {
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
-		udVP, err := verifiable.NewPresentation([]byte(udPresentation),
+		udVP, err := verifiable.ParsePresentation([]byte(udPresentation),
 			verifiable.WithDisabledPresentationProofCheck())
 		require.NoError(t, err)
 		require.NoError(t, s.SavePresentation(samplePresentationName, udVP))
@@ -531,7 +531,7 @@ func TestGetVP(t *testing.T) {
 			StorageProviderValue: mockstore.NewMockStoreProvider(),
 		})
 		require.NoError(t, err)
-		udVP, err := verifiable.NewPresentation([]byte(udVerifiablePresentation))
+		udVP, err := verifiable.ParsePresentation([]byte(udVerifiablePresentation))
 		require.NoError(t, err)
 		require.NoError(t, s.SavePresentation(samplePresentationName, udVP))
 
@@ -657,7 +657,7 @@ func TestGetPresentations(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		udVP, err := verifiable.NewPresentation([]byte(udVerifiablePresentation))
+		udVP, err := verifiable.ParsePresentation([]byte(udVerifiablePresentation))
 		require.NoError(t, err)
 		require.NoError(t, s.SavePresentation(samplePresentationName, udVP))
 

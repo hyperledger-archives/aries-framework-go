@@ -213,7 +213,7 @@ func (o *Command) ValidateCredential(rw io.Writer, req io.Reader) command.Error 
 	// we are only validating the VerifiableCredential here, hence ignoring other return values
 	// TODO https://github.com/hyperledger/aries-framework-go/issues/1316 VC Validate Command - Add keys for proof
 	//  verification as options to the function.
-	_, _, err = verifiable.NewCredential([]byte(request.VerifiableCredential))
+	_, err = verifiable.ParseCredential([]byte(request.VerifiableCredential))
 	if err != nil {
 		logutil.LogInfo(logger, commandName, validateCredentialCommandMethod, "validate vc : "+err.Error())
 
@@ -243,7 +243,7 @@ func (o *Command) SaveCredential(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(SaveCredentialErrorCode, fmt.Errorf(errEmptyCredentialName))
 	}
 
-	vc, err := verifiable.NewUnverifiedCredential([]byte(request.VerifiableCredential))
+	vc, err := verifiable.ParseUnverifiedCredential([]byte(request.VerifiableCredential))
 	if err != nil {
 		logutil.LogError(logger, commandName, saveCredentialCommandMethod, "parse vc : "+err.Error())
 
@@ -280,7 +280,7 @@ func (o *Command) SavePresentation(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(SavePresentationErrorCode, fmt.Errorf(errEmptyPresentationName))
 	}
 
-	vp, err := verifiable.NewPresentation([]byte(request.VerifiablePresentation),
+	vp, err := verifiable.ParsePresentation([]byte(request.VerifiablePresentation),
 		verifiable.WithDisabledPresentationProofCheck())
 	if err != nil {
 		logutil.LogError(logger, commandName, savePresentationCommandMethod, "parse vp : "+err.Error())
@@ -682,7 +682,7 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 				))
 			}
 
-			vc, _, e := verifiable.NewCredential(vcRaw, credOpts...)
+			vc, e := verifiable.ParseCredential(vcRaw, credOpts...)
 			if e != nil {
 				logutil.LogError(logger, commandName, generatePresentationCommandMethod,
 					"failed to parse credential from request, invalid credential: "+e.Error())
@@ -692,7 +692,7 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 			vcs = append(vcs, vc)
 		}
 	} else {
-		presentation, err = verifiable.NewUnverifiedPresentation(request.Presentation)
+		presentation, err = verifiable.ParseUnverifiedPresentation(request.Presentation)
 		if err != nil {
 			logutil.LogError(logger, commandName, generatePresentationCommandMethod,
 				"failed to parse presentation from request: "+err.Error())

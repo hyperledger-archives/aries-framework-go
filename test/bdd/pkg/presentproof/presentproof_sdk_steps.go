@@ -161,7 +161,7 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 		return err
 	}
 
-	vp, err := verifiable.NewUnverifiedPresentation(
+	vp, err := verifiable.ParseUnverifiedPresentation(
 		[]byte(fmt.Sprintf(vpStrFromWallet, conn.MyDID, conn.MyDID)),
 	)
 	if err != nil {

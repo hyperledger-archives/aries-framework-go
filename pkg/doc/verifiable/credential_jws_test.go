@@ -22,7 +22,7 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 	privateKey, err := readPrivateKey(filepath.Join(certPrefix, "issuer_private.pem"))
 	require.NoError(t, err)
 
-	vc, _, err := newTestCredential([]byte(validCredential))
+	vc, err := parseTestCredential([]byte(validCredential))
 	require.NoError(t, err)
 
 	jwtClaims, err := vc.JWTClaims(true)
@@ -84,7 +84,7 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 		err = json.Unmarshal(vcBytes, &vcRaw)
 		require.NoError(t, err)
 
-		vc, _, err := newTestCredential([]byte(jwtTestCredential))
+		vc, err := parseTestCredential([]byte(jwtTestCredential))
 		require.NoError(t, err)
 		require.Equal(t, vc.stringJSON(t), vcRaw.stringJSON(t))
 	})

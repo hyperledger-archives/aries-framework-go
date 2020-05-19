@@ -393,7 +393,7 @@ func toVerifiableCredentials(attachments []decorator.Attachment) ([]*verifiable.
 			return nil, fmt.Errorf("marshal: %w", err)
 		}
 
-		vc, _, err := verifiable.NewCredential(rawVC)
+		vc, err := verifiable.ParseCredential(rawVC)
 		if err != nil {
 			return nil, fmt.Errorf("new credential: %w", err)
 		}
