@@ -48,6 +48,7 @@ func TestNew(t *testing.T) {
 		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
+		provider.EXPECT().VDRIRegistry().Return(nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -88,6 +89,7 @@ func TestService_HandleInbound(t *testing.T) {
 	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
 	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 	provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
+	provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
 
 	t.Run("No clients", func(t *testing.T) {
 		svc, err := New(provider)
@@ -243,6 +245,7 @@ func TestService_HandleInbound(t *testing.T) {
 		newProvider.EXPECT().Messenger().Return(messenger).AnyTimes()
 		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider()).AnyTimes()
 		newProvider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
+		newProvider.EXPECT().VDRIRegistry().Return(nil)
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -291,6 +294,7 @@ func TestService_HandleInbound(t *testing.T) {
 		newProvider.EXPECT().Messenger().Return(messenger).AnyTimes()
 		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider()).AnyTimes()
 		newProvider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
+		newProvider.EXPECT().VDRIRegistry().Return(nil)
 
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -771,6 +775,7 @@ func TestService_HandleOutbound(t *testing.T) {
 	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
 	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 	provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
+	provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
 
 	t.Run("DB error", func(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
@@ -966,6 +971,7 @@ func TestService_ActionContinue(t *testing.T) {
 		provider.EXPECT().Messenger().Return(messenger)
 		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
+		provider.EXPECT().VDRIRegistry().Return(nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -994,6 +1000,7 @@ func TestService_ActionContinue(t *testing.T) {
 		provider.EXPECT().Messenger().Return(messenger)
 		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
+		provider.EXPECT().VDRIRegistry().Return(nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -1023,6 +1030,7 @@ func TestService_ActionStop(t *testing.T) {
 		provider.EXPECT().Messenger().Return(messenger)
 		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
+		provider.EXPECT().VDRIRegistry().Return(nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -1051,6 +1059,7 @@ func TestService_ActionStop(t *testing.T) {
 		provider.EXPECT().Messenger().Return(messenger)
 		provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
+		provider.EXPECT().VDRIRegistry().Return(nil)
 
 		svc, err := New(provider)
 		require.NoError(t, err)
