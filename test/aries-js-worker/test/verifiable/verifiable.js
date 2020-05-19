@@ -144,12 +144,13 @@ async function verifiableStore(newAries, mode = wasmMode) {
         for (let i = 0; i < retries; i++) {
             try {
                 resp = await aries.vdri.resolveDID({id:getID(mode, didID)})
+                break
             }catch (e) {
-                assert.fail(e.message);
                 if (!e.message.includes("DID does not exist")) {
                     assert.fail(e.message);
                 }
                 await new Promise(r => setTimeout(r, 1000));
+                console.warn(e.message)
             }
         }
         did=resp.did

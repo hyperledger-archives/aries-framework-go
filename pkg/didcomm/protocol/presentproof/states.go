@@ -248,23 +248,27 @@ func (s *presentationReceived) CanTransitionTo(st state) bool {
 		st.Name() == stateNameDone
 }
 
-func verifyPresentation(registryVDRI vdri.Registry, attachments []decorator.Attachment) error {
+func toVerifiablePresentation(registry vdri.Registry, data []decorator.Attachment) ([]*verifiable.Presentation, error) {
+	var presentations []*verifiable.Presentation
 	// TODO: Currently, it supports only base64 payload. We need to add support for links and JSON as well. [Issue 1455]
-	for i := range attachments {
-		raw, err := base64.StdEncoding.DecodeString(attachments[i].Data.Base64)
+	for i := range data {
+		raw, err := base64.StdEncoding.DecodeString(data[i].Data.Base64)
 		if err != nil {
-			return fmt.Errorf("decode string: %w", err)
+			return nil, fmt.Errorf("decode string: %w", err)
 		}
 
-		_, err = verifiable.ParsePresentation(raw, verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(registryVDRI).PublicKeyFetcher(),
+		presentation, err := verifiable.ParsePresentation(raw, verifiable.WithPresPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(registry).PublicKeyFetcher(),
 		))
+
 		if err != nil {
-			return fmt.Errorf("new presentation: %w", err)
+			return nil, fmt.Errorf("new presentation: %w", err)
 		}
+
+		presentations = append(presentations, presentation)
 	}
 
-	return nil
+	return presentations, nil
 }
 
 func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error) {
@@ -273,8 +277,24 @@ func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error)
 		return nil, nil, fmt.Errorf("decode: %w", err)
 	}
 
-	if err := verifyPresentation(md.registryVDRI, presentation.Presentations); err != nil {
-		return nil, nil, fmt.Errorf("verify presentation: %w", err)
+	presentations, err := toVerifiablePresentation(md.registryVDRI, presentation.Presentations)
+	if err != nil {
+		return nil, nil, fmt.Errorf("to verifiable presentation: %w", err)
+	}
+
+	if len(presentations) == 0 {
+		return nil, nil, errors.New("presentations were not provided")
+	}
+
+	for i, presentation := range presentations {
+		var name = presentation.ID
+		if len(md.presentationNames) > i {
+			name = md.presentationNames[i]
+		}
+
+		if err := md.verifiable.SavePresentation(name, presentation); err != nil {
+			return nil, nil, fmt.Errorf("save presentation: %w", err)
+		}
 	}
 
 	// creates the state's action

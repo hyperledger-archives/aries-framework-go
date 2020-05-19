@@ -180,9 +180,27 @@ func (c *Operation) AcceptProposePresentation(rw http.ResponseWriter, req *http.
 //    default: genericError
 //        200: presentProofAcceptPresentationResponse
 func (c *Operation) AcceptPresentation(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
+	var buf bytes.Buffer
+
+	if req.Body != nil {
+		// nolint: errcheck
+		_, _ = io.Copy(&buf, req.Body)
+	}
+
+	if !isJSONArray(buf.Bytes()) {
+		rest.SendHTTPStatusError(rw,
+			http.StatusBadRequest,
+			command.InvalidRequestErrorCode,
+			errors.New("names payload was not provided"),
+		)
+
+		return
+	}
+
 	rest.Execute(c.command.AcceptPresentation, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q
-	}`, mux.Vars(req)["piid"])))
+		"piid":%q,
+		"names": %s
+	}`, mux.Vars(req)["piid"], buf.String())))
 }
 
 // NegotiateRequestPresentation swagger:route POST /presentproof/{piid}/negotiate-request-presentation present-proof presentProofNegotiateRequestPresentation
@@ -265,4 +283,9 @@ func isJSONMap(data []byte) bool {
 
 func isJSON(data []byte, v interface{}) bool {
 	return json.Unmarshal(data, &v) == nil
+}
+
+func isJSONArray(data []byte) bool {
+	var v []interface{}
+	return isJSON(data, &v)
 }

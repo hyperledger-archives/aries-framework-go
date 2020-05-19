@@ -30,6 +30,8 @@ const wasmMode = 'wasm'
  *
  */
 export const didExchangeClient = class {
+    hasMediator = false;
+
     constructor(agent1, agent2,mode) {
         this.agent1 = agent1
         this.agent2 = agent2
@@ -51,6 +53,7 @@ export const didExchangeClient = class {
     }
 
     async performDIDExchangeE2EWASM() {
+        this.hasMediator = true;
         // receive an invitation from the router via the controller API
         var invitation = await this.createInvitationFromRouter(routerCreateInvitationPath)
         // agent1 accepts the invitation from the router
@@ -95,8 +98,10 @@ export const didExchangeClient = class {
     }
 
     async destroy(){
-        await this.agent1.router.unregister()
-        await this.agent2.router.unregister()
+        if (this.hasMediator){
+            await this.agent1.mediator.unregister()
+            await this.agent2.mediator.unregister()
+        }
 
         this.agent1.destroy()
         this.agent2.destroy()

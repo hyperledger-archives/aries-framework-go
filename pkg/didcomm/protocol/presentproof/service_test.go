@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package presentproof
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"testing"
@@ -19,9 +20,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
 	presentproofMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/presentproof"
+	vdriMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdri"
 	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
+	verifiableStoreMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 )
@@ -39,14 +43,30 @@ func TestNew(t *testing.T) {
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil)
 
+		verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
+
 		provider := presentproofMocks.NewMockProvider(ctrl)
 		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().StorageProvider().Return(storeProvider)
 		provider.EXPECT().VDRIRegistry().Return(nil)
+		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)
 		require.NotNil(t, svc)
+	})
+
+	t.Run("No verifiable store", func(t *testing.T) {
+		storeProvider := storageMocks.NewMockProvider(ctrl)
+		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(nil, nil)
+
+		provider := presentproofMocks.NewMockProvider(ctrl)
+		provider.EXPECT().StorageProvider().Return(storeProvider)
+		provider.EXPECT().VerifiableStore().Return(nil).AnyTimes()
+
+		svc, err := New(provider)
+		require.EqualError(t, err, "verifiable store is nil")
+		require.Nil(t, svc)
 	})
 
 	t.Run("Error open store", func(t *testing.T) {
@@ -65,22 +85,25 @@ func TestNew(t *testing.T) {
 }
 
 func TestService_ActionContinue(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	const errMsg = "error"
+
+	store := storageMocks.NewMockStore(ctrl)
+	storeProvider := storageMocks.NewMockProvider(ctrl)
+	storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil).AnyTimes()
+
+	verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
+
+	provider := presentproofMocks.NewMockProvider(ctrl)
+	provider.EXPECT().Messenger().Return(nil).AnyTimes()
+	provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+	provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
+	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
+
 	t.Run("Error transitional payload (get)", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		const errMsg = "error"
-
-		store := storageMocks.NewMockStore(ctrl)
 		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
-
-		storeProvider := storageMocks.NewMockProvider(ctrl)
-		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
-
-		provider := presentproofMocks.NewMockProvider(ctrl)
-		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().StorageProvider().Return(storeProvider)
-		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -90,22 +113,8 @@ func TestService_ActionContinue(t *testing.T) {
 	})
 
 	t.Run("Error transitional payload (delete)", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		const errMsg = "error"
-
-		store := storageMocks.NewMockStore(ctrl)
 		store.EXPECT().Get(gomock.Any()).Return([]byte(`{}`), nil)
 		store.EXPECT().Delete(gomock.Any()).Return(errors.New(errMsg))
-
-		storeProvider := storageMocks.NewMockProvider(ctrl)
-		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
-
-		provider := presentproofMocks.NewMockProvider(ctrl)
-		provider.EXPECT().Messenger().Return(nil)
-		provider.EXPECT().StorageProvider().Return(storeProvider)
-		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -125,6 +134,8 @@ func TestService_ActionStop(t *testing.T) {
 		store := storageMocks.NewMockStore(ctrl)
 		store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
 
+		verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
+
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
 
@@ -132,6 +143,7 @@ func TestService_ActionStop(t *testing.T) {
 		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().StorageProvider().Return(storeProvider)
 		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -150,6 +162,8 @@ func TestService_ActionStop(t *testing.T) {
 		store.EXPECT().Get(gomock.Any()).Return([]byte(`{}`), nil)
 		store.EXPECT().Delete(gomock.Any()).Return(errors.New(errMsg))
 
+		verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
+
 		storeProvider := storageMocks.NewMockProvider(ctrl)
 		storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
 
@@ -157,6 +171,7 @@ func TestService_ActionStop(t *testing.T) {
 		provider.EXPECT().Messenger().Return(nil)
 		provider.EXPECT().StorageProvider().Return(storeProvider)
 		provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+		provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 		svc, err := New(provider)
 		require.NoError(t, err)
@@ -174,16 +189,20 @@ func TestService_HandleInbound(t *testing.T) {
 	const errMsg = "error"
 
 	store := storageMocks.NewMockStore(ctrl)
+	verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
 
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
 
 	messenger := serviceMocks.NewMockMessenger(ctrl)
 
+	registry := vdriMocks.NewMockRegistry(ctrl)
+
 	provider := presentproofMocks.NewMockProvider(ctrl)
 	provider.EXPECT().Messenger().Return(messenger).AnyTimes()
 	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
-	provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+	provider.EXPECT().VDRIRegistry().Return(registry).AnyTimes()
+	provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 	t.Run("No clients", func(t *testing.T) {
 		svc, err := New(provider)
@@ -358,6 +377,7 @@ func TestService_HandleInbound(t *testing.T) {
 		newProvider.EXPECT().Messenger().Return(messenger)
 		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider())
 		newProvider.EXPECT().VDRIRegistry().Return(nil)
+		newProvider.EXPECT().VerifiableStore().Return(verifiableStore)
 
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).
 			Do(func(_ string, msg service.DIDCommMsgMap) error {
@@ -400,6 +420,7 @@ func TestService_HandleInbound(t *testing.T) {
 		newProvider.EXPECT().Messenger().Return(messenger)
 		newProvider.EXPECT().StorageProvider().Return(mem.NewProvider())
 		newProvider.EXPECT().VDRIRegistry().Return(nil)
+		newProvider.EXPECT().VerifiableStore().Return(verifiableStore)
 
 		messenger.EXPECT().
 			ReplyToNested(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
@@ -600,6 +621,15 @@ func TestService_HandleInbound(t *testing.T) {
 				return nil
 			})
 
+		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
+			PublicKey: []did.PublicKey{{
+				ID:    "key-1",
+				Value: []byte{61, 133, 23, 17, 77, 132, 169, 196, 47, 203, 19, 71, 145, 144, 92, 145, 131, 101, 36, 251, 89, 216, 117, 140, 132, 226, 78, 187, 59, 58, 200, 255}, //nolint:lll
+			}},
+		}, nil)
+
+		verifiableStore.EXPECT().SavePresentation(gomock.Any(), gomock.Any()).Return(nil)
+
 		store.EXPECT().Get(gomock.Any()).Return([]byte("request-sent"), nil)
 		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil)
 		store.EXPECT().Delete(gomock.Any()).Return(nil)
@@ -623,7 +653,20 @@ func TestService_HandleInbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction, 1)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 
-		_, err = svc.HandleInbound(randomInboundMessage(PresentationMsgType), Alice, Bob)
+		vpJWS := "eyJhbGciOiJFZERTQSIsImtpZCI6ImtleS0xIiwidHlwIjoiSldUIn0.eyJpc3MiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJqdGkiOiJ1cm46dXVpZDozOTc4MzQ0Zi04NTk2LTRjM2EtYTk3OC04ZmNhYmEzOTAzYzUiLCJ2cCI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sInR5cGUiOlsiVmVyaWZpYWJsZVByZXNlbnRhdGlvbiIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl0sInZlcmlmaWFibGVDcmVkZW50aWFsIjpbeyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sImNyZWRlbnRpYWxTY2hlbWEiOltdLCJjcmVkZW50aWFsU3ViamVjdCI6eyJkZWdyZWUiOnsidHlwZSI6IkJhY2hlbG9yRGVncmVlIiwidW5pdmVyc2l0eSI6Ik1JVCJ9LCJpZCI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsIm5hbWUiOiJKYXlkZW4gRG9lIiwic3BvdXNlIjoiZGlkOmV4YW1wbGU6YzI3NmUxMmVjMjFlYmZlYjFmNzEyZWJjNmYxIn0sImV4cGlyYXRpb25EYXRlIjoiMjAyMC0wMS0wMVQxOToyMzoyNFoiLCJpZCI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8xODcyIiwiaXNzdWFuY2VEYXRlIjoiMjAxMC0wMS0wMVQxOToyMzoyNFoiLCJpc3N1ZXIiOnsiaWQiOiJkaWQ6ZXhhbXBsZTo3NmUxMmVjNzEyZWJjNmYxYzIyMWViZmViMWYiLCJuYW1lIjoiRXhhbXBsZSBVbml2ZXJzaXR5In0sInJlZmVyZW5jZU51bWJlciI6OC4zMjk0ODQ3ZSswNywidHlwZSI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl19XX19.RlO_1B-7qhQNwo2mmOFUWSa8A6hwaJrtq3q7yJDkKq4k6B-EJ-oyLNM6H_g2_nko2Yg9Im1CiROFm6nK12U_AQ" //nolint:lll
+
+		msg := service.NewDIDCommMsgMap(Presentation{
+			Type: PresentationMsgType,
+			Presentations: []decorator.Attachment{{
+				Data: decorator.AttachmentData{
+					Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS)),
+				},
+			}},
+		})
+		require.NoError(t, msg.SetID(uuid.New().String()))
+		msg["~thread"] = decorator.Thread{ID: uuid.New().String()}
+
+		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
 		(<-ch).Continue(nil)
@@ -631,7 +674,7 @@ func TestService_HandleInbound(t *testing.T) {
 		select {
 		case <-done:
 			return
-		case <-time.After(time.Second):
+		case <-time.After(time.Second * 10):
 			t.Error("timeout")
 		}
 	})
@@ -813,6 +856,7 @@ func Test_getTransitionalPayload(t *testing.T) {
 	defer ctrl.Finish()
 
 	store := storageMocks.NewMockStore(ctrl)
+	verifiableStore := verifiableStoreMocks.NewMockStore(ctrl)
 
 	storeProvider := storageMocks.NewMockProvider(ctrl)
 	storeProvider.EXPECT().OpenStore(Name).Return(store, nil).AnyTimes()
@@ -821,6 +865,7 @@ func Test_getTransitionalPayload(t *testing.T) {
 	provider.EXPECT().Messenger().Return(nil).AnyTimes()
 	provider.EXPECT().StorageProvider().Return(storeProvider).AnyTimes()
 	provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
+	provider.EXPECT().VerifiableStore().Return(verifiableStore).AnyTimes()
 
 	store.EXPECT().Get(fmt.Sprintf(transitionalPayloadKey, "ID")).Return([]byte(`[]`), nil)
 
