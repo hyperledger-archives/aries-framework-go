@@ -12,13 +12,25 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 )
 
-const compactJWERequiredNumOfParts = 5
+const (
+	compactJWERequiredNumOfParts      = 5
+	errCompactSerializationCommonText = "unable to compact serialize: "
+)
 
 var errWrongNumberOfCompactJWEParts = errors.New("invalid compact JWE: it must have five parts")
 var errEmptyCiphertext = errors.New("ciphertext cannot be empty")
+var errProtectedHeaderMissing = errors.New(errCompactSerializationCommonText +
+	"no protected header found")
+var errNotOnlyOneRecipient = errors.New(errCompactSerializationCommonText +
+	"JWE compact serialization only supports JWE with exactly one single recipient")
+var errUnprotectedHeaderUnsupported = errors.New(errCompactSerializationCommonText +
+	"JWE compact serialization does not support a shared unprotected header")
+var errPerRecipientHeaderUnsupported = errors.New(errCompactSerializationCommonText +
+	"JWE compact serialization does not support a per-recipient unprotected header")
 
 // JSONWebEncryption represents a JWE as defined in https://tools.ietf.org/html/rfc7516.
 type JSONWebEncryption struct {
@@ -63,9 +75,9 @@ type rawJSONWebEncryption struct {
 
 type marshalFunc func(interface{}) ([]byte, error)
 
-// Serialize serializes the given JWE into JSON as defined in https://tools.ietf.org/html/rfc7516#section-7.2.
+// FullSerialize serializes the given JWE into JSON as defined in https://tools.ietf.org/html/rfc7516#section-7.2.
 // The full serialization syntax is used. If there is only one recipient, then the flattened syntax is used.
-func (e *JSONWebEncryption) Serialize(marshal marshalFunc) (string, error) {
+func (e *JSONWebEncryption) FullSerialize(marshal marshalFunc) (string, error) {
 	b64ProtectedHeaders, unprotectedHeaders, err := e.prepareHeaders(marshal)
 	if err != nil {
 		return "", err
@@ -175,6 +187,43 @@ func (e *JSONWebEncryption) prepareRecipients(marshal marshalFunc) (json.RawMess
 	}
 
 	return recipientsJSON, b64SingleRecipientEncKey, singleRecipientHeader, nil
+}
+
+// CompactSerialize serializes the given JWE into a compact, URL-safe string as defined in
+// https://tools.ietf.org/html/rfc7516#section-7.1.
+func (e *JSONWebEncryption) CompactSerialize(marshal marshalFunc) (string, error) {
+	if e.ProtectedHeaders == nil {
+		return "", errProtectedHeaderMissing
+	}
+
+	if len(e.Recipients) != 1 {
+		return "", errNotOnlyOneRecipient
+	}
+
+	if e.UnprotectedHeaders != nil {
+		return "", errUnprotectedHeaderUnsupported
+	}
+
+	if e.Recipients[0].Header != nil {
+		return "", errPerRecipientHeaderUnsupported
+	}
+
+	protectedHeadersJSON, err := marshal(e.ProtectedHeaders)
+	if err != nil {
+		return "", err
+	}
+
+	b64ProtectedHeader := base64.RawURLEncoding.EncodeToString(protectedHeadersJSON)
+
+	b64EncryptedKey := base64.RawURLEncoding.EncodeToString([]byte(e.Recipients[0].EncryptedKey))
+
+	b64IV := base64.RawURLEncoding.EncodeToString([]byte(e.IV))
+
+	b64Ciphertext := base64.RawURLEncoding.EncodeToString([]byte(e.Ciphertext))
+
+	b64Tag := base64.RawURLEncoding.EncodeToString([]byte(e.Tag))
+
+	return fmt.Sprintf("%s.%s.%s.%s.%s", b64ProtectedHeader, b64EncryptedKey, b64IV, b64Ciphertext, b64Tag), nil
 }
 
 // Deserialize deserializes the given serialized JWE into a JSONWebEncryption object.
