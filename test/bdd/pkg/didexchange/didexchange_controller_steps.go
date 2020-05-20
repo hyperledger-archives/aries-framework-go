@@ -9,7 +9,7 @@ package didexchange
 import (
 	"bytes"
 	rqCtx "context"
-	"encoding/base64"
+	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	cmdkms "github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/sidetree"
 )
@@ -507,8 +508,20 @@ func (a *ControllerSteps) createPublicDID(agentID, didMethod string) error {
 		return err
 	}
 
-	doc, err := sidetree.CreateDID(a.bddContext.Args[sideTreeURL]+"operations", "key1",
-		base64.RawURLEncoding.EncodeToString(base58.Decode(result.PublicKey)), a.agentServiceEndpoints[destination])
+	pubKeyEd25519 := ed25519.PublicKey(base58.Decode(result.PublicKey))
+
+	jwk, err := jose.JWKFromPublicKey(pubKeyEd25519)
+	if err != nil {
+		return err
+	}
+
+	doc, err := sidetree.CreateDID(
+		&sidetree.CreateDIDParams{
+			URL:             a.bddContext.Args[sideTreeURL] + "operations",
+			KeyID:           "key1",
+			JWK:             jwk,
+			ServiceEndpoint: a.agentServiceEndpoints[destination],
+		})
 	if err != nil {
 		return err
 	}

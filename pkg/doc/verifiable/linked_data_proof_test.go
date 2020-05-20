@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
-	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -127,20 +126,17 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 		require.Equal(t, vcWithEd25519Proof, vcDecoded)
 
 		pubKeyBytes := elliptic.Marshal(ecdsaPrivKey.Curve, ecdsaPrivKey.X, ecdsaPrivKey.Y)
+
+		jwk, err := jose.JWKFromPublicKey(&ecdsaPrivKey.PublicKey)
+		require.NoError(t, err)
+
 		vcDecoded, err = parseTestCredential(vcWithSecp256k1ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuites...),
 			WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				return &verifier.PublicKey{
 					Type:  "EcdsaSecp256k1VerificationKey2019",
 					Value: pubKeyBytes,
-					JWK: &jose.JWK{
-						JSONWebKey: gojose.JSONWebKey{
-							Algorithm: "ES256K",
-							Key:       &ecdsaPrivKey.PublicKey,
-						},
-						Crv: "secp256k1",
-						Kty: "EC",
-					},
+					JWK:   jwk,
 				}, nil
 			}))
 		require.NoError(t, err)

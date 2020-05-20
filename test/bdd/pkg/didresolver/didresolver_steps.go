@@ -7,17 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package didresolver
 
 import (
-	"encoding/base64"
+	"crypto/ed25519"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
-
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	bddctx "github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/sidetree"
@@ -46,28 +46,47 @@ func (d *Steps) SetContext(ctx *bddctx.BDDContext) {
 }
 
 func (d *Steps) createDIDDocument(agents, method string) error {
-	for _, agentID := range strings.Split(agents, ",") {
-		_, publicKey, err := d.bddContext.AgentCtx[agentID].LegacyKMS().CreateKeySet()
-		if err != nil {
-			return err
-		}
-
-		doc, err := sidetree.CreateDID(d.bddContext.Args[sideTreeURL]+"operations", "key1",
-			base64.RawURLEncoding.EncodeToString(base58.Decode(publicKey)),
-			d.bddContext.AgentCtx[agentID].ServiceEndpoint())
-		if err != nil {
-			return err
-		}
-
-		d.bddContext.PublicDIDDocs[agentID] = doc
-	}
-
-	return nil
+	return createDIDDocument(d.bddContext, agents, "")
 }
 
 // CreateDIDDocument creates DIDDocument
-func CreateDIDDocument(ctx *bddctx.BDDContext, agents, method string) error {
-	return (&Steps{bddContext: ctx}).createDIDDocument(agents, method)
+func CreateDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
+	return createDIDDocument(ctx, agents, keyType)
+}
+
+func createDIDDocument(ctx *bddctx.BDDContext, agents, keyType string) error {
+	for _, agentID := range strings.Split(agents, ",") {
+		pubKeyJWK, ok := ctx.PublicKeys[agentID]
+		if !ok {
+			_, publicKey, err := ctx.AgentCtx[agentID].LegacyKMS().CreateKeySet()
+			if err != nil {
+				return err
+			}
+
+			pubKeyBytes := base58.Decode(publicKey)
+
+			pubKeyJWK, err = jose.JWKFromPublicKey(ed25519.PublicKey(pubKeyBytes))
+			if err != nil {
+				return err
+			}
+		}
+
+		doc, err := sidetree.CreateDID(
+			&sidetree.CreateDIDParams{
+				URL:             ctx.Args[sideTreeURL] + "operations",
+				KeyID:           "key1",
+				JWK:             pubKeyJWK,
+				KeyType:         keyType,
+				ServiceEndpoint: ctx.AgentCtx[agentID].ServiceEndpoint(),
+			})
+		if err != nil {
+			return err
+		}
+
+		ctx.PublicDIDDocs[agentID] = doc
+	}
+
+	return nil
 }
 
 func (d *Steps) resolveDID(agentID string) error {

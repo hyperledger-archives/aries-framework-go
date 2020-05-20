@@ -61,7 +61,7 @@ func New(signatureSuites ...SignatureSuite) *DocumentSigner {
 }
 
 // Sign  will sign JSON LD document
-func (signer *DocumentSigner) Sign(context *Context, jsonLdDoc []byte) ([]byte, error) {
+func (signer *DocumentSigner) Sign(context *Context, jsonLdDoc []byte, opts ...jsonld.ProcessorOpts) ([]byte, error) {
 	var jsonLdObject map[string]interface{}
 
 	err := json.Unmarshal(jsonLdDoc, &jsonLdObject)
@@ -69,7 +69,7 @@ func (signer *DocumentSigner) Sign(context *Context, jsonLdDoc []byte) ([]byte, 
 		return nil, fmt.Errorf("failed to unmarshal json ld document: %w", err)
 	}
 
-	err = signer.signObject(context, jsonLdObject)
+	err = signer.signObject(context, jsonLdObject, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,8 @@ func (signer *DocumentSigner) Sign(context *Context, jsonLdDoc []byte) ([]byte, 
 }
 
 // signObject is a helper method that operates on JSON LD objects
-func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[string]interface{}) error {
+func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[string]interface{},
+	opts []jsonld.ProcessorOpts) error {
 	if err := isValidContext(context); err != nil {
 		return err
 	}
@@ -121,7 +122,7 @@ func (signer *DocumentSigner) signObject(context *Context, jsonLdObject map[stri
 		p.JWS = proof.CreateDetachedJWTHeader(p) + ".."
 	}
 
-	message, err := proof.CreateVerifyData(suite, jsonLdObject, p, jsonld.WithValidateRDF())
+	message, err := proof.CreateVerifyData(suite, jsonLdObject, p, append(opts, jsonld.WithValidateRDF())...)
 	if err != nil {
 		return err
 	}

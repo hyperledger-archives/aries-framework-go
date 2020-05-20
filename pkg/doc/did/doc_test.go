@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -1429,7 +1430,7 @@ func createSignedDidDocument(privKey, pubKey []byte) []byte {
 	s := signer.New(ed25519signature2018.New(
 		suite.WithSigner(getSigner(privKey))))
 
-	signedDoc, err := s.Sign(context, jsonDoc)
+	signedDoc, err := s.Sign(context, jsonDoc, jsonld.WithDocumentLoader(createDocumentLoader()))
 	if err != nil {
 		panic(err)
 	}

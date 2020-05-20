@@ -146,6 +146,10 @@ func TestDecodePublicKey(t *testing.T) {
 				jwkBytes, err := json.Marshal(&jwk)
 				require.NoError(t, err)
 				require.NotEmpty(t, jwkBytes)
+
+				jwkKey, err := JWKFromPublicKey(jwk.Key)
+				require.NoError(t, err)
+				require.NotNil(t, jwkKey)
 			})
 		}
 	})
@@ -305,6 +309,13 @@ func TestCurveSize(t *testing.T) {
 	require.Equal(t, 28, curveSize(elliptic.P224()))
 	require.Equal(t, 48, curveSize(elliptic.P384()))
 	require.Equal(t, 66, curveSize(elliptic.P521()))
+}
+
+func TestJWKFromPublicKeyFailure(t *testing.T) {
+	key, err := JWKFromPublicKey(nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "create JWK")
+	require.Nil(t, key)
 }
 
 func TestJWK_PublicKeyBytesValidation(t *testing.T) {

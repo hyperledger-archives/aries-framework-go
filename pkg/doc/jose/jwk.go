@@ -39,9 +39,32 @@ type JWK struct {
 	Crv string
 }
 
+// JWKFromPublicKey creates a JWK from public key struct.
+// It's e.g. *ecdsa.PublicKey or ed25519.PublicKey
+func JWKFromPublicKey(pubKey interface{}) (*JWK, error) {
+	key := &JWK{
+		JSONWebKey: jose.JSONWebKey{
+			Key: pubKey,
+		},
+	}
+
+	// marshal/unmarshal to get all JWK's fields other than Key filled.
+	keyBytes, err := key.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("create JWK: %w", err)
+	}
+
+	err = key.UnmarshalJSON(keyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("create JWK: %w", err)
+	}
+
+	return key, nil
+}
+
 // PublicKeyBytes converts a public key to bytes.
 func (j *JWK) PublicKeyBytes() ([]byte, error) {
-	if isSecp256k1(j.Algorithm, j.Kty, j.Crv) {
+	if j.isSecp256k1() {
 		var ecPubKey *ecdsa.PublicKey
 
 		ecPubKey, ok := j.Key.(*ecdsa.PublicKey)
@@ -105,11 +128,26 @@ func (j *JWK) UnmarshalJSON(jwkBytes []byte) error {
 
 // MarshalJSON serializes the given key to its JSON representation.
 func (j *JWK) MarshalJSON() ([]byte, error) {
-	if isSecp256k1(j.Algorithm, j.Kty, j.Crv) {
+	if j.isSecp256k1() {
 		return marshalSecp256k1(j)
 	}
 
 	return (&j.JSONWebKey).MarshalJSON()
+}
+
+func (j *JWK) isSecp256k1() bool {
+	return isSecp256k1Key(j.Key) || isSecp256k1(j.Algorithm, j.Kty, j.Crv)
+}
+
+func isSecp256k1Key(pubKey interface{}) bool {
+	switch key := pubKey.(type) {
+	case *ecdsa.PublicKey:
+		return key.Curve == btcec.S256()
+	case *ecdsa.PrivateKey:
+		return key.Curve == btcec.S256()
+	default:
+		return false
+	}
 }
 
 func isSecp256k1(alg, kty, crv string) bool {
@@ -286,6 +324,14 @@ func (b *byteBuffer) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+func (b *byteBuffer) MarshalJSON() ([]byte, error) {
+	return json.Marshal(b.base64())
+}
+
+func (b *byteBuffer) base64() string {
+	return base64.RawURLEncoding.EncodeToString(b.data)
 }
 
 func (b byteBuffer) bigInt() *big.Int {

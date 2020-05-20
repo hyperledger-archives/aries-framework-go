@@ -21,7 +21,6 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
-	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -311,19 +310,15 @@ func TestWithStrictValidationOfJsonWebSignature2020(t *testing.T) {
 	copy(publicKey[0:32], decoded)
 	rv := ed25519.PublicKey(publicKey)
 
+	jwk, err := jose.JWKFromPublicKey(rv)
+	require.NoError(t, err)
+
 	vcWithLdp, err := parseTestCredential([]byte(vcJSON),
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
 				Type: "JwsVerificationKey2020",
-				JWK: &jose.JWK{
-					JSONWebKey: gojose.JSONWebKey{
-						Algorithm: "EdDSA",
-						Key:       rv,
-					},
-					Crv: "Ed25519",
-					Kty: "OKP",
-				},
+				JWK:  jwk,
 			}, nil
 		}),
 		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/credentials-v1.jsonld"),
@@ -515,20 +510,16 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 
 	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
 
+	jwk, err := jose.JWKFromPublicKey(&privateKey.PublicKey)
+	require.NoError(t, err)
+
 	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
 				Type:  "JwsVerificationKey2020",
 				Value: pubKeyBytes,
-				JWK: &jose.JWK{
-					JSONWebKey: gojose.JSONWebKey{
-						Algorithm: "ES256",
-						Key:       &privateKey.PublicKey,
-					},
-					Crv: "P-256",
-					Kty: "EC",
-				},
+				JWK:   jwk,
 			}, nil
 		}))
 	r.NoError(err)
@@ -563,20 +554,16 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
+	jwk, err := jose.JWKFromPublicKey(&privateKey.PublicKey)
+	require.NoError(t, err)
+
 	// JWK encoded public key
 	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
 			return &sigverifier.PublicKey{
 				Type: "EcdsaSecp256k1VerificationKey2019",
-				JWK: &jose.JWK{
-					JSONWebKey: gojose.JSONWebKey{
-						Algorithm: "ES256K",
-						Key:       &privateKey.PublicKey,
-					},
-					Crv: "secp256k1",
-					Kty: "EC",
-				},
+				JWK:  jwk,
 			}, nil
 		}))
 	r.NoError(err)
@@ -936,6 +923,9 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 	r.NoError(err)
 	r.NotEmpty(vcBytes)
 
+	jwk, err := jose.JWKFromPublicKey(&ecdsaPrivKey.PublicKey)
+	require.NoError(t, err)
+
 	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(ed25519SigSuite, ecdsaSigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
@@ -950,14 +940,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 				return &sigverifier.PublicKey{
 					Type:  "JwsVerificationKey2020",
 					Value: elliptic.Marshal(ecdsaPrivKey.Curve, ecdsaPrivKey.X, ecdsaPrivKey.Y),
-					JWK: &jose.JWK{
-						JSONWebKey: gojose.JSONWebKey{
-							Algorithm: "ES256",
-							Key:       &ecdsaPrivKey.PublicKey,
-						},
-						Crv: "P-256",
-						Kty: "EC",
-					},
+					JWK:   jwk,
 				}, nil
 			}
 
