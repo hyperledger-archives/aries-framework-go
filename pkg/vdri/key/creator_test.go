@@ -27,7 +27,7 @@ const (
 
 func TestBuild(t *testing.T) {
 	t.Run("validate not supported public key", func(t *testing.T) {
-		v := newVDRI(t)
+		v := New()
 
 		pubKey := &vdriapi.PubKey{
 			Type: "not-supported-type",
@@ -40,7 +40,7 @@ func TestBuild(t *testing.T) {
 	})
 
 	t.Run("validate did:key compliance with generic syntax", func(t *testing.T) {
-		v := newVDRI(t)
+		v := New()
 
 		pubKey := &vdriapi.PubKey{
 			Type:  ed25519VerificationKey2018,
@@ -57,7 +57,7 @@ func TestBuild(t *testing.T) {
 	})
 
 	t.Run("build with default key type", func(t *testing.T) {
-		v := newVDRI(t)
+		v := New()
 
 		pubKey := &vdriapi.PubKey{
 			Type:  ed25519VerificationKey2018,
@@ -70,14 +70,6 @@ func TestBuild(t *testing.T) {
 
 		assertDoc(t, doc)
 	})
-}
-
-func newVDRI(t *testing.T) *VDRI {
-	v, err := New()
-	require.NoError(t, err)
-	require.NotNil(t, v)
-
-	return v
 }
 
 func assertDoc(t *testing.T, doc *did.Doc) {
