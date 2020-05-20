@@ -97,6 +97,9 @@ const (
 		`X7XWRxv2322i-vDxRfqNzo_tETKzpVLzfiwQyeyPGLBIO56YJ7eObdv0je81860ppamavo35UgoRdbYaBcoh9QcfylQr66oc6vFWX` +
 		`RcZ_ZT2LawVCWTIy3brGPi6UklfCpIMfIjf7iGdXKHzg","iv":"48V1_ALb6US04U3b","ciphertext":"5eym8TW_c8SuK0ltJ` +
 		`3rpYIzOeDQz7TALvtu6UG9oMo4vpzs9tX_EFShS8iB7j6jiSdiwkIr3ajwQzaBtQD_A","tag":"XFBoMYUZodetZdvTiFvSkQ"}`
+
+	expectedCompactJWE = `eyJwcm90ZWN0ZWRoZWFkZXIxIjoicHJvdGVjdGVkdGVzdHZhbHVlMSIsInByb3RlY3RlZGhlYWRlcjIiOiJw` +
+		`cm90ZWN0ZWR0ZXN0dmFsdWUyIn0.VGVzdEtleQ.VGVzdElW.VGVzdENpcGhlclRleHQ.VGVzdFRhZw`
 )
 
 var errFailingMarshal = errors.New("i failed to marshal")
@@ -140,7 +143,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				Ciphertext:         "TestCipherText",
 				Tag:                "TestTag",
 			}
-			serializedJWE, err := jwe.Serialize(json.Marshal)
+			serializedJWE, err := jwe.FullSerialize(json.Marshal)
 			require.NoError(t, err)
 			require.Equal(t, exampleMockJWEAllFields, serializedJWE)
 		})
@@ -171,7 +174,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				Ciphertext:         "TestCipherText",
 				Tag:                "TestTag",
 			}
-			serializedJWE, err := jwe.Serialize(json.Marshal)
+			serializedJWE, err := jwe.FullSerialize(json.Marshal)
 			require.NoError(t, err)
 			require.Equal(t, exampleMockJWEAllFieldsOneRecipient, serializedJWE)
 		})
@@ -209,7 +212,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				Ciphertext:         "TestCipherText",
 				Tag:                "TestTag",
 			}
-			serializedJWE, err := jwe.Serialize(json.Marshal)
+			serializedJWE, err := jwe.FullSerialize(json.Marshal)
 			require.NoError(t, err)
 			require.Equal(t, exampleMockJWEProtectedFieldAbsent, serializedJWE)
 		})
@@ -247,7 +250,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				Ciphertext:       "TestCipherText",
 				Tag:              "TestTag",
 			}
-			serializedJWE, err := jwe.Serialize(json.Marshal)
+			serializedJWE, err := jwe.FullSerialize(json.Marshal)
 			require.NoError(t, err)
 			require.Equal(t, exampleMockJWEUnprotectedFieldAbsent, serializedJWE)
 		})
@@ -265,7 +268,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				Ciphertext:         "TestCipherText",
 				Tag:                "TestTag",
 			}
-			serializedJWE, err := jwe.Serialize(json.Marshal)
+			serializedJWE, err := jwe.FullSerialize(json.Marshal)
 			require.NoError(t, err)
 			require.Equal(t, exampleMockJWERecipientsFieldAbsent, serializedJWE)
 		})
@@ -305,7 +308,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				Ciphertext:         "TestCipherText",
 				Tag:                "TestTag",
 			}
-			serializedJWE, err := jwe.Serialize(json.Marshal)
+			serializedJWE, err := jwe.FullSerialize(json.Marshal)
 			println(serializedJWE)
 			require.NoError(t, err)
 			require.Equal(t, exampleMockJWEIVFieldAbsent, serializedJWE)
@@ -346,7 +349,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				Ciphertext:         "TestCipherText",
 				Tag:                "TestTag",
 			}
-			serializedJWE, err := jwe.Serialize(json.Marshal)
+			serializedJWE, err := jwe.FullSerialize(json.Marshal)
 			require.NoError(t, err)
 			require.Equal(t, exampleMockJWEAADFieldAbsent, serializedJWE)
 		})
@@ -386,7 +389,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				IV:                 "TestIV",
 				Ciphertext:         "TestCipherText",
 			}
-			serializedJWE, err := jwe.Serialize(json.Marshal)
+			serializedJWE, err := jwe.FullSerialize(json.Marshal)
 			require.NoError(t, err)
 			require.Equal(t, exampleMockJWETagFieldAbsent, serializedJWE)
 		})
@@ -406,7 +409,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				IV:                 "TestIV",
 				Tag:                "TestTag",
 			}
-			serializedJWE, err := jwe.Serialize(json.Marshal)
+			serializedJWE, err := jwe.FullSerialize(json.Marshal)
 			require.Equal(t, errEmptyCiphertext, err)
 			require.Equal(t, "", serializedJWE)
 		})
@@ -419,7 +422,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				numTimesMarshalCalledBeforeReturnErr: 0,
 			}
 
-			serializedJWE, err := jwe.Serialize(fm.failingMarshal)
+			serializedJWE, err := jwe.FullSerialize(fm.failingMarshal)
 			require.Equal(t, errFailingMarshal, err)
 			require.Empty(t, serializedJWE)
 		})
@@ -439,7 +442,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				numTimesMarshalCalledBeforeReturnErr: 0,
 			}
 
-			serializedJWE, err := jwe.Serialize(fm.failingMarshal)
+			serializedJWE, err := jwe.FullSerialize(fm.failingMarshal)
 			require.Equal(t, errFailingMarshal, err)
 			require.Empty(t, serializedJWE)
 		})
@@ -455,7 +458,7 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				numTimesMarshalCalledBeforeReturnErr: 0,
 			}
 
-			serializedJWE, err := jwe.Serialize(fm.failingMarshal)
+			serializedJWE, err := jwe.FullSerialize(fm.failingMarshal)
 			require.Equal(t, errFailingMarshal, err)
 			require.Empty(t, serializedJWE)
 		})
@@ -468,10 +471,128 @@ func TestJSONWebEncryption_Serialize(t *testing.T) {
 				numTimesMarshalCalledBeforeReturnErr: 0,
 			}
 
-			serializedJWE, err := jwe.Serialize(fm.failingMarshal)
+			serializedJWE, err := jwe.FullSerialize(fm.failingMarshal)
 			require.Equal(t, errFailingMarshal, err)
 			require.Empty(t, serializedJWE)
 		})
+	})
+}
+
+func TestJSONWebEncryption_CompactSerialize(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+			"protectedheader2": "protectedtestvalue2"}
+		recipients := make([]*Recipient, 1)
+
+		recipients[0] = &Recipient{
+			EncryptedKey: "TestKey",
+		}
+
+		jwe := JSONWebEncryption{
+			ProtectedHeaders: protectedHeaders,
+			Recipients:       recipients,
+			AAD:              "TestAAD",
+			IV:               "TestIV",
+			Ciphertext:       "TestCipherText",
+			Tag:              "TestTag",
+		}
+
+		compactJWE, err := jwe.CompactSerialize(json.Marshal)
+		require.NoError(t, err)
+		require.Equal(t, expectedCompactJWE, compactJWE)
+	})
+	t.Run("Unable to compact serialize - missing protected headers", func(t *testing.T) {
+		jwe := JSONWebEncryption{}
+
+		compactJWE, err := jwe.CompactSerialize(json.Marshal)
+		require.Equal(t, errProtectedHeaderMissing, err)
+		require.Empty(t, compactJWE)
+	})
+	t.Run("Unable to compact serialize - too many recipients", func(t *testing.T) {
+		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+			"protectedheader2": "protectedtestvalue2"}
+		recipients := make([]*Recipient, 2)
+
+		jwe := JSONWebEncryption{
+			ProtectedHeaders: protectedHeaders,
+			Recipients:       recipients}
+
+		compactJWE, err := jwe.CompactSerialize(json.Marshal)
+		require.Equal(t, errNotOnlyOneRecipient, err)
+		require.Empty(t, compactJWE)
+	})
+	t.Run("Unable to compact serialize - JWE contains an unprotected header", func(t *testing.T) {
+		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+			"protectedheader2": "protectedtestvalue2"}
+		unprotectedHeaders := Headers{"unprotectedheader1": "unprotectedtestvalue1",
+			"unprotectedheader2": "unprotectedtestvalue2"}
+		recipients := make([]*Recipient, 1)
+
+		jwe := JSONWebEncryption{
+			ProtectedHeaders:   protectedHeaders,
+			UnprotectedHeaders: unprotectedHeaders,
+			Recipients:         recipients,
+			AAD:                "TestAAD",
+			IV:                 "TestIV",
+			Ciphertext:         "TestCipherText",
+			Tag:                "TestTag",
+		}
+
+		compactJWE, err := jwe.CompactSerialize(json.Marshal)
+		require.Equal(t, errUnprotectedHeaderUnsupported, err)
+		require.Empty(t, compactJWE)
+	})
+	t.Run("Unable to compact serialize - recipient contains a header", func(t *testing.T) {
+		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+			"protectedheader2": "protectedtestvalue2"}
+		recipients := make([]*Recipient, 1)
+
+		recipients[0] = &Recipient{
+
+			EncryptedKey: "TestKey",
+			Header: &RecipientHeaders{
+				APU: "TestAPU",
+				IV:  "TestIV",
+				Tag: "TestTag",
+				KID: "TestKID",
+				EPK: []byte(exampleEPK),
+			},
+		}
+
+		jwe := JSONWebEncryption{
+			ProtectedHeaders: protectedHeaders,
+			Recipients:       recipients,
+		}
+
+		compactJWE, err := jwe.CompactSerialize(json.Marshal)
+		require.Equal(t, errPerRecipientHeaderUnsupported, err)
+		require.Empty(t, compactJWE)
+	})
+	t.Run("Fail to marshal protected headers", func(t *testing.T) {
+		protectedHeaders := Headers{"protectedheader1": "protectedtestvalue1",
+			"protectedheader2": "protectedtestvalue2"}
+		recipients := make([]*Recipient, 1)
+
+		recipients[0] = &Recipient{
+			EncryptedKey: "TestKey",
+		}
+
+		jwe := JSONWebEncryption{
+			ProtectedHeaders: protectedHeaders,
+			Recipients:       recipients,
+			AAD:              "TestAAD",
+			IV:               "TestIV",
+			Ciphertext:       "TestCipherText",
+			Tag:              "TestTag",
+		}
+
+		fm := &failingMarshaller{
+			numTimesMarshalCalledBeforeReturnErr: 0,
+		}
+
+		compactJWE, err := jwe.CompactSerialize(fm.failingMarshal)
+		require.Equal(t, errFailingMarshal, err)
+		require.Empty(t, compactJWE)
 	})
 }
 
@@ -516,7 +637,7 @@ func TestDeserialize(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, deserializedJWE)
 
-			reserializedJWE, err := deserializedJWE.Serialize(json.Marshal)
+			reserializedJWE, err := deserializedJWE.FullSerialize(json.Marshal)
 			require.NoError(t, err)
 			require.Equal(t, exampleMockJWEAllFields, reserializedJWE)
 		})
@@ -525,7 +646,7 @@ func TestDeserialize(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, deserializedJWE)
 
-			reserializedJWE, err := deserializedJWE.Serialize(json.Marshal)
+			reserializedJWE, err := deserializedJWE.FullSerialize(json.Marshal)
 			require.NoError(t, err)
 			require.Equal(t, exampleRealFullJWEWithEPKs, reserializedJWE)
 		})
@@ -620,7 +741,7 @@ func TestDeserialize(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, deserializedJWE)
 
-			reserializedJWE, err := deserializedJWE.Serialize(json.Marshal)
+			reserializedJWE, err := deserializedJWE.FullSerialize(json.Marshal)
 			require.NoError(t, err)
 			require.Equal(t, expectedSerializedCompactJWE, reserializedJWE)
 		})
@@ -638,11 +759,24 @@ func TestInterop(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, ariesJWE)
 
-		reserializedAriesJWE, err := ariesJWE.Serialize(json.Marshal)
+		reserializedAriesJWE, err := ariesJWE.FullSerialize(json.Marshal)
 		require.NoError(t, err)
 		require.NotEmpty(t, reserializedAriesJWE)
 
 		goJoseJWE, err := jose.ParseEncrypted(reserializedAriesJWE)
+		require.NoError(t, err)
+		require.NotNil(t, goJoseJWE)
+	})
+	t.Run("Use go-jose to deserialize JWE that's been compact serialized with Aries", func(t *testing.T) {
+		ariesJWE, err := Deserialize(exampleRealCompactJWE)
+		require.NoError(t, err)
+		require.NotNil(t, ariesJWE)
+
+		compactAriesJWE, err := ariesJWE.CompactSerialize(json.Marshal)
+		require.NoError(t, err)
+		require.Equal(t, exampleRealCompactJWE, compactAriesJWE)
+
+		goJoseJWE, err := jose.ParseEncrypted(compactAriesJWE)
 		require.NoError(t, err)
 		require.NotNil(t, goJoseJWE)
 	})
@@ -678,7 +812,7 @@ func TestInterop(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, ariesJWE)
 
-		reserializedAriesJWE, err := ariesJWE.Serialize(json.Marshal)
+		reserializedAriesJWE, err := ariesJWE.FullSerialize(json.Marshal)
 		require.NoError(t, err)
 		require.NotEmpty(t, reserializedAriesJWE)
 
@@ -698,7 +832,7 @@ func TestInterop(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, ariesJWE)
 
-		reserializedAriesJWE, err := ariesJWE.Serialize(json.Marshal)
+		reserializedAriesJWE, err := ariesJWE.FullSerialize(json.Marshal)
 		require.NoError(t, err)
 		require.NotEmpty(t, reserializedAriesJWE)
 

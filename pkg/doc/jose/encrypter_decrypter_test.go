@@ -46,7 +46,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, len(recECKeys), len(jwe.Recipients))
 
-	serializedJWE, err := jwe.Serialize(json.Marshal)
+	serializedJWE, err := jwe.FullSerialize(json.Marshal)
 	require.NoError(t, err)
 	require.NotEmpty(t, serializedJWE)
 
@@ -222,7 +222,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, len(recECKeys), len(jwe.Recipients))
 
-	serializedJWE, err := jwe.Serialize(json.Marshal)
+	serializedJWE, err := jwe.FullSerialize(json.Marshal)
 	require.NoError(t, err)
 
 	// now parse serializedJWE using go-jose
