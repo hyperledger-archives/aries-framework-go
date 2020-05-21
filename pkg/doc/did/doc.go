@@ -12,14 +12,17 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/piprate/json-gold/ld"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 )
 
@@ -756,7 +759,7 @@ func (doc *Doc) VerifyProof(suites ...verifier.SignatureSuite) error {
 		return fmt.Errorf("create verifier: %w", err)
 	}
 
-	return v.Verify(docBytes)
+	return v.Verify(docBytes, jsonld.WithDocumentLoader(createDocumentLoader()))
 }
 
 // VerificationMethods returns verification methods of DID Doc of certain relationship.
@@ -1003,4 +1006,17 @@ func BuildDoc(opts ...DocOption) *Doc {
 	}
 
 	return doc
+}
+
+func createDocumentLoader() ld.DocumentLoader {
+	loader := ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
+
+	reader, _ := ld.DocumentFromReader(strings.NewReader(didV1Context)) //nolint:errcheck
+	loader.AddDocument("https://w3id.org/did/v1", reader)
+	loader.AddDocument("https://www.w3.org/ns/did/v1", reader)
+
+	reader, _ = ld.DocumentFromReader(strings.NewReader(didV011Context)) //nolint:errcheck
+	loader.AddDocument("https://w3id.org/did/v0.11", reader)
+
+	return loader
 }

@@ -108,7 +108,7 @@ func (a *SDKSteps) createConnections(introducees, introducer string) error {
 		return err
 	}
 
-	if err := didresolver.CreateDIDDocument(a.bddContext, participants, acceptDidMethod); err != nil {
+	if err := didresolver.CreateDIDDocument(a.bddContext, participants, ""); err != nil {
 		return err
 	}
 

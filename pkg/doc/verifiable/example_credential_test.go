@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
-	gojose "github.com/square/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -502,6 +501,11 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 	ed25519Suite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 	jsonWebSignatureSuite := jsonwebsignature2020.New(suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
 
+	jwk, err := jose.JWKFromPublicKey(&ecdsaPrivKey.PublicKey)
+	if err != nil {
+		panic(err)
+	}
+
 	_, err = verifiable.ParseCredential(vcBytes,
 		verifiable.WithEmbeddedSignatureSuites(ed25519Suite, jsonWebSignatureSuite),
 		verifiable.WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
@@ -516,14 +520,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 				return &sigverifier.PublicKey{
 					Type:  "JwsVerificationKey2020",
 					Value: elliptic.Marshal(ecdsaPrivKey.Curve, ecdsaPrivKey.X, ecdsaPrivKey.Y),
-					JWK: &jose.JWK{
-						JSONWebKey: gojose.JSONWebKey{
-							Algorithm: "ES256",
-							Key:       &ecdsaPrivKey.PublicKey,
-						},
-						Crv: "P-256",
-						Kty: "EC",
-					},
+					JWK:   jwk,
 				}, nil
 			}
 

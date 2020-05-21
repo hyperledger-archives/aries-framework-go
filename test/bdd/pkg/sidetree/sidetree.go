@@ -8,8 +8,6 @@ package sidetree
 
 import (
 	"bytes"
-	"crypto/ed25519"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,14 +20,15 @@ import (
 	"github.com/trustbloc/sidetree-core-go/pkg/util/pubkey"
 
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 )
 
 const docTemplate = `{
   "publicKey": [
    {
      "id": "%s",
-     "type": "JwsVerificationKey2020",
-     "usage": ["auth", "general","ops"],
+     "type": "%s",
+     "usage": ["auth", "general"],
      "jwk": %s
    }
   ],
@@ -47,6 +46,7 @@ const (
 	sha2_256            = 18
 	recoveryRevealValue = "recoveryOTP"
 	updateRevealValue   = "updateOTP"
+	defaultKeyType      = "JwsVerificationKey2020"
 )
 
 type didResolution struct {
@@ -56,26 +56,30 @@ type didResolution struct {
 	MethodMetadata   json.RawMessage `json:"methodMetadata"`
 }
 
+// CreateDIDParams defines parameters for CreateDID().
+type CreateDIDParams struct {
+	URL             string
+	KeyID           string
+	JWK             *jose.JWK
+	KeyType         string
+	ServiceEndpoint string
+}
+
 // CreateDID in sidetree
-func CreateDID(url, keyID, ed25519PubKey, serviceEndpoint string) (*diddoc.Doc, error) {
-	key, err := base64.RawURLEncoding.DecodeString(ed25519PubKey)
+func CreateDID(params *CreateDIDParams) (*diddoc.Doc, error) {
+	opaqueDoc, err := getOpaqueDocument(params)
 	if err != nil {
 		return nil, err
 	}
 
-	opaqueDoc, err := getOpaqueDocument(keyID, key, serviceEndpoint)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := getCreateRequest(opaqueDoc, key)
+	req, err := getCreateRequest(opaqueDoc, params.JWK)
 	if err != nil {
 		return nil, err
 	}
 
 	var result didResolution
 
-	err = sendHTTP(http.MethodPost, url, req, &result)
+	err = sendHTTP(http.MethodPost, params.URL, req, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -88,13 +92,23 @@ func CreateDID(url, keyID, ed25519PubKey, serviceEndpoint string) (*diddoc.Doc, 
 	return doc, nil
 }
 
-func getOpaqueDocument(keyID string, key []byte, serviceEndpoint string) ([]byte, error) {
-	opsPubKey, err := getPubKey(ed25519.PublicKey(key))
+func getOpaqueDocument(params *CreateDIDParams) ([]byte, error) {
+	opsPubKey, err := getPubKey(params.JWK)
 	if err != nil {
 		return nil, err
 	}
 
-	data := fmt.Sprintf(docTemplate, keyID, opsPubKey, serviceEndpoint, base58.Encode(key))
+	keyBytes, err := params.JWK.PublicKeyBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	keyType := params.KeyType
+	if keyType == "" {
+		keyType = defaultKeyType
+	}
+
+	data := fmt.Sprintf(docTemplate, params.KeyID, keyType, opsPubKey, params.ServiceEndpoint, base58.Encode(keyBytes))
 
 	doc, err := document.FromBytes([]byte(data))
 	if err != nil {
@@ -104,8 +118,8 @@ func getOpaqueDocument(keyID string, key []byte, serviceEndpoint string) ([]byte
 	return doc.Bytes()
 }
 
-func getPubKey(pubKey interface{}) (string, error) {
-	publicKey, err := pubkey.GetPublicKeyJWK(pubKey)
+func getPubKey(jwk *jose.JWK) (string, error) {
+	publicKey, err := pubkey.GetPublicKeyJWK(jwk.Key)
 	if err != nil {
 		return "", err
 	}
@@ -118,8 +132,8 @@ func getPubKey(pubKey interface{}) (string, error) {
 	return string(opsPubKeyBytes), nil
 }
 
-func getCreateRequest(doc, key []byte) ([]byte, error) {
-	recoveryPublicKey, err := pubkey.GetPublicKeyJWK(ed25519.PublicKey(key))
+func getCreateRequest(doc []byte, jwk *jose.JWK) ([]byte, error) {
+	recoveryPublicKey, err := pubkey.GetPublicKeyJWK(jwk.Key)
 	if err != nil {
 		return nil, err
 	}
