@@ -18,8 +18,7 @@ var _ vdri.VDRI = (*VDRI)(nil) // verify interface compliance
 
 func TestAccept(t *testing.T) {
 	t.Run("key method", func(t *testing.T) {
-		v, err := New()
-		require.NoError(t, err)
+		v := New()
 		require.NotNil(t, v)
 
 		accept := v.Accept("key")
@@ -27,8 +26,7 @@ func TestAccept(t *testing.T) {
 	})
 
 	t.Run("other method", func(t *testing.T) {
-		v, err := New()
-		require.NoError(t, err)
+		v := New()
 		require.NotNil(t, v)
 
 		accept := v.Accept("other")
@@ -38,16 +36,16 @@ func TestAccept(t *testing.T) {
 
 func TestStore(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		v, err := New()
-		require.NoError(t, err)
+		v := New()
+		require.NotNil(t, v)
 		require.NoError(t, v.Store(nil, nil))
 	})
 }
 
 func TestClose(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		v, err := New()
-		require.NoError(t, err)
+		v := New()
+		require.NotNil(t, v)
 		require.NoError(t, v.Close())
 	})
 }

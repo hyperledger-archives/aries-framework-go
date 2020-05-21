@@ -18,8 +18,8 @@ type VDRI struct {
 }
 
 // New returns new instance of VDRI that works with did:key method.
-func New() (*VDRI, error) {
-	return &VDRI{}, nil
+func New() *VDRI {
+	return &VDRI{}
 }
 
 // Accept accepts did:key method.
