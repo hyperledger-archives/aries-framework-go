@@ -34,8 +34,12 @@ const (
 
 // Encrypter interface to Encrypt/Decrypt JWE messages
 type Encrypter interface {
-	// Encrypt plaintext and aad sent to 1 or more recipients and return a valid JSONWebEncryption instance
-	Encrypt(plaintext, aad []byte) (*JSONWebEncryption, error)
+	// EncryptWithAuthData encrypt plaintext and aad sent to more than 1 recipients and returns a valid
+	// JSONWebEncryption instance
+	EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryption, error)
+
+	// Encrypt plaintext with empty aad sent to 1 or more recipients and returns a valid JSONWebEncryption instance
+	Encrypt(plaintext []byte) (*JSONWebEncryption, error)
 }
 
 type encPrimitiveFunc func(*keyset.Handle) (api.CompositeEncrypt, error)
@@ -92,8 +96,13 @@ func getEncryptionPrimitive(senderKH *keyset.Handle) (api.CompositeEncrypt, erro
 	return ecdhes.NewECDHESEncrypt(senderPubKH)
 }
 
-// Encrypt plaintext with AAD and returns a JSONWebEncryption instance to serialize a JWE instance
-func (je *JWEEncrypt) Encrypt(plaintext, aad []byte) (*JSONWebEncryption, error) {
+// Encrypt encrypt plaintext with AAD and returns a JSONWebEncryption instance to serialize a JWE instance
+func (je *JWEEncrypt) Encrypt(plaintext []byte) (*JSONWebEncryption, error) {
+	return je.EncryptWithAuthData(plaintext, nil)
+}
+
+// EncryptWithAuthData encrypt plaintext with AAD and returns a JSONWebEncryption instance to serialize a JWE instance
+func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryption, error) {
 	encPrimitive, err := je.getPrimitive(je.senderKH)
 	if err != nil {
 		return nil, fmt.Errorf("jweencrypt: failed to get encryption primitive: %w", err)
@@ -103,12 +112,9 @@ func (je *JWEEncrypt) Encrypt(plaintext, aad []byte) (*JSONWebEncryption, error)
 		HeaderEncryption: je.encAlg,
 	}
 
-	// TODO - Go jose adds CEK as part of protectedHeaders, see if this is valid. Also, for a single recipient,
-	//  Go jose merges recipient header into JWE protect protectedHeaders. See if this is needed too.
-
 	authData, err := computeAuthData(protectedHeaders, aad)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("jweencrypt: computeAuthData: marshal error %w", err)
 	}
 
 	serializedEncData, err := encPrimitive.Encrypt(plaintext, authData)
@@ -123,24 +129,13 @@ func (je *JWEEncrypt) Encrypt(plaintext, aad []byte) (*JSONWebEncryption, error)
 		return nil, fmt.Errorf("jweencrypt: unmarshal encrypted data failed: %w", err)
 	}
 
-	var recipients []*Recipient
+	recipients, singleRecipientHeaders, err := je.buildRecipients(encData)
+	if err != nil {
+		return nil, fmt.Errorf("jweencrypt: failed to build recipients: %w", err)
+	}
 
-	for _, rec := range encData.Recipients {
-		var mRecJWK []byte
-
-		mRecJWK, err = convertRecKeyToMarshalledJWK(rec)
-		if err != nil {
-			return nil, fmt.Errorf("jweencrypt: failed to convert recipient key to marshalled JWK: %w", err)
-		}
-
-		recipients = append(recipients, &Recipient{
-			EncryptedKey: string(rec.EncryptedCEK),
-			Header: &RecipientHeaders{
-				KID: rec.KID,
-				Alg: rec.Alg,
-				EPK: mRecJWK,
-			},
-		})
+	if singleRecipientHeaders != nil {
+		mergeRecipientHeaders(protectedHeaders, singleRecipientHeaders)
 	}
 
 	jsonEncryption := &JSONWebEncryption{
@@ -153,6 +148,60 @@ func (je *JWEEncrypt) Encrypt(plaintext, aad []byte) (*JSONWebEncryption, error)
 	}
 
 	return jsonEncryption, nil
+}
+
+func mergeRecipientHeaders(headers map[string]interface{}, recHeaders *RecipientHeaders) {
+	headers[HeaderAlgorithm] = recHeaders.Alg
+	headers[HeaderKeyID] = recHeaders.KID
+
+	// EPK will be marshalled by Serialize
+	headers[HeaderEPK] = recHeaders.EPK
+}
+
+func (je *JWEEncrypt) buildRecipients(encData *subtle.EncryptedData) ([]*Recipient, *RecipientHeaders, error) {
+	var (
+		recipients             []*Recipient
+		singleRecipientHeaders *RecipientHeaders
+	)
+
+	for _, rec := range encData.Recipients {
+		recHeaders, err := buildRecipientHeaders(rec)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		recipients = append(recipients, &Recipient{
+			EncryptedKey: string(rec.EncryptedCEK),
+			Header:       recHeaders,
+		})
+	}
+
+	// if we have only 1 recipient, then assume compact JWE serialization format. This means recipient header should
+	// be merged with the JWE envelope's protected headers and not added to the recipients
+	if len(encData.Recipients) == 1 {
+		singleRecipientHeaders = &RecipientHeaders{
+			Alg: recipients[0].Header.Alg,
+			KID: recipients[0].Header.KID,
+			EPK: recipients[0].Header.EPK,
+		}
+
+		recipients[0].Header = nil
+	}
+
+	return recipients, singleRecipientHeaders, nil
+}
+
+func buildRecipientHeaders(rec *subtle.RecipientWrappedKey) (*RecipientHeaders, error) {
+	mRecJWK, err := convertRecKeyToMarshalledJWK(rec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert recipient key to marshalled JWK: %w", err)
+	}
+
+	return &RecipientHeaders{
+		KID: rec.KID,
+		Alg: rec.Alg,
+		EPK: mRecJWK,
+	}, nil
 }
 
 func convertRecKeyToMarshalledJWK(rec *subtle.RecipientWrappedKey) ([]byte, error) {
@@ -185,9 +234,21 @@ func computeAuthData(protectedHeaders map[string]interface{}, aad []byte) ([]byt
 	var protected string
 
 	if protectedHeaders != nil {
-		mProtected, err := json.Marshal(protectedHeaders)
+		protectedHeadersJSON := map[string]json.RawMessage{}
+
+		for k, v := range protectedHeaders {
+			mV, err := json.Marshal(v)
+			if err != nil {
+				return nil, err
+			}
+
+			rawMsg := json.RawMessage(mV) // need to explicitly convert []byte to RawMessage (same as go-jose)
+			protectedHeadersJSON[k] = rawMsg
+		}
+
+		mProtected, err := json.Marshal(protectedHeadersJSON)
 		if err != nil {
-			return nil, fmt.Errorf("jwe computeAuthData: marshal error %w", err)
+			return nil, err
 		}
 
 		protected = base64.RawURLEncoding.EncodeToString(mProtected)

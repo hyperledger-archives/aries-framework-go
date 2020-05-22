@@ -42,7 +42,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
-	jwe, err := jweEncrypter.Encrypt(pt, []byte("aad value"))
+	jwe, err := jweEncrypter.EncryptWithAuthData(pt, []byte("aad value"))
 	require.NoError(t, err)
 	require.Equal(t, len(recECKeys), len(jwe.Recipients))
 
@@ -76,7 +76,7 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 
 		// decrypt JWE with empty ProtectHeaders
 		_, err = jweDecrypter.Decrypt(badJWE)
-		require.EqualError(t, err, "jwedecrypt: jwe is missing alg header")
+		require.EqualError(t, err, "jwedecrypt: jwe is missing encryption algorithm 'enc' header")
 
 		badJWE.ProtectedHeaders = map[string]interface{}{
 			HeaderEncryption: "badEncHeader",
@@ -96,6 +96,12 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 				EncryptedKey: "someKey",
 				Header: &RecipientHeaders{
 					EPK: []byte("somerawbytes"),
+				},
+			},
+			{
+				EncryptedKey: "someOtherKey",
+				Header: &RecipientHeaders{
+					EPK: []byte("someotherrawbytes"),
 				},
 			},
 		}
@@ -127,6 +133,12 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 					EPK: mk,
 				},
 			},
+			{
+				EncryptedKey: "someOtherKey",
+				Header: &RecipientHeaders{
+					EPK: mk,
+				},
+			},
 		}
 
 		_, err = jweDecrypter.Decrypt(badJWE)
@@ -151,6 +163,71 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 		recipientKH := recKH
 
 		t.Run("Decrypting JWE test success ", func(t *testing.T) {
+			jweDecrypter := NewJWEDecrypt(recipientKH)
+
+			var msg []byte
+
+			msg, err = jweDecrypter.Decrypt(localJWE)
+			require.NoError(t, err)
+			require.EqualValues(t, pt, msg)
+		})
+	}
+}
+
+// TODO uncomment test with https://github.com/hyperledger/aries-framework-go/issues/1872
+// func TestJWEEncryptRoundTripWithSingleRecipient(t *testing.T) {
+//	recECKeys, recKHs := createRecipients(t, 1)
+//
+//	jweEncrypter, err := NewJWEEncrypt(A256GCM, recECKeys)
+//	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
+//
+//	pt := []byte("some msg")
+//	jwe, err := jweEncrypter.Encrypt(pt)
+//	require.NoError(t, err)
+//	require.Equal(t, len(recECKeys), len(jwe.Recipients))
+//
+//	serializedJWE, err := jwe.CompactSerialize(json.Marshal)
+//	require.NoError(t, err)
+//	require.NotEmpty(t, serializedJWE)
+//
+//	// try to deserialize with local package
+//	localJWE, err := Deserialize(serializedJWE)
+//	require.NoError(t, err)
+//
+//	jweDecrypter := NewJWEDecrypt(recKHs[0])
+//
+//	var msg []byte
+//
+//	msg, err = jweDecrypter.Decrypt(localJWE)
+//	require.NoError(t, err)
+//	require.EqualValues(t, pt, msg)
+// }
+
+func TestInteropWithGoJoseEncryptAndLocalJoseDecryptUsingCompactSerialize(t *testing.T) {
+	recECKeys, recKHs := createRecipients(t, 1)
+	gjRecipients := convertToGoJoseRecipients(t, recECKeys)
+
+	gjEncrypter, err := jose.NewEncrypter(jose.A256GCM, gjRecipients[0], nil)
+	require.NoError(t, err)
+
+	pt := []byte("Test secret message")
+
+	// encrypt pt using go-jose encryption
+	gjJWEEncrypter, err := gjEncrypter.Encrypt(pt)
+	require.NoError(t, err)
+
+	// get go-jose serialized JWE
+	gjSerializedJWE, err := gjJWEEncrypter.CompactSerialize()
+	require.NoError(t, err)
+
+	// deserialize using local jose package
+	localJWE, err := Deserialize(gjSerializedJWE)
+	require.NoError(t, err)
+
+	for i, recKH := range recKHs {
+		recipientKH := recKH
+
+		t.Run(fmt.Sprintf("%d: Decrypting JWE message encrypted by go-jose test success", i), func(t *testing.T) {
 			jweDecrypter := NewJWEDecrypt(recipientKH)
 
 			var msg []byte
@@ -218,7 +295,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
 
 	pt := []byte("some msg")
-	jwe, err := jweEncrypter.Encrypt(pt, []byte("aad value"))
+	jwe, err := jweEncrypter.EncryptWithAuthData(pt, []byte("aad value"))
 	require.NoError(t, err)
 	require.Equal(t, len(recECKeys), len(jwe.Recipients))
 
@@ -333,7 +410,7 @@ func TestBadSenderKH(t *testing.T) {
 		getPrimitive: getEncryptionPrimitive,
 	}
 
-	_, err = jweEncrypter.Encrypt([]byte{}, []byte{})
+	_, err = jweEncrypter.Encrypt([]byte{})
 	require.EqualError(t, err, "jweencrypt: failed to get encryption primitive: "+
 		"keyset.Handle: keyset.Handle: keyset contains a non-private key")
 }
@@ -351,7 +428,7 @@ func TestBadCryptoEncrypt(t *testing.T) {
 		},
 	}
 
-	_, err := jweEncrypter.Encrypt([]byte{}, []byte{})
+	_, err := jweEncrypter.Encrypt([]byte{})
 	require.EqualError(t, err, "jweencrypt: failed to Encrypt: encryption failed")
 }
 
@@ -368,7 +445,7 @@ func TestCryptoWithBadCipherTextFormatEncrypt(t *testing.T) {
 		},
 	}
 
-	_, err := jweEncrypter.Encrypt([]byte{}, []byte{})
+	_, err := jweEncrypter.Encrypt([]byte{})
 	require.EqualError(t, err, "jweencrypt: unmarshal encrypted data failed: invalid character 'b' "+
 		"looking for beginning of value")
 }
