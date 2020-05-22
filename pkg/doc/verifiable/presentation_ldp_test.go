@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -35,7 +36,7 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 	vc, err := newTestPresentation([]byte(validPresentation))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext)
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -66,7 +67,7 @@ func TestPresentation_AddLinkedDataProof(t *testing.T) {
 		vp, err := newTestPresentation([]byte(validPresentation))
 		r.NoError(err)
 
-		err = vp.AddLinkedDataProof(ldpContext)
+		err = vp.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 		r.NoError(err)
 
 		vpJSON, err := vp.MarshalJSON()

@@ -32,16 +32,16 @@ func ExampleParsePresentation() {
 	// Holder received and decodes it.
 	vp, err := verifiable.ParsePresentation(
 		[]byte(vpJWS),
-
-		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(holderPubKey, kms.ED25519)))
+		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(holderPubKey, kms.ED25519)),
+		verifiable.WithPresJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to decode VP JWS: %w", err))
+		panic(fmt.Errorf("failed to decode VP JWS: %w", err))
 	}
 
 	// Marshal the VP to JSON to verify the result of decoding.
 	vpBytes, err := json.Marshal(vp)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to marshal VP to JSON: %w", err))
+		panic(fmt.Errorf("failed to marshal VP to JSON: %w", err))
 	}
 
 	fmt.Println(string(vpBytes))
@@ -100,19 +100,19 @@ func ExamplePresentation_JWTClaims() {
 	// The Holder wants to send the presentation to the Verifier in JWS.
 	vp, err := verifiable.ParseUnverifiedPresentation([]byte(vpStrFromWallet))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to decode VP JSON: %w", err))
+		panic(fmt.Errorf("failed to decode VP JSON: %w", err))
 	}
 
 	aud := []string{"did:example:4a57546973436f6f6c4a4a57573"}
 
 	jwtClaims, err := vp.JWTClaims(aud, true)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to create JWT claims of VP: %w", err))
+		panic(fmt.Errorf("failed to create JWT claims of VP: %w", err))
 	}
 
 	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(holderPrivKey), "")
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to sign VP inside JWT: %w", err))
+		panic(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}
 
 	fmt.Println(jws)
@@ -154,14 +154,15 @@ func ExampleCredential_Presentation() {
 }
 `
 
-	vc, err := verifiable.ParseCredential([]byte(vcStrFromWallet))
+	vc, err := verifiable.ParseCredential([]byte(vcStrFromWallet),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to decode VC JSON: %w", err))
+		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
 
 	vp, err := vc.Presentation()
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to build VP from VC: %w", err))
+		panic(fmt.Errorf("failed to build VP from VC: %w", err))
 	}
 
 	vp.ID = "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5"
@@ -171,12 +172,12 @@ func ExampleCredential_Presentation() {
 
 	jwtClaims, err := vp.JWTClaims(aud, true)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to create JWT claims of VP: %w", err))
+		panic(fmt.Errorf("failed to create JWT claims of VP: %w", err))
 	}
 
 	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(holderPrivKey), "")
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to sign VP inside JWT: %w", err))
+		panic(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}
 
 	fmt.Println(jws)
@@ -250,7 +251,7 @@ func ExamplePresentation_SetCredentials() {
 
 	err := vp.SetCredentials(vc, vcJWS, vcStr)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to set credentials of VP: %w", err))
+		panic(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}
 
 	vpBytes, err := json.MarshalIndent(vp, "", "\t")
@@ -361,13 +362,13 @@ func ExamplePresentation_MarshalJSON() {
 
 	err := vp.SetCredentials(vc)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to set credentials of VP: %w", err))
+		panic(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}
 
 	// json.MarshalIndent() calls Presentation.MarshalJSON()
 	vpJSON, err := json.MarshalIndent(vp, "", "\t")
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to marshal VP to JSON: %w", err))
+		panic(fmt.Errorf("failed to marshal VP to JSON: %w", err))
 	}
 
 	fmt.Println(string(vpJSON))
@@ -450,29 +451,29 @@ func ExamplePresentation_MarshalledCredentials() {
 	// Put JWS form of VC into VP.
 	vcJWTClaims, err := vc.JWTClaims(true)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to set credentials of VP: %w", err))
+		panic(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}
 
 	vcJWS, err := vcJWTClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(issuerPrivKey), "i-kid")
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to sign VC JWT: %w", err))
+		panic(fmt.Errorf("failed to sign VC JWT: %w", err))
 	}
 
 	err = vp.SetCredentials(vcJWS)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to set credentials of VP: %w", err))
+		panic(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}
 
 	// Marshal VP to JWS as well.
 
 	vpJWTClaims, err := vp.JWTClaims(nil, true)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to create JWT claims of VP: %w", err))
+		panic(fmt.Errorf("failed to create JWT claims of VP: %w", err))
 	}
 
 	vpJWS, err := vpJWTClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(holderPrivKey), "h-kid")
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to sign VP inside JWT: %w", err))
+		panic(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}
 
 	// Decode VP from JWS.
@@ -495,31 +496,32 @@ func ExamplePresentation_MarshalledCredentials() {
 			default:
 				return nil, fmt.Errorf("unexpected key: %s", keyID)
 			}
-		}))
+		}), verifiable.WithPresJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to decode VP JWS: %w", err))
+		panic(fmt.Errorf("failed to decode VP JWS: %w", err))
 	}
 
 	// Get credentials in binary form.
 	vpCreds, err := vp.MarshalledCredentials()
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to get marshalled credentials from decoded presentation: %w", err))
+		panic(fmt.Errorf("failed to get marshalled credentials from decoded presentation: %w", err))
 	}
 
 	if len(vpCreds) != 1 {
-		fmt.Println("Expected 1 credential inside presentation")
+		panic("Expected 1 credential inside presentation")
 	}
 
 	// Decoded credential. Note that no public key fetcher is passed as the VC was already decoded (and proof verified)
 	// when VP was decoded.
-	vcDecoded, err := verifiable.ParseCredential(vpCreds[0])
+	vcDecoded, err := verifiable.ParseCredential(vpCreds[0],
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to decode VC: %w", err))
+		panic(fmt.Errorf("failed to decode VC: %w", err))
 	}
 
 	vcDecodedJSON, err := json.MarshalIndent(vcDecoded, "", "\t")
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to marshal VP to JSON: %w", err))
+		panic(fmt.Errorf("failed to marshal VP to JSON: %w", err))
 	}
 
 	fmt.Println(string(vcDecodedJSON))

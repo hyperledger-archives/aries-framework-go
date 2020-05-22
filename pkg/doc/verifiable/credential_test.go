@@ -19,6 +19,7 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
@@ -1750,7 +1751,7 @@ func TestParseUnverifiedCredential(t *testing.T) {
 			Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
 			SignatureRepresentation: SignatureJWS,
 			Created:                 &created,
-		})
+		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 		require.NoError(t, err)
 
 		vcBytes, err := json.Marshal(vc)

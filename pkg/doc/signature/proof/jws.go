@@ -127,7 +127,7 @@ func prepareDocumentForJWS(suite signatureSuite, jsonldObject map[string]interfa
 	doc := GetCopyWithoutProof(jsonldObject)
 
 	if suite.CompactProof() {
-		docCompacted, err := getCompactedWithSecuritySchema(doc)
+		docCompacted, err := getCompactedWithSecuritySchema(doc, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +139,8 @@ func prepareDocumentForJWS(suite signatureSuite, jsonldObject map[string]interfa
 	return suite.GetCanonicalDocument(doc, opts...)
 }
 
-func getCompactedWithSecuritySchema(docMap map[string]interface{}) (map[string]interface{}, error) {
+func getCompactedWithSecuritySchema(docMap map[string]interface{},
+	opts ...jsonld.ProcessorOpts) (map[string]interface{}, error) {
 	var contextMap map[string]interface{}
 
 	err := json.Unmarshal([]byte(securityJSONLD), &contextMap)
@@ -147,7 +148,7 @@ func getCompactedWithSecuritySchema(docMap map[string]interface{}) (map[string]i
 		return nil, err
 	}
 
-	return jsonld.Default().Compact(docMap, contextMap)
+	return jsonld.Default().Compact(docMap, contextMap, opts...)
 }
 
 // cached value from https://w3id.org/security/v2

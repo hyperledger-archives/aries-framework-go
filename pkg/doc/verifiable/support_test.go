@@ -25,6 +25,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
@@ -294,7 +295,7 @@ func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:123#any",
-	})
+	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	if err != nil {
 		panic(err)
 	}
@@ -321,7 +322,7 @@ func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:123#key1",
-	})
+	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	if err != nil {
 		panic(err)
 	}
@@ -337,7 +338,7 @@ func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:123#key2",
-	})
+	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	if err != nil {
 		panic(err)
 	}
@@ -365,38 +366,32 @@ func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
 var testDocumentLoader = createTestJSONLDDocumentLoader()
 
 func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
-	fmt.Printf("Create test document loader!\n")
-
 	loader := CachingJSONLDLoader()
 
-	exampleJSONLDContext, err := ioutil.ReadFile(filepath.Clean(filepath.Join(
-		jsonldContextPrefix, "vc_example.jsonld")))
-	if err != nil {
-		panic(err)
-	}
+	addJSONLDCachedContextFromFile(loader,
+		"https://www.w3.org/2018/credentials/examples/v1", "vc_example.jsonld")
 
-	trustblocExampleJSONLDContext, err := ioutil.ReadFile(filepath.Clean(filepath.Join(
-		jsonldContextPrefix, "trustbloc_example.jsonld")))
-	if err != nil {
-		panic(err)
-	}
+	addJSONLDCachedContextFromFile(loader,
+		"https://trustbloc.github.io/context/vc/examples-v1.jsonld", "trustbloc_example.jsonld")
 
-	jsonWebSignJSONLDContext, err := ioutil.ReadFile(filepath.Clean(filepath.Join(
-		jsonldContextPrefix, "trustbloc_jwk2020_example.jsonld")))
-	if err != nil {
-		panic(err)
-	}
+	addJSONLDCachedContextFromFile(loader,
+		"https://trustbloc.github.io/context/vc/credentials-v1.jsonld", "trustbloc_jwk2020_example.jsonld")
 
-	addJSONLDCachedContext(loader,
-		"https://www.w3.org/2018/credentials/examples/v1", string(exampleJSONLDContext))
-
-	addJSONLDCachedContext(loader,
-		"https://trustbloc.github.io/context/vc/examples-v1.jsonld", string(trustblocExampleJSONLDContext))
-
-	addJSONLDCachedContext(loader,
-		"https://trustbloc.github.io/context/vc/credentials-v1.jsonld", string(jsonWebSignJSONLDContext))
+	addJSONLDCachedContextFromFile(loader, "https://www.w3.org/ns/odrl.jsonld", "odrl.jsonld")
+	addJSONLDCachedContextFromFile(loader, "https://w3id.org/security/v1", "security_v1.jsonld")
+	addJSONLDCachedContextFromFile(loader, "https://w3id.org/security/v2", "security_v2.jsonld")
 
 	return loader
+}
+
+func addJSONLDCachedContextFromFile(loader *ld.CachingDocumentLoader, contextURL, contextFile string) {
+	contextContent, err := ioutil.ReadFile(filepath.Clean(filepath.Join(
+		jsonldContextPrefix, contextFile)))
+	if err != nil {
+		panic(err)
+	}
+
+	addJSONLDCachedContext(loader, contextURL, string(contextContent))
 }
 
 func addJSONLDCachedContext(loader *ld.CachingDocumentLoader, contextURL, contextContent string) {

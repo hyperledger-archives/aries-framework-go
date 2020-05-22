@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -168,7 +169,7 @@ func prepareVCWithEd25519LDP(t *testing.T, vcJSON string, privKey []byte) *Crede
 		SignatureRepresentation: SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      "did:example:123456#key1",
-	})
+	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	require.NoError(t, err)
 
 	require.Len(t, vc.Proofs, 1)
@@ -188,7 +189,7 @@ func prepareVCWithSecp256k1LDP(t *testing.T, vcJSON string, privKey *ecdsa.Priva
 		Suite:                   ed25519SignerSuite,
 		SignatureRepresentation: SignatureJWS,
 		VerificationMethod:      "did:example:123456#key1",
-	})
+	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	require.NoError(t, err)
 
 	require.Len(t, vc.Proofs, 1)
