@@ -46,6 +46,7 @@ func TestRead(t *testing.T) {
 		doc, err := v.Read(didKey)
 		require.NoError(t, err)
 		require.NotNil(t, doc)
+		require.True(t, doc.KeyAgreement[0].Embedded)
 
 		assertDoc(t, doc)
 	})

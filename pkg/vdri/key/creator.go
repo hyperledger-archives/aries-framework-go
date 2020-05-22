@@ -38,6 +38,7 @@ func (v *VDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc,
 	return createDoc(base58.Decode(pubKey.Value))
 }
 
+//nolint:lll
 func createDoc(pubKeyValue []byte) (*did.Doc, error) {
 	methodID := keyFingerprint(multicodec(ed25519pub), pubKeyValue)
 	didKey := fmt.Sprintf("did:key:%s", methodID)
@@ -57,11 +58,11 @@ func createDoc(pubKeyValue []byte) (*did.Doc, error) {
 		Context:              []string{schemaV1},
 		ID:                   didKey,
 		PublicKey:            []did.PublicKey{*pubKey},
-		Authentication:       []did.VerificationMethod{{PublicKey: *pubKey}},
-		AssertionMethod:      []did.VerificationMethod{{PublicKey: *pubKey}},
-		CapabilityDelegation: []did.VerificationMethod{{PublicKey: *pubKey}},
-		CapabilityInvocation: []did.VerificationMethod{{PublicKey: *pubKey}},
-		KeyAgreement:         []did.VerificationMethod{{PublicKey: *keyAgreement}},
+		Authentication:       []did.VerificationMethod{*did.NewReferencedVerificationMethod(pubKey, did.Authentication, false)},
+		AssertionMethod:      []did.VerificationMethod{*did.NewReferencedVerificationMethod(pubKey, did.AssertionMethod, false)},
+		CapabilityDelegation: []did.VerificationMethod{*did.NewReferencedVerificationMethod(pubKey, did.CapabilityDelegation, false)},
+		CapabilityInvocation: []did.VerificationMethod{*did.NewReferencedVerificationMethod(pubKey, did.CapabilityInvocation, false)},
+		KeyAgreement:         []did.VerificationMethod{*did.NewEmbeddedVerificationMethod(keyAgreement, did.KeyAgreement)},
 		Created:              &t,
 		Updated:              &t,
 	}, nil

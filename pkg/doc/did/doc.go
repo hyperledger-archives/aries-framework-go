@@ -202,6 +202,24 @@ type VerificationMethod struct {
 	RelativeURL  bool
 }
 
+// NewEmbeddedVerificationMethod creates a new verification method with embedded public key
+func NewEmbeddedVerificationMethod(pk *PublicKey, r VerificationRelationship) *VerificationMethod {
+	return &VerificationMethod{
+		PublicKey:    *pk,
+		Relationship: r,
+		Embedded:     true,
+	}
+}
+
+// NewReferencedVerificationMethod creates a new verification method with referenced public key
+func NewReferencedVerificationMethod(pk *PublicKey, r VerificationRelationship, isRelativeURL bool) *VerificationMethod { //nolint:lll
+	return &VerificationMethod{
+		PublicKey:    *pk,
+		Relationship: r,
+		RelativeURL:  isRelativeURL,
+	}
+}
+
 type rawDoc struct {
 	Context              interface{}              `json:"@context,omitempty"`
 	ID                   string                   `json:"id,omitempty"`
@@ -307,7 +325,7 @@ func populateVerificationRelationships(doc *Doc, raw *rawDoc) error {
 
 	keyAgreements, err := populateVerificationMethods(doc, raw.KeyAgreement, KeyAgreement)
 	if err != nil {
-		return fmt.Errorf("populate capability invocations failed: %w", err)
+		return fmt.Errorf("populate key agreements failed: %w", err)
 	}
 
 	doc.KeyAgreement = keyAgreements

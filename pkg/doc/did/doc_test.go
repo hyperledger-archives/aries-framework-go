@@ -1272,6 +1272,31 @@ func TestDIDSchemas(t *testing.T) {
 	})
 }
 
+func TestNewEmbeddedVerificationMethod(t *testing.T) {
+	vm := NewEmbeddedVerificationMethod(&PublicKey{}, Authentication)
+	require.NotNil(t, vm)
+	require.NotNil(t, vm.PublicKey)
+	require.True(t, vm.Embedded)
+	require.Equal(t, Authentication, vm.Relationship)
+}
+
+func TestNewReferencedVerificationMethod(t *testing.T) {
+	t.Run("relative URL - true", func(t *testing.T) {
+		vm := NewReferencedVerificationMethod(&PublicKey{}, Authentication, true)
+		require.NotNil(t, vm)
+		require.NotNil(t, vm.PublicKey)
+		require.True(t, vm.RelativeURL)
+		require.Equal(t, Authentication, vm.Relationship)
+	})
+	t.Run("relative URL - false", func(t *testing.T) {
+		vm := NewReferencedVerificationMethod(&PublicKey{}, Authentication, false)
+		require.NotNil(t, vm)
+		require.NotNil(t, vm.PublicKey)
+		require.False(t, vm.RelativeURL)
+		require.Equal(t, Authentication, vm.Relationship)
+	})
+}
+
 // nolint:lll
 func TestDoc_VerificationMethods(t *testing.T) {
 	didDocStr := `
