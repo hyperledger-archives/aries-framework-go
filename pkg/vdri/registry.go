@@ -11,8 +11,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/btcsuite/btcutil/base58"
+
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
@@ -26,19 +29,21 @@ type Option func(opts *Registry)
 // provider contains dependencies for the did creator
 type provider interface {
 	LegacyKMS() legacykms.KeyManager
+	KMS() kms.KeyManager
 }
 
 // Registry vdri registry
 type Registry struct {
 	vdri               []vdriapi.VDRI
-	crypto             legacykms.KeyManager
+	legacykms          legacykms.KeyManager
+	kms                kms.KeyManager
 	defServiceEndpoint string
 	defServiceType     string
 }
 
 // New return new instance of vdri
 func New(ctx provider, opts ...Option) *Registry {
-	baseVDRI := &Registry{crypto: ctx.LegacyKMS()}
+	baseVDRI := &Registry{kms: ctx.KMS(), legacykms: ctx.LegacyKMS()}
 
 	// Apply options
 	for _, opt := range opts {
@@ -93,9 +98,31 @@ func (r *Registry) Create(didMethod string, opts ...vdriapi.DocOpts) (*diddoc.Do
 		opt(docOpts)
 	}
 
-	_, base58PubKey, err := r.crypto.CreateKeySet()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create DID: %w", err)
+	var (
+		err          error
+		base58PubKey string
+		id           string
+	)
+
+	if r.legacykms != nil {
+		_, base58PubKey, err = r.legacykms.CreateKeySet()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create DID: %w", err)
+		}
+
+		id = ""
+	} else {
+		id, _, err = r.kms.Create(kms.ED25519Type)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create DID: %w", err)
+		}
+
+		pubKey, e := r.kms.ExportPubKeyBytes(id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create DID: %w", e)
+		}
+
+		base58PubKey = base58.Encode(pubKey)
 	}
 
 	method, err := r.resolveVDRI(didMethod)
@@ -103,7 +130,7 @@ func (r *Registry) Create(didMethod string, opts ...vdriapi.DocOpts) (*diddoc.Do
 		return nil, err
 	}
 
-	doc, err := method.Build(&vdriapi.PubKey{Value: base58PubKey, Type: docOpts.KeyType},
+	doc, err := method.Build(&vdriapi.PubKey{ID: id, Value: base58PubKey, Type: docOpts.KeyType},
 		r.applyDefaultDocOpts(docOpts, opts...)...)
 	if err != nil {
 		return nil, err

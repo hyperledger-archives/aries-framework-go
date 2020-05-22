@@ -15,7 +15,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 
@@ -143,14 +144,14 @@ func TestRegistry_Store(t *testing.T) {
 func TestRegistry_Create(t *testing.T) {
 	t.Run("test error from create key", func(t *testing.T) {
 		registry := New(&mockprovider.Provider{
-			LegacyKMSValue: &mockkms.CloseableKMS{CreateKeyErr: fmt.Errorf("create key error")}})
+			KMSValue: &mockkms.KeyManager{CreateKeyErr: fmt.Errorf("create key error")}})
 		doc, err := registry.Create("1:id:123")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create key error")
 		require.Nil(t, doc)
 	})
 	t.Run("test did method not supported", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{LegacyKMSValue: &mockkms.CloseableKMS{}},
+		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDRI(&mockvdri.MockVDRI{AcceptValue: false}))
 		doc, err := registry.Create("id")
 		require.Error(t, err)
@@ -158,7 +159,28 @@ func TestRegistry_Create(t *testing.T) {
 		require.Nil(t, doc)
 	})
 	t.Run("test opts is passed", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{LegacyKMSValue: &mockkms.CloseableKMS{}},
+		kh, err := mockkms.CreateMockKeyHandle()
+		require.NoError(t, err)
+
+		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{
+			CreateKeyID:    "123",
+			CreateKeyValue: kh,
+		}},
+			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
+				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
+					docOpts := &vdriapi.CreateDIDOpts{}
+					// Apply options
+					for _, opt := range opts {
+						opt(docOpts)
+					}
+					require.Equal(t, "key1", docOpts.KeyType)
+					return &did.Doc{ID: "1:id:123"}, nil
+				}}))
+		_, err = registry.Create("id", vdriapi.WithKeyType("key1"))
+		require.NoError(t, err)
+	})
+	t.Run("with legacyKMS opts - test opts is passed ", func(t *testing.T) {
+		registry := New(&mockprovider.Provider{LegacyKMSValue: &mocklegacykms.CloseableKMS{}},
 			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					docOpts := &vdriapi.CreateDIDOpts{}
@@ -173,7 +195,7 @@ func TestRegistry_Create(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("test error from build doc", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{LegacyKMSValue: &mockkms.CloseableKMS{}},
+		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					return nil, fmt.Errorf("build did error")
@@ -184,7 +206,7 @@ func TestRegistry_Create(t *testing.T) {
 		require.Nil(t, doc)
 	})
 	t.Run("test error from store doc", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{LegacyKMSValue: &mockkms.CloseableKMS{}},
+		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true, StoreErr: fmt.Errorf("store error"),
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					return &did.Doc{ID: "1:id:123"}, nil
@@ -195,7 +217,7 @@ func TestRegistry_Create(t *testing.T) {
 		require.Nil(t, doc)
 	})
 	t.Run("test success", func(t *testing.T) {
-		registry := New(&mockprovider.Provider{LegacyKMSValue: &mockkms.CloseableKMS{}},
+		registry := New(&mockprovider.Provider{KMSValue: &mockkms.KeyManager{}},
 			WithVDRI(&mockvdri.MockVDRI{AcceptValue: true,
 				BuildFunc: func(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (doc *did.Doc, e error) {
 					return &did.Doc{ID: "1:id:123"}, nil

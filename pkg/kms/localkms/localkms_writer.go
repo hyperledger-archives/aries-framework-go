@@ -13,14 +13,15 @@ import (
 
 	"github.com/google/tink/go/subtle/random"
 
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const maxKeyIDLen = 20
 
 // newWriter creates a new instance of local storage key storeWriter in the given store and for masterKeyURI
-func newWriter(kmsStore storage.Store, opts ...PrivateKeyOpts) *storeWriter {
-	pOpts := &privateKeyOpts{}
+func newWriter(kmsStore storage.Store, opts ...kms.PrivateKeyOpts) *storeWriter {
+	pOpts := kms.NewOpt()
 
 	for _, opt := range opts {
 		opt(pOpts)
@@ -28,7 +29,7 @@ func newWriter(kmsStore storage.Store, opts ...PrivateKeyOpts) *storeWriter {
 
 	return &storeWriter{
 		storage:           kmsStore,
-		requestedKeysetID: pOpts.ksID,
+		requestedKeysetID: pOpts.KsID(),
 	}
 }
 

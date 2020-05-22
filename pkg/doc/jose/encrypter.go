@@ -136,6 +136,7 @@ func (je *JWEEncrypt) Encrypt(plaintext, aad []byte) (*JSONWebEncryption, error)
 		recipients = append(recipients, &Recipient{
 			EncryptedKey: string(rec.EncryptedCEK),
 			Header: &RecipientHeaders{
+				KID: rec.KID,
 				Alg: rec.Alg,
 				EPK: mRecJWK,
 			},
@@ -164,7 +165,8 @@ func convertRecKeyToMarshalledJWK(rec *subtle.RecipientWrappedKey) ([]byte, erro
 
 	recJWK := JWK{
 		JSONWebKey: jose.JSONWebKey{
-			Use: HeaderEncryption,
+			KeyID: rec.KID,
+			Use:   HeaderEncryption,
 			Key: &ecdsa.PublicKey{
 				Curve: c,
 				X:     new(big.Int).SetBytes(rec.EPK.X),

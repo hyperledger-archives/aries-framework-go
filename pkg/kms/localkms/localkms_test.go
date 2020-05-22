@@ -385,7 +385,7 @@ func TestLocalKMS_ImportPrivateKey(t *testing.T) {
 			// test ImportPrivateKey
 			if tt.setID {
 				// with set keyset ID
-				ksID, _, err = kmsService.ImportPrivateKey(privKey, tt.keyType, WithKeyID(tt.ksID))
+				ksID, _, err = kmsService.ImportPrivateKey(privKey, tt.keyType, kms.WithKeyID(tt.ksID))
 				require.NoError(t, err)
 				// calling ImportPrivatekeyt and WithKeyID("") will ignore the set KeyID and generate a new one
 				if tt.ksID != "" {

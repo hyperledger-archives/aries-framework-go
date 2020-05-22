@@ -62,13 +62,16 @@ message EcdhesAeadPublicKey {
   // Required.
   EcdhesAeadParams params = 2;
 
+  // Required.
+  string KID = 3;
+
   // Affine coordinates of the public key in bigendian representation.
   // The public key is a point (x, y) on the curve defined by params.kw_params.curve.
   // Required.
-  bytes x = 3;
+  bytes x = 4;
 
   // Required.
-  bytes y = 4;
+  bytes y = 5;
 }
 
 // EcdhesAeadPrivateKey represents ECDHESDecrypt primitive.
@@ -92,12 +95,15 @@ message EcdhesAeadRecipientPublicKey {
   // Required.
   KeyType key_type = 3;
 
+  // Required.
+  string KID = 4;
+
   // Affine coordinates of the public key in bigendian representation.
   // The public key is a point (x, y) on the curve defined by params.kw_params.curve.
   // Required.
-  bytes x = 4;
+  bytes x = 5;
   // Required.
-  bytes y = 5;
+  bytes y = 6;
 }
 
 message EcdhesAeadKeyFormat {

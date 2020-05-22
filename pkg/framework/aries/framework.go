@@ -57,8 +57,8 @@ type Aries struct {
 	crypto                 crypto.Crypto
 	packagerCreator        packager.Creator
 	packager               commontransport.Packager
-	packerCreator          packer.Creator
-	packerCreators         []packer.Creator
+	packerCreator          packer.LegacyCreator
+	packerCreators         []packer.LegacyCreator
 	primaryPacker          packer.Packer
 	packers                []packer.Packer
 	vdriRegistry           vdriapi.Registry
@@ -262,10 +262,10 @@ func WithMessageServiceProvider(msv api.MessageServiceProvider) Option {
 	}
 }
 
-// WithPacker injects at least one Packer service into the Aries framework,
+// WithLegacyPacker injects at least one Packer service into the Aries framework,
 // with the primary Packer being used for inbound/outbound communication
 // and the additional packers being available for unpacking inbound messages.
-func WithPacker(primary packer.Creator, additionalPackers ...packer.Creator) Option {
+func WithLegacyPacker(primary packer.LegacyCreator, additionalPackers ...packer.LegacyCreator) Option {
 	return func(opts *Aries) error {
 		opts.packerCreator = primary
 		opts.packerCreators = append(opts.packerCreators, additionalPackers...)
@@ -390,7 +390,10 @@ func createKMS(frameworkOpts *Aries) error {
 
 func createVDRI(frameworkOpts *Aries) error {
 	ctx, err := context.New(
+		// TODO add a better way to use either LegacyKMS or KMS in the registry, for now LegacyKMS will be used by
+		// TODO default until the new Authcrypt packer is created.
 		context.WithLegacyKMS(frameworkOpts.legacyKMS),
+		context.WithKMS(frameworkOpts.kms),
 		context.WithCrypto(frameworkOpts.crypto),
 		context.WithStorageProvider(frameworkOpts.storeProvider),
 		context.WithServiceEndpoint(serviceEndpoint(frameworkOpts)),

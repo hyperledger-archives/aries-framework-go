@@ -25,7 +25,7 @@ const encodingType string = "JWM/1.0"
 
 // New will create a Packer that encrypts messages using the legacy Aries format
 // Note: legacy Packer does not support XChacha20Poly1035 (XC20P), only Chacha20Poly1035 (C20P)
-func New(ctx packer.Provider) *Packer {
+func New(ctx packer.LegacyProvider) *Packer {
 	k := ctx.LegacyKMS()
 
 	return &Packer{

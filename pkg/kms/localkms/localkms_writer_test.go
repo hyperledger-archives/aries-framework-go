@@ -14,6 +14,7 @@ import (
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 )
 
@@ -81,7 +82,7 @@ func TestLocalKMSWriter(t *testing.T) {
 				ErrGet: getError,
 			}
 
-			l := newWriter(mockStore, WithKeyID(base64.RawURLEncoding.EncodeToString(random.GetRandomBytes(
+			l := newWriter(mockStore, kms.WithKeyID(base64.RawURLEncoding.EncodeToString(random.GetRandomBytes(
 				uint32(base64.RawURLEncoding.DecodedLen(maxKeyIDLen))))))
 
 			require.NotEmpty(t, l)
@@ -111,7 +112,7 @@ func TestLocalKMSWriter(t *testing.T) {
 		require.Equal(t, 1, len(storeMap))
 
 		// create s second writer with keysetID created above
-		l2 := newWriter(mockStore, WithKeyID(l.KeysetID))
+		l2 := newWriter(mockStore, kms.WithKeyID(l.KeysetID))
 
 		_, err = l2.Write(someKey)
 		require.EqualError(t, err, fmt.Sprintf("requested ID '%s' already exists, cannot write keyset",

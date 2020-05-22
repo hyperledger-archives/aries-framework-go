@@ -67,6 +67,7 @@ func (km *ecdhesPublicKeyManager) Primitive(serializedKey []byte) (interface{}, 
 		}
 
 		pub := &subtle.PublicKey{
+			KID:   recKey.KID,
 			Type:  recKey.KeyType.String(),
 			Curve: recKey.CurveType.String(),
 			X:     recKey.X,
