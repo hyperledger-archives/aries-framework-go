@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable_test
 
 import (
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
@@ -29,36 +29,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
-
-type UniversityDegree struct {
-	Type       string `json:"type,omitempty"`
-	University string `json:"university,omitempty"`
-}
-
-type UniversityDegreeSubject struct {
-	ID     string           `json:"id,omitempty"`
-	Name   string           `json:"name,omitempty"`
-	Spouse string           `json:"spouse,omitempty"`
-	Degree UniversityDegree `json:"degree,omitempty"`
-}
-
-type UniversityDegreeCredential struct {
-	*verifiable.Credential
-
-	ReferenceNumber int `json:"referenceNumber,omitempty"`
-}
-
-func (udc *UniversityDegreeCredential) MarshalJSON() ([]byte, error) {
-	// todo too complex! (https://github.com/hyperledger/aries-framework-go/issues/847)
-	c := udc.Credential
-	cp := *c
-
-	cp.CustomFields = map[string]interface{}{
-		"referenceNumber": udc.ReferenceNumber,
-	}
-
-	return json.Marshal(&cp)
-}
 
 //nolint:gochecknoglobals
 var (
@@ -103,7 +73,7 @@ func ExampleCredential_embedding() {
 	// Marshal to JSON to verify the result of decoding.
 	vcBytes, err := json.Marshal(vc)
 	if err != nil {
-		fmt.Println("failed to marshal VC to JSON")
+		panic("failed to marshal VC to JSON")
 	}
 
 	fmt.Println(string(vcBytes))
@@ -111,12 +81,12 @@ func ExampleCredential_embedding() {
 	// Marshal to JWS.
 	jwtClaims, err := vc.JWTClaims(true)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
+		panic(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
 	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(issuerPrivKey), "")
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
+		panic(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}
 
 	fmt.Println(jws)
@@ -124,9 +94,10 @@ func ExampleCredential_embedding() {
 	// Parse JWS and make sure it's coincide with JSON.
 	vcParsed, err := verifiable.ParseCredential(
 		[]byte(jws),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)))
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to encode VC from JWS: %w", err))
+		panic(fmt.Errorf("failed to encode VC from JWS: %w", err))
 	}
 
 	vcBytesFromJWS, err := vcParsed.MarshalJSON()
@@ -177,7 +148,7 @@ func ExampleCredential_extraFields() {
 	// Marshal to JSON.
 	vcBytes, err := json.Marshal(vc)
 	if err != nil {
-		fmt.Println("failed to marshal VC to JSON")
+		panic("failed to marshal VC to JSON")
 	}
 
 	fmt.Println(string(vcBytes))
@@ -185,12 +156,12 @@ func ExampleCredential_extraFields() {
 	// Marshal to JWS.
 	jwtClaims, err := vc.JWTClaims(true)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
+		panic(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
 	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(issuerPrivKey), "")
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
+		panic(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}
 
 	fmt.Println(jws)
@@ -198,9 +169,10 @@ func ExampleCredential_extraFields() {
 	// Parse JWS and make sure it's coincide with JSON.
 	vcParsed, err := verifiable.ParseCredential(
 		[]byte(jws),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)))
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to encode VC from JWS: %w", err))
+		panic(fmt.Errorf("failed to encode VC from JWS: %w", err))
 	}
 
 	vcBytesFromJWS, err := vcParsed.MarshalJSON()
@@ -251,20 +223,21 @@ func ExampleParseCredential() {
 	// ... in JWS form.
 	jwtClaims, err := vcEncoded.JWTClaims(true)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
+		panic(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
 	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(issuerPrivKey), "")
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
+		panic(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}
 
 	// The Holder receives JWS and decodes it.
 	vcParsed, err := verifiable.ParseCredential(
 		[]byte(jws),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)))
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(issuerPubKey, kms.ED25519)),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to decode VC JWS: %w", err))
+		panic(fmt.Errorf("failed to decode VC JWS: %w", err))
 	}
 
 	vcDecodedBytes, err := vcParsed.MarshalJSON()
@@ -312,19 +285,20 @@ func ExampleCredential_JWTClaims() {
 `
 
 	// The Holder wants to send the credential to the Verifier in JWS.
-	vc, err := verifiable.ParseCredential([]byte(vcStrFromWallet))
+	vc, err := verifiable.ParseCredential([]byte(vcStrFromWallet),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to decode VC JSON: %w", err))
+		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
 
 	jwtClaims, err := vc.JWTClaims(true)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
+		panic(fmt.Errorf("failed to marshal JWT claims of VC: %w", err))
 	}
 
 	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(issuerPrivKey), "")
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to sign VC inside JWT: %w", err))
+		panic(fmt.Errorf("failed to sign VC inside JWT: %w", err))
 	}
 
 	// The Holder passes JWS to Verifier
@@ -366,9 +340,10 @@ func ExampleCredential_AddLinkedDataProof() {
 }
 `
 
-	vc, err := verifiable.ParseCredential([]byte(vcJSON))
+	vc, err := verifiable.ParseCredential([]byte(vcJSON),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to decode VC JSON: %w", err))
+		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
 
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
@@ -377,14 +352,14 @@ func ExampleCredential_AddLinkedDataProof() {
 		Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519Signer(issuerPrivKey))),
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      "did:example:123456#key1",
-	})
+	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to add linked data proof: %w", err))
+		panic(fmt.Errorf("failed to add linked data proof: %w", err))
 	}
 
 	vcJSONWithProof, err := json.MarshalIndent(vc, "", "\t")
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to marshal VC to JSON: %w", err))
+		panic(fmt.Errorf("failed to marshal VC to JSON: %w", err))
 	}
 
 	fmt.Println(string(vcJSONWithProof))
@@ -460,9 +435,10 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 }
 `
 
-	vc, err := verifiable.ParseCredential([]byte(vcJSON))
+	vc, err := verifiable.ParseCredential([]byte(vcJSON),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to decode VC JSON: %w", err))
+		panic(fmt.Errorf("failed to decode VC JSON: %w", err))
 	}
 
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
@@ -471,7 +447,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 		Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519Signer(issuerPrivKey))),
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      "did:example:123456#key1",
-	})
+	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(err)
 	}
@@ -487,7 +463,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 		Suite:                   jsonwebsignature2020.New(suite.WithSigner(getECDSASecp256k1Signer(ecdsaPrivKey))),
 		SignatureRepresentation: verifiable.SignatureJWS,
 		VerificationMethod:      "did:example:123456#key2",
-	})
+	}, jsonld.WithDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(err)
 	}
@@ -526,67 +502,10 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 
 			return nil, errors.New("unsupported keyID")
 		}),
-		verifiable.WithJSONLDOnlyValidRDF())
+		verifiable.WithJSONLDOnlyValidRDF(),
+		verifiable.WithJSONLDDocumentLoader(getJSONLDDocumentLoader()))
 	if err != nil {
 		panic(err)
 	}
 	// Output:
-}
-
-func getEd25519Signer(privKey []byte) *ed25519Signer {
-	return &ed25519Signer{privateKey: privKey}
-}
-
-type ed25519Signer struct {
-	privateKey []byte
-}
-
-func (s *ed25519Signer) Sign(doc []byte) ([]byte, error) {
-	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
-		return nil, errors.New("ed25519: bad private key length")
-	}
-
-	return ed25519.Sign(s.privateKey, doc), nil
-}
-
-func getECDSASecp256k1Signer(privKey *ecdsa.PrivateKey) *ecdsaSecp256k1Signer {
-	return &ecdsaSecp256k1Signer{
-		privKey: privKey,
-	}
-}
-
-type ecdsaSecp256k1Signer struct {
-	privKey *ecdsa.PrivateKey
-}
-
-func (es *ecdsaSecp256k1Signer) Sign(payload []byte) ([]byte, error) {
-	hasher := crypto.SHA256.New()
-
-	_, err := hasher.Write(payload)
-	if err != nil {
-		panic(err)
-	}
-
-	hashed := hasher.Sum(nil)
-
-	r, s, err := ecdsa.Sign(rand.Reader, es.privKey, hashed)
-	if err != nil {
-		panic(err)
-	}
-
-	curveBits := es.privKey.Curve.Params().BitSize
-
-	keyBytes := curveBits / 8
-	if curveBits%8 > 0 {
-		keyBytes++
-	}
-
-	copyPadded := func(source []byte, size int) []byte {
-		dest := make([]byte, size)
-		copy(dest[size-len(source):], source)
-
-		return dest
-	}
-
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
 }

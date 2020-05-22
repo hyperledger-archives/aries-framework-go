@@ -203,7 +203,7 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	defer func() { testServer.Close() }()
 
 	// Producer1 applied.
-	i1, err := CreateCustomCredential([]byte(fmt.Sprintf(validCred1, testServer.URL+"?context=1")), producers)
+	i1, err := createTestCustomCredential([]byte(fmt.Sprintf(validCred1, testServer.URL+"?context=1")), producers)
 	require.NoError(t, err)
 	require.IsType(t, &Cred1{}, i1)
 	cred1, correct := i1.(*Cred1)
@@ -214,7 +214,7 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	require.Equal(t, "custom subject 1", cred1.Subject.CustomSubjectField)
 
 	// Producer2 applied.
-	i2, err := CreateCustomCredential([]byte(fmt.Sprintf(validCred2, testServer.URL+"?context=2")), producers)
+	i2, err := createTestCustomCredential([]byte(fmt.Sprintf(validCred2, testServer.URL+"?context=2")), producers)
 	require.NoError(t, err)
 	require.IsType(t, &Cred2{}, i2)
 	cred2, correct := i2.(*Cred2)
@@ -225,19 +225,24 @@ func TestCredentialExtensibilitySwitch(t *testing.T) {
 	require.Equal(t, "custom subject 2", cred2.Subject.CustomSubjectField)
 
 	// No producers are applied, returned base credential.
-	i3, err := CreateCustomCredential([]byte(validCredential), producers)
+	i3, err := createTestCustomCredential([]byte(validCredential), producers)
 	require.NoError(t, err)
 	require.IsType(t, &Credential{}, i3)
 
 	// Invalid credential.
-	i4, err := CreateCustomCredential([]byte(credMissingMandatoryFields), producers)
+	i4, err := createTestCustomCredential([]byte(credMissingMandatoryFields), producers)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "build base verifiable credential")
 	require.Nil(t, i4)
 
 	// Failing ext producer.
-	i5, err := CreateCustomCredential([]byte(validCredential), []CustomCredentialProducer{&FailingCredentialProducer{}})
+	i5, err := createTestCustomCredential([]byte(validCredential),
+		[]CustomCredentialProducer{&FailingCredentialProducer{}})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to apply credential extension")
 	require.Nil(t, i5)
+}
+
+func createTestCustomCredential(vcData []byte, producers []CustomCredentialProducer) (interface{}, error) {
+	return CreateCustomCredential(vcData, producers, WithJSONLDDocumentLoader(testDocumentLoader))
 }

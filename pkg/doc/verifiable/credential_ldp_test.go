@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -58,7 +59,7 @@ func TestParseCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 	vc, err := parseTestCredential([]byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext)
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -367,7 +368,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	vc, err := parseTestCredential([]byte(vcJSON))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext)
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -468,7 +469,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *test
 	vc, err := parseTestCredential([]byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext)
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -502,7 +503,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 	vc, err := parseTestCredential([]byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext)
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -548,7 +549,7 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 	vc, err := parseTestCredential([]byte(validCredential))
 	r.NoError(err)
 
-	err = vc.AddLinkedDataProof(ldpContext)
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -901,7 +902,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 		SignatureRepresentation: SignatureProofValue,
 		Suite:                   ed25519SigSuite,
 		VerificationMethod:      "did:example:123456#key1",
-	})
+	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
 	ecdsaPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -916,7 +917,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 		SignatureRepresentation: SignatureJWS,
 		Suite:                   ecdsaSigSuite,
 		VerificationMethod:      "did:example:123456#key2",
-	})
+	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
 	vcBytes, err := json.Marshal(vc)
@@ -1051,7 +1052,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 			Challenge:               uuid.New().String(),
 			Domain:                  "issuer.service.com",
 			Purpose:                 "authentication",
-		})
+		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 		r.NoError(err)
 
 		vcMap, err := toMap(vc)
