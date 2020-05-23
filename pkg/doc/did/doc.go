@@ -17,8 +17,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/piprate/json-gold/ld"
+
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/xeipuuv/gojsonschema"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -762,7 +763,7 @@ func (doc *Doc) JSONBytes() ([]byte, error) {
 }
 
 // VerifyProof verifies document proofs
-func (doc *Doc) VerifyProof(suites ...verifier.SignatureSuite) error {
+func (doc *Doc) VerifyProof(suites []verifier.SignatureSuite, jsonldOpts ...jsonld.ProcessorOpts) error {
 	if len(doc.Proof) == 0 {
 		return ErrProofNotFound
 	}
@@ -777,7 +778,9 @@ func (doc *Doc) VerifyProof(suites ...verifier.SignatureSuite) error {
 		return fmt.Errorf("create verifier: %w", err)
 	}
 
-	return v.Verify(docBytes, jsonld.WithDocumentLoader(createDocumentLoader()))
+	defaultDocumentLoaderOpt := []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(CachingJSONLDLoader())}
+
+	return v.Verify(docBytes, append(defaultDocumentLoaderOpt, jsonldOpts...)...)
 }
 
 // VerificationMethods returns verification methods of DID Doc of certain relationship.
@@ -1026,15 +1029,20 @@ func BuildDoc(opts ...DocOption) *Doc {
 	return doc
 }
 
-func createDocumentLoader() ld.DocumentLoader {
+// CachingJSONLDLoader creates JSON-LD CachingDocumentLoader with preloaded base JSON-LD DID and security contexts.
+func CachingJSONLDLoader() ld.DocumentLoader {
 	loader := ld.NewCachingDocumentLoader(ld.NewRFC7324CachingDocumentLoader(&http.Client{}))
 
-	reader, _ := ld.DocumentFromReader(strings.NewReader(didV1Context)) //nolint:errcheck
-	loader.AddDocument("https://w3id.org/did/v1", reader)
-	loader.AddDocument("https://www.w3.org/ns/did/v1", reader)
+	cacheContext := func(source, url string) {
+		reader, _ := ld.DocumentFromReader(strings.NewReader(source)) //nolint:errcheck
+		loader.AddDocument(url, reader)
+	}
 
-	reader, _ = ld.DocumentFromReader(strings.NewReader(didV011Context)) //nolint:errcheck
-	loader.AddDocument("https://w3id.org/did/v0.11", reader)
+	cacheContext(didV011Context, "https://w3id.org/did/v0.11")
+	cacheContext(didV1Context, "https://w3id.org/did/v1")
+	cacheContext(didV1Context, "https://www.w3.org/ns/did/v1")
+	cacheContext(securityV1Context, "https://w3id.org/security/v1")
+	cacheContext(securityV2Context, "https://w3id.org/security/v2")
 
 	return loader
 }
