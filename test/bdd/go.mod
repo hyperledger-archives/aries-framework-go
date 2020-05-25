@@ -21,6 +21,7 @@ require (
 	github.com/hyperledger/aries-framework-go v0.0.0
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/piprate/json-gold v0.3.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/trustbloc/sidetree-core-go v0.1.3

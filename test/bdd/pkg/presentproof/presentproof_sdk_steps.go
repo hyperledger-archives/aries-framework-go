@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	verifiableStore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	bddverifiable "github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 )
 
 const timeout = time.Second * 15
@@ -198,7 +199,7 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 
 	vp, err := verifiable.ParseUnverifiedPresentation(
 		[]byte(fmt.Sprintf(vpStrFromWallet, conn.MyDID, conn.MyDID)),
-	)
+		verifiable.WithPresJSONLDDocumentLoader(bddverifiable.CachingJSONLDLoader()))
 	if err != nil {
 		return fmt.Errorf("failed to decode VP JSON: %w", err)
 	}
