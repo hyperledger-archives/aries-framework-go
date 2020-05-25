@@ -370,12 +370,7 @@ func WithPresJSONLDDocumentLoader(documentLoader ld.DocumentLoader) Presentation
 // ParsePresentation creates an instance of Verifiable Presentation by reading a JSON document from bytes.
 // It also applies miscellaneous options like custom decoders or settings of schema validation.
 func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, error) {
-	// Apply options
-	vpOpts := defaultPresentationOpts()
-
-	for _, opt := range opts {
-		opt(vpOpts)
-	}
+	vpOpts := getPresentationOpts(opts)
 
 	vpDataDecoded, vpRaw, err := decodeRawPresentation(vpData, vpOpts)
 	if err != nil {
@@ -402,11 +397,9 @@ func ParsePresentation(vpData []byte, opts ...PresentationOpt) (*Presentation, e
 // ParseUnverifiedPresentation parses Verifiable Presentation from bytes which could be marshalled JSON or
 // serialized JWT. It does not make a proof check though. Can be used for purposes of decoding of VP stored in a wallet.
 // Please use this function with caution.
-func ParseUnverifiedPresentation(vpBytes []byte) (*Presentation, error) {
-	// Apply options
-	vpOpts := &presentationOpts{
-		disabledProofCheck: true,
-	}
+func ParseUnverifiedPresentation(vpBytes []byte, opts ...PresentationOpt) (*Presentation, error) {
+	vpOpts := getPresentationOpts(opts)
+	vpOpts.disabledProofCheck = true
 
 	_, vpRaw, err := decodeRawPresentation(vpBytes, vpOpts)
 	if err != nil {
@@ -414,6 +407,20 @@ func ParseUnverifiedPresentation(vpBytes []byte) (*Presentation, error) {
 	}
 
 	return newPresentation(vpRaw, vpOpts)
+}
+
+func getPresentationOpts(opts []PresentationOpt) *presentationOpts {
+	vpOpts := defaultPresentationOpts()
+
+	for _, opt := range opts {
+		opt(vpOpts)
+	}
+
+	if vpOpts.jsonldDocumentLoader == nil {
+		vpOpts.jsonldDocumentLoader = CachingJSONLDLoader()
+	}
+
+	return vpOpts
 }
 
 func newPresentation(vpRaw *rawPresentation, vpOpts *presentationOpts) (*Presentation, error) {
