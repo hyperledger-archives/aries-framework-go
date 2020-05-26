@@ -24,7 +24,7 @@ const (
 	// Name defines the protocol name
 	Name = "issue-credential"
 	// Spec defines the protocol spec
-	Spec = "https://didcomm.org/issue-credential/1.0/"
+	Spec = "https://didcomm.org/issue-credential/2.0/"
 	// ProposeCredentialMsgType defines the protocol propose-credential message type.
 	ProposeCredentialMsgType = Spec + "propose-credential"
 	// OfferCredentialMsgType defines the protocol offer-credential message type.
