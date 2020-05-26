@@ -6,8 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"testing"
 
@@ -16,6 +14,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -428,7 +427,7 @@ func TestPresentation_SetCredentials(t *testing.T) {
 func TestPresentation_decodeCredentials(t *testing.T) {
 	r := require.New(t)
 
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	signer, err := signature.NewEd25519Signer()
 	r.NoError(err)
 
 	vc, err := parseTestCredential([]byte(validCredential))
@@ -437,12 +436,12 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 	jwtClaims, err := vc.JWTClaims(false)
 	r.NoError(err)
 
-	jws, err := jwtClaims.MarshalJWS(EdDSA, getEd25519TestSigner(privKey), "k1")
+	jws, err := jwtClaims.MarshalJWS(EdDSA, signer, "k1")
 	r.NoError(err)
 
 	// single credential - JWS
 	opts := defaultPresentationOpts()
-	opts.publicKeyFetcher = SingleKey(pubKey, kms.ED25519)
+	opts.publicKeyFetcher = SingleKey(signer.PublicKey, kms.ED25519)
 	dCreds, err := decodeCredentials(jws, opts)
 	r.NoError(err)
 	r.Len(dCreds, 1)

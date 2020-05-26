@@ -6,10 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -17,7 +15,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/piprate/json-gold/ld"
@@ -32,6 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
@@ -42,11 +40,11 @@ import (
 func TestParseCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 	r := require.New(t)
 
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	signer, err := signature.NewEd25519Signer()
 	r.NoError(err)
 
 	sigSuite := ed25519signature2018.New(
-		suite.WithSigner(getEd25519TestSigner(privKey)),
+		suite.WithSigner(signer),
 		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 
 	ldpContext := &LinkedDataProofContext{
@@ -67,7 +65,7 @@ func TestParseCredentialFromLinkedDataProof_Ed25519Signature2018(t *testing.T) {
 
 	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
+		WithPublicKeyFetcher(SingleKey(signer.PublicKey, kms.ED25519)))
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
 }
@@ -351,11 +349,11 @@ func TestExtraContextWithLDP(t *testing.T) {
   }
 }`
 
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	signer, err := signature.NewEd25519Signer()
 	r.NoError(err)
 
 	sigSuite := ed25519signature2018.New(
-		suite.WithSigner(getEd25519TestSigner(privKey)),
+		suite.WithSigner(signer),
 		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 
 	ldpContext := &LinkedDataProofContext{
@@ -376,7 +374,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 
 	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
+		WithPublicKeyFetcher(SingleKey(signer.PublicKey, kms.ED25519)),
 		WithStrictValidation())
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
@@ -393,7 +391,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 
 	vcWithLdp, err = parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
+		WithPublicKeyFetcher(SingleKey(signer.PublicKey, kms.ED25519)),
 		WithStrictValidation())
 	r.Error(err)
 	r.EqualError(err, "decode new credential: check embedded proof: check linked data proof: invalid JSON-LD context")
@@ -402,7 +400,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	// Use extra context.
 	vcWithLdp, err = parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
+		WithPublicKeyFetcher(SingleKey(signer.PublicKey, kms.ED25519)),
 		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
 		WithStrictValidation())
 	r.NoError(err)
@@ -411,7 +409,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 	// Use extra context.
 	vcWithLdp, err = parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
+		WithPublicKeyFetcher(SingleKey(signer.PublicKey, kms.ED25519)),
 		WithExternalJSONLDContext("https://trustbloc.github.io/context/vc/examples-v1.jsonld"),
 		WithStrictValidation())
 	r.NoError(err)
@@ -441,7 +439,7 @@ func TestExtraContextWithLDP(t *testing.T) {
 
 	vcWithLdp, err = ParseCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)),
+		WithPublicKeyFetcher(SingleKey(signer.PublicKey, kms.ED25519)),
 		WithExternalJSONLDContext("http://localhost:8652/dummy.jsonld"),
 		WithJSONLDDocumentLoader(loader),
 		WithStrictValidation())
@@ -452,11 +450,11 @@ func TestExtraContextWithLDP(t *testing.T) {
 func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *testing.T) {
 	r := require.New(t)
 
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	signer, err := signature.NewEd25519Signer()
 	r.NoError(err)
 
 	sigSuite := jsonwebsignature2020.New(
-		suite.WithSigner(getEd25519TestSigner(privKey)), // TODO replace getEd25519TestSigner with LocalCrypto/KMS
+		suite.WithSigner(signer), // TODO replace getEd25519TestSigner with LocalCrypto/KMS
 		suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())))
 
 	ldpContext := &LinkedDataProofContext{
@@ -477,7 +475,7 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_Ed25519(t *test
 
 	vcWithLdp, err := parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
-		WithPublicKeyFetcher(SingleKey(pubKey, "Ed25519Signature2018")))
+		WithPublicKeyFetcher(SingleKey(signer.PublicKey, "Ed25519Signature2018")))
 	r.NoError(err)
 	r.Equal(vc, vcWithLdp)
 }
@@ -486,11 +484,11 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 	r := require.New(t)
 
 	// TODO replace ecdsa.GenerateKey with KMS.Create(kms.ECDSAP256TypeIEEEP1363) and use localkms and Crypto for signing
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	signer, err := signature.NewECDSAP256Signer()
 	require.NoError(t, err)
 
 	sigSuite := jsonwebsignature2020.New(
-		suite.WithSigner(getEcdsaP256TestSigner(privateKey)),
+		suite.WithSigner(signer),
 		suite.WithVerifier(suite.NewCryptoVerifier(createLocalCrypto())))
 
 	ldpContext := &LinkedDataProofContext{
@@ -509,9 +507,9 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
+	pubKeyBytes := elliptic.Marshal(signer.PublicKey.Curve, signer.PublicKey.X, signer.PublicKey.Y)
 
-	jwk, err := jose.JWKFromPublicKey(&privateKey.PublicKey)
+	jwk, err := jose.JWKFromPublicKey(signer.PublicKey)
 	require.NoError(t, err)
 
 	vcWithLdp, err := parseTestCredential(vcBytes,
@@ -530,11 +528,11 @@ func TestParseCredentialFromLinkedDataProof_JsonWebSignature2020_ecdsaP256(t *te
 func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testing.T) {
 	r := require.New(t)
 
-	privateKey, err := ecdsa.GenerateKey(btcec.S256(), rand.Reader)
+	signer, err := signature.NewECDSASecp256k1Signer()
 	require.NoError(t, err)
 
 	sigSuite := ecdsasecp256k1signature2019.New(
-		suite.WithSigner(getEcdsaSecp256k1RS256TestSigner(privateKey)),
+		suite.WithSigner(signer),
 		// TODO use suite.NewCryptoVerifier(createLocalCrypto()) verifier as soon as
 		//  tinkcrypto will support secp256k1 (https://github.com/hyperledger/aries-framework-go/issues/1285)
 		suite.WithVerifier(ecdsasecp256k1signature2019.NewPublicKeyVerifier()))
@@ -555,7 +553,7 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 	vcBytes, err := json.Marshal(vc)
 	r.NoError(err)
 
-	jwk, err := jose.JWKFromPublicKey(&privateKey.PublicKey)
+	jwk, err := jose.JWKFromPublicKey(signer.PublicKey)
 	require.NoError(t, err)
 
 	// JWK encoded public key
@@ -571,7 +569,7 @@ func TestParseCredentialFromLinkedDataProof_EcdsaSecp256k1Signature2019(t *testi
 	r.Equal(vc, vcWithLdp)
 
 	// Bytes encoded public key (can come in e.g. publicKeyHex field)
-	pubKeyBytes := elliptic.Marshal(privateKey.Curve, privateKey.X, privateKey.Y)
+	pubKeyBytes := elliptic.Marshal(signer.PublicKey.Curve, signer.PublicKey.X, signer.PublicKey.Y)
 	vcWithLdp, err = parseTestCredential(vcBytes,
 		WithEmbeddedSignatureSuites(sigSuite),
 		WithPublicKeyFetcher(func(issuerID, keyID string) (*sigverifier.PublicKey, error) {
@@ -886,12 +884,11 @@ func TestParseCredential_ProofCreatedWithMillisec(t *testing.T) {
 func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 	r := require.New(t)
 
-	ed25519PubKey, ed25519PrivKey, err := ed25519.GenerateKey(rand.Reader)
+	ed25519Signer, err := signature.NewEd25519Signer()
 	r.NoError(err)
-	r.NotNil(ed25519PubKey)
 
 	ed25519SigSuite := ed25519signature2018.New(
-		suite.WithSigner(getEd25519TestSigner(ed25519PrivKey)),
+		suite.WithSigner(ed25519Signer),
 		suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 
 	vc, err := parseTestCredential([]byte(validCredential))
@@ -905,11 +902,11 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 	}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))
 	r.NoError(err)
 
-	ecdsaPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	ecdsaSigner, err := signature.NewECDSAP256Signer()
 	require.NoError(t, err)
 
 	ecdsaSigSuite := jsonwebsignature2020.New(
-		suite.WithSigner(getEcdsaP256TestSigner(ecdsaPrivKey)),
+		suite.WithSigner(ecdsaSigner),
 		suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
 
 	err = vc.AddLinkedDataProof(&LinkedDataProofContext{
@@ -924,7 +921,7 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 	r.NoError(err)
 	r.NotEmpty(vcBytes)
 
-	jwk, err := jose.JWKFromPublicKey(&ecdsaPrivKey.PublicKey)
+	jwk, err := jose.JWKFromPublicKey(ecdsaSigner.PublicKey)
 	require.NoError(t, err)
 
 	vcWithLdp, err := parseTestCredential(vcBytes,
@@ -934,13 +931,13 @@ func TestParseCredentialWithSeveralLinkedDataProofs(t *testing.T) {
 			case "#key1":
 				return &sigverifier.PublicKey{
 					Type:  "Ed25519Signature2018",
-					Value: ed25519PubKey,
+					Value: ed25519Signer.PublicKey,
 				}, nil
 
 			case "#key2":
 				return &sigverifier.PublicKey{
 					Type:  "JwsVerificationKey2020",
-					Value: elliptic.Marshal(ecdsaPrivKey.Curve, ecdsaPrivKey.X, ecdsaPrivKey.Y),
+					Value: elliptic.Marshal(ecdsaSigner.PublicKey.Curve, ecdsaSigner.PublicKey.X, ecdsaSigner.PublicKey.Y),
 					JWK:   jwk,
 				}, nil
 			}
@@ -1034,7 +1031,7 @@ func createKMS() *localkms.LocalKMS {
 func TestCredential_AddLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
+	signer, err := signature.NewEd25519Signer()
 	r.NoError(err)
 
 	t.Run("Add a valid JWS Linked Data proof to VC", func(t *testing.T) {
@@ -1047,7 +1044,7 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 			SignatureType:           "Ed25519Signature2018",
 			SignatureRepresentation: SignatureJWS,
-			Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
+			Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
 			VerificationMethod:      "did:example:xyz#key-1",
 			Challenge:               uuid.New().String(),
 			Domain:                  "issuer.service.com",
@@ -1087,13 +1084,13 @@ func TestCredential_AddLinkedDataProof(t *testing.T) {
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 			SignatureType:           "Ed25519Signature2018",
 			SignatureRepresentation: SignatureProofValue,
-			Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
+			Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
 		})
 		r.Error(err)
 
 		vc.CustomFields = nil
 		ldpContextWithMissingSignatureType := &LinkedDataProofContext{
-			Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
+			Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
 			SignatureRepresentation: SignatureProofValue,
 		}
 

@@ -6,8 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"testing"
 
@@ -16,16 +14,17 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	signer, err := signature.NewEd25519Signer()
 	r.NoError(err)
 
-	ss := ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey)))
+	ss := ed25519signature2018.New(suite.WithSigner(signer))
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
@@ -44,7 +43,7 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 
 	vcWithLdp, err := newTestPresentation(vcBytes,
 		WithPresEmbeddedSignatureSuites(ss),
-		WithPresPublicKeyFetcher(SingleKey(pubKey, kms.ED25519)))
+		WithPresPublicKeyFetcher(SingleKey(signer.PublicKey, kms.ED25519)))
 	r.NoError(err)
 
 	r.NoError(err)
@@ -54,13 +53,13 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 func TestPresentation_AddLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
+	signer, err := signature.NewEd25519Signer()
 	r.NoError(err)
 
 	ldpContext := &LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		SignatureRepresentation: SignatureProofValue,
-		Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
+		Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
 	}
 
 	t.Run("Add a valid Linked Data proof to VC", func(t *testing.T) {

@@ -23,8 +23,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 )
 
-//go:generate testdata/scripts/openssl_env.sh testdata/scripts/generate_test_keys.sh
-
 var logger = log.New("aries-framework/doc/verifiable")
 
 const defaultSchema = `{

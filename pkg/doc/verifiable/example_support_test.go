@@ -7,12 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable_test
 
 import (
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -50,64 +45,6 @@ func (udc *UniversityDegreeCredential) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(&cp)
-}
-
-func getEd25519Signer(privKey []byte) *ed25519Signer {
-	return &ed25519Signer{privateKey: privKey}
-}
-
-type ed25519Signer struct {
-	privateKey []byte
-}
-
-func (s *ed25519Signer) Sign(doc []byte) ([]byte, error) {
-	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
-		return nil, errors.New("ed25519: bad private key length")
-	}
-
-	return ed25519.Sign(s.privateKey, doc), nil
-}
-
-func getECDSASecp256k1Signer(privKey *ecdsa.PrivateKey) *ecdsaSecp256k1Signer {
-	return &ecdsaSecp256k1Signer{
-		privKey: privKey,
-	}
-}
-
-type ecdsaSecp256k1Signer struct {
-	privKey *ecdsa.PrivateKey
-}
-
-func (es *ecdsaSecp256k1Signer) Sign(payload []byte) ([]byte, error) {
-	hasher := crypto.SHA256.New()
-
-	_, err := hasher.Write(payload)
-	if err != nil {
-		panic(err)
-	}
-
-	hashed := hasher.Sum(nil)
-
-	r, s, err := ecdsa.Sign(rand.Reader, es.privKey, hashed)
-	if err != nil {
-		panic(err)
-	}
-
-	curveBits := es.privKey.Curve.Params().BitSize
-
-	keyBytes := curveBits / 8
-	if curveBits%8 > 0 {
-		keyBytes++
-	}
-
-	copyPadded := func(source []byte, size int) []byte {
-		dest := make([]byte, size)
-		copy(dest[size-len(source):], source)
-
-		return dest
-	}
-
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
 }
 
 func getJSONLDDocumentLoader() *ld.CachingDocumentLoader {
