@@ -7,11 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package issuecredential
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -19,16 +17,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
-	issuecredentialMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/issuecredential"
-	vdriMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdri"
-	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	storeVerifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 func notTransition(t *testing.T, st state) {
@@ -600,202 +589,14 @@ func TestCredentialReceived_CanTransitionTo(t *testing.T) {
 }
 
 func TestCredentialReceived_ExecuteInbound(t *testing.T) {
-	t.Run("Credentials not provided", func(t *testing.T) {
-		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{})
-		require.EqualError(t, err, "credentials were not provided")
-		require.Nil(t, followup)
-		require.Nil(t, action)
-	})
-
-	t.Run("Decode error", func(t *testing.T) {
-		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{
-			transitionalPayload: transitionalPayload{
-				Msg: service.DIDCommMsgMap{"@type": map[int]int{}},
-			},
-		})
-
-		require.Contains(t, fmt.Sprintf("%v", err), "got unconvertible type")
-		require.Nil(t, followup)
-		require.Nil(t, action)
-	})
-
-	t.Run("Marshal credentials error", func(t *testing.T) {
-		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{
-			transitionalPayload: transitionalPayload{
-				Msg: service.NewDIDCommMsgMap(IssueCredential{
-					Type: IssueCredentialMsgType,
-					CredentialsAttach: []decorator.Attachment{
-						{Data: decorator.AttachmentData{JSON: struct{ C chan int }{}}},
-					},
-				}),
-			},
-		})
-
-		require.Contains(t, fmt.Sprintf("%v", err), "json: unsupported type")
-		require.Nil(t, followup)
-		require.Nil(t, action)
-	})
-
-	t.Run("Invalid credentials", func(t *testing.T) {
-		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{
-			transitionalPayload: transitionalPayload{
-				Msg: service.NewDIDCommMsgMap(IssueCredential{
-					Type: IssueCredentialMsgType,
-					CredentialsAttach: []decorator.Attachment{
-						{Data: decorator.AttachmentData{JSON: &verifiable.Credential{
-							Context: []string{"https://www.w3.org/2018/credentials/v1"},
-						}}},
-					},
-				}),
-			},
-		})
-
-		require.Contains(t, fmt.Sprintf("%v", err), "to verifiable credentials")
-		require.Nil(t, followup)
-		require.Nil(t, action)
-	})
-
-	t.Run("Success", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-
-		storeProvider := storageMocks.NewMockProvider(ctrl)
-		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
-
-		provider := issuecredentialMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storeProvider)
-
-		var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
-		vStore, err := storeVerifiable.New(provider)
-		require.NoError(t, err)
-
-		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{
-			verifiable: vStore,
-			transitionalPayload: transitionalPayload{
-				Msg: service.NewDIDCommMsgMap(IssueCredential{
-					Type: IssueCredentialMsgType,
-					CredentialsAttach: []decorator.Attachment{
-						{Data: decorator.AttachmentData{JSON: &verifiable.Credential{
-							Context: []string{
-								"https://www.w3.org/2018/credentials/v1",
-								"https://www.w3.org/2018/credentials/examples/v1"},
-							ID: "http://example.edu/credentials/1872",
-							Types: []string{
-								"VerifiableCredential",
-								"UniversityDegreeCredential"},
-							Subject: struct {
-								ID string
-							}{ID: "SubjectID"},
-							Issuer: verifiable.Issuer{
-								ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
-								CustomFields: verifiable.CustomFields{"name": "Example University"},
-							},
-							Issued:  util.NewTime(issued),
-							Schemas: []verifiable.TypedID{},
-							CustomFields: map[string]interface{}{
-								"referenceNumber": 83294847,
-							},
-						}}},
-					},
-				}),
-			},
-		})
-
+	t.Run("Successes", func(t *testing.T) {
+		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{issueCredential: &IssueCredential{}})
 		require.NoError(t, err)
 		require.Equal(t, &done{}, followup)
 		require.NotNil(t, action)
 
-		messenger := serviceMocks.NewMockMessenger(ctrl)
-		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
-
-		require.NoError(t, action(messenger))
-	})
-
-	t.Run("Success (credential with a proof)", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-
-		storeProvider := storageMocks.NewMockProvider(ctrl)
-		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
-
-		provider := issuecredentialMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storeProvider)
-
-		vStore, err := storeVerifiable.New(provider)
-		require.NoError(t, err)
-
-		var credential map[string]interface{}
-		// nolint: lll
-		require.NoError(t, json.Unmarshal([]byte(`{
-				"@context": [
-					"https://www.w3.org/2018/credentials/v1",
-					"https://www.w3.org/2018/credentials/examples/v1"
-				],
-				"credentialSubject": {
-					"degree": {
-						"type": "BachelorDegree",
-						"university": "MIT"
-					},
-					"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-					"name": "Jayden Doe",
-					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-				},
-				"expirationDate": "2020-01-01T19:23:24Z",
-				"id": "http://example.edu/credentials/1872",
-				"issuanceDate": "2009-01-01T19:23:24Z",
-				"issuer": {
-					"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-					"name": "Example University"
-				},
-				"proof": {
-					"created": "2010-01-01T19:23:24Z",
-					"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..lrkhpRH4tWl6KzQKHlcyAwSm8qUTXIMSKmD3QASF_uI5QW8NWLxLebXmnQpIM8H7umhLA6dINSYVowcaPdpwBw",
-					"proofPurpose": "assertionMethod",
-					"type": "Ed25519Signature2018",
-					"verificationMethod": "did:example:123456#key1"
-				},
-				"referenceNumber": 83294849,
-				"type": [
-					"VerifiableCredential",
-					"UniversityDegreeCredential"
-				]
-			}`), &credential))
-
-		registry := vdriMocks.NewMockRegistry(ctrl)
-		registry.EXPECT().Resolve("did:example:123456").Return(&did.Doc{
-			PublicKey: []did.PublicKey{{
-				ID: "#key1",
-				Value: []byte{
-					234, 100, 192, 93, 251, 181, 198, 73, 122, 220, 27, 48, 93, 73, 166,
-					33, 152, 140, 168, 36, 9, 205, 59, 161, 137, 7, 164, 9, 176, 252, 1, 171,
-				},
-			}},
-		}, nil)
-
-		followup, action, err := (&credentialReceived{}).ExecuteInbound(&metaData{
-			verifiable:   vStore,
-			registryVDRI: registry,
-			transitionalPayload: transitionalPayload{
-				Msg: service.NewDIDCommMsgMap(IssueCredential{
-					Type: IssueCredentialMsgType,
-					CredentialsAttach: []decorator.Attachment{
-						{Data: decorator.AttachmentData{JSON: credential}},
-					},
-				}),
-			},
-		})
-
-		require.NoError(t, err)
-		require.Equal(t, &done{}, followup)
-		require.NotNil(t, action)
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
