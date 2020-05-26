@@ -20,23 +20,18 @@ type ProposeCredential struct {
 	// CredentialProposal is an optional JSON-LD object that represents
 	// the credential data that the Prover wants to receive.
 	CredentialProposal PreviewCredential `json:"credential_proposal,omitempty"`
-	// SchemaIssuerDid is an optional filter to request credential based on a particular Schema issuer DID.
-	SchemaIssuerDid string `json:"schema_issuer_did,omitempty"`
-	// SchemaID is an optional filter to request credential based on a particular Schema.
-	// This might be helpful when requesting a version 1 passport instead of a version 2 passport, for example.
-	SchemaID string `json:"schema_id,omitempty"`
-	// SchemaName is an optional filter to request credential based on a schema name.
-	// This is useful to allow a more user-friendly experience of requesting a credential by schema name.
-	SchemaName string `json:"schema_name,omitempty"`
-	// SchemaVersion is an optional filter to request credential based on a schema version.
-	// This is useful to allow a more user-friendly experience of requesting a credential by schema name and version.
-	SchemaVersion string `json:"schema_version,omitempty"`
-	// CredDefID is an optional filter to request credential based on a particular Credential Definition.
-	// This might be helpful when requesting a commercial driver's license instead of
-	// an ordinary driver's license, for example.
-	CredDefID string `json:"cred_def_id,omitempty"`
-	// IssuerDid is an optional filter to request a credential issued by the owner of a particular DID.
-	IssuerDid string `json:"issuer_did,omitempty"`
+	// Formats contains an entry for each filter~attach array entry, providing the the value of the attachment @id
+	// and the verifiable credential format and version of the attachment.
+	Formats []Format `json:"formats,omitempty"`
+	// FilterAttach is an array of attachments that further define the credential being proposed.
+	// This might be used to clarify which formats or format versions are wanted.
+	FilterAttach []decorator.Attachment `json:"filter~attach,omitempty"`
+}
+
+// Format contains the the value of the attachment @id and the verifiable credential format of the attachment.
+type Format struct {
+	AttachID string `json:"attach_id,omitempty"`
+	Format   string `json:"format,omitempty"`
 }
 
 // OfferCredential is a message sent by the Issuer to the potential Holder,
@@ -50,6 +45,9 @@ type OfferCredential struct {
 	Comment string `json:"comment,omitempty"`
 	// CredentialPreview is a JSON-LD object that represents the credential data that Issuer is willing to issue.
 	CredentialPreview PreviewCredential `json:"credential_preview,omitempty"`
+	// Formats contains an entry for each offers~attach array entry, providing the the value
+	// of the attachment @id and the verifiable credential format and version of the attachment.
+	Formats []Format `json:"formats,omitempty"`
 	// OffersAttach is a slice of attachments that further define the credential being offered.
 	// This might be used to clarify which formats or format versions will be issued.
 	OffersAttach []decorator.Attachment `json:"offers~attach,omitempty"`
@@ -67,6 +65,9 @@ type RequestCredential struct {
 	// so the offer can be evaluated by human judgment.
 	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300]
 	Comment string `json:"comment,omitempty"`
+	// Formats contains an entry for each requests~attach array entry, providing the the value
+	// of the attachment @id and the verifiable credential format and version of the attachment.
+	Formats []Format `json:"formats,omitempty"`
 	// RequestsAttach is a slice of attachments defining the requested formats for the credential
 	RequestsAttach []decorator.Attachment `json:"requests~attach,omitempty"`
 }
@@ -80,6 +81,9 @@ type IssueCredential struct {
 	// so the offer can be evaluated by human judgment.
 	// TODO: Should follow DIDComm conventions for l10n. [Issue #1300]
 	Comment string `json:"comment,omitempty"`
+	// Formats contains an entry for each credentials~attach array entry, providing the the value
+	// of the attachment @id and the verifiable credential format and version of the attachment.
+	Formats []Format `json:"formats,omitempty"`
 	// CredentialsAttach is a slice of attachments containing the issued credentials.
 	CredentialsAttach []decorator.Attachment `json:"credentials~attach,omitempty"`
 }
