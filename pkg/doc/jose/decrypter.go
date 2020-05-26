@@ -129,6 +129,7 @@ func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*subtle.RecipientWrappe
 	}
 
 	return &subtle.RecipientWrappedKey{
+		KID: jwk.KeyID,
 		EPK: epk,
 	}, nil
 }

@@ -74,7 +74,11 @@ func New(masterKeyURI string, p kms.Provider) (*LocalKMS, error) {
 		nil
 }
 
-// Create a new key/keyset for key type kt, store it and return its stored ID and key handle
+// Create a new key/keyset/key handle for the type kt
+// Returns:
+//  - keyID of the handle
+//  - handle instance (to private key)
+//  - error if failure
 func (l *LocalKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 	if kt == "" {
 		return "", nil, fmt.Errorf("failed to create new key, missing key type")
@@ -99,11 +103,20 @@ func (l *LocalKMS) Create(kt kms.KeyType) (string, interface{}, error) {
 }
 
 // Get key handle for the given keyID
+// Returns:
+//  - handle instance (to private key)
+//  - error if failure
 func (l *LocalKMS) Get(keyID string) (interface{}, error) {
 	return l.getKeySet(keyID)
 }
 
-// Rotate a key referenced by keyID and return its updated handle
+// Rotate a key referenced by keyID and return a new handle of a keyset including old key and
+// new key with type kt. It also returns the updated keyID as the first return value
+// Returns:
+//  - new KeyID // TODO remove this return from Rotate() - #1837
+//  - handle instance (to private key)
+//  - error if failure
+// TODO remove new keyID creation from Rotate(), it should re use the same keyID - #1837
 func (l *LocalKMS) Rotate(kt kms.KeyType, keyID string) (string, interface{}, error) {
 	kh, err := l.getKeySet(keyID)
 	if err != nil {
@@ -207,7 +220,7 @@ func (l *LocalKMS) storeKeySet(kh *keyset.Handle) (string, error) {
 	return writeToStore(l.store, buf)
 }
 
-func writeToStore(store storage.Store, buf *bytes.Buffer, opts ...PrivateKeyOpts) (string, error) {
+func writeToStore(store storage.Store, buf *bytes.Buffer, opts ...kms.PrivateKeyOpts) (string, error) {
 	w := newWriter(store, opts...)
 
 	// write buffer to localstorage
@@ -233,10 +246,11 @@ func (l *LocalKMS) getKeySet(id string) (*keyset.Handle, error) {
 	return kh, nil
 }
 
-// ExportPubKeyBytes will fetch a key referenced by id then gets its public key in raw bytes
-// and returns it.
-// The key must be an asymmetric key
-// it returns an error if it fails to export the public key bytes
+// ExportPubKeyBytes will fetch a key referenced by id then gets its public key in raw bytes and returns it.
+// The key must be an asymmetric key.
+// Returns:
+//  - marshalled public key []byte
+//  - error if it fails to export the public key bytes
 func (l *LocalKMS) ExportPubKeyBytes(id string) ([]byte, error) {
 	kh, err := l.getKeySet(id)
 	if err != nil {
@@ -264,20 +278,22 @@ func (l *LocalKMS) ExportPubKeyBytes(id string) ([]byte, error) {
 // it returns an error if it failed creating the key handle
 // Note: The key handle created is not stored in the KMS, it's only useful to execute the crypto primitive
 // associated with it.
-func (l *LocalKMS) PubKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (*keyset.Handle, error) {
+func (l *LocalKMS) PubKeyBytesToHandle(pubKey []byte, kt kms.KeyType) (interface{}, error) {
 	return publicKeyBytesToHandle(pubKey, kt)
 }
 
-// ImportPrivateKey will import privKey into the KMS storage for the given keyType then returns the new key id and the
-// newly stored keyset.Handle
-// privKey possible types are: *ecdsa.PrivateKey and ed25519.PrivateKey
-// kt possible types are signing key types only (ECDSA keys or Ed25519)
-// opts allows setting the keysetID of the imported key using WithKeyID() option. If the ID is already used,
+// ImportPrivateKey will import privKey into the KMS storage for the given keyType then returns the new key id and
+// the newly persisted Handle.
+// 'privKey' possible types are: *ecdsa.PrivateKey and ed25519.PrivateKey
+// 'keyType' possible types are signing key types only (ECDSA keys or Ed25519)
+// 'opts' allows setting the keysetID of the imported key using WithKeyID() option. If the ID is already used,
 // then an error is returned.
-//
-// It returns an error if importing the key fails (key empty, invalid, doesn't match keyType or storing key failed)
+// Returns:
+//  - keyID of the handle
+//  - handle instance (to private key)
+//  - error if import failure (key empty, invalid, doesn't match keyType, unsupported keyType or storing key failed)
 func (l *LocalKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
-	opts ...PrivateKeyOpts) (string, *keyset.Handle, error) {
+	opts ...kms.PrivateKeyOpts) (string, interface{}, error) {
 	switch pk := privKey.(type) {
 	case *ecdsa.PrivateKey:
 		return l.importECDSAKey(pk, kt, opts...)
@@ -285,20 +301,5 @@ func (l *LocalKMS) ImportPrivateKey(privKey interface{}, kt kms.KeyType,
 		return l.importEd25519Key(pk, kt, opts...)
 	default:
 		return "", nil, fmt.Errorf("import private key does not support this key type or key is public")
-	}
-}
-
-// privateKeyOpts holds options for ImportPrivateKey.
-type privateKeyOpts struct {
-	ksID string
-}
-
-// PrivateKeyOpts are the import private key option.
-type PrivateKeyOpts func(opts *privateKeyOpts)
-
-// WithKeyID option is for importing a private key with a specified KeyID.
-func WithKeyID(keyID string) PrivateKeyOpts {
-	return func(opts *privateKeyOpts) {
-		opts.ksID = keyID
 	}
 }

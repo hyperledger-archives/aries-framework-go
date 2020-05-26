@@ -28,7 +28,7 @@ const (
 )
 
 func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
-	opts ...PrivateKeyOpts) (string, *keyset.Handle, error) {
+	opts ...kms.PrivateKeyOpts) (string, *keyset.Handle, error) {
 	var params *ecdsapb.EcdsaParams
 
 	err := validECPrivateKey(privKey)
@@ -87,7 +87,7 @@ func (l *LocalKMS) importECDSAKey(privKey *ecdsa.PrivateKey, kt kms.KeyType,
 	return l.importKeySet(ks, opts...)
 }
 
-func (l *LocalKMS) importKeySet(ks *tinkpb.Keyset, opts ...PrivateKeyOpts) (string, *keyset.Handle, error) {
+func (l *LocalKMS) importKeySet(ks *tinkpb.Keyset, opts ...kms.PrivateKeyOpts) (string, *keyset.Handle, error) {
 	ksID, err := l.writeImportedKey(ks, opts...)
 	if err != nil {
 		return "", nil, fmt.Errorf("import private EC key failed: %w", err)
@@ -107,7 +107,7 @@ func getMarshalledECDSAPrivateKey(privKey *ecdsa.PrivateKey, params *ecdsapb.Ecd
 }
 
 func (l *LocalKMS) importEd25519Key(privKey ed25519.PrivateKey, kt kms.KeyType,
-	opts ...PrivateKeyOpts) (string, *keyset.Handle, error) {
+	opts ...kms.PrivateKeyOpts) (string, *keyset.Handle, error) {
 	if privKey == nil {
 		return "", nil, fmt.Errorf("import private ED25519 key failed: private key is nil")
 	}
@@ -178,7 +178,7 @@ func newProtoEd25519PrivateKey(privateKey ed25519.PrivateKey) (*ed25519pb.Ed2551
 	}, nil
 }
 
-func (l *LocalKMS) writeImportedKey(ks *tinkpb.Keyset, opts ...PrivateKeyOpts) (string, error) {
+func (l *LocalKMS) writeImportedKey(ks *tinkpb.Keyset, opts ...kms.PrivateKeyOpts) (string, error) {
 	serializedKeyset, err := proto.Marshal(ks)
 	if err != nil {
 		return "", fmt.Errorf("invalid keyset data")

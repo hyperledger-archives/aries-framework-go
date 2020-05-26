@@ -32,6 +32,8 @@ type ConnectionStore struct {
 
 type didRecord struct {
 	DID string `json:"did,omitempty"`
+	// TODO add type below to distinguish Legacy vs new Packer
+	// envelopeType string
 }
 
 type connectionProvider interface {

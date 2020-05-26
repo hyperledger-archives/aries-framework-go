@@ -13,8 +13,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/google/tink/go/keyset"
-
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
@@ -22,7 +20,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 )
 
 var logger = log.New("aries-framework/command/kms")
@@ -64,7 +61,7 @@ type Command struct {
 	ctx               provider
 	exportPubKeyBytes func(id string) ([]byte, error) // needed for unit test
 	importKey         func(privKey interface{}, kt kms.KeyType,
-		opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) // needed for unit test
+		opts ...kms.PrivateKeyOpts) (string, interface{}, error) // needed for unit test
 }
 
 // New returns new kms command instance.
@@ -72,21 +69,11 @@ func New(p provider) *Command {
 	return &Command{
 		ctx: p,
 		exportPubKeyBytes: func(id string) ([]byte, error) {
-			k, ok := p.KMS().(*localkms.LocalKMS)
-			if !ok {
-				return nil, fmt.Errorf("kms is not LocalKMS type")
-			}
-
-			return k.ExportPubKeyBytes(id)
+			return p.KMS().ExportPubKeyBytes(id)
 		},
 		importKey: func(privKey interface{}, kt kms.KeyType,
-			opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
-			k, ok := p.KMS().(*localkms.LocalKMS)
-			if !ok {
-				return "", nil, fmt.Errorf("kms is not LocalKMS type")
-			}
-
-			return k.ImportPrivateKey(privKey, kt, opts...)
+			opts ...kms.PrivateKeyOpts) (string, interface{}, error) {
+			return p.KMS().ImportPrivateKey(privKey, kt, opts...)
 		},
 	}
 }
@@ -188,8 +175,7 @@ func (o *Command) ImportKey(rw io.Writer, req io.Reader) command.Error {
 			fmt.Errorf("import key type not supported %s", jwk.Crv))
 	}
 
-	_, _, err = o.importKey(jwk.Key, kType,
-		localkms.WithKeyID(jwk.KeyID))
+	_, _, err = o.importKey(jwk.Key, kType, kms.WithKeyID(jwk.KeyID))
 	if err != nil {
 		logutil.LogError(logger, commandName, importKeyCommandMethod, err.Error())
 		return command.NewExecuteError(ImportKeyError, err)

@@ -8,13 +8,22 @@ package packer
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 )
 
-// Provider interface for Packer ctx
-type Provider interface {
+// LegacyProvider interface for Packer ctx
+type LegacyProvider interface {
 	LegacyKMS() legacykms.KeyManager
 }
+
+// Provider interface for Packer ctx
+type Provider interface {
+	KMS() kms.KeyManager
+}
+
+// LegacyCreator method to create new legacy Packer service
+type LegacyCreator func(prov LegacyProvider) (Packer, error)
 
 // Creator method to create new Packer service
 type Creator func(prov Provider) (Packer, error)
@@ -30,7 +39,7 @@ type Packer interface {
 	// TODO add key type of recipients and sender keys to be validated by the implementation - Issue #272
 	Pack(payload []byte, senderKey []byte, recipients [][]byte) ([]byte, error)
 	// Unpack an envelope in an Aries compliant format.
-	// 		The recipient's key will be the one found in LegacyKMS that matches one of the list of recipients in the envelope
+	// 		The recipient's key will be the one found in KMS that matches one of the list of recipients in the envelope
 	//
 	// returns:
 	// 		Envelope containing the message, decryption key, and sender key

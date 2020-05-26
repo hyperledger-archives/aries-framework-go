@@ -189,7 +189,7 @@ func TestValidECPrivateKey(t *testing.T) {
 func createKMS(t *testing.T) *LocalKMS {
 	t.Helper()
 
-	p := mockkms.NewProvider(mockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	p := mockkms.NewProviderForKMS(mockstorage.NewMockStoreProvider(), &noop.NoLock{})
 
 	k, err := New(testMasterKeyURI, p)
 	require.NoError(t, err)

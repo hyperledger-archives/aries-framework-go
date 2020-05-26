@@ -17,14 +17,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/tink/go/keyset"
 	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	ariesjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 )
@@ -42,24 +40,22 @@ func TestNew(t *testing.T) {
 
 	t.Run("test new command - error from export public key", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{
-			KMSValue: &mockkms.KeyManager{},
+			KMSValue: &mockkms.KeyManager{ExportPubKeyBytesErr: fmt.Errorf("error export pub key")},
 		})
 		require.NotNil(t, cmd)
 
 		_, err := cmd.exportPubKeyBytes("id")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "kms is not LocalKMS type")
+		require.EqualError(t, err, "error export pub key")
 	})
 
 	t.Run("test new command - error from import key", func(t *testing.T) {
 		cmd := New(&mockprovider.Provider{
-			KMSValue: &mockkms.KeyManager{},
+			KMSValue: &mockkms.KeyManager{ImportPrivateKeyErr: fmt.Errorf("error import priv key")},
 		})
 		require.NotNil(t, cmd)
 
 		_, _, err := cmd.importKey("", "")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "kms is not LocalKMS type")
+		require.EqualError(t, err, "error import priv key")
 	})
 }
 
@@ -194,7 +190,7 @@ func TestImportKey(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		cmd.importKey = func(privKey interface{}, kt kms.KeyType,
-			opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+			opts ...kms.PrivateKeyOpts) (string, interface{}, error) {
 			return "", nil, nil
 		}
 
@@ -222,7 +218,7 @@ func TestImportKey(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		cmd.importKey = func(privKey interface{}, kt kms.KeyType,
-			opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+			opts ...kms.PrivateKeyOpts) (string, interface{}, error) {
 			return "", nil, fmt.Errorf("failed to import key")
 		}
 
@@ -251,7 +247,7 @@ func TestImportKey(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		cmd.importKey = func(privKey interface{}, kt kms.KeyType,
-			opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+			opts ...kms.PrivateKeyOpts) (string, interface{}, error) {
 			return "", nil, nil
 		}
 
@@ -280,7 +276,7 @@ func TestImportKey(t *testing.T) {
 		require.NotNil(t, cmd)
 
 		cmd.importKey = func(privKey interface{}, kt kms.KeyType,
-			opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+			opts ...kms.PrivateKeyOpts) (string, interface{}, error) {
 			return "", nil, nil
 		}
 

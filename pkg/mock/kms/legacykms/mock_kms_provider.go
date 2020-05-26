@@ -56,7 +56,7 @@ type mockProvider struct {
 	storage *mockstorage.MockStoreProvider
 }
 
-// StorageProvider() returns the mock storage provider of this mock LegacyKMS provider
+// StorageProvider returns the mock storage provider of this mock LegacyKMS provider
 func (m *mockProvider) StorageProvider() storage.Provider {
 	return m.storage
 }

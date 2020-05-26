@@ -56,6 +56,7 @@ func createECDHESPublicKeys(recRawPublicKeys []subtle.PublicKey) ([]*ecdhespb.Ec
 
 		rKey := &ecdhespb.EcdhesAeadRecipientPublicKey{
 			Version:   0,
+			KID:       key.KID,
 			CurveType: curveType,
 			X:         key.X,
 			Y:         key.Y,

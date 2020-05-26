@@ -62,6 +62,7 @@ func (s *ECDHESConcatKDFSenderKW) wrapKey(kwAlg string, keySize int) (*Recipient
 	}
 
 	return &RecipientWrappedKey{
+		KID:          s.recipientPublicKey.KID,
 		EncryptedCEK: wk,
 		EPK: PublicKey{
 			X:     ephemeralPriv.PublicKey.X.Bytes(),

@@ -139,15 +139,15 @@ func setAdditionalDefaultOpts(frameworkOpts *Aries) error {
 	}
 
 	if frameworkOpts.packerCreator == nil {
-		frameworkOpts.packerCreator = func(provider packer.Provider) (packer.Packer, error) {
+		frameworkOpts.packerCreator = func(provider packer.LegacyProvider) (packer.Packer, error) {
 			return legacy.New(provider), nil
 		}
 
-		frameworkOpts.packerCreators = []packer.Creator{
-			func(provider packer.Provider) (packer.Packer, error) {
+		frameworkOpts.packerCreators = []packer.LegacyCreator{
+			func(provider packer.LegacyProvider) (packer.Packer, error) {
 				return legacy.New(provider), nil
 			},
-			func(provider packer.Provider) (packer.Packer, error) {
+			func(provider packer.LegacyProvider) (packer.Packer, error) {
 				return jwe.New(provider, jwe.XC20P)
 			},
 		}

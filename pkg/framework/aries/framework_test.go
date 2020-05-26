@@ -107,7 +107,7 @@ func TestFramework(t *testing.T) {
 			WithLegacyKMS(func(ctx api.Provider) (api.CloseableKMS, error) {
 				return &mockkms.CloseableKMS{SignMessageValue: []byte("mockValue")}, nil
 			}),
-			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
+			WithLegacyPacker(func(ctx packer.LegacyProvider) (packer.Packer, error) {
 				return &didcomm.MockAuthCrypt{
 					EncryptValue: func(payload, senderPubKey []byte, recipients [][]byte) (bytes []byte, e error) {
 						return []byte("packed message"), nil
@@ -116,7 +116,7 @@ func TestFramework(t *testing.T) {
 					Type:         "",
 				}, nil
 			},
-				func(ctx packer.Provider) (packer.Packer, error) {
+				func(ctx packer.LegacyProvider) (packer.Packer, error) {
 					return &didcomm.MockAuthCrypt{
 						EncryptValue: nil,
 						Type:         "dummy format",
@@ -658,7 +658,7 @@ func Test_Packager(t *testing.T) {
 	t.Run("test error from packager svc - primary packer", func(t *testing.T) {
 		f, err := New(WithInboundTransport(&mockInboundTransport{}),
 			WithStoreProvider(storage.NewMockStoreProvider()),
-			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
+			WithLegacyPacker(func(ctx packer.LegacyProvider) (packer.Packer, error) {
 				return nil, fmt.Errorf("error from primary packer")
 			}))
 		require.Error(t, err)
@@ -669,10 +669,10 @@ func Test_Packager(t *testing.T) {
 	t.Run("test error from packager svc - fallback packer", func(t *testing.T) {
 		f, err := New(WithInboundTransport(&mockInboundTransport{}),
 			WithStoreProvider(storage.NewMockStoreProvider()),
-			WithPacker(func(ctx packer.Provider) (packer.Packer, error) {
+			WithLegacyPacker(func(ctx packer.LegacyProvider) (packer.Packer, error) {
 				return nil, nil
 			},
-				func(ctx packer.Provider) (packer.Packer, error) {
+				func(ctx packer.LegacyProvider) (packer.Packer, error) {
 					return nil, fmt.Errorf("error from fallback packer")
 				}))
 		require.Error(t, err)

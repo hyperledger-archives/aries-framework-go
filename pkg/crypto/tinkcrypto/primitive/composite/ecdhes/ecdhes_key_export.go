@@ -97,6 +97,7 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 		}
 
 		pubKey := ecdhessubtle.PublicKey{
+			KID:   pubKeyProto.KID,
 			Type:  keyTypeName,
 			Curve: curveName,
 			X:     pubKeyProto.X,

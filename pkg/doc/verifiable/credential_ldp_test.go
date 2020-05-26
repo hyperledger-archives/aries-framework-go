@@ -1021,7 +1021,7 @@ func mapJWKToKMSKeyType(jwk *jose.JWK) (kms.KeyType, error) {
 }
 
 func createKMS() *localkms.LocalKMS {
-	p := mockkms.NewProvider(storage.NewMockStoreProvider(), &noop.NoLock{})
+	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
 
 	k, err := localkms.New("local-lock://custom/master/key/", p)
 	if err != nil {

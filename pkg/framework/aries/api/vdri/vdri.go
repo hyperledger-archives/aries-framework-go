@@ -136,6 +136,7 @@ func WithRequestBuilder(builder func(payload []byte) (io.Reader, error)) DocOpts
 
 // PubKey contains public key type and value
 type PubKey struct {
+	ID    string
 	Value string // base58 encoded
 	Type  string
 }

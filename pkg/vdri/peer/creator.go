@@ -34,7 +34,7 @@ func (v *VDRI) Build(pubKey *vdriapi.PubKey, opts ...vdriapi.DocOpts) (*did.Doc,
 
 func build(pubKey *vdriapi.PubKey, docOpts *vdriapi.CreateDIDOpts) (*did.Doc, error) {
 	publicKey := did.PublicKey{
-		ID:         pubKey.Value[0:7],
+		ID:         pubKey.ID,
 		Type:       pubKey.Type,
 		Controller: "#id",
 		// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
