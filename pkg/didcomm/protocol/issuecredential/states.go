@@ -7,15 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package issuecredential
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
 const (
@@ -384,57 +380,7 @@ func (s *credentialReceived) CanTransitionTo(st state) bool {
 	return st.Name() == stateNameDone || st.Name() == stateNameAbandoning
 }
 
-func toVerifiableCredentials(vReg vdri.Registry, attachments []decorator.Attachment) ([]*verifiable.Credential, error) {
-	var credentials []*verifiable.Credential
-
-	// TODO: Currently, it supports only JSON payload. We need to add support for links and base64 as well. [Issue 1455]
-	for i := range attachments {
-		rawVC, err := json.Marshal(attachments[i].Data.JSON)
-		if err != nil {
-			return nil, fmt.Errorf("marshal: %w", err)
-		}
-
-		vc, err := verifiable.ParseCredential(rawVC, verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(vReg).PublicKeyFetcher(),
-		))
-		if err != nil {
-			return nil, fmt.Errorf("new credential: %w", err)
-		}
-
-		credentials = append(credentials, vc)
-	}
-
-	return credentials, nil
-}
-
 func (s *credentialReceived) ExecuteInbound(md *metaData) (state, stateAction, error) {
-	var credential = IssueCredential{}
-
-	err := md.Msg.Decode(&credential)
-	if err != nil {
-		return nil, nil, fmt.Errorf("decode: %w", err)
-	}
-
-	credentials, err := toVerifiableCredentials(md.registryVDRI, credential.CredentialsAttach)
-	if err != nil {
-		return nil, nil, fmt.Errorf("to verifiable credentials: %w", err)
-	}
-
-	if len(credentials) == 0 {
-		return nil, nil, errors.New("credentials were not provided")
-	}
-
-	for i, credential := range credentials {
-		var name = credential.ID
-		if len(md.credentialNames) > i {
-			name = md.credentialNames[i]
-		}
-
-		if err := md.verifiable.SaveCredential(name, credential); err != nil {
-			return nil, nil, fmt.Errorf("save credential: %w", err)
-		}
-	}
-
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(model.Ack{
