@@ -7,15 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package presentproof
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 )
 
 const (
@@ -248,55 +244,7 @@ func (s *presentationReceived) CanTransitionTo(st state) bool {
 		st.Name() == stateNameDone
 }
 
-func toVerifiablePresentation(registry vdri.Registry, data []decorator.Attachment) ([]*verifiable.Presentation, error) {
-	var presentations []*verifiable.Presentation
-	// TODO: Currently, it supports only base64 payload. We need to add support for links and JSON as well. [Issue 1455]
-	for i := range data {
-		raw, err := base64.StdEncoding.DecodeString(data[i].Data.Base64)
-		if err != nil {
-			return nil, fmt.Errorf("decode string: %w", err)
-		}
-
-		presentation, err := verifiable.ParsePresentation(raw, verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(registry).PublicKeyFetcher(),
-		))
-
-		if err != nil {
-			return nil, fmt.Errorf("new presentation: %w", err)
-		}
-
-		presentations = append(presentations, presentation)
-	}
-
-	return presentations, nil
-}
-
 func (s *presentationReceived) Execute(md *metaData) (state, stateAction, error) {
-	var presentation = Presentation{}
-	if err := md.Msg.Decode(&presentation); err != nil {
-		return nil, nil, fmt.Errorf("decode: %w", err)
-	}
-
-	presentations, err := toVerifiablePresentation(md.registryVDRI, presentation.Presentations)
-	if err != nil {
-		return nil, nil, fmt.Errorf("to verifiable presentation: %w", err)
-	}
-
-	if len(presentations) == 0 {
-		return nil, nil, errors.New("presentations were not provided")
-	}
-
-	for i, presentation := range presentations {
-		var name = presentation.ID
-		if len(md.presentationNames) > i {
-			name = md.presentationNames[i]
-		}
-
-		if err := md.verifiable.SavePresentation(name, presentation); err != nil {
-			return nil, nil, fmt.Errorf("save presentation: %w", err)
-		}
-	}
-
 	// creates the state's action
 	action := func(messenger service.Messenger) error {
 		return messenger.ReplyTo(md.Msg.ID(), service.NewDIDCommMsgMap(model.Ack{

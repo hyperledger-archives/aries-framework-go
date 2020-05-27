@@ -19,8 +19,8 @@ import (
 
 const stateNameCredentialReceived = "credential-received"
 
-// MetaData is an alias to the original MetaData
-type MetaData issuecredential.MetaData
+// Metadata is an alias to the original Metadata
+type Metadata issuecredential.Metadata
 
 // Provider contains dependencies for the SaveCredentials middleware function
 type Provider interface {
@@ -34,7 +34,7 @@ func SaveCredentials(p Provider) issuecredential.Middleware {
 	store := p.VerifiableStore()
 
 	return func(next issuecredential.Handler) issuecredential.Handler {
-		return issuecredential.HandlerFunc(func(metadata issuecredential.MetaData) error {
+		return issuecredential.HandlerFunc(func(metadata issuecredential.Metadata) error {
 			if metadata.StateName() != stateNameCredentialReceived {
 				return next.Handle(metadata)
 			}

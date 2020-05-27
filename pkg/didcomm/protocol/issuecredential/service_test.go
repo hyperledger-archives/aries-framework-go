@@ -63,7 +63,7 @@ func TestService_Use(t *testing.T) {
 		}
 		var executed bool
 		svc.Use(func(next Handler) Handler {
-			return HandlerFunc(func(metadata MetaData) error {
+			return HandlerFunc(func(metadata Metadata) error {
 				require.Equal(t, meta.msgClone, metadata.Message())
 				require.Equal(t, metadata.Message().Type(), IssueCredentialMsgType)
 				require.Equal(t, meta.offerCredential, metadata.OfferCredential())
@@ -97,12 +97,12 @@ func TestService_Use(t *testing.T) {
 
 		var executed bool
 		svc.Use(func(next Handler) Handler {
-			return HandlerFunc(func(metadata MetaData) error {
+			return HandlerFunc(func(metadata Metadata) error {
 				executed = true
 				return next.Handle(metadata)
 			})
 		}, func(next Handler) Handler {
-			return HandlerFunc(func(metadata MetaData) error {
+			return HandlerFunc(func(metadata Metadata) error {
 				require.True(t, executed)
 				return next.Handle(metadata)
 			})
@@ -126,7 +126,7 @@ func TestService_Use(t *testing.T) {
 
 		const msgErr = "error message"
 		svc.Use(func(next Handler) Handler {
-			return HandlerFunc(func(metadata MetaData) error {
+			return HandlerFunc(func(metadata Metadata) error {
 				return errors.New(msgErr)
 			})
 		})

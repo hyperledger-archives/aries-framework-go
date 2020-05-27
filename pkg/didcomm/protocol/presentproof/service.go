@@ -15,9 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	storeverifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 const (
@@ -44,7 +42,13 @@ const (
 	transitionalPayloadKey = "transitionalPayload_%s"
 )
 
-var logger = log.New("aries-framework/presentproof/service")
+// nolint:gochecknoglobals
+var (
+	logger         = log.New("aries-framework/presentproof/service")
+	initialHandler = HandlerFunc(func(_ Metadata) error {
+		return nil
+	})
+)
 
 // customError is a wrapper to determine custom error against internal error
 type customError struct{ error }
@@ -68,12 +72,34 @@ type metaData struct {
 	presentation        *Presentation
 	proposePresentation *ProposePresentation
 	request             *RequestPresentation
-	registryVDRI        vdri.Registry
-	verifiable          storeverifiable.Store
 	// err is used to determine whether callback was stopped
 	// e.g the user received an action event and executes Stop(err) function
 	// in that case `err` is equal to `err` which was passing to Stop function
 	err error
+}
+
+func (md *metaData) Message() service.DIDCommMsg {
+	return md.msgClone
+}
+
+func (md *metaData) Presentation() *Presentation {
+	return md.presentation
+}
+
+func (md *metaData) ProposePresentation() *ProposePresentation {
+	return md.proposePresentation
+}
+
+func (md *metaData) RequestPresentation() *RequestPresentation {
+	return md.request
+}
+
+func (md *metaData) PresentationNames() []string {
+	return md.presentationNames
+}
+
+func (md *metaData) StateName() string {
+	return md.state.Name()
 }
 
 // Action contains helpful information about action
@@ -121,19 +147,16 @@ func WithFriendlyNames(names ...string) Opt {
 type Provider interface {
 	Messenger() service.Messenger
 	StorageProvider() storage.Provider
-	VDRIRegistry() vdri.Registry
-	VerifiableStore() storeverifiable.Store
 }
 
 // Service for the presentproof protocol
 type Service struct {
 	service.Action
 	service.Message
-	store        storage.Store
-	verifiable   storeverifiable.Store
-	callbacks    chan *metaData
-	messenger    service.Messenger
-	registryVDRI vdri.Registry
+	store      storage.Store
+	callbacks  chan *metaData
+	messenger  service.Messenger
+	middleware Handler
 }
 
 // New returns the presentproof service
@@ -143,23 +166,27 @@ func New(p Provider) (*Service, error) {
 		return nil, err
 	}
 
-	vStore := p.VerifiableStore()
-	if vStore == nil {
-		return nil, fmt.Errorf("verifiable store is nil")
-	}
-
 	svc := &Service{
-		messenger:    p.Messenger(),
-		registryVDRI: p.VDRIRegistry(),
-		store:        store,
-		verifiable:   vStore,
-		callbacks:    make(chan *metaData),
+		messenger:  p.Messenger(),
+		store:      store,
+		callbacks:  make(chan *metaData),
+		middleware: initialHandler,
 	}
 
 	// start the listener
 	go svc.startInternalListener()
 
 	return svc, nil
+}
+
+// Use allows providing middlewares
+func (s *Service) Use(items ...Middleware) {
+	var handler Handler = initialHandler
+	for i := len(items) - 1; i >= 0; i-- {
+		handler = items[i](handler)
+	}
+
+	s.middleware = handler
 }
 
 // HandleInbound handles inbound message (presentproof protocol)
@@ -251,10 +278,8 @@ func (s *Service) doHandle(msg service.DIDCommMsgMap) (*metaData, error) {
 			Msg:       msg,
 			PIID:      piID,
 		},
-		state:        next,
-		verifiable:   s.verifiable,
-		msgClone:     msg.Clone(),
-		registryVDRI: s.registryVDRI,
+		state:    next,
+		msgClone: msg.Clone(),
 	}, nil
 }
 
@@ -462,8 +487,6 @@ func (s *Service) ActionContinue(piID string, opt Opt) error {
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
-		registryVDRI:        s.registryVDRI,
-		verifiable:          s.verifiable,
 	}
 
 	if opt != nil {
@@ -490,7 +513,6 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		transitionalPayload: *tPayload,
 		state:               stateFromName(tPayload.StateName),
 		msgClone:            tPayload.Msg.Clone(),
-		registryVDRI:        s.registryVDRI,
 	}
 
 	if err := s.deleteTransitionalPayload(md.PIID); err != nil {
@@ -552,6 +574,10 @@ func (s *Service) execute(next state, md *metaData) (state, stateAction, error) 
 		Msg:          md.msgClone,
 		StateID:      next.Name(),
 	})
+
+	if err := s.middleware.Handle(md); err != nil {
+		return nil, nil, fmt.Errorf("middleware: %w", err)
+	}
 
 	return next.Execute(md)
 }
