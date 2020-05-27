@@ -391,30 +391,6 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			"null -> responded")
 	})
 
-	t.Run("handleInbound - threadID error", func(t *testing.T) {
-		svc, err := New(&protocol.MockProvider{
-			ServiceMap: map[string]interface{}{
-				mediator.Coordination: &mockroute.MockMediatorSvc{},
-			},
-		})
-		require.NoError(t, err)
-
-		err = svc.RegisterActionEvent(make(chan service.DIDCommAction))
-		require.NoError(t, err)
-
-		requestBytes, err := json.Marshal(&Request{
-			Type: RequestMsgType,
-		})
-		require.NoError(t, err)
-
-		didMsg, err := service.ParseDIDCommMsgMap(requestBytes)
-		require.NoError(t, err)
-
-		_, err = svc.HandleInbound(didMsg, "", "")
-		require.Error(t, err)
-		require.Equal(t, err.Error(), "threadID not found")
-	})
-
 	t.Run("handleInbound - connection record error", func(t *testing.T) {
 		transientStore := &mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")}
 		prov := &protocol.MockProvider{
@@ -494,22 +470,6 @@ func TestService_Accept(t *testing.T) {
 	require.Equal(t, true, s.Accept("https://didcomm.org/didexchange/1.0/response"))
 	require.Equal(t, true, s.Accept("https://didcomm.org/didexchange/1.0/ack"))
 	require.Equal(t, false, s.Accept("unsupported msg type"))
-}
-
-func TestService_threadID(t *testing.T) {
-	t.Run("returns new thid for ", func(t *testing.T) {
-		didMsg := service.NewDIDCommMsgMap(Invitation{Type: InvitationMsgType})
-		thid, err := threadID(didMsg)
-		require.NoError(t, err)
-		require.NotNil(t, thid)
-	})
-
-	t.Run("returns unmarshall error", func(t *testing.T) {
-		didMsg := service.NewDIDCommMsgMap(Request{Type: RequestMsgType})
-		_, err := threadID(didMsg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "threadID not found")
-	})
 }
 
 func TestService_CurrentState(t *testing.T) {

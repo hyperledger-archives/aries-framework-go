@@ -154,13 +154,11 @@ func (s *invited) CanTransitionTo(next state) bool {
 	return StateIDRequested == next.Name()
 }
 
-func (s *invited) ExecuteInbound(msg *stateMachineMsg, thid string, ctx *context) (*connectionstore.Record,
+func (s *invited) ExecuteInbound(msg *stateMachineMsg, _ string, _ *context) (*connectionstore.Record,
 	state, stateAction, error) {
 	if msg.Type() != InvitationMsgType && msg.Type() != oobMsgType {
 		return nil, nil, nil, fmt.Errorf("illegal msg type %s for state %s", msg.Type(), s.Name())
 	}
-
-	msg.connRecord.ThreadID = thid
 
 	return msg.connRecord, &requested{}, func() error { return nil }, nil
 }

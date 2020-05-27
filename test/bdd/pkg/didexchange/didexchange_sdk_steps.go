@@ -349,6 +349,28 @@ func (d *SDKSteps) performDIDExchange(inviter, invitee string) error {
 		}
 	}
 
+	return d.checkThread(invitee, inviter)
+}
+
+func (d *SDKSteps) checkThread(invitee, inviter string) error {
+	inviteeConn, err := d.bddContext.DIDExchangeClients[invitee].GetConnection(d.connectionID[invitee])
+	if err != nil {
+		return fmt.Errorf("failed to query connection by id: %w", err)
+	}
+
+	inviterConn, err := d.bddContext.DIDExchangeClients[inviter].GetConnection(d.connectionID[inviter])
+	if err != nil {
+		return fmt.Errorf("failed to query connection by id: %w", err)
+	}
+
+	if inviteeConn.ThreadID != inviterConn.ThreadID {
+		return errors.New("threadIDs are different")
+	}
+
+	if inviteeConn.ThreadID != d.invitations[inviter].ID {
+		return errors.New("threadID is not equal to the invitation ID")
+	}
+
 	return nil
 }
 
