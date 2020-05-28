@@ -25,8 +25,8 @@ const (
 	connIDKeyPrefix     = "conn"
 	connStateKeyPrefix  = "connstate"
 	invKeyPrefix        = "inv"
-	eventDataKeyprefix  = "connevent"
-	didConnMapKeyprefix = "didconn_%s,%s"
+	eventDataKeyPrefix  = "connevent"
+	didConnMapKeyPrefix = "didconn"
 	// limitPattern with `~` at the end for lte of given prefix (less than or equal)
 	limitPattern    = "%s" + storage.EndKeySuffix
 	keySeparator    = "_"
@@ -255,14 +255,14 @@ func getNamespaceKeyPrefix(prefix string) KeyPrefix {
 // getEventDataKeyPrefix key prefix for saving event data
 func getEventDataKeyPrefix() KeyPrefix {
 	return func(key ...string) string {
-		return fmt.Sprintf(keyPattern, eventDataKeyprefix, strings.Join(key, keySeparator))
+		return fmt.Sprintf(keyPattern, eventDataKeyPrefix, strings.Join(key, keySeparator))
 	}
 }
 
 // getDIDConnMapKeyPrefix key prefix for saving mapping between DID and ConnectionID
 func getDIDConnMapKeyPrefix() KeyPrefix {
 	return func(key ...string) string {
-		return fmt.Sprintf(keyPattern, didConnMapKeyprefix, strings.Join(key, keySeparator))
+		return fmt.Sprintf(keyPattern, didConnMapKeyPrefix, strings.Join(key, keySeparator))
 	}
 }
 
