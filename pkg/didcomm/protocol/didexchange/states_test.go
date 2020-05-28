@@ -299,7 +299,7 @@ func TestRequestedState_Execute(t *testing.T) {
 		msg, err := service.ParseDIDCommMsgMap(invitationPayloadBytes)
 		require.NoError(t, err)
 		// nolint: govet
-		thid, err := threadID(msg)
+		thid, err := msg.ThreadID()
 		require.NoError(t, err)
 		connRec, _, _, e := (&requested{}).ExecuteInbound(&stateMachineMsg{
 			DIDCommMsg: msg,
@@ -903,11 +903,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 	t.Run("successful new request from invitation", func(t *testing.T) {
 		prov := getProvider()
 		ctx := getContext(t, &prov)
-		invitationBytes, err := json.Marshal(invitation)
-		require.NoError(t, err)
-		thid, err := threadID(bytesToDIDCommMsg(t, invitationBytes))
-		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{}, &connection.Record{})
+		_, connRec, err := ctx.handleInboundInvitation(invitation, invitation.ID, &options{}, &connection.Record{})
 		require.NoError(t, err)
 		require.NotNil(t, connRec.MyDID)
 	})
@@ -918,12 +914,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 		ctx := context{
 			vdriRegistry:    &mockvdri.MockVDRIRegistry{ResolveValue: doc},
 			connectionStore: connectionStore}
-
-		invitationBytes, err := json.Marshal(invitation)
-		require.NoError(t, err)
-		thid, err := threadID(bytesToDIDCommMsg(t, invitationBytes))
-		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{publicDID: doc.ID},
+		_, connRec, err := ctx.handleInboundInvitation(invitation, invitation.ID, &options{publicDID: doc.ID},
 			&connection.Record{})
 		require.NoError(t, err)
 		require.NotNil(t, connRec.MyDID)
@@ -933,11 +924,7 @@ func TestNewRequestFromInvitation(t *testing.T) {
 		prov := protocol.MockProvider{}
 		ctx := &context{outboundDispatcher: prov.OutboundDispatcher(), routeSvc: &mockroute.MockMediatorSvc{},
 			vdriRegistry: &mockvdri.MockVDRIRegistry{CreateErr: fmt.Errorf("create DID error")}}
-		invitationBytes, err := json.Marshal(&Invitation{Type: InvitationMsgType})
-		require.NoError(t, err)
-		thid, err := threadID(bytesToDIDCommMsg(t, invitationBytes))
-		require.NoError(t, err)
-		_, connRec, err := ctx.handleInboundInvitation(invitation, thid, &options{}, &connection.Record{})
+		_, connRec, err := ctx.handleInboundInvitation(invitation, invitation.ID, &options{}, &connection.Record{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create DID error")
 		require.Nil(t, connRec)

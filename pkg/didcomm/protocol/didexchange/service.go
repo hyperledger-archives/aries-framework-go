@@ -143,7 +143,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, _, _ string) (string, er
 	logger.Debugf("receive inbound message : %s", msg)
 
 	// fetch the thread id
-	thID, err := threadID(msg)
+	thID, err := msg.ThreadID()
 	if err != nil {
 		return "", err
 	}
@@ -528,14 +528,6 @@ func (s *Service) processCallback(msg *message) {
 func isNoOp(s state) bool {
 	_, ok := s.(*noOp)
 	return ok
-}
-
-func threadID(didCommMsg service.DIDCommMsg) (string, error) {
-	if didCommMsg.Type() == InvitationMsgType || didCommMsg.Type() == oobMsgType {
-		return generateRandomID(), nil
-	}
-
-	return didCommMsg.ThreadID()
 }
 
 func (s *Service) currentState(nsThID string) (state, error) {
