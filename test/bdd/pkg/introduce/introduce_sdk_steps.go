@@ -19,18 +19,17 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/introduce"
-	routeClient "github.com/hyperledger/aries-framework-go/pkg/client/mediator"
+	"github.com/hyperledger/aries-framework-go/pkg/client/mediator"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	introduceService "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
+	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/test/bdd/agent"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
-	bddDIDExchange "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
+	didexchangebdd "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
-	routeBDDSteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/mediator"
-	bddOutOfBand "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
+	mediatorbdd "github.com/hyperledger/aries-framework-go/test/bdd/pkg/mediator"
+	outofbandbdd "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 )
 
 const timeout = time.Second * 2
@@ -38,8 +37,8 @@ const timeout = time.Second * 2
 // SDKSteps is steps for introduce using client SDK
 type SDKSteps struct {
 	bddContext      *context.BDDContext
-	didExchangeSDKS *bddDIDExchange.SDKSteps
-	outofbandSDKS   *bddOutOfBand.SDKSteps
+	didExchangeSDKS *didexchangebdd.SDKSteps
+	outofbandSDKS   *outofbandbdd.SDKSteps
 	clients         map[string]*introduce.Client
 	actions         map[string]chan service.DIDCommAction
 	events          map[string]chan service.StateMsg
@@ -112,10 +111,10 @@ func (a *SDKSteps) createConnections(introducees, introducer string) error {
 		return err
 	}
 
-	a.didExchangeSDKS = bddDIDExchange.NewDIDExchangeSDKSteps()
+	a.didExchangeSDKS = didexchangebdd.NewDIDExchangeSDKSteps()
 	a.didExchangeSDKS.SetContext(a.bddContext)
 
-	a.outofbandSDKS = bddOutOfBand.NewOutOfBandSDKSteps()
+	a.outofbandSDKS = outofbandbdd.NewOutOfBandSDKSteps()
 	a.outofbandSDKS.SetContext(a.bddContext)
 
 	if err := a.didExchangeSDKS.WaitForPublicDID(participants, 10); err != nil {
@@ -215,7 +214,7 @@ func (a *SDKSteps) checkHistoryEventsAndStop(agentID, events string) error {
 func (a *SDKSteps) checkAndStop(agentID, introduceeID string) error {
 	select {
 	case e := <-a.actions[agentID]:
-		proposal := &introduceService.Proposal{}
+		proposal := &protocol.Proposal{}
 		if err := e.Message.Decode(proposal); err != nil {
 			return err
 		}
@@ -235,7 +234,7 @@ func (a *SDKSteps) checkAndStop(agentID, introduceeID string) error {
 func (a *SDKSteps) handleRequest(agentID, introducee string) error {
 	select {
 	case e := <-a.actions[agentID]:
-		request := &introduceService.Request{}
+		request := &protocol.Request{}
 		if err := e.Message.Decode(request); err != nil {
 			return err
 		}
@@ -245,13 +244,13 @@ func (a *SDKSteps) handleRequest(agentID, introducee string) error {
 			return err
 		}
 
-		recipient := &introduceService.Recipient{
-			To:       &introduceService.To{Name: introducee},
+		recipient := &introduce.Recipient{
+			To:       &protocol.To{Name: introducee},
 			MyDID:    conn.MyDID,
 			TheirDID: conn.TheirDID,
 		}
 
-		to := &introduceService.To{Name: request.PleaseIntroduceTo.Name}
+		to := &introduce.To{Name: request.PleaseIntroduceTo.Name}
 
 		e.Continue(introduce.WithRecipients(to, recipient))
 	case <-time.After(timeout):
@@ -264,7 +263,7 @@ func (a *SDKSteps) handleRequest(agentID, introducee string) error {
 func (a *SDKSteps) handleRequestWithInvitation(agentID string) error {
 	select {
 	case e := <-a.actions[agentID]:
-		request := &introduceService.Request{}
+		request := &protocol.Request{}
 		if err := e.Message.Decode(request); err != nil {
 			return err
 		}
@@ -276,7 +275,7 @@ func (a *SDKSteps) handleRequestWithInvitation(agentID string) error {
 			return err
 		}
 
-		to := &introduceService.To{Name: req.Label}
+		to := &introduce.To{Name: req.Label}
 
 		e.Continue(introduce.WithPublicOOBRequest(req, to))
 	case <-time.After(timeout):
@@ -289,7 +288,7 @@ func (a *SDKSteps) handleRequestWithInvitation(agentID string) error {
 func (a *SDKSteps) checkAndContinue(agentID, introduceeID string) error {
 	select {
 	case e := <-a.actions[agentID]:
-		proposal := &introduceService.Proposal{}
+		proposal := &protocol.Proposal{}
 		if err := e.Message.Decode(proposal); err != nil {
 			return err
 		}
@@ -311,7 +310,7 @@ func (a *SDKSteps) checkAndContinue(agentID, introduceeID string) error {
 func (a *SDKSteps) checkAndContinueWithInvitation(agentID, introduceeID string) error {
 	select {
 	case e := <-a.actions[agentID]:
-		proposal := &introduceService.Proposal{}
+		proposal := &protocol.Proposal{}
 		if err := e.Message.Decode(proposal); err != nil {
 			return err
 		}
@@ -338,7 +337,7 @@ func (a *SDKSteps) checkAndContinueWithInvitation(agentID, introduceeID string) 
 func (a *SDKSteps) checkAndContinueWithInvitationAndEmbeddedRequest(agentID, introduceeID, request string) error {
 	select {
 	case e := <-a.actions[agentID]:
-		proposal := &introduceService.Proposal{}
+		proposal := &protocol.Proposal{}
 		if err := e.Message.Decode(proposal); err != nil {
 			return err
 		}
@@ -399,12 +398,12 @@ func (a *SDKSteps) sendProposal(introducer, introducee1, introducee2 string) err
 		return err
 	}
 
-	return a.clients[introducer].SendProposal(&introduceService.Recipient{
-		To:       &introduceService.To{Name: conn2.TheirLabel},
+	return a.clients[introducer].SendProposal(&introduce.Recipient{
+		To:       &protocol.To{Name: conn2.TheirLabel},
 		MyDID:    conn1.MyDID,
 		TheirDID: conn1.TheirDID,
-	}, &introduceService.Recipient{
-		To:       &introduceService.To{Name: conn1.TheirLabel},
+	}, &introduce.Recipient{
+		To:       &protocol.To{Name: conn1.TheirLabel},
 		MyDID:    conn2.MyDID,
 		TheirDID: conn2.TheirDID,
 	})
@@ -421,8 +420,8 @@ func (a *SDKSteps) sendProposalWithInvitation(introducer, introducee1, introduce
 		return err
 	}
 
-	return a.clients[introducer].SendProposalWithOOBRequest(req, &introduceService.Recipient{
-		To:       &introduceService.To{Name: introducee2},
+	return a.clients[introducer].SendProposalWithOOBRequest(req, &introduce.Recipient{
+		To:       &protocol.To{Name: introducee2},
 		MyDID:    conn1.MyDID,
 		TheirDID: conn1.TheirDID,
 	})
@@ -434,7 +433,7 @@ func (a *SDKSteps) sendRequest(introducee1, introducer, introducee2 string) erro
 		return err
 	}
 
-	to := &introduceService.PleaseIntroduceTo{To: introduceService.To{Name: introducee2}}
+	to := &introduce.PleaseIntroduceTo{To: protocol.To{Name: introducee2}}
 
 	return a.clients[introducee1].SendRequest(to, conn1.MyDID, conn1.TheirDID)
 }
@@ -510,7 +509,7 @@ func (a *SDKSteps) createExternalClients(participants string) error {
 }
 
 func (a *SDKSteps) confirmRouteRegistration(agentID, router string) error {
-	routeSteps := routeBDDSteps.NewRouteSDKSteps()
+	routeSteps := mediatorbdd.NewRouteSDKSteps()
 	routeSteps.SetContext(a.bddContext)
 
 	go routeSteps.ApproveRequest(router, service.Empty{})
@@ -520,7 +519,7 @@ func (a *SDKSteps) confirmRouteRegistration(agentID, router string) error {
 		return err
 	}
 
-	client, err := routeClient.New(a.bddContext.AgentCtx[agentID])
+	client, err := mediator.New(a.bddContext.AgentCtx[agentID])
 	if err != nil {
 		return err
 	}

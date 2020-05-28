@@ -213,11 +213,11 @@ func ExampleClient_SendProposal() {
 	}()
 
 	err = clientAlice.SendProposal(
-		&introduce.Recipient{
+		&Recipient{
 			MyDID:    Alice,
 			TheirDID: Bob,
 		},
-		&introduce.Recipient{
+		&Recipient{
 			MyDID:    Alice,
 			TheirDID: Carol,
 		},
@@ -288,7 +288,7 @@ func ExampleClient_SendProposalWithOOBRequest() {
 		&outofband.Request{
 			Type: outofband.RequestMsgType,
 		},
-		&introduce.Recipient{
+		&Recipient{
 			MyDID:    Alice,
 			TheirDID: Bob,
 		},
@@ -362,7 +362,7 @@ func ExampleClient_SendRequest() {
 		for {
 			select {
 			case e := <-actionsAlice:
-				e.Continue(WithRecipients(&introduce.To{Name: Carol}, &introduce.Recipient{
+				e.Continue(WithRecipients(&To{Name: Carol}, &Recipient{
 					To:       &introduce.To{Name: Bob},
 					MyDID:    Alice,
 					TheirDID: Carol,
@@ -378,7 +378,7 @@ func ExampleClient_SendRequest() {
 	}()
 
 	err = clientBob.SendRequest(
-		&introduce.PleaseIntroduceTo{
+		&PleaseIntroduceTo{
 			To: introduce.To{Name: Carol},
 		},
 		Bob, Alice,
@@ -442,7 +442,7 @@ func ExampleClient_SendRequest_second() {
 			case e := <-actionsAlice:
 				e.Continue(WithPublicOOBRequest(&outofband.Request{
 					Type: outofband.RequestMsgType,
-				}, &introduce.To{Name: Carol}))
+				}, &To{Name: Carol}))
 			case e := <-actionsBob:
 				e.Continue(nil)
 			}
@@ -450,7 +450,7 @@ func ExampleClient_SendRequest_second() {
 	}()
 
 	err = clientBob.SendRequest(
-		&introduce.PleaseIntroduceTo{
+		&PleaseIntroduceTo{
 			To: introduce.To{Name: Carol},
 		},
 		Bob, Alice,

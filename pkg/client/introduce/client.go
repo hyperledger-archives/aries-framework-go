@@ -17,6 +17,20 @@ import (
 	outofbandsvc "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 )
 
+type (
+	// To introducee descriptor keeps information about the introduction
+	To introduce.To
+	// PleaseIntroduceTo includes all field from To structure
+	// also it has Discovered the field which should be provided by help-me-discover protocol
+	PleaseIntroduceTo introduce.PleaseIntroduceTo
+	// Recipient keeps information needed for the service
+	// 'To' field is needed for the proposal message
+	// 'MyDID' and 'TheirDID' fields are needed for sending messages e.g report-problem, proposal, ack etc.
+	Recipient introduce.Recipient
+	// Action contains helpful information about action
+	Action introduce.Action
+)
+
 // Provider contains dependencies for the introduce protocol and is typically created by using aries.Context()
 type Provider interface {
 	Service(id string) (interface{}, error)
@@ -54,9 +68,12 @@ func New(ctx Provider) (*Client, error) {
 }
 
 // SendProposal sends a proposal to the introducees (the client has not published an out-of-band message).
-func (c *Client) SendProposal(recipient1, recipient2 *introduce.Recipient) error {
-	proposal1 := introduce.CreateProposal(recipient1)
-	proposal2 := introduce.CreateProposal(recipient2)
+func (c *Client) SendProposal(recipient1, recipient2 *Recipient) error {
+	_recipient1 := introduce.Recipient(*recipient1)
+	_recipient2 := introduce.Recipient(*recipient2)
+
+	proposal1 := introduce.CreateProposal(&_recipient1)
+	proposal2 := introduce.CreateProposal(&_recipient2)
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
@@ -65,32 +82,29 @@ func (c *Client) SendProposal(recipient1, recipient2 *introduce.Recipient) error
 		return fmt.Errorf("handle outbound: %w", err)
 	}
 
-	err = c.service.HandleOutbound(proposal2, recipient2.MyDID, recipient2.TheirDID)
-
-	return err
+	return c.service.HandleOutbound(proposal2, recipient2.MyDID, recipient2.TheirDID)
 }
 
 // SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
-func (c *Client) SendProposalWithOOBRequest(req *outofband.Request, recipient *introduce.Recipient) error {
-	proposal := introduce.CreateProposal(recipient)
-	cast := outofbandsvc.Request(*req)
+func (c *Client) SendProposalWithOOBRequest(req *outofband.Request, recipient *Recipient) error {
+	_recipient := introduce.Recipient(*recipient)
+	_req := outofbandsvc.Request(*req)
 
-	introduce.WrapWithMetadataPublicOOBRequest(proposal, &cast)
+	proposal := introduce.CreateProposal(&_recipient)
+	introduce.WrapWithMetadataPublicOOBRequest(proposal, &_req)
 
-	err := c.service.HandleOutbound(proposal, recipient.MyDID, recipient.TheirDID)
-
-	return err
+	return c.service.HandleOutbound(proposal, recipient.MyDID, recipient.TheirDID)
 }
 
 // SendRequest sends a request.
 // Sending a request means that the introducee is willing to share their own out-of-band message.
-func (c *Client) SendRequest(to *introduce.PleaseIntroduceTo, myDID, theirDID string) error {
-	err := c.service.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
-		Type:              introduce.RequestMsgType,
-		PleaseIntroduceTo: to,
-	}), myDID, theirDID)
+func (c *Client) SendRequest(to *PleaseIntroduceTo, myDID, theirDID string) error {
+	_to := introduce.PleaseIntroduceTo(*to)
 
-	return err
+	return c.service.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+		Type:              introduce.RequestMsgType,
+		PleaseIntroduceTo: &_to,
+	}), myDID, theirDID)
 }
 
 // AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.
@@ -101,36 +115,51 @@ func (c *Client) AcceptProposalWithOOBRequest(piID string, req *outofband.Reques
 
 // AcceptRequestWithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
 // NOTE: For async usage. Introducer can provide invitation only after receiving RequestMsgType
-func (c *Client) AcceptRequestWithPublicOOBRequest(piID string, req *outofband.Request, to *introduce.To) error {
+func (c *Client) AcceptRequestWithPublicOOBRequest(piID string, req *outofband.Request, to *To) error {
 	return c.service.Continue(piID, WithPublicOOBRequest(req, to))
 }
 
 // AcceptRequestWithRecipients is used when the introducer does not have a published out-of-band message on hand
 // but he is willing to introduce agents to each other.
 // NOTE: For async usage. Introducer can provide recipients only after receiving RequestMsgType.
-func (c *Client) AcceptRequestWithRecipients(piID string, to *introduce.To, recipient *introduce.Recipient) error {
+func (c *Client) AcceptRequestWithRecipients(piID string, to *To, recipient *Recipient) error {
 	return c.service.Continue(piID, WithRecipients(to, recipient))
 }
 
 // Actions returns unfinished actions for the async usage
-func (c *Client) Actions() ([]introduce.Action, error) {
-	return c.service.Actions()
+func (c *Client) Actions() ([]Action, error) {
+	actions, err := c.service.Actions()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]Action, len(actions))
+	for i, action := range actions {
+		result[i] = Action(action)
+	}
+
+	return result, nil
 }
 
 // WithRecipients is used when the introducer does not have a published out-of-band message on hand
 // but he is willing to introduce agents to each other.
 // NOTE: Introducer can provide recipients only after receiving RequestMsgType.
 // USAGE: event.Continue(WithRecipients(to, recipient))
-func WithRecipients(to *introduce.To, recipient *introduce.Recipient) introduce.Opt {
-	return introduce.WithRecipients(to, recipient)
+func WithRecipients(to *To, recipient *Recipient) introduce.Opt {
+	_to := introduce.To(*to)
+	_recipient := introduce.Recipient(*recipient)
+
+	return introduce.WithRecipients(&_to, &_recipient)
 }
 
 // WithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
 // NOTE: Introducer can provide this request only after receiving RequestMsgType
 // USAGE: event.Continue(WithPublicOOBRequest(req, to))
-func WithPublicOOBRequest(req *outofband.Request, to *introduce.To) introduce.Opt {
-	cast := outofbandsvc.Request(*req)
-	return introduce.WithPublicOOBRequest(&cast, to)
+func WithPublicOOBRequest(req *outofband.Request, to *To) introduce.Opt {
+	_to := introduce.To(*to)
+	_req := outofbandsvc.Request(*req)
+
+	return introduce.WithPublicOOBRequest(&_req, &_to)
 }
 
 // WithOOBRequest is used when introducee wants to provide an out-of-band request with an optional
@@ -138,6 +167,6 @@ func WithPublicOOBRequest(req *outofband.Request, to *introduce.To) introduce.Op
 // NOTE: Introducee can provide the request only after receiving ProposalMsgType
 // USAGE: event.Continue(WithOOBRequest(inv))
 func WithOOBRequest(req *outofband.Request, a ...*decorator.Attachment) introduce.Opt {
-	cast := outofbandsvc.Request(*req)
-	return introduce.WithOOBRequest(&cast, a...)
+	_req := outofbandsvc.Request(*req)
+	return introduce.WithOOBRequest(&_req, a...)
 }

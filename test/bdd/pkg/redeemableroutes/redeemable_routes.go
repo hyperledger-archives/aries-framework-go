@@ -36,7 +36,7 @@ type BDDSteps struct {
 	agentSdk       *agentSteps.SDKSteps
 	oobSdk         *oobSteps.SDKSteps
 	routeSdk       *bddroute.SDKSteps
-	proposals      map[string]*introduce.Recipient
+	proposals      map[string]*introClient.Recipient
 	goalCode       string
 	redeemableCode string
 	redeemableOpts *mediator.Options
@@ -51,7 +51,7 @@ func NewBDDSteps() *BDDSteps {
 		agentSdk:       agentSteps.NewSDKSteps(),
 		oobSdk:         oobSteps.NewOutOfBandSDKSteps(),
 		routeSdk:       bddroute.NewRouteSDKSteps(),
-		proposals:      make(map[string]*introduce.Recipient),
+		proposals:      make(map[string]*introClient.Recipient),
 		introClients:   make(map[string]*introClient.Client),
 		introEvents:    make(map[string]chan service.DIDCommAction),
 		introApprovals: make(map[string]chan interface{}),
@@ -120,7 +120,7 @@ func (b *BDDSteps) alicePreparesProposalToBobForRouter(alice, bob, router string
 		return err
 	}
 
-	b.proposals[bob] = &introduce.Recipient{
+	b.proposals[bob] = &introClient.Recipient{
 		To:       &introduce.To{Name: router},
 		MyDID:    conn.MyDID,
 		TheirDID: conn.TheirDID,
@@ -137,7 +137,7 @@ func (b *BDDSteps) alicePreparesProposalToRouterForBob(alice, router, bob, goalC
 		return err
 	}
 
-	b.proposals[router] = &introduce.Recipient{
+	b.proposals[router] = &introClient.Recipient{
 		To:       &introduce.To{Name: bob},
 		Goal:     "test",
 		GoalCode: goalCode,

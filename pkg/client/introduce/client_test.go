@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
-	introduceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/introduce"
+	mocksintroduce "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/introduce"
 )
 
 func TestNew(t *testing.T) {
@@ -27,17 +27,38 @@ func TestNew(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("get service error", func(t *testing.T) {
-		provider := introduceMocks.NewMockProvider(ctrl)
+		provider := mocksintroduce.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(nil, errors.New(errMsg))
 		_, err := New(provider)
 		require.EqualError(t, err, errMsg)
 	})
 
 	t.Run("cast service error", func(t *testing.T) {
-		provider := introduceMocks.NewMockProvider(ctrl)
+		provider := mocksintroduce.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(nil, nil)
 		_, err := New(provider)
 		require.EqualError(t, err, "cast service to Introduce Service failed")
+	})
+}
+
+func TestClient_Actions(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("Success", func(t *testing.T) {
+		provider := mocksintroduce.NewMockProvider(ctrl)
+
+		svc := mocksintroduce.NewMockProtocolService(ctrl)
+		expected := []introduce.Action{{PIID: "1"}, {PIID: "2"}}
+		svc.EXPECT().Actions().Return(expected, nil)
+
+		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+		client, err := New(provider)
+		require.NoError(t, err)
+
+		actions, err := client.Actions()
+		require.NoError(t, err)
+		require.EqualValues(t, expected, actions)
 	})
 }
 
@@ -46,9 +67,9 @@ func TestClient_SendProposal(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		provider := introduceMocks.NewMockProvider(ctrl)
+		provider := mocksintroduce.NewMockProvider(ctrl)
 
-		svc := introduceMocks.NewMockProtocolService(ctrl)
+		svc := mocksintroduce.NewMockProtocolService(ctrl)
 		svc.EXPECT().
 			HandleOutbound(gomock.Any(), "firstMyDID", "firstTheirDID").
 			DoAndReturn(func(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
@@ -70,10 +91,10 @@ func TestClient_SendProposal(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.NoError(t, client.SendProposal(&introduce.Recipient{
+		require.NoError(t, client.SendProposal(&Recipient{
 			MyDID:    "firstMyDID",
 			TheirDID: "firstTheirDID",
-		}, &introduce.Recipient{
+		}, &Recipient{
 			MyDID:    "secondMyDID",
 			TheirDID: "secondTheirDID",
 		}))
@@ -82,9 +103,9 @@ func TestClient_SendProposal(t *testing.T) {
 	t.Run("Error", func(t *testing.T) {
 		const errMsg = "test error"
 
-		provider := introduceMocks.NewMockProvider(ctrl)
+		provider := mocksintroduce.NewMockProvider(ctrl)
 
-		svc := introduceMocks.NewMockProtocolService(ctrl)
+		svc := mocksintroduce.NewMockProtocolService(ctrl)
 		svc.EXPECT().
 			HandleOutbound(gomock.Any(), "firstMyDID", "firstTheirDID").
 			Return(errors.New(errMsg))
@@ -93,10 +114,10 @@ func TestClient_SendProposal(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.Contains(t, fmt.Sprintf("%v", client.SendProposal(&introduce.Recipient{
+		require.Contains(t, fmt.Sprintf("%v", client.SendProposal(&Recipient{
 			MyDID:    "firstMyDID",
 			TheirDID: "firstTheirDID",
-		}, &introduce.Recipient{})), errMsg)
+		}, &Recipient{})), errMsg)
 	})
 }
 
@@ -104,9 +125,9 @@ func TestClient_SendProposalWithOOBRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	provider := introduceMocks.NewMockProvider(ctrl)
+	provider := mocksintroduce.NewMockProvider(ctrl)
 
-	svc := introduceMocks.NewMockProtocolService(ctrl)
+	svc := mocksintroduce.NewMockProtocolService(ctrl)
 	svc.EXPECT().
 		HandleOutbound(gomock.Any(), "firstMyDID", "firstTheirDID").
 		DoAndReturn(func(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
@@ -121,7 +142,7 @@ func TestClient_SendProposalWithOOBRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	req := &outofband.Request{}
-	require.NoError(t, client.SendProposalWithOOBRequest(req, &introduce.Recipient{
+	require.NoError(t, client.SendProposalWithOOBRequest(req, &Recipient{
 		MyDID:    "firstMyDID",
 		TheirDID: "firstTheirDID",
 	}))
@@ -131,9 +152,9 @@ func TestClient_SendRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	provider := introduceMocks.NewMockProvider(ctrl)
+	provider := mocksintroduce.NewMockProvider(ctrl)
 
-	svc := introduceMocks.NewMockProtocolService(ctrl)
+	svc := mocksintroduce.NewMockProtocolService(ctrl)
 	svc.EXPECT().
 		HandleOutbound(gomock.Any(), "firstMyDID", "firstTheirDID").
 		DoAndReturn(func(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
@@ -147,7 +168,7 @@ func TestClient_SendRequest(t *testing.T) {
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	require.NoError(t, client.SendRequest(nil, "firstMyDID", "firstTheirDID"))
+	require.NoError(t, client.SendRequest(&PleaseIntroduceTo{}, "firstMyDID", "firstTheirDID"))
 }
 
 func TestClient_AcceptProposalWithOOBRequest(t *testing.T) {
@@ -156,8 +177,8 @@ func TestClient_AcceptProposalWithOOBRequest(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		provider := introduceMocks.NewMockProvider(ctrl)
-		svc := introduceMocks.NewMockProtocolService(ctrl)
+		provider := mocksintroduce.NewMockProvider(ctrl)
+		svc := mocksintroduce.NewMockProtocolService(ctrl)
 		svc.EXPECT().Continue(
 			gomock.AssignableToTypeOf(""),
 			gomock.AssignableToTypeOf(introduce.WithOOBRequest(nil)),
@@ -184,8 +205,8 @@ func TestClient_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		provider := introduceMocks.NewMockProvider(ctrl)
-		svc := introduceMocks.NewMockProtocolService(ctrl)
+		provider := mocksintroduce.NewMockProvider(ctrl)
+		svc := mocksintroduce.NewMockProtocolService(ctrl)
 		svc.EXPECT().Continue(
 			gomock.AssignableToTypeOf(""),
 			gomock.AssignableToTypeOf(introduce.WithPublicOOBRequest(nil, nil)),
@@ -201,7 +222,7 @@ func TestClient_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		err = client.AcceptRequestWithPublicOOBRequest(expectedPIID, &outofband.Request{}, &introduce.To{})
+		err = client.AcceptRequestWithPublicOOBRequest(expectedPIID, &outofband.Request{}, &To{})
 		require.NoError(t, err)
 	})
 }
