@@ -6,8 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -23,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -1719,7 +1718,7 @@ func TestCredential_raw(t *testing.T) {
 }
 
 func TestParseUnverifiedCredential(t *testing.T) {
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
+	signer, err := signature.NewEd25519Signer()
 	require.NoError(t, err)
 
 	t.Run("ParseUnverifiedCredential() for JWS", func(t *testing.T) {
@@ -1730,7 +1729,7 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		credClaims, err := vc.JWTClaims(true)
 		require.NoError(t, err)
 
-		jws, err := credClaims.MarshalJWS(EdDSA, getEd25519TestSigner(privKey), "any")
+		jws, err := credClaims.MarshalJWS(EdDSA, signer, "any")
 		require.NoError(t, err)
 
 		// Parse VC with JWS proof.
@@ -1748,7 +1747,7 @@ func TestParseUnverifiedCredential(t *testing.T) {
 		created := time.Now()
 		err = vc.AddLinkedDataProof(&LinkedDataProofContext{
 			SignatureType:           "Ed25519Signature2018",
-			Suite:                   ed25519signature2018.New(suite.WithSigner(getEd25519TestSigner(privKey))),
+			Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
 			SignatureRepresentation: SignatureJWS,
 			Created:                 &created,
 		}, jsonld.WithDocumentLoader(createTestJSONLDDocumentLoader()))

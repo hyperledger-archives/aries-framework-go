@@ -13,6 +13,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
@@ -110,7 +111,9 @@ func ExamplePresentation_JWTClaims() {
 		panic(fmt.Errorf("failed to create JWT claims of VP: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(holderPrivKey), "")
+	signer := signature.GetEd25519Signer(holderPrivKey, holderPubKey)
+
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, signer, "")
 	if err != nil {
 		panic(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}
@@ -175,7 +178,9 @@ func ExampleCredential_Presentation() {
 		panic(fmt.Errorf("failed to create JWT claims of VP: %w", err))
 	}
 
-	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(holderPrivKey), "")
+	signer := signature.GetEd25519Signer(holderPrivKey, holderPubKey)
+
+	jws, err := jwtClaims.MarshalJWS(verifiable.EdDSA, signer, "")
 	if err != nil {
 		panic(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}
@@ -454,7 +459,9 @@ func ExamplePresentation_MarshalledCredentials() {
 		panic(fmt.Errorf("failed to set credentials of VP: %w", err))
 	}
 
-	vcJWS, err := vcJWTClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(issuerPrivKey), "i-kid")
+	issuerSigner := signature.GetEd25519Signer(issuerPrivKey, issuerPubKey)
+
+	vcJWS, err := vcJWTClaims.MarshalJWS(verifiable.EdDSA, issuerSigner, "i-kid")
 	if err != nil {
 		panic(fmt.Errorf("failed to sign VC JWT: %w", err))
 	}
@@ -471,7 +478,9 @@ func ExamplePresentation_MarshalledCredentials() {
 		panic(fmt.Errorf("failed to create JWT claims of VP: %w", err))
 	}
 
-	vpJWS, err := vpJWTClaims.MarshalJWS(verifiable.EdDSA, getEd25519Signer(holderPrivKey), "h-kid")
+	holderSigner := signature.GetEd25519Signer(holderPrivKey, holderPubKey)
+
+	vpJWS, err := vpJWTClaims.MarshalJWS(verifiable.EdDSA, holderSigner, "h-kid")
 	if err != nil {
 		panic(fmt.Errorf("failed to sign VP inside JWT: %w", err))
 	}

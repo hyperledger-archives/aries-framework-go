@@ -6,7 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"path/filepath"
+	"crypto/rand"
+	"crypto/rsa"
 	"testing"
 
 	"github.com/square/go-jose/v3"
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -21,9 +23,12 @@ func TestJWTPresClaims_MarshalJWS(t *testing.T) {
 	vp, err := newTestPresentation([]byte(validPresentation))
 	require.NoError(t, err)
 
-	jws := createCredJWS(t, vp)
+	signer, err := signature.NewRS256Signer()
+	require.NoError(t, err)
 
-	_, rawVC, err := decodeVPFromJWS(jws, true, holderPublicKeyFetcher(t))
+	jws := createCredJWS(t, vp, signer)
+
+	_, rawVC, err := decodeVPFromJWS(jws, true, holderPublicKeyFetcher(signer.PublicKey))
 
 	require.NoError(t, err)
 	require.Equal(t, vp.stringJSON(t), rawVC.stringJSON(t))
@@ -36,13 +41,16 @@ type invalidPresClaims struct {
 }
 
 func TestUnmarshalPresJWSClaims(t *testing.T) {
-	testFetcher := holderPublicKeyFetcher(t)
+	holderSigner, err := signature.NewRS256Signer()
+	require.NoError(t, err)
+
+	testFetcher := holderPublicKeyFetcher(holderSigner.PublicKey)
 
 	t.Run("Successful JWS decoding", func(t *testing.T) {
 		vp, err := newTestPresentation([]byte(validPresentation))
 		require.NoError(t, err)
 
-		jws := createCredJWS(t, vp)
+		jws := createCredJWS(t, vp, holderSigner)
 
 		claims, err := unmarshalPresJWSClaims(jws, true, testFetcher)
 		require.NoError(t, err)
@@ -57,10 +65,10 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 	})
 
 	t.Run("Invalid format of \"vp\" claim", func(t *testing.T) {
-		privateKey, err := readPrivateKey(filepath.Join(certPrefix, "holder_private.pem"))
+		privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 		require.NoError(t, err)
 
-		key := jose.SigningKey{Algorithm: jose.RS256, Key: privateKey}
+		key := jose.SigningKey{Algorithm: jose.RS256, Key: privKey}
 
 		signer, err := jose.NewSigner(key, &jose.SignerOptions{})
 		require.NoError(t, err)
@@ -83,17 +91,16 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 		vp, err := newTestPresentation([]byte(validPresentation))
 		require.NoError(t, err)
 
-		jws := createCredJWS(t, vp)
+		jws := createCredJWS(t, vp, holderSigner)
 
 		uc, err := unmarshalPresJWSClaims(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			// use public key of VC Issuer (while expecting to use the ones of VP Holder)
-			publicKey, pkErr := readPublicKey(filepath.Join(certPrefix, "issuer_public.pem"))
-			require.NoError(t, pkErr)
-			require.NotNil(t, publicKey)
+			issuerSigner, errSigner := signature.NewRS256Signer()
+			require.NoError(t, errSigner)
 
 			return &verifier.PublicKey{
 				Type:  kms.RSA,
-				Value: publicKeyPemToBytes(publicKey),
+				Value: publicKeyPemToBytes(issuerSigner.PublicKey),
 			}, nil
 		})
 		require.Error(t, err)
@@ -102,26 +109,19 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 	})
 }
 
-func createCredJWS(t *testing.T, vp *Presentation) string {
-	privateKey, err := readPrivateKey(filepath.Join(certPrefix, "holder_private.pem"))
-	require.NoError(t, err)
-
+func createCredJWS(t *testing.T, vp *Presentation, signer Signer) string {
 	claims, err := newJWTPresClaims(vp, []string{}, false)
 	require.NoError(t, err)
 	require.NotNil(t, claims)
 
-	jws, err := claims.MarshalJWS(RS256, getRS256TestSigner(privateKey), "any")
+	jws, err := claims.MarshalJWS(RS256, signer, "any")
 	require.NoError(t, err)
 
 	return jws
 }
 
-func holderPublicKeyFetcher(t *testing.T) PublicKeyFetcher {
+func holderPublicKeyFetcher(publicKey *rsa.PublicKey) PublicKeyFetcher {
 	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
-		publicKey, pcErr := readPublicKey(filepath.Join(certPrefix, "holder_public.pem"))
-		require.NoError(t, pcErr)
-		require.NotNil(t, publicKey)
-
 		return &verifier.PublicKey{
 			Type:  kms.RSA,
 			Value: publicKeyPemToBytes(publicKey),
