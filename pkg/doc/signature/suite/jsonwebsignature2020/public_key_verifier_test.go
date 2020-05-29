@@ -8,11 +8,7 @@ package jsonwebsignature2020
 
 import (
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
 	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
 	"testing"
 
@@ -22,23 +18,24 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	sigverifier "github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 )
 
 func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 	curve := elliptic.P256()
-	privKey, err := ecdsa.GenerateKey(curve, rand.Reader)
+	signer, err := signature.NewECDSAP256Signer()
 	require.NoError(t, err)
 
 	msg := []byte("test message")
 
-	pubKeyBytes := elliptic.Marshal(curve, privKey.X, privKey.Y)
+	pubKeyBytes := elliptic.Marshal(curve, signer.PublicKey.X, signer.PublicKey.Y)
 	pubKey := &sigverifier.PublicKey{
 		Type:  "JwsVerificationKey2020",
 		Value: pubKeyBytes,
 
 		JWK: &jose.JWK{
 			JSONWebKey: gojose.JSONWebKey{
-				Key:       &privKey.PublicKey,
+				Key:       signer.PublicKey,
 				Algorithm: "ES256",
 			},
 			Crv: "P-256",
@@ -84,16 +81,16 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.curveName, func(t *testing.T) {
-				privKey, err := ecdsa.GenerateKey(tc.curve, rand.Reader)
+				signer, err := signature.NewECDSASigner(tc.curve)
 				require.NoError(t, err)
 
-				pubKeyBytes = elliptic.Marshal(tc.curve, privKey.X, privKey.Y)
+				pubKeyBytes = elliptic.Marshal(tc.curve, signer.PublicKey.X, signer.PublicKey.Y)
 				pubKey = &sigverifier.PublicKey{
 					Type:  "JwsVerificationKey2020",
 					Value: pubKeyBytes,
 					JWK: &jose.JWK{
 						JSONWebKey: gojose.JSONWebKey{
-							Key:       &privKey.PublicKey,
+							Key:       signer.PublicKey,
 							Algorithm: tc.algorithm,
 						},
 						Crv: tc.curveName,
@@ -101,11 +98,11 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 					},
 				}
 
-				v := NewPublicKeyVerifier()
-				signature, err := getECSignature(privKey, msg, tc.hash)
+				msgSig, err := signer.Sign(msg)
 				require.NoError(t, err)
 
-				err = v.Verify(pubKey, msg, signature)
+				v := NewPublicKeyVerifier()
+				err = v.Verify(pubKey, msg, msgSig)
 				require.NoError(t, err)
 			})
 		}
@@ -113,16 +110,17 @@ func TestPublicKeyVerifier_Verify_EC(t *testing.T) {
 }
 
 func TestPublicKeyVerifier_Verify_Ed25519(t *testing.T) {
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	signer, err := signature.NewEd25519Signer()
 	require.NoError(t, err)
 
 	msg := []byte("test message")
-	msgSig := ed25519.Sign(privateKey, msg)
+	msgSig, err := signer.Sign(msg)
+	require.NoError(t, err)
 
 	pubKey := &sigverifier.PublicKey{
 		Type: "JwsVerificationKey2020",
 		JWK: &jose.JWK{
-			JSONWebKey: gojose.JSONWebKey{Key: publicKey},
+			JSONWebKey: gojose.JSONWebKey{Key: signer.PublicKey},
 			Kty:        "OKP",
 			Crv:        "Ed25519",
 		},
@@ -134,13 +132,15 @@ func TestPublicKeyVerifier_Verify_Ed25519(t *testing.T) {
 }
 
 func TestPublicKeyVerifier_Verify_RSA(t *testing.T) {
-	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	signer, err := signature.NewPS256Signer()
 	require.NoError(t, err)
 
 	msg := []byte("test message")
 
-	msgSig := getRSASignature(privKey, msg)
-	pubKeyBytes := x509.MarshalPKCS1PublicKey(&privKey.PublicKey)
+	msgSig, err := signer.Sign(msg)
+	require.NoError(t, err)
+
+	pubKeyBytes := x509.MarshalPKCS1PublicKey(signer.PublicKey)
 	pubKey := &sigverifier.PublicKey{
 		Type: "JwsVerificationKey2020",
 		JWK: &jose.JWK{
@@ -156,56 +156,4 @@ func TestPublicKeyVerifier_Verify_RSA(t *testing.T) {
 
 	err = v.Verify(pubKey, msg, msgSig)
 	require.NoError(t, err)
-}
-
-func getECSignature(privKey *ecdsa.PrivateKey, payload []byte, hash crypto.Hash) ([]byte, error) {
-	hasher := hash.New()
-
-	_, err := hasher.Write(payload)
-	if err != nil {
-		panic(err)
-	}
-
-	hashed := hasher.Sum(nil)
-
-	r, s, err := ecdsa.Sign(rand.Reader, privKey, hashed)
-	if err != nil {
-		return nil, err
-	}
-
-	curveBits := privKey.Curve.Params().BitSize
-
-	keyBytes := curveBits / 8
-	if curveBits%8 > 0 {
-		keyBytes++
-	}
-
-	copyPadded := func(source []byte, size int) []byte {
-		dest := make([]byte, size)
-		copy(dest[size-len(source):], source)
-
-		return dest
-	}
-
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
-}
-
-func getRSASignature(privKey *rsa.PrivateKey, payload []byte) []byte {
-	hasher := crypto.SHA256.New()
-
-	_, err := hasher.Write(payload)
-	if err != nil {
-		panic(err)
-	}
-
-	hashed := hasher.Sum(nil)
-
-	signature, err := rsa.SignPSS(rand.Reader, privKey, crypto.SHA256, hashed, &rsa.PSSOptions{
-		SaltLength: rsa.PSSSaltLengthEqualsHash,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	return signature
 }

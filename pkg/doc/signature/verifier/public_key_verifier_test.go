@@ -8,11 +8,8 @@ package verifier
 
 import (
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
 	"errors"
 	"testing"
@@ -22,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -38,8 +36,8 @@ func TestNewPublicKeyVerifier(t *testing.T) {
 			},
 		}
 
-		msg       = []byte("message to sign")
-		signature = []byte("signature")
+		msg    = []byte("message to sign")
+		msgSig = []byte("signature")
 
 		signatureVerifier = &testSignatureVerifier{
 			baseSignatureVerifier: baseSignatureVerifier{
@@ -54,13 +52,13 @@ func TestNewPublicKeyVerifier(t *testing.T) {
 	verifier := NewPublicKeyVerifier(signatureVerifier, WithExactPublicKeyType("TestType"))
 	require.NotNil(t, verifier)
 
-	err := verifier.Verify(publicKey, msg, signature)
+	err := verifier.Verify(publicKey, msg, msgSig)
 	require.NoError(t, err)
 
 	t.Run("check public key type", func(t *testing.T) {
 		publicKey.Type = "invalid TestType"
 
-		err = verifier.Verify(publicKey, msg, signature)
+		err = verifier.Verify(publicKey, msg, msgSig)
 		require.Error(t, err)
 		require.EqualError(t, err, "a type of public key is not 'TestType'")
 
@@ -70,7 +68,7 @@ func TestNewPublicKeyVerifier(t *testing.T) {
 	t.Run("match JWK key type", func(t *testing.T) {
 		publicKey.JWK.Kty = "invalid kty"
 
-		err = verifier.Verify(publicKey, msg, signature)
+		err = verifier.Verify(publicKey, msg, msgSig)
 		require.Error(t, err)
 		require.EqualError(t, err, "verifier does not match JSON Web Key")
 
@@ -80,7 +78,7 @@ func TestNewPublicKeyVerifier(t *testing.T) {
 	t.Run("match JWK curve", func(t *testing.T) {
 		publicKey.JWK.Crv = "invalid crv"
 
-		err = verifier.Verify(publicKey, msg, signature)
+		err = verifier.Verify(publicKey, msg, msgSig)
 		require.Error(t, err)
 		require.EqualError(t, err, "verifier does not match JSON Web Key")
 
@@ -90,7 +88,7 @@ func TestNewPublicKeyVerifier(t *testing.T) {
 	t.Run("match JWK algorithm", func(t *testing.T) {
 		publicKey.JWK.Algorithm = "invalid alg"
 
-		err = verifier.Verify(publicKey, msg, signature)
+		err = verifier.Verify(publicKey, msg, msgSig)
 		require.Error(t, err)
 		require.EqualError(t, err, "verifier does not match JSON Web Key")
 
@@ -98,7 +96,7 @@ func TestNewPublicKeyVerifier(t *testing.T) {
 	})
 
 	signatureVerifier.verifyResult = errors.New("invalid signature")
-	err = verifier.Verify(publicKey, msg, signature)
+	err = verifier.Verify(publicKey, msg, msgSig)
 	require.Error(t, err)
 	require.EqualError(t, err, "invalid signature")
 }
@@ -116,8 +114,8 @@ func TestNewCompositePublicKeyVerifier(t *testing.T) {
 			},
 		}
 
-		msg       = []byte("message to sign")
-		signature = []byte("signature")
+		msg    = []byte("message to sign")
+		msgSig = []byte("signature")
 
 		signatureVerifier = &testSignatureVerifier{
 			baseSignatureVerifier: baseSignatureVerifier{
@@ -133,18 +131,18 @@ func TestNewCompositePublicKeyVerifier(t *testing.T) {
 		WithExactPublicKeyType("TestType"))
 	require.NotNil(t, verifier)
 
-	err := verifier.Verify(publicKey, msg, signature)
+	err := verifier.Verify(publicKey, msg, msgSig)
 	require.NoError(t, err)
 
 	publicKey.JWK.Kty = "invalid kty"
-	err = verifier.Verify(publicKey, msg, signature)
+	err = verifier.Verify(publicKey, msg, msgSig)
 	require.Error(t, err)
 	require.EqualError(t, err, "no matching verifier found")
 
 	publicKey.JWK.Kty = "kty"
 
 	signatureVerifier.verifyResult = errors.New("invalid signature")
-	err = verifier.Verify(publicKey, msg, signature)
+	err = verifier.Verify(publicKey, msg, msgSig)
 	require.Error(t, err)
 	require.EqualError(t, err, "invalid signature")
 }
@@ -153,14 +151,16 @@ func TestNewEd25519SignatureVerifier(t *testing.T) {
 	v := NewEd25519SignatureVerifier()
 	require.NotNil(t, v)
 
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	signer, err := signature.NewEd25519Signer()
 	require.NoError(t, err)
 
 	msg := []byte("test message")
-	msgSig := ed25519.Sign(privateKey, msg)
+	msgSig, err := signer.Sign(msg)
+	require.NoError(t, err)
+
 	pubKey := &PublicKey{
 		Type:  kms.ED25519,
-		Value: publicKey,
+		Value: signer.PublicKey,
 	}
 
 	err = v.Verify(pubKey, msg, msgSig)
@@ -184,13 +184,15 @@ func TestNewRSAPS256SignatureVerifier(t *testing.T) {
 	v := NewRSAPS256SignatureVerifier()
 	require.NotNil(t, v)
 
-	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	signer, err := signature.NewPS256Signer()
 	require.NoError(t, err)
 
 	msg := []byte("test message")
 
-	msgSig := getRSASignature(privKey, msg)
-	pubKeyBytes := x509.MarshalPKCS1PublicKey(&privKey.PublicKey)
+	msgSig, err := signer.Sign(msg)
+	require.NoError(t, err)
+
+	pubKeyBytes := x509.MarshalPKCS1PublicKey(signer.PublicKey)
 	pubKey := &PublicKey{
 		Type: "JwsVerificationKey2020",
 		JWK: &jose.JWK{
@@ -263,27 +265,27 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.curveName, func(t *testing.T) {
-				privKey, err := ecdsa.GenerateKey(tc.curve, rand.Reader)
+				signer, err := signature.NewECDSASigner(tc.curve)
 				require.NoError(t, err)
 
-				pubKeyBytes := elliptic.Marshal(tc.curve, privKey.X, privKey.Y)
+				pubKeyBytes := elliptic.Marshal(tc.curve, signer.PublicKey.X, signer.PublicKey.Y)
 				pubKey := &PublicKey{
 					Type:  "JwsVerificationKey2020",
 					Value: pubKeyBytes,
 					JWK: &jose.JWK{
 						JSONWebKey: gojose.JSONWebKey{
 							Algorithm: tc.algorithm,
-							Key:       &privKey.PublicKey,
+							Key:       signer.PublicKey,
 						},
 						Crv: tc.curveName,
 						Kty: "EC",
 					},
 				}
 
-				signature, err := getECSignature(privKey, msg, tc.hash)
+				msgSig, err := signer.Sign(msg)
 				require.NoError(t, err)
 
-				err = tc.sVerifier.Verify(pubKey, msg, signature)
+				err = tc.sVerifier.Verify(pubKey, msg, msgSig)
 				require.NoError(t, err)
 			})
 		}
@@ -292,40 +294,33 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 	v := NewECDSAES256SignatureVerifier()
 	require.NotNil(t, v)
 
-	curve := elliptic.P256()
-	privKey, err := ecdsa.GenerateKey(curve, rand.Reader)
+	signer, err := signature.NewECDSAP256Signer()
+	require.NoError(t, err)
+	msgSig, err := signer.Sign(msg)
 	require.NoError(t, err)
 
-	pubKeyBytes := elliptic.Marshal(curve, privKey.X, privKey.Y)
+	pubKeyBytes := elliptic.Marshal(elliptic.P256(), signer.PublicKey.X, signer.PublicKey.Y)
 
 	t.Run("verify with public key bytes", func(t *testing.T) {
-		signature, err := getECSignature(privKey, msg, crypto.SHA256)
-		require.NoError(t, err)
-
 		verifyError := v.Verify(&PublicKey{
 			Type:  "JwsVerificationKey2020",
 			Value: pubKeyBytes,
-		}, msg, signature)
+		}, msg, msgSig)
 
 		require.NoError(t, verifyError)
 	})
 
 	t.Run("invalid public key", func(t *testing.T) {
-		signature, err := getECSignature(privKey, msg, crypto.SHA256)
-		require.NoError(t, err)
-
 		verifyError := v.Verify(&PublicKey{
 			Type:  "JwsVerificationKey2020",
 			Value: []byte("invalid public key"),
-		}, msg, signature)
+		}, msg, msgSig)
+
 		require.Error(t, verifyError)
 		require.EqualError(t, verifyError, "ecdsa: create JWK from public key bytes: invalid public key")
 	})
 
 	t.Run("invalid public key type", func(t *testing.T) {
-		signature, err := getECSignature(privKey, msg, crypto.SHA256)
-		require.NoError(t, err)
-
 		ed25519Key := &ed25519.PublicKey{}
 
 		verifyError := v.Verify(&PublicKey{
@@ -339,7 +334,7 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 				Crv: "P-256",
 				Kty: "EC",
 			},
-		}, msg, signature)
+		}, msg, msgSig)
 		require.Error(t, verifyError)
 		require.EqualError(t, verifyError, "ecdsa: invalid public key type")
 	})
@@ -352,7 +347,7 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 			JWK: &jose.JWK{
 				JSONWebKey: gojose.JSONWebKey{
 					Algorithm: "ES256",
-					Key:       &privKey.PublicKey,
+					Key:       signer.PublicKey,
 				},
 				Crv: "P-256",
 				Kty: "EC",
@@ -378,56 +373,4 @@ type testSignatureVerifier struct {
 
 func (v testSignatureVerifier) Verify(*PublicKey, []byte, []byte) error {
 	return v.verifyResult
-}
-
-func getRSASignature(privKey *rsa.PrivateKey, payload []byte) []byte {
-	hasher := crypto.SHA256.New()
-
-	_, err := hasher.Write(payload)
-	if err != nil {
-		panic(err)
-	}
-
-	hashed := hasher.Sum(nil)
-
-	signature, err := rsa.SignPSS(rand.Reader, privKey, crypto.SHA256, hashed, &rsa.PSSOptions{
-		SaltLength: rsa.PSSSaltLengthEqualsHash,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	return signature
-}
-
-func getECSignature(privKey *ecdsa.PrivateKey, payload []byte, hash crypto.Hash) ([]byte, error) {
-	hasher := hash.New()
-
-	_, err := hasher.Write(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	hashed := hasher.Sum(nil)
-
-	r, s, err := ecdsa.Sign(rand.Reader, privKey, hashed)
-	if err != nil {
-		return nil, err
-	}
-
-	curveBits := privKey.Curve.Params().BitSize
-
-	keyBytes := curveBits / 8
-	if curveBits%8 > 0 {
-		keyBytes++
-	}
-
-	copyPadded := func(source []byte, size int) []byte {
-		dest := make([]byte, size)
-		copy(dest[size-len(source):], source)
-
-		return dest
-	}
-
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
 }

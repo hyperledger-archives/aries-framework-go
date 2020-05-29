@@ -6,10 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package signer
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,6 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 )
 
 const signatureType = "Ed25519Signature2018"
@@ -24,9 +22,10 @@ const signatureType = "Ed25519Signature2018"
 func TestDocumentSigner_Sign(t *testing.T) {
 	context := getSignatureContext()
 
-	s := New(ed25519signature2018.New(
-		suite.WithSigner(
-			getSigner(generatePrivateKey()))))
+	signer, err := signature.NewEd25519Signer()
+	require.NoError(t, err)
+
+	s := New(ed25519signature2018.New(suite.WithSigner(signer)))
 	signedDoc, err := s.Sign(context, []byte(validDoc))
 	require.NoError(t, err)
 	require.NotNil(t, signedDoc)
@@ -59,9 +58,10 @@ func TestDocumentSigner_Sign(t *testing.T) {
 
 func TestDocumentSigner_SignErrors(t *testing.T) {
 	context := getSignatureContext()
-	s := New(ed25519signature2018.New(
-		suite.WithSigner(
-			getSigner(generatePrivateKey()))))
+	signer, err := signature.NewEd25519Signer()
+	require.NoError(t, err)
+
+	s := New(ed25519signature2018.New(suite.WithSigner(signer)))
 
 	// test invalid json
 	signedDoc, err := s.Sign(context, []byte("not json"))
@@ -96,8 +96,7 @@ func TestDocumentSigner_SignErrors(t *testing.T) {
 	// test signing error
 	context = getSignatureContext()
 	s = New(ed25519signature2018.New(
-		suite.WithSigner(
-			getSigner([]byte("invalid")))))
+		suite.WithSigner(signature.GetEd25519Signer([]byte("invalid"), nil))))
 	signedDoc, err = s.Sign(context, []byte(validDoc))
 	require.NotNil(t, err)
 	require.Nil(t, signedDoc)
@@ -118,31 +117,6 @@ func TestDocumentSigner_isValidContext(t *testing.T) {
 func getSignatureContext() *Context {
 	return &Context{Creator: "creator",
 		SignatureType: signatureType}
-}
-
-func generatePrivateKey() []byte {
-	_, privKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		panic(err)
-	}
-
-	return privKey
-}
-
-func getSigner(privKey []byte) *testSigner {
-	return &testSigner{privateKey: privKey}
-}
-
-type testSigner struct {
-	privateKey []byte
-}
-
-func (s *testSigner) Sign(doc []byte) ([]byte, error) {
-	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
-		return nil, errors.New("ed25519: bad private key length")
-	}
-
-	return ed25519.Sign(s.privateKey, doc), nil
 }
 
 //nolint:lll

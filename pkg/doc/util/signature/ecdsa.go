@@ -11,6 +11,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"errors"
 
 	"github.com/btcsuite/btcd/btcec"
 )
@@ -30,6 +31,36 @@ func GetECDSAP256Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
 	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA256}
 }
 
+// NewECDSAP384Signer creates a new ECDSA P384 signer with generated key.
+func NewECDSAP384Signer() (*ECDSASigner, error) {
+	privKey, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA384}, nil
+}
+
+// GetECDSAP384Signer creates a new ECDSA P384 signer with passed ECDSA P384 private key.
+func GetECDSAP384Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
+	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA384}
+}
+
+// NewECDSAP521Signer creates a new ECDSA P521 signer with generated key.
+func NewECDSAP521Signer() (*ECDSASigner, error) {
+	privKey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA512}, nil
+}
+
+// GetECDSAP521Signer creates a new ECDSA P521 signer with passed ECDSA P521 private key.
+func GetECDSAP521Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
+	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA512}
+}
+
 // NewECDSASecp256k1Signer creates a new ECDSA Secp256k1 signer with generated key.
 func NewECDSASecp256k1Signer() (*ECDSASigner, error) {
 	privKey, err := ecdsa.GenerateKey(btcec.S256(), rand.Reader)
@@ -43,6 +74,26 @@ func NewECDSASecp256k1Signer() (*ECDSASigner, error) {
 // GetECDSASecp256k1Signer creates a new ECDSA Secp256k1 signer with passed ECDSA Secp256k1 private key.
 func GetECDSASecp256k1Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
 	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA256}
+}
+
+// NewECDSASigner creates a new ECDSA signer based on the input elliptic curve.
+func NewECDSASigner(curve elliptic.Curve) (*ECDSASigner, error) {
+	switch curve {
+	case elliptic.P256():
+		return NewECDSAP256Signer()
+
+	case elliptic.P384():
+		return NewECDSAP384Signer()
+
+	case elliptic.P521():
+		return NewECDSAP521Signer()
+
+	case btcec.S256():
+		return NewECDSASecp256k1Signer()
+
+	default:
+		return nil, errors.New("unsupported curve")
+	}
 }
 
 // ECDSASigner makes ECDSA based signatures.

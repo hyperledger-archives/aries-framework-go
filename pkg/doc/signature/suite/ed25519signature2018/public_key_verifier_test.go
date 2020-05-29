@@ -7,27 +7,27 @@ SPDX-License-Identifier: Apache-2.0
 package ed25519signature2018
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestPublicKeyVerifier_Verify(t *testing.T) {
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	signer, err := signature.NewEd25519Signer()
 	require.NoError(t, err)
 
 	msg := []byte("test message")
 
-	msgSig := ed25519.Sign(privateKey, msg)
+	msgSig, err := signer.Sign(msg)
+	require.NoError(t, err)
 
 	pubKey := &verifier.PublicKey{
 		Type:  kms.ED25519,
-		Value: publicKey,
+		Value: signer.PublicKey,
 	}
 	v := NewPublicKeyVerifier()
 
