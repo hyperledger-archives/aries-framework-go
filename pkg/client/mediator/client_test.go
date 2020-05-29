@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
-	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
 
 // Ensure Client can emit events

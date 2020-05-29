@@ -14,8 +14,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	mockroute "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol/mediator"
-	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
 
 func TestNew(t *testing.T) {

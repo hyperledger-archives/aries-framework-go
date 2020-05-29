@@ -23,8 +23,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/protocol"
-	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )

@@ -16,8 +16,8 @@ import (
 	"nhooyr.io/websocket"
 
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
-	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
+	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 )
 
 func TestInboundTransport(t *testing.T) {

@@ -18,8 +18,8 @@ import (
 
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/test/transportutil"
+	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 )
 
 func TestConnectionStore(t *testing.T) {

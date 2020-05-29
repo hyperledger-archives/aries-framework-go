@@ -14,9 +14,9 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
 

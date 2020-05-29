@@ -12,8 +12,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 
 	"github.com/hyperledger/aries-framework-go/pkg/internal/cryptoutil"
-	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )

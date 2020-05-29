@@ -21,10 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ariesjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	mockprovider "github.com/hyperledger/aries-framework-go/pkg/internal/mock/provider"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
 
 func TestNew(t *testing.T) {

@@ -15,7 +15,7 @@ import (
 
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
+	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 )
 
 func TestClient(t *testing.T) {
