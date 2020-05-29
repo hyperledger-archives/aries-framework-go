@@ -22,7 +22,7 @@ import (
 
 	commontransport "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
-	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
+	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 )
 
 type mockProvider struct {

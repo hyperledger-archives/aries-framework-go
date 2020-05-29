@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/defaults"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/msghandler"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/msghandler"
 )
 
 func TestGetRESTHandlers(t *testing.T) {

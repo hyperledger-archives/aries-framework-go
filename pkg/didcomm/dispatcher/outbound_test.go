@@ -21,9 +21,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm"
-	mockpackager "github.com/hyperledger/aries-framework-go/pkg/internal/mock/didcomm/packager"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	mockdidcomm "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm"
+	mockpackager "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/packager"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
