@@ -352,8 +352,8 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 	}
 }
 
-// Continue allows proceeding with the action by the piID
-func (s *Service) Continue(piID string, opt Opt) error {
+// ActionContinue allows proceeding with the action by the piID
+func (s *Service) ActionContinue(piID string, opt Opt) error {
 	tPayload, err := s.getTransitionalPayload(piID)
 	if err != nil {
 		return fmt.Errorf("get transitional payload: %w", err)
@@ -380,6 +380,35 @@ func (s *Service) Continue(piID string, opt Opt) error {
 		logger.Errorf("delete transitional payload", err)
 	}
 
+	s.processCallback(md)
+
+	return nil
+}
+
+// ActionStop allows stopping the action by the piID
+func (s *Service) ActionStop(piID string, cErr error) error {
+	tPayload, err := s.getTransitionalPayload(piID)
+	if err != nil {
+		return fmt.Errorf("get transitional payload: %w", err)
+	}
+
+	md := &metaData{
+		transitionalPayload: *tPayload,
+		state:               stateFromName(tPayload.StateName),
+		msgClone:            tPayload.Msg.Clone(),
+		inbound:             true,
+	}
+
+	if err := s.deleteTransitionalPayload(md.PIID); err != nil {
+		return fmt.Errorf("delete transitional payload: %w", err)
+	}
+
+	// if introducee received Proposal rejected must be true
+	if md.Msg.Type() == ProposalMsgType {
+		md.rejected = true
+	}
+
+	md.err = customError{error: cErr}
 	s.processCallback(md)
 
 	return nil
