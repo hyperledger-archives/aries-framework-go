@@ -39,8 +39,9 @@ type Provider interface {
 // ProtocolService defines the introduce service.
 type ProtocolService interface {
 	service.DIDComm
-	Continue(piID string, opt introduce.Opt) error
 	Actions() ([]introduce.Action, error)
+	ActionContinue(piID string, opt introduce.Opt) error
+	ActionStop(piID string, err error) error
 }
 
 // Client enable access to introduce API
@@ -110,20 +111,32 @@ func (c *Client) SendRequest(to *PleaseIntroduceTo, myDID, theirDID string) erro
 // AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.
 // NOTE: For async usage. Introducee can provide this request only after receiving ProposalMsgType
 func (c *Client) AcceptProposalWithOOBRequest(piID string, req *outofband.Request) error {
-	return c.service.Continue(piID, WithOOBRequest(req))
+	return c.service.ActionContinue(piID, WithOOBRequest(req))
 }
 
 // AcceptRequestWithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
 // NOTE: For async usage. Introducer can provide invitation only after receiving RequestMsgType
 func (c *Client) AcceptRequestWithPublicOOBRequest(piID string, req *outofband.Request, to *To) error {
-	return c.service.Continue(piID, WithPublicOOBRequest(req, to))
+	return c.service.ActionContinue(piID, WithPublicOOBRequest(req, to))
 }
 
 // AcceptRequestWithRecipients is used when the introducer does not have a published out-of-band message on hand
 // but he is willing to introduce agents to each other.
 // NOTE: For async usage. Introducer can provide recipients only after receiving RequestMsgType.
 func (c *Client) AcceptRequestWithRecipients(piID string, to *To, recipient *Recipient) error {
-	return c.service.Continue(piID, WithRecipients(to, recipient))
+	return c.service.ActionContinue(piID, WithRecipients(to, recipient))
+}
+
+// DeclineProposal is used to reject the proposal.
+// NOTE: For async usage.
+func (c *Client) DeclineProposal(piID, reason string) error {
+	return c.service.ActionStop(piID, errors.New(reason))
+}
+
+// DeclineRequest is used to reject the request.
+// NOTE: For async usage.
+func (c *Client) DeclineRequest(piID, reason string) error {
+	return c.service.ActionStop(piID, errors.New(reason))
 }
 
 // Actions returns unfinished actions for the async usage

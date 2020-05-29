@@ -72,6 +72,34 @@ func (m *MockProtocolService) EXPECT() *MockProtocolServiceMockRecorder {
 	return m.recorder
 }
 
+// ActionContinue mocks base method
+func (m *MockProtocolService) ActionContinue(arg0 string, arg1 introduce.Opt) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActionContinue", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ActionContinue indicates an expected call of ActionContinue
+func (mr *MockProtocolServiceMockRecorder) ActionContinue(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionContinue", reflect.TypeOf((*MockProtocolService)(nil).ActionContinue), arg0, arg1)
+}
+
+// ActionStop mocks base method
+func (m *MockProtocolService) ActionStop(arg0 string, arg1 error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActionStop", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ActionStop indicates an expected call of ActionStop
+func (mr *MockProtocolServiceMockRecorder) ActionStop(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionStop", reflect.TypeOf((*MockProtocolService)(nil).ActionStop), arg0, arg1)
+}
+
 // Actions mocks base method
 func (m *MockProtocolService) Actions() ([]introduce.Action, error) {
 	m.ctrl.T.Helper()
@@ -85,20 +113,6 @@ func (m *MockProtocolService) Actions() ([]introduce.Action, error) {
 func (mr *MockProtocolServiceMockRecorder) Actions() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Actions", reflect.TypeOf((*MockProtocolService)(nil).Actions))
-}
-
-// Continue mocks base method
-func (m *MockProtocolService) Continue(arg0 string, arg1 introduce.Opt) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Continue", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Continue indicates an expected call of Continue
-func (mr *MockProtocolServiceMockRecorder) Continue(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Continue", reflect.TypeOf((*MockProtocolService)(nil).Continue), arg0, arg1)
 }
 
 // HandleInbound mocks base method

@@ -323,7 +323,7 @@ func TestService_Proposal(t *testing.T) {
 // Alice received response from Carol
 // Carol received invitation from Alice
 // Bob received ack from Alice
-func TestService_ProposalContinue(t *testing.T) {
+func TestService_ProposalActionContinue(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -358,7 +358,7 @@ func TestService_ProposalContinue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
 
-		require.NoError(t, bob.Continue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
+		require.NoError(t, bob.ActionContinue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
 			Type: outofband.RequestMsgType,
 		})))
 
@@ -451,7 +451,7 @@ func TestService_ProposalSecond(t *testing.T) {
 // Alice received response from Carol
 // Bob received invitation from Alice
 // Carol received ack from Alice
-func TestService_ProposalSecondContinue(t *testing.T) {
+func TestService_ProposalSecondActionContinue(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -492,7 +492,7 @@ func TestService_ProposalSecondContinue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
 
-		require.NoError(t, carol.Continue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
+		require.NoError(t, carol.ActionContinue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
 			Type: outofband.RequestMsgType,
 		})))
 
@@ -597,6 +597,52 @@ func TestService_SkipProposalStopIntroducee(t *testing.T) {
 		"done", "done",
 	), func(action service.DIDCommAction) {
 		action.Stop(errors.New("hmm... I don't wanna know her"))
+		runtime.Goexit()
+	})
+
+	proposal := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
+	introduce.WrapWithMetadataPublicOOBRequest(proposal, &outofband.Request{
+		Type: outofband.RequestMsgType,
+	})
+
+	err := alice.HandleOutbound(proposal, Alice, Bob)
+	require.NoError(t, err)
+}
+
+// Bob received proposal from Alice
+// Alice received response from Bob
+func TestService_SkipProposalActionStopIntroducee(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	transport := map[string]chan payload{
+		Alice: make(chan payload),
+		Bob:   make(chan payload),
+	}
+
+	done := make(chan struct{}, len(transport)*2)
+	defer wait(t, done)
+
+	alice := agentSetup(Alice, t, ctrl, transport)
+	bob := agentSetup(Bob, t, ctrl, transport)
+
+	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
+		"arranging", "arranging",
+		"arranging", "arranging",
+		"abandoning", "abandoning",
+		"done", "done",
+	), nil)
+
+	handle(t, Bob, done, bob, checkStateMsg(t, Bob,
+		"deciding", "deciding",
+		"abandoning", "abandoning",
+		"done", "done",
+	), func(_ service.DIDCommAction) {
+		actions, err := bob.Actions()
+		require.NoError(t, err)
+		require.Equal(t, 1, len(actions))
+
+		require.NoError(t, bob.ActionStop(actions[0].PIID, errors.New("hmm... I don't wanna know her")))
 		runtime.Goexit()
 	})
 
@@ -723,6 +769,69 @@ func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// Carol received proposal from Alice
+// Bob received proposal from Alice
+// Alice received response from Bob
+// Alice received response from Carol
+// Bob received problem-report from Alice ( not approved )
+func TestService_ProposalActionStopIntroduceeSecond(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	transport := map[string]chan payload{
+		Alice: make(chan payload),
+		Bob:   make(chan payload),
+		Carol: make(chan payload),
+	}
+
+	done := make(chan struct{}, len(transport)*2)
+	defer wait(t, done)
+
+	alice := agentSetup(Alice, t, ctrl, transport)
+	carol := agentSetup(Carol, t, ctrl, transport)
+
+	handle(t, Alice, done, alice, checkStateMsg(t, Alice,
+		"arranging", "arranging",
+		"arranging", "arranging",
+		"arranging", "arranging",
+		"arranging", "arranging",
+		"abandoning", "abandoning",
+		"done", "done",
+	), nil)
+
+	handle(t, Bob, done, agentSetup(Bob, t, ctrl, transport), checkStateMsg(t, Bob,
+		"deciding", "deciding",
+		"waiting", "waiting",
+		"abandoning", "abandoning",
+		"done", "done",
+	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
+
+	handle(t, Carol, done, carol, checkStateMsg(t, Carol,
+		"deciding", "deciding",
+		"abandoning", "abandoning",
+		"done", "done",
+	), func(_ service.DIDCommAction) {
+		actions, err := carol.Actions()
+		require.NoError(t, err)
+		require.Equal(t, 1, len(actions))
+
+		require.NoError(t, carol.ActionStop(actions[0].PIID, errors.New("hmm... I don't wanna know him")))
+		runtime.Goexit()
+		runtime.Goexit()
+	})
+
+	proposal1 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Carol}})
+	proposal2 := introduce.CreateProposal(&introduce.Recipient{To: &introduce.To{Name: Bob}})
+
+	introduce.WrapWithMetadataPIID(proposal1, proposal2)
+
+	err := alice.HandleOutbound(proposal1, Alice, Bob)
+	require.NoError(t, err)
+
+	err = alice.HandleOutbound(proposal2, Alice, Carol)
+	require.NoError(t, err)
+}
+
 // Alice received request from Bob
 // Bob received proposal from Alice
 // Carol received proposal from Alice
@@ -803,7 +912,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 // Alice received response from Carol
 // Carol received invitation from Alice
 // Bob received ack from Alice
-func TestService_ProposalWithRequestContinue(t *testing.T) {
+func TestService_ProposalWithRequestActionContinue(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -829,7 +938,7 @@ func TestService_ProposalWithRequestContinue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
 
-		require.NoError(t, alice.Continue(actions[0].PIID, introduce.WithRecipients(&introduce.To{
+		require.NoError(t, alice.ActionContinue(actions[0].PIID, introduce.WithRecipients(&introduce.To{
 			Name: Carol,
 		}, &introduce.Recipient{
 			To: &introduce.To{
@@ -854,7 +963,7 @@ func TestService_ProposalWithRequestContinue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
 
-		require.NoError(t, bob.Continue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
+		require.NoError(t, bob.ActionContinue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
 			Type: outofband.RequestMsgType,
 		})))
 
@@ -1492,6 +1601,32 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, "", "")
 		require.EqualError(t, err, "doHandle: nextState: unrecognized msgType: unknown")
 	})
+}
+
+func TestService_ActionStop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	const errMsg = "error"
+
+	store := storageMocks.NewMockStore(ctrl)
+	store.EXPECT().Get(gomock.Any()).Return(nil, errors.New(errMsg))
+
+	storageProvider := storageMocks.NewMockProvider(ctrl)
+	storageProvider.EXPECT().OpenStore(introduce.Introduce).Return(store, nil)
+
+	oobService := serviceMocks.NewMockDIDComm(ctrl)
+	oobService.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
+
+	provider := introduceMocks.NewMockProvider(ctrl)
+	provider.EXPECT().StorageProvider().Return(storageProvider)
+	provider.EXPECT().Messenger().Return(nil)
+	provider.EXPECT().Service(outofband.Name).Return(oobService, nil)
+
+	s, err := introduce.New(provider)
+	require.NoError(t, err)
+
+	require.EqualError(t, s.ActionStop("piid", nil), "get transitional payload: store get: "+errMsg)
 }
 
 func TestOOBMessageReceived(t *testing.T) {

@@ -179,7 +179,7 @@ func TestClient_AcceptProposalWithOOBRequest(t *testing.T) {
 
 		provider := mocksintroduce.NewMockProvider(ctrl)
 		svc := mocksintroduce.NewMockProtocolService(ctrl)
-		svc.EXPECT().Continue(
+		svc.EXPECT().ActionContinue(
 			gomock.AssignableToTypeOf(""),
 			gomock.AssignableToTypeOf(introduce.WithOOBRequest(nil)),
 		).DoAndReturn(
@@ -207,7 +207,7 @@ func TestClient_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 
 		provider := mocksintroduce.NewMockProvider(ctrl)
 		svc := mocksintroduce.NewMockProtocolService(ctrl)
-		svc.EXPECT().Continue(
+		svc.EXPECT().ActionContinue(
 			gomock.AssignableToTypeOf(""),
 			gomock.AssignableToTypeOf(introduce.WithPublicOOBRequest(nil, nil)),
 		).DoAndReturn(
@@ -225,4 +225,36 @@ func TestClient_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		err = client.AcceptRequestWithPublicOOBRequest(expectedPIID, &outofband.Request{}, &To{})
 		require.NoError(t, err)
 	})
+}
+
+func TestClient_DeclineProposal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocksintroduce.NewMockProvider(ctrl)
+
+	svc := mocksintroduce.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionStop("PIID", errors.New("the reason")).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.DeclineProposal("PIID", "the reason"))
+}
+
+func TestClient_DeclineRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	provider := mocksintroduce.NewMockProvider(ctrl)
+
+	svc := mocksintroduce.NewMockProtocolService(ctrl)
+	svc.EXPECT().ActionStop("PIID", errors.New("the reason")).Return(nil)
+
+	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+	client, err := New(provider)
+	require.NoError(t, err)
+
+	require.NoError(t, client.DeclineRequest("PIID", "the reason"))
 }
