@@ -58,6 +58,9 @@ const (
 
 	// PresentProof error group for present proof command errors
 	PresentProof = 9000
+
+	// Introduce error group for introduce command errors
+	Introduce = 10000
 )
 
 // Error is the  interface for representing an command error condition, with the nil value representing no error.
