@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -23,12 +22,12 @@ func TestJWTPresClaims_MarshalJWS(t *testing.T) {
 	vp, err := newTestPresentation([]byte(validPresentation))
 	require.NoError(t, err)
 
-	signer, err := signature.NewRS256Signer()
+	signer, err := newCryptoSigner(kms.RSARS256Type)
 	require.NoError(t, err)
 
 	jws := createCredJWS(t, vp, signer)
 
-	_, rawVC, err := decodeVPFromJWS(jws, true, holderPublicKeyFetcher(signer.PublicKey))
+	_, rawVC, err := decodeVPFromJWS(jws, true, holderPublicKeyFetcher(signer.PublicKeyBytes()))
 
 	require.NoError(t, err)
 	require.Equal(t, vp.stringJSON(t), rawVC.stringJSON(t))
@@ -41,10 +40,10 @@ type invalidPresClaims struct {
 }
 
 func TestUnmarshalPresJWSClaims(t *testing.T) {
-	holderSigner, err := signature.NewRS256Signer()
+	holderSigner, err := newCryptoSigner(kms.RSARS256Type)
 	require.NoError(t, err)
 
-	testFetcher := holderPublicKeyFetcher(holderSigner.PublicKey)
+	testFetcher := holderPublicKeyFetcher(holderSigner.PublicKeyBytes())
 
 	t.Run("Successful JWS decoding", func(t *testing.T) {
 		vp, err := newTestPresentation([]byte(validPresentation))
@@ -95,12 +94,12 @@ func TestUnmarshalPresJWSClaims(t *testing.T) {
 
 		uc, err := unmarshalPresJWSClaims(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			// use public key of VC Issuer (while expecting to use the ones of VP Holder)
-			issuerSigner, errSigner := signature.NewRS256Signer()
+			issuerSigner, errSigner := newCryptoSigner(kms.RSARS256Type)
 			require.NoError(t, errSigner)
 
 			return &verifier.PublicKey{
-				Type:  kms.RSA,
-				Value: publicKeyPemToBytes(issuerSigner.PublicKey),
+				Type:  kms.RSARS256,
+				Value: issuerSigner.PublicKeyBytes(),
 			}, nil
 		})
 		require.Error(t, err)
@@ -120,11 +119,11 @@ func createCredJWS(t *testing.T, vp *Presentation, signer Signer) string {
 	return jws
 }
 
-func holderPublicKeyFetcher(publicKey *rsa.PublicKey) PublicKeyFetcher {
+func holderPublicKeyFetcher(pubKeyBytes []byte) PublicKeyFetcher {
 	return func(issuerID, keyID string) (*verifier.PublicKey, error) {
 		return &verifier.PublicKey{
-			Type:  kms.RSA,
-			Value: publicKeyPemToBytes(publicKey),
+			Type:  kms.RSARS256,
+			Value: pubKeyBytes,
 		}, nil
 	}
 }

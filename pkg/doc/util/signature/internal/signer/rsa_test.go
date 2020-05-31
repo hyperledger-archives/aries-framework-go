@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package signature
+package signer
 
 import (
 	"crypto/rand"
@@ -20,7 +20,7 @@ func TestNewRS256Signer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.NotNil(t, signer.privateKey)
-	require.NotNil(t, signer.PublicKey)
+	require.NotNil(t, signer.PubKey)
 }
 
 func TestGetRS256Signer(t *testing.T) {
@@ -30,7 +30,7 @@ func TestGetRS256Signer(t *testing.T) {
 	signer := GetRS256Signer(privKey)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
-	require.Equal(t, &privKey.PublicKey, signer.PublicKey)
+	require.Equal(t, &privKey.PublicKey, signer.PubKey)
 }
 
 func TestRS256Signer_Sign(t *testing.T) {
@@ -48,7 +48,7 @@ func TestNewPS256Signer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.NotNil(t, signer.privateKey)
-	require.NotNil(t, signer.PublicKey)
+	require.NotNil(t, signer.PubKey)
 }
 
 func TestGetPS256Signer(t *testing.T) {
@@ -58,7 +58,7 @@ func TestGetPS256Signer(t *testing.T) {
 	signer := GetPS256Signer(privKey)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
-	require.Equal(t, &privKey.PublicKey, signer.PublicKey)
+	require.Equal(t, &privKey.PublicKey, signer.PubKey)
 }
 
 func TestPS256Signer_Sign(t *testing.T) {

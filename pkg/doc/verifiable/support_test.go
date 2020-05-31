@@ -6,8 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package verifiable
 
 import (
-	"crypto/rsa"
-	"crypto/x509"
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
@@ -18,12 +16,17 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 const jsonldContextPrefix = "testdata/context"
@@ -133,10 +136,6 @@ func (vp *Presentation) stringJSON(t *testing.T) string {
 	return string(bytes)
 }
 
-func publicKeyPemToBytes(publicKey *rsa.PublicKey) []byte {
-	return x509.MarshalPKCS1PublicKey(publicKey)
-}
-
 func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
 	vc, err := ParseUnverifiedCredential([]byte(validCredential))
 	if err != nil {
@@ -145,7 +144,7 @@ func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
 
 	created := time.Now()
 
-	signer, err := signature.NewEd25519Signer()
+	signer, err := newCryptoSigner(kmsapi.ED25519Type)
 	if err != nil {
 		panic(err)
 	}
@@ -161,7 +160,7 @@ func createVCWithLinkedDataProof() (*Credential, PublicKeyFetcher) {
 		panic(err)
 	}
 
-	return vc, SingleKey(signer.PublicKey, kmsapi.ED25519)
+	return vc, SingleKey(signer.PublicKeyBytes(), kmsapi.ED25519)
 }
 
 func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
@@ -172,7 +171,7 @@ func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
 
 	created := time.Now()
 
-	signer1, err := signature.NewEd25519Signer()
+	signer1, err := newCryptoSigner(kmsapi.ED25519Type)
 	if err != nil {
 		panic(err)
 	}
@@ -188,7 +187,7 @@ func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
 		panic(err)
 	}
 
-	signer2, err := signature.NewEd25519Signer()
+	signer2, err := newCryptoSigner(kmsapi.ED25519Type)
 	if err != nil {
 		panic(err)
 	}
@@ -209,18 +208,38 @@ func createVCWithTwoLinkedDataProofs() (*Credential, PublicKeyFetcher) {
 		case "#key1":
 			return &verifier.PublicKey{
 				Type:  "Ed25519Signature2018",
-				Value: signer1.PublicKey,
+				Value: signer1.PublicKeyBytes(),
 			}, nil
 
 		case "#key2":
 			return &verifier.PublicKey{
 				Type:  "Ed25519Signature2018",
-				Value: signer2.PublicKey,
+				Value: signer2.PublicKeyBytes(),
 			}, nil
 		}
 
 		panic("invalid keyID")
 	}
+}
+
+func createKMS() (*localkms.LocalKMS, error) {
+	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+
+	return localkms.New("local-lock://custom/master/key/", p)
+}
+
+func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
+	localKMS, err := createKMS()
+	if err != nil {
+		return nil, err
+	}
+
+	tinkCrypto, err := tinkcrypto.New()
+	if err != nil {
+		return nil, err
+	}
+
+	return signature.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }
 
 //nolint:gochecknoglobals

@@ -67,7 +67,7 @@ func TestNewVerifier(t *testing.T) {
 
 		v := NewVerifier(getTestKeyResolver(
 			&verifier.PublicKey{
-				Type:  kms.RSA,
+				Type:  kms.RSARS256,
 				Value: x509.MarshalPKCS1PublicKey(pubKey),
 			}, nil))
 		_, err = jose.ParseJWS(jws, v)
@@ -82,7 +82,7 @@ func TestBasicVerifier_Verify(t *testing.T) { // error corner cases
 	r.NoError(err)
 
 	v := NewVerifier(getTestKeyResolver(&verifier.PublicKey{
-		Type:  kms.RSA,
+		Type:  kms.RSARS256,
 		Value: pubKey,
 	}, nil))
 
@@ -168,7 +168,7 @@ func TestVerifyRS256(t *testing.T) {
 	r.NoError(err)
 
 	err = VerifyRS256(&verifier.PublicKey{
-		Type:  kms.RSA,
+		Type:  kms.RSARS256,
 		Value: x509.MarshalPKCS1PublicKey(&privKey.PublicKey),
 	}, []byte("test message"), signature)
 	r.NoError(err)
@@ -177,7 +177,7 @@ func TestVerifyRS256(t *testing.T) {
 	r.NoError(err)
 
 	err = VerifyRS256(&verifier.PublicKey{
-		Type:  kms.RSA,
+		Type:  kms.RSARS256,
 		Value: x509.MarshalPKCS1PublicKey(&anotherPrivKey.PublicKey),
 	}, []byte("test message"), signature)
 	r.Error(err)

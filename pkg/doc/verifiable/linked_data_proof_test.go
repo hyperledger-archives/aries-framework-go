@@ -7,7 +7,6 @@ package verifiable
 
 import (
 	"crypto/ed25519"
-	"crypto/elliptic"
 	"crypto/rand"
 	"errors"
 	"testing"
@@ -21,7 +20,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -83,7 +81,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 }
 `
 
-	ed25519Signer, err := signature.NewEd25519Signer()
+	ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 	require.NoError(t, err)
 
 	vcWithEd25519Proof := prepareVCWithEd25519LDP(t, vcJSON, ed25519Signer)
@@ -91,7 +89,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 	vcWithEd25519ProofBytes, err := vcWithEd25519Proof.MarshalJSON()
 	require.NoError(t, err)
 
-	ecdsaSigner, err := signature.NewECDSASecp256k1Signer()
+	ecdsaSigner, err := newCryptoSigner(kms.ECDSASecp256k1TypeIEEEP1363)
 	require.NoError(t, err)
 	vcWithSecp256k1Proof := prepareVCWithSecp256k1LDP(t, vcJSON, ecdsaSigner)
 
@@ -105,7 +103,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 			suite.WithCompactProof())
 		vcDecoded, err := parseTestCredential(vcWithEd25519ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuite),
-			WithPublicKeyFetcher(SingleKey(ed25519Signer.PublicKey, kms.ED25519)))
+			WithPublicKeyFetcher(SingleKey(ed25519Signer.PublicKeyBytes(), kms.ED25519)))
 		require.NoError(t, err)
 		require.Equal(t, vcWithEd25519Proof, vcDecoded)
 	})
@@ -121,13 +119,11 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 
 		vcDecoded, err := parseTestCredential(vcWithEd25519ProofBytes,
 			WithEmbeddedSignatureSuites(verifierSuites...),
-			WithPublicKeyFetcher(SingleKey(ed25519Signer.PublicKey, kms.ED25519)))
+			WithPublicKeyFetcher(SingleKey(ed25519Signer.PublicKeyBytes(), kms.ED25519)))
 		require.NoError(t, err)
 		require.Equal(t, vcWithEd25519Proof, vcDecoded)
 
-		pubKeyBytes := elliptic.Marshal(ecdsaSigner.PublicKey.Curve, ecdsaSigner.PublicKey.X, ecdsaSigner.PublicKey.Y)
-
-		jwk, err := jose.JWKFromPublicKey(ecdsaSigner.PublicKey)
+		jwk, err := jose.JWKFromPublicKey(ecdsaSigner.PublicKey())
 		require.NoError(t, err)
 
 		vcDecoded, err = parseTestCredential(vcWithSecp256k1ProofBytes,
@@ -135,7 +131,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 			WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				return &verifier.PublicKey{
 					Type:  "EcdsaSecp256k1VerificationKey2019",
-					Value: pubKeyBytes,
+					Value: ecdsaSigner.PublicKeyBytes(),
 					JWK:   jwk,
 				}, nil
 			}))
@@ -145,7 +141,7 @@ func TestLinkedDataProofSignerAndVerifier(t *testing.T) {
 
 	t.Run("no signature suite defined", func(t *testing.T) {
 		vcDecoded, err := parseTestCredential(vcWithEd25519ProofBytes,
-			WithPublicKeyFetcher(SingleKey(ed25519Signer.PublicKey, kms.ED25519)))
+			WithPublicKeyFetcher(SingleKey(ed25519Signer.PublicKeyBytes(), kms.ED25519)))
 		require.NoError(t, err)
 		require.NotNil(t, vcDecoded)
 	})

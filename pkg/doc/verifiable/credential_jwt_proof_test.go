@@ -16,7 +16,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 )
@@ -49,12 +48,12 @@ const keyID = "1"
 func TestParseCredentialFromJWS(t *testing.T) {
 	testCred := []byte(jwtTestCredential)
 
-	ed25519Signer, err := signature.NewEd25519Signer()
+	ed25519Signer, err := newCryptoSigner(kms.ED25519Type)
 	require.NoError(t, err)
 
-	ed25519KeyFetcher := createDIDKeyFetcher(t, ed25519Signer.PublicKey, "76e12ec712ebc6f1c221ebfeb1f")
+	ed25519KeyFetcher := createDIDKeyFetcher(t, ed25519Signer.PublicKeyBytes(), "76e12ec712ebc6f1c221ebfeb1f")
 
-	rs256Signer, err := signature.NewRS256Signer()
+	rs256Signer, err := newCryptoSigner(kms.RSARS256Type)
 	require.NoError(t, err)
 
 	t.Run("Decoding credential from JWS", func(t *testing.T) {
@@ -88,12 +87,12 @@ func TestParseCredentialFromJWS(t *testing.T) {
 			createRS256JWS(t, testCred, rs256Signer, true),
 			// passing holder's key, while expecting issuer one
 			WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
-				holderSigner, err := signature.NewRS256Signer()
+				holderSigner, err := newCryptoSigner(kms.RSARS256Type)
 				require.NoError(t, err)
 
 				return &verifier.PublicKey{
-					Type:  kms.RSA,
-					Value: publicKeyPemToBytes(holderSigner.PublicKey),
+					Type:  kms.RSARS256,
+					Value: holderSigner.PublicKeyBytes(),
 				}, nil
 			}))
 
@@ -126,7 +125,7 @@ func TestParseCredentialFromJWS(t *testing.T) {
 func TestParseCredentialFromJWS_EdDSA(t *testing.T) {
 	vcBytes := []byte(jwtTestCredential)
 
-	signer, err := signature.NewEd25519Signer()
+	signer, err := newCryptoSigner(kms.ED25519Type)
 	require.NoError(t, err)
 
 	vc, err := parseTestCredential(vcBytes)
@@ -137,7 +136,7 @@ func TestParseCredentialFromJWS_EdDSA(t *testing.T) {
 	// unmarshal credential from JWS
 	vcFromJWS, err := parseTestCredential(
 		vcJWSStr,
-		WithPublicKeyFetcher(SingleKey(signer.PublicKey, kms.ED25519)))
+		WithPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)))
 	require.NoError(t, err)
 
 	// unmarshalled credential must be the same as original one
@@ -171,13 +170,13 @@ func TestParseCredentialFromUnsecuredJWT(t *testing.T) {
 }
 
 func TestJwtWithExtension(t *testing.T) {
-	signer, err := signature.NewRS256Signer()
+	signer, err := newCryptoSigner(kms.RSARS256Type)
 	require.NoError(t, err)
 
 	keyFetcher := WithPublicKeyFetcher(func(issuerID, keyID string) (*verifier.PublicKey, error) {
 		return &verifier.PublicKey{
-			Type:  kms.RSA,
-			Value: publicKeyPemToBytes(signer.PublicKey),
+			Type:  kms.RSARS256,
+			Value: signer.PublicKeyBytes(),
 		}, nil
 	})
 

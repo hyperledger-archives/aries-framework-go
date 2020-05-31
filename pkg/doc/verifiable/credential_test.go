@@ -21,7 +21,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -1718,7 +1717,7 @@ func TestCredential_raw(t *testing.T) {
 }
 
 func TestParseUnverifiedCredential(t *testing.T) {
-	signer, err := signature.NewEd25519Signer()
+	signer, err := newCryptoSigner(kms.ED25519Type)
 	require.NoError(t, err)
 
 	t.Run("ParseUnverifiedCredential() for JWS", func(t *testing.T) {

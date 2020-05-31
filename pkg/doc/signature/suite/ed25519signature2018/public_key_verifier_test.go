@@ -11,13 +11,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 func TestPublicKeyVerifier_Verify(t *testing.T) {
-	signer, err := signature.NewEd25519Signer()
+	signer, err := newCryptoSigner(kmsapi.ED25519Type)
 	require.NoError(t, err)
 
 	msg := []byte("test message")
@@ -26,11 +31,27 @@ func TestPublicKeyVerifier_Verify(t *testing.T) {
 	require.NoError(t, err)
 
 	pubKey := &verifier.PublicKey{
-		Type:  kms.ED25519,
-		Value: signer.PublicKey,
+		Type:  kmsapi.ED25519,
+		Value: signer.PublicKeyBytes(),
 	}
 	v := NewPublicKeyVerifier()
 
 	err = v.Verify(pubKey, msg, msgSig)
 	require.NoError(t, err)
+}
+
+func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
+	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	localKMS, err := localkms.New("local-lock://custom/master/key/", p)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tinkCrypto, err := tinkcrypto.New()
+	if err != nil {
+		return nil, err
+	}
+
+	return signature.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }

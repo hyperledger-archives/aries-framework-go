@@ -7,29 +7,30 @@ SPDX-License-Identifier: Apache-2.0
 package ecdsasecp256k1signature2019
 
 import (
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"testing"
 
-	"github.com/btcsuite/btcd/btcec"
 	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
+	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 func TestPublicKeyVerifier_Verify(t *testing.T) {
-	btcecPrivKey, err := btcec.NewPrivateKey(btcec.S256())
+	signer, err := newCryptoSigner(kmsapi.ECDSASecp256k1TypeIEEEP1363)
 	require.NoError(t, err)
-
-	ecdsaPrivKey := btcecPrivKey.ToECDSA()
 
 	msg := []byte("test message")
 
-	btcecPubKey := btcecPrivKey.PubKey()
+	msgSig, err := signer.Sign(msg)
+	require.NoError(t, err)
 
 	pubKey := &verifier.PublicKey{
 		Type: "EcdsaSecp256k1VerificationKey2019",
@@ -37,7 +38,7 @@ func TestPublicKeyVerifier_Verify(t *testing.T) {
 		JWK: &jose.JWK{
 			JSONWebKey: gojose.JSONWebKey{
 				Algorithm: "ES256K",
-				Key:       btcecPubKey.ToECDSA(),
+				Key:       signer.PublicKey(),
 			},
 			Crv: "secp256k1",
 			Kty: "EC",
@@ -45,50 +46,31 @@ func TestPublicKeyVerifier_Verify(t *testing.T) {
 	}
 
 	v := NewPublicKeyVerifier()
-	signature, err := getSignature(ecdsaPrivKey, msg)
+
+	err = v.Verify(pubKey, msg, msgSig)
 	require.NoError(t, err)
 
-	err = v.Verify(pubKey, msg, signature)
-	require.NoError(t, err)
-
-	pubKeyBytes := elliptic.Marshal(btcecPubKey.Curve, btcecPubKey.X, btcecPubKey.Y)
 	pubKey = &verifier.PublicKey{
 		Type:  "EcdsaSecp256k1VerificationKey2019",
-		Value: pubKeyBytes,
+		Value: signer.PublicKeyBytes(),
 	}
 
-	err = v.Verify(pubKey, msg, signature)
+	err = v.Verify(pubKey, msg, msgSig)
 	require.NoError(t, err)
 }
 
-func getSignature(privKey *ecdsa.PrivateKey, payload []byte) ([]byte, error) {
-	hasher := crypto.SHA256.New()
+func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
+	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	localKMS, err := localkms.New("local-lock://custom/master/key/", p)
 
-	_, err := hasher.Write(payload)
 	if err != nil {
 		return nil, err
 	}
 
-	hashed := hasher.Sum(nil)
-
-	r, s, err := ecdsa.Sign(rand.Reader, privKey, hashed)
+	tinkCrypto, err := tinkcrypto.New()
 	if err != nil {
 		return nil, err
 	}
 
-	curveBits := privKey.Curve.Params().BitSize
-
-	keyBytes := curveBits / 8
-	if curveBits%8 > 0 {
-		keyBytes++
-	}
-
-	copyPadded := func(source []byte, size int) []byte {
-		dest := make([]byte, size)
-		copy(dest[size-len(source):], source)
-
-		return dest
-	}
-
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
+	return signature.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }

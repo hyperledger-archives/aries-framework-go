@@ -14,14 +14,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
-	signer, err := signature.NewEd25519Signer()
+	signer, err := newCryptoSigner(kms.ED25519Type)
 	r.NoError(err)
 
 	ss := ed25519signature2018.New(suite.WithSigner(signer))
@@ -43,7 +42,7 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 
 	vcWithLdp, err := newTestPresentation(vcBytes,
 		WithPresEmbeddedSignatureSuites(ss),
-		WithPresPublicKeyFetcher(SingleKey(signer.PublicKey, kms.ED25519)))
+		WithPresPublicKeyFetcher(SingleKey(signer.PublicKeyBytes(), kms.ED25519)))
 	r.NoError(err)
 
 	r.NoError(err)
@@ -53,7 +52,7 @@ func TestParsePresentationFromLinkedDataProof(t *testing.T) {
 func TestPresentation_AddLinkedDataProof(t *testing.T) {
 	r := require.New(t)
 
-	signer, err := signature.NewEd25519Signer()
+	signer, err := newCryptoSigner(kms.ED25519Type)
 	r.NoError(err)
 
 	ldpContext := &LinkedDataProofContext{

@@ -16,12 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
 func TestJWTCredClaimsMarshalJWS(t *testing.T) {
-	signer, err := signature.NewRS256Signer()
+	signer, err := newCryptoSigner(kms.RSARS256Type)
 	require.NoError(t, err)
 
 	vc, err := parseTestCredential([]byte(validCredential))
@@ -36,8 +35,8 @@ func TestJWTCredClaimsMarshalJWS(t *testing.T) {
 
 		vcBytes, err := decodeCredJWS(jws, true, func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			return &verifier.PublicKey{
-				Type:  kms.RSA,
-				Value: publicKeyPemToBytes(signer.PublicKey),
+				Type:  kms.RSARS256,
+				Value: signer.PublicKeyBytes(),
 			}, nil
 		})
 		require.NoError(t, err)
@@ -58,13 +57,13 @@ type invalidCredClaims struct {
 }
 
 func TestCredJWSDecoderUnmarshal(t *testing.T) {
-	signer, err := signature.NewRS256Signer()
+	signer, err := newCryptoSigner(kms.RSARS256Type)
 	require.NoError(t, err)
 
 	pkFetcher := func(_, _ string) (*verifier.PublicKey, error) { //nolint:unparam
 		return &verifier.PublicKey{
-			Type:  kms.RSA,
-			Value: publicKeyPemToBytes(signer.PublicKey),
+			Type:  kms.RSARS256,
+			Value: signer.PublicKeyBytes(),
 		}, nil
 	}
 
@@ -116,12 +115,12 @@ func TestCredJWSDecoderUnmarshal(t *testing.T) {
 	t.Run("Invalid signature of JWS", func(t *testing.T) {
 		pkFetcherOther := func(issuerID, keyID string) (*verifier.PublicKey, error) {
 			// use public key of VC Holder (while expecting to use the ones of Issuer)
-			holderSigner, err := signature.NewRS256Signer()
+			holderSigner, err := newCryptoSigner(kms.RSARS256Type)
 			require.NoError(t, err)
 
 			return &verifier.PublicKey{
-				Type:  kms.RSA,
-				Value: publicKeyPemToBytes(holderSigner.PublicKey),
+				Type:  kms.RSARS256,
+				Value: holderSigner.PublicKeyBytes(),
 			}, nil
 		}
 

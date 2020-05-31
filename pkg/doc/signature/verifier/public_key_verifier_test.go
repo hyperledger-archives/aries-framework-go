@@ -10,7 +10,6 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	"crypto/elliptic"
-	"crypto/x509"
 	"errors"
 	"testing"
 
@@ -18,9 +17,14 @@ import (
 	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 func TestNewPublicKeyVerifier(t *testing.T) {
@@ -151,7 +155,7 @@ func TestNewEd25519SignatureVerifier(t *testing.T) {
 	v := NewEd25519SignatureVerifier()
 	require.NotNil(t, v)
 
-	signer, err := signature.NewEd25519Signer()
+	signer, err := newCryptoSigner(kmsapi.ED25519Type)
 	require.NoError(t, err)
 
 	msg := []byte("test message")
@@ -159,8 +163,8 @@ func TestNewEd25519SignatureVerifier(t *testing.T) {
 	require.NoError(t, err)
 
 	pubKey := &PublicKey{
-		Type:  kms.ED25519,
-		Value: signer.PublicKey,
+		Type:  kmsapi.ED25519,
+		Value: signer.PublicKeyBytes(),
 	}
 
 	err = v.Verify(pubKey, msg, msgSig)
@@ -168,7 +172,7 @@ func TestNewEd25519SignatureVerifier(t *testing.T) {
 
 	// invalid public key type
 	err = v.Verify(&PublicKey{
-		Type:  kms.ED25519,
+		Type:  kmsapi.ED25519,
 		Value: []byte("invalid-key"),
 	}, msg, msgSig)
 	require.Error(t, err)
@@ -184,7 +188,7 @@ func TestNewRSAPS256SignatureVerifier(t *testing.T) {
 	v := NewRSAPS256SignatureVerifier()
 	require.NotNil(t, v)
 
-	signer, err := signature.NewPS256Signer()
+	signer, err := newCryptoSigner(kmsapi.RSAPS256Type)
 	require.NoError(t, err)
 
 	msg := []byte("test message")
@@ -192,7 +196,6 @@ func TestNewRSAPS256SignatureVerifier(t *testing.T) {
 	msgSig, err := signer.Sign(msg)
 	require.NoError(t, err)
 
-	pubKeyBytes := x509.MarshalPKCS1PublicKey(signer.PublicKey)
 	pubKey := &PublicKey{
 		Type: "JwsVerificationKey2020",
 		JWK: &jose.JWK{
@@ -201,7 +204,7 @@ func TestNewRSAPS256SignatureVerifier(t *testing.T) {
 			},
 			Kty: "RSA",
 		},
-		Value: pubKeyBytes,
+		Value: signer.PublicKeyBytes(),
 	}
 
 	err = v.Verify(pubKey, msg, msgSig)
@@ -265,17 +268,19 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.curveName, func(t *testing.T) {
-				signer, err := signature.NewECDSASigner(tc.curve)
+				keyType, err := signature.MapECCurveToKeyType(tc.curve)
 				require.NoError(t, err)
 
-				pubKeyBytes := elliptic.Marshal(tc.curve, signer.PublicKey.X, signer.PublicKey.Y)
+				signer, err := newCryptoSigner(keyType)
+				require.NoError(t, err)
+
 				pubKey := &PublicKey{
 					Type:  "JwsVerificationKey2020",
-					Value: pubKeyBytes,
+					Value: signer.PublicKeyBytes(),
 					JWK: &jose.JWK{
 						JSONWebKey: gojose.JSONWebKey{
 							Algorithm: tc.algorithm,
-							Key:       signer.PublicKey,
+							Key:       signer.PublicKey(),
 						},
 						Crv: tc.curveName,
 						Kty: "EC",
@@ -294,17 +299,15 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 	v := NewECDSAES256SignatureVerifier()
 	require.NotNil(t, v)
 
-	signer, err := signature.NewECDSAP256Signer()
+	signer, err := newCryptoSigner(kmsapi.ECDSAP256TypeIEEEP1363)
 	require.NoError(t, err)
 	msgSig, err := signer.Sign(msg)
 	require.NoError(t, err)
 
-	pubKeyBytes := elliptic.Marshal(elliptic.P256(), signer.PublicKey.X, signer.PublicKey.Y)
-
 	t.Run("verify with public key bytes", func(t *testing.T) {
 		verifyError := v.Verify(&PublicKey{
 			Type:  "JwsVerificationKey2020",
-			Value: pubKeyBytes,
+			Value: signer.PublicKeyBytes(),
 		}, msg, msgSig)
 
 		require.NoError(t, verifyError)
@@ -325,7 +328,7 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 
 		verifyError := v.Verify(&PublicKey{
 			Type:  "JwsVerificationKey2020",
-			Value: pubKeyBytes,
+			Value: signer.PublicKeyBytes(),
 			JWK: &jose.JWK{
 				JSONWebKey: gojose.JSONWebKey{
 					Algorithm: "ES256",
@@ -342,12 +345,12 @@ func TestNewECDSAES256SignatureVerifier(t *testing.T) {
 	t.Run("invalid signature", func(t *testing.T) {
 		pubKey := &PublicKey{
 			Type:  "JwsVerificationKey2020",
-			Value: pubKeyBytes,
+			Value: signer.PublicKeyBytes(),
 
 			JWK: &jose.JWK{
 				JSONWebKey: gojose.JSONWebKey{
 					Algorithm: "ES256",
-					Key:       signer.PublicKey,
+					Key:       signer.PublicKey(),
 				},
 				Crv: "P-256",
 				Kty: "EC",
@@ -373,4 +376,20 @@ type testSignatureVerifier struct {
 
 func (v testSignatureVerifier) Verify(*PublicKey, []byte, []byte) error {
 	return v.verifyResult
+}
+
+func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
+	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	localKMS, err := localkms.New("local-lock://custom/master/key/", p)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tinkCrypto, err := tinkcrypto.New()
+	if err != nil {
+		return nil, err
+	}
+
+	return signature.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }
