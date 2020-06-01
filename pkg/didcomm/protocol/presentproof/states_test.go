@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package presentproof
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"testing"
@@ -19,13 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	serviceMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/common/service"
-	issuecredentialMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/didcomm/protocol/issuecredential"
-	vdriMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/framework/aries/api/vdri"
-	storageMocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	storeVerifiable "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 )
 
 func TestStart_CanTransitionTo(t *testing.T) {
@@ -351,108 +344,19 @@ func TestPresentationReceived_CanTransitionTo(t *testing.T) {
 }
 
 func TestPresentationReceived_Execute(t *testing.T) {
-	t.Run("Decode error", func(t *testing.T) {
-		followup, action, err := (&presentationReceived{}).Execute(&metaData{
-			transitionalPayload: transitionalPayload{
-				Msg: service.DIDCommMsgMap{"@type": map[int]int{}},
-			},
-		})
-
-		require.Contains(t, fmt.Sprintf("%v", err), "got unconvertible type")
-		require.Nil(t, followup)
-		require.Nil(t, action)
-	})
-
 	t.Run("Success", func(t *testing.T) {
-		const pName = "presentationID"
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		store := storageMocks.NewMockStore(ctrl)
-		store.EXPECT().Get(gomock.Any()).Return(nil, storage.ErrDataNotFound)
-		store.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-
-		storeProvider := storageMocks.NewMockProvider(ctrl)
-		storeProvider.EXPECT().OpenStore(gomock.Any()).Return(store, nil)
-
-		provider := issuecredentialMocks.NewMockProvider(ctrl)
-		provider.EXPECT().StorageProvider().Return(storeProvider)
-
-		registry := vdriMocks.NewMockRegistry(ctrl)
-		registry.EXPECT().Resolve("did:example:ebfeb1f712ebc6f1c276e12ec21").Return(&did.Doc{
-			PublicKey: []did.PublicKey{{
-				ID:    "key-1",
-				Value: []byte{61, 133, 23, 17, 77, 132, 169, 196, 47, 203, 19, 71, 145, 144, 92, 145, 131, 101, 36, 251, 89, 216, 117, 140, 132, 226, 78, 187, 59, 58, 200, 255}, //nolint:lll
-			}},
-		}, nil)
-
-		vpJWS := "eyJhbGciOiJFZERTQSIsImtpZCI6ImtleS0xIiwidHlwIjoiSldUIn0.eyJpc3MiOiJkaWQ6ZXhhbXBsZTplYmZlYjFmNzEyZWJjNmYxYzI3NmUxMmVjMjEiLCJqdGkiOiJ1cm46dXVpZDozOTc4MzQ0Zi04NTk2LTRjM2EtYTk3OC04ZmNhYmEzOTAzYzUiLCJ2cCI6eyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sInR5cGUiOlsiVmVyaWZpYWJsZVByZXNlbnRhdGlvbiIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl0sInZlcmlmaWFibGVDcmVkZW50aWFsIjpbeyJAY29udGV4dCI6WyJodHRwczovL3d3dy53My5vcmcvMjAxOC9jcmVkZW50aWFscy92MSIsImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL2V4YW1wbGVzL3YxIl0sImNyZWRlbnRpYWxTY2hlbWEiOltdLCJjcmVkZW50aWFsU3ViamVjdCI6eyJkZWdyZWUiOnsidHlwZSI6IkJhY2hlbG9yRGVncmVlIiwidW5pdmVyc2l0eSI6Ik1JVCJ9LCJpZCI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsIm5hbWUiOiJKYXlkZW4gRG9lIiwic3BvdXNlIjoiZGlkOmV4YW1wbGU6YzI3NmUxMmVjMjFlYmZlYjFmNzEyZWJjNmYxIn0sImV4cGlyYXRpb25EYXRlIjoiMjAyMC0wMS0wMVQxOToyMzoyNFoiLCJpZCI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8xODcyIiwiaXNzdWFuY2VEYXRlIjoiMjAxMC0wMS0wMVQxOToyMzoyNFoiLCJpc3N1ZXIiOnsiaWQiOiJkaWQ6ZXhhbXBsZTo3NmUxMmVjNzEyZWJjNmYxYzIyMWViZmViMWYiLCJuYW1lIjoiRXhhbXBsZSBVbml2ZXJzaXR5In0sInJlZmVyZW5jZU51bWJlciI6OC4zMjk0ODQ3ZSswNywidHlwZSI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl19XX19.RlO_1B-7qhQNwo2mmOFUWSa8A6hwaJrtq3q7yJDkKq4k6B-EJ-oyLNM6H_g2_nko2Yg9Im1CiROFm6nK12U_AQ" //nolint:lll
-
-		vStore, err := storeVerifiable.New(provider)
-		require.NoError(t, err)
-
-		followup, action, err := (&presentationReceived{}).Execute(&metaData{
-			verifiable:        vStore,
-			presentationNames: []string{pName},
-			transitionalPayload: transitionalPayload{
-				Msg: service.NewDIDCommMsgMap(Presentation{
-					Presentations: []decorator.Attachment{{
-						Data: decorator.AttachmentData{
-							Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS)),
-						},
-					}},
-				}),
-			},
-			registryVDRI: registry,
-		})
+		followup, action, err := (&presentationReceived{}).Execute(&metaData{presentation: &Presentation{}})
 		require.NoError(t, err)
 		require.Equal(t, &done{}, followup)
 		require.NotNil(t, action)
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
 		messenger := serviceMocks.NewMockMessenger(ctrl)
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any())
 
 		require.NoError(t, action(messenger))
-	})
-
-	t.Run("JSON error", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		followup, action, err := (&presentationReceived{}).Execute(&metaData{
-			transitionalPayload: transitionalPayload{
-				Msg: service.NewDIDCommMsgMap(Presentation{
-					Presentations: []decorator.Attachment{{
-						Data: decorator.AttachmentData{
-							Base64: base64.StdEncoding.EncodeToString([]byte(`invalid`)),
-						},
-					}},
-				}),
-			},
-		})
-		require.Contains(t, fmt.Sprintf("%v", err), "JSON unmarshalling of verifiable presentation")
-		require.Nil(t, followup)
-		require.Nil(t, action)
-	})
-
-	t.Run("base64 error", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		followup, action, err := (&presentationReceived{}).Execute(&metaData{
-			transitionalPayload: transitionalPayload{
-				Msg: service.NewDIDCommMsgMap(Presentation{
-					Presentations: []decorator.Attachment{{
-						Data: decorator.AttachmentData{
-							Base64: "invalid",
-						},
-					}},
-				}),
-			},
-		})
-		require.Contains(t, fmt.Sprintf("%v", err), "to verifiable presentation: decode string")
-		require.Nil(t, followup)
-		require.Nil(t, action)
 	})
 }
 

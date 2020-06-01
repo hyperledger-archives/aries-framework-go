@@ -35,18 +35,18 @@ func TestSaveCredentials(t *testing.T) {
 	provider.EXPECT().VDRIRegistry().Return(nil).AnyTimes()
 	provider.EXPECT().VerifiableStore().Return(nil).AnyTimes()
 
-	next := issuecredential.HandlerFunc(func(metadata issuecredential.MetaData) error {
+	next := issuecredential.HandlerFunc(func(metadata issuecredential.Metadata) error {
 		return nil
 	})
 
 	t.Run("Ignores processing", func(t *testing.T) {
-		metadata := mocks.NewMockMetaData(ctrl)
+		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return("state-name")
 		require.NoError(t, SaveCredentials(provider)(next).Handle(metadata))
 	})
 
 	t.Run("Credentials not provided", func(t *testing.T) {
-		metadata := mocks.NewMockMetaData(ctrl)
+		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
 			Type: issuecredential.IssueCredentialMsgType,
@@ -57,7 +57,7 @@ func TestSaveCredentials(t *testing.T) {
 	})
 
 	t.Run("Marshal credentials error", func(t *testing.T) {
-		metadata := mocks.NewMockMetaData(ctrl)
+		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
 			Type: issuecredential.IssueCredentialMsgType,
@@ -71,7 +71,7 @@ func TestSaveCredentials(t *testing.T) {
 	})
 
 	t.Run("Decode error", func(t *testing.T) {
-		metadata := mocks.NewMockMetaData(ctrl)
+		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().Message().Return(service.DIDCommMsgMap{"@type": map[int]int{}})
 
@@ -80,7 +80,7 @@ func TestSaveCredentials(t *testing.T) {
 	})
 
 	t.Run("Invalid credentials", func(t *testing.T) {
-		metadata := mocks.NewMockMetaData(ctrl)
+		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
 			Type: issuecredential.IssueCredentialMsgType,
@@ -103,7 +103,7 @@ func TestSaveCredentials(t *testing.T) {
 
 		var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
 
-		metadata := mocks.NewMockMetaData(ctrl)
+		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
@@ -147,7 +147,7 @@ func TestSaveCredentials(t *testing.T) {
 		const vcName = "vc-name"
 		var issued = time.Date(2010, time.January, 1, 19, 23, 24, 0, time.UTC)
 
-		metadata := mocks.NewMockMetaData(ctrl)
+		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{
@@ -227,7 +227,7 @@ func TestSaveCredentials(t *testing.T) {
 				]
 			}`), &credential))
 
-		metadata := mocks.NewMockMetaData(ctrl)
+		metadata := mocks.NewMockMetadata(ctrl)
 		metadata.EXPECT().StateName().Return(stateNameCredentialReceived)
 		metadata.EXPECT().CredentialNames().Return([]string{vcName}).Times(2)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(issuecredential.IssueCredential{

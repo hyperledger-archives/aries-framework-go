@@ -21,7 +21,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
-	middleware "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/issuecredential"
+	mdissuecredential "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/issuecredential"
+	mdpresentproof "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/middleware/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	arieshttp "github.com/hyperledger/aries-framework-go/pkg/didcomm/transport/http"
@@ -106,15 +107,23 @@ func newIssueCredentialSvc() api.ProtocolSvcCreator {
 		}
 
 		// sets default middleware to the service
-		service.Use(middleware.SaveCredentials(prv))
+		service.Use(mdissuecredential.SaveCredentials(prv))
 
-		return service, err
+		return service, nil
 	}
 }
 
 func newPresentProofSvc() api.ProtocolSvcCreator {
 	return func(prv api.Provider) (dispatcher.ProtocolService, error) {
-		return presentproof.New(prv)
+		service, err := presentproof.New(prv)
+		if err != nil {
+			return nil, err
+		}
+
+		// sets default middleware to the service
+		service.Use(mdpresentproof.SavePresentation(prv))
+
+		return service, nil
 	}
 }
 

@@ -47,7 +47,7 @@ const (
 // nolint:gochecknoglobals
 var (
 	logger         = log.New("aries-framework/issuecredential/service")
-	initialHandler = HandlerFunc(func(_ MetaData) error {
+	initialHandler = HandlerFunc(func(_ Metadata) error {
 		return nil
 	})
 )
