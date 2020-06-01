@@ -305,6 +305,7 @@ func (s *Service) startInternalListener() {
 			continue
 		}
 
+		logger.Errorf("abandoning: %s", msg.err)
 		msg.state = &abandoning{Code: codeInternalError}
 
 		if err := s.handle(msg); err != nil {
