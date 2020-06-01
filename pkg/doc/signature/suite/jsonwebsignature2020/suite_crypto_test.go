@@ -24,7 +24,8 @@ import (
 )
 
 func TestNewCryptoSignerAndVerifier(t *testing.T) {
-	lKMS := createKMS()
+	lKMS, err := createKMS()
+	require.NoError(t, err)
 
 	kid, kh := createKeyHandle(lKMS, kmsapi.ECDSAP256TypeIEEEP1363)
 
@@ -91,15 +92,10 @@ func createKeyHandle(kms *localkms.LocalKMS, keyType kmsapi.KeyType) (string, *k
 	return kid, kh.(*keyset.Handle)
 }
 
-func createKMS() *localkms.LocalKMS {
+func createKMS() (*localkms.LocalKMS, error) {
 	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
 
-	k, err := localkms.New("local-lock://custom/master/key/", p)
-	if err != nil {
-		panic(err)
-	}
-
-	return k
+	return localkms.New("local-lock://custom/master/key/", p)
 }
 
 func mapKeyTypeToKMS(t string) (kmsapi.KeyType, error) {

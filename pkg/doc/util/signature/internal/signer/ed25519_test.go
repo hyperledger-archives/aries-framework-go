@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package signature
+package signer
 
 import (
 	"crypto/ed25519"
@@ -19,7 +19,7 @@ func TestNewEd25519Signer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.NotNil(t, signer.privateKey)
-	require.NotNil(t, signer.PublicKey)
+	require.NotNil(t, signer.PubKey)
 }
 
 func TestGetEd25519Signer(t *testing.T) {
@@ -28,7 +28,7 @@ func TestGetEd25519Signer(t *testing.T) {
 
 	signer := GetEd25519Signer(privKey, pubKey)
 	require.NotNil(t, signer)
-	require.Equal(t, pubKey, signer.PublicKey)
+	require.Equal(t, pubKey, signer.PubKey)
 	require.Equal(t, privKey, signer.privateKey)
 }
 
@@ -40,7 +40,7 @@ func TestEd25519Signer_Sign(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, signature)
 
-	signer = GetEd25519Signer([]byte("invalid private key"), signer.PublicKey)
+	signer = GetEd25519Signer([]byte("invalid private key"), signer.PubKey)
 	signature, err = signer.Sign([]byte("test message"))
 	require.Error(t, err)
 	require.EqualError(t, err, "ed25519: bad private key length")

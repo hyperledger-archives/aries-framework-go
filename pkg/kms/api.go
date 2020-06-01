@@ -91,10 +91,14 @@ const (
 	ECDSAP384IEEEP1363 = "ECDSAP384IEEEP1363"
 	// ECDSAP521IEEEP1363 key type value
 	ECDSAP521IEEEP1363 = "ECDSAP521IEEEP1363"
+	// ECDSASecp256k1IEEEP1363 key type value
+	ECDSASecp256k1IEEEP1363 = "ECDSASecp256k1IEEEP1363"
 	// ED25519 key type value
 	ED25519 = "ED25519"
-	// RSA key type value
-	RSA = "RSA"
+	// RSARS256 key type value
+	RSARS256 = "RSARS256"
+	// RSAPS256 key type value
+	RSAPS256 = "RSAPS256"
 	// HMACSHA256Tag256 key type value
 	HMACSHA256Tag256 = "HMACSHA256Tag256"
 	// ECDHES256AES256GCM key type value
@@ -127,10 +131,14 @@ const (
 	ECDSAP384TypeIEEEP1363 = KeyType(ECDSAP384IEEEP1363)
 	// ECDSAP521TypeIEEEP1363 key type value
 	ECDSAP521TypeIEEEP1363 = KeyType(ECDSAP521IEEEP1363)
+	// ECDSASecp256k1TypeIEEEP1363 key type value
+	ECDSASecp256k1TypeIEEEP1363 = KeyType(ECDSASecp256k1IEEEP1363)
 	// ED25519Type key type value
 	ED25519Type = KeyType(ED25519)
-	// RSAType key type value
-	RSAType = KeyType(RSA)
+	// RSARS256Type key type value
+	RSARS256Type = KeyType(RSARS256)
+	// RSAPS256Type key type value
+	RSAPS256Type = KeyType(RSAPS256)
 	// HMACSHA256Tag256Type key type value
 	HMACSHA256Tag256Type = KeyType(HMACSHA256Tag256)
 	// ECDHES256AES256GCMType key type value

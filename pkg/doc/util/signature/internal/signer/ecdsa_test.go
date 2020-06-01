@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package signature
+package signer
 
 import (
 	"crypto"
@@ -24,7 +24,7 @@ func TestNewECDSAP256Signer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.NotNil(t, signer.privateKey)
-	require.NotNil(t, signer.PublicKey)
+	require.NotNil(t, signer.PubKey)
 	require.Equal(t, crypto.SHA256, signer.hash)
 }
 
@@ -35,7 +35,7 @@ func TestGetECDSAP256Signer(t *testing.T) {
 	signer := GetECDSAP256Signer(privKey)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
-	require.Equal(t, &privKey.PublicKey, signer.PublicKey)
+	require.Equal(t, &privKey.PublicKey, signer.PubKey)
 }
 
 func TestNewECDSAP384Signer(t *testing.T) {
@@ -44,7 +44,7 @@ func TestNewECDSAP384Signer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.NotNil(t, signer.privateKey)
-	require.NotNil(t, signer.PublicKey)
+	require.NotNil(t, signer.PubKey)
 	require.Equal(t, crypto.SHA384, signer.hash)
 }
 
@@ -55,7 +55,7 @@ func TestGetECDSAP384Signer(t *testing.T) {
 	signer := GetECDSAP384Signer(privKey)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
-	require.Equal(t, &privKey.PublicKey, signer.PublicKey)
+	require.Equal(t, &privKey.PublicKey, signer.PubKey)
 }
 
 func TestNewECDSAP521Signer(t *testing.T) {
@@ -64,7 +64,7 @@ func TestNewECDSAP521Signer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.NotNil(t, signer.privateKey)
-	require.NotNil(t, signer.PublicKey)
+	require.NotNil(t, signer.PubKey)
 	require.Equal(t, crypto.SHA512, signer.hash)
 }
 
@@ -75,7 +75,7 @@ func TestGetECDSAP521Signer(t *testing.T) {
 	signer := GetECDSAP521Signer(privKey)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
-	require.Equal(t, &privKey.PublicKey, signer.PublicKey)
+	require.Equal(t, &privKey.PublicKey, signer.PubKey)
 }
 
 func TestNewECDSASigner(t *testing.T) {
@@ -111,7 +111,7 @@ func TestNewECDSASecp256k1Signer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, signer)
 	require.NotNil(t, signer.privateKey)
-	require.NotNil(t, signer.PublicKey)
+	require.NotNil(t, signer.PubKey)
 	require.Equal(t, crypto.SHA256, signer.hash)
 }
 
@@ -122,7 +122,7 @@ func TestGetECDSASecp256k1Signer(t *testing.T) {
 	signer := GetECDSASecp256k1Signer(privKey)
 	require.NotNil(t, signer)
 	require.Equal(t, privKey, signer.privateKey)
-	require.Equal(t, &privKey.PublicKey, signer.PublicKey)
+	require.Equal(t, &privKey.PublicKey, signer.PubKey)
 }
 
 func TestECDSASigner_Sign(t *testing.T) {

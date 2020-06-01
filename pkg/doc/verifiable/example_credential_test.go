@@ -8,7 +8,6 @@ package verifiable_test
 
 import (
 	"crypto/ed25519"
-	"crypto/elliptic"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -461,7 +460,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 		panic(err)
 	}
 
-	ecdsaSigner, err := signature.NewECDSASecp256k1Signer()
+	ecdsaSigner, err := signature.NewSigner(kms.ECDSASecp256k1TypeIEEEP1363)
 	if err != nil {
 		panic(err)
 	}
@@ -486,7 +485,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 	ed25519Suite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 	jsonWebSignatureSuite := jsonwebsignature2020.New(suite.WithVerifier(jsonwebsignature2020.NewPublicKeyVerifier()))
 
-	jwk, err := jose.JWKFromPublicKey(ecdsaSigner.PublicKey)
+	jwk, err := jose.JWKFromPublicKey(ecdsaSigner.PublicKey())
 	if err != nil {
 		panic(err)
 	}
@@ -504,7 +503,7 @@ func ExampleCredential_AddLinkedDataProofMultiProofs() {
 			case "#key2":
 				return &sigverifier.PublicKey{
 					Type:  "JwsVerificationKey2020",
-					Value: elliptic.Marshal(ecdsaSigner.PublicKey.Curve, ecdsaSigner.PublicKey.X, ecdsaSigner.PublicKey.Y),
+					Value: ecdsaSigner.PublicKeyBytes(),
 					JWK:   jwk,
 				}, nil
 			}

@@ -11,10 +11,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/proof"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
+	kmsapi "github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 )
 
 const signatureType = "Ed25519Signature2018"
@@ -22,7 +28,7 @@ const signatureType = "Ed25519Signature2018"
 func TestDocumentSigner_Sign(t *testing.T) {
 	context := getSignatureContext()
 
-	signer, err := signature.NewEd25519Signer()
+	signer, err := newCryptoSigner(kmsapi.ED25519Type)
 	require.NoError(t, err)
 
 	s := New(ed25519signature2018.New(suite.WithSigner(signer)))
@@ -58,7 +64,7 @@ func TestDocumentSigner_Sign(t *testing.T) {
 
 func TestDocumentSigner_SignErrors(t *testing.T) {
 	context := getSignatureContext()
-	signer, err := signature.NewEd25519Signer()
+	signer, err := newCryptoSigner(kmsapi.ED25519Type)
 	require.NoError(t, err)
 
 	s := New(ed25519signature2018.New(suite.WithSigner(signer)))
@@ -117,6 +123,22 @@ func TestDocumentSigner_isValidContext(t *testing.T) {
 func getSignatureContext() *Context {
 	return &Context{Creator: "creator",
 		SignatureType: signatureType}
+}
+
+func newCryptoSigner(keyType kmsapi.KeyType) (signature.Signer, error) {
+	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	localKMS, err := localkms.New("local-lock://custom/master/key/", p)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tinkCrypto, err := tinkcrypto.New()
+	if err != nil {
+		return nil, err
+	}
+
+	return signature.NewCryptoSigner(tinkCrypto, localKMS, keyType)
 }
 
 //nolint:lll

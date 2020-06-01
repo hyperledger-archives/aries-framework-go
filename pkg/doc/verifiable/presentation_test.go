@@ -14,7 +14,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
@@ -427,7 +426,7 @@ func TestPresentation_SetCredentials(t *testing.T) {
 func TestPresentation_decodeCredentials(t *testing.T) {
 	r := require.New(t)
 
-	signer, err := signature.NewEd25519Signer()
+	signer, err := newCryptoSigner(kms.ED25519Type)
 	r.NoError(err)
 
 	vc, err := parseTestCredential([]byte(validCredential))
@@ -441,7 +440,7 @@ func TestPresentation_decodeCredentials(t *testing.T) {
 
 	// single credential - JWS
 	opts := defaultPresentationOpts()
-	opts.publicKeyFetcher = SingleKey(signer.PublicKey, kms.ED25519)
+	opts.publicKeyFetcher = SingleKey(signer.PublicKeyBytes(), kms.ED25519)
 	dCreds, err := decodeCredentials(jws, opts)
 	r.NoError(err)
 	r.Len(dCreds, 1)

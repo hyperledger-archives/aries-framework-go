@@ -102,7 +102,7 @@ func encodeVPToJWS(vpBytes []byte, audience string, privateKey *rsa.PrivateKey, 
 		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
 		verifiable.WithPresNoProofCheck(),
 		// the public key is used to decode verifiable credentials passed as JWS to the presentation
-		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), kms.RSA)))
+		verifiable.WithPresPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), kms.RSARS256)))
 	if err != nil {
 		abort("failed to decode presentation: %v", err)
 	}
@@ -142,7 +142,7 @@ func encodeVCToJWTUnsecured(vcBytes []byte) {
 func decodeVCJWTToJSON(vcBytes []byte, publicKey *rsa.PublicKey) {
 	// Asked to decode JWT
 	credential, err := verifiable.ParseCredential(vcBytes,
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), kms.RSA)),
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(publicKeyPemToBytes(publicKey), kms.RSARS256)),
 		// do not test the cryptographic proofs (see https://github.com/w3c/vc-test-suite/issues/101)
 		verifiable.WithNoProofCheck())
 	if err != nil {

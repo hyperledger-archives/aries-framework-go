@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package signature
+package signer
 
 import (
 	"crypto"
@@ -23,12 +23,12 @@ func NewECDSAP256Signer() (*ECDSASigner, error) {
 		return nil, err
 	}
 
-	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA256}, nil
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256), nil
 }
 
 // GetECDSAP256Signer creates a new ECDSA P256 signer with passed ECDSA P256 private key.
 func GetECDSAP256Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
-	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA256}
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256)
 }
 
 // NewECDSAP384Signer creates a new ECDSA P384 signer with generated key.
@@ -38,12 +38,12 @@ func NewECDSAP384Signer() (*ECDSASigner, error) {
 		return nil, err
 	}
 
-	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA384}, nil
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA384), nil
 }
 
 // GetECDSAP384Signer creates a new ECDSA P384 signer with passed ECDSA P384 private key.
 func GetECDSAP384Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
-	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA384}
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA384)
 }
 
 // NewECDSAP521Signer creates a new ECDSA P521 signer with generated key.
@@ -53,12 +53,12 @@ func NewECDSAP521Signer() (*ECDSASigner, error) {
 		return nil, err
 	}
 
-	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA512}, nil
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA512), nil
 }
 
 // GetECDSAP521Signer creates a new ECDSA P521 signer with passed ECDSA P521 private key.
 func GetECDSAP521Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
-	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA512}
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA512)
 }
 
 // NewECDSASecp256k1Signer creates a new ECDSA Secp256k1 signer with generated key.
@@ -68,12 +68,12 @@ func NewECDSASecp256k1Signer() (*ECDSASigner, error) {
 		return nil, err
 	}
 
-	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA256}, nil
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256), nil
 }
 
 // GetECDSASecp256k1Signer creates a new ECDSA Secp256k1 signer with passed ECDSA Secp256k1 private key.
 func GetECDSASecp256k1Signer(privKey *ecdsa.PrivateKey) *ECDSASigner {
-	return &ECDSASigner{privateKey: privKey, PublicKey: &privKey.PublicKey, hash: crypto.SHA256}
+	return newECDSASigner(privKey, &privKey.PublicKey, crypto.SHA256)
 }
 
 // NewECDSASigner creates a new ECDSA signer based on the input elliptic curve.
@@ -98,9 +98,29 @@ func NewECDSASigner(curve elliptic.Curve) (*ECDSASigner, error) {
 
 // ECDSASigner makes ECDSA based signatures.
 type ECDSASigner struct {
-	privateKey *ecdsa.PrivateKey
-	PublicKey  *ecdsa.PublicKey
-	hash       crypto.Hash
+	privateKey  *ecdsa.PrivateKey
+	PubKey      *ecdsa.PublicKey
+	pubKeyBytes []byte
+	hash        crypto.Hash
+}
+
+func newECDSASigner(privKey *ecdsa.PrivateKey, pubKey *ecdsa.PublicKey, hash crypto.Hash) *ECDSASigner {
+	return &ECDSASigner{
+		privateKey:  privKey,
+		PubKey:      pubKey,
+		pubKeyBytes: elliptic.Marshal(pubKey.Curve, pubKey.X, pubKey.Y),
+		hash:        hash,
+	}
+}
+
+// PublicKey returns a public key object (*ecdsa.PublicKey).
+func (es *ECDSASigner) PublicKey() interface{} {
+	return es.PubKey
+}
+
+// PublicKeyBytes returns bytes of the public key.
+func (es *ECDSASigner) PublicKeyBytes() []byte {
+	return es.pubKeyBytes
 }
 
 // Sign signs a message.
