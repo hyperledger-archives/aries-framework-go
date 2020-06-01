@@ -15,11 +15,11 @@ import (
 	"fmt"
 
 	"github.com/google/tink/go/aead"
+	aeadsubtle "github.com/google/tink/go/aead/subtle"
 	"github.com/google/tink/go/core/primitiveset"
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
 	"github.com/google/tink/go/signature"
-	aeadsubtle "github.com/google/tink/go/subtle/aead"
 	"golang.org/x/crypto/chacha20poly1305"
 )
 

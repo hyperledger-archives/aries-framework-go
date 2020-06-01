@@ -14,9 +14,9 @@ import (
 	"fmt"
 	"math/big"
 
+	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
-	"github.com/google/tink/go/subtle/hybrid"
 	"github.com/square/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"

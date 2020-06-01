@@ -9,8 +9,8 @@ package subtle
 import (
 	"testing"
 
+	hybrid "github.com/google/tink/go/hybrid/subtle"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
-	"github.com/google/tink/go/subtle/hybrid"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 

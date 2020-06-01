@@ -14,10 +14,10 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/aead"
+	hybrid "github.com/google/tink/go/hybrid/subtle"
 	gcmpb "github.com/google/tink/go/proto/aes_gcm_go_proto"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
-	"github.com/google/tink/go/subtle/hybrid"
 	"github.com/stretchr/testify/require"
 
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"

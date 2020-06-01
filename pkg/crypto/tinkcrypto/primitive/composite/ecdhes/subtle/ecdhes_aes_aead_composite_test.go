@@ -12,11 +12,11 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/aead"
+	subtleaead "github.com/google/tink/go/aead/subtle"
+	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/keyset"
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
-	subtleaead "github.com/google/tink/go/subtle/aead"
-	"github.com/google/tink/go/subtle/hybrid"
 	"github.com/google/tink/go/tink"
 	"github.com/stretchr/testify/require"
 

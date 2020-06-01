@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/google/tink/go/subtle/hybrid"
+	hybrid "github.com/google/tink/go/hybrid/subtle"
 	josecipher "github.com/square/go-jose/v3/cipher"
 )
 

@@ -12,7 +12,8 @@ require (
 	github.com/go-kivik/kivik v2.0.0+incompatible
 	github.com/golang/mock v1.4.0
 	github.com/golang/protobuf v1.3.3
-	github.com/google/tink/go v0.0.0-20200403150819-3a14bf4b3380
+	github.com/google/tink v1.4.0-rc2.0.20200525085439-8bdaed4f41ed
+	github.com/google/tink/go v1.4.0-rc2.0.20200525085439-8bdaed4f41ed
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/kr/pretty v0.1.0 // indirect

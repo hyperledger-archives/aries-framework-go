@@ -12,7 +12,7 @@ import (
 	"crypto/rand"
 	"math/big"
 
-	"github.com/google/tink/go/subtle/hybrid"
+	hybrid "github.com/google/tink/go/hybrid/subtle"
 	josecipher "github.com/square/go-jose/v3/cipher"
 
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"

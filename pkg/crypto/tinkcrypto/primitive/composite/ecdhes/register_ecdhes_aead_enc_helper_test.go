@@ -11,10 +11,10 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/aead"
+	subtleaead "github.com/google/tink/go/aead/subtle"
 	"github.com/google/tink/go/mac"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/signature"
-	subtleaead "github.com/google/tink/go/subtle/aead"
 	"github.com/google/tink/go/subtle/random"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/chacha20poly1305"
