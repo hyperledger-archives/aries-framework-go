@@ -35,6 +35,7 @@ var errPerRecipientHeaderUnsupported = errors.New(errCompactSerializationCommonT
 // JSONWebEncryption represents a JWE as defined in https://tools.ietf.org/html/rfc7516.
 type JSONWebEncryption struct {
 	ProtectedHeaders   Headers
+	OrigProtectedHders string
 	UnprotectedHeaders Headers
 	Recipients         []*Recipient
 	AAD                string
@@ -296,6 +297,7 @@ func deserializeFromRawJWE(rawJWE *rawJSONWebEncryption) (*JSONWebEncryption, er
 
 	deserializedJWE := JSONWebEncryption{
 		ProtectedHeaders:   *protectedHeaders,
+		OrigProtectedHders: rawJWE.B64ProtectedHeaders,
 		UnprotectedHeaders: *unprotectedHeaders,
 		Recipients:         recipients,
 		AAD:                string(aad),

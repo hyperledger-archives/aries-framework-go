@@ -54,7 +54,7 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 
 	encAlg, ok := protectedHeaders.Encryption()
 	if !ok {
-		return nil, fmt.Errorf("jwedecrypt: jwe is missing alg header")
+		return nil, fmt.Errorf("jwedecrypt: jwe is missing encryption algorithm 'enc' header")
 	}
 
 	// TODO add support for Chacha content encryption, issue #1684
@@ -62,11 +62,6 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 	case string(A256GCM):
 	default:
 		return nil, fmt.Errorf("jwedecrypt: encryption algorithm '%s' not supported", encAlg)
-	}
-
-	authData, err := computeAuthData(protectedHeaders, []byte(jwe.AAD))
-	if err != nil {
-		return nil, err
 	}
 
 	decPrimitive, err := jd.getPrimitive(jd.recipientKH)
@@ -79,22 +74,52 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 		return nil, fmt.Errorf("jwedecrypt: failed to build encryptedData for Decrypt(): %w", err)
 	}
 
+	authData, err := computeAuthData(protectedHeaders, []byte(jwe.AAD))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(jwe.Recipients) == 1 {
+		authData = []byte(jwe.OrigProtectedHders)
+	}
+
 	return decPrimitive.Decrypt(encryptedData, authData)
 }
 
 func buildEncryptedData(encAlg string, jwe *JSONWebEncryption) ([]byte, error) {
 	var recipients []*subtle.RecipientWrappedKey
 
-	for _, recJWE := range jwe.Recipients {
-		rec, err := convertMarshalledJWKToRecKey(recJWE.Header.EPK)
+	if len(jwe.Recipients) == 1 { // compact serialization: it has only 1 recipient with no headers
+		rHeaders, err := extractRecipientHeaders(jwe.ProtectedHeaders)
 		if err != nil {
 			return nil, err
 		}
 
-		rec.Alg = recJWE.Header.Alg
-		rec.EncryptedCEK = []byte(recJWE.EncryptedKey)
+		rec, err := convertMarshalledJWKToRecKey(rHeaders.EPK)
+		if err != nil {
+			return nil, err
+		}
 
-		recipients = append(recipients, rec)
+		rec.KID = rHeaders.KID
+		rec.Alg = rHeaders.Alg
+		rec.EncryptedCEK = []byte(jwe.Recipients[0].EncryptedKey)
+
+		recipients = []*subtle.RecipientWrappedKey{
+			rec,
+		}
+	} else { // full serialization
+		for _, recJWE := range jwe.Recipients {
+			rec, err := convertMarshalledJWKToRecKey(recJWE.Header.EPK)
+			if err != nil {
+				return nil, err
+			}
+
+			rec.KID = recJWE.Header.KID
+			rec.Alg = recJWE.Header.Alg
+			rec.EncryptedCEK = []byte(recJWE.EncryptedKey)
+
+			recipients = append(recipients, rec)
+		}
 	}
 
 	encData := new(subtle.EncryptedData)
@@ -105,6 +130,52 @@ func buildEncryptedData(encAlg string, jwe *JSONWebEncryption) ([]byte, error) {
 	encData.EncAlg = encAlg
 
 	return json.Marshal(encData)
+}
+
+// extractRecipientHeaders will extract RecipientHeaders from headers argument
+func extractRecipientHeaders(headers map[string]interface{}) (*RecipientHeaders, error) {
+	// Since headers is a generic map, epk value is converted to a generic map by Serialize(), ie we lose RawMessage
+	// type of epk. We need to convert epk value (generic map) to marshaled json so we can call RawMessage.Unmarshal()
+	// to get the original epk value (RawMessage type).
+	mapData, ok := headers[HeaderEPK].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("JSON value is not a map (%#v)", headers[HeaderEPK])
+	}
+
+	epkBytes, err := json.Marshal(mapData)
+	if err != nil {
+		return nil, err
+	}
+
+	epk := json.RawMessage{}
+
+	err = epk.UnmarshalJSON(epkBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	alg := ""
+	if headers[HeaderAlgorithm] != nil {
+		alg = fmt.Sprintf("%v", headers[HeaderAlgorithm])
+	}
+
+	kid := ""
+	if headers[HeaderKeyID] != nil {
+		kid = fmt.Sprintf("%v", headers[HeaderKeyID])
+	}
+
+	recHeaders := &RecipientHeaders{
+		Alg: alg,
+		KID: kid,
+		EPK: epk,
+	}
+
+	// now delete from headers
+	delete(headers, HeaderAlgorithm)
+	delete(headers, HeaderKeyID)
+	delete(headers, HeaderEPK)
+
+	return recHeaders, nil
 }
 
 func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*subtle.RecipientWrappedKey, error) {

@@ -67,6 +67,9 @@ const (
 	// For JWS: this JWS header specification and/or JWA are being used that MUST be understood and processed.
 	// For JWE: this JWE header specification and/or JWA are being used that MUST be understood and processed.
 	HeaderCritical = "crit" // array
+
+	// HeaderEPK is used by JWE applications to wrap/unwrap the CEK for a recipient
+	HeaderEPK = "epk" // JSON
 )
 
 // Header defined in https://tools.ietf.org/html/rfc7797
