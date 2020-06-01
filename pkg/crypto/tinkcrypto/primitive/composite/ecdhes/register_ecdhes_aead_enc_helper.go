@@ -10,12 +10,12 @@ import (
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
+	aead "github.com/google/tink/go/aead/subtle"
 	"github.com/google/tink/go/core/registry"
 	gcmpb "github.com/google/tink/go/proto/aes_gcm_go_proto"
 	chachapb "github.com/google/tink/go/proto/chacha20_poly1305_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	xchachapb "github.com/google/tink/go/proto/xchacha20_poly1305_go_proto"
-	"github.com/google/tink/go/subtle/aead"
 	"github.com/google/tink/go/tink"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/poly1305"
