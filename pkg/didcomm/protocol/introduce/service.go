@@ -58,9 +58,9 @@ type customError struct{ error }
 // 'To' field is needed for the proposal message
 // 'MyDID' and 'TheirDID' fields are needed for sending messages e.g report-problem, proposal, ack etc.
 type Recipient struct {
-	To       *To
-	Goal     string
-	GoalCode string
+	To       *To    `json:"to"`
+	Goal     string `json:"goal"`
+	GoalCode string `json:"goal_code"`
 	MyDID    string `json:"my_did,omitempty"`
 	TheirDID string `json:"their_did,omitempty"`
 }
@@ -68,8 +68,8 @@ type Recipient struct {
 // Action contains helpful information about action
 type Action struct {
 	// Protocol instance ID
-	PIID string
-	Msg  service.DIDCommMsgMap
+	PIID string                `json:"piid"`
+	Msg  service.DIDCommMsgMap `json:"msg"`
 }
 
 // transitionalPayload keeps payload needed for Continue function to proceed with the action
