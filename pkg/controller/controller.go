@@ -11,6 +11,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	didexchangecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
+	introducecmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
@@ -20,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	didexchangerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/didexchange"
+	introducerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/introduce"
 	issuecredentialrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/issuecredential"
 	kmsrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
@@ -135,6 +137,12 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		return nil, fmt.Errorf("create present-proof rest command : %w", err)
 	}
 
+	// introduce REST operation
+	introduceOp, err := introducerest.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create introduce rest command : %w", err)
+	}
+
 	// kms command operation
 	kmscmd := kmsrest.New(ctx)
 
@@ -147,6 +155,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, verifiablecmd.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, issuecredentialOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, presentproofOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, introduceOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, kmscmd.GetRESTHandlers()...)
 
 	nhp, ok := notifier.(handlerProvider)
@@ -162,7 +171,7 @@ type handlerProvider interface {
 }
 
 // GetCommandHandlers returns all command handlers provided by controller.
-func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, error) { // nolint: funlen
+func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, error) { // nolint: funlen,gocyclo
 	cmdOpts := &allOpts{}
 	// Apply options
 	for _, opt := range opts {
@@ -217,6 +226,12 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 		return nil, fmt.Errorf("create present-proof command : %w", err)
 	}
 
+	// introduce command operation
+	introduce, err := introducecmd.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create introduce command : %w", err)
+	}
+
 	// kms command operation
 	kmscmd := kms.New(ctx)
 
@@ -229,6 +244,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, kmscmd.GetHandlers()...)
 	allHandlers = append(allHandlers, issuecredential.GetHandlers()...)
 	allHandlers = append(allHandlers, presentproof.GetHandlers()...)
+	allHandlers = append(allHandlers, introduce.GetHandlers()...)
 
 	return allHandlers, nil
 }

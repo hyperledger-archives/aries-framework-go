@@ -6,9 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package introduce
 
-import (
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-)
+import "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 
 // Proposal defines proposal request
 type Proposal struct {
