@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/dispatcher"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -91,6 +92,14 @@ type provider interface {
 	RouterEndpoint() string
 	LegacyKMS() legacykms.KeyManager
 	VDRIRegistry() vdri.Registry
+}
+
+// ClientOption configures the route client
+type ClientOption func(opts *ClientOptions)
+
+// ClientOptions holds options for the router client
+type ClientOptions struct {
+	Timeout time.Duration
 }
 
 // Options is a container for route protocol options.
@@ -477,24 +486,28 @@ func (s *Service) handleForward(msg service.DIDCommMsg) error {
 // connectionID. This method blocks until a response is received from the router or it times out.
 // The agent is registered with the router and retrieves the router endpoint and routing keys.
 // This function throws an error if the agent is already registered against a router.
-func (s *Service) Register(connectionID string) error {
+func (s *Service) Register(connectionID string, options ...ClientOption) error {
 	record, err := s.getConnection(connectionID)
 	if err != nil {
 		return err
 	}
 
+	opts := parseClientOpts(options...)
+
 	return s.doRegistration(
 		record,
 		&Request{
-			ID:   uuid.New().String(),
-			Type: RequestMsgType,
+			Type:   RequestMsgType,
+			ID:     uuid.New().String(),
+			Timing: decorator.Timing{},
 		},
+		opts.Timeout,
 	)
 }
 
 // TODO https://github.com/hyperledger/aries-framework-go/issues/1076 Register agent with
 //  multiple routers
-func (s *Service) doRegistration(record *connection.Record, req *Request) error {
+func (s *Service) doRegistration(record *connection.Record, req *Request, timeout time.Duration) error {
 	// check if router is already registered
 	routerConnID, err := s.getRouterConnectionID()
 	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
@@ -510,6 +523,10 @@ func (s *Service) doRegistration(record *connection.Record, req *Request) error 
 	// register chan for callback processing
 	grantCh := make(chan Grant)
 	s.setRouteRegistrationCh(msgID, grantCh)
+
+	// TODO: would this be better served as time.Now().Add(timeout).Unix() as pkg/doc/verifiable/credential.go
+	// demonstrates? additionally `ExpiresTime` would need to be migrated to int64
+	req.ExpiresTime = time.Now().UTC().Add(timeout)
 
 	// send message to the router
 	if err := s.outbound.SendToDID(req, record.MyDID, record.TheirDID); err != nil {
@@ -527,8 +544,7 @@ func (s *Service) doRegistration(record *connection.Record, req *Request) error 
 		if err := s.saveRouterConfig(conf); err != nil {
 			return fmt.Errorf("save route config : %w", err)
 		}
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1134 configure this timeout at decorator level
-	case <-time.After(updateTimeout):
+	case <-time.After(timeout):
 		return errors.New("timeout waiting for grant from the router")
 	}
 
@@ -617,7 +633,6 @@ func (s *Service) AddKey(recKey string) error {
 		if err := processKeylistUpdateResp(recKey, keyUpdateResp); err != nil {
 			return err
 		}
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1134 configure this timeout at decorator level
 	case <-time.After(updateTimeout):
 		return errors.New("timeout waiting for keylist update response from the router")
 	}
@@ -758,9 +773,22 @@ func (s *Service) handleOutboundRequest(msg service.DIDCommMsg, myDID, theirDID 
 		return fmt.Errorf("failed to lookup connection record with id=%s : %w", connID, err)
 	}
 
-	return s.doRegistration(record, req)
+	return s.doRegistration(record, req, updateTimeout)
 }
 
 func dataKey(id string) string {
 	return "route-" + id
+}
+
+func parseClientOpts(options ...ClientOption) *ClientOptions {
+	opts := &ClientOptions{
+		Timeout: updateTimeout,
+	}
+
+	// generate router config from options
+	for _, option := range options {
+		option(opts)
+	}
+
+	return opts
 }

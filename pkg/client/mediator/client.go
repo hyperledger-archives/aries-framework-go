@@ -9,6 +9,7 @@ package mediator
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
@@ -23,6 +24,7 @@ type provider interface {
 type Client struct {
 	service.Event
 	routeSvc protocolService
+	options  []mediator.ClientOption
 }
 
 // protocolService defines DID Exchange service.
@@ -31,7 +33,7 @@ type protocolService interface {
 	service.DIDComm
 
 	// Register registers the agent with the router
-	Register(connectionID string) error
+	Register(connectionID string, options ...mediator.ClientOption) error
 
 	// Unregister unregisters the agent with the router
 	Unregister() error
@@ -43,8 +45,15 @@ type protocolService interface {
 	Config() (*mediator.Config, error)
 }
 
+// WithTimeout option is for definition timeout value waiting for responses received from the router
+func WithTimeout(t time.Duration) mediator.ClientOption {
+	return func(opts *mediator.ClientOptions) {
+		opts.Timeout = t
+	}
+}
+
 // New return new instance of route client.
-func New(ctx provider) (*Client, error) {
+func New(ctx provider, options ...mediator.ClientOption) (*Client, error) {
 	svc, err := ctx.Service(mediator.Coordination)
 	if err != nil {
 		return nil, err
@@ -58,13 +67,14 @@ func New(ctx provider) (*Client, error) {
 	return &Client{
 		Event:    routeSvc,
 		routeSvc: routeSvc,
+		options:  options,
 	}, nil
 }
 
 // Register the agent with the router(passed in connectionID). This function asks router's
 // permission to publish it's endpoint and routing keys.
 func (c *Client) Register(connectionID string) error {
-	if err := c.routeSvc.Register(connectionID); err != nil {
+	if err := c.routeSvc.Register(connectionID, c.options...); err != nil {
 		return fmt.Errorf("router registration : %w", err)
 	}
 

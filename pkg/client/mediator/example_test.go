@@ -137,7 +137,7 @@ func mockContext() provider {
 
 func routeService() *mockroute.MockMediatorSvc {
 	return &mockroute.MockMediatorSvc{
-		RegisterFunc: func(connectionID string) error {
+		RegisterFunc: func(connectionID string, options ...mediator.ClientOption) error {
 			if connectionID == "" {
 				return errors.New("connection ID is mandatory")
 			}

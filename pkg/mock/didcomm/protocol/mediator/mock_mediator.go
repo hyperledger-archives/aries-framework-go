@@ -21,7 +21,7 @@ type MockMediatorSvc struct {
 	HandleFunc         func(service.DIDCommMsg) (string, error)
 	HandleOutboundFunc func(msg service.DIDCommMsg, myDID, theirDID string) error
 	AcceptFunc         func(string) bool
-	RegisterFunc       func(connectionID string) error
+	RegisterFunc       func(connectionID string, options ...mediator.ClientOption) error
 	RouterEndpoint     string
 	RoutingKeys        []string
 	ConfigErr          error
@@ -69,9 +69,9 @@ func (m *MockMediatorSvc) Name() string {
 }
 
 // Register registers agent with the router.
-func (m *MockMediatorSvc) Register(connectionID string) error {
+func (m *MockMediatorSvc) Register(connectionID string, options ...mediator.ClientOption) error {
 	if m.RegisterFunc != nil {
-		return m.RegisterFunc(connectionID)
+		return m.RegisterFunc(connectionID, options...)
 	}
 
 	return nil

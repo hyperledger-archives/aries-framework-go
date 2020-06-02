@@ -10,10 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
@@ -41,12 +43,22 @@ func TestNew(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "cast service to route service failed")
 	})
+
+	t.Run("test timeout is applied to options", func(t *testing.T) {
+		timeout := 1 * time.Second
+
+		option := WithTimeout(timeout)
+		opts := &mediator.ClientOptions{}
+		option(opts)
+
+		require.Equal(t, timeout, opts.Timeout)
+	})
 }
 
 func TestRegister(t *testing.T) {
 	t.Run("test register - success", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockMediatorSvc{RegisterFunc: func(connectionID string) error {
+			ServiceValue: &mockroute.MockMediatorSvc{RegisterFunc: func(connectionID string, options ...mediator.ClientOption) error { // nolint: lll
 				return nil
 			}}})
 		require.NoError(t, err)
@@ -57,7 +69,7 @@ func TestRegister(t *testing.T) {
 
 	t.Run("test register - error", func(t *testing.T) {
 		c, err := New(&mockprovider.Provider{
-			ServiceValue: &mockroute.MockMediatorSvc{RegisterFunc: func(connectionID string) error {
+			ServiceValue: &mockroute.MockMediatorSvc{RegisterFunc: func(connectionID string, options ...mediator.ClientOption) error { // nolint: lll
 				return errors.New("register error")
 			}}})
 		require.NoError(t, err)

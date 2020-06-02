@@ -6,11 +6,16 @@ SPDX-License-Identifier: Apache-2.0
 
 package mediator
 
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
+)
+
 // Request route request message.
 // https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination#route-request
 type Request struct {
-	Type string `json:"@type,omitempty"`
-	ID   string `json:"@id,omitempty"`
+	Type             string `json:"@type,omitempty"`
+	ID               string `json:"@id,omitempty"`
+	decorator.Timing `json:"~timing,omitempty"`
 }
 
 // Grant route grant message.
