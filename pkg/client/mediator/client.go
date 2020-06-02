@@ -9,6 +9,7 @@ package mediator
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
@@ -41,10 +42,41 @@ type protocolService interface {
 
 	// Config returns the router's configuration.
 	Config() (*mediator.Config, error)
+
+	// SetTimeout timeout value waiting for responses received from the router
+	SetTimeout(timeout time.Duration)
+}
+
+const (
+	updateTimeout = 5 * time.Second
+)
+
+// Option configures the route client and underlying service
+type Option func(opts *mediatorOpts)
+
+// mediatorOpts holds options for the router client
+type mediatorOpts struct {
+	timeout time.Duration
+}
+
+// WithTimeout option is for definition timeout value waiting for responses received from the router
+func WithTimeout(t time.Duration) Option {
+	return func(opts *mediatorOpts) {
+		opts.timeout = t
+	}
 }
 
 // New return new instance of route client.
-func New(ctx provider) (*Client, error) {
+func New(ctx provider, options ...Option) (*Client, error) {
+	opts := &mediatorOpts{}
+
+	defMediatorOpts(opts)
+
+	// generate router config from options
+	for _, option := range options {
+		option(opts)
+	}
+
 	svc, err := ctx.Service(mediator.Coordination)
 	if err != nil {
 		return nil, err
@@ -55,10 +87,17 @@ func New(ctx provider) (*Client, error) {
 		return nil, errors.New("cast service to route service failed")
 	}
 
+	routeSvc.SetTimeout(opts.timeout)
+
 	return &Client{
 		Event:    routeSvc,
 		routeSvc: routeSvc,
 	}, nil
+}
+
+// defMediatorOpts provides default router options
+func defMediatorOpts(opts *mediatorOpts) {
+	opts.timeout = updateTimeout
 }
 
 // Register the agent with the router(passed in connectionID). This function asks router's

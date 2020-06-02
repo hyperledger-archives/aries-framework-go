@@ -73,10 +73,6 @@ const (
 	routeConfigDataKey = "route-config"
 )
 
-const (
-	updateTimeout = 5 * time.Second
-)
-
 // ErrConnectionNotFound connection not found error
 var ErrConnectionNotFound = errors.New("connection not found")
 
@@ -128,6 +124,7 @@ type Service struct {
 	keylistUpdateMap         map[string]chan *KeylistUpdateResponse
 	keylistUpdateMapLock     sync.RWMutex
 	callbacks                chan *callback
+	updateTimeout            time.Duration
 }
 
 // New return route coordination service.
@@ -157,6 +154,11 @@ func New(prov provider) (*Service, error) {
 	go s.listenForCallbacks()
 
 	return s, nil
+}
+
+// SetTimeout timeout value waiting for responses received from the router
+func (s *Service) SetTimeout(t time.Duration) {
+	s.updateTimeout = t
 }
 
 func (s *Service) listenForCallbacks() {
@@ -527,8 +529,7 @@ func (s *Service) doRegistration(record *connection.Record, req *Request) error 
 		if err := s.saveRouterConfig(conf); err != nil {
 			return fmt.Errorf("save route config : %w", err)
 		}
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1134 configure this timeout at decorator level
-	case <-time.After(updateTimeout):
+	case <-time.After(s.updateTimeout):
 		return errors.New("timeout waiting for grant from the router")
 	}
 
@@ -617,8 +618,7 @@ func (s *Service) AddKey(recKey string) error {
 		if err := processKeylistUpdateResp(recKey, keyUpdateResp); err != nil {
 			return err
 		}
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1134 configure this timeout at decorator level
-	case <-time.After(updateTimeout):
+	case <-time.After(s.updateTimeout):
 		return errors.New("timeout waiting for keylist update response from the router")
 	}
 

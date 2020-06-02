@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package mediator
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -30,6 +32,7 @@ type MockMediatorSvc struct {
 	ConnectionID       string
 	GetConnectionIDErr error
 	AddKeyFunc         func(string) error
+	SetTimeoutFunc     func(t time.Duration)
 }
 
 // HandleInbound msg
@@ -116,4 +119,11 @@ func (m *MockMediatorSvc) GetConnection() (string, error) {
 	}
 
 	return m.ConnectionID, nil
+}
+
+// SetTimeout timeout value waiting for responses received from the router
+func (m *MockMediatorSvc) SetTimeout(t time.Duration) {
+	if m.SetTimeoutFunc != nil {
+		m.SetTimeoutFunc(t)
+	}
 }

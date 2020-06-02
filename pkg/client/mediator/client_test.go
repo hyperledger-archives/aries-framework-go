@@ -30,6 +30,22 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, svc)
 	})
 
+	t.Run("test new client with all options applied", func(t *testing.T) {
+		i := 0
+		svc, err := New(&mockprovider.Provider{
+			ServiceValue: &mockroute.MockMediatorSvc{}},
+			func(opts *mediatorOpts) {
+				i += 1 // nolint
+			},
+			func(opts *mediatorOpts) {
+				i += 2
+			},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, svc)
+		require.Equal(t, 1+2, i)
+	})
+
 	t.Run("test error from get service from context", func(t *testing.T) {
 		_, err := New(&mockprovider.Provider{ServiceErr: fmt.Errorf("service error")})
 		require.Error(t, err)
