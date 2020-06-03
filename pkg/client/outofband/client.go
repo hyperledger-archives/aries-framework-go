@@ -66,7 +66,8 @@ type message struct {
 	Service  []interface{}
 }
 
-type oobService interface {
+// OobService defines the outofband service.
+type OobService interface {
 	service.Event
 	AcceptRequest(*outofband.Request, string) (string, error)
 	AcceptInvitation(*outofband.Invitation, string) (string, error)
@@ -86,7 +87,7 @@ type Provider interface {
 type Client struct {
 	service.Event
 	didDocSvcFunc func() (*did.Service, error)
-	oobService    oobService
+	oobService    OobService
 }
 
 // New returns a new Client for the Out-Of-Band protocol.
@@ -96,7 +97,7 @@ func New(p Provider) (*Client, error) {
 		return nil, fmt.Errorf("failed to look up service %s : %w", outofband.Name, err)
 	}
 
-	oobSvc, ok := s.(oobService)
+	oobSvc, ok := s.(OobService)
 	if !ok {
 		return nil, fmt.Errorf("failed to cast service %s as a dependency", outofband.Name)
 	}
