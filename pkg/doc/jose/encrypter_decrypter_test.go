@@ -174,34 +174,33 @@ func TestJWEEncryptRoundTrip(t *testing.T) {
 	}
 }
 
-// TODO uncomment test with https://github.com/hyperledger/aries-framework-go/issues/1872
-// func TestJWEEncryptRoundTripWithSingleRecipient(t *testing.T) {
-//	recECKeys, recKHs := createRecipients(t, 1)
-//
-//	jweEncrypter, err := NewJWEEncrypt(A256GCM, recECKeys)
-//	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
-//
-//	pt := []byte("some msg")
-//	jwe, err := jweEncrypter.Encrypt(pt)
-//	require.NoError(t, err)
-//	require.Equal(t, len(recECKeys), len(jwe.Recipients))
-//
-//	serializedJWE, err := jwe.CompactSerialize(json.Marshal)
-//	require.NoError(t, err)
-//	require.NotEmpty(t, serializedJWE)
-//
-//	// try to deserialize with local package
-//	localJWE, err := Deserialize(serializedJWE)
-//	require.NoError(t, err)
-//
-//	jweDecrypter := NewJWEDecrypt(recKHs[0])
-//
-//	var msg []byte
-//
-//	msg, err = jweDecrypter.Decrypt(localJWE)
-//	require.NoError(t, err)
-//	require.EqualValues(t, pt, msg)
-// }
+func TestJWEEncryptRoundTripWithSingleRecipient(t *testing.T) {
+	recECKeys, recKHs := createRecipients(t, 1)
+
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, recECKeys)
+	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
+
+	pt := []byte("some msg")
+	jwe, err := jweEncrypter.Encrypt(pt)
+	require.NoError(t, err)
+	require.Equal(t, len(recECKeys), len(jwe.Recipients))
+
+	serializedJWE, err := jwe.CompactSerialize(json.Marshal)
+	require.NoError(t, err)
+	require.NotEmpty(t, serializedJWE)
+
+	// try to deserialize with local package
+	localJWE, err := Deserialize(serializedJWE)
+	require.NoError(t, err)
+
+	jweDecrypter := NewJWEDecrypt(recKHs[0])
+
+	var msg []byte
+
+	msg, err = jweDecrypter.Decrypt(localJWE)
+	require.NoError(t, err)
+	require.EqualValues(t, pt, msg)
+}
 
 func TestInteropWithGoJoseEncryptAndLocalJoseDecryptUsingCompactSerialize(t *testing.T) {
 	recECKeys, recKHs := createRecipients(t, 1)

@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package ecdhes
 
 import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -22,6 +25,7 @@ import (
 	"github.com/google/tink/go/testutil"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
@@ -56,9 +60,7 @@ func TestECDHESFactory(t *testing.T) {
 	require.NoError(t, err)
 
 	khPub, err := khPriv.Public()
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	e, err := NewECDHESEncrypt(khPub)
 	require.NoError(t, err)
@@ -68,11 +70,29 @@ func TestECDHESFactory(t *testing.T) {
 
 	for i := 0; i < 1000; i++ {
 		pt := random.GetRandomBytes(20)
-		aad := random.GetRandomBytes(10)
+		aadRndNb := random.GetRandomBytes(10)
+
+		// single recipient requires aad to be a valid marshaled JSON base64URL encoded
+		// since the encryption primitive now appends the recipient's headers to aad prior to encryption
+		// this is not required for multiple recipient encryption since aad does not include recipients headers.
+		aadJSON, err := json.Marshal(aadRndNb)
+		require.NoError(t, err)
+
+		aad, err := json.Marshal(&map[string]interface{}{"someFiled": json.RawMessage(aadJSON)})
+		require.NoError(t, err)
+
+		aadStr := base64.RawURLEncoding.EncodeToString(aad)
+		aad = []byte(aadStr)
+
 		ct, err := e.Encrypt(pt, aad)
 		require.NoError(t, err)
 
-		gotpt, err := d.Decrypt(ct, aad)
+		// encrypt for single recipient will generate new AAD for recipient, extract it from ct
+		encData := &subtle.EncryptedData{}
+		err = json.Unmarshal(ct, encData)
+		require.NoError(t, err)
+
+		gotpt, err := d.Decrypt(ct, encData.SingleRecipientAAD)
 		require.NoError(t, err)
 
 		require.EqualValues(t, pt, gotpt)
@@ -181,16 +201,23 @@ func TestECDHESFactoryWithBadKeysetType(t *testing.T) {
 
 	// calling Public() with a keyset containing an invalid key type should fail
 	_, err = khPriv.Public()
-	require.Error(t, err)
+	require.EqualError(t, err, fmt.Sprintf("keyset.Handle: registry.GetKeyManager: unsupported key type: %s",
+		badKeyURLKeyTypeURL))
 
 	// creating new primitives with an invalid keyset (should be public keyset) should fail
 	e, err := NewECDHESEncrypt(khPriv)
-	require.Error(t, err)
+	require.EqualError(t, err, fmt.Sprintf("ecdhes_factory: cannot obtain primitive set: "+
+		"registry.PrimitivesWithKeyManager: cannot get primitive from key: registry.GetKeyManager: "+
+		"unsupported key type: %s",
+		badKeyURLKeyTypeURL))
 	require.Empty(t, e)
 
 	// creating new primitives with a keyset containing an invalid key type should fail
 	d, err := NewECDHESDecrypt(khPriv)
-	require.Error(t, err)
+	require.EqualError(t, err, fmt.Sprintf("ecdhes_factory: cannot obtain primitive set: "+
+		"registry.PrimitivesWithKeyManager: cannot get primitive from key: registry.GetKeyManager: "+
+		"unsupported key type: %s",
+		badKeyURLKeyTypeURL))
 	require.Empty(t, d)
 }
 
@@ -203,7 +230,7 @@ func TestNewEncryptPrimitiveSetFail(t *testing.T) {
 
 	// calling newEncryptPrimitiveSet with non CompositeEncrypt primitiveSet should fail
 	encPrimitiveSet, err := newEncryptPrimitiveSet(primitiveSet)
-	require.Error(t, err)
+	require.EqualError(t, err, "ecdhes_factory: not an CompositeEncrypt primitive")
 	require.Nil(t, encPrimitiveSet)
 
 	validKH, err := keyset.NewHandle(ECDHES256KWAES256GCMKeyTemplate())
@@ -237,7 +264,7 @@ func TestNewEncryptPrimitiveSetFail(t *testing.T) {
 
 	// calling newEncryptPrimitiveSet with primitiveSet containing bad primitive entry should fail
 	encPrimitiveSet, err = newEncryptPrimitiveSet(primitiveSet2)
-	require.Error(t, err)
+	require.EqualError(t, err, "ecdhes_factory: not an CompositeEncrypt primitive")
 	require.Nil(t, encPrimitiveSet)
 }
 
@@ -259,7 +286,7 @@ func TestEncryptPrimitiveSetFail(t *testing.T) {
 
 	// Encrypt should fail as key set of primitive set do not have public recipients keys for encryption
 	_, err = encPrimitiveSet.Encrypt([]byte("plaintext"), []byte("aad"))
-	require.Error(t, err)
+	require.EqualError(t, err, "ECDHESAEADCompositeEncrypt: missing recipients public keys for key wrapping")
 
 	// create ECDSA key and set encPrimitiveSet's primary primitive to the ECDSA's primary
 	kh, err := keyset.NewHandle(signature.ECDSAP256KeyTemplate())
@@ -270,8 +297,9 @@ func TestEncryptPrimitiveSetFail(t *testing.T) {
 
 	encPrimitiveSet.ps.Primary = sigPS.Primary
 
+	// encrypting with signing key should fail
 	_, err = encPrimitiveSet.Encrypt([]byte("plaintext"), []byte("aad"))
-	require.Error(t, err)
+	require.EqualError(t, err, "ecdhes_factory: not an CompositeEncrypt primitive")
 }
 
 func TestNewDecryptPrimitiveSetFail(t *testing.T) {
@@ -283,7 +311,7 @@ func TestNewDecryptPrimitiveSetFail(t *testing.T) {
 
 	// calling newEncryptPrimitiveSet with non CompositeEncrypt primitiveSet should fail
 	decPrimitiveSet, err := newDecryptPrimitiveSet(primitiveSet)
-	require.Error(t, err)
+	require.EqualError(t, err, "ecdhes_factory: not an CompositeDecrypt primitive")
 	require.Nil(t, decPrimitiveSet)
 
 	validKH, err := keyset.NewHandle(ECDHES256KWAES256GCMKeyTemplate())
@@ -314,7 +342,7 @@ func TestNewDecryptPrimitiveSetFail(t *testing.T) {
 
 	// calling newEncryptPrimitiveSet with primitiveSet containing bad primitive entry should fail
 	decPrimitiveSet, err = newDecryptPrimitiveSet(primitiveSet2)
-	require.Error(t, err)
+	require.EqualError(t, err, "ecdhes_factory: not an CompositeDecrypt primitive")
 	require.Nil(t, decPrimitiveSet)
 }
 
@@ -340,11 +368,11 @@ func TestDecryptPrimitiveSetFail(t *testing.T) {
 
 	// ensure calling newEncryptPrimitiveSet is successful with valid primitiveSet2 (ECDHESP256+AES256GCM enc primitive)
 	_, err = newDecryptPrimitiveSet(primitiveSetBad)
-	require.Error(t, err)
+	require.EqualError(t, err, "ecdhes_factory: not an CompositeDecrypt primitive")
 
 	// Decrypt invalid cipher should fail
 	_, err = decPrimitiveSet.Decrypt([]byte("plaintext"), []byte("aad"))
-	require.Error(t, err)
+	require.EqualError(t, err, "ecdhes_factory: decryption failed")
 
 	// create ECDSA key and set decPrimitiveSet's primary primtive to the ECDSA's primary
 	kh, err := keyset.NewHandle(signature.ECDSAP256KeyTemplate())
@@ -358,14 +386,14 @@ func TestDecryptPrimitiveSetFail(t *testing.T) {
 	decPrimitiveSet.ps.Primary = sigPS.Primary
 
 	_, err = decPrimitiveSet.Decrypt([]byte("plaintext"), []byte("aad"))
-	require.Error(t, err)
+	require.EqualError(t, err, "ecdhes_factory: not an CompositeDecrypt primitive")
 
 	// try decrypt with invalid primitive and prefix (type set fail)
 	decPrimitiveSet.ps.Entries["12345"] = []*primitiveset.Entry{sigPS.Primary}
 	decPrimitiveSet.ps.Primary = sigPS.Primary
 
 	_, err = decPrimitiveSet.Decrypt([]byte("12345plaintext"), []byte("aad"))
-	require.Error(t, err)
+	require.EqualError(t, err, "ecdhes_factory: not an CompositeDecrypt primitive")
 
 	// try decrypt with valid primitiveset with raw prefix and a non raw prefix (decryption fail with valid type)
 	primitiveSet, err = validKH.Primitives()
@@ -377,5 +405,5 @@ func TestDecryptPrimitiveSetFail(t *testing.T) {
 	decPrimitiveSet.ps.Primary = primitiveSet.Primary
 
 	_, err = decPrimitiveSet.Decrypt([]byte("12345plaintext"), []byte("aad"))
-	require.Error(t, err)
+	require.EqualError(t, err, "ecdhes_factory: decryption failed")
 }

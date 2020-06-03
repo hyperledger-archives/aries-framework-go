@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package subtle
 
 import (
+	"crypto/elliptic"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -73,7 +75,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 
 	// Encrypt should fail with empty recipients public keys
 	_, err := cEnc.Encrypt(pt, aad)
-	require.Error(t, err)
+	require.EqualError(t, err, "ECDHESAEADCompositeEncrypt: missing recipients public keys for key wrapping")
 
 	// test with large key size
 	mEncHelper.KeySizeValue = 100
@@ -83,9 +85,18 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 
 	// Encrypt should fail with large AEAD key size value
 	_, err = cEnc.Encrypt(pt, aad)
-	require.Error(t, err)
+	require.EqualError(t, err, "crypto/aes: invalid key size 100")
 
 	mEncHelper.KeySizeValue = 32
+
+	// Encrypt should fail with bad key type
+	cEnc.keyType = ecdhespb.KeyType_UNKNOWN_KEY_TYPE
+
+	_, err = cEnc.Encrypt(pt, aad)
+	require.EqualError(t, err, fmt.Sprintf("ECDHESAEADCompositeEncrypt: bad key type: '%s'",
+		ecdhespb.KeyType_UNKNOWN_KEY_TYPE))
+
+	cEnc.keyType = ecdhespb.KeyType_EC
 
 	// test with GetAEAD() returning error
 	mEncHelper.AEADErrValue = fmt.Errorf("error from GetAEAD")
@@ -125,7 +136,8 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 			ecdhespb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
-		require.Error(t, err)
+		require.EqualError(t, err, "ECDHESAEADCompositeDecrypt: missing recipient private key for key"+
+			" unwrapping")
 
 		// test with large key size
 		mEncHelper.KeySizeValue = 100
@@ -133,7 +145,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 			ecdhespb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
-		require.Error(t, err)
+		require.EqualError(t, err, "ecdh-es decrypt: cek unwrap failed for all recipients keys")
 
 		mEncHelper.KeySizeValue = 32
 
@@ -144,7 +156,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 			ecdhespb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
-		require.Error(t, err)
+		require.EqualError(t, err, "error from GetAEAD")
 
 		mEncHelper.AEADErrValue = nil
 
@@ -154,7 +166,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 
 		// try decrypting empty ct
 		_, err = dEnc.Decrypt([]byte{}, aad)
-		require.Error(t, err)
+		require.EqualError(t, err, "unexpected end of JSON input")
 
 		// try decrypting with empty encAlg
 		var encData EncryptedData
@@ -167,10 +179,58 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = dEnc.Decrypt(emptyAlgCiphertext, aad)
-		require.Error(t, err)
+		require.EqualError(t, err, "invalid content encryption algorihm '' for Decrypt()")
 
 		// finally try successful decrypt
 		dpt, err := dEnc.Decrypt(ct, aad)
+		require.NoError(t, err)
+		require.EqualValues(t, pt, dpt)
+	}
+}
+
+func TestEncryptDecryptWithSingleRecipient(t *testing.T) {
+	recipientsPrivKeys, recipientsPubKeys := buildRecipientsKeys(t, 1)
+	aeadPrimitive := getAEADPrimitive(t, aead.AES256GCMKeyTemplate())
+
+	mEncHelper := &MockEncHelper{
+		KeySizeValue: 32,
+		AEADValue:    aeadPrimitive,
+		TagSizeValue: subtleaead.AESGCMTagSize,
+		IVSizeValue:  subtleaead.AESGCMIVSize,
+	}
+
+	pt := []byte("secret message")
+	aad := []byte("aad message")
+
+	// test with single recipient public key
+	cEnc := NewECDHESAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+		mEncHelper, ecdhespb.KeyType_EC)
+
+	// Encrypt should fail with aad not base64URL encoded
+	_, err := cEnc.Encrypt(pt, aad)
+	require.EqualError(t, err, "illegal base64 data at input byte 3")
+
+	newAAD := base64.RawURLEncoding.EncodeToString(aad)
+
+	// Encrypt should fail with aad not being a marshalled json
+	_, err = cEnc.Encrypt(pt, []byte(newAAD))
+	require.EqualError(t, err, "invalid character 'a' looking for beginning of value")
+
+	newAAD = base64.RawURLEncoding.EncodeToString([]byte("{\"enc\":\"testAlg\"}"))
+
+	// Encrypt should pass with base64Url encoded a valid json marshaled aad
+	ct, err := cEnc.Encrypt(pt, []byte(newAAD))
+	require.NoError(t, err)
+
+	encData := &EncryptedData{}
+	err = json.Unmarshal(ct, encData)
+	require.NoError(t, err)
+
+	for _, privKey := range recipientsPrivKeys {
+		dEnc := NewECDHESAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
+			ecdhespb.KeyType_EC)
+
+		dpt, err := dEnc.Decrypt(ct, encData.SingleRecipientAAD)
 		require.NoError(t, err)
 		require.EqualValues(t, pt, dpt)
 	}
@@ -248,4 +308,70 @@ func (me *MockEncHelper) GetTagSize() int {
 // GetIVSize provides the aead primitive nonce size
 func (me *MockEncHelper) GetIVSize() int {
 	return me.IVSizeValue
+}
+
+func TestMergeSingleRecipientsHeadersFailureWithUnsetCurve(t *testing.T) {
+	aad := map[string]string{"enc": "test"}
+
+	mAAD, err := json.Marshal(aad)
+	require.NoError(t, err)
+
+	wk := &RecipientWrappedKey{
+		EPK: PublicKey{},
+	}
+
+	cEnc := NewECDHESAEADCompositeEncrypt(nil, "", nil, 0)
+
+	// fail with epk curve not set
+	_, err = cEnc.mergeSingleRecipientHeaders(wk, []byte(base64.RawURLEncoding.EncodeToString(mAAD)))
+	require.EqualError(t, err, "unsupported curve")
+
+	// set epk curve for subsequent tests
+	wk.EPK.Curve = elliptic.P256().Params().Name
+
+	fm := &failingMarshaller{
+		numTimesMarshalCalledBeforeReturnErr: 0,
+	}
+
+	cEnc.marshalFunc = fm.failingMarshal
+
+	// fail KID marshalling
+	_, err = cEnc.mergeSingleRecipientHeaders(wk, []byte(base64.RawURLEncoding.EncodeToString(mAAD)))
+	require.EqualError(t, err, errFailingMarshal.Error())
+
+	fm = &failingMarshaller{
+		numTimesMarshalCalledBeforeReturnErr: 1,
+	}
+
+	cEnc.marshalFunc = fm.failingMarshal
+
+	// fail Alg marshalling
+	_, err = cEnc.mergeSingleRecipientHeaders(wk, []byte(base64.RawURLEncoding.EncodeToString(mAAD)))
+	require.EqualError(t, err, errFailingMarshal.Error())
+
+	fm = &failingMarshaller{
+		numTimesMarshalCalledBeforeReturnErr: 2,
+	}
+
+	cEnc.marshalFunc = fm.failingMarshal
+	// fail EPK marshalling
+	_, err = cEnc.mergeSingleRecipientHeaders(wk, []byte(base64.RawURLEncoding.EncodeToString(mAAD)))
+	require.EqualError(t, err, errFailingMarshal.Error())
+}
+
+var errFailingMarshal = fmt.Errorf("json marshal error")
+
+type failingMarshaller struct {
+	numTimesMarshalCalled                int
+	numTimesMarshalCalledBeforeReturnErr int
+}
+
+func (m *failingMarshaller) failingMarshal(v interface{}) ([]byte, error) {
+	if m.numTimesMarshalCalled == m.numTimesMarshalCalledBeforeReturnErr {
+		return nil, errFailingMarshal
+	}
+
+	m.numTimesMarshalCalled++
+
+	return nil, nil
 }

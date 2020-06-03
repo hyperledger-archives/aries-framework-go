@@ -43,15 +43,14 @@ func TestAnoncryptPackerSuccess(t *testing.T) {
 
 	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToVerKey: recKey}, msg)
 
-	// TODO uncomment with https://github.com/hyperledger/aries-framework-go/issues/1872
-	// // try with only 1 recipient
-	// ct, err = anonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
-	// require.NoError(t, err)
-	//
-	// msg, err = anonPacker.Unpack(ct)
-	// require.NoError(t, err)
-	//
-	// require.EqualValues(t, &transport.Envelope{Message: origMsg, ToVerKey: recKey}, msg)
+	// try with only 1 recipient
+	ct, err = anonPacker.Pack(origMsg, nil, [][]byte{recipientsKeys[0]})
+	require.NoError(t, err)
+
+	msg, err = anonPacker.Unpack(ct)
+	require.NoError(t, err)
+
+	require.EqualValues(t, &transport.Envelope{Message: origMsg, ToVerKey: recKey}, msg)
 
 	require.Equal(t, encodingType, anonPacker.EncodingType())
 }

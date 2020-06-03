@@ -7,10 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package subtle
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
+	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/subtle/random"
+	"github.com/square/go-jose/v3"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
@@ -20,6 +26,8 @@ import (
 // the JWA specification: https://tools.ietf.org/html/rfc7518#section-5.1
 const A256GCM = "A256GCM"
 
+type marshalFunc func(interface{}) ([]byte, error)
+
 // ECDHESAEADCompositeEncrypt is an instance of ECDH-ES encryption with Concat KDF
 // and AEAD content encryption
 type ECDHESAEADCompositeEncrypt struct {
@@ -27,6 +35,7 @@ type ECDHESAEADCompositeEncrypt struct {
 	pointFormat   string
 	encHelper     EncrypterHelper
 	keyType       ecdhespb.KeyType
+	marshalFunc   marshalFunc
 }
 
 var _ api.CompositeEncrypt = (*ECDHESAEADCompositeEncrypt)(nil)
@@ -40,6 +49,7 @@ func NewECDHESAEADCompositeEncrypt(recipientsKeys []*PublicKey, ptFormat string,
 		pointFormat:   ptFormat,
 		encHelper:     encHelper,
 		keyType:       keyType,
+		marshalFunc:   json.Marshal,
 	}
 }
 
@@ -61,11 +71,11 @@ func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, err
 	}
 
 	keySize := e.encHelper.GetSymmetricKeySize()
-	tagSize := e.encHelper.GetTagSize()
-	ivSize := e.encHelper.GetIVSize()
 	cek := random.GetRandomBytes(uint32(keySize))
 
 	var recipientsWK []*RecipientWrappedKey
+
+	var singleRecipientAAD []byte
 
 	for _, rec := range e.recPublicKeys {
 		senderKW := &ECDHESConcatKDFSenderKW{
@@ -80,6 +90,15 @@ func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, err
 		}
 
 		recipientsWK = append(recipientsWK, kek)
+
+		if len(e.recPublicKeys) == 1 {
+			singleRecipientAAD, err = e.mergeSingleRecipientHeaders(kek, aad)
+			if err != nil {
+				return nil, err
+			}
+
+			aad = singleRecipientAAD
+		}
 	}
 
 	aead, err := e.encHelper.GetAEAD(cek)
@@ -92,17 +111,90 @@ func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, err
 		return nil, err
 	}
 
+	return e.buildEncData(eAlg, recipientsWK, ct, singleRecipientAAD)
+}
+
+func (e *ECDHESAEADCompositeEncrypt) buildEncData(eAlg string, recipientsWK []*RecipientWrappedKey,
+	ct, singleRecipientAAD []byte) ([]byte, error) {
+	tagSize := e.encHelper.GetTagSize()
+	ivSize := e.encHelper.GetIVSize()
 	iv := ct[:ivSize]
 	ctAndTag := ct[ivSize:]
 	tagOffset := len(ctAndTag) - tagSize
 
 	encData := &EncryptedData{
-		EncAlg:     eAlg,
-		Ciphertext: ctAndTag[:tagOffset],
-		IV:         iv,
-		Tag:        ctAndTag[tagOffset:],
-		Recipients: recipientsWK,
+		EncAlg:             eAlg,
+		Ciphertext:         ctAndTag[:tagOffset],
+		IV:                 iv,
+		Tag:                ctAndTag[tagOffset:],
+		Recipients:         recipientsWK,
+		SingleRecipientAAD: singleRecipientAAD,
 	}
 
-	return json.Marshal(encData)
+	return e.marshalFunc(encData)
+}
+
+// for single recipient encryption, recipient header info is available in the key, update aad with this info
+func (e *ECDHESAEADCompositeEncrypt) mergeSingleRecipientHeaders(recipientWK *RecipientWrappedKey,
+	aad []byte) ([]byte, error) {
+	newAAD, err := base64.RawURLEncoding.DecodeString(string(aad))
+	if err != nil {
+		return nil, err
+	}
+
+	rawHeaders := map[string]json.RawMessage{}
+
+	err = json.Unmarshal(newAAD, &rawHeaders)
+	if err != nil {
+		return nil, err
+	}
+
+	kid, err := e.marshalFunc(recipientWK.KID)
+	if err != nil {
+		return nil, err
+	}
+
+	rawHeaders["kid"] = kid
+
+	alg, err := e.marshalFunc(recipientWK.Alg)
+	if err != nil {
+		return nil, err
+	}
+
+	rawHeaders["alg"] = alg
+
+	mEPK, err := convertRecKeyToMarshalledJWK(recipientWK)
+	if err != nil {
+		return nil, err
+	}
+
+	rawHeaders["epk"] = mEPK
+
+	mAAD, err := e.marshalFunc(rawHeaders)
+	if err != nil {
+		return nil, err
+	}
+
+	return []byte(base64.RawURLEncoding.EncodeToString(mAAD)), nil
+}
+
+func convertRecKeyToMarshalledJWK(rec *RecipientWrappedKey) ([]byte, error) {
+	var c elliptic.Curve
+
+	c, err := hybrid.GetCurve(rec.EPK.Curve)
+	if err != nil {
+		return nil, err
+	}
+
+	recJWK := jose.JSONWebKey{
+		KeyID: rec.KID,
+		Use:   "enc",
+		Key: &ecdsa.PublicKey{
+			Curve: c,
+			X:     new(big.Int).SetBytes(rec.EPK.X),
+			Y:     new(big.Int).SetBytes(rec.EPK.Y),
+		},
+	}
+
+	return recJWK.MarshalJSON()
 }
