@@ -23,7 +23,7 @@ as the Outbound transport while initializing the framework for agents without in
 
 ## References
 - [DIDComm Router/Mediator Design - Hyperledger Wiki](https://wiki.hyperledger.org/display/ARIES/DIDComm+MediatorRouter)
-- [DIDComm Router/Mediator BDD Tests](https://github.com/hyperledger/aries-framework-go/blob/master/test/bdd/features/aries_router_e2e_sdk.feature)
+- [DIDComm Router/Mediator BDD Tests](https://github.com/hyperledger/aries-framework-go/blob/master/test/bdd/features/aries_mediator_e2e_sdk.feature)
 - [Aries RFC 0092: Transports Return Route](https://github.com/hyperledger/aries-rfcs/tree/master/features/0092-transport-return-route)
 - [Aries RFC 0211: Route Coordination Protocol](https://github.com/hyperledger/aries-rfcs/tree/master/features/0211-route-coordination)
 - [Aries RFC 0094: Forward Message](https://github.com/hyperledger/aries-rfcs/blob/master/concepts/0094-cross-domain-messaging/README.md#corerouting10forward)
