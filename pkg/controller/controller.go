@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/kms"
 	routercmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/mediator"
 	messagingcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/messaging"
+	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	vdricmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
@@ -26,6 +27,7 @@ import (
 	kmsrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest/mediator"
 	messagingrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/messaging"
+	outofbandrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/outofband"
 	presentproofrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/presentproof"
 	vdrirest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/vdri"
 	verifiablerest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/verifiable"
@@ -143,6 +145,12 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 		return nil, fmt.Errorf("create introduce rest command : %w", err)
 	}
 
+	// outofband REST operation
+	outofbandOp, err := outofbandrest.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create outofband rest command : %w", err)
+	}
+
 	// kms command operation
 	kmscmd := kmsrest.New(ctx)
 
@@ -156,6 +164,7 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	allHandlers = append(allHandlers, issuecredentialOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, presentproofOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, introduceOp.GetRESTHandlers()...)
+	allHandlers = append(allHandlers, outofbandOp.GetRESTHandlers()...)
 	allHandlers = append(allHandlers, kmscmd.GetRESTHandlers()...)
 
 	nhp, ok := notifier.(handlerProvider)
@@ -232,6 +241,12 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 		return nil, fmt.Errorf("create introduce command : %w", err)
 	}
 
+	// outofband command operation
+	outofband, err := outofbandcmd.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create outofband command : %w", err)
+	}
+
 	// kms command operation
 	kmscmd := kms.New(ctx)
 
@@ -245,6 +260,7 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	allHandlers = append(allHandlers, issuecredential.GetHandlers()...)
 	allHandlers = append(allHandlers, presentproof.GetHandlers()...)
 	allHandlers = append(allHandlers, introduce.GetHandlers()...)
+	allHandlers = append(allHandlers, outofband.GetHandlers()...)
 
 	return allHandlers, nil
 }
