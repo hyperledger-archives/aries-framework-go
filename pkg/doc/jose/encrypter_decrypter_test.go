@@ -314,6 +314,42 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 	require.Equal(t, 2, i)
 }
 
+func TestInteropWithLocalJoseEncryptAndGoJoseDecryptUsingCompactSerialization(t *testing.T) {
+	var recECKeys []ecdhessubtle.PublicKey
+	// create a normal recipient key (not using Tink)
+	recPrivKey, err := ecdsa.GenerateKey(subtle.GetCurve("NIST_P256"), rand.Reader)
+	require.NoError(t, err)
+
+	// add third key to recECKeys
+	recECKeys = append(recECKeys, ecdhessubtle.PublicKey{
+		X:     recPrivKey.PublicKey.X.Bytes(),
+		Y:     recPrivKey.PublicKey.Y.Bytes(),
+		Curve: recPrivKey.PublicKey.Curve.Params().Name,
+		Type:  "EC",
+	})
+
+	// encrypt using local jose package
+	jweEncrypter, err := NewJWEEncrypt(A256GCM, recECKeys)
+	require.NoError(t, err, "NewJWEEncrypt should not fail with non empty recipientPubKeys")
+
+	pt := []byte("some msg")
+	jwe, err := jweEncrypter.Encrypt(pt)
+	require.NoError(t, err)
+	require.Equal(t, len(recECKeys), len(jwe.Recipients))
+
+	serializedJWE, err := jwe.CompactSerialize(json.Marshal)
+	require.NoError(t, err)
+
+	// now parse serializedJWE using go-jose
+	gjParsedJWE, err := jose.ParseEncrypted(serializedJWE)
+	require.NoError(t, err)
+
+	// Decrypt with recipient's private key
+	msg, err := gjParsedJWE.Decrypt(recPrivKey)
+	require.NoError(t, err)
+	require.EqualValues(t, pt, msg)
+}
+
 func convertToGoJoseRecipients(t *testing.T, keys []ecdhessubtle.PublicKey) []jose.Recipient {
 	t.Helper()
 
