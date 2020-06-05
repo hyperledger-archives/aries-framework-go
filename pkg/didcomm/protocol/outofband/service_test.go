@@ -29,6 +29,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
+const (
+	myDID    = "did:example:mine"
+	theirDID = "did:example:theirs"
+)
+
 func TestNew(t *testing.T) {
 	t.Run("returns the service", func(t *testing.T) {
 		s, err := New(testProvider())
@@ -114,18 +119,12 @@ func TestAccept(t *testing.T) {
 func TestHandleInbound(t *testing.T) {
 	t.Run("accepts out-of-band request messages", func(t *testing.T) {
 		s := newAutoService(t, testProvider())
-		_, err := s.HandleInbound(
-			service.NewDIDCommMsgMap(newRequest()),
-			"did:example:mine",
-			"did:example:theirs")
+		_, err := s.HandleInbound(service.NewDIDCommMsgMap(newRequest()), myDID, theirDID)
 		require.NoError(t, err)
 	})
 	t.Run("accepts out-of-band invitation messages", func(t *testing.T) {
 		s := newAutoService(t, testProvider())
-		_, err := s.HandleInbound(
-			service.NewDIDCommMsgMap(newInvitation()),
-			"did:example:mine",
-			"did:example:theirs")
+		_, err := s.HandleInbound(service.NewDIDCommMsgMap(newInvitation()), myDID, theirDID)
 		require.NoError(t, err)
 	})
 	t.Run("rejects unsupported message types", func(t *testing.T) {
@@ -133,10 +132,7 @@ func TestHandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		req := newRequest()
 		req.Type = "invalid"
-		_, err = s.HandleInbound(
-			service.NewDIDCommMsgMap(req),
-			"did:example:mine",
-			"did:example:theirs")
+		_, err = s.HandleInbound(service.NewDIDCommMsgMap(req), myDID, theirDID)
 		require.Error(t, err)
 	})
 	t.Run("fires off an action event", func(t *testing.T) {
@@ -146,7 +142,7 @@ func TestHandleInbound(t *testing.T) {
 		events := make(chan service.DIDCommAction)
 		err = s.RegisterActionEvent(events)
 		require.NoError(t, err)
-		_, err = s.HandleInbound(expected, "did:example:mine", "did:example:theirs")
+		_, err = s.HandleInbound(expected, myDID, theirDID)
 		require.NoError(t, err)
 		select {
 		case e := <-events:
@@ -161,6 +157,32 @@ func TestHandleInbound(t *testing.T) {
 			t.Error("timeout waiting for action event")
 		}
 	})
+	t.Run("ThreadID not found", func(t *testing.T) {
+		expected := service.NewDIDCommMsgMap(&Request{
+			Type: RequestMsgType,
+		})
+		s, err := New(testProvider())
+		require.NoError(t, err)
+		events := make(chan service.DIDCommAction)
+		err = s.RegisterActionEvent(events)
+		require.NoError(t, err)
+		_, err = s.HandleInbound(expected, myDID, theirDID)
+		require.EqualError(t, err, "threadID: threadID not found")
+	})
+	t.Run("Save transitional payload (error)", func(t *testing.T) {
+		expected := service.NewDIDCommMsgMap(newRequest())
+		s := &Service{
+			store: &mockstore.MockStore{
+				Store:  make(map[string][]byte),
+				ErrPut: fmt.Errorf("db error"),
+			},
+		}
+		events := make(chan service.DIDCommAction)
+		err := s.RegisterActionEvent(events)
+		require.NoError(t, err)
+		_, err = s.HandleInbound(expected, myDID, theirDID)
+		require.EqualError(t, err, "save transitional payload: db error")
+	})
 	t.Run("sends pre-state msg event", func(t *testing.T) {
 		expected := service.NewDIDCommMsgMap(newRequest())
 		s, err := New(testProvider())
@@ -170,7 +192,7 @@ func TestHandleInbound(t *testing.T) {
 		require.NoError(t, err)
 		err = s.RegisterActionEvent(make(chan service.DIDCommAction))
 		require.NoError(t, err)
-		_, err = s.HandleInbound(expected, "did:example:mine", "did:example:theirs")
+		_, err = s.HandleInbound(expected, myDID, theirDID)
 		require.NoError(t, err)
 		select {
 		case result := <-stateMsgs:
@@ -189,24 +211,147 @@ func TestHandleInbound(t *testing.T) {
 	t.Run("fails if no listeners have been registered for action events", func(t *testing.T) {
 		s, err := New(testProvider())
 		require.NoError(t, err)
-		_, err = s.HandleInbound(
-			service.NewDIDCommMsgMap(newRequest()),
-			"did:example:mine",
-			"did:example:theirs")
+		_, err = s.HandleInbound(service.NewDIDCommMsgMap(newRequest()), myDID, theirDID)
 		require.Error(t, err)
 	})
 }
 
-func TestContinueFunc(t *testing.T) {
-	t.Run("enqueues callback", func(t *testing.T) {
-		callbacks := make(chan *callback, 2)
+func TestService_ActionContinue(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(newRequest())
-		myDID := "did:example:mine"
-		theirDID := "did:example:theirs"
-		f := continueFunc(callbacks, msg, myDID, theirDID)
-		f(nil)
+		s, err := New(testProvider())
+		require.NoError(t, err)
+
+		actions := make(chan service.DIDCommAction)
+
+		require.NoError(t, s.RegisterActionEvent(actions))
+		s.callbackChannel = make(chan *callback, 2)
+		_, err = s.HandleInbound(msg, myDID, theirDID)
+		require.NoError(t, err)
+
+		var remainingActions []Action
+
 		select {
-		case c := <-callbacks:
+		case <-actions:
+			remainingActions, err = s.Actions()
+			require.NoError(t, err)
+			require.Equal(t, 1, len(remainingActions))
+			require.NoError(t, s.ActionContinue(remainingActions[0].PIID, &userOptions{}))
+		case <-time.After(1 * time.Second):
+			t.Error("timeout")
+		}
+
+		select {
+		case c := <-s.callbackChannel:
+			require.Equal(t, msg, c.msg)
+			require.Equal(t, myDID, c.myDID)
+			require.Equal(t, theirDID, c.theirDID)
+		case <-time.After(1 * time.Second):
+			t.Error("timeout")
+		}
+
+		remainingActions, err = s.Actions()
+		require.NoError(t, err)
+		require.Equal(t, 0, len(remainingActions))
+	})
+	t.Run("Error", func(t *testing.T) {
+		require.EqualError(t, (&Service{
+			store: &mockstore.MockStore{
+				Store:  make(map[string][]byte),
+				ErrGet: fmt.Errorf("db error"),
+			},
+		}).ActionContinue("piid", nil), "get transitional payload: store get: db error")
+	})
+}
+
+func TestService_ActionStop(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		msg := service.NewDIDCommMsgMap(newRequest())
+		s, err := New(testProvider())
+		require.NoError(t, err)
+
+		actions := make(chan service.DIDCommAction)
+
+		require.NoError(t, s.RegisterActionEvent(actions))
+		s.callbackChannel = make(chan *callback, 2)
+		_, err = s.HandleInbound(msg, myDID, theirDID)
+		require.NoError(t, err)
+
+		var remainingActions []Action
+
+		select {
+		case <-actions:
+			remainingActions, err = s.Actions()
+			require.NoError(t, err)
+			require.Equal(t, 1, len(remainingActions))
+			require.NoError(t, s.ActionStop(remainingActions[0].PIID, nil))
+		case <-time.After(1 * time.Second):
+			t.Error("timeout")
+		}
+
+		remainingActions, err = s.Actions()
+		require.NoError(t, err)
+		require.Equal(t, 0, len(remainingActions))
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		require.EqualError(t, (&Service{
+			store: &mockstore.MockStore{
+				Store:  make(map[string][]byte),
+				ErrGet: fmt.Errorf("db error"),
+			},
+		}).ActionStop("piid", nil), "get transitional payload: store get: db error")
+	})
+}
+
+func TestServiceStop(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		msg := service.NewDIDCommMsgMap(newRequest())
+		s, err := New(testProvider())
+		require.NoError(t, err)
+
+		actions := make(chan service.DIDCommAction)
+
+		require.NoError(t, s.RegisterActionEvent(actions))
+		s.callbackChannel = make(chan *callback, 2)
+		_, err = s.HandleInbound(msg, myDID, theirDID)
+		require.NoError(t, err)
+
+		select {
+		case action := <-actions:
+			action.Stop(nil)
+		case <-time.After(1 * time.Second):
+			t.Error("timeout")
+		}
+
+		remainingActions, err := s.Actions()
+		require.NoError(t, err)
+		require.Equal(t, 0, len(remainingActions))
+	})
+}
+
+func TestServiceContinue(t *testing.T) {
+	t.Run("enqueues callback", func(t *testing.T) {
+		msg := service.NewDIDCommMsgMap(newRequest())
+		s, err := New(testProvider())
+		require.NoError(t, err)
+
+		actions := make(chan service.DIDCommAction)
+
+		require.NoError(t, s.RegisterActionEvent(actions))
+		s.callbackChannel = make(chan *callback, 2)
+		_, err = s.HandleInbound(msg, myDID, theirDID)
+		require.NoError(t, err)
+
+		select {
+		case action := <-actions:
+			action.Continue(nil)
+		case <-time.After(1 * time.Second):
+			t.Error("timeout")
+		}
+
+		select {
+		case c := <-s.callbackChannel:
 			require.Equal(t, msg, c.msg)
 			require.Equal(t, myDID, c.myDID)
 			require.Equal(t, theirDID, c.theirDID)
@@ -307,8 +452,8 @@ func TestHandleDIDEvent(t *testing.T) {
 		require.NoError(t, err)
 		err = r.SaveConnectionRecord(&connection.Record{
 			ConnectionID:   connID,
-			MyDID:          "did:example:mine",
-			TheirDID:       "did:example:theirs",
+			MyDID:          myDID,
+			TheirDID:       theirDID,
 			ParentThreadID: pthid,
 		})
 		require.NoError(t, err)
@@ -409,8 +554,8 @@ func TestHandleDIDEvent(t *testing.T) {
 		require.NoError(t, err)
 		err = r.SaveConnectionRecord(&connection.Record{
 			ConnectionID:   connID,
-			MyDID:          "did:example:mine",
-			TheirDID:       "did:example:theirs",
+			MyDID:          myDID,
+			TheirDID:       theirDID,
 			ParentThreadID: pthid,
 		})
 		require.NoError(t, err)
@@ -448,8 +593,8 @@ func TestHandleDIDEvent(t *testing.T) {
 		require.NoError(t, err)
 		err = r.SaveConnectionRecord(&connection.Record{
 			ConnectionID:   connID,
-			MyDID:          "did:example:mine",
-			TheirDID:       "did:example:theirs",
+			MyDID:          myDID,
+			TheirDID:       theirDID,
 			ParentThreadID: pthid,
 		})
 		require.NoError(t, err)
@@ -549,8 +694,8 @@ func TestHandleDIDEvent(t *testing.T) {
 		require.NoError(t, err)
 		err = r.SaveConnectionRecord(&connection.Record{
 			ConnectionID:   connID,
-			MyDID:          "did:example:mine",
-			TheirDID:       "did:example:theirs",
+			MyDID:          myDID,
+			TheirDID:       theirDID,
 			ParentThreadID: pthid,
 		})
 
@@ -995,7 +1140,6 @@ func newRequest() *Request {
 				Description: "test",
 				FileName:    "dont_open_this.exe",
 				MimeType:    "text/plain",
-				LastModTime: time.Now(),
 				Data: decorator.AttachmentData{
 					JSON: map[string]interface{}{
 						"@id":   "123",
