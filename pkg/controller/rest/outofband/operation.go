@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package outofband
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
+
+	"github.com/gorilla/mux"
 
 	client "github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	command "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
@@ -22,6 +25,9 @@ const (
 	createInvitation = operationID + "/create-invitation"
 	acceptRequest    = operationID + "/accept-request"
 	acceptInvitation = operationID + "/accept-invitation"
+	actions          = operationID + "/actions"
+	actionContinue   = operationID + "/{piid}/action-continue"
+	actionStop       = operationID + "/{piid}/action-stop"
 )
 
 // Operation is controller REST service controller for outofband
@@ -56,7 +62,49 @@ func (c *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(createInvitation, http.MethodPost, c.CreateInvitation),
 		cmdutil.NewHTTPHandler(acceptRequest, http.MethodPost, c.AcceptRequest),
 		cmdutil.NewHTTPHandler(acceptInvitation, http.MethodPost, c.AcceptInvitation),
+		cmdutil.NewHTTPHandler(actions, http.MethodGet, c.Actions),
+		cmdutil.NewHTTPHandler(actionContinue, http.MethodPost, c.ActionContinue),
+		cmdutil.NewHTTPHandler(actionStop, http.MethodPost, c.ActionStop),
 	}
+}
+
+// Actions swagger:route GET /outofband/actions outofband outofbandActions
+//
+// Returns pending actions that have not yet to be executed or cancelled.
+//
+// Responses:
+//    default: genericError
+//        200: outofbandActionsResponse
+func (c *Operation) Actions(rw http.ResponseWriter, _ *http.Request) {
+	rest.Execute(c.command.Actions, rw, nil)
+}
+
+// ActionContinue swagger:route POST /outofband/{piid}/action-continue outofband outofbandActionContinue
+//
+// Allows continuing with the protocol after an action event was triggered.
+//
+// Responses:
+//    default: genericError
+//        200: outofbandActionContinueResponse
+func (c *Operation) ActionContinue(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(c.command.ActionContinue, rw, bytes.NewBufferString(fmt.Sprintf(`{
+		"piid":%q,
+		"label": %q
+	}`, mux.Vars(req)["piid"], req.URL.Query().Get("label"))))
+}
+
+// ActionStop swagger:route POST /outofband/{piid}/action-stop outofband outofbandActionStop
+//
+// Stops the protocol after an action event was triggered.
+//
+// Responses:
+//    default: genericError
+//        200: outofbandActionStopResponse
+func (c *Operation) ActionStop(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(c.command.ActionStop, rw, bytes.NewBufferString(fmt.Sprintf(`{
+		"piid":%q,
+		"reason": %q
+	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"))))
 }
 
 // CreateRequest swagger:route POST /outofband/create-request outofband outofbandCreateRequest

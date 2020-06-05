@@ -118,3 +118,66 @@ type outofbandResponse struct { // nolint: unused,deadcode
 		ConnectionID string `json:"connection_id"`
 	}
 }
+
+// outofbandActionsRequest model
+//
+// Returns pending actions that have not yet to be executed or cancelled.
+//
+// swagger:parameters outofbandActions
+type outofbandActionsRequest struct{} // nolint: unused,deadcode
+
+// outofbandActionsResponse model
+//
+// Represents a Actions response message
+//
+// swagger:response outofbandActionsResponse
+type outofbandActionsResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct {
+		Actions []protocol.Action `json:"actions"`
+	}
+}
+
+// outofbandActionContinueRequest model
+//
+// Allows continuing with the protocol after an action event was triggered.
+//
+// swagger:parameters outofbandActionContinue
+type outofbandActionContinueRequest struct { // nolint: unused,deadcode
+	// Protocol instance ID
+	//
+	// in: path
+	// required: true
+	PIID string `json:"piid"`
+
+	Label string `json:"label"`
+}
+
+// outofbandActionContinueResponse model
+//
+// Represents a ActionContinue response message
+//
+// swagger:response outofbandActionContinueResponse
+type outofbandActionContinueResponse struct{} // nolint: unused,deadcode
+
+// outofbandActionStopRequest model
+//
+// Stops the protocol after an action event was triggered.
+//
+// swagger:parameters outofbandActionStop
+type outofbandActionStopRequest struct { // nolint: unused,deadcode
+	// Protocol instance ID
+	//
+	// in: path
+	// required: true
+	PIID string `json:"piid"`
+
+	Reason string `json:"reason"`
+}
+
+// outofbandActionStopResponse model
+//
+// Represents a ActionStop response message
+//
+// swagger:response outofbandActionStopResponse
+type outofbandActionStopResponse struct{} // nolint: unused,deadcode

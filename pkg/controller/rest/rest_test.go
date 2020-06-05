@@ -33,16 +33,16 @@ func TestSendError(t *testing.T) {
 			err        error
 			errCode    command.Code
 			statusCode int
-			response   genericError
+			response   genericErrorBody
 		}{
 			{fmt.Errorf(errMsg), sampleErr1, http.StatusOK,
-				genericError{Code: sampleErr1, Message: errMsg}},
+				genericErrorBody{Code: sampleErr1, Message: errMsg}},
 			{fmt.Errorf(errMsg), sampleErr2, http.StatusForbidden,
-				genericError{Code: sampleErr2, Message: errMsg}},
+				genericErrorBody{Code: sampleErr2, Message: errMsg}},
 			{fmt.Errorf(errMsg), sampleErr3, http.StatusNotAcceptable,
-				genericError{Code: sampleErr3, Message: errMsg}},
+				genericErrorBody{Code: sampleErr3, Message: errMsg}},
 			{fmt.Errorf(errMsg), sampleErr4, http.StatusNoContent,
-				genericError{Code: sampleErr4, Message: errMsg}},
+				genericErrorBody{Code: sampleErr4, Message: errMsg}},
 		}
 
 		for _, data := range errors {
@@ -51,7 +51,7 @@ func TestSendError(t *testing.T) {
 			SendHTTPStatusError(rr, data.statusCode, data.errCode, data.err)
 			require.NotEmpty(t, rr.Body.Bytes())
 
-			response := genericError{}
+			response := genericErrorBody{}
 			err := json.Unmarshal(rr.Body.Bytes(), &response)
 			require.NoError(t, err)
 
@@ -65,16 +65,16 @@ func TestSendError(t *testing.T) {
 		var errors = []struct {
 			err        command.Error
 			statusCode int
-			response   genericError
+			response   genericErrorBody
 		}{
 			{command.NewValidationError(sampleErr1, fmt.Errorf(errMsg)), http.StatusBadRequest,
-				genericError{Code: sampleErr1, Message: errMsg}},
+				genericErrorBody{Code: sampleErr1, Message: errMsg}},
 			{command.NewExecuteError(sampleErr2, fmt.Errorf(errMsg)), http.StatusInternalServerError,
-				genericError{Code: sampleErr2, Message: errMsg}},
+				genericErrorBody{Code: sampleErr2, Message: errMsg}},
 			{command.NewValidationError(sampleErr3, fmt.Errorf(errMsg)), http.StatusBadRequest,
-				genericError{Code: sampleErr3, Message: errMsg}},
+				genericErrorBody{Code: sampleErr3, Message: errMsg}},
 			{command.NewExecuteError(sampleErr4, fmt.Errorf(errMsg)), http.StatusInternalServerError,
-				genericError{Code: sampleErr4, Message: errMsg}},
+				genericErrorBody{Code: sampleErr4, Message: errMsg}},
 		}
 
 		for _, data := range errors {
@@ -83,7 +83,7 @@ func TestSendError(t *testing.T) {
 			SendError(rr, data.err)
 			require.NotEmpty(t, rr.Body.Bytes())
 
-			response := genericError{}
+			response := genericErrorBody{}
 			err := json.Unmarshal(rr.Body.Bytes(), &response)
 			require.NoError(t, err)
 

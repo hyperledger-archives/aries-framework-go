@@ -84,11 +84,7 @@ func New(ctx outofband.Provider) (*Command, error) {
 	// this code listens for the action events and does nothing
 	// this trick is used to avoid error such as `no clients are registered to handle the message`
 	go func() {
-		for action := range actions {
-			// TODO currently we do not have the possibility to continue with the protocol through the REST API
-			//  The client must provide a method which will return all pending actions.
-			//  Also, the client must provide a method that will allow us to continue with the protocol by action ID.
-			action.Continue(nil)
+		for range actions {
 		}
 	}()
 

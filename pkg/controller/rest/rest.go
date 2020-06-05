@@ -37,11 +37,13 @@ func Execute(exec command.Exec, rw http.ResponseWriter, req io.Reader) {
 
 // genericError is aries rest api error response
 // swagger:response genericError
-type genericError struct {
+type genericError struct { // nolint:unused,deadcode
 	// in: body
-	Code command.Code `json:"code"`
-	// in: body
-	Message string `json:"message"`
+	Body genericErrorBody
+}
+type genericErrorBody struct {
+	Code    command.Code `json:"code"`
+	Message string       `json:"message"`
 }
 
 // SendError sends command error as http response in generic error format
@@ -62,7 +64,7 @@ func SendError(rw http.ResponseWriter, err command.Error) {
 func SendHTTPStatusError(rw http.ResponseWriter, httpStatus int, code command.Code, err error) {
 	rw.WriteHeader(httpStatus)
 
-	e := json.NewEncoder(rw).Encode(genericError{
+	e := json.NewEncoder(rw).Encode(genericErrorBody{
 		Code:    code,
 		Message: err.Error(),
 	})
