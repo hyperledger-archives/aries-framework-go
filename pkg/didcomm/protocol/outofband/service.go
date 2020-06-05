@@ -39,6 +39,8 @@ const (
 
 	// TODO channel size - https://github.com/hyperledger/aries-framework-go/issues/246
 	callbackChannelSize = 10
+
+	transitionalPayloadKey = "transitional_payload_%s"
 )
 
 var logger = log.New(fmt.Sprintf("aries-framework/%s/service", Name))
@@ -85,6 +87,26 @@ type myState struct {
 	Request      *Request
 	Invitation   *Invitation
 	Done         bool
+}
+
+// Action contains helpful information about action
+type Action struct {
+	// Protocol instance ID
+	PIID         string                `json:"piid"`
+	Msg          service.DIDCommMsgMap `json:"msg"`
+	ProtocolName string                `json:"protocol_name"`
+	Properties   *eventProps           `json:"properties"`
+}
+
+// transitionalPayload keeps payload needed for Continue function to proceed with the action
+type transitionalPayload struct {
+	// Protocol instance ID
+	PIID         string                `json:"piid"`
+	Msg          service.DIDCommMsgMap `json:"msg"`
+	MyDID        string                `json:"my_did"`
+	TheirDID     string                `json:"their_did"`
+	ProtocolName string                `json:"protocol_name"`
+	Properties   *eventProps           `json:"properties"`
 }
 
 // Provider provides this service's dependencies.
@@ -155,7 +177,7 @@ func (s *Service) Accept(msgType string) bool {
 }
 
 // HandleInbound handles inbound messages
-func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
+func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) { //nolint:funlen
 	logger.Debugf("receive inbound message : %s", msg)
 
 	if !s.Accept(msg.Type()) {
@@ -170,15 +192,54 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	// TODO should request messages with no attachments be rejected?
 	//  https://github.com/hyperledger/aries-rfcs/issues/451
 
+	piid, err := msg.ThreadID()
+	if err != nil {
+		return "", fmt.Errorf("threadID: %w", err)
+	}
+
+	err = s.saveTransitionalPayload(piid, &transitionalPayload{
+		PIID:         piid,
+		Msg:          msg.(service.DIDCommMsgMap),
+		MyDID:        myDID,
+		TheirDID:     theirDID,
+		ProtocolName: Name,
+		Properties:   &eventProps{},
+	})
+	if err != nil {
+		return "", fmt.Errorf("save transitional payload: %w", err)
+	}
+
 	go func() {
 		sendMsgEvent(service.PreState, &s.Message, msg, &eventProps{})
 
 		event := service.DIDCommAction{
 			ProtocolName: Name,
 			Message:      msg,
-			Continue:     continueFunc(s.callbackChannel, msg, myDID, theirDID),
-			Stop: func(e error) {
-				// TODO noop - nothing to do here (not even cleanup)
+			Continue: func(args interface{}) {
+				var opts Options
+
+				switch t := args.(type) {
+				case Options:
+					opts = t
+				default:
+					opts = &userOptions{}
+				}
+
+				if err := s.deleteTransitionalPayload(piid); err != nil {
+					logger.Errorf("delete transitional payload: %s", err)
+				}
+
+				s.callbackChannel <- &callback{
+					msg:      msg,
+					myDID:    myDID,
+					theirDID: theirDID,
+					options:  opts,
+				}
+			},
+			Stop: func(_ error) {
+				if err := s.deleteTransitionalPayload(piid); err != nil {
+					logger.Errorf("delete transitional payload: %s", err)
+				}
 			},
 			Properties: &eventProps{},
 		}
@@ -189,6 +250,84 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	}()
 
 	return "", nil
+}
+
+// Actions returns actions for the async usage
+func (s *Service) Actions() ([]Action, error) {
+	records := s.store.Iterator(
+		fmt.Sprintf(transitionalPayloadKey, ""),
+		fmt.Sprintf(transitionalPayloadKey, storage.EndKeySuffix),
+	)
+	defer records.Release()
+
+	var actions []Action
+
+	for records.Next() {
+		var action Action
+		if err := json.Unmarshal(records.Value(), &action); err != nil {
+			return nil, fmt.Errorf("unmarshal: %w", err)
+		}
+
+		actions = append(actions, action)
+	}
+
+	return actions, records.Error()
+}
+
+// ActionContinue allows proceeding with the action by the piID
+func (s *Service) ActionContinue(piID string, opts Options) error {
+	tPayload, err := s.getTransitionalPayload(piID)
+	if err != nil {
+		return fmt.Errorf("get transitional payload: %w", err)
+	}
+
+	go func(opts Options) {
+		s.callbackChannel <- &callback{
+			msg:      tPayload.Msg,
+			myDID:    tPayload.MyDID,
+			theirDID: tPayload.TheirDID,
+			options:  opts,
+		}
+	}(opts)
+
+	return s.deleteTransitionalPayload(tPayload.PIID)
+}
+
+// ActionStop allows stopping the action by the piID
+func (s *Service) ActionStop(piID string, _ error) error {
+	tPayload, err := s.getTransitionalPayload(piID)
+	if err != nil {
+		return fmt.Errorf("get transitional payload: %w", err)
+	}
+
+	return s.deleteTransitionalPayload(tPayload.PIID)
+}
+
+func (s *Service) getTransitionalPayload(id string) (*transitionalPayload, error) {
+	src, err := s.store.Get(fmt.Sprintf(transitionalPayloadKey, id))
+	if err != nil {
+		return nil, fmt.Errorf("store get: %w", err)
+	}
+
+	t := &transitionalPayload{}
+	if err := json.Unmarshal(src, t); err != nil {
+		return nil, err
+	}
+
+	return t, nil
+}
+
+func (s *Service) saveTransitionalPayload(id string, data *transitionalPayload) error {
+	src, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("marshal transitional payload: %w", err)
+	}
+
+	return s.store.Put(fmt.Sprintf(transitionalPayloadKey, id), src)
+}
+
+func (s *Service) deleteTransitionalPayload(id string) error {
+	return s.store.Delete(fmt.Sprintf(transitionalPayloadKey, id))
 }
 
 func sendMsgEvent(t service.StateMsgType, listeners *service.Message, msg service.DIDCommMsg, p *eventProps) {
@@ -300,26 +439,6 @@ func (s *Service) SaveInvitation(i *Invitation) error {
 	return nil
 }
 
-func continueFunc(c chan *callback, msg service.DIDCommMsg, myDID, theirDID string) func(interface{}) {
-	return func(args interface{}) {
-		var opts Options
-
-		switch t := args.(type) {
-		case Options:
-			opts = t
-		default:
-			opts = &userOptions{}
-		}
-
-		c <- &callback{
-			msg:      msg,
-			myDID:    myDID,
-			theirDID: theirDID,
-			options:  opts,
-		}
-	}
-}
-
 func listener(
 	callbacks chan *callback,
 	didEvents chan service.StateMsg,
@@ -338,12 +457,12 @@ func listener(
 							logutil.CreateKeyValueString("msgType", c.msg.Type()),
 							logutil.CreateKeyValueString("msgID", c.msg.ID()))
 
-						go sendMsgEvent(service.PostState, msgHandlers, c.msg, &eventProps{err: err})
+						go sendMsgEvent(service.PostState, msgHandlers, c.msg, &eventProps{Err: err})
 
 						continue
 					}
 
-					go sendMsgEvent(service.PostState, msgHandlers, c.msg, &eventProps{connID: connID})
+					go sendMsgEvent(service.PostState, msgHandlers, c.msg, &eventProps{ConnID: connID})
 				default:
 					logutil.LogError(logger, Name, "callbackChannel", "unsupported msg type",
 						logutil.CreateKeyValueString("msgType", c.msg.Type()),
@@ -629,16 +748,16 @@ func chooseTarget(svcs []interface{}) (interface{}, error) {
 }
 
 type eventProps struct {
-	connID string
-	err    error
+	ConnID string `json:"conn_id"`
+	Err    error  `json:"err"`
 }
 
 func (e *eventProps) ConnectionID() string {
-	return e.connID
+	return e.ConnID
 }
 
 func (e *eventProps) Error() error {
-	return e.err
+	return e.Err
 }
 
 type userOptions struct {
