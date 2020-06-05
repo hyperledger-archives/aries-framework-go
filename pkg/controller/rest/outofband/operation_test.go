@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -24,6 +25,12 @@ import (
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/outofband"
 )
 
+const (
+	piid   = "1234"
+	label  = "label"
+	reason = "reason"
+)
+
 func provider(ctrl *gomock.Controller) client.Provider {
 	service := mocks.NewMockOobService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
@@ -31,6 +38,9 @@ func provider(ctrl *gomock.Controller) client.Provider {
 	service.EXPECT().SaveInvitation(gomock.Any()).Return(nil).AnyTimes()
 	service.EXPECT().AcceptInvitation(gomock.Any(), gomock.Any()).Return("conn-id", nil).AnyTimes()
 	service.EXPECT().AcceptRequest(gomock.Any(), gomock.Any()).Return("conn-id", nil).AnyTimes()
+	service.EXPECT().ActionContinue(piid, &client.EventOptions{Label: label}).AnyTimes()
+	service.EXPECT().ActionStop(piid, errors.New(reason)).AnyTimes()
+	service.EXPECT().Actions().AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -144,6 +154,57 @@ func TestOperation_AcceptRequest(t *testing.T) {
 	res := make(map[string]interface{})
 	require.NoError(t, json.Unmarshal(b.Bytes(), &res))
 	require.NotEmpty(t, res["connection_id"])
+}
+
+func TestOperation_Actions(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	operation, err := New(provider(ctrl))
+	require.NoError(t, err)
+
+	_, code, err := sendRequestToHandler(
+		handlerLookup(t, operation, actions),
+		nil,
+		actions,
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, code)
+}
+
+func TestOperation_ActionContinue(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	operation, err := New(provider(ctrl))
+	require.NoError(t, err)
+
+	_, code, err := sendRequestToHandler(
+		handlerLookup(t, operation, actionContinue),
+		nil,
+		strings.Replace(actionContinue+"?label="+label, `{piid}`, piid, 1),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, code)
+}
+
+func TestOperation_ActionStop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	operation, err := New(provider(ctrl))
+	require.NoError(t, err)
+
+	_, code, err := sendRequestToHandler(
+		handlerLookup(t, operation, actionStop),
+		nil,
+		strings.Replace(actionStop+"?reason="+reason, `{piid}`, piid, 1),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, code)
 }
 
 func handlerLookup(t *testing.T, op *Operation, lookup string) rest.Handler {

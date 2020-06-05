@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -38,6 +39,8 @@ const (
 	acceptProposalWithOOBRequest = "/introduce/{piid}/accept-proposal-with-oob-request"
 	sendProposalWithOOBRequest   = "/introduce/send-proposal-with-oob-request"
 	actions                      = "/introduce/actions"
+	outofbandActions             = "/outofband/actions"
+	actionContinue               = "/outofband/{piid}/action-continue"
 	createRequest                = "/outofband/create-request"
 	connections                  = "/connections"
 
@@ -150,7 +153,57 @@ func (s *ControllerSteps) checkAndContinue(agentID, introduceeID string) error {
 	return sendHTTP(http.MethodPost, url, req, nil)
 }
 
+func (s *ControllerSteps) tryOutofbandContinue(agent1 string) (bool, error) {
+	controllerURL, ok := s.bddContext.GetControllerURL(agent1)
+	if !ok {
+		return false, fmt.Errorf("unable to find controller URL registered for agent [%s]", agent1)
+	}
+
+	res := outofbandcmd.ActionsResponse{}
+
+	err := sendHTTP(http.MethodGet, fmt.Sprintf(controllerURL+outofbandActions), nil, &res)
+	if err != nil {
+		return false, fmt.Errorf("failed to get actions: %w", err)
+	}
+
+	if len(res.Actions) == 0 {
+		return false, nil
+	}
+
+	url := strings.Replace(controllerURL+actionContinue, "{piid}", res.Actions[0].PIID, 1)
+
+	return true, sendHTTP(http.MethodPost, url, nil, &res)
+}
+
+func (s *ControllerSteps) outofbandContinue(agent1, agent2 string) error {
+	for _, agent := range []string{agent1, agent2} {
+		ok, err := s.tryOutofbandContinue(agent)
+		if err != nil {
+			return fmt.Errorf("try outofband continue: %w", err)
+		}
+
+		if ok {
+			return nil
+		}
+	}
+
+	return errors.New("no actions")
+}
+
 func (s *ControllerSteps) connectionEstablished(agent1, agent2 string) error {
+	for i := 0; i < 5; i++ {
+		err := s.outofbandContinue(agent1, agent2)
+		if err != nil && err.Error() != "no actions" {
+			return err
+		}
+
+		if err == nil {
+			break
+		}
+
+		time.Sleep(time.Second)
+	}
+
 	ds := didexsteps.NewDIDExchangeControllerSteps()
 	ds.SetContext(s.bddContext)
 
