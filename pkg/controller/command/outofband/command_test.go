@@ -11,11 +11,13 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	didservice "github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/outofband"
 )
@@ -56,6 +58,31 @@ func TestNew(t *testing.T) {
 		cmd, err := New(provider)
 		require.EqualError(t, err, "register action event: error")
 		require.Nil(t, cmd)
+	})
+
+	t.Run("Execute action event", func(t *testing.T) {
+		var done = make(chan struct{})
+		service := mocks.NewMockOobService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Do(func(ch chan<- didservice.DIDCommAction) {
+			go func() {
+				ch <- didservice.DIDCommAction{Continue: func(_ interface{}) {
+					done <- struct{}{}
+				}}
+			}()
+		}).Return(nil)
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Error("timeout")
+		}
 	})
 }
 

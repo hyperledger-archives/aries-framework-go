@@ -76,7 +76,7 @@ type SendRequestResponse struct{}
 //
 type AcceptProposalWithOOBRequestArgs struct {
 	// PIID Protocol instance ID
-	PIID string `json:"piid"`
+	PIID string `json:"piid,omitempty"`
 	// Request is the out-of-band protocol's 'request' message.
 	Request *outofband.Request `json:"request"`
 }
@@ -93,7 +93,7 @@ type AcceptProposalWithOOBRequestResponse struct{}
 //
 type AcceptRequestWithPublicOOBRequestArgs struct {
 	// PIID Protocol instance ID
-	PIID string `json:"piid"`
+	PIID string `json:"piid,omitempty"`
 	// Request is the out-of-band protocol's 'request' message.
 	Request *outofband.Request `json:"request"`
 	// To keeps information about the introduction
@@ -112,7 +112,7 @@ type AcceptRequestWithPublicOOBRequestResponse struct{}
 //
 type AcceptRequestWithRecipientsArgs struct {
 	// PIID Protocol instance ID
-	PIID string `json:"piid"`
+	PIID string `json:"piid,omitempty"`
 	// Recipient specifies to whom proposal will be sent
 	Recipient *introduce.Recipient `json:"recipient"`
 	// To keeps information about the introduction
@@ -131,7 +131,7 @@ type AcceptRequestWithRecipientsResponse struct{}
 //
 type DeclineProposalArgs struct {
 	// PIID Protocol instance ID
-	PIID string `json:"piid"`
+	PIID string `json:"piid,omitempty"`
 	// Reason why proposal is declined
 	Reason string `json:"reason"`
 }
@@ -148,7 +148,7 @@ type DeclineProposalResponse struct{}
 //
 type DeclineRequestArgs struct {
 	// PIID Protocol instance ID
-	PIID string `json:"piid"`
+	PIID string `json:"piid,omitempty"`
 	// Reason why request is declined
 	Reason string `json:"reason"`
 }

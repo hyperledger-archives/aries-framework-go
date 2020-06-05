@@ -25,6 +25,24 @@ services:
     networks:
       - bdd_net
 
+  erin.agent.example.com:
+    container_name: erin.aries.example.com
+    image: ${AGENT_REST_IMAGE}:${AGENT_REST_IMAGE_TAG}
+    environment:
+      - ARIESD_API_HOST=${ERIN_HOST}:${ERIN_API_PORT}
+      - ARIESD_INBOUND_HOST=${HTTP_SCHEME}@${ERIN_HOST}:${ERIN_INBOUND_PORT}
+      - ARIESD_INBOUND_HOST_EXTERNAL=${HTTP_SCHEME}@http://erin.aries.example.com:${ERIN_INBOUND_PORT}
+      - ARIESD_WEBHOOK_URL=http://${ERIN_WEBHOOK_CONTAINER_NAME}:${ERIN_WEBHOOK_PORT}
+      - ARIESD_DEFAULT_LABEL=erin-agent
+      - ARIESD_DB_PATH=${ERIN_DB_PATH}
+      - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+    ports:
+      - ${ERIN_INBOUND_PORT}:${ERIN_INBOUND_PORT}
+      - ${ERIN_API_PORT}:${ERIN_API_PORT}
+    command: start
+    networks:
+      - bdd_net
+
   bob.agent.example.com:
     container_name: bob.aries.example.com
     image: ${AGENT_REST_IMAGE}:${AGENT_REST_IMAGE_TAG}
@@ -60,6 +78,16 @@ services:
       - WEBHOOK_PORT=${BOB_WEBHOOK_PORT}
     ports:
       - ${BOB_WEBHOOK_PORT}:${BOB_WEBHOOK_PORT}
+    networks:
+      - bdd_net
+
+  erin.webhook.example.com:
+    container_name: ${ERIN_WEBHOOK_CONTAINER_NAME}
+    image: ${SAMPLE_WEBHOOK_IMAGE}:${SAMPLE_WEBHOOK_IMAGE_TAG}
+    environment:
+      - WEBHOOK_PORT=${ERIN_WEBHOOK_PORT}
+    ports:
+      - ${ERIN_WEBHOOK_PORT}:${ERIN_WEBHOOK_PORT}
     networks:
       - bdd_net
 

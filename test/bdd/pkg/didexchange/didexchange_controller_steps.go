@@ -79,8 +79,8 @@ func (a *ControllerSteps) RegisterSteps(s *godog.Suite) { //nolint dupl
 	s.Step(`^"([^"]*)" creates invitation through controller with label "([^"]*)"$`, a.createInvitation)
 	s.Step(`^"([^"]*)" receives invitation from "([^"]*)" through controller$`, a.receiveInvitation)
 	s.Step(`^"([^"]*)" approves exchange invitation through controller`, a.approveInvitation)
-	s.Step(`^"([^"]*)" approves exchange request through controller`, a.approveRequest)
-	s.Step(`^"([^"]*)" waits for post state event "([^"]*)" to web notifier`, a.waitForPostEvent)
+	s.Step(`^"([^"]*)" approves exchange request through controller`, a.ApproveRequest)
+	s.Step(`^"([^"]*)" waits for post state event "([^"]*)" to web notifier`, a.WaitForPostEvent)
 	s.Step(`^"([^"]*)" retrieves connection record through controller and validates that connection state is "([^"]*)"$`,
 		a.validateConnection)
 	// public DID steps
@@ -343,7 +343,8 @@ func (a *ControllerSteps) performApproveInvitation(agentID string, useDID bool) 
 	return nil
 }
 
-func (a *ControllerSteps) approveRequest(agentID string) error {
+// ApproveRequest approves a request
+func (a *ControllerSteps) ApproveRequest(agentID string) error {
 	return a.performApproveRequest(agentID, false)
 }
 
@@ -404,7 +405,8 @@ func (a *ControllerSteps) performApproveRequest(agentID string, useDID bool) err
 	return nil
 }
 
-func (a *ControllerSteps) waitForPostEvent(agentID, statesValue string) error {
+// WaitForPostEvent waits for the specific post event state
+func (a *ControllerSteps) WaitForPostEvent(agentID, statesValue string) error {
 	_, err := a.pullEventsFromWebSocket(agentID, statesValue)
 	if err != nil {
 		return fmt.Errorf("failed to get notification from webhook, %w", err)
@@ -584,7 +586,7 @@ func (a *ControllerSteps) performDIDExchange(inviter, invitee string) error {
 		return err
 	}
 
-	err = a.approveRequest(inviter)
+	err = a.ApproveRequest(inviter)
 	if err != nil {
 		return err
 	}
@@ -593,7 +595,7 @@ func (a *ControllerSteps) performDIDExchange(inviter, invitee string) error {
 
 	agentIDs := []string{inviter, invitee}
 	for _, agentID := range agentIDs {
-		err = a.waitForPostEvent(agentID, expectedState)
+		err = a.WaitForPostEvent(agentID, expectedState)
 		if err != nil {
 			return err
 		}

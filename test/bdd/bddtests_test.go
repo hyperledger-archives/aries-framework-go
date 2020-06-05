@@ -179,6 +179,7 @@ func features() []feature {
 		didexchange.NewDIDExchangeSDKSteps(),
 		didexchange.NewDIDExchangeControllerSteps(),
 		introduce.NewIntroduceSDKSteps(),
+		introduce.NewIntroduceControllerSteps(),
 		issuecredential.NewIssueCredentialSDKSteps(),
 		issuecredential.NewIssueCredentialControllerSteps(),
 		didresolver.NewDIDResolverSteps(),
