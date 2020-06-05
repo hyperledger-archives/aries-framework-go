@@ -333,6 +333,84 @@ func TestCreateInvitation(t *testing.T) {
 	})
 }
 
+func TestClient_ActionContinue(t *testing.T) {
+	const (
+		PIID  = "piid"
+		label = "label"
+	)
+
+	provider := withTestProvider()
+	provider.ServiceMap = map[string]interface{}{
+		outofband.Name: &stubOOBService{
+			actionContinueFunc: func(piid string, options outofband.Options) error {
+				require.Equal(t, PIID, piid)
+				require.Equal(t, &EventOptions{Label: label}, options)
+
+				return nil
+			},
+		},
+	}
+	c, err := New(provider)
+	require.NoError(t, err)
+	require.NoError(t, c.ActionContinue(PIID, label))
+}
+
+func TestClient_ActionStop(t *testing.T) {
+	const PIID = "piid"
+
+	provider := withTestProvider()
+	provider.ServiceMap = map[string]interface{}{
+		outofband.Name: &stubOOBService{
+			actionStopFunc: func(piid string, err error) error {
+				require.Equal(t, PIID, piid)
+				require.Nil(t, err)
+
+				return nil
+			},
+		},
+	}
+
+	c, err := New(provider)
+	require.NoError(t, err)
+	require.NoError(t, c.ActionStop(PIID, nil))
+}
+
+func TestClient_Actions(t *testing.T) {
+	t.Run("Error", func(t *testing.T) {
+		provider := withTestProvider()
+		provider.ServiceMap = map[string]interface{}{
+			outofband.Name: &stubOOBService{
+				actionsFunc: func() ([]outofband.Action, error) {
+					return nil, errors.New("test")
+				},
+			},
+		}
+
+		c, err := New(provider)
+		require.NoError(t, err)
+		actions, err := c.Actions()
+		require.EqualError(t, err, "test")
+		require.Nil(t, actions)
+	})
+	t.Run("Success", func(t *testing.T) {
+		var expected = []outofband.Action{{}, {}}
+		provider := withTestProvider()
+		provider.ServiceMap = map[string]interface{}{
+			outofband.Name: &stubOOBService{
+				actionsFunc: func() ([]outofband.Action, error) {
+					return expected, nil
+				},
+			},
+		}
+
+		c, err := New(provider)
+		require.NoError(t, err)
+		actions, err := c.Actions()
+		require.NoError(t, err)
+		require.Equal(t, len(expected), len(actions))
+	})
+}
+
 func TestAcceptRequest(t *testing.T) {
 	t.Run("returns connection ID", func(t *testing.T) {
 		expected := "123456"
@@ -447,10 +525,13 @@ func withTestProvider() *mockprovider.Provider {
 
 type stubOOBService struct {
 	service.Event
-	acceptReqFunc func(*outofband.Request, string) (string, error)
-	acceptInvFunc func(*outofband.Invitation, string) (string, error)
-	saveReqFunc   func(*outofband.Request) error
-	saveInvFunc   func(*outofband.Invitation) error
+	acceptReqFunc      func(*outofband.Request, string) (string, error)
+	acceptInvFunc      func(*outofband.Invitation, string) (string, error)
+	saveReqFunc        func(*outofband.Request) error
+	saveInvFunc        func(*outofband.Invitation) error
+	actionsFunc        func() ([]outofband.Action, error)
+	actionContinueFunc func(string, outofband.Options) error
+	actionStopFunc     func(piid string, err error) error
 }
 
 func (s *stubOOBService) AcceptRequest(request *outofband.Request, myLabel string) (string, error) {
@@ -480,6 +561,30 @@ func (s *stubOOBService) SaveRequest(request *outofband.Request) error {
 func (s *stubOOBService) SaveInvitation(i *outofband.Invitation) error {
 	if s.saveInvFunc != nil {
 		return s.saveInvFunc(i)
+	}
+
+	return nil
+}
+
+func (s *stubOOBService) Actions() ([]outofband.Action, error) {
+	if s.actionsFunc != nil {
+		return s.actionsFunc()
+	}
+
+	return nil, nil
+}
+
+func (s *stubOOBService) ActionContinue(piid string, opts outofband.Options) error {
+	if s.actionContinueFunc != nil {
+		return s.actionContinueFunc(piid, opts)
+	}
+
+	return nil
+}
+
+func (s *stubOOBService) ActionStop(piid string, err error) error {
+	if s.actionStopFunc != nil {
+		return s.actionStopFunc(piid, err)
 	}
 
 	return nil
