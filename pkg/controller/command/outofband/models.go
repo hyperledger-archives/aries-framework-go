@@ -86,3 +86,44 @@ type AcceptInvitationArgs struct {
 type AcceptInvitationResponse struct {
 	ConnectionID string `json:"connection_id"`
 }
+
+// ActionStopArgs model
+//
+// This is used when action needs to be rejected
+//
+type ActionStopArgs struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid"`
+	// Reason why action is declined
+	Reason string `json:"reason"`
+}
+
+// ActionStopResponse model
+//
+// Represents a ActionStop response message
+//
+type ActionStopResponse struct{}
+
+// ActionsResponse model
+//
+// Represents Actions response message
+//
+type ActionsResponse struct {
+	Actions []outofband.Action `json:"actions"`
+}
+
+// ActionContinueArgs model
+//
+// This is used when we need to proceed with the protocol
+//
+type ActionContinueArgs struct {
+	// PIID Protocol instance ID
+	PIID  string `json:"piid"`
+	Label string `json:"label"`
+}
+
+// ActionContinueResponse model
+//
+// Represents a ActionContinue response message
+//
+type ActionContinueResponse struct{}
