@@ -26,6 +26,8 @@ type (
 	Request outofband.Request
 	// Invitation is this protocol's `invitation` message
 	Invitation outofband.Invitation
+	// Action contains helpful information about action
+	Action outofband.Action
 )
 
 const (
@@ -73,6 +75,9 @@ type OobService interface {
 	AcceptInvitation(*outofband.Invitation, string) (string, error)
 	SaveRequest(*outofband.Request) error
 	SaveInvitation(*outofband.Invitation) error
+	Actions() ([]outofband.Action, error)
+	ActionContinue(string, outofband.Options) error
+	ActionStop(string, error) error
 }
 
 // Provider provides the dependencies for the client.
@@ -202,6 +207,33 @@ func (c *Client) CreateInvitation(protocols []string, opts ...MessageOption) (*I
 	}
 
 	return inv, nil
+}
+
+// Actions returns unfinished actions for the async usage
+func (c *Client) Actions() ([]Action, error) {
+	actions, err := c.oobService.Actions()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]Action, len(actions))
+	for i, action := range actions {
+		result[i] = Action(action)
+	}
+
+	return result, nil
+}
+
+// ActionContinue allows continuing with the protocol after an action event was triggered
+func (c *Client) ActionContinue(piID, label string) error {
+	return c.oobService.ActionContinue(piID, &EventOptions{
+		Label: label,
+	})
+}
+
+// ActionStop stops the protocol after an action event was triggered
+func (c *Client) ActionStop(piID string, err error) error {
+	return c.oobService.ActionStop(piID, err)
 }
 
 // AcceptRequest from another agent and return the ID of a new connection record.

@@ -131,6 +131,49 @@ func (mr *MockOobServiceMockRecorder) AcceptRequest(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptRequest", reflect.TypeOf((*MockOobService)(nil).AcceptRequest), arg0, arg1)
 }
 
+// ActionContinue mocks base method
+func (m *MockOobService) ActionContinue(arg0 string, arg1 outofband.Options) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActionContinue", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ActionContinue indicates an expected call of ActionContinue
+func (mr *MockOobServiceMockRecorder) ActionContinue(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionContinue", reflect.TypeOf((*MockOobService)(nil).ActionContinue), arg0, arg1)
+}
+
+// ActionStop mocks base method
+func (m *MockOobService) ActionStop(arg0 string, arg1 error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActionStop", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ActionStop indicates an expected call of ActionStop
+func (mr *MockOobServiceMockRecorder) ActionStop(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionStop", reflect.TypeOf((*MockOobService)(nil).ActionStop), arg0, arg1)
+}
+
+// Actions mocks base method
+func (m *MockOobService) Actions() ([]outofband.Action, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Actions")
+	ret0, _ := ret[0].([]outofband.Action)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Actions indicates an expected call of Actions
+func (mr *MockOobServiceMockRecorder) Actions() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Actions", reflect.TypeOf((*MockOobService)(nil).Actions))
+}
+
 // RegisterActionEvent mocks base method
 func (m *MockOobService) RegisterActionEvent(arg0 chan<- service.DIDCommAction) error {
 	m.ctrl.T.Helper()
