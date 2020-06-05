@@ -8,6 +8,7 @@ package outofband
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -31,6 +32,12 @@ const (
 	AcceptRequestErrorCode
 	// AcceptInvitationErrorCode is for failures in accept invitation command
 	AcceptInvitationErrorCode
+	// ActionStopErrorCode is for failures in action stop command
+	ActionStopErrorCode
+	// ActionsErrorCode is for failures in actions command
+	ActionsErrorCode
+	// ActionContinueErrorCode is for failures in action continue command
+	ActionContinueErrorCode
 )
 
 const (
@@ -40,11 +47,15 @@ const (
 	createInvitation = "CreateInvitation"
 	acceptRequest    = "AcceptRequest"
 	acceptInvitation = "AcceptInvitation"
+	actionStop       = "ActionStop"
+	actions          = "Actions"
+	actionContinue   = "ActionContinue"
 
 	// error messages
 	errOneAttachmentMustBeProvided = "at least one attachment must be provided"
 	errEmptyRequest                = "request was not provided"
 	errEmptyMyLabel                = "my_label was not provided"
+	errEmptyPIID                   = "piid was not provided"
 	// log constants
 	successString = "success"
 )
@@ -91,6 +102,9 @@ func (c *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, createInvitation, c.CreateInvitation),
 		cmdutil.NewCommandHandler(commandName, acceptRequest, c.AcceptRequest),
 		cmdutil.NewCommandHandler(commandName, acceptInvitation, c.AcceptInvitation),
+		cmdutil.NewCommandHandler(commandName, actions, c.Actions),
+		cmdutil.NewCommandHandler(commandName, actionContinue, c.ActionContinue),
+		cmdutil.NewCommandHandler(commandName, actionStop, c.ActionStop),
 	}
 }
 
@@ -107,7 +121,7 @@ func (c *Command) CreateRequest(rw io.Writer, req io.Reader) command.Error {
 
 	if len(args.Attachments) == 0 {
 		logutil.LogDebug(logger, commandName, createRequest, errOneAttachmentMustBeProvided)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errOneAttachmentMustBeProvided))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errOneAttachmentMustBeProvided))
 	}
 
 	request, err := c.client.CreateRequest(args.Attachments, []outofband.MessageOption{
@@ -170,12 +184,12 @@ func (c *Command) AcceptRequest(rw io.Writer, req io.Reader) command.Error { // 
 
 	if args.Request == nil {
 		logutil.LogDebug(logger, commandName, acceptRequest, errEmptyRequest)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyRequest))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequest))
 	}
 
 	if args.MyLabel == "" {
 		logutil.LogDebug(logger, commandName, acceptRequest, errEmptyMyLabel)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyMyLabel))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyLabel))
 	}
 
 	connID, err := c.client.AcceptRequest(args.Request, args.MyLabel)
@@ -203,12 +217,12 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error { 
 
 	if args.Invitation == nil {
 		logutil.LogDebug(logger, commandName, acceptInvitation, errEmptyRequest)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyRequest))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequest))
 	}
 
 	if args.MyLabel == "" {
 		logutil.LogDebug(logger, commandName, acceptInvitation, errEmptyMyLabel)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyMyLabel))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyLabel))
 	}
 
 	connID, err := c.client.AcceptInvitation(args.Invitation, args.MyLabel)
@@ -222,6 +236,75 @@ func (c *Command) AcceptInvitation(rw io.Writer, req io.Reader) command.Error { 
 	}, logger)
 
 	logutil.LogDebug(logger, commandName, acceptInvitation, successString)
+
+	return nil
+}
+
+// Actions returns pending actions that have not yet to be executed or canceled.
+func (c *Command) Actions(rw io.Writer, _ io.Reader) command.Error {
+	result, err := c.client.Actions()
+	if err != nil {
+		logutil.LogError(logger, commandName, actions, err.Error())
+		return command.NewExecuteError(ActionsErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &ActionsResponse{
+		Actions: result,
+	}, logger)
+
+	logutil.LogDebug(logger, commandName, actions, successString)
+
+	return nil
+}
+
+// ActionContinue allows continuing with the protocol after an action event was triggered
+func (c *Command) ActionContinue(rw io.Writer, req io.Reader) command.Error {
+	var args ActionContinueArgs
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, commandName, actionContinue, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.PIID == "" {
+		logutil.LogDebug(logger, commandName, actionContinue, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
+	}
+
+	if err := c.client.ActionContinue(args.PIID, args.Label); err != nil {
+		logutil.LogError(logger, commandName, actionContinue, err.Error())
+		return command.NewExecuteError(ActionContinueErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &ActionContinueResponse{}, logger)
+
+	logutil.LogDebug(logger, commandName, actionContinue, successString)
+
+	return nil
+}
+
+// ActionStop stops the protocol after an action event was triggered
+func (c *Command) ActionStop(rw io.Writer, req io.Reader) command.Error {
+	var args ActionStopArgs
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, commandName, actionStop, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.PIID == "" {
+		logutil.LogDebug(logger, commandName, actionStop, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
+	}
+
+	if err := c.client.ActionStop(args.PIID, errors.New(args.Reason)); err != nil {
+		logutil.LogError(logger, commandName, actionStop, err.Error())
+		return command.NewExecuteError(ActionStopErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &ActionStopResponse{}, logger)
+
+	logutil.LogDebug(logger, commandName, actionStop, successString)
 
 	return nil
 }
