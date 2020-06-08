@@ -35,6 +35,7 @@ const (
 	getCredentialPath       = verifiableCredentialPath + "/{id}"
 	getCredentialByNamePath = verifiableCredentialPath + "/name" + "/{name}"
 	getCredentialsPath      = verifiableOperationID + "/credentials"
+	signCredentialsPath     = verifiableOperationID + "/signcredential"
 
 	// presentation paths
 	generatePresentationPath     = verifiablePresentationPath + "/generate"
@@ -84,6 +85,7 @@ func (o *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(getCredentialPath, http.MethodGet, o.GetCredential),
 		cmdutil.NewHTTPHandler(getCredentialByNamePath, http.MethodGet, o.GetCredentialByName),
 		cmdutil.NewHTTPHandler(getCredentialsPath, http.MethodGet, o.GetCredentials),
+		cmdutil.NewHTTPHandler(signCredentialsPath, http.MethodPost, o.SignCredential),
 		cmdutil.NewHTTPHandler(generatePresentationPath, http.MethodPost, o.GeneratePresentation),
 		cmdutil.NewHTTPHandler(generatePresentationByIDPath, http.MethodPost, o.GeneratePresentationByID),
 		cmdutil.NewHTTPHandler(savePresentationPath, http.MethodPost, o.SavePresentation),
@@ -191,6 +193,17 @@ func (o *Operation) GetCredentialByName(rw http.ResponseWriter, req *http.Reques
 //        200: credentialRecordResult
 func (o *Operation) GetCredentials(rw http.ResponseWriter, req *http.Request) {
 	rest.Execute(o.command.GetCredentials, rw, req.Body)
+}
+
+// SignCredential swagger:route POST /verifiable/signcredential verifiable signCredentialReq
+//
+// Signs given credential.
+//
+// Responses:
+//    default: genericError
+//        200: signCredentialRes
+func (o *Operation) SignCredential(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(o.command.SignCredential, rw, req.Body)
 }
 
 // GetPresentations swagger:route GET /verifiable/presentations verifiable

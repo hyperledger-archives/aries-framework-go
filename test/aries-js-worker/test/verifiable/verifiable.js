@@ -180,6 +180,21 @@ async function verifiableStore(newAries, mode = wasmMode) {
         )
     })
 
+    it(modePrefix + "Alice generates the signed  verifiable credential to pass it to the employer", async function () {
+        await aries.verifiable.signCredential({
+            "credential": JSON.parse(vc),
+            "did": did.id,
+            "signatureType": "JsonWebSignature2020"
+        }).then(
+            resp => {
+                try {
+                    assert.isNotEmpty(resp.verifiableCredential.proof)
+                } catch (err) {
+                    assert.fail(err)
+                }
+            }, err => assert.fail(err)
+        )
+    });
 
     it(modePrefix + "Alice generates the signed  verifiable presentation to pass it to the employer", async function () {
         await aries.verifiable.generatePresentation({

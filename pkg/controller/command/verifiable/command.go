@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	verifiablesigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -67,6 +68,9 @@ const (
 
 	// GetPresentationsErrorCode for get presentation records
 	GetPresentationsErrorCode
+
+	// SignCredentialErrorCode for sign credential error
+	SignCredentialErrorCode
 )
 
 const (
@@ -79,6 +83,7 @@ const (
 	getCredentialCommandMethod            = "GetCredential"
 	getCredentialByNameCommandMethod      = "GetCredentialByName"
 	getCredentialsCommandMethod           = "GetCredentials"
+	signCredentialCommandMethod           = "SignCredential"
 	savePresentationCommandMethod         = "SavePresentation"
 	getPresentationCommandMethod          = "GetPresentation"
 	getPresentationsCommandMethod         = "GetPresentations"
@@ -113,6 +118,10 @@ const (
 	// Ed25519VerificationKey ED25519 verification key type
 	Ed25519VerificationKey = "Ed25519VerificationKey"
 )
+
+type provable interface {
+	AddLinkedDataProof(context *verifiable.LinkedDataProofContext, jsonldOpts ...jsonld.ProcessorOpts) error
+}
 
 type keyResolver interface {
 	PublicKeyFetcher() verifiable.PublicKeyFetcher
@@ -191,6 +200,7 @@ func (o *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, getCredentialCommandMethod, o.GetCredential),
 		cmdutil.NewCommandHandler(commandName, getCredentialByNameCommandMethod, o.GetCredentialByName),
 		cmdutil.NewCommandHandler(commandName, getCredentialsCommandMethod, o.GetCredentials),
+		cmdutil.NewCommandHandler(commandName, signCredentialCommandMethod, o.SignCredential),
 		cmdutil.NewCommandHandler(commandName, generatePresentationCommandMethod, o.GeneratePresentation),
 		cmdutil.NewCommandHandler(commandName, generatePresentationByIDCommandMethod, o.GeneratePresentationByID),
 		cmdutil.NewCommandHandler(commandName, savePresentationCommandMethod, o.SavePresentation),
@@ -339,6 +349,60 @@ func (o *Command) GetCredential(rw io.Writer, req io.Reader) command.Error {
 
 	logutil.LogDebug(logger, commandName, getCredentialCommandMethod, "success",
 		logutil.CreateKeyValueString(vcID, request.ID))
+
+	return nil
+}
+
+// SignCredential adds proof to given verifiable credential
+func (o *Command) SignCredential(rw io.Writer, req io.Reader) command.Error {
+	request := &SignCredentialRequest{}
+
+	err := json.NewDecoder(req).Decode(&request)
+	if err != nil {
+		logutil.LogInfo(logger, commandName, signCredentialCommandMethod, "request decode : "+err.Error())
+
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf("request decode : %w", err))
+	}
+
+	didDoc, err := o.ctx.VDRIRegistry().Resolve(request.DID)
+	//  if did not found in VDRI, look through in local storage
+	if err != nil {
+		didDoc, err = o.didStore.GetDID(request.DID)
+		if err != nil {
+			logutil.LogError(logger, commandName, signCredentialCommandMethod,
+				"failed to get did doc from store or vdri: "+err.Error())
+
+			return command.NewValidationError(SignCredentialErrorCode,
+				fmt.Errorf("generate vp - failed to get did doc from store or vdri : %w", err))
+		}
+	}
+
+	vc, err := verifiable.ParseUnverifiedCredential(request.Credential)
+	if err != nil {
+		logutil.LogError(logger, commandName, signCredentialCommandMethod, "parse credential : "+err.Error())
+
+		return command.NewValidationError(SignCredentialErrorCode, fmt.Errorf("parse vc : %w", err))
+	}
+
+	err = o.addCredentialProof(vc, didDoc, request.ProofOptions)
+	if err != nil {
+		logutil.LogError(logger, commandName, signCredentialCommandMethod, "sign credential : "+err.Error())
+
+		return command.NewValidationError(SignCredentialErrorCode, fmt.Errorf("sign credential : %w", err))
+	}
+
+	vcBytes, err := vc.MarshalJSON()
+	if err != nil {
+		logutil.LogError(logger, commandName, signCredentialCommandMethod, "marshal credential : "+err.Error())
+
+		return command.NewValidationError(SignCredentialErrorCode, fmt.Errorf("marshal credential : %w", err))
+	}
+
+	command.WriteNillableResponse(rw, &SignCredentialResponse{
+		VerifiableCredential: vcBytes,
+	}, logger)
+
+	logutil.LogDebug(logger, commandName, signCredentialCommandMethod, "success")
 
 	return nil
 }
@@ -589,7 +653,7 @@ func (o *Command) createAndSignPresentation(credentials []interface{}, vp *verif
 	vp.Holder = holder
 
 	// Add proofs to vp - sign presentation
-	vp, err = o.addLinkedDataProof(vp, opts)
+	err = o.addLinkedDataProof(vp, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vp: %w", err)
 	}
@@ -610,7 +674,7 @@ func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
 		return nil, fmt.Errorf("failed to create vp by ID: %w", err)
 	}
 
-	vp, err = o.addLinkedDataProof(vp, &ProofOptions{VerificationMethod: pk, SignatureType: signatureType})
+	err = o.addLinkedDataProof(vp, &ProofOptions{VerificationMethod: pk, SignatureType: signatureType})
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vp by ID: %w", err)
 	}
@@ -618,11 +682,10 @@ func (o *Command) createAndSignPresentationByID(vc *verifiable.Credential,
 	return vp.MarshalJSON()
 }
 
-func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, opts *ProofOptions) (*verifiable.Presentation,
-	error) {
+func (o *Command) addLinkedDataProof(p provable, opts *ProofOptions) error {
 	s, err := newKMSSigner(o.ctx.KMS(), o.ctx.Crypto(), opts.VerificationMethod)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var signatureSuite verifiablesigner.SignatureSuite
@@ -633,7 +696,7 @@ func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, opts *ProofOpt
 	case JSONWebSignature2020:
 		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
 	default:
-		return nil, fmt.Errorf("signature type unsupported %s", opts.SignatureType)
+		return fmt.Errorf("signature type unsupported %s", opts.SignatureType)
 	}
 
 	signingCtx := &verifiable.LinkedDataProofContext{
@@ -647,12 +710,12 @@ func (o *Command) addLinkedDataProof(vp *verifiable.Presentation, opts *ProofOpt
 		Purpose:                 opts.proofPurpose,
 	}
 
-	err = vp.AddLinkedDataProof(signingCtx)
+	err = p.AddLinkedDataProof(signingCtx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add linked data proof: %w", err)
+		return fmt.Errorf("failed to add linked data proof: %w", err)
 	}
 
-	return vp, nil
+	return nil
 }
 
 func (o *Command) parsePresentationRequest(request *PresentationRequest,
@@ -700,7 +763,7 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 		}
 	}
 
-	opts, err := prepareOpts(request.ProofOptions, didDoc)
+	opts, err := prepareOpts(request.ProofOptions, didDoc, did.Authentication)
 	if err != nil {
 		logutil.LogError(logger, commandName, generatePresentationCommandMethod,
 			"failed to prepare proof options: "+err.Error())
@@ -710,20 +773,25 @@ func (o *Command) parsePresentationRequest(request *PresentationRequest,
 	return vcs, presentation, opts, nil
 }
 
-func prepareOpts(opts *ProofOptions, didDoc *did.Doc) (*ProofOptions, error) {
+func prepareOpts(opts *ProofOptions, didDoc *did.Doc, method did.VerificationRelationship) (*ProofOptions, error) {
 	if opts == nil {
 		opts = &ProofOptions{}
 	}
 
-	opts.proofPurpose = "authentication"
+	var err error
 
-	authVMs := didDoc.VerificationMethods(did.Authentication)[did.Authentication]
+	opts.proofPurpose, err = getProofPurpose(method)
+	if err != nil {
+		return nil, err
+	}
+
+	vMs := didDoc.VerificationMethods(method)[method]
 
 	vmMatched := opts.VerificationMethod == ""
 
-	for _, vm := range authVMs {
+	for _, vm := range vMs {
 		if opts.VerificationMethod != "" {
-			// if verification method is provided as an option, then validate if it belongs to 'authentication'
+			// if verification method is provided as an option, then validate if it belongs to given method
 			if opts.VerificationMethod == vm.PublicKey.ID {
 				vmMatched = true
 				break
@@ -738,13 +806,13 @@ func prepareOpts(opts *ProofOptions, didDoc *did.Doc) (*ProofOptions, error) {
 	}
 
 	if !vmMatched {
-		return nil, fmt.Errorf("unable to find matching 'authentication' key IDs for given verification method")
+		return nil, fmt.Errorf("unable to find matching '%s' key IDs for given verification method", opts.proofPurpose)
 	}
 
 	// this is the fallback logic kept for DIDs not having authentication method
 	// TODO to be removed [Issue #1693]
 	if opts.VerificationMethod == "" {
-		logger.Warnf("Could not find matching verification method for 'authentication' proof purpose")
+		logger.Warnf("Could not find matching verification method for '%s' proof purpose", opts.proofPurpose)
 
 		defaultVM, err := getDefaultVerificationMethod(didDoc)
 		if err != nil {
@@ -788,6 +856,29 @@ func getDefaultVerificationMethod(didDoc *did.Doc) (string, error) {
 	}
 }
 
+func (o *Command) addCredentialProof(vc *verifiable.Credential, didDoc *did.Doc, opts *ProofOptions) error {
+	var err error
+
+	opts, err = prepareOpts(opts, didDoc, did.AssertionMethod)
+	if err != nil {
+		return err
+	}
+
+	return o.addLinkedDataProof(vc, opts)
+}
+
 func isDID(str string) bool {
 	return strings.HasPrefix(str, "did:")
+}
+
+func getProofPurpose(method did.VerificationRelationship) (string, error) {
+	if method != did.Authentication && method != did.AssertionMethod {
+		return "", fmt.Errorf("unsupported proof purpose, only authentication or assertionMethod are supported")
+	}
+
+	if method == did.Authentication {
+		return "authentication", nil
+	}
+
+	return "assertionMethod", nil
 }

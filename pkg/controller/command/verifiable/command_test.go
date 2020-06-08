@@ -110,6 +110,7 @@ const doc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:123456789abcdefghi#inbox",
   "authentication": ["did:peer:123456789abcdefghi#keys-1"],
+  "assertionMethod": ["did:peer:123456789abcdefghi#keys-1"],
   "publicKey": [
     {
       "id": "did:peer:123456789abcdefghi#keys-1",
@@ -146,6 +147,7 @@ const jwsDIDDoc = `{
     "@context":["https://w3id.org/did/v1"], 
 	"id": "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA",
 	"authentication" : [ "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777" ],
+	"assertionMethod" : [ "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777" ],
     "publicKey": [{
             "controller": "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA",
             "id": "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777",
@@ -315,7 +317,7 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 
 		handlers := cmd.GetHandlers()
-		require.Equal(t, 10, len(handlers))
+		require.Equal(t, 11, len(handlers))
 	})
 
 	t.Run("test new command - vc store error", func(t *testing.T) {
@@ -1592,168 +1594,480 @@ func TestGeneratePresentation_prepareOpts(t *testing.T) {
 
 	require.Len(t, didStore, len(dids))
 
-	//nolint:lll
-	t.Run("Test generate presentation opts", func(t *testing.T) {
-		tests := []struct {
-			name         string
-			requestDID   string
-			requestOpts  *ProofOptions
-			responseOpts *ProofOptions
-			err          string
-		}{
-			{
-				name:        "with default opts",
-				requestDID:  "did:peer:123456789abcdefghi#inbox",
-				requestOpts: nil,
-				responseOpts: &ProofOptions{
-					VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
-					proofPurpose:       "authentication",
+	testPrepareOpts := func(method did.VerificationRelationship) {
+		//nolint:lll
+		t.Run("Test generate presentation opts", func(t *testing.T) {
+			tests := []struct {
+				name         string
+				requestDID   string
+				requestOpts  *ProofOptions
+				responseOpts *ProofOptions
+				err          string
+			}{
+				{
+					name:        "with default opts",
+					requestDID:  "did:peer:123456789abcdefghi#inbox",
+					requestOpts: nil,
+					responseOpts: &ProofOptions{
+						VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
+						proofPurpose:       "authentication",
+					},
 				},
-			},
-			{
-				name:       "with default opts when there are two authentication methods in DID",
-				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-				requestOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				{
+					name:       "with default opts when there are two authentication methods in DID",
+					requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					requestOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					},
+					responseOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+						proofPurpose:       "authentication",
+					},
 				},
-				responseOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					proofPurpose:       "authentication",
+				{
+					name:       "second under authentication as verification method",
+					requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					requestOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					},
+					responseOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+						proofPurpose:       "authentication",
+					},
 				},
-			},
-			{
-				name:       "second under authentication as verification method",
-				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-				requestOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				{
+					name:       "first under authentication as verification method",
+					requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					requestOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					},
+					responseOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+						proofPurpose:       "authentication",
+					},
 				},
-				responseOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					proofPurpose:       "authentication",
+				{
+					name:       "first with only one authentication method",
+					requestDID: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg",
+					requestOpts: &ProofOptions{
+						VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+					},
+					responseOpts: &ProofOptions{
+						VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+						proofPurpose:       "authentication",
+					},
 				},
-			},
-			{
-				name:       "first under authentication as verification method",
-				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-				requestOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				{
+					name:       "did without authentication method but VM in opts",
+					requestDID: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1",
+					requestOpts: &ProofOptions{
+						VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+					},
+					err: "unable to find matching 'authentication' key IDs for given verification method",
 				},
-				responseOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					proofPurpose:       "authentication",
+				{
+					name:        "did without authentication method but no VM in opts",
+					requestDID:  "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1",
+					requestOpts: &ProofOptions{},
+					responseOpts: &ProofOptions{
+						VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+						proofPurpose:       "authentication",
+					},
 				},
-			},
-			{
-				name:       "first with only one authentication method",
-				requestDID: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg",
-				requestOpts: &ProofOptions{
-					VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+				{
+					name:        "using invalid DID and default opts",
+					requestDID:  "did:peer:21tDAKCERh95uGgKbJNHYp",
+					requestOpts: &ProofOptions{},
+					err:         "failed to get default verification method: public key not found in DID Document",
 				},
-				responseOpts: &ProofOptions{
-					VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
-					proofPurpose:       "authentication",
+				{
+					name:       "using invalid DID and verification method",
+					requestDID: "did:peer:21tDAKCERh95uGgKbJNHYp",
+					requestOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					},
+					err: "unable to find matching 'authentication' key IDs for given verification method",
 				},
-			},
-			{
-				name:       "did without authentication method but VM in opts",
-				requestDID: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1",
-				requestOpts: &ProofOptions{
-					VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
+				{
+					name:       "private key matching second verification method",
+					requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					requestOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					},
+					responseOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+						proofPurpose:       "authentication",
+					},
 				},
-				err: "unable to find matching 'authentication' key IDs for given verification method",
-			},
-			{
-				name:        "did without authentication method but no VM in opts",
-				requestDID:  "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1",
-				requestOpts: &ProofOptions{},
-				responseOpts: &ProofOptions{
-					VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiAzdTbGPXhvC0ESOcnlR7nCWkN1m1XUJ04uEG9ayhRbPg1#bG9jYWwtbG9jazovL2RlZmF1bHQvbWFzdGVyL2tleS96cThTc3JJZ0JVTHhveU9XU2tLZ2drQWJhcjJhVDVHTmlXbERuY244VlYwPQ",
-					proofPurpose:       "authentication",
+				{
+					name:       "private key matching first verification method",
+					requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					requestOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					},
+					responseOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+						proofPurpose:       "authentication",
+					},
 				},
-			},
-			{
-				name:        "using invalid DID and default opts",
-				requestDID:  "did:peer:21tDAKCERh95uGgKbJNHYp",
-				requestOpts: &ProofOptions{},
-				err:         "failed to get default verification method: public key not found in DID Document",
-			},
-			{
-				name:       "using invalid DID and verification method",
-				requestDID: "did:peer:21tDAKCERh95uGgKbJNHYp",
-				requestOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				{
+					name:       "private key not matching any verification method",
+					requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					requestOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHdXYZ",
+					},
+					err: "unable to find matching 'authentication' key IDs for given verification method",
 				},
-				err: "unable to find matching 'authentication' key IDs for given verification method",
-			},
-			{
-				name:       "private key matching second verification method",
-				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-				requestOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+				{
+					name:       "all opts given",
+					requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+					requestOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+						Domain:             "sample.domain.example.com",
+						Challenge:          "sample-challenge",
+						SignatureType:      JSONWebSignature2020,
+					},
+					responseOpts: &ProofOptions{
+						VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+						proofPurpose:       "authentication",
+						Domain:             "sample.domain.example.com",
+						Challenge:          "sample-challenge",
+						SignatureType:      JSONWebSignature2020,
+					},
 				},
-				responseOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					proofPurpose:       "authentication",
-				},
-			},
-			{
-				name:       "private key matching first verification method",
-				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-				requestOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-				},
-				responseOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					proofPurpose:       "authentication",
-				},
-			},
-			{
-				name:       "private key not matching any verification method",
-				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-				requestOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHdXYZ",
-				},
-				err: "unable to find matching 'authentication' key IDs for given verification method",
-			},
-			{
-				name:       "all opts given",
-				requestDID: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-				requestOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					Domain:             "sample.domain.example.com",
-					Challenge:          "sample-challenge",
-					SignatureType:      JSONWebSignature2020,
-				},
-				responseOpts: &ProofOptions{
-					VerificationMethod: "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#XiRjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
-					proofPurpose:       "authentication",
-					Domain:             "sample.domain.example.com",
-					Challenge:          "sample-challenge",
-					SignatureType:      JSONWebSignature2020,
-				},
-			},
-		}
+			}
 
-		t.Parallel()
+			t.Parallel()
 
-		for _, test := range tests {
-			tc := test
-			t.Run(tc.name, func(t *testing.T) {
-				res, err := prepareOpts(tc.requestOpts, didStore[tc.requestDID])
+			for _, test := range tests {
+				tc := test
+				t.Run(tc.name, func(t *testing.T) {
+					res, err := prepareOpts(tc.requestOpts, didStore[tc.requestDID], method)
 
-				if tc.err != "" {
-					require.Error(t, err)
-					require.Contains(t, err.Error(), tc.err)
-					require.Nil(t, res)
+					if tc.err != "" {
+						require.Error(t, err)
+						require.Contains(t, err.Error(), tc.err)
+						require.Nil(t, res)
 
-					return
+						return
+					}
+
+					require.NoError(t, err)
+					require.NotNil(t, res)
+					require.Equal(t, tc.responseOpts, res)
+				})
+			}
+		})
+	}
+
+	testPrepareOpts(did.Authentication)
+}
+
+func TestCommand_SignCredential(t *testing.T) {
+	s := make(map[string][]byte)
+	cmd, cmdErr := New(&mockprovider.Provider{
+		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
+				if didID == invalidDID {
+					return nil, errors.New("invalid")
 				}
 
-				require.NoError(t, err)
-				require.NotNil(t, res)
-				require.Equal(t, tc.responseOpts, res)
-			})
+				if didID == jwsDID {
+					jwsDoc, err := did.ParseDocument([]byte(jwsDIDDoc))
+					if err != nil {
+						return nil, errors.New("unmarshal failed ")
+					}
+					return jwsDoc, nil
+				}
+
+				didDoc, err := did.ParseDocument([]byte(doc))
+				if err != nil {
+					return nil, errors.New("unmarshal failed ")
+				}
+				return didDoc, nil
+			},
+		},
+		KMSValue:    &kmsmock.KeyManager{},
+		CryptoValue: &cryptomock.Crypto{},
+	})
+
+	require.NotNil(t, cmd)
+	require.NoError(t, cmdErr)
+
+	t.Run("test sign credential - success", func(t *testing.T) {
+		req := SignCredentialRequest{
+			Credential:   []byte(vc),
+			DID:          "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{SignatureType: Ed25519Signature2018},
 		}
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SignCredential(&b, bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response SignCredentialResponse
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, response)
+	})
+
+	t.Run("test sign credential - jws key - success", func(t *testing.T) {
+		req := SignCredentialRequest{
+			Credential:   []byte(vc),
+			DID:          jwsDID,
+			ProofOptions: &ProofOptions{SignatureType: Ed25519Signature2018},
+		}
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SignCredential(&b, bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response SignCredentialResponse
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, response)
+		require.Contains(t, string(response.VerifiableCredential),
+			"did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777")
+	})
+
+	t.Run("test sign credential with proof options - success", func(t *testing.T) {
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		req := SignCredentialRequest{
+			Credential: []byte(vc),
+			DID:        "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
+				Domain:             "issuer.example.com",
+				Challenge:          "sample-random-test-value",
+				Created:            &createdTime,
+				SignatureType:      Ed25519Signature2018,
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SignCredential(&b, bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response SignCredentialResponse
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+
+		vc, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithDisabledProofCheck())
+
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+		require.NotEmpty(t, vc.Proofs)
+		require.Len(t, vc.Proofs, 1)
+		require.Equal(t, vc.Proofs[0]["challenge"], req.Challenge)
+		require.Equal(t, vc.Proofs[0]["domain"], req.Domain)
+		require.Equal(t, vc.Proofs[0]["proofPurpose"], "assertionMethod")
+		require.Contains(t, vc.Proofs[0]["created"], strconv.Itoa(req.Created.Year()))
+	})
+
+	t.Run("test sign credential with proof options with default vm - success", func(t *testing.T) {
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		req := SignCredentialRequest{
+			Credential: []byte(vc),
+			DID:        "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				Domain:        "issuer.example.com",
+				Challenge:     "sample-random-test-value",
+				Created:       &createdTime,
+				SignatureType: Ed25519Signature2018,
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SignCredential(&b, bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response SignCredentialResponse
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+
+		vp, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithDisabledProofCheck())
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.NotEmpty(t, vp.Proofs)
+		require.Len(t, vp.Proofs, 1)
+		require.Equal(t, vp.Proofs[0]["challenge"], req.Challenge)
+		require.Equal(t, vp.Proofs[0]["domain"], req.Domain)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], "assertionMethod")
+		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(req.Created.Year()))
+		require.Equal(t, vp.Proofs[0]["verificationMethod"],
+			"did:peer:123456789abcdefghi#keys-1")
+	})
+
+	t.Run("test sign credential with proof options - success (p256 jsonwebsignature)", func(t *testing.T) {
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		req := SignCredentialRequest{
+			Credential: []byte(vc),
+			DID:        "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				Domain:             "issuer.example.com",
+				Challenge:          "sample-random-test-value",
+				Created:            &createdTime,
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
+				SignatureType:      JSONWebSignature2020,
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SignCredential(&b, bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response SignCredentialResponse
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+
+		vc, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithDisabledProofCheck())
+
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+		require.NotEmpty(t, vc.Proofs)
+		require.Len(t, vc.Proofs, 1)
+		require.Equal(t, vc.Proofs[0]["challenge"], req.Challenge)
+		require.Equal(t, vc.Proofs[0]["domain"], req.Domain)
+		require.Equal(t, vc.Proofs[0]["proofPurpose"], "assertionMethod")
+		require.Contains(t, vc.Proofs[0]["created"], strconv.Itoa(req.Created.Year()))
+		require.Contains(t, vc.Proofs[0]["type"], "JsonWebSignature2020")
+	})
+
+	t.Run("test sign credential with proof options - success (ed25519 jsonwebsignature)", func(t *testing.T) {
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		req := SignCredentialRequest{
+			Credential: []byte(vc),
+			DID:        jwsDID,
+			ProofOptions: &ProofOptions{
+				VerificationMethod: "did:trustbloc:testnet.trustbloc.local:EiBug_0h2oNJj4Vhk7yrC36HvskhngqTJC46VKS-FDM5fA#key-7777",
+				Domain:             "issuer.example.com",
+				Challenge:          "sample-random-test-value",
+				Created:            &createdTime,
+				SignatureType:      JSONWebSignature2020,
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SignCredential(&b, bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+
+		// verify response
+		var response SignCredentialResponse
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response)
+
+		vc, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithDisabledProofCheck())
+
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+		require.NotEmpty(t, vc.Proofs)
+		require.Len(t, vc.Proofs, 1)
+		require.Equal(t, vc.Proofs[0]["challenge"], req.Challenge)
+		require.Equal(t, vc.Proofs[0]["domain"], req.Domain)
+		require.Equal(t, vc.Proofs[0]["proofPurpose"], "assertionMethod")
+		require.Contains(t, vc.Proofs[0]["created"], strconv.Itoa(req.Created.Year()))
+		require.Contains(t, vc.Proofs[0]["type"], "JsonWebSignature2020")
+	})
+
+	t.Run("test sign credential with proof options - unsupported signature type", func(t *testing.T) {
+		req := SignCredentialRequest{
+			Credential: []byte(vc),
+			DID:        "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
+				SignatureType:      "invalid",
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SignCredential(&b, bytes.NewBuffer(reqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signature type unsupported invalid")
+	})
+
+	t.Run("test sign credential with proof options - signature type empty", func(t *testing.T) {
+		req := SignCredentialRequest{
+			Credential:   []byte(vc),
+			DID:          "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{Domain: "domain"},
+		}
+
+		presReqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+		err = cmd.SignCredential(&b, bytes.NewBuffer(presReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signature type unsupported")
+	})
+
+	t.Run("test sign credential - invalid request", func(t *testing.T) {
+		var b bytes.Buffer
+
+		err := cmd.SignCredential(&b, bytes.NewBufferString("--"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "request decode")
+	})
+
+	t.Run("test sign credential - validation error", func(t *testing.T) {
+		presReq := SignCredentialRequest{
+			Credential:   []byte("{}"),
+			DID:          "did:peer:123456789abcdefghi#inbox",
+			ProofOptions: &ProofOptions{SignatureType: Ed25519Signature2018}}
+		reqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+
+		err = cmd.SignCredential(&b, bytes.NewBuffer(reqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "parse vc : build new credential: fill credential types from raw:")
+	})
+
+	t.Run("test sign credential - failed to sign credential", func(t *testing.T) {
+		presReq := SignCredentialRequest{
+			Credential: []byte(vc),
+			DID:        "did:error:123"}
+		presReqBytes, err := json.Marshal(presReq)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+
+		err = cmd.SignCredential(&b, bytes.NewBuffer(presReqBytes))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "generate vp - failed to get did doc from store or vdri")
 	})
 }
 

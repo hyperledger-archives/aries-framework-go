@@ -140,10 +140,10 @@ type presentationRecordResult struct {
 //
 // swagger:parameters generatePresentationReq
 type generatePresentationReq struct { // nolint: unused,deadcode
-	// Params for generating the verifiable presentation (pass the vc document as a string)
+	// Params for generating the verifiable presentation (pass the vc document as a raw JSON)
 	//
 	// in: body
-	Params verifiable.Credential
+	Params verifiable.PresentationRequest
 }
 
 // presentationRes model
@@ -155,4 +155,27 @@ type presentationRes struct {
 
 	// in: body
 	VerifiablePresentation json.RawMessage `json:"verifiablePresentation,omitempty"`
+}
+
+// signCredentialReq model
+//
+// This is used to sign a credential.
+//
+// swagger:parameters signCredentialReq
+type signCredentialReq struct { // nolint: unused,deadcode
+	// Params for signing a credential
+	//
+	// in: body
+	Params verifiable.SignCredentialRequest
+}
+
+// signCredentialRes model
+//
+// This is used for returning the sign credential response
+//
+// swagger:response signCredentialRes
+type signCredentialRes struct {
+
+	// in: body
+	VerifiableCredential json.RawMessage `json:"verifiableCredential,omitempty"`
 }

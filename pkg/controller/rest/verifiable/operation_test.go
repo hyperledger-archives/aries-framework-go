@@ -39,6 +39,7 @@ const sampleCredentialName = "sampleVCName"
 const samplePresentationName = "sampleVPName"
 const sampleVCID = "http://example.edu/credentials/1989"
 const sampleVPID = "http://example.edu/presentations/1989"
+const invalidDID = "did:error:1234"
 
 const vc = `
 { 
@@ -97,6 +98,7 @@ const doc = `{
   "@context": ["https://w3id.org/did/v1","https://w3id.org/did/v2"],
   "id": "did:peer:21tDAKCERh95uGgKbJNHYp",
   "authentication": ["did:peer:123456789abcdefghi#keys-1"],
+  "assertionMethod": ["did:peer:123456789abcdefghi#keys-1"],
   "publicKey": [
     {
       "id": "did:peer:123456789abcdefghi#keys-1",
@@ -205,7 +207,7 @@ func TestNew(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
-		require.Equal(t, 10, len(cmd.GetRESTHandlers()))
+		require.Equal(t, 11, len(cmd.GetRESTHandlers()))
 	})
 
 	t.Run("test new command - error", func(t *testing.T) {
@@ -448,7 +450,6 @@ func TestGetCredentials(t *testing.T) {
 
 func TestGeneratePresentation(t *testing.T) {
 	s := make(map[string][]byte)
-	invalidDID := "did:error:123"
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
@@ -640,7 +641,6 @@ func TestGeneratePresentation(t *testing.T) {
 
 func TestGeneratePresentationByID(t *testing.T) {
 	s := make(map[string][]byte)
-	invalidDID := "did:error:123"
 	cmd, cmdErr := New(&mockprovider.Provider{
 		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
 		VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
@@ -877,6 +877,153 @@ func TestGetPresentations(t *testing.T) {
 		require.Equal(t, 2, len(response.Result))
 		require.Len(t, response.Result[0].Context, 2)
 		require.Len(t, response.Result[0].Type, 1)
+	})
+}
+
+func TestSignCredential(t *testing.T) {
+	s := make(map[string][]byte)
+	cmd, cmdErr := New(&mockprovider.Provider{
+		StorageProviderValue: &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+		VDRIRegistryValue: &mockvdri.MockVDRIRegistry{
+			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (didDoc *did.Doc, e error) {
+				if didID == invalidDID {
+					return nil, errors.New("invalid")
+				}
+				didDoc, err := did.ParseDocument([]byte(doc))
+				if err != nil {
+					return nil, errors.New("unmarshal failed ")
+				}
+				return didDoc, nil
+			},
+		},
+		KMSValue:    &kmsmock.KeyManager{},
+		CryptoValue: &cryptomock.Crypto{},
+	})
+
+	require.NotNil(t, cmd)
+	require.NoError(t, cmdErr)
+
+	t.Run("test sign credential - success", func(t *testing.T) {
+		req := verifiable.SignCredentialRequest{
+			Credential: []byte(vc),
+			DID:        "did:peer:21tDAKCERh95uGgKbJNHYp",
+			ProofOptions: &verifiable.ProofOptions{
+				SignatureType: verifiable.Ed25519Signature2018,
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, signCredentialsPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(reqBytes), handler.Path())
+		require.NoError(t, err, err)
+
+		response := signCredentialRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiableCredential)
+	})
+
+	t.Run("test sign credential with options - success", func(t *testing.T) {
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		req := verifiable.SignCredentialRequest{
+			Credential: []byte(vc),
+			DID:        "did:peer:21tDAKCERh95uGgKbJNHYp",
+			ProofOptions: &verifiable.ProofOptions{
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
+				Domain:             "issuer.example.com",
+				Challenge:          "sample-random-test-value",
+				Created:            &createdTime,
+				SignatureType:      verifiable.Ed25519Signature2018,
+			},
+		}
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, signCredentialsPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(reqBytes), handler.Path())
+		require.NoError(t, err)
+
+		response := signCredentialRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiableCredential)
+
+		vp, err := verifiableapi.ParseCredential([]byte(response.VerifiableCredential),
+			verifiableapi.WithDisabledProofCheck())
+
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		require.NotEmpty(t, vp.Proofs)
+		require.Len(t, vp.Proofs, 1)
+		require.Equal(t, vp.Proofs[0]["challenge"], req.Challenge)
+		require.Equal(t, vp.Proofs[0]["domain"], req.Domain)
+		require.Equal(t, vp.Proofs[0]["proofPurpose"], "assertionMethod")
+		require.Contains(t, vp.Proofs[0]["created"], strconv.Itoa(req.Created.Year()))
+	})
+
+	t.Run("test sign credential using options  - success", func(t *testing.T) {
+		createdTime := time.Now().AddDate(-1, 0, 0)
+		req := verifiable.SignCredentialRequest{
+			Credential: []byte(vc),
+			DID:        "did:peer:21tDAKCERh95uGgKbJNHYp",
+			ProofOptions: &verifiable.ProofOptions{
+				VerificationMethod: "did:peer:123456789abcdefghi#keys-1",
+				Domain:             "issuer.example.com",
+				Challenge:          "sample-random-test-value",
+				Created:            &createdTime,
+				SignatureType:      verifiable.Ed25519Signature2018,
+			},
+		}
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		handler := lookupHandler(t, cmd, signCredentialsPath, http.MethodPost)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer(reqBytes), handler.Path())
+		require.NoError(t, err)
+
+		response := signCredentialRes{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiableCredential)
+
+		vc, err := verifiableapi.ParseCredential([]byte(response.VerifiableCredential),
+			verifiableapi.WithDisabledProofCheck())
+
+		require.NoError(t, err)
+		require.NotNil(t, vc)
+		require.NotEmpty(t, vc.Proofs)
+		require.Len(t, vc.Proofs, 1)
+		require.Equal(t, vc.Proofs[0]["challenge"], req.Challenge)
+		require.Equal(t, vc.Proofs[0]["domain"], req.Domain)
+		require.Equal(t, vc.Proofs[0]["proofPurpose"], "assertionMethod")
+		require.Contains(t, vc.Proofs[0]["created"], strconv.Itoa(req.Created.Year()))
+	})
+
+	t.Run("test sign credential - error", func(t *testing.T) {
+		var jsonStr = []byte(`{
+			"name" : "sample",
+            "did"  : "did:peer:21tDAKCERh95uGgKbJNHYp"
+		}`)
+
+		handler := lookupHandler(t, cmd, signCredentialsPath, http.MethodPost)
+		buf, code, err := sendRequestToHandler(handler, bytes.NewBuffer(jsonStr), handler.Path())
+		require.NoError(t, err)
+		require.NotEmpty(t, buf)
+
+		require.Equal(t, http.StatusBadRequest, code)
+		verifyError(t, verifiable.SignCredentialErrorCode,
+			"parse vc : unmarshal new credential", buf.Bytes())
 	})
 }
 
