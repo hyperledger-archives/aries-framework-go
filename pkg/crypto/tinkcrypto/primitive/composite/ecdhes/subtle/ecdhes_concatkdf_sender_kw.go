@@ -15,7 +15,8 @@ import (
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	josecipher "github.com/square/go-jose/v3/cipher"
 
-	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 )
 
 // A256KWAlg is the ECDH-ES key wrapping algorithm
@@ -24,14 +25,14 @@ const A256KWAlg = "ECDH-ES+A256KW"
 // ECDHESConcatKDFSenderKW represents concat KDF based ECDH-ES KW (key wrapping)
 // for ECDH-ES sender
 type ECDHESConcatKDFSenderKW struct {
-	recipientPublicKey *PublicKey
+	recipientPublicKey *composite.PublicKey
 	cek                []byte
 }
 
 // wrapKey will do ECDH-ES key wrapping
-func (s *ECDHESConcatKDFSenderKW) wrapKey(kwAlg string, keySize int) (*RecipientWrappedKey, error) {
+func (s *ECDHESConcatKDFSenderKW) wrapKey(kwAlg string, keySize int) (*composite.RecipientWrappedKey, error) {
 	// TODO: add support for 25519 key wrapping https://github.com/hyperledger/aries-framework-go/issues/1637
-	keyType := ecdhespb.KeyType_EC.String()
+	keyType := commonpb.KeyType_EC.String()
 
 	c, err := hybrid.GetCurve(s.recipientPublicKey.Curve)
 	if err != nil {
@@ -61,10 +62,10 @@ func (s *ECDHESConcatKDFSenderKW) wrapKey(kwAlg string, keySize int) (*Recipient
 		return nil, err
 	}
 
-	return &RecipientWrappedKey{
+	return &composite.RecipientWrappedKey{
 		KID:          s.recipientPublicKey.KID,
 		EncryptedCEK: wk,
-		EPK: PublicKey{
+		EPK: composite.PublicKey{
 			X:     ephemeralPriv.PublicKey.X.Bytes(),
 			Y:     ephemeralPriv.PublicKey.Y.Bytes(),
 			Curve: ephemeralPriv.PublicKey.Curve.Params().Name,

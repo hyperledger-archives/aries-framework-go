@@ -25,7 +25,8 @@ import (
 	"github.com/google/tink/go/testutil"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
@@ -88,7 +89,7 @@ func TestECDHESFactory(t *testing.T) {
 		require.NoError(t, err)
 
 		// encrypt for single recipient will generate new AAD for recipient, extract it from ct
-		encData := &subtle.EncryptedData{}
+		encData := &composite.EncryptedData{}
 		err = json.Unmarshal(ct, encData)
 		require.NoError(t, err)
 
@@ -112,7 +113,7 @@ func ecdhesAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commo
 				// add recipients for Encryption primitive
 				Recipients: []*ecdhespb.EcdhesAeadRecipientPublicKey{
 					{
-						KeyType:   ecdhespb.KeyType_EC,
+						KeyType:   compositepb.KeyType_EC,
 						CurveType: c,
 						X:         x,
 						Y:         y,

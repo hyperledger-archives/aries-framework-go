@@ -12,7 +12,7 @@ import (
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	"github.com/stretchr/testify/require"
 
-	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
+	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 )
 
 func TestGetCurveType(t *testing.T) {
@@ -124,25 +124,25 @@ func TestGetKeyType(t *testing.T) {
 	tcs := []struct {
 		tcName       string
 		keyType      string
-		expectedType ecdhespb.KeyType
+		expectedType compositepb.KeyType
 		isError      bool
 	}{
 		{
 			"test get EC KeyType",
 			"EC",
-			ecdhespb.KeyType_EC,
+			compositepb.KeyType_EC,
 			false,
 		},
 		{
 			"test get OKP KeyType",
 			"OKP",
-			ecdhespb.KeyType_OKP,
+			compositepb.KeyType_OKP,
 			false,
 		},
 		{
 			"test get bad KeyType",
 			"bad",
-			ecdhespb.KeyType_UNKNOWN_KEY_TYPE,
+			compositepb.KeyType_UNKNOWN_KEY_TYPE,
 			true,
 		},
 	}

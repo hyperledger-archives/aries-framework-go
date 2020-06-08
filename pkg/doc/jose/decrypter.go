@@ -13,9 +13,9 @@ import (
 
 	"github.com/google/tink/go/keyset"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
 )
 
 // Decrypter interface to Decrypt JWE messages
@@ -87,7 +87,7 @@ func (jd *JWEDecrypt) Decrypt(jwe *JSONWebEncryption) ([]byte, error) {
 }
 
 func buildEncryptedData(encAlg string, jwe *JSONWebEncryption) ([]byte, error) {
-	var recipients []*subtle.RecipientWrappedKey
+	var recipients []*composite.RecipientWrappedKey
 
 	if len(jwe.Recipients) == 1 { // compact serialization: it has only 1 recipient with no headers
 		rHeaders, err := extractRecipientHeaders(jwe.ProtectedHeaders)
@@ -104,7 +104,7 @@ func buildEncryptedData(encAlg string, jwe *JSONWebEncryption) ([]byte, error) {
 		rec.Alg = rHeaders.Alg
 		rec.EncryptedCEK = []byte(jwe.Recipients[0].EncryptedKey)
 
-		recipients = []*subtle.RecipientWrappedKey{
+		recipients = []*composite.RecipientWrappedKey{
 			rec,
 		}
 	} else { // full serialization
@@ -122,7 +122,7 @@ func buildEncryptedData(encAlg string, jwe *JSONWebEncryption) ([]byte, error) {
 		}
 	}
 
-	encData := new(subtle.EncryptedData)
+	encData := new(composite.EncryptedData)
 	encData.Recipients = recipients
 	encData.Tag = []byte(jwe.Tag)
 	encData.IV = []byte(jwe.IV)
@@ -178,7 +178,7 @@ func extractRecipientHeaders(headers map[string]interface{}) (*RecipientHeaders,
 	return recHeaders, nil
 }
 
-func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*subtle.RecipientWrappedKey, error) {
+func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*composite.RecipientWrappedKey, error) {
 	jwk := &JWK{}
 
 	err := jwk.UnmarshalJSON(marshalledJWK)
@@ -186,7 +186,7 @@ func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*subtle.RecipientWrappe
 		return nil, err
 	}
 
-	epk := subtle.PublicKey{
+	epk := composite.PublicKey{
 		Curve: jwk.Crv,
 		Type:  jwk.Kty,
 	}
@@ -199,7 +199,7 @@ func convertMarshalledJWKToRecKey(marshalledJWK []byte) (*subtle.RecipientWrappe
 		return nil, fmt.Errorf("unsupported recipient key type")
 	}
 
-	return &subtle.RecipientWrappedKey{
+	return &composite.RecipientWrappedKey{
 		KID: jwk.KeyID,
 		EPK: epk,
 	}, nil

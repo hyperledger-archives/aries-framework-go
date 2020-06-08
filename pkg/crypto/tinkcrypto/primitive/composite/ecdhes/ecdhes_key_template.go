@@ -12,7 +12,8 @@ import (
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
@@ -24,23 +25,23 @@ import (
 // Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS
 func ECDHES256KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256, commonpb.EcPointFormat_UNCOMPRESSED,
-		aead.AES256GCMKeyTemplate(), tinkpb.OutputPrefixType_RAW, nil, ecdhespb.KeyType_EC)
+		aead.AES256GCMKeyTemplate(), tinkpb.OutputPrefixType_RAW, nil, compositepb.KeyType_EC)
 }
 
 // ECDHES256KWAES256GCMKeyTemplateWithRecipients is similar to ECDHES256KWAES256GCMKeyTemplate but adding recipients
 // keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
 // Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS
-func ECDHES256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []subtle.PublicKey) (*tinkpb.KeyTemplate, error) {
+func ECDHES256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error) {
 	ecdhesRecipientKeys, err := createECDHESPublicKeys(recPublicKeys)
 	if err != nil {
 		return nil, err
 	}
 
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256, commonpb.EcPointFormat_UNCOMPRESSED,
-		aead.AES256GCMKeyTemplate(), tinkpb.OutputPrefixType_RAW, ecdhesRecipientKeys, ecdhespb.KeyType_EC), nil
+		aead.AES256GCMKeyTemplate(), tinkpb.OutputPrefixType_RAW, ecdhesRecipientKeys, compositepb.KeyType_EC), nil
 }
 
-func createECDHESPublicKeys(recRawPublicKeys []subtle.PublicKey) ([]*ecdhespb.EcdhesAeadRecipientPublicKey, error) {
+func createECDHESPublicKeys(recRawPublicKeys []composite.PublicKey) ([]*ecdhespb.EcdhesAeadRecipientPublicKey, error) {
 	var recKeys []*ecdhespb.EcdhesAeadRecipientPublicKey
 
 	for _, key := range recRawPublicKeys {
@@ -75,7 +76,7 @@ func createECDHESPublicKeys(recRawPublicKeys []subtle.PublicKey) ([]*ecdhespb.Ec
 // size in bytes.
 func createKeyTemplate(c commonpb.EllipticCurveType, epf commonpb.EcPointFormat, contentEncKeyT *tinkpb.KeyTemplate,
 	prefixType tinkpb.OutputPrefixType, recipients []*ecdhespb.EcdhesAeadRecipientPublicKey,
-	keyType ecdhespb.KeyType) *tinkpb.KeyTemplate {
+	keyType compositepb.KeyType) *tinkpb.KeyTemplate {
 	format := &ecdhespb.EcdhesAeadKeyFormat{
 		Params: &ecdhespb.EcdhesAeadParams{
 			KwParams: &ecdhespb.EcdhesKwParams{

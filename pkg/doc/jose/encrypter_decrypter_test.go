@@ -22,9 +22,9 @@ import (
 	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
-	ecdhessubtle "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
 )
 
 func TestJWEEncryptRoundTrip(t *testing.T) {
@@ -282,7 +282,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	// add third key to recECKeys
-	recECKeys = append(recECKeys, ecdhessubtle.PublicKey{
+	recECKeys = append(recECKeys, composite.PublicKey{
 		X:     rec3PrivKey.PublicKey.X.Bytes(),
 		Y:     rec3PrivKey.PublicKey.Y.Bytes(),
 		Curve: rec3PrivKey.PublicKey.Curve.Params().Name,
@@ -315,13 +315,13 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 }
 
 func TestInteropWithLocalJoseEncryptAndGoJoseDecryptUsingCompactSerialization(t *testing.T) {
-	var recECKeys []ecdhessubtle.PublicKey
+	var recECKeys []composite.PublicKey
 	// create a normal recipient key (not using Tink)
 	recPrivKey, err := ecdsa.GenerateKey(subtle.GetCurve("NIST_P256"), rand.Reader)
 	require.NoError(t, err)
 
 	// add third key to recECKeys
-	recECKeys = append(recECKeys, ecdhessubtle.PublicKey{
+	recECKeys = append(recECKeys, composite.PublicKey{
 		X:     recPrivKey.PublicKey.X.Bytes(),
 		Y:     recPrivKey.PublicKey.Y.Bytes(),
 		Curve: recPrivKey.PublicKey.Curve.Params().Name,
@@ -350,7 +350,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecryptUsingCompactSerialization(t 
 	require.EqualValues(t, pt, msg)
 }
 
-func convertToGoJoseRecipients(t *testing.T, keys []ecdhessubtle.PublicKey) []jose.Recipient {
+func convertToGoJoseRecipients(t *testing.T, keys []composite.PublicKey) []jose.Recipient {
 	t.Helper()
 
 	var joseRecipients []jose.Recipient
@@ -373,17 +373,17 @@ func convertToGoJoseRecipients(t *testing.T, keys []ecdhessubtle.PublicKey) []jo
 }
 
 // createRecipients and return their public key and keyset.Handle
-func createRecipients(t *testing.T, numberOfRecipients int) ([]ecdhessubtle.PublicKey, []*keyset.Handle) {
+func createRecipients(t *testing.T, numberOfRecipients int) ([]composite.PublicKey, []*keyset.Handle) {
 	t.Helper()
 
 	var (
-		r   []ecdhessubtle.PublicKey
+		r   []composite.PublicKey
 		rKH []*keyset.Handle
 	)
 
 	for i := 0; i < numberOfRecipients; i++ {
 		mrKey, kh := createAndMarshalRecipient(t)
-		ecPubKey := new(ecdhessubtle.PublicKey)
+		ecPubKey := new(composite.PublicKey)
 		err := json.Unmarshal(mrKey, ecPubKey)
 		require.NoError(t, err)
 
@@ -416,8 +416,8 @@ func createAndMarshalRecipient(t *testing.T) ([]byte, *keyset.Handle) {
 }
 
 func TestFailConvertRecKeyToMarshalledJWK(t *testing.T) {
-	recKey := &ecdhessubtle.RecipientWrappedKey{
-		EPK: ecdhessubtle.PublicKey{
+	recKey := &composite.RecipientWrappedKey{
+		EPK: composite.PublicKey{
 			Curve: "badCurveName",
 		},
 	}

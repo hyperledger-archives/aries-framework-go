@@ -18,8 +18,9 @@ import (
 	"github.com/google/tink/go/subtle/random"
 	"github.com/square/go-jose/v3"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
-	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
+	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 )
 
 // A256GCM is the default content encryption algorithm value as per
@@ -31,10 +32,10 @@ type marshalFunc func(interface{}) ([]byte, error)
 // ECDHESAEADCompositeEncrypt is an instance of ECDH-ES encryption with Concat KDF
 // and AEAD content encryption
 type ECDHESAEADCompositeEncrypt struct {
-	recPublicKeys []*PublicKey
+	recPublicKeys []*composite.PublicKey
 	pointFormat   string
 	encHelper     EncrypterHelper
-	keyType       ecdhespb.KeyType
+	keyType       commonpb.KeyType
 	marshalFunc   marshalFunc
 }
 
@@ -42,8 +43,8 @@ var _ api.CompositeEncrypt = (*ECDHESAEADCompositeEncrypt)(nil)
 
 // NewECDHESAEADCompositeEncrypt returns ECDH-ES encryption construct with Concat KDF key wrapping
 // and AEAD content encryption
-func NewECDHESAEADCompositeEncrypt(recipientsKeys []*PublicKey, ptFormat string,
-	encHelper EncrypterHelper, keyType ecdhespb.KeyType) *ECDHESAEADCompositeEncrypt {
+func NewECDHESAEADCompositeEncrypt(recipientsKeys []*composite.PublicKey, ptFormat string,
+	encHelper EncrypterHelper, keyType commonpb.KeyType) *ECDHESAEADCompositeEncrypt {
 	return &ECDHESAEADCompositeEncrypt{
 		recPublicKeys: recipientsKeys,
 		pointFormat:   ptFormat,
@@ -63,7 +64,7 @@ func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, err
 
 	// TODO add chacha alg support too, https://github.com/hyperledger/aries-framework-go/issues/1684
 	switch e.keyType {
-	case ecdhespb.KeyType_EC:
+	case commonpb.KeyType_EC:
 		eAlg = A256GCM
 		kwAlg = A256KWAlg
 	default:
@@ -73,7 +74,7 @@ func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, err
 	keySize := e.encHelper.GetSymmetricKeySize()
 	cek := random.GetRandomBytes(uint32(keySize))
 
-	var recipientsWK []*RecipientWrappedKey
+	var recipientsWK []*composite.RecipientWrappedKey
 
 	var singleRecipientAAD []byte
 
@@ -114,7 +115,7 @@ func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, err
 	return e.buildEncData(eAlg, recipientsWK, ct, singleRecipientAAD)
 }
 
-func (e *ECDHESAEADCompositeEncrypt) buildEncData(eAlg string, recipientsWK []*RecipientWrappedKey,
+func (e *ECDHESAEADCompositeEncrypt) buildEncData(eAlg string, recipientsWK []*composite.RecipientWrappedKey,
 	ct, singleRecipientAAD []byte) ([]byte, error) {
 	tagSize := e.encHelper.GetTagSize()
 	ivSize := e.encHelper.GetIVSize()
@@ -122,7 +123,7 @@ func (e *ECDHESAEADCompositeEncrypt) buildEncData(eAlg string, recipientsWK []*R
 	ctAndTag := ct[ivSize:]
 	tagOffset := len(ctAndTag) - tagSize
 
-	encData := &EncryptedData{
+	encData := &composite.EncryptedData{
 		EncAlg:             eAlg,
 		Ciphertext:         ctAndTag[:tagOffset],
 		IV:                 iv,
@@ -135,7 +136,7 @@ func (e *ECDHESAEADCompositeEncrypt) buildEncData(eAlg string, recipientsWK []*R
 }
 
 // for single recipient encryption, recipient header info is available in the key, update aad with this info
-func (e *ECDHESAEADCompositeEncrypt) mergeSingleRecipientHeaders(recipientWK *RecipientWrappedKey,
+func (e *ECDHESAEADCompositeEncrypt) mergeSingleRecipientHeaders(recipientWK *composite.RecipientWrappedKey,
 	aad []byte) ([]byte, error) {
 	newAAD, err := base64.RawURLEncoding.DecodeString(string(aad))
 	if err != nil {
@@ -178,7 +179,7 @@ func (e *ECDHESAEADCompositeEncrypt) mergeSingleRecipientHeaders(recipientWK *Re
 	return []byte(base64.RawURLEncoding.EncodeToString(mAAD)), nil
 }
 
-func convertRecKeyToMarshalledJWK(rec *RecipientWrappedKey) ([]byte, error) {
+func convertRecKeyToMarshalledJWK(rec *composite.RecipientWrappedKey) ([]byte, error) {
 	var c elliptic.Curve
 
 	c, err := hybrid.GetCurve(rec.EPK.Curve)

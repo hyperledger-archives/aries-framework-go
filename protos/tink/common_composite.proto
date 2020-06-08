@@ -1,0 +1,21 @@
+/*
+Copyright Google Inc., SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+// Definitions for common Elliptic Curve Diffie-Hellman (ECDH) primitives.
+syntax = "proto3";
+
+package google.crypto.tink;
+
+option java_package = "com.google.crypto.tink.proto";
+option java_multiple_files = true;
+option objc_class_prefix = "TINKPB";
+option go_package = "github.com/hyperledger/aries-framework-go/crypto/tinkcrypto/primitive/proto/common_composite_proto";
+
+enum KeyType {
+    UNKNOWN_KEY_TYPE = 0;
+    EC = 1;
+    OKP = 2;
+}

@@ -14,7 +14,7 @@ import (
 	"github.com/google/tink/go/keyset"
 	"github.com/stretchr/testify/require"
 
-	ecdhessubtle "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -160,7 +160,7 @@ func createAndMarshalRecipient(t *testing.T, k *localkms.LocalKMS) (string, []by
 	pubKeyBytes, err := exportPubKeyBytes(kh)
 	require.NoError(t, err)
 
-	key := &ecdhessubtle.PublicKey{}
+	key := &composite.PublicKey{}
 	err = json.Unmarshal(pubKeyBytes, key)
 	require.NoError(t, err)
 
