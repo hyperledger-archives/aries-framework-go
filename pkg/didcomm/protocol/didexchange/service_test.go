@@ -409,7 +409,8 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 		require.NotNil(t, svc.connectionStore)
 		require.NoError(t, err)
 
-		_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""), "", "")
+		_, err = svc.HandleInbound(
+			generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), randomString()), "", "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "save connection record")
 	})
@@ -449,6 +450,9 @@ func TestService_Handle_EdgeCases(t *testing.T) {
 			ID:   generateRandomID(),
 			Connection: &Connection{
 				DID: "xyz",
+			},
+			Thread: &decorator.Thread{
+				PID: randomString(),
 			},
 		})
 		require.NoError(t, err)
@@ -744,7 +748,7 @@ func TestEventsUserError(t *testing.T) {
 	err = svc.connectionStore.saveConnectionRecordWithMapping(connRec)
 	require.NoError(t, err)
 
-	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, id, ""), "", "")
+	_, err = svc.HandleInbound(generateRequestMsgPayload(t, &protocol.MockProvider{}, id, randomString()), "", "")
 	require.NoError(t, err)
 
 	select {
@@ -776,7 +780,7 @@ func TestEventStoreError(t *testing.T) {
 	}()
 
 	_, err = svc.HandleInbound(
-		generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), ""), "", "")
+		generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), randomString()), "", "")
 	require.NoError(t, err)
 }
 
@@ -908,7 +912,7 @@ func TestConnectionRecord(t *testing.T) {
 	require.NoError(t, err)
 
 	conn, err := svc.connectionRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
-		randomString(), ""))
+		randomString(), randomString()))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 
@@ -988,34 +992,54 @@ func TestInvitationRecord(t *testing.T) {
 }
 
 func TestRequestRecord(t *testing.T) {
-	svc, err := New(&protocol.MockProvider{
-		ServiceMap: map[string]interface{}{
-			mediator.Coordination: &mockroute.MockMediatorSvc{},
-		},
+	t.Run("returns connection reecord", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NoError(t, err)
+
+		didcommMsg := generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), uuid.New().String())
+		require.NotEmpty(t, didcommMsg.ParentThreadID())
+		conn, err := svc.requestMsgRecord(didcommMsg)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
+		require.Equal(t, didcommMsg.ParentThreadID(), conn.InvitationID)
 	})
-	require.NoError(t, err)
 
-	conn, err := svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
-		randomString(), ""))
-	require.NoError(t, err)
-	require.NotNil(t, conn)
+	t.Run("fails on db error", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{
+			TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(
+				&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")},
+			),
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NotNil(t, svc.connectionStore)
+		require.NoError(t, err)
 
-	// db error
-	svc, err = New(&protocol.MockProvider{
-		TransientStoreProvider: mockstorage.NewCustomMockStoreProvider(
-			&mockstorage.MockStore{Store: make(map[string][]byte), ErrPut: errors.New("db error")},
-		),
-		ServiceMap: map[string]interface{}{
-			mediator.Coordination: &mockroute.MockMediatorSvc{},
-		},
+		_, err = svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
+			randomString(), uuid.New().String()))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "save connection record")
 	})
-	require.NotNil(t, svc.connectionStore)
-	require.NoError(t, err)
 
-	_, err = svc.requestMsgRecord(generateRequestMsgPayload(t, &protocol.MockProvider{},
-		randomString(), ""))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "save connection record")
+	t.Run("fails if parent thread ID is missing", func(t *testing.T) {
+		svc, err := New(&protocol.MockProvider{
+			ServiceMap: map[string]interface{}{
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NoError(t, err)
+
+		parentThreadID := ""
+		didcommMsg := generateRequestMsgPayload(t, &protocol.MockProvider{}, randomString(), parentThreadID)
+		require.Empty(t, didcommMsg.ParentThreadID())
+		_, err = svc.requestMsgRecord(didcommMsg)
+		require.Error(t, err)
+	})
 }
 
 func TestAcceptExchangeRequest(t *testing.T) {

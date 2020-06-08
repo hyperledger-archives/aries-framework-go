@@ -658,11 +658,17 @@ func (s *Service) requestMsgRecord(msg service.DIDCommMsg) (*connection.Record, 
 		return nil, fmt.Errorf("unmarshalling failed: %s", err)
 	}
 
+	invitationID := msg.ParentThreadID()
+	if invitationID == "" {
+		return nil, fmt.Errorf("missing parent thread ID on didexchange request with @id=%s", request.ID)
+	}
+
 	connRecord := &connection.Record{
 		ConnectionID: generateRandomID(),
 		ThreadID:     request.ID,
 		State:        stateNameNull,
 		TheirDID:     request.Connection.DID,
+		InvitationID: invitationID,
 		Namespace:    theirNSPrefix,
 	}
 
