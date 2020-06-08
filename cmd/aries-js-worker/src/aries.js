@@ -719,6 +719,16 @@ const Aries = function (opts) {
             },
 
             /**
+             * Signs and adds proof to given credential using provided proof options
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            signCredential: async function (req) {
+                return invoke(aw, pending,  this.pkgname, "SignCredential", req, "timeout while adding proof to credential")
+            },
+
+            /**
              * Generates a verifiable presentation from a verifiable credential.
              *
              * @param req - json document

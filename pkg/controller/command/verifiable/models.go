@@ -59,6 +59,18 @@ type CredentialExt struct {
 	Name string `json:"name,omitempty"`
 }
 
+// SignCredentialRequest is adding proof to given credential.
+type SignCredentialRequest struct {
+	Credential json.RawMessage `json:"credential,omitempty"`
+	DID        string          `json:"did,omitempty"`
+	*ProofOptions
+}
+
+// SignCredentialResponse is model for sign credential response.
+type SignCredentialResponse struct {
+	VerifiableCredential json.RawMessage `json:"verifiableCredential,omitempty"`
+}
+
 // PresentationExt is model for presentation with fields related to command features.
 type PresentationExt struct {
 	Presentation

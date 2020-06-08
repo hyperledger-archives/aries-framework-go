@@ -130,6 +130,10 @@ const pkgs = {
             path: "/verifiable/credentials",
             method: "GET",
         },
+        SignCredential: {
+            path: "/verifiable/signcredential",
+            method: "POST"
+        },
         GeneratePresentation: {
             path: "/verifiable/presentation/generate",
             method: "POST"
