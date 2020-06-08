@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/mediator"
 	mockroute "github.com/hyperledger/aries-framework-go/pkg/mock/didcomm/protocol/mediator"
 	mockprovider "github.com/hyperledger/aries-framework-go/pkg/mock/provider"
 )
@@ -98,7 +99,7 @@ func TestRegisterRoute(t *testing.T) {
 		cmd, err := New(
 			&mockprovider.Provider{
 				ServiceValue: &mockroute.MockMediatorSvc{
-					RegisterFunc: func(connectionID string) error {
+					RegisterFunc: func(connectionID string, options ...mediator.ClientOption) error {
 						return errors.New("register error")
 					},
 				},

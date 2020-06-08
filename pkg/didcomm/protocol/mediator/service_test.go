@@ -825,6 +825,29 @@ func TestRegister(t *testing.T) {
 		require.Contains(t, err.Error(), "timeout waiting for grant from the router")
 	})
 
+	t.Run("test register route - with client timeout error", func(t *testing.T) {
+		s := make(map[string][]byte)
+		svc, err := New(&mockprovider.Provider{
+			StorageProviderValue:          &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: s}},
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			LegacyKMSValue:                &mockkms.CloseableKMS{},
+			OutboundDispatcherValue:       &mockdispatcher.MockOutbound{}})
+		require.NoError(t, err)
+
+		connRec := &connection.Record{
+			ConnectionID: "conn2", MyDID: MYDID, TheirDID: THEIRDID, State: "complete"}
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+		s["conn_conn2"] = connBytes
+
+		err = svc.Register("conn2", func(opts *ClientOptions) {
+			opts.Timeout = 1 * time.Millisecond
+		})
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "timeout waiting for grant from the router")
+	})
+
 	t.Run("test register route - router connection not found", func(t *testing.T) {
 		svc, err := New(&mockprovider.Provider{
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
