@@ -262,11 +262,13 @@ func (d *ControllerSteps) findConnection(agentID string) (string, error) {
 		return "", fmt.Errorf("failed to query connections : %w", err)
 	}
 
-	if len(response.Results) == 0 {
-		return "", fmt.Errorf("no connection found, for agents '%s'", agentID)
+	for _, conn := range response.Results {
+		if conn.ConnectionID == d.bddContext.Args[agentID] {
+			return conn.ConnectionID, nil
+		}
 	}
 
-	return response.Results[0].ConnectionID, nil
+	return "", fmt.Errorf("no connection found, for agents '%s'", agentID)
 }
 
 func (d *ControllerSteps) pullMsgFromWebhookSocket(agentID, topic string) (*service.DIDCommMsgMap, error) {

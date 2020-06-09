@@ -477,6 +477,85 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 	})
 }
 
+func TestCommand_AcceptProposal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	service := mocks.NewMockProtocolService(ctrl)
+	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+
+	provider := mocks.NewMockProvider(ctrl)
+	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
+
+	t.Run("Decode error", func(t *testing.T) {
+		cmd, err := New(provider)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.AcceptProposal(&b, bytes.NewBufferString("}"))
+
+		require.Error(t, cmdErr)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("Empty PIID", func(t *testing.T) {
+		cmd, err := New(provider)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.AcceptProposal(&b, bytes.NewBufferString("{}"))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), errEmptyPIID)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
+	})
+
+	t.Run("AcceptProposal (error)", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().ActionContinue(
+			gomock.Any(), gomock.Any(),
+		).Return(errors.New("error message"))
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"piid":"piid","request":{}}`
+		cmdErr := cmd.AcceptProposal(&b, bytes.NewBufferString(jsonPayload))
+
+		require.Error(t, cmdErr)
+		require.Contains(t, cmdErr.Error(), "error message")
+		require.Equal(t, AcceptProposalErrorCode, cmdErr.Code())
+		require.Equal(t, command.ExecuteError, cmdErr.Type())
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any())
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		const jsonPayload = `{"piid":"piid","request":{}}`
+		require.NoError(t, cmd.AcceptProposal(&b, bytes.NewBufferString(jsonPayload)))
+	})
+}
+
 func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

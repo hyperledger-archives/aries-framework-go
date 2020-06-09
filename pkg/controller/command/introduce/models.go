@@ -72,7 +72,7 @@ type SendRequestResponse struct{}
 
 // AcceptProposalWithOOBRequestArgs model
 //
-// This is used for accepting request with public OOBRequest
+// This is used for accepting a proposal with public OOBRequest
 //
 type AcceptProposalWithOOBRequestArgs struct {
 	// PIID Protocol instance ID
@@ -158,3 +158,18 @@ type DeclineRequestArgs struct {
 // Represents a DeclineRequest response message
 //
 type DeclineRequestResponse struct{}
+
+// AcceptProposalArgs model
+//
+// This is used for accepting a proposal.
+//
+type AcceptProposalArgs struct {
+	// PIID Protocol instance ID
+	PIID string `json:"piid,omitempty"`
+}
+
+// AcceptProposalResponse model
+//
+// Represents a AcceptProposal response message
+//
+type AcceptProposalResponse struct{}

@@ -158,7 +158,10 @@ type outofbandActionContinueRequest struct { // nolint: unused,deadcode
 // Represents a ActionContinue response message
 //
 // swagger:response outofbandActionContinueResponse
-type outofbandActionContinueResponse struct{} // nolint: unused,deadcode
+type outofbandActionContinueResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // outofbandActionStopRequest model
 //
@@ -180,4 +183,7 @@ type outofbandActionStopRequest struct { // nolint: unused,deadcode
 // Represents a ActionStop response message
 //
 // swagger:response outofbandActionStopResponse
-type outofbandActionStopResponse struct{} // nolint: unused,deadcode
+type outofbandActionStopResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}

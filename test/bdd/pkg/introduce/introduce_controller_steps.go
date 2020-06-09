@@ -35,16 +35,20 @@ import (
 
 var logger = log.New("aries-framework/bdd/introduce")
 
+var errNoActions = errors.New("no actions")
+
 const (
-	acceptProposalWithOOBRequest = "/introduce/{piid}/accept-proposal-with-oob-request"
-	sendProposalWithOOBRequest   = "/introduce/send-proposal-with-oob-request"
-	actions                      = "/introduce/actions"
-	outofbandActions             = "/outofband/actions"
-	actionContinue               = "/outofband/{piid}/action-continue"
-	createRequest                = "/outofband/create-request"
-	connections                  = "/connections"
+	acceptProposal             = "/introduce/{piid}/accept-proposal"
+	sendProposalWithOOBRequest = "/introduce/send-proposal-with-oob-request"
+	actions                    = "/introduce/actions"
+	outofbandActions           = "/outofband/actions"
+	actionContinue             = "/outofband/{piid}/action-continue"
+	createRequest              = "/outofband/create-request"
+	connections                = "/connections"
 
 	stateCompleted = "completed"
+
+	maxRetries = 3
 )
 
 // ControllerSteps is steps for introduce with controller
@@ -136,87 +140,73 @@ func (s *ControllerSteps) checkAndContinue(agentID, introduceeID string) error {
 		return fmt.Errorf("failed to get actions: %w", err)
 	}
 
-	oobReq, err := s.newOOBRequest(agentID)
-	if err != nil {
-		return fmt.Errorf("create OOBRequest for agent %s: %w", agentID, err)
-	}
+	url := controllerURL + strings.Replace(acceptProposal, "{piid}", res.Actions[0].PIID, 1)
 
-	req, err := json.Marshal(introduce.AcceptProposalWithOOBRequestArgs{
-		Request: oobReq,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal accept proposal: %w", err)
-	}
-
-	url := controllerURL + strings.Replace(acceptProposalWithOOBRequest, "{piid}", res.Actions[0].PIID, 1)
-
-	return sendHTTP(http.MethodPost, url, req, nil)
+	return sendHTTP(http.MethodPost, url, nil, nil)
 }
 
-func (s *ControllerSteps) tryOutofbandContinue(agent1 string) (bool, error) {
+func (s *ControllerSteps) tryOutofbandContinue(agent1 string) error {
 	controllerURL, ok := s.bddContext.GetControllerURL(agent1)
 	if !ok {
-		return false, fmt.Errorf("unable to find controller URL registered for agent [%s]", agent1)
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agent1)
 	}
 
 	res := outofbandcmd.ActionsResponse{}
 
 	err := sendHTTP(http.MethodGet, fmt.Sprintf(controllerURL+outofbandActions), nil, &res)
 	if err != nil {
-		return false, fmt.Errorf("failed to get actions: %w", err)
+		return fmt.Errorf("failed to get actions: %w", err)
 	}
 
 	if len(res.Actions) == 0 {
-		return false, nil
+		return errNoActions
 	}
 
 	url := strings.Replace(controllerURL+actionContinue, "{piid}", res.Actions[0].PIID, 1)
 
-	return true, sendHTTP(http.MethodPost, url, nil, &res)
+	return sendHTTP(http.MethodPost, url, nil, &res)
 }
 
-func (s *ControllerSteps) outofbandContinue(agent1, agent2 string) error {
-	for _, agent := range []string{agent1, agent2} {
-		ok, err := s.tryOutofbandContinue(agent)
-		if err != nil {
-			return fmt.Errorf("try outofband continue: %w", err)
-		}
-
-		if ok {
-			return nil
-		}
+func (s *ControllerSteps) outofbandContinue(retries int, agent string, agents ...string) error {
+	if retries < 0 {
+		return errors.New("no actions")
 	}
 
-	return errors.New("no actions")
+	for _, agent := range append([]string{agent}, agents...) {
+		err := s.tryOutofbandContinue(agent)
+		if errors.Is(err, errNoActions) {
+			continue
+		}
+
+		return err
+	}
+
+	retries--
+
+	time.Sleep(time.Second)
+
+	return s.outofbandContinue(retries, agent, agents...)
 }
 
 func (s *ControllerSteps) connectionEstablished(agent1, agent2 string) error {
-	for i := 0; i < 5; i++ {
-		err := s.outofbandContinue(agent1, agent2)
-		if err != nil && err.Error() != "no actions" {
-			return err
-		}
-
-		if err == nil {
-			break
-		}
-
-		time.Sleep(time.Second)
+	err := s.outofbandContinue(maxRetries, agent1)
+	if err != nil {
+		return fmt.Errorf("outofband continue: %w", err)
 	}
 
 	ds := didexsteps.NewDIDExchangeControllerSteps()
 	ds.SetContext(s.bddContext)
 
-	if err := ds.ApproveRequest(agent2); err != nil {
+	if err = ds.ApproveRequest(agent2); err != nil {
 		return fmt.Errorf("approve request: %w", err)
 	}
 
-	if err := ds.WaitForPostEvent(agent2, stateCompleted); err != nil {
+	if err = ds.WaitForPostEvent(agent2, stateCompleted); err != nil {
 		return fmt.Errorf("wait for post event: %w", err)
 	}
 
 	s.connections[agent2+agent1] = ds.ConnectionIDs()[agent2]
-	_, err := s.getConnection(agent2, agent1)
+	_, err = s.getConnection(agent2, agent1)
 
 	return err
 }
