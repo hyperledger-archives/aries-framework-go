@@ -4,7 +4,7 @@ Copyright Google Inc., SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Definitions for Elliptic Curve Diffie-Hellman - Ephemeral Static (ECDH-ES).
+// Definitions for Elliptic Curve Diffie-Hellman - One-Pass Unified Model (ECDH-1PU).
 syntax = "proto3";
 
 package google.crypto.tink;
@@ -15,15 +15,15 @@ import "proto/common_composite.proto";
 option java_package = "com.google.crypto.tink.proto";
 option java_multiple_files = true;
 option objc_class_prefix = "TINKPB";
-option go_package = "github.com/hyperledger/aries-framework-go/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto";
+option go_package = "github.com/hyperledger/aries-framework-go/crypto/tinkcrypto/primitive/proto/ecdh1pu_aead_go_proto";
 
-// Protos for keys for ECDH-ES with Concat KDF key wrapping and AEAD encryption.
+// Protos for keys for ECDH-1PU with One-Step KDF key wrapping and AEAD encryption.
 //
 //
-// ECDH-ES-keys represent ESEncryption and ESDecryption primitives.
+// ECDH-1PU-keys represent 1PUEncryption and 1PUDecryption primitives.
 
 // Parameters of KW (Key Wrapping)
-message EcdhesKwParams {
+message Ecdh1puKwParams {
   // Required.
   EllipticCurveType curve_type = 1;
 
@@ -31,37 +31,37 @@ message EcdhesKwParams {
   KeyType key_type = 2;
 
   // Not needed for key storage but required for primitive execution
-  repeated EcdhesAeadRecipientPublicKey recipients = 3;
+  repeated Ecdh1puAeadRecipientPublicKey recipients = 3;
 }
 
 // Parameters of AEAD Content encryption.
-message EcdhesAeadEncParams {
+message Ecdh1puAeadEncParams {
   // Required.
   KeyTemplate aead_enc = 1; // Contains e.g. AesGcmKeyFormat.
 }
 
-message EcdhesAeadParams {
+message Ecdh1puAeadParams {
   // Key Wrapping.
   // Required.
-  EcdhesKwParams kw_params = 1;
+  Ecdh1puKwParams kw_params = 1;
 
   // Content Encryption.
   // Required.
-  EcdhesAeadEncParams enc_params = 2;
+  Ecdh1puAeadEncParams enc_params = 2;
 
   // EC point format.
   // Required.
   EcPointFormat ec_point_format = 3;
 }
 
-// EcdhesAeadPublicKey represents ECDHESEncrypt primitive.
-// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhesAeadPublicKey
-message EcdhesAeadPublicKey {
+// Ecdh1puAeadPublicKey represents ECDH1PUEncrypt primitive.
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.Ecdh1puAeadPublicKey
+message Ecdh1puAeadPublicKey {
   // Required.
   uint32 version = 1;
 
   // Required.
-  EcdhesAeadParams params = 2;
+  Ecdh1puAeadParams params = 2;
 
   // Required.
   string KID = 3;
@@ -75,20 +75,20 @@ message EcdhesAeadPublicKey {
   bytes y = 5;
 }
 
-// EcdhesAeadPrivateKey represents ECDHESDecrypt primitive.
-// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.EcdhesAeadPrivateKey
-message EcdhesAeadPrivateKey {
+// Ecdh1puAeadPrivateKey represents ECDH1PUDecrypt primitive.
+// key_type: type.hyperledger.org/hyperledger.aries.crypto.tink.Ecdh1puAeadPrivateKey
+message Ecdh1puAeadPrivateKey {
   // Required.
   uint32 version = 1;
 
   // Required.
-  EcdhesAeadPublicKey public_key = 2;
+  Ecdh1puAeadPublicKey public_key = 2;
 
   // Required.
   bytes key_value = 3; // Big integer in bigendian representation.
 }
 
-message EcdhesAeadRecipientPublicKey {
+message Ecdh1puAeadRecipientPublicKey {
   // Required.
   uint32 version = 1;
   // Required.
@@ -107,7 +107,7 @@ message EcdhesAeadRecipientPublicKey {
   bytes y = 6;
 }
 
-message EcdhesAeadKeyFormat {
+message Ecdh1puAeadKeyFormat {
   // Required.
-  EcdhesAeadParams params = 1;
+  Ecdh1puAeadParams params = 1;
 }

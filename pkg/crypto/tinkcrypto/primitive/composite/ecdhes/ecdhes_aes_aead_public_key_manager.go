@@ -16,7 +16,9 @@ import (
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
@@ -58,7 +60,7 @@ func (km *ecdhesPublicKeyManager) Primitive(serializedKey []byte) (interface{}, 
 		return nil, errInvalidECDHESAESPublicKey
 	}
 
-	var recipientsKeys []*subtle.PublicKey
+	var recipientsKeys []*composite.PublicKey
 
 	for _, recKey := range ecdhesPubKey.Params.KwParams.Recipients {
 		e := km.validateRecKey(recKey)
@@ -66,7 +68,7 @@ func (km *ecdhesPublicKeyManager) Primitive(serializedKey []byte) (interface{}, 
 			return nil, errInvalidECDHESAESPublicKey
 		}
 
-		pub := &subtle.PublicKey{
+		pub := &composite.PublicKey{
 			KID:   recKey.KID,
 			Type:  recKey.KeyType.String(),
 			Curve: recKey.CurveType.String(),
@@ -84,7 +86,7 @@ func (km *ecdhesPublicKeyManager) Primitive(serializedKey []byte) (interface{}, 
 
 	ptFormat := ecdhesPubKey.Params.EcPointFormat.String()
 
-	return subtle.NewECDHESAEADCompositeEncrypt(recipientsKeys, ptFormat, rEnc, ecdhespb.KeyType_EC), nil
+	return subtle.NewECDHESAEADCompositeEncrypt(recipientsKeys, ptFormat, rEnc, commonpb.KeyType_EC), nil
 }
 
 // DoesSupport indicates if this key manager supports the given key type.

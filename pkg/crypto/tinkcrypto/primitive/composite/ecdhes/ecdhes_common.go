@@ -11,7 +11,7 @@ import (
 
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 
-	ecdhesaeadpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
+	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 )
 
 // GetCurveType is a utility function that converts a string EC curve name into an EC curve proto type
@@ -29,12 +29,12 @@ func GetCurveType(curve string) (commonpb.EllipticCurveType, error) {
 }
 
 // GetKeyType is a utility function that converts a string type value into an proto KeyType
-func GetKeyType(keyType string) (ecdhesaeadpb.KeyType, error) {
+func GetKeyType(keyType string) (compositepb.KeyType, error) {
 	switch keyType {
 	case "EC":
-		return ecdhesaeadpb.KeyType_EC, nil
+		return compositepb.KeyType_EC, nil
 	case "OKP":
-		return ecdhesaeadpb.KeyType_OKP, nil
+		return compositepb.KeyType_OKP, nil
 	default:
 		return 0, fmt.Errorf("key type %s not supported", keyType)
 	}

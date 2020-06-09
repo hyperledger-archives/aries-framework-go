@@ -17,7 +17,7 @@ import (
 	commonpb "github.com/google/tink/go/proto/common_go_proto"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
-	ecdhessubtle "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
@@ -77,7 +77,7 @@ func getMarshalledProtoKeyAndKeyURL(pubKey []byte) ([]byte, string, error) {
 }
 
 func getMarshalledECDHESKey(pubKey []byte) ([]byte, error) {
-	ecPubKey := new(ecdhessubtle.PublicKey)
+	ecPubKey := new(composite.PublicKey)
 
 	err := json.Unmarshal(pubKey, ecPubKey)
 	if err != nil {
@@ -93,7 +93,7 @@ func getMarshalledECDHESKey(pubKey []byte) ([]byte, error) {
 	}
 }
 
-func getMarshalledECKey(ecPubKey *ecdhessubtle.PublicKey) ([]byte, error) {
+func getMarshalledECKey(ecPubKey *composite.PublicKey) ([]byte, error) {
 	keyType, err := GetKeyType(ecPubKey.Type)
 	if err != nil {
 		return nil, fmt.Errorf("error on key type: %w", err)

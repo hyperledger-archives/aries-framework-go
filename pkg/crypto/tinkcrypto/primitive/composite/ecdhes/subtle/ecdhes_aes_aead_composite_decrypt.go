@@ -12,8 +12,12 @@ import (
 
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 
-	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 )
+
+// package subtle provides the core crypto primitives to be used by ECDH-ES composite primitives. It is intended for
+// internal use only.
 
 // ECDHESAEADCompositeDecrypt is an instance of ECDH-ES decryption with Concat KDF
 // and AEAD content decryption
@@ -21,13 +25,13 @@ type ECDHESAEADCompositeDecrypt struct {
 	privateKey  *hybrid.ECPrivateKey
 	pointFormat string
 	encHelper   EncrypterHelper
-	keyType     ecdhespb.KeyType
+	keyType     commonpb.KeyType
 }
 
 // NewECDHESAEADCompositeDecrypt returns ECDH-ES composite decryption construct with Concat KDF/ECDH-ES key unwrapping
 // and AEAD payload decryption.
 func NewECDHESAEADCompositeDecrypt(pvt *hybrid.ECPrivateKey, ptFormat string, encHelper EncrypterHelper,
-	keyType ecdhespb.KeyType) *ECDHESAEADCompositeDecrypt {
+	keyType commonpb.KeyType) *ECDHESAEADCompositeDecrypt {
 	return &ECDHESAEADCompositeDecrypt{
 		privateKey:  pvt,
 		pointFormat: ptFormat,
@@ -46,7 +50,7 @@ func (d *ECDHESAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, er
 
 	var cek []byte
 
-	encData := new(EncryptedData)
+	encData := new(composite.EncryptedData)
 
 	err := json.Unmarshal(ciphertext, encData)
 	if err != nil {
@@ -55,7 +59,7 @@ func (d *ECDHESAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, er
 
 	// TODO: add support for Chacha content encryption https://github.com/hyperledger/aries-framework-go/issues/1684
 	switch d.keyType {
-	case ecdhespb.KeyType_EC:
+	case commonpb.KeyType_EC:
 		if encData.EncAlg != A256GCM {
 			return nil, fmt.Errorf("invalid content encryption algorihm '%s' for Decrypt()", encData.EncAlg)
 		}

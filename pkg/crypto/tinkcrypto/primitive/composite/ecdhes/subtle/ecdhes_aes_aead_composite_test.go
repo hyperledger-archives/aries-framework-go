@@ -22,7 +22,8 @@ import (
 	"github.com/google/tink/go/tink"
 	"github.com/stretchr/testify/require"
 
-	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 )
 
 func TestEncryptDecrypt(t *testing.T) {
@@ -37,7 +38,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	}
 
 	cEnc := NewECDHESAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
-		mEncHelper, ecdhespb.KeyType_EC)
+		mEncHelper, compositepb.KeyType_EC)
 
 	pt := []byte("secret message")
 	aad := []byte("aad message")
@@ -47,7 +48,7 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	for _, privKey := range recipientsPrivKeys {
 		dEnc := NewECDHESAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			ecdhespb.KeyType_EC)
+			compositepb.KeyType_EC)
 
 		dpt, err := dEnc.Decrypt(ct, aad)
 		require.NoError(t, err)
@@ -71,7 +72,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 
 	// test with empty recipients public keys
 	cEnc := NewECDHESAEADCompositeEncrypt(nil, commonpb.EcPointFormat_UNCOMPRESSED.String(),
-		mEncHelper, ecdhespb.KeyType_EC)
+		mEncHelper, compositepb.KeyType_EC)
 
 	// Encrypt should fail with empty recipients public keys
 	_, err := cEnc.Encrypt(pt, aad)
@@ -81,7 +82,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	mEncHelper.KeySizeValue = 100
 
 	cEnc = NewECDHESAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
-		mEncHelper, ecdhespb.KeyType_EC)
+		mEncHelper, compositepb.KeyType_EC)
 
 	// Encrypt should fail with large AEAD key size value
 	_, err = cEnc.Encrypt(pt, aad)
@@ -90,19 +91,19 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	mEncHelper.KeySizeValue = 32
 
 	// Encrypt should fail with bad key type
-	cEnc.keyType = ecdhespb.KeyType_UNKNOWN_KEY_TYPE
+	cEnc.keyType = compositepb.KeyType_UNKNOWN_KEY_TYPE
 
 	_, err = cEnc.Encrypt(pt, aad)
 	require.EqualError(t, err, fmt.Sprintf("ECDHESAEADCompositeEncrypt: bad key type: '%s'",
-		ecdhespb.KeyType_UNKNOWN_KEY_TYPE))
+		compositepb.KeyType_UNKNOWN_KEY_TYPE))
 
-	cEnc.keyType = ecdhespb.KeyType_EC
+	cEnc.keyType = compositepb.KeyType_EC
 
 	// test with GetAEAD() returning error
 	mEncHelper.AEADErrValue = fmt.Errorf("error from GetAEAD")
 
 	cEnc = NewECDHESAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
-		mEncHelper, ecdhespb.KeyType_EC)
+		mEncHelper, compositepb.KeyType_EC)
 
 	// Encrypt should fail with large AEAD key size value
 	_, err = cEnc.Encrypt(pt, aad)
@@ -112,13 +113,13 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 
 	// create a valid ciphertext to test Decrypt for all recipients
 	cEnc = NewECDHESAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
-		mEncHelper, ecdhespb.KeyType_EC)
+		mEncHelper, compositepb.KeyType_EC)
 
 	// test with empty plaintext
 	ct, err := cEnc.Encrypt([]byte{}, aad)
 	require.NoError(t, err)
 
-	encData := new(EncryptedData)
+	encData := new(composite.EncryptedData)
 	err = json.Unmarshal(ct, encData)
 
 	require.NoError(t, err)
@@ -133,7 +134,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	for _, privKey := range recipientsPrivKeys {
 		// test with nil recipient private key
 		dEnc := NewECDHESAEADCompositeDecrypt(nil, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			ecdhespb.KeyType_EC)
+			compositepb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
 		require.EqualError(t, err, "ECDHESAEADCompositeDecrypt: missing recipient private key for key"+
@@ -142,7 +143,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 		// test with large key size
 		mEncHelper.KeySizeValue = 100
 		dEnc = NewECDHESAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			ecdhespb.KeyType_EC)
+			compositepb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
 		require.EqualError(t, err, "ecdh-es decrypt: cek unwrap failed for all recipients keys")
@@ -153,7 +154,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 		mEncHelper.AEADErrValue = fmt.Errorf("error from GetAEAD")
 
 		dEnc = NewECDHESAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			ecdhespb.KeyType_EC)
+			compositepb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
 		require.EqualError(t, err, "error from GetAEAD")
@@ -162,14 +163,14 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 
 		// create a valid Decrypt message and test against ct
 		dEnc = NewECDHESAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			ecdhespb.KeyType_EC)
+			compositepb.KeyType_EC)
 
 		// try decrypting empty ct
 		_, err = dEnc.Decrypt([]byte{}, aad)
 		require.EqualError(t, err, "unexpected end of JSON input")
 
 		// try decrypting with empty encAlg
-		var encData EncryptedData
+		var encData composite.EncryptedData
 		err = json.Unmarshal(ct, &encData)
 		require.NoError(t, err)
 
@@ -204,7 +205,7 @@ func TestEncryptDecryptWithSingleRecipient(t *testing.T) {
 
 	// test with single recipient public key
 	cEnc := NewECDHESAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
-		mEncHelper, ecdhespb.KeyType_EC)
+		mEncHelper, compositepb.KeyType_EC)
 
 	// Encrypt should fail with aad not base64URL encoded
 	_, err := cEnc.Encrypt(pt, aad)
@@ -222,13 +223,13 @@ func TestEncryptDecryptWithSingleRecipient(t *testing.T) {
 	ct, err := cEnc.Encrypt(pt, []byte(newAAD))
 	require.NoError(t, err)
 
-	encData := &EncryptedData{}
+	encData := &composite.EncryptedData{}
 	err = json.Unmarshal(ct, encData)
 	require.NoError(t, err)
 
 	for _, privKey := range recipientsPrivKeys {
 		dEnc := NewECDHESAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			ecdhespb.KeyType_EC)
+			compositepb.KeyType_EC)
 
 		dpt, err := dEnc.Decrypt(ct, encData.SingleRecipientAAD)
 		require.NoError(t, err)
@@ -236,12 +237,12 @@ func TestEncryptDecryptWithSingleRecipient(t *testing.T) {
 	}
 }
 
-func buildRecipientsKeys(t *testing.T, nbOfRecipients int) ([]*hybrid.ECPrivateKey, []*PublicKey) {
+func buildRecipientsKeys(t *testing.T, nbOfRecipients int) ([]*hybrid.ECPrivateKey, []*composite.PublicKey) {
 	t.Helper()
 
 	var (
 		recipientsECPrivKeys []*hybrid.ECPrivateKey
-		recipientsPubKeys    []*PublicKey
+		recipientsPubKeys    []*composite.PublicKey
 	)
 
 	curvProto := commonpb.EllipticCurveType_NIST_P256
@@ -255,8 +256,8 @@ func buildRecipientsKeys(t *testing.T, nbOfRecipients int) ([]*hybrid.ECPrivateK
 		recipientPub := &recipientPriv.PublicKey
 
 		recipientsECPrivKeys = append(recipientsECPrivKeys, recipientPriv)
-		recipientsPubKeys = append(recipientsPubKeys, &PublicKey{
-			Type:  ecdhespb.KeyType_EC.String(),
+		recipientsPubKeys = append(recipientsPubKeys, &composite.PublicKey{
+			Type:  compositepb.KeyType_EC.String(),
 			Curve: recipientPub.Curve.Params().Name,
 			X:     recipientPub.Point.X.Bytes(),
 			Y:     recipientPub.Point.Y.Bytes(),
@@ -316,8 +317,8 @@ func TestMergeSingleRecipientsHeadersFailureWithUnsetCurve(t *testing.T) {
 	mAAD, err := json.Marshal(aad)
 	require.NoError(t, err)
 
-	wk := &RecipientWrappedKey{
-		EPK: PublicKey{},
+	wk := &composite.RecipientWrappedKey{
+		EPK: composite.PublicKey{},
 	}
 
 	cEnc := NewECDHESAEADCompositeEncrypt(nil, "", nil, 0)

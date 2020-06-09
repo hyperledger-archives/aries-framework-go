@@ -20,6 +20,7 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
+	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
@@ -216,21 +217,21 @@ func generateRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKey {
 	return []*ecdhespb.EcdhesAeadRecipientPublicKey{
 		{
 			Version:   0,
-			KeyType:   ecdhespb.KeyType_EC,
+			KeyType:   compositepb.KeyType_EC,
 			CurveType: curvProto,
 			X:         recipient1Priv.PublicKey.Point.X.Bytes(),
 			Y:         recipient1Priv.PublicKey.Point.Y.Bytes(),
 		},
 		{
 			Version:   0,
-			KeyType:   ecdhespb.KeyType_EC,
+			KeyType:   compositepb.KeyType_EC,
 			CurveType: curvProto,
 			X:         recipient2Priv.PublicKey.Point.X.Bytes(),
 			Y:         recipient2Priv.PublicKey.Point.Y.Bytes(),
 		},
 		{
 			Version:   0,
-			KeyType:   ecdhespb.KeyType_EC,
+			KeyType:   compositepb.KeyType_EC,
 			CurveType: curvProto,
 			X:         recipient3Priv.PublicKey.Point.X.Bytes(),
 			Y:         recipient3Priv.PublicKey.Point.Y.Bytes(),

@@ -15,7 +15,8 @@ import (
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
-	ecdhessubtle "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
@@ -86,7 +87,7 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 		keyTypeName := pubKeyProto.Params.KwParams.KeyType.String()
 
 		// validate key type
-		if pubKeyProto.Params.KwParams.KeyType != ecdhespb.KeyType_EC {
+		if pubKeyProto.Params.KwParams.KeyType != commonpb.KeyType_EC {
 			return false, fmt.Errorf("undefined key type: '%s'", pubKeyProto.Params.KwParams.KeyType)
 		}
 
@@ -96,7 +97,7 @@ func writePubKey(w io.Writer, key *tinkpb.Keyset_Key) (bool, error) {
 			return false, fmt.Errorf("undefined curve: %w", err)
 		}
 
-		pubKey := ecdhessubtle.PublicKey{
+		pubKey := composite.PublicKey{
 			KID:   pubKeyProto.KID,
 			Type:  keyTypeName,
 			Curve: curveName,

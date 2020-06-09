@@ -14,7 +14,7 @@ import (
 	"github.com/google/tink/go/keyset"
 	"github.com/stretchr/testify/require"
 
-	ecdhessubtle "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 )
 
 func TestECDHESKeyTemplateTest(t *testing.T) {
@@ -50,17 +50,17 @@ func TestECDHESKeyTemplateTest(t *testing.T) {
 }
 
 // createRecipients and return their public key and keyset.Handle
-func createRecipients(t *testing.T, numberOfRecipients int) ([]ecdhessubtle.PublicKey, []*keyset.Handle) {
+func createRecipients(t *testing.T, numberOfRecipients int) ([]composite.PublicKey, []*keyset.Handle) {
 	t.Helper()
 
 	var (
-		r   []ecdhessubtle.PublicKey
+		r   []composite.PublicKey
 		rKH []*keyset.Handle
 	)
 
 	for i := 0; i < numberOfRecipients; i++ {
 		mrKey, kh := createAndMarshalRecipient(t)
-		ecPubKey := new(ecdhessubtle.PublicKey)
+		ecPubKey := new(composite.PublicKey)
 		err := json.Unmarshal(mrKey, ecPubKey)
 		require.NoError(t, err)
 

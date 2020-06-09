@@ -17,6 +17,7 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
@@ -68,7 +69,7 @@ func (km *ecdhesAESPrivateKeyManager) Primitive(serializedKey []byte) (interface
 
 	ptFormat := key.PublicKey.Params.EcPointFormat.String()
 
-	return subtle.NewECDHESAEADCompositeDecrypt(pvt, ptFormat, rEnc, ecdhespb.KeyType_EC), nil
+	return subtle.NewECDHESAEADCompositeDecrypt(pvt, ptFormat, rEnc, commonpb.KeyType_EC), nil
 }
 
 // NewKey creates a new key according to the specification of ECDHESPrivateKey format.
@@ -89,7 +90,7 @@ func (km *ecdhesAESPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto.
 		return nil, errInvalidECDHESAESPrivateKeyFormat
 	}
 
-	keyFormat.Params.KwParams.KeyType = ecdhespb.KeyType_EC
+	keyFormat.Params.KwParams.KeyType = commonpb.KeyType_EC
 
 	pvt, err := hybrid.GenerateECDHKeyPair(curve)
 	if err != nil {

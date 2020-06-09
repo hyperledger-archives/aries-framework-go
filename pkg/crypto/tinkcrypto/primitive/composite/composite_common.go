@@ -4,10 +4,9 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package subtle
+package composite
 
-// package subtle provides the core crypto primitives to be used by composite primitives. It is intended for internal
-// use only.
+// package composite provides the core crypto composite primitives such as ECDH-ES and ECDH-1PU to be used by JWE crypto
 
 // EncryptedData represents the Encryption's output data as a result of ECDHESEncrypt.Encrypt(pt, aad) call
 // The user of the primitive must unmarshal the result and build their own ECDH-ES compliant message (ie JWE msg)

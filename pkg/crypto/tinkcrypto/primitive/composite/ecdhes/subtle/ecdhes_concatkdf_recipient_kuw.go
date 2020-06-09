@@ -14,6 +14,8 @@ import (
 
 	hybrid "github.com/google/tink/go/hybrid/subtle"
 	josecipher "github.com/square/go-jose/v3/cipher"
+
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 )
 
 // ECDHESConcatKDFRecipientKW represents concat KDF based ECDH-ES KW (key wrapping)
@@ -23,7 +25,7 @@ type ECDHESConcatKDFRecipientKW struct {
 }
 
 // unwrapKey will do ECDH-ES key unwrapping
-func (s *ECDHESConcatKDFRecipientKW) unwrapKey(recWK *RecipientWrappedKey, keySize int) ([]byte, error) {
+func (s *ECDHESConcatKDFRecipientKW) unwrapKey(recWK *composite.RecipientWrappedKey, keySize int) ([]byte, error) {
 	if recWK == nil {
 		return nil, fmt.Errorf("unwrapKey: RecipientWrappedKey is empty")
 	}

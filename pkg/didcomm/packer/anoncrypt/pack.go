@@ -15,8 +15,8 @@ import (
 	"github.com/google/tink/go/keyset"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -87,11 +87,11 @@ func (p *Packer) Pack(payload, _ []byte, recipientsPubKeys [][]byte) ([]byte, er
 	return []byte(s), nil
 }
 
-func unmarshalRecipientKeys(keys [][]byte) ([]subtle.PublicKey, error) {
-	var pubKeys []subtle.PublicKey
+func unmarshalRecipientKeys(keys [][]byte) ([]composite.PublicKey, error) {
+	var pubKeys []composite.PublicKey
 
 	for _, key := range keys {
-		var ecKey subtle.PublicKey
+		var ecKey composite.PublicKey
 
 		err := json.Unmarshal(key, &ecKey)
 		if err != nil {

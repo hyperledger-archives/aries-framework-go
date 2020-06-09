@@ -19,6 +19,7 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/square/go-jose/v3"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
@@ -46,14 +47,14 @@ type encPrimitiveFunc func(*keyset.Handle) (api.CompositeEncrypt, error)
 
 // JWEEncrypt is responsible for encrypting a plaintext and its AAD into a protected JWE and decrypting it
 type JWEEncrypt struct {
-	recipients   []subtle.PublicKey
+	recipients   []composite.PublicKey
 	senderKH     *keyset.Handle
 	getPrimitive encPrimitiveFunc
 	encAlg       EncAlg
 }
 
 // NewJWEEncrypt creates a new JWEEncrypt instance to build JWE with recipientsPubKeys
-func NewJWEEncrypt(encAlg EncAlg, recipientsPubKeys []subtle.PublicKey) (*JWEEncrypt, error) {
+func NewJWEEncrypt(encAlg EncAlg, recipientsPubKeys []composite.PublicKey) (*JWEEncrypt, error) {
 	if len(recipientsPubKeys) == 0 {
 		return nil, fmt.Errorf("empty recipientsPubKeys list")
 	}
@@ -122,7 +123,7 @@ func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryp
 		return nil, fmt.Errorf("jweencrypt: failed to Encrypt: %w", err)
 	}
 
-	encData := new(subtle.EncryptedData)
+	encData := new(composite.EncryptedData)
 
 	err = json.Unmarshal(serializedEncData, encData)
 	if err != nil {
@@ -158,7 +159,7 @@ func mergeRecipientHeaders(headers map[string]interface{}, recHeaders *Recipient
 	headers[HeaderEPK] = recHeaders.EPK
 }
 
-func (je *JWEEncrypt) buildRecipients(encData *subtle.EncryptedData) ([]*Recipient, *RecipientHeaders, error) {
+func (je *JWEEncrypt) buildRecipients(encData *composite.EncryptedData) ([]*Recipient, *RecipientHeaders, error) {
 	var (
 		recipients             []*Recipient
 		singleRecipientHeaders *RecipientHeaders
@@ -191,7 +192,7 @@ func (je *JWEEncrypt) buildRecipients(encData *subtle.EncryptedData) ([]*Recipie
 	return recipients, singleRecipientHeaders, nil
 }
 
-func buildRecipientHeaders(rec *subtle.RecipientWrappedKey) (*RecipientHeaders, error) {
+func buildRecipientHeaders(rec *composite.RecipientWrappedKey) (*RecipientHeaders, error) {
 	mRecJWK, err := convertRecKeyToMarshalledJWK(rec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert recipient key to marshalled JWK: %w", err)
@@ -204,7 +205,7 @@ func buildRecipientHeaders(rec *subtle.RecipientWrappedKey) (*RecipientHeaders, 
 	}, nil
 }
 
-func convertRecKeyToMarshalledJWK(rec *subtle.RecipientWrappedKey) ([]byte, error) {
+func convertRecKeyToMarshalledJWK(rec *composite.RecipientWrappedKey) ([]byte, error) {
 	var c elliptic.Curve
 
 	c, err := hybrid.GetCurve(rec.EPK.Curve)
