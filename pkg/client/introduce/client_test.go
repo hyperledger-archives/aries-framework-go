@@ -199,6 +199,26 @@ func TestClient_AcceptProposalWithOOBRequest(t *testing.T) {
 	})
 }
 
+func TestClient_AcceptProposal(t *testing.T) {
+	t.Run("continues the process instance", func(t *testing.T) {
+		const expectedPIID = "abc123"
+
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		svc := mocksintroduce.NewMockProtocolService(ctrl)
+		svc.EXPECT().ActionContinue(gomock.Eq(expectedPIID), gomock.Nil()).Return(nil)
+
+		provider := mocksintroduce.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
+
+		client, err := New(provider)
+		require.NoError(t, err)
+
+		require.NoError(t, client.AcceptProposal(expectedPIID))
+	})
+}
+
 func TestClient_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	t.Run("continues the process instance with the public request", func(t *testing.T) {
 		expectedPIID := "abc123"

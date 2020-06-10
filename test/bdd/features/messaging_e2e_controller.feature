@@ -17,6 +17,7 @@ Feature: Messaging between the agents using REST/controller binding
     And   "Tal" registers a message service through controller with name "generic-invite-response" for type "https://didcomm.org/generic/1.0/message" and purpose "invite-response"
 
     Given "Baha" has established connection with "Tal" through did exchange using controller
+    And   "Tal" saves the connectionID to variable "Tal"
 
     When  "Tal" sends meeting invite message "Hey, meet me today at 4PM" through controller with type "https://didcomm.org/generic/1.0/message" and purpose "meeting" to "Baha"
     Then  "Baha" receives invite message "Hey, meet me today at 4PM" with type "https://didcomm.org/generic/1.0/message" to webhook for topic "generic-invite" from "Tal"
@@ -31,6 +32,7 @@ Feature: Messaging between the agents using REST/controller binding
 
     Given "Tal" agent is running on "localhost" port "9081" with controller "http://localhost:9082"
     And   "Baha" has established connection with "Tal" through did exchange using controller
+    And   "Tal" saves the connectionID to variable "Tal"
 
     When  "Tal" sends basic message "Your hovercraft is full of eels." through controller to "Baha"
     Then   "Baha" receives basic message "Your hovercraft is full of eels." for topic "basic-message" from "Tal"

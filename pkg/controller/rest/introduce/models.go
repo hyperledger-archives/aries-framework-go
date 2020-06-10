@@ -25,7 +25,9 @@ type introduceActionsRequest struct{} // nolint: unused,deadcode
 // swagger:response introduceActionsResponse
 type introduceActionsResponse struct { // nolint: unused,deadcode
 	// in: body
-	Actions []protocol.Action `json:"actions"`
+	Body struct {
+		Actions []protocol.Action `json:"actions"`
+	}
 }
 
 // introduceSendProposalRequest model
@@ -35,7 +37,9 @@ type introduceActionsResponse struct { // nolint: unused,deadcode
 // swagger:parameters introduceSendProposal
 type introduceSendProposalRequest struct { // nolint: unused,deadcode
 	// in: body
-	Recipients []*protocol.Recipient `json:"recipients"`
+	Body struct {
+		Recipients []*protocol.Recipient `json:"recipients"`
+	}
 }
 
 // introduceSendProposalResponse model
@@ -43,7 +47,10 @@ type introduceSendProposalRequest struct { // nolint: unused,deadcode
 // Represents a SendProposal response message.
 //
 // swagger:response introduceSendProposalResponse
-type introduceSendProposalResponse struct{} // nolint: unused,deadcode
+type introduceSendProposalResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // introduceSendProposalWithOOBRequest model
 //
@@ -67,7 +74,10 @@ type introduceSendProposalWithOOBRequest struct { // nolint: unused,deadcode
 // Represents a SendProposalWithOOBRequest response message.
 //
 // swagger:response introduceSendProposalWithOOBRequestResponse
-type introduceSendProposalWithOOBRequestResponse struct{} // nolint: unused,deadcode
+type introduceSendProposalWithOOBRequestResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // introduceAcceptProposalWithOOBRequest model
 //
@@ -81,8 +91,10 @@ type introduceAcceptProposalWithOOBRequest struct { // nolint: unused,deadcode
 	// required: true
 	PIID string `json:"piid"`
 	// in: body
-	// Request is the out-of-band protocol's 'request' message.
-	Request *outofband.Request `json:"request"`
+	Body struct {
+		// Request is the out-of-band protocol's 'request' message.
+		Request *outofband.Request `json:"request"`
+	}
 }
 
 // introduceAcceptProposalWithOOBRequestResponse model
@@ -90,7 +102,10 @@ type introduceAcceptProposalWithOOBRequest struct { // nolint: unused,deadcode
 // Represents a AcceptProposalWithOOBRequest response message.
 //
 // swagger:response introduceAcceptProposalWithOOBRequestResponse
-type introduceAcceptProposalWithOOBRequestResponse struct{} // nolint: unused,deadcode
+type introduceAcceptProposalWithOOBRequestResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // introduceAcceptRequestWithPublicOOBRequest model
 //
@@ -117,7 +132,10 @@ type introduceAcceptRequestWithPublicOOBRequest struct { // nolint: unused,deadc
 // Represents a AcceptRequestWithPublicOOBRequest response message.
 //
 // swagger:response introduceAcceptRequestWithPublicOOBRequestResponse
-type introduceAcceptRequestWithPublicOOBRequestResponse struct{} // nolint: unused,deadcode
+type introduceAcceptRequestWithPublicOOBRequestResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // introduceAcceptRequestWithRecipients model
 //
@@ -144,7 +162,10 @@ type introduceAcceptRequestWithRecipients struct { // nolint: unused,deadcode
 // Represents a AcceptRequestWithRecipients response message.
 //
 // swagger:response introduceAcceptRequestWithRecipientsResponse
-type introduceAcceptRequestWithRecipientsResponse struct{} // nolint: unused,deadcode
+type introduceAcceptRequestWithRecipientsResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // introduceSendRequest model
 //
@@ -171,7 +192,10 @@ type introduceSendRequest struct { // nolint: unused,deadcode
 // Represents a SendRequest response message.
 //
 // swagger:response introduceSendRequestResponse
-type introduceSendRequestResponse struct{} // nolint: unused,deadcode
+type introduceSendRequestResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // introduceDeclineProposalRequest model
 //
@@ -194,7 +218,10 @@ type introduceDeclineProposalRequest struct { // nolint: unused,deadcode
 // Represents a DeclineProposal response message.
 //
 // swagger:response introduceDeclineProposalResponse
-type introduceDeclineProposalResponse struct{} // nolint: unused,deadcode
+type introduceDeclineProposalResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // introduceDeclineRequest model
 //
@@ -217,4 +244,30 @@ type introduceDeclineRequest struct { // nolint: unused,deadcode
 // Represents a DeclineRequest response message.
 //
 // swagger:response introduceDeclineRequestResponse
-type introduceDeclineRequestResponse struct{} // nolint: unused,deadcode
+type introduceDeclineRequestResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
+
+// introduceAcceptProposalRequest model
+//
+// This is used for operation to accept a proposal.
+//
+// swagger:parameters introduceAcceptProposal
+type introduceAcceptProposalRequest struct { // nolint: unused,deadcode
+	// Protocol instance ID
+	//
+	// in: path
+	// required: true
+	PIID string `json:"piid"`
+}
+
+// introduceAcceptProposalResponse model
+//
+// Represents a AcceptProposal response message.
+//
+// swagger:response introduceAcceptProposalResponse
+type introduceAcceptProposalResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}

@@ -33,6 +33,8 @@ const (
 	SendRequestErrorCode
 	// AcceptProposalWithOOBRequestErrorCode is for failures in accept proposal with OOBRequest command
 	AcceptProposalWithOOBRequestErrorCode
+	// AcceptProposalErrorCode is for failures in accept proposal command
+	AcceptProposalErrorCode
 	// AcceptRequestWithPublicOOBRequestErrorCode is for failures in accept request with public OOBRequest command
 	AcceptRequestWithPublicOOBRequestErrorCode
 	// AcceptRequestWithRecipientsErrorCode is for failures in accept request with recipients command
@@ -55,6 +57,7 @@ const (
 	sendProposalWithOOBRequest        = "SendProposalWithOOBRequest"
 	sendRequest                       = "SendRequest"
 	acceptProposalWithOOBRequest      = "AcceptProposalWithOOBRequest"
+	acceptProposal                    = "AcceptProposal"
 	acceptRequestWithPublicOOBRequest = "AcceptRequestWithPublicOOBRequest"
 	acceptRequestWithRecipients       = "AcceptRequestWithRecipients"
 	declineProposal                   = "DeclineProposal"
@@ -109,6 +112,7 @@ func (c *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, sendProposalWithOOBRequest, c.SendProposalWithOOBRequest),
 		cmdutil.NewCommandHandler(commandName, sendRequest, c.SendRequest),
 		cmdutil.NewCommandHandler(commandName, acceptProposalWithOOBRequest, c.AcceptProposalWithOOBRequest),
+		cmdutil.NewCommandHandler(commandName, acceptProposal, c.AcceptProposal),
 		cmdutil.NewCommandHandler(commandName, acceptRequestWithPublicOOBRequest, c.AcceptRequestWithPublicOOBRequest),
 		cmdutil.NewCommandHandler(commandName, acceptRequestWithRecipients, c.AcceptRequestWithRecipients),
 		cmdutil.NewCommandHandler(commandName, declineProposal, c.DeclineProposal),
@@ -254,6 +258,32 @@ func (c *Command) AcceptProposalWithOOBRequest(rw io.Writer, req io.Reader) comm
 	command.WriteNillableResponse(rw, &AcceptProposalWithOOBRequestResponse{}, logger)
 
 	logutil.LogDebug(logger, commandName, acceptProposalWithOOBRequest, successString)
+
+	return nil
+}
+
+// AcceptProposal is used when introducee wants to accept a proposal without providing a OOBRequest.
+func (c *Command) AcceptProposal(rw io.Writer, req io.Reader) command.Error {
+	var args AcceptProposalArgs
+
+	if err := json.NewDecoder(req).Decode(&args); err != nil {
+		logutil.LogInfo(logger, commandName, acceptProposal, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	if args.PIID == "" {
+		logutil.LogDebug(logger, commandName, acceptProposal, errEmptyPIID)
+		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+	}
+
+	if err := c.client.AcceptProposal(args.PIID); err != nil {
+		logutil.LogError(logger, commandName, acceptProposal, err.Error())
+		return command.NewExecuteError(AcceptProposalErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &AcceptProposalResponse{}, logger)
+
+	logutil.LogDebug(logger, commandName, acceptProposal, successString)
 
 	return nil
 }

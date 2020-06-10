@@ -30,6 +30,7 @@ const (
 	sendProposalWithOOBRequest        = operationID + "/send-proposal-with-oob-request"
 	sendRequest                       = operationID + "/send-request"
 	acceptProposalWithOOBRequest      = operationID + "/{piid}/accept-proposal-with-oob-request"
+	acceptProposal                    = operationID + "/{piid}/accept-proposal"
 	acceptRequestWithPublicOOBRequest = operationID + "/{piid}/accept-request-with-public-oob-request"
 	acceptRequestWithRecipients       = operationID + "/{piid}/accept-request-with-recipients"
 	declineProposal                   = operationID + "/{piid}/decline-proposal"
@@ -69,6 +70,7 @@ func (c *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(sendProposalWithOOBRequest, http.MethodPost, c.SendProposalWithOOBRequest),
 		cmdutil.NewHTTPHandler(sendRequest, http.MethodPost, c.SendRequest),
 		cmdutil.NewHTTPHandler(acceptProposalWithOOBRequest, http.MethodPost, c.AcceptProposalWithOOBRequest),
+		cmdutil.NewHTTPHandler(acceptProposal, http.MethodPost, c.AcceptProposal),
 		cmdutil.NewHTTPHandler(acceptRequestWithPublicOOBRequest, http.MethodPost, c.AcceptRequestWithPublicOOBRequest),
 		cmdutil.NewHTTPHandler(acceptRequestWithRecipients, http.MethodPost, c.AcceptRequestWithRecipients),
 		cmdutil.NewHTTPHandler(declineProposal, http.MethodPost, c.DeclineProposal),
@@ -131,6 +133,18 @@ func (c *Operation) AcceptProposalWithOOBRequest(rw http.ResponseWriter, req *ht
 	if ok, r := toCommandRequest(rw, req); ok {
 		rest.Execute(c.command.AcceptProposalWithOOBRequest, rw, r)
 	}
+}
+
+// AcceptProposal swagger:route POST /introduce/{piid}/accept-proposal introduce introduceAcceptProposal
+//
+// Accepts a proposal.
+//
+// Responses:
+//    default: genericError
+//        200: introduceAcceptProposalResponse
+func (c *Operation) AcceptProposal(rw http.ResponseWriter, req *http.Request) {
+	payload := fmt.Sprintf(`{"piid":%q}`, mux.Vars(req)["piid"])
+	rest.Execute(c.command.AcceptProposal, rw, bytes.NewBufferString(payload))
 }
 
 // AcceptRequestWithPublicOOBRequest swagger:route POST /introduce/{piid}/accept-request-with-public-oob-request introduce introduceAcceptRequestWithPublicOOBRequest

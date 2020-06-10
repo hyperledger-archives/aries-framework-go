@@ -109,20 +109,25 @@ func (c *Client) SendRequest(to *PleaseIntroduceTo, myDID, theirDID string) erro
 }
 
 // AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.
-// NOTE: For async usage. Introducee can provide this request only after receiving ProposalMsgType
+// Introducee can provide this request only after receiving ProposalMsgType
 func (c *Client) AcceptProposalWithOOBRequest(piID string, req *outofband.Request) error {
 	return c.service.ActionContinue(piID, WithOOBRequest(req))
 }
 
+// AcceptProposal is used when introducee wants to accept a proposal without providing a OOBRequest.
+func (c *Client) AcceptProposal(piID string) error {
+	return c.service.ActionContinue(piID, nil)
+}
+
 // AcceptRequestWithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
-// NOTE: For async usage. Introducer can provide invitation only after receiving RequestMsgType
+// Introducer can provide invitation only after receiving RequestMsgType
 func (c *Client) AcceptRequestWithPublicOOBRequest(piID string, req *outofband.Request, to *To) error {
 	return c.service.ActionContinue(piID, WithPublicOOBRequest(req, to))
 }
 
 // AcceptRequestWithRecipients is used when the introducer does not have a published out-of-band message on hand
 // but he is willing to introduce agents to each other.
-// NOTE: For async usage. Introducer can provide recipients only after receiving RequestMsgType.
+// Introducer can provide recipients only after receiving RequestMsgType.
 func (c *Client) AcceptRequestWithRecipients(piID string, to *To, recipient *Recipient) error {
 	return c.service.ActionContinue(piID, WithRecipients(to, recipient))
 }

@@ -146,6 +146,25 @@ func TestOperation_AcceptProposalWithOOBRequest(t *testing.T) {
 	})
 }
 
+func TestOperation_AcceptProposal(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("Success", func(t *testing.T) {
+		operation, err := New(provider(ctrl))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, acceptProposal),
+			nil,
+			strings.Replace(acceptProposal, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
+	})
+}
+
 func TestOperation_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
