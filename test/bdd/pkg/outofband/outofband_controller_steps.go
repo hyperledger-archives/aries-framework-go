@@ -14,6 +14,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -46,11 +47,13 @@ type ControllerSteps struct {
 	pendingRequests    map[string]*outofband.Request
 	pendingInvitations map[string]*outofband.Invitation
 	connections        map[string]string
+	didexchange        *didexsteps.ControllerSteps
 }
 
 // NewOutofbandControllerSteps creates steps for outofband with controller
 func NewOutofbandControllerSteps() *ControllerSteps {
 	return &ControllerSteps{
+		didexchange:        didexsteps.NewDIDExchangeControllerSteps(),
 		pendingRequests:    make(map[string]*outofband.Request),
 		pendingInvitations: make(map[string]*outofband.Invitation),
 		connections:        make(map[string]string),
@@ -60,6 +63,7 @@ func NewOutofbandControllerSteps() *ControllerSteps {
 // SetContext sets every scenario with a fresh context
 func (s *ControllerSteps) SetContext(ctx *context.BDDContext) {
 	s.bddContext = ctx
+	s.didexchange.SetContext(s.bddContext)
 }
 
 // RegisterSteps registers agent steps
@@ -74,7 +78,19 @@ func (s *ControllerSteps) RegisterSteps(suite *godog.Suite) {
 		`^"([^"]*)" sends the invitation to "([^"]*)" through an out-of-band channel \(controller\)$`, s.sendInvitationThruOOBChannel)
 	suite.Step(`^"([^"]*)" accepts the request and connects with "([^"]*)" \(controller\)$`, s.acceptRequestAndConnect)
 	suite.Step(`^"([^"]*)" accepts the invitation and connects with "([^"]*)" \(controller\)$`, s.acceptInvitationAndConnect)
-	suite.Step(`^"([^"]*)" and "([^"]*)" confirm their connection \(controller\)$`, s.ConfirmConnections)
+	suite.Step(`^"([^"]*)" and "([^"]*)" have a connection \(controller\)$`, s.CheckConnection)
+}
+
+// CheckConnection checks a connection between agents
+func (s *ControllerSteps) CheckConnection(receiverID, senderID string) error {
+	_, err := s.GetConnection(receiverID, senderID)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.GetConnection(senderID, receiverID)
+
+	return err
 }
 
 func (s *ControllerSteps) acceptInvitationAndConnect(receiverID, senderID string) error { // nolint: dupl
@@ -105,22 +121,20 @@ func (s *ControllerSteps) acceptInvitationAndConnect(receiverID, senderID string
 
 	s.connections[receiverID+senderID] = res.ConnectionID
 
-	return s.didExchangeApproveRequest(receiverID, senderID)
+	return s.DidExchangeApproveRequest(receiverID, senderID)
 }
 
-func (s *ControllerSteps) didExchangeApproveRequest(receiverID, senderID string) error {
-	ds := didexsteps.NewDIDExchangeControllerSteps()
-	ds.SetContext(s.bddContext)
-
-	if err := ds.ApproveRequest(senderID); err != nil {
+// DidExchangeApproveRequest approves request (didexchange)
+func (s *ControllerSteps) DidExchangeApproveRequest(receiverID, senderID string) error {
+	if err := s.didexchange.ApproveRequest(senderID); err != nil {
 		return fmt.Errorf("approve request: %w", err)
 	}
 
-	if err := ds.WaitForPostEvent(receiverID, stateCompleted); err != nil {
+	if err := s.didexchange.WaitForPostEvent(receiverID, stateCompleted); err != nil {
 		return fmt.Errorf("wait for post event: %w", err)
 	}
 
-	return ds.WaitForPostEvent(senderID, stateCompleted)
+	return s.didexchange.WaitForPostEvent(senderID, stateCompleted)
 }
 
 func (s *ControllerSteps) sendInvitationThruOOBChannel(sender, receiver string) error {
@@ -163,14 +177,8 @@ func (s *ControllerSteps) newInvitation(agentID string) (*outofband.Invitation, 
 	return res.Invitation, sendHTTP(http.MethodPost, controllerURL+createInvitation, req, &res)
 }
 
-// ConfirmConnections confirms the connection between the sender and receiver is at the given status.
-func (s *ControllerSteps) ConfirmConnections(senderID, receiverID string) error {
-	_, err := s.getConnection(receiverID, senderID)
-
-	return err
-}
-
-func (s *ControllerSteps) getConnection(receiverID, senderID string) (*didexchange.Connection, error) {
+// GetConnection returns a connection between agents
+func (s *ControllerSteps) GetConnection(receiverID, senderID string) (*didexchange.Connection, error) {
 	controllerURL, ok := s.bddContext.GetControllerURL(receiverID)
 	if !ok {
 		return nil, fmt.Errorf("unable to find controller URL registered for agent [%s]", receiverID)
@@ -183,13 +191,13 @@ func (s *ControllerSteps) getConnection(receiverID, senderID string) (*didexchan
 		return nil, fmt.Errorf("failed to query connections: %w", err)
 	}
 
-	for _, conn := range response.Results {
-		if conn.State != stateCompleted {
+	for _, c := range response.Results {
+		if c.State != stateCompleted {
 			continue
 		}
 
-		if conn.ConnectionID == s.connections[receiverID+senderID] {
-			return conn, nil
+		if c.TheirLabel == senderID {
+			return c, nil
 		}
 	}
 
@@ -224,11 +232,11 @@ func (s *ControllerSteps) acceptRequestAndConnect(receiverID, senderID string) e
 
 	s.connections[receiverID+senderID] = res.ConnectionID
 
-	return s.didExchangeApproveRequest(receiverID, senderID)
+	return s.DidExchangeApproveRequest(receiverID, senderID)
 }
 
 func (s *ControllerSteps) constructOOBRequestWithNoAttachments(agentID string) error {
-	req, err := s.newRequest(agentID)
+	req, err := s.NewRequest(agentID)
 	if err != nil {
 		return fmt.Errorf("failed to create an out-of-bound request : %w", err)
 	}
@@ -252,7 +260,8 @@ func (s *ControllerSteps) sendRequestThruOOBChannel(senderID, receiverID string)
 	return nil
 }
 
-func (s *ControllerSteps) newRequest(agentID string) (*outofband.Request, error) {
+// NewRequest creates a new request
+func (s *ControllerSteps) NewRequest(agentID string) (*outofband.Request, error) {
 	controllerURL, ok := s.bddContext.GetControllerURL(agentID)
 	if !ok {
 		return nil, fmt.Errorf("unable to find controller URL registered for agent [%s]", agentID)
@@ -276,6 +285,44 @@ func (s *ControllerSteps) newRequest(agentID string) (*outofband.Request, error)
 	res := outofbandcmd.CreateRequestResponse{}
 
 	return res.Request, sendHTTP(http.MethodPost, controllerURL+createRequest, req, &res)
+}
+
+// ConnectAll connects all agents to each other.
+// 'agents' is a comma-separated string of agent identifiers.
+func (s *ControllerSteps) ConnectAll(agents string) error {
+	all := strings.Split(agents, ",")
+
+	for i := 0; i < len(all)-1; i++ {
+		inviter := all[i]
+
+		err := s.constructOOBInvitation(inviter)
+		if err != nil {
+			return err
+		}
+
+		for j := i + 1; j < len(all); j++ {
+			invitee := all[j]
+
+			// send outofband invitation to invitee
+			err = s.sendInvitationThruOOBChannel(inviter, invitee)
+			if err != nil {
+				return err
+			}
+
+			// invitee accepts outofband invitation
+			err = s.acceptInvitationAndConnect(invitee, inviter)
+			if err != nil {
+				return err
+			}
+
+			_, err = s.GetConnection(inviter, invitee)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func sendHTTP(method, destination string, message []byte, result interface{}) error {
