@@ -189,6 +189,7 @@ func features() []feature {
 		mediator.NewRouteRESTSteps(),
 		verifiable.NewVerifiableCredentialSDKSteps(),
 		outofband.NewOutOfBandSDKSteps(),
+		outofband.NewOutofbandControllerSteps(),
 		presentproof.NewPresentProofSDKSteps(),
 		presentproof.NewPresentProofControllerSteps(),
 		redeemableroutes.NewBDDSteps(),

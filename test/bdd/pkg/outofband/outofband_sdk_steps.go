@@ -51,15 +51,15 @@ func (sdk *SDKSteps) SetContext(ctx *context.BDDContext) {
 // RegisterSteps registers the BDD steps on the suite.
 func (sdk *SDKSteps) RegisterSteps(suite *godog.Suite) {
 	suite.Step(
-		`^"([^"]*)" constructs an out-of-band request with no attachments`, sdk.constructOOBRequestWithNoAttachments)
-	suite.Step(`^"([^"]*)" constructs an out-of-band invitation`, sdk.constructOOBInvitation)
+		`^"([^"]*)" constructs an out-of-band request with no attachments$`, sdk.constructOOBRequestWithNoAttachments)
+	suite.Step(`^"([^"]*)" constructs an out-of-band invitation$`, sdk.constructOOBInvitation)
 	suite.Step(
-		`^"([^"]*)" sends the request to "([^"]*)" through an out-of-band channel`, sdk.sendRequestThruOOBChannel)
+		`^"([^"]*)" sends the request to "([^"]*)" through an out-of-band channel$`, sdk.sendRequestThruOOBChannel)
 	suite.Step(
-		`^"([^"]*)" sends the invitation to "([^"]*)" through an out-of-band channel`, sdk.sendInvitationThruOOBChannel)
-	suite.Step(`^"([^"]*)" accepts the request and connects with "([^"]*)"`, sdk.acceptRequestAndConnect)
-	suite.Step(`^"([^"]*)" accepts the invitation and connects with "([^"]*)"`, sdk.acceptInvitationAndConnect)
-	suite.Step(`^"([^"]*)" and "([^"]*)" confirm their connection is "([^"]*)"`, sdk.ConfirmConnections)
+		`^"([^"]*)" sends the invitation to "([^"]*)" through an out-of-band channel$`, sdk.sendInvitationThruOOBChannel)
+	suite.Step(`^"([^"]*)" accepts the request and connects with "([^"]*)"$`, sdk.acceptRequestAndConnect)
+	suite.Step(`^"([^"]*)" accepts the invitation and connects with "([^"]*)"$`, sdk.acceptInvitationAndConnect)
+	suite.Step(`^"([^"]*)" and "([^"]*)" confirm their connection is "([^"]*)"$`, sdk.ConfirmConnections)
 }
 
 func (sdk *SDKSteps) constructOOBRequestWithNoAttachments(agentID string) error {
