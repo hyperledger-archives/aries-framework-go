@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 import {newAries, newAriesREST} from "../common.js"
 import {environment} from "../environment.js"
 
-const routerHttpUrl = `${environment.HTTP_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_HTTP_INBOUND_PORT}`
-const routerWsUrl = `${environment.WS_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_WS_INBOUND_PORT}`
 const routerControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_API_PORT}`
 
 const routerConnPath = "/connections"
@@ -91,10 +89,9 @@ export const didExchangeClient = class {
         var response = await this.agent1.didexchange.createInvitation()
         this.validateInvitation(response.invitation)
         // accept invitation in agent 2
-        await this.acceptInvitation(this.agent2, response.invitation)
+        this.acceptInvitation(this.agent2, response.invitation)
         // wait for connection 'completed' in both the agents
-        let connections = await Promise.all([this.watchForConnection(this.agent1), this.watchForConnection(this.agent2)])
-        return [connections[0].ConnectionID, connections[1].ConnectionID];
+        return await Promise.all([this.watchForConnection(this.agent1, states.completed), this.watchForConnection(this.agent2, states.completed)])
     }
 
     async destroy(){
@@ -126,44 +123,17 @@ export const didExchangeClient = class {
         assert.equal(invitation["@type"], "https://didcomm.org/didexchange/1.0/invitation")
     }
 
-    acceptInvitation(agent, invitation) {
-        if (this.mode === restMode){
+    async acceptInvitation(agent, invitation) {
+        if (this.mode === restMode) {
             return agent.didexchange.receiveInvitation(invitation)
         }
 
-        return new Promise((resolve, reject) => {
-            const timer = setTimeout(_ => reject(new Error("time out while accepting invitation")), 10000)
-            const stop = agent.startNotifier(notice => {
-                try {
-                    assert.isFalse(notice.isErr)
-                    assert.property(notice, "payload")
-                    const connection = notice.payload
-                    assert.property(connection, "connection_id")
-                    agent.didexchange.acceptInvitation({
-                        id: connection.connection_id
-                    })
-                    stop()
-                    resolve(connection)
-                } catch (err) {
-                    reject(err)
-                }
-            }, ["connections"])
-            agent.didexchange.receiveInvitation(invitation)
+        await agent.didexchange.receiveInvitation(invitation)
+
+        let conn = await this.watchForConnection(agent, "invited")
+        return agent.didexchange.acceptInvitation({
+            id: conn
         })
-    }
-
-
-    async watchForConnectionREST(agent) {
-        for (let i =0;i<10;i++){
-            let res = await agent.didexchange.queryConnections()
-            if ((Object.keys(res).length !== 0)){
-                return res.results[0]
-            }
-
-            await sleep(1000)
-        }
-
-        throw new Error("no connection")
     }
 
     async acceptExchangeRequest(agent){
@@ -174,10 +144,6 @@ export const didExchangeClient = class {
     }
 
     watchForConnection(agent, state) {
-        if (this.mode === restMode){
-            return this.watchForConnectionREST(agent)
-        }
-
         return new Promise((resolve, reject) => {
             const timer = setTimeout(_ => reject(new Error("time out while waiting for connection")), 5000)
             const stop = agent.startNotifier(notice => {
@@ -244,8 +210,4 @@ export async function newDIDExchangeRESTClient(agentURL1, agentURL2) {
     await Promise.all([newAriesREST(agentURL1), newAriesREST(agentURL2)]).then(init).catch(err => new Error(err.message));
 
     return new didExchangeClient(aries1, aries2, restMode)
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
 }

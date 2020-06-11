@@ -150,14 +150,46 @@ const pkgs = {
         GetPresentation: {
             path: "/verifiable/presentation/{id}",
             method: "GET",
-            pathParam:"id"
+            pathParam: "id"
         },
         GetPresentations: {
             path: "/verifiable/presentations",
             method: "GET",
         },
     },
-    issuecredential:{
+    outofband: {
+        Actions: {
+            path: "/outofband/actions",
+            method: "GET"
+        },
+        ActionContinue: {
+            path: "/outofband/{piid}/action-continue",
+            method: "POST",
+            pathParam: "piid"
+        },
+        ActionStop: {
+            path: "/outofband/{piid}/action-stop",
+            method: "POST",
+            pathParam: "piid"
+        },
+        CreateRequest: {
+            path: "/outofband/create-request",
+            method: "POST",
+        },
+        CreateInvitation: {
+            path: "/outofband/create-invitation",
+            method: "POST",
+        },
+        AcceptRequest: {
+            path: "/outofband/accept-request",
+            method: "POST",
+        },
+        AcceptInvitation: {
+            path: "/outofband/accept-invitation",
+            method: "POST",
+        },
+    },
+    issuecredential: {
         Actions: {
             path: "/issuecredential/actions",
             method: "GET",

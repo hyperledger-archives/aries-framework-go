@@ -197,6 +197,82 @@ const Aries = function (opts) {
         },
 
         /**
+         * Outofband methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
+        outofband: {
+            pkgname: "outofband",
+            /**
+             * Actions returns pending actions that have not yet to be executed or canceled.
+             *
+             * @returns {Promise<Object>}
+             */
+            actions: async function () {
+                return invoke(aw, pending, this.pkgname, "Actions", null, "timeout while getting actions")
+            },
+
+            /**
+             * ActionContinue allows continuing with the protocol after an action event was triggered
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            actionContinue: async function (req) {
+                return invoke(aw, pending, this.pkgname, "ActionContinue", req, "timeout action continue")
+            },
+
+            /**
+             * ActionStop stops the protocol after an action event was triggered
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            actionStop: async function (req) {
+                return invoke(aw, pending, this.pkgname, "ActionStop", req, "timeout action continue")
+            },
+
+            /**
+             * CreateRequest creates and saves an Out-Of-Band request message.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            createRequest: async function (req) {
+                return invoke(aw, pending, this.pkgname, "CreateRequest", req, "timeout while creating a request")
+            },
+
+            /**
+             * AcceptRequest from another agent and return the ID of a new connection record.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptRequest: async function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptRequest", req, "timeout while accepting a request")
+            },
+
+            /**
+             * CreateInvitation creates and saves an out-of-band invitation.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            createInvitation: async function (req) {
+                return invoke(aw, pending, this.pkgname, "CreateInvitation", req, "timeout while creating an invitation")
+            },
+
+            /**
+             * AcceptInvitation from another agent and return the ID of the new connection records.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptInvitation: async function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptInvitation", req, "timeout while accepting an invitation")
+            },
+        },
+
+        /**
          * Issue Credential methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
          * input params and output return json values.
          */
