@@ -79,7 +79,7 @@ func (km *ecdhesPublicKeyManager) Primitive(serializedKey []byte) (interface{}, 
 		recipientsKeys = append(recipientsKeys, pub)
 	}
 
-	rEnc, err := newRegisterECDHESAEADEncHelper(ecdhesPubKey.Params.EncParams.AeadEnc)
+	rEnc, err := composite.NewRegisterCompositeAEADEncHelper(ecdhesPubKey.Params.EncParams.AeadEnc)
 	if err != nil {
 		return nil, err
 	}

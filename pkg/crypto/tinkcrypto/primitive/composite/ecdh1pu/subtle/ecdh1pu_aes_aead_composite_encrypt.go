@@ -20,22 +20,22 @@ import (
 // the JWA specification: https://tools.ietf.org/html/rfc7518#section-5.1
 const A256GCM = "A256GCM"
 
-// ECDHESAEADCompositeEncrypt is an instance of ECDH-ES encryption with Concat KDF
+// ECDH1PUAEADCompositeEncrypt is an instance of ECDH-ES encryption with Concat KDF
 // and AEAD content encryption
-type ECDHESAEADCompositeEncrypt struct {
+type ECDH1PUAEADCompositeEncrypt struct {
 	recPublicKeys []*composite.PublicKey
 	pointFormat   string
 	encHelper     composite.EncrypterHelper
 	keyType       commonpb.KeyType
 }
 
-var _ api.CompositeEncrypt = (*ECDHESAEADCompositeEncrypt)(nil)
+var _ api.CompositeEncrypt = (*ECDH1PUAEADCompositeEncrypt)(nil)
 
-// NewECDHESAEADCompositeEncrypt returns ECDH-ES encryption construct with Concat KDF key wrapping
+// NewECDH1PUAEADCompositeEncrypt returns ECDH-ES encryption construct with Concat KDF key wrapping
 // and AEAD content encryption
-func NewECDHESAEADCompositeEncrypt(recipientsKeys []*composite.PublicKey, ptFormat string,
-	encHelper composite.EncrypterHelper, keyType commonpb.KeyType) *ECDHESAEADCompositeEncrypt {
-	return &ECDHESAEADCompositeEncrypt{
+func NewECDH1PUAEADCompositeEncrypt(recipientsKeys []*composite.PublicKey, ptFormat string,
+	encHelper composite.EncrypterHelper, keyType commonpb.KeyType) *ECDH1PUAEADCompositeEncrypt {
+	return &ECDH1PUAEADCompositeEncrypt{
 		recPublicKeys: recipientsKeys,
 		pointFormat:   ptFormat,
 		encHelper:     encHelper,
@@ -43,10 +43,10 @@ func NewECDHESAEADCompositeEncrypt(recipientsKeys []*composite.PublicKey, ptForm
 	}
 }
 
-// Encrypt using composite ECDH-ES with a Concat KDF key wrap and AEAD content encryption
-func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, error) {
+// Encrypt using composite ECDH-1PU with a 1PU KDF key wrap and AEAD content encryption
+func (e *ECDH1PUAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, error) {
 	if len(e.recPublicKeys) == 0 {
-		return nil, fmt.Errorf("ECDHESAEADCompositeEncrypt: missing recipients public keys for key wrapping")
+		return nil, fmt.Errorf("ECDH1PUAEADCompositeEncrypt: missing recipients public keys for key wrapping")
 	}
 
 	var eAlg, kwAlg string
@@ -57,7 +57,7 @@ func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, err
 		eAlg = A256GCM
 		kwAlg = A256KWAlg
 	default:
-		return nil, fmt.Errorf("ECDHESAEADCompositeEncrypt: bad key type: '%s'", e.keyType)
+		return nil, fmt.Errorf("ECDH1PUAEADCompositeEncrypt: bad key type: '%s'", e.keyType)
 	}
 
 	keySize := e.encHelper.GetSymmetricKeySize()
@@ -68,7 +68,7 @@ func (e *ECDHESAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, err
 	var singleRecipientAAD []byte
 
 	for _, rec := range e.recPublicKeys {
-		senderKW := &ECDHESConcatKDFSenderKW{
+		senderKW := &ECDH1PUConcatKDFSenderKW{
 			recipientPublicKey: rec,
 			cek:                cek,
 		}

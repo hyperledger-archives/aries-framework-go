@@ -16,6 +16,7 @@ import (
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
 	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
@@ -62,7 +63,7 @@ func (km *ecdhesAESPrivateKeyManager) Primitive(serializedKey []byte) (interface
 
 	pvt := hybrid.GetECPrivateKey(curve, key.KeyValue)
 
-	rEnc, err := newRegisterECDHESAEADEncHelper(key.PublicKey.Params.EncParams.AeadEnc)
+	rEnc, err := composite.NewRegisterCompositeAEADEncHelper(key.PublicKey.Params.EncParams.AeadEnc)
 	if err != nil {
 		return nil, err
 	}

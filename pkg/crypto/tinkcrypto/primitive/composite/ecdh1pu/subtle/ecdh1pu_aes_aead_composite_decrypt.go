@@ -16,23 +16,23 @@ import (
 	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 )
 
-// package subtle provides the core crypto primitives to be used by ECDH-ES composite primitives. It is intended for
+// package subtle provides the core crypto primitives to be used by ECDH-1PU composite primitives. It is intended for
 // internal use only.
 
-// ECDHESAEADCompositeDecrypt is an instance of ECDH-ES decryption with Concat KDF
+// ECDH1PUAEADCompositeDecrypt is an instance of ECDH-1PU decryption with Concat KDF
 // and AEAD content decryption
-type ECDHESAEADCompositeDecrypt struct {
+type ECDH1PUAEADCompositeDecrypt struct {
 	privateKey  *hybrid.ECPrivateKey
 	pointFormat string
 	encHelper   composite.EncrypterHelper
 	keyType     commonpb.KeyType
 }
 
-// NewECDHESAEADCompositeDecrypt returns ECDH-ES composite decryption construct with Concat KDF/ECDH-ES key unwrapping
+// NewECDH1PUAEADCompositeDecrypt returns ECDH-ES composite decryption construct with Concat KDF/ECDH-1PU key unwrapping
 // and AEAD payload decryption.
-func NewECDHESAEADCompositeDecrypt(pvt *hybrid.ECPrivateKey, ptFormat string, encHelper composite.EncrypterHelper,
-	keyType commonpb.KeyType) *ECDHESAEADCompositeDecrypt {
-	return &ECDHESAEADCompositeDecrypt{
+func NewECDH1PUAEADCompositeDecrypt(pvt *hybrid.ECPrivateKey, ptFormat string, encHelper composite.EncrypterHelper,
+	keyType commonpb.KeyType) *ECDH1PUAEADCompositeDecrypt {
+	return &ECDH1PUAEADCompositeDecrypt{
 		privateKey:  pvt,
 		pointFormat: ptFormat,
 		encHelper:   encHelper,
@@ -41,9 +41,9 @@ func NewECDHESAEADCompositeDecrypt(pvt *hybrid.ECPrivateKey, ptFormat string, en
 }
 
 // Decrypt using composite ECDH-ES with a Concat KDF key unwrap and AEAD content decryption
-func (d *ECDHESAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, error) {
+func (d *ECDH1PUAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, error) {
 	if d.privateKey == nil {
-		return nil, fmt.Errorf("ECDHESAEADCompositeDecrypt: missing recipient private key for key unwrapping")
+		return nil, fmt.Errorf("ECDH1PUAEADCompositeDecrypt: missing recipient private key for key unwrapping")
 	}
 
 	keySize := d.encHelper.GetSymmetricKeySize()
@@ -68,7 +68,7 @@ func (d *ECDHESAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, er
 	}
 
 	for _, rec := range encData.Recipients {
-		recipientKW := &ECDHESConcatKDFRecipientKW{
+		recipientKW := &ECDH1PUConcatKDFRecipientKW{
 			recipientPrivateKey: d.privateKey,
 		}
 
@@ -80,7 +80,7 @@ func (d *ECDHESAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, er
 	}
 
 	if cek == nil {
-		return nil, fmt.Errorf("ecdh-es decrypt: cek unwrap failed for all recipients keys")
+		return nil, fmt.Errorf("ecdh-1pu decrypt: cek unwrap failed for all recipients keys")
 	}
 
 	aead, err := d.encHelper.GetAEAD(cek)

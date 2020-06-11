@@ -20,6 +20,7 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
@@ -108,7 +109,7 @@ func TestECDHESPublicKeyManager_Primitive(t *testing.T) {
 			curveType: commonpb.EllipticCurveType_NIST_P256,
 			ecPtFmt:   commonpb.EcPointFormat_COMPRESSED,
 			encTmp: &tinkpb.KeyTemplate{
-				TypeUrl:          aesGCMTypeURL,
+				TypeUrl:          composite.AESGCMTypeURL,
 				Value:            badSerializedFormat,
 				OutputPrefixType: tinkpb.OutputPrefixType_RAW,
 			},

@@ -36,7 +36,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		IVSizeValue:  subtleaead.AESGCMIVSize,
 	}
 
-	cEnc := NewECDHESAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	cEnc := NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	pt := []byte("secret message")
@@ -46,7 +46,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, privKey := range recipientsPrivKeys {
-		dEnc := NewECDHESAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
+		dEnc := NewECDH1PUAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
 			compositepb.KeyType_EC)
 
 		dpt, err := dEnc.Decrypt(ct, aad)
@@ -70,17 +70,17 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	aad := []byte("aad message")
 
 	// test with empty recipients public keys
-	cEnc := NewECDHESAEADCompositeEncrypt(nil, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	cEnc := NewECDH1PUAEADCompositeEncrypt(nil, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	// Encrypt should fail with empty recipients public keys
 	_, err := cEnc.Encrypt(pt, aad)
-	require.EqualError(t, err, "ECDHESAEADCompositeEncrypt: missing recipients public keys for key wrapping")
+	require.EqualError(t, err, "ECDH1PUAEADCompositeEncrypt: missing recipients public keys for key wrapping")
 
 	// test with large key size
 	mEncHelper.KeySizeValue = 100
 
-	cEnc = NewECDHESAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	cEnc = NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	// Encrypt should fail with large AEAD key size value
@@ -93,7 +93,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	cEnc.keyType = compositepb.KeyType_UNKNOWN_KEY_TYPE
 
 	_, err = cEnc.Encrypt(pt, aad)
-	require.EqualError(t, err, fmt.Sprintf("ECDHESAEADCompositeEncrypt: bad key type: '%s'",
+	require.EqualError(t, err, fmt.Sprintf("ECDH1PUAEADCompositeEncrypt: bad key type: '%s'",
 		compositepb.KeyType_UNKNOWN_KEY_TYPE))
 
 	cEnc.keyType = compositepb.KeyType_EC
@@ -101,7 +101,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	// test with GetAEAD() returning error
 	mEncHelper.AEADErrValue = fmt.Errorf("error from GetAEAD")
 
-	cEnc = NewECDHESAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	cEnc = NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	// Encrypt should fail with large AEAD key size value
@@ -111,7 +111,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	mEncHelper.AEADErrValue = nil
 
 	// create a valid ciphertext to test Decrypt for all recipients
-	cEnc = NewECDHESAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	cEnc = NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	// test with empty plaintext
@@ -132,27 +132,27 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 
 	for _, privKey := range recipientsPrivKeys {
 		// test with nil recipient private key
-		dEnc := NewECDHESAEADCompositeDecrypt(nil, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
+		dEnc := NewECDH1PUAEADCompositeDecrypt(nil, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
 			compositepb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
-		require.EqualError(t, err, "ECDHESAEADCompositeDecrypt: missing recipient private key for key"+
+		require.EqualError(t, err, "ECDH1PUAEADCompositeDecrypt: missing recipient private key for key"+
 			" unwrapping")
 
 		// test with large key size
 		mEncHelper.KeySizeValue = 100
-		dEnc = NewECDHESAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
+		dEnc = NewECDH1PUAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
 			compositepb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
-		require.EqualError(t, err, "ecdh-es decrypt: cek unwrap failed for all recipients keys")
+		require.EqualError(t, err, "ecdh-1pu decrypt: cek unwrap failed for all recipients keys")
 
 		mEncHelper.KeySizeValue = 32
 
 		// test with GetAEAD() returning error
 		mEncHelper.AEADErrValue = fmt.Errorf("error from GetAEAD")
 
-		dEnc = NewECDHESAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
+		dEnc = NewECDH1PUAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
 			compositepb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
@@ -161,7 +161,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 		mEncHelper.AEADErrValue = nil
 
 		// create a valid Decrypt message and test against ct
-		dEnc = NewECDHESAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
+		dEnc = NewECDH1PUAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
 			compositepb.KeyType_EC)
 
 		// try decrypting empty ct
@@ -203,7 +203,7 @@ func TestEncryptDecryptWithSingleRecipient(t *testing.T) {
 	aad := []byte("aad message")
 
 	// test with single recipient public key
-	cEnc := NewECDHESAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	cEnc := NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	errMsg := "error merge recipient headers"
@@ -226,7 +226,7 @@ func TestEncryptDecryptWithSingleRecipient(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, privKey := range recipientsPrivKeys {
-		dEnc := NewECDHESAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
+		dEnc := NewECDH1PUAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
 			compositepb.KeyType_EC)
 
 		dpt, err := dEnc.Decrypt(ct, encData.SingleRecipientAAD)
