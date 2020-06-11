@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package ecdhes
+package ecdh1pu
 
 import (
 	"crypto/elliptic"
@@ -22,23 +22,23 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
-	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
+	ecdh1pupb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh1pu_aead_go_proto"
 )
 
-func TestECDHESPublicKeyManager_Primitive(t *testing.T) {
-	km := newECDHESPublicKeyManager()
+func TestECDH1PUPublicKeyManager_Primitive(t *testing.T) {
+	km := newECDH1PUPublicKeyManager()
 
 	t.Run("Test public key manager Primitive() with empty serialized key", func(t *testing.T) {
 		p, err := km.Primitive([]byte(""))
-		require.EqualError(t, err, errInvalidECDHESAESPublicKey.Error(),
-			"ECDHESPublic primitive from empty serialized key must fail")
+		require.EqualError(t, err, errInvalidECDH1PUAESPublicKey.Error(),
+			"ECDH1PUPublic primitive from empty serialized key must fail")
 		require.Empty(t, p)
 	})
 
 	t.Run("Test public key manager Primitive() with bad serialize key", func(t *testing.T) {
 		p, err := km.Primitive([]byte("bad.data"))
-		require.EqualError(t, err, errInvalidECDHESAESPublicKey.Error(),
-			"ECDHESPublic primitive from bad serialized key must fail")
+		require.EqualError(t, err, errInvalidECDH1PUAESPublicKey.Error(),
+			"ECDH1PUPublic primitive from bad serialized key must fail")
 		require.Empty(t, p)
 	})
 
@@ -65,7 +65,7 @@ func TestECDHESPublicKeyManager_Primitive(t *testing.T) {
 		curveType  commonpb.EllipticCurveType
 		ecPtFmt    commonpb.EcPointFormat
 		encTmp     *tinkpb.KeyTemplate
-		recipients []*ecdhespb.EcdhesAeadRecipientPublicKey
+		recipients []*ecdh1pupb.Ecdh1PuAeadRecipientPublicKey
 	}{
 		{
 			tcName:     "public key manager Primitive() using key with bad version",
@@ -149,14 +149,14 @@ func TestECDHESPublicKeyManager_Primitive(t *testing.T) {
 				c = tt.curveType
 			}
 
-			pubKeyProto := &ecdhespb.EcdhesAeadPublicKey{
+			pubKeyProto := &ecdh1pupb.Ecdh1PuAeadPublicKey{
 				Version: v, // if v > 0  to force an error when calling km.Primitive()
-				Params: &ecdhespb.EcdhesAeadParams{
-					KwParams: &ecdhespb.EcdhesKwParams{
+				Params: &ecdh1pupb.Ecdh1PuAeadParams{
+					KwParams: &ecdh1pupb.Ecdh1PuKwParams{
 						CurveType:  c, // unknown curve type to force an error when calling km.Primitive()
 						Recipients: recipientsKeys,
 					},
-					EncParams: &ecdhespb.EcdhesAeadEncParams{
+					EncParams: &ecdh1pupb.Ecdh1PuAeadEncParams{
 						AeadEnc: encT, // invalid data enc key template to force an error when calling km.Primitive()
 					},
 					EcPointFormat: ptFmt, // unknown EC Pint format type to force an error when calling km.Primitive()
@@ -170,8 +170,8 @@ func TestECDHESPublicKeyManager_Primitive(t *testing.T) {
 
 			p, err := km.Primitive(sPubKey)
 			if strings.Contains(tt.tcName, "with bad content encryption key size") {
-				require.EqualError(t, err, errInvalidECDHESAESPublicKey.Error(),
-					"ECDHESPublic primitive from serialized key with invalid serialized key")
+				require.EqualError(t, err, errInvalidECDH1PUAESPublicKey.Error(),
+					"ECDH1PUPublic primitive from serialized key with invalid serialized key")
 				require.Empty(t, p)
 
 				return
@@ -189,7 +189,7 @@ func TestECDHESPublicKeyManager_Primitive(t *testing.T) {
 	}
 }
 
-func generateBadRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKey {
+func generateBadRecipients(t *testing.T) []*ecdh1pupb.Ecdh1PuAeadRecipientPublicKey {
 	recipients := generateRecipients(t)
 
 	for _, rec := range recipients {
@@ -199,7 +199,7 @@ func generateBadRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKe
 	return recipients
 }
 
-func generateRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKey {
+func generateRecipients(t *testing.T) []*ecdh1pupb.Ecdh1PuAeadRecipientPublicKey {
 	t.Helper()
 
 	curvProto := commonpb.EllipticCurveType_NIST_P256
@@ -215,7 +215,7 @@ func generateRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKey {
 	recipient3Priv, err := hybrid.GenerateECDHKeyPair(curve)
 	require.NoError(t, err)
 
-	return []*ecdhespb.EcdhesAeadRecipientPublicKey{
+	return []*ecdh1pupb.Ecdh1PuAeadRecipientPublicKey{
 		{
 			Version:   0,
 			KeyType:   compositepb.KeyType_EC,
@@ -240,24 +240,24 @@ func generateRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKey {
 	}
 }
 
-func TestEcdhesPublicKeyManager_DoesSupport(t *testing.T) {
-	km := newECDHESPublicKeyManager()
+func TestEcdh1puPublicKeyManager_DoesSupport(t *testing.T) {
+	km := newECDH1PUPublicKeyManager()
 	require.False(t, km.DoesSupport("bad/url"))
-	require.True(t, km.DoesSupport(ecdhesAESPublicKeyTypeURL))
+	require.True(t, km.DoesSupport(ecdh1puAESPublicKeyTypeURL))
 }
 
-func TestEcdhesPublicKeyManager_NewKeyAndNewKeyData(t *testing.T) {
-	km := newECDHESPublicKeyManager()
+func TestEcdh1puPublicKeyManager_NewKeyAndNewKeyData(t *testing.T) {
+	km := newECDH1PUPublicKeyManager()
 
 	t.Run("Test public key manager NewKey()", func(t *testing.T) {
 		k, err := km.NewKey(nil)
-		require.EqualError(t, err, "ecdhes_aes_public_key_manager: NewKey not implemented")
+		require.EqualError(t, err, "ecdh1pu_aes_public_key_manager: NewKey not implemented")
 		require.Empty(t, k)
 	})
 
 	t.Run("Test private key manager NewKeyData()", func(t *testing.T) {
 		p, err := km.NewKeyData(nil)
-		require.EqualError(t, err, "ecdhes_aes_public_key_manager: NewKeyData not implemented")
+		require.EqualError(t, err, "ecdh1pu_aes_public_key_manager: NewKeyData not implemented")
 		require.Empty(t, p)
 	})
 }

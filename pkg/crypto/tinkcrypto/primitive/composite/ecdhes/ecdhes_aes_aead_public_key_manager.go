@@ -8,6 +8,7 @@ package ecdhes
 
 import (
 	"crypto/elliptic"
+	"errors"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
@@ -28,7 +29,7 @@ const (
 )
 
 // common errors
-var errInvalidECDHESAESPublicKey = fmt.Errorf("ecdhes_aes_public_key_manager: invalid key")
+var errInvalidECDHESAESPublicKey = errors.New("ecdhes_aes_public_key_manager: invalid key")
 
 // ecdhesPublicKeyManager is an implementation of KeyManager interface.
 // It generates new ECDHESPublicKey (AES) keys and produces new instances of ECDHESAEADCompositeEncrypt subtle.
@@ -81,7 +82,8 @@ func (km *ecdhesPublicKeyManager) Primitive(serializedKey []byte) (interface{}, 
 
 	rEnc, err := composite.NewRegisterCompositeAEADEncHelper(ecdhesPubKey.Params.EncParams.AeadEnc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ecdhes_aes_public_key_manager: NewRegisterCompositeAEADEncHelper "+
+			"failed: %w", err)
 	}
 
 	ptFormat := ecdhesPubKey.Params.EcPointFormat.String()
@@ -101,19 +103,19 @@ func (km *ecdhesPublicKeyManager) TypeURL() string {
 
 // NewKey is not implemented for public key manager.
 func (km *ecdhesPublicKeyManager) NewKey(serializedKeyFormat []byte) (proto.Message, error) {
-	return nil, fmt.Errorf("ecdhes_public_key_manager: NewKey not implemented")
+	return nil, errors.New("ecdhes_aes_public_key_manager: NewKey not implemented")
 }
 
 // NewKeyData is not implemented for public key manager.
 func (km *ecdhesPublicKeyManager) NewKeyData(serializedKeyFormat []byte) (*tinkpb.KeyData, error) {
-	return nil, fmt.Errorf("ecdhes_public_key_manager: NewKeyData not implemented")
+	return nil, errors.New("ecdhes_aes_public_key_manager: NewKeyData not implemented")
 }
 
 // validateKey validates the given ECDHESPublicKey.
 func (km *ecdhesPublicKeyManager) validateKey(key *ecdhespb.EcdhesAeadPublicKey) (elliptic.Curve, error) {
 	err := keyset.ValidateKeyVersion(key.Version, ecdhesAESPublicKeyVersion)
 	if err != nil {
-		return nil, fmt.Errorf("ecdhes_publie_key_manager: invalid key: %s", err)
+		return nil, fmt.Errorf("ecdhes_aes_publie_key_manager: invalid key: %w", err)
 	}
 
 	return validateKeyFormat(key.Params)
@@ -123,17 +125,17 @@ func (km *ecdhesPublicKeyManager) validateKey(key *ecdhespb.EcdhesAeadPublicKey)
 func (km *ecdhesPublicKeyManager) validateRecKey(key *ecdhespb.EcdhesAeadRecipientPublicKey) error {
 	err := keyset.ValidateKeyVersion(key.Version, ecdhesAESPublicKeyVersion)
 	if err != nil {
-		return fmt.Errorf("ecdhes_public_key_manager: invalid key: %s", err)
+		return fmt.Errorf("ecdhes_public_key_manager: invalid key: %w", err)
 	}
 
-	_, err = GetKeyType(key.KeyType.String())
+	_, err = composite.GetKeyType(key.KeyType.String())
 	if err != nil {
-		return err
+		return fmt.Errorf("ecdhes_aes_public_key_manager: GetKeyType error: %w", err)
 	}
 
 	_, err = hybrid.GetCurve(key.CurveType.String())
 	if err != nil {
-		return err
+		return fmt.Errorf("ecdhes_aes_public_key_manager: GetCurve error: %w", err)
 	}
 
 	return nil

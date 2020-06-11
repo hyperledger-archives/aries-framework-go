@@ -4,14 +4,14 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package ecdhes provides implementations of payload encryption using ECDH-ES KW key wrapping with AEAD primitives.
+// Package ecdh1pu provides implementations of payload encryption using ECDH-1PU KW key wrapping with AEAD primitives.
 //
-// The functionality of ecdhes Encryption is represented as a pair of
+// The functionality of ecdh1pu Encryption is represented as a pair of
 // primitives (interfaces):
 //
-//  * ECDHESEncrypt for encryption of data and aad for a given list of recipients keys
+//  * ECDH1PUEncrypt for encryption of data and aad for a given list of recipients keys
 //
-//  * ECDHESDecrypt for decryption of data for a certain recipient key and returning decrypted plaintext
+//  * ECDH1PUDecrypt for decryption of data for a certain recipient key and returning decrypted plaintext
 //
 //
 // Example:
@@ -24,12 +24,12 @@ SPDX-License-Identifier: Apache-2.0
 //      "github.com/google/tink/go/keyset"
 //
 //      "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
-//      "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+//      "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu"
 //  )
 //
 //  func main() {
 //      // create recipient side keyset handle
-//      recKH, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+//      recKH, err := keyset.NewHandle(ecdh1pu.ECDH1PU256KWAES256GCMKeyTemplate())
 //      if err != nil {
 //          //handle error
 //      }
@@ -41,7 +41,7 @@ SPDX-License-Identifier: Apache-2.0
 //      }
 //
 //      buf := new(bytes.Buffer)
-//      pubKeyWriter := ecdhes.NewWriter(buf)
+//      pubKeyWriter := ecdh1pu.NewWriter(buf)
 //      err = recPubKH.WriteWithNoSecrets(pubKeyWriter)
 //      if err != nil {
 //          //handle error
@@ -51,7 +51,7 @@ SPDX-License-Identifier: Apache-2.0
 //      err := json.Unmarshal(buf.Bytes(), ecPubKey)
 //
 //      // now create sender keyset handle with recipient public key (ecPubKey)
-//      sKH, err := keyset.NewHandle(ECDHES256KWAES256GCMKeyTemplateWithRecipients(
+//      sKH, err := keyset.NewHandle(ecdh1pu.ECDH1PU256KWAES256GCMKeyTemplateWithRecipients(
 //     		[]composite.PublicKey{*ecPubKey}))
 //      if err != nil {
 //          // handle error
@@ -66,7 +66,7 @@ SPDX-License-Identifier: Apache-2.0
 //          //handle error
 //      }
 //
-//      e := ecdhes.NewECDHESEncrypt(senderPubKH)
+//      e := ecdh1pu.NewECDH1PUEncrypt(senderPubKH)
 //
 //      ct, err = e.Encrypt([]byte("secret message"), []byte("some aad"))
 //      if err != nil {
@@ -76,14 +76,14 @@ SPDX-License-Identifier: Apache-2.0
 //      // get a handle on the decryption key material for a recipient
 //      // this is usually reloading the recipient's keyset handle (ie: `recKH` above) from a kms
 //      refRecKH , err := keyset.NewHandle( .....reference/rebuild `recKH` here...);
-//      d := ecdhes.NewECDHESDecrypt(refRecKH)
+//      d := ecdh1pu.NewECDH1PUDecrypt(refRecKH)
 //
 //      pt, err := d.Decrypt(ct)
 //      if err != nil {
 //          // handle error
 //      }
 //  }
-package ecdhes
+package ecdh1pu
 
 import (
 	"fmt"
@@ -94,14 +94,14 @@ import (
 // TODO - find a better way to setup tink than init.
 // nolint: gochecknoinits
 func init() {
-	// TODO - avoid the tink registry singleton.
-	err := registry.RegisterKeyManager(newECDHESPrivateKeyManager())
+	// TODO - avoid the tink registry singleton (if possible).
+	err := registry.RegisterKeyManager(newECDH1PUPrivateKeyManager())
 	if err != nil {
-		panic(fmt.Sprintf("ecdhes.init() failed: %v", err))
+		panic(fmt.Sprintf("ecdh1pu.init() failed: %v", err))
 	}
 
-	err = registry.RegisterKeyManager(newECDHESPublicKeyManager())
+	err = registry.RegisterKeyManager(newECDH1PUPublicKeyManager())
 	if err != nil {
-		panic(fmt.Sprintf("ecdhes.init() failed: %v", err))
+		panic(fmt.Sprintf("ecdh1pu.init() failed: %v", err))
 	}
 }

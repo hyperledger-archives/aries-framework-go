@@ -45,12 +45,12 @@ func createECDHESPublicKeys(recRawPublicKeys []composite.PublicKey) ([]*ecdhespb
 	var recKeys []*ecdhespb.EcdhesAeadRecipientPublicKey
 
 	for _, key := range recRawPublicKeys {
-		curveType, err := GetCurveType(key.Curve)
+		curveType, err := composite.GetCurveType(key.Curve)
 		if err != nil {
 			return nil, err
 		}
 
-		keyType, err := GetKeyType(key.Type)
+		keyType, err := composite.GetKeyType(key.Type)
 		if err != nil {
 			return nil, err
 		}

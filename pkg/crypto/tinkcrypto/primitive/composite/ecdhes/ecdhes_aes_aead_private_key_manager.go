@@ -8,6 +8,7 @@ package ecdhes
 
 import (
 	"crypto/elliptic"
+	"errors"
 	"fmt"
 
 	"github.com/golang/protobuf/proto"
@@ -28,8 +29,8 @@ const (
 )
 
 // common errors
-var errInvalidECDHESAESPrivateKey = fmt.Errorf("ecdhes_aes_private_key_manager: invalid key")
-var errInvalidECDHESAESPrivateKeyFormat = fmt.Errorf("ecdhes_aes_private_key_manager: invalid key format")
+var errInvalidECDHESAESPrivateKey = errors.New("ecdhes_aes_private_key_manager: invalid key")
+var errInvalidECDHESAESPrivateKeyFormat = errors.New("ecdhes_aes_private_key_manager: invalid key format")
 
 // ecdhesAESPrivateKeyManager is an implementation of PrivateKeyManager interface.
 // It generates new ECDHESPrivateKey (AES) keys and produces new instances of ECDHESAEADCompositeDecrypt subtle.
@@ -65,7 +66,8 @@ func (km *ecdhesAESPrivateKeyManager) Primitive(serializedKey []byte) (interface
 
 	rEnc, err := composite.NewRegisterCompositeAEADEncHelper(key.PublicKey.Params.EncParams.AeadEnc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ecdhes_aes_private_key_manager: NewRegisterCompositeAEADEncHelper "+
+			"failed: %w", err)
 	}
 
 	ptFormat := key.PublicKey.Params.EcPointFormat.String()
@@ -95,7 +97,7 @@ func (km *ecdhesAESPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto.
 
 	pvt, err := hybrid.GenerateECDHKeyPair(curve)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ecdhes_aes_private_key_manager: GenerateECDHKeyPair failed: %w", err)
 	}
 
 	return &ecdhespb.EcdhesAeadPrivateKey{
@@ -120,7 +122,7 @@ func (km *ecdhesAESPrivateKeyManager) NewKeyData(serializedKeyFormat []byte) (*t
 
 	serializedKey, err := proto.Marshal(key)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ecdhes_aes_private_key_manager: Proto.Marshal failed: %w", err)
 	}
 
 	return &tinkpb.KeyData{
@@ -165,7 +167,7 @@ func (km *ecdhesAESPrivateKeyManager) TypeURL() string {
 func (km *ecdhesAESPrivateKeyManager) validateKey(key *ecdhespb.EcdhesAeadPrivateKey) (elliptic.Curve, error) {
 	err := keyset.ValidateKeyVersion(key.Version, ecdhesAESPrivateKeyVersion)
 	if err != nil {
-		return nil, fmt.Errorf("ecdhes_private_key_manager: invalid key: %s", err)
+		return nil, fmt.Errorf("ecdhes_aes_private_key_manager: invalid key: %w", err)
 	}
 
 	return validateKeyFormat(key.PublicKey.Params)
@@ -175,17 +177,17 @@ func (km *ecdhesAESPrivateKeyManager) validateKey(key *ecdhespb.EcdhesAeadPrivat
 func validateKeyFormat(params *ecdhespb.EcdhesAeadParams) (elliptic.Curve, error) {
 	c, err := hybrid.GetCurve(params.KwParams.CurveType.String())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ecdhes_aes_private_key_manager: invalid key: %w", err)
 	}
 
 	km, err := registry.GetKeyManager(params.EncParams.AeadEnc.TypeUrl)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ecdhes_aes_private_key_manager: GetKeyManager error: %w", err)
 	}
 
 	_, err = km.NewKeyData(params.EncParams.AeadEnc.Value)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ecdhes_aes_private_key_manager: NewKeyData error: %w", err)
 	}
 
 	return c, nil
