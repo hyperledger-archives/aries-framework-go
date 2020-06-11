@@ -94,7 +94,7 @@ func getMarshalledECDHESKey(pubKey []byte) ([]byte, error) {
 }
 
 func getMarshalledECKey(ecPubKey *composite.PublicKey) ([]byte, error) {
-	keyType, err := GetKeyType(ecPubKey.Type)
+	keyType, err := composite.GetKeyType(ecPubKey.Type)
 	if err != nil {
 		return nil, fmt.Errorf("error on key type: %w", err)
 	}
@@ -110,7 +110,7 @@ func getMarshalledECKey(ecPubKey *composite.PublicKey) ([]byte, error) {
 		return nil, fmt.Errorf("invalid key")
 	}
 
-	curveType, err := GetCurveType(ecPubKey.Curve)
+	curveType, err := composite.GetCurveType(ecPubKey.Curve)
 	if err != nil {
 		return nil, fmt.Errorf("undefined curve type %w", err)
 	}
