@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
+	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
@@ -105,15 +106,11 @@ func (s *ControllerSteps) sendRequestPresentation(verifier, prover string) error
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
 	}
 
-	msg := map[string]interface{}{
-		"my_did":               s.did[verifier],
-		"their_did":            s.did[prover],
-		"request_presentation": &protocol.RequestPresentation{},
-	}
-
-	var result interface{}
-
-	return postToURL(url+sendRequestPresentation, msg, &result)
+	return postToURL(url+sendRequestPresentation, presentproofcmd.SendRequestPresentationArgs{
+		MyDID:               s.did[verifier],
+		TheirDID:            s.did[prover],
+		RequestPresentation: &presentproof.RequestPresentation{},
+	})
 }
 
 func (s *ControllerSteps) sendProposePresentation(prover, verifier string) error {
@@ -122,15 +119,11 @@ func (s *ControllerSteps) sendProposePresentation(prover, verifier string) error
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", prover)
 	}
 
-	msg := map[string]interface{}{
-		"my_did":               s.did[prover],
-		"their_did":            s.did[verifier],
-		"propose_presentation": &protocol.ProposePresentation{},
-	}
-
-	var result interface{}
-
-	return postToURL(url+sendProposalPresentation, msg, &result)
+	return postToURL(url+sendProposalPresentation, presentproofcmd.SendProposePresentationArgs{
+		MyDID:               s.did[prover],
+		TheirDID:            s.did[verifier],
+		ProposePresentation: &presentproof.ProposePresentation{},
+	})
 }
 
 func (s *ControllerSteps) negotiateRequestPresentation(agent string) error {
@@ -144,13 +137,9 @@ func (s *ControllerSteps) negotiateRequestPresentation(agent string) error {
 		return err
 	}
 
-	msg := map[string]interface{}{
-		"propose_presentation": &protocol.ProposePresentation{},
-	}
-
-	var result interface{}
-
-	return postToURL(url+fmt.Sprintf(negotiateRequestPresentation, piid), msg, &result)
+	return postToURL(url+fmt.Sprintf(negotiateRequestPresentation, piid), presentproofcmd.NegotiateRequestPresentationArgs{
+		ProposePresentation: &presentproof.ProposePresentation{},
+	})
 }
 
 func (s *ControllerSteps) acceptProposePresentation(verifier string) error {
@@ -164,13 +153,9 @@ func (s *ControllerSteps) acceptProposePresentation(verifier string) error {
 		return err
 	}
 
-	msg := &presentproof.RequestPresentation{
-		RequestPresentations: nil,
-	}
-
-	var result interface{}
-
-	return postToURL(url+fmt.Sprintf(acceptProposePresentation, piid), msg, &result)
+	return postToURL(url+fmt.Sprintf(acceptProposePresentation, piid), presentproofcmd.AcceptProposePresentationArgs{
+		RequestPresentation: &presentproof.RequestPresentation{},
+	})
 }
 
 func (s *ControllerSteps) acceptRequestPresentation(prover string) error {
@@ -184,17 +169,15 @@ func (s *ControllerSteps) acceptRequestPresentation(prover string) error {
 		return err
 	}
 
-	msg := &presentproof.Presentation{
-		Presentations: []decorator.Attachment{{
-			Data: decorator.AttachmentData{
-				Base64: "ZXlKaGJHY2lPaUp1YjI1bElpd2lkSGx3SWpvaVNsZFVJbjAuZXlKcGMzTWlPaUprYVdRNlpYaGhiWEJzWlRwbFltWmxZakZtTnpFeVpXSmpObVl4WXpJM05tVXhNbVZqTWpFaUxDSnFkR2tpT2lKMWNtNDZkWFZwWkRvek9UYzRNelEwWmkwNE5UazJMVFJqTTJFdFlUazNPQzA0Wm1OaFltRXpPVEF6WXpVaUxDSjJjQ0k2ZXlKQVkyOXVkR1Y0ZENJNld5Sm9kSFJ3Y3pvdkwzZDNkeTUzTXk1dmNtY3ZNakF4T0M5amNtVmtaVzUwYVdGc2N5OTJNU0lzSW1oMGRIQnpPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1ERTRMMk55WldSbGJuUnBZV3h6TDJWNFlXMXdiR1Z6TDNZeElsMHNJbWh2YkdSbGNpSTZJbVJwWkRwbGVHRnRjR3hsT21WaVptVmlNV1kzTVRKbFltTTJaakZqTWpjMlpURXlaV015TVNJc0ltbGtJam9pZFhKdU9uVjFhV1E2TXprM09ETTBOR1l0T0RVNU5pMDBZek5oTFdFNU56Z3RPR1pqWVdKaE16a3dNMk0xSWl3aWRIbHdaU0k2V3lKV1pYSnBabWxoWW14bFVISmxjMlZ1ZEdGMGFXOXVJaXdpUTNKbFpHVnVkR2xoYkUxaGJtRm5aWEpRY21WelpXNTBZWFJwYjI0aVhTd2lkbVZ5YVdacFlXSnNaVU55WldSbGJuUnBZV3dpT201MWJHeDlmUS4=", // nolint: lll,
-			},
-		}},
-	}
-
-	var result interface{}
-
-	return postToURL(url+fmt.Sprintf(acceptRequestPresentation, piid), msg, &result)
+	return postToURL(url+fmt.Sprintf(acceptRequestPresentation, piid), presentproofcmd.AcceptRequestPresentationArgs{
+		Presentation: &presentproof.Presentation{
+			Presentations: []decorator.Attachment{{
+				Data: decorator.AttachmentData{
+					Base64: "ZXlKaGJHY2lPaUp1YjI1bElpd2lkSGx3SWpvaVNsZFVJbjAuZXlKcGMzTWlPaUprYVdRNlpYaGhiWEJzWlRwbFltWmxZakZtTnpFeVpXSmpObVl4WXpJM05tVXhNbVZqTWpFaUxDSnFkR2tpT2lKMWNtNDZkWFZwWkRvek9UYzRNelEwWmkwNE5UazJMVFJqTTJFdFlUazNPQzA0Wm1OaFltRXpPVEF6WXpVaUxDSjJjQ0k2ZXlKQVkyOXVkR1Y0ZENJNld5Sm9kSFJ3Y3pvdkwzZDNkeTUzTXk1dmNtY3ZNakF4T0M5amNtVmtaVzUwYVdGc2N5OTJNU0lzSW1oMGRIQnpPaTh2ZDNkM0xuY3pMbTl5Wnk4eU1ERTRMMk55WldSbGJuUnBZV3h6TDJWNFlXMXdiR1Z6TDNZeElsMHNJbWh2YkdSbGNpSTZJbVJwWkRwbGVHRnRjR3hsT21WaVptVmlNV1kzTVRKbFltTTJaakZqTWpjMlpURXlaV015TVNJc0ltbGtJam9pZFhKdU9uVjFhV1E2TXprM09ETTBOR1l0T0RVNU5pMDBZek5oTFdFNU56Z3RPR1pqWVdKaE16a3dNMk0xSWl3aWRIbHdaU0k2V3lKV1pYSnBabWxoWW14bFVISmxjMlZ1ZEdGMGFXOXVJaXdpUTNKbFpHVnVkR2xoYkUxaGJtRm5aWEpRY21WelpXNTBZWFJwYjI0aVhTd2lkbVZ5YVdacFlXSnNaVU55WldSbGJuUnBZV3dpT201MWJHeDlmUS4=", // nolint: lll,
+				},
+			}},
+		},
+	})
 }
 
 func (s *ControllerSteps) acceptPresentation(verifier, name string) error {
@@ -208,9 +191,9 @@ func (s *ControllerSteps) acceptPresentation(verifier, name string) error {
 		return err
 	}
 
-	var result interface{}
-
-	return postToURL(url+fmt.Sprintf(acceptPresentation, piid), []string{name}, &result)
+	return postToURL(url+fmt.Sprintf(acceptPresentation, piid), presentproofcmd.AcceptPresentationArgs{
+		Names: []string{name},
+	})
 }
 
 func (s *ControllerSteps) checkPresentation(verifier, name string) error {
@@ -296,18 +279,13 @@ func actionPIID(endpoint string) (string, error) {
 	return "", fmt.Errorf("unable to get action PIID: timeout")
 }
 
-func postToURL(url string, payload, result interface{}) error {
+func postToURL(url string, payload interface{}) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
 
-	err = sendHTTP(http.MethodPost, url, body, &result)
-	if err != nil {
-		return fmt.Errorf("failed to send HTTP: %w", err)
-	}
-
-	return nil
+	return sendHTTP(http.MethodPost, url, body, nil)
 }
 
 func sendHTTP(method, destination string, message []byte, result interface{}) error {

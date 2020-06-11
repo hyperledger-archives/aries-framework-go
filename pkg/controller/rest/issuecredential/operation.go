@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 
@@ -135,27 +136,9 @@ func (c *Operation) SendRequest(rw http.ResponseWriter, req *http.Request) {
 //    default: genericError
 //        200: issueCredentialAcceptProposalResponse
 func (c *Operation) AcceptProposal(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
-	var buf bytes.Buffer
-
-	if req.Body != nil {
-		// nolint: errcheck
-		_, _ = io.Copy(&buf, req.Body)
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.AcceptProposal, rw, r)
 	}
-
-	if !isJSONMap(buf.Bytes()) {
-		rest.SendHTTPStatusError(rw,
-			http.StatusBadRequest,
-			command.InvalidRequestErrorCode,
-			errors.New("offer credential payload was not provided"),
-		)
-
-		return
-	}
-
-	rest.Execute(c.command.AcceptProposal, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q,
-		"offer_credential": %s
-	}`, mux.Vars(req)["piid"], buf.String())))
 }
 
 // DeclineProposal swagger:route POST /issuecredential/{piid}/decline-proposal issue-credential issueCredentialDeclineProposal
@@ -207,27 +190,9 @@ func (c *Operation) DeclineOffer(rw http.ResponseWriter, req *http.Request) {
 //    default: genericError
 //        200: issueCredentialNegotiateProposalResponse
 func (c *Operation) NegotiateProposal(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
-	var buf bytes.Buffer
-
-	if req.Body != nil {
-		// nolint: errcheck
-		_, _ = io.Copy(&buf, req.Body)
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.NegotiateProposal, rw, r)
 	}
-
-	if !isJSONMap(buf.Bytes()) {
-		rest.SendHTTPStatusError(rw,
-			http.StatusBadRequest,
-			command.InvalidRequestErrorCode,
-			errors.New("propose credential payload was not provided"),
-		)
-
-		return
-	}
-
-	rest.Execute(c.command.NegotiateProposal, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q,
-		"propose_credential": %s
-	}`, mux.Vars(req)["piid"], buf.String())))
 }
 
 // AcceptRequest swagger:route POST /issuecredential/{piid}/accept-request issue-credential issueCredentialAcceptRequest
@@ -238,27 +203,9 @@ func (c *Operation) NegotiateProposal(rw http.ResponseWriter, req *http.Request)
 //    default: genericError
 //        200: issueCredentialAcceptRequestResponse
 func (c *Operation) AcceptRequest(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
-	var buf bytes.Buffer
-
-	if req.Body != nil {
-		// nolint: errcheck
-		_, _ = io.Copy(&buf, req.Body)
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.AcceptRequest, rw, r)
 	}
-
-	if !isJSONMap(buf.Bytes()) {
-		rest.SendHTTPStatusError(rw,
-			http.StatusBadRequest,
-			command.InvalidRequestErrorCode,
-			errors.New("issue credential payload was not provided"),
-		)
-
-		return
-	}
-
-	rest.Execute(c.command.AcceptRequest, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q,
-		"issue_credential": %s
-	}`, mux.Vars(req)["piid"], buf.String())))
 }
 
 // DeclineRequest swagger:route POST /issuecredential/{piid}/decline-request issue-credential issueCredentialDeclineRequest
@@ -283,27 +230,9 @@ func (c *Operation) DeclineRequest(rw http.ResponseWriter, req *http.Request) {
 //    default: genericError
 //        200: issueCredentialAcceptCredentialResponse
 func (c *Operation) AcceptCredential(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
-	var buf bytes.Buffer
-
-	if req.Body != nil {
-		// nolint: errcheck
-		_, _ = io.Copy(&buf, req.Body)
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.AcceptCredential, rw, r)
 	}
-
-	if !isJSONArray(buf.Bytes()) {
-		rest.SendHTTPStatusError(rw,
-			http.StatusBadRequest,
-			command.InvalidRequestErrorCode,
-			errors.New("names payload was not provided"),
-		)
-
-		return
-	}
-
-	rest.Execute(c.command.AcceptCredential, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q,
-		"names": %s
-	}`, mux.Vars(req)["piid"], buf.String())))
 }
 
 // DeclineCredential swagger:route POST /issuecredential/{piid}/decline-credential issue-credential issueCredentialDeclineCredential
@@ -320,6 +249,36 @@ func (c *Operation) DeclineCredential(rw http.ResponseWriter, req *http.Request)
 	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"))))
 }
 
+func toCommandRequest(rw http.ResponseWriter, req *http.Request) (bool, io.Reader) {
+	var buf bytes.Buffer
+
+	if req.Body != nil {
+		// nolint: errcheck
+		_, _ = io.Copy(&buf, req.Body)
+	}
+
+	if !isJSONMap(buf.Bytes()) {
+		rest.SendHTTPStatusError(rw,
+			http.StatusBadRequest,
+			command.InvalidRequestErrorCode,
+			errors.New("payload was not provided"),
+		)
+
+		return false, nil
+	}
+
+	ending := fmt.Sprintf(`"piid":%q}`, mux.Vars(req)["piid"])
+
+	payload := strings.TrimSpace(buf.String())
+	if payload == "{}" {
+		payload = "{" + ending
+	} else {
+		payload = buf.String()[:buf.Len()-1] + "," + ending
+	}
+
+	return true, bytes.NewBufferString(payload)
+}
+
 func isJSONMap(data []byte) bool {
 	var v struct{}
 	return isJSON(data, &v)
@@ -327,9 +286,4 @@ func isJSONMap(data []byte) bool {
 
 func isJSON(data []byte, v interface{}) bool {
 	return json.Unmarshal(data, &v) == nil
-}
-
-func isJSONArray(data []byte) bool {
-	var v []interface{}
-	return isJSON(data, &v)
 }

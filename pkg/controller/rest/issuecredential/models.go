@@ -21,8 +21,10 @@ type issueCredentialAcceptProposalRequest struct { // nolint: unused,deadcode
 	PIID string `json:"piid"`
 
 	// in: body
-	// required: true
-	OfferCredential protocol.OfferCredential `json:""`
+	Body struct {
+		// required: true
+		OfferCredential protocol.OfferCredential `json:"offer_credential"`
+	}
 }
 
 // issueCredentialAcceptProposalResponse model
@@ -30,7 +32,10 @@ type issueCredentialAcceptProposalRequest struct { // nolint: unused,deadcode
 // Represents a AcceptProposal response message
 //
 // swagger:response issueCredentialAcceptProposalResponse
-type issueCredentialAcceptProposalResponse struct{} // nolint: unused,deadcode
+type issueCredentialAcceptProposalResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // issueCredentialAcceptOfferRequest model
 //
@@ -50,7 +55,10 @@ type issueCredentialAcceptOfferRequest struct { // nolint: unused,deadcode
 // Represents a AcceptOffer response message
 //
 // swagger:response issueCredentialAcceptOfferResponse
-type issueCredentialAcceptOfferResponse struct{} // nolint: unused,deadcode
+type issueCredentialAcceptOfferResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // issueCredentialAcceptRequestRequest model
 //
@@ -65,8 +73,10 @@ type issueCredentialAcceptRequestRequest struct { // nolint: unused,deadcode
 	PIID string `json:"piid"`
 
 	// in: body
-	// required: true
-	IssueCredential protocol.IssueCredential `json:""`
+	Body struct {
+		// required: true
+		IssueCredential protocol.IssueCredential `json:"issue_credential"`
+	}
 }
 
 // issueCredentialAcceptRequestResponse model
@@ -74,7 +84,10 @@ type issueCredentialAcceptRequestRequest struct { // nolint: unused,deadcode
 // Represents a AcceptRequest response message
 //
 // swagger:response issueCredentialAcceptRequestResponse
-type issueCredentialAcceptRequestResponse struct{} // nolint: unused,deadcode
+type issueCredentialAcceptRequestResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // issueCredentialAcceptCredentialRequest model
 //
@@ -89,8 +102,10 @@ type issueCredentialAcceptCredentialRequest struct { // nolint: unused,deadcode
 	PIID string `json:"piid"`
 
 	// in: body
-	// required: true
-	Names []string `json:""`
+	Body struct {
+		// required: true
+		Names []string `json:"names"`
+	}
 }
 
 // issueCredentialAcceptCredentialResponse model
@@ -98,7 +113,10 @@ type issueCredentialAcceptCredentialRequest struct { // nolint: unused,deadcode
 // Represents a AcceptCredential response message
 //
 // swagger:response issueCredentialAcceptCredentialResponse
-type issueCredentialAcceptCredentialResponse struct{} // nolint: unused,deadcode
+type issueCredentialAcceptCredentialResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // issueCredentialDeclineCredentialRequest model
 //
@@ -121,7 +139,10 @@ type issueCredentialDeclineCredentialRequest struct { // nolint: unused,deadcode
 // Represents a DeclineCredential response message
 //
 // swagger:response issueCredentialDeclineCredentialResponse
-type issueCredentialDeclineCredentialResponse struct{} // nolint: unused,deadcode
+type issueCredentialDeclineCredentialResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // issueCredentialDeclineRequestRequest model
 //
@@ -144,7 +165,10 @@ type issueCredentialDeclineRequestRequest struct { // nolint: unused,deadcode
 // Represents a DeclineRequest response message
 //
 // swagger:response issueCredentialDeclineRequestResponse
-type issueCredentialDeclineRequestResponse struct{} // nolint: unused,deadcode
+type issueCredentialDeclineRequestResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // issueCredentialDeclineOfferRequest model
 //
@@ -167,7 +191,10 @@ type issueCredentialDeclineOfferRequest struct { // nolint: unused,deadcode
 // Represents a DeclineOffer response message
 //
 // swagger:response issueCredentialDeclineOfferResponse
-type issueCredentialDeclineOfferResponse struct{} // nolint: unused,deadcode
+type issueCredentialDeclineOfferResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // issueCredentialDeclineProposalRequest model
 //
@@ -190,7 +217,10 @@ type issueCredentialDeclineProposalRequest struct { // nolint: unused,deadcode
 // Represents a DeclineProposal response message
 //
 // swagger:response issueCredentialDeclineProposalResponse
-type issueCredentialDeclineProposalResponse struct{} // nolint: unused,deadcode
+type issueCredentialDeclineProposalResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // issueCredentialNegotiateProposalRequest model
 //
@@ -205,8 +235,10 @@ type issueCredentialNegotiateProposalRequest struct { // nolint: unused,deadcode
 	PIID string `json:"piid"`
 
 	// in: body
-	// required: true
-	ProposeCredential protocol.ProposeCredential `json:""`
+	Body struct {
+		// required: true
+		ProposeCredential protocol.ProposeCredential `json:"propose_credential"`
+	}
 }
 
 // issueCredentialNegotiateProposalResponse model
@@ -214,7 +246,10 @@ type issueCredentialNegotiateProposalRequest struct { // nolint: unused,deadcode
 // Represents a NegotiateProposal response message
 //
 // swagger:response issueCredentialNegotiateProposalResponse
-type issueCredentialNegotiateProposalResponse struct{} // nolint: unused,deadcode
+type issueCredentialNegotiateProposalResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // issueCredentialActionsRequest model
 //
@@ -230,7 +265,9 @@ type issueCredentialActionsRequest struct{} // nolint: unused,deadcode
 // swagger:response issueCredentialActionsResponse
 type issueCredentialActionsResponse struct { // nolint: unused,deadcode
 	// in: body
-	Actions []protocol.Action `json:"actions"`
+	Body struct {
+		Actions []protocol.Action `json:"actions"`
+	}
 }
 
 // issueCredentialSendOfferRequest model
@@ -259,7 +296,10 @@ type issueCredentialSendOfferRequest struct { // nolint: unused,deadcode
 // Represents a SendOffer response message
 //
 // swagger:response issueCredentialSendOfferResponse
-type issueCredentialSendOfferResponse struct{} // nolint: unused,deadcode
+type issueCredentialSendOfferResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // issueCredentialSendProposalRequest model
 //
@@ -286,7 +326,10 @@ type issueCredentialSendProposalRequest struct { // nolint: unused,deadcode
 // Represents a SendProposal response message
 //
 // swagger:response issueCredentialSendProposalResponse
-type issueCredentialSendProposalResponse struct{} // nolint: unused,deadcode
+type issueCredentialSendProposalResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // issueCredentialSendRequestRequest model
 //
@@ -314,4 +357,7 @@ type issueCredentialSendRequestRequest struct { // nolint: unused,deadcode
 // Represents a SendRequest response message
 //
 // swagger:response issueCredentialSendRequestResponse
-type issueCredentialSendRequestResponse struct{} // nolint: unused,deadcode
+type issueCredentialSendRequestResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}

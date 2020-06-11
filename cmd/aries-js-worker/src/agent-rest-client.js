@@ -329,7 +329,7 @@ export const Client = class {
                 method: r.method,
                 url: url,
                 headers: headers,
-                data: (request.payload && 'body' in request.payload) ? request.payload.body : request.payload
+                data: request.payload,
             });
 
         return resp.data;

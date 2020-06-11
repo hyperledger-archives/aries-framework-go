@@ -72,7 +72,6 @@ async function presentProof(mode) {
         return prover.presentproof.acceptRequestPresentation({
             piid: action.piid,
             presentation: presentation,
-            body: presentation
         })
     })
 
@@ -83,7 +82,6 @@ async function presentProof(mode) {
         return verifier.presentproof.acceptPresentation({
             piid: action.piid,
             names: [name],
-            body: [name],
         })
     })
 

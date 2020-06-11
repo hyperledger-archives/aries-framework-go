@@ -219,7 +219,14 @@ func toCommandRequest(rw http.ResponseWriter, req *http.Request) (bool, io.Reade
 		return false, nil
 	}
 
-	payload := strings.Replace(buf.String(), "{", fmt.Sprintf(`{"piid":%q,`, mux.Vars(req)["piid"]), 1)
+	ending := fmt.Sprintf(`"piid":%q}`, mux.Vars(req)["piid"])
+
+	payload := strings.TrimSpace(buf.String())
+	if payload == "{}" {
+		payload = "{" + ending
+	} else {
+		payload = buf.String()[:buf.Len()-1] + "," + ending
+	}
 
 	return true, bytes.NewBufferString(payload)
 }

@@ -8,6 +8,7 @@ package introduce
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -148,7 +149,7 @@ func (c *Command) SendProposal(rw io.Writer, req io.Reader) command.Error {
 
 	if len(args.Recipients) != maxRecipients {
 		logutil.LogDebug(logger, commandName, sendProposal, errTwoRecipients)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errTwoRecipients))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errTwoRecipients))
 	}
 
 	if err := c.client.SendProposal(args.Recipients[0], args.Recipients[1]); err != nil {
@@ -174,12 +175,12 @@ func (c *Command) SendProposalWithOOBRequest(rw io.Writer, req io.Reader) comman
 
 	if args.Request == nil {
 		logutil.LogDebug(logger, commandName, sendProposalWithOOBRequest, errEmptyRequest)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyRequest))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequest))
 	}
 
 	if args.Recipient == nil {
 		logutil.LogDebug(logger, commandName, sendProposalWithOOBRequest, errEmptyRecipient)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyRecipient))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRecipient))
 	}
 
 	if err := c.client.SendProposalWithOOBRequest(args.Request, args.Recipient); err != nil {
@@ -206,17 +207,17 @@ func (c *Command) SendRequest(rw io.Writer, req io.Reader) command.Error {
 
 	if args.MyDID == "" {
 		logutil.LogDebug(logger, commandName, sendRequest, errEmptyMyDID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyMyDID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
 	}
 
 	if args.TheirDID == "" {
 		logutil.LogDebug(logger, commandName, sendRequest, errEmptyTheirDID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyTheirDID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
 	}
 
 	if args.PleaseIntroduceTo == nil {
 		logutil.LogDebug(logger, commandName, sendRequest, errEmptyPleaseIntroduceTo)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPleaseIntroduceTo))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPleaseIntroduceTo))
 	}
 
 	if err := c.client.SendRequest(args.PleaseIntroduceTo, args.MyDID, args.TheirDID); err != nil {
@@ -242,12 +243,12 @@ func (c *Command) AcceptProposalWithOOBRequest(rw io.Writer, req io.Reader) comm
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, acceptProposalWithOOBRequest, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if args.Request == nil {
 		logutil.LogDebug(logger, commandName, acceptProposalWithOOBRequest, errEmptyRequest)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyRequest))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequest))
 	}
 
 	if err := c.client.AcceptProposalWithOOBRequest(args.PIID, args.Request); err != nil {
@@ -273,7 +274,7 @@ func (c *Command) AcceptProposal(rw io.Writer, req io.Reader) command.Error {
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, acceptProposal, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.AcceptProposal(args.PIID); err != nil {
@@ -300,17 +301,17 @@ func (c *Command) AcceptRequestWithPublicOOBRequest(rw io.Writer, req io.Reader)
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, acceptRequestWithPublicOOBRequest, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if args.Request == nil {
 		logutil.LogDebug(logger, commandName, acceptRequestWithPublicOOBRequest, errEmptyRequest)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyRequest))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequest))
 	}
 
 	if args.To == nil {
 		logutil.LogDebug(logger, commandName, acceptRequestWithPublicOOBRequest, errEmptyTo)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyTo))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTo))
 	}
 
 	if err := c.client.AcceptRequestWithPublicOOBRequest(args.PIID, args.Request, args.To); err != nil {
@@ -338,17 +339,17 @@ func (c *Command) AcceptRequestWithRecipients(rw io.Writer, req io.Reader) comma
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, acceptRequestWithRecipients, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if args.Recipient == nil {
 		logutil.LogDebug(logger, commandName, acceptRequestWithRecipients, errEmptyRecipient)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyRecipient))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRecipient))
 	}
 
 	if args.To == nil {
 		logutil.LogDebug(logger, commandName, acceptRequestWithRecipients, errEmptyTo)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyTo))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTo))
 	}
 
 	if err := c.client.AcceptRequestWithRecipients(args.PIID, args.To, args.Recipient); err != nil {
@@ -375,7 +376,7 @@ func (c *Command) DeclineProposal(rw io.Writer, req io.Reader) command.Error {
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, declineProposal, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.DeclineProposal(args.PIID, args.Reason); err != nil {
@@ -402,7 +403,7 @@ func (c *Command) DeclineRequest(rw io.Writer, req io.Reader) command.Error {
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, declineRequest, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.DeclineRequest(args.PIID, args.Reason); err != nil {

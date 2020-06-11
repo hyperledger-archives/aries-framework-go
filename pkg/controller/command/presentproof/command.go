@@ -8,6 +8,7 @@ package presentproof
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -150,17 +151,17 @@ func (c *Command) SendRequestPresentation(rw io.Writer, req io.Reader) command.E
 
 	if args.MyDID == "" {
 		logutil.LogDebug(logger, commandName, sendRequestPresentation, errEmptyMyDID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyMyDID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
 	}
 
 	if args.TheirDID == "" {
 		logutil.LogDebug(logger, commandName, sendRequestPresentation, errEmptyTheirDID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyTheirDID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
 	}
 
 	if args.RequestPresentation == nil {
 		logutil.LogDebug(logger, commandName, sendRequestPresentation, errEmptyRequestPresentation)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyRequestPresentation))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestPresentation))
 	}
 
 	if err := c.client.SendRequestPresentation(args.RequestPresentation, args.MyDID, args.TheirDID); err != nil {
@@ -187,17 +188,17 @@ func (c *Command) SendProposePresentation(rw io.Writer, req io.Reader) command.E
 
 	if args.MyDID == "" {
 		logutil.LogDebug(logger, commandName, sendProposePresentation, errEmptyMyDID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyMyDID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyMyDID))
 	}
 
 	if args.TheirDID == "" {
 		logutil.LogDebug(logger, commandName, sendProposePresentation, errEmptyTheirDID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyTheirDID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyTheirDID))
 	}
 
 	if args.ProposePresentation == nil {
 		logutil.LogDebug(logger, commandName, sendProposePresentation, errEmptyProposePresentation)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyProposePresentation))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposePresentation))
 	}
 
 	if err := c.client.SendProposePresentation(args.ProposePresentation, args.MyDID, args.TheirDID); err != nil {
@@ -224,12 +225,12 @@ func (c *Command) AcceptRequestPresentation(rw io.Writer, req io.Reader) command
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, acceptRequestPresentation, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if args.Presentation == nil {
 		logutil.LogDebug(logger, commandName, acceptRequestPresentation, errEmptyPresentation)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPresentation))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPresentation))
 	}
 
 	if err := c.client.AcceptRequestPresentation(args.PIID, args.Presentation); err != nil {
@@ -256,12 +257,12 @@ func (c *Command) NegotiateRequestPresentation(rw io.Writer, req io.Reader) comm
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, negotiateRequestPresentation, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if args.ProposePresentation == nil {
 		logutil.LogDebug(logger, commandName, negotiateRequestPresentation, errEmptyProposePresentation)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyProposePresentation))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposePresentation))
 	}
 
 	if err := c.client.NegotiateRequestPresentation(args.PIID, args.ProposePresentation); err != nil {
@@ -288,7 +289,7 @@ func (c *Command) DeclineRequestPresentation(rw io.Writer, req io.Reader) comman
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, declineRequestPresentation, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.DeclineRequestPresentation(args.PIID, args.Reason); err != nil {
@@ -315,12 +316,12 @@ func (c *Command) AcceptProposePresentation(rw io.Writer, req io.Reader) command
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, acceptProposePresentation, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if args.RequestPresentation == nil {
 		logutil.LogDebug(logger, commandName, acceptProposePresentation, errEmptyRequestPresentation)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyRequestPresentation))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestPresentation))
 	}
 
 	if err := c.client.AcceptProposePresentation(args.PIID, args.RequestPresentation); err != nil {
@@ -347,7 +348,7 @@ func (c *Command) DeclineProposePresentation(rw io.Writer, req io.Reader) comman
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, declineProposePresentation, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.DeclineProposePresentation(args.PIID, args.Reason); err != nil {
@@ -374,7 +375,7 @@ func (c *Command) AcceptPresentation(rw io.Writer, req io.Reader) command.Error 
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, acceptPresentation, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.AcceptPresentation(args.PIID, args.Names...); err != nil {
@@ -401,7 +402,7 @@ func (c *Command) DeclinePresentation(rw io.Writer, req io.Reader) command.Error
 
 	if args.PIID == "" {
 		logutil.LogDebug(logger, commandName, declinePresentation, errEmptyPIID)
-		return command.NewValidationError(InvalidRequestErrorCode, fmt.Errorf(errEmptyPIID))
+		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPIID))
 	}
 
 	if err := c.client.DeclinePresentation(args.PIID, args.Reason); err != nil {

@@ -87,7 +87,6 @@ async function issueCredential (mode) {
         return issuer.issuecredential.acceptRequest({
             piid: action.piid,
             issue_credential: issueCredentialPayload,
-            body: issueCredentialPayload
         })
     })
 
@@ -98,7 +97,6 @@ async function issueCredential (mode) {
         return holder.issuecredential.acceptCredential({
             piid: action.piid,
             names: [credentialName],
-            body: [credentialName],
         })
     })
 
