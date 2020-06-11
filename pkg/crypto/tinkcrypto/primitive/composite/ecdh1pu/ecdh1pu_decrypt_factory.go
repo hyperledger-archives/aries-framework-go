@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package ecdhes
+package ecdh1pu
 
 import (
 	"errors"
@@ -18,17 +18,17 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 )
 
-// NewECDHESDecrypt returns an CompositeDecrypt primitive from the given keyset handle.
-func NewECDHESDecrypt(h *keyset.Handle) (api.CompositeDecrypt, error) {
-	return NewECDHESDecryptWithKeyManager(h, nil /*keyManager*/)
+// NewECDH1PUDecrypt returns an CompositeDecrypt primitive from the given keyset handle.
+func NewECDH1PUDecrypt(h *keyset.Handle) (api.CompositeDecrypt, error) {
+	return NewECDH1PUDecryptWithKeyManager(h, nil /*keyManager*/)
 }
 
-// NewECDHESDecryptWithKeyManager returns an CompositeDecrypt primitive from the given keyset handle and custom key
+// NewECDH1PUDecryptWithKeyManager returns an CompositeDecrypt primitive from the given keyset handle and custom key
 // manager.
-func NewECDHESDecryptWithKeyManager(h *keyset.Handle, km registry.KeyManager) (api.CompositeDecrypt, error) {
+func NewECDH1PUDecryptWithKeyManager(h *keyset.Handle, km registry.KeyManager) (api.CompositeDecrypt, error) {
 	ps, err := h.PrimitivesWithKeyManager(km)
 	if err != nil {
-		return nil, fmt.Errorf("ecdhes_factory: cannot obtain primitive set: %w", err)
+		return nil, fmt.Errorf("ecdh1pu_factory: cannot obtain primitive set: %w", err)
 	}
 
 	return newDecryptPrimitiveSet(ps)
@@ -45,13 +45,13 @@ var _ api.CompositeDecrypt = (*decryptPrimitiveSet)(nil)
 
 func newDecryptPrimitiveSet(ps *primitiveset.PrimitiveSet) (*decryptPrimitiveSet, error) {
 	if _, ok := (ps.Primary.Primitive).(api.CompositeDecrypt); !ok {
-		return nil, errors.New("ecdhes_factory: not a CompositeDecrypt primitive")
+		return nil, errors.New("ecdh1pu_factory: not a CompositeDecrypt primitive")
 	}
 
 	for _, primitives := range ps.Entries {
 		for _, p := range primitives {
 			if _, ok := (p.Primitive).(api.CompositeDecrypt); !ok {
-				return nil, errors.New("ecdhes_factory: not a CompositeDecrypt primitive")
+				return nil, errors.New("ecdh1pu_factory: not a CompositeDecrypt primitive")
 			}
 		}
 	}
@@ -77,7 +77,7 @@ func (a *decryptPrimitiveSet) Decrypt(ct, aad []byte) ([]byte, error) {
 			for i := 0; i < len(entries); i++ {
 				p, ok := (entries[i].Primitive).(api.CompositeDecrypt)
 				if !ok {
-					return nil, errors.New("ecdhes_factory: not a CompositeDecrypt primitive")
+					return nil, errors.New("ecdh1pu_factory: not a CompositeDecrypt primitive")
 				}
 
 				pt, e := p.Decrypt(ctNoPrefix, aad)
@@ -94,7 +94,7 @@ func (a *decryptPrimitiveSet) Decrypt(ct, aad []byte) ([]byte, error) {
 		for i := 0; i < len(entries); i++ {
 			p, ok := (entries[i].Primitive).(api.CompositeDecrypt)
 			if !ok {
-				return nil, errors.New("ecdhes_factory: not a CompositeDecrypt primitive")
+				return nil, errors.New("ecdh1pu_factory: not a CompositeDecrypt primitive")
 			}
 
 			pt, e := p.Decrypt(ct, aad)
@@ -105,5 +105,5 @@ func (a *decryptPrimitiveSet) Decrypt(ct, aad []byte) ([]byte, error) {
 	}
 
 	// nothing worked
-	return nil, errors.New("ecdhes_factory: decryption failed")
+	return nil, errors.New("ecdh1pu_factory: decryption failed")
 }

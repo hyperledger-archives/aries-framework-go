@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package ecdhes
+package ecdh1pu
 
 import (
 	"encoding/base64"
@@ -27,32 +27,32 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
-	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
+	ecdh1pupb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh1pu_aead_go_proto"
 )
 
-func TestECDHESFactory(t *testing.T) {
+func TestECDH1PUFactory(t *testing.T) {
 	c := commonpb.EllipticCurveType_NIST_P256
 	primaryPtFmt := commonpb.EcPointFormat_UNCOMPRESSED
 	rawPtFmt := commonpb.EcPointFormat_COMPRESSED
 	primaryEncT := aead.AES128GCMKeyTemplate()
 	rawEncT := aead.AES256GCMKeyTemplate()
 
-	primaryPrivProto := generateECDHESAEADPrivateKey(t, c, primaryPtFmt, primaryEncT)
+	primaryPrivProto := generateECDH1PUAEADPrivateKey(t, c, primaryPtFmt, primaryEncT)
 
 	sPrimaryPriv, err := proto.Marshal(primaryPrivProto)
 	require.NoError(t, err)
 
 	primaryPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhesAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdh1puAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 8, tinkpb.OutputPrefixType_RAW)
 
-	rawPrivProto := generateECDHESAEADPrivateKey(t, c, rawPtFmt, rawEncT)
+	rawPrivProto := generateECDH1PUAEADPrivateKey(t, c, rawPtFmt, rawEncT)
 
 	sRawPriv, err := proto.Marshal(rawPrivProto)
 	require.NoError(t, err)
 
 	rawPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhesAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdh1puAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 11, tinkpb.OutputPrefixType_RAW)
 
 	privKeys := []*tinkpb.Keyset_Key{primaryPrivKey, rawPrivKey}
@@ -63,10 +63,10 @@ func TestECDHESFactory(t *testing.T) {
 	khPub, err := khPriv.Public()
 	require.NoError(t, err)
 
-	e, err := NewECDHESEncrypt(khPub)
+	e, err := NewECDH1PUEncrypt(khPub)
 	require.NoError(t, err)
 
-	d, err := NewECDHESDecrypt(khPriv)
+	d, err := NewECDH1PUDecrypt(khPriv)
 	require.NoError(t, err)
 
 	for i := 0; i < 1000; i++ {
@@ -100,18 +100,18 @@ func TestECDHESFactory(t *testing.T) {
 	}
 }
 
-// ecdhesAEADPublicKey returns a EcdhesAeadPublicKey with specified parameters.
-func ecdhesAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commonpb.EcPointFormat,
-	encT *tinkpb.KeyTemplate, x, y []byte) *ecdhespb.EcdhesAeadPublicKey {
+// ecdh1puAEADPublicKey returns a Ecdh1PuAeadPublicKey with specified parameters.
+func ecdh1puAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commonpb.EcPointFormat,
+	encT *tinkpb.KeyTemplate, x, y []byte) *ecdh1pupb.Ecdh1PuAeadPublicKey {
 	t.Helper()
 
-	return &ecdhespb.EcdhesAeadPublicKey{
+	return &ecdh1pupb.Ecdh1PuAeadPublicKey{
 		Version: 0,
-		Params: &ecdhespb.EcdhesAeadParams{
-			KwParams: &ecdhespb.EcdhesKwParams{
+		Params: &ecdh1pupb.Ecdh1PuAeadParams{
+			KwParams: &ecdh1pupb.Ecdh1PuKwParams{
 				CurveType: c,
 				// add recipients for Encryption primitive
-				Recipients: []*ecdhespb.EcdhesAeadRecipientPublicKey{
+				Recipients: []*ecdh1pupb.Ecdh1PuAeadRecipientPublicKey{
 					{
 						KeyType:   compositepb.KeyType_EC,
 						CurveType: c,
@@ -120,7 +120,7 @@ func ecdhesAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commo
 					},
 				},
 			},
-			EncParams: &ecdhespb.EcdhesAeadEncParams{
+			EncParams: &ecdh1pupb.Ecdh1PuAeadEncParams{
 				AeadEnc: encT,
 			},
 			EcPointFormat: ptfmt,
@@ -130,20 +130,20 @@ func ecdhesAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commo
 	}
 }
 
-// eciesAEADESPrivateKey returns a EciesAeadHkdfPrivateKey with specified parameters
-func eciesAEADESPrivateKey(t *testing.T, p *ecdhespb.EcdhesAeadPublicKey, d []byte) *ecdhespb.EcdhesAeadPrivateKey {
+// ecdh1puPrivateKey returns a Ecdh1PuAeadPrivateKey with specified parameters
+func ecdh1puPrivateKey(t *testing.T, p *ecdh1pupb.Ecdh1PuAeadPublicKey, d []byte) *ecdh1pupb.Ecdh1PuAeadPrivateKey {
 	t.Helper()
 
-	return &ecdhespb.EcdhesAeadPrivateKey{
+	return &ecdh1pupb.Ecdh1PuAeadPrivateKey{
 		Version:   0,
 		PublicKey: p,
 		KeyValue:  d,
 	}
 }
 
-// generateECDHESAEADPrivateKey generates a new EC key pair and returns the private key proto.
-func generateECDHESAEADPrivateKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commonpb.EcPointFormat,
-	encT *tinkpb.KeyTemplate) *ecdhespb.EcdhesAeadPrivateKey {
+// generateECDH1PUAEADPrivateKey generates a new EC key pair and returns the private key proto.
+func generateECDH1PUAEADPrivateKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commonpb.EcPointFormat,
+	encT *tinkpb.KeyTemplate) *ecdh1pupb.Ecdh1PuAeadPrivateKey {
 	t.Helper()
 
 	curve, err := hybrid.GetCurve(c.String())
@@ -152,34 +152,34 @@ func generateECDHESAEADPrivateKey(t *testing.T, c commonpb.EllipticCurveType, pt
 	pvt, err := hybrid.GenerateECDHKeyPair(curve)
 	require.NoError(t, err)
 
-	pubKey := ecdhesAEADPublicKey(t, c, ptfmt, encT, pvt.PublicKey.Point.X.Bytes(), pvt.PublicKey.Point.Y.Bytes())
+	pubKey := ecdh1puAEADPublicKey(t, c, ptfmt, encT, pvt.PublicKey.Point.X.Bytes(), pvt.PublicKey.Point.Y.Bytes())
 
-	return eciesAEADESPrivateKey(t, pubKey, pvt.D.Bytes())
+	return ecdh1puPrivateKey(t, pubKey, pvt.D.Bytes())
 }
 
-func TestECDHESFactoryWithBadKeysetType(t *testing.T) {
+func TestECDH1PUFactoryWithBadKeysetType(t *testing.T) {
 	c := commonpb.EllipticCurveType_NIST_P384
 	primaryPtFmt := commonpb.EcPointFormat_UNCOMPRESSED
 	rawPtFmt := commonpb.EcPointFormat_COMPRESSED
 	primaryEncT := aead.AES128GCMKeyTemplate()
 	rawEncT := aead.AES256GCMKeyTemplate()
 
-	primaryPrivProto := generateECDHESAEADPrivateKey(t, c, primaryPtFmt, primaryEncT)
+	primaryPrivProto := generateECDH1PUAEADPrivateKey(t, c, primaryPtFmt, primaryEncT)
 
 	sPrimaryPriv, err := proto.Marshal(primaryPrivProto)
 	require.NoError(t, err)
 
 	primaryPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhesAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdh1puAESPrivateKeyTypeURL, sPrimaryPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 8, tinkpb.OutputPrefixType_RAW)
 
-	rawPrivProto := generateECDHESAEADPrivateKey(t, c, rawPtFmt, rawEncT)
+	rawPrivProto := generateECDH1PUAEADPrivateKey(t, c, rawPtFmt, rawEncT)
 
 	sRawPriv, err := proto.Marshal(rawPrivProto)
 	require.NoError(t, err)
 
 	rawPrivKey := testutil.NewKey(
-		testutil.NewKeyData(ecdhesAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
+		testutil.NewKeyData(ecdh1puAESPrivateKeyTypeURL, sRawPriv, tinkpb.KeyData_ASYMMETRIC_PRIVATE),
 		tinkpb.KeyStatusType_ENABLED, 11, tinkpb.OutputPrefixType_RAW)
 
 	badPrivKeyProto, err := testutil.GenerateECIESAEADHKDFPrivateKey(c, commonpb.HashType_SHA256, primaryPtFmt,
@@ -206,16 +206,16 @@ func TestECDHESFactoryWithBadKeysetType(t *testing.T) {
 		badKeyURLKeyTypeURL))
 
 	// creating new primitives with an invalid keyset (should be public keyset) should fail
-	e, err := NewECDHESEncrypt(khPriv)
-	require.EqualError(t, err, fmt.Sprintf("ecdhes_factory: cannot obtain primitive set: "+
+	e, err := NewECDH1PUEncrypt(khPriv)
+	require.EqualError(t, err, fmt.Sprintf("ecdh1pu_factory: cannot obtain primitive set: "+
 		"registry.PrimitivesWithKeyManager: cannot get primitive from key: registry.GetKeyManager: "+
 		"unsupported key type: %s",
 		badKeyURLKeyTypeURL))
 	require.Empty(t, e)
 
 	// creating new primitives with a keyset containing an invalid key type should fail
-	d, err := NewECDHESDecrypt(khPriv)
-	require.EqualError(t, err, fmt.Sprintf("ecdhes_factory: cannot obtain primitive set: "+
+	d, err := NewECDH1PUDecrypt(khPriv)
+	require.EqualError(t, err, fmt.Sprintf("ecdh1pu_factory: cannot obtain primitive set: "+
 		"registry.PrimitivesWithKeyManager: cannot get primitive from key: registry.GetKeyManager: "+
 		"unsupported key type: %s",
 		badKeyURLKeyTypeURL))
@@ -231,10 +231,10 @@ func TestNewEncryptPrimitiveSetFail(t *testing.T) {
 
 	// calling newEncryptPrimitiveSet with non CompositeEncrypt primitiveSet should fail
 	encPrimitiveSet, err := newEncryptPrimitiveSet(primitiveSet)
-	require.EqualError(t, err, "ecdhes_factory: not a CompositeEncrypt primitive")
+	require.EqualError(t, err, "ecdh1pu_factory: not a CompositeEncrypt primitive")
 	require.Nil(t, encPrimitiveSet)
 
-	validKH, err := keyset.NewHandle(ECDHES256KWAES256GCMKeyTemplate())
+	validKH, err := keyset.NewHandle(ECDH1PU256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
 	validPubKH, err := validKH.Public()
@@ -265,12 +265,12 @@ func TestNewEncryptPrimitiveSetFail(t *testing.T) {
 
 	// calling newEncryptPrimitiveSet with primitiveSet containing bad primitive entry should fail
 	encPrimitiveSet, err = newEncryptPrimitiveSet(primitiveSet2)
-	require.EqualError(t, err, "ecdhes_factory: not a CompositeEncrypt primitive")
+	require.EqualError(t, err, "ecdh1pu_factory: not a CompositeEncrypt primitive")
 	require.Nil(t, encPrimitiveSet)
 }
 
 func TestEncryptPrimitiveSetFail(t *testing.T) {
-	validKH, err := keyset.NewHandle(ECDHES256KWAES256GCMKeyTemplate())
+	validKH, err := keyset.NewHandle(ECDH1PU256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
 	validPubKH, err := validKH.Public()
@@ -287,7 +287,7 @@ func TestEncryptPrimitiveSetFail(t *testing.T) {
 
 	// Encrypt should fail as key set of primitive set do not have public recipients keys for encryption
 	_, err = encPrimitiveSet.Encrypt([]byte("plaintext"), []byte("aad"))
-	require.EqualError(t, err, "ECDHESAEADCompositeEncrypt: missing recipients public keys for key wrapping")
+	require.EqualError(t, err, "ECDH1PUAEADCompositeEncrypt: missing recipients public keys for key wrapping")
 
 	// create ECDSA key and set encPrimitiveSet's primary primitive to the ECDSA's primary
 	kh, err := keyset.NewHandle(signature.ECDSAP256KeyTemplate())
@@ -300,7 +300,7 @@ func TestEncryptPrimitiveSetFail(t *testing.T) {
 
 	// encrypting with signing key should fail
 	_, err = encPrimitiveSet.Encrypt([]byte("plaintext"), []byte("aad"))
-	require.EqualError(t, err, "ecdhes_factory: not a CompositeEncrypt primitive")
+	require.EqualError(t, err, "ecdh1pu_factory: not a CompositeEncrypt primitive")
 }
 
 func TestNewDecryptPrimitiveSetFail(t *testing.T) {
@@ -312,10 +312,10 @@ func TestNewDecryptPrimitiveSetFail(t *testing.T) {
 
 	// calling newEncryptPrimitiveSet with non CompositeEncrypt primitiveSet should fail
 	decPrimitiveSet, err := newDecryptPrimitiveSet(primitiveSet)
-	require.EqualError(t, err, "ecdhes_factory: not a CompositeDecrypt primitive")
+	require.EqualError(t, err, "ecdh1pu_factory: not a CompositeDecrypt primitive")
 	require.Nil(t, decPrimitiveSet)
 
-	validKH, err := keyset.NewHandle(ECDHES256KWAES256GCMKeyTemplate())
+	validKH, err := keyset.NewHandle(ECDH1PU256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
 	// primitives of a valid Private keyset.Handle do Decrypt() (while Public Handle do Encrypt())
@@ -343,12 +343,12 @@ func TestNewDecryptPrimitiveSetFail(t *testing.T) {
 
 	// calling newEncryptPrimitiveSet with primitiveSet containing bad primitive entry should fail
 	decPrimitiveSet, err = newDecryptPrimitiveSet(primitiveSet2)
-	require.EqualError(t, err, "ecdhes_factory: not a CompositeDecrypt primitive")
+	require.EqualError(t, err, "ecdh1pu_factory: not a CompositeDecrypt primitive")
 	require.Nil(t, decPrimitiveSet)
 }
 
 func TestDecryptPrimitiveSetFail(t *testing.T) {
-	validKH, err := keyset.NewHandle(ECDHES256KWAES256GCMKeyTemplate())
+	validKH, err := keyset.NewHandle(ECDH1PU256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
 	validPubKH, err := validKH.Public()
@@ -367,13 +367,13 @@ func TestDecryptPrimitiveSetFail(t *testing.T) {
 	primitiveSetBad, err := validPubKH.Primitives()
 	require.NoError(t, err)
 
-	// ensure calling newEncryptPrimitiveSet fails with invalid primitiveSetBad
+	// ensure calling newEncryptPrimitiveSet is failing with valid primitiveSetBad
 	_, err = newDecryptPrimitiveSet(primitiveSetBad)
-	require.EqualError(t, err, "ecdhes_factory: not a CompositeDecrypt primitive")
+	require.EqualError(t, err, "ecdh1pu_factory: not a CompositeDecrypt primitive")
 
 	// Decrypt invalid cipher should fail
 	_, err = decPrimitiveSet.Decrypt([]byte("plaintext"), []byte("aad"))
-	require.EqualError(t, err, "ecdhes_factory: decryption failed")
+	require.EqualError(t, err, "ecdh1pu_factory: decryption failed")
 
 	// create ECDSA key and set decPrimitiveSet's primary primtive to the ECDSA's primary
 	kh, err := keyset.NewHandle(signature.ECDSAP256KeyTemplate())
@@ -387,14 +387,14 @@ func TestDecryptPrimitiveSetFail(t *testing.T) {
 	decPrimitiveSet.ps.Primary = sigPS.Primary
 
 	_, err = decPrimitiveSet.Decrypt([]byte("plaintext"), []byte("aad"))
-	require.EqualError(t, err, "ecdhes_factory: not a CompositeDecrypt primitive")
+	require.EqualError(t, err, "ecdh1pu_factory: not a CompositeDecrypt primitive")
 
 	// try decrypt with invalid primitive and prefix (type set fail)
 	decPrimitiveSet.ps.Entries["12345"] = []*primitiveset.Entry{sigPS.Primary}
 	decPrimitiveSet.ps.Primary = sigPS.Primary
 
 	_, err = decPrimitiveSet.Decrypt([]byte("12345plaintext"), []byte("aad"))
-	require.EqualError(t, err, "ecdhes_factory: not a CompositeDecrypt primitive")
+	require.EqualError(t, err, "ecdh1pu_factory: not a CompositeDecrypt primitive")
 
 	// try decrypt with valid primitiveset with raw prefix and a non raw prefix (decryption fail with valid type)
 	primitiveSet, err = validKH.Primitives()
@@ -406,5 +406,40 @@ func TestDecryptPrimitiveSetFail(t *testing.T) {
 	decPrimitiveSet.ps.Primary = primitiveSet.Primary
 
 	_, err = decPrimitiveSet.Decrypt([]byte("12345plaintext"), []byte("aad"))
-	require.EqualError(t, err, "ecdhes_factory: decryption failed")
+	require.EqualError(t, err, "ecdh1pu_factory: decryption failed")
+}
+
+// TODO move below two functions to ecdh1pu_key_template.go as part of #1913
+func ECDH1PU256KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
+	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256, commonpb.EcPointFormat_UNCOMPRESSED,
+		aead.AES256GCMKeyTemplate(), tinkpb.OutputPrefixType_RAW, nil, compositepb.KeyType_EC)
+}
+
+func createKeyTemplate(c commonpb.EllipticCurveType, epf commonpb.EcPointFormat, contentEncKeyT *tinkpb.KeyTemplate,
+	prefixType tinkpb.OutputPrefixType, recipients []*ecdh1pupb.Ecdh1PuAeadRecipientPublicKey,
+	keyType compositepb.KeyType) *tinkpb.KeyTemplate {
+	format := &ecdh1pupb.Ecdh1PuAeadKeyFormat{
+		Params: &ecdh1pupb.Ecdh1PuAeadParams{
+			KwParams: &ecdh1pupb.Ecdh1PuKwParams{
+				CurveType:  c,
+				KeyType:    keyType,
+				Recipients: recipients,
+			},
+			EncParams: &ecdh1pupb.Ecdh1PuAeadEncParams{
+				AeadEnc: contentEncKeyT,
+			},
+			EcPointFormat: epf,
+		},
+	}
+
+	serializedFormat, err := proto.Marshal(format)
+	if err != nil {
+		panic("failed to marshal Ecdh1PuAeadKeyFormat proto")
+	}
+
+	return &tinkpb.KeyTemplate{
+		TypeUrl:          ecdh1puAESPrivateKeyTypeURL,
+		Value:            serializedFormat,
+		OutputPrefixType: prefixType,
+	}
 }
