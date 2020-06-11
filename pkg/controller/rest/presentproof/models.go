@@ -22,7 +22,9 @@ type presentProofActionsRequest struct{} // nolint: unused,deadcode
 // swagger:response presentProofActionsResponse
 type presentProofActionsResponse struct { // nolint: unused,deadcode
 	// in: body
-	Actions []protocol.Action `json:"actions"`
+	Body struct {
+		Actions []protocol.Action `json:"actions"`
+	}
 }
 
 // presentProofSendRequestPresentationRequest model
@@ -50,7 +52,10 @@ type presentProofSendRequestPresentationRequest struct { // nolint: unused,deadc
 // Represents a SendRequestPresentation response message.
 //
 // swagger:response presentProofSendRequestPresentationResponse
-type presentProofSendRequestPresentationResponse struct{} // nolint: unused,deadcode
+type presentProofSendRequestPresentationResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // presentProofSendProposePresentationRequest model
 //
@@ -77,7 +82,10 @@ type presentProofSendProposePresentationRequest struct { // nolint: unused,deadc
 // Represents a SendProposePresentation response message.
 //
 // swagger:response presentProofSendProposePresentationResponse
-type presentProofSendProposePresentationResponse struct{} // nolint: unused,deadcode
+type presentProofSendProposePresentationResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // presentProofAcceptRequestPresentationRequest model
 //
@@ -90,11 +98,14 @@ type presentProofAcceptRequestPresentationRequest struct { // nolint: unused,dea
 	// in: path
 	// required: true
 	PIID string `json:"piid"`
-	// Presentation is a message that contains signed presentations.
-	//
+
 	// in: body
-	// required: true
-	Presentation *protocol.Presentation `json:""`
+	Body struct {
+		// Presentation is a message that contains signed presentations.
+		//
+		// required: true
+		Presentation *protocol.Presentation `json:"presentation"`
+	}
 }
 
 // presentProofAcceptRequestPresentationResponse model
@@ -102,7 +113,10 @@ type presentProofAcceptRequestPresentationRequest struct { // nolint: unused,dea
 // Represents a AcceptRequestPresentation response message.
 //
 // swagger:response presentProofAcceptRequestPresentationResponse
-type presentProofAcceptRequestPresentationResponse struct{} // nolint: unused,deadcode
+type presentProofAcceptRequestPresentationResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // presentProofAcceptProposePresentationRequest model
 //
@@ -115,11 +129,14 @@ type presentProofAcceptProposePresentationRequest struct { // nolint: unused,dea
 	// in: path
 	// required: true
 	PIID string `json:"piid"`
-	// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
-	//
+
 	// in: body
-	// required: true
-	RequestPresentation *protocol.RequestPresentation `json:""`
+	Body struct {
+		// RequestPresentation describes values that need to be revealed and predicates that need to be fulfilled.
+		//
+		// required: true
+		RequestPresentation *protocol.RequestPresentation `json:"request_presentation"`
+	}
 }
 
 // presentProofAcceptProposePresentationResponse model
@@ -127,7 +144,10 @@ type presentProofAcceptProposePresentationRequest struct { // nolint: unused,dea
 // Represents a AcceptProposePresentation response message.
 //
 // swagger:response presentProofAcceptProposePresentationResponse
-type presentProofAcceptProposePresentationResponse struct{} // nolint: unused,deadcode
+type presentProofAcceptProposePresentationResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // presentProofAcceptPresentationRequest model
 //
@@ -142,8 +162,10 @@ type presentProofAcceptPresentationRequest struct { // nolint: unused,deadcode
 	PIID string `json:"piid"`
 
 	// in: body
-	// required: true
-	Names []string `json:""`
+	Body struct {
+		// required: true
+		Names []string `json:"names"`
+	}
 }
 
 // presentProofAcceptPresentationResponse model
@@ -151,7 +173,10 @@ type presentProofAcceptPresentationRequest struct { // nolint: unused,deadcode
 // Represents a AcceptPresentation response message.
 //
 // swagger:response presentProofAcceptPresentationResponse
-type presentProofAcceptPresentationResponse struct{} // nolint: unused,deadcode
+type presentProofAcceptPresentationResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // presentProofNegotiateRequestPresentationRequest model
 //
@@ -164,12 +189,15 @@ type presentProofNegotiateRequestPresentationRequest struct { // nolint: unused,
 	// in: path
 	// required: true
 	PIID string `json:"piid"`
-	// ProposePresentation is a response message to a request-presentation message when the Prover wants to
-	// propose using a different presentation format.
-	//
+
 	// in: body
-	// required: true
-	ProposePresentation *protocol.ProposePresentation `json:""`
+	Body struct {
+		// ProposePresentation is a response message to a request-presentation message when the Prover wants to
+		// propose using a different presentation format.
+		//
+		// required: true
+		ProposePresentation *protocol.ProposePresentation `json:"propose_presentation"`
+	}
 }
 
 // presentProofNegotiateRequestPresentationResponse model
@@ -177,7 +205,10 @@ type presentProofNegotiateRequestPresentationRequest struct { // nolint: unused,
 // Represents a NegotiateRequestPresentation response message
 //
 // swagger:response presentProofNegotiateRequestPresentationResponse
-type presentProofNegotiateRequestPresentationResponse struct{} // nolint: unused,deadcode
+type presentProofNegotiateRequestPresentationResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // presentProofDeclineRequestPresentationRequest model
 //
@@ -200,7 +231,10 @@ type presentProofDeclineRequestPresentationRequest struct { // nolint: unused,de
 // Represents a DeclineRequestPresentation response message.
 //
 // swagger:response presentProofDeclineRequestPresentationResponse
-type presentProofDeclineRequestPresentationResponse struct{} // nolint: unused,deadcode
+type presentProofDeclineRequestPresentationResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // presentProofDeclineProposePresentationRequest model
 //
@@ -223,7 +257,10 @@ type presentProofDeclineProposePresentationRequest struct { // nolint: unused,de
 // Represents a DeclineProposePresentation response message.
 //
 // swagger:response presentProofDeclineProposePresentationResponse
-type presentProofDeclineProposePresentationResponse struct{} // nolint: unused,deadcode
+type presentProofDeclineProposePresentationResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}
 
 // presentProofDeclinePresentationRequest model
 //
@@ -246,4 +283,7 @@ type presentProofDeclinePresentationRequest struct { // nolint: unused,deadcode
 // Represents a DeclinePresentation response message.
 //
 // swagger:response presentProofDeclinePresentationResponse
-type presentProofDeclinePresentationResponse struct{} // nolint: unused,deadcode
+type presentProofDeclinePresentationResponse struct { // nolint: unused,deadcode
+	// in: body
+	Body struct{}
+}

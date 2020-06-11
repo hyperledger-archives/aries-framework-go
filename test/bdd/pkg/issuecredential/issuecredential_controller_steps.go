@@ -17,8 +17,10 @@ import (
 
 	"github.com/cucumber/godog"
 
+	client "github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
+	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
@@ -112,13 +114,11 @@ func (s *ControllerSteps) requestCredential(holder, issuer string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", holder)
 	}
 
-	msg := map[string]interface{}{
-		"my_did":             s.did[holder],
-		"their_did":          s.did[issuer],
-		"request_credential": &protocol.RequestCredential{},
-	}
-
-	return postToURL(url+sendRequest, msg)
+	return postToURL(url+sendRequest, issuecredentialcmd.SendRequestArgs{
+		MyDID:             s.did[holder],
+		TheirDID:          s.did[issuer],
+		RequestCredential: &client.RequestCredential{},
+	})
 }
 
 func (s *ControllerSteps) sendOffer(issuer, holder string) error {
@@ -127,13 +127,11 @@ func (s *ControllerSteps) sendOffer(issuer, holder string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", issuer)
 	}
 
-	msg := map[string]interface{}{
-		"my_did":           s.did[issuer],
-		"their_did":        s.did[holder],
-		"offer_credential": &protocol.OfferCredential{},
-	}
-
-	return postToURL(url+sendOffer, msg)
+	return postToURL(url+sendOffer, issuecredentialcmd.SendOfferArgs{
+		MyDID:           s.did[issuer],
+		TheirDID:        s.did[holder],
+		OfferCredential: &client.OfferCredential{},
+	})
 }
 
 func (s *ControllerSteps) sendProposal(holder, issuer string) error {
@@ -142,13 +140,11 @@ func (s *ControllerSteps) sendProposal(holder, issuer string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", holder)
 	}
 
-	msg := map[string]interface{}{
-		"my_did":             s.did[holder],
-		"their_did":          s.did[issuer],
-		"propose_credential": &protocol.ProposeCredential{},
-	}
-
-	return postToURL(url+sendProposal, msg)
+	return postToURL(url+sendProposal, issuecredentialcmd.SendProposalArgs{
+		MyDID:             s.did[holder],
+		TheirDID:          s.did[issuer],
+		ProposeCredential: &client.ProposeCredential{},
+	})
 }
 
 func (s *ControllerSteps) acceptProposal(issuer string) error {
@@ -162,9 +158,9 @@ func (s *ControllerSteps) acceptProposal(issuer string) error {
 		return err
 	}
 
-	msg := &protocol.OfferCredential{}
-
-	return postToURL(url+fmt.Sprintf(acceptProposal, piid), msg)
+	return postToURL(url+fmt.Sprintf(acceptProposal, piid), issuecredentialcmd.AcceptProposalArgs{
+		OfferCredential: &client.OfferCredential{},
+	})
 }
 
 func (s *ControllerSteps) negotiateProposal(holder string) error {
@@ -178,9 +174,9 @@ func (s *ControllerSteps) negotiateProposal(holder string) error {
 		return err
 	}
 
-	msg := &protocol.ProposeCredential{}
-
-	return postToURL(url+fmt.Sprintf(negotiateProposal, piid), msg)
+	return postToURL(url+fmt.Sprintf(negotiateProposal, piid), issuecredentialcmd.NegotiateProposalArgs{
+		ProposeCredential: &client.ProposeCredential{},
+	})
 }
 
 func (s *ControllerSteps) acceptOffer(holder string) error {
@@ -208,13 +204,13 @@ func (s *ControllerSteps) acceptRequest(issuer string) error {
 		return err
 	}
 
-	msg := &protocol.IssueCredential{
-		CredentialsAttach: []decorator.Attachment{
-			{Data: decorator.AttachmentData{JSON: getVCredential()}},
+	return postToURL(url+fmt.Sprintf(acceptRequest, piid), issuecredentialcmd.AcceptRequestArgs{
+		IssueCredential: &client.IssueCredential{
+			CredentialsAttach: []decorator.Attachment{
+				{Data: decorator.AttachmentData{JSON: getVCredential()}},
+			},
 		},
-	}
-
-	return postToURL(url+fmt.Sprintf(acceptRequest, piid), msg)
+	})
 }
 
 func (s *ControllerSteps) acceptCredential(holder, credential string) error {
@@ -228,9 +224,9 @@ func (s *ControllerSteps) acceptCredential(holder, credential string) error {
 		return err
 	}
 
-	msg := []string{credential}
-
-	return postToURL(url+fmt.Sprintf(acceptCredential, piid), msg)
+	return postToURL(url+fmt.Sprintf(acceptCredential, piid), issuecredentialcmd.AcceptCredentialArgs{
+		Names: []string{credential},
+	})
 }
 
 func (s *ControllerSteps) validateCredential(holder, credential string) error {

@@ -50,7 +50,7 @@ func TestOperation_AcceptRequestPresentation(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
-		require.Contains(t, buf.String(), "presentation payload was not provided")
+		require.Contains(t, buf.String(), "payload was not provided")
 	})
 
 	t.Run("Success", func(t *testing.T) {
@@ -59,7 +59,7 @@ func TestOperation_AcceptRequestPresentation(t *testing.T) {
 
 		_, code, err := sendRequestToHandler(
 			handlerLookup(t, operation, acceptRequestPresentation),
-			bytes.NewBufferString(`{}`),
+			bytes.NewBufferString(`{"presentation":{}}`),
 			strings.Replace(acceptRequestPresentation, `{piid}`, "1234", 1),
 		)
 
@@ -102,7 +102,7 @@ func TestOperation_AcceptProposePresentation(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
-		require.Contains(t, buf.String(), "request presentation payload was not provided")
+		require.Contains(t, buf.String(), "payload was not provided")
 	})
 
 	t.Run("Success", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestOperation_AcceptProposePresentation(t *testing.T) {
 
 		_, code, err := sendRequestToHandler(
 			handlerLookup(t, operation, acceptProposePresentation),
-			bytes.NewBufferString(`{}`),
+			bytes.NewBufferString(`{"request_presentation":{}}`),
 			strings.Replace(acceptProposePresentation, `{piid}`, "1234", 1),
 		)
 
@@ -143,7 +143,7 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	t.Run("Success", func(t *testing.T) {
+	t.Run("No payload", func(t *testing.T) {
 		operation, err := New(provider(ctrl))
 		require.NoError(t, err)
 
@@ -155,7 +155,21 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
-		require.Contains(t, buf.String(), "names payload was not provided")
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Empty payload (success)", func(t *testing.T) {
+		operation, err := New(provider(ctrl))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, acceptPresentation),
+			bytes.NewBufferString(`{}`),
+			strings.Replace(acceptPresentation, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
 	})
 
 	t.Run("Success", func(t *testing.T) {
@@ -164,7 +178,7 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 
 		_, code, err := sendRequestToHandler(
 			handlerLookup(t, operation, acceptPresentation),
-			bytes.NewBufferString(`[]`),
+			bytes.NewBufferString(`{"names":[]}`),
 			strings.Replace(acceptPresentation, `{piid}`, "1234", 1),
 		)
 
@@ -207,7 +221,7 @@ func TestOperation_NegotiateRequestPresentation(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
-		require.Contains(t, buf.String(), "propose presentation payload was not provided")
+		require.Contains(t, buf.String(), "payload was not provided")
 	})
 
 	t.Run("Success", func(t *testing.T) {
@@ -216,7 +230,7 @@ func TestOperation_NegotiateRequestPresentation(t *testing.T) {
 
 		_, code, err := sendRequestToHandler(
 			handlerLookup(t, operation, negotiateRequestPresentation),
-			bytes.NewBufferString(`{}`),
+			bytes.NewBufferString(`{"propose_presentation":{}}`),
 			strings.Replace(negotiateRequestPresentation, `{piid}`, "1234", 1),
 		)
 

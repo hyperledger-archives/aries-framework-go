@@ -50,7 +50,7 @@ func TestOperation_AcceptProposal(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
-		require.Contains(t, buf.String(), "offer credential payload was not provided")
+		require.Contains(t, buf.String(), "payload was not provided")
 	})
 
 	t.Run("Success", func(t *testing.T) {
@@ -59,7 +59,7 @@ func TestOperation_AcceptProposal(t *testing.T) {
 
 		_, code, err := sendRequestToHandler(
 			handlerLookup(t, operation, acceptProposal),
-			bytes.NewBufferString(`{}`),
+			bytes.NewBufferString(`{"offer_credential":{}}`),
 			strings.Replace(acceptProposal, `{piid}`, "1234", 1),
 		)
 
@@ -102,7 +102,7 @@ func TestOperation_AcceptRequest(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
-		require.Contains(t, buf.String(), "issue credential payload was not provided")
+		require.Contains(t, buf.String(), "payload was not provided")
 	})
 
 	t.Run("Success", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestOperation_AcceptRequest(t *testing.T) {
 
 		_, code, err := sendRequestToHandler(
 			handlerLookup(t, operation, acceptRequest),
-			bytes.NewBufferString(`{}`),
+			bytes.NewBufferString(`{"issue_credential":{}}`),
 			strings.Replace(acceptRequest, `{piid}`, "1234", 1),
 		)
 
@@ -135,7 +135,7 @@ func TestOperation_NegotiateProposal(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
-		require.Contains(t, buf.String(), "propose credential payload was not provided")
+		require.Contains(t, buf.String(), "payload was not provided")
 	})
 
 	t.Run("Success", func(t *testing.T) {
@@ -144,7 +144,7 @@ func TestOperation_NegotiateProposal(t *testing.T) {
 
 		_, code, err := sendRequestToHandler(
 			handlerLookup(t, operation, negotiateProposal),
-			bytes.NewBufferString(`{}`),
+			bytes.NewBufferString(`{"propose_credential":{}}`),
 			strings.Replace(negotiateProposal, `{piid}`, "1234", 1),
 		)
 
@@ -168,7 +168,21 @@ func TestOperation_AcceptCredential(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, code)
-		require.Contains(t, buf.String(), "names payload was not provided")
+		require.Contains(t, buf.String(), "payload was not provided")
+	})
+
+	t.Run("Empty payload (success)", func(t *testing.T) {
+		operation, err := New(provider(ctrl))
+		require.NoError(t, err)
+
+		_, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, acceptCredential),
+			bytes.NewBufferString(`{}`),
+			strings.Replace(acceptCredential, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, code)
 	})
 
 	t.Run("Success", func(t *testing.T) {
@@ -177,7 +191,7 @@ func TestOperation_AcceptCredential(t *testing.T) {
 
 		_, code, err := sendRequestToHandler(
 			handlerLookup(t, operation, acceptCredential),
-			bytes.NewBufferString(`[]`),
+			bytes.NewBufferString(`{"names":[]}`),
 			strings.Replace(acceptCredential, `{piid}`, "1234", 1),
 		)
 

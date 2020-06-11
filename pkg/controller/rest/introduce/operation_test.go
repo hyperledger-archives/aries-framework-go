@@ -131,6 +131,21 @@ func TestOperation_AcceptProposalWithOOBRequest(t *testing.T) {
 		require.Contains(t, buf.String(), "payload was not provided")
 	})
 
+	t.Run("Empty request", func(t *testing.T) {
+		operation, err := New(provider(ctrl))
+		require.NoError(t, err)
+
+		buf, code, err := sendRequestToHandler(
+			handlerLookup(t, operation, acceptProposalWithOOBRequest),
+			bytes.NewBufferString(`{}`),
+			strings.Replace(acceptProposalWithOOBRequest, `{piid}`, "1234", 1),
+		)
+
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, code)
+		require.Contains(t, buf.String(), "empty request")
+	})
+
 	t.Run("Success", func(t *testing.T) {
 		operation, err := New(provider(ctrl))
 		require.NoError(t, err)

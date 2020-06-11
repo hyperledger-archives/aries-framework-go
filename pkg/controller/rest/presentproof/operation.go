@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 
@@ -118,27 +119,9 @@ func (c *Operation) SendProposePresentation(rw http.ResponseWriter, req *http.Re
 //    default: genericError
 //        200: presentProofAcceptRequestPresentationResponse
 func (c *Operation) AcceptRequestPresentation(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
-	var buf bytes.Buffer
-
-	if req.Body != nil {
-		// nolint: errcheck
-		_, _ = io.Copy(&buf, req.Body)
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.AcceptRequestPresentation, rw, r)
 	}
-
-	if !isJSONMap(buf.Bytes()) {
-		rest.SendHTTPStatusError(rw,
-			http.StatusBadRequest,
-			command.InvalidRequestErrorCode,
-			errors.New("presentation payload was not provided"),
-		)
-
-		return
-	}
-
-	rest.Execute(c.command.AcceptRequestPresentation, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q,
-		"presentation": %s
-	}`, mux.Vars(req)["piid"], buf.String())))
 }
 
 // AcceptProposePresentation swagger:route POST /presentproof/{piid}/accept-propose-presentation present-proof presentProofAcceptProposePresentation
@@ -149,27 +132,9 @@ func (c *Operation) AcceptRequestPresentation(rw http.ResponseWriter, req *http.
 //    default: genericError
 //        200: presentProofAcceptProposePresentationResponse
 func (c *Operation) AcceptProposePresentation(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
-	var buf bytes.Buffer
-
-	if req.Body != nil {
-		// nolint: errcheck
-		_, _ = io.Copy(&buf, req.Body)
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.AcceptProposePresentation, rw, r)
 	}
-
-	if !isJSONMap(buf.Bytes()) {
-		rest.SendHTTPStatusError(rw,
-			http.StatusBadRequest,
-			command.InvalidRequestErrorCode,
-			errors.New("request presentation payload was not provided"),
-		)
-
-		return
-	}
-
-	rest.Execute(c.command.AcceptProposePresentation, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q,
-		"request_presentation": %s
-	}`, mux.Vars(req)["piid"], buf.String())))
 }
 
 // AcceptPresentation swagger:route POST /presentproof/{piid}/accept-presentation present-proof presentProofAcceptPresentation
@@ -180,27 +145,9 @@ func (c *Operation) AcceptProposePresentation(rw http.ResponseWriter, req *http.
 //    default: genericError
 //        200: presentProofAcceptPresentationResponse
 func (c *Operation) AcceptPresentation(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
-	var buf bytes.Buffer
-
-	if req.Body != nil {
-		// nolint: errcheck
-		_, _ = io.Copy(&buf, req.Body)
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.AcceptPresentation, rw, r)
 	}
-
-	if !isJSONArray(buf.Bytes()) {
-		rest.SendHTTPStatusError(rw,
-			http.StatusBadRequest,
-			command.InvalidRequestErrorCode,
-			errors.New("names payload was not provided"),
-		)
-
-		return
-	}
-
-	rest.Execute(c.command.AcceptPresentation, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q,
-		"names": %s
-	}`, mux.Vars(req)["piid"], buf.String())))
 }
 
 // NegotiateRequestPresentation swagger:route POST /presentproof/{piid}/negotiate-request-presentation present-proof presentProofNegotiateRequestPresentation
@@ -211,27 +158,9 @@ func (c *Operation) AcceptPresentation(rw http.ResponseWriter, req *http.Request
 //    default: genericError
 //        200: presentProofNegotiateRequestPresentationResponse
 func (c *Operation) NegotiateRequestPresentation(rw http.ResponseWriter, req *http.Request) { // nolint: dupl
-	var buf bytes.Buffer
-
-	if req.Body != nil {
-		// nolint: errcheck
-		_, _ = io.Copy(&buf, req.Body)
+	if ok, r := toCommandRequest(rw, req); ok {
+		rest.Execute(c.command.NegotiateRequestPresentation, rw, r)
 	}
-
-	if !isJSONMap(buf.Bytes()) {
-		rest.SendHTTPStatusError(rw,
-			http.StatusBadRequest,
-			command.InvalidRequestErrorCode,
-			errors.New("propose presentation payload was not provided"),
-		)
-
-		return
-	}
-
-	rest.Execute(c.command.NegotiateRequestPresentation, rw, bytes.NewBufferString(fmt.Sprintf(`{
-		"piid":%q,
-		"propose_presentation": %s
-	}`, mux.Vars(req)["piid"], buf.String())))
 }
 
 // DeclineRequestPresentation swagger:route POST /presentproof/{piid}/decline-request-presentation present-proof presentProofDeclineRequestPresentation
@@ -276,6 +205,36 @@ func (c *Operation) DeclinePresentation(rw http.ResponseWriter, req *http.Reques
 	}`, mux.Vars(req)["piid"], req.URL.Query().Get("reason"))))
 }
 
+func toCommandRequest(rw http.ResponseWriter, req *http.Request) (bool, io.Reader) {
+	var buf bytes.Buffer
+
+	if req.Body != nil {
+		// nolint: errcheck
+		_, _ = io.Copy(&buf, req.Body)
+	}
+
+	if !isJSONMap(buf.Bytes()) {
+		rest.SendHTTPStatusError(rw,
+			http.StatusBadRequest,
+			command.InvalidRequestErrorCode,
+			errors.New("payload was not provided"),
+		)
+
+		return false, nil
+	}
+
+	ending := fmt.Sprintf(`"piid":%q}`, mux.Vars(req)["piid"])
+
+	payload := strings.TrimSpace(buf.String())
+	if payload == "{}" {
+		payload = "{" + ending
+	} else {
+		payload = buf.String()[:buf.Len()-1] + "," + ending
+	}
+
+	return true, bytes.NewBufferString(payload)
+}
+
 func isJSONMap(data []byte) bool {
 	var v struct{}
 	return isJSON(data, &v)
@@ -283,9 +242,4 @@ func isJSONMap(data []byte) bool {
 
 func isJSON(data []byte, v interface{}) bool {
 	return json.Unmarshal(data, &v) == nil
-}
-
-func isJSONArray(data []byte) bool {
-	var v []interface{}
-	return isJSON(data, &v)
 }
