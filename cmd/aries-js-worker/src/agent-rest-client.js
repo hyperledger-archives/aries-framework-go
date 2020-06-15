@@ -157,6 +157,54 @@ const pkgs = {
             method: "GET",
         },
     },
+    introduce:{
+        Actions: {
+            path: "/introduce/actions",
+            method: "GET"
+        },
+        SendProposal: {
+            path: "/introduce/send-proposal",
+            method: "POST",
+        },
+        SendProposalWithOOBRequest: {
+            path: "/introduce/send-proposal-with-oob-request",
+            method: "POST",
+        },
+        SendRequest: {
+            path: "/introduce/send-request",
+            method: "POST",
+        },
+        AcceptProposalWithOOBRequest: {
+            path: "/introduce/{piid}/accept-proposal-with-oob-request",
+            method: "POST",
+            pathParam: "piid"
+        },
+        AcceptProposal: {
+            path: "/introduce/{piid}/accept-proposal",
+            method: "POST",
+            pathParam: "piid"
+        },
+        AcceptRequestWithPublicOOBRequest: {
+            path: "/introduce/{piid}/accept-request-with-public-oob-request",
+            method: "POST",
+            pathParam: "piid"
+        },
+        AcceptRequestWithRecipients: {
+            path: "/introduce/{piid}/accept-request-with-recipients",
+            method: "POST",
+            pathParam: "piid"
+        },
+        DeclineProposal: {
+            path: "/introduce/{piid}/decline-proposal",
+            method: "POST",
+            pathParam: "piid"
+        },
+        DeclineRequest: {
+            path: "/introduce/{piid}/decline-request",
+            method: "POST",
+            pathParam: "piid"
+        },
+    },
     outofband: {
         Actions: {
             path: "/outofband/actions",
