@@ -33,7 +33,8 @@ export async function newAriesREST(controllerUrl) {
 
     return new AriesREST({
         assetsPath: "/base/public/aries-framework-go/assets",
-        "agent-rest-url": controllerUrl
+        "agent-rest-url": controllerUrl,
+        "agent-rest-wshook": controllerUrl.replace("http://", "ws://") + "/ws",
     })
 }
 
