@@ -50,48 +50,52 @@ export const didExchangeClient = class {
         return await this.performDIDExchangeE2EWASM()
     }
 
-    async performDIDExchangeE2EWASM() {
-        this.hasMediator = true;
+    static async addRouter(mode, agent) {
         // receive an invitation from the router via the controller API
-        var invitation = await this.createInvitationFromRouter(routerCreateInvitationPath)
+        let invitation = await didExchangeClient.createInvitationFromRouter(routerCreateInvitationPath)
         // agent1 accepts the invitation from the router
-        await this.acceptInvitation(this.agent1, invitation, this.done)
-        // wait for connection state for agent1 to be completed and get connection ID
-        var connectionID = await this.watchForConnection(this.agent1, states.completed)
+        await didExchangeClient.acceptInvitation(mode, agent, invitation, this.done)
+        // wait for connection state for agent to be completed and get connection ID
+        let connectionID = await didExchangeClient.watchForConnection(agent, states.completed)
         // register with router
-        await this.registerRouter(this.agent1, connectionID, this.done)
+        await didExchangeClient.registerRouter(agent, connectionID, this.done).catch((err) => {
+            if (!err.message.includes("router is already registered")) {
+                throw new Error(err)
+            }
+        })
         //validate connection
-        this.validateRouterConnection(this.agent1, connectionID, this.done)
+        didExchangeClient.validateRouterConnection(agent, connectionID, this.done)
+    }
 
-        // receive an invitation from the router via the controller API
-        invitation = await this.createInvitationFromRouter(routerCreateInvitationPath)
-        // agent2 accepts the invitation from the router
-        await this.acceptInvitation(this.agent2, invitation, this.done)
-        // wait for connection state for agent2 to be completed and get connection ID
-        connectionID = await this.watchForConnection(this.agent2, states.completed)
-        // register with router
-        await this.registerRouter(this.agent2, connectionID, this.done)
-        //validate connection
-        this.validateRouterConnection(this.agent2, connectionID, this.done)
+    async setupRouter() {
+        this.hasMediator = true;
+        await didExchangeClient.addRouter(this.mode, this.agent1)
+        await didExchangeClient.addRouter(this.mode, this.agent2)
+    }
+
+    async performDIDExchangeE2EWASM() {
+        await this.setupRouter()
 
         // perform did exchange between agent 1 and agent 2
         // create invitation from agent1
         let response = await this.agent1.didexchange.createInvitation()
-        this.validateInvitation(response.invitation)
+        didExchangeClient.validateInvitation(response.invitation)
         // accept invitation in agent 2 and accept exchange request in agent 1
-        await this.acceptInvitation(this.agent2, response.invitation, this.done)
-        await this.acceptExchangeRequest(this.agent1)
+        await didExchangeClient.acceptInvitation(this.mode, this.agent2, response.invitation, this.done)
+        await didExchangeClient.acceptExchangeRequest(this.agent1)
         // wait for connection 'completed' in both the agents
-        return await Promise.all([this.watchForConnection(this.agent1, states.completed), this.watchForConnection(this.agent2, states.completed)])
+        return await Promise.all([didExchangeClient.watchForConnection(this.agent1, states.completed), didExchangeClient.watchForConnection(this.agent2, states.completed)])
     }
 
     async performDIDExchangeE2EREST() {
-        var response = await this.agent1.didexchange.createInvitation()
-        this.validateInvitation(response.invitation)
+        let response = await this.agent1.didexchange.createInvitation()
+        didExchangeClient.validateInvitation(response.invitation)
+
+        let connections = Promise.all([didExchangeClient.watchForConnection(this.agent1, states.completed), didExchangeClient.watchForConnection(this.agent2, states.completed)])
         // accept invitation in agent 2
-        this.acceptInvitation(this.agent2, response.invitation)
+        await didExchangeClient.acceptInvitation(this.mode, this.agent2, response.invitation)
         // wait for connection 'completed' in both the agents
-        return await Promise.all([this.watchForConnection(this.agent1, states.completed), this.watchForConnection(this.agent2, states.completed)])
+        return await connections
     }
 
     async destroy(){
@@ -104,16 +108,16 @@ export const didExchangeClient = class {
         this.agent2.destroy()
     }
 
-    async createInvitationFromRouter(endpoint) {
+    static async createInvitationFromRouter(endpoint) {
         const response = await axios.post(routerCreateInvitationPath)
         const invitation = response.data.invitation
 
-        this.validateInvitation(invitation)
+        didExchangeClient.validateInvitation(invitation)
 
         return invitation
     }
 
-    validateInvitation(invitation) {
+    static validateInvitation(invitation) {
         assert.isObject(invitation)
         assert.property(invitation, "serviceEndpoint")
         assert.property(invitation, "recipientKeys")
@@ -123,27 +127,29 @@ export const didExchangeClient = class {
         assert.equal(invitation["@type"], "https://didcomm.org/didexchange/1.0/invitation")
     }
 
-    async acceptInvitation(agent, invitation) {
-        if (this.mode === restMode) {
+    static async acceptInvitation(mode, agent, invitation) {
+        if (mode === restMode) {
             return agent.didexchange.receiveInvitation(invitation)
         }
 
         await agent.didexchange.receiveInvitation(invitation)
 
-        let conn = await this.watchForConnection(agent, "invited")
-        return agent.didexchange.acceptInvitation({
-            id: conn
+        return didExchangeClient.watchForConnection(agent, "invited").then((conn) => {
+            agent.didexchange.acceptInvitation({
+                id: conn
+            })
         })
     }
 
-    async acceptExchangeRequest(agent){
-        const connectionID = await this.watchForConnection(agent, states.requested)
-        agent.didexchange.acceptExchangeRequest({
-            id: connectionID
+    static acceptExchangeRequest(agent) {
+        return didExchangeClient.watchForConnection(agent, states.requested).then(async (connectionID) => {
+            await agent.didexchange.acceptExchangeRequest({
+                id: connectionID
+            })
         })
     }
 
-    watchForConnection(agent, state) {
+    static watchForConnection(agent, state) {
         return new Promise((resolve, reject) => {
             const timer = setTimeout(_ => reject(new Error("time out while waiting for connection")), 5000)
             const stop = agent.startNotifier(notice => {
@@ -165,11 +171,11 @@ export const didExchangeClient = class {
         })
     }
 
-    async registerRouter(agent, connectionID) {
+    static async registerRouter(agent, connectionID) {
         await agent.mediator.register({"connectionID": connectionID})
     }
 
-    validateRouterConnection(agent, connectionID, done) {
+    static validateRouterConnection(agent, connectionID, done) {
         agent.mediator.getConnection().then(
             resp => {
                 try {

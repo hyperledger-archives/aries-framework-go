@@ -42,6 +42,24 @@ services:
       - ${E2E_SECOND_USER_API_PORT}:${E2E_SECOND_USER_API_PORT}
     command: start
 
+  third.user.agent.aries.js.example.com:
+    container_name: third.user.agent.aries.js.example.com
+    image: ${E2E_AGENT_REST_IMAGE}:${E2E_AGENT_REST_IMAGE_TAG}
+    environment:
+      - ARIESD_API_HOST=${E2E_THIRD_USER_HOST}:${E2E_THIRD_USER_API_PORT}
+      - ARIESD_INBOUND_HOST=${E2E_HTTP_SCHEME}@${E2E_THIRD_USER_HOST}:${E2E_THIRD_USER_INBOUND_PORT}
+      - ARIESD_INBOUND_HOST_EXTERNAL=${E2E_HTTP_SCHEME}@http://third.user.agent.aries.js.example.com:${E2E_THIRD_USER_INBOUND_PORT}
+      - ARIESD_DEFAULT_LABEL=third-user-agent
+      - ARIESD_DB_PATH=${E2E_THIRD_USER_DB_PATH}
+      - ARIESD_AUTO_ACCEPT=${E2E_THIRD_USER_AUTOACCEPT}
+      - ARIESD_OUTBOUND_TRANSPORT=${E2E_HTTP_SCHEME},${E2E_WS_SCHEME}
+      - ARIESD_LOG_LEVEL=DEBUG
+      - ARIESD_HTTP_RESOLVER=${HTTP_DID_RESOLVER}
+    ports:
+      - ${E2E_THIRD_USER_INBOUND_PORT}:${E2E_THIRD_USER_INBOUND_PORT}
+      - ${E2E_THIRD_USER_API_PORT}:${E2E_THIRD_USER_API_PORT}
+    command: start
+
   user.agent.aries.js.example.com:
     container_name: user.agent.aries.js.example.com
     image: ${E2E_AGENT_REST_IMAGE}:${E2E_AGENT_REST_IMAGE_TAG}

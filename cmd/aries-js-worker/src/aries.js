@@ -197,6 +197,114 @@ const Aries = function (opts) {
         },
 
         /**
+         * Introduce methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
+         * input params and output return json values.
+         */
+        introduce:{
+            pkgname: "introduce",
+            /**
+             * Actions returns pending actions that have not yet to be executed or canceled.
+             *
+             * @returns {Promise<Object>}
+             */
+            actions: async function () {
+                return invoke(aw, pending, this.pkgname, "Actions", null, "timeout while getting actions")
+            },
+
+            /**
+             * SendProposal sends a proposal to the introducees (the client has not published an out-of-band message).
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendProposal: function (req) {
+                return invoke(aw, pending, this.pkgname, "SendProposal", req, "timeout while sending a proposal")
+            },
+
+            /**
+             * SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendProposalWithOOBRequest: function (req) {
+                return invoke(aw, pending, this.pkgname, "SendProposalWithOOBRequest", req, "timeout while sending a proposal with OOB request")
+            },
+
+            /**
+             * SendRequest sends a request. Sending a request means that the introducee is willing to share their own out-of-band message.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            sendRequest: function (req) {
+                return invoke(aw, pending, this.pkgname, "SendRequest", req, "timeout while sending a request")
+            },
+
+            /**
+             * AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptProposalWithOOBRequest: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptProposalWithOOBRequest", req, "timeout while accepting a proposal with OOBRequest")
+            },
+
+            /**
+             * AcceptProposal is used when introducee wants to accept a proposal without providing a OOBRequest.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptProposal: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptProposal", req, "timeout while accepting a proposal")
+            },
+
+
+            /**
+             * AcceptRequestWithPublicOOBRequest is used when introducer wants to provide a published out-of-band request.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptRequestWithPublicOOBRequest: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptRequestWithPublicOOBRequest", req, "timeout while accepting a request with public OOBRequest")
+            },
+
+            /**
+             * AcceptRequestWithRecipients is used when the introducer does not have a published out-of-band message on hand
+             * but he is willing to introduce agents to each other.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            acceptRequestWithRecipients: function (req) {
+                return invoke(aw, pending, this.pkgname, "AcceptRequestWithRecipients", req, "timeout while accepting a request with recipients")
+            },
+
+            /**
+             * DeclineProposal is used to reject the proposal.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            declineProposal: function (req) {
+                return invoke(aw, pending, this.pkgname, "DeclineProposal", req, "timeout while declining a proposal")
+            },
+
+            /**
+             * DeclineRequest is used to reject the request.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            declineRequest: function (req) {
+                return invoke(aw, pending, this.pkgname, "DeclineRequest", req, "timeout while declining a request")
+            }
+        },
+
+        /**
          * Outofband methods - Refer to [OpenAPI spec](docs/rest/openapi_spec.md#generate-openapi-spec) for
          * input params and output return json values.
          */

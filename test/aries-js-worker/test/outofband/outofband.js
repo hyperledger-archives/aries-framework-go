@@ -4,13 +4,14 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import {environment} from "../environment.js";
-import {newDIDExchangeClient, newDIDExchangeRESTClient} from "../didexchange/didexchange_e2e.js";
+import {didExchangeClient, newDIDExchangeClient, newDIDExchangeRESTClient} from "../didexchange/didexchange_e2e.js";
 
 const agent1ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.SECOND_USER_HOST}:${environment.SECOND_USER_API_PORT}`
 const agent2ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.USER_HOST}:${environment.USER_API_PORT}`
 
 const restMode = 'rest'
 const wasmMode = 'wasm'
+const retries = 10;
 
 describe("Outofband - New connection after Alice sends an out-of-band request to Bob", async function () {
     describe(restMode, function () {
@@ -43,28 +44,34 @@ async function outofbandRequest(mode) {
 
     let request;
     it("Alice constructs an out-of-band request with no attachments", async function () {
-        request = await didexClient.agent1.outofband.createRequest({
-            label: "Alice",
-            attachments: [
-                {
-                    "@id": getRandom(1, 9) + "955adee-bdb4-437f-884a-b466e38d5884",
-                    description: "dummy",
-                    "mime-type": "text/plain",
-                    "lastmod_time": "0001-01-01T00:00:00Z",
-                    data: {"json": {}}
-                }
-            ]
-        })
+        request = await didexClient.agent1.outofband.createRequest(createRequest("Alice"))
     })
 
     it("Bob accepts the request and connects with Alice", async function () {
-        didexClient.agent2.outofband.acceptRequest({
+        let checked = checkConnection(mode, didexClient.agent1, didexClient.agent2, request.request['@id'])
+
+        await didexClient.agent2.outofband.acceptRequest({
             my_label: "Bob",
             request: request.request,
         })
 
-        await checkConnection(mode, didexClient, request.request['@id'])
+        await checked
     })
+}
+
+export function createRequest(label) {
+    return {
+        label: label,
+        attachments: [
+            {
+                "@id": getRandom(1, 9) + "955adee-bdb4-437f-884a-b466e38d5884",
+                description: "dummy",
+                "mime-type": "text/plain",
+                "lastmod_time": "0001-01-01T00:00:00Z",
+                data: {"json": {}}
+            }
+        ]
+    }
 }
 
 async function outofbandInvitation(mode) {
@@ -86,12 +93,14 @@ async function outofbandInvitation(mode) {
     })
 
     it("Bob accepts the invitation and connects with Alice", async function () {
-        didexClient.agent2.outofband.acceptInvitation({
+        let checked = checkConnection(mode, didexClient.agent1, didexClient.agent2, invitation.invitation['@id'])
+
+        await didexClient.agent2.outofband.acceptInvitation({
             my_label: "Bob",
             invitation: invitation.invitation,
         })
 
-        await checkConnection(mode, didexClient, invitation.invitation['@id'])
+        await checked
     })
 }
 
@@ -100,28 +109,51 @@ async function client(mode) {
         return await newDIDExchangeRESTClient(agent2ControllerApiUrl, agent1ControllerApiUrl)
     }
 
-    return await newDIDExchangeClient("alice", "bob")
+    let client = await newDIDExchangeClient("alice", "bob")
+    await client.setupRouter()
+    return client
 }
 
-async function checkConnection(mode, didexClient, expected) {
+export async function checkConnection(mode, inviter, invitee, expected) {
     if (mode === wasmMode) {
-        let connID = didexClient.watchForConnection(didexClient.agent1, "requested")
-        await didexClient.agent1.didexchange.acceptExchangeRequest({id: await connID})
+        await didExchangeClient.watchForConnection(inviter, "requested").then((connID) => {
+            inviter.didexchange.acceptExchangeRequest({id: connID})
+        })
     }
 
-    return Promise.all([
-        didexClient.watchForConnection(didexClient.agent1, "completed").then(async (id) => {
-            let conn = await connection(didexClient.agent1, id)
+    let inviterID, inviteeID;
+    await Promise.all([
+        didExchangeClient.watchForConnection(inviter, "completed").then(async (id) => {
+            let conn = await connection(inviter, id)
             assert.equal(expected, conn.InvitationID)
+            inviterID = id
         }),
-        didexClient.watchForConnection(didexClient.agent2, "completed").then(async (id) => {
-            let conn = await connection(didexClient.agent2, id)
+        didExchangeClient.watchForConnection(invitee, "completed").then(async (id) => {
+            let conn = await connection(invitee, id)
             assert.equal(expected, conn.ParentThreadID)
+            inviteeID = id
         })
     ])
+
+    return [inviterID, inviteeID]
 }
 
-function getRandom(min, max) {
+export async function connectAgents(mode, inviter, invitee) {
+    let invitation = await inviter.outofband.createInvitation({
+        label: getRandom(1, 10) + "_" + getRandom(1, 10),
+    })
+
+    let checked = checkConnection(mode, inviter, invitee, invitation.invitation['@id'])
+
+    await invitee.outofband.acceptInvitation({
+        my_label: getRandom(1, 10) + "_" + getRandom(1, 10),
+        invitation: invitation.invitation,
+    })
+
+    return await checked
+}
+
+export function getRandom(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -133,4 +165,21 @@ async function connection(agent, conn) {
     })
 
     return res.result
+}
+
+export async function getAction(agent) {
+    for (let i = 0; i < retries; i++) {
+        let resp = await agent.outofband.actions()
+        if (resp.actions.length > 0) {
+            return resp.actions[0]
+        }
+
+        await sleep(1000);
+    }
+
+    throw new Error("no action")
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
