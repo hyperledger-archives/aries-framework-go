@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexchangebdd "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/didresolver"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/issuecredential"
 	mediatorbdd "github.com/hyperledger/aries-framework-go/test/bdd/pkg/mediator"
 	outofbandbdd "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 )
@@ -214,6 +215,11 @@ func (a *SDKSteps) checkHistoryEventsAndStop(agentID, events string) error {
 func (a *SDKSteps) checkAndStop(agentID, introduceeID string) error {
 	select {
 	case e := <-a.actions[agentID]:
+		err := issuecredential.CheckProperties(e)
+		if err != nil {
+			return fmt.Errorf("check properties: %w", err)
+		}
+
 		proposal := &protocol.Proposal{}
 		if err := e.Message.Decode(proposal); err != nil {
 			return err
@@ -234,8 +240,15 @@ func (a *SDKSteps) checkAndStop(agentID, introduceeID string) error {
 func (a *SDKSteps) handleRequest(agentID, introducee string) error {
 	select {
 	case e := <-a.actions[agentID]:
+		err := issuecredential.CheckProperties(e)
+		if err != nil {
+			return fmt.Errorf("check properties: %w", err)
+		}
+
 		request := &protocol.Request{}
-		if err := e.Message.Decode(request); err != nil {
+
+		err = e.Message.Decode(request)
+		if err != nil {
 			return err
 		}
 
@@ -263,8 +276,15 @@ func (a *SDKSteps) handleRequest(agentID, introducee string) error {
 func (a *SDKSteps) handleRequestWithInvitation(agentID string) error {
 	select {
 	case e := <-a.actions[agentID]:
+		err := issuecredential.CheckProperties(e)
+		if err != nil {
+			return fmt.Errorf("check properties: %w", err)
+		}
+
 		request := &protocol.Request{}
-		if err := e.Message.Decode(request); err != nil {
+
+		err = e.Message.Decode(request)
+		if err != nil {
 			return err
 		}
 
@@ -288,6 +308,11 @@ func (a *SDKSteps) handleRequestWithInvitation(agentID string) error {
 func (a *SDKSteps) checkAndContinue(agentID, introduceeID string) error {
 	select {
 	case e := <-a.actions[agentID]:
+		err := issuecredential.CheckProperties(e)
+		if err != nil {
+			return fmt.Errorf("check properties: %w", err)
+		}
+
 		proposal := &protocol.Proposal{}
 		if err := e.Message.Decode(proposal); err != nil {
 			return err
@@ -310,8 +335,15 @@ func (a *SDKSteps) checkAndContinue(agentID, introduceeID string) error {
 func (a *SDKSteps) checkAndContinueWithInvitation(agentID, introduceeID string) error {
 	select {
 	case e := <-a.actions[agentID]:
+		err := issuecredential.CheckProperties(e)
+		if err != nil {
+			return fmt.Errorf("check properties: %w", err)
+		}
+
 		proposal := &protocol.Proposal{}
-		if err := e.Message.Decode(proposal); err != nil {
+
+		err = e.Message.Decode(proposal)
+		if err != nil {
 			return err
 		}
 
@@ -337,8 +369,15 @@ func (a *SDKSteps) checkAndContinueWithInvitation(agentID, introduceeID string) 
 func (a *SDKSteps) checkAndContinueWithInvitationAndEmbeddedRequest(agentID, introduceeID, request string) error {
 	select {
 	case e := <-a.actions[agentID]:
+		err := issuecredential.CheckProperties(e)
+		if err != nil {
+			return fmt.Errorf("check properties: %w", err)
+		}
+
 		proposal := &protocol.Proposal{}
-		if err := e.Message.Decode(proposal); err != nil {
+
+		err = e.Message.Decode(proposal)
+		if err != nil {
 			return err
 		}
 
@@ -364,6 +403,11 @@ func (a *SDKSteps) checkAndContinueWithInvitationAndEmbeddedRequest(agentID, int
 func (a *SDKSteps) stopProtocol(agentID string) error {
 	select {
 	case e := <-a.actions[agentID]:
+		err := issuecredential.CheckProperties(e)
+		if err != nil {
+			return fmt.Errorf("check properties: %w", err)
+		}
+
 		e.Stop(errors.New("stop the protocol"))
 	case <-time.After(timeout):
 		return fmt.Errorf("timeout stopProtocol %s", agentID)

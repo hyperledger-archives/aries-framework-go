@@ -128,7 +128,7 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 	messenger.EXPECT().Send(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New(errMsg))
 
 	followup, action, err := (&arranging{}).ExecuteOutbound(messenger, &metaData{
-		transitionalPayload: transitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
+		transitionalPayload: transitionalPayload{Action: Action{Msg: service.NewDIDCommMsgMap(struct{}{})}},
 	})
 	require.NoError(t, err)
 	require.NoError(t, action())
@@ -136,7 +136,7 @@ func TestArranging_ExecuteOutbound(t *testing.T) {
 
 	// Send an error
 	followup, action, err = (&arranging{}).ExecuteOutbound(messenger, &metaData{
-		transitionalPayload: transitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
+		transitionalPayload: transitionalPayload{Action: Action{Msg: service.NewDIDCommMsgMap(struct{}{})}},
 	})
 	require.NoError(t, err)
 	require.Contains(t, fmt.Sprintf("%v", action()), errMsg)
@@ -238,7 +238,7 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 		messenger.EXPECT().ReplyTo(gomock.Any(), gomock.Any()).Return(nil)
 
 		followup, action, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
-			transitionalPayload: transitionalPayload{Msg: service.NewDIDCommMsgMap(struct{}{})},
+			transitionalPayload: transitionalPayload{Action: Action{Msg: service.NewDIDCommMsgMap(struct{}{})}},
 		})
 
 		require.NoError(t, err)
@@ -264,7 +264,7 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(struct{}{})
 		msg.Metadata()[metaAttachment] = []*decorator.Attachment{expected}
 		_, action, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
-			transitionalPayload: transitionalPayload{Msg: msg},
+			transitionalPayload: transitionalPayload{Action: Action{Msg: msg}},
 		})
 		require.NoError(t, err)
 		err = action()
@@ -277,7 +277,7 @@ func TestDeciding_ExecuteInbound(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(struct{}{})
 		msg.Metadata()[metaAttachment] = []struct{}{}
 		_, action, err := (&deciding{}).ExecuteInbound(messenger, &metaData{
-			transitionalPayload: transitionalPayload{Msg: msg},
+			transitionalPayload: transitionalPayload{Action: Action{Msg: msg}},
 		})
 		require.NoError(t, err)
 		err = action()
@@ -391,11 +391,11 @@ func Test_sendProposals(t *testing.T) {
 	msg.Metadata()[metaRecipients] = map[string]int{}
 
 	require.NoError(t, sendProposals(messenger, &metaData{
-		transitionalPayload: transitionalPayload{Msg: msg},
+		transitionalPayload: transitionalPayload{Action: Action{Msg: msg}},
 	}))
 
 	msg.Metadata()[metaRecipients] = []interface{}{&Recipient{}}
 	require.Contains(t, fmt.Sprintf("%v", sendProposals(messenger, &metaData{
-		transitionalPayload: transitionalPayload{Msg: msg},
+		transitionalPayload: transitionalPayload{Action: Action{Msg: msg}},
 	})), errMsg)
 }

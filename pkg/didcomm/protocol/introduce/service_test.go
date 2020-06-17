@@ -41,6 +41,11 @@ const (
 	Carol = "Carol"
 )
 
+type props interface {
+	MyDID() string
+	TheirDID() string
+}
+
 // payload represents a transport message structure
 type payload struct {
 	msg      []byte
@@ -195,6 +200,11 @@ func checkDIDCommAction(t *testing.T, agent string, expected ...action) checkAct
 		if action.Message.Type() != expected[i].Expected {
 			t.Errorf("[%s] got %s, expected %s", agent, action.Message.Type(), expected[i])
 		}
+
+		properties, ok := action.Properties.(props)
+		require.True(t, ok)
+		require.NotEmpty(t, properties.MyDID())
+		require.NotEmpty(t, properties.TheirDID())
 
 		action.Continue(expected[i].Opt)
 
@@ -358,6 +368,9 @@ func TestService_ProposalActionContinue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
 
+		require.Equal(t, actions[0].MyDID, Bob)
+		require.Equal(t, actions[0].TheirDID, Alice)
+
 		require.NoError(t, bob.ActionContinue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
 			Type: outofband.RequestMsgType,
 		})))
@@ -492,6 +505,9 @@ func TestService_ProposalSecondActionContinue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
 
+		require.Equal(t, actions[0].MyDID, Carol)
+		require.Equal(t, actions[0].TheirDID, Alice)
+
 		require.NoError(t, carol.ActionContinue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
 			Type: outofband.RequestMsgType,
 		})))
@@ -596,6 +612,11 @@ func TestService_SkipProposalStopIntroducee(t *testing.T) {
 		"abandoning", "abandoning",
 		"done", "done",
 	), func(action service.DIDCommAction) {
+		properties, ok := action.Properties.(props)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Bob)
+		require.Equal(t, properties.TheirDID(), Alice)
+
 		action.Stop(errors.New("hmm... I don't wanna know her"))
 		runtime.Goexit()
 	})
@@ -641,6 +662,9 @@ func TestService_SkipProposalActionStopIntroducee(t *testing.T) {
 		actions, err := bob.Actions()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
+
+		require.Equal(t, actions[0].MyDID, Bob)
+		require.Equal(t, actions[0].TheirDID, Alice)
 
 		require.NoError(t, bob.ActionStop(actions[0].PIID, errors.New("hmm... I don't wanna know her")))
 		runtime.Goexit()
@@ -689,6 +713,11 @@ func TestService_ProposalStopIntroduceeFirst(t *testing.T) {
 		"abandoning", "abandoning",
 		"done", "done",
 	), func(action service.DIDCommAction) {
+		properties, ok := action.Properties.(props)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Bob)
+		require.Equal(t, properties.TheirDID(), Alice)
+
 		action.Stop(errors.New("hmm... I don't wanna know her"))
 		runtime.Goexit()
 	})
@@ -753,6 +782,11 @@ func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 		"abandoning", "abandoning",
 		"done", "done",
 	), func(action service.DIDCommAction) {
+		properties, ok := action.Properties.(props)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Carol)
+		require.Equal(t, properties.TheirDID(), Alice)
+
 		action.Stop(errors.New("hmm... I don't wanna know him"))
 		runtime.Goexit()
 	})
@@ -814,6 +848,9 @@ func TestService_ProposalActionStopIntroduceeSecond(t *testing.T) {
 		actions, err := carol.Actions()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
+
+		require.Equal(t, actions[0].MyDID, Carol)
+		require.Equal(t, actions[0].TheirDID, Alice)
 
 		require.NoError(t, carol.ActionStop(actions[0].PIID, errors.New("hmm... I don't wanna know him")))
 		runtime.Goexit()
@@ -938,6 +975,9 @@ func TestService_ProposalWithRequestActionContinue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
 
+		require.Equal(t, actions[0].MyDID, Alice)
+		require.Equal(t, actions[0].TheirDID, Bob)
+
 		require.NoError(t, alice.ActionContinue(actions[0].PIID, introduce.WithRecipients(&introduce.To{
 			Name: Carol,
 		}, &introduce.Recipient{
@@ -962,6 +1002,9 @@ func TestService_ProposalWithRequestActionContinue(t *testing.T) {
 		actions, err := bob.Actions()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(actions))
+
+		require.Equal(t, actions[0].MyDID, Bob)
+		require.Equal(t, actions[0].TheirDID, Alice)
 
 		require.NoError(t, bob.ActionContinue(actions[0].PIID, introduce.WithOOBRequest(&outofband.Request{
 			Type: outofband.RequestMsgType,
@@ -1106,6 +1149,11 @@ func TestService_ProposalWithRequestStopIntroduceeFirst(t *testing.T) {
 		"abandoning", "abandoning",
 		"done", "done",
 	), func(action service.DIDCommAction) {
+		properties, ok := action.Properties.(props)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Bob)
+		require.Equal(t, properties.TheirDID(), Alice)
+
 		action.Stop(errors.New("hmm... I don't wanna know her"))
 		runtime.Goexit()
 	})
@@ -1181,6 +1229,11 @@ func TestService_ProposalWithRequestStopIntroduceeSecond(t *testing.T) {
 		"abandoning", "abandoning",
 		"done", "done",
 	), func(action service.DIDCommAction) {
+		properties, ok := action.Properties.(props)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Carol)
+		require.Equal(t, properties.TheirDID(), Alice)
+
 		action.Stop(errors.New("hmm... I don't wanna know him"))
 		runtime.Goexit()
 	})
@@ -1212,6 +1265,11 @@ func TestService_ProposalWithRequestIntroducerStop(t *testing.T) {
 		"abandoning", "abandoning",
 		"done", "done",
 	), func(action service.DIDCommAction) {
+		properties, ok := action.Properties.(props)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
 		action.Stop(errors.New("sorry, I don't know her"))
 		runtime.Goexit()
 	})
@@ -1322,6 +1380,11 @@ func TestService_SkipProposalWithRequestStopIntroducee(t *testing.T) {
 		"abandoning", "abandoning",
 		"done", "done",
 	), func(action service.DIDCommAction) {
+		properties, ok := action.Properties.(props)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Bob)
+		require.Equal(t, properties.TheirDID(), Alice)
+
 		action.Stop(errors.New("hmm... I don't wanna know her"))
 		runtime.Goexit()
 	})

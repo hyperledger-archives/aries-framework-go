@@ -70,7 +70,7 @@ async function presentProof(mode) {
     it("Prover accepts a request and sends a presentation to the Verifier", async function () {
         let action = await getAction(prover)
         return prover.presentproof.acceptRequestPresentation({
-            piid: action.piid,
+            piid: action.PIID,
             presentation: presentation,
         })
     })
@@ -80,7 +80,7 @@ async function presentProof(mode) {
     it("Verifier accepts a presentation", async function () {
         let action = await getAction(verifier)
         return verifier.presentproof.acceptPresentation({
-            piid: action.piid,
+            piid: action.PIID,
             names: [name],
         })
     })
@@ -116,6 +116,9 @@ async function getAction(agent) {
     for (let i = 0; i < retries; i++) {
         let resp = await agent.presentproof.actions()
         if (resp.actions.length > 0) {
+            assert.isNotEmpty(resp.actions[0].MyDID)
+            assert.isNotEmpty(resp.actions[0].TheirDID)
+
             return resp.actions[0]
         }
 

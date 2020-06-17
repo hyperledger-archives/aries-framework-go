@@ -36,7 +36,7 @@ export const didExchangeClient = class {
         this.mode = mode
     }
 
-    done(err) {
+    static done(err) {
         if (err) {
             throw new Error(err.message)
         }
@@ -54,17 +54,17 @@ export const didExchangeClient = class {
         // receive an invitation from the router via the controller API
         let invitation = await didExchangeClient.createInvitationFromRouter(routerCreateInvitationPath)
         // agent1 accepts the invitation from the router
-        await didExchangeClient.acceptInvitation(mode, agent, invitation, this.done)
+        await didExchangeClient.acceptInvitation(mode, agent, invitation, didExchangeClient.done)
         // wait for connection state for agent to be completed and get connection ID
         let connectionID = await didExchangeClient.watchForConnection(agent, states.completed)
         // register with router
-        await didExchangeClient.registerRouter(agent, connectionID, this.done).catch((err) => {
+        await didExchangeClient.registerRouter(agent, connectionID, didExchangeClient.done).catch((err) => {
             if (!err.message.includes("router is already registered")) {
                 throw new Error(err)
             }
         })
         //validate connection
-        didExchangeClient.validateRouterConnection(agent, connectionID, this.done)
+        didExchangeClient.validateRouterConnection(agent, connectionID, didExchangeClient.done)
     }
 
     async setupRouter() {
@@ -81,7 +81,7 @@ export const didExchangeClient = class {
         let response = await this.agent1.didexchange.createInvitation()
         didExchangeClient.validateInvitation(response.invitation)
         // accept invitation in agent 2 and accept exchange request in agent 1
-        await didExchangeClient.acceptInvitation(this.mode, this.agent2, response.invitation, this.done)
+        await didExchangeClient.acceptInvitation(this.mode, this.agent2, response.invitation, didExchangeClient.done)
         await didExchangeClient.acceptExchangeRequest(this.agent1)
         // wait for connection 'completed' in both the agents
         return await Promise.all([didExchangeClient.watchForConnection(this.agent1, states.completed), didExchangeClient.watchForConnection(this.agent2, states.completed)])

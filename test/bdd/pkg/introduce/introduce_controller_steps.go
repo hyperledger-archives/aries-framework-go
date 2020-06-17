@@ -330,6 +330,14 @@ func (s *ControllerSteps) getAction(retries int, agentID string) (*client.Action
 		return s.getAction(retries, agentID)
 	}
 
+	if res.Actions[0].MyDID == "" {
+		return nil, errors.New("myDID is empty")
+	}
+
+	if res.Actions[0].TheirDID == "" {
+		return nil, errors.New("theirDID is empty")
+	}
+
 	return &res.Actions[0], nil
 }
 

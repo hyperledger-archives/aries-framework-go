@@ -8,6 +8,7 @@ package issuecredential
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/cucumber/godog"
@@ -210,9 +211,36 @@ func (a *SDKSteps) acceptRequest(agent string) error {
 	})
 }
 
+type prop interface {
+	MyDID() string
+	TheirDID() string
+}
+
+// CheckProperties checks properties
+func CheckProperties(action service.DIDCommAction) error {
+	properties, ok := action.Properties.(prop)
+	if !ok {
+		return errors.New("no properties")
+	}
+
+	if properties.MyDID() == "" {
+		return errors.New("myDID is empty")
+	}
+
+	if properties.TheirDID() == "" {
+		return errors.New("theirDID is empty")
+	}
+
+	return nil
+}
+
 func (a *SDKSteps) getActionID(agent string) (string, error) {
 	select {
 	case e := <-a.actions[agent]:
+		if err := CheckProperties(e); err != nil {
+			return "", fmt.Errorf("check properties: %w", err)
+		}
+
 		return e.Message.ThreadID()
 	case <-time.After(timeout):
 		return "", errors.New("timeout")
