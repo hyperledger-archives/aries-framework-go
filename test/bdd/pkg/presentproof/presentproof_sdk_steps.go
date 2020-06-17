@@ -223,7 +223,7 @@ func (a *SDKSteps) acceptRequestPresentation(prover, verifier string) error {
 	}
 
 	return a.clients[prover].AcceptRequestPresentation(PIID, &presentproof.Presentation{
-		Presentations: []decorator.Attachment{{
+		PresentationsAttach: []decorator.Attachment{{
 			Data: decorator.AttachmentData{
 				Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS)),
 			},

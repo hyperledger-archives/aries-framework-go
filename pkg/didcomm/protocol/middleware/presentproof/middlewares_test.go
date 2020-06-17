@@ -59,7 +59,7 @@ func TestSavePresentation(t *testing.T) {
 		metadata.EXPECT().StateName().Return(stateNamePresentationReceived)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
 			Type: presentproof.PresentationMsgType,
-			Presentations: []decorator.Attachment{
+			PresentationsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: struct{ C chan int }{}}},
 			},
 		}))
@@ -82,7 +82,7 @@ func TestSavePresentation(t *testing.T) {
 		metadata.EXPECT().StateName().Return(stateNamePresentationReceived)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
 			Type: presentproof.PresentationMsgType,
-			Presentations: []decorator.Attachment{
+			PresentationsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{JSON: &verifiable.Presentation{
 					Context: []string{"https://www.w3.org/2018/presentation/v1"},
 				}}},
@@ -106,7 +106,7 @@ func TestSavePresentation(t *testing.T) {
 		metadata.EXPECT().PresentationNames().Return([]string{vcName}).Times(2)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
 			Type: presentproof.PresentationMsgType,
-			Presentations: []decorator.Attachment{
+			PresentationsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS))}},
 			},
 		}))
@@ -139,7 +139,7 @@ func TestSavePresentation(t *testing.T) {
 		metadata.EXPECT().PresentationNames().Return([]string{vcName}).Times(2)
 		metadata.EXPECT().Message().Return(service.NewDIDCommMsgMap(presentproof.Presentation{
 			Type: presentproof.PresentationMsgType,
-			Presentations: []decorator.Attachment{
+			PresentationsAttach: []decorator.Attachment{
 				{Data: decorator.AttachmentData{Base64: base64.StdEncoding.EncodeToString([]byte(vpJWS))}},
 			},
 		}))

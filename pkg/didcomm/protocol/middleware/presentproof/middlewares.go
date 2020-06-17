@@ -44,7 +44,7 @@ func SavePresentation(p Provider) presentproof.Middleware {
 				return fmt.Errorf("decode: %w", err)
 			}
 
-			presentations, err := toVerifiablePresentation(registryVDRI, presentation.Presentations)
+			presentations, err := toVerifiablePresentation(registryVDRI, presentation.PresentationsAttach)
 			if err != nil {
 				return fmt.Errorf("to verifiable presentation: %w", err)
 			}

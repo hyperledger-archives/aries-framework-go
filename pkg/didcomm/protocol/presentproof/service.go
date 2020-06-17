@@ -22,7 +22,7 @@ const (
 	// Name defines the protocol name
 	Name = "present-proof"
 	// Spec defines the protocol spec
-	Spec = "https://didcomm.org/present-proof/1.0/"
+	Spec = "https://didcomm.org/present-proof/2.0/"
 	// ProposePresentationMsgType defines the protocol propose-presentation message type.
 	ProposePresentationMsgType = Spec + "propose-presentation"
 	// RequestPresentationMsgType defines the protocol request-presentation message type.
