@@ -1,0 +1,22 @@
+{
+    "@context": {
+        "@version": 1.1,
+        "id": "@id",
+        "type": "@type",
+
+        "PresentationSubmission": {
+            "@id": "ex:PresentationSubmission",
+            "@context": {
+                "@version": 1.1,
+                "@protected": true,
+
+                "id": "@id",
+                "type": "@type"
+            }
+        },
+        "ex": "https://example.org/examples#",
+        "presentation_submission": {"@id": "ex:presentation_submission", "@type": "@id"},
+        "descriptor_map": {"@id": "ex:descriptor_map", "@type": "@id"},
+        "path": {"@id": "ex:path", "@type": "@id"}
+    }
+}

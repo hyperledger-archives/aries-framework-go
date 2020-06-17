@@ -175,6 +175,7 @@ type Presentation struct {
 	credentials   []interface{}
 	Holder        string
 	Proofs        []Proof
+	CustomFields  CustomFields
 }
 
 // MarshalJSON converts Verifiable Presentation to JSON bytes.
@@ -288,12 +289,13 @@ func (vp *Presentation) raw() (*rawPresentation, error) {
 	return &rawPresentation{
 		// TODO single value contexts should be compacted as part of Issue [#1730]
 		// Not compacting now to support interoperability
-		Context:    vp.Context,
-		ID:         vp.ID,
-		Type:       typesToRaw(vp.Type),
-		Credential: vp.credentials,
-		Holder:     vp.Holder,
-		Proof:      proof,
+		Context:      vp.Context,
+		ID:           vp.ID,
+		Type:         typesToRaw(vp.Type),
+		Credential:   vp.credentials,
+		Holder:       vp.Holder,
+		Proof:        proof,
+		CustomFields: vp.CustomFields,
 	}, nil
 }
 
@@ -305,6 +307,32 @@ type rawPresentation struct {
 	Credential interface{}     `json:"verifiableCredential"`
 	Holder     string          `json:"holder,omitempty"`
 	Proof      json.RawMessage `json:"proof,omitempty"`
+	// All unmapped fields are put here.
+	CustomFields `json:"-"`
+}
+
+// MarshalJSON defines custom marshalling of rawPresentation to JSON.
+func (rp *rawPresentation) MarshalJSON() ([]byte, error) {
+	type Alias rawPresentation
+
+	alias := (*Alias)(rp)
+
+	return marshalWithCustomFields(alias, rp.CustomFields)
+}
+
+// UnmarshalJSON defines custom unmarshalling of rawPresentation from JSON.
+func (rp *rawPresentation) UnmarshalJSON(data []byte) error {
+	type Alias rawPresentation
+
+	alias := (*Alias)(rp)
+	rp.CustomFields = make(CustomFields)
+
+	err := unmarshalWithCustomFields(data, alias, rp.CustomFields)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // presentationOpts holds options for the Verifiable Presentation decoding
@@ -452,6 +480,7 @@ func newPresentation(vpRaw *rawPresentation, vpOpts *presentationOpts) (*Present
 		credentials:   creds,
 		Holder:        vpRaw.Holder,
 		Proofs:        proofs,
+		CustomFields:  vpRaw.CustomFields,
 	}, nil
 }
 
