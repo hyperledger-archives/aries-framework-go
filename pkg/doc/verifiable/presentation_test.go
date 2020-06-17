@@ -55,7 +55,7 @@ const validPresentation = `
 }
 `
 
-//nolint:lll
+// nolint:lll
 const validEmptyPresentation = `
 {
   "@context": [
@@ -65,6 +65,58 @@ const validEmptyPresentation = `
   ],
   "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
   "type": "VerifiablePresentation",
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "created": "2020-01-21T16:44:53+02:00",
+    "proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01mq-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVBAh4vGHSrQyHUGlcTwLtjPAnKb78"
+  }
+}
+`
+
+// nolint:lll
+const validPresentationWithCustomFields = `
+{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+	"https://trustbloc.github.io/context/vc/presentation-exchange-submission-v1.jsonld"
+  ],
+  "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+   "type": [
+        "VerifiablePresentation",
+        "PresentationSubmission"
+    ],
+    "presentation_submission": {
+        "descriptor_map": [
+            {
+                "id": "degree_input_1",
+                "path": "$.verifiableCredential.[0]"
+            },
+            {
+                "id": "citizenship_input_1",
+                "path": "$.verifiableCredential.[1]"
+            }
+        ]
+    },
+  "verifiableCredential": [
+    {
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1"
+      ],
+      "id": "http://example.edu/credentials/58473",
+      "type": ["VerifiableCredential", "UniversityDegreeCredential"],
+      "issuer": "https://example.edu/issuers/14",
+      "issuanceDate": "2010-01-01T19:23:24Z",
+      "credentialSubject": {
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "alumniOf": "Example University"
+      },
+      "proof": {
+        "type": "RsaSignature2018"
+      }
+    }
+  ],
   "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
   "proof": {
     "type": "Ed25519Signature2018",
@@ -101,6 +153,33 @@ func TestParsePresentation(t *testing.T) {
 
 		// check proof
 		require.NotNil(t, vp.Proofs)
+	})
+
+	t.Run("creates a new Verifiable Presentation with custom/additional fields", func(t *testing.T) {
+		verify := func(t *testing.T, vp *Presentation) {
+			require.Len(t, vp.CustomFields, 1)
+			require.Len(t, vp.CustomFields["presentation_submission"], 1)
+			submission, ok := vp.CustomFields["presentation_submission"].(map[string]interface{})
+			require.True(t, ok)
+			require.Len(t, submission, 1)
+			descrMap, ok := submission["descriptor_map"].([]interface{})
+			require.True(t, ok)
+			require.Len(t, descrMap, 2)
+		}
+
+		vp, err := newTestPresentation([]byte(validPresentationWithCustomFields))
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		verify(t, vp)
+
+		b, e := vp.MarshalJSON()
+		require.NoError(t, e)
+		require.NotEmpty(t, b)
+
+		vp, err = newTestPresentation(b, WithPresStrictValidation())
+		require.NoError(t, err)
+		require.NotNil(t, vp)
+		verify(t, vp)
 	})
 
 	t.Run("creates a new Verifiable Presentation from JSON with invalid empty VC structure", func(t *testing.T) {
@@ -296,7 +375,7 @@ func TestValidateVP_Type(t *testing.T) {
 		require.Nil(t, vp)
 	})
 
-	t.Run("rejects verifiable presentation where several types are defined and first one is not VerifiablePresentation", //nolint:lll
+	t.Run("rejects verifiable presentation where several types are defined and first one is not VerifiablePresentation", // nolint:lll
 		func(t *testing.T) {
 			raw := &rawPresentation{}
 			require.NoError(t, json.Unmarshal([]byte(validPresentation), &raw))

@@ -122,8 +122,8 @@ func (vc *Credential) byteJSON(t *testing.T) []byte {
 	return bytes
 }
 
-func (raw *rawPresentation) stringJSON(t *testing.T) string {
-	bytes, err := json.Marshal(raw)
+func (rp *rawPresentation) stringJSON(t *testing.T) string {
+	bytes, err := json.Marshal(rp)
 	require.NoError(t, err)
 
 	return string(bytes)
@@ -260,6 +260,9 @@ func createTestJSONLDDocumentLoader() *ld.CachingDocumentLoader {
 	addJSONLDCachedContextFromFile(loader, "https://www.w3.org/ns/odrl.jsonld", "odrl.jsonld")
 	addJSONLDCachedContextFromFile(loader, "https://w3id.org/security/v1", "security_v1.jsonld")
 	addJSONLDCachedContextFromFile(loader, "https://w3id.org/security/v2", "security_v2.jsonld")
+	addJSONLDCachedContextFromFile(loader,
+		"https://trustbloc.github.io/context/vc/presentation-exchange-submission-v1.jsonld",
+		"presentation_submission_v1.jsonld")
 
 	return loader
 }
