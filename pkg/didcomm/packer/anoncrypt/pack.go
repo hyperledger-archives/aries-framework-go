@@ -16,7 +16,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -186,7 +186,7 @@ func exportPubKeyBytes(keyHandle *keyset.Handle) ([]byte, error) {
 	}
 
 	buf := new(bytes.Buffer)
-	pubKeyWriter := ecdhes.NewWriter(buf)
+	pubKeyWriter := keyio.NewWriter(buf)
 
 	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
 	if err != nil {
