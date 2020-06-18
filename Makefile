@@ -4,6 +4,7 @@
 
 GO_CMD ?= go
 ARIES_AGENT_REST_PATH=cmd/aries-agent-rest
+ARIES_AGENT_MOBILE_PATH=cmd/aries-agent-mobile
 SIDETREE_CLI_PATH=test/bdd/cmd/sidetree
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
 OPENAPI_SPEC_PATH=build/rest/openapi/spec
@@ -100,6 +101,10 @@ agent-rest:
 	@mkdir -p ./build/bin
 	@cd ${ARIES_AGENT_REST_PATH} && go build -o ../../build/bin/aries-agent-rest main.go
 
+.PHONY: agent-mobile
+agent-mobile:
+	@echo "Building aries-agent-mobile"
+	@cd ${ARIES_AGENT_MOBILE_PATH} && $(MAKE) all
 
 .PHONY: sidetree-cli
 sidetree-cli:
@@ -185,6 +190,7 @@ clean-images:
 clean-build:
 	@rm -f coverage.txt
 	@rm -Rf ./build
+	@rm -Rf $(ARIES_AGENT_MOBILE_PATH)/build
 	@rm -Rf ./test/bdd/db
 	@rm -Rf ./test/bdd/*.log
 
