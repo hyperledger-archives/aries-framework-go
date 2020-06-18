@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package ecdhes
+package ecdh1pu
 
 import (
 	"bytes"
@@ -20,26 +20,26 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 )
 
-func TestECDHESKeyTemplateSuccess(t *testing.T) {
+func TestECDH1PUKeyTemplateSuccess(t *testing.T) {
 	var flagTests = []struct {
 		tcName    string
 		curveType string
 		tmplFunc  func(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error)
 	}{
 		{
-			tcName:    "create ECDHES 256 key templates test",
+			tcName:    "create ECDH1PU 256 key templates test",
 			curveType: "P-256",
-			tmplFunc:  ECDHES256KWAES256GCMKeyTemplateWithRecipients,
+			tmplFunc:  ECDH1PU256KWAES256GCMKeyTemplateWithRecipients,
 		},
 		{
-			tcName:    "create ECDHES 384 key templates test",
+			tcName:    "create ECDH1PU 384 key templates test",
 			curveType: "P-384",
-			tmplFunc:  ECDHES384KWAES256GCMKeyTemplateWithRecipients,
+			tmplFunc:  ECDH1PU384KWAES256GCMKeyTemplateWithRecipients,
 		},
 		{
-			tcName:    "create ECDHES 521 key templates test",
+			tcName:    "create ECDH1PU 521 key templates test",
 			curveType: "P-521",
-			tmplFunc:  ECDHES521KWAES256GCMKeyTemplateWithRecipients,
+			tmplFunc:  ECDH1PU521KWAES256GCMKeyTemplateWithRecipients,
 		},
 	}
 
@@ -57,7 +57,7 @@ func TestECDHESKeyTemplateSuccess(t *testing.T) {
 			pubKH, err := kh.Public()
 			require.NoError(t, err)
 
-			e, err := NewECDHESEncrypt(pubKH)
+			e, err := NewECDH1PUEncrypt(pubKH)
 			require.NoError(t, err)
 
 			pt := []byte("secret message")
@@ -69,7 +69,7 @@ func TestECDHESKeyTemplateSuccess(t *testing.T) {
 
 			// decrypt for all Recipients
 			for _, recKH := range recKHs {
-				d, er := NewECDHESDecrypt(recKH)
+				d, er := NewECDH1PUDecrypt(recKH)
 				require.NoError(t, er)
 
 				dpt, er := d.Decrypt(ct, aad)
@@ -111,11 +111,11 @@ func createAndMarshalRecipient(t *testing.T, curveType string) ([]byte, *keyset.
 
 	switch curveType {
 	case "P-256":
-		tmpl = ECDHES256KWAES256GCMKeyTemplate()
+		tmpl = ECDH1PU256KWAES256GCMKeyTemplate()
 	case "P-384":
-		tmpl = ECDHES384KWAES256GCMKeyTemplate()
+		tmpl = ECDH1PU384KWAES256GCMKeyTemplate()
 	case "P-521":
-		tmpl = ECDHES521KWAES256GCMKeyTemplate()
+		tmpl = ECDH1PU521KWAES256GCMKeyTemplate()
 	}
 
 	kh, err := keyset.NewHandle(tmpl)
@@ -134,7 +134,7 @@ func createAndMarshalRecipient(t *testing.T, curveType string) ([]byte, *keyset.
 	return buf.Bytes(), kh
 }
 
-func TestECDHESKeyTemplateFailures(t *testing.T) {
+func TestECDH1PUKeyTemplateFailures(t *testing.T) {
 	badCurve := "BadCurve"
 	badKeyType := "BadKeyType"
 
@@ -147,7 +147,7 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 		errMsg     string
 	}{
 		{
-			tcName: "ECDHES P256 Key Template creation with Bad Curve should fail",
+			tcName: "ECDH1PU P256 Key Template creation with Bad Curve should fail",
 			recPubKeys: []composite.PublicKey{
 				{
 					KID:   "",
@@ -159,11 +159,11 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 			},
 			curve:    badCurve,
 			keyType:  "EC",
-			tmplFunc: ECDHES256KWAES256GCMKeyTemplateWithRecipients,
+			tmplFunc: ECDH1PU256KWAES256GCMKeyTemplateWithRecipients,
 			errMsg:   fmt.Sprintf("curve %s not supported", badCurve),
 		},
 		{
-			tcName: "ECDHES P256 Key Template creation with Bad keyType should fail",
+			tcName: "ECDH1PU P256 Key Template creation with Bad keyType should fail",
 			recPubKeys: []composite.PublicKey{
 				{
 					KID:   "",
@@ -175,11 +175,11 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 			},
 			curve:    "P-256",
 			keyType:  badKeyType,
-			tmplFunc: ECDHES256KWAES256GCMKeyTemplateWithRecipients,
+			tmplFunc: ECDH1PU256KWAES256GCMKeyTemplateWithRecipients,
 			errMsg:   fmt.Sprintf("key type %s not supported", badKeyType),
 		},
 		{
-			tcName: "ECDHES P384 Key Template creation with Bad Curve should fail",
+			tcName: "ECDH1PU P384 Key Template creation with Bad Curve should fail",
 			recPubKeys: []composite.PublicKey{
 				{
 					KID:   "",
@@ -191,12 +191,12 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 			},
 			curve:    badCurve,
 			keyType:  "EC",
-			tmplFunc: ECDHES384KWAES256GCMKeyTemplateWithRecipients,
+			tmplFunc: ECDH1PU384KWAES256GCMKeyTemplateWithRecipients,
 			errMsg:   fmt.Sprintf("curve %s not supported", badCurve),
 		},
 
 		{
-			tcName: "ECDHES P384 Key Template creation with Bad keyType should fail",
+			tcName: "ECDH1PU P384 Key Template creation with Bad keyType should fail",
 			recPubKeys: []composite.PublicKey{
 				{
 					KID:   "",
@@ -208,11 +208,11 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 			},
 			curve:    "P-384",
 			keyType:  badKeyType,
-			tmplFunc: ECDHES384KWAES256GCMKeyTemplateWithRecipients,
+			tmplFunc: ECDH1PU384KWAES256GCMKeyTemplateWithRecipients,
 			errMsg:   fmt.Sprintf("key type %s not supported", badKeyType),
 		},
 		{
-			tcName: "ECDHES P521 Key Template creation with Bad Curve should fail",
+			tcName: "ECDH1PU P521 Key Template creation with Bad Curve should fail",
 			recPubKeys: []composite.PublicKey{
 				{
 					KID:   "",
@@ -224,12 +224,12 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 			},
 			curve:    badCurve,
 			keyType:  "EC",
-			tmplFunc: ECDHES521KWAES256GCMKeyTemplateWithRecipients,
+			tmplFunc: ECDH1PU521KWAES256GCMKeyTemplateWithRecipients,
 			errMsg:   fmt.Sprintf("curve %s not supported", badCurve),
 		},
 
 		{
-			tcName: "ECDHES P521 Key Template creation with Bad keyType should fail",
+			tcName: "ECDH1PU P521 Key Template creation with Bad keyType should fail",
 			recPubKeys: []composite.PublicKey{
 				{
 					KID:   "",
@@ -241,7 +241,7 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 			},
 			curve:    "P-521",
 			keyType:  badKeyType,
-			tmplFunc: ECDHES521KWAES256GCMKeyTemplateWithRecipients,
+			tmplFunc: ECDH1PU521KWAES256GCMKeyTemplateWithRecipients,
 			errMsg:   fmt.Sprintf("key type %s not supported", badKeyType),
 		},
 	}

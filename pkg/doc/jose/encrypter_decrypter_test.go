@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 )
 
 func TestJWEEncryptRoundTrip(t *testing.T) {
@@ -406,7 +407,7 @@ func createAndMarshalRecipient(t *testing.T) ([]byte, *keyset.Handle) {
 	require.NoError(t, err)
 
 	buf := new(bytes.Buffer)
-	pubKeyWriter := ecdhes.NewWriter(buf)
+	pubKeyWriter := keyio.NewWriter(buf)
 	require.NotEmpty(t, pubKeyWriter)
 
 	err = pubKH.WriteWithNoSecrets(pubKeyWriter)

@@ -408,38 +408,3 @@ func TestDecryptPrimitiveSetFail(t *testing.T) {
 	_, err = decPrimitiveSet.Decrypt([]byte("12345plaintext"), []byte("aad"))
 	require.EqualError(t, err, "ecdh1pu_factory: decryption failed")
 }
-
-// TODO move below two functions to ecdh1pu_key_template.go as part of #1913
-func ECDH1PU256KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
-	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256, commonpb.EcPointFormat_UNCOMPRESSED,
-		aead.AES256GCMKeyTemplate(), tinkpb.OutputPrefixType_RAW, nil, compositepb.KeyType_EC)
-}
-
-func createKeyTemplate(c commonpb.EllipticCurveType, epf commonpb.EcPointFormat, contentEncKeyT *tinkpb.KeyTemplate,
-	prefixType tinkpb.OutputPrefixType, recipients []*ecdh1pupb.Ecdh1PuAeadRecipientPublicKey,
-	keyType compositepb.KeyType) *tinkpb.KeyTemplate {
-	format := &ecdh1pupb.Ecdh1PuAeadKeyFormat{
-		Params: &ecdh1pupb.Ecdh1PuAeadParams{
-			KwParams: &ecdh1pupb.Ecdh1PuKwParams{
-				CurveType:  c,
-				KeyType:    keyType,
-				Recipients: recipients,
-			},
-			EncParams: &ecdh1pupb.Ecdh1PuAeadEncParams{
-				AeadEnc: contentEncKeyT,
-			},
-			EcPointFormat: epf,
-		},
-	}
-
-	serializedFormat, err := proto.Marshal(format)
-	if err != nil {
-		panic("failed to marshal Ecdh1PuAeadKeyFormat proto")
-	}
-
-	return &tinkpb.KeyTemplate{
-		TypeUrl:          ecdh1puAESPrivateKeyTypeURL,
-		Value:            serializedFormat,
-		OutputPrefixType: prefixType,
-	}
-}
