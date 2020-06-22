@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
@@ -50,20 +51,23 @@ func TestClient_SendRequestPresentation(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
+		thid := uuid.New().String()
 
 		svc := mocks.NewMockProtocolService(ctrl)
 		svc.EXPECT().HandleInbound(gomock.Any(), Alice, Bob).
 			DoAndReturn(func(msg service.DIDCommMsg, _, _ string) (string, error) {
 				require.Equal(t, msg.Type(), presentproof.RequestPresentationMsgType)
 
-				return "", nil
+				return thid, nil
 			})
 
 		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.NoError(t, client.SendRequestPresentation(&RequestPresentation{}, Alice, Bob))
+		result, err := client.SendRequestPresentation(&RequestPresentation{}, Alice, Bob)
+		require.NoError(t, err)
+		require.Equal(t, thid, result)
 	})
 
 	t.Run("Empty Request Presentation", func(t *testing.T) {
@@ -73,7 +77,8 @@ func TestClient_SendRequestPresentation(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.EqualError(t, client.SendRequestPresentation(nil, Alice, Bob), errEmptyRequestPresentation.Error())
+		_, err = client.SendRequestPresentation(nil, Alice, Bob)
+		require.EqualError(t, err, errEmptyRequestPresentation.Error())
 	})
 }
 
@@ -83,20 +88,23 @@ func TestClient_SendProposePresentation(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
+		thid := uuid.New().String()
 
 		svc := mocks.NewMockProtocolService(ctrl)
 		svc.EXPECT().HandleInbound(gomock.Any(), Alice, Bob).
 			DoAndReturn(func(msg service.DIDCommMsg, _, _ string) (string, error) {
 				require.Equal(t, msg.Type(), presentproof.ProposePresentationMsgType)
 
-				return "", nil
+				return thid, nil
 			})
 
 		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.NoError(t, client.SendProposePresentation(&ProposePresentation{}, Alice, Bob))
+		result, err := client.SendProposePresentation(&ProposePresentation{}, Alice, Bob)
+		require.NoError(t, err)
+		require.Equal(t, thid, result)
 	})
 
 	t.Run("Empty Request Presentation", func(t *testing.T) {
@@ -106,7 +114,8 @@ func TestClient_SendProposePresentation(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.EqualError(t, client.SendProposePresentation(nil, Alice, Bob), errEmptyProposePresentation.Error())
+		_, err = client.SendProposePresentation(nil, Alice, Bob)
+		require.EqualError(t, err, errEmptyProposePresentation.Error())
 	})
 }
 

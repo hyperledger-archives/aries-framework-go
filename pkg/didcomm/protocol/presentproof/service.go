@@ -226,8 +226,13 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 		return "", nil
 	}
 
+	thid, err := msg.ThreadID()
+	if err != nil {
+		return "", fmt.Errorf("failed to obtain the message's threadID : %w", err)
+	}
+
 	// if no action event is triggered, continue the execution
-	return "", s.handle(md)
+	return thid, s.handle(md)
 }
 
 // HandleOutbound handles outbound message (presentproof protocol)
