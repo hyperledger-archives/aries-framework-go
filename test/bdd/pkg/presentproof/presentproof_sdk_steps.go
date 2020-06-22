@@ -165,7 +165,9 @@ func (a *SDKSteps) sendProposePresentation(prover, verifier string) error {
 		return err
 	}
 
-	return a.clients[prover].SendProposePresentation(&presentproof.ProposePresentation{}, conn.MyDID, conn.TheirDID)
+	_, err = a.clients[prover].SendProposePresentation(&presentproof.ProposePresentation{}, conn.MyDID, conn.TheirDID)
+
+	return err
 }
 
 func (a *SDKSteps) sendRequestPresentation(agent1, agent2 string) error {
@@ -174,7 +176,9 @@ func (a *SDKSteps) sendRequestPresentation(agent1, agent2 string) error {
 		return err
 	}
 
-	return a.clients[agent1].SendRequestPresentation(&presentproof.RequestPresentation{}, conn.MyDID, conn.TheirDID)
+	_, err = a.clients[agent1].SendRequestPresentation(&presentproof.RequestPresentation{}, conn.MyDID, conn.TheirDID)
+
+	return err
 }
 
 func (a *SDKSteps) getActionID(agent string) (string, error) {

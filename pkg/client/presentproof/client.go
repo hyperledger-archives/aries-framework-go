@@ -85,16 +85,15 @@ func (c *Client) Actions() ([]Action, error) {
 }
 
 // SendRequestPresentation is used by the Verifier to send a request presentation.
-func (c *Client) SendRequestPresentation(msg *RequestPresentation, myDID, theirDID string) error {
+// It returns the threadID of the new instance of the protocol.
+func (c *Client) SendRequestPresentation(msg *RequestPresentation, myDID, theirDID string) (string, error) {
 	if msg == nil {
-		return errEmptyRequestPresentation
+		return "", errEmptyRequestPresentation
 	}
 
 	msg.Type = presentproof.RequestPresentationMsgType
 
-	_, err := c.service.HandleInbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
-
-	return err
+	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
 }
 
 // AcceptRequestPresentation is used by the Prover is to accept a presentation request.
@@ -113,16 +112,15 @@ func (c *Client) DeclineRequestPresentation(piID, reason string) error {
 }
 
 // SendProposePresentation is used by the Prover to send a propose presentation.
-func (c *Client) SendProposePresentation(msg *ProposePresentation, myDID, theirDID string) error {
+// It returns the threadID of the new instance of the protocol.
+func (c *Client) SendProposePresentation(msg *ProposePresentation, myDID, theirDID string) (string, error) {
 	if msg == nil {
-		return errEmptyProposePresentation
+		return "", errEmptyProposePresentation
 	}
 
 	msg.Type = presentproof.ProposePresentationMsgType
 
-	_, err := c.service.HandleInbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
-
-	return err
+	return c.service.HandleInbound(service.NewDIDCommMsgMap(msg), myDID, theirDID)
 }
 
 // AcceptProposePresentation is used when the Verifier is willing to accept the propose presentation.

@@ -164,7 +164,7 @@ func (c *Command) SendRequestPresentation(rw io.Writer, req io.Reader) command.E
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestPresentation))
 	}
 
-	if err := c.client.SendRequestPresentation(args.RequestPresentation, args.MyDID, args.TheirDID); err != nil {
+	if _, err := c.client.SendRequestPresentation(args.RequestPresentation, args.MyDID, args.TheirDID); err != nil {
 		logutil.LogError(logger, commandName, sendRequestPresentation, err.Error())
 		return command.NewExecuteError(SendRequestPresentationErrorCode, err)
 	}
@@ -201,7 +201,9 @@ func (c *Command) SendProposePresentation(rw io.Writer, req io.Reader) command.E
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposePresentation))
 	}
 
-	if err := c.client.SendProposePresentation(args.ProposePresentation, args.MyDID, args.TheirDID); err != nil {
+	// TODO correlate outbound request-presentation & propose-presentation to their responses
+	//  https://github.com/hyperledger/aries-framework-go/issues/1945
+	if _, err := c.client.SendProposePresentation(args.ProposePresentation, args.MyDID, args.TheirDID); err != nil {
 		logutil.LogError(logger, commandName, sendProposePresentation, err.Error())
 		return command.NewExecuteError(SendProposePresentationErrorCode, err)
 	}
