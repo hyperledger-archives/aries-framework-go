@@ -7,6 +7,7 @@ package verifiable
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -30,6 +31,38 @@ type UniversityDegreeSubject struct {
 	Degree UniversityDegree `json:"degree,omitempty"`
 }
 
+func mapUniversityDegreeSubject(subjects []Subject) *UniversityDegreeSubject {
+	if len(subjects) != 1 {
+		return nil
+	}
+
+	subject := &subjects[0]
+	customFields := subject.CustomFields
+	udSubject := &UniversityDegreeSubject{
+		ID:     subject.ID,
+		Name:   safeStringValue(customFields["name"]),
+		Spouse: safeStringValue(customFields["spouse"]),
+	}
+
+	degreeValue, ok := customFields["degree"]
+	if !ok {
+		return udSubject
+	}
+
+	degreeMap, ok := degreeValue.(map[string]interface{})
+	if !ok {
+		return udSubject
+	}
+
+	udDegree := &udSubject.Degree
+	udDegree.Type = safeStringValue(degreeMap["type"])
+	udDegree.Name = safeStringValue(degreeMap["name"])
+	udDegree.College = safeStringValue(degreeMap["college"])
+	udDegree.University = safeStringValue(degreeMap["university"])
+
+	return udSubject
+}
+
 // UniversityDegreeCredential University Degree credential, from examples of https://w3c.github.io/vc-data-model
 type UniversityDegreeCredential struct {
 	Base Credential `json:"-"`
@@ -43,21 +76,45 @@ func NewUniversityDegreeCredential(vcData []byte, opts ...CredentialOpt) (*Unive
 		return nil, fmt.Errorf("new university degree credential: %w", err)
 	}
 
+	// One way to build custom credential subject is to convert []Subject to the custom credential.
 	udc := UniversityDegreeCredential{
-		Base: *cred,
+		Base:    *cred,
+		Subject: mapUniversityDegreeSubject(credSubjects(cred)),
 	}
 
-	credBytes, err := json.Marshal(cred)
-	if err != nil {
-		return nil, fmt.Errorf("new university degree credential: %w", err)
+	// The other way is to marshal credential subject and unmarshal back to custom subject structure.
+	subjects, ok := cred.Subject.([]Subject)
+	if !ok {
+		return nil, errors.New("expected subject of []Subject type")
 	}
 
-	err = json.Unmarshal(credBytes, &udc)
+	if len(subjects) != 1 {
+		return nil, errors.New("expected a single subject")
+	}
+
+	subjectBytes, err := json.Marshal(subjects[0])
 	if err != nil {
-		return nil, fmt.Errorf("new university degree credential: %w", err)
+		return nil, fmt.Errorf("new university degree credential subject: %w", err)
+	}
+
+	err = json.Unmarshal(subjectBytes, &udc.Subject)
+	if err != nil {
+		return nil, fmt.Errorf("new university degree credential subject: %w", err)
 	}
 
 	return &udc, nil
+}
+
+func credSubjects(vc *Credential) []Subject {
+	if vc.Subject == nil {
+		return nil
+	}
+
+	if subjects, ok := vc.Subject.([]Subject); ok {
+		return subjects
+	}
+
+	return nil
 }
 
 func TestCredentialExtensibility(t *testing.T) {

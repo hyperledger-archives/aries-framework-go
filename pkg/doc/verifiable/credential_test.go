@@ -300,7 +300,9 @@ func TestValidateVerCredCredentialSubject(t *testing.T) {
 		var raw rawCredential
 
 		require.NoError(t, json.Unmarshal([]byte(validCredential), &raw))
-		raw.Subject = 55
+		invalidNumericSubject, err := json.Marshal(55)
+		require.NoError(t, err)
+		raw.Subject = invalidNumericSubject
 		bytes, err := json.Marshal(raw)
 		require.NoError(t, err)
 		err = validateCredentialUsingJSONSchema(bytes, nil, &credentialOpts{})
@@ -1070,10 +1072,10 @@ func TestDownloadCustomSchema(t *testing.T) {
 	})
 }
 
-func TestCredentialSubjectId(t *testing.T) {
+func Test_SubjectID(t *testing.T) {
 	t.Run("With string subject", func(t *testing.T) {
 		vcWithStringSubject := &Credential{Subject: "did:example:ebfeb1f712ebc6f1c276e12ecaa"}
-		subjectID, err := subjectID(vcWithStringSubject.Subject)
+		subjectID, err := SubjectID(vcWithStringSubject.Subject)
 		require.NoError(t, err)
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ecaa", subjectID)
 	})
@@ -1086,7 +1088,7 @@ func TestCredentialSubjectId(t *testing.T) {
 				"name": "Bachelor of Science and Arts",
 			},
 		}}
-		subjectID, err := subjectID(vcWithSingleSubject.Subject)
+		subjectID, err := SubjectID(vcWithSingleSubject.Subject)
 		require.NoError(t, err)
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ecaa", subjectID)
 	})
@@ -1099,7 +1101,7 @@ func TestCredentialSubjectId(t *testing.T) {
 				"name": "Bachelor of Science and Arts",
 			},
 		}}}
-		subjectID, err := subjectID(vcWithSingleSubject.Subject)
+		subjectID, err := SubjectID(vcWithSingleSubject.Subject)
 		require.NoError(t, err)
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ecaa", subjectID)
 	})
@@ -1118,7 +1120,7 @@ func TestCredentialSubjectId(t *testing.T) {
 					"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 				},
 			}}
-		subjectID, err := subjectID(vcWithMultipleSubjects.Subject)
+		subjectID, err := SubjectID(vcWithMultipleSubjects.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "more than one subject is defined")
 		require.Empty(t, subjectID)
@@ -1128,7 +1130,7 @@ func TestCredentialSubjectId(t *testing.T) {
 		vcWithNoSubject := &Credential{
 			Subject: nil,
 		}
-		subjectID, err := subjectID(vcWithNoSubject.Subject)
+		subjectID, err := SubjectID(vcWithNoSubject.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "subject id is not defined")
 		require.Empty(t, subjectID)
@@ -1138,7 +1140,7 @@ func TestCredentialSubjectId(t *testing.T) {
 		vcWithNoSubject := &Credential{
 			Subject: []map[string]interface{}{},
 		}
-		subjectID, err := subjectID(vcWithNoSubject.Subject)
+		subjectID, err := SubjectID(vcWithNoSubject.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "no subject is defined")
 		require.Empty(t, subjectID)
@@ -1152,7 +1154,7 @@ func TestCredentialSubjectId(t *testing.T) {
 				"name": "Bachelor of Science and Arts",
 			},
 		}}
-		subjectID, err := subjectID(vcWithNotStringID.Subject)
+		subjectID, err := SubjectID(vcWithNotStringID.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "subject id is not string")
 		require.Empty(t, subjectID)
@@ -1170,7 +1172,7 @@ func TestCredentialSubjectId(t *testing.T) {
 				},
 			},
 		}
-		subjectID, err := subjectID(vcWithSubjectWithoutID.Subject)
+		subjectID, err := SubjectID(vcWithSubjectWithoutID.Subject)
 		require.Error(t, err)
 		require.EqualError(t, err, "subject id is not defined")
 		require.Empty(t, subjectID)
@@ -1200,13 +1202,13 @@ func TestCredentialSubjectId(t *testing.T) {
 				},
 			},
 		}
-		subjectID, err := subjectID(vcWithSubjectWithoutID.Subject)
+		subjectID, err := SubjectID(vcWithSubjectWithoutID.Subject)
 		require.NoError(t, err)
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjectID)
 	})
 
 	t.Run("Get subject id from unmarshalable structure", func(t *testing.T) {
-		subjectID, err := subjectID(make(chan int))
+		subjectID, err := SubjectID(make(chan int))
 		require.Error(t, err)
 		require.EqualError(t, err, "subject of unknown structure")
 		require.Empty(t, subjectID)
@@ -1233,8 +1235,8 @@ func TestRawCredentialSerialization(t *testing.T) {
 	require.Equal(t, cMap, rcMap)
 }
 
-func TestDecodeIssuer(t *testing.T) {
-	t.Run("Decode Issuer defined by ID only", func(t *testing.T) {
+func TestParseIssuer(t *testing.T) {
+	t.Run("Parse Issuer defined by ID only", func(t *testing.T) {
 		issueBytes, err := json.Marshal("did:example:76e12ec712ebc6f1c221ebfeb1f")
 		require.NoError(t, err)
 
@@ -1244,7 +1246,7 @@ func TestDecodeIssuer(t *testing.T) {
 		require.Empty(t, issuer.CustomFields)
 	})
 
-	t.Run("Decode Issuer identified by ID and name", func(t *testing.T) {
+	t.Run("Parse Issuer identified by ID and name", func(t *testing.T) {
 		issueBytes, err := json.Marshal(map[string]interface{}{
 			"id":   "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			"name": "Example University",
@@ -1257,7 +1259,7 @@ func TestDecodeIssuer(t *testing.T) {
 		require.Equal(t, "Example University", issuer.CustomFields["name"])
 	})
 
-	t.Run("Decode Issuer identified by ID and name and image", func(t *testing.T) {
+	t.Run("Parse Issuer identified by ID and name and image", func(t *testing.T) {
 		issueBytes, err := json.Marshal(map[string]interface{}{
 			"id":    "did:example:76e12ec712ebc6f1c221ebfeb1f",
 			"name":  "Example University",
@@ -1272,7 +1274,7 @@ func TestDecodeIssuer(t *testing.T) {
 		require.Equal(t, "data:image/png;base64,iVBOR", issuer.CustomFields["image"])
 	})
 
-	t.Run("Decode Issuer identified by ID and empty name", func(t *testing.T) {
+	t.Run("Parse Issuer identified by ID and empty name", func(t *testing.T) {
 		issueBytes, err := json.Marshal(map[string]interface{}{
 			"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
 		})
@@ -1284,7 +1286,7 @@ func TestDecodeIssuer(t *testing.T) {
 		require.Empty(t, issuer.CustomFields)
 	})
 
-	t.Run("Decode Issuer identified by empty ID and name", func(t *testing.T) {
+	t.Run("Parse Issuer identified by empty ID and name", func(t *testing.T) {
 		issueBytes, err := json.Marshal(map[string]interface{}{
 			"name": "Example University",
 		})
@@ -1296,7 +1298,7 @@ func TestDecodeIssuer(t *testing.T) {
 		require.Empty(t, issuer.ID)
 	})
 
-	t.Run("Decode Issuer with invalid type of ID", func(t *testing.T) {
+	t.Run("Parse Issuer with invalid type of ID", func(t *testing.T) {
 		issueBytes, err := json.Marshal(map[string]interface{}{
 			"id": 55,
 		})
@@ -1308,7 +1310,7 @@ func TestDecodeIssuer(t *testing.T) {
 		require.Empty(t, issuer.ID)
 	})
 
-	t.Run("Decode Issuer of invalid type", func(t *testing.T) {
+	t.Run("Parse Issuer of invalid type", func(t *testing.T) {
 		issueBytes, err := json.Marshal(77)
 		require.NoError(t, err)
 
@@ -1317,6 +1319,69 @@ func TestDecodeIssuer(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal Issuer")
 		require.Empty(t, issuer.ID)
+	})
+}
+func TestParseSubject(t *testing.T) {
+	t.Run("Parse Subject defined by ID only", func(t *testing.T) {
+		subjectBytes, err := json.Marshal("did:example:ebfeb1f712ebc6f1c276e12ec21")
+		require.NoError(t, err)
+
+		subject, err := parseSubject(subjectBytes)
+		require.NoError(t, err)
+		require.Len(t, subject, 1)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[0].ID)
+		require.Empty(t, subject[0].CustomFields)
+	})
+
+	t.Run("Parse empty subject", func(t *testing.T) {
+		subject, err := parseSubject(nil)
+		require.NoError(t, err)
+		require.Len(t, subject, 0)
+	})
+
+	t.Run("Parse single Subject object", func(t *testing.T) {
+		subjectBytes, err := json.Marshal(map[string]interface{}{
+			"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			"name":   "Jayden Doe",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+		})
+		require.NoError(t, err)
+
+		subject, err := parseSubject(subjectBytes)
+		require.NoError(t, err)
+		require.Len(t, subject, 1)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[0].ID)
+		require.NotEmpty(t, subject[0].CustomFields)
+		require.Equal(t, "Jayden Doe", subject[0].CustomFields["name"])
+		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject[0].CustomFields["spouse"])
+	})
+
+	t.Run("Parse several Subject objects", func(t *testing.T) {
+		subjectBytes, err := json.Marshal([]map[string]interface{}{
+			{
+				"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+				"name":   "Jayden Doe",
+				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+			},
+			{
+				"id":     "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				"name":   "Morgan Doe",
+				"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			},
+		})
+		require.NoError(t, err)
+
+		subject, err := parseSubject(subjectBytes)
+		require.NoError(t, err)
+		require.Len(t, subject, 2)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[0].ID)
+		require.NotEmpty(t, subject[0].CustomFields)
+		require.Equal(t, "Jayden Doe", subject[0].CustomFields["name"])
+		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject[0].CustomFields["spouse"])
+		require.Equal(t, "did:example:c276e12ec21ebfeb1f712ebc6f1", subject[1].ID)
+		require.NotEmpty(t, subject[1].CustomFields)
+		require.Equal(t, "Morgan Doe", subject[1].CustomFields["name"])
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subject[1].CustomFields["spouse"])
 	})
 }
 
@@ -1362,6 +1427,51 @@ func TestMarshalIssuer(t *testing.T) {
 		issuerBytes, err := issuer.MarshalJSON()
 		require.Error(t, err)
 		require.Empty(t, issuerBytes)
+	})
+}
+
+func TestMarshalSubject(t *testing.T) {
+	t.Run("Marshal Subject with ID defined only", func(t *testing.T) {
+		subject := Subject{ID: "did:example:76e12ec712ebc6f1c221ebfeb1f"}
+
+		expectedSubjectBytes, err := json.Marshal("did:example:76e12ec712ebc6f1c221ebfeb1f")
+		require.NoError(t, err)
+
+		subjectBytes, err := subject.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, expectedSubjectBytes, subjectBytes)
+	})
+
+	t.Run("Marshal Subject with ID, name, spouse defined", func(t *testing.T) {
+		subject := Subject{
+			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: CustomFields{
+				"name":   "Morgan Doe",
+				"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			},
+		}
+
+		expectedSubjectBytes, err := json.Marshal(map[string]interface{}{
+			"id":     "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			"name":   "Morgan Doe",
+			"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+		})
+		require.NoError(t, err)
+
+		subjectBytes, err := subject.MarshalJSON()
+		require.NoError(t, err)
+		require.Equal(t, expectedSubjectBytes, subjectBytes)
+	})
+
+	t.Run("corner case: marshal Subject with invalid custom fields", func(t *testing.T) {
+		subject := Subject{
+			ID:           "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			CustomFields: map[string]interface{}{"image": map[chan int]interface{}{make(chan int): 777}},
+		}
+
+		subjectBytes, err := subject.MarshalJSON()
+		require.Error(t, err)
+		require.Empty(t, subjectBytes)
 	})
 }
 
@@ -1824,5 +1934,124 @@ func TestMarshalCredential(t *testing.T) {
 		require.NotEmpty(t, vcMap["credentialSubject"])
 		require.NotEmpty(t, vcMap["issuer"])
 		require.NotEmpty(t, vcMap["type"])
+	})
+}
+
+//nolint:lll
+func TestSubjectToBytes(t *testing.T) {
+	r := require.New(t)
+
+	t.Run("string subject", func(t *testing.T) {
+		subjectBytes, err := subjectToBytes("did:example:ebfeb1f712ebc6f1c276e12ec21")
+		r.NoError(err)
+		r.Equal("\"did:example:ebfeb1f712ebc6f1c276e12ec21\"", string(subjectBytes))
+	})
+
+	t.Run("map subject", func(t *testing.T) {
+		subjectBytes, err := subjectToBytes(map[string]interface{}{
+			"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			"name":   "Jayden Doe",
+			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+		})
+		r.NoError(err)
+		r.Equal("{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"}", string(subjectBytes))
+	})
+
+	t.Run("slice of maps subject", func(t *testing.T) {
+		subjectBytes, err := subjectToBytes([]map[string]interface{}{
+			{
+				"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+				"name":   "Jayden Doe",
+				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+			},
+		})
+		r.NoError(err)
+		r.Equal("{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"}", string(subjectBytes))
+
+		subjectBytes, err = subjectToBytes([]map[string]interface{}{
+			{
+				"id":     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+				"name":   "Jayden Doe",
+				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+			},
+			{
+				"id":     "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				"name":   "Morgan Doe",
+				"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			},
+		})
+		r.NoError(err)
+		r.Equal("[{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"},{\"id\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\",\"name\":\"Morgan Doe\",\"spouse\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"}]", string(subjectBytes))
+	})
+
+	t.Run("Single Subject subject", func(t *testing.T) {
+		subjectBytes, err := subjectToBytes(Subject{
+			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+		})
+		r.NoError(err)
+		r.Equal("\"did:example:ebfeb1f712ebc6f1c276e12ec21\"", string(subjectBytes))
+
+		subjectBytes, err = subjectToBytes(Subject{
+			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			CustomFields: CustomFields{
+				"name":   "Jayden Doe",
+				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+			},
+		})
+		r.NoError(err)
+		r.Equal("{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"}", string(subjectBytes))
+	})
+
+	t.Run("Several Subject subjects", func(t *testing.T) {
+		subjectBytes, err := subjectToBytes([]Subject{
+			{
+				ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+				CustomFields: CustomFields{
+					"name":   "Jayden Doe",
+					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				},
+			},
+		})
+		r.NoError(err)
+		r.Equal("{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"}", string(subjectBytes))
+
+		subjectBytes, err = subjectToBytes([]Subject{
+			{
+				ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+				CustomFields: CustomFields{
+					"name":   "Jayden Doe",
+					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				},
+			},
+			{
+				ID: "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				CustomFields: CustomFields{
+					"name":   "Morgan Doe",
+					"spouse": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+				},
+			},
+		})
+		r.NoError(err)
+		r.Equal("[{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"},{\"id\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\",\"name\":\"Morgan Doe\",\"spouse\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"}]", string(subjectBytes))
+	})
+
+	t.Run("Custom struct subject", func(t *testing.T) {
+		subjectBytes, err := subjectToBytes(UniversityDegreeSubject{
+			ID:     "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			Name:   "Jayden Doe",
+			Spouse: "did:example:c276e12ec21ebfeb1f712ebc6f1",
+			Degree: UniversityDegree{
+				Type:       "BachelorDegree",
+				University: "MIT",
+			},
+		})
+		r.NoError(err)
+		r.Equal("{\"degree\":{\"type\":\"BachelorDegree\",\"university\":\"MIT\"},\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"}", string(subjectBytes))
+	})
+
+	t.Run("nil subject", func(t *testing.T) {
+		subjectBytes, err := subjectToBytes(nil)
+		r.Empty(subjectBytes)
+		r.NoError(err)
 	})
 }

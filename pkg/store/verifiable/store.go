@@ -258,10 +258,8 @@ func (s *StoreImplementation) getAllRecords(searchKey string, keyPrefix func(str
 }
 
 func getVCSubjectID(vc *verifiable.Credential) string {
-	if subject, ok := vc.Subject.(map[string]interface{}); ok {
-		if s, ok := subject["id"].(string); ok {
-			return s
-		}
+	if subjectID, err := verifiable.SubjectID(vc.Subject); err == nil {
+		return subjectID
 	}
 
 	return ""

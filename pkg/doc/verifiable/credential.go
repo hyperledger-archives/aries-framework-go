@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"time"
 
 	"github.com/piprate/json-gold/ld"
@@ -396,7 +397,7 @@ type Issuer struct {
 }
 
 // MarshalJSON marshals Issuer to JSON.
-func (i Issuer) MarshalJSON() ([]byte, error) {
+func (i *Issuer) MarshalJSON() ([]byte, error) {
 	if len(i.CustomFields) == 0 {
 		// as string
 		return json.Marshal(i.ID)
@@ -405,7 +406,7 @@ func (i Issuer) MarshalJSON() ([]byte, error) {
 	// as object
 	type Alias Issuer
 
-	alias := Alias(i)
+	alias := Alias(*i)
 
 	data, err := marshalWithCustomFields(alias, i.CustomFields)
 	if err != nil {
@@ -445,15 +446,63 @@ func (i *Issuer) UnmarshalJSON(bytes []byte) error {
 }
 
 // Subject of the Verifiable Credential
-type Subject interface{}
+type Subject struct {
+	ID string `json:"id,omitempty"`
+
+	CustomFields CustomFields `json:"-"`
+}
+
+// MarshalJSON marshals Subject to JSON.
+func (s *Subject) MarshalJSON() ([]byte, error) {
+	if len(s.CustomFields) == 0 {
+		// Subject ID as string
+		return json.Marshal(s.ID)
+	}
+
+	type Alias Subject
+
+	alias := Alias(*s)
+
+	data, err := marshalWithCustomFields(alias, s.CustomFields)
+	if err != nil {
+		return nil, fmt.Errorf("marshal Subject: %w", err)
+	}
+
+	return data, nil
+}
+
+// UnmarshalJSON unmarshals Subject from JSON.
+func (s *Subject) UnmarshalJSON(bytes []byte) error {
+	var subjectID string
+
+	if err := json.Unmarshal(bytes, &subjectID); err == nil {
+		// as string
+		s.ID = subjectID
+		return nil
+	}
+
+	type Alias Subject
+
+	alias := (*Alias)(s)
+
+	s.CustomFields = make(CustomFields)
+
+	err := unmarshalWithCustomFields(bytes, alias, s.CustomFields)
+	if err != nil {
+		return fmt.Errorf("unmarshal Subject: %w", err)
+	}
+
+	return nil
+}
 
 // Credential Verifiable Credential definition
 type Credential struct {
-	Context        []string
-	CustomContext  []interface{}
-	ID             string
-	Types          []string
-	Subject        Subject
+	Context       []string
+	CustomContext []interface{}
+	ID            string
+	Types         []string
+	// Subject can be a string, map, slice of maps, struct (Subject or any custom), slice of structs.
+	Subject        interface{}
 	Issuer         Issuer
 	Issued         *util.TimeWithTrailingZeroMsec
 	Expired        *util.TimeWithTrailingZeroMsec
@@ -472,7 +521,7 @@ type rawCredential struct {
 	Context        interface{}                    `json:"@context,omitempty"`
 	ID             string                         `json:"id,omitempty"`
 	Type           interface{}                    `json:"type,omitempty"`
-	Subject        Subject                        `json:"credentialSubject,omitempty"`
+	Subject        json.RawMessage                `json:"credentialSubject,omitempty"`
 	Issued         *util.TimeWithTrailingZeroMsec `json:"issuanceDate,omitempty"`
 	Expired        *util.TimeWithTrailingZeroMsec `json:"expirationDate,omitempty"`
 	Proof          json.RawMessage                `json:"proof,omitempty"`
@@ -647,7 +696,7 @@ func WithEmbeddedSignatureSuites(suites ...verifier.SignatureSuite) CredentialOp
 	}
 }
 
-// parseIssuer decodes raw issuer.
+// parseIssuer parses raw issuer.
 //
 // Issuer can be defined by:
 //
@@ -663,6 +712,41 @@ func parseIssuer(issuerBytes json.RawMessage) (Issuer, error) {
 	}
 
 	return issuer, err
+}
+
+// parseSubject parses raw credential subject.
+//
+// Subject can be defined as a string (subject ID) or single object or array of objects.
+func parseSubject(subjectBytes json.RawMessage) ([]Subject, error) {
+	if len(subjectBytes) == 0 {
+		return nil, nil
+	}
+
+	var subjectID string
+
+	err := json.Unmarshal(subjectBytes, &subjectID)
+	if err == nil {
+		return []Subject{{
+			ID:           subjectID,
+			CustomFields: make(CustomFields),
+		}}, nil
+	}
+
+	var subject Subject
+
+	err = json.Unmarshal(subjectBytes, &subject)
+	if err == nil {
+		return []Subject{subject}, nil
+	}
+
+	var subjects []Subject
+
+	err = json.Unmarshal(subjectBytes, &subjects)
+	if err == nil {
+		return subjects, nil
+	}
+
+	return nil, errors.New("verifiable credential subject of unsupported format")
 }
 
 // decodeCredentialSchemas decodes credential schema(s).
@@ -904,12 +988,17 @@ func newCredential(raw *rawCredential) (*Credential, error) {
 		return nil, fmt.Errorf("fill credential proof from raw: %w", err)
 	}
 
+	subjects, err := parseSubject(raw.Subject)
+	if err != nil {
+		return nil, fmt.Errorf("fill credential subject from raw: %w", err)
+	}
+
 	return &Credential{
 		Context:        context,
 		CustomContext:  customContext,
 		ID:             raw.ID,
 		Types:          types,
-		Subject:        raw.Subject,
+		Subject:        subjects,
 		Issuer:         issuer,
 		Issued:         raw.Issued,
 		Expired:        raw.Expired,
@@ -1002,7 +1091,87 @@ func newDefaultSchemaLoader() *CredentialSchemaLoader {
 }
 
 func issuerToRaw(issuer Issuer) (json.RawMessage, error) {
-	return json.Marshal(issuer)
+	return issuer.MarshalJSON()
+}
+
+// subjectToBytes converts subject(s) to bytes.
+// A subject can be of a different kind:
+// - string (represents subject id)
+// - map
+// - slice of maps
+// - Subject
+// - slice of Subjects
+// - custom struct
+// - slice of custom structs
+func subjectToBytes(subject interface{}) ([]byte, error) {
+	if subject == nil {
+		return nil, nil
+	}
+
+	switch s := subject.(type) {
+	case string:
+		return json.Marshal(s)
+
+	case []map[string]interface{}:
+		if len(s) == 1 {
+			return json.Marshal(s[0])
+		}
+
+		return json.Marshal(s)
+
+	case map[string]interface{}:
+		return subjectMapToRaw(s)
+
+	case Subject:
+		return s.MarshalJSON()
+
+	case []Subject:
+		if len(s) == 1 {
+			return s[0].MarshalJSON()
+		}
+
+		return json.Marshal(s)
+
+	default:
+		return subjectStructToRaw(subject)
+	}
+}
+
+func subjectStructToRaw(subject interface{}) (json.RawMessage, error) {
+	// convert to slice of maps and try once again
+	if reflect.TypeOf(subject).Kind() == reflect.Slice {
+		sValue := reflect.ValueOf(subject)
+		subjects := make([]interface{}, sValue.Len())
+
+		for i := 0; i < sValue.Len(); i++ {
+			subjects[i] = sValue.Index(i).Interface()
+		}
+
+		sMaps, err := toMaps(subjects)
+		if err != nil {
+			return nil, errors.New("subject of unknown structure")
+		}
+
+		return subjectToBytes(sMaps)
+	}
+
+	// convert to map and try once again
+	sMap, err := toMap(subject)
+	if err != nil {
+		return nil, errors.New("subject of unknown structure")
+	}
+
+	return subjectToBytes(sMap)
+}
+
+func subjectMapToRaw(subject map[string]interface{}) (json.RawMessage, error) {
+	if len(subject) == 1 {
+		if _, ok := subject["id"]; ok {
+			return json.Marshal(safeStringValue(subject["id"]))
+		}
+	}
+
+	return json.Marshal(subject)
 }
 
 func (vc *Credential) validateJSONSchema(data []byte, opts *credentialOpts) error {
@@ -1116,27 +1285,27 @@ func (vc *Credential) JWTClaims(minimizeVC bool) (*JWTCredClaims, error) {
 	return newJWTCredClaims(vc, minimizeVC)
 }
 
-// subjectID gets ID of single subject if present or
+// SubjectID gets ID of single subject if present or
 // returns error if there are several subjects or one without ID defined.
 // It can also try to get ID from subject of struct type.
-func subjectID(subject interface{}) (string, error) {
-	subjectIDFn := func(subject map[string]interface{}) (string, error) {
-		subjectWithID, defined := subject["id"]
-		if !defined {
-			return "", errors.New("subject id is not defined")
-		}
-
-		subjectID, isString := subjectWithID.(string)
-		if !isString {
-			return "", errors.New("subject id is not string")
-		}
-
-		return subjectID, nil
-	}
-
+func SubjectID(subject interface{}) (string, error) { // nolint:gocyclo
 	switch subject := subject.(type) {
+	case []Subject:
+		if len(subject) == 0 {
+			return "", errors.New("no subject is defined")
+		}
+
+		if len(subject) > 1 {
+			return "", errors.New("more than one subject is defined")
+		}
+
+		return subject[0].ID, nil
+
+	case Subject:
+		return subject.ID, nil
+
 	case map[string]interface{}:
-		return subjectIDFn(subject)
+		return subjectIDFromMap(subject)
 
 	case []map[string]interface{}:
 		if len(subject) == 0 {
@@ -1147,7 +1316,7 @@ func subjectID(subject interface{}) (string, error) {
 			return "", errors.New("more than one subject is defined")
 		}
 
-		return subjectIDFn(subject[0])
+		return subjectIDFromMap(subject[0])
 
 	case string:
 		return subject, nil
@@ -1159,8 +1328,22 @@ func subjectID(subject interface{}) (string, error) {
 			return "", errors.New("subject of unknown structure")
 		}
 
-		return subjectID(sMap)
+		return SubjectID(sMap)
 	}
+}
+
+func subjectIDFromMap(subject map[string]interface{}) (string, error) {
+	subjectWithID, defined := subject["id"]
+	if !defined {
+		return "", errors.New("subject id is not defined")
+	}
+
+	subjectID, isString := subjectWithID.(string)
+	if !isString {
+		return "", errors.New("subject id is not string")
+	}
+
+	return subjectID, nil
 }
 
 func (vc *Credential) raw() (*rawCredential, error) {
@@ -1189,11 +1372,16 @@ func (vc *Credential) raw() (*rawCredential, error) {
 		return nil, err
 	}
 
+	subject, err := subjectToBytes(vc.Subject)
+	if err != nil {
+		return nil, err
+	}
+
 	r := &rawCredential{
 		Context:        contextToRaw(vc.Context, vc.CustomContext),
 		ID:             vc.ID,
 		Type:           typesToRaw(vc.Types),
-		Subject:        vc.Subject,
+		Subject:        subject,
 		Proof:          proof,
 		Status:         vc.Status,
 		Issuer:         issuer,
