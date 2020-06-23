@@ -18,17 +18,17 @@ import (
 )
 
 // ECDH1PU256KWAES256GCMKeyTemplate is a KeyTemplate that generates an ECDH-1PU P-256 key wrapping and AES256-GCM CEK.
-// It is used to represent a recipient key to execute the CompositeDecrypt primitive with the following parameters:
+// It is used to represent a recipient key to execute the `CompositeDecrypt` primitive with the following parameters:
 //  - Key Wrapping: ECDH-1PU over A256KW as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2
 //  - Content Encryption: AES256-GCM
 //  - KDF: One-Step KDF as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2.2
-// Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS
+// Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS.
 func ECDH1PU256KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256, nil)
 }
 
 // ECDH1PU384KWAES256GCMKeyTemplate is a KeyTemplate that generates an ECDH-1PU P-384 key wrapping and AES256-GCM CEK.
-// It is used to represent a recipient key to execute the CompositeDecrypt primitive with the following parameters:
+// It is used to represent a recipient key to execute the `CompositeDecrypt` primitive with the following parameters:
 //  - Key Wrapping: ECDH-1PU over A384KW as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2
 //  - Content Encryption: AES256-GCM
 //  - KDF: One-Step KDF as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2.2
@@ -38,7 +38,7 @@ func ECDH1PU384KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 }
 
 // ECDH1PU521KWAES256GCMKeyTemplate is a KeyTemplate that generates an ECDH-1PU P-521 key wrapping and AES256-GCM CEK.
-// It is used to represent a recipient key to execute the CompositeDecrypt primitive with the following parameters:
+// It is used to represent a recipient key to execute the `CompositeDecrypt` primitive with the following parameters:
 //  - Key Wrapping: ECDH-1PU over A521KW as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2
 //  - Content Encryption: AES256-GCM
 //  - KDF: One-Step KDF as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2.2
@@ -49,7 +49,7 @@ func ECDH1PU521KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 
 // ECDH1PU256KWAES256GCMKeyTemplateWithRecipients is similar to ECDH1PU256KWAES256GCMKeyTemplate but adding recipients
 // keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
-// Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS
+// Keys from this template offer valid `CompositeEncrypt` primitive execution only and should not be stored in the KMS
 func ECDH1PU256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error) {
 	ecdhesRecipientKeys, err := createECDH1PUPublicKeys(recPublicKeys)
 	if err != nil {
@@ -61,7 +61,7 @@ func ECDH1PU256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.Pu
 
 // ECDH1PU384KWAES256GCMKeyTemplateWithRecipients is similar to ECDH1PU384KWAES256GCMKeyTemplate but adding recipients
 // keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
-// Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS
+// Keys from this template offer valid `CompositeEncrypt` primitive execution only and should not be stored in the KMS
 func ECDH1PU384KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error) {
 	ecdhesRecipientKeys, err := createECDH1PUPublicKeys(recPublicKeys)
 	if err != nil {
@@ -73,7 +73,7 @@ func ECDH1PU384KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.Pu
 
 // ECDH1PU521KWAES256GCMKeyTemplateWithRecipients is similar to ECDH1PU521KWAES256GCMKeyTemplate but adding recipients
 // keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
-// Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS
+// Keys from this template offer valid `CompositeEncrypt` primitive execution only and should not be stored in the KMS
 func ECDH1PU521KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error) {
 	ecdhesRecipientKeys, err := createECDH1PUPublicKeys(recPublicKeys)
 	if err != nil {
@@ -83,27 +83,36 @@ func ECDH1PU521KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.Pu
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P521, ecdhesRecipientKeys), nil
 }
 
-func createECDH1PUPublicKeys(rRawPublicKeys []composite.PublicKey) ([]*ecdh1pupb.Ecdh1PuAeadRecipientPublicKey, error) {
-	var recKeys []*ecdh1pupb.Ecdh1PuAeadRecipientPublicKey
+func convertPublicKeyToProto(rRawPublicKey *composite.PublicKey) (*compositepb.ECPublicKey, error) {
+	curveType, err := composite.GetCurveType(rRawPublicKey.Curve)
+	if err != nil {
+		return nil, err
+	}
+
+	keyType, err := composite.GetKeyType(rRawPublicKey.Type)
+	if err != nil {
+		return nil, err
+	}
+
+	return &compositepb.ECPublicKey{
+		Version:   ecdh1puAESPublicKeyVersion,
+		KID:       rRawPublicKey.KID,
+		CurveType: curveType,
+		X:         rRawPublicKey.X,
+		Y:         rRawPublicKey.Y,
+		KeyType:   keyType,
+	}, nil
+}
+
+func createECDH1PUPublicKeys(rRawPublicKeys []composite.PublicKey) ([]*compositepb.ECPublicKey, error) {
+	var recKeys []*compositepb.ECPublicKey
 
 	for _, key := range rRawPublicKeys {
-		curveType, err := composite.GetCurveType(key.Curve)
+		k := key
+
+		rKey, err := convertPublicKeyToProto(&k)
 		if err != nil {
 			return nil, err
-		}
-
-		keyType, err := composite.GetKeyType(key.Type)
-		if err != nil {
-			return nil, err
-		}
-
-		rKey := &ecdh1pupb.Ecdh1PuAeadRecipientPublicKey{
-			Version:   0,
-			KID:       key.KID,
-			CurveType: curveType,
-			X:         key.X,
-			Y:         key.Y,
-			KeyType:   keyType,
 		}
 
 		recKeys = append(recKeys, rKey)
@@ -116,7 +125,7 @@ func createECDH1PUPublicKeys(rRawPublicKeys []composite.PublicKey) ([]*ecdh1pupb
 
 // createKeyTemplate creates a new ECDH1PU-AEAD key template with the given key
 // size in bytes.
-func createKeyTemplate(c commonpb.EllipticCurveType, r []*ecdh1pupb.Ecdh1PuAeadRecipientPublicKey) *tinkpb.KeyTemplate {
+func createKeyTemplate(c commonpb.EllipticCurveType, r []*compositepb.ECPublicKey) *tinkpb.KeyTemplate {
 	format := &ecdh1pupb.Ecdh1PuAeadKeyFormat{
 		Params: &ecdh1pupb.Ecdh1PuAeadParams{
 			KwParams: &ecdh1pupb.Ecdh1PuKwParams{

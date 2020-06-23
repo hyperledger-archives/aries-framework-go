@@ -10,6 +10,7 @@ import (
 	"crypto/elliptic"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/core/registry"
@@ -62,7 +63,7 @@ func (km *ecdh1puAESPrivateKeyManager) Primitive(serializedKey []byte) (interfac
 		return nil, errInvalidECDH1PUAESPrivateKey
 	}
 
-	pvt := hybrid.GetECPrivateKey(curve, key.KeyValue)
+	recPvtKey := hybrid.GetECPrivateKey(curve, key.KeyValue)
 
 	rEnc, err := composite.NewRegisterCompositeAEADEncHelper(key.PublicKey.Params.EncParams.AeadEnc)
 	if err != nil {
@@ -72,7 +73,25 @@ func (km *ecdh1puAESPrivateKeyManager) Primitive(serializedKey []byte) (interfac
 
 	ptFormat := key.PublicKey.Params.EcPointFormat.String()
 
-	return subtle.NewECDH1PUAEADCompositeDecrypt(pvt, ptFormat, rEnc, commonpb.KeyType_EC), nil
+	if key.PublicKey.Params.KwParams.Sender == nil {
+		return nil, errors.New("ecdh1pu_aes_private_key_manager: sender public key is required for primitive " +
+			"execution")
+	}
+
+	crv, err := hybrid.GetCurve(key.PublicKey.Params.KwParams.Sender.CurveType.String())
+	if err != nil {
+		return nil, fmt.Errorf("ecdh1pu_aes_private_key_manager: GetCurve failed: %w", err)
+	}
+
+	senderPubKey := &hybrid.ECPublicKey{
+		Curve: crv,
+		Point: hybrid.ECPoint{
+			X: new(big.Int).SetBytes(key.PublicKey.Params.KwParams.Sender.X),
+			Y: new(big.Int).SetBytes(key.PublicKey.Params.KwParams.Sender.Y),
+		},
+	}
+
+	return subtle.NewECDH1PUAEADCompositeDecrypt(senderPubKey, recPvtKey, ptFormat, rEnc, commonpb.KeyType_EC), nil
 }
 
 // NewKey creates a new key according to the specification of ECDH1PUPrivateKey format.
@@ -100,6 +119,14 @@ func (km *ecdh1puAESPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto
 		return nil, fmt.Errorf("ecdh1pu_aes_private_key_manager: GenerateECDHKeyPair failed: %w", err)
 	}
 
+	var kwd []byte
+
+	// if recipients are set, this is for primitive execution, set kwd to support it. Else, this is a key creation that
+	// will be used to reference a recipient key (ie persistence), do not set kwd.
+	if keyFormat.Params.KwParams.Recipients != nil && len(keyFormat.Params.KwParams.Recipients) > 0 {
+		kwd = pvt.D.Bytes()
+	}
+
 	return &ecdh1pupb.Ecdh1PuAeadPrivateKey{
 		Version:  ecdh1puAESPrivateKeyVersion,
 		KeyValue: pvt.D.Bytes(),
@@ -108,6 +135,7 @@ func (km *ecdh1puAESPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto
 			Params:  keyFormat.Params,
 			X:       pvt.PublicKey.Point.X.Bytes(),
 			Y:       pvt.PublicKey.Point.Y.Bytes(),
+			KWD:     kwd,
 		},
 	}, nil
 }

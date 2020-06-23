@@ -83,8 +83,8 @@ func ECDHES521KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.Pub
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P521, ecdhesRecipientKeys), nil
 }
 
-func createECDHESPublicKeys(recRawPublicKeys []composite.PublicKey) ([]*ecdhespb.EcdhesAeadRecipientPublicKey, error) {
-	var recKeys []*ecdhespb.EcdhesAeadRecipientPublicKey
+func createECDHESPublicKeys(recRawPublicKeys []composite.PublicKey) ([]*compositepb.ECPublicKey, error) {
+	var recKeys []*compositepb.ECPublicKey
 
 	for _, key := range recRawPublicKeys {
 		curveType, err := composite.GetCurveType(key.Curve)
@@ -97,7 +97,7 @@ func createECDHESPublicKeys(recRawPublicKeys []composite.PublicKey) ([]*ecdhespb
 			return nil, err
 		}
 
-		rKey := &ecdhespb.EcdhesAeadRecipientPublicKey{
+		rKey := &compositepb.ECPublicKey{
 			Version:   0,
 			KID:       key.KID,
 			CurveType: curveType,
@@ -116,7 +116,7 @@ func createECDHESPublicKeys(recRawPublicKeys []composite.PublicKey) ([]*ecdhespb
 
 // createKeyTemplate creates a new ECDHES-AEAD key template with the given key
 // size in bytes.
-func createKeyTemplate(c commonpb.EllipticCurveType, r []*ecdhespb.EcdhesAeadRecipientPublicKey) *tinkpb.KeyTemplate {
+func createKeyTemplate(c commonpb.EllipticCurveType, r []*compositepb.ECPublicKey) *tinkpb.KeyTemplate {
 	format := &ecdhespb.EcdhesAeadKeyFormat{
 		Params: &ecdhespb.EcdhesAeadParams{
 			KwParams: &ecdhespb.EcdhesKwParams{

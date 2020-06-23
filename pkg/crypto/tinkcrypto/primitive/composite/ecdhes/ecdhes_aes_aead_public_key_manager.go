@@ -19,7 +19,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
-	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
+	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	ecdhespb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto"
 )
 
@@ -88,7 +88,7 @@ func (km *ecdhesPublicKeyManager) Primitive(serializedKey []byte) (interface{}, 
 
 	ptFormat := ecdhesPubKey.Params.EcPointFormat.String()
 
-	return subtle.NewECDHESAEADCompositeEncrypt(recipientsKeys, ptFormat, rEnc, commonpb.KeyType_EC), nil
+	return subtle.NewECDHESAEADCompositeEncrypt(recipientsKeys, ptFormat, rEnc, compositepb.KeyType_EC), nil
 }
 
 // DoesSupport indicates if this key manager supports the given key type.
@@ -122,7 +122,7 @@ func (km *ecdhesPublicKeyManager) validateKey(key *ecdhespb.EcdhesAeadPublicKey)
 }
 
 // validateRecKey validates the given recipient's ECDHESPublicKey.
-func (km *ecdhesPublicKeyManager) validateRecKey(key *ecdhespb.EcdhesAeadRecipientPublicKey) error {
+func (km *ecdhesPublicKeyManager) validateRecKey(key *compositepb.ECPublicKey) error {
 	err := keyset.ValidateKeyVersion(key.Version, ecdhesAESPublicKeyVersion)
 	if err != nil {
 		return fmt.Errorf("ecdhes_public_key_manager: invalid key: %w", err)

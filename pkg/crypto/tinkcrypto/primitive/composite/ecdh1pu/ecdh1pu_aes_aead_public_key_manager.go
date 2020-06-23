@@ -19,7 +19,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu/subtle"
-	commonpb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
+	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	ecdh1pupb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh1pu_aead_go_proto"
 )
 
@@ -56,6 +56,11 @@ func (km *ecdh1puPublicKeyManager) Primitive(serializedKey []byte) (interface{},
 		return nil, errInvalidECDH1PUAESPublicKey
 	}
 
+	senderPrivKey, err := buildPrivKeyFromProto(ecdh1puPubKey)
+	if err != nil {
+		return nil, errInvalidECDH1PUAESPublicKey
+	}
+
 	_, err = km.validateKey(ecdh1puPubKey)
 	if err != nil {
 		return nil, errInvalidECDH1PUAESPublicKey
@@ -88,7 +93,29 @@ func (km *ecdh1puPublicKeyManager) Primitive(serializedKey []byte) (interface{},
 
 	ptFormat := ecdh1puPubKey.Params.EcPointFormat.String()
 
-	return subtle.NewECDH1PUAEADCompositeEncrypt(recipientsKeys, ptFormat, rEnc, commonpb.KeyType_EC), nil
+	return subtle.NewECDH1PUAEADCompositeEncrypt(recipientsKeys, senderPrivKey, ptFormat, rEnc, compositepb.KeyType_EC),
+		nil
+}
+
+func buildPrivKeyFromProto(key *ecdh1pupb.Ecdh1PuAeadPublicKey) (*hybrid.ECPrivateKey, error) {
+	c, err := hybrid.GetCurve(key.Params.KwParams.CurveType.String())
+	if err != nil {
+		return nil, err
+	}
+
+	pk := hybrid.GetECPrivateKey(c, key.KWD)
+	pv := &hybrid.ECPrivateKey{
+		PublicKey: hybrid.ECPublicKey{
+			Curve: c,
+			Point: hybrid.ECPoint{
+				X: pk.PublicKey.Point.X,
+				Y: pk.PublicKey.Point.Y,
+			},
+		},
+		D: pk.D,
+	}
+
+	return pv, nil
 }
 
 // DoesSupport indicates if this key manager supports the given key type.
@@ -122,7 +149,7 @@ func (km *ecdh1puPublicKeyManager) validateKey(key *ecdh1pupb.Ecdh1PuAeadPublicK
 }
 
 // validateRecKey validates the given recipient's ECDHESPublicKey.
-func (km *ecdh1puPublicKeyManager) validateRecKey(key *ecdh1pupb.Ecdh1PuAeadRecipientPublicKey) error {
+func (km *ecdh1puPublicKeyManager) validateRecKey(key *compositepb.ECPublicKey) error {
 	err := keyset.ValidateKeyVersion(key.Version, ecdh1puAESPublicKeyVersion)
 	if err != nil {
 		return fmt.Errorf("ecdh1pu_aes_public_key_manager: invalid key: %w", err)

@@ -22,27 +22,29 @@ import (
 // ECDH1PUAEADCompositeDecrypt is an instance of ECDH-1PU decryption with Concat KDF
 // and AEAD content decryption
 type ECDH1PUAEADCompositeDecrypt struct {
-	privateKey  *hybrid.ECPrivateKey
-	pointFormat string
-	encHelper   composite.EncrypterHelper
-	keyType     commonpb.KeyType
+	senderPubKey *hybrid.ECPublicKey
+	recPrivKey   *hybrid.ECPrivateKey
+	pointFormat  string
+	encHelper    composite.EncrypterHelper
+	keyType      commonpb.KeyType
 }
 
 // NewECDH1PUAEADCompositeDecrypt returns ECDH-ES composite decryption construct with Concat KDF/ECDH-1PU key unwrapping
 // and AEAD payload decryption.
-func NewECDH1PUAEADCompositeDecrypt(pvt *hybrid.ECPrivateKey, ptFormat string, encHelper composite.EncrypterHelper,
-	keyType commonpb.KeyType) *ECDH1PUAEADCompositeDecrypt {
+func NewECDH1PUAEADCompositeDecrypt(senderPub *hybrid.ECPublicKey, recPvt *hybrid.ECPrivateKey, ptFormat string,
+	encHelper composite.EncrypterHelper, keyType commonpb.KeyType) *ECDH1PUAEADCompositeDecrypt {
 	return &ECDH1PUAEADCompositeDecrypt{
-		privateKey:  pvt,
-		pointFormat: ptFormat,
-		encHelper:   encHelper,
-		keyType:     keyType,
+		senderPubKey: senderPub,
+		recPrivKey:   recPvt,
+		pointFormat:  ptFormat,
+		encHelper:    encHelper,
+		keyType:      keyType,
 	}
 }
 
 // Decrypt using composite ECDH-ES with a Concat KDF key unwrap and AEAD content decryption
 func (d *ECDH1PUAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, error) {
-	if d.privateKey == nil {
+	if d.recPrivKey == nil {
 		return nil, fmt.Errorf("ECDH1PUAEADCompositeDecrypt: missing recipient private key for key unwrapping")
 	}
 
@@ -69,7 +71,8 @@ func (d *ECDH1PUAEADCompositeDecrypt) Decrypt(ciphertext, aad []byte) ([]byte, e
 
 	for _, rec := range encData.Recipients {
 		recipientKW := &ECDH1PUConcatKDFRecipientKW{
-			recipientPrivateKey: d.privateKey,
+			senderPubKey:        d.senderPubKey,
+			recipientPrivateKey: d.recPrivKey,
 		}
 
 		// TODO: add support for 25519 key unwrapping https://github.com/hyperledger/aries-framework-go/issues/1637

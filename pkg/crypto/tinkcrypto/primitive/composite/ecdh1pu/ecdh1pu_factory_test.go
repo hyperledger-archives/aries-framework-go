@@ -111,13 +111,19 @@ func ecdh1puAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt comm
 			KwParams: &ecdh1pupb.Ecdh1PuKwParams{
 				CurveType: c,
 				// add recipients for Encryption primitive
-				Recipients: []*ecdh1pupb.Ecdh1PuAeadRecipientPublicKey{
+				Recipients: []*compositepb.ECPublicKey{
 					{
 						KeyType:   compositepb.KeyType_EC,
 						CurveType: c,
 						X:         x,
 						Y:         y,
 					},
+				},
+				// the sender is the same as the recipient for the unit tests in this file
+				Sender: &compositepb.ECPublicKey{
+					CurveType: c,
+					X:         x,
+					Y:         y,
 				},
 			},
 			EncParams: &ecdh1pupb.Ecdh1PuAeadEncParams{
@@ -133,6 +139,10 @@ func ecdh1puAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt comm
 // ecdh1puPrivateKey returns a Ecdh1PuAeadPrivateKey with specified parameters
 func ecdh1puPrivateKey(t *testing.T, p *ecdh1pupb.Ecdh1PuAeadPublicKey, d []byte) *ecdh1pupb.Ecdh1PuAeadPrivateKey {
 	t.Helper()
+
+	// key wrapping is done using the same private key in these tests, add it here for primitive execution success
+	// in prod code, the key manager will set this field.
+	p.KWD = d
 
 	return &ecdh1pupb.Ecdh1PuAeadPrivateKey{
 		Version:   0,
@@ -315,10 +325,22 @@ func TestNewDecryptPrimitiveSetFail(t *testing.T) {
 	require.EqualError(t, err, "ecdh1pu_factory: not a CompositeDecrypt primitive")
 	require.Nil(t, decPrimitiveSet)
 
-	validKH, err := keyset.NewHandle(ECDH1PU256KWAES256GCMKeyTemplate())
+	invalidKH, err := keyset.NewHandle(ECDH1PU256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
-	// primitives of a valid Private keyset.Handle do Decrypt() (while Public Handle do Encrypt())
+	// primitives of a Private keyset.Handle fails to Decrypt() without sender key
+	_, err = invalidKH.Primitives()
+	require.EqualError(t, err, "registry.PrimitivesWithKeyManager: cannot get primitive from key: "+
+		"ecdh1pu_aes_private_key_manager: sender public key is required for primitive execution")
+
+	// create a key template with a sender key
+	kt := ECDH1PU256KWAES256GCMKeyTemplate()
+	addRandomSenderKeyToKeyTemplate(t, kt)
+
+	validKH, err := keyset.NewHandle(kt)
+	require.NoError(t, err)
+
+	// now calling Primitives() should not fail since it has a sender key
 	primitiveSet2, err := validKH.Primitives()
 	require.NoError(t, err)
 
@@ -347,8 +369,31 @@ func TestNewDecryptPrimitiveSetFail(t *testing.T) {
 	require.Nil(t, decPrimitiveSet)
 }
 
+func addRandomSenderKeyToKeyTemplate(t *testing.T, kt *tinkpb.KeyTemplate) {
+	t.Helper()
+
+	keyFmt := new(ecdh1pupb.Ecdh1PuAeadKeyFormat)
+	err := proto.Unmarshal(kt.Value, keyFmt)
+	require.NoError(t, err)
+
+	keyFmt.Params.KwParams.Sender = &compositepb.ECPublicKey{
+		X:         []byte{},
+		Y:         []byte{},
+		CurveType: commonpb.EllipticCurveType_NIST_P256,
+		KeyType:   compositepb.KeyType_EC,
+		KID:       "123",
+	}
+
+	// now update key template with sender public key
+	kt.Value, err = proto.Marshal(keyFmt)
+	require.NoError(t, err)
+}
+
 func TestDecryptPrimitiveSetFail(t *testing.T) {
-	validKH, err := keyset.NewHandle(ECDH1PU256KWAES256GCMKeyTemplate())
+	kt := ECDH1PU256KWAES256GCMKeyTemplate()
+	addRandomSenderKeyToKeyTemplate(t, kt)
+
+	validKH, err := keyset.NewHandle(kt)
 	require.NoError(t, err)
 
 	validPubKH, err := validKH.Public()

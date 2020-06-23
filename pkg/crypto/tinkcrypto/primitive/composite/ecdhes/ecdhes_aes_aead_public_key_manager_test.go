@@ -65,7 +65,7 @@ func TestECDHESPublicKeyManager_Primitive(t *testing.T) {
 		curveType  commonpb.EllipticCurveType
 		ecPtFmt    commonpb.EcPointFormat
 		encTmp     *tinkpb.KeyTemplate
-		recipients []*ecdhespb.EcdhesAeadRecipientPublicKey
+		recipients []*compositepb.ECPublicKey
 	}{
 		{
 			tcName:     "public key manager Primitive() using key with bad version",
@@ -189,7 +189,7 @@ func TestECDHESPublicKeyManager_Primitive(t *testing.T) {
 	}
 }
 
-func generateBadRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKey {
+func generateBadRecipients(t *testing.T) []*compositepb.ECPublicKey {
 	recipients := generateRecipients(t)
 
 	for _, rec := range recipients {
@@ -199,7 +199,7 @@ func generateBadRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKe
 	return recipients
 }
 
-func generateRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKey {
+func generateRecipients(t *testing.T) []*compositepb.ECPublicKey {
 	t.Helper()
 
 	curvProto := commonpb.EllipticCurveType_NIST_P256
@@ -215,7 +215,7 @@ func generateRecipients(t *testing.T) []*ecdhespb.EcdhesAeadRecipientPublicKey {
 	recipient3Priv, err := hybrid.GenerateECDHKeyPair(curve)
 	require.NoError(t, err)
 
-	return []*ecdhespb.EcdhesAeadRecipientPublicKey{
+	return []*compositepb.ECPublicKey{
 		{
 			Version:   0,
 			KeyType:   compositepb.KeyType_EC,

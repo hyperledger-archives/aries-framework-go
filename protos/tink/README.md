@@ -17,6 +17,9 @@ proto_library(
     srcs = [
         "common_composite.proto",
     ],
+    deps = [
+            ":common_proto",
+    ],
 )
 
 # -----------------------------------------------
@@ -62,6 +65,9 @@ go_proto_library(
     name = "common_composite_go_proto",
     importpath = "github.com/google/tink/go/proto/common_composite_go_proto",
     proto = "@tink_base//proto:common_composite_proto",
+    deps = [
+        ":common_go_proto",
+    ],
 )
 
 go_proto_library(
@@ -109,8 +115,8 @@ This will generate new Go protobuf files in Bazel's output path, for example on 
 * ecdh-es proto: `aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdhes_aead_go_proto/ecdhes_aead.pb.go`
 * ecdh-1pu proto: `aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh1pu_aead_go_proto/ecdh1pu_aead.pb.go`
 
-6. Manually update the common composite import in ecdh-es and ecdh-1pu pb.go files above to match the patch of the local common_composite.pb.go dependency.
-This is required since common composite proto is created above and not found in the Tink repository. Replace:
+6. Manually update the common composite import in ecdh-es and ecdh-1pu pb.go files above to match the package path of the local common_composite.pb.go dependency.
+This is required since common composite proto is created above, ie it does not exist in the Tink repository. Replace the following import package path:
 `common_composite_go_proto "github.com/google/tink/go/proto/common_composite_go_proto"`
 with
 `common_composite_go_proto "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"`

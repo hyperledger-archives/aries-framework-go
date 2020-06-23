@@ -36,7 +36,9 @@ func TestEncryptDecrypt(t *testing.T) {
 		IVSizeValue:  subtleaead.AESGCMIVSize,
 	}
 
-	cEnc := NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	senderKey := recipientsPrivKeys[0]
+
+	cEnc := NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, senderKey, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	pt := []byte("secret message")
@@ -46,8 +48,8 @@ func TestEncryptDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, privKey := range recipientsPrivKeys {
-		dEnc := NewECDH1PUAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			compositepb.KeyType_EC)
+		dEnc := NewECDH1PUAEADCompositeDecrypt(&senderKey.PublicKey, privKey,
+			commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper, compositepb.KeyType_EC)
 
 		dpt, err := dEnc.Decrypt(ct, aad)
 		require.NoError(t, err)
@@ -69,8 +71,10 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	pt := []byte("secret message")
 	aad := []byte("aad message")
 
+	senderKey := recipientsPrivKeys[0]
+
 	// test with empty recipients public keys
-	cEnc := NewECDH1PUAEADCompositeEncrypt(nil, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	cEnc := NewECDH1PUAEADCompositeEncrypt(nil, senderKey, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	// Encrypt should fail with empty recipients public keys
@@ -80,7 +84,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	// test with large key size
 	mEncHelper.KeySizeValue = 100
 
-	cEnc = NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	cEnc = NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, senderKey, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	// Encrypt should fail with large AEAD key size value
@@ -101,7 +105,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	// test with GetAEAD() returning error
 	mEncHelper.AEADErrValue = fmt.Errorf("error from GetAEAD")
 
-	cEnc = NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	cEnc = NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, senderKey, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	// Encrypt should fail with large AEAD key size value
@@ -111,7 +115,7 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 	mEncHelper.AEADErrValue = nil
 
 	// create a valid ciphertext to test Decrypt for all recipients
-	cEnc = NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	cEnc = NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, senderKey, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	// test with empty plaintext
@@ -132,8 +136,8 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 
 	for _, privKey := range recipientsPrivKeys {
 		// test with nil recipient private key
-		dEnc := NewECDH1PUAEADCompositeDecrypt(nil, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			compositepb.KeyType_EC)
+		dEnc := NewECDH1PUAEADCompositeDecrypt(nil, nil, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+			mEncHelper, compositepb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
 		require.EqualError(t, err, "ECDH1PUAEADCompositeDecrypt: missing recipient private key for key"+
@@ -141,8 +145,8 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 
 		// test with large key size
 		mEncHelper.KeySizeValue = 100
-		dEnc = NewECDH1PUAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			compositepb.KeyType_EC)
+		dEnc = NewECDH1PUAEADCompositeDecrypt(&senderKey.PublicKey, privKey,
+			commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper, compositepb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
 		require.EqualError(t, err, "ecdh-1pu decrypt: cek unwrap failed for all recipients keys")
@@ -152,8 +156,8 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 		// test with GetAEAD() returning error
 		mEncHelper.AEADErrValue = fmt.Errorf("error from GetAEAD")
 
-		dEnc = NewECDH1PUAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			compositepb.KeyType_EC)
+		dEnc = NewECDH1PUAEADCompositeDecrypt(&senderKey.PublicKey, privKey,
+			commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper, compositepb.KeyType_EC)
 
 		_, err = dEnc.Decrypt(ct, aad)
 		require.EqualError(t, err, "error from GetAEAD")
@@ -161,8 +165,8 @@ func TestEncryptDecryptNegativeTCs(t *testing.T) {
 		mEncHelper.AEADErrValue = nil
 
 		// create a valid Decrypt message and test against ct
-		dEnc = NewECDH1PUAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			compositepb.KeyType_EC)
+		dEnc = NewECDH1PUAEADCompositeDecrypt(&senderKey.PublicKey, privKey,
+			commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper, compositepb.KeyType_EC)
 
 		// try decrypting empty ct
 		_, err = dEnc.Decrypt([]byte{}, aad)
@@ -202,8 +206,10 @@ func TestEncryptDecryptWithSingleRecipient(t *testing.T) {
 	pt := []byte("secret message")
 	aad := []byte("aad message")
 
+	senderKey := recipientsPrivKeys[0]
+
 	// test with single recipient public key
-	cEnc := NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, commonpb.EcPointFormat_UNCOMPRESSED.String(),
+	cEnc := NewECDH1PUAEADCompositeEncrypt(recipientsPubKeys, senderKey, commonpb.EcPointFormat_UNCOMPRESSED.String(),
 		mEncHelper, compositepb.KeyType_EC)
 
 	errMsg := "error merge recipient headers"
@@ -226,8 +232,8 @@ func TestEncryptDecryptWithSingleRecipient(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, privKey := range recipientsPrivKeys {
-		dEnc := NewECDH1PUAEADCompositeDecrypt(privKey, commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper,
-			compositepb.KeyType_EC)
+		dEnc := NewECDH1PUAEADCompositeDecrypt(&senderKey.PublicKey, privKey,
+			commonpb.EcPointFormat_UNCOMPRESSED.String(), mEncHelper, compositepb.KeyType_EC)
 
 		dpt, err := dEnc.Decrypt(ct, encData.SingleRecipientAAD)
 		require.NoError(t, err)

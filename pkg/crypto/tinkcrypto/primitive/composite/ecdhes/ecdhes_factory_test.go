@@ -111,7 +111,7 @@ func ecdhesAEADPublicKey(t *testing.T, c commonpb.EllipticCurveType, ptfmt commo
 			KwParams: &ecdhespb.EcdhesKwParams{
 				CurveType: c,
 				// add recipients for Encryption primitive
-				Recipients: []*ecdhespb.EcdhesAeadRecipientPublicKey{
+				Recipients: []*compositepb.ECPublicKey{
 					{
 						KeyType:   compositepb.KeyType_EC,
 						CurveType: c,

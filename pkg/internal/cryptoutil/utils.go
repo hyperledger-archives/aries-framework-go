@@ -170,13 +170,13 @@ func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte
 	// as per https://tools.ietf.org/html/rfc7518#section-4.6.2
 	// concatKDF requires info data to be length prefixed with BigEndian 32 bits type
 	// length prefix alg
-	algInfo := lengthPrefix(alg)
+	algInfo := LengthPrefix(alg)
 
 	// length prefix apu
-	apuInfo := lengthPrefix(apu)
+	apuInfo := LengthPrefix(apu)
 
 	// length prefix apv (empty)
-	apvInfo := lengthPrefix(nil)
+	apvInfo := LengthPrefix(nil)
 
 	// get a Concat KDF stream for z, encryption algorithm, api, supPubInfo and empty supPrivInfo using sha256
 	reader := josecipher.NewConcatKDF(crypto.SHA256, z, algInfo, apuInfo, apvInfo, supPubInfo, []byte{})
@@ -193,8 +193,8 @@ func Derive25519KEK(alg, apu []byte, fromPrivKey, toPubKey *[chacha.KeySize]byte
 	return kek, nil
 }
 
-// lengthPrefix array with a bigEndian uint32 value of array's length
-func lengthPrefix(array []byte) []byte {
+// LengthPrefix array with a bigEndian uint32 value of array's length
+func LengthPrefix(array []byte) []byte {
 	const prefixLen = 4
 
 	arrInfo := make([]byte, prefixLen+len(array))

@@ -22,7 +22,6 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/piprate/json-gold v0.3.0
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/trustbloc/sidetree-core-go v0.1.3
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
