@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/introduce"
+	mocknotifier "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/controller/webnotifier"
 )
 
 func TestNew(t *testing.T) {
@@ -28,11 +29,12 @@ func TestNew(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 	})
@@ -41,7 +43,7 @@ func TestNew(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(nil, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.EqualError(t, err, "cannot create a client: cast service to Introduce Service failed")
 		require.Nil(t, cmd)
 	})
@@ -53,8 +55,21 @@ func TestNew(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.EqualError(t, err, "register action event: error")
+		require.Nil(t, cmd)
+	})
+
+	t.Run("Register msg event (error)", func(t *testing.T) {
+		service := mocks.NewMockProtocolService(ctrl)
+		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(errors.New("error"))
+
+		provider := mocks.NewMockProvider(ctrl)
+		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
+
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
+		require.EqualError(t, err, "register msg event: error")
 		require.Nil(t, cmd)
 	})
 }
@@ -65,6 +80,7 @@ func TestCommand_Actions(t *testing.T) {
 
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
@@ -78,7 +94,7 @@ func TestCommand_Actions(t *testing.T) {
 
 		service.EXPECT().Actions().Return(toProtocolActions(expected.Actions), nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -93,7 +109,7 @@ func TestCommand_Actions(t *testing.T) {
 	t.Run("Error", func(t *testing.T) {
 		service.EXPECT().Actions().Return(nil, errors.New("error message"))
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -111,12 +127,13 @@ func TestCommand_SendProposal(t *testing.T) {
 
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -129,7 +146,7 @@ func TestCommand_SendProposal(t *testing.T) {
 	})
 
 	t.Run("No recipients", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -145,6 +162,7 @@ func TestCommand_SendProposal(t *testing.T) {
 	t.Run("SendProposal (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().HandleOutbound(
 			gomock.Any(), gomock.Any(),
 			gomock.Any(),
@@ -153,7 +171,7 @@ func TestCommand_SendProposal(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -169,12 +187,13 @@ func TestCommand_SendProposal(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().HandleOutbound(gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -189,12 +208,13 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -207,7 +227,7 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 	})
 
 	t.Run("Empty request", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -221,7 +241,7 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 	})
 
 	t.Run("Empty recipient", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -237,6 +257,7 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 	t.Run("SendProposalWithOOBRequest (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().HandleOutbound(
 			gomock.Any(), gomock.Any(),
 			gomock.Any(),
@@ -245,7 +266,7 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -261,12 +282,13 @@ func TestCommand_SendProposalWithOOBRequest(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().HandleOutbound(gomock.Any(), gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -282,12 +304,13 @@ func TestCommand_SendRequest(t *testing.T) {
 
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -300,7 +323,7 @@ func TestCommand_SendRequest(t *testing.T) {
 	})
 
 	t.Run("Empty MyDID", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -314,7 +337,7 @@ func TestCommand_SendRequest(t *testing.T) {
 	})
 
 	t.Run("Empty TheirDID", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -328,7 +351,7 @@ func TestCommand_SendRequest(t *testing.T) {
 	})
 
 	t.Run("Empty PleaseIntroduceTo", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -344,6 +367,7 @@ func TestCommand_SendRequest(t *testing.T) {
 	t.Run("SendRequest (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().HandleOutbound(
 			gomock.Any(), gomock.Any(),
 			gomock.Any(),
@@ -352,7 +376,7 @@ func TestCommand_SendRequest(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -369,12 +393,13 @@ func TestCommand_SendRequest(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().HandleOutbound(gomock.Any(), gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -390,12 +415,13 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -408,7 +434,7 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 	})
 
 	t.Run("Empty PIID", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -422,7 +448,7 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 	})
 
 	t.Run("Empty request", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -438,6 +464,7 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 	t.Run("AcceptProposalWithOOBRequest (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionContinue(
 			gomock.Any(), gomock.Any(),
 		).Return(errors.New("error message"))
@@ -445,7 +472,7 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -462,12 +489,13 @@ func TestCommand_AcceptProposalWithOOBRequest(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -483,12 +511,13 @@ func TestCommand_AcceptProposal(t *testing.T) {
 
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -501,7 +530,7 @@ func TestCommand_AcceptProposal(t *testing.T) {
 	})
 
 	t.Run("Empty PIID", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -517,6 +546,7 @@ func TestCommand_AcceptProposal(t *testing.T) {
 	t.Run("AcceptProposal (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionContinue(
 			gomock.Any(), gomock.Any(),
 		).Return(errors.New("error message"))
@@ -524,7 +554,7 @@ func TestCommand_AcceptProposal(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -541,12 +571,13 @@ func TestCommand_AcceptProposal(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -562,12 +593,13 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -580,7 +612,7 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	})
 
 	t.Run("Empty PIID", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -594,7 +626,7 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	})
 
 	t.Run("Empty request", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -608,7 +640,7 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	})
 
 	t.Run("Empty TO", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -624,6 +656,7 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	t.Run("AcceptRequestWithPublicOOBRequest (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionContinue(
 			gomock.Any(), gomock.Any(),
 		).Return(errors.New("error message"))
@@ -631,7 +664,7 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -648,12 +681,13 @@ func TestCommand_AcceptRequestWithPublicOOBRequest(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -669,12 +703,13 @@ func TestCommand_AcceptRequestWithRecipients(t *testing.T) {
 
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -687,7 +722,7 @@ func TestCommand_AcceptRequestWithRecipients(t *testing.T) {
 	})
 
 	t.Run("Empty PIID", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -701,7 +736,7 @@ func TestCommand_AcceptRequestWithRecipients(t *testing.T) {
 	})
 
 	t.Run("Empty recipient", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -715,7 +750,7 @@ func TestCommand_AcceptRequestWithRecipients(t *testing.T) {
 	})
 
 	t.Run("Empty TO", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -731,6 +766,7 @@ func TestCommand_AcceptRequestWithRecipients(t *testing.T) {
 	t.Run("AcceptRequestWithRecipients (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionContinue(
 			gomock.Any(), gomock.Any(),
 		).Return(errors.New("error message"))
@@ -738,7 +774,7 @@ func TestCommand_AcceptRequestWithRecipients(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -755,12 +791,13 @@ func TestCommand_AcceptRequestWithRecipients(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionContinue(gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -776,12 +813,13 @@ func TestCommand_DeclineProposal(t *testing.T) {
 
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -794,7 +832,7 @@ func TestCommand_DeclineProposal(t *testing.T) {
 	})
 
 	t.Run("Empty PIID", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -810,6 +848,7 @@ func TestCommand_DeclineProposal(t *testing.T) {
 	t.Run("DeclineProposal (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionStop(
 			gomock.Any(), gomock.Any(),
 		).Return(errors.New("error message"))
@@ -817,7 +856,7 @@ func TestCommand_DeclineProposal(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -834,12 +873,13 @@ func TestCommand_DeclineProposal(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionStop(gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -855,12 +895,13 @@ func TestCommand_DeclineRequest(t *testing.T) {
 
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil).AnyTimes()
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil).AnyTimes()
 
 	provider := mocks.NewMockProvider(ctrl)
 	provider.EXPECT().Service(gomock.Any()).Return(service, nil).AnyTimes()
 
 	t.Run("Decode error", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -873,7 +914,7 @@ func TestCommand_DeclineRequest(t *testing.T) {
 	})
 
 	t.Run("Empty PIID", func(t *testing.T) {
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -889,6 +930,7 @@ func TestCommand_DeclineRequest(t *testing.T) {
 	t.Run("DeclineRequest (error)", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionStop(
 			gomock.Any(), gomock.Any(),
 		).Return(errors.New("error message"))
@@ -896,7 +938,7 @@ func TestCommand_DeclineRequest(t *testing.T) {
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 
@@ -913,12 +955,13 @@ func TestCommand_DeclineRequest(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		service := mocks.NewMockProtocolService(ctrl)
 		service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+		service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 		service.EXPECT().ActionStop(gomock.Any(), gomock.Any())
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
 
-		cmd, err := New(provider)
+		cmd, err := New(provider, mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 		require.NotNil(t, cmd)
 

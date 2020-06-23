@@ -160,9 +160,8 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, _, _ string) (string, er
 		return "", fmt.Errorf("failed to fetch connection record : %w", err)
 	}
 
-	// TODO: get rid of this  msg.(service.DIDCommMsgMap)
 	internalMsg := &message{
-		Msg:           msg.(service.DIDCommMsgMap),
+		Msg:           msg.Clone(),
 		ThreadID:      thID,
 		NextStateName: next.Name(),
 		ConnRecord:    connRecord,
@@ -183,8 +182,8 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, _, _ string) (string, er
 	}(internalMsg, s.ActionEvent())
 
 	logutil.LogDebug(logger, DIDExchange, "handleInbound", "success",
-		logutil.CreateKeyValueString("msgType", internalMsg.Msg.Type()),
-		logutil.CreateKeyValueString("msgID", internalMsg.Msg.ID()),
+		logutil.CreateKeyValueString("msgType", msg.Type()),
+		logutil.CreateKeyValueString("msgID", msg.ID()),
 		logutil.CreateKeyValueString("connectionID", internalMsg.ConnRecord.ConnectionID))
 
 	return connRecord.ConnectionID, nil
@@ -342,9 +341,11 @@ func createEventProperties(connectionID, invitationID string) *didExchangeEvent 
 }
 
 func createErrorEventProperties(connectionID, invitationID string, err error) *didExchangeEventError {
+	props := createEventProperties(connectionID, invitationID)
+
 	return &didExchangeEventError{
 		err:              err,
-		didExchangeEvent: createEventProperties(connectionID, invitationID),
+		didExchangeEvent: *props,
 	}
 }
 
@@ -764,10 +765,9 @@ func (s *Service) CreateImplicitInvitation(inviterLabel, inviterDID, inviteeLabe
 		return "", fmt.Errorf("failed to create DIDCommMsg for implicit invitation: %w", err)
 	}
 
-	// TODO: get rid of this  msg.(service.DIDCommMsgMap)
 	next := &requested{}
 	internalMsg := &message{
-		Msg:           msg.(service.DIDCommMsgMap),
+		Msg:           msg.Clone(),
 		ThreadID:      thID,
 		NextStateName: next.Name(),
 		ConnRecord:    connRecord,

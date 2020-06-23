@@ -48,6 +48,7 @@ var (
 	initialHandler = HandlerFunc(func(_ Metadata) error {
 		return nil
 	})
+	errProtocolStopped = errors.New("protocol was stopped")
 )
 
 // customError is a wrapper to determine custom error against internal error
@@ -191,10 +192,7 @@ func (s *Service) Use(items ...Middleware) {
 func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	logger.Debugf("input: msg=%+v myDID=%s theirDID=%s", msg, myDID, theirDID)
 
-	msgMap, ok := msg.(service.DIDCommMsgMap)
-	if !ok {
-		return "", errors.New("bad assertion message is not DIDCommMsgMap")
-	}
+	msgMap := msg.Clone()
 
 	aEvent := s.ActionEvent()
 
@@ -214,7 +212,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	md.TheirDID = theirDID
 
 	// trigger action event based on message type for inbound messages
-	if canReply && canTriggerActionEvents(msg) {
+	if canReply && canTriggerActionEvents(msgMap) {
 		err = s.saveTransitionalPayload(md.PIID, md.transitionalPayload)
 		if err != nil {
 			return "", fmt.Errorf("save transitional payload: %w", err)
@@ -224,7 +222,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 		return "", nil
 	}
 
-	thid, err := msg.ThreadID()
+	thid, err := msgMap.ThreadID()
 	if err != nil {
 		return "", fmt.Errorf("failed to obtain the message's threadID : %w", err)
 	}
@@ -524,6 +522,10 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		return fmt.Errorf("delete transitional payload: %w", err)
 	}
 
+	if cErr == nil {
+		cErr = errProtocolStopped
+	}
+
 	md.err = customError{error: cErr}
 	s.processCallback(md)
 
@@ -557,6 +559,10 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 		Stop: func(cErr error) {
 			if err := s.deleteTransitionalPayload(md.PIID); err != nil {
 				logger.Errorf("stop: delete transitional payload: %v", err)
+			}
+
+			if cErr == nil {
+				cErr = errProtocolStopped
 			}
 
 			md.err = customError{error: cErr}
@@ -626,4 +632,12 @@ func (e *eventProps) MyDID() string {
 
 func (e *eventProps) TheirDID() string {
 	return e.theirDID
+}
+
+// All implements EventProperties interface
+func (e *eventProps) All() map[string]interface{} {
+	return map[string]interface{}{
+		"myDID":    e.MyDID(),
+		"theirDID": e.TheirDID(),
+	}
 }

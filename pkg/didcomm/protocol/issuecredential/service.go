@@ -50,6 +50,7 @@ var (
 	initialHandler = HandlerFunc(func(_ Metadata) error {
 		return nil
 	})
+	errProtocolStopped = errors.New("protocol was stopped")
 )
 
 // customError is a wrapper to determine custom error against internal error
@@ -283,7 +284,7 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 		transitionalPayload: transitionalPayload{
 			StateName: next.Name(),
 			Action: Action{
-				Msg:  msg.(service.DIDCommMsgMap),
+				Msg:  msg.Clone(),
 				PIID: piID,
 			},
 		},
@@ -522,6 +523,10 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 		return fmt.Errorf("delete transitional payload: %w", err)
 	}
 
+	if cErr == nil {
+		cErr = errProtocolStopped
+	}
+
 	md.err = customError{error: cErr}
 	s.processCallback(md)
 
@@ -581,6 +586,10 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 		Stop: func(cErr error) {
 			if err := s.deleteTransitionalPayload(md.PIID); err != nil {
 				logger.Errorf("delete transitional payload", err)
+			}
+
+			if cErr == nil {
+				cErr = errProtocolStopped
 			}
 
 			md.err = customError{error: cErr}
@@ -655,4 +664,12 @@ func (e *eventProps) MyDID() string {
 
 func (e *eventProps) TheirDID() string {
 	return e.theirDID
+}
+
+// All implements EventProperties interface
+func (e *eventProps) All() map[string]interface{} {
+	return map[string]interface{}{
+		"myDID":    e.MyDID(),
+		"theirDID": e.TheirDID(),
+	}
 }

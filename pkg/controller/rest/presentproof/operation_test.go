@@ -21,11 +21,13 @@ import (
 	client "github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/presentproof"
+	mocknotifier "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/controller/webnotifier"
 )
 
 func provider(ctrl *gomock.Controller) client.Provider {
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 	service.EXPECT().ActionContinue(gomock.Any(), gomock.Any()).AnyTimes()
 	service.EXPECT().ActionStop(gomock.Any(), gomock.Any()).AnyTimes()
 
@@ -40,7 +42,7 @@ func TestOperation_AcceptRequestPresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -54,7 +56,7 @@ func TestOperation_AcceptRequestPresentation(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -73,7 +75,7 @@ func TestOperation_DeclineRequestPresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -92,7 +94,7 @@ func TestOperation_AcceptProposePresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -106,7 +108,7 @@ func TestOperation_AcceptProposePresentation(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -125,7 +127,7 @@ func TestOperation_DeclineProposePresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -144,7 +146,7 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -159,7 +161,7 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 	})
 
 	t.Run("Empty payload (success)", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -173,7 +175,7 @@ func TestOperation_AcceptPresentation(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -192,7 +194,7 @@ func TestOperation_DeclinePresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -211,7 +213,7 @@ func TestOperation_NegotiateRequestPresentation(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -225,7 +227,7 @@ func TestOperation_NegotiateRequestPresentation(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(

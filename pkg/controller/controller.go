@@ -128,25 +128,25 @@ func GetRESTHandlers(ctx *context.Provider, opts ...Opt) ([]rest.Handler, error)
 	}
 
 	// issuecredential REST operation
-	issuecredentialOp, err := issuecredentialrest.New(ctx)
+	issuecredentialOp, err := issuecredentialrest.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("create issue-credential rest command : %w", err)
 	}
 
 	// presentproof REST operation
-	presentproofOp, err := presentproofrest.New(ctx)
+	presentproofOp, err := presentproofrest.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("create present-proof rest command : %w", err)
 	}
 
 	// introduce REST operation
-	introduceOp, err := introducerest.New(ctx)
+	introduceOp, err := introducerest.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("create introduce rest command : %w", err)
 	}
 
 	// outofband REST operation
-	outofbandOp, err := outofbandrest.New(ctx)
+	outofbandOp, err := outofbandrest.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("create outofband rest command : %w", err)
 	}
@@ -224,25 +224,25 @@ func GetCommandHandlers(ctx *context.Provider, opts ...Opt) ([]command.Handler, 
 	}
 
 	// issuecredential command operation
-	issuecredential, err := issuecredentialcmd.New(ctx)
+	issuecredential, err := issuecredentialcmd.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("create issue-credential command : %w", err)
 	}
 
 	// presentproof command operation
-	presentproof, err := presentproofcmd.New(ctx)
+	presentproof, err := presentproofcmd.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("create present-proof command : %w", err)
 	}
 
 	// introduce command operation
-	introduce, err := introducecmd.New(ctx)
+	introduce, err := introducecmd.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("create introduce command : %w", err)
 	}
 
 	// outofband command operation
-	outofband, err := outofbandcmd.New(ctx)
+	outofband, err := outofbandcmd.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("create outofband command : %w", err)
 	}

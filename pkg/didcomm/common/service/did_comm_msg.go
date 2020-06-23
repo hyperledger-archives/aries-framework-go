@@ -41,6 +41,30 @@ type Metadata struct {
 // DIDCommMsgMap did comm msg
 type DIDCommMsgMap map[string]interface{}
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (m *DIDCommMsgMap) UnmarshalJSON(b []byte) error {
+	defer func() {
+		if (*m) != nil {
+			// sets empty metadata
+			(*m)[jsonMetadata] = map[string]interface{}{}
+		}
+	}()
+
+	return json.Unmarshal(b, (*map[string]interface{})(m))
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (m DIDCommMsgMap) MarshalJSON() ([]byte, error) {
+	if m != nil {
+		metadata := m[jsonMetadata]
+		delete(m, jsonMetadata)
+
+		defer func() { m[jsonMetadata] = metadata }()
+	}
+
+	return json.Marshal(map[string]interface{}(m))
+}
+
 // ParseDIDCommMsgMap returns DIDCommMsg with Header
 func ParseDIDCommMsgMap(payload []byte) (DIDCommMsgMap, error) {
 	var msg DIDCommMsgMap
@@ -49,9 +73,6 @@ func ParseDIDCommMsgMap(payload []byte) (DIDCommMsgMap, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid payload data format: %w", err)
 	}
-
-	// sets empty metadata
-	msg[jsonMetadata] = map[string]interface{}{}
 
 	return msg, nil
 }

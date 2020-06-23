@@ -49,7 +49,11 @@ const (
 	transitionalPayloadKey = "transitionalPayload_%s"
 )
 
-var logger = log.New("aries-framework/introduce/service")
+var (
+	logger = log.New("aries-framework/introduce/service")
+
+	errProtocolStopped = errors.New("protocol was stopped")
+)
 
 // customError is a wrapper to determine custom error against internal error
 type customError struct{ error }
@@ -181,7 +185,7 @@ func logInternalError(err error) {
 	}
 }
 
-func getPIID(msg service.DIDCommMsg) (string, error) {
+func getPIID(msg service.DIDCommMsgMap) (string, error) {
 	piID := msg.Metadata()[metaPIID]
 	if piID, ok := piID.(string); ok && piID != "" {
 		return piID, nil
@@ -190,22 +194,24 @@ func getPIID(msg service.DIDCommMsg) (string, error) {
 	return threadID(msg)
 }
 
-func threadID(msg service.DIDCommMsg) (string, error) {
+func threadID(msg service.DIDCommMsgMap) (string, error) {
 	if pthID := msg.ParentThreadID(); pthID != "" {
 		return pthID, nil
 	}
 
 	thID, err := msg.ThreadID()
 	if errors.Is(err, service.ErrThreadIDNotFound) {
-		msg.(service.DIDCommMsgMap)["@id"] = uuid.New().String()
-		return msg.(service.DIDCommMsgMap)["@id"].(string), nil
+		msg["@id"] = uuid.New().String()
+		return msg["@id"].(string), nil
 	}
 
 	return thID, err
 }
 
 func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, error) {
-	piID, err := getPIID(msg)
+	msgMap := msg.Clone()
+
+	piID, err := getPIID(msgMap)
 	if err != nil {
 		return nil, fmt.Errorf("piID: %w", err)
 	}
@@ -217,7 +223,7 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 
 	current := stateFromName(stateName)
 
-	next, err := nextState(msg, outbound)
+	next, err := nextState(msgMap, outbound)
 	if err != nil {
 		return nil, fmt.Errorf("nextState: %w", err)
 	}
@@ -230,12 +236,12 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 		transitionalPayload: transitionalPayload{
 			StateName: next.Name(),
 			Action: Action{
-				Msg:  msg.(service.DIDCommMsgMap),
+				Msg:  msg.Clone(),
 				PIID: piID,
 			},
 		},
 		state:    next,
-		msgClone: msg.Clone(),
+		msgClone: msgMap.Clone(),
 	}, nil
 }
 
@@ -348,7 +354,13 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 
 			s.processCallback(md)
 		},
-		Stop: func(err error) { actionStop(customError{error: err}) },
+		Stop: func(err error) {
+			if err == nil {
+				err = errProtocolStopped
+			}
+
+			actionStop(customError{error: err})
+		},
 		Properties: &eventProps{
 			myDID:    md.MyDID,
 			theirDID: md.TheirDID,
@@ -410,6 +422,10 @@ func (s *Service) ActionStop(piID string, cErr error) error {
 	// if introducee received Proposal rejected must be true
 	if md.Msg.Type() == ProposalMsgType {
 		md.rejected = true
+	}
+
+	if cErr == nil {
+		cErr = errProtocolStopped
 	}
 
 	md.err = customError{error: cErr}
@@ -775,4 +791,12 @@ func (e *eventProps) MyDID() string {
 
 func (e *eventProps) TheirDID() string {
 	return e.theirDID
+}
+
+// All implements EventProperties interface
+func (e *eventProps) All() map[string]interface{} {
+	return map[string]interface{}{
+		"myDID":    e.MyDID(),
+		"theirDID": e.TheirDID(),
+	}
 }

@@ -70,7 +70,10 @@ type DIDCommAction struct {
 }
 
 // EventProperties type for event related data.
-type EventProperties interface{}
+// NOTE: Properties always should be serializable
+type EventProperties interface {
+	All() map[string]interface{}
+}
 
 // Event event related apis.
 type Event interface {

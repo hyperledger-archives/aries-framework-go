@@ -16,7 +16,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 )
 
@@ -74,6 +76,9 @@ const (
 	errEmptyTo                = "empty to"
 	// log constants
 	successString = "success"
+
+	_actions = "_actions"
+	_states  = "_states"
 )
 
 // Command is controller command for introduce
@@ -82,7 +87,7 @@ type Command struct {
 }
 
 // New returns new introduce controller command instance
-func New(ctx introduce.Provider) (*Command, error) {
+func New(ctx introduce.Provider, notifier command.Notifier) (*Command, error) {
 	client, err := introduce.New(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create a client: %w", err)
@@ -95,12 +100,16 @@ func New(ctx introduce.Provider) (*Command, error) {
 		return nil, fmt.Errorf("register action event: %w", err)
 	}
 
-	// this code listens for the action events and does nothing
-	// this trick is used to avoid error such as `no clients are registered to handle the message`
-	go func() {
-		for range actions {
-		}
-	}()
+	// creates state channel
+	states := make(chan service.StateMsg)
+	// registers state channel to listen for events
+	if err := client.RegisterMsgEvent(states); err != nil {
+		return nil, fmt.Errorf("register msg event: %w", err)
+	}
+
+	obs := webnotifier.NewObserver(notifier)
+	obs.RegisterAction(protocol.Introduce+_actions, actions)
+	obs.RegisterStateMsg(protocol.Introduce+_states, states)
 
 	return &Command{client: client}, nil
 }

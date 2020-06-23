@@ -18,7 +18,8 @@ import (
 	"github.com/gorilla/mux"
 
 	client "github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
-	command "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
@@ -39,13 +40,13 @@ const (
 
 // Operation is controller REST service controller for present proof
 type Operation struct {
-	command  *command.Command
+	command  *presentproof.Command
 	handlers []rest.Handler
 }
 
 // New returns new present proof rest client protocol instance
-func New(ctx client.Provider) (*Operation, error) {
-	cmd, err := command.New(ctx)
+func New(ctx client.Provider, notifier command.Notifier) (*Operation, error) {
+	cmd, err := presentproof.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("present proof command : %w", err)
 	}
@@ -216,7 +217,7 @@ func toCommandRequest(rw http.ResponseWriter, req *http.Request) (bool, io.Reade
 	if !isJSONMap(buf.Bytes()) {
 		rest.SendHTTPStatusError(rw,
 			http.StatusBadRequest,
-			command.InvalidRequestErrorCode,
+			presentproof.InvalidRequestErrorCode,
 			errors.New("payload was not provided"),
 		)
 

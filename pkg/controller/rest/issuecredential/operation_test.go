@@ -21,11 +21,13 @@ import (
 	client "github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/issuecredential"
+	mocknotifier "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/controller/webnotifier"
 )
 
 func provider(ctrl *gomock.Controller) client.Provider {
 	service := mocks.NewMockProtocolService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 	service.EXPECT().ActionContinue(gomock.Any(), gomock.Any()).AnyTimes()
 	service.EXPECT().ActionStop(gomock.Any(), gomock.Any()).AnyTimes()
 
@@ -40,7 +42,7 @@ func TestOperation_AcceptProposal(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -54,7 +56,7 @@ func TestOperation_AcceptProposal(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -73,7 +75,7 @@ func TestOperation_AcceptOffer(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -92,7 +94,7 @@ func TestOperation_AcceptRequest(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -106,7 +108,7 @@ func TestOperation_AcceptRequest(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -125,7 +127,7 @@ func TestOperation_NegotiateProposal(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -139,7 +141,7 @@ func TestOperation_NegotiateProposal(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -158,7 +160,7 @@ func TestOperation_AcceptCredential(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("No payload", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		buf, code, err := sendRequestToHandler(
@@ -172,7 +174,7 @@ func TestOperation_AcceptCredential(t *testing.T) {
 	})
 
 	t.Run("Empty payload (success)", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -186,7 +188,7 @@ func TestOperation_AcceptCredential(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -205,7 +207,7 @@ func TestOperation_DeclineProposal(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -224,7 +226,7 @@ func TestOperation_DeclineOffer(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -243,7 +245,7 @@ func TestOperation_DeclineRequest(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(
@@ -262,7 +264,7 @@ func TestOperation_DeclineCredential(t *testing.T) {
 	defer ctrl.Finish()
 
 	t.Run("Success", func(t *testing.T) {
-		operation, err := New(provider(ctrl))
+		operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 		require.NoError(t, err)
 
 		_, code, err := sendRequestToHandler(

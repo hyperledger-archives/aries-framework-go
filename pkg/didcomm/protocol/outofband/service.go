@@ -196,7 +196,7 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	err = s.saveTransitionalPayload(piid, &transitionalPayload{
 		Action: Action{
 			PIID:         piid,
-			Msg:          msg.(service.DIDCommMsgMap),
+			Msg:          msg.Clone(),
 			MyDID:        myDID,
 			TheirDID:     theirDID,
 			ProtocolName: Name,
@@ -328,7 +328,8 @@ func (s *Service) deleteTransitionalPayload(id string) error {
 	return s.store.Delete(fmt.Sprintf(transitionalPayloadKey, id))
 }
 
-func sendMsgEvent(t service.StateMsgType, listeners *service.Message, msg service.DIDCommMsg, p *eventProps) {
+func sendMsgEvent(t service.StateMsgType, listeners *service.Message,
+	msg service.DIDCommMsg, p service.EventProperties) {
 	var stateName string
 
 	if msg.Type() == RequestMsgType {
@@ -764,4 +765,12 @@ type userOptions struct {
 
 func (e *userOptions) MyLabel() string {
 	return e.myLabel
+}
+
+// All implements EventProperties interface
+func (e *eventProps) All() map[string]interface{} {
+	return map[string]interface{}{
+		"connectionID": e.ConnectionID(),
+		"error":        e.Error(),
+	}
 }

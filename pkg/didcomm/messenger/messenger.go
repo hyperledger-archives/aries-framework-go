@@ -104,8 +104,6 @@ func (m *Messenger) saveMetadata(msg service.DIDCommMsgMap) error {
 		return fmt.Errorf("threadID: %w", err)
 	}
 
-	delete(msg, jsonMetadata)
-
 	return m.saveRecord(fmt.Sprintf(metadataKey, thID), record{Metadata: metadata})
 }
 
