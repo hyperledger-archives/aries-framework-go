@@ -88,7 +88,7 @@ async function proposalWithRequest(mode) {
 
         let action = await getAction(alice)
         await alice.introduce.acceptRequestWithRecipients({
-            piid: action.piid,
+            piid: action.PIID,
 
             "recipient": {
                 "to": {"name": "Bob", "img~attach": {"content": {}}},
@@ -103,7 +103,7 @@ async function proposalWithRequest(mode) {
         request = await bob.outofband.createRequest(createRequest("Bob"))
         let action = await getAction(bob)
         await bob.introduce.acceptProposalWithOOBRequest({
-            piid: action.piid,
+            piid: action.PIID,
             "request": request.request
         })
     })
@@ -111,14 +111,14 @@ async function proposalWithRequest(mode) {
     it("Carol wants to know Bob and sends introduce response with approve", async function () {
         let action = await getAction(carol)
         await carol.introduce.acceptProposal({
-            piid: action.piid,
+            piid: action.PIID,
         })
         action = await getOutofbandAction(carol)
 
         let checked = checkConnection(mode, bob, carol, request.request['@id'])
 
         await carol.outofband.actionContinue({
-            piid: action.piid,
+            piid: action.PIID,
             label: "Bob",
         })
 
@@ -166,7 +166,7 @@ async function proposal(mode) {
         request = await bob.outofband.createRequest(createRequest("Bob"))
         let action = await getAction(bob)
         await bob.introduce.acceptProposalWithOOBRequest({
-            piid: action.piid,
+            piid: action.PIID,
             "request": request.request
         })
     })
@@ -174,14 +174,14 @@ async function proposal(mode) {
     it("Carol wants to know Bob and sends introduce response with approve", async function () {
         let action = await getAction(carol)
         await carol.introduce.acceptProposal({
-            piid: action.piid,
+            piid: action.PIID,
         })
         action = await getOutofbandAction(carol)
 
         let checked = checkConnection(mode, bob, carol, request.request['@id'])
 
         await carol.outofband.actionContinue({
-            piid: action.piid,
+            piid: action.PIID,
             label: "Bob",
         })
 
@@ -219,7 +219,7 @@ async function skipProposalWithRequest(mode) {
         let action = await getAction(alice)
         request = await carol.outofband.createRequest(createRequest("Carol"))
         await alice.introduce.acceptRequestWithPublicOOBRequest({
-            piid: action.piid,
+            piid: action.PIID,
             "request": request.request, "to": {"name": "Carol", "img~attach": {"content": {}}}
         })
     })
@@ -227,14 +227,14 @@ async function skipProposalWithRequest(mode) {
     it("Bob wants to know Carol and sends introduce response with approve", async function () {
         let action = await getAction(bob)
         await bob.introduce.acceptProposal({
-            piid: action.piid,
+            piid: action.PIID,
         })
         action = await getOutofbandAction(bob)
 
         let checked = checkConnection(mode, carol, bob, request.request['@id'])
 
         await bob.outofband.actionContinue({
-            piid: action.piid,
+            piid: action.PIID,
             label: "Bob",
         })
 
@@ -276,14 +276,14 @@ async function skipProposal(mode) {
     it("Bob wants to know Carol and sends introduce response with approve", async function () {
         let action = await getAction(bob)
         await bob.introduce.acceptProposal({
-            piid: action.piid,
+            piid: action.PIID,
         })
         action = await getOutofbandAction(bob)
 
         let checked = checkConnection(mode, carol, bob, request.request['@id'])
 
         await bob.outofband.actionContinue({
-            piid: action.piid,
+            piid: action.PIID,
             label: "Bob",
         })
 
@@ -334,6 +334,9 @@ async function getAction(agent) {
     for (let i = 0; i < retries; i++) {
         let resp = await agent.introduce.actions()
         if (resp.actions.length > 0) {
+            assert.isNotEmpty(resp.actions[0].MyDID)
+            assert.isNotEmpty(resp.actions[0].TheirDID)
+
             return resp.actions[0]
         }
 

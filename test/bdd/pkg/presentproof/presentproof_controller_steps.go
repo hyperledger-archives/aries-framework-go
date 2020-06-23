@@ -273,6 +273,14 @@ func actionPIID(endpoint string) (string, error) {
 			continue
 		}
 
+		if result.Actions[0].MyDID == "" {
+			return "", errors.New("myDID is empty")
+		}
+
+		if result.Actions[0].TheirDID == "" {
+			return "", errors.New("theirDID is empty")
+		}
+
 		return result.Actions[0].PIID, nil
 	}
 

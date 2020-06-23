@@ -483,8 +483,10 @@ func TestOfferReceived_ExecuteInbound(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(struct{}{})
 
 		followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{
-			proposeCredential:   &ProposeCredential{},
-			transitionalPayload: transitionalPayload{Msg: msg},
+			proposeCredential: &ProposeCredential{},
+			transitionalPayload: transitionalPayload{
+				Action: Action{Msg: msg},
+			},
 		})
 		require.NoError(t, err)
 		require.Equal(t, &proposalSent{}, followup)
@@ -509,7 +511,7 @@ func TestOfferReceived_ExecuteInbound(t *testing.T) {
 	t.Run("Decode error", func(t *testing.T) {
 		followup, action, err := (&offerReceived{}).ExecuteInbound(&metaData{
 			transitionalPayload: transitionalPayload{
-				Msg: service.DIDCommMsgMap{"@type": map[int]int{}},
+				Action: Action{Msg: service.DIDCommMsgMap{"@type": map[int]int{}}},
 			},
 		})
 

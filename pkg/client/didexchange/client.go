@@ -235,6 +235,14 @@ func (c *Client) QueryConnections(request *QueryConnectionsParams) ([]*Connectio
 			continue
 		}
 
+		if request.MyDID != "" && request.MyDID != record.MyDID {
+			continue
+		}
+
+		if request.TheirDID != "" && request.TheirDID != record.TheirDID {
+			continue
+		}
+
 		result = append(result, &Connection{Record: record})
 	}
 

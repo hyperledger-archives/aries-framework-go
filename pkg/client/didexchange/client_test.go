@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -767,7 +768,7 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		}
 	})
 
-	t.Run("test get connections by state param", func(t *testing.T) {
+	t.Run("test get connections with params", func(t *testing.T) {
 		svc, err := didexchange.New(&mockprotocol.MockProvider{
 			ServiceMap: map[string]interface{}{
 				mediator.Coordination: &mockroute.MockMediatorSvc{},
@@ -791,6 +792,8 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		const countWithState = 5
 		const keyPrefix = "conn_"
 		const state = "completed"
+		const myDID = "my_did"
+		const theirDID = "their_did"
 		for i := 0; i < count; i++ {
 			var queryState string
 			if i < countWithState {
@@ -800,6 +803,8 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 			val, e := json.Marshal(&connection.Record{
 				ConnectionID: string(i),
 				State:        queryState,
+				MyDID:        myDID + strconv.Itoa(i),
+				TheirDID:     theirDID + strconv.Itoa(i),
 			})
 			require.NoError(t, e)
 			require.NoError(t, storageProvider.Store.Put(fmt.Sprintf("%sabc%d", keyPrefix, i), val))
@@ -818,6 +823,37 @@ func TestClient_QueryConnectionsByParams(t *testing.T) {
 		for _, result := range results {
 			require.NotEmpty(t, result.ConnectionID)
 			require.Equal(t, result.State, state)
+		}
+
+		params := &QueryConnectionsParams{MyDID: myDID + strconv.Itoa(count-1)}
+		results, err = c.QueryConnections(params)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		for _, result := range results {
+			require.NotEmpty(t, result.ConnectionID)
+			require.Equal(t, result.MyDID, params.MyDID)
+		}
+
+		params = &QueryConnectionsParams{TheirDID: theirDID + strconv.Itoa(count-1)}
+		results, err = c.QueryConnections(params)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		for _, result := range results {
+			require.NotEmpty(t, result.ConnectionID)
+			require.Equal(t, result.TheirDID, params.TheirDID)
+		}
+
+		params = &QueryConnectionsParams{
+			MyDID:    myDID + strconv.Itoa(count-1),
+			TheirDID: theirDID + strconv.Itoa(count-1),
+		}
+		results, err = c.QueryConnections(params)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		for _, result := range results {
+			require.NotEmpty(t, result.ConnectionID)
+			require.Equal(t, result.MyDID, params.MyDID)
+			require.Equal(t, result.TheirDID, params.TheirDID)
 		}
 	})
 

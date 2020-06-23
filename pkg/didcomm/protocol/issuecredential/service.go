@@ -57,12 +57,8 @@ type customError struct{ error }
 
 // transitionalPayload keeps payload needed for Continue function to proceed with the action
 type transitionalPayload struct {
-	// Protocol instance ID
-	PIID      string
+	Action
 	StateName string
-	Msg       service.DIDCommMsgMap
-	MyDID     string
-	TheirDID  string
 }
 
 // metaData type to store data for internal usage
@@ -110,8 +106,10 @@ func (md *metaData) StateName() string {
 // Action contains helpful information about action
 type Action struct {
 	// Protocol instance ID
-	PIID string                `json:"piid"`
-	Msg  service.DIDCommMsgMap `json:"msg"`
+	PIID     string
+	Msg      service.DIDCommMsgMap
+	MyDID    string
+	TheirDID string
 }
 
 // Opt describes option signature for the Continue function
@@ -284,8 +282,10 @@ func (s *Service) doHandle(msg service.DIDCommMsg, outbound bool) (*metaData, er
 	return &metaData{
 		transitionalPayload: transitionalPayload{
 			StateName: next.Name(),
-			Msg:       msg.(service.DIDCommMsgMap),
-			PIID:      piID,
+			Action: Action{
+				Msg:  msg.(service.DIDCommMsgMap),
+				PIID: piID,
+			},
 		},
 		state:    next,
 		msgClone: msg.Clone(),
@@ -586,6 +586,10 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 			md.err = customError{error: cErr}
 			s.processCallback(md)
 		},
+		Properties: &eventProps{
+			myDID:    md.MyDID,
+			theirDID: md.TheirDID,
+		},
 	}
 }
 
@@ -638,4 +642,17 @@ func (s *Service) Accept(msgType string) bool {
 	}
 
 	return false
+}
+
+type eventProps struct {
+	myDID    string
+	theirDID string
+}
+
+func (e *eventProps) MyDID() string {
+	return e.myDID
+}
+
+func (e *eventProps) TheirDID() string {
+	return e.theirDID
 }

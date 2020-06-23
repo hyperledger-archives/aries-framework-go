@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	verifiableStore "github.com/hyperledger/aries-framework-go/pkg/store/verifiable"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/issuecredential"
 	bddverifiable "github.com/hyperledger/aries-framework-go/test/bdd/pkg/verifiable"
 )
 
@@ -184,6 +185,11 @@ func (a *SDKSteps) sendRequestPresentation(agent1, agent2 string) error {
 func (a *SDKSteps) getActionID(agent string) (string, error) {
 	select {
 	case e := <-a.actions[agent]:
+		err := issuecredential.CheckProperties(e)
+		if err != nil {
+			return "", fmt.Errorf("check properties: %w", err)
+		}
+
 		return e.Message.ThreadID()
 	case <-time.After(timeout):
 		return "", errors.New("timeout")

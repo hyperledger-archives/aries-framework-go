@@ -242,7 +242,7 @@ func randomInboundMessage(t string) service.DIDCommMsgMap {
 func TestRequestSent_Execute(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		followup, action, err := (&requestSent{}).Execute(&metaData{
-			transitionalPayload: transitionalPayload{Msg: randomInboundMessage("")},
+			transitionalPayload: transitionalPayload{Action: Action{Msg: randomInboundMessage("")}},
 			request:             &RequestPresentation{},
 		})
 		require.NoError(t, err)
@@ -260,7 +260,7 @@ func TestRequestSent_Execute(t *testing.T) {
 
 	t.Run("Request presentation is absent", func(t *testing.T) {
 		followup, action, err := (&requestSent{}).Execute(&metaData{
-			transitionalPayload: transitionalPayload{Msg: randomInboundMessage("")},
+			transitionalPayload: transitionalPayload{Action: Action{Msg: randomInboundMessage("")}},
 		})
 		require.EqualError(t, err, "request was not provided")
 		require.Nil(t, followup)
@@ -381,7 +381,7 @@ func TestProposePresentationSent_CanTransitionTo(t *testing.T) {
 func TestProposePresentationSent_Execute(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		followup, action, err := (&proposalSent{}).Execute(&metaData{
-			transitionalPayload: transitionalPayload{Msg: randomInboundMessage("")},
+			transitionalPayload: transitionalPayload{Action: Action{Msg: randomInboundMessage("")}},
 			proposePresentation: &ProposePresentation{},
 		})
 		require.NoError(t, err)
@@ -399,7 +399,7 @@ func TestProposePresentationSent_Execute(t *testing.T) {
 
 	t.Run("Propose presentation is absent", func(t *testing.T) {
 		followup, action, err := (&proposalSent{}).Execute(&metaData{
-			transitionalPayload: transitionalPayload{Msg: randomInboundMessage("")},
+			transitionalPayload: transitionalPayload{Action: Action{Msg: randomInboundMessage("")}},
 		})
 		require.EqualError(t, err, "propose-presentation was not provided")
 		require.Nil(t, followup)

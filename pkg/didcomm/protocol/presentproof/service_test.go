@@ -378,7 +378,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(randomInboundMessage(RequestPresentationMsgType), Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Stop(nil)
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Stop(nil)
 
 		select {
 		case <-done:
@@ -425,7 +432,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(randomInboundMessage(RequestPresentationMsgType), Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(WithPresentation(&Presentation{}))
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(WithPresentation(&Presentation{}))
 
 		select {
 		case <-done:
@@ -465,6 +479,8 @@ func TestService_HandleInbound(t *testing.T) {
 		actions, err := svc.Actions()
 		require.NoError(t, err)
 		for _, action := range actions {
+			require.Equal(t, action.MyDID, Alice)
+			require.Equal(t, action.TheirDID, Bob)
 			require.NoError(t, svc.ActionContinue(action.PIID, WithPresentation(&Presentation{})))
 		}
 
@@ -508,6 +524,8 @@ func TestService_HandleInbound(t *testing.T) {
 		actions, err := svc.Actions()
 		require.NoError(t, err)
 		for _, action := range actions {
+			require.Equal(t, action.MyDID, Alice)
+			require.Equal(t, action.TheirDID, Bob)
 			require.NoError(t, svc.ActionStop(action.PIID, nil))
 		}
 
@@ -556,7 +574,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(randomInboundMessage(RequestPresentationMsgType), Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(WithProposePresentation(&ProposePresentation{}))
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(WithProposePresentation(&ProposePresentation{}))
 
 		select {
 		case <-done:
@@ -604,7 +629,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(randomInboundMessage(ProposePresentationMsgType), Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(WithRequestPresentation(&RequestPresentation{}))
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(WithRequestPresentation(&RequestPresentation{}))
 
 		select {
 		case <-done:
@@ -660,7 +692,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(randomInboundMessage(ProposePresentationMsgType), Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(nil)
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(nil)
 
 		select {
 		case <-done:
@@ -719,7 +758,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(nil)
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(nil)
 
 		select {
 		case <-done:

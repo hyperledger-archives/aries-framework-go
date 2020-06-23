@@ -92,21 +92,17 @@ type myState struct {
 // Action contains helpful information about action
 type Action struct {
 	// Protocol instance ID
-	PIID         string                `json:"piid"`
-	Msg          service.DIDCommMsgMap `json:"msg"`
-	ProtocolName string                `json:"protocol_name"`
-	Properties   *eventProps           `json:"properties"`
+	PIID         string
+	Msg          service.DIDCommMsgMap
+	ProtocolName string
+	MyDID        string
+	TheirDID     string
+	Properties   *eventProps
 }
 
 // transitionalPayload keeps payload needed for Continue function to proceed with the action
 type transitionalPayload struct {
-	// Protocol instance ID
-	PIID         string                `json:"piid"`
-	Msg          service.DIDCommMsgMap `json:"msg"`
-	MyDID        string                `json:"my_did"`
-	TheirDID     string                `json:"their_did"`
-	ProtocolName string                `json:"protocol_name"`
-	Properties   *eventProps           `json:"properties"`
+	Action
 }
 
 // Provider provides this service's dependencies.
@@ -198,12 +194,14 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	}
 
 	err = s.saveTransitionalPayload(piid, &transitionalPayload{
-		PIID:         piid,
-		Msg:          msg.(service.DIDCommMsgMap),
-		MyDID:        myDID,
-		TheirDID:     theirDID,
-		ProtocolName: Name,
-		Properties:   &eventProps{},
+		Action: Action{
+			PIID:         piid,
+			Msg:          msg.(service.DIDCommMsgMap),
+			MyDID:        myDID,
+			TheirDID:     theirDID,
+			ProtocolName: Name,
+			Properties:   &eventProps{},
+		},
 	})
 	if err != nil {
 		return "", fmt.Errorf("save transitional payload: %w", err)

@@ -275,7 +275,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Stop(nil)
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Stop(nil)
 
 		select {
 		case <-done:
@@ -323,7 +330,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(WithOfferCredential(&OfferCredential{}))
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(WithOfferCredential(&OfferCredential{}))
 
 		select {
 		case <-done:
@@ -369,6 +383,8 @@ func TestService_HandleInbound(t *testing.T) {
 		actions, err := svc.Actions()
 		require.NoError(t, err)
 		for _, action := range actions {
+			require.Equal(t, action.MyDID, Alice)
+			require.Equal(t, action.TheirDID, Bob)
 			require.NoError(t, svc.ActionContinue(action.PIID, WithOfferCredential(&OfferCredential{})))
 		}
 
@@ -418,6 +434,8 @@ func TestService_HandleInbound(t *testing.T) {
 		actions, err := svc.Actions()
 		require.NoError(t, err)
 		for _, action := range actions {
+			require.Equal(t, action.MyDID, Alice)
+			require.Equal(t, action.TheirDID, Bob)
 			require.NoError(t, svc.ActionStop(action.PIID, nil))
 		}
 
@@ -469,7 +487,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Stop(nil)
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Stop(nil)
 
 		select {
 		case <-done:
@@ -517,7 +542,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(WithProposeCredential(&ProposeCredential{}))
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(WithProposeCredential(&ProposeCredential{}))
 
 		select {
 		case <-done:
@@ -568,7 +600,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(nil)
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(nil)
 
 		select {
 		case <-done:
@@ -618,7 +657,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Stop(nil)
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Stop(nil)
 
 		select {
 		case <-done:
@@ -666,7 +712,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(WithIssueCredential(&IssueCredential{}))
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(WithIssueCredential(&IssueCredential{}))
 
 		select {
 		case <-done:
@@ -737,7 +790,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Continue(WithFriendlyNames("UniversityDegree"))
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Continue(WithFriendlyNames("UniversityDegree"))
 
 		select {
 		case <-done:
@@ -786,7 +846,14 @@ func TestService_HandleInbound(t *testing.T) {
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.NoError(t, err)
 
-		(<-ch).Stop(errors.New("invalid credential"))
+		action := <-ch
+
+		properties, ok := action.Properties.(*eventProps)
+		require.True(t, ok)
+		require.Equal(t, properties.MyDID(), Alice)
+		require.Equal(t, properties.TheirDID(), Bob)
+
+		action.Stop(errors.New("invalid credential"))
 
 		select {
 		case <-done:

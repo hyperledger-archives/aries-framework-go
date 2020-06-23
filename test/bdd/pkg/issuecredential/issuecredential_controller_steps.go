@@ -9,6 +9,7 @@ package issuecredential
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -286,6 +287,14 @@ func actionPIID(endpoint string) (string, error) {
 		if len(result.Actions) == 0 {
 			time.Sleep(retryDelay)
 			continue
+		}
+
+		if result.Actions[0].MyDID == "" {
+			return "", errors.New("myDID is empty")
+		}
+
+		if result.Actions[0].TheirDID == "" {
+			return "", errors.New("theirDID is empty")
 		}
 
 		return result.Actions[0].PIID, nil

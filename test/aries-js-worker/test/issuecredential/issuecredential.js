@@ -85,7 +85,7 @@ async function issueCredential (mode) {
     it("Issuer accepts request and sends credential to the Holder", async function() {
         let action = await getAction(issuer)
         return issuer.issuecredential.acceptRequest({
-            piid: action.piid,
+            piid: action.PIID,
             issue_credential: issueCredentialPayload,
         })
     })
@@ -95,7 +95,7 @@ async function issueCredential (mode) {
     it("Holder accepts credential", async function() {
         let action = await getAction(holder)
         return holder.issuecredential.acceptCredential({
-            piid: action.piid,
+            piid: action.PIID,
             names: [credentialName],
         })
     })
@@ -111,6 +111,9 @@ async function getAction(agent) {
     for (let i = 0; i < retries; i++) {
         let resp = await agent.issuecredential.actions()
         if (resp.actions.length > 0) {
+            assert.isNotEmpty(resp.actions[0].MyDID)
+            assert.isNotEmpty(resp.actions[0].TheirDID)
+
             return resp.actions[0]
         }
 
