@@ -149,10 +149,11 @@ func (s *sqlDBStore) Put(k string, v []byte) error {
 		return storage.ErrKeyRequired
 	}
 
+	//nolint: gosec
 	// create upsert query to insert the record, checking whether the key is already mapped to a value in the store.
-	createStmt := "INSERT INTO ? VALUES (?, ?) ON DUPLICATE KEY UPDATE value=?"
+	createStmt := "INSERT INTO " + s.tableName + " VALUES (?, ?) ON DUPLICATE KEY UPDATE value=?"
 	// executing the prepared insert statement
-	_, err := s.db.Exec(createStmt, s.tableName, k, v, v)
+	_, err := s.db.Exec(createStmt, k, v, v)
 	if err != nil {
 		return fmt.Errorf("failed to insert key and value record into %s %w ", s.tableName, err)
 	}
@@ -167,8 +168,10 @@ func (s *sqlDBStore) Get(k string) ([]byte, error) {
 	}
 
 	var value []byte
+	//nolint: gosec
 	// select query to fetch the record by key
-	err := s.db.QueryRow("SELECT `value` FROM ? WHERE `key` = ?", s.tableName, k).Scan(&value)
+	err := s.db.QueryRow("SELECT `value` FROM "+s.tableName+" "+
+		" WHERE `key` = ?", k).Scan(&value)
 	if err != nil {
 		if strings.Contains(err.Error(), sqlDBNotFound) {
 			return nil, storage.ErrDataNotFound
@@ -185,8 +188,9 @@ func (s *sqlDBStore) Delete(k string) error {
 	if k == "" {
 		return storage.ErrKeyRequired
 	}
+	//nolint: gosec
 	// delete query to delete the record by key
-	_, err := s.db.Exec("DELETE FROM ? WHERE `key`= ?", s.tableName, k)
+	_, err := s.db.Exec("DELETE FROM "+s.tableName+" WHERE `key`= ?", k)
 
 	if err != nil {
 		return fmt.Errorf("failed to delete row %w", err)
@@ -203,10 +207,11 @@ type sqlDBResultsIterator struct {
 
 func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 	endKey = strings.ReplaceAll(endKey, storage.EndKeySuffix, "~")
+	//nolint:gosec
 	// sub query to fetch the all the keys that have start and end key reference, simulating range behavior.
-	queryStmt := "SELECT * FROM ? WHERE `key` >= ?  AND `key` < ? order by `key`"
+	queryStmt := "SELECT * FROM " + s.tableName + " WHERE `key` >= ?  AND `key` < ? order by `key`"
 
-	resultRows, err := s.db.Query(queryStmt, s.tableName, startKey, endKey)
+	resultRows, err := s.db.Query(queryStmt, startKey, endKey)
 	if err != nil && resultRows == nil {
 		return &sqlDBResultsIterator{store: s,
 			err: fmt.Errorf("failed to query rows %w", err)}
