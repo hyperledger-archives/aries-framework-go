@@ -45,18 +45,18 @@ func TestSQLDBStore(t *testing.T) {
 			sqlmock.NewResult(1, 1))
 		mock.ExpectExec("CREATE Table IF NOT EXISTS t_test ").WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_test", key, data, data).WillReturnResult(
+		mock.ExpectExec("INSERT INTO t_test (.+)").WithArgs(key, data, data).WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_test", key).WillReturnRows(
+		mock.ExpectQuery("SELECT (.+) FROM t_test (.+)").WithArgs(key).WillReturnRows(
 			sqlmock.NewRows(columns).AddRow(data))
-		mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_test", key, data2, data2).WillReturnResult(
+		mock.ExpectExec("INSERT INTO t_test (.+)").WithArgs(key, data2, data2).WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_test", key, data2, data2).WillReturnError(err)
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_test", key).WillReturnRows(
+		mock.ExpectExec("INSERT INTO t_test (.+)").WithArgs(key, data2, data2).WillReturnError(err)
+		mock.ExpectQuery("SELECT (.+) FROM t_test (.+)").WithArgs(key).WillReturnRows(
 			sqlmock.NewRows(columns).AddRow(data2))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_test", did2).WillReturnError(
+		mock.ExpectQuery("SELECT (.+) FROM t_test (.+)").WithArgs(did2).WillReturnError(
 			storage.ErrDataNotFound)
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_test", did2).WillReturnError(
+		mock.ExpectQuery("SELECT (.+) FROM t_test (.+)").WithArgs(did2).WillReturnError(
 			fmt.Errorf("no rows"))
 		mock.ExpectClose()
 
@@ -144,15 +144,15 @@ func TestSQLStoreMultiGetAndPut(t *testing.T) {
 		mock.ExpectExec("USE ").WillReturnResult(sqlmock.NewResult(1, 1))
 		mock.ExpectExec("CREATE Table IF NOT EXISTS t_store2 ").WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_store1", commonKey, data, data).WillReturnResult(
+		mock.ExpectExec("INSERT INTO t_store1 (.+)").WithArgs(commonKey, data, data).WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store1", commonKey).WillReturnRows(
+		mock.ExpectQuery("SELECT (.+) FROM t_store1 (.+)").WithArgs(commonKey).WillReturnRows(
 			sqlmock.NewRows(columns).AddRow(data))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store2", commonKey).WillReturnError(
+		mock.ExpectQuery("SELECT (.+) FROM t_store2 (.+)").WithArgs(commonKey).WillReturnError(
 			storage.ErrDataNotFound)
-		mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_store2", commonKey, data, data).WillReturnResult(
+		mock.ExpectExec("INSERT INTO t_store2 (.+)").WithArgs(commonKey, data, data).WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store2", commonKey).WillReturnRows(
+		mock.ExpectQuery("SELECT (.+) FROM t_store2 (.+)").WithArgs(commonKey).WillReturnRows(
 			sqlmock.NewRows(columns).AddRow(data))
 		// recreate store1
 		mock.ExpectBegin()
@@ -161,9 +161,9 @@ func TestSQLStoreMultiGetAndPut(t *testing.T) {
 		mock.ExpectExec("USE ").WillReturnResult(sqlmock.NewResult(1, 1))
 		mock.ExpectExec("CREATE Table IF NOT EXISTS t_store1 ").WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store1", commonKey).WillReturnRows(
+		mock.ExpectQuery("SELECT (.+) FROM t_store1 (.+)").WithArgs(commonKey).WillReturnRows(
 			sqlmock.NewRows(columns).AddRow(data))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store1", commonKey).WillReturnError(err)
+		mock.ExpectQuery("SELECT (.+) FROM t_store1 (.+)").WithArgs(commonKey).WillReturnError(err)
 
 		prov, err := NewProvider(sqlStoreDBURL)
 		require.NoError(t, err)
@@ -298,9 +298,9 @@ func TestSQLStoreMultiStore(t *testing.T) {
 		mock.ExpectExec("USE ").WillReturnResult(sqlmock.NewResult(1, 1))
 		mock.ExpectExec("CREATE Table IF NOT EXISTS t_store_1 ").WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_store_1", commonKey, data, data).WillReturnResult(
+		mock.ExpectExec("INSERT INTO t_store_1 (.+)").WithArgs(commonKey, data, data).WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store_1", commonKey).WillReturnRows(
+		mock.ExpectQuery("SELECT (.+) FROM t_store_1 (.+)").WithArgs(commonKey).WillReturnRows(
 			sqlmock.NewRows(columns).AddRow(data))
 
 		// store2
@@ -310,9 +310,9 @@ func TestSQLStoreMultiStore(t *testing.T) {
 		mock.ExpectExec("USE ").WillReturnResult(sqlmock.NewResult(1, 1))
 		mock.ExpectExec("CREATE Table IF NOT EXISTS t_store_2 ").WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_store_2", commonKey, data, data).WillReturnResult(
+		mock.ExpectExec("INSERT INTO t_store_2 (.+)").WithArgs(commonKey, data, data).WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store_2", commonKey).WillReturnRows(
+		mock.ExpectQuery("SELECT (.+) FROM t_store_2 (.+)").WithArgs(commonKey).WillReturnRows(
 			sqlmock.NewRows(columns).AddRow(data))
 
 		// store3
@@ -322,9 +322,9 @@ func TestSQLStoreMultiStore(t *testing.T) {
 		mock.ExpectExec("USE ").WillReturnResult(sqlmock.NewResult(1, 1))
 		mock.ExpectExec("CREATE Table IF NOT EXISTS t_store_3 ").WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_store_3", commonKey, data, data).WillReturnResult(
+		mock.ExpectExec("INSERT INTO t_store_3 (.+)").WithArgs(commonKey, data, data).WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store_3", commonKey).WillReturnRows(
+		mock.ExpectQuery("SELECT (.+) FROM t_store_3 (.+)").WithArgs(commonKey).WillReturnRows(
 			sqlmock.NewRows(columns).AddRow(data))
 
 		// store4
@@ -334,9 +334,9 @@ func TestSQLStoreMultiStore(t *testing.T) {
 		mock.ExpectExec("USE ").WillReturnResult(sqlmock.NewResult(1, 1))
 		mock.ExpectExec("CREATE Table IF NOT EXISTS t_store_4 ").WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_store_4", commonKey, data, data).WillReturnResult(
+		mock.ExpectExec("INSERT INTO t_store_4 (.+)").WithArgs(commonKey, data, data).WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store_4", commonKey).WillReturnRows(
+		mock.ExpectQuery("SELECT (.+) FROM t_store_4 (.+)").WithArgs(commonKey).WillReturnRows(
 			sqlmock.NewRows(columns).AddRow(data))
 
 		// store5
@@ -346,9 +346,9 @@ func TestSQLStoreMultiStore(t *testing.T) {
 		mock.ExpectExec("USE ").WillReturnResult(sqlmock.NewResult(1, 1))
 		mock.ExpectExec("CREATE Table IF NOT EXISTS t_store_5 ").WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_store_5", commonKey, data, data).WillReturnResult(
+		mock.ExpectExec("INSERT INTO t_store_5 (.+)").WithArgs(commonKey, data, data).WillReturnResult(
 			sqlmock.NewResult(1, 1))
-		mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store_5", commonKey).WillReturnRows(
+		mock.ExpectQuery("SELECT (.+) FROM t_store_5 (.+)").WithArgs(commonKey).WillReturnRows(
 			sqlmock.NewRows(columns).AddRow(data))
 		mock.ExpectClose()
 
@@ -424,15 +424,15 @@ func TestSQLDBStoreDelete(t *testing.T) {
 	mock.ExpectExec("USE ").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectExec("CREATE Table IF NOT EXISTS t_store1").WillReturnResult(
 		sqlmock.NewResult(1, 1))
-	mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_store1", commonKey, data, data).WillReturnResult(
+	mock.ExpectExec("INSERT INTO t_store1 (.+)").WithArgs(commonKey, data, data).WillReturnResult(
 		sqlmock.NewResult(1, 1))
-	mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store1", commonKey).WillReturnRows(
+	mock.ExpectQuery("SELECT (.+) FROM t_store1 (.+)").WithArgs(commonKey).WillReturnRows(
 		sqlmock.NewRows(columns).AddRow(data))
-	mock.ExpectExec("DELETE FROM ? (.+)").WithArgs("t_store1", commonKey).WillReturnResult(
+	mock.ExpectExec("DELETE FROM t_store1 (.+)").WithArgs(commonKey).WillReturnResult(
 		sqlmock.NewResult(1, 1))
-	mock.ExpectQuery("SELECT (.+) FROM ? (.+)").WithArgs("t_store1", commonKey).WillReturnError(
+	mock.ExpectQuery("SELECT (.+) FROM t_store1 (.+)").WithArgs(commonKey).WillReturnError(
 		storage.ErrDataNotFound)
-	mock.ExpectExec("DELETE FROM ? (.+)").WithArgs("t_store1", commonKey).WillReturnError(err)
+	mock.ExpectExec("DELETE FROM t_store1 (.+)").WithArgs(commonKey).WillReturnError(err)
 
 	prov, err := NewProvider(sqlStoreDBURL)
 	require.NoError(t, err)
@@ -501,7 +501,7 @@ func TestSQLDBStoreIterator(t *testing.T) {
 		keys := []string{"abc_123", "abc_124", "abc_125", "abc_126", "jkl_123", "mno_123"}
 
 		for _, key := range keys {
-			mock.ExpectExec("INSERT INTO ? (.+)").WithArgs("t_testIterator", key,
+			mock.ExpectExec("INSERT INTO t_testIterator (.+)").WithArgs(key,
 				[]byte(fmt.Sprintf(valPrefix, key)),
 				[]byte(fmt.Sprintf(valPrefix, key))).WillReturnResult(sqlmock.NewResult(1, 1))
 			err = store.Put(key, []byte(fmt.Sprintf(valPrefix, key)))
@@ -529,13 +529,13 @@ func TestSQLDBStoreIterator(t *testing.T) {
 			AddRow("abc_126", "val-for-abc_126").
 			AddRow("jkl_123", "val-for-jkl_123")
 
-		mock.ExpectQuery("SELECT (.+) ?").WithArgs("t_testIterator", "abc_",
+		mock.ExpectQuery("SELECT (.+)").WithArgs("abc_",
 			"abc_~").WillReturnRows(rowSet1)
-		mock.ExpectQuery("SELECT (.+) ?").WithArgs("t_testIterator", "abc_",
+		mock.ExpectQuery("SELECT (.+)").WithArgs("abc_",
 			"mno_~").WillReturnRows(rowSet2)
-		mock.ExpectQuery("SELECT (.+) ?").WithArgs("t_testIterator", "abc_",
+		mock.ExpectQuery("SELECT (.+)").WithArgs("abc_",
 			"mno_123").WillReturnRows(rowSet3)
-		mock.ExpectQuery("SELECT (.+) ?").WithArgs("t_testIterator", "",
+		mock.ExpectQuery("SELECT (.+)").WithArgs("",
 			"").WillReturnRows(rowSet0)
 
 		itr := store.Iterator("abc_", "abc_"+storage.EndKeySuffix)
