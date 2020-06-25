@@ -257,7 +257,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		s.sendMsgEvents(&service.StateMsg{
 			ProtocolName: DIDExchange,
 			Type:         service.PreState,
-			Msg:          msg.Msg,
+			Msg:          msg.Msg.Clone(),
 			StateID:      next.Name(),
 			Properties:   createEventProperties(msg.ConnRecord.ConnectionID, msg.ConnRecord.InvitationID),
 		})
@@ -314,7 +314,7 @@ func (s *Service) handle(msg *message, aEvent chan<- service.DIDCommAction) erro
 		s.sendMsgEvents(&service.StateMsg{
 			ProtocolName: DIDExchange,
 			Type:         service.PostState,
-			Msg:          msg.Msg,
+			Msg:          msg.Msg.Clone(),
 			StateID:      prev.Name(),
 			Properties:   createEventProperties(connectionRecord.ConnectionID, connectionRecord.InvitationID),
 		})
@@ -362,7 +362,7 @@ func (s *Service) sendActionEvent(internalMsg *message, aEvent chan<- service.DI
 		// trigger action event
 		aEvent <- service.DIDCommAction{
 			ProtocolName: DIDExchange,
-			Message:      internalMsg.Msg,
+			Message:      internalMsg.Msg.Clone(),
 			Continue: func(args interface{}) {
 				switch v := args.(type) {
 				case opts:

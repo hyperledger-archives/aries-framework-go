@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 import {healthCheck, newAries} from "../common.js"
 import {environment} from "../environment.js"
+import {didExchangeClient} from "../didexchange/didexchange_e2e.js";
 
 const routerHttpUrl = `${environment.HTTP_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_HTTP_INBOUND_PORT}`
 const routerWsUrl = `${environment.WS_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_WS_INBOUND_PORT}`
@@ -32,24 +33,6 @@ function validateInvitation(invitation) {
     assert.property(invitation, "label")
     assert.property(invitation, "@type")
     assert.equal(invitation["@type"], "https://didcomm.org/didexchange/1.0/invitation")
-}
-
-function acceptInvitation(agent, invitation, done) {
-    agent.startNotifier(notice => {
-        try {
-            assert.isFalse(notice.isErr)
-            assert.property(notice, "payload")
-            const connection = notice.payload
-            assert.property(connection, "connection_id")
-            agent.didexchange.acceptInvitation({
-                id: connection.connection_id
-            })
-        } catch (err) {
-            done(err)
-        }
-        done()
-    }, ["connections"])
-    agent.didexchange.receiveInvitation(invitation)
 }
 
 function routeRegister(agent, connectionID, done) {
@@ -108,25 +91,12 @@ describe("DID-Exchange between an Edge Agent and a router", function () {
         validateInvitation(invitation)
     })
 
-    it("Edge Agent accepts the invitation from the router", function (done) {
-        acceptInvitation(aries, invitation, done)
+    it("Edge Agent accepts the invitation from the router", async function () {
+        await didExchangeClient.acceptInvitation('wasm', aries, invitation)
     })
 
-    it("Edge Agent validates that the connection's state is 'completed'", function (done) {
-        aries.startNotifier(notice => {
-            try {
-                assert.isObject(notice)
-                assert.property(notice, "isErr")
-                assert.isFalse(notice.isErr)
-                assert.property(notice, "payload")
-                assert.property(notice.payload, "state")
-            } catch (err) {
-                done(err)
-            }
-            if (notice.payload.state === completedState) {
-                done()
-            }
-        }, ["connections"])
+    it("Edge Agent validates that the connection's state is 'completed'", async function () {
+        await didExchangeClient.watchForConnection(aries, completedState)
     })
 })
 
@@ -164,27 +134,14 @@ describe("DID-Exchange between two Edge Agents using the router", function () {
         validateInvitation(invitation)
     })
 
-    it("Alice Edge Agent accepts the invitation from the router", function (done) {
-        acceptInvitation(aliceAgent, invitation, done)
+    it("Alice Edge Agent accepts the invitation from the router", async function () {
+        let res = await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation)
+        connectionID = res.connection_id
     })
 
-    it("Alice Edge Agent validates that the connection's state is 'completed'", function (done) {
-        aliceAgent.startNotifier(notice => {
-            try {
-                assert.isObject(notice)
-                assert.property(notice, "isErr")
-                assert.isFalse(notice.isErr)
-                assert.property(notice, "payload")
-                assert.property(notice.payload, "state")
-            } catch (err) {
-                done(err)
-            }
-            if (notice.payload.state === completedState) {
-                connectionID = notice.payload.connection_id
-
-                done()
-            }
-        }, ["connections"])
+    it("Alice Edge Agent validates that the connection's state is 'completed'", async function () {
+        let connID = await didExchangeClient.watchForConnection(aliceAgent, completedState)
+        assert.equal(connectionID, connID)
     })
 
     it("Alice Edge Agent sets previous connection as the router", function (done) {
@@ -202,27 +159,14 @@ describe("DID-Exchange between two Edge Agents using the router", function () {
         validateInvitation(invitation)
     })
 
-    it("Bob Edge Agent accepts the invitation from the router", function (done) {
-        acceptInvitation(bobAgent, invitation, done)
+    it("Bob Edge Agent accepts the invitation from the router",async function () {
+        let res = await didExchangeClient.acceptInvitation('wasm', bobAgent, invitation)
+        connectionID = res.connection_id
     })
 
-    it("Bob Edge Agent validates that the connection's state is 'completed'", function (done) {
-        bobAgent.startNotifier(notice => {
-            try {
-                assert.isObject(notice)
-                assert.property(notice, "isErr")
-                assert.isFalse(notice.isErr)
-                assert.property(notice, "payload")
-                assert.property(notice.payload, "state")
-            } catch (err) {
-                done(err)
-            }
-            if (notice.payload.state === completedState) {
-                connectionID = notice.payload.connection_id
-
-                done()
-            }
-        }, ["connections"])
+    it("Bob Edge Agent validates that the connection's state is 'completed'",async function () {
+        let connID = await didExchangeClient.watchForConnection(bobAgent, completedState)
+        assert.equal(connectionID, connID)
     })
 
     it("Bob Edge Agent sets previous connection as the router", function (done) {
@@ -244,47 +188,15 @@ describe("DID-Exchange between two Edge Agents using the router", function () {
             err => done(err)
         )
 
-        // bob approves all the requests
-        bobAgent.startNotifier(notice => {
-            try {
-                assert.isObject(notice)
-                assert.property(notice, "isErr")
-                assert.isFalse(notice.isErr)
-                assert.property(notice, "payload")
-                assert.property(notice.payload, "state")
-
-                if (notice.payload.state === "requested") {
-                    const connection = notice.payload
-                    bobAgent.didexchange.acceptExchangeRequest({
-                        id: connection.connection_id
-                    })
-                }
-
-            } catch (err) {
-                done(err)
-            }
-        }, ["connections"])
+        didExchangeClient.acceptExchangeRequest(bobAgent)
     })
 
-    it("Alice Edge Agent accepts the invitation from the Bob", function (done) {
-        acceptInvitation(aliceAgent, invitation, done)
+    it("Alice Edge Agent accepts the invitation from the Bob",async function () {
+        await didExchangeClient.acceptInvitation('wasm', aliceAgent, invitation)
     })
 
-    it("Alice Edge Agent validates that the connection's state is 'completed'", function (done) {
-        aliceAgent.startNotifier(notice => {
-            try {
-                assert.isObject(notice)
-                assert.property(notice, "isErr")
-                assert.isFalse(notice.isErr)
-                assert.property(notice, "payload")
-                assert.property(notice.payload, "state")
-            } catch (err) {
-                done(err)
-            }
-            if (notice.payload.state === completedState) {
-                done()
-            }
-        }, ["connections"])
+    it("Alice Edge Agent validates that the connection's state is 'completed'", async function () {
+        await didExchangeClient.watchForConnection(aliceAgent, completedState)
     })
 })
 

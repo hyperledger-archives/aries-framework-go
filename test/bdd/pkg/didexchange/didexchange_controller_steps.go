@@ -120,9 +120,13 @@ func (a *ControllerSteps) pullEventsFromWebSocket(agentID, state string) (string
 	defer cancel()
 
 	var incoming struct {
-		ID      string                 `json:"id"`
-		Topic   string                 `json:"topic"`
-		Message didexcmd.ConnectionMsg `json:"message"`
+		ID      string `json:"id"`
+		Topic   string `json:"topic"`
+		Message struct {
+			StateID    string
+			Properties map[string]string
+			Type       string
+		} `json:"message"`
 	}
 
 	for {
@@ -131,12 +135,12 @@ func (a *ControllerSteps) pullEventsFromWebSocket(agentID, state string) (string
 			return "", fmt.Errorf("failed to get topics for agent '%s' : %w", agentID, err)
 		}
 
-		if incoming.Topic == "connections" {
-			if strings.EqualFold(state, incoming.Message.State) {
+		if incoming.Topic == "didexchange_states" && incoming.Message.Type == "post_state" {
+			if strings.EqualFold(state, incoming.Message.StateID) {
 				logger.Debugf("Able to find webhook topic with expected state[%s] for agent[%s] and connection[%s]",
-					incoming.Message.State, agentID, incoming.Message.ConnectionID)
+					incoming.Message.StateID, agentID, incoming.Message.Properties["connectionID"])
 
-				return incoming.Message.ConnectionID, nil
+				return incoming.Message.Properties["connectionID"], nil
 			}
 		}
 	}

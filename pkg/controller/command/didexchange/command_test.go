@@ -20,7 +20,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
@@ -40,6 +39,7 @@ import (
 
 const (
 	mockSvcEndpoint = "endpoint"
+	postState       = "post_state"
 )
 
 func TestNew(t *testing.T) {
@@ -62,6 +62,33 @@ func TestNew(t *testing.T) {
 		cmd, err := New(&mockprovider.Provider{ServiceErr: errors.New("test-error")},
 			webnotifier.NewHTTPNotifier(nil), "", false)
 		require.Error(t, err)
+		require.Nil(t, cmd)
+	})
+
+	expectedErr := errors.New("error")
+
+	t.Run("Register action event: error", func(t *testing.T) {
+		prov := mockProvider()
+		prov.ServiceMap[didexsvc.DIDExchange] = &mockdidexchange.MockDIDExchangeSvc{
+			ProtocolName:           "mockProtocolSvc",
+			RegisterActionEventErr: expectedErr,
+			RegisterMsgEventErr:    expectedErr,
+		}
+
+		cmd, err := New(prov, webnotifier.NewHTTPNotifier(nil), "", false)
+		require.EqualError(t, err, "register action event: "+expectedErr.Error())
+		require.Nil(t, cmd)
+	})
+
+	t.Run("Register msg event: error", func(t *testing.T) {
+		prov := mockProvider()
+		prov.ServiceMap[didexsvc.DIDExchange] = &mockdidexchange.MockDIDExchangeSvc{
+			ProtocolName:        "mockProtocolSvc",
+			RegisterMsgEventErr: expectedErr,
+		}
+
+		cmd, err := New(prov, webnotifier.NewHTTPNotifier(nil), "", false)
+		require.EqualError(t, err, "register msg event: "+expectedErr.Error())
 		require.Nil(t, cmd)
 	})
 }
@@ -492,16 +519,23 @@ func TestCommand_AcceptInvitation(t *testing.T) {
 			}},
 			&mockwebhook.Notifier{
 				NotifyFunc: func(topic string, message []byte) error {
-					require.Equal(t, connectionsWebhookTopic, topic)
-					conn := ConnectionMsg{}
+					if topic == "didexchange_actions" {
+						return nil
+					}
+					require.Equal(t, "didexchange_states", topic)
+					conn := struct {
+						StateID    string
+						Properties map[string]string
+						Type       string
+					}{}
 					jsonErr := json.Unmarshal(message, &conn)
 					require.NoError(t, jsonErr)
 
-					if conn.State == "invited" {
-						connID <- conn.ConnectionID
+					if conn.StateID == "invited" && conn.Type == postState {
+						connID <- conn.Properties[connectionIDString]
 					}
 
-					if conn.State == "requested" {
+					if conn.StateID == "requested" && conn.Type == postState {
 						close(done)
 					}
 
@@ -712,17 +746,24 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 			LegacyKMSValue: &mockkms.CloseableKMS{CreateSigningKeyValue: "sample-key"}},
 			&mockwebhook.Notifier{
 				NotifyFunc: func(topic string, message []byte) error {
-					require.Equal(t, connectionsWebhookTopic, topic)
+					if topic == "didexchange_actions" {
+						return nil
+					}
 
-					conn := ConnectionMsg{}
+					require.Equal(t, "didexchange_states", topic)
+					conn := struct {
+						StateID    string
+						Properties map[string]string
+						Type       string
+					}{}
 					jsonErr := json.Unmarshal(message, &conn)
 					require.NoError(t, jsonErr)
 
-					if conn.State == "requested" {
-						connID <- conn.ConnectionID
+					if conn.StateID == "requested" && conn.Type == postState {
+						connID <- conn.Properties[connectionIDString]
 					}
 
-					if conn.State == "responded" {
+					if conn.StateID == "responded" && conn.Type == postState {
 						close(done)
 					}
 
@@ -837,148 +878,6 @@ func TestCommand_RemoveConnection(t *testing.T) {
 	})
 }
 
-func TestOperationEventError(t *testing.T) {
-	const errMsg = "channel is already registered for the action event"
-
-	t.Run("message event registration failed", func(t *testing.T) {
-		client, err := didexchange.New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
-			StorageProviderValue:          mockstore.NewMockStoreProvider(),
-			ServiceMap: map[string]interface{}{
-				didexsvc.DIDExchange: &mockdidexchange.MockDIDExchangeSvc{
-					RegisterMsgEventErr: errors.New(errMsg),
-				},
-				mediator.Coordination: &mockroute.MockMediatorSvc{},
-			}})
-
-		require.NoError(t, err)
-		cmd := &Command{client: client, msgCh: make(chan service.StateMsg)}
-		err = cmd.startClientEventListener()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "didexchange message event registration failed: "+errMsg)
-	})
-}
-
-func TestHandleMessageEvent(t *testing.T) {
-	storeProv := &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: make(map[string][]byte)}}
-	op, err := New(&mockprovider.Provider{
-		TransientStorageProviderValue: storeProv,
-		StorageProviderValue: &mockstore.MockStoreProvider{
-			Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
-		ServiceMap: map[string]interface{}{
-			didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
-			mediator.Coordination: &mockroute.MockMediatorSvc{},
-		}},
-		webnotifier.NewHTTPNotifier(nil), "", false)
-	require.NoError(t, err)
-	require.NotNil(t, op)
-
-	e := didExEvent{}
-	connRec := connection.Record{ConnectionID: e.ConnectionID(), ThreadID: "xyz", State: "completed"}
-	connBytes, err := json.Marshal(connRec)
-	require.NoError(t, err)
-	require.NoError(t, storeProv.Store.Put("conn_"+e.ConnectionID(), connBytes))
-
-	err = op.handleMessageEvents(service.StateMsg{Type: service.PostState, Properties: nil})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "event is not of DIDExchange event type")
-
-	err = op.handleMessageEvents(service.StateMsg{
-		Type:       service.PostState,
-		Properties: mockError{error: errors.New("err type")},
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "service processing failed : err type")
-
-	err = op.handleMessageEvents(service.StateMsg{Type: service.PostState, Properties: &didExEvent{}})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "send connection notification failed : "+
-		"connection notification webhook :")
-}
-
-type mockError struct {
-	error
-}
-
-func (mockError) All() map[string]interface{} {
-	return nil
-}
-
-func TestSendConnectionNotification(t *testing.T) {
-	const (
-		connID   = "id1"
-		threadID = "xyz"
-	)
-
-	storeProv := &mockstore.MockStoreProvider{Store: &mockstore.MockStore{Store: make(map[string][]byte)}}
-	connRec := connection.Record{ConnectionID: connID, ThreadID: threadID, State: "completed"}
-	connBytes, err := json.Marshal(connRec)
-	require.NoError(t, err)
-	require.NoError(t, storeProv.Store.Put("conn_id1", connBytes))
-	require.NoError(t, storeProv.Store.Put("connstate_id1"+"completed", connBytes))
-
-	t.Run("send notification success", func(t *testing.T) {
-		const testState = "completed"
-		store := &mockstore.MockStore{Store: make(map[string][]byte)}
-		connRec := &connection.Record{State: testState, ConnectionID: connID, ThreadID: "th1234"}
-		connBytes, err := json.Marshal(connRec)
-		require.NoError(t, err)
-		require.NoError(t, store.Put(stateKey(connID, testState), connBytes))
-
-		op, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: store},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: store},
-			ServiceMap: map[string]interface{}{
-				didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
-				mediator.Coordination: &mockroute.MockMediatorSvc{},
-			}},
-			webnotifier.NewHTTPNotifier(nil), "", false)
-		require.NoError(t, err)
-		err = op.sendConnectionNotification(connID, "completed")
-		require.NoError(t, err)
-	})
-	t.Run("send notification connection not found error", func(t *testing.T) {
-		op, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: storeProv,
-			StorageProviderValue: &mockstore.MockStoreProvider{
-				Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
-			ServiceMap: map[string]interface{}{
-				didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
-				mediator.Coordination: &mockroute.MockMediatorSvc{},
-			}},
-			webnotifier.NewHTTPNotifier(nil), "", false)
-		require.NoError(t, err)
-		err = op.sendConnectionNotification("id2", "")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "connection notification webhook : cannot fetch state from store:")
-	})
-	t.Run("send notification webhook error", func(t *testing.T) {
-		const testState = "completed"
-		store := &mockstore.MockStore{Store: make(map[string][]byte)}
-		connRec := &connection.Record{State: testState, ConnectionID: connID, ThreadID: "th1234"}
-		connBytes, err := json.Marshal(connRec)
-		require.NoError(t, err)
-		require.NoError(t, store.Put(stateKey(connID, testState), connBytes))
-
-		op, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: &mockstore.MockStoreProvider{Store: store},
-			StorageProviderValue:          &mockstore.MockStoreProvider{Store: store},
-			ServiceMap: map[string]interface{}{
-				didexsvc.DIDExchange:  &mockdidexchange.MockDIDExchangeSvc{},
-				mediator.Coordination: &mockroute.MockMediatorSvc{},
-			}},
-			&mockwebhook.Notifier{NotifyFunc: func(topic string, message []byte) error {
-				return errors.New("webhook error")
-			}},
-			"", false)
-		require.NoError(t, err)
-		require.NotNil(t, op)
-		err = op.sendConnectionNotification(connID, testState)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "connection notification webhook : webhook error")
-	})
-}
-
 func mockProvider() *mockprovider.Provider {
 	return &mockprovider.Provider{
 		TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
@@ -989,28 +888,6 @@ func mockProvider() *mockprovider.Provider {
 		},
 		LegacyKMSValue:       &mockkms.CloseableKMS{},
 		ServiceEndpointValue: mockSvcEndpoint,
-	}
-}
-
-func stateKey(connID, state string) string {
-	return fmt.Sprintf("connstate_%s_%s", connID, state)
-}
-
-type didExEvent struct {
-}
-
-func (e *didExEvent) ConnectionID() string {
-	return "abc"
-}
-
-func (e *didExEvent) InvitationID() string {
-	return "xyz"
-}
-
-func (e *didExEvent) All() map[string]interface{} {
-	return map[string]interface{}{
-		"connectionID": e.ConnectionID(),
-		"invitationID": e.InvitationID(),
 	}
 }
 

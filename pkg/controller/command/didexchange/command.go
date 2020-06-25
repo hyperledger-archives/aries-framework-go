@@ -8,7 +8,6 @@ package didexchange
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 
@@ -16,7 +15,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
+	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/internal/logutil"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -27,9 +28,6 @@ var logger = log.New("aries-framework/controller/did-exchange")
 const (
 	// command name
 	commandName = "didexchange"
-
-	// webhook notifier topic
-	connectionsWebhookTopic = "connections"
 
 	// error messages
 	errEmptyInviterDID = "empty inviter DID"
@@ -46,11 +44,9 @@ const (
 	removeConnectionCommandMethod         = "RemoveConnection"
 
 	// log constants
-	connectionIDString         = "connectionID"
-	stateIDString              = "stateID"
-	successString              = "success"
-	invitationIDString         = "invitationID"
-	sendConnectionNotification = "sendConnectionNotification"
+	connectionIDString = "connectionID"
+	successString      = "success"
+	invitationIDString = "invitationID"
 )
 
 const (
@@ -78,6 +74,9 @@ const (
 
 	// RemoveConnectionErrorCode is for failures in remove connection command
 	RemoveConnectionErrorCode
+
+	_actions = "_actions"
+	_states  = "_states"
 )
 
 // provider contains dependencies for the DID Exchange command and is typically created by using aries.Context()
@@ -96,28 +95,48 @@ func New(ctx provider, notifier command.Notifier, defaultLabel string, autoAccep
 		return nil, err
 	}
 
-	if autoAccept {
-		actionCh := make(chan service.DIDCommAction)
-
-		err = didExchange.RegisterActionEvent(actionCh)
-		if err != nil {
-			return nil, fmt.Errorf("register action event failed: %w", err)
-		}
-
-		go service.AutoExecuteActionEvent(actionCh)
+	// creates action channel
+	actions := make(chan service.DIDCommAction)
+	// registers action channel to listen for events
+	if err := didExchange.RegisterActionEvent(actions); err != nil {
+		return nil, fmt.Errorf("register action event: %w", err)
 	}
+
+	// creates state channel
+	states := make(chan service.StateMsg)
+	// registers state channel to listen for events
+	if err := didExchange.RegisterMsgEvent(states); err != nil {
+		return nil, fmt.Errorf("register msg event: %w", err)
+	}
+
+	subscribers := []chan service.DIDCommAction{
+		make(chan service.DIDCommAction),
+	}
+
+	if autoAccept {
+		subscribers = append(subscribers, make(chan service.DIDCommAction))
+
+		go service.AutoExecuteActionEvent(subscribers[1])
+	}
+
+	go func() {
+		for action := range actions {
+			for i := range subscribers {
+				action.Message = action.Message.Clone()
+				subscribers[i] <- action
+			}
+		}
+	}()
+
+	obs := webnotifier.NewObserver(notifier)
+	obs.RegisterAction(protocol.DIDExchange+_actions, subscribers[0])
+	obs.RegisterStateMsg(protocol.DIDExchange+_states, states)
 
 	cmd := &Command{
 		ctx:          ctx,
 		client:       didExchange,
 		msgCh:        make(chan service.StateMsg),
-		notifier:     notifier,
 		defaultLabel: defaultLabel,
-	}
-
-	err = cmd.startClientEventListener()
-	if err != nil {
-		return nil, fmt.Errorf("event listener startup failed: %w", err)
 	}
 
 	return cmd, nil
@@ -128,7 +147,6 @@ type Command struct {
 	ctx          provider
 	client       *didexchange.Client
 	msgCh        chan service.StateMsg
-	notifier     command.Notifier
 	defaultLabel string
 }
 
@@ -401,93 +419,6 @@ func (c *Command) RemoveConnection(rw io.Writer, req io.Reader) command.Error {
 
 	logutil.LogDebug(logger, commandName, removeConnectionCommandMethod, successString,
 		logutil.CreateKeyValueString(connectionIDString, request.ID))
-
-	return nil
-}
-
-// startClientEventListener listens to action and message events from DID Exchange service.
-func (c *Command) startClientEventListener() error {
-	// register the message event channel
-	err := c.client.RegisterMsgEvent(c.msgCh)
-	if err != nil {
-		return fmt.Errorf("didexchange message event registration failed: %w", err)
-	}
-
-	// event listeners
-	go func() {
-		for e := range c.msgCh {
-			err := c.handleMessageEvents(e)
-			if err != nil {
-				logger.Errorf("handle message events failed : %s", err)
-			}
-		}
-	}()
-
-	return nil
-}
-
-func (c *Command) handleMessageEvents(e service.StateMsg) error {
-	if e.Type == service.PostState {
-		switch v := e.Properties.(type) {
-		case didexchange.Event:
-			props := v
-
-			err := c.sendConnectionNotification(props.ConnectionID(), e.StateID)
-			if err != nil {
-				return fmt.Errorf("send connection notification failed : %w", err)
-			}
-		case error:
-			return fmt.Errorf("service processing failed : %w", v)
-		default:
-			return errors.New("event is not of DIDExchange event type")
-		}
-	}
-
-	return nil
-}
-
-func (c *Command) sendConnectionNotification(connectionID, stateID string) error {
-	conn, err := c.client.GetConnectionAtState(connectionID, stateID)
-	if err != nil {
-		logutil.LogError(logger, commandName, sendConnectionNotification, err.Error(),
-			logutil.CreateKeyValueString(connectionIDString, connectionID),
-			logutil.CreateKeyValueString(stateIDString, stateID))
-
-		return fmt.Errorf("connection notification webhook : %w", err)
-	}
-
-	connMsg := &ConnectionMsg{
-		ConnectionID: conn.ConnectionID,
-		State:        conn.State,
-		MyDid:        conn.MyDID,
-		TheirDid:     conn.TheirDID,
-		TheirLabel:   conn.TheirLabel,
-		TheirRole:    conn.TheirLabel,
-	}
-
-	jsonMessage, err := json.Marshal(connMsg)
-	if err != nil {
-		logutil.LogError(logger, commandName, sendConnectionNotification, err.Error(),
-			logutil.CreateKeyValueString(connectionIDString, connectionID),
-			logutil.CreateKeyValueString(stateIDString, stateID))
-
-		return fmt.Errorf("connection notification json marshal : %w", err)
-	}
-
-	logger.Debugf("Sending notification on topic '%s', message body : %s", connectionsWebhookTopic, jsonMessage)
-
-	err = c.notifier.Notify(connectionsWebhookTopic, jsonMessage)
-	if err != nil {
-		logutil.LogError(logger, commandName, "sendConnectionNotification", err.Error(),
-			logutil.CreateKeyValueString(connectionIDString, connectionID),
-			logutil.CreateKeyValueString(stateIDString, stateID))
-
-		return fmt.Errorf("connection notification webhook : %w", err)
-	}
-
-	logutil.LogDebug(logger, commandName, sendConnectionNotification, successString,
-		logutil.CreateKeyValueString(connectionIDString, connectionID),
-		logutil.CreateKeyValueString(stateIDString, stateID))
 
 	return nil
 }
