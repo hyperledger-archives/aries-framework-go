@@ -70,19 +70,24 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	p.Lock()
 	defer p.Unlock()
 
-	tx, err := p.db.Begin()
-	if err != nil {
-		return nil, err
+	// check name is not empty
+	if name == "" {
+		return nil, errors.New("store name is required")
 	}
-
 	// creating the database
-	_, err = tx.Exec(createDBQuery + name)
+	_, err := p.db.Exec(createDBQuery + name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create db %s: %w", name, err)
 	}
 
+	// Opening new db connection
+	newDBConn, err := sql.Open("mysql", p.dbURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new connection %s: %w", p.dbURL, err)
+	}
+
 	// Use is used to select the created database without this DDL operations are not permitted
-	_, err = tx.Exec(useDBQuery + name)
+	_, err = newDBConn.Exec(useDBQuery + name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to use db %s: %w", name, err)
 	}
@@ -93,13 +98,13 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 		"(`key` varchar(255) NOT NULL ,`value` BLOB, PRIMARY KEY (`key`));"
 
 	// creating key-value table inside the database
-	_, err = tx.Exec(createTableStmt)
+	_, err = newDBConn.Exec(createTableStmt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create table %s: %w", tableName, err)
 	}
 
 	store := &sqlDBStore{
-		db:        p.db,
+		db:        newDBConn,
 		tableName: tableName}
 
 	p.dbs[name] = store
@@ -177,7 +182,7 @@ func (s *sqlDBStore) Get(k string) ([]byte, error) {
 			return nil, storage.ErrDataNotFound
 		}
 
-		return nil, err
+		return nil, fmt.Errorf("failed to get row %w", err)
 	}
 
 	return value, nil
@@ -200,27 +205,29 @@ func (s *sqlDBStore) Delete(k string) error {
 }
 
 type sqlDBResultsIterator struct {
-	store      *sqlDBStore
 	resultRows *sql.Rows
 	err        error
 }
 
 func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
-	endKey = strings.ReplaceAll(endKey, storage.EndKeySuffix, "~")
+	// reference : https://dev.mysql.com/doc/refman/8.0/en/fulltext-boolean.html
+	if strings.Contains(endKey, storage.EndKeySuffix) {
+		endKey = strings.ReplaceAll(endKey, storage.EndKeySuffix, "*")
+	}
 	//nolint:gosec
 	// sub query to fetch the all the keys that have start and end key reference, simulating range behavior.
-	queryStmt := "SELECT * FROM " + s.tableName + " WHERE `key` >= ?  AND `key` < ? order by `key`"
+	queryStmt := "SELECT * FROM " + s.tableName + " WHERE `key` >= ? AND `key` < ? order by `key`"
 
 	resultRows, err := s.db.Query(queryStmt, startKey, endKey)
 	if err != nil && resultRows == nil {
-		return &sqlDBResultsIterator{store: s,
+		return &sqlDBResultsIterator{
 			err: fmt.Errorf("failed to query rows %w", err)}
 	} else if err = resultRows.Err(); err != nil {
-		return &sqlDBResultsIterator{store: s,
+		return &sqlDBResultsIterator{
 			err: fmt.Errorf("failed to get resulted rows %w", err)}
 	}
 
-	return &sqlDBResultsIterator{store: s, resultRows: resultRows}
+	return &sqlDBResultsIterator{resultRows: resultRows}
 }
 
 func (i *sqlDBResultsIterator) Next() bool {

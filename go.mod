@@ -5,7 +5,6 @@
 module github.com/hyperledger/aries-framework-go
 
 require (
-	github.com/DATA-DOG/go-sqlmock v1.4.1
 	github.com/VictoriaMetrics/fastcache v1.5.7
 	github.com/btcsuite/btcd v0.20.1-beta
 	github.com/btcsuite/btcutil v1.0.1
