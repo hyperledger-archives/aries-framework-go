@@ -568,27 +568,14 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 			md.err = customError{error: cErr}
 			s.processCallback(md)
 		},
-		Properties: &eventProps{
-			myDID:    md.MyDID,
-			theirDID: md.TheirDID,
-		},
+		Properties: newEventProps(md),
 	}
 }
 
 func (s *Service) execute(next state, md *metaData) (state, stateAction, error) {
-	s.sendMsgEvents(&service.StateMsg{
-		ProtocolName: Name,
-		Type:         service.PreState,
-		Msg:          md.msgClone,
-		StateID:      next.Name(),
-	})
+	s.sendMsgEvents(md, next.Name(), service.PreState)
 
-	defer s.sendMsgEvents(&service.StateMsg{
-		ProtocolName: Name,
-		Type:         service.PostState,
-		Msg:          md.msgClone,
-		StateID:      next.Name(),
-	})
+	defer s.sendMsgEvents(md, next.Name(), service.PostState)
 
 	if err := s.middleware.Handle(md); err != nil {
 		return nil, nil, fmt.Errorf("middleware: %w", err)
@@ -598,10 +585,16 @@ func (s *Service) execute(next state, md *metaData) (state, stateAction, error) 
 }
 
 // sendMsgEvents triggers the message events.
-func (s *Service) sendMsgEvents(msg *service.StateMsg) {
+func (s *Service) sendMsgEvents(md *metaData, stateID string, stateType service.StateMsgType) {
 	// trigger the message events
 	for _, handler := range s.MsgEvents() {
-		handler <- *msg
+		handler <- service.StateMsg{
+			ProtocolName: Name,
+			Type:         stateType,
+			Msg:          md.msgClone,
+			StateID:      stateID,
+			Properties:   newEventProps(md),
+		}
 	}
 }
 
@@ -619,25 +612,4 @@ func (s *Service) Accept(msgType string) bool {
 	}
 
 	return false
-}
-
-type eventProps struct {
-	myDID    string
-	theirDID string
-}
-
-func (e *eventProps) MyDID() string {
-	return e.myDID
-}
-
-func (e *eventProps) TheirDID() string {
-	return e.theirDID
-}
-
-// All implements EventProperties interface
-func (e *eventProps) All() map[string]interface{} {
-	return map[string]interface{}{
-		"myDID":    e.MyDID(),
-		"theirDID": e.TheirDID(),
-	}
 }

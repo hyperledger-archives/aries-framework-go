@@ -7,12 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package outofband
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -21,15 +18,13 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/client/outofband"
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexsteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
-
-var logger = log.New("aries-framework/bdd/outofband")
 
 const (
 	connections      = "/connections"
@@ -114,7 +109,7 @@ func (s *ControllerSteps) acceptInvitationAndConnect(receiverID, senderID string
 
 	res := outofbandcmd.AcceptInvitationResponse{}
 
-	err = sendHTTP(http.MethodPost, controllerURL+acceptInvitation, payload, &res)
+	err = util.SendHTTP(http.MethodPost, controllerURL+acceptInvitation, payload, &res)
 	if err != nil {
 		return fmt.Errorf("accept invitation: %w", err)
 	}
@@ -174,7 +169,7 @@ func (s *ControllerSteps) newInvitation(agentID string) (*outofband.Invitation, 
 
 	res := outofbandcmd.CreateInvitationResponse{}
 
-	return res.Invitation, sendHTTP(http.MethodPost, controllerURL+createInvitation, req, &res)
+	return res.Invitation, util.SendHTTP(http.MethodPost, controllerURL+createInvitation, req, &res)
 }
 
 // GetConnection returns a connection between agents
@@ -186,7 +181,7 @@ func (s *ControllerSteps) GetConnection(receiverID, senderID string) (*didexchan
 
 	var response didexcmd.QueryConnectionsResponse
 
-	err := sendHTTP(http.MethodGet, controllerURL+connections, nil, &response)
+	err := util.SendHTTP(http.MethodGet, controllerURL+connections, nil, &response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query connections: %w", err)
 	}
@@ -225,7 +220,7 @@ func (s *ControllerSteps) acceptRequestAndConnect(receiverID, senderID string) e
 
 	res := outofbandcmd.AcceptRequestResponse{}
 
-	err = sendHTTP(http.MethodPost, controllerURL+acceptRequest, payload, &res)
+	err = util.SendHTTP(http.MethodPost, controllerURL+acceptRequest, payload, &res)
 	if err != nil {
 		return fmt.Errorf("accept request: %w", err)
 	}
@@ -284,7 +279,7 @@ func (s *ControllerSteps) NewRequest(agentID string) (*outofband.Request, error)
 
 	res := outofbandcmd.CreateRequestResponse{}
 
-	return res.Request, sendHTTP(http.MethodPost, controllerURL+createRequest, req, &res)
+	return res.Request, util.SendHTTP(http.MethodPost, controllerURL+createRequest, req, &res)
 }
 
 // ConnectAll connects all agents to each other.
@@ -323,47 +318,4 @@ func (s *ControllerSteps) ConnectAll(agents string) error {
 	}
 
 	return nil
-}
-
-func sendHTTP(method, destination string, message []byte, result interface{}) error {
-	// create request
-	req, err := http.NewRequest(method, destination, bytes.NewBuffer(message))
-	if err != nil {
-		return fmt.Errorf("failed to create new http '%s' request for '%s', cause: %s", method, destination, err)
-	}
-
-	// set headers
-	req.Header.Set("Content-Type", "application/json")
-
-	// send http request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to get response from '%s', cause :%s", destination, err)
-	}
-
-	defer closeResponse(resp.Body)
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("unable to read response from '%s', cause :%s", destination, err)
-	}
-
-	logger.Debugf("Got response from '%s' [method: %s], response payload: %s", destination, method, string(data))
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to get successful response from '%s', unexpected status code [%d], "+
-			"and message [%s]", destination, resp.StatusCode, string(data))
-	}
-
-	if result == nil {
-		return nil
-	}
-
-	return json.Unmarshal(data, result)
-}
-
-func closeResponse(c io.Closer) {
-	if err := c.Close(); err != nil {
-		logger.Errorf("failed to close response body: %s", err)
-	}
 }

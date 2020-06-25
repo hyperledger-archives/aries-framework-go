@@ -7,12 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package introduce
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -20,15 +17,13 @@ import (
 	"github.com/cucumber/godog"
 
 	client "github.com/hyperledger/aries-framework-go/pkg/client/introduce"
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
 	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddoutofband "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
-
-var logger = log.New("aries-framework/bdd/introduce")
 
 var errNoActions = errors.New("no actions")
 
@@ -123,7 +118,7 @@ func (s *ControllerSteps) handleRequest(agentID, introducee string) error {
 
 	url := controllerURL + strings.Replace(acceptRequestWithRecipients, "{piid}", action.PIID, 1)
 
-	return sendHTTP(http.MethodPost, url, payload, nil)
+	return util.SendHTTP(http.MethodPost, url, payload, nil)
 }
 
 func (s *ControllerSteps) checkAndContinueWithInvitation(agentID, introduceeID string) error {
@@ -162,7 +157,7 @@ func (s *ControllerSteps) checkAndContinueWithInvitation(agentID, introduceeID s
 
 	url := controllerURL + strings.Replace(acceptProposalWithOOBRequest, "{piid}", action.PIID, 1)
 
-	return sendHTTP(http.MethodPost, url, payload, nil)
+	return util.SendHTTP(http.MethodPost, url, payload, nil)
 }
 
 func (s *ControllerSteps) sendProposal(introducer, introducee1, introducee2 string) error {
@@ -198,7 +193,7 @@ func (s *ControllerSteps) sendProposal(introducer, introducee1, introducee2 stri
 		return fmt.Errorf("marshal send proposal: %w", err)
 	}
 
-	return sendHTTP(http.MethodPost, controllerURL+sendProposal, req, nil)
+	return util.SendHTTP(http.MethodPost, controllerURL+sendProposal, req, nil)
 }
 
 func (s *ControllerSteps) handleRequestWithInvitation(agentID string) error {
@@ -236,7 +231,7 @@ func (s *ControllerSteps) handleRequestWithInvitation(agentID string) error {
 
 	url := controllerURL + strings.Replace(acceptRequestWithPublicOOBRequest, "{piid}", action.PIID, 1)
 
-	return sendHTTP(http.MethodPost, url, msg, nil)
+	return util.SendHTTP(http.MethodPost, url, msg, nil)
 }
 
 func (s *ControllerSteps) establishConnection(inviters, invitee string) error {
@@ -270,7 +265,7 @@ func (s *ControllerSteps) sendRequest(introducee1, introducer, introducee2 strin
 		return fmt.Errorf("marshal send proposal: %w", err)
 	}
 
-	return sendHTTP(http.MethodPost, controllerURL+sendRequest, req, nil)
+	return util.SendHTTP(http.MethodPost, controllerURL+sendRequest, req, nil)
 }
 
 func (s *ControllerSteps) sendProposalWithInvitation(introducer, introducee1, introducee2 string) error {
@@ -302,7 +297,7 @@ func (s *ControllerSteps) sendProposalWithInvitation(introducer, introducee1, in
 		return fmt.Errorf("marshal send proposal: %w", err)
 	}
 
-	return sendHTTP(http.MethodPost, controllerURL+sendProposalWithOOBRequest, req, nil)
+	return util.SendHTTP(http.MethodPost, controllerURL+sendProposalWithOOBRequest, req, nil)
 }
 
 func (s *ControllerSteps) getAction(retries int, agentID string) (*client.Action, error) {
@@ -317,7 +312,7 @@ func (s *ControllerSteps) getAction(retries int, agentID string) (*client.Action
 
 	res := introduce.ActionsResponse{}
 
-	err := sendHTTP(http.MethodGet, fmt.Sprintf(controllerURL+actions), nil, &res)
+	err := util.SendHTTP(http.MethodGet, fmt.Sprintf(controllerURL+actions), nil, &res)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get actions: %w", err)
 	}
@@ -365,7 +360,7 @@ func (s *ControllerSteps) checkAndContinue(agentID, introduceeID string) error {
 
 	url := controllerURL + strings.Replace(acceptProposal, "{piid}", action.PIID, 1)
 
-	err = sendHTTP(http.MethodPost, url, nil, nil)
+	err = util.SendHTTP(http.MethodPost, url, nil, nil)
 	if err != nil {
 		return fmt.Errorf("accept proposal: %w", err)
 	}
@@ -381,7 +376,7 @@ func (s *ControllerSteps) tryOutofbandContinue(agent1 string) error {
 
 	res := outofbandcmd.ActionsResponse{}
 
-	err := sendHTTP(http.MethodGet, fmt.Sprintf(controllerURL+outofbandActions), nil, &res)
+	err := util.SendHTTP(http.MethodGet, fmt.Sprintf(controllerURL+outofbandActions), nil, &res)
 	if err != nil {
 		return fmt.Errorf("failed to get actions: %w", err)
 	}
@@ -392,7 +387,7 @@ func (s *ControllerSteps) tryOutofbandContinue(agent1 string) error {
 
 	url := strings.Replace(controllerURL+actionContinue+"?label="+agent1, "{piid}", res.Actions[0].PIID, 1)
 
-	return sendHTTP(http.MethodPost, url, nil, &res)
+	return util.SendHTTP(http.MethodPost, url, nil, &res)
 }
 
 func (s *ControllerSteps) outofbandContinue(retries int, agent string, agents ...string) error {
@@ -422,47 +417,4 @@ func (s *ControllerSteps) connectionEstablished(agent1, agent2 string) error {
 	}
 
 	return s.outofband.CheckConnection(agent1, agent2)
-}
-
-func sendHTTP(method, destination string, message []byte, result interface{}) error {
-	// create request
-	req, err := http.NewRequest(method, destination, bytes.NewBuffer(message))
-	if err != nil {
-		return fmt.Errorf("failed to create new http '%s' request for '%s', cause: %s", method, destination, err)
-	}
-
-	// set headers
-	req.Header.Set("Content-Type", "application/json")
-
-	// send http request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to get response from '%s', cause :%s", destination, err)
-	}
-
-	defer closeResponse(resp.Body)
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("unable to read response from '%s', cause :%s", destination, err)
-	}
-
-	logger.Debugf("Got response from '%s' [method: %s], response payload: %s", destination, method, string(data))
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to get successful response from '%s', unexpected status code [%d], "+
-			"and message [%s]", destination, resp.StatusCode, string(data))
-	}
-
-	if result == nil {
-		return nil
-	}
-
-	return json.Unmarshal(data, result)
-}
-
-func closeResponse(c io.Closer) {
-	if err := c.Close(); err != nil {
-		logger.Errorf("failed to close response body: %s", err)
-	}
 }

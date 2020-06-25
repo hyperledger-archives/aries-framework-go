@@ -10,12 +10,9 @@
 package messaging
 
 import (
-	"bytes"
 	rqCtx "context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -29,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/messaging/service/basic"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
 
 const (
@@ -90,7 +88,7 @@ func (d *ControllerSteps) registerMsgService(agentID, name, msgType, purpose str
 	logger.Debugf("Registering message service for agent[%s],  params : %s", params)
 
 	// call controller
-	err = sendHTTP(http.MethodPost, destination+registerMsgService, params, nil)
+	err = postToURL(destination+registerMsgService, params)
 	if err != nil {
 		return fmt.Errorf("failed to register message service[%s] : %w", name, err)
 	}
@@ -131,7 +129,7 @@ func (d *ControllerSteps) unregisterAllMsgServices(agentID, destination string) 
 		logger.Debugf("Unregistering message service[%s] for agent[%s]: %w", svcName, agentID)
 
 		// call controller
-		err := sendHTTP(http.MethodPost, destination+unregisterMsgService, params, nil)
+		err := postToURL(destination+unregisterMsgService, params)
 		if err != nil {
 			return fmt.Errorf("failed to unregister message service[%s] for agent[%s]: %w", svcName, agentID, err)
 		}
@@ -143,7 +141,7 @@ func (d *ControllerSteps) unregisterAllMsgServices(agentID, destination string) 
 func (d *ControllerSteps) getServicesList(url string) ([]string, error) {
 	result := messaging.RegisteredServicesResponse{}
 	// call controller
-	err := sendHTTP(http.MethodGet, url, nil, &result)
+	err := util.SendHTTP(http.MethodGet, url, nil, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service list, cause : %w", err)
 	}
@@ -177,7 +175,7 @@ func (d *ControllerSteps) sendMessage(fromAgentID, toAgentID string, msg interfa
 	}
 
 	// call controller to send message
-	err = sendHTTP(http.MethodPost, destination+sendNewMsg, request, nil)
+	err = postToURL(destination+sendNewMsg, request)
 	if err != nil {
 		return fmt.Errorf("failed to send message : %w", err)
 	}
@@ -206,7 +204,7 @@ func (d *ControllerSteps) sendMessageReply(fromAgentID, toAgentID, msgID string,
 	}
 
 	// call controller to send message
-	err = sendHTTP(http.MethodPost, destination+sendReplyMsg, request, nil)
+	err = postToURL(destination+sendReplyMsg, request)
 	if err != nil {
 		return fmt.Errorf("failed to send message : %w", err)
 	}
@@ -240,7 +238,7 @@ func (d *ControllerSteps) sendMessageToDID(fromAgentID, toAgentID string, msg in
 	}
 
 	// call controller to send message
-	err = sendHTTP(http.MethodPost, destination+sendNewMsg, request, nil)
+	err = postToURL(destination+sendNewMsg, request)
 	if err != nil {
 		return fmt.Errorf("failed to send message : %w", err)
 	}
@@ -257,7 +255,7 @@ func (d *ControllerSteps) findConnection(agentID string) (string, error) {
 	// call controller
 	var response didexchange.QueryConnectionsResponse
 
-	err := sendHTTP(http.MethodGet, destination+queryConnections+"?state=completed", nil, &response)
+	err := util.SendHTTP(http.MethodGet, destination+queryConnections+"?state=completed", nil, &response)
 	if err != nil {
 		return "", fmt.Errorf("failed to query connections : %w", err)
 	}
@@ -302,6 +300,15 @@ func (d *ControllerSteps) pullMsgFromWebhookSocket(agentID, topic string) (*serv
 	}
 }
 
+func postToURL(url string, payload interface{}) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	return util.SendHTTP(http.MethodPost, url, body, nil)
+}
+
 func (d *ControllerSteps) pullMsgFromWebhookURL(agentID, topic string) (*service.DIDCommMsgMap, error) {
 	webhookURL, ok := d.bddContext.GetWebhookURL(agentID)
 	if !ok {
@@ -316,7 +323,7 @@ func (d *ControllerSteps) pullMsgFromWebhookURL(agentID, topic string) (*service
 
 	// try to pull recently pushed topics from webhook
 	for i := 0; i < pullTopicsAttemptsBeforeFail; {
-		err := sendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &incoming)
+		err := util.SendHTTP(http.MethodGet, webhookURL+checkForTopics, nil, &incoming)
 		if err != nil {
 			return nil, fmt.Errorf("failed pull topics from webhook, cause : %w", err)
 		}
@@ -335,48 +342,6 @@ func (d *ControllerSteps) pullMsgFromWebhookURL(agentID, topic string) (*service
 	}
 
 	return nil, fmt.Errorf("exhausted all [%d] attempts to pull topics from webhook", pullTopicsAttemptsBeforeFail)
-}
-
-func sendHTTP(method, destination string, param, result interface{}) error {
-	message, err := json.Marshal(param)
-	if err != nil {
-		return fmt.Errorf("failed to prepare params : %w", err)
-	}
-
-	// create request
-	req, err := http.NewRequest(method, destination, bytes.NewBuffer(message))
-	if err != nil {
-		return fmt.Errorf("failed to create new http '%s' request for '%s', cause: %s", method, destination, err)
-	}
-
-	// set headers
-	req.Header.Set("Content-Type", "application/json")
-
-	// send http request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to get response from '%s', cause :%s", destination, err)
-	}
-
-	defer closeResponse(resp.Body)
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("unable to read response from '%s', cause :%s", destination, err)
-	}
-
-	logger.Debugf("Got response from '%s' [method: %s], response payload: %s", destination, method, string(data))
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to get successful response from '%s', unexpected status code [%d], "+
-			"and message [%s]", destination, resp.StatusCode, string(data))
-	}
-
-	if result == nil {
-		return nil
-	}
-
-	return json.Unmarshal(data, result)
 }
 
 func (d *ControllerSteps) registerBasicMsgService(agentID, name string) error {
@@ -523,13 +488,6 @@ func (d *ControllerSteps) receiveBasicMessage(agentID, expectedMsg, topic, from 
 	}
 
 	return nil
-}
-
-func closeResponse(c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		logger.Errorf("Failed to close response body : %s", err)
-	}
 }
 
 // SetContext is called before every scenario is run with a fresh new context

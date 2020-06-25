@@ -154,7 +154,10 @@ type SendProposePresentationArgs struct {
 //
 // Represents a SendProposePresentation response message
 //
-type SendProposePresentationResponse struct{}
+type SendProposePresentationResponse struct {
+	// PIID Protocol instance ID. It can be used as a correlation ID
+	PIID string `json:"piid"`
+}
 
 // SendRequestPresentationArgs model
 //
@@ -173,4 +176,7 @@ type SendRequestPresentationArgs struct {
 //
 // Represents a SendRequestPresentation response message
 //
-type SendRequestPresentationResponse struct{}
+type SendRequestPresentationResponse struct {
+	// PIID Protocol instance ID. It can be used as a correlation ID
+	PIID string `json:"piid"`
+}

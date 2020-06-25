@@ -7,20 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package didexchange
 
 import (
-	"bytes"
-	rqCtx "context"
 	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
-	"nhooyr.io/websocket/wsjson"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -29,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/sidetree"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
 
 const (
@@ -43,7 +39,6 @@ const (
 	connectionsByID              = connOperationID + "/{id}"
 	createKeySetPath             = legacyKMSOperationID + "/keyset"
 	timeoutWaitForDID            = 10 * time.Second
-	timeoutPullTopics            = 5 * time.Second
 	sideTreeURL                  = "${SIDETREE_URL}"
 )
 
@@ -111,39 +106,16 @@ func (a *ControllerSteps) ConnectionIDs() map[string]string {
 }
 
 func (a *ControllerSteps) pullEventsFromWebSocket(agentID, state string) (string, error) {
-	conn, ok := a.bddContext.GetWebSocketConn(agentID)
-	if !ok {
-		return "", fmt.Errorf("unable to get websocket conn for agent [%s]", agentID)
+	msg, err := util.PullEventsFromWebSocket(a.bddContext, agentID,
+		util.FilterTopic("didexchange_states"),
+		util.FilterStateID(state),
+		util.FilterType("post_state"),
+	)
+	if err != nil {
+		return "", fmt.Errorf("pull events from WebSocket: %w", err)
 	}
 
-	ctx, cancel := rqCtx.WithTimeout(rqCtx.Background(), timeoutPullTopics)
-	defer cancel()
-
-	var incoming struct {
-		ID      string `json:"id"`
-		Topic   string `json:"topic"`
-		Message struct {
-			StateID    string
-			Properties map[string]string
-			Type       string
-		} `json:"message"`
-	}
-
-	for {
-		err := wsjson.Read(ctx, conn, &incoming)
-		if err != nil {
-			return "", fmt.Errorf("failed to get topics for agent '%s' : %w", agentID, err)
-		}
-
-		if incoming.Topic == "didexchange_states" && incoming.Message.Type == "post_state" {
-			if strings.EqualFold(state, incoming.Message.StateID) {
-				logger.Debugf("Able to find webhook topic with expected state[%s] for agent[%s] and connection[%s]",
-					incoming.Message.StateID, agentID, incoming.Message.Properties["connectionID"])
-
-				return incoming.Message.Properties["connectionID"], nil
-			}
-		}
-	}
+	return msg.Message.Properties["connectionID"].(string), nil
 }
 
 func (a *ControllerSteps) createInvitation(inviterAgentID, label string) error {
@@ -185,7 +157,7 @@ func (a *ControllerSteps) performCreateInvitation(inviterAgentID, label string, 
 
 	var result didexcmd.CreateInvitationResponse
 
-	err := sendHTTP(http.MethodPost, path, nil, &result)
+	err := util.SendHTTP(http.MethodPost, path, nil, &result)
 	if err != nil {
 		logger.Errorf("Failed to create invitation, cause : %s", err)
 		return err
@@ -232,7 +204,7 @@ func (a *ControllerSteps) performCreateImplicitInvitation(inviteeAgentID, invite
 
 	var result didexcmd.ImplicitInvitationResponse
 
-	err := sendHTTP(http.MethodPost, path, nil, &result)
+	err := util.SendHTTP(http.MethodPost, path, nil, &result)
 	if err != nil {
 		logger.Errorf("Failed to create implicit invitation, cause : %s", err)
 		return err
@@ -292,7 +264,7 @@ func (a *ControllerSteps) receiveInvitation(inviteeAgentID, inviterAgentID strin
 	// call controller
 	var result didexcmd.ReceiveInvitationResponse
 
-	err = sendHTTP(http.MethodPost, destination+receiveInvtiationPath, message, &result)
+	err = util.SendHTTP(http.MethodPost, destination+receiveInvtiationPath, message, &result)
 	if err != nil {
 		logger.Errorf("Failed to perform receive invitation, cause : %s", err)
 		return err
@@ -376,7 +348,7 @@ func (a *ControllerSteps) performApprove(agentID string, useDID bool, connection
 
 	path := controllerURL + fmt.Sprintf(operationPath, connectionID, publicDID)
 
-	err := sendHTTP(http.MethodPost, path, nil, &response)
+	err := util.SendHTTP(http.MethodPost, path, nil, &response)
 	if err != nil {
 		logger.Errorf("Failed to perform approve request, cause : %s", err)
 		return fmt.Errorf("failed to perform approve request : %w", err)
@@ -435,7 +407,8 @@ func (a *ControllerSteps) validateConnection(agentID, stateValue string) error {
 	// call controller
 	var response didexcmd.QueryConnectionResponse
 
-	err := sendHTTP(http.MethodGet, destination+strings.Replace(connectionsByID, "{id}", connectionID, 1), nil, &response)
+	err := util.SendHTTP(http.MethodGet,
+		destination+strings.Replace(connectionsByID, "{id}", connectionID, 1), nil, &response)
 	if err != nil {
 		logger.Errorf("Failed to perform receive invitation, cause : %s", err)
 		return err
@@ -463,7 +436,7 @@ func (a *ControllerSteps) verifyConnectionList(agentID, queryState, verifyID str
 	// call controller
 	var response didexcmd.QueryConnectionsResponse
 
-	err := sendHTTP(http.MethodGet, destination+connOperationID+"?state="+queryState, nil, &response)
+	err := util.SendHTTP(http.MethodGet, destination+connOperationID+"?state="+queryState, nil, &response)
 	if err != nil {
 		logger.Errorf("Failed to perform receive invitation, cause : %s", err)
 		return err
@@ -509,7 +482,7 @@ func (a *ControllerSteps) createPublicDID(agentID, didMethod string) error {
 
 	var result cmdkms.CreateKeySetResponse
 
-	err = sendHTTP(http.MethodPost, path, reqBytes, &result)
+	err = util.SendHTTP(http.MethodPost, path, reqBytes, &result)
 	if err != nil {
 		return err
 	}
@@ -560,7 +533,7 @@ func (a *ControllerSteps) waitForPublicDID(id string) error {
 			break
 		}
 
-		err := sendHTTP(http.MethodGet, endpointURL+"/identifiers/"+id, nil, nil)
+		err := util.SendHTTP(http.MethodGet, endpointURL+"/identifiers/"+id, nil, nil)
 		if err != nil {
 			logger.Warnf("Failed to resolve public DID, due to error [%s] will retry", err)
 			time.Sleep(retryDelay)
@@ -611,48 +584,4 @@ func (a *ControllerSteps) performDIDExchange(inviter, invitee string) error {
 	}
 
 	return nil
-}
-
-func sendHTTP(method, destination string, message []byte, result interface{}) error {
-	// create request
-	req, err := http.NewRequest(method, destination, bytes.NewBuffer(message))
-	if err != nil {
-		return fmt.Errorf("failed to create new http '%s' request for '%s', cause: %s", method, destination, err)
-	}
-
-	// set headers
-	req.Header.Set("Content-Type", "application/json")
-
-	// send http request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to get response from '%s', cause :%s", destination, err)
-	}
-
-	defer closeResponse(resp.Body)
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("unable to read response from '%s', cause :%s", destination, err)
-	}
-
-	logger.Debugf("Got response from '%s' [method: %s], response payload: %s", destination, method, string(data))
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to get successful response from '%s', unexpected status code [%d], "+
-			"and message [%s]", destination, resp.StatusCode, string(data))
-	}
-
-	if result == nil {
-		return nil
-	}
-
-	return json.Unmarshal(data, result)
-}
-
-func closeResponse(c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		logger.Errorf("Failed to close response body : %s", err)
-	}
 }
