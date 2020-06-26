@@ -25,6 +25,7 @@ SPDX-License-Identifier: Apache-2.0
 //
 //      "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 //      "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu"
+//      "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 //  )
 //
 //  func main() {
@@ -34,30 +35,24 @@ SPDX-License-Identifier: Apache-2.0
 //          //handle error
 //      }
 //
-//      // extract recipient public keyset handle and key
+//      // retrieve recipient public keyset handle
 //      recPubKH, err := recKH.Public()
 //      if err != nil {
 //          //handle error
 //      }
 //
-//      buf := new(bytes.Buffer)
-//      pubKeyWriter := ecdh1pu.NewWriter(buf)
-//      err = recPubKH.WriteWithNoSecrets(pubKeyWriter)
-//      if err != nil {
-//          //handle error
-//      }
+//      // extract the recipient public key (to be used by the sender later)
+//      recECPubKey, err := keyio.ExtractPrimaryPublicKey(kh)
+//		// handle error...
 //
-//      ecPubKey := new(composite.PublicKey)
-//      err := json.Unmarshal(buf.Bytes(), ecPubKey)
+//      // now create sender keyset handle
+//      sKH, err := keyset.NewHandle(ecdh1pu.ECDH1PU256KWAES256GCMKeyTemplate())
+//      // handle error...
 //
-//      // now create sender keyset handle with recipient public key (ecPubKey)
-//      sKH, err := keyset.NewHandle(ecdh1pu.ECDH1PU256KWAES256GCMKeyTemplateWithRecipients(
-//     		[]composite.PublicKey{*ecPubKey}))
-//      if err != nil {
-//          // handle error
-//      }
+//      // add recipient public key to the sender key handle (assuming the recipient have shared it with the sender)
+//      sKH, err = ecdh1pu.AddRecipientsKeys(sKH, []*composite.PublicKey{recECPubKey})
 //
-//      // for more recipient keys pass in a list: []composite.PublicKey{*ecPubKey1, *ecPubKey2, *ecPubKey3, etc.})
+//      // for more recipient keys pass in a list: []*composite.PublicKey{recECPubKey1, recECPubKey2, etc.})
 //      // at least 1 recipient is required.
 //
 //      // extract sender public keyset handle to encrypt
@@ -75,7 +70,16 @@ SPDX-License-Identifier: Apache-2.0
 //
 //      // get a handle on the decryption key material for a recipient
 //      // this is usually reloading the recipient's keyset handle (ie: `recKH` above) from a kms
-//      refRecKH , err := keyset.NewHandle( .....reference/rebuild `recKH` here...);
+//      refRecKH , err := keyset.NewHandle( .....reference/rebuild `recKH` here...)
+//
+//      // extract/retrieve the sender public key reference, usually the sender would do this as follows:
+//      senderPubKey, err := keyio.ExtractPrimaryPublicKey(sKH)
+//      // handle error...
+//
+//      // at the recipient side, assuming we have the sender public key above, add it to the recipient handle:
+//      refRecKH, err = ecdh1pu.AddSenderKey(refRecKH, senderPubKey)
+//
+//      // now with the recipient key handle updated with the sender public key, create the decrypter:
 //      d := ecdh1pu.NewECDH1PUDecrypt(refRecKH)
 //
 //      pt, err := d.Decrypt(ct)

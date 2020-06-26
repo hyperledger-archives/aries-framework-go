@@ -87,11 +87,11 @@ func (p *Packer) Pack(payload, _ []byte, recipientsPubKeys [][]byte) ([]byte, er
 	return []byte(s), nil
 }
 
-func unmarshalRecipientKeys(keys [][]byte) ([]composite.PublicKey, error) {
-	var pubKeys []composite.PublicKey
+func unmarshalRecipientKeys(keys [][]byte) ([]*composite.PublicKey, error) {
+	var pubKeys []*composite.PublicKey
 
 	for _, key := range keys {
-		var ecKey composite.PublicKey
+		var ecKey *composite.PublicKey
 
 		err := json.Unmarshal(key, &ecKey)
 		if err != nil {

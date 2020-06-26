@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package keyio
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 
 	"github.com/golang/protobuf/proto"
 	hybrid "github.com/google/tink/go/hybrid/subtle"
+	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
@@ -47,12 +49,12 @@ func NewWriter(w io.Writer) *PubKeyWriter {
 }
 
 // Write writes the public keyset to the underlying w.Writer.
-func (p *PubKeyWriter) Write(keyset *tinkpb.Keyset) error {
-	return write(p.w, keyset)
+func (p *PubKeyWriter) Write(ks *tinkpb.Keyset) error {
+	return write(p.w, ks)
 }
 
 // WriteEncrypted writes the encrypted keyset to the underlying w.Writer.
-func (p *PubKeyWriter) WriteEncrypted(keyset *tinkpb.EncryptedKeyset) error {
+func (p *PubKeyWriter) WriteEncrypted(_ *tinkpb.EncryptedKeyset) error {
 	return fmt.Errorf("write encrypted function not supported")
 }
 
@@ -233,4 +235,38 @@ func (e *ecdh1puKey) x() []byte {
 
 func (e *ecdh1puKey) y() []byte {
 	return e.protoKey.Y
+}
+
+// ExtractPrimaryPublicKey is a utility function that will extract the main public key from *keyset.Handle kh
+func ExtractPrimaryPublicKey(kh *keyset.Handle) (*composite.PublicKey, error) {
+	keyBytes, err := writePubKeyFromKeyHandle(kh)
+	if err != nil {
+		return nil, fmt.Errorf("extractPrimaryPublicKey: failed to get public key content: %w", err)
+	}
+
+	ecPubKey := new(composite.PublicKey)
+
+	err = json.Unmarshal(keyBytes, ecPubKey)
+	if err != nil {
+		return nil, fmt.Errorf("extractPrimaryPublicKey: unmarshal key failed: %w", err)
+	}
+
+	return ecPubKey, nil
+}
+
+func writePubKeyFromKeyHandle(handle *keyset.Handle) ([]byte, error) {
+	pubKH, err := handle.Public()
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	pubKeyWriter := NewWriter(buf)
+
+	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }

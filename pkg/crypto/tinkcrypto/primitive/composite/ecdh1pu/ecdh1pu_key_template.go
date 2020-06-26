@@ -22,9 +22,9 @@ import (
 //  - Key Wrapping: ECDH-1PU over A256KW as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2
 //  - Content Encryption: AES256-GCM
 //  - KDF: One-Step KDF as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2.2
-// Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS.
+// Keys from this template represent a valid recipient (or sender) public/private key pairs and can be stored in the KMS
 func ECDH1PU256KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
-	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256, nil)
+	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256)
 }
 
 // ECDH1PU384KWAES256GCMKeyTemplate is a KeyTemplate that generates an ECDH-1PU P-384 key wrapping and AES256-GCM CEK.
@@ -32,9 +32,9 @@ func ECDH1PU256KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 //  - Key Wrapping: ECDH-1PU over A384KW as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2
 //  - Content Encryption: AES256-GCM
 //  - KDF: One-Step KDF as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2.2
-// Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS
+// Keys from this template represent a valid recipient (or sender) public/private key pairs and can be stored in the KMS
 func ECDH1PU384KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
-	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P384, nil)
+	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P384)
 }
 
 // ECDH1PU521KWAES256GCMKeyTemplate is a KeyTemplate that generates an ECDH-1PU P-521 key wrapping and AES256-GCM CEK.
@@ -42,45 +42,9 @@ func ECDH1PU384KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 //  - Key Wrapping: ECDH-1PU over A521KW as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2
 //  - Content Encryption: AES256-GCM
 //  - KDF: One-Step KDF as per https://tools.ietf.org/html/draft-madden-jose-ecdh-1pu-03#section-2.2
-// Keys from this template represent a valid recipient public/private key pairs and can be stored in the KMS
+// Keys from this template represent a valid recipient (or sender) public/private key pairs and can be stored in the KMS
 func ECDH1PU521KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
-	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P521, nil)
-}
-
-// ECDH1PU256KWAES256GCMKeyTemplateWithRecipients is similar to ECDH1PU256KWAES256GCMKeyTemplate but adding recipients
-// keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
-// Keys from this template offer valid `CompositeEncrypt` primitive execution only and should not be stored in the KMS
-func ECDH1PU256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error) {
-	ecdhesRecipientKeys, err := createECDH1PUPublicKeys(recPublicKeys)
-	if err != nil {
-		return nil, err
-	}
-
-	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P256, ecdhesRecipientKeys), nil
-}
-
-// ECDH1PU384KWAES256GCMKeyTemplateWithRecipients is similar to ECDH1PU384KWAES256GCMKeyTemplate but adding recipients
-// keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
-// Keys from this template offer valid `CompositeEncrypt` primitive execution only and should not be stored in the KMS
-func ECDH1PU384KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error) {
-	ecdhesRecipientKeys, err := createECDH1PUPublicKeys(recPublicKeys)
-	if err != nil {
-		return nil, err
-	}
-
-	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P384, ecdhesRecipientKeys), nil
-}
-
-// ECDH1PU521KWAES256GCMKeyTemplateWithRecipients is similar to ECDH1PU521KWAES256GCMKeyTemplate but adding recipients
-// keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
-// Keys from this template offer valid `CompositeEncrypt` primitive execution only and should not be stored in the KMS
-func ECDH1PU521KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error) {
-	ecdhesRecipientKeys, err := createECDH1PUPublicKeys(recPublicKeys)
-	if err != nil {
-		return nil, err
-	}
-
-	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P521, ecdhesRecipientKeys), nil
+	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P521)
 }
 
 func convertPublicKeyToProto(rRawPublicKey *composite.PublicKey) (*compositepb.ECPublicKey, error) {
@@ -104,34 +68,16 @@ func convertPublicKeyToProto(rRawPublicKey *composite.PublicKey) (*compositepb.E
 	}, nil
 }
 
-func createECDH1PUPublicKeys(rRawPublicKeys []composite.PublicKey) ([]*compositepb.ECPublicKey, error) {
-	var recKeys []*compositepb.ECPublicKey
-
-	for _, key := range rRawPublicKeys {
-		k := key
-
-		rKey, err := convertPublicKeyToProto(&k)
-		if err != nil {
-			return nil, err
-		}
-
-		recKeys = append(recKeys, rKey)
-	}
-
-	return recKeys, nil
-}
-
 // TODO add chacha key templates as well https://github.com/hyperledger/aries-framework-go/issues/1637
 
 // createKeyTemplate creates a new ECDH1PU-AEAD key template with the given key
 // size in bytes.
-func createKeyTemplate(c commonpb.EllipticCurveType, r []*compositepb.ECPublicKey) *tinkpb.KeyTemplate {
+func createKeyTemplate(c commonpb.EllipticCurveType) *tinkpb.KeyTemplate {
 	format := &ecdh1pupb.Ecdh1PuAeadKeyFormat{
 		Params: &ecdh1pupb.Ecdh1PuAeadParams{
 			KwParams: &ecdh1pupb.Ecdh1PuKwParams{
-				CurveType:  c,
-				KeyType:    compositepb.KeyType_EC,
-				Recipients: r,
+				CurveType: c,
+				KeyType:   compositepb.KeyType_EC,
 			},
 			EncParams: &ecdh1pupb.Ecdh1PuAeadEncParams{
 				AeadEnc: aead.AES256GCMKeyTemplate(),
