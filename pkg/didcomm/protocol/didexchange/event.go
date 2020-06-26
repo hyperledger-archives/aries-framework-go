@@ -31,9 +31,17 @@ func (ex *didExchangeEvent) InvitationID() string {
 	return ex.invitationID
 }
 
+// All implements EventProperties interface
+func (ex *didExchangeEvent) All() map[string]interface{} {
+	return map[string]interface{}{
+		"connectionID": ex.ConnectionID(),
+		"invitationID": ex.InvitationID(),
+	}
+}
+
 // didExchangeEvent for sending events with processing error.
 type didExchangeEventError struct {
-	*didExchangeEvent
+	didExchangeEvent
 	err error
 }
 
@@ -44,4 +52,13 @@ func (ex *didExchangeEventError) Error() string {
 	}
 
 	return ""
+}
+
+// All implements EventProperties interface
+func (ex *didExchangeEventError) All() map[string]interface{} {
+	return map[string]interface{}{
+		"connectionID": ex.ConnectionID(),
+		"invitationID": ex.InvitationID(),
+		"error":        ex.Error(),
+	}
 }

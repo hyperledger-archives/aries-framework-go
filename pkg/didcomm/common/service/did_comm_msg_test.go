@@ -212,3 +212,26 @@ func TestDIDCommMsgMap_ToStruct(t *testing.T) {
 	require.NoError(t, msg.Decode(&actual))
 	require.Equal(t, expected, actual)
 }
+
+func TestDIDCommMsgMap_MarshalJSON(t *testing.T) {
+	const expected = `{"Name":"test"}`
+
+	msg := NewDIDCommMsgMap(struct {
+		Name string
+	}{Name: "test"})
+	msg.Metadata()["key"] = "val"
+
+	actual, err := json.Marshal(msg)
+	require.NoError(t, err)
+	require.Equal(t, []byte(expected), actual)
+	require.Equal(t, msg.Metadata()["key"], "val")
+}
+
+func TestDIDCommMsgMap_UnmarshalJSON(t *testing.T) {
+	const expected = `{"Name":"test"}`
+
+	msg := DIDCommMsgMap{}
+	require.NoError(t, json.Unmarshal([]byte(expected), &msg))
+	_, ok := msg[jsonMetadata]
+	require.True(t, ok)
+}

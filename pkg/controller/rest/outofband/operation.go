@@ -14,7 +14,8 @@ import (
 	"github.com/gorilla/mux"
 
 	client "github.com/hyperledger/aries-framework-go/pkg/client/outofband"
-	command "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
+	"github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/internal/cmdutil"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 )
@@ -32,13 +33,13 @@ const (
 
 // Operation is controller REST service controller for outofband
 type Operation struct {
-	command  *command.Command
+	command  *outofband.Command
 	handlers []rest.Handler
 }
 
 // New returns new outofband rest client protocol instance
-func New(ctx client.Provider) (*Operation, error) {
-	cmd, err := command.New(ctx)
+func New(ctx client.Provider, notifier command.Notifier) (*Operation, error) {
+	cmd, err := outofband.New(ctx, notifier)
 	if err != nil {
 		return nil, fmt.Errorf("outofband command : %w", err)
 	}

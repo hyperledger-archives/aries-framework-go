@@ -281,6 +281,8 @@ func TestService_HandleInbound(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
+		require.Equal(t, properties.All()["myDID"], Alice)
+		require.Equal(t, properties.All()["theirDID"], Bob)
 
 		action.Stop(nil)
 

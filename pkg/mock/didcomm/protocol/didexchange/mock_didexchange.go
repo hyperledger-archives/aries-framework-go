@@ -216,3 +216,11 @@ func (m *MockEventProperties) ConnectionID() string {
 func (m *MockEventProperties) InvitationID() string {
 	return m.InvID
 }
+
+// All returns all properties
+func (m *MockEventProperties) All() map[string]interface{} {
+	return map[string]interface{}{
+		"connectionID": m.ConnectionID(),
+		"invitationID": m.InvitationID(),
+	}
+}

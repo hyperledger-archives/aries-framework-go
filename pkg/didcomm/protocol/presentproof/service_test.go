@@ -384,6 +384,8 @@ func TestService_HandleInbound(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
+		require.Equal(t, properties.All()["myDID"], Alice)
+		require.Equal(t, properties.All()["theirDID"], Bob)
 
 		action.Stop(nil)
 
@@ -820,8 +822,11 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: RequestPresentationMsgType,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).
+		messenger.EXPECT().Send(gomock.Any(), Alice, Bob).
 			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				require.NotEmpty(t, msg.ID())
+				require.Equal(t, RequestPresentationMsgType, msg.Type())
+
 				defer close(done)
 
 				return nil
@@ -848,7 +853,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: RequestPresentationMsgType,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
+		messenger.EXPECT().Send(gomock.Any(), Alice, Bob).Return(errors.New(errMsg))
 
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.Contains(t, fmt.Sprintf("%v", err), "action request-sent: "+errMsg)
@@ -870,8 +875,11 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: ProposePresentationMsgType,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).
+		messenger.EXPECT().Send(gomock.Any(), Alice, Bob).
 			Do(func(msg service.DIDCommMsgMap, myDID, theirDID string) error {
+				require.NotEmpty(t, msg.ID())
+				require.Equal(t, ProposePresentationMsgType, msg.Type())
+
 				defer close(done)
 
 				return nil
@@ -898,7 +906,7 @@ func TestService_HandleInbound(t *testing.T) {
 			Type: ProposePresentationMsgType,
 		})
 
-		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
+		messenger.EXPECT().Send(gomock.Any(), Alice, Bob).Return(errors.New(errMsg))
 
 		_, err = svc.HandleInbound(msg, Alice, Bob)
 		require.Contains(t, fmt.Sprintf("%v", err), "action proposal-sent: "+errMsg)

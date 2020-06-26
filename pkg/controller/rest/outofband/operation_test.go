@@ -23,6 +23,7 @@ import (
 	client "github.com/hyperledger/aries-framework-go/pkg/client/outofband"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	mocks "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/outofband"
+	mocknotifier "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/controller/webnotifier"
 )
 
 const (
@@ -34,6 +35,7 @@ const (
 func provider(ctrl *gomock.Controller) client.Provider {
 	service := mocks.NewMockOobService(ctrl)
 	service.EXPECT().RegisterActionEvent(gomock.Any()).Return(nil)
+	service.EXPECT().RegisterMsgEvent(gomock.Any()).Return(nil)
 	service.EXPECT().SaveRequest(gomock.Any()).Return(nil).AnyTimes()
 	service.EXPECT().SaveInvitation(gomock.Any()).Return(nil).AnyTimes()
 	service.EXPECT().AcceptInvitation(gomock.Any(), gomock.Any()).Return("conn-id", nil).AnyTimes()
@@ -57,7 +59,7 @@ func TestNew(t *testing.T) {
 
 	const errMsg = "outofband command : cannot create a client: failed to look up service out-of-band : error"
 
-	_, err := New(provider)
+	_, err := New(provider, mocknotifier.NewMockNotifier(nil))
 	require.EqualError(t, err, errMsg)
 }
 
@@ -65,7 +67,7 @@ func TestOperation_CreateRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	operation, err := New(provider(ctrl))
+	operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 	require.NoError(t, err)
 
 	b, code, err := sendRequestToHandler(
@@ -89,7 +91,7 @@ func TestOperation_CreateInvitation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	operation, err := New(provider(ctrl))
+	operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 	require.NoError(t, err)
 
 	b, code, err := sendRequestToHandler(
@@ -112,7 +114,7 @@ func TestOperation_AcceptInvitation(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	operation, err := New(provider(ctrl))
+	operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 	require.NoError(t, err)
 
 	b, code, err := sendRequestToHandler(
@@ -136,7 +138,7 @@ func TestOperation_AcceptRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	operation, err := New(provider(ctrl))
+	operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 	require.NoError(t, err)
 
 	b, code, err := sendRequestToHandler(
@@ -160,7 +162,7 @@ func TestOperation_Actions(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	operation, err := New(provider(ctrl))
+	operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 	require.NoError(t, err)
 
 	_, code, err := sendRequestToHandler(
@@ -177,7 +179,7 @@ func TestOperation_ActionContinue(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	operation, err := New(provider(ctrl))
+	operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 	require.NoError(t, err)
 
 	_, code, err := sendRequestToHandler(
@@ -194,7 +196,7 @@ func TestOperation_ActionStop(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	operation, err := New(provider(ctrl))
+	operation, err := New(provider(ctrl), mocknotifier.NewMockNotifier(nil))
 	require.NoError(t, err)
 
 	_, code, err := sendRequestToHandler(

@@ -879,11 +879,14 @@ func TestHandleMessageEvent(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, storeProv.Store.Put("conn_"+e.ConnectionID(), connBytes))
 
-	err = op.handleMessageEvents(service.StateMsg{Type: service.PostState, Properties: "invalid didex prop type"})
+	err = op.handleMessageEvents(service.StateMsg{Type: service.PostState, Properties: nil})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "event is not of DIDExchange event type")
 
-	err = op.handleMessageEvents(service.StateMsg{Type: service.PostState, Properties: errors.New("err type")})
+	err = op.handleMessageEvents(service.StateMsg{
+		Type:       service.PostState,
+		Properties: mockError{error: errors.New("err type")},
+	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "service processing failed : err type")
 
@@ -891,6 +894,14 @@ func TestHandleMessageEvent(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "send connection notification failed : "+
 		"connection notification webhook :")
+}
+
+type mockError struct {
+	error
+}
+
+func (mockError) All() map[string]interface{} {
+	return nil
 }
 
 func TestSendConnectionNotification(t *testing.T) {
@@ -994,6 +1005,13 @@ func (e *didExEvent) ConnectionID() string {
 
 func (e *didExEvent) InvitationID() string {
 	return "xyz"
+}
+
+func (e *didExEvent) All() map[string]interface{} {
+	return map[string]interface{}{
+		"connectionID": e.ConnectionID(),
+		"invitationID": e.InvitationID(),
+	}
 }
 
 func generateKeyPair() (string, []byte) {

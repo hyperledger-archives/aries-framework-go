@@ -35,7 +35,7 @@ func TestParseDIDCommMsgMap(t *testing.T) {
 	}, {
 		name:    "Array payload",
 		payload: []byte(`[]`),
-		err:     `invalid payload data format: json: cannot unmarshal array into Go value of type service.DIDCommMsg`,
+		err:     `invalid payload data format: json: cannot unmarshal array into Go value of type map[string]interface`,
 	}}
 
 	t.Parallel()
@@ -166,7 +166,6 @@ func TestNewDIDCommMsgMap(t *testing.T) {
 			require.NoError(t, err)
 
 			eResMap := make(map[string]interface{})
-			eResMap[jsonMetadata] = map[string]interface{}{}
 			require.NoError(t, json.Unmarshal(eRes, &eResMap))
 
 			vResMap := make(map[string]interface{})

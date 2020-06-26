@@ -362,3 +362,10 @@ func (d *didexchangeEvent) ConnectionID() string {
 func (d *didexchangeEvent) InvitationID() string {
 	return d.invID
 }
+
+func (d *didexchangeEvent) All() map[string]interface{} {
+	return map[string]interface{}{
+		"connectionID": d.ConnectionID(),
+		"invitationID": d.InvitationID(),
+	}
+}

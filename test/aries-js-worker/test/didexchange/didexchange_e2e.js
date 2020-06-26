@@ -167,7 +167,7 @@ export const didExchangeClient = class {
                     stop()
                     resolve(notice.payload.connection_id)
                 }
-            }, ["all"])
+            }, ["connections"])
         })
     }
 
