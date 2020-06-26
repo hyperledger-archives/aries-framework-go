@@ -21,6 +21,7 @@ import (
 // ECDH1PUConcatKDFRecipientKW represents concat KDF based ECDH-1PU (One-Pass Unified Model) KW (key wrapping)
 // for ECDH-1PU recipient's unwrapping of CEK
 type ECDH1PUConcatKDFRecipientKW struct {
+	senderPubKey        *hybrid.ECPublicKey
 	recipientPrivateKey *hybrid.ECPrivateKey
 }
 
@@ -52,9 +53,16 @@ func (s *ECDH1PUConcatKDFRecipientKW) unwrapKey(recWK *composite.RecipientWrappe
 		Y:     new(big.Int).SetBytes(recWK.EPK.Y),
 	}
 
-	// TODO replace below calls with new 1PU key derivation algorithm
-	// DeriveECDHES checks if keys are on the same curve
-	kek := josecipher.DeriveECDHES(recWK.Alg, []byte{}, []byte{}, recPrivKey, epkPubKey, keySize)
+	senderPubKey := &ecdsa.PublicKey{
+		Curve: s.senderPubKey.Curve,
+		X:     s.senderPubKey.Point.X,
+		Y:     s.senderPubKey.Point.Y,
+	}
+
+	kek, err := deriveRecipient1Pu(recWK.Alg, epkPubKey, senderPubKey, recPrivKey, keySize)
+	if err != nil {
+		return nil, err
+	}
 
 	block, err := aes.NewCipher(kek)
 	if err != nil {
@@ -62,4 +70,13 @@ func (s *ECDH1PUConcatKDFRecipientKW) unwrapKey(recWK *composite.RecipientWrappe
 	}
 
 	return josecipher.KeyUnwrap(block, recWK.EncryptedCEK)
+}
+
+func deriveRecipient1Pu(kwAlg string, ephemeralPub, senderPubKey *ecdsa.PublicKey, recPrivKey *ecdsa.PrivateKey,
+	keySize int) ([]byte, error) {
+	// DeriveECDHES checks if keys are on the same curve
+	ze := josecipher.DeriveECDHES(kwAlg, []byte{}, []byte{}, recPrivKey, ephemeralPub, keySize)
+	zs := josecipher.DeriveECDHES(kwAlg, []byte{}, []byte{}, recPrivKey, senderPubKey, keySize)
+
+	return derive1Pu(kwAlg, ze, zs, keySize)
 }

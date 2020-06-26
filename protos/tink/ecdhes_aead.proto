@@ -31,7 +31,7 @@ message EcdhesKwParams {
   KeyType key_type = 2;
 
   // Not needed for key storage but required for primitive execution
-  repeated EcdhesAeadRecipientPublicKey recipients = 3;
+  repeated ECPublicKey recipients = 3;
 }
 
 // Parameters of AEAD Content encryption.
@@ -86,25 +86,6 @@ message EcdhesAeadPrivateKey {
 
   // Required.
   bytes key_value = 3; // Big integer in bigendian representation.
-}
-
-message EcdhesAeadRecipientPublicKey {
-  // Required.
-  uint32 version = 1;
-  // Required.
-  EllipticCurveType curve_type = 2;
-  // Required.
-  KeyType key_type = 3;
-
-  // Required.
-  string KID = 4;
-
-  // Affine coordinates of the public key in bigendian representation.
-  // The public key is a point (x, y) on the curve defined by params.kw_params.curve.
-  // Required.
-  bytes x = 5;
-  // Required.
-  bytes y = 6;
 }
 
 message EcdhesAeadKeyFormat {

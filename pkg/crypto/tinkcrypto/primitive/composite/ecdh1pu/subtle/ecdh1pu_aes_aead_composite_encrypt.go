@@ -9,6 +9,7 @@ package subtle
 import (
 	"fmt"
 
+	hybrid "github.com/google/tink/go/hybrid/subtle"
 	"github.com/google/tink/go/subtle/random"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
@@ -23,6 +24,7 @@ const A256GCM = "A256GCM"
 // ECDH1PUAEADCompositeEncrypt is an instance of ECDH-ES encryption with Concat KDF
 // and AEAD content encryption
 type ECDH1PUAEADCompositeEncrypt struct {
+	senderPrivKey *hybrid.ECPrivateKey
 	recPublicKeys []*composite.PublicKey
 	pointFormat   string
 	encHelper     composite.EncrypterHelper
@@ -33,9 +35,10 @@ var _ api.CompositeEncrypt = (*ECDH1PUAEADCompositeEncrypt)(nil)
 
 // NewECDH1PUAEADCompositeEncrypt returns ECDH-ES encryption construct with Concat KDF key wrapping
 // and AEAD content encryption
-func NewECDH1PUAEADCompositeEncrypt(recipientsKeys []*composite.PublicKey, ptFormat string,
-	encHelper composite.EncrypterHelper, keyType commonpb.KeyType) *ECDH1PUAEADCompositeEncrypt {
+func NewECDH1PUAEADCompositeEncrypt(recipientsKeys []*composite.PublicKey, senderPrivKey *hybrid.ECPrivateKey,
+	ptFormat string, encHelper composite.EncrypterHelper, keyType commonpb.KeyType) *ECDH1PUAEADCompositeEncrypt {
 	return &ECDH1PUAEADCompositeEncrypt{
+		senderPrivKey: senderPrivKey,
 		recPublicKeys: recipientsKeys,
 		pointFormat:   ptFormat,
 		encHelper:     encHelper,
@@ -69,6 +72,7 @@ func (e *ECDH1PUAEADCompositeEncrypt) Encrypt(plaintext, aad []byte) ([]byte, er
 
 	for _, rec := range e.recPublicKeys {
 		senderKW := &ECDH1PUConcatKDFSenderKW{
+			senderPrivateKey:   e.senderPrivKey,
 			recipientPublicKey: rec,
 			cek:                cek,
 		}

@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
 	ecdh1pupb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh1pu_aead_go_proto"
 )
 
@@ -61,6 +62,7 @@ func TestECDH1PUPrivateKeyManager_Primitive(t *testing.T) {
 		curveType commonpb.EllipticCurveType
 		ecPtFmt   commonpb.EcPointFormat
 		encTmp    *tinkpb.KeyTemplate
+		senderKey *compositepb.ECPublicKey
 	}{
 		{
 			tcName:    "private key manager Primitive() using key with bad version",
@@ -77,11 +79,32 @@ func TestECDH1PUPrivateKeyManager_Primitive(t *testing.T) {
 			encTmp:    aead.AES128GCMKeyTemplate(),
 		},
 		{
+			tcName:    "private key manager Primitive() with missing sender key",
+			version:   0,
+			curveType: commonpb.EllipticCurveType_NIST_P256,
+			ecPtFmt:   commonpb.EcPointFormat_UNCOMPRESSED,
+			encTmp:    aead.AES128GCMKeyTemplate(),
+		},
+		{
+			tcName:    "private key manager Primitive() with sender key containing a nil curve",
+			version:   0,
+			curveType: commonpb.EllipticCurveType_NIST_P256,
+			ecPtFmt:   commonpb.EcPointFormat_UNCOMPRESSED,
+			encTmp:    aead.AES128GCMKeyTemplate(),
+			senderKey: &compositepb.ECPublicKey{},
+		},
+		{
 			tcName:    "success private key manager Primitive()",
 			version:   0,
 			curveType: commonpb.EllipticCurveType_NIST_P256,
 			ecPtFmt:   commonpb.EcPointFormat_UNCOMPRESSED,
 			encTmp:    aead.AES128GCMKeyTemplate(),
+			senderKey: &compositepb.ECPublicKey{
+				Version:   0,
+				CurveType: commonpb.EllipticCurveType_NIST_P256,
+				X:         []byte{},
+				Y:         []byte{},
+			},
 		},
 		{
 			tcName:    "private key manager Primitive() using key with bad key template URL",
@@ -147,6 +170,10 @@ func TestECDH1PUPrivateKeyManager_Primitive(t *testing.T) {
 					Y: y.Bytes(),
 				},
 				KeyValue: d,
+			}
+
+			if tt.senderKey != nil {
+				pubKeyProto.PublicKey.Params.KwParams.Sender = tt.senderKey
 			}
 
 			sPubKey, err := proto.Marshal(pubKeyProto)

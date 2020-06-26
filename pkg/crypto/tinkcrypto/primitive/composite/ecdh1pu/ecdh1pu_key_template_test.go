@@ -12,12 +12,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/tink/go/keyset"
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
+	compositepb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
+	ecdh1pupb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/ecdh1pu_aead_go_proto"
 )
 
 func TestECDH1PUKeyTemplateSuccess(t *testing.T) {
@@ -54,6 +57,8 @@ func TestECDH1PUKeyTemplateSuccess(t *testing.T) {
 			kh, err := keyset.NewHandle(kt)
 			require.NoError(t, err)
 
+			senderKey := extractSenderKey(t, kh)
+
 			pubKH, err := kh.Public()
 			require.NoError(t, err)
 
@@ -69,7 +74,10 @@ func TestECDH1PUKeyTemplateSuccess(t *testing.T) {
 
 			// decrypt for all Recipients
 			for _, recKH := range recKHs {
-				d, er := NewECDH1PUDecrypt(recKH)
+				// first we need to update the private key protobuf with the sender key
+				updatedRecKH := updateKHWithSenderKey(t, recKH, senderKey)
+
+				d, er := NewECDH1PUDecrypt(updatedRecKH)
 				require.NoError(t, er)
 
 				dpt, er := d.Decrypt(ct, aad)
@@ -78,6 +86,70 @@ func TestECDH1PUKeyTemplateSuccess(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TODO will need a PROD function similar to the below one for Packer execution of this primitive (Unpack() call)
+//      as well as fetching the `skid` JWE protected header for sender key resolution. To be done in a subsequent change
+func updateKHWithSenderKey(t *testing.T, kh *keyset.Handle, senderKey *composite.PublicKey) *keyset.Handle {
+	t.Helper()
+
+	var senderKeyPb *compositepb.ECPublicKey
+
+	senderKeyPb, err := convertPublicKeyToProto(senderKey)
+	require.NoError(t, err)
+
+	memWriter := &keyset.MemReaderWriter{}
+	// since we're in test, we will be using noLock, ie no protected data encryption.
+	mockMasterLock := &noLockAEAD{}
+	err = kh.Write(memWriter, mockMasterLock)
+	require.NoError(t, err)
+
+	ks := new(tinkpb.Keyset)
+	err = proto.Unmarshal(memWriter.EncryptedKeyset.EncryptedKeyset, ks)
+	require.NoError(t, err)
+
+	idx := -1
+
+	for i, k := range ks.Key {
+		if ks.PrimaryKeyId == k.KeyId && k.Status == tinkpb.KeyStatusType_ENABLED && k.KeyData.TypeUrl ==
+			ecdh1puAESPrivateKeyTypeURL {
+			idx = i
+			break
+		}
+	}
+
+	require.GreaterOrEqual(t, idx, 0)
+
+	ecdh1privKeyPb := new(ecdh1pupb.Ecdh1PuAeadPrivateKey)
+	err = proto.Unmarshal(ks.Key[idx].KeyData.Value, ecdh1privKeyPb)
+	require.NoError(t, err)
+
+	// finally set the sender key in the protobuf, update keyset in memWriter and read it to get an updated Handle
+	ecdh1privKeyPb.PublicKey.Params.KwParams.Sender = senderKeyPb
+
+	ks.Key[idx].KeyData.Value, err = proto.Marshal(ecdh1privKeyPb)
+	require.NoError(t, err)
+
+	memWriter.EncryptedKeyset.EncryptedKeyset, err = proto.Marshal(ks)
+	require.NoError(t, err)
+
+	var newKH *keyset.Handle
+
+	newKH, err = keyset.Read(memWriter, mockMasterLock)
+	require.NoError(t, err)
+
+	return newKH
+}
+
+func extractSenderKey(t *testing.T, kh *keyset.Handle) *composite.PublicKey {
+	t.Helper()
+
+	keyBytes := writePubKey(t, kh)
+	ecPubKey := new(composite.PublicKey)
+	err := json.Unmarshal(keyBytes, ecPubKey)
+	require.NoError(t, err)
+
+	return ecPubKey
 }
 
 // createRecipients and return their public key and keyset.Handle
@@ -121,7 +193,15 @@ func createAndMarshalRecipient(t *testing.T, curveType string) ([]byte, *keyset.
 	kh, err := keyset.NewHandle(tmpl)
 	require.NoError(t, err)
 
-	pubKH, err := kh.Public()
+	keyBytes := writePubKey(t, kh)
+
+	return keyBytes, kh
+}
+
+func writePubKey(t *testing.T, handle *keyset.Handle) []byte {
+	t.Helper()
+
+	pubKH, err := handle.Public()
 	require.NoError(t, err)
 
 	buf := new(bytes.Buffer)
@@ -131,7 +211,7 @@ func createAndMarshalRecipient(t *testing.T, curveType string) ([]byte, *keyset.
 	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
 	require.NoError(t, err)
 
-	return buf.Bytes(), kh
+	return buf.Bytes()
 }
 
 func TestECDH1PUKeyTemplateFailures(t *testing.T) {
@@ -253,4 +333,16 @@ func TestECDH1PUKeyTemplateFailures(t *testing.T) {
 			require.EqualError(t, err, tc.errMsg)
 		})
 	}
+}
+
+type noLockAEAD struct{}
+
+// Encrypt plaintext, noLockAEAD will do noop for the purpose of testing
+func (n *noLockAEAD) Encrypt(plaintext, additionalData []byte) ([]byte, error) {
+	return plaintext, nil
+}
+
+// Decrypt ciphertext, noLockAEAD will do noop for the purpose of testing
+func (n *noLockAEAD) Decrypt(ciphertext, additionalData []byte) ([]byte, error) {
+	return ciphertext, nil
 }
