@@ -20,12 +20,12 @@ jobs:
     steps:
 
     - name: Setup Go 1.14
-      uses: actions/setup-go@v1
+      uses: actions/setup-go@v2
       with:
         go-version: 1.14
       id: go
 
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
 
     - name: Run unit test
       timeout-minutes: 10
@@ -45,12 +45,12 @@ jobs:
     steps:
 
       - name: Setup Go 1.14
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
           go-version: 1.14
         id: go
 
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       - name: Run unit test wasm
         timeout-minutes: 10
@@ -63,7 +63,7 @@ jobs:
     steps:
 
       - name: Setup Go 1.14
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
           go-version: 1.14
         id: go
@@ -74,7 +74,7 @@ jobs:
           node-version: 12.14.x
           registry-url: "https://npm.pkg.github.com"
 
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       - name: Run BDD test
         timeout-minutes: 10
@@ -92,11 +92,11 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - name: Setup Go 1.14
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
           go-version: 1.14
 
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       - name: Run checks
         timeout-minutes: 10
@@ -110,7 +110,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Setup Go 1.14
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v2
         with:
           go-version: 1.14
         id: go
@@ -121,7 +121,7 @@ jobs:
           node-version: 12.14.x
           registry-url: "https://npm.pkg.github.com"
 
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
 
       - name: Publish docker images
         run: |
