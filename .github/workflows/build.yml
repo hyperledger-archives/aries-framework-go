@@ -40,8 +40,11 @@ jobs:
 
   unitTestWasm:
     name: Unit test wasm
-    runs-on: ubuntu-18.04
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, macOS-10.15]
     steps:
 
       - name: Setup Go 1.14
@@ -54,12 +57,22 @@ jobs:
 
       - name: Run unit test wasm
         timeout-minutes: 10
-        run: make unit-test-wasm
+        run: |
+          if [ ${{ matrix.os }} = "macOS-10.15" ]; then
+            brew install docker docker-machine
+            curl --create-dirs -Lo ~/.docker/machine/cache/boot2docker.iso https://github.com/boot2docker/boot2docker/releases/download/v18.09.1-rc1/boot2docker.iso
+            docker-machine create --driver virtualbox --virtualbox-boot2docker-url ~/.docker/machine/cache/boot2docker.iso default
+            eval "$(docker-machine env default)"
+          fi
+          make unit-test-wasm
 
   bddTest:
     name: BDD test
-    runs-on: ubuntu-18.04
-    timeout-minutes: 10
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        os: [macOS-10.15]
     steps:
 
       - name: Setup Go 1.14
@@ -77,8 +90,17 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Run BDD test
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: |
+          if [ ${{ matrix.os }} = "macOS-10.15" ]; then
+            brew install docker docker-machine
+            curl --create-dirs -Lo ~/.docker/machine/cache/boot2docker.iso https://github.com/boot2docker/boot2docker/releases/download/v18.09.1-rc1/boot2docker.iso
+            docker-machine create --driver virtualbox --virtualbox-boot2docker-url ~/.docker/machine/cache/boot2docker.iso default
+            docker-machine env default
+            sudo -- sh -c -e "echo '$(docker-machine ip) localhost' >> /etc/hosts"
+            eval "$(docker-machine env default)"
+            brew install docker-compose
+          fi
           function logout {
             docker logout docker.pkg.github.com
           }

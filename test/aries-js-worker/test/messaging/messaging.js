@@ -26,8 +26,6 @@ const sampleReplyMsg = {
 
 // scenarios
 describe("Basic Messaging", function () {
-    this.timeout(5000);
-
     const receiver_agent_name = "msg-receiver"
     const sender_agent_name = "msg-sender"
 
