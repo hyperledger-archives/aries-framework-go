@@ -24,12 +24,14 @@ fi
 remove_docker_container () {
 docker kill CouchDBStoreTest >/dev/null 2>&1 || true
 docker rm CouchDBStoreTest >/dev/null 2>&1 || true
+docker kill MYSQLStoreTest >/dev/null 2>&1 || true
+docker rm MYSQLStoreTest >/dev/null 2>&1 || true
 }
 
 remove_docker_container
 
 docker run -p 5984:5984 -d --name CouchDBStoreTest couchdb:2.3.1 >/dev/null || true
-
+docker run -p 3306:3306 --name MYSQLStoreTest -e MYSQL_ROOT_PASSWORD=my-secret-pw -d mysql:8.0.20 >/dev/null || true
 
 # Running aries-framework-go unit test
 PKGS=`go list github.com/hyperledger/aries-framework-go/... 2> /dev/null | \
