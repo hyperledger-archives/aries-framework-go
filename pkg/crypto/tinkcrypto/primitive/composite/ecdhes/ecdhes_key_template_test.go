@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package ecdhes
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -24,7 +22,7 @@ func TestECDHESKeyTemplateSuccess(t *testing.T) {
 	var flagTests = []struct {
 		tcName    string
 		curveType string
-		tmplFunc  func(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error)
+		tmplFunc  func(recPublicKeys []*composite.PublicKey) (*tinkpb.KeyTemplate, error)
 	}{
 		{
 			tcName:    "create ECDHES 256 key templates test",
@@ -81,30 +79,27 @@ func TestECDHESKeyTemplateSuccess(t *testing.T) {
 }
 
 // createRecipients and return their public key and keyset.Handle
-func createRecipients(t *testing.T, curveType string, nbOfRecipients int) ([]composite.PublicKey, []*keyset.Handle) {
+func createRecipients(t *testing.T, curveType string, nbOfRecipients int) ([]*composite.PublicKey, []*keyset.Handle) {
 	t.Helper()
 
 	var (
-		r   []composite.PublicKey
+		r   []*composite.PublicKey
 		rKH []*keyset.Handle
 	)
 
 	for i := 0; i < nbOfRecipients; i++ {
-		mrKey, kh := createAndMarshalRecipient(t, curveType)
-		ecPubKey := new(composite.PublicKey)
-		err := json.Unmarshal(mrKey, ecPubKey)
-		require.NoError(t, err)
+		ecPubKey, kh := createRecipient(t, curveType)
 
-		r = append(r, *ecPubKey)
+		r = append(r, ecPubKey)
 		rKH = append(rKH, kh)
 	}
 
 	return r, rKH
 }
 
-// createAndMarshalRecipient creates a new recipient keyset.Handle, extracts public key, marshals it and returns
+// createRecipient creates a new recipient keyset.Handle, extracts public key, marshals it and returns
 // both marshalled public key and original recipient keyset.Handle
-func createAndMarshalRecipient(t *testing.T, curveType string) ([]byte, *keyset.Handle) {
+func createRecipient(t *testing.T, curveType string) (*composite.PublicKey, *keyset.Handle) {
 	t.Helper()
 
 	var tmpl *tinkpb.KeyTemplate
@@ -121,17 +116,10 @@ func createAndMarshalRecipient(t *testing.T, curveType string) ([]byte, *keyset.
 	kh, err := keyset.NewHandle(tmpl)
 	require.NoError(t, err)
 
-	pubKH, err := kh.Public()
+	ecPubKey, err := keyio.ExtractPrimaryPublicKey(kh)
 	require.NoError(t, err)
 
-	buf := new(bytes.Buffer)
-	pubKeyWriter := keyio.NewWriter(buf)
-	require.NotEmpty(t, pubKeyWriter)
-
-	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
-	require.NoError(t, err)
-
-	return buf.Bytes(), kh
+	return ecPubKey, kh
 }
 
 func TestECDHESKeyTemplateFailures(t *testing.T) {
@@ -140,15 +128,15 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 
 	var flagTests = []struct {
 		tcName     string
-		recPubKeys []composite.PublicKey
+		recPubKeys []*composite.PublicKey
 		curve      string
 		keyType    string
-		tmplFunc   func(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error)
+		tmplFunc   func(recPublicKeys []*composite.PublicKey) (*tinkpb.KeyTemplate, error)
 		errMsg     string
 	}{
 		{
 			tcName: "ECDHES P256 Key Template creation with Bad Curve should fail",
-			recPubKeys: []composite.PublicKey{
+			recPubKeys: []*composite.PublicKey{
 				{
 					KID:   "",
 					X:     nil,
@@ -164,7 +152,7 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 		},
 		{
 			tcName: "ECDHES P256 Key Template creation with Bad keyType should fail",
-			recPubKeys: []composite.PublicKey{
+			recPubKeys: []*composite.PublicKey{
 				{
 					KID:   "",
 					X:     nil,
@@ -180,7 +168,7 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 		},
 		{
 			tcName: "ECDHES P384 Key Template creation with Bad Curve should fail",
-			recPubKeys: []composite.PublicKey{
+			recPubKeys: []*composite.PublicKey{
 				{
 					KID:   "",
 					X:     nil,
@@ -197,7 +185,7 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 
 		{
 			tcName: "ECDHES P384 Key Template creation with Bad keyType should fail",
-			recPubKeys: []composite.PublicKey{
+			recPubKeys: []*composite.PublicKey{
 				{
 					KID:   "",
 					X:     nil,
@@ -213,7 +201,7 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 		},
 		{
 			tcName: "ECDHES P521 Key Template creation with Bad Curve should fail",
-			recPubKeys: []composite.PublicKey{
+			recPubKeys: []*composite.PublicKey{
 				{
 					KID:   "",
 					X:     nil,
@@ -230,7 +218,7 @@ func TestECDHESKeyTemplateFailures(t *testing.T) {
 
 		{
 			tcName: "ECDHES P521 Key Template creation with Bad keyType should fail",
-			recPubKeys: []composite.PublicKey{
+			recPubKeys: []*composite.PublicKey{
 				{
 					KID:   "",
 					X:     nil,

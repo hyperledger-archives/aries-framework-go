@@ -283,7 +283,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	// add third key to recECKeys
-	recECKeys = append(recECKeys, composite.PublicKey{
+	recECKeys = append(recECKeys, &composite.PublicKey{
 		X:     rec3PrivKey.PublicKey.X.Bytes(),
 		Y:     rec3PrivKey.PublicKey.Y.Bytes(),
 		Curve: rec3PrivKey.PublicKey.Curve.Params().Name,
@@ -316,13 +316,13 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecrypt(t *testing.T) {
 }
 
 func TestInteropWithLocalJoseEncryptAndGoJoseDecryptUsingCompactSerialization(t *testing.T) {
-	var recECKeys []composite.PublicKey
+	var recECKeys []*composite.PublicKey
 	// create a normal recipient key (not using Tink)
 	recPrivKey, err := ecdsa.GenerateKey(subtle.GetCurve("NIST_P256"), rand.Reader)
 	require.NoError(t, err)
 
 	// add third key to recECKeys
-	recECKeys = append(recECKeys, composite.PublicKey{
+	recECKeys = append(recECKeys, &composite.PublicKey{
 		X:     recPrivKey.PublicKey.X.Bytes(),
 		Y:     recPrivKey.PublicKey.Y.Bytes(),
 		Curve: recPrivKey.PublicKey.Curve.Params().Name,
@@ -351,7 +351,7 @@ func TestInteropWithLocalJoseEncryptAndGoJoseDecryptUsingCompactSerialization(t 
 	require.EqualValues(t, pt, msg)
 }
 
-func convertToGoJoseRecipients(t *testing.T, keys []composite.PublicKey) []jose.Recipient {
+func convertToGoJoseRecipients(t *testing.T, keys []*composite.PublicKey) []jose.Recipient {
 	t.Helper()
 
 	var joseRecipients []jose.Recipient
@@ -374,11 +374,11 @@ func convertToGoJoseRecipients(t *testing.T, keys []composite.PublicKey) []jose.
 }
 
 // createRecipients and return their public key and keyset.Handle
-func createRecipients(t *testing.T, numberOfRecipients int) ([]composite.PublicKey, []*keyset.Handle) {
+func createRecipients(t *testing.T, numberOfRecipients int) ([]*composite.PublicKey, []*keyset.Handle) {
 	t.Helper()
 
 	var (
-		r   []composite.PublicKey
+		r   []*composite.PublicKey
 		rKH []*keyset.Handle
 	)
 
@@ -388,7 +388,7 @@ func createRecipients(t *testing.T, numberOfRecipients int) ([]composite.PublicK
 		err := json.Unmarshal(mrKey, ecPubKey)
 		require.NoError(t, err)
 
-		r = append(r, *ecPubKey)
+		r = append(r, ecPubKey)
 		rKH = append(rKH, kh)
 	}
 

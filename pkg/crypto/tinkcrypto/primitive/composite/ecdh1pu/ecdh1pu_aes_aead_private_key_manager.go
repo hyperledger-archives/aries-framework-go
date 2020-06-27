@@ -119,14 +119,6 @@ func (km *ecdh1puAESPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto
 		return nil, fmt.Errorf("ecdh1pu_aes_private_key_manager: GenerateECDHKeyPair failed: %w", err)
 	}
 
-	var kwd []byte
-
-	// if recipients are set, this is for primitive execution, set kwd to support it. Else, this is a key creation that
-	// will be used to reference a recipient key (ie persistence), do not set kwd.
-	if keyFormat.Params.KwParams.Recipients != nil && len(keyFormat.Params.KwParams.Recipients) > 0 {
-		kwd = pvt.D.Bytes()
-	}
-
 	return &ecdh1pupb.Ecdh1PuAeadPrivateKey{
 		Version:  ecdh1puAESPrivateKeyVersion,
 		KeyValue: pvt.D.Bytes(),
@@ -135,7 +127,6 @@ func (km *ecdh1puAESPrivateKeyManager) NewKey(serializedKeyFormat []byte) (proto
 			Params:  keyFormat.Params,
 			X:       pvt.PublicKey.Point.X.Bytes(),
 			Y:       pvt.PublicKey.Point.Y.Bytes(),
-			KWD:     kwd,
 		},
 	}, nil
 }

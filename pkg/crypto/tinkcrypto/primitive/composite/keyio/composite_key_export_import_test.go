@@ -8,6 +8,7 @@ package keyio
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -18,6 +19,7 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
 	commoncompb "github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/proto/common_composite_go_proto"
@@ -58,18 +60,27 @@ func TestPubKeyExport(t *testing.T) {
 	for _, tc := range flagTests {
 		tt := tc
 		t.Run(tt.tcName, func(t *testing.T) {
-			exportedKeyBytes := exportRawPublicKeyBytes(t, tt.keyTemplate, false)
+			kh, err := keyset.NewHandle(tt.keyTemplate)
+			require.NoError(t, err)
+			require.NotEmpty(t, kh)
+
+			exportedKeyBytes := exportRawPublicKeyBytes(t, kh, false)
 			require.NotEmpty(t, exportedKeyBytes)
+
+			ecPubKey := new(composite.PublicKey)
+			err = json.Unmarshal(exportedKeyBytes, ecPubKey)
+			require.NoError(t, err)
+
+			extractedPubKey, err := ExtractPrimaryPublicKey(kh)
+			require.NoError(t, err)
+
+			require.EqualValues(t, ecPubKey, extractedPubKey)
 		})
 	}
 }
 
-func exportRawPublicKeyBytes(t *testing.T, keyTemplate *tinkpb.KeyTemplate, expectError bool) []byte {
+func exportRawPublicKeyBytes(t *testing.T, kh *keyset.Handle, expectError bool) []byte {
 	t.Helper()
-
-	kh, err := keyset.NewHandle(keyTemplate)
-	require.NoError(t, err)
-	require.NotEmpty(t, kh)
 
 	pubKH, err := kh.Public()
 	require.NoError(t, err)
@@ -94,7 +105,10 @@ func exportRawPublicKeyBytes(t *testing.T, keyTemplate *tinkpb.KeyTemplate, expe
 
 func TestNegativeCases(t *testing.T) {
 	t.Run("test exportRawPublicKeyBytes() with an unsupported key template", func(t *testing.T) {
-		exportedKeyBytes := exportRawPublicKeyBytes(t, hybrid.ECIESHKDFAES128GCMKeyTemplate(), true)
+		kh, err := keyset.NewHandle(hybrid.ECIESHKDFAES128GCMKeyTemplate())
+		require.NoError(t, err)
+
+		exportedKeyBytes := exportRawPublicKeyBytes(t, kh, true)
 		require.Empty(t, exportedKeyBytes)
 	})
 
@@ -194,6 +208,30 @@ func TestNegativeCases(t *testing.T) {
 			},
 		})
 		require.EqualError(t, err, "failed to write")
+	})
+
+	t.Run("ExtractPrimaryPublicKey fail due to keyset.Handle being a public key", func(t *testing.T) {
+		kt := ecdhes.ECDHES256KWAES256GCMKeyTemplate()
+		kh, err := keyset.NewHandle(kt)
+		require.NoError(t, err)
+
+		pubKH, err := kh.Public()
+		require.NoError(t, err)
+
+		// Extract should fail with public keyHandle
+		_, err = ExtractPrimaryPublicKey(pubKH)
+		require.EqualError(t, err, "extractPrimaryPublicKey: failed to get public key content: "+
+			"keyset.Handle: keyset.Handle: keyset contains a non-private key")
+	})
+
+	t.Run("call newECDHESKey() with bad marshalled bytes", func(t *testing.T) {
+		_, err := newECDHESKey([]byte("bad data"))
+		require.EqualError(t, err, "unexpected EOF")
+	})
+
+	t.Run("call newECDH1PUKey() with bad marshalled bytes", func(t *testing.T) {
+		_, err := newECDH1PUKey([]byte("bad data"))
+		require.EqualError(t, err, "unexpected EOF")
 	})
 }
 

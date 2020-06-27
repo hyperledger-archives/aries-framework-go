@@ -50,7 +50,7 @@ func ECDHES521KWAES256GCMKeyTemplate() *tinkpb.KeyTemplate {
 // ECDHES256KWAES256GCMKeyTemplateWithRecipients is similar to ECDHES256KWAES256GCMKeyTemplate but adding recipients
 // keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
 // Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS
-func ECDHES256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error) {
+func ECDHES256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []*composite.PublicKey) (*tinkpb.KeyTemplate, error) {
 	ecdhesRecipientKeys, err := createECDHESPublicKeys(recPublicKeys)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func ECDHES256KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.Pub
 // ECDHES384KWAES256GCMKeyTemplateWithRecipients is similar to ECDHES384KWAES256GCMKeyTemplate but adding recipients
 // keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
 // Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS
-func ECDHES384KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error) {
+func ECDHES384KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []*composite.PublicKey) (*tinkpb.KeyTemplate, error) {
 	ecdhesRecipientKeys, err := createECDHESPublicKeys(recPublicKeys)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func ECDHES384KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.Pub
 // ECDHES521KWAES256GCMKeyTemplateWithRecipients is similar to ECDHES521KWAES256GCMKeyTemplate but adding recipients
 // keys to execute the CompositeEncrypt primitive for encrypting a message targeted to one ore more recipients.
 // Keys from this template offer valid CompositeEncrypt primitive execution only and should not be stored in the KMS
-func ECDHES521KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.PublicKey) (*tinkpb.KeyTemplate, error) {
+func ECDHES521KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []*composite.PublicKey) (*tinkpb.KeyTemplate, error) {
 	ecdhesRecipientKeys, err := createECDHESPublicKeys(recPublicKeys)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func ECDHES521KWAES256GCMKeyTemplateWithRecipients(recPublicKeys []composite.Pub
 	return createKeyTemplate(commonpb.EllipticCurveType_NIST_P521, ecdhesRecipientKeys), nil
 }
 
-func createECDHESPublicKeys(recRawPublicKeys []composite.PublicKey) ([]*compositepb.ECPublicKey, error) {
+func createECDHESPublicKeys(recRawPublicKeys []*composite.PublicKey) ([]*compositepb.ECPublicKey, error) {
 	var recKeys []*compositepb.ECPublicKey
 
 	for _, key := range recRawPublicKeys {
