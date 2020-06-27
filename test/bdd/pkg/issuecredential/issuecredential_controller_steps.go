@@ -7,25 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package issuecredential
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"time"
 
 	"github.com/cucumber/godog"
 
 	client "github.com/hyperledger/aries-framework-go/pkg/client/issuecredential"
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexsteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
 
 const (
@@ -40,8 +37,6 @@ const (
 	acceptRequest     = operationID + "/%s/accept-request"
 	acceptCredential  = operationID + "/%s/accept-credential"
 )
-
-var logger = log.New("aries-framework/issuecredential-tests")
 
 // ControllerSteps is steps for issuecredential with controller
 type ControllerSteps struct {
@@ -97,7 +92,7 @@ func (s *ControllerSteps) establishConnection(holder, issuer string) error {
 
 	connectionsURL := fmt.Sprintf("%s/connections/%s", controllerURL, connID)
 
-	err = sendHTTP(http.MethodGet, connectionsURL, nil, &response)
+	err = util.SendHTTP(http.MethodGet, connectionsURL, nil, &response)
 	if err != nil {
 		return fmt.Errorf("failed to query connections: %w", err)
 	}
@@ -250,7 +245,7 @@ func (s *ControllerSteps) validateCredential(holder, credential string) error {
 
 		var result interface{}
 
-		err := sendHTTP(http.MethodGet, fmt.Sprintf("%s/verifiable/credential/name/%s", url, credential), nil, &result)
+		err := util.SendHTTP(http.MethodGet, fmt.Sprintf("%s/verifiable/credential/name/%s", url, credential), nil, &result)
 		if err != nil {
 			time.Sleep(retryDelay)
 			continue
@@ -279,7 +274,7 @@ func actionPIID(endpoint string) (string, error) {
 			Actions []protocol.Action `json:"actions"`
 		}
 
-		err := sendHTTP(http.MethodGet, endpoint+actions, nil, &result)
+		err := util.SendHTTP(http.MethodGet, endpoint+actions, nil, &result)
 		if err != nil {
 			return "", fmt.Errorf("failed to get action PIID: %w", err)
 		}
@@ -309,56 +304,5 @@ func postToURL(url string, payload interface{}) error {
 		return err
 	}
 
-	var result interface{}
-
-	err = sendHTTP(http.MethodPost, url, body, &result)
-	if err != nil {
-		return fmt.Errorf("failed to send HTTP: %w", err)
-	}
-
-	return nil
-}
-
-func sendHTTP(method, destination string, message []byte, result interface{}) error {
-	// create request
-	req, err := http.NewRequest(method, destination, bytes.NewBuffer(message))
-	if err != nil {
-		return fmt.Errorf("failed to create new http '%s' request for '%s', cause: %s", method, destination, err)
-	}
-
-	// set headers
-	req.Header.Set("Content-Type", "application/json")
-
-	// send http request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to get response from '%s', cause :%s", destination, err)
-	}
-
-	defer closeResponse(resp.Body)
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("unable to read response from '%s', cause :%s", destination, err)
-	}
-
-	logger.Debugf("Got response from '%s' [method: %s], response payload: %s", destination, method, string(data))
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to get successful response from '%s', unexpected status code [%d], "+
-			"and message [%s]", destination, resp.StatusCode, string(data))
-	}
-
-	if result == nil {
-		return nil
-	}
-
-	return json.Unmarshal(data, result)
-}
-
-func closeResponse(c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		logger.Errorf("failed to close response body: %s", err)
-	}
+	return util.SendHTTP(http.MethodPost, url, body, nil)
 }

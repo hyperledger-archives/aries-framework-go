@@ -173,12 +173,15 @@ func (c *Command) SendRequestPresentation(rw io.Writer, req io.Reader) command.E
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestPresentation))
 	}
 
-	if _, err := c.client.SendRequestPresentation(args.RequestPresentation, args.MyDID, args.TheirDID); err != nil {
+	piid, err := c.client.SendRequestPresentation(args.RequestPresentation, args.MyDID, args.TheirDID)
+	if err != nil {
 		logutil.LogError(logger, commandName, sendRequestPresentation, err.Error())
 		return command.NewExecuteError(SendRequestPresentationErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &SendRequestPresentationResponse{}, logger)
+	command.WriteNillableResponse(rw, &SendRequestPresentationResponse{
+		PIID: piid,
+	}, logger)
 
 	logutil.LogDebug(logger, commandName, sendRequestPresentation, successString)
 
@@ -210,14 +213,15 @@ func (c *Command) SendProposePresentation(rw io.Writer, req io.Reader) command.E
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposePresentation))
 	}
 
-	// TODO correlate outbound request-presentation & propose-presentation to their responses
-	//  https://github.com/hyperledger/aries-framework-go/issues/1945
-	if _, err := c.client.SendProposePresentation(args.ProposePresentation, args.MyDID, args.TheirDID); err != nil {
+	piid, err := c.client.SendProposePresentation(args.ProposePresentation, args.MyDID, args.TheirDID)
+	if err != nil {
 		logutil.LogError(logger, commandName, sendProposePresentation, err.Error())
 		return command.NewExecuteError(SendProposePresentationErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &SendProposePresentationResponse{}, logger)
+	command.WriteNillableResponse(rw, &SendProposePresentationResponse{
+		PIID: piid,
+	}, logger)
 
 	logutil.LogDebug(logger, commandName, sendProposePresentation, successString)
 

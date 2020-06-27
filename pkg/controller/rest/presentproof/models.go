@@ -54,7 +54,10 @@ type presentProofSendRequestPresentationRequest struct { // nolint: unused,deadc
 // swagger:response presentProofSendRequestPresentationResponse
 type presentProofSendRequestPresentationResponse struct { // nolint: unused,deadcode
 	// in: body
-	Body struct{}
+	Body struct {
+		// PIID Protocol instance ID. It can be used as a correlation ID
+		PIID string `json:"piid"`
+	}
 }
 
 // presentProofSendProposePresentationRequest model
@@ -84,7 +87,10 @@ type presentProofSendProposePresentationRequest struct { // nolint: unused,deadc
 // swagger:response presentProofSendProposePresentationResponse
 type presentProofSendProposePresentationResponse struct { // nolint: unused,deadcode
 	// in: body
-	Body struct{}
+	Body struct {
+		// PIID Protocol instance ID. It can be used as a correlation ID
+		PIID string `json:"piid"`
+	}
 }
 
 // presentProofAcceptRequestPresentationRequest model

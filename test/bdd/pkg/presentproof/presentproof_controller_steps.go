@@ -7,31 +7,25 @@ SPDX-License-Identifier: Apache-2.0
 package presentproof
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/cucumber/godog"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/presentproof"
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	presentproofcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/presentproof"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/presentproof"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexsteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
+	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
 
 const (
 	operationID                  = "/presentproof"
-	actions                      = operationID + "/actions"
 	sendRequestPresentation      = operationID + "/send-request-presentation"
 	sendProposalPresentation     = operationID + "/send-propose-presentation"
 	acceptProposePresentation    = operationID + "/%s/accept-propose-presentation"
@@ -40,8 +34,6 @@ const (
 	acceptPresentation           = operationID + "/%s/accept-presentation"
 	verifiablePresentations      = "/verifiable/presentations"
 )
-
-var logger = log.New("aries-framework/presentproof-tests")
 
 // ControllerSteps supports steps for Present Proof controller
 type ControllerSteps struct {
@@ -132,7 +124,7 @@ func (s *ControllerSteps) negotiateRequestPresentation(agent string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agent)
 	}
 
-	piid, err := actionPIID(url)
+	piid, err := s.actionPIID(agent)
 	if err != nil {
 		return err
 	}
@@ -148,7 +140,7 @@ func (s *ControllerSteps) acceptProposePresentation(verifier string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
 	}
 
-	piid, err := actionPIID(url)
+	piid, err := s.actionPIID(verifier)
 	if err != nil {
 		return err
 	}
@@ -164,7 +156,7 @@ func (s *ControllerSteps) acceptRequestPresentation(prover string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", prover)
 	}
 
-	piid, err := actionPIID(url)
+	piid, err := s.actionPIID(prover)
 	if err != nil {
 		return err
 	}
@@ -186,7 +178,7 @@ func (s *ControllerSteps) acceptPresentation(verifier, name string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
 	}
 
-	piid, err := actionPIID(url)
+	piid, err := s.actionPIID(verifier)
 	if err != nil {
 		return err
 	}
@@ -196,30 +188,38 @@ func (s *ControllerSteps) acceptPresentation(verifier, name string) error {
 	})
 }
 
+func (s *ControllerSteps) actionPIID(agentID string) (string, error) {
+	msg, err := util.PullEventsFromWebSocket(s.bddContext, agentID, util.FilterTopic("present-proof_actions"))
+	if err != nil {
+		return "", fmt.Errorf("pull events from WebSocket: %w", err)
+	}
+
+	return msg.Message.Properties["piid"].(string), nil
+}
+
 func (s *ControllerSteps) checkPresentation(verifier, name string) error {
 	url, ok := s.bddContext.GetControllerURL(verifier)
 	if !ok {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", verifier)
 	}
 
-	const (
-		maxRetry = 10
-		delay    = time.Second
+	_, err := util.PullEventsFromWebSocket(s.bddContext, verifier,
+		util.FilterTopic("present-proof_states"),
+		util.FilterStateID("done"),
 	)
+	if err != nil {
+		return fmt.Errorf("pull events from WebSocket: %w", err)
+	}
 
-	for i := 0; i < maxRetry; i++ {
-		var result verifiable.RecordResult
-		if err := sendHTTP(http.MethodGet, url+verifiablePresentations, nil, &result); err != nil {
-			return err
+	var result verifiable.RecordResult
+	if err := util.SendHTTP(http.MethodGet, url+verifiablePresentations, nil, &result); err != nil {
+		return err
+	}
+
+	for _, val := range result.Result {
+		if val.Name == name {
+			return nil
 		}
-
-		for _, val := range result.Result {
-			if val.Name == name {
-				return nil
-			}
-		}
-
-		time.Sleep(delay)
 	}
 
 	return errors.New("presentation not found")
@@ -238,53 +238,12 @@ func (s *ControllerSteps) agentDID(ds *didexsteps.ControllerSteps, agent string)
 
 	var response didexcmd.QueryConnectionResponse
 
-	err := sendHTTP(http.MethodGet, fmt.Sprintf("%s/connections/%s", controllerURL, connectionID), nil, &response)
+	err := util.SendHTTP(http.MethodGet, fmt.Sprintf("%s/connections/%s", controllerURL, connectionID), nil, &response)
 	if err != nil {
 		return "", fmt.Errorf("failed to query connections: %w", err)
 	}
 
 	return response.Result.MyDID, nil
-}
-
-func actionPIID(endpoint string) (string, error) {
-	const (
-		timeoutWait = 10 * time.Second
-		retryDelay  = 500 * time.Millisecond
-	)
-
-	start := time.Now()
-
-	for {
-		if time.Since(start) > timeoutWait {
-			break
-		}
-
-		var result struct {
-			Actions []protocol.Action `json:"actions"`
-		}
-
-		err := sendHTTP(http.MethodGet, endpoint+actions, nil, &result)
-		if err != nil {
-			return "", fmt.Errorf("failed to get action PIID: %w", err)
-		}
-
-		if len(result.Actions) == 0 {
-			time.Sleep(retryDelay)
-			continue
-		}
-
-		if result.Actions[0].MyDID == "" {
-			return "", errors.New("myDID is empty")
-		}
-
-		if result.Actions[0].TheirDID == "" {
-			return "", errors.New("theirDID is empty")
-		}
-
-		return result.Actions[0].PIID, nil
-	}
-
-	return "", fmt.Errorf("unable to get action PIID: timeout")
 }
 
 func postToURL(url string, payload interface{}) error {
@@ -293,49 +252,5 @@ func postToURL(url string, payload interface{}) error {
 		return err
 	}
 
-	return sendHTTP(http.MethodPost, url, body, nil)
-}
-
-func sendHTTP(method, destination string, message []byte, result interface{}) error {
-	// create request
-	req, err := http.NewRequest(method, destination, bytes.NewBuffer(message))
-	if err != nil {
-		return fmt.Errorf("failed to create new http '%s' request for '%s', cause: %s", method, destination, err)
-	}
-
-	// set headers
-	req.Header.Set("Content-Type", "application/json")
-
-	// send http request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to get response from '%s', cause :%s", destination, err)
-	}
-
-	defer closeResponse(resp.Body)
-
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("unable to read response from '%s', cause :%s", destination, err)
-	}
-
-	logger.Debugf("Got response from '%s' [method: %s], response payload: %s", destination, method, string(data))
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to get successful response from '%s', unexpected status code [%d], "+
-			"and message [%s]", destination, resp.StatusCode, string(data))
-	}
-
-	if result == nil {
-		return nil
-	}
-
-	return json.Unmarshal(data, &result)
-}
-
-func closeResponse(c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		logger.Errorf("failed to close response body: %s", err)
-	}
+	return util.SendHTTP(http.MethodPost, url, body, nil)
 }
