@@ -55,20 +55,23 @@ const invitation = {
 
 // listen for connection 'received' notification
 aries.startNotifier(notice => {
-    const connection = notice.payload
-    // accept invitation
-    aries.didexchange.acceptInvitation(connection.connection_id)
-}, ["connections"])
+    const event = notice.payload
+    if (event.Type === "post_state") {
+        // accept invitation
+        aries.didexchange.acceptInvitation(event.Properties.connectionID)
+    }
+}, ["didexchange_states"])
 // receive invitation
 aries.didexchange.receiveInvitation(invitation)
 
 // listen for connection 'completed' notification
 aries.startNotifier(notice => {
-    const connection = notice.payload
-    if (connection.state === "completed") {
+    const event = notice.payload
+    if (event.StateID === "completed" && event.Type === "post_state") {
         console.log("connection completed!")
     }
-}, ["connections"])
+
+}, ["didexchange_states"])
 
 // release resources
 aries.destroy()
