@@ -20,7 +20,10 @@ import (
 // the connection to a WebSocket.
 func Accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
 	// TODO Allow user to enable InsecureSkipVerify https://github.com/hyperledger/aries-framework-go/issues/928
-	return websocket.Accept(w, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+	return websocket.Accept(w, r, &websocket.AcceptOptions{
+		InsecureSkipVerify: true,
+		CompressionMode:    websocket.CompressionDisabled,
+	})
 }
 
 func acceptRecipient(pool *connPool, keys []string) bool {
