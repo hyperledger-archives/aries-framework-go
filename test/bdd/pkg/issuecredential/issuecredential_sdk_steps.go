@@ -132,7 +132,16 @@ func (a *SDKSteps) sendsOffer(agent1, agent2 string) error {
 		return err
 	}
 
-	return a.clients[agent1].SendOffer(&issuecredential.OfferCredential{}, conn.MyDID, conn.TheirDID)
+	piid, err := a.clients[agent1].SendOffer(&issuecredential.OfferCredential{}, conn.MyDID, conn.TheirDID)
+	if err != nil {
+		return fmt.Errorf("send offer: %w", err)
+	}
+
+	if piid == "" {
+		return errors.New("piid is empty")
+	}
+
+	return nil
 }
 
 func (a *SDKSteps) sendsProposal(agent1, agent2 string) error {
@@ -141,7 +150,16 @@ func (a *SDKSteps) sendsProposal(agent1, agent2 string) error {
 		return err
 	}
 
-	return a.clients[agent1].SendProposal(&issuecredential.ProposeCredential{}, conn.MyDID, conn.TheirDID)
+	piid, err := a.clients[agent1].SendProposal(&issuecredential.ProposeCredential{}, conn.MyDID, conn.TheirDID)
+	if err != nil {
+		return fmt.Errorf("send proposal: %w", err)
+	}
+
+	if piid == "" {
+		return errors.New("piid is empty")
+	}
+
+	return nil
 }
 
 func (a *SDKSteps) sendsRequest(agent1, agent2 string) error {
@@ -150,7 +168,16 @@ func (a *SDKSteps) sendsRequest(agent1, agent2 string) error {
 		return err
 	}
 
-	return a.clients[agent1].SendRequest(&issuecredential.RequestCredential{}, conn.MyDID, conn.TheirDID)
+	piid, err := a.clients[agent1].SendRequest(&issuecredential.RequestCredential{}, conn.MyDID, conn.TheirDID)
+	if err != nil {
+		return fmt.Errorf("send proposal: %w", err)
+	}
+
+	if piid == "" {
+		return errors.New("piid is empty")
+	}
+
+	return nil
 }
 
 func (a *SDKSteps) acceptProposal(agent string) error {

@@ -78,12 +78,14 @@ func (c *Client) SendProposal(recipient1, recipient2 *Recipient) error {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	err := c.service.HandleOutbound(proposal1, recipient1.MyDID, recipient1.TheirDID)
+	_, err := c.service.HandleOutbound(proposal1, recipient1.MyDID, recipient1.TheirDID)
 	if err != nil {
 		return fmt.Errorf("handle outbound: %w", err)
 	}
 
-	return c.service.HandleOutbound(proposal2, recipient2.MyDID, recipient2.TheirDID)
+	_, err = c.service.HandleOutbound(proposal2, recipient2.MyDID, recipient2.TheirDID)
+
+	return err
 }
 
 // SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
@@ -94,7 +96,9 @@ func (c *Client) SendProposalWithOOBRequest(req *outofband.Request, recipient *R
 	proposal := introduce.CreateProposal(&_recipient)
 	introduce.WrapWithMetadataPublicOOBRequest(proposal, &_req)
 
-	return c.service.HandleOutbound(proposal, recipient.MyDID, recipient.TheirDID)
+	_, err := c.service.HandleOutbound(proposal, recipient.MyDID, recipient.TheirDID)
+
+	return err
 }
 
 // SendRequest sends a request.
@@ -102,10 +106,12 @@ func (c *Client) SendProposalWithOOBRequest(req *outofband.Request, recipient *R
 func (c *Client) SendRequest(to *PleaseIntroduceTo, myDID, theirDID string) error {
 	_to := introduce.PleaseIntroduceTo(*to)
 
-	return c.service.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	_, err := c.service.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type:              introduce.RequestMsgType,
 		PleaseIntroduceTo: &_to,
 	}), myDID, theirDID)
+
+	return err
 }
 
 // AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.

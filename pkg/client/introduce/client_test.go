@@ -108,7 +108,7 @@ func TestClient_SendProposal(t *testing.T) {
 		svc := mocksintroduce.NewMockProtocolService(ctrl)
 		svc.EXPECT().
 			HandleOutbound(gomock.Any(), "firstMyDID", "firstTheirDID").
-			Return(errors.New(errMsg))
+			Return("", errors.New(errMsg))
 
 		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 		client, err := New(provider)

@@ -8,10 +8,8 @@ package issuecredential
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/cucumber/godog"
 
@@ -19,7 +17,6 @@ import (
 	didexcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/didexchange"
 	issuecredentialcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/issuecredential"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/decorator"
-	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/issuecredential"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	didexsteps "github.com/hyperledger/aries-framework-go/test/bdd/pkg/didexchange"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
@@ -27,7 +24,6 @@ import (
 
 const (
 	operationID       = "/issuecredential"
-	actions           = operationID + "/actions"
 	sendRequest       = operationID + "/send-request"
 	sendOffer         = operationID + "/send-offer"
 	sendProposal      = operationID + "/send-proposal"
@@ -42,11 +38,12 @@ const (
 type ControllerSteps struct {
 	bddContext *context.BDDContext
 	did        map[string]string
+	nameToPIID map[string]string
 }
 
 // NewIssueCredentialControllerSteps creates steps for issuecredential with controller
 func NewIssueCredentialControllerSteps() *ControllerSteps {
-	return &ControllerSteps{}
+	return &ControllerSteps{nameToPIID: map[string]string{}}
 }
 
 // SetContext sets every scenario with a fresh context
@@ -149,7 +146,7 @@ func (s *ControllerSteps) acceptProposal(issuer string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", issuer)
 	}
 
-	piid, err := actionPIID(url)
+	piid, err := s.actionPIID(issuer)
 	if err != nil {
 		return err
 	}
@@ -165,7 +162,7 @@ func (s *ControllerSteps) negotiateProposal(holder string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", holder)
 	}
 
-	piid, err := actionPIID(url)
+	piid, err := s.actionPIID(holder)
 	if err != nil {
 		return err
 	}
@@ -181,7 +178,7 @@ func (s *ControllerSteps) acceptOffer(holder string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", holder)
 	}
 
-	piid, err := actionPIID(url)
+	piid, err := s.actionPIID(holder)
 	if err != nil {
 		return err
 	}
@@ -195,7 +192,7 @@ func (s *ControllerSteps) acceptRequest(issuer string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", issuer)
 	}
 
-	piid, err := actionPIID(url)
+	piid, err := s.actionPIID(issuer)
 	if err != nil {
 		return err
 	}
@@ -215,10 +212,12 @@ func (s *ControllerSteps) acceptCredential(holder, credential string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", holder)
 	}
 
-	piid, err := actionPIID(url)
+	piid, err := s.actionPIID(holder)
 	if err != nil {
 		return err
 	}
+
+	s.nameToPIID[credential] = piid
 
 	return postToURL(url+fmt.Sprintf(acceptCredential, piid), issuecredentialcmd.AcceptCredentialArgs{
 		Names: []string{credential},
@@ -226,76 +225,30 @@ func (s *ControllerSteps) acceptCredential(holder, credential string) error {
 }
 
 func (s *ControllerSteps) validateCredential(holder, credential string) error {
+	_, err := util.PullEventsFromWebSocket(s.bddContext, holder,
+		util.FilterTopic("issue-credential_states"),
+		util.FilterStateID("done"),
+		util.FilterPIID(s.nameToPIID[credential]),
+	)
+	if err != nil {
+		return fmt.Errorf("pull events from WebSocket: %w", err)
+	}
+
 	url, ok := s.bddContext.GetControllerURL(holder)
 	if !ok {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", holder)
 	}
 
-	const (
-		timeoutWait = 10 * time.Second
-		retryDelay  = 500 * time.Millisecond
-	)
-
-	start := time.Now()
-
-	for {
-		if time.Since(start) > timeoutWait {
-			break
-		}
-
-		var result interface{}
-
-		err := util.SendHTTP(http.MethodGet, fmt.Sprintf("%s/verifiable/credential/name/%s", url, credential), nil, &result)
-		if err != nil {
-			time.Sleep(retryDelay)
-			continue
-		}
-
-		return nil
-	}
-
-	return fmt.Errorf("failed to validate credential: not found")
+	return util.SendHTTP(http.MethodGet, fmt.Sprintf("%s/verifiable/credential/name/%s", url, credential), nil, nil)
 }
 
-func actionPIID(endpoint string) (string, error) {
-	const (
-		timeoutWait = 10 * time.Second
-		retryDelay  = 500 * time.Millisecond
-	)
-
-	start := time.Now()
-
-	for {
-		if time.Since(start) > timeoutWait {
-			break
-		}
-
-		var result struct {
-			Actions []protocol.Action `json:"actions"`
-		}
-
-		err := util.SendHTTP(http.MethodGet, endpoint+actions, nil, &result)
-		if err != nil {
-			return "", fmt.Errorf("failed to get action PIID: %w", err)
-		}
-
-		if len(result.Actions) == 0 {
-			time.Sleep(retryDelay)
-			continue
-		}
-
-		if result.Actions[0].MyDID == "" {
-			return "", errors.New("myDID is empty")
-		}
-
-		if result.Actions[0].TheirDID == "" {
-			return "", errors.New("theirDID is empty")
-		}
-
-		return result.Actions[0].PIID, nil
+func (s *ControllerSteps) actionPIID(agentID string) (string, error) {
+	msg, err := util.PullEventsFromWebSocket(s.bddContext, agentID, util.FilterTopic("issue-credential_actions"))
+	if err != nil {
+		return "", fmt.Errorf("pull events from WebSocket: %w", err)
 	}
 
-	return "", fmt.Errorf("unable to get action PIID: timeout")
+	return msg.Message.Properties["piid"].(string), nil
 }
 
 func postToURL(url string, payload interface{}) error {

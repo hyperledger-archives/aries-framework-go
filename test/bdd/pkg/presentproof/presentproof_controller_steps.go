@@ -39,12 +39,14 @@ const (
 type ControllerSteps struct {
 	bddContext *context.BDDContext
 	did        map[string]string
+	nameToPIID map[string]string
 }
 
 // NewPresentProofControllerSteps creates steps for Present Proof controller
 func NewPresentProofControllerSteps() *ControllerSteps {
 	return &ControllerSteps{
-		did: make(map[string]string),
+		did:        make(map[string]string),
+		nameToPIID: make(map[string]string),
 	}
 }
 
@@ -183,6 +185,8 @@ func (s *ControllerSteps) acceptPresentation(verifier, name string) error {
 		return err
 	}
 
+	s.nameToPIID[name] = piid
+
 	return postToURL(url+fmt.Sprintf(acceptPresentation, piid), presentproofcmd.AcceptPresentationArgs{
 		Names: []string{name},
 	})
@@ -206,6 +210,7 @@ func (s *ControllerSteps) checkPresentation(verifier, name string) error {
 	_, err := util.PullEventsFromWebSocket(s.bddContext, verifier,
 		util.FilterTopic("present-proof_states"),
 		util.FilterStateID("done"),
+		util.FilterPIID(s.nameToPIID[name]),
 	)
 	if err != nil {
 		return fmt.Errorf("pull events from WebSocket: %w", err)

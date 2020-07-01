@@ -93,9 +93,9 @@ func (c *Client) Actions() ([]Action, error) {
 }
 
 // SendOffer is used by the Issuer to send an offer.
-func (c *Client) SendOffer(offer *OfferCredential, myDID, theirDID string) error {
+func (c *Client) SendOffer(offer *OfferCredential, myDID, theirDID string) (string, error) {
 	if offer == nil {
-		return errEmptyOffer
+		return "", errEmptyOffer
 	}
 
 	offer.Type = issuecredential.OfferCredentialMsgType
@@ -104,9 +104,9 @@ func (c *Client) SendOffer(offer *OfferCredential, myDID, theirDID string) error
 }
 
 // SendProposal is used by the Holder to send a proposal.
-func (c *Client) SendProposal(proposal *ProposeCredential, myDID, theirDID string) error {
+func (c *Client) SendProposal(proposal *ProposeCredential, myDID, theirDID string) (string, error) {
 	if proposal == nil {
-		return errEmptyProposal
+		return "", errEmptyProposal
 	}
 
 	proposal.Type = issuecredential.ProposeCredentialMsgType
@@ -115,9 +115,9 @@ func (c *Client) SendProposal(proposal *ProposeCredential, myDID, theirDID strin
 }
 
 // SendRequest is used by the Holder to send a request.
-func (c *Client) SendRequest(request *RequestCredential, myDID, theirDID string) error {
+func (c *Client) SendRequest(request *RequestCredential, myDID, theirDID string) (string, error) {
 	if request == nil {
-		return errEmptyRequest
+		return "", errEmptyRequest
 	}
 
 	request.Type = issuecredential.RequestCredentialMsgType

@@ -441,9 +441,9 @@ func TestHandleDIDEvent(t *testing.T) {
 
 		provider := testProvider()
 		provider.OutboundMsgHandler = &outboundMsgHandlerStub{
-			handleFunc: func(service.DIDCommMsg, string, string) error {
+			handleFunc: func(service.DIDCommMsg, string, string) (string, error) {
 				invoked <- struct{}{}
-				return nil
+				return "", nil
 			},
 		}
 
@@ -544,8 +544,8 @@ func TestHandleDIDEvent(t *testing.T) {
 
 		provider := testProvider()
 		provider.OutboundMsgHandler = &outboundMsgHandlerStub{
-			handleFunc: func(service.DIDCommMsg, string, string) error {
-				return expected
+			handleFunc: func(service.DIDCommMsg, string, string) (string, error) {
+				return "", expected
 			},
 		}
 
@@ -1278,13 +1278,13 @@ func (s *stubStore) Delete(k string) error {
 }
 
 type outboundMsgHandlerStub struct {
-	handleFunc func(service.DIDCommMsg, string, string) error
+	handleFunc func(service.DIDCommMsg, string, string) (string, error)
 }
 
-func (o *outboundMsgHandlerStub) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
+func (o *outboundMsgHandlerStub) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	if o.handleFunc != nil {
 		return o.handleFunc(msg, myDID, theirDID)
 	}
 
-	return nil
+	return "", nil
 }

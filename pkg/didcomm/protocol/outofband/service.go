@@ -354,9 +354,9 @@ func sendMsgEvent(t service.StateMsgType, listeners *service.Message,
 }
 
 // HandleOutbound handles outbound messages
-func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) error {
+func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, error) {
 	// TODO implement
-	return errors.New("not implemented")
+	return "", errors.New("not implemented")
 }
 
 // AcceptRequest from another agent and return the connection ID.
@@ -593,7 +593,7 @@ func (s *Service) handleDIDEvent(e service.StateMsg) error {
 		return fmt.Errorf("failed to update state : %w", err)
 	}
 
-	err = s.outboundHandler.HandleOutbound(msg, record.MyDID, record.TheirDID)
+	_, err = s.outboundHandler.HandleOutbound(msg, record.MyDID, record.TheirDID)
 	if err != nil {
 		return fmt.Errorf("failed to dispatch message : %w", err)
 	}

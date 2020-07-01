@@ -279,6 +279,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 		require.Equal(t, properties.All()["myDID"], Alice)
@@ -336,6 +337,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -493,6 +495,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -548,6 +551,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -606,6 +610,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -663,6 +668,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -718,6 +724,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -796,6 +803,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -852,6 +860,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -942,7 +951,8 @@ func TestService_HandleOutbound(t *testing.T) {
 		msg := service.NewDIDCommMsgMap(struct{}{})
 		require.NoError(t, msg.SetID(uuid.New().String()))
 
-		err = svc.HandleOutbound(msg, "", "")
+		piid, err := svc.HandleOutbound(msg, "", "")
+		require.Empty(t, piid)
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: getCurrentStateNameAndPIID: currentStateName: "+errMsg)
 	})
 
@@ -950,9 +960,10 @@ func TestService_HandleOutbound(t *testing.T) {
 		svc, err := New(provider)
 		require.NoError(t, err)
 
-		err = svc.HandleOutbound(service.NewDIDCommMsgMap(ProposeCredential{
+		piid, err := svc.HandleOutbound(service.NewDIDCommMsgMap(ProposeCredential{
 			Type: "none",
 		}), "", "")
+		require.Empty(t, piid)
 		require.Contains(t, fmt.Sprintf("%v", err), "doHandle: nextState: unrecognized msgType: none")
 	})
 
@@ -979,7 +990,8 @@ func TestService_HandleOutbound(t *testing.T) {
 				return nil
 			})
 
-		err = svc.HandleOutbound(msg, Alice, Bob)
+		piid, err := svc.HandleOutbound(msg, Alice, Bob)
+		require.NotEmpty(t, piid)
 		require.NoError(t, err)
 
 		select {
@@ -1002,7 +1014,8 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
 
-		err = svc.HandleOutbound(msg, Alice, Bob)
+		piid, err := svc.HandleOutbound(msg, Alice, Bob)
+		require.Empty(t, piid)
 		require.Contains(t, fmt.Sprintf("%v", err), "action proposal-sent: "+errMsg)
 	})
 
@@ -1029,7 +1042,8 @@ func TestService_HandleOutbound(t *testing.T) {
 				return nil
 			})
 
-		err = svc.HandleOutbound(msg, Alice, Bob)
+		piid, err := svc.HandleOutbound(msg, Alice, Bob)
+		require.NotEmpty(t, piid)
 		require.NoError(t, err)
 
 		select {
@@ -1052,7 +1066,8 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
 
-		err = svc.HandleOutbound(msg, Alice, Bob)
+		piid, err := svc.HandleOutbound(msg, Alice, Bob)
+		require.Empty(t, piid)
 		require.Contains(t, fmt.Sprintf("%v", err), "action offer-sent: "+errMsg)
 	})
 
@@ -1079,7 +1094,8 @@ func TestService_HandleOutbound(t *testing.T) {
 				return nil
 			})
 
-		err = svc.HandleOutbound(msg, Alice, Bob)
+		piid, err := svc.HandleOutbound(msg, Alice, Bob)
+		require.NotEmpty(t, piid)
 		require.NoError(t, err)
 
 		select {
@@ -1102,7 +1118,8 @@ func TestService_HandleOutbound(t *testing.T) {
 
 		messenger.EXPECT().Send(msg, Alice, Bob).Return(errors.New(errMsg))
 
-		err = svc.HandleOutbound(msg, Alice, Bob)
+		piid, err := svc.HandleOutbound(msg, Alice, Bob)
+		require.Empty(t, piid)
 		require.Contains(t, fmt.Sprintf("%v", err), "action request-sent: "+errMsg)
 	})
 }

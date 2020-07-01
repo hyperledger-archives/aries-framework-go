@@ -178,7 +178,10 @@ type SendProposalArgs struct {
 //
 // Represents a SendProposal response message
 //
-type SendProposalResponse struct{}
+type SendProposalResponse struct {
+	// PIID Protocol instance ID. It can be used as a correlation ID
+	PIID string `json:"piid"`
+}
 
 // SendOfferArgs model
 //
@@ -198,7 +201,10 @@ type SendOfferArgs struct {
 //
 // Represents a SendOffer response message
 //
-type SendOfferResponse struct{}
+type SendOfferResponse struct {
+	// PIID Protocol instance ID. It can be used as a correlation ID
+	PIID string `json:"piid"`
+}
 
 // SendRequestArgs model
 //
@@ -218,7 +224,10 @@ type SendRequestArgs struct {
 //
 // Represents a SendRequest response message
 //
-type SendRequestResponse struct{}
+type SendRequestResponse struct {
+	// PIID Protocol instance ID. It can be used as a correlation ID
+	PIID string `json:"piid"`
+}
 
 // ActionsResponse model
 //

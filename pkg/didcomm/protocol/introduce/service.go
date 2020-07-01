@@ -299,17 +299,17 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 }
 
 // HandleOutbound handles outbound message (introduce protocol)
-func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
+func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	md, err := s.doHandle(msg, true)
 	if err != nil {
-		return fmt.Errorf("doHandle: %w", err)
+		return "", fmt.Errorf("doHandle: %w", err)
 	}
 
 	// sets outbound payload
 	md.MyDID = myDID
 	md.TheirDID = theirDID
 
-	return s.handle(md)
+	return "", s.handle(md)
 }
 
 // sendMsgEvents triggers the message events.

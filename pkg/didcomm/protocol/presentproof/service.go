@@ -232,8 +232,8 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 }
 
 // HandleOutbound handles outbound message (presentproof protocol)
-func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) error {
-	return nil
+func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, error) {
+	return "", errors.New("not implemented")
 }
 
 func (s *Service) getCurrentStateNameAndPIID(msg service.DIDCommMsg) (string, string, error) {
@@ -573,6 +573,7 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 }
 
 func (s *Service) execute(next state, md *metaData) (state, stateAction, error) {
+	md.state = next
 	s.sendMsgEvents(md, next.Name(), service.PreState)
 
 	defer s.sendMsgEvents(md, next.Name(), service.PostState)

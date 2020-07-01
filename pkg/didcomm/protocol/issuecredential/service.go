@@ -226,21 +226,29 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 	}
 
 	// if no action event is triggered, continue the execution
-	return "", s.handle(md)
+	if err = s.handle(md); err != nil {
+		return "", fmt.Errorf("handle inbound: %w", err)
+	}
+
+	return msg.ThreadID()
 }
 
 // HandleOutbound handles outbound message (issuecredential protocol)
-func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
+func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	md, err := s.doHandle(msg, true)
 	if err != nil {
-		return fmt.Errorf("doHandle: %w", err)
+		return "", fmt.Errorf("doHandle: %w", err)
 	}
 
 	// sets outbound payload
 	md.MyDID = myDID
 	md.TheirDID = theirDID
 
-	return s.handle(md)
+	if err = s.handle(md); err != nil {
+		return "", fmt.Errorf("handle outbound: %w", err)
+	}
+
+	return msg.ThreadID()
 }
 
 func (s *Service) getCurrentStateNameAndPIID(msg service.DIDCommMsg) (string, string, error) {
@@ -595,45 +603,39 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 			md.err = customError{error: cErr}
 			s.processCallback(md)
 		},
-		Properties: &eventProps{
-			myDID:    md.MyDID,
-			theirDID: md.TheirDID,
-		},
+		Properties: newEventProps(md),
 	}
 }
 
 func (s *Service) execute(next state, md *metaData) (state, stateAction, error) {
-	s.sendMsgEvents(&service.StateMsg{
-		ProtocolName: Name,
-		Type:         service.PreState,
-		Msg:          md.msgClone,
-		StateID:      next.Name(),
-	})
+	md.state = next
+	s.sendMsgEvents(md, next.Name(), service.PreState)
 
-	defer s.sendMsgEvents(&service.StateMsg{
-		ProtocolName: Name,
-		Type:         service.PostState,
-		Msg:          md.msgClone,
-		StateID:      next.Name(),
-	})
+	defer s.sendMsgEvents(md, next.Name(), service.PostState)
+
+	if err := s.middleware.Handle(md); err != nil {
+		return nil, nil, fmt.Errorf("middleware: %w", err)
+	}
 
 	exec := next.ExecuteOutbound
 	if md.inbound {
 		exec = next.ExecuteInbound
 	}
 
-	if err := s.middleware.Handle(md); err != nil {
-		return nil, nil, fmt.Errorf("middleware: %w", err)
-	}
-
 	return exec(md)
 }
 
 // sendMsgEvents triggers the message events.
-func (s *Service) sendMsgEvents(msg *service.StateMsg) {
+func (s *Service) sendMsgEvents(md *metaData, stateID string, stateType service.StateMsgType) {
 	// trigger the message events
 	for _, handler := range s.MsgEvents() {
-		handler <- *msg
+		handler <- service.StateMsg{
+			ProtocolName: Name,
+			Type:         stateType,
+			Msg:          md.msgClone,
+			StateID:      stateID,
+			Properties:   newEventProps(md),
+		}
 	}
 }
 
@@ -651,25 +653,4 @@ func (s *Service) Accept(msgType string) bool {
 	}
 
 	return false
-}
-
-type eventProps struct {
-	myDID    string
-	theirDID string
-}
-
-func (e *eventProps) MyDID() string {
-	return e.myDID
-}
-
-func (e *eventProps) TheirDID() string {
-	return e.theirDID
-}
-
-// All implements EventProperties interface
-func (e *eventProps) All() map[string]interface{} {
-	return map[string]interface{}{
-		"myDID":    e.MyDID(),
-		"theirDID": e.TheirDID(),
-	}
 }
