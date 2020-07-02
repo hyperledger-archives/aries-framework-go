@@ -41,6 +41,7 @@ const (
 	queryConnectionByIDCommandMethod      = "QueryConnectionByID"
 	queryConnectionsCommandMethod         = "QueryConnections"
 	receiveInvitationCommandMethod        = "ReceiveInvitation"
+	saveConnectionCommandMethod           = "SaveConnection"
 	removeConnectionCommandMethod         = "RemoveConnection"
 
 	// log constants
@@ -74,6 +75,9 @@ const (
 
 	// RemoveConnectionErrorCode is for failures in remove connection command
 	RemoveConnectionErrorCode
+
+	// SaveConnectionErrorCode is for failures in save connection command
+	SaveConnectionErrorCode
 
 	_actions = "_actions"
 	_states  = "_states"
@@ -156,6 +160,7 @@ func (c *Command) GetHandlers() []command.Handler {
 		cmdutil.NewCommandHandler(commandName, createInvitationCommandMethod, c.CreateInvitation),
 		cmdutil.NewCommandHandler(commandName, receiveInvitationCommandMethod, c.ReceiveInvitation),
 		cmdutil.NewCommandHandler(commandName, acceptInvitationCommandMethod, c.AcceptInvitation),
+		cmdutil.NewCommandHandler(commandName, saveConnectionCommandMethod, c.SaveConnection),
 		cmdutil.NewCommandHandler(commandName, removeConnectionCommandMethod, c.RemoveConnection),
 		cmdutil.NewCommandHandler(commandName, queryConnectionByIDCommandMethod, c.QueryConnectionByID),
 		cmdutil.NewCommandHandler(commandName, queryConnectionsCommandMethod, c.QueryConnections),
@@ -389,6 +394,32 @@ func (c *Command) QueryConnectionByID(rw io.Writer, req io.Reader) command.Error
 
 	logutil.LogDebug(logger, commandName, queryConnectionByIDCommandMethod, successString,
 		logutil.CreateKeyValueString(connectionIDString, request.ID))
+
+	return nil
+}
+
+// SaveConnection saves a new connection record in completed state and returns the generated connectionID.
+func (c *Command) SaveConnection(rw io.Writer, req io.Reader) command.Error {
+	request := &didexchange.ConnectionReq{}
+
+	err := json.NewDecoder(req).Decode(request)
+	if err != nil {
+		logutil.LogInfo(logger, commandName, saveConnectionCommandMethod, err.Error())
+		return command.NewValidationError(InvalidRequestErrorCode, err)
+	}
+
+	id, err := c.client.SaveConnection(request)
+	if err != nil {
+		logutil.LogError(logger, commandName, saveConnectionCommandMethod, err.Error())
+		return command.NewExecuteError(SaveConnectionErrorCode, err)
+	}
+
+	command.WriteNillableResponse(rw, &ConnectionIDArg{
+		ID: id,
+	}, logger)
+
+	logutil.LogDebug(logger, commandName, saveConnectionCommandMethod, successString,
+		logutil.CreateKeyValueString(connectionIDString, id))
 
 	return nil
 }

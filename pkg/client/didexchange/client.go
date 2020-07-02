@@ -281,6 +281,33 @@ func (c *Client) GetConnectionAtState(connectionID, stateID string) (*Connection
 	}, nil
 }
 
+// SaveConnection saves a new connection record in completed state and returns the generated connectionID.
+func (c *Client) SaveConnection(req *ConnectionReq) (string, error) {
+	connectionID := uuid.New().String()
+
+	rec := &connection.Record{
+		ConnectionID:    connectionID,
+		State:           connection.StateNameCompleted,
+		ThreadID:        req.ThreadID,
+		ParentThreadID:  req.ParentThreadID,
+		TheirLabel:      req.TheirLabel,
+		TheirDID:        req.TheirDID,
+		MyDID:           req.MyDID,
+		ServiceEndPoint: req.ServiceEndPoint,
+		RecipientKeys:   req.RecipientKeys,
+		RoutingKeys:     req.RoutingKeys,
+		InvitationID:    req.InvitationID,
+		Namespace:       connection.MyNSPrefix,
+	}
+
+	err := c.connectionStore.SaveConnectionRecord(rec)
+	if err != nil {
+		return "", fmt.Errorf("save connection: err: %w", err)
+	}
+
+	return connectionID, nil
+}
+
 // RemoveConnection removes connection record for given id
 func (c *Client) RemoveConnection(connectionID string) error {
 	err := c.connectionStore.RemoveConnection(connectionID)

@@ -32,6 +32,7 @@ const (
 	connections                  = operationID
 	connectionsByID              = operationID + "/{id}"
 	acceptExchangeRequest        = operationID + "/{id}/accept-request"
+	saveConnection               = operationID + "/create"
 	removeConnection             = operationID + "/{id}/remove"
 )
 
@@ -79,6 +80,7 @@ func (c *Operation) registerHandler() {
 		cmdutil.NewHTTPHandler(receiveInvitationPath, http.MethodPost, c.ReceiveInvitation),
 		cmdutil.NewHTTPHandler(acceptInvitationPath, http.MethodPost, c.AcceptInvitation),
 		cmdutil.NewHTTPHandler(acceptExchangeRequest, http.MethodPost, c.AcceptExchangeRequest),
+		cmdutil.NewHTTPHandler(saveConnection, http.MethodPost, c.SaveConnection),
 		cmdutil.NewHTTPHandler(removeConnection, http.MethodPost, c.RemoveConnection),
 	}
 }
@@ -197,6 +199,17 @@ func (c *Operation) QueryConnectionByID(rw http.ResponseWriter, req *http.Reques
 	request := fmt.Sprintf(`{"id":"%s"}`, id)
 
 	rest.Execute(c.command.QueryConnectionByID, rw, bytes.NewBufferString(request))
+}
+
+// SaveConnection swagger:route POST /connections/create did-exchange saveConnection
+//
+// Saves the connection record.
+//
+// Responses:
+//    default: genericError
+//    200: saveConnectionResp
+func (c *Operation) SaveConnection(rw http.ResponseWriter, req *http.Request) {
+	rest.Execute(c.command.SaveConnection, rw, req.Body)
 }
 
 // RemoveConnection swagger:route POST /connections/{id}/remove did-exchange removeConnection

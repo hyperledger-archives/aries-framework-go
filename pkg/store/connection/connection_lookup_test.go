@@ -356,8 +356,8 @@ func TestGetConnectionIDByDIDs(t *testing.T) {
 		connRec := &Record{
 			ThreadID:     threadIDValue,
 			ConnectionID: sampleConnID,
-			State:        stateNameCompleted,
-			Namespace:    myNSPrefix,
+			State:        StateNameCompleted,
+			Namespace:    MyNSPrefix,
 			MyDID:        myDID,
 			TheirDID:     theirDID,
 		}
