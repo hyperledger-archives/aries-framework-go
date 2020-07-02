@@ -183,12 +183,12 @@ func TestNewProvider(t *testing.T) {
 		handled := false
 		accepted := false
 		ctx, err := New(WithProtocolServices(&mockdidexchange.MockDIDExchangeSvc{
-			HandleOutboundFunc: func(result service.DIDCommMsg, myDID, theirDID string) error {
+			HandleOutboundFunc: func(result service.DIDCommMsg, myDID, theirDID string) (string, error) {
 				handled = true
 				require.Equal(t, expected, result)
 				require.Equal(t, expectedMyDID, myDID)
 				require.Equal(t, expectedTheirDID, theirDID)
-				return nil
+				return "", nil
 			},
 			AcceptFunc: func(msgType string) bool {
 				accepted = true
@@ -199,7 +199,7 @@ func TestNewProvider(t *testing.T) {
 		require.NoError(t, err)
 		handler := ctx.OutboundMessageHandler()
 		require.NotNil(t, handler)
-		err = handler.HandleOutbound(expected, expectedMyDID, expectedTheirDID)
+		_, err = handler.HandleOutbound(expected, expectedMyDID, expectedTheirDID)
 		require.NoError(t, err)
 		require.True(t, accepted)
 		require.True(t, handled)
@@ -212,7 +212,7 @@ func TestNewProvider(t *testing.T) {
 			},
 		}))
 		require.NoError(t, err)
-		err = ctx.OutboundMessageHandler().HandleOutbound(service.NewDIDCommMsgMap(&didexchange.Request{
+		_, err = ctx.OutboundMessageHandler().HandleOutbound(service.NewDIDCommMsgMap(&didexchange.Request{
 			Type: "test",
 		}), "myDID", "theirDID")
 		require.Error(t, err)

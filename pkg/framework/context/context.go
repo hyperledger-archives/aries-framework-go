@@ -55,14 +55,14 @@ type outboundHandler struct {
 	services []dispatcher.ProtocolService
 }
 
-func (o *outboundHandler) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) error {
+func (o *outboundHandler) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string) (string, error) {
 	for _, s := range o.services {
 		if s.Accept(msg.Type()) {
 			return s.HandleOutbound(msg, myDID, theirDID)
 		}
 	}
 
-	return fmt.Errorf("no handlers for msg type %s", msg.Type())
+	return "", fmt.Errorf("no handlers for msg type %s", msg.Type())
 }
 
 // New instantiates a new context provider.

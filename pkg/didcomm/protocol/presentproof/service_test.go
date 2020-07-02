@@ -382,6 +382,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 		require.Equal(t, properties.All()["myDID"], Alice)
@@ -438,6 +439,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -580,6 +582,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -635,6 +638,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -698,6 +702,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -764,6 +769,7 @@ func TestService_HandleInbound(t *testing.T) {
 
 		properties, ok := action.Properties.(*eventProps)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 

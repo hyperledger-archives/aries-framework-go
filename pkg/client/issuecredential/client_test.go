@@ -21,6 +21,8 @@ import (
 const (
 	Alice = "Alice"
 	Bob   = "Bob"
+
+	expectedPiid = "piid"
 )
 
 func TestNew(t *testing.T) {
@@ -56,14 +58,16 @@ func TestClient_SendOffer(t *testing.T) {
 			DoAndReturn(func(msg service.DIDCommMsg, _, _ string) (string, error) {
 				require.Equal(t, msg.Type(), issuecredential.OfferCredentialMsgType)
 
-				return "", nil
+				return expectedPiid, nil
 			})
 
 		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.NoError(t, client.SendOffer(&OfferCredential{}, Alice, Bob))
+		piid, err := client.SendOffer(&OfferCredential{}, Alice, Bob)
+		require.Equal(t, expectedPiid, piid)
+		require.NoError(t, err)
 	})
 
 	t.Run("Empty offer", func(t *testing.T) {
@@ -73,7 +77,9 @@ func TestClient_SendOffer(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.EqualError(t, client.SendOffer(nil, Alice, Bob), errEmptyOffer.Error())
+		piid, err := client.SendOffer(nil, Alice, Bob)
+		require.Empty(t, piid)
+		require.EqualError(t, err, errEmptyOffer.Error())
 	})
 }
 
@@ -89,14 +95,16 @@ func TestClient_SendProposal(t *testing.T) {
 			DoAndReturn(func(msg service.DIDCommMsg, _, _ string) (string, error) {
 				require.Equal(t, msg.Type(), issuecredential.ProposeCredentialMsgType)
 
-				return "", nil
+				return expectedPiid, nil
 			})
 
 		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.NoError(t, client.SendProposal(&ProposeCredential{}, Alice, Bob))
+		piid, err := client.SendProposal(&ProposeCredential{}, Alice, Bob)
+		require.Equal(t, expectedPiid, piid)
+		require.NoError(t, err)
 	})
 
 	t.Run("Empty offer", func(t *testing.T) {
@@ -106,7 +114,9 @@ func TestClient_SendProposal(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.EqualError(t, client.SendProposal(nil, Alice, Bob), errEmptyProposal.Error())
+		piid, err := client.SendProposal(nil, Alice, Bob)
+		require.Empty(t, piid)
+		require.EqualError(t, err, errEmptyProposal.Error())
 	})
 }
 
@@ -122,14 +132,16 @@ func TestClient_SendRequest(t *testing.T) {
 			DoAndReturn(func(msg service.DIDCommMsg, _, _ string) (string, error) {
 				require.Equal(t, msg.Type(), issuecredential.RequestCredentialMsgType)
 
-				return "", nil
+				return expectedPiid, nil
 			})
 
 		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.NoError(t, client.SendRequest(&RequestCredential{}, Alice, Bob))
+		piid, err := client.SendRequest(&RequestCredential{}, Alice, Bob)
+		require.Equal(t, expectedPiid, piid)
+		require.NoError(t, err)
 	})
 
 	t.Run("Empty offer", func(t *testing.T) {
@@ -139,7 +151,9 @@ func TestClient_SendRequest(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.EqualError(t, client.SendRequest(nil, Alice, Bob), errEmptyRequest.Error())
+		piid, err := client.SendRequest(nil, Alice, Bob)
+		require.Empty(t, piid)
+		require.EqualError(t, err, errEmptyRequest.Error())
 	})
 }
 

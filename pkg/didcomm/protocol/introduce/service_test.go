@@ -261,7 +261,7 @@ func TestService_SkipProposal(t *testing.T) {
 		Type: outofband.RequestMsgType,
 	})
 
-	err := alice.HandleOutbound(proposal, Alice, Bob)
+	_, err := alice.HandleOutbound(proposal, Alice, Bob)
 	require.NoError(t, err)
 }
 
@@ -320,10 +320,10 @@ func TestService_Proposal(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	err := alice.HandleOutbound(proposal1, Alice, Bob)
+	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	err = alice.HandleOutbound(proposal2, Alice, Carol)
+	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -389,10 +389,10 @@ func TestService_ProposalActionContinue(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	err := alice.HandleOutbound(proposal1, Alice, Bob)
+	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	err = alice.HandleOutbound(proposal2, Alice, Carol)
+	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -451,10 +451,10 @@ func TestService_ProposalSecond(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	err := alice.HandleOutbound(proposal1, Alice, Bob)
+	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	err = alice.HandleOutbound(proposal2, Alice, Carol)
+	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -520,10 +520,10 @@ func TestService_ProposalSecondActionContinue(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	err := alice.HandleOutbound(proposal1, Alice, Bob)
+	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	err = alice.HandleOutbound(proposal2, Alice, Carol)
+	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -577,10 +577,10 @@ func TestService_ProposalNoInvitation(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	err := alice.HandleOutbound(proposal1, Alice, Bob)
+	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	err = alice.HandleOutbound(proposal2, Alice, Carol)
+	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -626,7 +626,7 @@ func TestService_SkipProposalStopIntroducee(t *testing.T) {
 		Type: outofband.RequestMsgType,
 	})
 
-	err := alice.HandleOutbound(proposal, Alice, Bob)
+	_, err := alice.HandleOutbound(proposal, Alice, Bob)
 	require.NoError(t, err)
 }
 
@@ -675,7 +675,7 @@ func TestService_SkipProposalActionStopIntroducee(t *testing.T) {
 		Type: outofband.RequestMsgType,
 	})
 
-	err := alice.HandleOutbound(proposal, Alice, Bob)
+	_, err := alice.HandleOutbound(proposal, Alice, Bob)
 	require.NoError(t, err)
 }
 
@@ -734,10 +734,10 @@ func TestService_ProposalStopIntroduceeFirst(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	err := alice.HandleOutbound(proposal1, Alice, Bob)
+	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	err = alice.HandleOutbound(proposal2, Alice, Carol)
+	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -796,10 +796,10 @@ func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	err := alice.HandleOutbound(proposal1, Alice, Bob)
+	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	err = alice.HandleOutbound(proposal2, Alice, Carol)
+	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -862,10 +862,10 @@ func TestService_ProposalActionStopIntroduceeSecond(t *testing.T) {
 
 	introduce.WrapWithMetadataPIID(proposal1, proposal2)
 
-	err := alice.HandleOutbound(proposal1, Alice, Bob)
+	_, err := alice.HandleOutbound(proposal1, Alice, Bob)
 	require.NoError(t, err)
 
-	err = alice.HandleOutbound(proposal2, Alice, Carol)
+	_, err = alice.HandleOutbound(proposal2, Alice, Carol)
 	require.NoError(t, err)
 }
 
@@ -933,7 +933,7 @@ func TestService_ProposalWithRequest(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
 
-	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1019,7 +1019,7 @@ func TestService_ProposalWithRequestActionContinue(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
 
-	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1092,7 +1092,7 @@ func TestService_ProposalWithRequestSecond(t *testing.T) {
 		},
 	))
 
-	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1165,7 +1165,7 @@ func TestService_ProposalWithRequestStopIntroduceeFirst(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Carol, action{Expected: introduce.ProposalMsgType}))
 
-	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1238,7 +1238,7 @@ func TestService_ProposalWithRequestStopIntroduceeSecond(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1282,7 +1282,7 @@ func TestService_ProposalWithRequestIntroducerStop(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1332,7 +1332,7 @@ func TestService_SkipProposalWithRequest(t *testing.T) {
 		"done", "done",
 	), checkDIDCommAction(t, Bob, action{Expected: introduce.ProposalMsgType}))
 
-	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1389,7 +1389,7 @@ func TestService_SkipProposalWithRequestStopIntroducee(t *testing.T) {
 		runtime.Goexit()
 	})
 
-	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1427,7 +1427,7 @@ func TestService_ProposalWithRequestNoRecipients(t *testing.T) {
 		"done", "done",
 	), nil)
 
-	err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	_, err := bob.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type: introduce.RequestMsgType,
 		PleaseIntroduceTo: &introduce.PleaseIntroduceTo{To: introduce.To{
 			Name: Carol,
@@ -1543,7 +1543,7 @@ func TestService_HandleOutbound(t *testing.T) {
 		ch := make(chan service.DIDCommAction)
 		require.NoError(t, svc.RegisterActionEvent(ch))
 		const errMsg = "doHandle: invalid state transition: noop -> arranging"
-		err = svc.HandleOutbound(msg, "", "")
+		_, err = svc.HandleOutbound(msg, "", "")
 		require.EqualError(t, err, errMsg)
 	})
 }

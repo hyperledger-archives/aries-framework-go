@@ -127,7 +127,7 @@ func TestServiceHandleOutbound(t *testing.T) {
 			require.NoError(t, svc.handleGrant(generateGrantMsgPayload(t, id)))
 		}()
 
-		err = svc.HandleOutbound(service.NewDIDCommMsgMap(&Request{
+		_, err = svc.HandleOutbound(service.NewDIDCommMsgMap(&Request{
 			ID:   uuid.New().String(),
 			Type: RequestMsgType,
 		}), MYDID, THEIRDID)
@@ -135,14 +135,14 @@ func TestServiceHandleOutbound(t *testing.T) {
 	})
 
 	t.Run("rejects invalid msg types", func(t *testing.T) {
-		err := (&Service{}).HandleOutbound(service.NewDIDCommMsgMap(&Request{
+		_, err := (&Service{}).HandleOutbound(service.NewDIDCommMsgMap(&Request{
 			Type: "invalid",
 		}), "myDID", "theirDID")
 		require.Error(t, err)
 	})
 
 	t.Run("rejects unsupported route protocol messages", func(t *testing.T) {
-		err := (&Service{}).HandleOutbound(service.NewDIDCommMsgMap(&Request{
+		_, err := (&Service{}).HandleOutbound(service.NewDIDCommMsgMap(&Request{
 			Type: GrantMsgType,
 		}), "myDID", "theirDID")
 		require.Error(t, err)
@@ -160,7 +160,7 @@ func TestServiceHandleOutbound(t *testing.T) {
 				return "", expected
 			},
 		}
-		err = s.HandleOutbound(service.NewDIDCommMsgMap(
+		_, err = s.HandleOutbound(service.NewDIDCommMsgMap(
 			&Request{Type: RequestMsgType}),
 			"myDID", "theirDID",
 		)
@@ -180,7 +180,7 @@ func TestServiceHandleOutbound(t *testing.T) {
 				return nil, expected
 			},
 		}
-		err = s.HandleOutbound(service.NewDIDCommMsgMap(
+		_, err = s.HandleOutbound(service.NewDIDCommMsgMap(
 			&Request{Type: RequestMsgType}),
 			"myDID", "theirDID",
 		)

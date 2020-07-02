@@ -196,7 +196,7 @@ func TestCommand_SendOffer(t *testing.T) {
 		service.EXPECT().HandleOutbound(
 			gomock.Any(), gomock.Any(),
 			gomock.Any(),
-		).Return(errors.New("some error message"))
+		).Return("", errors.New("some error message"))
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -307,7 +307,7 @@ func TestCommand_SendProposal(t *testing.T) {
 		service.EXPECT().HandleOutbound(
 			gomock.Any(), gomock.Any(),
 			gomock.Any(),
-		).Return(errors.New("some error message"))
+		).Return("", errors.New("some error message"))
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)
@@ -418,7 +418,7 @@ func TestCommand_SendRequest(t *testing.T) {
 		service.EXPECT().HandleOutbound(
 			gomock.Any(), gomock.Any(),
 			gomock.Any(),
-		).Return(errors.New("some error message"))
+		).Return("", errors.New("some error message"))
 
 		provider := mocks.NewMockProvider(ctrl)
 		provider.EXPECT().Service(gomock.Any()).Return(service, nil)

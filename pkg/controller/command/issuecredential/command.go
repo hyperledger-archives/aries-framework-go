@@ -185,12 +185,13 @@ func (c *Command) SendOffer(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyOfferCredential))
 	}
 
-	if err := c.client.SendOffer(args.OfferCredential, args.MyDID, args.TheirDID); err != nil {
+	piid, err := c.client.SendOffer(args.OfferCredential, args.MyDID, args.TheirDID)
+	if err != nil {
 		logutil.LogError(logger, commandName, sendOffer, err.Error())
 		return command.NewExecuteError(SendOfferErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &SendOfferResponse{}, logger)
+	command.WriteNillableResponse(rw, &SendOfferResponse{PIID: piid}, logger)
 
 	logutil.LogDebug(logger, commandName, sendOffer, successString)
 
@@ -222,12 +223,13 @@ func (c *Command) SendProposal(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyProposeCredential))
 	}
 
-	if err := c.client.SendProposal(args.ProposeCredential, args.MyDID, args.TheirDID); err != nil {
+	piid, err := c.client.SendProposal(args.ProposeCredential, args.MyDID, args.TheirDID)
+	if err != nil {
 		logutil.LogError(logger, commandName, sendProposal, err.Error())
 		return command.NewExecuteError(SendProposalErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &SendProposalResponse{}, logger)
+	command.WriteNillableResponse(rw, &SendProposalResponse{PIID: piid}, logger)
 
 	logutil.LogDebug(logger, commandName, sendProposal, successString)
 
@@ -259,12 +261,13 @@ func (c *Command) SendRequest(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRequestCredential))
 	}
 
-	if err := c.client.SendRequest(args.RequestCredential, args.MyDID, args.TheirDID); err != nil {
+	piid, err := c.client.SendRequest(args.RequestCredential, args.MyDID, args.TheirDID)
+	if err != nil {
 		logutil.LogError(logger, commandName, sendRequest, err.Error())
 		return command.NewExecuteError(SendRequestErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &SendRequestResponse{}, logger)
+	command.WriteNillableResponse(rw, &SendRequestResponse{PIID: piid}, logger)
 
 	logutil.LogDebug(logger, commandName, sendRequest, successString)
 

@@ -95,6 +95,10 @@ func PullEventsFromWebSocket(bdd *bddcontext.BDDContext, agentID string, filters
 			continue
 		}
 
+		if filter.PIID != nil && incoming.Message.Properties["piid"].(string) != *filter.PIID {
+			continue
+		}
+
 		return incoming, nil
 	}
 }
@@ -103,6 +107,7 @@ type eventFilter struct {
 	Topic   *string
 	StateID *string
 	Type    *string
+	PIID    *string
 }
 
 // Filter is an option for the PullEventsFromWebSocket function
@@ -122,6 +127,13 @@ func FilterStateID(val string) Filter {
 	}
 }
 
+// FilterPIID filters WebSocket events by PIID
+func FilterPIID(val string) Filter {
+	return func(filter *eventFilter) {
+		filter.PIID = &val
+	}
+}
+
 // FilterType filters WebSocket events by type
 func FilterType(val string) Filter {
 	return func(filter *eventFilter) {
@@ -134,8 +146,10 @@ type Incoming struct {
 	ID      string `json:"id"`
 	Topic   string `json:"topic"`
 	Message struct {
-		StateID    string
-		Properties map[string]interface{}
-		Type       string
+		ProtocolName string
+		Message      map[string]interface{}
+		StateID      string
+		Properties   map[string]interface{}
+		Type         string
 	} `json:"message"`
 }

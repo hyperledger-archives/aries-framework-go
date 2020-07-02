@@ -298,7 +298,10 @@ type issueCredentialSendOfferRequest struct { // nolint: unused,deadcode
 // swagger:response issueCredentialSendOfferResponse
 type issueCredentialSendOfferResponse struct { // nolint: unused,deadcode
 	// in: body
-	Body struct{}
+	Body struct {
+		// PIID Protocol instance ID. It can be used as a correlation ID
+		PIID string `json:"piid"`
+	}
 }
 
 // issueCredentialSendProposalRequest model
@@ -328,7 +331,10 @@ type issueCredentialSendProposalRequest struct { // nolint: unused,deadcode
 // swagger:response issueCredentialSendProposalResponse
 type issueCredentialSendProposalResponse struct { // nolint: unused,deadcode
 	// in: body
-	Body struct{}
+	Body struct {
+		// PIID Protocol instance ID. It can be used as a correlation ID
+		PIID string `json:"piid"`
+	}
 }
 
 // issueCredentialSendRequestRequest model
@@ -359,5 +365,8 @@ type issueCredentialSendRequestRequest struct { // nolint: unused,deadcode
 // swagger:response issueCredentialSendRequestResponse
 type issueCredentialSendRequestResponse struct { // nolint: unused,deadcode
 	// in: body
-	Body struct{}
+	Body struct {
+		// PIID Protocol instance ID. It can be used as a correlation ID
+		PIID string `json:"piid"`
+	}
 }
