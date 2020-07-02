@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
@@ -518,6 +520,68 @@ func TestClientGetConnectionAtState(t *testing.T) {
 	result, err := c.GetConnectionAtState("id1", "complete")
 	require.Equal(t, err.Error(), ErrConnectionNotFound.Error())
 	require.Nil(t, result)
+}
+
+func TestClient_SaveConnection(t *testing.T) {
+	t.Run("test save connection - success", func(t *testing.T) {
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NoError(t, err)
+
+		connRec := &ConnectionReq{
+			ThreadID:        uuid.New().String(),
+			ParentThreadID:  uuid.New().String(),
+			TheirLabel:      "alice",
+			TheirDID:        "did:example:123",
+			MyDID:           "did:example:789",
+			ServiceEndPoint: "http://example.com/didcomm",
+		}
+
+		id, err := c.SaveConnection(connRec)
+		require.NoError(t, err)
+
+		conn, err := c.GetConnection(id)
+		require.NoError(t, err)
+		require.Equal(t, connection.StateNameCompleted, conn.State)
+		require.Equal(t, connRec.ThreadID, conn.ThreadID)
+		require.Equal(t, connRec.ParentThreadID, conn.ParentThreadID)
+		require.Equal(t, connRec.TheirLabel, conn.TheirLabel)
+		require.Equal(t, connRec.TheirDID, conn.TheirDID)
+		require.Equal(t, connRec.MyDID, conn.MyDID)
+		require.Equal(t, connRec.ServiceEndPoint, conn.ServiceEndPoint)
+	})
+
+	t.Run("test save connection - error", func(t *testing.T) {
+		store := &mockstore.MockStore{
+			Store:  make(map[string][]byte),
+			ErrPut: fmt.Errorf("store error"),
+		}
+
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: mockstore.NewCustomMockStoreProvider(store),
+			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+			ServiceMap: map[string]interface{}{
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
+				mediator.Coordination:   &mockroute.MockMediatorSvc{},
+			},
+		})
+		require.NoError(t, err)
+
+		connRec := &ConnectionReq{
+			ThreadID: uuid.New().String(),
+		}
+
+		id, err := c.SaveConnection(connRec)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "save connection")
+		require.Empty(t, id)
+	})
 }
 
 func TestClient_RemoveConnection(t *testing.T) {

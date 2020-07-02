@@ -200,3 +200,15 @@ type RemoveConnectionRequest struct { // nolint: unused,deadcode
 // swagger:response removeConnectionResponse
 type RemoveConnectionResponse struct { // nolint: unused,deadcode
 }
+
+// saveConnectionResp model
+//
+// This is used as the response model for save connection api.
+//
+// swagger:response saveConnectionResp
+type saveConnectionResp struct { // nolint: unused,deadcode
+	// The ID of the connection to get
+	//
+	// in: body
+	ID string `json:"id"`
+}

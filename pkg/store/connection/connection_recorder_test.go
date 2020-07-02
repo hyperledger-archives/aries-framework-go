@@ -123,8 +123,8 @@ func Test_RemoveConnectionRecordsForStates(t *testing.T) {
 		record := &Record{
 			ThreadID:     threadIDValue,
 			ConnectionID: uuid.New().String(),
-			State:        stateNameCompleted,
-			Namespace:    theirNSPrefix,
+			State:        StateNameCompleted,
+			Namespace:    TheirNSPrefix,
 			MyDID:        "did:mydid:123",
 			TheirDID:     "did:theirdid:123",
 		}
@@ -169,8 +169,8 @@ func Test_RemoveConnectionRecordsForStates(t *testing.T) {
 		record := &Record{
 			ThreadID:     threadIDValue,
 			ConnectionID: uuid.New().String(),
-			State:        stateNameCompleted,
-			Namespace:    theirNSPrefix,
+			State:        StateNameCompleted,
+			Namespace:    TheirNSPrefix,
 			MyDID:        "did:mydid:123",
 			TheirDID:     "did:theirdid:123",
 		}
@@ -339,7 +339,7 @@ func TestConnectionRecordByState(t *testing.T) {
 	require.NoError(t, err)
 
 	connRec := &Record{ConnectionID: uuid.New().String(), ThreadID: threadIDValue,
-		Namespace: myNSPrefix, State: "requested"}
+		Namespace: MyNSPrefix, State: "requested"}
 	err = recorder.SaveConnectionRecord(connRec)
 	require.NoError(t, err)
 
@@ -355,7 +355,7 @@ func TestConnectionRecordByState(t *testing.T) {
 
 	// data with no state details
 	connRec = &Record{ConnectionID: uuid.New().String(), ThreadID: threadIDValue,
-		Namespace: myNSPrefix}
+		Namespace: MyNSPrefix}
 	err = recorder.SaveConnectionRecord(connRec)
 	require.NoError(t, err)
 	_, err = recorder.GetConnectionRecordAtState(connRec.ConnectionID, "requested")
@@ -375,7 +375,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		require.NotNil(t, recorder)
 
 		record := &Record{ThreadID: threadIDValue,
-			ConnectionID: uuid.New().String(), State: stateNameInvited, Namespace: theirNSPrefix}
+			ConnectionID: uuid.New().String(), State: stateNameInvited, Namespace: TheirNSPrefix}
 		err = recorder.SaveConnectionRecord(record)
 		require.NoError(t, err)
 
@@ -404,8 +404,8 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		record := &Record{
 			ThreadID:     threadIDValue,
 			ConnectionID: uuid.New().String(),
-			State:        stateNameCompleted,
-			Namespace:    theirNSPrefix,
+			State:        StateNameCompleted,
+			Namespace:    TheirNSPrefix,
 			MyDID:        "did:mydid:123",
 			TheirDID:     "did:theirdid:123",
 		}
@@ -439,7 +439,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		})
 		require.NoError(t, err)
 		connRec := &Record{ThreadID: "",
-			ConnectionID: "test", State: stateNameInvited, Namespace: theirNSPrefix}
+			ConnectionID: "test", State: stateNameInvited, Namespace: TheirNSPrefix}
 		err = record.SaveConnectionRecord(connRec)
 		require.Contains(t, err.Error(), errMsg)
 	})
@@ -454,7 +454,7 @@ func TestConnectionRecorder_SaveConnectionRecord(t *testing.T) {
 		})
 		require.NoError(t, err)
 		connRec := &Record{ThreadID: "",
-			ConnectionID: "test", State: stateNameCompleted, Namespace: theirNSPrefix}
+			ConnectionID: "test", State: StateNameCompleted, Namespace: TheirNSPrefix}
 		err = record.SaveConnectionRecord(connRec)
 		require.Contains(t, err.Error(), errMsg)
 	})
@@ -469,8 +469,8 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		record := &Record{
 			ThreadID:     threadIDValue,
 			ConnectionID: uuid.New().String(),
-			State:        stateNameCompleted,
-			Namespace:    theirNSPrefix,
+			State:        StateNameCompleted,
+			Namespace:    TheirNSPrefix,
 			MyDID:        "did:mydid:123",
 			TheirDID:     "did:theirdid:123",
 		}
@@ -519,8 +519,8 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		record := &Record{
 			ThreadID:     threadIDValue,
 			ConnectionID: uuid.New().String(),
-			State:        stateNameCompleted,
-			Namespace:    theirNSPrefix,
+			State:        StateNameCompleted,
+			Namespace:    TheirNSPrefix,
 			MyDID:        "did:mydid:123",
 			TheirDID:     "did:theirdid:123",
 		}
@@ -543,8 +543,8 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		record := &Record{
 			ThreadID:     threadIDValue,
 			ConnectionID: uuid.New().String(),
-			State:        stateNameCompleted,
-			Namespace:    theirNSPrefix,
+			State:        StateNameCompleted,
+			Namespace:    TheirNSPrefix,
 			MyDID:        "did:mydid:123",
 			TheirDID:     "did:theirdid:123",
 		}
@@ -569,8 +569,8 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		record := &Record{
 			ThreadID:     threadIDValue,
 			ConnectionID: uuid.New().String(),
-			State:        stateNameCompleted,
-			Namespace:    theirNSPrefix,
+			State:        StateNameCompleted,
+			Namespace:    TheirNSPrefix,
 			MyDID:        "did:mydid:123",
 			TheirDID:     "did:theirdid:123",
 		}
@@ -595,8 +595,8 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		record := &Record{
 			ThreadID:     threadIDValue,
 			ConnectionID: uuid.New().String(),
-			State:        stateNameCompleted,
-			Namespace:    theirNSPrefix,
+			State:        StateNameCompleted,
+			Namespace:    TheirNSPrefix,
 			MyDID:        "did:mydid:123",
 			TheirDID:     "did:theirdid:123",
 		}
@@ -615,8 +615,8 @@ func TestConnectionRecorder_RemoveConnection(t *testing.T) {
 		record := &Record{
 			ThreadID:     "",
 			ConnectionID: uuid.New().String(),
-			State:        stateNameCompleted,
-			Namespace:    theirNSPrefix,
+			State:        StateNameCompleted,
+			Namespace:    TheirNSPrefix,
 			MyDID:        "did:mydid:123",
 			TheirDID:     "did:theirdid:123",
 		}
@@ -636,11 +636,11 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 
 		require.NotNil(t, recorder)
 		connRec := &Record{ThreadID: threadIDValue,
-			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: myNSPrefix}
+			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: MyNSPrefix}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.NoError(t, err)
 
-		nsThreadID, err := CreateNamespaceKey(myNSPrefix, threadIDValue)
+		nsThreadID, err := CreateNamespaceKey(MyNSPrefix, threadIDValue)
 		require.NoError(t, err)
 
 		storedRecord, err := recorder.GetConnectionRecordByNSThreadID(nsThreadID)
@@ -652,11 +652,11 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, recorder)
 		connRec := &Record{ThreadID: threadIDValue,
-			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: theirNSPrefix}
+			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: TheirNSPrefix}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.NoError(t, err)
 
-		nsThreadID, err := CreateNamespaceKey(theirNSPrefix, threadIDValue)
+		nsThreadID, err := CreateNamespaceKey(TheirNSPrefix, threadIDValue)
 		require.NoError(t, err)
 
 		storedRecord, err := recorder.GetConnectionRecordByNSThreadID(nsThreadID)
@@ -669,7 +669,7 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 
 		require.NotNil(t, recorder)
 		connRec := &Record{ThreadID: "",
-			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: myNSPrefix}
+			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: MyNSPrefix}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "validation failed")
@@ -687,7 +687,7 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 		require.NoError(t, err)
 
 		connRec := &Record{ThreadID: threadIDValue,
-			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: myNSPrefix}
+			ConnectionID: sampleConnID, State: stateNameInvited, Namespace: MyNSPrefix}
 		err = recorder.SaveConnectionRecordWithMappings(connRec)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), errMsg)
@@ -715,12 +715,12 @@ func TestConnectionRecorder_ConnectionRecordMappings(t *testing.T) {
 
 func TestConnectionRecorder_CreateNSKeys(t *testing.T) {
 	t.Run("creating their namespace key success", func(t *testing.T) {
-		key, err := CreateNamespaceKey(theirNSPrefix, threadIDValue)
+		key, err := CreateNamespaceKey(TheirNSPrefix, threadIDValue)
 		require.NoError(t, err)
 		require.NotNil(t, key)
 	})
 	t.Run("check error while creating my namespace key", func(t *testing.T) {
-		_, err := CreateNamespaceKey(myNSPrefix, "")
+		_, err := CreateNamespaceKey(MyNSPrefix, "")
 		require.Contains(t, err.Error(), "empty bytes")
 	})
 }
@@ -731,9 +731,9 @@ func TestConnectionRecorder_SaveNamespaceThreadID(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotNil(t, recorder)
-		err = recorder.SaveNamespaceThreadID("", theirNSPrefix, sampleConnID)
+		err = recorder.SaveNamespaceThreadID("", TheirNSPrefix, sampleConnID)
 		require.Error(t, err)
-		err = recorder.SaveNamespaceThreadID("", myNSPrefix, sampleConnID)
+		err = recorder.SaveNamespaceThreadID("", MyNSPrefix, sampleConnID)
 		require.Error(t, err)
 		err = recorder.SaveNamespaceThreadID(threadIDValue, "", sampleConnID)
 		require.Error(t, err)

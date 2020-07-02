@@ -19,11 +19,14 @@ import (
 )
 
 const (
-	stateNameCompleted = "completed"
-	myNSPrefix         = "my"
+	// StateNameCompleted completed state
+	StateNameCompleted = "completed"
+	// MyNSPrefix namespace val my
+	MyNSPrefix = "my"
+	// TheirNSPrefix namespace val their
 	// TODO: https://github.com/hyperledger/aries-framework-go/issues/556 It will not be constant, this namespace
 	//  will need to be figured with verification key
-	theirNSPrefix    = "their"
+	TheirNSPrefix    = "their"
 	errMsgInvalidKey = "invalid key"
 )
 
@@ -69,7 +72,7 @@ func (c *Recorder) SaveConnectionRecord(record *Record) error {
 		}
 	}
 
-	if record.State == stateNameCompleted {
+	if record.State == StateNameCompleted {
 		if err := marshalAndSave(getConnectionKeyPrefix()(record.ConnectionID),
 			record, c.store); err != nil {
 			return fmt.Errorf("save connection record in permanent store: %w", err)
@@ -114,13 +117,13 @@ func (c *Recorder) SaveEvent(connectionID string, data []byte) error {
 
 // SaveNamespaceThreadID saves given namespace, threadID and connection ID mapping in transient store
 func (c *Recorder) SaveNamespaceThreadID(threadID, namespace, connectionID string) error {
-	if namespace != myNSPrefix && namespace != theirNSPrefix {
+	if namespace != MyNSPrefix && namespace != TheirNSPrefix {
 		return fmt.Errorf("namespace not supported")
 	}
 
-	prefix := myNSPrefix
-	if namespace == theirNSPrefix {
-		prefix = theirNSPrefix
+	prefix := MyNSPrefix
+	if namespace == TheirNSPrefix {
+		prefix = TheirNSPrefix
 	}
 
 	key, err := computeHash([]byte(threadID))

@@ -61,3 +61,16 @@ type DIDInfo struct {
 	// the label associated with DID
 	Label string
 }
+
+// ConnectionReq contains fields to save the connection.
+type ConnectionReq struct {
+	ThreadID        string   `json:"threadID,omitempty"`
+	ParentThreadID  string   `json:"parentThreadID,omitempty"`
+	TheirLabel      string   `json:"theirLabel,omitempty"`
+	TheirDID        string   `json:"theirDID,omitempty"`
+	MyDID           string   `json:"myDID,omitempty"`
+	ServiceEndPoint string   `json:"serviceEndPoint,omitempty"`
+	RecipientKeys   []string `json:"recipientKeys,omitempty"`
+	RoutingKeys     []string `json:"routingKeys,omitempty"`
+	InvitationID    string   `json:"invitationID,omitempty"`
+}

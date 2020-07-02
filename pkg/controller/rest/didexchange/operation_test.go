@@ -357,6 +357,23 @@ func TestOperation_AcceptExchangeRequest(t *testing.T) {
 	})
 }
 
+func TestOperation_SaveConnection(t *testing.T) {
+	t.Run("test save connection - success", func(t *testing.T) {
+		handler := getHandler(t, saveConnection)
+		buf, err := getSuccessResponseFromHandler(handler, bytes.NewBuffer([]byte("{}")),
+			saveConnection)
+		require.NoError(t, err)
+
+		response := saveConnectionResp{}
+		err = json.Unmarshal(buf.Bytes(), &response)
+		require.NoError(t, err)
+
+		// verify response
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.ID)
+	})
+}
+
 func TestOperation_RemoveConnection(t *testing.T) {
 	t.Run("test remove connection success", func(t *testing.T) {
 		handler := getHandler(t, removeConnection)

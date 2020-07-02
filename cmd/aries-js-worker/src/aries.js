@@ -664,6 +664,16 @@ const Aries = function (opts) {
             },
 
             /**
+             * Saves a connection.
+             *
+             * @param req - json document
+             * @returns {Promise<Object>}
+             */
+            saveConnection: async function (req) {
+                return invoke(aw, pending, this.pkgname, "SaveConnection", req, "timeout while saving invitation")
+            },
+
+            /**
              * Removes a connection.
              *
              * @param req - json document

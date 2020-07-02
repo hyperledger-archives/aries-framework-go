@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/client/didexchange"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command"
 	mockwebhook "github.com/hyperledger/aries-framework-go/pkg/controller/internal/mocks/webhook"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/webnotifier"
@@ -822,6 +823,48 @@ func TestCommand_AcceptExchangeRequest(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			require.Fail(t, "tests are not validated")
 		}
+	})
+}
+
+func TestCommand_SaveConnection(t *testing.T) {
+	t.Run("test save connection - success", func(t *testing.T) {
+		cmd, err := New(mockProvider(), mockwebhook.NewMockWebhookNotifier(), "", false)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		connRec := &didexchange.ConnectionReq{
+			ThreadID:        uuid.New().String(),
+			ParentThreadID:  uuid.New().String(),
+			TheirLabel:      "alice",
+			TheirDID:        "did:example:123",
+			MyDID:           "did:example:789",
+			ServiceEndPoint: "http://example.com/didcomm",
+		}
+
+		connBytes, err := json.Marshal(connRec)
+		require.NoError(t, err)
+
+		var b bytes.Buffer
+
+		cmdErr := cmd.SaveConnection(&b, bytes.NewBuffer(connBytes))
+		require.NoError(t, cmdErr)
+
+		response := ConnectionIDArg{}
+		err = json.NewDecoder(&b).Decode(&response)
+		require.NoError(t, err)
+		require.NotEmpty(t, response.ID)
+	})
+
+	t.Run("test remove connection validation error", func(t *testing.T) {
+		cmd, err := New(mockProvider(), mockwebhook.NewMockWebhookNotifier(), "", false)
+		require.NoError(t, err)
+		require.NotNil(t, cmd)
+
+		var b bytes.Buffer
+		cmdErr := cmd.SaveConnection(&b, bytes.NewBufferString(`--`))
+		require.Error(t, cmdErr)
+		require.Equal(t, InvalidRequestErrorCode, cmdErr.Code())
+		require.Equal(t, command.ValidationError, cmdErr.Type())
 	})
 }
 

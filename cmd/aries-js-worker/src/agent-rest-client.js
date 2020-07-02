@@ -32,6 +32,10 @@ const pkgs = {
             path: "/connections/create-implicit-invitation",
             method: "POST"
         },
+        SaveConnection: {
+            path: "/connections/create",
+            method: "POST"
+        },
         RemoveConnection: {
             path: "/connections/{id}/remove",
             method: "POST",
