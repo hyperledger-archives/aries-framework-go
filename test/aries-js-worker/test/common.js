@@ -81,3 +81,63 @@ function testWsUrl(url, timeout, msgTimeout) {
         }
     })
 }
+
+export function watchForEvent(agent, options) {
+    const defaultTimeout = 5000
+    const defaultTimeoutError = "time out while waiting for event"
+
+    if (options === undefined) {
+        options = {}
+    }
+
+    if (!options.timeout) {
+        options.timeout = defaultTimeout
+    }
+
+    if (!options.timeoutError) {
+        options.timeoutError = defaultTimeoutError
+    }
+
+    if (!options.topic) {
+        options.topic = "all"
+    }
+
+    return new Promise((resolve, reject) => {
+        setTimeout(_ => reject(new Error(options.timeoutError)), options.timeout)
+        const stop = agent.startNotifier(event => {
+            try {
+                assert.property(event, "isErr")
+                assert.isFalse(event.isErr)
+                assert.property(event, "payload")
+
+                let payload = event.payload;
+
+                if (options.connectionID && payload.Properties.connectionID !== options.connectionID) {
+                    return
+                }
+
+                if (options.stateID && payload.StateID !== options.stateID) {
+                    return
+                }
+
+                if (options.type && payload.Type !== options.type) {
+                    return
+                }
+
+                if (options.messageID && payload.Message['@id'] !== options.messageID) {
+                    return
+                }
+
+                if (options.messageThreadID && payload.Message['~thread']['thid'] !== options.messageThreadID) {
+                    return
+                }
+
+                stop()
+                resolve(payload)
+            } catch (e) {
+                stop()
+                reject(e)
+            }
+        }, [options.topic])
+    })
+}

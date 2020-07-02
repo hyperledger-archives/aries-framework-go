@@ -26,8 +26,6 @@ const sampleReplyMsg = {
 
 // scenarios
 describe("Basic Messaging", function () {
-    this.timeout(5000);
-
     const receiver_agent_name = "msg-receiver"
     const sender_agent_name = "msg-sender"
 
@@ -87,7 +85,7 @@ describe("Basic Messaging", function () {
                 stop()
                 lastReceivedMsgID = msg.payload.message["@id"]
                 resolve(msg.payload.message)
-            }, ["all"])
+            }, [basicMsgSvcName])
         })
 
         assert.equal(incomingMsg["@id"], sampleMsg["@id"])
@@ -115,7 +113,7 @@ describe("Basic Messaging", function () {
             const stop = sender.startNotifier(msg => {
                 stop()
                 resolve(msg.payload.message)
-            }, ["all"])
+            }, [basicMsgSvcName])
         })
 
         assert.equal(incomingMsg["@id"], sampleReplyMsg["@id"])
