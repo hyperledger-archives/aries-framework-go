@@ -145,8 +145,8 @@ func (s *Service) HandleInbound(msg service.DIDCommMsg, myDID, theirDID string) 
 }
 
 // HandleOutbound adherence to dispatcher.ProtocolService
-func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) error {
-	return errors.New("not implemented")
+func (s *Service) HandleOutbound(_ service.DIDCommMsg, _, _ string) (string, error) {
+	return "", errors.New("not implemented")
 }
 
 // Accept checks whether the service can handle the message type
