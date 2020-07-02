@@ -21,6 +21,7 @@ import (
 	tinkpb "github.com/google/tink/go/proto/tink_go_proto"
 	"github.com/google/tink/go/signature"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms/internal/keywrapper"
@@ -154,7 +155,7 @@ func (l *LocalKMS) Rotate(kt kms.KeyType, keyID string) (string, interface{}, er
 	return newID, updatedKH, nil
 }
 
-// nolint:gocyclo
+// nolint:gocyclo,funlen
 func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 	switch keyType {
 	case kms.AES128GCMType:
@@ -187,6 +188,19 @@ func getKeyTemplate(keyType kms.KeyType) (*tinkpb.KeyTemplate, error) {
 		return mac.HMACSHA256Tag256KeyTemplate(), nil
 	case kms.ECDHES256AES256GCMType:
 		return ecdhes.ECDHES256KWAES256GCMKeyTemplate(), nil
+	case kms.ECDHES384AES256GCMType:
+		return ecdhes.ECDHES384KWAES256GCMKeyTemplate(), nil
+	case kms.ECDHES521AES256GCMType:
+		return ecdhes.ECDHES521KWAES256GCMKeyTemplate(), nil
+	case kms.ECDH1PU256AES256GCMType:
+		// Keys created by ECDH1PU templates should be used only to be persisted in the KMS. To execute primitives,
+		// one must add the sender public key (on the recipient side using ecdh1pu.AddSenderKey()) or the recipient(s)
+		// public key(s) (on the sender side using ecdh1pu.AddRecipientsKeys())
+		return ecdh1pu.ECDH1PU256KWAES256GCMKeyTemplate(), nil
+	case kms.ECDH1PU384AES256GCMType:
+		return ecdh1pu.ECDH1PU384KWAES256GCMKeyTemplate(), nil
+	case kms.ECDH1PU521AES256GCMType:
+		return ecdh1pu.ECDH1PU521KWAES256GCMKeyTemplate(), nil
 	default:
 		return nil, fmt.Errorf("key type unrecognized")
 	}
