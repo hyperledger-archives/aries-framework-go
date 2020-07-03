@@ -2,27 +2,39 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-MAKEFILE_DIR := ${CURDIR}
 
 GO_CMD ?= go
 GOMOBILE_CMD ?= gomobile
 
 PROJECT_ROOT = github.com/hyperledger/aries-framework-go
-# TODO change this to cmd/aries-agent-mobile/
-# when https://github.com/hyperledger/aries-framework-go/issues/1923 is ready
-MOBILE_BINDINGS_ROOT_PACKAGE := $(PROJECT_ROOT)/pkg/didcomm/transport/ws
+MOBILE_BUILD_PACKAGES := $(PROJECT_ROOT)/cmd/aries-agent-mobile/ \
+								$(PROJECT_ROOT)/cmd/aries-agent-mobile/pkg/api \
+								$(PROJECT_ROOT)/cmd/aries-agent-mobile/pkg/wrappers \
+								$(PROJECT_ROOT)/cmd/aries-agent-mobile/pkg/wrappers/command \
+								$(PROJECT_ROOT)/cmd/aries-agent-mobile/pkg/wrappers/rest
+
+MAKEFILE_DIR := ${CURDIR}
 BUILD_DIR = $(MAKEFILE_DIR)/build
 
 ANDROID_BUILD_DIR = $(BUILD_DIR)/android
-ANDROID_OUTPUT_FILE_NAME = aries-agent-mobile.aar
+ANDROID_OUTPUT_FILE_NAME = aries-agent.aar
 ifeq ($(ANDROID_TARGET),)
 	ANDROID_TARGET = android
 endif
+ANDROID_JAVA_PKG = org.hyperledger.aries
 
 IOS_BUILD_DIR = $(BUILD_DIR)/ios
-IOS_OUTPUT_FILE_NAME = AriesAgentMobile.framework
+IOS_OUTPUT_FILE_NAME = AriesAgent.framework
 ifeq ($(IOS_TARGET),)
     IOS_TARGET = ios
+endif
+
+IS_MACOS = false
+ifneq ($(OS),Windows_NT)
+	OS := $(shell uname)
+	ifeq ($(OS),Darwin)
+		IS_MACOS = true
+	endif
 endif
 
 help:
@@ -35,10 +47,13 @@ help:
 		| sed 's/^/	$(HELP_MSG_PREFIX)make /'
 
 .PHONY: all
-all: clean dependencies bindings
+all: clean dependencies unit-test bindings
 
 .PHONY: clean
-clean: clean-android clean-ios
+clean: clean-build
+
+.PHONY: clean-build
+clean-build: clean-android clean-ios
 	@rm -Rf $(BUILD_DIR)
 
 .PHONY: clean-android
@@ -58,7 +73,7 @@ dependencies:
 	$(GOMOBILE_CMD) init -v
 
 .PHONY: bindings
-bindings: bindings-android bindings-ios
+bindings: clean-build bindings-android bindings-ios
 
 .PHONY: bindings-android
 bindings-android:
@@ -66,13 +81,23 @@ bindings-android:
 	@echo '   gomobile: Creating Android bindings  '
 	@echo '----------------------------------------'
 	@mkdir -p $(ANDROID_BUILD_DIR)
-	$(GOMOBILE_CMD) bind -v -target=$(ANDROID_TARGET) -o=$(ANDROID_BUILD_DIR)/$(ANDROID_OUTPUT_FILE_NAME) $(MOBILE_BINDINGS_ROOT_PACKAGE)
+	$(GOMOBILE_CMD) bind -v -target=$(ANDROID_TARGET) -javapkg=$(ANDROID_JAVA_PKG) -o=$(ANDROID_BUILD_DIR)/$(ANDROID_OUTPUT_FILE_NAME) $(MOBILE_BUILD_PACKAGES)
 
 .PHONY: bindings-ios
 bindings-ios:
 	@echo '----------------------------------------'
 	@echo '   gomobile: Creating iOS bindings      '
 	@echo '----------------------------------------'
+ifeq ($(IS_MACOS),true)
 	@mkdir -p $(IOS_BUILD_DIR)
-	$(GOMOBILE_CMD) bind -v -target=$(IOS_TARGET) -o=$(IOS_BUILD_DIR)/$(IOS_OUTPUT_FILE_NAME) $(MOBILE_BINDINGS_ROOT_PACKAGE)
+	$(GOMOBILE_CMD) bind -v -target=$(IOS_TARGET) -o=$(IOS_BUILD_DIR)/$(IOS_OUTPUT_FILE_NAME) $(MOBILE_BUILD_PACKAGES)
+else
+	@echo 'Skipping iOS bindings. Only available for Darwin operating systems'
+endif
 
+.PHONY: unit-test
+unit-test:
+	@echo '----------------------------------------'
+	@echo '   Running unit tests                   '
+	@echo '----------------------------------------'
+	@go test $(MOBILE_BUILD_PACKAGES) -count=1 -race -timeout=10m
