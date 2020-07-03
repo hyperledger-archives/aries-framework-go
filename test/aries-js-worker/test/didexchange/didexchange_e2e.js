@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-import {newAries, newAriesREST} from "../common.js"
+import {newAries, newAriesREST, watchForEvent} from "../common.js"
 import {environment} from "../environment.js"
 
 const routerControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.ROUTER_HOST}:${environment.ROUTER_API_PORT}`
@@ -12,10 +12,14 @@ const routerControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.ROUTE
 const routerConnPath = "/connections"
 const routerCreateInvitationPath = `${routerControllerApiUrl}${routerConnPath}/create-invitation`
 
+const statesTopic = "didexchange_states"
+const postState = "post_state"
+
 // did exchange
 const states = {
     completed: "completed",
     requested: "requested",
+    invited: "invited",
 }
 
 const restMode = 'rest'
@@ -37,11 +41,39 @@ export const didExchangeClient = class {
     }
 
     async performDIDExchangeE2E() {
-        if (this.mode === restMode){
-            return await this.performDIDExchangeE2EREST()
+        if (this.mode === wasmMode) {
+            await this.setupRouter()
         }
 
-        return await this.performDIDExchangeE2EWASM()
+        // perform did exchange between agent 1 and agent 2
+        // create invitation from agent1
+        let response = await this.agent1.didexchange.createInvitation()
+        didExchangeClient.validateInvitation(response.invitation)
+
+        // wait for connection 'completed' in both the agents
+        const options = {
+            stateID: states.completed,
+            type: postState,
+            topic: statesTopic,
+            messageThreadID: response.invitation['@id'],
+        }
+        let connections = Promise.all([
+            watchForEvent(this.agent1, options).then((e) => {
+                return e.Properties.connectionID
+            }),
+            watchForEvent(this.agent2, options).then((e) => {
+                return e.Properties.connectionID
+            })
+        ])
+
+        if (this.mode === wasmMode) {
+            didExchangeClient.acceptExchangeRequest(this.agent1, response.invitation['@id'])
+        }
+
+        // accept invitation in agent 2 and accept exchange request in agent 1
+        await didExchangeClient.acceptInvitation(this.mode, this.agent2, response.invitation)
+
+        return await connections
     }
 
     static async addRouter(mode, agent) {
@@ -55,46 +87,27 @@ export const didExchangeClient = class {
         // agent1 accepts the invitation from the router
         await didExchangeClient.acceptInvitation(mode, agent, invitation)
         // wait for connection state for agent to be completed and get connection ID
-        let connectionID = await didExchangeClient.watchForConnection(agent, states.completed)
+        let event = await watchForEvent(agent, {
+            stateID: states.completed,
+            type: postState,
+            topic: statesTopic,
+            messageThreadID: invitation['@id'],
+        })
+
         // register with router
-        await didExchangeClient.registerRouter(agent, connectionID).catch((err) => {
+        await didExchangeClient.registerRouter(agent, event.Properties.connectionID).catch((err) => {
             if (!err.message.includes("router is already registered")) {
                 throw new Error(err)
             }
         })
         //validate connection
-        await didExchangeClient.validateRouterConnection(agent, connectionID)
+        await didExchangeClient.validateRouterConnection(agent, event.Properties.connectionID)
     }
 
     async setupRouter() {
         this.hasMediator = true;
         await didExchangeClient.addRouter(this.mode, this.agent1)
         await didExchangeClient.addRouter(this.mode, this.agent2)
-    }
-
-    async performDIDExchangeE2EWASM() {
-        await this.setupRouter()
-
-        // perform did exchange between agent 1 and agent 2
-        // create invitation from agent1
-        let response = await this.agent1.didexchange.createInvitation()
-        didExchangeClient.validateInvitation(response.invitation)
-        // accept invitation in agent 2 and accept exchange request in agent 1
-        await didExchangeClient.acceptInvitation(this.mode, this.agent2, response.invitation)
-        await didExchangeClient.acceptExchangeRequest(this.agent1)
-        // wait for connection 'completed' in both the agents
-        return await Promise.all([didExchangeClient.watchForConnection(this.agent1, states.completed), didExchangeClient.watchForConnection(this.agent2, states.completed)])
-    }
-
-    async performDIDExchangeE2EREST() {
-        let response = await this.agent1.didexchange.createInvitation()
-        didExchangeClient.validateInvitation(response.invitation)
-
-        let connections = Promise.all([didExchangeClient.watchForConnection(this.agent1, states.completed), didExchangeClient.watchForConnection(this.agent2, states.completed)])
-        // accept invitation in agent 2
-        await didExchangeClient.acceptInvitation(this.mode, this.agent2, response.invitation)
-        // wait for connection 'completed' in both the agents
-        return await connections
     }
 
     async destroy(){
@@ -131,42 +144,47 @@ export const didExchangeClient = class {
             return agent.didexchange.receiveInvitation(invitation)
         }
 
+        let event = watchForEvent(agent, {
+            stateID: states.invited,
+            type: postState,
+            topic: statesTopic,
+            messageID: invitation['@id'],
+        })
+
         await agent.didexchange.receiveInvitation(invitation)
 
-        return didExchangeClient.watchForConnection(agent, "invited").then((conn) => {
-            return agent.didexchange.acceptInvitation({
-                id: conn
-            })
+        return agent.didexchange.acceptInvitation({
+            id: (await event).Properties.connectionID
         })
     }
 
-    static acceptExchangeRequest(agent) {
-        return didExchangeClient.watchForConnection(agent, states.requested).then(async (connectionID) => {
-            await agent.didexchange.acceptExchangeRequest({
-                id: connectionID
+    static acceptExchangeRequest(agent, messageID) {
+        let options = {
+            stateID: states.requested,
+            type: postState,
+            topic: statesTopic,
+        }
+
+        if (messageID) {
+            options.messageID = messageID
+        }
+
+        return watchForEvent(agent, options).then((e) => {
+            return agent.didexchange.acceptExchangeRequest({
+                id: e.Properties.connectionID
             })
         })
     }
 
     static watchForConnection(agent, state) {
-        return new Promise((resolve, reject) => {
-            const timer = setTimeout(_ => reject(new Error("time out while waiting for connection")), 5000)
-            const stop = agent.startNotifier(notice => {
-                try {
-                    assert.isObject(notice)
-                    assert.property(notice, "isErr")
-                    assert.isFalse(notice.isErr)
-                    assert.property(notice, "payload")
-                    assert.property(notice.payload, "StateID")
-                    assert.isNotEmpty(notice.payload.Properties)
-                } catch (err) {
-                    reject(err)
-                }
-                if (notice.payload.StateID === state && notice.payload.Type === "post_state") {
-                    stop()
-                    resolve(notice.payload.Properties.connectionID)
-                }
-            }, ["didexchange_states"])
+        return watchForEvent(agent, {
+            stateID: state,
+            type: postState,
+            topic: statesTopic,
+        }).then((e) => {
+            return e.Properties.connectionID
+        }).catch(e => {
+            throw new Error(e)
         })
     }
 

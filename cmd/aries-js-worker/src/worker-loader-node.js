@@ -13,13 +13,18 @@ export function loadWorker(pending, notifications, paths) {
     const worker = new Worker(workerJS, { workerData: {wasmJS: wasmJS, wasmPath: wasm} })
     worker.on("message", result => {
         if (result.topic){
-            if (notifications.get(result.topic)) {
-                notifications.get(result.topic)(result)
-            }  else if (notifications.get("all")){
-                notifications.get("all")(result)
-            } else {
-                console.log("no subscribers found for this topic", result.topic)
+            let subscribers = notifications.get(result.topic)
+            if (subscribers === undefined) {
+                subscribers = notifications.get("all")
             }
+            if (subscribers === undefined || subscribers.size === 0) {
+                console.log("no subscribers found for this topic", result.topic)
+                return
+            }
+            subscribers.forEach((fn) => {
+                fn(result)
+            })
+
             return
         }
         const cb = pending.get(result.id)

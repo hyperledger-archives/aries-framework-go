@@ -51,15 +51,20 @@ async function invoke(w, pending, pkg, fn, arg, msgTimeout) {
     })
 }
 
-async function waitForNotification(notifications, topics) {
+async function waitForNotification(notifications, topics, key) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(_ => resolve(), notifierWait)
         // subscribe for all by default if topics not provided
-        if (topics.length == 0) {
+        if (topics.length === 0) {
             topics = ["all"]
         }
+
         topics.forEach(function (topic, index) {
-            notifications.set(topic, result => {
+            if (notifications.get(topic) === undefined) {
+                notifications.set(topic, new Map())
+            }
+
+            notifications.get(topic).set(key, result => {
                 if (result.isErr) {
                     reject(new Error(result.errMsg))
                 }
@@ -165,18 +170,20 @@ const Aries = function (opts) {
                 return
             }
 
-            var quit = false
+            let key = Math.random()
+            let quit = false
 
             async function* run() {
                 while (true) {
                     if (quit) {
                         //before stop, remove all topics
-                        topics.forEach(function (item, index) {
-                            notifications.delete(item)
+                        topics.forEach(function (item) {
+                            notifications.get(item).delete(key)
                         });
+
                         return
                     }
-                    yield await waitForNotification(notifications, topics)
+                    yield await waitForNotification(notifications, topics, key)
                 }
             }
 
@@ -1030,12 +1037,12 @@ const Aries = function (opts) {
     // return promise which waits for worker to load and aries to start.
     return new Promise((resolve, reject) => {
         const timer = setTimeout(_ => reject(new Error("timout waiting for aries to initialize")), 10000)
-        notifications.set("asset-ready", async (result) => {
+        notifications.set("asset-ready", new Map().set("asset", async (result) => {
             clearTimeout(timer)
             invoke(aw, pending, "aries", "Start", opts, "timeout while starting aries").then(
                 resp => resolve(instance),
                 err => reject(new Error(err.message))
             )
-        })
+        }))
     })
 }

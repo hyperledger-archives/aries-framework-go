@@ -115,27 +115,24 @@ async function client(mode) {
 }
 
 export async function checkConnection(mode, inviter, invitee, expected) {
-    if (mode === wasmMode) {
-        await didExchangeClient.watchForConnection(inviter, "requested").then((connID) => {
-            inviter.didexchange.acceptExchangeRequest({id: connID})
-        })
-    }
-
-    let inviterID, inviteeID;
-    await Promise.all([
+    let connections = Promise.all([
         didExchangeClient.watchForConnection(inviter, "completed").then(async (id) => {
             let conn = await connection(inviter, id)
             assert.equal(expected, conn.InvitationID)
-            inviterID = id
+            return id
         }),
         didExchangeClient.watchForConnection(invitee, "completed").then(async (id) => {
             let conn = await connection(invitee, id)
             assert.equal(expected, conn.ParentThreadID)
-            inviteeID = id
+            return id
         })
     ])
 
-    return [inviterID, inviteeID]
+    if (mode === wasmMode) {
+        didExchangeClient.acceptExchangeRequest(inviter)
+    }
+
+    return await connections
 }
 
 export async function connectAgents(mode, inviter, invitee) {
