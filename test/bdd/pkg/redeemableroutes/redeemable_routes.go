@@ -149,7 +149,7 @@ func (b *BDDSteps) alicePreparesProposalToRouterForBob(alice, router, bob, goalC
 }
 
 func (b *BDDSteps) sendProposals(alice, bob, router string) error {
-	err := b.introClients[alice].SendProposal(
+	_, err := b.introClients[alice].SendProposal(
 		b.proposals[bob],
 		b.proposals[router],
 	)

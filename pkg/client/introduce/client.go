@@ -69,7 +69,7 @@ func New(ctx Provider) (*Client, error) {
 }
 
 // SendProposal sends a proposal to the introducees (the client has not published an out-of-band message).
-func (c *Client) SendProposal(recipient1, recipient2 *Recipient) error {
+func (c *Client) SendProposal(recipient1, recipient2 *Recipient) (string, error) {
 	_recipient1 := introduce.Recipient(*recipient1)
 	_recipient2 := introduce.Recipient(*recipient2)
 
@@ -80,38 +80,32 @@ func (c *Client) SendProposal(recipient1, recipient2 *Recipient) error {
 
 	_, err := c.service.HandleOutbound(proposal1, recipient1.MyDID, recipient1.TheirDID)
 	if err != nil {
-		return fmt.Errorf("handle outbound: %w", err)
+		return "", fmt.Errorf("handle outbound: %w", err)
 	}
 
-	_, err = c.service.HandleOutbound(proposal2, recipient2.MyDID, recipient2.TheirDID)
-
-	return err
+	return c.service.HandleOutbound(proposal2, recipient2.MyDID, recipient2.TheirDID)
 }
 
 // SendProposalWithOOBRequest sends a proposal to the introducee (the client has published an out-of-band request).
-func (c *Client) SendProposalWithOOBRequest(req *outofband.Request, recipient *Recipient) error {
+func (c *Client) SendProposalWithOOBRequest(req *outofband.Request, recipient *Recipient) (string, error) {
 	_recipient := introduce.Recipient(*recipient)
 	_req := outofbandsvc.Request(*req)
 
 	proposal := introduce.CreateProposal(&_recipient)
 	introduce.WrapWithMetadataPublicOOBRequest(proposal, &_req)
 
-	_, err := c.service.HandleOutbound(proposal, recipient.MyDID, recipient.TheirDID)
-
-	return err
+	return c.service.HandleOutbound(proposal, recipient.MyDID, recipient.TheirDID)
 }
 
 // SendRequest sends a request.
 // Sending a request means that the introducee is willing to share their own out-of-band message.
-func (c *Client) SendRequest(to *PleaseIntroduceTo, myDID, theirDID string) error {
+func (c *Client) SendRequest(to *PleaseIntroduceTo, myDID, theirDID string) (string, error) {
 	_to := introduce.PleaseIntroduceTo(*to)
 
-	_, err := c.service.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
+	return c.service.HandleOutbound(service.NewDIDCommMsgMap(&introduce.Request{
 		Type:              introduce.RequestMsgType,
 		PleaseIntroduceTo: &_to,
 	}), myDID, theirDID)
-
-	return err
 }
 
 // AcceptProposalWithOOBRequest is used when introducee wants to provide an out-of-band request.

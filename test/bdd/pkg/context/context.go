@@ -74,7 +74,7 @@ func (b *BDDContext) Destroy() {
 	for agentID, conn := range b.webSocketConns {
 		err := conn.Close(websocket.StatusNormalClosure, "bddtests destroy context")
 		if err != nil {
-			logger.Warnf("failed to close websocket connection for [%s] : %w", agentID, err)
+			logger.Warnf("failed to close websocket connection for [%s] : %v", agentID, err)
 		}
 	}
 

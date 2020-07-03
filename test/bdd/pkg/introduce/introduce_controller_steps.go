@@ -8,24 +8,20 @@ package introduce
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/cucumber/godog"
 
 	client "github.com/hyperledger/aries-framework-go/pkg/client/introduce"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/command/introduce"
-	outofbandcmd "github.com/hyperledger/aries-framework-go/pkg/controller/command/outofband"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	protocol "github.com/hyperledger/aries-framework-go/pkg/didcomm/protocol/introduce"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/context"
 	bddoutofband "github.com/hyperledger/aries-framework-go/test/bdd/pkg/outofband"
 	"github.com/hyperledger/aries-framework-go/test/bdd/pkg/util"
 )
-
-var errNoActions = errors.New("no actions")
 
 const (
 	acceptProposal                    = "/introduce/{piid}/accept-proposal"
@@ -34,12 +30,8 @@ const (
 	sendProposalWithOOBRequest        = "/introduce/send-proposal-with-oob-request"
 	sendProposal                      = "/introduce/send-proposal"
 	sendRequest                       = "/introduce/send-request"
-	actions                           = "/introduce/actions"
 	acceptRequestWithRecipients       = "/introduce/{piid}/accept-request-with-recipients"
-	outofbandActions                  = "/outofband/actions"
 	actionContinue                    = "/outofband/{piid}/action-continue"
-
-	maxRetries = 3
 )
 
 // ControllerSteps is steps for introduce with controller
@@ -82,7 +74,7 @@ func (s *ControllerSteps) RegisterSteps(gs *godog.Suite) {
 }
 
 func (s *ControllerSteps) handleRequest(agentID, introducee string) error {
-	action, err := s.getAction(maxRetries, agentID)
+	action, err := s.getAction(agentID)
 	if err != nil {
 		return fmt.Errorf("get action %s: %w", agentID, err)
 	}
@@ -122,7 +114,7 @@ func (s *ControllerSteps) handleRequest(agentID, introducee string) error {
 }
 
 func (s *ControllerSteps) checkAndContinueWithInvitation(agentID, introduceeID string) error {
-	action, err := s.getAction(maxRetries, agentID)
+	action, err := s.getAction(agentID)
 	if err != nil {
 		return fmt.Errorf("get action %s: %w", agentID, err)
 	}
@@ -202,7 +194,7 @@ func (s *ControllerSteps) handleRequestWithInvitation(agentID string) error {
 		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agentID)
 	}
 
-	action, err := s.getAction(maxRetries, agentID)
+	action, err := s.getAction(agentID)
 	if err != nil {
 		return fmt.Errorf("get action %s: %w", agentID, err)
 	}
@@ -300,44 +292,22 @@ func (s *ControllerSteps) sendProposalWithInvitation(introducer, introducee1, in
 	return util.SendHTTP(http.MethodPost, controllerURL+sendProposalWithOOBRequest, req, nil)
 }
 
-func (s *ControllerSteps) getAction(retries int, agentID string) (*client.Action, error) {
-	if retries < 0 {
-		return nil, errors.New("no actions")
-	}
-
-	controllerURL, ok := s.bddContext.GetControllerURL(agentID)
-	if !ok {
-		return nil, fmt.Errorf("unable to find controller URL registered for agent [%s]", agentID)
-	}
-
-	res := introduce.ActionsResponse{}
-
-	err := util.SendHTTP(http.MethodGet, fmt.Sprintf(controllerURL+actions), nil, &res)
+func (s *ControllerSteps) getAction(agentID string) (*client.Action, error) {
+	msg, err := util.PullEventsFromWebSocket(s.bddContext, agentID, util.FilterTopic("introduce_actions"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get actions: %w", err)
+		return nil, fmt.Errorf("pull events from WebSocket: %w", err)
 	}
 
-	if len(res.Actions) == 0 {
-		retries--
-
-		time.Sleep(time.Second)
-
-		return s.getAction(retries, agentID)
-	}
-
-	if res.Actions[0].MyDID == "" {
-		return nil, errors.New("myDID is empty")
-	}
-
-	if res.Actions[0].TheirDID == "" {
-		return nil, errors.New("theirDID is empty")
-	}
-
-	return &res.Actions[0], nil
+	return &client.Action{
+		PIID:     msg.Message.Properties["piid"].(string),
+		Msg:      msg.Message.Message,
+		MyDID:    msg.Message.Properties["myDID"].(string),
+		TheirDID: msg.Message.Properties["theirDID"].(string),
+	}, nil
 }
 
 func (s *ControllerSteps) checkAndContinue(agentID, introduceeID string) error {
-	action, err := s.getAction(maxRetries, agentID)
+	action, err := s.getAction(agentID)
 	if err != nil {
 		return fmt.Errorf("get action %s: %w", agentID, err)
 	}
@@ -365,50 +335,28 @@ func (s *ControllerSteps) checkAndContinue(agentID, introduceeID string) error {
 		return fmt.Errorf("accept proposal: %w", err)
 	}
 
-	return s.outofbandContinue(maxRetries, agentID)
+	return s.tryOutofbandContinue(agentID)
 }
 
-func (s *ControllerSteps) tryOutofbandContinue(agent1 string) error {
-	controllerURL, ok := s.bddContext.GetControllerURL(agent1)
+func (s *ControllerSteps) tryOutofbandContinue(agent string) error {
+	controllerURL, ok := s.bddContext.GetControllerURL(agent)
 	if !ok {
-		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agent1)
+		return fmt.Errorf("unable to find controller URL registered for agent [%s]", agent)
 	}
 
-	res := outofbandcmd.ActionsResponse{}
-
-	err := util.SendHTTP(http.MethodGet, fmt.Sprintf(controllerURL+outofbandActions), nil, &res)
+	msg, err := util.PullEventsFromWebSocket(s.bddContext, agent, util.FilterTopic("out-of-band_actions"))
 	if err != nil {
-		return fmt.Errorf("failed to get actions: %w", err)
+		return fmt.Errorf("pull events from WebSocket: %w", err)
 	}
 
-	if len(res.Actions) == 0 {
-		return errNoActions
+	piid, err := service.DIDCommMsgMap(msg.Message.Message).ThreadID()
+	if err != nil {
+		return fmt.Errorf("thread id: %w", err)
 	}
 
-	url := strings.Replace(controllerURL+actionContinue+"?label="+agent1, "{piid}", res.Actions[0].PIID, 1)
+	url := strings.Replace(controllerURL+actionContinue+"?label="+agent, "{piid}", piid, 1)
 
-	return util.SendHTTP(http.MethodPost, url, nil, &res)
-}
-
-func (s *ControllerSteps) outofbandContinue(retries int, agent string, agents ...string) error {
-	if retries < 0 {
-		return errors.New("no actions")
-	}
-
-	for _, agent := range append([]string{agent}, agents...) {
-		err := s.tryOutofbandContinue(agent)
-		if errors.Is(err, errNoActions) {
-			continue
-		}
-
-		return err
-	}
-
-	retries--
-
-	time.Sleep(time.Second)
-
-	return s.outofbandContinue(retries, agent, agents...)
+	return util.SendHTTP(http.MethodPost, url, nil, nil)
 }
 
 func (s *ControllerSteps) connectionEstablished(agent1, agent2 string) error {

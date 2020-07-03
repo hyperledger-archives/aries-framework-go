@@ -20,6 +20,8 @@ import (
 	mocksintroduce "github.com/hyperledger/aries-framework-go/pkg/internal/gomocks/client/introduce"
 )
 
+const expectedPIID = "piid"
+
 func TestNew(t *testing.T) {
 	const errMsg = "test err"
 
@@ -76,7 +78,7 @@ func TestClient_SendProposal(t *testing.T) {
 				require.Equal(t, msg.Type(), introduce.ProposalMsgType)
 				require.NotEmpty(t, msg.Metadata())
 
-				return "", nil
+				return expectedPIID, nil
 			})
 		svc.EXPECT().
 			HandleOutbound(gomock.Any(), "secondMyDID", "secondTheirDID").
@@ -84,20 +86,22 @@ func TestClient_SendProposal(t *testing.T) {
 				require.Equal(t, msg.Type(), introduce.ProposalMsgType)
 				require.NotEmpty(t, msg.Metadata())
 
-				return "", nil
+				return expectedPIID, nil
 			})
 
 		provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.NoError(t, client.SendProposal(&Recipient{
+		piid, err := client.SendProposal(&Recipient{
 			MyDID:    "firstMyDID",
 			TheirDID: "firstTheirDID",
 		}, &Recipient{
 			MyDID:    "secondMyDID",
 			TheirDID: "secondTheirDID",
-		}))
+		})
+		require.Equal(t, expectedPIID, piid)
+		require.NoError(t, err)
 	})
 
 	t.Run("Error", func(t *testing.T) {
@@ -114,10 +118,12 @@ func TestClient_SendProposal(t *testing.T) {
 		client, err := New(provider)
 		require.NoError(t, err)
 
-		require.Contains(t, fmt.Sprintf("%v", client.SendProposal(&Recipient{
+		piid, err := client.SendProposal(&Recipient{
 			MyDID:    "firstMyDID",
 			TheirDID: "firstTheirDID",
-		}, &Recipient{})), errMsg)
+		}, &Recipient{})
+		require.Empty(t, piid)
+		require.Contains(t, fmt.Sprintf("%v", err), errMsg)
 	})
 }
 
@@ -134,7 +140,7 @@ func TestClient_SendProposalWithOOBRequest(t *testing.T) {
 			require.Equal(t, msg.Type(), introduce.ProposalMsgType)
 			require.NotEmpty(t, msg.Metadata())
 
-			return "", nil
+			return expectedPIID, nil
 		})
 
 	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
@@ -142,10 +148,12 @@ func TestClient_SendProposalWithOOBRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	req := &outofband.Request{}
-	require.NoError(t, client.SendProposalWithOOBRequest(req, &Recipient{
+	piid, err := client.SendProposalWithOOBRequest(req, &Recipient{
 		MyDID:    "firstMyDID",
 		TheirDID: "firstTheirDID",
-	}))
+	})
+	require.Equal(t, expectedPIID, piid)
+	require.NoError(t, err)
 }
 
 func TestClient_SendRequest(t *testing.T) {
@@ -161,14 +169,16 @@ func TestClient_SendRequest(t *testing.T) {
 			require.Equal(t, msg.Type(), introduce.RequestMsgType)
 			require.Empty(t, msg.Metadata())
 
-			return "", nil
+			return expectedPIID, nil
 		})
 
 	provider.EXPECT().Service(gomock.Any()).Return(svc, nil)
 	client, err := New(provider)
 	require.NoError(t, err)
 
-	require.NoError(t, client.SendRequest(&PleaseIntroduceTo{}, "firstMyDID", "firstTheirDID"))
+	piid, err := client.SendRequest(&PleaseIntroduceTo{}, "firstMyDID", "firstTheirDID")
+	require.Equal(t, expectedPIID, piid)
+	require.NoError(t, err)
 }
 
 func TestClient_AcceptProposalWithOOBRequest(t *testing.T) {

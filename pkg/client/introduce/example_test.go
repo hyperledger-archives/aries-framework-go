@@ -212,7 +212,7 @@ func ExampleClient_SendProposal() {
 		}
 	}()
 
-	err = clientAlice.SendProposal(
+	_, err = clientAlice.SendProposal(
 		&Recipient{
 			MyDID:    Alice,
 			TheirDID: Bob,
@@ -284,7 +284,7 @@ func ExampleClient_SendProposalWithOOBRequest() {
 		}
 	}()
 
-	err = clientAlice.SendProposalWithOOBRequest(
+	_, err = clientAlice.SendProposalWithOOBRequest(
 		&outofband.Request{
 			Type: outofband.RequestMsgType,
 		},
@@ -377,7 +377,7 @@ func ExampleClient_SendRequest() {
 		}
 	}()
 
-	err = clientBob.SendRequest(
+	_, err = clientBob.SendRequest(
 		&PleaseIntroduceTo{
 			To: introduce.To{Name: Carol},
 		},
@@ -449,7 +449,7 @@ func ExampleClient_SendRequest_second() {
 		}
 	}()
 
-	err = clientBob.SendRequest(
+	_, err = clientBob.SendRequest(
 		&PleaseIntroduceTo{
 			To: introduce.To{Name: Carol},
 		},
