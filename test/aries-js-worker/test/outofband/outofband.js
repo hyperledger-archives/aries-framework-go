@@ -5,13 +5,14 @@ SPDX-License-Identifier: Apache-2.0
 */
 import {environment} from "../environment.js";
 import {didExchangeClient, newDIDExchangeClient, newDIDExchangeRESTClient} from "../didexchange/didexchange_e2e.js";
+import {watchForEvent} from "../common.js";
 
 const agent1ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.SECOND_USER_HOST}:${environment.SECOND_USER_API_PORT}`
 const agent2ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.USER_HOST}:${environment.USER_API_PORT}`
 
 const restMode = 'rest'
 const wasmMode = 'wasm'
-const retries = 10;
+const actionsTopic = "out-of-band_actions"
 
 describe("Outofband - New connection after Alice sends an out-of-band request to Bob", async function () {
     describe(restMode, function () {
@@ -165,16 +166,9 @@ async function connection(agent, conn) {
 }
 
 export async function getAction(agent) {
-    for (let i = 0; i < retries; i++) {
-        let resp = await agent.outofband.actions()
-        if (resp.actions.length > 0) {
-            return resp.actions[0]
-        }
-
-        await sleep(1000);
-    }
-
-    throw new Error("no action")
+    return await watchForEvent(agent, {
+        topic: actionsTopic,
+    })
 }
 
 function sleep(ms) {

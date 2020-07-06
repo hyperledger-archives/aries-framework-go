@@ -4,13 +4,17 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import {environment} from "../environment.js";
-import {newDIDExchangeClient,newDIDExchangeRESTClient} from "../didexchange/didexchange_e2e.js";
+import {newDIDExchangeClient, newDIDExchangeRESTClient} from "../didexchange/didexchange_e2e.js";
+import {watchForEvent} from "../common.js";
 
 const agent1ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.SECOND_USER_HOST}:${environment.SECOND_USER_API_PORT}`
 const agent2ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.USER_HOST}:${environment.USER_API_PORT}`
 
 const restMode = 'rest'
 const wasmMode = 'wasm'
+const actionsTopic = "issue-credential_actions"
+const statesTopic = "issue-credential_states"
+const stateDone = "done"
 
 const issueCredentialPayload = {
     "credentials~attach": [{
@@ -73,8 +77,10 @@ async function issueCredential (mode) {
         didexClient.destroy()
     })
 
-    it("Holder requests credential from the Issuer", async function() {
+    let issuerAction;
+    it("Holder requests credential from the Issuer", async function () {
         let conn = await connection(holder, connections[0])
+        issuerAction = getAction(issuer)
         return holder.issuecredential.sendRequest({
             my_did: conn.MyDID,
             their_did: conn.TheirDID,
@@ -82,63 +88,44 @@ async function issueCredential (mode) {
         })
     })
 
-    it("Issuer accepts request and sends credential to the Holder", async function() {
-        let action = await getAction(issuer)
+    let holderAction;
+    it("Issuer accepts request and sends credential to the Holder", async function () {
+        holderAction = getAction(holder)
         return issuer.issuecredential.acceptRequest({
-            piid: action.PIID,
+            piid: (await issuerAction).Properties.piid,
             issue_credential: issueCredentialPayload,
         })
     })
 
     const credentialName = "license"
 
-    it("Holder accepts credential", async function() {
-        let action = await getAction(holder)
+    it("Holder accepts credential", async function () {
         return holder.issuecredential.acceptCredential({
-            piid: action.PIID,
+            piid: (await holderAction).Properties.piid,
             names: [credentialName],
         })
     })
 
-    it("Checks credential", async function() {
-        return getCredential(holder, credentialName)
+    it("Checks credential", async function () {
+        await getCredential(holder, credentialName)
     })
 }
 
-const retries = 15;
-
 async function getAction(agent) {
-    for (let i = 0; i < retries; i++) {
-        let resp = await agent.issuecredential.actions()
-        if (resp.actions.length > 0) {
-            assert.isNotEmpty(resp.actions[0].MyDID)
-            assert.isNotEmpty(resp.actions[0].TheirDID)
-
-            return resp.actions[0]
-        }
-
-        await sleep(1000);
-    }
-
-    throw new Error("no action")
+    return await watchForEvent(agent, {
+        topic: actionsTopic,
+    })
 }
 
 async function getCredential(agent, name) {
-    for (let i = 0; i < retries; i++) {
-        try {
-            return await agent.verifiable.getCredentialByName({
-                name: name
-            })
-        } catch (e) {}
+    await watchForEvent(agent, {
+        topic: statesTopic,
+        stateID: stateDone,
+    })
 
-        await sleep(1000);
-    }
-
-    throw new Error("no action")
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return await agent.verifiable.getCredentialByName({
+        name: name
+    })
 }
 
 async function connection(agent, conn) {

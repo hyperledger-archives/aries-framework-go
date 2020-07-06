@@ -5,12 +5,16 @@ SPDX-License-Identifier: Apache-2.0
 */
 import {environment} from "../environment.js";
 import {newDIDExchangeClient, newDIDExchangeRESTClient} from "../didexchange/didexchange_e2e.js";
+import {watchForEvent} from "../common.js";
 
 const agent1ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.SECOND_USER_HOST}:${environment.SECOND_USER_API_PORT}`
 const agent2ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.USER_HOST}:${environment.USER_API_PORT}`
 
 const restMode = 'rest'
 const wasmMode = 'wasm'
+const actionsTopic = "present-proof_actions"
+const statesTopic = "present-proof_states"
+const stateDone = "done"
 
 const presentation = {
     "presentations~attach": [{
@@ -58,7 +62,9 @@ async function presentProof(mode) {
         didClient.destroy()
     })
 
+    let proverAction;
     it("Verifier sends a request presentation to the Prover", async function() {
+        proverAction = getAction(prover)
         let conn = await connection(verifier, connections[0])
         return verifier.presentproof.sendRequestPresentation({
             my_did: conn.MyDID,
@@ -67,10 +73,11 @@ async function presentProof(mode) {
         })
     })
 
+    let verifierAction;
     it("Prover accepts a request and sends a presentation to the Verifier", async function () {
-        let action = await getAction(prover)
+        verifierAction = getAction(verifier)
         return prover.presentproof.acceptRequestPresentation({
-            piid: action.PIID,
+            piid: (await proverAction).Properties.piid,
             presentation: presentation,
         })
     })
@@ -78,9 +85,8 @@ async function presentProof(mode) {
     const name = mode + ".js.presentation.test"
 
     it("Verifier accepts a presentation", async function () {
-        let action = await getAction(verifier)
         return verifier.presentproof.acceptPresentation({
-            piid: action.PIID,
+            piid: (await verifierAction).Properties.piid,
             names: [name],
         })
     })
@@ -90,46 +96,28 @@ async function presentProof(mode) {
     })
 }
 
-const retries = 14;
-
 async function getPresentation(agent, name) {
-    for (let i = 0; i < retries; i++) {
-        try {
-            let res = await agent.verifiable.getPresentations()
-            if (res.result) {
-                for (let j = 0; j < res.result.length; j++) {
-                    if (res.result[j].name === name) {
-                        return
-                    }
-                }
-            }
-        } catch (e) {
-        }
+    await watchForEvent(agent, {
+        topic: statesTopic,
+        stateID: stateDone,
+    })
 
-        await sleep(1000);
+    let res = await agent.verifiable.getPresentations()
+    if (res.result) {
+        for (let j = 0; j < res.result.length; j++) {
+            if (res.result[j].name === name) {
+                return
+            }
+        }
     }
 
     throw new Error("presentation not found")
 }
 
 async function getAction(agent) {
-    for (let i = 0; i < retries; i++) {
-        let resp = await agent.presentproof.actions()
-        if (resp.actions.length > 0) {
-            assert.isNotEmpty(resp.actions[0].MyDID)
-            assert.isNotEmpty(resp.actions[0].TheirDID)
-
-            return resp.actions[0]
-        }
-
-        await sleep(1000);
-    }
-
-    throw new Error("no action")
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return await watchForEvent(agent, {
+        topic: actionsTopic,
+    })
 }
 
 async function connection(agent, conn) {

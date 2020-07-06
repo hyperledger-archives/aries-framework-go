@@ -60,7 +60,7 @@ func SendHTTP(method, destination string, message []byte, result interface{}) er
 // PullEventsFromWebSocket returns WebSocket event by given filter
 // nolint: gocyclo
 func PullEventsFromWebSocket(bdd *bddcontext.BDDContext, agentID string, filters ...Filter) (*Incoming, error) {
-	const timeoutPullTopics = 5 * time.Second
+	const timeoutPullTopics = 30 * time.Second
 
 	conn, ok := bdd.GetWebSocketConn(agentID)
 	if !ok {

@@ -83,7 +83,7 @@ function testWsUrl(url, timeout, msgTimeout) {
 }
 
 export function watchForEvent(agent, options) {
-    const defaultTimeout = 5000
+    const defaultTimeout = 10000
     const defaultTimeoutError = "time out while waiting for event"
 
     if (options === undefined) {
