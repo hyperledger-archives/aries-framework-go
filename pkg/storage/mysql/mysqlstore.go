@@ -18,11 +18,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
-// Provider represents an MySQL DB implementation of the storage.Provider interface
+// Provider represents a MySQL DB implementation of the storage.Provider interface
 type Provider struct {
-	dbURL string
-	db    *sql.DB
-	dbs   map[string]*sqlDBStore
+	dbURL    string
+	db       *sql.DB
+	dbs      map[string]*sqlDBStore
+	dbPrefix string
 	sync.RWMutex
 }
 
@@ -45,8 +46,18 @@ const (
 	useDBQuery                = "USE "
 )
 
+// Option configures the couchdb provider
+type Option func(opts *Provider)
+
+// WithDBPrefix option is for adding prefix to db name
+func WithDBPrefix(dbPrefix string) Option {
+	return func(opts *Provider) {
+		opts.dbPrefix = dbPrefix
+	}
+}
+
 // NewProvider instantiates Provider
-func NewProvider(dbPath string) (*Provider, error) {
+func NewProvider(dbPath string, opts ...Option) (*Provider, error) {
 	if dbPath == "" {
 		return nil, errors.New(blankDBPathErrMsg)
 	}
@@ -62,6 +73,10 @@ func NewProvider(dbPath string) (*Provider, error) {
 		db:    db,
 		dbs:   map[string]*sqlDBStore{}}
 
+	for _, opt := range opts {
+		opt(p)
+	}
+
 	return p, nil
 }
 
@@ -70,9 +85,12 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 	p.Lock()
 	defer p.Unlock()
 
-	// check name is not empty
 	if name == "" {
 		return nil, errors.New("store name is required")
+	}
+
+	if p.dbPrefix != "" {
+		name = p.dbPrefix + "_" + name
 	}
 	// creating the database
 	_, err := p.db.Exec(createDBQuery + name)
@@ -86,7 +104,7 @@ func (p *Provider) OpenStore(name string) (storage.Store, error) {
 		return nil, fmt.Errorf("failed to create new connection %s: %w", p.dbURL, err)
 	}
 
-	// Use is used to select the created database without this DDL operations are not permitted
+	// Use query is used to select the created database without this DDL operations are not permitted
 	_, err = newDBConn.Exec(useDBQuery + name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to use db %s: %w", name, err)
@@ -138,6 +156,10 @@ func (p *Provider) CloseStore(name string) error {
 	p.Lock()
 	defer p.Unlock()
 
+	if p.dbPrefix != "" {
+		name = p.dbPrefix + "_" + name
+	}
+
 	store, exists := p.dbs[name]
 	if !exists {
 		return nil
@@ -148,7 +170,7 @@ func (p *Provider) CloseStore(name string) error {
 	return store.db.Close()
 }
 
-// Put stores the key and the record
+// Put stores the key and the value
 func (s *sqlDBStore) Put(k string, v []byte) error {
 	if k == "" {
 		return storage.ErrKeyRequired
@@ -166,7 +188,7 @@ func (s *sqlDBStore) Put(k string, v []byte) error {
 	return nil
 }
 
-// Get fetches the record based on key
+// Get fetches the value based on key
 func (s *sqlDBStore) Get(k string) ([]byte, error) {
 	if k == "" {
 		return nil, storage.ErrKeyRequired
@@ -206,6 +228,7 @@ func (s *sqlDBStore) Delete(k string) error {
 
 type sqlDBResultsIterator struct {
 	resultRows *sql.Rows
+	result     result
 	err        error
 }
 
@@ -219,10 +242,12 @@ func (s *sqlDBStore) Iterator(startKey, endKey string) storage.StoreIterator {
 	queryStmt := "SELECT * FROM " + s.tableName + " WHERE `key` >= ? AND `key` < ? order by `key`"
 
 	resultRows, err := s.db.Query(queryStmt, startKey, endKey)
-	if err != nil && resultRows == nil {
+	if err != nil {
 		return &sqlDBResultsIterator{
 			err: fmt.Errorf("failed to query rows %w", err)}
-	} else if err = resultRows.Err(); err != nil {
+	}
+
+	if err = resultRows.Err(); err != nil {
 		return &sqlDBResultsIterator{
 			err: fmt.Errorf("failed to get resulted rows %w", err)}
 	}
@@ -250,26 +275,22 @@ func (i *sqlDBResultsIterator) Error() error {
 
 // Key returns the key of the current key-value pair.
 func (i *sqlDBResultsIterator) Key() []byte {
-	var res result
-
-	err := i.resultRows.Scan(&res.key, &res.value)
+	err := i.resultRows.Scan(&i.result.key, &i.result.value)
 	if err != nil {
 		i.err = err
 		return nil
 	}
 
-	return []byte(res.key)
+	return []byte(i.result.key)
 }
 
 // Value returns the value of the current key-value pair.
 func (i *sqlDBResultsIterator) Value() []byte {
-	var kv result
-
-	err := i.resultRows.Scan(&kv.key, &kv.value)
+	err := i.resultRows.Scan(&i.result.key, &i.result.value)
 	if err != nil {
 		i.err = err
 		return nil
 	}
 
-	return kv.value
+	return i.result.value
 }

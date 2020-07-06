@@ -66,7 +66,7 @@ func waitForSQLDBToStart() error {
 
 func TestSQLDBStore(t *testing.T) {
 	t.Run("Test sql db store put and get", func(t *testing.T) {
-		prov, err := NewProvider(sqlStoreDBURL)
+		prov, err := NewProvider(sqlStoreDBURL, WithDBPrefix("prefixdb"))
 		require.NoError(t, err)
 		store, err := prov.OpenStore("test")
 		require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestSQLDBStore(t *testing.T) {
 	})
 
 	t.Run("Test sql multi store put and get", func(t *testing.T) {
-		prov, err := NewProvider(sqlStoreDBURL)
+		prov, err := NewProvider(sqlStoreDBURL, WithDBPrefix("prefixdb"))
 		require.NoError(t, err)
 		const commonKey = "did:example:1"
 		data := []byte("value1")
@@ -229,7 +229,7 @@ func TestSQLDBStore(t *testing.T) {
 	})
 
 	t.Run("Test sqlDB multi store close by name", func(t *testing.T) {
-		prov, err := NewProvider(sqlStoreDBURL)
+		prov, err := NewProvider(sqlStoreDBURL, WithDBPrefix("prefixdb"))
 		require.NoError(t, err)
 
 		const commonKey = "did:example:1"
