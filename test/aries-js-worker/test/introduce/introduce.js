@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 import {environment} from "../environment.js";
-import {newAries, newAriesREST} from "../common.js"
+import {newAries, newAriesREST, watchForEvent} from "../common.js"
 import {
     checkConnection,
     connectAgents,
@@ -19,7 +19,7 @@ const agent3ControllerApiUrl = `${environment.HTTP_SCHEME}://${environment.THIRD
 
 const restMode = 'rest'
 const wasmMode = 'wasm'
-const retries = 10;
+const actionsTopic = "introduce_actions"
 
 describe("Introduce - Alice has Carol's public out-of-band request", async function () {
     describe(restMode, function () {
@@ -73,7 +73,9 @@ async function proposalWithRequest(mode) {
         alice_carol = await connectAgents(mode, alice, carol)
     })
 
+    let aliceAction;
     it("Bob sends introduce request to the Alice asking about Carol", async function () {
+        aliceAction = getAction(alice)
         let conn = await bob.didexchange.queryConnectionByID({id: alice_bob[1]})
         await bob.introduce.sendRequest({
             "please_introduce_to": {"name": "Carol", "img~attach": {"content": {}}},
@@ -83,12 +85,15 @@ async function proposalWithRequest(mode) {
     })
 
     let request;
+    let bobAction;
+    let carolAction;
     it("Alice sends introduce proposal back to the Bob and requested introduce", async function () {
-        let conn = await alice.didexchange.queryConnectionByID({id: alice_carol[0]})
+        bobAction = getAction(bob)
+        carolAction = getAction(carol)
 
-        let action = await getAction(alice)
+        let conn = await alice.didexchange.queryConnectionByID({id: alice_carol[0]})
         await alice.introduce.acceptRequestWithRecipients({
-            piid: action.PIID,
+            piid: (await aliceAction).Properties.piid,
 
             "recipient": {
                 "to": {"name": "Bob", "img~attach": {"content": {}}},
@@ -101,24 +106,22 @@ async function proposalWithRequest(mode) {
 
     it("Bob wants to know Carol and sends introduce response with approve and provides an out-of-band request", async function () {
         request = await bob.outofband.createRequest(createRequest("Bob"))
-        let action = await getAction(bob)
         await bob.introduce.acceptProposalWithOOBRequest({
-            piid: action.PIID,
+            piid: (await bobAction).Properties.piid,
             "request": request.request
         })
     })
 
     it("Carol wants to know Bob and sends introduce response with approve", async function () {
-        let action = await getAction(carol)
+        let outofbandAction = getOutofbandAction(carol)
+
         await carol.introduce.acceptProposal({
-            piid: action.PIID,
+            piid: (await carolAction).Properties.piid,
         })
-        action = await getOutofbandAction(carol)
 
         let checked = checkConnection(mode, bob, carol, request.request['@id'])
-
         await carol.outofband.actionContinue({
-            piid: action.PIID,
+            piid: (await outofbandAction).Message['@id'],
             label: "Bob",
         })
 
@@ -143,7 +146,12 @@ async function proposal(mode) {
     })
 
     let request;
+    let bobAction;
+    let carolAction;
     it("Alice sends introduce proposal to the Bob and Carol", async function () {
+        bobAction = getAction(bob);
+        carolAction = getAction(carol)
+
         let conn1 = await alice.didexchange.queryConnectionByID({id: alice_bob[0]})
         let conn2 = await alice.didexchange.queryConnectionByID({id: alice_carol[0]})
         await alice.introduce.sendProposal({
@@ -164,24 +172,23 @@ async function proposal(mode) {
 
     it("Bob wants to know Carol and sends introduce response with approve and provides an out-of-band request", async function () {
         request = await bob.outofband.createRequest(createRequest("Bob"))
-        let action = await getAction(bob)
         await bob.introduce.acceptProposalWithOOBRequest({
-            piid: action.PIID,
+            piid: (await bobAction).Properties.piid,
             "request": request.request
         })
     })
 
     it("Carol wants to know Bob and sends introduce response with approve", async function () {
-        let action = await getAction(carol)
+        let outofbandAction = getOutofbandAction(carol)
+
         await carol.introduce.acceptProposal({
-            piid: action.PIID,
+            piid: (await carolAction).Properties.piid,
         })
-        action = await getOutofbandAction(carol)
 
         let checked = checkConnection(mode, bob, carol, request.request['@id'])
 
         await carol.outofband.actionContinue({
-            piid: action.PIID,
+            piid: (await outofbandAction).Message['@id'],
             label: "Bob",
         })
 
@@ -206,7 +213,10 @@ async function skipProposalWithRequest(mode) {
     })
 
     let request;
+    let action;
     it("Bob sends introduce request to the Alice asking about Carol", async function () {
+        action = getAction(alice)
+
         let conn = await bob.didexchange.queryConnectionByID({id: alice_bob[1]})
         await bob.introduce.sendRequest({
             "please_introduce_to": {"name": "Carol", "img~attach": {"content": {}}},
@@ -215,26 +225,27 @@ async function skipProposalWithRequest(mode) {
         })
     })
 
+    let bobAction;
     it("Alice sends introduce proposal back to the requester with public out-of-band request", async function () {
-        let action = await getAction(alice)
+        bobAction = getAction(bob)
         request = await carol.outofband.createRequest(createRequest("Carol"))
         await alice.introduce.acceptRequestWithPublicOOBRequest({
-            piid: action.PIID,
+            piid: (await action).Properties.piid,
             "request": request.request, "to": {"name": "Carol", "img~attach": {"content": {}}}
         })
     })
 
     it("Bob wants to know Carol and sends introduce response with approve", async function () {
-        let action = await getAction(bob)
+        let outofbandAction = getOutofbandAction(bob)
+
         await bob.introduce.acceptProposal({
-            piid: action.PIID,
+            piid: (await bobAction).Properties.piid,
         })
-        action = await getOutofbandAction(bob)
 
         let checked = checkConnection(mode, carol, bob, request.request['@id'])
 
         await bob.outofband.actionContinue({
-            piid: action.PIID,
+            piid: (await outofbandAction).Message['@id'],
             label: "Bob",
         })
 
@@ -259,7 +270,10 @@ async function skipProposal(mode) {
     })
 
     let request;
+    let bobAction;
     it("Alice sends introduce proposal to the Bob with Carol out-of-band request", async function () {
+        bobAction = getAction(bob)
+
         let conn = await alice.didexchange.queryConnectionByID({id: alice_bob[0]})
         request = await carol.outofband.createRequest(createRequest("Carol"))
 
@@ -274,16 +288,16 @@ async function skipProposal(mode) {
     })
 
     it("Bob wants to know Carol and sends introduce response with approve", async function () {
-        let action = await getAction(bob)
+        let outofbandAction = getOutofbandAction(bob)
+
         await bob.introduce.acceptProposal({
-            piid: action.PIID,
+            piid: (await bobAction).Properties.piid,
         })
-        action = await getOutofbandAction(bob)
 
         let checked = checkConnection(mode, carol, bob, request.request['@id'])
 
         await bob.outofband.actionContinue({
-            piid: action.PIID,
+            piid: (await outofbandAction).Message['@id'],
             label: "Bob",
         })
 
@@ -331,21 +345,7 @@ async function destroyClients(mode, alice, bob, carol) {
 }
 
 async function getAction(agent) {
-    for (let i = 0; i < retries; i++) {
-        let resp = await agent.introduce.actions()
-        if (resp.actions.length > 0) {
-            assert.isNotEmpty(resp.actions[0].MyDID)
-            assert.isNotEmpty(resp.actions[0].TheirDID)
-
-            return resp.actions[0]
-        }
-
-        await sleep(1000);
-    }
-
-    throw new Error("no action")
-}
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return await watchForEvent(agent, {
+        topic: actionsTopic,
+    })
 }
