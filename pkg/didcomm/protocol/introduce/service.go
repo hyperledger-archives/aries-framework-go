@@ -309,14 +309,20 @@ func (s *Service) HandleOutbound(msg service.DIDCommMsg, myDID, theirDID string)
 	md.MyDID = myDID
 	md.TheirDID = theirDID
 
-	return "", s.handle(md)
+	return md.PIID, s.handle(md)
 }
 
 // sendMsgEvents triggers the message events.
-func (s *Service) sendMsgEvents(msg *service.StateMsg) {
+func (s *Service) sendMsgEvents(md *metaData, stateID string, stateType service.StateMsgType) {
 	// trigger the message events
 	for _, handler := range s.MsgEvents() {
-		handler <- *msg
+		handler <- service.StateMsg{
+			ProtocolName: Introduce,
+			Type:         stateType,
+			Msg:          md.msgClone,
+			StateID:      stateID,
+			Properties:   newEventProps(md),
+		}
 	}
 }
 
@@ -361,10 +367,7 @@ func (s *Service) newDIDCommActionMsg(md *metaData) service.DIDCommAction {
 
 			actionStop(customError{error: err})
 		},
-		Properties: &eventProps{
-			myDID:    md.MyDID,
-			theirDID: md.TheirDID,
-		},
+		Properties: newEventProps(md),
 	}
 }
 
@@ -732,12 +735,10 @@ func (s *Service) getParticipants(piID string) ([]*participant, error) {
 }
 
 func (s *Service) execute(next state, md *metaData) (state, stateAction, error) {
-	s.sendMsgEvents(&service.StateMsg{
-		ProtocolName: Introduce,
-		Type:         service.PreState,
-		Msg:          md.msgClone,
-		StateID:      next.Name(),
-	})
+	md.state = next
+	s.sendMsgEvents(md, next.Name(), service.PreState)
+
+	defer s.sendMsgEvents(md, next.Name(), service.PostState)
 
 	var (
 		followup state
@@ -755,13 +756,6 @@ func (s *Service) execute(next state, md *metaData) (state, stateAction, error) 
 		return nil, nil, fmt.Errorf("execute state %s %w", next.Name(), err)
 	}
 
-	s.sendMsgEvents(&service.StateMsg{
-		ProtocolName: Introduce,
-		Type:         service.PostState,
-		Msg:          md.msgClone,
-		StateID:      next.Name(),
-	})
-
 	return followup, action, nil
 }
 
@@ -778,25 +772,4 @@ func (s *Service) Accept(msgType string) bool {
 	}
 
 	return false
-}
-
-type eventProps struct {
-	myDID    string
-	theirDID string
-}
-
-func (e *eventProps) MyDID() string {
-	return e.myDID
-}
-
-func (e *eventProps) TheirDID() string {
-	return e.theirDID
-}
-
-// All implements EventProperties interface
-func (e *eventProps) All() map[string]interface{} {
-	return map[string]interface{}{
-		"myDID":    e.MyDID(),
-		"theirDID": e.TheirDID(),
-	}
 }

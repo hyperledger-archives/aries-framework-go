@@ -49,7 +49,10 @@ type introduceSendProposalRequest struct { // nolint: unused,deadcode
 // swagger:response introduceSendProposalResponse
 type introduceSendProposalResponse struct { // nolint: unused,deadcode
 	// in: body
-	Body struct{}
+	Body struct {
+		// PIID Protocol instance ID. It can be used as a correlation ID
+		PIID string `json:"piid"`
+	}
 }
 
 // introduceSendProposalWithOOBRequest model
@@ -76,7 +79,10 @@ type introduceSendProposalWithOOBRequest struct { // nolint: unused,deadcode
 // swagger:response introduceSendProposalWithOOBRequestResponse
 type introduceSendProposalWithOOBRequestResponse struct { // nolint: unused,deadcode
 	// in: body
-	Body struct{}
+	Body struct {
+		// PIID Protocol instance ID. It can be used as a correlation ID
+		PIID string `json:"piid"`
+	}
 }
 
 // introduceAcceptProposalWithOOBRequest model
@@ -194,7 +200,10 @@ type introduceSendRequest struct { // nolint: unused,deadcode
 // swagger:response introduceSendRequestResponse
 type introduceSendRequestResponse struct { // nolint: unused,deadcode
 	// in: body
-	Body struct{}
+	Body struct {
+		// PIID Protocol instance ID. It can be used as a correlation ID
+		PIID string `json:"piid"`
+	}
 }
 
 // introduceDeclineProposalRequest model

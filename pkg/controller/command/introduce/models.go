@@ -32,7 +32,10 @@ type SendProposalArgs struct {
 //
 // Represents a SendProposal response message
 //
-type SendProposalResponse struct{}
+type SendProposalResponse struct {
+	// PIID Protocol instance ID. It can be used as a correlation ID
+	PIID string `json:"piid"`
+}
 
 // SendProposalWithOOBRequestArgs model
 //
@@ -49,7 +52,10 @@ type SendProposalWithOOBRequestArgs struct {
 //
 // Represents a SendProposalWithOOBRequest response message
 //
-type SendProposalWithOOBRequestResponse struct{}
+type SendProposalWithOOBRequestResponse struct {
+	// PIID Protocol instance ID. It can be used as a correlation ID
+	PIID string `json:"piid"`
+}
 
 // SendRequestArgs model
 //
@@ -68,7 +74,10 @@ type SendRequestArgs struct {
 //
 // Represents a SendRequest response message
 //
-type SendRequestResponse struct{}
+type SendRequestResponse struct {
+	// PIID Protocol instance ID. It can be used as a correlation ID
+	PIID string `json:"piid"`
+}
 
 // AcceptProposalWithOOBRequestArgs model
 //

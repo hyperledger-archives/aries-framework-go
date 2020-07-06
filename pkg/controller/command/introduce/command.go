@@ -161,12 +161,13 @@ func (c *Command) SendProposal(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errTwoRecipients))
 	}
 
-	if err := c.client.SendProposal(args.Recipients[0], args.Recipients[1]); err != nil {
+	piid, err := c.client.SendProposal(args.Recipients[0], args.Recipients[1])
+	if err != nil {
 		logutil.LogError(logger, commandName, sendProposal, err.Error())
 		return command.NewExecuteError(SendProposalErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &SendProposalResponse{}, logger)
+	command.WriteNillableResponse(rw, &SendProposalResponse{PIID: piid}, logger)
 
 	logutil.LogDebug(logger, commandName, sendProposal, successString)
 
@@ -192,12 +193,13 @@ func (c *Command) SendProposalWithOOBRequest(rw io.Writer, req io.Reader) comman
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyRecipient))
 	}
 
-	if err := c.client.SendProposalWithOOBRequest(args.Request, args.Recipient); err != nil {
+	piid, err := c.client.SendProposalWithOOBRequest(args.Request, args.Recipient)
+	if err != nil {
 		logutil.LogError(logger, commandName, sendProposalWithOOBRequest, err.Error())
 		return command.NewExecuteError(SendProposalWithOOBRequestErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &SendProposalWithOOBRequestResponse{}, logger)
+	command.WriteNillableResponse(rw, &SendProposalWithOOBRequestResponse{PIID: piid}, logger)
 
 	logutil.LogDebug(logger, commandName, sendProposalWithOOBRequest, successString)
 
@@ -229,12 +231,13 @@ func (c *Command) SendRequest(rw io.Writer, req io.Reader) command.Error {
 		return command.NewValidationError(InvalidRequestErrorCode, errors.New(errEmptyPleaseIntroduceTo))
 	}
 
-	if err := c.client.SendRequest(args.PleaseIntroduceTo, args.MyDID, args.TheirDID); err != nil {
+	piid, err := c.client.SendRequest(args.PleaseIntroduceTo, args.MyDID, args.TheirDID)
+	if err != nil {
 		logutil.LogError(logger, commandName, sendRequest, err.Error())
 		return command.NewExecuteError(SendRequestErrorCode, err)
 	}
 
-	command.WriteNillableResponse(rw, &SendRequestResponse{}, logger)
+	command.WriteNillableResponse(rw, &SendRequestResponse{PIID: piid}, logger)
 
 	logutil.LogDebug(logger, commandName, sendRequest, successString)
 

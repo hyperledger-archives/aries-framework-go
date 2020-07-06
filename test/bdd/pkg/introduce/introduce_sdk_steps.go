@@ -442,7 +442,7 @@ func (a *SDKSteps) sendProposal(introducer, introducee1, introducee2 string) err
 		return err
 	}
 
-	return a.clients[introducer].SendProposal(&introduce.Recipient{
+	_, err = a.clients[introducer].SendProposal(&introduce.Recipient{
 		To:       &protocol.To{Name: conn2.TheirLabel},
 		MyDID:    conn1.MyDID,
 		TheirDID: conn1.TheirDID,
@@ -451,6 +451,8 @@ func (a *SDKSteps) sendProposal(introducer, introducee1, introducee2 string) err
 		MyDID:    conn2.MyDID,
 		TheirDID: conn2.TheirDID,
 	})
+
+	return err
 }
 
 func (a *SDKSteps) sendProposalWithInvitation(introducer, introducee1, introducee2 string) error {
@@ -464,11 +466,13 @@ func (a *SDKSteps) sendProposalWithInvitation(introducer, introducee1, introduce
 		return err
 	}
 
-	return a.clients[introducer].SendProposalWithOOBRequest(req, &introduce.Recipient{
+	_, err = a.clients[introducer].SendProposalWithOOBRequest(req, &introduce.Recipient{
 		To:       &protocol.To{Name: introducee2},
 		MyDID:    conn1.MyDID,
 		TheirDID: conn1.TheirDID,
 	})
+
+	return err
 }
 
 func (a *SDKSteps) sendRequest(introducee1, introducer, introducee2 string) error {
@@ -479,7 +483,9 @@ func (a *SDKSteps) sendRequest(introducee1, introducer, introducee2 string) erro
 
 	to := &introduce.PleaseIntroduceTo{To: protocol.To{Name: introducee2}}
 
-	return a.clients[introducee1].SendRequest(to, conn1.MyDID, conn1.TheirDID)
+	_, err = a.clients[introducee1].SendRequest(to, conn1.MyDID, conn1.TheirDID)
+
+	return err
 }
 
 func (a *SDKSteps) newOOBRequest(agentID string, requests ...interface{}) (*outofband.Request, error) {

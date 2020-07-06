@@ -42,6 +42,7 @@ const (
 )
 
 type props interface {
+	PIID() string
 	MyDID() string
 	TheirDID() string
 }
@@ -203,6 +204,7 @@ func checkDIDCommAction(t *testing.T, agent string, expected ...action) checkAct
 
 		properties, ok := action.Properties.(props)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.NotEmpty(t, properties.MyDID())
 		require.NotEmpty(t, properties.TheirDID())
 
@@ -614,6 +616,7 @@ func TestService_SkipProposalStopIntroducee(t *testing.T) {
 	), func(action service.DIDCommAction) {
 		properties, ok := action.Properties.(props)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Bob)
 		require.Equal(t, properties.TheirDID(), Alice)
 
@@ -715,6 +718,7 @@ func TestService_ProposalStopIntroduceeFirst(t *testing.T) {
 	), func(action service.DIDCommAction) {
 		properties, ok := action.Properties.(props)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Bob)
 		require.Equal(t, properties.TheirDID(), Alice)
 
@@ -784,6 +788,7 @@ func TestService_ProposalStopIntroduceeSecond(t *testing.T) {
 	), func(action service.DIDCommAction) {
 		properties, ok := action.Properties.(props)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Carol)
 		require.Equal(t, properties.TheirDID(), Alice)
 
@@ -1151,6 +1156,7 @@ func TestService_ProposalWithRequestStopIntroduceeFirst(t *testing.T) {
 	), func(action service.DIDCommAction) {
 		properties, ok := action.Properties.(props)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Bob)
 		require.Equal(t, properties.TheirDID(), Alice)
 
@@ -1231,6 +1237,7 @@ func TestService_ProposalWithRequestStopIntroduceeSecond(t *testing.T) {
 	), func(action service.DIDCommAction) {
 		properties, ok := action.Properties.(props)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Carol)
 		require.Equal(t, properties.TheirDID(), Alice)
 
@@ -1267,6 +1274,7 @@ func TestService_ProposalWithRequestIntroducerStop(t *testing.T) {
 	), func(action service.DIDCommAction) {
 		properties, ok := action.Properties.(props)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Alice)
 		require.Equal(t, properties.TheirDID(), Bob)
 
@@ -1382,6 +1390,7 @@ func TestService_SkipProposalWithRequestStopIntroducee(t *testing.T) {
 	), func(action service.DIDCommAction) {
 		properties, ok := action.Properties.(props)
 		require.True(t, ok)
+		require.NotEmpty(t, properties.PIID())
 		require.Equal(t, properties.MyDID(), Bob)
 		require.Equal(t, properties.TheirDID(), Alice)
 
