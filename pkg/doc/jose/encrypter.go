@@ -11,6 +11,7 @@ import (
 	"crypto/elliptic"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -21,6 +22,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/api"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh1pu"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
 )
@@ -48,13 +50,16 @@ type encPrimitiveFunc func(*keyset.Handle) (api.CompositeEncrypt, error)
 // JWEEncrypt is responsible for encrypting a plaintext and its AAD into a protected JWE and decrypting it
 type JWEEncrypt struct {
 	recipients   []*composite.PublicKey
+	skid         string
 	senderKH     *keyset.Handle
 	getPrimitive encPrimitiveFunc
 	encAlg       EncAlg
 }
 
 // NewJWEEncrypt creates a new JWEEncrypt instance to build JWE with recipientsPubKeys
-func NewJWEEncrypt(encAlg EncAlg, recipientsPubKeys []*composite.PublicKey) (*JWEEncrypt, error) {
+// senderKID and senderKH are used for Authcrypt (to authenticate the sender), if not set JWEEncrypt assumes Anoncrypt.
+func NewJWEEncrypt(encAlg EncAlg, senderKID string, senderKH *keyset.Handle,
+	recipientsPubKeys []*composite.PublicKey) (*JWEEncrypt, error) {
 	if len(recipientsPubKeys) == 0 {
 		return nil, fmt.Errorf("empty recipientsPubKeys list")
 	}
@@ -67,34 +72,63 @@ func NewJWEEncrypt(encAlg EncAlg, recipientsPubKeys []*composite.PublicKey) (*JW
 	// TODO add support for Chacha content encryption, issue #1684
 	switch encAlg {
 	case A256GCM:
-		kt, err = ecdhes.ECDHES256KWAES256GCMKeyTemplateWithRecipients(recipientsPubKeys)
-		if err != nil {
-			return nil, err
-		}
 	default:
 		return nil, fmt.Errorf("encryption algorithm '%s' not supported", encAlg)
 	}
 
-	senderKH, err := keyset.NewHandle(kt)
-	if err != nil {
-		return nil, err
+	primitiveFunc := getECDHESEncPrimitive
+
+	// empty senderPubKey means Anoncrypt encryption (ie sender identity is anonymous),
+	// create a new ECDHES key as senderPubKey
+	if senderKH == nil {
+		kt, err = ecdhes.ECDHES256KWAES256GCMKeyTemplateWithRecipients(recipientsPubKeys)
+		if err != nil {
+			return nil, err
+		}
+
+		senderKH, err = keyset.NewHandle(kt)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// senderKID is required with non empty senderKH
+		if senderKID == "" {
+			return nil, errors.New("senderKID is required with senderKH")
+		}
+
+		senderKH, err = ecdh1pu.AddRecipientsKeys(senderKH, recipientsPubKeys)
+		if err != nil {
+			return nil, err
+		}
+
+		primitiveFunc = getECDH1PUEncPrimitive
 	}
 
 	return &JWEEncrypt{
 		recipients:   recipientsPubKeys,
+		skid:         senderKID,
 		senderKH:     senderKH,
-		getPrimitive: getEncryptionPrimitive,
+		getPrimitive: primitiveFunc,
 		encAlg:       encAlg,
 	}, nil
 }
 
-func getEncryptionPrimitive(senderKH *keyset.Handle) (api.CompositeEncrypt, error) {
+func getECDHESEncPrimitive(senderKH *keyset.Handle) (api.CompositeEncrypt, error) {
 	senderPubKH, err := senderKH.Public()
 	if err != nil {
 		return nil, err
 	}
 
 	return ecdhes.NewECDHESEncrypt(senderPubKH)
+}
+
+func getECDH1PUEncPrimitive(senderKH *keyset.Handle) (api.CompositeEncrypt, error) {
+	senderPubKH, err := senderKH.Public()
+	if err != nil {
+		return nil, err
+	}
+
+	return ecdh1pu.NewECDH1PUEncrypt(senderPubKH)
 }
 
 // Encrypt encrypt plaintext with AAD and returns a JSONWebEncryption instance to serialize a JWE instance
@@ -111,6 +145,10 @@ func (je *JWEEncrypt) EncryptWithAuthData(plaintext, aad []byte) (*JSONWebEncryp
 
 	protectedHeaders := map[string]interface{}{
 		HeaderEncryption: je.encAlg,
+	}
+
+	if je.skid != "" {
+		protectedHeaders[HeaderSenderKeyID] = je.skid
 	}
 
 	authData, err := computeAuthData(protectedHeaders, aad)

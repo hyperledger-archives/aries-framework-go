@@ -9,8 +9,8 @@ package anoncrypt
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/tink/go/keyset"
 
@@ -62,7 +62,7 @@ func (p *Packer) Pack(payload, _ []byte, recipientsPubKeys [][]byte) ([]byte, er
 		return nil, fmt.Errorf("anoncrypt Pack: failed to convert recipient keys: %w", err)
 	}
 
-	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, recECKeys)
+	jweEncrypter, err := jose.NewJWEEncrypt(p.encAlg, "", nil, recECKeys)
 	if err != nil {
 		return nil, fmt.Errorf("anoncrypt Pack: failed to new JWEEncrypt instance: %w", err)
 	}
@@ -119,8 +119,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 
 		kh, err := p.kms.Get(kid)
 		if err != nil {
-			if strings.EqualFold(err.Error(), fmt.Sprintf("cannot read data for keysetID %s: %s", kid,
-				storage.ErrDataNotFound)) {
+			if errors.Is(err, storage.ErrDataNotFound) {
 				retriesMsg := ""
 
 				if i < len(jwe.Recipients) {
@@ -140,7 +139,7 @@ func (p *Packer) Unpack(envelope []byte) (*transport.Envelope, error) {
 			return nil, fmt.Errorf("anoncrypt Unpack: invalid keyset handle")
 		}
 
-		jweDecrypter := jose.NewJWEDecrypt(keyHandle)
+		jweDecrypter := jose.NewJWEDecrypt(nil, keyHandle)
 
 		pt, err := jweDecrypter.Decrypt(jwe)
 		if err != nil {

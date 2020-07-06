@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/transport"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 // LegacyProvider interface for Packer ctx
@@ -20,6 +21,7 @@ type LegacyProvider interface {
 // Provider interface for Packer ctx
 type Provider interface {
 	KMS() kms.KeyManager
+	StorageProvider() storage.Provider
 }
 
 // LegacyCreator method to create new legacy Packer service
