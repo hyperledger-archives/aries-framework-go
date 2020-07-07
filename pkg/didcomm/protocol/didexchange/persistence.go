@@ -49,9 +49,18 @@ func (c *connectionStore) saveConnectionRecord(record *connection.Record) error 
 		return fmt.Errorf(" failed to save connection record : %w", err)
 	}
 
+	// myDID may be empty if a record is being saved when a didexchange request is received
+	if record.MyDID != "" {
+		err := c.SaveDIDByResolving(record.MyDID)
+		if err != nil {
+			return fmt.Errorf("failed to save myDID by resolving : %w", err)
+		}
+	}
+
+	// theirDID may not be empty, such as when an incoming didexchange request is received
 	if record.State == StateIDCompleted {
 		if err := c.SaveDIDByResolving(record.TheirDID, record.RecipientKeys...); err != nil {
-			return fmt.Errorf(" failed to save DID by resolving : %w", err)
+			return fmt.Errorf("failed to save theirDID by resolving : %w", err)
 		}
 	}
 

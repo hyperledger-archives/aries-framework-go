@@ -30,7 +30,7 @@ const (
 func GetDestination(did string, vdr vdri.Registry) (*Destination, error) {
 	didDoc, err := vdr.Resolve(did)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to resolve did [%s] : %w", did, err)
 	}
 
 	return CreateDestination(didDoc)

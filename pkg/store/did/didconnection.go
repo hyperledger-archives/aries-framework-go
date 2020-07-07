@@ -13,6 +13,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/common/service"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -83,6 +84,13 @@ func (c *ConnectionStore) SaveDIDFromDoc(doc *diddoc.Doc) error {
 	for i := range doc.PublicKey {
 		// TODO fix hardcode base58 https://github.com/hyperledger/aries-framework-go/issues/1207
 		keys = append(keys, base58.Encode(doc.PublicKey[i].Value))
+	}
+
+	// save recipientKeys from didcomm-enabled service entries
+	// an error is returned only if the doc does not have a valid didcomm service entry, so we ignore it
+	svc, err := service.CreateDestination(doc)
+	if err == nil {
+		keys = append(keys, svc.RecipientKeys...)
 	}
 
 	return c.SaveDID(doc.ID, keys...)

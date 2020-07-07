@@ -22,6 +22,7 @@ import (
 	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/store/connection"
 )
 
 // MockDIDExchangeSvc mock did exchange service
@@ -38,6 +39,7 @@ type MockDIDExchangeSvc struct {
 	ImplicitInvitationErr    error
 	RespondToFunc            func(*didexchange.OOBInvitation) (string, error)
 	SaveFunc                 func(invitation *didexchange.OOBInvitation) error
+	SaveConnRecordFunc       func(*connection.Record) error
 }
 
 // HandleInbound msg
@@ -152,6 +154,15 @@ func (m *MockDIDExchangeSvc) RespondTo(i *didexchange.OOBInvitation) (string, er
 func (m *MockDIDExchangeSvc) SaveInvitation(i *didexchange.OOBInvitation) error {
 	if m.SaveFunc != nil {
 		return m.SaveFunc(i)
+	}
+
+	return nil
+}
+
+// SaveConnectionRecord saves the connection record.
+func (m *MockDIDExchangeSvc) SaveConnectionRecord(r *connection.Record) error {
+	if m.SaveConnRecordFunc != nil {
+		return m.SaveConnRecordFunc(r)
 	}
 
 	return nil

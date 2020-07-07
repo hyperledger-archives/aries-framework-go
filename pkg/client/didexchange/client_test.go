@@ -524,12 +524,25 @@ func TestClientGetConnectionAtState(t *testing.T) {
 
 func TestClient_SaveConnection(t *testing.T) {
 	t.Run("test save connection - success", func(t *testing.T) {
-		c, err := New(&mockprovider.Provider{
+		storageProvider := &mockprovider.Provider{
 			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
+		}
+		c, err := New(&mockprovider.Provider{
+			TransientStorageProviderValue: storageProvider.TransientStorageProvider(),
+			StorageProviderValue:          storageProvider.StorageProvider(),
 			ServiceMap: map[string]interface{}{
-				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
-				mediator.Coordination:   &mockroute.MockMediatorSvc{},
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
+					SaveConnRecordFunc: func(r *connection.Record) error {
+						recorder, err := connection.NewRecorder(storageProvider)
+						require.NoError(t, err)
+						err = recorder.SaveConnectionRecord(r)
+						require.NoError(t, err)
+
+						return nil
+					},
+				},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
@@ -558,17 +571,16 @@ func TestClient_SaveConnection(t *testing.T) {
 	})
 
 	t.Run("test save connection - error", func(t *testing.T) {
-		store := &mockstore.MockStore{
-			Store:  make(map[string][]byte),
-			ErrPut: fmt.Errorf("store error"),
-		}
-
 		c, err := New(&mockprovider.Provider{
-			TransientStorageProviderValue: mockstore.NewCustomMockStoreProvider(store),
+			TransientStorageProviderValue: mockstore.NewMockStoreProvider(),
 			StorageProviderValue:          mockstore.NewMockStoreProvider(),
 			ServiceMap: map[string]interface{}{
-				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{},
-				mediator.Coordination:   &mockroute.MockMediatorSvc{},
+				didexchange.DIDExchange: &mocksvc.MockDIDExchangeSvc{
+					SaveConnRecordFunc: func(*connection.Record) error {
+						return errors.New("save connection")
+					},
+				},
+				mediator.Coordination: &mockroute.MockMediatorSvc{},
 			},
 		})
 		require.NoError(t, err)
